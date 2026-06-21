@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Nornis.Domain\Nornis.Domain.csproj" />
+    <ProjectReference Include="..\Nornis.Shared\Nornis.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

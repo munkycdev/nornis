@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Nornis.Application\Nornis.Application.csproj" />
+    <ProjectReference Include="..\Nornis.Infrastructure\Nornis.Infrastructure.csproj" />
+    <ProjectReference Include="..\Nornis.Shared\Nornis.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Nornis.Application\Nornis.Application.csproj" />
+    <ProjectReference Include="..\Nornis.Infrastructure\Nornis.Infrastructure.csproj" />
+    <ProjectReference Include="..\Nornis.Shared\Nornis.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,139 @@
+using System.Reflection;
+using NUnit.Framework;
+using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
+
+namespace Nornis.Domain.Tests.Entities;
+
+[TestFixture]
+public class ArtifactRelationshipTests
+{
+    private readonly Type _type = typeof(ArtifactRelationship);
+
+    [Test]
+    public void ArtifactRelationship_Has_Id_Property_Of_Type_Guid()
+    {
+        var property = _type.GetProperty("Id");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(Guid)));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_CampaignId_Property_Of_Type_Guid()
+    {
+        var property = _type.GetProperty("CampaignId");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(Guid)));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_ArtifactAId_Property_Of_Type_Guid()
+    {
+        var property = _type.GetProperty("ArtifactAId");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(Guid)));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_ArtifactBId_Property_Of_Type_Guid()
+    {
+        var property = _type.GetProperty("ArtifactBId");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(Guid)));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_Type_Property_Of_Type_String()
+    {
+        var property = _type.GetProperty("Type");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(string)));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_Description_Property_Of_Type_NullableString()
+    {
+        var property = _type.GetProperty("Description");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(string)));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_Confidence_Property_Of_Type_NullableDecimal()
+    {
+        var property = _type.GetProperty("Confidence");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(decimal?)));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_TruthState_Property_Of_Type_TruthState()
+    {
+        var property = _type.GetProperty("TruthState");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(TruthState)));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_Visibility_Property_Of_Type_VisibilityScope()
+    {
+        var property = _type.GetProperty("Visibility");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(VisibilityScope)));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_CreatedAt_Property_Of_Type_DateTimeOffset()
+    {
+        var property = _type.GetProperty("CreatedAt");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(DateTimeOffset)));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_UpdatedAt_Property_Of_Type_DateTimeOffset()
+    {
+        var property = _type.GetProperty("UpdatedAt");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(DateTimeOffset)));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_RowVersion_Property_Of_Type_ByteArray()
+    {
+        var property = _type.GetProperty("RowVersion");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(byte[])));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_ArtifactA_Navigation_Property()
+    {
+        var property = _type.GetProperty("ArtifactA");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(Artifact)));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_ArtifactB_Navigation_Property()
+    {
+        var property = _type.GetProperty("ArtifactB");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(Artifact)));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_Campaign_Navigation_Property()
+    {
+        var property = _type.GetProperty("Campaign");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(Campaign)));
+    }
+
+    [Test]
+    public void ArtifactRelationship_Has_Expected_Property_Count()
+    {
+        var properties = _type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        Assert.That(properties, Has.Length.EqualTo(15));
+    }
+}

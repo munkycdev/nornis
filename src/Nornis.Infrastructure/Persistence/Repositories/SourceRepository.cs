@@ -1,0 +1,58 @@
+using Microsoft.EntityFrameworkCore;
+using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
+using Nornis.Domain.Repositories;
+
+namespace Nornis.Infrastructure.Persistence.Repositories;
+
+public class SourceRepository : ISourceRepository
+{
+    private readonly NornisDbContext _context;
+
+    public SourceRepository(NornisDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<Source> CreateAsync(Source source, CancellationToken cancellationToken = default)
+    {
+        _context.Sources.Add(source);
+        await _context.SaveChangesAsync(cancellationToken);
+        return source;
+    }
+
+    public async Task<Source?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await _context.Sources
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Source>> ListByCampaignAsync(Guid campaignId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default)
+    {
+        var query = _context.Sources
+            .AsNoTracking()
+            .Where(s => s.CampaignId == campaignId);
+
+        if (visibility is not null)
+        {
+            query = query.Where(s => s.Visibility == visibility.Value);
+        }
+
+        return await query.ToListAsync(cancellationToken);
+    }
+
+    public async Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default)
+    {
+        var source = await _context.Sources
+            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+
+        if (source is null)
+        {
+            throw new InvalidOperationException($"Source with id '{id}' not found.");
+        }
+
+        source.ProcessingStatus = status;
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+}
