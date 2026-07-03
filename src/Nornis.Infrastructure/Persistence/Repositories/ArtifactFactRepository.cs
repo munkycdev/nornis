@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Repositories;
 
@@ -40,5 +40,25 @@ public class ArtifactFactRepository : IArtifactFactRepository
         _context.ArtifactFacts.Update(fact);
         await _context.SaveChangesAsync(cancellationToken);
         return fact;
+    }
+
+    public async Task<IReadOnlyList<ArtifactFact>> ListByArtifactIdsAsync(
+        IReadOnlyList<Guid> artifactIds,
+        int maxPerArtifact,
+        CancellationToken cancellationToken = default)
+    {
+        if (artifactIds.Count == 0)
+            return [];
+
+        var facts = await _context.ArtifactFacts
+            .AsNoTracking()
+            .Where(f => artifactIds.Contains(f.ArtifactId))
+            .OrderByDescending(f => f.UpdatedAt)
+            .ToListAsync(cancellationToken);
+
+        return facts
+            .GroupBy(f => f.ArtifactId)
+            .SelectMany(g => g.Take(maxPerArtifact))
+            .ToList();
     }
 }

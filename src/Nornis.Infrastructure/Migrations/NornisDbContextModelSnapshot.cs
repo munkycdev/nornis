@@ -42,7 +42,8 @@ namespace Nornis.Infrastructure.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<decimal>("EstimatedCostUsd")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(18, 8)
+                        .HasColumnType("decimal(18,8)");
 
                     b.Property<int>("InputTokens")
                         .HasColumnType("int");
@@ -97,7 +98,8 @@ namespace Nornis.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal?>("Confidence")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(5, 4)
+                        .HasColumnType("decimal(5,4)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -149,7 +151,8 @@ namespace Nornis.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal?>("Confidence")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(5, 4)
+                        .HasColumnType("decimal(5,4)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -204,7 +207,8 @@ namespace Nornis.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal?>("Confidence")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(5, 4)
+                        .HasColumnType("decimal(5,4)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -366,7 +370,8 @@ namespace Nornis.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("Confidence")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(5, 4)
+                        .HasColumnType("decimal(5,4)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -472,7 +477,8 @@ namespace Nornis.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal?>("Confidence")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(5, 4)
+                        .HasColumnType("decimal(5,4)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -575,22 +581,22 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasOne("Nornis.Domain.Entities.Campaign", null)
                         .WithMany()
                         .HasForeignKey("CampaignId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Nornis.Domain.Entities.ReviewBatch", null)
                         .WithMany()
                         .HasForeignKey("ReviewBatchId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Nornis.Domain.Entities.Source", null)
                         .WithMany()
                         .HasForeignKey("SourceId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Nornis.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.Artifact", b =>

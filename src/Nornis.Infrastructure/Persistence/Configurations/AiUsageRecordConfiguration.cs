@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -20,6 +20,9 @@ public class AiUsageRecordConfiguration : IEntityTypeConfiguration<AiUsageRecord
         builder.Property(a => a.ErrorCode)
             .HasMaxLength(200);
 
+        builder.Property(a => a.EstimatedCostUsd)
+            .HasPrecision(18, 8);
+
         builder.Property(a => a.OperationType)
             .IsRequired()
             .HasConversion<string>();
@@ -31,24 +34,24 @@ public class AiUsageRecordConfiguration : IEntityTypeConfiguration<AiUsageRecord
             .WithMany()
             .HasForeignKey(a => a.CampaignId)
             .IsRequired(false)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder.HasOne<User>()
             .WithMany()
             .HasForeignKey(a => a.UserId)
             .IsRequired(false)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder.HasOne<Source>()
             .WithMany()
             .HasForeignKey(a => a.SourceId)
             .IsRequired(false)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder.HasOne<ReviewBatch>()
             .WithMany()
             .HasForeignKey(a => a.ReviewBatchId)
             .IsRequired(false)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }

@@ -1,6 +1,7 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Persistence.Repositories;
@@ -57,5 +58,171 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
         }
 
         return await query.ToListAsync(cancellationToken);
+    }
+
+    public async Task<CostSummary> AggregateAsync(
+        Guid campaignId,
+        Guid? userId,
+        DateTimeOffset? fromDate,
+        DateTimeOffset? toDate,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildFilteredQuery(campaignId, userId, fromDate, toDate);
+
+        var result = await query
+            .GroupBy(_ => 1)
+            .Select(g => new CostSummary
+            {
+                TotalInputTokens = g.Sum(r => (long)r.InputTokens),
+                TotalOutputTokens = g.Sum(r => (long)r.OutputTokens),
+                TotalTokens = g.Sum(r => (long)r.TotalTokens),
+                TotalEstimatedCostUsd = g.Sum(r => r.EstimatedCostUsd),
+                OperationCount = g.Count()
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return result ?? CostSummary.Empty;
+    }
+
+    public async Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByOperationTypeAsync(
+        Guid campaignId,
+        Guid? userId,
+        DateTimeOffset? fromDate,
+        DateTimeOffset? toDate,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildFilteredQuery(campaignId, userId, fromDate, toDate);
+
+        var results = await query
+            .GroupBy(r => r.OperationType.ToString())
+            .Select(g => new GroupedCostSummary<string>
+            {
+                Key = g.Key,
+                Summary = new CostSummary
+                {
+                    TotalInputTokens = g.Sum(r => (long)r.InputTokens),
+                    TotalOutputTokens = g.Sum(r => (long)r.OutputTokens),
+                    TotalTokens = g.Sum(r => (long)r.TotalTokens),
+                    TotalEstimatedCostUsd = g.Sum(r => r.EstimatedCostUsd),
+                    OperationCount = g.Count()
+                }
+            })
+            .ToListAsync(cancellationToken);
+
+        return results;
+    }
+
+    public async Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByModelAsync(
+        Guid campaignId,
+        Guid? userId,
+        DateTimeOffset? fromDate,
+        DateTimeOffset? toDate,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildFilteredQuery(campaignId, userId, fromDate, toDate);
+
+        var results = await query
+            .GroupBy(r => r.Model)
+            .Select(g => new GroupedCostSummary<string>
+            {
+                Key = g.Key,
+                Summary = new CostSummary
+                {
+                    TotalInputTokens = g.Sum(r => (long)r.InputTokens),
+                    TotalOutputTokens = g.Sum(r => (long)r.OutputTokens),
+                    TotalTokens = g.Sum(r => (long)r.TotalTokens),
+                    TotalEstimatedCostUsd = g.Sum(r => r.EstimatedCostUsd),
+                    OperationCount = g.Count()
+                }
+            })
+            .ToListAsync(cancellationToken);
+
+        return results;
+    }
+
+    public async Task<IReadOnlyList<GroupedCostSummary<Guid>>> AggregateByUserAsync(
+        Guid campaignId,
+        Guid? userId,
+        DateTimeOffset? fromDate,
+        DateTimeOffset? toDate,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildFilteredQuery(campaignId, userId, fromDate, toDate)
+            .Where(r => r.UserId != null);
+
+        var results = await query
+            .GroupBy(r => r.UserId!.Value)
+            .Select(g => new GroupedCostSummary<Guid>
+            {
+                Key = g.Key,
+                Summary = new CostSummary
+                {
+                    TotalInputTokens = g.Sum(r => (long)r.InputTokens),
+                    TotalOutputTokens = g.Sum(r => (long)r.OutputTokens),
+                    TotalTokens = g.Sum(r => (long)r.TotalTokens),
+                    TotalEstimatedCostUsd = g.Sum(r => r.EstimatedCostUsd),
+                    OperationCount = g.Count()
+                }
+            })
+            .ToListAsync(cancellationToken);
+
+        return results;
+    }
+
+    public async Task<IReadOnlyList<GroupedCostSummary<Guid>>> AggregateByCampaignAsync(
+        IReadOnlyList<Guid> campaignIds,
+        DateTimeOffset? fromDate,
+        DateTimeOffset? toDate,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.AiUsageRecords
+            .AsNoTracking()
+            .Where(r => r.CampaignId != null && campaignIds.Contains(r.CampaignId.Value));
+
+        if (fromDate.HasValue)
+            query = query.Where(r => r.CreatedAt >= fromDate.Value);
+
+        if (toDate.HasValue)
+            query = query.Where(r => r.CreatedAt <= toDate.Value);
+
+        var results = await query
+            .GroupBy(r => r.CampaignId!.Value)
+            .Select(g => new GroupedCostSummary<Guid>
+            {
+                Key = g.Key,
+                Summary = new CostSummary
+                {
+                    TotalInputTokens = g.Sum(r => (long)r.InputTokens),
+                    TotalOutputTokens = g.Sum(r => (long)r.OutputTokens),
+                    TotalTokens = g.Sum(r => (long)r.TotalTokens),
+                    TotalEstimatedCostUsd = g.Sum(r => r.EstimatedCostUsd),
+                    OperationCount = g.Count()
+                }
+            })
+            .ToListAsync(cancellationToken);
+
+        return results;
+    }
+
+    private IQueryable<AiUsageRecord> BuildFilteredQuery(
+        Guid campaignId,
+        Guid? userId,
+        DateTimeOffset? fromDate,
+        DateTimeOffset? toDate)
+    {
+        var query = _context.AiUsageRecords
+            .AsNoTracking()
+            .Where(r => r.CampaignId == campaignId);
+
+        if (userId.HasValue)
+            query = query.Where(r => r.UserId == userId.Value);
+
+        if (fromDate.HasValue)
+            query = query.Where(r => r.CreatedAt >= fromDate.Value);
+
+        if (toDate.HasValue)
+            query = query.Where(r => r.CreatedAt <= toDate.Value);
+
+        return query;
     }
 }

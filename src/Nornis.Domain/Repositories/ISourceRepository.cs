@@ -1,4 +1,4 @@
-using Nornis.Domain.Entities;
+﻿using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 
 namespace Nornis.Domain.Repositories;
@@ -12,4 +12,8 @@ public interface ISourceRepository
     Task<IReadOnlyList<Source>> ListByCampaignAsync(Guid campaignId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default);
 
     Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default);
+
+    Task<Source> UpdateAsync(Source source, CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }

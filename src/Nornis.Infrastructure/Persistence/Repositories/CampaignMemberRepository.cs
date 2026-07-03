@@ -1,5 +1,6 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Persistence.Repositories;
@@ -39,5 +40,26 @@ public class CampaignMemberRepository : ICampaignMemberRepository
     {
         _context.CampaignMembers.Remove(member);
         await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<CampaignMember> UpdateAsync(CampaignMember member, CancellationToken cancellationToken = default)
+    {
+        _context.CampaignMembers.Update(member);
+        await _context.SaveChangesAsync(cancellationToken);
+        return member;
+    }
+
+    public async Task<int> CountByRoleAsync(Guid campaignId, CampaignRole role, CancellationToken cancellationToken = default)
+    {
+        return await _context.CampaignMembers
+            .CountAsync(cm => cm.CampaignId == campaignId && cm.Role == role, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<CampaignMember>> ListByUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return await _context.CampaignMembers
+            .AsNoTracking()
+            .Where(cm => cm.UserId == userId)
+            .ToListAsync(cancellationToken);
     }
 }

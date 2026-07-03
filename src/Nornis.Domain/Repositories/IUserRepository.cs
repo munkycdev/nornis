@@ -1,4 +1,4 @@
-using Nornis.Domain.Entities;
+﻿using Nornis.Domain.Entities;
 
 namespace Nornis.Domain.Repositories;
 

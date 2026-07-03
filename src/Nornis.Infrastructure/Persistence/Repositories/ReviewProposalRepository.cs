@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
@@ -50,5 +50,41 @@ public class ReviewProposalRepository : IReviewProposalRepository
         _context.ReviewProposals.Update(proposal);
         await _context.SaveChangesAsync(cancellationToken);
         return proposal;
+    }
+
+    public async Task<(IReadOnlyList<ReviewProposal> Proposals, bool HasMore)> ListReviewQueueAsync(
+        Guid campaignId,
+        IReadOnlyList<Guid> allowedSourceIds,
+        Guid? filterByBatchId,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.ReviewProposals
+            .AsNoTracking()
+            .Join(
+                _context.ReviewBatches,
+                rp => rp.ReviewBatchId,
+                rb => rb.Id,
+                (rp, rb) => new { Proposal = rp, Batch = rb })
+            .Where(x => x.Batch.CampaignId == campaignId)
+            .Where(x => allowedSourceIds.Contains(x.Batch.SourceId))
+            .Where(x => x.Proposal.Status == ReviewProposalStatus.Pending);
+
+        if (filterByBatchId.HasValue)
+        {
+            query = query.Where(x => x.Proposal.ReviewBatchId == filterByBatchId.Value);
+        }
+
+        var results = await query
+            .OrderBy(x => x.Batch.CreatedAt)
+            .ThenBy(x => x.Proposal.CreatedAt)
+            .Select(x => x.Proposal)
+            .Take(limit + 1)
+            .ToListAsync(cancellationToken);
+
+        var hasMore = results.Count > limit;
+        var proposals = hasMore ? results.Take(limit).ToList() : results;
+
+        return (proposals.AsReadOnly(), hasMore);
     }
 }

@@ -1,5 +1,5 @@
+﻿using Nornis.Domain.Enums;
 using NUnit.Framework;
-using Nornis.Domain.Enums;
 
 namespace Nornis.Domain.Tests.Enums;
 

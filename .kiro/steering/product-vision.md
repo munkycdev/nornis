@@ -4,15 +4,53 @@
 
 Nornis is a campaign memory engine for tabletop roleplaying games. It helps players and GMs capture what happened, transform those sources into structured campaign knowledge, and consult that knowledge through an AI Loremaster.
 
-Nornis is not a wiki-first application. It is not primarily a folder tree, notebook, or document archive. Those may exist as supporting views, but the product is centered on the transformation of raw campaign sources into reliable artifacts, relationships, threads, and canon.
+Nornis is not a wiki-first application. It is not primarily a folder tree, notebook, or document archive. Those may exist as supporting views, but the product is centered on the transformation of raw campaign sources into reliable artifacts, relationships, storylines, and canon.
 
 ## Core Promise
 
 Paste or upload campaign information. Nornis extracts important artifacts, proposes changes, and lets users ask the Loremaster what matters.
 
+## Tagline Direction
+
+```text
+It's your epic. Every source leaves a mark.
+```
+
+The tagline should reinforce that the campaign belongs to the players and GM. Nornis preserves, connects, and clarifies the record; it does not author the epic for them.
+
 ## Product Metaphor
 
-A campaign is made of many narrative threads: player notes, GM secrets, NPCs, locations, clues, rumors, relationships, mysteries, and consequences. Nornis preserves those threads and weaves them into a coherent understanding.
+A campaign grows from many sources: session notes, player journals, GM ideas, transcripts, images, maps, handouts, links, rumors, choices, and consequences. Nornis gathers these sources and shapes them into an enduring campaign record.
+
+The brand metaphor is not primarily weaving or threads. The preferred metaphor is:
+
+```text
+Many sources feed one enduring epic.
+```
+
+The rune/tree mark represents many branches feeding a single trunk. In product terms, many source inputs feed the durable shape of the campaign's memory.
+
+A secondary geologic metaphor may be used sparingly: sources accumulate as layers, and accepted canon becomes the durable bedrock of the campaign. Avoid overusing geology language in UI labels.
+
+## Brand Tone
+
+Nornis should feel:
+
+- Solid
+- Calm
+- Durable
+- Intelligent
+- Slightly mythic
+- Modern and useful
+
+Nornis should not feel like:
+
+- A fantasy game UI
+- A parchment-and-runes LARP dashboard
+- A generic admin application
+- A chatbot bolted onto a wiki
+
+The rune/stone visual identity should provide weight and permanence, while the application UI remains clean, modern, and restrained.
 
 ## Primary Users
 
@@ -25,7 +63,7 @@ Player needs:
 - Catch up before a session.
 - Remember NPCs, places, clues, and promises.
 - Ask what their character knows.
-- Track open threads and unresolved mysteries.
+- Track active storylines and unresolved mysteries.
 - Maintain private player notes.
 
 ### Game Master
@@ -37,7 +75,7 @@ GM needs:
 - Capture session notes and prep notes.
 - Review AI-generated updates before they become accepted knowledge.
 - Maintain hidden canon and player-visible truth separately.
-- Track threads, unresolved questions, factions, NPC states, and continuity risks.
+- Track storylines, unresolved questions, factions, NPC states, and continuity risks.
 - Ask for prep assistance grounded in campaign state.
 
 ### Observer
@@ -75,7 +113,7 @@ Nornis proposes:
 - Add claim: `Captain Voss denied knowing about the missing caravan`.
 - Create or update `Silver Key`.
 - Add fact: `Silver Key was found in Voss's quarters`.
-- Create or update thread `Missing Caravan`.
+- Create or update storyline `Missing Caravan`.
 - Connect `Missing Caravan` to `Captain Voss`, `Black Harbor`, and `Silver Key`.
 
 The user can accept, edit, or reject each proposal individually.
@@ -86,10 +124,24 @@ The user can accept, edit, or reject each proposal individually.
 2. AI proposes. Users decide what becomes accepted campaign knowledge.
 3. The UI should make the AI feel like a Loremaster, not a chatbot bolted to a CRUD app.
 4. Sessions are historical records. Artifacts are persistent knowledge.
-5. Threads are narrative projections over artifacts.
+5. Storylines are narrative projections over artifacts.
 6. Canon is truth-state applied to artifacts, facts, and relationships.
 7. The user should be able to ask questions without remembering where anything was written.
 8. The user should always be able to inspect the source material behind an answer.
+9. Many sources feed one enduring epic.
+10. Every source should be able to leave a traceable mark on accepted knowledge.
+
+## Core Product Language
+
+Use these primary terms consistently:
+
+- **Sources**: raw inputs and original material.
+- **Artifacts**: structured things Nornis understands.
+- **Storylines**: narrative arcs, mysteries, quests, investigations, rivalries, and unresolved developments.
+- **Canon**: accepted truth-state and durable campaign reality.
+- **Ask the Loremaster**: conversational access to campaign memory.
+
+Avoid using **Threads** as a top-level product term. It belonged to an earlier weaving metaphor and should not be used for navigation or primary domain language.
 
 ## Non-Goals for MVP
 

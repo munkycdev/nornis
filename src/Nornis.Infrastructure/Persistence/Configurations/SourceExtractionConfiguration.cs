@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Nornis.Domain.Entities;
 
@@ -19,6 +19,9 @@ public class SourceExtractionConfiguration : IEntityTypeConfiguration<SourceExtr
         builder.Property(se => se.ExtractionType)
             .IsRequired()
             .HasConversion<string>();
+
+        builder.Property(se => se.Confidence)
+            .HasPrecision(5, 4);
 
         builder.Property(se => se.CreatedAt)
             .HasColumnType("datetimeoffset");

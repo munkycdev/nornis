@@ -14,6 +14,17 @@ Views
 
 Sources are raw inputs. Artifacts are structured campaign knowledge derived from sources. Views are projections of artifacts for different user needs.
 
+Preferred product language:
+
+```text
+Sources create the raw record.
+Artifacts represent what Nornis understands.
+Storylines organize what matters.
+Canon records what endures.
+```
+
+Use **Storyline** instead of **Thread** in the domain model and UI. Thread/weaving language belonged to an earlier brand direction and should not be used as a primary product term.
+
 ## User
 
 A lightweight record for identifying and authenticating users within Nornis.
@@ -126,6 +137,11 @@ Date semantics:
 - `OccurredAt` is when the described campaign event happened, if known.
 - `CreatedAt` is when the source was created in Nornis.
 
+Brand/product note:
+
+- Sources are the many inputs that feed the enduring campaign record.
+- In UI copy, sources may occasionally be described as "layers" beneath the epic, but the domain term remains `Source`.
+
 ## SourceExtraction
 
 A source may have extracted text or interpretation derived from a non-text input.
@@ -176,7 +192,7 @@ ArtifactType
 - Item
 - Faction
 - Event
-- Thread
+- Storyline
 - Concept
 - Document
 ```
@@ -191,9 +207,9 @@ ArtifactStatus
 
 Important design choices:
 
-- Thread is an artifact type, not a separate root entity.
-- Threads can have facts, relationships, evidence, confidence, and visibility like any other artifact.
-- Thread lifecycle transitions (Active → Dormant → Resolved, etc.) are triggered by AI suggestions via review proposals. The AI may propose status changes based on source content, and users accept or reject those proposals like any other change.
+- Storyline is an artifact type, not a separate root entity.
+- Storylines can have facts, relationships, source references, confidence, and visibility like any other artifact.
+- Storyline lifecycle transitions (Active → Dormant → Resolved, etc.) are triggered by AI suggestions via review proposals. The AI may propose status changes based on source content, and users accept or reject those proposals like any other change.
 
 ## ArtifactFact
 
@@ -435,9 +451,9 @@ Views are projections over artifacts and sources.
 
 A browseable collection of artifacts by type, recency, importance, or relationship.
 
-### Threads View
+### Storylines View
 
-A filtered artifact view where `Artifact.Type == Thread`.
+A filtered artifact view where `Artifact.Type == Storyline`.
 
 ### Canon View
 
@@ -445,7 +461,7 @@ A truth-state view over artifacts, facts, and relationships.
 
 ### Sources View
 
-A source/evidence ledger. This is where users inspect raw inputs.
+A source ledger. This is where users inspect raw inputs.
 
 ### Ask View
 

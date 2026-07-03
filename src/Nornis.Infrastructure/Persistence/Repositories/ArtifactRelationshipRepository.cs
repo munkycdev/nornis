@@ -1,5 +1,6 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Persistence.Repositories;
@@ -32,6 +33,22 @@ public class ArtifactRelationshipRepository : IArtifactRelationshipRepository
         return await _context.ArtifactRelationships
             .AsNoTracking()
             .Where(ar => ar.ArtifactAId == artifactId || ar.ArtifactBId == artifactId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ArtifactRelationship>> ListByArtifactIdsAsync(
+        IReadOnlyList<Guid> artifactIds,
+        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        CancellationToken cancellationToken = default)
+    {
+        if (artifactIds.Count == 0)
+            return [];
+
+        return await _context.ArtifactRelationships
+            .AsNoTracking()
+            .Where(ar =>
+                (artifactIds.Contains(ar.ArtifactAId) || artifactIds.Contains(ar.ArtifactBId))
+                && allowedVisibilities.Contains(ar.Visibility))
             .ToListAsync(cancellationToken);
     }
 

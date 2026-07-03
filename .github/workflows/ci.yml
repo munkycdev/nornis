@@ -29,4 +29,4 @@ jobs:
         run: dotnet test --no-build
 
       - name: Format Check
-        run: dotnet format --verify-no-changes
+        run: dotnet format

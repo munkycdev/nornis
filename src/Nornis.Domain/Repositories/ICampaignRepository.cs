@@ -1,4 +1,4 @@
-using Nornis.Domain.Entities;
+﻿using Nornis.Domain.Entities;
 
 namespace Nornis.Domain.Repositories;
 
@@ -11,4 +11,6 @@ public interface ICampaignRepository
     Task<Campaign> UpdateAsync(Campaign campaign, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Campaign>> ListByUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<Campaign>> GetByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default);
 }

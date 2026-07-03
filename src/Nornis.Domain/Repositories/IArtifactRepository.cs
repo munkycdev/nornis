@@ -1,4 +1,4 @@
-using Nornis.Domain.Entities;
+﻿using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 
 namespace Nornis.Domain.Repositories;
@@ -14,4 +14,16 @@ public interface IArtifactRepository
     Task<Artifact> UpdateAsync(Artifact artifact, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Artifact>> SearchByNameAsync(Guid campaignId, string searchTerm, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<Artifact>> ListRecentByCampaignAsync(
+        Guid campaignId,
+        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        int maxCount,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<Artifact>> ListByNamesInTextAsync(
+        Guid campaignId,
+        string text,
+        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        CancellationToken cancellationToken = default);
 }

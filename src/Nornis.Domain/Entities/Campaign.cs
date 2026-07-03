@@ -1,4 +1,4 @@
-namespace Nornis.Domain.Entities;
+﻿namespace Nornis.Domain.Entities;
 
 public class Campaign
 {

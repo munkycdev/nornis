@@ -21,6 +21,14 @@ Output:
 - ReviewBatch
 - ReviewProposal records
 
+## Product Language
+
+Use **Storyline** instead of **Thread** for narrative arcs, mysteries, quests, investigations, and unresolved developments.
+
+The extraction model should create or update artifacts with `Artifact.Type == Storyline` when source material advances a narrative line.
+
+Do not use `Thread` in user-facing proposal titles, UI copy, or artifact types.
+
 ## Structured Output Required
 
 Use structured AI outputs wherever possible. The extraction response must conform to a known schema and should not require fragile natural-language parsing.
@@ -55,6 +63,7 @@ Good:
 - Add artifact: Captain Voss
 - Add relationship: Captain Voss located in Black Harbor
 - Add fact: Silver Key found in Voss's quarters
+- Add storyline: Missing Caravan
 
 Bad:
 

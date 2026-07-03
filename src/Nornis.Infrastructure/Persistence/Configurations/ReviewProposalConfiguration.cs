@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -31,6 +31,9 @@ public class ReviewProposalConfiguration : IEntityTypeConfiguration<ReviewPropos
         builder.Property(rp => rp.Status)
             .IsRequired()
             .HasConversion<string>();
+
+        builder.Property(rp => rp.Confidence)
+            .HasPrecision(5, 4);
 
         builder.Property(rp => rp.CreatedAt)
             .HasColumnType("datetimeoffset");

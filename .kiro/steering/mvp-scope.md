@@ -56,10 +56,17 @@ Source → AI extraction → Review proposals → Artifacts/facts/relationships 
   - Item
   - Faction
   - Event
-  - Thread
+  - Storyline
   - Concept
 - Browse artifacts.
 - View artifact details.
+
+### Storylines
+
+- Storylines are artifacts with `Artifact.Type == Storyline`.
+- Storylines represent narrative arcs, mysteries, quests, investigations, rivalries, prophecies, unresolved questions, and emerging threats.
+- Browse active, dormant, resolved, and archived storylines.
+- View storyline detail with summary, connected artifacts, open questions, source references, and status.
 
 ### Facts and Relationships
 
@@ -113,7 +120,7 @@ Required:
 - Review queue
 - Artifact list
 - Artifact detail
-- Threads view
+- Storylines view
 - Ask Loremaster
 - Costs
 - Settings/basic member management
@@ -150,7 +157,7 @@ Expected proposals:
 - Create/update artifact: Captain Voss.
 - Create/update artifact: Black Harbor.
 - Create/update artifact: Silver Key.
-- Create/update thread: Missing Caravan.
+- Create/update storyline: Missing Caravan.
 - Add relationship: Captain Voss connected to Black Harbor.
 - Add relationship: Captain Voss connected to Missing Caravan.
 - Add fact: Captain Voss denied knowing about Missing Caravan.

@@ -1,7 +1,7 @@
-using System.Reflection;
-using NUnit.Framework;
+﻿using System.Reflection;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using NUnit.Framework;
 
 namespace Nornis.Domain.Tests.Entities;
 

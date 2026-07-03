@@ -1,4 +1,4 @@
-namespace Nornis.Domain.Enums;
+﻿namespace Nornis.Domain.Enums;
 
 public enum ArtifactType
 {

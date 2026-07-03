@@ -1,4 +1,4 @@
-using FsCheck.NUnit;
+﻿using FsCheck.NUnit;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;

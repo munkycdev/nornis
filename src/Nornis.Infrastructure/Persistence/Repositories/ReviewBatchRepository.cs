@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
@@ -28,6 +28,17 @@ public class ReviewBatchRepository : IReviewBatchRepository
             .FirstOrDefaultAsync(rb => rb.Id == id, cancellationToken);
     }
 
+    public async Task<ReviewBatch?> GetBySourceIdAsync(Guid sourceId, CancellationToken cancellationToken = default)
+    {
+        return await _context.ReviewBatches
+            .AsNoTracking()
+            .Where(rb => rb.SourceId == sourceId
+                && (rb.Status == ReviewBatchStatus.Pending
+                    || rb.Status == ReviewBatchStatus.InReview
+                    || rb.Status == ReviewBatchStatus.Completed))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<ReviewBatch>> ListByCampaignAsync(Guid campaignId, CancellationToken cancellationToken = default)
     {
         return await _context.ReviewBatches
@@ -47,6 +58,17 @@ public class ReviewBatchRepository : IReviewBatchRepository
         {
             batch.CompletedAt = DateTimeOffset.UtcNow;
         }
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task UpdateCompletedAsync(Guid id, DateTimeOffset completedAt, CancellationToken cancellationToken = default)
+    {
+        var batch = await _context.ReviewBatches
+            .FirstAsync(rb => rb.Id == id, cancellationToken);
+
+        batch.Status = ReviewBatchStatus.Completed;
+        batch.CompletedAt = completedAt;
 
         await _context.SaveChangesAsync(cancellationToken);
     }

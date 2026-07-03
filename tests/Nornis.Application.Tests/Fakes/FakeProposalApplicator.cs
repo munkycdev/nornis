@@ -1,0 +1,35 @@
+using Nornis.Application.Application;
+using Nornis.Application.Errors;
+using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
+
+namespace Nornis.Application.Tests.Fakes;
+
+public class FakeProposalApplicator : IProposalApplicator
+{
+    private AppResult<ApplyResult>? _nextResult;
+
+    public void ConfigureFailure(string code, string message)
+    {
+        _nextResult = AppResult<ApplyResult>.Fail(
+            new AppError(400, code, message));
+    }
+
+    public void ConfigureSuccess(Guid? entityId = null)
+    {
+        _nextResult = AppResult<ApplyResult>.Success(
+            new ApplyResult(
+                entityId ?? Guid.NewGuid(),
+                SourceReferenceTargetType.Artifact));
+    }
+
+    public Task<AppResult<ApplyResult>> ApplyAsync(
+        ReviewProposal proposal,
+        ReviewBatch batch,
+        CancellationToken ct)
+    {
+        var result = _nextResult ?? AppResult<ApplyResult>.Success(
+            new ApplyResult(Guid.NewGuid(), SourceReferenceTargetType.Artifact));
+        return Task.FromResult(result);
+    }
+}

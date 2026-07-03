@@ -1,9 +1,9 @@
+﻿using FsCheck.NUnit;
 using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Infrastructure.Persistence.Repositories;
 using NUnit.Framework;
-using FsCheck.NUnit;
 
 namespace Nornis.Infrastructure.Tests.Persistence.PropertyTests;
 
@@ -35,7 +35,8 @@ public class UpdatePersistenceTests : IntegrationTestBase
 
         // Act: mutate name
         var newName = "Updated " + campaign.Name;
-        if (newName.Length > 200) newName = newName[..200];
+        if (newName.Length > 200)
+            newName = newName[..200];
         campaign.Name = newName;
         await repo.UpdateAsync(campaign);
 
@@ -61,7 +62,8 @@ public class UpdatePersistenceTests : IntegrationTestBase
 
         // Act: mutate username
         var newUsername = "Updated " + user.Username;
-        if (newUsername.Length > 200) newUsername = newUsername[..200];
+        if (newUsername.Length > 200)
+            newUsername = newUsername[..200];
         user.Username = newUsername;
         await repo.UpdateAsync(user);
 
@@ -95,7 +97,8 @@ public class UpdatePersistenceTests : IntegrationTestBase
 
         // Act: mutate summary
         var newSummary = "Updated summary for " + artifact.Name;
-        if (newSummary.Length > 2000) newSummary = newSummary[..2000];
+        if (newSummary.Length > 2000)
+            newSummary = newSummary[..2000];
         artifact.Summary = newSummary;
         await repo.UpdateAsync(artifact);
 
@@ -133,7 +136,8 @@ public class UpdatePersistenceTests : IntegrationTestBase
 
         // Act: mutate value
         var newValue = "Updated value: " + fact.Value;
-        if (newValue.Length > 2000) newValue = newValue[..2000];
+        if (newValue.Length > 2000)
+            newValue = newValue[..2000];
         fact.Value = newValue;
         await repo.UpdateAsync(fact);
 
@@ -174,7 +178,8 @@ public class UpdatePersistenceTests : IntegrationTestBase
 
         // Act: mutate description
         var newDescription = "Updated: " + (relationship.Description ?? "no description");
-        if (newDescription.Length > 2000) newDescription = newDescription[..2000];
+        if (newDescription.Length > 2000)
+            newDescription = newDescription[..2000];
         relationship.Description = newDescription;
         await repo.UpdateAsync(relationship);
 

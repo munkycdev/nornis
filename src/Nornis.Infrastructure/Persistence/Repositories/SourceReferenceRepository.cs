@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
@@ -26,6 +26,17 @@ public class SourceReferenceRepository : ISourceReferenceRepository
         return await _context.SourceReferences
             .AsNoTracking()
             .Where(sr => sr.TargetType == targetType && sr.TargetId == targetId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<SourceReference>> ListByTargetIdsAsync(IReadOnlyList<Guid> targetIds, CancellationToken cancellationToken = default)
+    {
+        if (targetIds.Count == 0)
+            return [];
+
+        return await _context.SourceReferences
+            .AsNoTracking()
+            .Where(sr => targetIds.Contains(sr.TargetId))
             .ToListAsync(cancellationToken);
     }
 }

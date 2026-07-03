@@ -1,8 +1,20 @@
-# Nornis - AI-First Knowledge Management for D&D
+# Nornis - AI-First Campaign Memory
 
 ## Project Overview
 
-Nornis is an AI-first knowledge management tool designed for Dungeons & Dragons. It helps Dungeon Masters and players organize, retrieve, and generate campaign knowledge using AI capabilities.
+Nornis is an AI-first campaign memory engine for tabletop roleplaying games. It helps Game Masters and players capture campaign sources, extract structured campaign knowledge, review proposed updates, and consult that knowledge through an AI Loremaster.
+
+Nornis is not a wiki-first application. The product model is:
+
+```text
+Sources → Artifacts → Storylines / Canon / Ask
+```
+
+Brand direction:
+
+```text
+It's your epic. Every source leaves a mark.
+```
 
 ## Tech Stack
 
@@ -23,12 +35,14 @@ Nornis is an AI-first knowledge management tool designed for Dungeons & Dragons.
 
 ## Conventions
 
-- Use kebab-case for file and folder names
-- Use clear, descriptive naming throughout the codebase
-- Document design decisions in .kiro/specs/
-- Every project has a corresponding test project
-- Every class has a corresponding test class
-- Repository pattern over direct DbContext usage
+- Use kebab-case for file and folder names.
+- Use clear, descriptive naming throughout the codebase.
+- Document design decisions in `.kiro/specs/`.
+- Every project has a corresponding test project.
+- Every class has a corresponding test class.
+- Repository pattern over direct DbContext usage.
+- Use `Storyline`, not `Thread`, for narrative arcs and unresolved campaign developments.
+- Use `Source`, not `Evidence`, for raw input material.
 
 ## Build & Run
 

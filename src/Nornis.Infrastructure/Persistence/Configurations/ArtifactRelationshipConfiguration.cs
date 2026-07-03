@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Nornis.Domain.Entities;
 
@@ -26,6 +26,9 @@ public class ArtifactRelationshipConfiguration : IEntityTypeConfiguration<Artifa
         builder.Property(ar => ar.Visibility)
             .IsRequired()
             .HasConversion<string>();
+
+        builder.Property(ar => ar.Confidence)
+            .HasPrecision(5, 4);
 
         builder.Property(ar => ar.CreatedAt)
             .HasColumnType("datetimeoffset");

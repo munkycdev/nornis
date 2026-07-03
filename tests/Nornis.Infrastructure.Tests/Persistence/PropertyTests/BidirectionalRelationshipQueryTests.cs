@@ -1,4 +1,4 @@
-using FsCheck;
+﻿using FsCheck;
 using FsCheck.NUnit;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;

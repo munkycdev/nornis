@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
@@ -60,5 +60,35 @@ public class ArtifactRepository : IArtifactRepository
             .AsNoTracking()
             .Where(a => a.CampaignId == campaignId && EF.Functions.Like(a.Name, $"%{searchTerm}%"))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Artifact>> ListRecentByCampaignAsync(
+        Guid campaignId,
+        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        int maxCount,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Artifacts
+            .AsNoTracking()
+            .Where(a => a.CampaignId == campaignId && allowedVisibilities.Contains(a.Visibility))
+            .OrderByDescending(a => a.UpdatedAt)
+            .Take(maxCount)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Artifact>> ListByNamesInTextAsync(
+        Guid campaignId,
+        string text,
+        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        CancellationToken cancellationToken = default)
+    {
+        var candidates = await _context.Artifacts
+            .AsNoTracking()
+            .Where(a => a.CampaignId == campaignId && allowedVisibilities.Contains(a.Visibility))
+            .ToListAsync(cancellationToken);
+
+        return candidates
+            .Where(a => text.Contains(a.Name, StringComparison.OrdinalIgnoreCase))
+            .ToList();
     }
 }

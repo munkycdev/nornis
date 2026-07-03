@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Repositories;
 
@@ -39,6 +39,14 @@ public class CampaignRepository : ICampaignRepository
         return await _context.Campaigns
             .AsNoTracking()
             .Where(c => _context.CampaignMembers.Any(cm => cm.CampaignId == c.Id && cm.UserId == userId))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Campaign>> GetByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        return await _context.Campaigns
+            .AsNoTracking()
+            .Where(c => ids.Contains(c.Id))
             .ToListAsync(cancellationToken);
     }
 }

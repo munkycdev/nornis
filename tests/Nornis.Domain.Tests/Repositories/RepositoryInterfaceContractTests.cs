@@ -1,6 +1,6 @@
-using System.Reflection;
-using NUnit.Framework;
+﻿using System.Reflection;
 using Nornis.Domain.Repositories;
+using NUnit.Framework;
 
 namespace Nornis.Domain.Tests.Repositories;
 
@@ -20,12 +20,14 @@ public class RepositoryInterfaceContractTests
         typeof(IReviewProposalRepository),
         typeof(ISourceReferenceRepository),
         typeof(IAiUsageRecordRepository),
+        typeof(IUnitOfWork),
+        typeof(ITransactionScope),
     ];
 
     private static readonly Dictionary<Type, string[]> ExpectedMethods = new()
     {
-        [typeof(ICampaignRepository)] = ["CreateAsync", "GetByIdAsync", "UpdateAsync", "ListByUserAsync"],
-        [typeof(ICampaignMemberRepository)] = ["CreateAsync", "GetByCampaignAndUserAsync", "ListByCampaignAsync", "RemoveAsync"],
+        [typeof(ICampaignRepository)] = ["CreateAsync", "GetByIdAsync", "UpdateAsync", "ListByUserAsync", "GetByIdsAsync"],
+        [typeof(ICampaignMemberRepository)] = ["CreateAsync", "GetByCampaignAndUserAsync", "ListByCampaignAsync", "RemoveAsync", "ListByUserAsync"],
         [typeof(IUserRepository)] = ["CreateAsync", "GetByIdAsync", "GetByAuth0SubjectIdAsync", "UpdateAsync"],
         [typeof(ISourceRepository)] = ["CreateAsync", "GetByIdAsync", "ListByCampaignAsync", "UpdateProcessingStatusAsync"],
         [typeof(IArtifactRepository)] = ["CreateAsync", "GetByIdAsync", "ListByCampaignAsync", "UpdateAsync", "SearchByNameAsync"],
@@ -34,7 +36,9 @@ public class RepositoryInterfaceContractTests
         [typeof(IReviewBatchRepository)] = ["CreateAsync", "GetByIdAsync", "ListByCampaignAsync", "UpdateStatusAsync"],
         [typeof(IReviewProposalRepository)] = ["CreateAsync", "GetByIdAsync", "ListByReviewBatchAsync", "ListPendingByCampaignAsync", "UpdateAsync"],
         [typeof(ISourceReferenceRepository)] = ["CreateAsync", "ListByTargetAsync"],
-        [typeof(IAiUsageRecordRepository)] = ["CreateAsync", "QueryAsync"],
+        [typeof(IAiUsageRecordRepository)] = ["CreateAsync", "QueryAsync", "AggregateAsync", "AggregateByOperationTypeAsync", "AggregateByModelAsync", "AggregateByUserAsync", "AggregateByCampaignAsync"],
+        [typeof(IUnitOfWork)] = ["BeginTransactionAsync"],
+        [typeof(ITransactionScope)] = ["CommitAsync", "RollbackAsync"],
     };
 
     private static IEnumerable<TestCaseData> AllRepositoryMethods()

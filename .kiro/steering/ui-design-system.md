@@ -2,7 +2,7 @@
 
 ## Product Vibe
 
-Nornis should feel like a calm, modern campaign Loremaster.
+Nornis should feel like a calm, modern campaign Loremaster with a durable, archival identity.
 
 Not:
 
@@ -10,34 +10,71 @@ Not:
 - Dense enterprise CRUD app
 - Heavy fantasy parchment UI
 - Folder-based wiki with a chatbot stapled on
+- LARP-styled rune-and-stone interface
+- Medieval game UI
 
 Aim for:
 
 - Light theme first
-- Soft neutral background
-- Rounded cards
-- Deep blue-grey text and navigation
-- Warm gold accents
-- Subtle multi-color thread motif
+- Warm off-white body background
+- Clean cards with slightly stronger contrast than the body
+- Deep blue sidebar/navigation
+- Deep blue-grey text
+- Restrained aged-gold accents
+- Subtle strata/topographic/geologic cues used sparingly
+- Strong rune/stone-inspired logo as the primary mythic anchor
 - Clean typography
 - Low-friction review workflows
 
+The product should feel like modern premium software with a mythic archival identity: durable, calm, intelligent, and trustworthy.
+
 ## Brand Metaphor
 
-Nornis weaves campaign threads into coherent memory.
+Preferred metaphor:
 
-Logo concept:
+```text
+Many sources feed one enduring epic.
+```
 
-- Multiple colored threads entering from one side.
-- Threads loosely weave together.
-- End state becomes a unified rope that still preserves individual colors.
+The rune/tree mark represents many sources feeding a single trunk. In product terms, notes, journals, transcripts, handouts, images, maps, links, and ideas feed the durable campaign record.
 
-The UI can reuse this metaphor in subtle ways:
+The UI should no longer lean on the thread/weaving/rope motif as its primary metaphor.
 
-- Processing states: "Weaving source..."
-- Review state: "Threads found"
-- Connectedness indicator on thread cards
-- Small woven glyphs for artifact relationship density
+Use supporting language such as:
+
+- Every source leaves a mark.
+- Your campaign, remembered.
+- Built from every source.
+- Shaped into story.
+- What is remembered, endures.
+
+Use strata/geologic cues sparingly:
+
+- Subtle layered line patterns in backgrounds or empty states.
+- Source pages may refer to source material as layers beneath the campaign record.
+- Canon pages may lightly evoke bedrock, durability, and accepted truth.
+
+Avoid turning the app into geology software with swords. The metaphor should support the UI, not become homework.
+
+## Logo Direction
+
+The preferred logo direction is the stonemark / rune-like N:
+
+- A strong N-shaped glyph.
+- A small branching rune/tree mark that symbolizes many sources feeding one trunk.
+- Deep blue field or text.
+- Ivory/stone glyph treatment where appropriate.
+- Minimal aged-gold accent.
+
+Use the stone/rune identity as a brand anchor, not as permission to texture every surface.
+
+Do not use:
+
+- Literal stone textures across the whole UI.
+- Parchment panels.
+- Heavy fantasy ornamentation.
+- Medieval borders.
+- Ropes, woven threads, spinning wheels, looms, axes, ravens, helmets, or Celtic knots.
 
 ## UI Framework
 
@@ -53,7 +90,7 @@ Recommended primary navigation:
 Ask
 Capture
 Artifacts
-Threads
+Storylines
 Canon
 Sources
 Costs
@@ -72,9 +109,9 @@ Create sources: session notes, journal entries, GM notes, uploads, web links, ha
 
 Browse structured campaign knowledge.
 
-### Threads
+### Storylines
 
-Narrative threads. This is a filtered artifact view where `Artifact.Type == Thread`.
+Narrative arcs, mysteries, quests, investigations, rivalries, prophecies, and unresolved developments. This is a filtered artifact view where `Artifact.Type == Storyline`.
 
 ### Canon
 
@@ -110,6 +147,12 @@ Primary CTA:
 Tell Nornis what happened
 ```
 
+Supporting copy:
+
+```text
+Add notes, journals, transcripts, images, maps, or links. Nornis will shape them into your campaign record.
+```
+
 ### Capture Source
 
 A simple input experience.
@@ -127,6 +170,24 @@ On submit:
 - Store source
 - Enqueue extraction
 - Show processing status
+
+Processing copy should avoid weaving language.
+
+Good:
+
+```text
+Reading source...
+Shaping the record...
+Source processed
+Review proposed updates
+```
+
+Avoid:
+
+```text
+Weaving source...
+Threads found
+```
 
 ### Review Queue
 
@@ -163,13 +224,13 @@ Artifact detail:
 - Summary
 - Facts
 - Relationships
-- Threads
+- Storylines
 - Source references
 - Change history
 
-### Threads
+### Storylines
 
-Thread card:
+Storyline card:
 
 - Name
 - Status
@@ -178,6 +239,12 @@ Thread card:
 - Connected artifacts
 - Open questions
 - Player-visible vs GM-only indicators
+
+Suggested page copy:
+
+```text
+The stories in motion.
+```
 
 ### Canon
 
@@ -190,6 +257,14 @@ Sections:
 - Hidden GM facts
 - Rumors
 - Confirmed world state
+
+Suggested page copy:
+
+```text
+What is remembered, endures.
+```
+
+Use bedrock/strata language only where it clarifies the concept. Do not overuse it in labels.
 
 ### Sources
 
@@ -204,6 +279,12 @@ Source card:
 - CreatedBy
 - Processing status
 - Number of proposals generated
+
+Suggested page copy:
+
+```text
+The layers beneath your epic.
+```
 
 ### Costs
 
@@ -220,6 +301,24 @@ Display:
 - By model
 - Token totals
 - Estimated dollar totals
+
+## Visual Tokens
+
+Suggested starting palette:
+
+```text
+Body background: #F8F5EF
+Card background: #FFFDF8
+Primary text: #172A36
+Sidebar/nav: #0F1F2D
+Aged gold accent: #C4A15A
+Slate secondary: #6D7A80
+Success: muted green
+Warning: muted amber
+Danger: restrained coral/red
+```
+
+Cards should have enough contrast to stand apart from the body background. Use subtle border, shadow, or tonal difference; avoid heavy texture.
 
 ## Accessibility
 
@@ -240,6 +339,7 @@ Good:
 Review proposed updates
 Source processed
 Ask the Loremaster
+Every source leaves a mark
 ```
 
 Too much:
