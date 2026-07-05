@@ -7,7 +7,7 @@ public enum ArtifactType
     Item,
     Faction,
     Event,
-    Thread,
+    Storyline,
     Concept,
     Document
 }

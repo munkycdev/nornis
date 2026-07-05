@@ -40,7 +40,7 @@ public class EnumDefinitionTests
     {
         AssertEnumHasExactValues<ArtifactType>(
             "Character", "Location", "Item", "Faction",
-            "Event", "Thread", "Concept", "Document");
+            "Event", "Storyline", "Concept", "Document");
     }
 
     [Test]

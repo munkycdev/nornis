@@ -1,0 +1,77 @@
+using Microsoft.AspNetCore.Mvc;
+using Nornis.Api.Contracts.Responses;
+using Nornis.Api.Extensions;
+using Nornis.Api.Filters;
+using Nornis.Application.Errors;
+using Nornis.Application.Models;
+using Nornis.Application.Services;
+using Nornis.Domain.Enums;
+
+namespace Nornis.Api.Controllers;
+
+/// <summary>
+/// Storylines are artifacts with <see cref="ArtifactType.Storyline"/>. This is a dedicated
+/// read view over the same artifact data, matching the Storylines navigation item.
+/// </summary>
+[ApiController]
+[Route("api/campaigns/{campaignId:guid}/storylines")]
+[ServiceFilter(typeof(CampaignMemberActionFilter))]
+public class StorylinesController : ControllerBase
+{
+    private readonly IArtifactService _artifactService;
+
+    public StorylinesController(IArtifactService artifactService)
+    {
+        _artifactService = artifactService;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> List(
+        Guid campaignId,
+        [FromQuery] string? status,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetCampaignMember();
+
+        ArtifactStatus? statusFilter = null;
+        if (status is not null)
+        {
+            if (!Enum.TryParse<ArtifactStatus>(status, ignoreCase: true, out var parsedStatus))
+            {
+                return BadRequest(new ErrorResponse("invalid_artifact_status", $"'{status}' is not a valid artifact status."));
+            }
+            statusFilter = parsedStatus;
+        }
+
+        var query = new ArtifactListQuery(
+            CampaignId: campaignId,
+            ActingUserId: user.Id,
+            ActingUserRole: member.Role,
+            Type: ArtifactType.Storyline,
+            Status: statusFilter);
+
+        var result = await _artifactService.ListAsync(query, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var response = result.Value!.Select(ArtifactsController.ToListItemResponse).ToList();
+
+        return Ok(response);
+    }
+
+    private IActionResult MapError(AppError error)
+    {
+        return error.StatusCode switch
+        {
+            400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
+            403 => StatusCode(403, new ErrorResponse(error.Code, error.Message)),
+            404 => NotFound(new ErrorResponse(error.Code, error.Message)),
+            409 => Conflict(new ErrorResponse(error.Code, error.Message)),
+            _ => StatusCode(error.StatusCode, new ErrorResponse(error.Code, error.Message))
+        };
+    }
+}

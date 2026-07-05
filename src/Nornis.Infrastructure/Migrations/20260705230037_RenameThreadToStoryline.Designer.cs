@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nornis.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Nornis.Infrastructure.Persistence;
 namespace Nornis.Infrastructure.Migrations
 {
     [DbContext(typeof(NornisDbContext))]
-    partial class NornisDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260705230037_RenameThreadToStoryline")]
+    partial class RenameThreadToStoryline
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -581,7 +584,7 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasOne("Nornis.Domain.Entities.Campaign", null)
                         .WithMany()
                         .HasForeignKey("CampaignId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Nornis.Domain.Entities.ReviewBatch", null)
                         .WithMany()
@@ -596,7 +599,7 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasOne("Nornis.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.Artifact", b =>

@@ -143,7 +143,7 @@ public class RetrievalCountCapArbitraries
             ArtifactType.Item,
             ArtifactType.Faction,
             ArtifactType.Event,
-            ArtifactType.Thread,
+            ArtifactType.Storyline,
             ArtifactType.Concept);
 
         // All artifacts are PartyVisible so all roles can see them

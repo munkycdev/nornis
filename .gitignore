@@ -22,7 +22,9 @@ bld/
 # .NET Core
 project.lock.json
 project.fragment.lock.json
-artifacts/
+# Anchor to repo root so the .NET build-output dir is ignored without also
+# swallowing source/test folders named "Artifacts" (e.g. the Artifacts feature tests).
+/artifacts/
 
 # Visual Studio
 .vs/

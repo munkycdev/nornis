@@ -30,17 +30,19 @@ public class AiUsageRecordConfiguration : IEntityTypeConfiguration<AiUsageRecord
         builder.Property(a => a.CreatedAt)
             .HasColumnType("datetimeoffset");
 
+        // Cost-ledger records outlive the campaign/user they reference: when a Campaign or
+        // User is deleted, null the FK rather than deleting the historical usage record.
         builder.HasOne<Campaign>()
             .WithMany()
             .HasForeignKey(a => a.CampaignId)
             .IsRequired(false)
-            .OnDelete(DeleteBehavior.NoAction);
+            .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasOne<User>()
             .WithMany()
             .HasForeignKey(a => a.UserId)
             .IsRequired(false)
-            .OnDelete(DeleteBehavior.NoAction);
+            .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasOne<Source>()
             .WithMany()

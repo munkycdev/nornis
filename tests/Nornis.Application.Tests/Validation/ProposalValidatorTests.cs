@@ -168,7 +168,7 @@ public class ProposalValidatorTests
     [TestCase("Item")]
     [TestCase("Faction")]
     [TestCase("Event")]
-    [TestCase("Thread")]
+    [TestCase("Storyline")]
     [TestCase("Concept")]
     [TestCase("Document")]
     public void CreateArtifact_AllValidArtifactTypes_ReturnSuccess(string type)
