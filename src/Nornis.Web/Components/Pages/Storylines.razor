@@ -1,5 +1,151 @@
 ﻿@page "/storylines"
+@implements IDisposable
+@inject CampaignState Campaigns
+@inject NornisApiClient Api
+
 <PageTitle>Storylines — Nornis</PageTitle>
-<ComingSoon Title="Storylines"
-            Icon="@Icons.Material.Filled.AutoStories"
-            Description="The stories in motion — mysteries, quests, investigations, rivalries, and unresolved developments." />
+
+<MudText Typo="Typo.h4" Class="nornis-serif">Storylines</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">The stories in motion.</MudText>
+
+@if (Campaigns.Current is null)
+{
+    <NoCampaign />
+}
+else
+{
+    <div class="nornis-filter-row mb-4">
+        <MudChip T="string"
+                 Variant="@(_status is null ? Variant.Filled : Variant.Outlined)"
+                 Color="@(_status is null ? Color.Secondary : Color.Default)"
+                 OnClick="() => SetStatusAsync(null)">
+            All
+        </MudChip>
+        @foreach (var status in _statuses)
+        {
+            <MudChip T="string"
+                     Variant="@(_status == status ? Variant.Filled : Variant.Outlined)"
+                     Color="@(_status == status ? Color.Secondary : Color.Default)"
+                     OnClick="() => SetStatusAsync(status)">
+                @status
+            </MudChip>
+        }
+    </div>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="my-4" />
+    }
+    else if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_storylines.Count == 0)
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+            <MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Large" Class="nornis-comingsoon-icon" />
+            <MudText Typo="Typo.h5" Class="nornis-serif">No storylines@(_status is null ? "" : $" that are {_status}") yet</MudText>
+            <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+                As your sources advance mysteries, quests, and rivalries, Nornis tracks them here.
+            </MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <div class="nornis-artifact-grid">
+            @foreach (var s in _storylines)
+            {
+                <a href="@($"/artifacts/{s.Id}")" class="nornis-card nornis-artifact-card">
+                    <div class="nornis-artifact-card-head">
+                        <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /></div>
+                        <div class="nornis-artifact-card-title">@s.Name</div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(s.Summary))
+                    {
+                        <p class="nornis-artifact-card-summary">@s.Summary</p>
+                    }
+                    <div class="nornis-artifact-card-foot">
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(s.Status)">@s.Status</MudChip>
+                        @if (s.Visibility == "GMOnly")
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">GM only</MudChip>
+                        }
+                        <span class="nornis-list-meta ml-auto">advanced @Ago(s.UpdatedAt)</span>
+                    </div>
+                </a>
+            }
+        </div>
+    }
+}
+
+@code {
+    private readonly string[] _statuses = ["Active", "Dormant", "Resolved", "Archived"];
+
+    private bool _loading;
+    private string? _error;
+    private string? _status;
+    private IReadOnlyList<ArtifactListItem> _storylines = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Campaigns.Changed += OnCampaignChanged;
+        await Campaigns.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private void OnCampaignChanged() => InvokeAsync(LoadAsync);
+
+    private async Task SetStatusAsync(string? status)
+    {
+        _status = status;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (Campaigns.Current is null)
+        {
+            _storylines = [];
+            _error = null;
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        var result = await Api.GetStorylinesAsync(Campaigns.Current.Id, _status);
+
+        _loading = false;
+        if (result.IsSuccess)
+        {
+            _storylines = result.Value!;
+        }
+        else
+        {
+            _error = result.Error!.Message;
+            _storylines = [];
+        }
+        StateHasChanged();
+    }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Active" => Color.Success,
+        "Dormant" => Color.Warning,
+        "Resolved" => Color.Info,
+        _ => Color.Default,
+    };
+
+    private static string Ago(DateTimeOffset t)
+    {
+        var d = DateTimeOffset.UtcNow - t.ToUniversalTime();
+        if (d.TotalMinutes < 60) return $"{Math.Max(1, (int)d.TotalMinutes)}m ago";
+        if (d.TotalHours < 24) return $"{(int)d.TotalHours}h ago";
+        if (d.TotalDays < 2) return "Yesterday";
+        return $"{(int)d.TotalDays}d ago";
+    }
+
+    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+}
