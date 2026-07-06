@@ -48,6 +48,48 @@ public record CreateSourceRequest(
     string? Uri,
     DateTimeOffset? OccurredAt);
 
+public record ArtifactListItem(
+    Guid Id,
+    Guid CampaignId,
+    string Type,
+    string Name,
+    string? Summary,
+    string Status,
+    string Visibility,
+    decimal? Confidence,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
+public record CanonEntry(
+    string Kind,
+    Guid Id,
+    Guid ArtifactId,
+    string ArtifactName,
+    Guid? OtherArtifactId,
+    string? OtherArtifactName,
+    string Label,
+    string? Detail,
+    decimal? Confidence,
+    string TruthState,
+    string Visibility,
+    DateTimeOffset UpdatedAt);
+
+public record ReviewProposal(
+    Guid Id,
+    Guid ReviewBatchId,
+    string ChangeType,
+    string TargetType,
+    Guid? TargetId,
+    string ProposedValueJson,
+    string? Rationale,
+    decimal? Confidence,
+    string Status,
+    DateTimeOffset CreatedAt);
+
+public record ReviewQueue(
+    IReadOnlyList<ReviewProposal> Proposals,
+    bool HasMore);
+
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);
 

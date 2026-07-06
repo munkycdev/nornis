@@ -69,6 +69,26 @@ public class NornisApiClient
     public Task<ApiResult<SourceDetail>> MarkSourceReadyAsync(Guid campaignId, Guid sourceId, CancellationToken ct = default) =>
         PostAsync<object?, SourceDetail>($"/api/campaigns/{campaignId}/sources/{sourceId}/ready", null, ct);
 
+    // ------------------------------------------------------------------ Knowledge --
+
+    public Task<ApiResult<IReadOnlyList<ArtifactListItem>>> GetArtifactsAsync(
+        Guid campaignId, string? type = null, string? status = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<ArtifactListItem>>(
+            $"/api/campaigns/{campaignId}/artifacts{Query(("type", type), ("status", status))}", ct);
+
+    public Task<ApiResult<IReadOnlyList<ArtifactListItem>>> GetStorylinesAsync(
+        Guid campaignId, string? status = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<ArtifactListItem>>(
+            $"/api/campaigns/{campaignId}/storylines{Query(("status", status))}", ct);
+
+    public Task<ApiResult<IReadOnlyList<CanonEntry>>> GetCanonAsync(
+        Guid campaignId, string? truthState = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<CanonEntry>>(
+            $"/api/campaigns/{campaignId}/canon{Query(("truthState", truthState))}", ct);
+
+    public Task<ApiResult<ReviewQueue>> GetReviewQueueAsync(Guid campaignId, CancellationToken ct = default) =>
+        GetAsync<ReviewQueue>($"/api/campaigns/{campaignId}/reviews/proposals", ct);
+
     // -------------------------------------------------------------------- Plumbing --
 
     private async Task<ApiResult<T>> GetAsync<T>(string uri, CancellationToken ct)
@@ -129,6 +149,15 @@ public class NornisApiClient
 
     private ApiError Unreachable(Exception ex) =>
         new("unreachable", $"Could not reach nornis-api at {BaseAddress}. {ex.Message}");
+
+    private static string Query(params (string Key, string? Value)[] parameters)
+    {
+        var parts = parameters
+            .Where(p => !string.IsNullOrWhiteSpace(p.Value))
+            .Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value!)}")
+            .ToArray();
+        return parts.Length == 0 ? string.Empty : "?" + string.Join("&", parts);
+    }
 
     private sealed record HealthResponse(string? Status);
 }
