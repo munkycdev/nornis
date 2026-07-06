@@ -109,6 +109,20 @@ public class NornisApiClient
     public Task<ApiResult<ReviewQueue>> GetReviewQueueAsync(Guid campaignId, CancellationToken ct = default) =>
         GetAsync<ReviewQueue>($"/api/campaigns/{campaignId}/reviews/proposals", ct);
 
+    // ----------------------------------------------------------------------- Costs --
+
+    public Task<ApiResult<TimePeriodSummary>> GetCostSummaryAsync(Guid campaignId, CancellationToken ct = default) =>
+        GetAsync<TimePeriodSummary>($"/api/campaigns/{campaignId}/costs/summary", ct);
+
+    public Task<ApiResult<IReadOnlyList<OperationTypeCost>>> GetCostsByOperationAsync(Guid campaignId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<OperationTypeCost>>($"/api/campaigns/{campaignId}/costs/by-operation", ct);
+
+    public Task<ApiResult<IReadOnlyList<ModelCost>>> GetCostsByModelAsync(Guid campaignId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<ModelCost>>($"/api/campaigns/{campaignId}/costs/by-model", ct);
+
+    public Task<ApiResult<IReadOnlyList<UserCost>>> GetCostsByUserAsync(Guid campaignId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<UserCost>>($"/api/campaigns/{campaignId}/costs/by-user", ct);
+
     public Task<ApiResult<ProposalActionResult>> AcceptProposalAsync(Guid campaignId, Guid proposalId, CancellationToken ct = default) =>
         PostAsync<object?, ProposalActionResult>($"/api/campaigns/{campaignId}/reviews/proposals/{proposalId}/accept", null, ct);
 

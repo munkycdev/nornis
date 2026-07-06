@@ -1,5 +1,163 @@
 ﻿@page "/costs"
+@using System.Globalization
+@implements IDisposable
+@inject CampaignState Campaigns
+@inject NornisApiClient Api
+
 <PageTitle>Costs — Nornis</PageTitle>
-<ComingSoon Title="Costs"
-            Icon="@Icons.Material.Filled.Paid"
-            Description="Token and estimated dollar usage across your campaign — by day, user, operation, and model." />
+
+<MudText Typo="Typo.h4" Class="nornis-serif">Costs</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Token and estimated dollar usage.</MudText>
+
+@if (Campaigns.Current is null)
+{
+    <NoCampaign />
+}
+else if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="my-4" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else
+{
+    <div class="nornis-cost-cards">
+        @foreach (var (label, summary) in _periods)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-cost-card">
+                <span class="nornis-cost-label">@label</span>
+                <span class="nornis-cost-amount">@Money(summary.TotalEstimatedCostUsd)</span>
+                <span class="nornis-cost-sub">@Tokens(summary.TotalTokens) tokens · @summary.OperationCount ops</span>
+            </MudPaper>
+        }
+    </div>
+
+    <div class="nornis-triptych mt-4">
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <div class="nornis-detail-section-title">By operation</div>
+            @if (_byOperation.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">No usage yet.</MudText>
+            }
+            @foreach (var o in _byOperation)
+            {
+                <div class="nornis-cost-row">
+                    <span class="nornis-cost-row-name">@Humanize(o.OperationType)</span>
+                    <span class="nornis-list-meta">@Tokens(o.Summary.TotalTokens)</span>
+                    <span class="nornis-cost-row-amount">@Money(o.Summary.TotalEstimatedCostUsd)</span>
+                </div>
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <div class="nornis-detail-section-title">By model</div>
+            @if (_byModel.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">No usage yet.</MudText>
+            }
+            @foreach (var m in _byModel)
+            {
+                <div class="nornis-cost-row">
+                    <span class="nornis-cost-row-name">@m.Model</span>
+                    <span class="nornis-list-meta">@Tokens(m.Summary.TotalTokens)</span>
+                    <span class="nornis-cost-row-amount">@Money(m.Summary.TotalEstimatedCostUsd)</span>
+                </div>
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <div class="nornis-detail-section-title">By user</div>
+            @if (_byUser.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">No usage yet.</MudText>
+            }
+            @foreach (var u in _byUser)
+            {
+                <div class="nornis-cost-row">
+                    <span class="nornis-cost-row-name">@u.Username</span>
+                    <span class="nornis-list-meta">@Tokens(u.Summary.TotalTokens)</span>
+                    <span class="nornis-cost-row-amount">@Money(u.Summary.TotalEstimatedCostUsd)</span>
+                </div>
+            }
+        </MudPaper>
+    </div>
+}
+
+@code {
+    private static readonly CultureInfo Usd = CultureInfo.GetCultureInfo("en-US");
+
+    private bool _loading;
+    private string? _error;
+
+    private (string Label, CostSummary Summary)[] _periods = [];
+    private IReadOnlyList<OperationTypeCost> _byOperation = [];
+    private IReadOnlyList<ModelCost> _byModel = [];
+    private IReadOnlyList<UserCost> _byUser = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Campaigns.Changed += OnCampaignChanged;
+        await Campaigns.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private void OnCampaignChanged() => InvokeAsync(LoadAsync);
+
+    private async Task LoadAsync()
+    {
+        if (Campaigns.Current is null)
+        {
+            _periods = [];
+            _error = null;
+            StateHasChanged();
+            return;
+        }
+
+        var id = Campaigns.Current.Id;
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        // Separate HTTP requests, each with its own server-side DbContext scope — safe to parallelize.
+        var summaryTask = Api.GetCostSummaryAsync(id);
+        var operationTask = Api.GetCostsByOperationAsync(id);
+        var modelTask = Api.GetCostsByModelAsync(id);
+        var userTask = Api.GetCostsByUserAsync(id);
+        await Task.WhenAll(summaryTask, operationTask, modelTask, userTask);
+
+        _loading = false;
+
+        if (!summaryTask.Result.IsSuccess)
+        {
+            _error = summaryTask.Result.Error!.Message;
+            StateHasChanged();
+            return;
+        }
+
+        var s = summaryTask.Result.Value!;
+        _periods =
+        [
+            ("Today", s.Today),
+            ("This week", s.ThisWeek),
+            ("This month", s.ThisMonth),
+            ("All time", s.AllTime),
+        ];
+        _byOperation = operationTask.Result.Value ?? [];
+        _byModel = modelTask.Result.Value ?? [];
+        _byUser = userTask.Result.Value ?? [];
+
+        StateHasChanged();
+    }
+
+    private static string Money(decimal c) =>
+        (c >= 1 ? c.ToString("C2", Usd) : c.ToString("C4", Usd));
+
+    private static string Tokens(long t) => t.ToString("N0", Usd);
+
+    private static string Humanize(string pascal) =>
+        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+
+    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+}

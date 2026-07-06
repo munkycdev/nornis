@@ -93,23 +93,36 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
     {
         var query = BuildFilteredQuery(campaignId, userId, fromDate, toDate);
 
-        var results = await query
-            .GroupBy(r => r.OperationType.ToString())
-            .Select(g => new GroupedCostSummary<string>
+        // Group by the enum itself (it maps to the string column via the value converter).
+        // Grouping by OperationType.ToString() cannot be translated by the relational provider,
+        // so aggregate in SQL and convert the key to a string after materializing.
+        var grouped = await query
+            .GroupBy(r => r.OperationType)
+            .Select(g => new
             {
-                Key = g.Key,
-                Summary = new CostSummary
-                {
-                    TotalInputTokens = g.Sum(r => (long)r.InputTokens),
-                    TotalOutputTokens = g.Sum(r => (long)r.OutputTokens),
-                    TotalTokens = g.Sum(r => (long)r.TotalTokens),
-                    TotalEstimatedCostUsd = g.Sum(r => r.EstimatedCostUsd),
-                    OperationCount = g.Count()
-                }
+                g.Key,
+                TotalInputTokens = g.Sum(r => (long)r.InputTokens),
+                TotalOutputTokens = g.Sum(r => (long)r.OutputTokens),
+                TotalTokens = g.Sum(r => (long)r.TotalTokens),
+                TotalEstimatedCostUsd = g.Sum(r => r.EstimatedCostUsd),
+                OperationCount = g.Count()
             })
             .ToListAsync(cancellationToken);
 
-        return results;
+        return grouped
+            .Select(g => new GroupedCostSummary<string>
+            {
+                Key = g.Key.ToString(),
+                Summary = new CostSummary
+                {
+                    TotalInputTokens = g.TotalInputTokens,
+                    TotalOutputTokens = g.TotalOutputTokens,
+                    TotalTokens = g.TotalTokens,
+                    TotalEstimatedCostUsd = g.TotalEstimatedCostUsd,
+                    OperationCount = g.OperationCount
+                }
+            })
+            .ToList();
     }
 
     public async Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByModelAsync(

@@ -862,6 +862,73 @@ html, body {
     border-top: 1px solid var(--mud-palette-divider);
 }
 
+/* ------------------------------------------------------------------ Costs -- */
+
+.nornis-cost-cards {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
+
+@media (max-width: 900px) {
+    .nornis-cost-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.nornis-cost-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 18px 20px;
+}
+
+.nornis-cost-label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-cost-amount {
+    font-family: var(--nornis-serif);
+    font-size: 1.9rem;
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+    line-height: 1.1;
+}
+
+.nornis-cost-sub {
+    font-size: 0.78rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-cost-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid var(--mud-palette-divider);
+}
+
+.nornis-cost-row:first-of-type {
+    border-top: none;
+}
+
+.nornis-cost-row-name {
+    flex: 1;
+    color: var(--mud-palette-text-primary);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.nornis-cost-row-amount {
+    color: var(--mud-palette-text-primary);
+    font-weight: 600;
+    min-width: 76px;
+    text-align: right;
+}
+
 /* ------------------------------------------------------------ ComingSoon -- */
 
 .nornis-comingsoon {

@@ -32,6 +32,7 @@ public class CampaignMemberRepository : ICampaignMemberRepository
     {
         return await _context.CampaignMembers
             .AsNoTracking()
+            .Include(cm => cm.User)
             .Where(cm => cm.CampaignId == campaignId)
             .ToListAsync(cancellationToken);
     }

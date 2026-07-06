@@ -172,6 +172,25 @@ public record ProposalActionResult(
     string? ProposedValueJson,
     Guid? CreatedEntityId);
 
+public record CostSummary(
+    long TotalInputTokens,
+    long TotalOutputTokens,
+    long TotalTokens,
+    decimal TotalEstimatedCostUsd,
+    int OperationCount);
+
+public record TimePeriodSummary(
+    CostSummary Today,
+    CostSummary ThisWeek,
+    CostSummary ThisMonth,
+    CostSummary AllTime);
+
+public record UserCost(Guid UserId, string Username, CostSummary Summary);
+
+public record OperationTypeCost(string OperationType, CostSummary Summary);
+
+public record ModelCost(string Model, CostSummary Summary);
+
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);
 

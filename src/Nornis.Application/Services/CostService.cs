@@ -41,19 +41,20 @@ public class CostService : ICostService
         var weekRange = TimePeriodCalculator.GetThisWeekRange();
         var monthRange = TimePeriodCalculator.GetThisMonthRange();
 
-        var todayTask = _aiUsageRecordRepository.AggregateAsync(campaignId, userIdFilter, todayRange.Start, todayRange.End, ct);
-        var weekTask = _aiUsageRecordRepository.AggregateAsync(campaignId, userIdFilter, weekRange.Start, weekRange.End, ct);
-        var monthTask = _aiUsageRecordRepository.AggregateAsync(campaignId, userIdFilter, monthRange.Start, monthRange.End, ct);
-        var allTimeTask = _aiUsageRecordRepository.AggregateAsync(campaignId, userIdFilter, null, null, ct);
-
-        await Task.WhenAll(todayTask, weekTask, monthTask, allTimeTask);
+        // These aggregates must run sequentially: they share one scoped DbContext, and EF Core
+        // forbids concurrent operations on a single context (Task.WhenAll here throws under the
+        // relational provider's concurrency detector).
+        var today = await _aiUsageRecordRepository.AggregateAsync(campaignId, userIdFilter, todayRange.Start, todayRange.End, ct);
+        var week = await _aiUsageRecordRepository.AggregateAsync(campaignId, userIdFilter, weekRange.Start, weekRange.End, ct);
+        var month = await _aiUsageRecordRepository.AggregateAsync(campaignId, userIdFilter, monthRange.Start, monthRange.End, ct);
+        var allTime = await _aiUsageRecordRepository.AggregateAsync(campaignId, userIdFilter, null, null, ct);
 
         var result = new TimePeriodCostResult
         {
-            Today = todayTask.Result,
-            ThisWeek = weekTask.Result,
-            ThisMonth = monthTask.Result,
-            AllTime = allTimeTask.Result
+            Today = today,
+            ThisWeek = week,
+            ThisMonth = month,
+            AllTime = allTime
         };
 
         sw.Stop();
