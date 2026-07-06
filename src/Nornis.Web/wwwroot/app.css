@@ -622,59 +622,72 @@ html, body {
 
 /* -------------------------------------------------------- Review Queue --- */
 
+/* Single-column feeds (review queue) read better constrained than full-width. */
+.nornis-narrow {
+    max-width: 820px;
+}
+
 .nornis-proposals {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
+}
+
+.nornis-proposals .nornis-card-pad {
+    padding: 24px 28px;
 }
 
 .nornis-proposal-head {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 14px;
+    margin-bottom: 18px;
 }
 
 .nornis-proposal-fields {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-bottom: 14px;
+    gap: 10px;
+    margin-bottom: 20px;
 }
 
 .nornis-kv {
     display: flex;
-    gap: 12px;
+    gap: 16px;
+    align-items: baseline;
 }
 
 .nornis-kv-key {
-    min-width: 130px;
+    flex: 0 0 140px;
     color: var(--mud-palette-text-secondary);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     text-transform: capitalize;
 }
 
 .nornis-kv-value {
     color: var(--mud-palette-text-primary);
-    font-size: 0.9rem;
+    font-size: 0.92rem;
     font-weight: 500;
+    line-height: 1.4;
 }
 
 .nornis-proposal-rationale {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     color: var(--mud-palette-text-secondary);
     font-style: italic;
     background-color: var(--mud-palette-background);
     border-radius: 8px;
-    padding: 8px 12px;
-    margin-bottom: 16px;
+    padding: 12px 14px;
+    margin-bottom: 20px;
 }
 
 .nornis-proposal-actions {
     display: flex;
-    gap: 8px;
+    gap: 10px;
+    padding-top: 16px;
+    border-top: 1px solid var(--mud-palette-divider);
 }
 
 .nornis-mono .mud-input-slot,
