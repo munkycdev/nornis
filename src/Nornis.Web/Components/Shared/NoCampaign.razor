@@ -1,0 +1,31 @@
+﻿@inject IDialogService DialogService
+@inject CampaignState Campaigns
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+    <MudIcon Icon="@Icons.Material.Outlined.Terrain" Size="Size.Large" Class="nornis-comingsoon-icon" />
+    <MudText Typo="Typo.h5" Class="nornis-serif">No campaign yet</MudText>
+    <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+        Create a campaign to start capturing sources and building your record.
+    </MudText>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Secondary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Class="mt-4"
+               OnClick="CreateCampaign">
+        New campaign
+    </MudButton>
+</MudPaper>
+
+@code {
+    private async Task CreateCampaign()
+    {
+        var dialog = await DialogService.ShowAsync<CreateCampaignDialog>("New campaign");
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is CampaignSummary created)
+        {
+            await Campaigns.ReloadAsync();
+            Campaigns.Select(created.Id);
+        }
+    }
+}

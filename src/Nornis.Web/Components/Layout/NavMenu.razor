@@ -5,14 +5,29 @@
     <div class="nornis-brand-tagline">Shape fate. Build legacy.</div>
 </div>
 
-<div class="nornis-campaign">
-    <MudIcon Icon="@Icons.Material.Outlined.Terrain" Color="Color.Secondary" />
-    <div class="flex-grow-1">
-        <div class="nornis-campaign-name">Ashenfall</div>
-        <div class="nornis-campaign-label">Campaign</div>
-    </div>
-    <MudIcon Icon="@Icons.Material.Filled.KeyboardArrowDown" Size="Size.Small" />
-</div>
+<MudMenu AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter" Class="nornis-campaign-menu">
+    <ActivatorContent>
+        <div class="nornis-campaign">
+            <MudIcon Icon="@Icons.Material.Outlined.Terrain" Color="Color.Secondary" />
+            <div class="flex-grow-1">
+                <div class="nornis-campaign-name">@(Campaigns.Current?.Name ?? "No campaign")</div>
+                <div class="nornis-campaign-label">@(Campaigns.Current is null ? "Select or create" : "Campaign")</div>
+            </div>
+            <MudIcon Icon="@Icons.Material.Filled.KeyboardArrowDown" Size="Size.Small" />
+        </div>
+    </ActivatorContent>
+    <ChildContent>
+        @foreach (var campaign in Campaigns.Campaigns)
+        {
+            <MudMenuItem OnClick="@(() => Campaigns.Select(campaign.Id))">@campaign.Name</MudMenuItem>
+        }
+        @if (Campaigns.Campaigns.Count > 0)
+        {
+            <MudDivider />
+        }
+        <MudMenuItem Icon="@Icons.Material.Filled.Add" OnClick="CreateCampaign">New campaign</MudMenuItem>
+    </ChildContent>
+</MudMenu>
 
 <MudNavMenu>
     <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.ChatBubbleOutline">Ask</MudNavLink>
@@ -52,7 +67,33 @@
     Collapse
 </MudButton>
 
+@implements IDisposable
+@inject CampaignState Campaigns
+@inject IDialogService DialogService
+
 @code {
     [Parameter]
     public EventCallback OnCollapse { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Campaigns.Changed += OnCampaignsChanged;
+        await Campaigns.EnsureLoadedAsync();
+    }
+
+    private void OnCampaignsChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task CreateCampaign()
+    {
+        var dialog = await DialogService.ShowAsync<CreateCampaignDialog>("New campaign");
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is CampaignSummary created)
+        {
+            await Campaigns.ReloadAsync();
+            Campaigns.Select(created.Id);
+        }
+    }
+
+    public void Dispose() => Campaigns.Changed -= OnCampaignsChanged;
 }

@@ -17,6 +17,8 @@ builder.Services.AddHttpClient<NornisApiClient>(client =>
     client.BaseAddress = new Uri(apiBaseUrl);
 });
 
+builder.Services.AddScoped<Nornis.Web.State.CampaignState>();
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

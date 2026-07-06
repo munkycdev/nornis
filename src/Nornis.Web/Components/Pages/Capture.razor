@@ -1,5 +1,156 @@
 ﻿@page "/capture"
+@inject CampaignState Campaigns
+@inject NornisApiClient Api
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
 <PageTitle>Capture — Nornis</PageTitle>
-<ComingSoon Title="Capture a source"
-            Icon="@Icons.Material.Filled.EditNote"
-            Description="Add session notes, journals, GM notes, links, or images. Nornis reads each source and proposes updates to your campaign record." />
+
+<MudText Typo="Typo.h4" Class="nornis-serif">Tell Nornis what happened</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    Add a source. Nornis reads it and proposes updates to your campaign record.
+</MudText>
+
+@if (Campaigns.Current is null)
+{
+    <NoCampaign />
+}
+else
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-measure">
+        <MudTextField @bind-Value="_title"
+                      Label="Title"
+                      Required="true"
+                      Immediate="true"
+                      MaxLength="200"
+                      Variant="Variant.Outlined"
+                      Class="mb-3" />
+
+        <div class="d-flex gap-3 mb-3">
+            <MudSelect @bind-Value="_type" Label="Type" Variant="Variant.Outlined" Class="flex-grow-1">
+                @foreach (var type in _sourceTypes)
+                {
+                    <MudSelectItem Value="@type">@Humanize(type)</MudSelectItem>
+                }
+            </MudSelect>
+            <MudSelect @bind-Value="_visibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1">
+                @foreach (var vis in _visibilities)
+                {
+                    <MudSelectItem Value="@vis">@vis</MudSelectItem>
+                }
+            </MudSelect>
+        </div>
+
+        <MudTextField @bind-Value="_body"
+                      Label="Body"
+                      Lines="8"
+                      Placeholder="Paste session notes, a journal entry, a transcript…"
+                      Variant="Variant.Outlined"
+                      Class="mb-3" />
+
+        <MudTextField @bind-Value="_uri"
+                      Label="Link (optional)"
+                      Placeholder="https://…"
+                      Variant="Variant.Outlined"
+                      Class="mb-3" />
+
+        <MudDatePicker @bind-Date="_occurredAt"
+                       Label="When it happened (optional)"
+                       Variant="Variant.Outlined"
+                       Class="mb-3" />
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_error</MudAlert>
+        }
+
+        <div class="d-flex gap-2">
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       OnClick="() => SaveAsync(process: false)"
+                       Disabled="_busy">
+                Save draft
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.AutoAwesome"
+                       OnClick="() => SaveAsync(process: true)"
+                       Disabled="_busy">
+                Save &amp; process
+            </MudButton>
+        </div>
+    </MudPaper>
+}
+
+@code {
+    private readonly string[] _sourceTypes =
+    [
+        "SessionNote", "JournalEntry", "Transcript", "GMNote", "WebLink",
+        "Image", "HandwrittenNotes", "Upload", "ImportedNote",
+    ];
+
+    private readonly string[] _visibilities = ["PartyVisible", "GMOnly", "Private"];
+
+    private string _title = string.Empty;
+    private string _type = "SessionNote";
+    private string _visibility = "PartyVisible";
+    private string? _body;
+    private string? _uri;
+    private DateTime? _occurredAt;
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await Campaigns.EnsureLoadedAsync();
+
+    private async Task SaveAsync(bool process)
+    {
+        if (Campaigns.Current is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_title))
+        {
+            _error = "Title is required.";
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        var request = new CreateSourceRequest(
+            _title.Trim(),
+            _type,
+            _visibility,
+            string.IsNullOrWhiteSpace(_body) ? null : _body,
+            string.IsNullOrWhiteSpace(_uri) ? null : _uri,
+            _occurredAt.HasValue ? new DateTimeOffset(_occurredAt.Value, TimeSpan.Zero) : null);
+
+        var created = await Api.CreateSourceAsync(Campaigns.Current.Id, request);
+
+        if (!created.IsSuccess)
+        {
+            _busy = false;
+            _error = created.Error!.Message;
+            return;
+        }
+
+        if (process)
+        {
+            var ready = await Api.MarkSourceReadyAsync(Campaigns.Current.Id, created.Value!.Id);
+            if (!ready.IsSuccess)
+            {
+                _busy = false;
+                _error = $"Source saved, but could not queue it for processing: {ready.Error!.Message}";
+                return;
+            }
+        }
+
+        _busy = false;
+        Snackbar.Add(process ? "Source saved and queued for processing." : "Draft saved.", Severity.Success);
+        Nav.NavigateTo("/sources");
+    }
+
+    private static string Humanize(string pascal) =>
+        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+}

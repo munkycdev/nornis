@@ -1,0 +1,69 @@
+﻿@inject NornisApiClient Api
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="_name"
+                      Label="Campaign name"
+                      Required="true"
+                      Immediate="true"
+                      MaxLength="200"
+                      Variant="Variant.Outlined"
+                      Class="mb-3" />
+        <MudTextField @bind-Value="_description"
+                      Label="Description"
+                      Lines="2"
+                      Variant="Variant.Outlined"
+                      Class="mb-3" />
+        <MudTextField @bind-Value="_gameSystem"
+                      Label="Game system"
+                      Placeholder="e.g. D&D 5e"
+                      Variant="Variant.Outlined" />
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="Submit" Disabled="_busy">
+            Create campaign
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private MudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _name = string.Empty;
+    private string? _description;
+    private string? _gameSystem;
+    private bool _busy;
+    private string? _error;
+
+    private async Task Submit()
+    {
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _error = "Campaign name is required.";
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        var result = await Api.CreateCampaignAsync(new CreateCampaignRequest(_name.Trim(), _description, _gameSystem));
+
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(result.Value!));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

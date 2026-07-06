@@ -1,5 +1,126 @@
 ﻿@page "/sources"
+@implements IDisposable
+@inject CampaignState Campaigns
+@inject NornisApiClient Api
+
 <PageTitle>Sources — Nornis</PageTitle>
-<ComingSoon Title="Sources"
-            Icon="@Icons.Material.Filled.Layers"
-            Description="The layers beneath your epic. Every raw input you've added, with its processing status and the proposals it produced." />
+
+<div class="d-flex align-center justify-space-between mb-4">
+    <div>
+        <MudText Typo="Typo.h4" Class="nornis-serif">Sources</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">The layers beneath your epic.</MudText>
+    </div>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Secondary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/capture"
+               Disabled="@(Campaigns.Current is null)">
+        Capture source
+    </MudButton>
+</div>
+
+@if (Campaigns.Current is null)
+{
+    <NoCampaign />
+}
+else if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="my-4" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_sources.Count == 0)
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+        <MudIcon Icon="@Icons.Material.Outlined.Layers" Size="Size.Large" Class="nornis-comingsoon-icon" />
+        <MudText Typo="Typo.h5" Class="nornis-serif">No sources yet</MudText>
+        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+            Capture your first session note, journal, or link and Nornis will start building the record.
+        </MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Add"
+                   Href="/capture" Class="mt-4">
+            Capture source
+        </MudButton>
+    </MudPaper>
+}
+else
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+        @foreach (var source in _sources)
+        {
+            <div class="nornis-list-row">
+                <div class="nornis-list-thumb">
+                    <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" />
+                </div>
+                <div class="nornis-list-body">
+                    <div class="nornis-list-title">@source.Title</div>
+                    <div class="nornis-list-sub">@Humanize(source.Type) · @source.CreatedAt.LocalDateTime.ToString("d MMM yyyy")</div>
+                </div>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@source.Visibility</MudChip>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(source.ProcessingStatus)">
+                    @source.ProcessingStatus
+                </MudChip>
+            </div>
+        }
+    </MudPaper>
+}
+
+@code {
+    private bool _loading;
+    private string? _error;
+    private IReadOnlyList<SourceListItem> _sources = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Campaigns.Changed += OnCampaignChanged;
+        await Campaigns.EnsureLoadedAsync();
+        await LoadSourcesAsync();
+    }
+
+    private void OnCampaignChanged() => InvokeAsync(LoadSourcesAsync);
+
+    private async Task LoadSourcesAsync()
+    {
+        if (Campaigns.Current is null)
+        {
+            _sources = [];
+            _error = null;
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        var result = await Api.GetSourcesAsync(Campaigns.Current.Id);
+
+        _loading = false;
+        if (result.IsSuccess)
+        {
+            _sources = result.Value!;
+        }
+        else
+        {
+            _error = result.Error!.Message;
+            _sources = [];
+        }
+        StateHasChanged();
+    }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Processed" => Color.Success,
+        "Processing" or "Queued" => Color.Info,
+        "Failed" => Color.Error,
+        "Ready" => Color.Warning,
+        _ => Color.Default,
+    };
+
+    private static string Humanize(string pascal) =>
+        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+
+    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+}
