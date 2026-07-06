@@ -836,6 +836,32 @@ html, body {
     display: block;
 }
 
+/* --------------------------------------------------------------- Settings -- */
+
+.nornis-member-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--mud-palette-divider);
+}
+
+.nornis-member-row:first-of-type {
+    border-top: none;
+}
+
+.nornis-role-select {
+    max-width: 190px;
+}
+
+.nornis-add-member {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 16px;
+    border-top: 1px solid var(--mud-palette-divider);
+}
+
 /* ------------------------------------------------------------ ComingSoon -- */
 
 .nornis-comingsoon {

@@ -54,6 +54,23 @@ public class NornisApiClient
     public Task<ApiResult<CampaignSummary>> CreateCampaignAsync(CreateCampaignRequest request, CancellationToken ct = default) =>
         PostAsync<CreateCampaignRequest, CampaignSummary>("/api/campaigns", request, ct);
 
+    public Task<ApiResult<CampaignSummary>> UpdateCampaignAsync(Guid campaignId, UpdateCampaignRequest request, CancellationToken ct = default) =>
+        PutAsync<UpdateCampaignRequest, CampaignSummary>($"/api/campaigns/{campaignId}", request, ct);
+
+    // -------------------------------------------------------------------- Members --
+
+    public Task<ApiResult<IReadOnlyList<CampaignMember>>> GetMembersAsync(Guid campaignId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<CampaignMember>>($"/api/campaigns/{campaignId}/members", ct);
+
+    public Task<ApiResult<CampaignMember>> AddMemberAsync(Guid campaignId, AddMemberRequest request, CancellationToken ct = default) =>
+        PostAsync<AddMemberRequest, CampaignMember>($"/api/campaigns/{campaignId}/members", request, ct);
+
+    public Task<ApiResult<CampaignMember>> UpdateMemberRoleAsync(Guid campaignId, Guid userId, string role, CancellationToken ct = default) =>
+        PutAsync<UpdateMemberRoleRequest, CampaignMember>($"/api/campaigns/{campaignId}/members/{userId}", new UpdateMemberRoleRequest(role), ct);
+
+    public Task<ApiResult<bool>> RemoveMemberAsync(Guid campaignId, Guid userId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/campaigns/{campaignId}/members/{userId}", ct);
+
     // -------------------------------------------------------------------- Sources --
 
     public Task<ApiResult<IReadOnlyList<SourceListItem>>> GetSourcesAsync(Guid campaignId, CancellationToken ct = default) =>
@@ -130,6 +147,38 @@ public class NornisApiClient
         catch (Exception ex)
         {
             return ApiResult<TValue>.Fail(Unreachable(ex));
+        }
+    }
+
+    private async Task<ApiResult<TValue>> PutAsync<TBody, TValue>(string uri, TBody body, CancellationToken ct)
+    {
+        try
+        {
+            var response = await _httpClient.PutAsJsonAsync(uri, body, ct);
+            return await ReadResultAsync<TValue>(response, ct);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<TValue>.Fail(Unreachable(ex));
+        }
+    }
+
+    private async Task<ApiResult<bool>> DeleteAsync(string uri, CancellationToken ct)
+    {
+        try
+        {
+            var response = await _httpClient.DeleteAsync(uri, ct);
+            if (response.IsSuccessStatusCode)
+            {
+                return ApiResult<bool>.Ok(true);
+            }
+
+            var failed = await ReadResultAsync<bool>(response, ct);
+            return ApiResult<bool>.Fail(failed.Error!);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<bool>.Fail(Unreachable(ex));
         }
     }
 

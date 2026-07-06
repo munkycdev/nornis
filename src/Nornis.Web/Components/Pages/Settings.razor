@@ -1,5 +1,300 @@
 ﻿@page "/settings"
+@implements IDisposable
+@inject CampaignState Campaigns
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+
 <PageTitle>Settings — Nornis</PageTitle>
-<ComingSoon Title="Settings"
-            Icon="@Icons.Material.Filled.Settings"
-            Description="Campaign configuration and member management — GMs, players, and observers." />
+
+<div class="nornis-narrow">
+    <MudText Typo="Typo.h4" Class="nornis-serif">Settings</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Campaign configuration and members.</MudText>
+
+    @if (Campaigns.Current is null)
+    {
+        <NoCampaign />
+    }
+    else
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <div class="nornis-detail-section-title">Campaign</div>
+            @if (_isGm)
+            {
+                <MudTextField @bind-Value="_name" Label="Name" Required="true" Immediate="true"
+                              MaxLength="200" Variant="Variant.Outlined" Class="mb-3" />
+                <MudTextField @bind-Value="_description" Label="Description" Lines="2"
+                              Variant="Variant.Outlined" Class="mb-3" />
+                <MudTextField @bind-Value="_gameSystem" Label="Game system" Placeholder="e.g. D&D 5e"
+                              Variant="Variant.Outlined" Class="mb-3" />
+                @if (_campaignError is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_campaignError</MudAlert>
+                }
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SaveCampaignAsync" Disabled="_savingCampaign">
+                    Save changes
+                </MudButton>
+            }
+            else
+            {
+                <div class="nornis-kv"><span class="nornis-kv-key">Name</span><span class="nornis-kv-value">@Campaigns.Current.Name</span></div>
+                <div class="nornis-kv"><span class="nornis-kv-key">Description</span><span class="nornis-kv-value">@(string.IsNullOrWhiteSpace(Campaigns.Current.Description) ? "—" : Campaigns.Current.Description)</span></div>
+                <div class="nornis-kv"><span class="nornis-kv-key">Game system</span><span class="nornis-kv-value">@(string.IsNullOrWhiteSpace(Campaigns.Current.GameSystem) ? "—" : Campaigns.Current.GameSystem)</span></div>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">Only GMs can edit campaign settings.</MudText>
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+            <div class="nornis-detail-section-title">Members</div>
+
+            @if (_loadingMembers)
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="my-2" />
+            }
+            else if (_membersError is not null)
+            {
+                <MudAlert Severity="Severity.Error">@_membersError</MudAlert>
+            }
+            else
+            {
+                @foreach (var m in _members)
+                {
+                    <div class="nornis-member-row">
+                        <MudAvatar Color="Color.Primary" Size="Size.Small">@Initial(m)</MudAvatar>
+                        <div class="nornis-list-body">
+                            <div class="nornis-list-title">@DisplayName(m)</div>
+                            @if (!string.IsNullOrWhiteSpace(m.CharacterName))
+                            {
+                                <div class="nornis-list-sub">@m.CharacterName</div>
+                            }
+                        </div>
+                        @if (_isGm)
+                        {
+                            <MudSelect T="string" Value="m.Role" ValueChanged="(string r) => ChangeRoleAsync(m, r)"
+                                       Dense="true" Variant="Variant.Outlined" Class="nornis-role-select" Disabled="@_busyMembers.Contains(m.UserId)">
+                                @foreach (var role in _roles)
+                                {
+                                    <MudSelectItem Value="@role">@RoleLabel(role)</MudSelectItem>
+                                }
+                            </MudSelect>
+                            <MudIconButton Icon="@Icons.Material.Filled.PersonRemove" Color="Color.Error" Size="Size.Small"
+                                           OnClick="() => RemoveAsync(m)" Disabled="@_busyMembers.Contains(m.UserId)" aria-label="Remove member" />
+                        }
+                        else
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@RoleLabel(m.Role)</MudChip>
+                        }
+                    </div>
+                }
+
+                @if (_isGm)
+                {
+                    <div class="nornis-add-member mt-3">
+                        <MudTextField @bind-Value="_newUserId" Label="Add member by user ID" Placeholder="00000000-0000-0000-0000-000000000000"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" />
+                        <MudSelect T="string" @bind-Value="_newRole" Dense="true" Variant="Variant.Outlined" Class="nornis-role-select">
+                            @foreach (var role in _roles)
+                            {
+                                <MudSelectItem Value="@role">@RoleLabel(role)</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
+                                   OnClick="AddMemberAsync" Disabled="_addingMember">
+                            Add
+                        </MudButton>
+                    </div>
+                    @if (_addError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_addError</MudAlert>
+                    }
+                }
+            }
+        </MudPaper>
+    }
+</div>
+
+@code {
+    private readonly string[] _roles = ["GM", "Player", "Observer"];
+
+    private bool _isGm => Campaigns.Current?.MyRole == "GM";
+
+    // Campaign settings form
+    private string _name = string.Empty;
+    private string? _description;
+    private string? _gameSystem;
+    private bool _savingCampaign;
+    private string? _campaignError;
+
+    // Members
+    private bool _loadingMembers;
+    private string? _membersError;
+    private IReadOnlyList<CampaignMember> _members = [];
+    private readonly HashSet<Guid> _busyMembers = [];
+
+    // Add member
+    private string _newUserId = string.Empty;
+    private string _newRole = "Player";
+    private bool _addingMember;
+    private string? _addError;
+
+    private Guid _loadedCampaignId;
+
+    protected override void OnInitialized() => Campaigns.Changed += OnCampaignChanged;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Campaigns.EnsureLoadedAsync();
+        SyncFromCampaign();
+        await LoadMembersAsync();
+    }
+
+    private void OnCampaignChanged() => InvokeAsync(async () =>
+    {
+        SyncFromCampaign();
+        await LoadMembersAsync();
+    });
+
+    private void SyncFromCampaign()
+    {
+        if (Campaigns.Current is { } c && c.Id != _loadedCampaignId)
+        {
+            _name = c.Name;
+            _description = c.Description;
+            _gameSystem = c.GameSystem;
+            _loadedCampaignId = c.Id;
+        }
+    }
+
+    private async Task SaveCampaignAsync()
+    {
+        if (Campaigns.Current is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _campaignError = "Name is required.";
+            return;
+        }
+
+        _savingCampaign = true;
+        _campaignError = null;
+
+        var result = await Api.UpdateCampaignAsync(Campaigns.Current.Id,
+            new UpdateCampaignRequest(_name.Trim(), _description, _gameSystem));
+
+        _savingCampaign = false;
+        if (!result.IsSuccess)
+        {
+            _campaignError = result.Error!.Message;
+            return;
+        }
+
+        await Campaigns.ReloadAsync(); // refresh the sidebar name
+        Snackbar.Add("Campaign settings saved.", Severity.Success);
+    }
+
+    private async Task LoadMembersAsync()
+    {
+        if (Campaigns.Current is null)
+        {
+            _members = [];
+            return;
+        }
+
+        _loadingMembers = true;
+        _membersError = null;
+        StateHasChanged();
+
+        var result = await Api.GetMembersAsync(Campaigns.Current.Id);
+
+        _loadingMembers = false;
+        if (result.IsSuccess)
+        {
+            _members = result.Value!;
+        }
+        else
+        {
+            _membersError = result.Error!.Message;
+            _members = [];
+        }
+        StateHasChanged();
+    }
+
+    private async Task ChangeRoleAsync(CampaignMember member, string newRole)
+    {
+        if (newRole == member.Role)
+        {
+            return;
+        }
+
+        _busyMembers.Add(member.UserId);
+        var result = await Api.UpdateMemberRoleAsync(Campaigns.Current!.Id, member.UserId, newRole);
+        _busyMembers.Remove(member.UserId);
+
+        if (result.IsSuccess)
+        {
+            _members = _members.Select(x => x.UserId == member.UserId ? x with { Role = newRole } : x).ToList();
+            Snackbar.Add($"Role updated to {RoleLabel(newRole)}.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private async Task RemoveAsync(CampaignMember member)
+    {
+        _busyMembers.Add(member.UserId);
+        var result = await Api.RemoveMemberAsync(Campaigns.Current!.Id, member.UserId);
+        _busyMembers.Remove(member.UserId);
+
+        if (result.IsSuccess)
+        {
+            _members = _members.Where(x => x.UserId != member.UserId).ToList();
+            Snackbar.Add("Member removed.", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private async Task AddMemberAsync()
+    {
+        _addError = null;
+
+        if (!Guid.TryParse(_newUserId, out var userId))
+        {
+            _addError = "Enter a valid user ID (GUID).";
+            return;
+        }
+
+        _addingMember = true;
+        var result = await Api.AddMemberAsync(Campaigns.Current!.Id, new AddMemberRequest(userId, _newRole));
+        _addingMember = false;
+
+        if (result.IsSuccess)
+        {
+            _members = _members.Append(result.Value!).ToList();
+            _newUserId = string.Empty;
+            Snackbar.Add("Member added.", Severity.Success);
+        }
+        else
+        {
+            _addError = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    private static string DisplayName(CampaignMember m) =>
+        !string.IsNullOrWhiteSpace(m.DisplayName) ? m.DisplayName! : $"User {m.UserId.ToString()[..8]}";
+
+    private static string Initial(CampaignMember m) => DisplayName(m)[..1].ToUpperInvariant();
+
+    private static string RoleLabel(string role) => role == "Observer" ? "Fly on the wall" : role;
+
+    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+}

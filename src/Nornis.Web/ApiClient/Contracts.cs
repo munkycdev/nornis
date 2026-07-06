@@ -16,6 +16,27 @@ public record CreateCampaignRequest(
     string? Description,
     string? GameSystem);
 
+public record UpdateCampaignRequest(
+    string Name,
+    string? Description,
+    string? GameSystem);
+
+public record CampaignMember(
+    Guid Id,
+    Guid CampaignId,
+    Guid UserId,
+    string Role,
+    string? DisplayName,
+    string? CharacterName,
+    DateTimeOffset JoinedAt);
+
+public record AddMemberRequest(
+    Guid UserId,
+    string Role);
+
+public record UpdateMemberRoleRequest(
+    string Role);
+
 public record SourceListItem(
     Guid Id,
     Guid CampaignId,
