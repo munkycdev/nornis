@@ -696,6 +696,146 @@ html, body {
     font-size: 0.85rem;
 }
 
+/* -------------------------------------------------------------- Artifacts -- */
+
+.nornis-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.nornis-artifact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.nornis-artifact-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 20px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.nornis-artifact-card:hover {
+    border-color: var(--mud-palette-secondary);
+}
+
+.nornis-artifact-card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.nornis-artifact-card-title {
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+    font-size: 1rem;
+}
+
+.nornis-artifact-card-summary {
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.45;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.nornis-artifact-card-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+}
+
+/* Artifact detail */
+.nornis-detail-head {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.nornis-detail-chips {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.nornis-detail-section-title {
+    font-family: var(--nornis-serif);
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+    margin-bottom: 12px;
+}
+
+.nornis-fact-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--mud-palette-divider);
+}
+
+.nornis-fact-row:first-of-type {
+    border-top: none;
+}
+
+.nornis-fact-body {
+    flex: 1;
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+    min-width: 0;
+}
+
+.nornis-fact-predicate {
+    flex: 0 0 130px;
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.82rem;
+    text-transform: capitalize;
+}
+
+.nornis-fact-value {
+    color: var(--mud-palette-text-primary);
+    font-weight: 500;
+}
+
+.nornis-link {
+    color: var(--mud-palette-primary);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.nornis-link:hover {
+    text-decoration: underline;
+}
+
+.nornis-source-ref {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-top: 1px solid var(--mud-palette-divider);
+}
+
+.nornis-source-ref:first-of-type {
+    border-top: none;
+}
+
+.nornis-source-quote {
+    font-style: italic;
+    color: var(--mud-palette-text-primary);
+    display: block;
+}
+
 /* ------------------------------------------------------------ ComingSoon -- */
 
 .nornis-comingsoon {

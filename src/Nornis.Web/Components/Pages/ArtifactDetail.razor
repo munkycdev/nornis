@@ -1,0 +1,227 @@
+﻿@page "/artifacts/{ArtifactId:guid}"
+@implements IDisposable
+@inject CampaignState Campaigns
+@inject NornisApiClient Api
+
+<PageTitle>@(_detail?.Name ?? "Artifact") — Nornis</PageTitle>
+
+<div class="nornis-narrow">
+    <MudButton Href="/artifacts" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2">
+        Artifacts
+    </MudButton>
+
+    @if (Campaigns.Current is null)
+    {
+        <NoCampaign />
+    }
+    else if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="my-4" />
+    }
+    else if (_notFound)
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+            <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Size="Size.Large" Class="nornis-comingsoon-icon" />
+            <MudText Typo="Typo.h5" Class="nornis-serif">Artifact not found</MudText>
+            <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+                It may have been removed, or you may not have permission to see it.
+            </MudText>
+        </MudPaper>
+    }
+    else if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_detail is not null)
+    {
+        <div class="nornis-detail-head">
+            <div class="nornis-list-thumb"><MudIcon Icon="@TypeIcon(_detail.Type)" /></div>
+            <div>
+                <MudText Typo="Typo.h4" Class="nornis-serif">@_detail.Name</MudText>
+                <div class="nornis-detail-chips">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_detail.Type</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_detail.Status)">@_detail.Status</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@_detail.Visibility</MudChip>
+                    @if (_detail.Confidence is not null)
+                    {
+                        <span class="nornis-list-meta">@($"{_detail.Confidence:P0}") confidence</span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_detail.Summary))
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <MudText Typo="Typo.body1">@_detail.Summary</MudText>
+            </MudPaper>
+        }
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+            <div class="nornis-detail-section-title">Facts</div>
+            @if (_detail.Facts.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">No facts recorded.</MudText>
+            }
+            @foreach (var f in _detail.Facts)
+            {
+                <div class="nornis-fact-row">
+                    <div class="nornis-fact-body">
+                        <span class="nornis-fact-predicate">@f.Predicate</span>
+                        <span class="nornis-fact-value">@f.Value</span>
+                    </div>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@TruthColor(f.TruthState)">@f.TruthState</MudChip>
+                    @if (f.Visibility != "PartyVisible")
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@f.Visibility</MudChip>
+                    }
+                </div>
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+            <div class="nornis-detail-section-title">Relationships</div>
+            @if (_detail.Relationships.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">No relationships yet.</MudText>
+            }
+            @foreach (var r in _detail.Relationships)
+            {
+                var other = OtherArtifact(r);
+                <div class="nornis-fact-row">
+                    <div class="nornis-fact-body">
+                        <span class="nornis-fact-predicate">@r.Type</span>
+                        @if (other is not null)
+                        {
+                            <a href="@($"/artifacts/{other.Id}")" class="nornis-link">@other.Name</a>
+                        }
+                        else
+                        {
+                            <span class="nornis-fact-value">@r.Description</span>
+                        }
+                    </div>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@TruthColor(r.TruthState)">@r.TruthState</MudChip>
+                </div>
+            }
+        </MudPaper>
+
+        @if (_detail.SourceReferences.Count > 0)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">Source references</div>
+                @foreach (var s in _detail.SourceReferences)
+                {
+                    <div class="nornis-source-ref">
+                        <MudIcon Icon="@Icons.Material.Outlined.FormatQuote" Size="Size.Small" Color="Color.Tertiary" />
+                        <div>
+                            @if (!string.IsNullOrWhiteSpace(s.Quote))
+                            {
+                                <span class="nornis-source-quote">“@s.Quote”</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(s.Notes))
+                            {
+                                <span class="nornis-list-sub">@s.Notes</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </MudPaper>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public Guid ArtifactId { get; set; }
+
+    private bool _loading;
+    private bool _notFound;
+    private string? _error;
+    private ArtifactDetailDto? _detail;
+    private Guid _loadedId;
+
+    protected override void OnInitialized() => Campaigns.Changed += OnCampaignChanged;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ArtifactId != _loadedId)
+        {
+            await Campaigns.EnsureLoadedAsync();
+            await LoadAsync();
+        }
+    }
+
+    private void OnCampaignChanged() => InvokeAsync(LoadAsync);
+
+    private async Task LoadAsync()
+    {
+        if (Campaigns.Current is null)
+        {
+            _detail = null;
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        _notFound = false;
+        _error = null;
+        _loadedId = ArtifactId;
+        StateHasChanged();
+
+        var result = await Api.GetArtifactAsync(Campaigns.Current.Id, ArtifactId);
+
+        _loading = false;
+        if (result.IsSuccess)
+        {
+            _detail = result.Value!;
+        }
+        else if (result.Error!.Code == "not_found")
+        {
+            _notFound = true;
+            _detail = null;
+        }
+        else
+        {
+            _error = result.Error!.Message;
+            _detail = null;
+        }
+        StateHasChanged();
+    }
+
+    private ConnectedArtifact? OtherArtifact(ArtifactRelationshipDto r)
+    {
+        var otherId = r.ArtifactAId == ArtifactId ? r.ArtifactBId : r.ArtifactAId;
+        return _detail?.ConnectedArtifacts.FirstOrDefault(c => c.Id == otherId);
+    }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Active" => Color.Success,
+        "Dormant" => Color.Warning,
+        "Resolved" => Color.Info,
+        _ => Color.Default,
+    };
+
+    private static Color TruthColor(string truth) => truth switch
+    {
+        "Confirmed" => Color.Success,
+        "Likely" => Color.Info,
+        "Rumor" => Color.Warning,
+        "Disputed" or "False" => Color.Error,
+        "Hidden" => Color.Secondary,
+        _ => Color.Default,
+    };
+
+    private static string TypeIcon(string type) => type switch
+    {
+        "Character" => Icons.Material.Outlined.Person,
+        "Location" => Icons.Material.Outlined.Place,
+        "Item" => Icons.Material.Outlined.Diamond,
+        "Faction" => Icons.Material.Outlined.Groups,
+        "Event" => Icons.Material.Outlined.Event,
+        "Storyline" => Icons.Material.Outlined.Hub,
+        "Concept" => Icons.Material.Outlined.Lightbulb,
+        _ => Icons.Material.Outlined.Description,
+    };
+
+    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+}

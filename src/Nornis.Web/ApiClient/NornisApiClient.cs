@@ -76,6 +76,9 @@ public class NornisApiClient
         GetAsync<IReadOnlyList<ArtifactListItem>>(
             $"/api/campaigns/{campaignId}/artifacts{Query(("type", type), ("status", status))}", ct);
 
+    public Task<ApiResult<ArtifactDetailDto>> GetArtifactAsync(Guid campaignId, Guid artifactId, CancellationToken ct = default) =>
+        GetAsync<ArtifactDetailDto>($"/api/campaigns/{campaignId}/artifacts/{artifactId}", ct);
+
     public Task<ApiResult<IReadOnlyList<ArtifactListItem>>> GetStorylinesAsync(
         Guid campaignId, string? status = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<ArtifactListItem>>(

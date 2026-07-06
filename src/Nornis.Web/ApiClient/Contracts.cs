@@ -60,6 +60,57 @@ public record ArtifactListItem(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
 
+public record ArtifactFactDto(
+    Guid Id,
+    Guid ArtifactId,
+    string Predicate,
+    string Value,
+    decimal? Confidence,
+    string TruthState,
+    string Visibility,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
+public record ArtifactRelationshipDto(
+    Guid Id,
+    Guid ArtifactAId,
+    Guid ArtifactBId,
+    string Type,
+    string? Description,
+    decimal? Confidence,
+    string TruthState,
+    string Visibility);
+
+public record ConnectedArtifact(
+    Guid Id,
+    string Name,
+    string Type);
+
+public record SourceReferenceDto(
+    Guid Id,
+    Guid SourceId,
+    string TargetType,
+    Guid TargetId,
+    string? Quote,
+    string? Notes,
+    DateTimeOffset CreatedAt);
+
+public record ArtifactDetailDto(
+    Guid Id,
+    Guid CampaignId,
+    string Type,
+    string Name,
+    string? Summary,
+    string Status,
+    string Visibility,
+    decimal? Confidence,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<ArtifactFactDto> Facts,
+    IReadOnlyList<ArtifactRelationshipDto> Relationships,
+    IReadOnlyList<ConnectedArtifact> ConnectedArtifacts,
+    IReadOnlyList<SourceReferenceDto> SourceReferences);
+
 public record CanonEntry(
     string Kind,
     Guid Id,
