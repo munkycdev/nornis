@@ -1,8 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
-    <ProjectReference Include="..\Nornis.Application\Nornis.Application.csproj" />
-    <ProjectReference Include="..\Nornis.Infrastructure\Nornis.Infrastructure.csproj" />
+    <PackageReference Include="MudBlazor" Version="7.15.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Web is a separate deployable that talks to nornis-api over HTTP. It shares only
+         DTO/contract types via Nornis.Shared — never the Application/Infrastructure layers. -->
     <ProjectReference Include="..\Nornis.Shared\Nornis.Shared.csproj" />
   </ItemGroup>
 

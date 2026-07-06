@@ -1,0 +1,24 @@
+﻿<MudPaper Elevation="0" Class="nornis-card pa-8 d-flex flex-column align-center justify-center" Style="min-height: 320px;">
+    <MudIcon Icon="@Icon" Color="Color.Secondary" Style="font-size: 3rem;" />
+    <MudText Typo="Typo.h4" Class="mt-4">@Title</MudText>
+    @if (!string.IsNullOrWhiteSpace(Description))
+    {
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-2 text-center" Style="max-width: 480px;">
+            @Description
+        </MudText>
+    }
+    <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small" Class="mt-6">
+        Coming soon
+    </MudChip>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Icon { get; set; } = Icons.Material.Filled.Circle;
+
+    [Parameter]
+    public string? Description { get; set; }
+}

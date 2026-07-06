@@ -1,0 +1,67 @@
+:root {
+    --nornis-body: #F8F5EF;
+    --nornis-card: #FFFDF8;
+    --nornis-text: #172A36;
+    --nornis-nav: #0F1F2D;
+    --nornis-gold: #C4A15A;
+    --nornis-slate: #6D7A80;
+    --nornis-border: #E7E0D3;
+}
+
+html, body {
+    font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--nornis-body);
+    color: var(--nornis-text);
+}
+
+/* Cards sit slightly above the warm body with a subtle border + soft shadow,
+   rather than heavy texture — per the design system. */
+.nornis-card {
+    background-color: var(--nornis-card);
+    border: 1px solid var(--nornis-border);
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(23, 42, 54, 0.04), 0 4px 12px rgba(23, 42, 54, 0.04);
+}
+
+/* Brand block at the top of the navigation drawer. */
+.nornis-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 20px 12px 20px;
+}
+
+.nornis-brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.nornis-brand-name {
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: #F3EEE4;
+    font-size: 1.05rem;
+}
+
+.nornis-brand-sub {
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    color: #9BA6AC;
+    text-transform: lowercase;
+}
+
+.nornis-wordmark {
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.nornis-tagline {
+    letter-spacing: 0.04em;
+    opacity: 0.85;
+}
+
+/* Gold accent on the active nav item. */
+.mud-nav-link.active {
+    border-left: 3px solid var(--nornis-gold);
+}

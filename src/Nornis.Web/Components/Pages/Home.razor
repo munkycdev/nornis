@@ -1,0 +1,73 @@
+﻿@page "/"
+@inject NornisApiClient Api
+
+<PageTitle>Nornis — Home</PageTitle>
+
+<MudText Typo="Typo.h3" GutterBottom="true">Your campaign, remembered.</MudText>
+<MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6" Style="max-width: 620px;">
+    Add notes, journals, transcripts, images, maps, or links. Nornis will shape them into your
+    campaign record — then let you ask the Loremaster what matters.
+</MudText>
+
+<MudButton Variant="Variant.Filled"
+           Color="Color.Secondary"
+           Size="Size.Large"
+           StartIcon="@Icons.Material.Filled.EditNote"
+           Href="/capture"
+           Class="mb-8">
+    Tell Nornis what happened
+</MudButton>
+
+<MudGrid Spacing="4">
+    @foreach (var card in _quickAccess)
+    {
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Elevation="0" Class="nornis-card pa-5" Style="height: 100%;">
+                <MudIcon Icon="@card.Icon" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-3">@card.Title</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1 mb-4">@card.Description</MudText>
+                <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@card.Href"
+                           EndIcon="@Icons.Material.Filled.ArrowForward">
+                    @card.LinkText
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+    }
+</MudGrid>
+
+<div class="d-flex align-center mt-8">
+    <MudIcon Icon="@_healthIcon" Color="@_healthColor" Size="Size.Small" Class="mr-2" />
+    <MudText Typo="Typo.caption" Color="Color.Secondary">@_healthText</MudText>
+</div>
+
+@code {
+    private record QuickAccessCard(string Title, string Description, string Icon, string Href, string LinkText);
+
+    private readonly QuickAccessCard[] _quickAccess =
+    [
+        new("Ask the Loremaster", "Ask what your character knows — grounded in your sources.",
+            Icons.Material.Filled.Forum, "/ask", "Ask a question"),
+        new("Review proposals", "Accept, edit, or reject AI-proposed updates to your canon.",
+            Icons.Material.Filled.FactCheck, "/sources", "Open the queue"),
+        new("Browse artifacts", "Characters, locations, items, factions, and storylines.",
+            Icons.Material.Filled.Category, "/artifacts", "View artifacts"),
+    ];
+
+    private string _healthText = "Checking API connection…";
+    private string _healthIcon = Icons.Material.Filled.Sync;
+    private Color _healthColor = Color.Default;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var health = await Api.GetHealthAsync();
+        (_healthText, _healthIcon, _healthColor) = health.Status switch
+        {
+            ApiHealthStatus.Healthy => ($"Connected to nornis-api at {Api.BaseAddress}",
+                Icons.Material.Filled.CloudDone, Color.Success),
+            ApiHealthStatus.Unhealthy => ($"nornis-api reachable but unhealthy (HTTP {health.HttpStatusCode})",
+                Icons.Material.Filled.CloudOff, Color.Warning),
+            _ => ($"nornis-api unreachable at {Api.BaseAddress} — start the API to load campaign data",
+                Icons.Material.Filled.CloudOff, Color.Error),
+        };
+    }
+}
