@@ -89,6 +89,19 @@ public class NornisApiClient
     public Task<ApiResult<ReviewQueue>> GetReviewQueueAsync(Guid campaignId, CancellationToken ct = default) =>
         GetAsync<ReviewQueue>($"/api/campaigns/{campaignId}/reviews/proposals", ct);
 
+    public Task<ApiResult<ProposalActionResult>> AcceptProposalAsync(Guid campaignId, Guid proposalId, CancellationToken ct = default) =>
+        PostAsync<object?, ProposalActionResult>($"/api/campaigns/{campaignId}/reviews/proposals/{proposalId}/accept", null, ct);
+
+    public Task<ApiResult<ProposalActionResult>> RejectProposalAsync(Guid campaignId, Guid proposalId, CancellationToken ct = default) =>
+        PostAsync<object?, ProposalActionResult>($"/api/campaigns/{campaignId}/reviews/proposals/{proposalId}/reject", null, ct);
+
+    public Task<ApiResult<ProposalActionResult>> EditProposalAsync(Guid campaignId, Guid proposalId, string proposedValueJson, CancellationToken ct = default) =>
+        PostAsync<EditProposalBody, ProposalActionResult>(
+            $"/api/campaigns/{campaignId}/reviews/proposals/{proposalId}/edit",
+            new EditProposalBody(proposedValueJson), ct);
+
+    private sealed record EditProposalBody(string ProposedValueJson);
+
     // -------------------------------------------------------------------- Plumbing --
 
     private async Task<ApiResult<T>> GetAsync<T>(string uri, CancellationToken ct)

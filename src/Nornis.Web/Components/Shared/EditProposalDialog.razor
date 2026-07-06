@@ -1,0 +1,85 @@
+﻿@using System.Text.Json
+@inject NornisApiClient Api
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+            Edit the proposed value before accepting. It must be valid JSON.
+        </MudText>
+        <MudTextField @bind-Value="_json"
+                      Lines="12"
+                      Variant="Variant.Outlined"
+                      Class="nornis-mono"
+                      Immediate="true" />
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="Submit" Disabled="_busy">
+            Save changes
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private MudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid CampaignId { get; set; }
+    [Parameter] public Guid ProposalId { get; set; }
+    [Parameter] public string ProposedValueJson { get; set; } = "{}";
+
+    private string _json = "{}";
+    private bool _busy;
+    private string? _error;
+
+    protected override void OnInitialized() => _json = Prettify(ProposedValueJson);
+
+    private async Task Submit()
+    {
+        // Validate JSON client-side so the user gets immediate feedback.
+        string compact;
+        try
+        {
+            using var doc = JsonDocument.Parse(_json);
+            compact = JsonSerializer.Serialize(doc.RootElement);
+        }
+        catch (JsonException ex)
+        {
+            _error = $"Invalid JSON: {ex.Message}";
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        var result = await Api.EditProposalAsync(CampaignId, ProposalId, compact);
+
+        _busy = false;
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(result.Value!));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private static string Prettify(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (JsonException)
+        {
+            return json;
+        }
+    }
+}

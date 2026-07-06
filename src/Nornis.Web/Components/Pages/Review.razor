@@ -1,0 +1,245 @@
+﻿@page "/review"
+@using System.Text.Json
+@implements IDisposable
+@inject CampaignState Campaigns
+@inject NornisApiClient Api
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Review Queue — Nornis</PageTitle>
+
+<div class="d-flex align-center justify-space-between mb-4">
+    <div>
+        <MudText Typo="Typo.h4" Class="nornis-serif">Review Queue</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Accept, edit, or reject proposed updates to your record.</MudText>
+    </div>
+    @if (_proposals.Count > 0)
+    {
+        <span class="nornis-count-badge">@_proposals.Count</span>
+    }
+</div>
+
+@if (Campaigns.Current is null)
+{
+    <NoCampaign />
+}
+else if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="my-4" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_proposals.Count == 0)
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+        <MudIcon Icon="@Icons.Material.Outlined.FactCheck" Size="Size.Large" Class="nornis-comingsoon-icon" />
+        <MudText Typo="Typo.h5" Class="nornis-serif">Nothing to review</MudText>
+        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+            When Nornis processes a source, its proposed updates will appear here for you to accept.
+        </MudText>
+    </MudPaper>
+}
+else
+{
+    <div class="nornis-proposals">
+        @foreach (var p in _proposals)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                <div class="nornis-proposal-head">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ChangeColor(p.ChangeType)">
+                        @Humanize(p.ChangeType)
+                    </MudChip>
+                    @if (p.Confidence is not null)
+                    {
+                        <span class="nornis-list-meta">@($"{p.Confidence:P0}") confidence</span>
+                    }
+                    @if (p.Status != "Pending")
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@p.Status</MudChip>
+                    }
+                </div>
+
+                <div class="nornis-proposal-fields">
+                    @foreach (var (key, value) in Fields(p.ProposedValueJson))
+                    {
+                        <div class="nornis-kv">
+                            <span class="nornis-kv-key">@key</span>
+                            <span class="nornis-kv-value">@value</span>
+                        </div>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(p.Rationale))
+                {
+                    <div class="nornis-proposal-rationale">
+                        <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Size="Size.Small" Color="Color.Secondary" />
+                        <span>@p.Rationale</span>
+                    </div>
+                }
+
+                <div class="nornis-proposal-actions">
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.Check"
+                               OnClick="() => AcceptAsync(p)" Disabled="@_acting.Contains(p.Id)">
+                        Accept
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Edit"
+                               OnClick="() => EditAsync(p)" Disabled="@_acting.Contains(p.Id)">
+                        Edit
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Error"
+                               StartIcon="@Icons.Material.Filled.Close"
+                               OnClick="() => RejectAsync(p)" Disabled="@_acting.Contains(p.Id)">
+                        Reject
+                    </MudButton>
+                </div>
+            </MudPaper>
+        }
+    </div>
+}
+
+@code {
+    private bool _loading;
+    private string? _error;
+    private IReadOnlyList<ReviewProposal> _proposals = [];
+    private readonly HashSet<Guid> _acting = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Campaigns.Changed += OnCampaignChanged;
+        await Campaigns.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private void OnCampaignChanged() => InvokeAsync(LoadAsync);
+
+    private async Task LoadAsync()
+    {
+        if (Campaigns.Current is null)
+        {
+            _proposals = [];
+            _error = null;
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        var result = await Api.GetReviewQueueAsync(Campaigns.Current.Id);
+
+        _loading = false;
+        if (result.IsSuccess)
+        {
+            _proposals = result.Value!.Proposals;
+        }
+        else
+        {
+            _error = result.Error!.Message;
+            _proposals = [];
+        }
+        StateHasChanged();
+    }
+
+    private async Task AcceptAsync(ReviewProposal p)
+    {
+        _acting.Add(p.Id);
+        var result = await Api.AcceptProposalAsync(Campaigns.Current!.Id, p.Id);
+        _acting.Remove(p.Id);
+
+        if (result.IsSuccess)
+        {
+            _proposals = _proposals.Where(x => x.Id != p.Id).ToList();
+            Snackbar.Add("Proposal accepted.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private async Task RejectAsync(ReviewProposal p)
+    {
+        _acting.Add(p.Id);
+        var result = await Api.RejectProposalAsync(Campaigns.Current!.Id, p.Id);
+        _acting.Remove(p.Id);
+
+        if (result.IsSuccess)
+        {
+            _proposals = _proposals.Where(x => x.Id != p.Id).ToList();
+            Snackbar.Add("Proposal rejected.", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private async Task EditAsync(ReviewProposal p)
+    {
+        var parameters = new DialogParameters
+        {
+            { nameof(EditProposalDialog.CampaignId), Campaigns.Current!.Id },
+            { nameof(EditProposalDialog.ProposalId), p.Id },
+            { nameof(EditProposalDialog.ProposedValueJson), p.ProposedValueJson },
+        };
+
+        var dialog = await DialogService.ShowAsync<EditProposalDialog>("Edit proposal", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is ProposalActionResult updated)
+        {
+            _proposals = _proposals
+                .Select(x => x.Id == p.Id
+                    ? x with { ProposedValueJson = updated.ProposedValueJson ?? x.ProposedValueJson, Status = updated.Status }
+                    : x)
+                .ToList();
+            Snackbar.Add("Proposal updated.", Severity.Success);
+            StateHasChanged();
+        }
+    }
+
+    private static IEnumerable<(string Key, string Value)> Fields(string json)
+    {
+        var list = new List<(string, string)>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                {
+                    var value = prop.Value.ValueKind switch
+                    {
+                        JsonValueKind.Null => "—",
+                        JsonValueKind.String => prop.Value.GetString() ?? "",
+                        _ => prop.Value.ToString(),
+                    };
+                    list.Add((Humanize(prop.Name), value));
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            list.Add(("value", json));
+        }
+        return list;
+    }
+
+    private static Color ChangeColor(string changeType) =>
+        changeType.StartsWith("Create") ? Color.Success :
+        changeType.StartsWith("Update") || changeType.StartsWith("Edit") ? Color.Info :
+        changeType.StartsWith("Merge") ? Color.Warning :
+        Color.Default;
+
+    private static string Humanize(string pascal) =>
+        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+
+    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+}

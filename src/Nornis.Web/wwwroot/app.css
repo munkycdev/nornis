@@ -620,6 +620,69 @@ html, body {
     color: var(--mud-palette-text-primary);
 }
 
+/* -------------------------------------------------------- Review Queue --- */
+
+.nornis-proposals {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.nornis-proposal-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.nornis-proposal-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.nornis-kv {
+    display: flex;
+    gap: 12px;
+}
+
+.nornis-kv-key {
+    min-width: 130px;
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.85rem;
+    text-transform: capitalize;
+}
+
+.nornis-kv-value {
+    color: var(--mud-palette-text-primary);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.nornis-proposal-rationale {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--mud-palette-text-secondary);
+    font-style: italic;
+    background-color: var(--mud-palette-background);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 16px;
+}
+
+.nornis-proposal-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.nornis-mono .mud-input-slot,
+.nornis-mono textarea {
+    font-family: 'Cascadia Code', 'Consolas', ui-monospace, monospace;
+    font-size: 0.85rem;
+}
+
 /* ------------------------------------------------------------ ComingSoon -- */
 
 .nornis-comingsoon {

@@ -90,6 +90,16 @@ public record ReviewQueue(
     IReadOnlyList<ReviewProposal> Proposals,
     bool HasMore);
 
+/// <summary>
+/// Result of accept/reject/edit on a proposal. The API returns slightly different shapes per
+/// action; this superset captures what the UI needs (extra fields are ignored, absent ones null).
+/// </summary>
+public record ProposalActionResult(
+    Guid ProposalId,
+    string Status,
+    string? ProposedValueJson,
+    Guid? CreatedEntityId);
+
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);
 
