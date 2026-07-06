@@ -1,67 +1,647 @@
+/* ============================================================================
+   Nornis theme-oriented styles.
+   Colors are never hard-coded here — they read the MudBlazor palette custom
+   properties generated from NornisTheme (var(--mud-palette-*)). Only fonts,
+   layout, spacing, and a couple of derived translucent tones live as locals.
+   ============================================================================ */
+
 :root {
-    --nornis-body: #F8F5EF;
-    --nornis-card: #FFFDF8;
-    --nornis-text: #172A36;
-    --nornis-nav: #0F1F2D;
-    --nornis-gold: #C4A15A;
-    --nornis-slate: #6D7A80;
-    --nornis-border: #E7E0D3;
+    --nornis-serif: 'Cormorant Garamond', 'Georgia', serif;
+    --nornis-sans: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+    /* Translucent overlays used on the dark sidebar (derived, not brand colors). */
+    --nornis-onnavy-raised: rgba(255, 255, 255, 0.06);
+    --nornis-onnavy-border: rgba(255, 255, 255, 0.10);
+    --nornis-onnavy-muted: rgba(183, 193, 206, 0.75);
+
+    --nornis-card-shadow: 0 1px 2px rgba(18, 35, 59, 0.05), 0 8px 24px rgba(18, 35, 59, 0.05);
+    --nornis-topo: radial-gradient(120% 100% at 50% 0%, rgba(196, 161, 90, 0.05) 0%, rgba(196, 161, 90, 0) 55%);
 }
 
 html, body {
-    font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background-color: var(--nornis-body);
-    color: var(--nornis-text);
+    font-family: var(--nornis-sans);
+    background-color: var(--mud-palette-background);
+    color: var(--mud-palette-text-primary);
 }
 
-/* Cards sit slightly above the warm body with a subtle border + soft shadow,
-   rather than heavy texture — per the design system. */
-.nornis-card {
-    background-color: var(--nornis-card);
-    border: 1px solid var(--nornis-border);
-    border-radius: 10px;
-    box-shadow: 0 1px 2px rgba(23, 42, 54, 0.04), 0 4px 12px rgba(23, 42, 54, 0.04);
+/* Serif display type for headings and brand — applied via class, never inline. */
+.nornis-serif {
+    font-family: var(--nornis-serif);
+    font-weight: 600;
+    letter-spacing: 0.005em;
 }
 
-/* Brand block at the top of the navigation drawer. */
-.nornis-brand {
+.nornis-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* ---------------------------------------------------------------- Layout -- */
+
+.nornis-main {
+    background-color: var(--mud-palette-background);
+}
+
+.nornis-page {
+    padding: 20px 28px 40px 28px;
+}
+
+/* Top bar (search + notifications + account) sits on the body, not an app bar. */
+.nornis-topbar {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 20px 20px 12px 20px;
+    gap: 16px;
+    padding: 16px 28px;
 }
 
-.nornis-brand-text {
+.nornis-topbar .nornis-search {
+    flex: 1;
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+.nornis-search .mud-input-root {
+    background-color: var(--mud-palette-surface);
+    border-radius: 999px;
+    border: 1px solid var(--mud-palette-lines-default);
+    padding-left: 8px;
+}
+
+.nornis-kbd {
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 6px;
+    padding: 1px 6px;
+    font-size: 0.72rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-account {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.nornis-account-name {
+    font-weight: 600;
+    line-height: 1.1;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-account-role {
+    font-size: 0.78rem;
+    color: var(--mud-palette-text-secondary);
+    line-height: 1.1;
+}
+
+/* --------------------------------------------------------------- Sidebar -- */
+
+.nornis-sidebar .mud-drawer-content {
     display: flex;
     flex-direction: column;
-    line-height: 1.15;
+    height: 100%;
+    padding: 22px 16px 16px 16px;
+    gap: 18px;
+}
+
+.nornis-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0 4px 0;
+}
+
+.nornis-brand-mark {
+    font-family: var(--nornis-serif);
+    font-size: 2.4rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #FFFDF9;
 }
 
 .nornis-brand-name {
+    font-family: var(--nornis-serif);
+    font-size: 1.35rem;
+    letter-spacing: 0.34em;
+    font-weight: 600;
+    color: #FFFDF9;
+    padding-left: 0.34em;
+}
+
+.nornis-brand-tagline {
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mud-palette-secondary);
+}
+
+/* Campaign selector card. */
+.nornis-campaign {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background-color: var(--nornis-onnavy-raised);
+    border: 1px solid var(--nornis-onnavy-border);
+    cursor: pointer;
+}
+
+.nornis-campaign-name {
+    font-weight: 600;
+    color: #FFFDF9;
+    line-height: 1.15;
+}
+
+.nornis-campaign-label {
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--nornis-onnavy-muted);
+}
+
+/* Navigation links. */
+.nornis-sidebar .mud-navmenu {
+    flex: 1;
+}
+
+.nornis-sidebar .mud-nav-link {
+    border-radius: 10px;
+    margin: 2px 0;
+    color: var(--mud-palette-drawer-text);
+    font-weight: 500;
+}
+
+.nornis-sidebar .mud-nav-link .mud-nav-link-icon {
+    color: var(--mud-palette-drawer-text);
+}
+
+.nornis-sidebar .mud-nav-link:hover {
+    background-color: var(--nornis-onnavy-raised);
+}
+
+/* Extra selector class (.mud-navmenu) raises specificity above MudBlazor's own
+   active-link color rule so the gold accent wins on the navy sidebar. */
+.nornis-sidebar .mud-navmenu .mud-nav-link.active {
+    background-color: var(--nornis-onnavy-raised);
+    border: 1px solid var(--nornis-onnavy-border);
+    /* !important beats MudBlazor's own active-link color rule (equal specificity). */
+    color: var(--mud-palette-secondary) !important;
+    box-shadow: inset 3px 0 0 var(--mud-palette-secondary);
+}
+
+.nornis-sidebar .mud-navmenu .mud-nav-link.active .mud-nav-link-icon {
+    color: var(--mud-palette-secondary) !important;
+}
+
+/* Campaign memory ring card at the foot of the sidebar. */
+.nornis-memory {
+    border-radius: 12px;
+    background-color: var(--nornis-onnavy-raised);
+    border: 1px solid var(--nornis-onnavy-border);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.nornis-memory-title {
+    font-size: 0.82rem;
+    color: var(--nornis-onnavy-muted);
+}
+
+.nornis-memory-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.nornis-memory-figure {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.05;
+}
+
+.nornis-memory-pct {
+    font-size: 1.5rem;
     font-weight: 700;
+    color: #FFFDF9;
+}
+
+.nornis-memory-state {
+    font-size: 0.72rem;
+    color: var(--mud-palette-success);
+}
+
+.nornis-collapse {
+    color: var(--nornis-onnavy-muted);
+    justify-content: flex-start;
+}
+
+/* On the navy sidebar, tint the ring track lighter. */
+.nornis-ring-onnavy .mud-progress-circular-circle.mud-progress-circular-background {
+    color: var(--nornis-onnavy-border);
+}
+
+/* ----------------------------------------------------------- Cards / rail -- */
+
+.nornis-card {
+    background-color: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 16px;
+    box-shadow: var(--nornis-card-shadow);
+}
+
+.nornis-card-pad {
+    padding: 22px 24px;
+}
+
+.nornis-card-title {
+    font-family: var(--nornis-serif);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-viewall {
+    font-size: 0.82rem;
+    color: var(--mud-palette-text-secondary);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    text-decoration: none;
+}
+
+.nornis-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background-color: var(--mud-palette-secondary);
+    color: #FFFDF9;
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
+/* Dashboard column structure. */
+.nornis-dashboard {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 20px;
+    align-items: start;
+}
+
+.nornis-dashboard-main {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+}
+
+.nornis-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+@media (max-width: 1200px) {
+    .nornis-dashboard {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ------------------------------------------------------------- Ask hero --- */
+
+.nornis-hero {
+    background-image: var(--nornis-topo);
+    text-align: center;
+    padding: 34px 32px 30px 32px;
+}
+
+.nornis-hero-mark {
+    font-family: var(--nornis-serif);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--mud-palette-primary);
+    line-height: 1;
+}
+
+.nornis-hero-title {
+    font-family: var(--nornis-serif);
+    font-size: 2.6rem;
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+    margin: 6px 0 4px 0;
+}
+
+.nornis-hero-sub {
+    text-transform: uppercase;
+    letter-spacing: 0.24em;
+    font-size: 0.74rem;
+    color: var(--mud-palette-tertiary);
+    margin-bottom: 22px;
+}
+
+.nornis-ask {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.nornis-ask .nornis-ask-input {
+    flex: 1;
+}
+
+.nornis-ask .nornis-ask-input .mud-input-root {
+    background-color: var(--mud-palette-surface);
+    border-radius: 12px;
+}
+
+.nornis-suggestions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    max-width: 900px;
+    margin: 22px auto 0 auto;
+}
+
+.nornis-suggestion {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background-color: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-divider);
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.nornis-suggestion:hover {
+    border-color: var(--mud-palette-secondary);
+}
+
+@media (max-width: 900px) {
+    .nornis-suggestions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* --------------------------------------------------------- Capture card --- */
+
+.nornis-capture-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.nornis-capture-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    border: 1px solid var(--mud-palette-divider);
+    color: var(--mud-palette-secondary);
+}
+
+.nornis-capture-tiles {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.nornis-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px;
+    border-radius: 12px;
+    background-color: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-divider);
+    cursor: pointer;
+}
+
+.nornis-tile:hover {
+    border-color: var(--mud-palette-secondary);
+}
+
+.nornis-tile-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+    font-size: 0.9rem;
+}
+
+.nornis-tile-sub {
+    font-size: 0.76rem;
+    color: var(--mud-palette-text-secondary);
+    padding-left: 26px;
+}
+
+.nornis-capture-foot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 16px;
+    text-transform: uppercase;
     letter-spacing: 0.14em;
-    color: #F3EEE4;
-    font-size: 1.05rem;
-}
-
-.nornis-brand-sub {
     font-size: 0.7rem;
-    letter-spacing: 0.05em;
-    color: #9BA6AC;
-    text-transform: lowercase;
+    color: var(--mud-palette-text-secondary);
 }
 
-.nornis-wordmark {
+@media (max-width: 960px) {
+    .nornis-capture-tiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* --------------------------------------------------- Three lower columns --- */
+
+.nornis-triptych {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+}
+
+@media (max-width: 1100px) {
+    .nornis-triptych {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.nornis-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.nornis-list-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid var(--mud-palette-divider);
+}
+
+.nornis-list-row:first-of-type {
+    border-top: none;
+}
+
+.nornis-list-thumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background-color: var(--mud-palette-background);
+    color: var(--mud-palette-tertiary);
+    flex: 0 0 auto;
+}
+
+.nornis-list-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.nornis-list-title {
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+    font-size: 0.9rem;
+}
+
+.nornis-list-sub {
+    font-size: 0.78rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-list-meta {
+    font-size: 0.76rem;
+    color: var(--mud-palette-text-secondary);
+    white-space: nowrap;
+}
+
+/* Status dots (colors come from palette roles). */
+.nornis-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+}
+
+.nornis-dot-error { background-color: var(--mud-palette-error); }
+.nornis-dot-warning { background-color: var(--mud-palette-warning); }
+.nornis-dot-success { background-color: var(--mud-palette-success); }
+
+/* Continuity Health metrics. */
+.nornis-health-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.nornis-health-figure {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+}
+
+.nornis-health-pct {
+    font-size: 1.5rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    color: var(--mud-palette-text-primary);
 }
 
-.nornis-tagline {
-    letter-spacing: 0.04em;
-    opacity: 0.85;
+.nornis-health-state {
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mud-palette-success);
 }
 
-/* Gold accent on the active nav item. */
-.mud-nav-link.active {
-    border-left: 3px solid var(--nornis-gold);
+.nornis-metric {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 0;
+}
+
+.nornis-metric-label {
+    font-size: 0.86rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-metric-value {
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-card-foot {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--mud-palette-divider);
+    text-align: center;
+}
+
+/* Ring value overlay (centered % inside a MudProgressCircular). */
+.nornis-ring {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nornis-ring-value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: var(--mud-palette-text-primary);
+}
+
+/* ------------------------------------------------------------ ComingSoon -- */
+
+.nornis-comingsoon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 340px;
+    gap: 6px;
+}
+
+.nornis-comingsoon-icon {
+    color: var(--mud-palette-secondary);
+    margin-bottom: 8px;
+}
+
+.nornis-comingsoon-text {
+    max-width: 480px;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-measure {
+    max-width: 620px;
 }

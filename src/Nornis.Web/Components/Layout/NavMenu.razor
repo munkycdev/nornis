@@ -1,25 +1,58 @@
 ﻿<div class="nornis-brand">
-    <MudIcon Icon="@Icons.Material.Filled.Park" Color="Color.Secondary" Size="Size.Large" />
-    <div class="nornis-brand-text">
-        <span class="nornis-brand-name">NORNIS</span>
-        <span class="nornis-brand-sub">campaign memory</span>
+    <MudIcon Icon="@Icons.Material.Filled.Park" Color="Color.Secondary" Size="Size.Small" />
+    <div class="nornis-brand-mark">N</div>
+    <div class="nornis-brand-name">NORNIS</div>
+    <div class="nornis-brand-tagline">Shape fate. Build legacy.</div>
+</div>
+
+<div class="nornis-campaign">
+    <MudIcon Icon="@Icons.Material.Outlined.Terrain" Color="Color.Secondary" />
+    <div class="flex-grow-1">
+        <div class="nornis-campaign-name">Ashenfall</div>
+        <div class="nornis-campaign-label">Campaign</div>
     </div>
+    <MudIcon Icon="@Icons.Material.Filled.KeyboardArrowDown" Size="Size.Small" />
 </div>
 
 <MudNavMenu>
-    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
-
-    <MudDivider Class="my-2" />
-
-    <MudNavLink Href="/ask" Icon="@Icons.Material.Filled.Forum">Ask</MudNavLink>
-    <MudNavLink Href="/capture" Icon="@Icons.Material.Filled.EditNote">Capture</MudNavLink>
-    <MudNavLink Href="/artifacts" Icon="@Icons.Material.Filled.Category">Artifacts</MudNavLink>
-    <MudNavLink Href="/storylines" Icon="@Icons.Material.Filled.AutoStories">Storylines</MudNavLink>
-    <MudNavLink Href="/canon" Icon="@Icons.Material.Filled.MenuBook">Canon</MudNavLink>
-    <MudNavLink Href="/sources" Icon="@Icons.Material.Filled.Layers">Sources</MudNavLink>
-
-    <MudDivider Class="my-2" />
-
-    <MudNavLink Href="/costs" Icon="@Icons.Material.Filled.Paid">Costs</MudNavLink>
-    <MudNavLink Href="/settings" Icon="@Icons.Material.Filled.Settings">Settings</MudNavLink>
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.ChatBubbleOutline">Ask</MudNavLink>
+    <MudNavLink Href="/capture" Icon="@Icons.Material.Outlined.Create">Capture</MudNavLink>
+    <MudNavLink Href="/artifacts" Icon="@Icons.Material.Outlined.Category">Artifacts</MudNavLink>
+    <MudNavLink Href="/storylines" Icon="@Icons.Material.Outlined.Hub">Storylines</MudNavLink>
+    <MudNavLink Href="/canon" Icon="@Icons.Material.Outlined.MenuBook">Canon</MudNavLink>
+    <MudNavLink Href="/sources" Icon="@Icons.Material.Outlined.Layers">Sources</MudNavLink>
+    <MudNavLink Href="/costs" Icon="@Icons.Material.Outlined.Paid">Costs</MudNavLink>
+    <MudNavLink Href="/settings" Icon="@Icons.Material.Outlined.Settings">Settings</MudNavLink>
 </MudNavMenu>
+
+<div class="nornis-memory">
+    <div class="nornis-memory-title">Campaign Memory</div>
+    <div class="nornis-memory-row">
+        <div class="nornis-ring">
+            <MudProgressCircular Value="87" Min="0" Max="100" Color="Color.Success"
+                                 Size="Size.Medium" StrokeWidth="4" Class="nornis-ring-onnavy" />
+        </div>
+        <div class="nornis-memory-figure">
+            <span class="nornis-memory-pct">87%</span>
+            <span class="nornis-memory-state">Healthy</span>
+        </div>
+    </div>
+    <MudButton Variant="Variant.Text"
+               Color="Color.Secondary"
+               EndIcon="@Icons.Material.Filled.ArrowForward"
+               Class="nornis-collapse pa-0">
+        View details
+    </MudButton>
+</div>
+
+<MudButton Variant="Variant.Text"
+           StartIcon="@Icons.Material.Filled.KeyboardDoubleArrowLeft"
+           OnClick="OnCollapse"
+           Class="nornis-collapse">
+    Collapse
+</MudButton>
+
+@code {
+    [Parameter]
+    public EventCallback OnCollapse { get; set; }
+}

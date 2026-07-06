@@ -3,50 +3,63 @@ using MudBlazor;
 namespace Nornis.Web.Components;
 
 /// <summary>
-/// Nornis design tokens expressed as a MudBlazor theme: warm off-white body, cream cards,
-/// deep-blue navigation, deep blue-grey text, and a restrained aged-gold accent. Light theme
-/// first, per the UI design system.
+/// The single source of truth for Nornis colors, expressed as a MudBlazor light-variant theme.
+/// Components and CSS never hard-code colors — CSS reads the generated <c>--mud-palette-*</c>
+/// custom properties, and components use MudBlazor <see cref="Color"/> roles. Layout, spacing,
+/// and typography live in app.css (also theme-oriented, via the same custom properties).
 /// </summary>
 public static class NornisTheme
 {
-    // Core palette (from .kiro/steering/ui-design-system.md).
-    public const string BodyBackground = "#F8F5EF";
-    public const string CardBackground = "#FFFDF8";
-    public const string PrimaryText = "#172A36";
-    public const string SidebarNav = "#0F1F2D";
-    public const string AgedGold = "#C4A15A";
-    public const string Slate = "#6D7A80";
-
     public static readonly MudTheme Theme = new()
     {
         PaletteLight = new PaletteLight
         {
-            Primary = SidebarNav,
-            Secondary = AgedGold,
-            Tertiary = Slate,
-            Black = PrimaryText,
-            Background = BodyBackground,
-            BackgroundGray = BodyBackground,
-            Surface = CardBackground,
-            AppbarBackground = SidebarNav,
-            AppbarText = "#F3EEE4",
-            DrawerBackground = SidebarNav,
-            DrawerText = "#D9D2C4",
-            DrawerIcon = AgedGold,
-            TextPrimary = PrimaryText,
-            TextSecondary = Slate,
-            ActionDefault = Slate,
+            // Brand
+            Primary = "#12233B",          // deep navy — sidebar, primary actions
+            Secondary = "#C4A15A",        // aged gold — accents, badges, active nav
+            Tertiary = "#5E6B7A",         // slate — muted detail
+
+            // Neutrals
+            Black = "#12233B",
+            White = "#FFFDF9",
+            Background = "#F5F1E9",       // warm off-white body
+            BackgroundGray = "#EFEADF",
+            Surface = "#FFFDF9",          // cream cards
+
+            // Navigation (deep navy sidebar with light text + gold icons)
+            AppbarBackground = "#FFFDF9",
+            AppbarText = "#12233B",
+            DrawerBackground = "#12233B",
+            DrawerText = "#B7C1CE",
+            DrawerIcon = "#C4A15A",
+
+            // Text
+            TextPrimary = "#16293B",
+            TextSecondary = "#5E6B7A",
+            TextDisabled = "#9AA6B0",
+            ActionDefault = "#5E6B7A",
+            ActionDisabled = "#B7BFC7",
+
+            // Lines
             Divider = "#E7E0D3",
             DividerLight = "#EFEAE0",
-            Success = "#4F7A5B",
-            Warning = "#B7891F",
+            LinesDefault = "#E7E0D3",
+            LinesInputs = "#DBD3C4",
+            TableLines = "#E7E0D3",
+
+            // Status (muted, per design system)
+            Success = "#4E9A6B",
+            Warning = "#C08A2E",
             Error = "#B5533F",
             Info = "#3F6079",
+
+            GrayLight = "#EFEADF",
+            GrayLighter = "#F5F1E9",
         },
         LayoutProperties = new LayoutProperties
         {
-            DefaultBorderRadius = "8px",
-            DrawerWidthLeft = "248px",
+            DefaultBorderRadius = "12px",
+            DrawerWidthLeft = "264px",
         },
     };
 }

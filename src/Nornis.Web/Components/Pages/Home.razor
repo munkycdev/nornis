@@ -1,73 +1,285 @@
 ﻿@page "/"
 @inject NornisApiClient Api
 
-<PageTitle>Nornis — Home</PageTitle>
+<PageTitle>Ask the Loremaster — Nornis</PageTitle>
 
-<MudText Typo="Typo.h3" GutterBottom="true">Your campaign, remembered.</MudText>
-<MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6" Style="max-width: 620px;">
-    Add notes, journals, transcripts, images, maps, or links. Nornis will shape them into your
-    campaign record — then let you ask the Loremaster what matters.
-</MudText>
+@if (_apiUnreachable)
+{
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4" Icon="@Icons.Material.Filled.CloudOff">
+        Showing sample data — nornis-api is unreachable at @Api.BaseAddress. Start the API to load your campaign.
+    </MudAlert>
+}
 
-<MudButton Variant="Variant.Filled"
-           Color="Color.Secondary"
-           Size="Size.Large"
-           StartIcon="@Icons.Material.Filled.EditNote"
-           Href="/capture"
-           Class="mb-8">
-    Tell Nornis what happened
-</MudButton>
+<div class="nornis-dashboard">
+    <div class="nornis-dashboard-main">
 
-<MudGrid Spacing="4">
-    @foreach (var card in _quickAccess)
-    {
-        <MudItem xs="12" sm="6" md="4">
-            <MudPaper Elevation="0" Class="nornis-card pa-5" Style="height: 100%;">
-                <MudIcon Icon="@card.Icon" Color="Color.Primary" Size="Size.Large" />
-                <MudText Typo="Typo.h6" Class="mt-3">@card.Title</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1 mb-4">@card.Description</MudText>
-                <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@card.Href"
-                           EndIcon="@Icons.Material.Filled.ArrowForward">
-                    @card.LinkText
-                </MudButton>
+        <MudPaper Elevation="0" Class="nornis-card nornis-hero">
+            <div class="nornis-hero-mark">N</div>
+            <div class="nornis-hero-title">Ask the Loremaster</div>
+            <div class="nornis-hero-sub">Your campaign. Remembered. Understood.</div>
+
+            <div class="nornis-ask">
+                <MudTextField T="string"
+                              Class="nornis-ask-input"
+                              Placeholder="What should I remember before tonight?"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense" />
+                <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
+                               Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               aria-label="Ask" />
+            </div>
+
+            <div class="nornis-suggestions">
+                @foreach (var s in _suggestions)
+                {
+                    <button type="button" class="nornis-suggestion">
+                        <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />
+                        <span>@s</span>
+                    </button>
+                }
+            </div>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <div class="nornis-capture-head">
+                <div class="nornis-capture-icon">
+                    <MudIcon Icon="@Icons.Material.Outlined.Create" />
+                </div>
+                <div>
+                    <div class="nornis-card-title">Tell Nornis what happened</div>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Add session notes, transcripts, images, or links. Nornis will do the rest.
+                    </MudText>
+                </div>
+            </div>
+
+            <div class="nornis-capture-tiles">
+                @foreach (var tile in _captureTiles)
+                {
+                    <a href="/capture" class="nornis-tile">
+                        <span class="nornis-tile-title">
+                            <MudIcon Icon="@tile.Icon" Color="Color.Primary" Size="Size.Small" />
+                            @tile.Title
+                        </span>
+                        <span class="nornis-tile-sub">@tile.Subtitle</span>
+                    </a>
+                }
+            </div>
+
+            <div class="nornis-capture-foot">
+                <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
+                All inputs are private to your campaign
+            </div>
+        </MudPaper>
+
+        <div class="nornis-triptych">
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                <div class="nornis-card-header">
+                    <span class="nornis-card-title">Active Storylines</span>
+                    <a href="/storylines" class="nornis-viewall">View all <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" /></a>
+                </div>
+                @foreach (var item in _storylines)
+                {
+                    <div class="nornis-list-row">
+                        <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /></div>
+                        <div class="nornis-list-body">
+                            <div class="nornis-list-title">@item.Name</div>
+                            <div class="nornis-list-sub">@item.Status</div>
+                        </div>
+                        @if (item.AtRisk)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Color="Color.Warning" Size="Size.Small" />
+                        }
+                    </div>
+                }
             </MudPaper>
-        </MudItem>
-    }
-</MudGrid>
 
-<div class="d-flex align-center mt-8">
-    <MudIcon Icon="@_healthIcon" Color="@_healthColor" Size="Size.Small" Class="mr-2" />
-    <MudText Typo="Typo.caption" Color="Color.Secondary">@_healthText</MudText>
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                <div class="nornis-card-header">
+                    <span class="nornis-card-title">Canon Updates</span>
+                    <a href="/canon" class="nornis-viewall">View all <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" /></a>
+                </div>
+                @foreach (var item in _canonUpdates)
+                {
+                    <div class="nornis-list-row">
+                        <div class="nornis-list-thumb"><MudIcon Icon="@item.Icon" Size="Size.Small" /></div>
+                        <div class="nornis-list-body">
+                            <div class="nornis-list-title">@item.Name</div>
+                            <div class="nornis-list-sub">@item.Change</div>
+                        </div>
+                        <span class="nornis-list-meta">@item.When</span>
+                    </div>
+                }
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                <div class="nornis-card-header">
+                    <span class="nornis-card-title">Recently Active Artifacts</span>
+                    <a href="/artifacts" class="nornis-viewall">View all <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" /></a>
+                </div>
+                @foreach (var item in _recentArtifacts)
+                {
+                    <div class="nornis-list-row">
+                        <div class="nornis-list-thumb"><MudIcon Icon="@item.Icon" Size="Size.Small" /></div>
+                        <div class="nornis-list-body">
+                            <div class="nornis-list-title">@item.Name</div>
+                            <div class="nornis-list-sub">@item.When</div>
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Color="Color.Tertiary" aria-label="More" />
+                    </div>
+                }
+            </MudPaper>
+        </div>
+    </div>
+
+    <div class="nornis-rail">
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <div class="nornis-card-header">
+                <span class="nornis-card-title">Continuity Health</span>
+                <MudIcon Icon="@Icons.Material.Outlined.Info" Color="Color.Tertiary" Size="Size.Small" />
+            </div>
+            <div class="nornis-health-row">
+                <div class="nornis-ring">
+                    <MudProgressCircular Value="87" Min="0" Max="100" Color="Color.Success" Size="Size.Large" StrokeWidth="5" />
+                    <div class="nornis-ring-value">
+                        <div class="nornis-health-figure">
+                            <span class="nornis-health-pct">87%</span>
+                            <span class="nornis-health-state">Strong</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex-grow-1">
+                    @foreach (var m in _healthMetrics)
+                    {
+                        <div class="nornis-metric">
+                            <span class="nornis-metric-label">@m.Label</span>
+                            <span class="nornis-metric-value">@m.Value%</span>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="nornis-card-foot">
+                <a href="/canon" class="nornis-viewall">View full report <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" /></a>
+            </div>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <div class="nornis-card-header">
+                <span class="nornis-card-title">Review Queue</span>
+                <span class="nornis-count-badge">@_reviewQueue.Length</span>
+            </div>
+            @foreach (var item in _reviewQueue)
+            {
+                <div class="nornis-list-row">
+                    <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" /></div>
+                    <div class="nornis-list-body">
+                        <div class="nornis-list-title">@item.Name</div>
+                        <div class="nornis-list-sub">@item.Reason</div>
+                    </div>
+                    <span class="nornis-dot @item.DotClass"></span>
+                </div>
+            }
+            <div class="nornis-card-foot">
+                <a href="/sources" class="nornis-viewall">Open Review Queue <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" /></a>
+            </div>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <div class="nornis-card-header">
+                <span class="nornis-card-title">Recent Changes</span>
+            </div>
+            @foreach (var item in _recentChanges)
+            {
+                <div class="nornis-list-row">
+                    <div class="nornis-list-thumb"><MudIcon Icon="@item.Icon" Size="Size.Small" /></div>
+                    <div class="nornis-list-body">
+                        <div class="nornis-list-title">@item.Name</div>
+                        <div class="nornis-list-sub">@item.Change</div>
+                    </div>
+                    <span class="nornis-list-meta">@item.When</span>
+                </div>
+            }
+            <div class="nornis-card-foot">
+                <a href="/canon" class="nornis-viewall">View all changes <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" /></a>
+            </div>
+        </MudPaper>
+    </div>
 </div>
 
 @code {
-    private record QuickAccessCard(string Title, string Description, string Icon, string Href, string LinkText);
+    private bool _apiUnreachable;
 
-    private readonly QuickAccessCard[] _quickAccess =
+    private readonly string[] _suggestions =
     [
-        new("Ask the Loremaster", "Ask what your character knows — grounded in your sources.",
-            Icons.Material.Filled.Forum, "/ask", "Ask a question"),
-        new("Review proposals", "Accept, edit, or reject AI-proposed updates to your canon.",
-            Icons.Material.Filled.FactCheck, "/sources", "Open the queue"),
-        new("Browse artifacts", "Characters, locations, items, factions, and storylines.",
-            Icons.Material.Filled.Category, "/artifacts", "View artifacts"),
+        "What changed last session?",
+        "What storylines are unresolved?",
+        "What does Turin know about Captain Voss?",
+        "What should I prep next?",
     ];
 
-    private string _healthText = "Checking API connection…";
-    private string _healthIcon = Icons.Material.Filled.Sync;
-    private Color _healthColor = Color.Default;
+    private record Tile(string Title, string Subtitle, string Icon);
+    private readonly Tile[] _captureTiles =
+    [
+        new("Write Notes", "Start typing…", Icons.Material.Outlined.Create),
+        new("Paste Transcript", "From chat or audio", Icons.Material.Outlined.ContentPaste),
+        new("Upload Image", "Maps, notes, assets", Icons.Material.Outlined.Image),
+        new("Handwritten Note", "Upload or scan", Icons.Material.Outlined.Gesture),
+        new("Add Link", "Article, wiki, video", Icons.Material.Outlined.Link),
+    ];
+
+    private record Storyline(string Name, string Status, bool AtRisk);
+    private readonly Storyline[] _storylines =
+    [
+        new("The Lost Heir", "Unresolved", false),
+        new("The Hollow Prophecy", "Unresolved", false),
+        new("The Silver Bargain", "At Risk", true),
+    ];
+
+    private record CanonUpdate(string Name, string Change, string When, string Icon);
+    private readonly CanonUpdate[] _canonUpdates =
+    [
+        new("Captain Voss", "Marked as recurring NPC", "2h ago", Icons.Material.Outlined.Person),
+        new("Silver Key", "Added new property", "5h ago", Icons.Material.Outlined.VpnKey),
+        new("Ashenfall Keep", "Updated description", "Yesterday", Icons.Material.Outlined.Castle),
+    ];
+
+    private record ArtifactRef(string Name, string When, string Icon);
+    private readonly ArtifactRef[] _recentArtifacts =
+    [
+        new("Silver Key", "Last used 2h ago", Icons.Material.Outlined.VpnKey),
+        new("Captain Voss's Log", "Last used 2h ago", Icons.Material.Outlined.MenuBook),
+        new("Ashen Seal", "Last used Yesterday", Icons.Material.Outlined.Shield),
+    ];
+
+    private record Metric(string Label, int Value);
+    private readonly Metric[] _healthMetrics =
+    [
+        new("Consistency", 91),
+        new("Completeness", 82),
+        new("Clarity", 86),
+        new("Recency", 89),
+    ];
+
+    private record ReviewItem(string Name, string Reason, string DotClass);
+    private readonly ReviewItem[] _reviewQueue =
+    [
+        new("Captain Voss", "New info conflicts with prior event", "nornis-dot-error"),
+        new("Silver Key", "Unverified detail detected", "nornis-dot-warning"),
+        new("Missing Caravan", "Needs source or context", "nornis-dot-warning"),
+    ];
+
+    private record ChangeItem(string Name, string Change, string When, string Icon);
+    private readonly ChangeItem[] _recentChanges =
+    [
+        new("Sister Aurien", "Updated relationship", "2h ago", Icons.Material.Outlined.Person),
+        new("The Black Hollow", "New location added", "4h ago", Icons.Material.Outlined.Place),
+        new("Old Stone Road", "Details expanded", "Yesterday", Icons.Material.Outlined.Description),
+    ];
 
     protected override async Task OnInitializedAsync()
     {
         var health = await Api.GetHealthAsync();
-        (_healthText, _healthIcon, _healthColor) = health.Status switch
-        {
-            ApiHealthStatus.Healthy => ($"Connected to nornis-api at {Api.BaseAddress}",
-                Icons.Material.Filled.CloudDone, Color.Success),
-            ApiHealthStatus.Unhealthy => ($"nornis-api reachable but unhealthy (HTTP {health.HttpStatusCode})",
-                Icons.Material.Filled.CloudOff, Color.Warning),
-            _ => ($"nornis-api unreachable at {Api.BaseAddress} — start the API to load campaign data",
-                Icons.Material.Filled.CloudOff, Color.Error),
-        };
+        _apiUnreachable = health.Status == ApiHealthStatus.Unreachable;
     }
 }

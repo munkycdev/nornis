@@ -1,11 +1,9 @@
-﻿<MudPaper Elevation="0" Class="nornis-card pa-8 d-flex flex-column align-center justify-center" Style="min-height: 320px;">
-    <MudIcon Icon="@Icon" Color="Color.Secondary" Style="font-size: 3rem;" />
-    <MudText Typo="Typo.h4" Class="mt-4">@Title</MudText>
+﻿<MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+    <MudIcon Icon="@Icon" Size="Size.Large" Class="nornis-comingsoon-icon" />
+    <MudText Typo="Typo.h4" Class="nornis-serif">@Title</MudText>
     @if (!string.IsNullOrWhiteSpace(Description))
     {
-        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-2 text-center" Style="max-width: 480px;">
-            @Description
-        </MudText>
+        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">@Description</MudText>
     }
     <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small" Class="mt-6">
         Coming soon
