@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
@@ -386,6 +387,18 @@ public class LoremasterAskTestFactory : NornisWebApplicationFactory
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         base.ConfigureWebHost(builder);
+
+        // Keep this test independent of the machine-local appsettings.json: price the model
+        // the fake AI client reports ("gpt-4o") so cost tracking has a matching entry.
+        // (ModelPricing is keyed by the response's model; without a match, cost is $0.)
+        builder.ConfigureAppConfiguration((_, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Loremaster:ModelPricing:gpt-4o:InputPerMillionTokensUsd"] = "2.50",
+                ["Loremaster:ModelPricing:gpt-4o:OutputPerMillionTokensUsd"] = "10.00",
+            });
+        });
 
         builder.ConfigureServices(services =>
         {

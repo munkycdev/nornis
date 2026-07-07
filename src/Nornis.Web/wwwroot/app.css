@@ -929,6 +929,79 @@ html, body {
     text-align: right;
 }
 
+/* ---------------------------------------------------- Ask the Loremaster -- */
+
+.nornis-answer-thinking {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--mud-palette-text-secondary);
+    font-style: italic;
+}
+
+.nornis-answer-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.nornis-answer-label {
+    font-family: var(--nornis-serif);
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-answer-text {
+    color: var(--mud-palette-text-primary);
+    line-height: 1.65;
+    white-space: pre-wrap;
+}
+
+.nornis-answer-caveat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.85rem;
+    margin-top: 10px;
+}
+
+.nornis-answer-citations {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--mud-palette-divider);
+}
+
+.nornis-answer-citations-label {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.72rem;
+    color: var(--mud-palette-text-secondary);
+    margin-right: 4px;
+}
+
+.nornis-cite {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background-color: var(--mud-palette-background);
+    border: 1px solid var(--mud-palette-divider);
+    font-size: 0.82rem;
+    color: var(--mud-palette-text-primary);
+    text-decoration: none;
+}
+
+a.nornis-cite:hover {
+    border-color: var(--mud-palette-secondary);
+}
+
 /* ------------------------------------------------------------ ComingSoon -- */
 
 .nornis-comingsoon {

@@ -191,6 +191,23 @@ public record OperationTypeCost(string OperationType, CostSummary Summary);
 
 public record ModelCost(string Model, CostSummary Summary);
 
+public record AskRequest(string Question, string? ConversationContext);
+
+public record Citation(
+    string ReferenceId,
+    string Type,
+    string DisplayName,
+    Guid? ArtifactId,
+    Guid? FactId,
+    Guid? RelationshipId,
+    Guid? SourceId);
+
+public record AskAnswer(
+    string Answer,
+    IReadOnlyList<Citation> Citations,
+    string Confidence,
+    IReadOnlyList<string> Caveats);
+
 public record CampaignHealth(
     bool HasData,
     int OverallScore,

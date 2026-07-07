@@ -22,26 +22,85 @@ else
 
                 <div class="nornis-ask">
                     <MudTextField T="string"
+                                  @bind-Value="_question"
+                                  Immediate="true"
                                   Class="nornis-ask-input"
                                   Placeholder="What should I remember before tonight?"
                                   Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
+                                  Margin="Margin.Dense"
+                                  OnKeyUp="OnAskKeyUp"
+                                  Disabled="_asking" />
                     <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
                                    Variant="Variant.Filled"
                                    Color="Color.Primary"
+                                   OnClick="AskAsync"
+                                   Disabled="_asking"
                                    aria-label="Ask" />
                 </div>
 
                 <div class="nornis-suggestions">
                     @foreach (var s in _suggestions)
                     {
-                        <button type="button" class="nornis-suggestion">
+                        <button type="button" class="nornis-suggestion" @onclick="() => AskSuggestionAsync(s)" disabled="@_asking">
                             <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />
                             <span>@s</span>
                         </button>
                     }
                 </div>
             </MudPaper>
+
+            @if (_asking)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-answer">
+                    <div class="nornis-answer-thinking">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Secondary" />
+                        <span>Consulting the Loremaster…</span>
+                    </div>
+                </MudPaper>
+            }
+            else if (_askError is not null)
+            {
+                <MudAlert Severity="Severity.Error" ShowCloseIcon="true" CloseIconClicked="() => _askError = null">@_askError</MudAlert>
+            }
+            else if (_answer is not null)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-answer">
+                    <div class="nornis-answer-head">
+                        <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />
+                        <span class="nornis-answer-label">Loremaster</span>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@ConfidenceColor(_answer.Confidence)">
+                            @_answer.Confidence confidence
+                        </MudChip>
+                        <MudSpacer />
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="ClearAnswer" aria-label="Dismiss" />
+                    </div>
+                    <div class="nornis-answer-text">@CleanAnswer(_answer.Answer)</div>
+                    @foreach (var caveat in _answer.Caveats)
+                    {
+                        <div class="nornis-answer-caveat">
+                            <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" Color="Color.Tertiary" />
+                            <span>@caveat</span>
+                        </div>
+                    }
+                    @if (_answer.Citations.Count > 0)
+                    {
+                        <div class="nornis-answer-citations">
+                            <span class="nornis-answer-citations-label">Sources</span>
+                            @foreach (var c in _answer.Citations)
+                            {
+                                @if (c.ArtifactId is not null)
+                                {
+                                    <a href="@($"/artifacts/{c.ArtifactId}")" class="nornis-cite">@c.DisplayName</a>
+                                }
+                                else
+                                {
+                                    <span class="nornis-cite">@c.DisplayName</span>
+                                }
+                            }
+                        </div>
+                    }
+                </MudPaper>
+            }
 
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                 <div class="nornis-capture-head">
@@ -245,6 +304,12 @@ else
 @code {
     private bool _loading;
 
+    // Ask the Loremaster
+    private string _question = string.Empty;
+    private bool _asking;
+    private AskAnswer? _answer;
+    private string? _askError;
+
     private IReadOnlyList<ArtifactListItem> _storylines = [];
     private IReadOnlyList<ArtifactListItem> _recentArtifacts = [];
     private IReadOnlyList<CanonEntry> _canonFacts = [];
@@ -277,6 +342,66 @@ else
         await Campaigns.EnsureLoadedAsync();
         await LoadDashboardAsync();
     }
+
+    private async Task OnAskKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await AskAsync();
+        }
+    }
+
+    private async Task AskSuggestionAsync(string suggestion)
+    {
+        _question = suggestion;
+        await AskAsync();
+    }
+
+    private async Task AskAsync()
+    {
+        var question = _question?.Trim();
+        if (string.IsNullOrWhiteSpace(question) || Campaigns.Current is null || _asking)
+        {
+            return;
+        }
+
+        _asking = true;
+        _askError = null;
+        _answer = null;
+        StateHasChanged();
+
+        var result = await Api.AskLoremasterAsync(Campaigns.Current.Id, question);
+
+        _asking = false;
+        if (result.IsSuccess)
+        {
+            _answer = result.Value;
+        }
+        else
+        {
+            _askError = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    private void ClearAnswer()
+    {
+        _answer = null;
+        _question = string.Empty;
+    }
+
+    private static Color ConfidenceColor(string confidence) => confidence switch
+    {
+        "High" => Color.Success,
+        "Medium" => Color.Info,
+        "Low" => Color.Warning,
+        _ => Color.Default,
+    };
+
+    // The answer embeds inline [ref:...] citation markers; the citations are rendered separately
+    // as chips, so strip the markers from the prose.
+    private static string CleanAnswer(string text) =>
+        System.Text.RegularExpressions.Regex.Replace(text, @"\s*\[ref:[^\]]+\]", "").Trim();
 
     // Reload dashboard data only when the campaign actually changes; other notifications
     // (e.g. the health score arriving) just re-render so the card picks up Campaigns.Health.

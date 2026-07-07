@@ -109,6 +109,11 @@ public class NornisApiClient
     public Task<ApiResult<ReviewQueue>> GetReviewQueueAsync(Guid campaignId, CancellationToken ct = default) =>
         GetAsync<ReviewQueue>($"/api/campaigns/{campaignId}/reviews/proposals", ct);
 
+    // ------------------------------------------------------------------------ Ask --
+
+    public Task<ApiResult<AskAnswer>> AskLoremasterAsync(Guid campaignId, string question, CancellationToken ct = default) =>
+        PostAsync<AskRequest, AskAnswer>($"/api/campaigns/{campaignId}/ask", new AskRequest(question, null), ct);
+
     public Task<ApiResult<CampaignHealth>> GetCampaignHealthAsync(Guid campaignId, CancellationToken ct = default) =>
         GetAsync<CampaignHealth>($"/api/campaigns/{campaignId}/health", ct);
 
