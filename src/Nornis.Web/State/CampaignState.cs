@@ -20,6 +20,9 @@ public class CampaignState
     public IReadOnlyList<CampaignSummary> Campaigns { get; private set; } = [];
     public CampaignSummary? Current { get; private set; }
 
+    /// <summary>Heuristic continuity-health score for <see cref="Current"/>, loaded on selection.</summary>
+    public CampaignHealth? Health { get; private set; }
+
     /// <summary>Set when the campaign list could not be loaded (e.g. the API is unreachable).</summary>
     public ApiError? LoadError { get; private set; }
 
@@ -55,6 +58,8 @@ public class CampaignState
         // Keep the current selection if it still exists, otherwise fall back to the first.
         Current = Campaigns.FirstOrDefault(c => c.Id == Current?.Id) ?? Campaigns.FirstOrDefault();
         Changed?.Invoke();
+
+        await LoadHealthAsync(ct);
     }
 
     public void Select(Guid campaignId)
@@ -63,7 +68,23 @@ public class CampaignState
         if (match is not null && match.Id != Current?.Id)
         {
             Current = match;
+            Health = null;
             Changed?.Invoke();
+            _ = LoadHealthAsync();
         }
+    }
+
+    /// <summary>Loads the continuity-health score for the current campaign, then notifies.</summary>
+    public async Task LoadHealthAsync(CancellationToken ct = default)
+    {
+        if (Current is null)
+        {
+            Health = null;
+            return;
+        }
+
+        var result = await _api.GetCampaignHealthAsync(Current.Id, ct);
+        Health = result.IsSuccess ? result.Value : null;
+        Changed?.Invoke();
     }
 }

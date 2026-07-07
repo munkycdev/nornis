@@ -158,30 +158,36 @@ else
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                 <div class="nornis-card-header">
                     <span class="nornis-card-title">Continuity Health</span>
-                    <MudTooltip Text="Preview — not yet computed from live data.">
+                    <MudTooltip Text="A heuristic score from your artifacts, facts, relationships, and sources.">
                         <MudIcon Icon="@Icons.Material.Outlined.Info" Color="Color.Tertiary" Size="Size.Small" />
                     </MudTooltip>
                 </div>
-                <div class="nornis-health-row">
-                    <div class="nornis-ring">
-                        <MudProgressCircular Value="87" Min="0" Max="100" Color="Color.Success" Size="Size.Large" StrokeWidth="5" />
-                        <div class="nornis-ring-value">
-                            <div class="nornis-health-figure">
-                                <span class="nornis-health-pct">87%</span>
-                                <span class="nornis-health-state">Strong</span>
+                @if (Campaigns.Health is { HasData: true } h)
+                {
+                    <div class="nornis-health-row">
+                        <div class="nornis-ring">
+                            <MudProgressCircular Value="@h.OverallScore" Min="0" Max="100" Color="@HealthColor(h.OverallScore)" Size="Size.Large" StrokeWidth="5" />
+                            <div class="nornis-ring-value">
+                                <div class="nornis-health-figure">
+                                    <span class="nornis-health-pct">@h.OverallScore%</span>
+                                    <span class="nornis-health-state">@h.Label</span>
+                                </div>
                             </div>
                         </div>
+                        <div class="flex-grow-1">
+                            <div class="nornis-metric"><span class="nornis-metric-label">Consistency</span><span class="nornis-metric-value">@h.Consistency%</span></div>
+                            <div class="nornis-metric"><span class="nornis-metric-label">Completeness</span><span class="nornis-metric-value">@h.Completeness%</span></div>
+                            <div class="nornis-metric"><span class="nornis-metric-label">Groundedness</span><span class="nornis-metric-value">@h.Groundedness%</span></div>
+                            <div class="nornis-metric"><span class="nornis-metric-label">Recency</span><span class="nornis-metric-value">@h.Recency%</span></div>
+                        </div>
                     </div>
-                    <div class="flex-grow-1">
-                        @foreach (var m in _healthMetrics)
-                        {
-                            <div class="nornis-metric">
-                                <span class="nornis-metric-label">@m.Label</span>
-                                <span class="nornis-metric-value">@m.Value%</span>
-                            </div>
-                        }
-                    </div>
-                </div>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @(Campaigns.Health is null ? "Computing…" : "Not enough data yet.")
+                    </MudText>
+                }
             </MudPaper>
 
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
@@ -263,15 +269,7 @@ else
         new("Add Link", "Article, wiki, video", Icons.Material.Outlined.Link),
     ];
 
-    // Static preview — no analytics endpoint exists yet.
-    private record Metric(string Label, int Value);
-    private readonly Metric[] _healthMetrics =
-    [
-        new("Consistency", 91),
-        new("Completeness", 82),
-        new("Clarity", 86),
-        new("Recency", 89),
-    ];
+    private Guid _dashboardCampaignId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -280,17 +278,31 @@ else
         await LoadDashboardAsync();
     }
 
-    private void OnCampaignChanged() => InvokeAsync(LoadDashboardAsync);
+    // Reload dashboard data only when the campaign actually changes; other notifications
+    // (e.g. the health score arriving) just re-render so the card picks up Campaigns.Health.
+    private void OnCampaignChanged() => InvokeAsync(async () =>
+    {
+        if (Campaigns.Current?.Id != _dashboardCampaignId)
+        {
+            await LoadDashboardAsync();
+        }
+        else
+        {
+            StateHasChanged();
+        }
+    });
 
     private async Task LoadDashboardAsync()
     {
         if (Campaigns.Current is null)
         {
+            _dashboardCampaignId = Guid.Empty;
             StateHasChanged();
             return;
         }
 
         var id = Campaigns.Current.Id;
+        _dashboardCampaignId = id;
         _loading = true;
         StateHasChanged();
 
@@ -361,6 +373,13 @@ else
 
     private static string Humanize(string pascal) =>
         string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+
+    private static Color HealthColor(int score) => score switch
+    {
+        >= 70 => Color.Success,
+        >= 50 => Color.Warning,
+        _ => Color.Error,
+    };
 
     public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
 }

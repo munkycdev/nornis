@@ -77,6 +77,7 @@ builder.Services.AddScoped<ICampaignMemberService, CampaignMemberService>();
 builder.Services.AddScoped<ISourceService, SourceService>();
 builder.Services.AddScoped<IArtifactService, ArtifactService>();
 builder.Services.AddScoped<ICanonService, CanonService>();
+builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddSingleton<IProposalValidator, ProposalValidator>();
 builder.Services.AddScoped<IProposalApplicator, ProposalApplicator>();

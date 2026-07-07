@@ -191,6 +191,17 @@ public record OperationTypeCost(string OperationType, CostSummary Summary);
 
 public record ModelCost(string Model, CostSummary Summary);
 
+public record CampaignHealth(
+    bool HasData,
+    int OverallScore,
+    string Label,
+    int Consistency,
+    int Completeness,
+    int Groundedness,
+    int Recency,
+    int ArtifactCount,
+    int StatementCount);
+
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);
 
