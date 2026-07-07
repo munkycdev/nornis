@@ -1,0 +1,182 @@
+﻿@page "/sources/{SourceId:guid}"
+@implements IDisposable
+@inject CampaignState Campaigns
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_source?.Title ?? "Source") — Nornis</PageTitle>
+
+<div class="nornis-narrow">
+    <MudButton Href="/sources" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2">
+        Sources
+    </MudButton>
+
+    @if (Campaigns.Current is null)
+    {
+        <NoCampaign />
+    }
+    else if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="my-4" />
+    }
+    else if (_notFound)
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+            <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Size="Size.Large" Class="nornis-comingsoon-icon" />
+            <MudText Typo="Typo.h5" Class="nornis-serif">Source not found</MudText>
+            <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+                It may have been removed, or you may not have permission to see it.
+            </MudText>
+        </MudPaper>
+    }
+    else if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_source is not null)
+    {
+        <div class="nornis-detail-head">
+            <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Description" /></div>
+            <div class="flex-grow-1">
+                <MudText Typo="Typo.h4" Class="nornis-serif">@_source.Title</MudText>
+                <div class="nornis-detail-chips">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@Humanize(_source.Type)</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_source.ProcessingStatus)">@_source.ProcessingStatus</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@_source.Visibility</MudChip>
+                </div>
+            </div>
+            @if (_source.ProcessingStatus is "Draft" or "Failed")
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.AutoAwesome"
+                           OnClick="ProcessAsync" Disabled="_processing">
+                    Process
+                </MudButton>
+            }
+        </div>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+            <div class="nornis-kv">
+                <span class="nornis-kv-key">Created</span>
+                <span class="nornis-kv-value">@_source.CreatedAt.LocalDateTime.ToString("d MMM yyyy, h:mm tt")</span>
+            </div>
+            @if (_source.OccurredAt is not null)
+            {
+                <div class="nornis-kv">
+                    <span class="nornis-kv-key">Occurred</span>
+                    <span class="nornis-kv-value">@_source.OccurredAt.Value.LocalDateTime.ToString("d MMM yyyy")</span>
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(_source.Uri))
+            {
+                <div class="nornis-kv">
+                    <span class="nornis-kv-key">Link</span>
+                    <a href="@_source.Uri" target="_blank" rel="noopener" class="nornis-link">@_source.Uri</a>
+                </div>
+            }
+        </MudPaper>
+
+        @if (!string.IsNullOrWhiteSpace(_source.Body))
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">Content</div>
+                <div class="nornis-source-body">@_source.Body</div>
+            </MudPaper>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public Guid SourceId { get; set; }
+
+    private bool _loading;
+    private bool _notFound;
+    private bool _processing;
+    private string? _error;
+    private SourceDetailDto? _source;
+    private Guid _loadedId;
+
+    protected override void OnInitialized() => Campaigns.Changed += OnCampaignChanged;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (SourceId != _loadedId)
+        {
+            await Campaigns.EnsureLoadedAsync();
+            await LoadAsync();
+        }
+    }
+
+    private void OnCampaignChanged() => InvokeAsync(LoadAsync);
+
+    private async Task LoadAsync()
+    {
+        if (Campaigns.Current is null)
+        {
+            _source = null;
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        _notFound = false;
+        _error = null;
+        _loadedId = SourceId;
+        StateHasChanged();
+
+        var result = await Api.GetSourceAsync(Campaigns.Current.Id, SourceId);
+
+        _loading = false;
+        if (result.IsSuccess)
+        {
+            _source = result.Value!;
+        }
+        else if (result.Error!.Code == "not_found")
+        {
+            _notFound = true;
+            _source = null;
+        }
+        else
+        {
+            _error = result.Error!.Message;
+            _source = null;
+        }
+        StateHasChanged();
+    }
+
+    private async Task ProcessAsync()
+    {
+        if (Campaigns.Current is null || _source is null)
+        {
+            return;
+        }
+
+        _processing = true;
+        var result = await Api.MarkSourceReadyAsync(Campaigns.Current.Id, _source.Id);
+        _processing = false;
+
+        if (result.IsSuccess)
+        {
+            _source = result.Value!;
+            Snackbar.Add("Source queued for processing.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Processed" => Color.Success,
+        "Processing" or "Queued" => Color.Info,
+        "Failed" => Color.Error,
+        "Ready" => Color.Warning,
+        _ => Color.Default,
+    };
+
+    private static string Humanize(string pascal) =>
+        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+
+    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+}

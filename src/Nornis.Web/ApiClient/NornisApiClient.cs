@@ -76,15 +76,15 @@ public class NornisApiClient
     public Task<ApiResult<IReadOnlyList<SourceListItem>>> GetSourcesAsync(Guid campaignId, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<SourceListItem>>($"/api/campaigns/{campaignId}/sources", ct);
 
-    public Task<ApiResult<SourceDetail>> GetSourceAsync(Guid campaignId, Guid sourceId, CancellationToken ct = default) =>
-        GetAsync<SourceDetail>($"/api/campaigns/{campaignId}/sources/{sourceId}", ct);
+    public Task<ApiResult<SourceDetailDto>> GetSourceAsync(Guid campaignId, Guid sourceId, CancellationToken ct = default) =>
+        GetAsync<SourceDetailDto>($"/api/campaigns/{campaignId}/sources/{sourceId}", ct);
 
-    public Task<ApiResult<SourceDetail>> CreateSourceAsync(Guid campaignId, CreateSourceRequest request, CancellationToken ct = default) =>
-        PostAsync<CreateSourceRequest, SourceDetail>($"/api/campaigns/{campaignId}/sources", request, ct);
+    public Task<ApiResult<SourceDetailDto>> CreateSourceAsync(Guid campaignId, CreateSourceRequest request, CancellationToken ct = default) =>
+        PostAsync<CreateSourceRequest, SourceDetailDto>($"/api/campaigns/{campaignId}/sources", request, ct);
 
     /// <summary>Marks a source Ready, which enqueues it for AI extraction.</summary>
-    public Task<ApiResult<SourceDetail>> MarkSourceReadyAsync(Guid campaignId, Guid sourceId, CancellationToken ct = default) =>
-        PostAsync<object?, SourceDetail>($"/api/campaigns/{campaignId}/sources/{sourceId}/ready", null, ct);
+    public Task<ApiResult<SourceDetailDto>> MarkSourceReadyAsync(Guid campaignId, Guid sourceId, CancellationToken ct = default) =>
+        PostAsync<object?, SourceDetailDto>($"/api/campaigns/{campaignId}/sources/{sourceId}/ready", null, ct);
 
     // ------------------------------------------------------------------ Knowledge --
 
@@ -111,8 +111,8 @@ public class NornisApiClient
 
     // ------------------------------------------------------------------------ Ask --
 
-    public Task<ApiResult<AskAnswer>> AskLoremasterAsync(Guid campaignId, string question, CancellationToken ct = default) =>
-        PostAsync<AskRequest, AskAnswer>($"/api/campaigns/{campaignId}/ask", new AskRequest(question, null), ct);
+    public Task<ApiResult<AskAnswer>> AskLoremasterAsync(Guid campaignId, string question, string? conversationContext = null, CancellationToken ct = default) =>
+        PostAsync<AskRequest, AskAnswer>($"/api/campaigns/{campaignId}/ask", new AskRequest(question, conversationContext), ct);
 
     public Task<ApiResult<CampaignHealth>> GetCampaignHealthAsync(Guid campaignId, CancellationToken ct = default) =>
         GetAsync<CampaignHealth>($"/api/campaigns/{campaignId}/health", ct);

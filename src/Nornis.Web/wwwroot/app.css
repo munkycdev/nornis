@@ -505,6 +505,20 @@ html, body {
     border-top: none;
 }
 
+.nornis-list-link {
+    text-decoration: none;
+    color: inherit;
+    margin: 0 -8px;
+    padding-left: 8px;
+    padding-right: 8px;
+    border-radius: 8px;
+    transition: background-color 0.12s ease;
+}
+
+.nornis-list-link:hover {
+    background-color: var(--mud-palette-background);
+}
+
 .nornis-list-thumb {
     display: flex;
     align-items: center;
@@ -836,6 +850,12 @@ html, body {
     display: block;
 }
 
+.nornis-source-body {
+    color: var(--mud-palette-text-primary);
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
 /* --------------------------------------------------------------- Settings -- */
 
 .nornis-member-row {
@@ -1000,6 +1020,32 @@ html, body {
 
 a.nornis-cite:hover {
     border-color: var(--mud-palette-secondary);
+}
+
+.nornis-ask-thread {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.nornis-ask-q {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+    padding-top: 4px;
+}
+
+.nornis-ask-composer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    bottom: 12px;
+    background-color: var(--mud-palette-background);
+    padding: 10px 0;
 }
 
 /* ------------------------------------------------------------ ComingSoon -- */

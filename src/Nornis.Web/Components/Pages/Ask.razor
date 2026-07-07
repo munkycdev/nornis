@@ -1,0 +1,336 @@
+﻿@page "/ask"
+@using System.Text
+@using System.Text.Json
+@implements IDisposable
+@inject CampaignState Campaigns
+@inject NornisApiClient Api
+@inject AskState AskState
+@inject IJSRuntime JS
+
+<PageTitle>Ask the Loremaster — Nornis</PageTitle>
+
+<div class="nornis-narrow">
+    <div class="d-flex align-center justify-space-between mb-4">
+        <div>
+            <MudText Typo="Typo.h4" Class="nornis-serif">Ask the Loremaster</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Grounded in your campaign — with citations.</MudText>
+        </div>
+        <div class="d-flex align-center gap-2">
+            @if (_conversations.Count > 0)
+            {
+                <MudMenu Icon="@Icons.Material.Filled.History" Color="Color.Default" AriaLabel="Conversation history" Dense="true">
+                    @foreach (var c in _conversations.OrderByDescending(x => x.UpdatedAt))
+                    {
+                        <MudMenuItem OnClick="() => SelectConversation(c.Id)">@c.Title</MudMenuItem>
+                    }
+                </MudMenu>
+            }
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="NewConversation" Disabled="_asking">
+                New
+            </MudButton>
+        </div>
+    </div>
+
+    @if (Campaigns.Current is null)
+    {
+        <NoCampaign />
+    }
+    else
+    {
+        <div class="nornis-ask-thread">
+            @if ((_current is null || _current.Exchanges.Count == 0) && !_asking)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+                    <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Large" Class="nornis-comingsoon-icon" />
+                    <MudText Typo="Typo.h5" Class="nornis-serif">Ask anything about your campaign</MudText>
+                    <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+                        The Loremaster answers from your accepted artifacts, facts, and sources — and says so when something isn't known.
+                    </MudText>
+                </MudPaper>
+            }
+            else if (_current is not null)
+            {
+                @foreach (var ex in _current.Exchanges)
+                {
+                    <div class="nornis-ask-q">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                        <span>@ex.Question</span>
+                    </div>
+                    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-answer">
+                        <div class="nornis-answer-head">
+                            <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />
+                            <span class="nornis-answer-label">Loremaster</span>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@ConfidenceColor(ex.Confidence)">
+                                @ex.Confidence confidence
+                            </MudChip>
+                        </div>
+                        <div class="nornis-answer-text">@ex.Answer</div>
+                        @foreach (var caveat in ex.Caveats)
+                        {
+                            <div class="nornis-answer-caveat">
+                                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" Color="Color.Tertiary" />
+                                <span>@caveat</span>
+                            </div>
+                        }
+                        @if (ex.Citations.Count > 0)
+                        {
+                            <div class="nornis-answer-citations">
+                                <span class="nornis-answer-citations-label">Sources</span>
+                                @foreach (var c in ex.Citations)
+                                {
+                                    @if (c.ArtifactId is not null)
+                                    {
+                                        <a href="@($"/artifacts/{c.ArtifactId}")" class="nornis-cite">@c.DisplayName</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="nornis-cite">@c.DisplayName</span>
+                                    }
+                                }
+                            </div>
+                        }
+                    </MudPaper>
+                }
+            }
+
+            @if (_asking)
+            {
+                @if (_pendingQuestion is not null)
+                {
+                    <div class="nornis-ask-q">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                        <span>@_pendingQuestion</span>
+                    </div>
+                }
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-answer">
+                    <div class="nornis-answer-thinking">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Secondary" />
+                        <span>Consulting the Loremaster…</span>
+                    </div>
+                </MudPaper>
+            }
+
+            @if (_error is not null)
+            {
+                <MudAlert Severity="Severity.Error" ShowCloseIcon="true" CloseIconClicked="() => _error = null">@_error</MudAlert>
+            }
+        </div>
+
+        <div class="nornis-ask-composer">
+            <MudTextField T="string"
+                          @bind-Value="_input"
+                          Immediate="true"
+                          Placeholder="@(_current is { Exchanges.Count: > 0 } ? "Ask a follow-up…" : "What should I remember before tonight?")"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          OnKeyUp="OnKeyUp"
+                          Disabled="_asking"
+                          Class="flex-grow-1" />
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="SendAsync"
+                           Disabled="_asking"
+                           aria-label="Ask" />
+        </div>
+    }
+</div>
+
+@code {
+    private List<AskConversation> _conversations = [];
+    private AskConversation? _current;
+    private string _input = string.Empty;
+    private string? _pendingQuestion;
+    private bool _asking;
+    private string? _error;
+    private Guid _loadedCampaignId;
+    private bool _initialized;
+
+    private string StorageKey => $"nornis:ask:{Campaigns.Current?.Id}";
+
+    protected override void OnInitialized() => Campaigns.Changed += OnCampaignChanged;
+
+    private void OnCampaignChanged() => InvokeAsync(ReloadForCampaignAsync);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await Campaigns.EnsureLoadedAsync();
+        await ReloadForCampaignAsync();
+
+        // A question handed off from the dashboard Ask hero starts a fresh conversation.
+        var pending = AskState.PendingQuestion;
+        AskState.PendingQuestion = null;
+        if (!string.IsNullOrWhiteSpace(pending))
+        {
+            NewConversation();
+            await AskAsync(pending);
+        }
+    }
+
+    private async Task ReloadForCampaignAsync()
+    {
+        if (Campaigns.Current is null || (_initialized && Campaigns.Current.Id == _loadedCampaignId))
+        {
+            return;
+        }
+
+        _loadedCampaignId = Campaigns.Current.Id;
+        _initialized = true;
+        await LoadHistoryAsync();
+        _current = _conversations.OrderByDescending(c => c.UpdatedAt).FirstOrDefault();
+        StateHasChanged();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+            _conversations = string.IsNullOrWhiteSpace(json)
+                ? []
+                : JsonSerializer.Deserialize<List<AskConversation>>(json) ?? [];
+        }
+        catch
+        {
+            _conversations = [];
+        }
+    }
+
+    private async Task SaveHistoryAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, JsonSerializer.Serialize(_conversations));
+        }
+        catch
+        {
+            // Persistence is best-effort; ignore storage failures.
+        }
+    }
+
+    private async Task OnKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SendAsync();
+        }
+    }
+
+    private async Task SendAsync()
+    {
+        var q = _input?.Trim();
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return;
+        }
+
+        _input = string.Empty;
+        await AskAsync(q);
+    }
+
+    private async Task AskAsync(string question)
+    {
+        if (Campaigns.Current is null || _asking)
+        {
+            return;
+        }
+
+        if (_current is null)
+        {
+            _current = new AskConversation { Title = Truncate(question) };
+            _conversations.Add(_current);
+        }
+
+        var context = BuildContext(_current);
+        _pendingQuestion = question;
+        _asking = true;
+        _error = null;
+        StateHasChanged();
+
+        var result = await Api.AskLoremasterAsync(Campaigns.Current.Id, question, context);
+
+        _asking = false;
+        _pendingQuestion = null;
+
+        if (result.IsSuccess)
+        {
+            var a = result.Value!;
+            _current.Exchanges.Add(new AskExchange
+            {
+                Question = question,
+                Answer = CleanAnswer(a.Answer),
+                Confidence = a.Confidence,
+                Citations = a.Citations.Select(c => new AskCitation { DisplayName = c.DisplayName, ArtifactId = c.ArtifactId }).ToList(),
+                Caveats = a.Caveats.ToList(),
+            });
+            if (_current.Exchanges.Count == 1)
+            {
+                _current.Title = Truncate(question);
+            }
+            _current.UpdatedAt = DateTimeOffset.UtcNow;
+            await SaveHistoryAsync();
+        }
+        else
+        {
+            _error = result.Error!.Message;
+            // Discard a conversation that never got its first answer.
+            if (_current.Exchanges.Count == 0)
+            {
+                _conversations.Remove(_current);
+                _current = _conversations.OrderByDescending(c => c.UpdatedAt).FirstOrDefault();
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void NewConversation()
+    {
+        _current = null;
+        _input = string.Empty;
+        _error = null;
+    }
+
+    private void SelectConversation(string id)
+    {
+        _current = _conversations.FirstOrDefault(c => c.Id == id);
+        _error = null;
+    }
+
+    private static string? BuildContext(AskConversation c)
+    {
+        if (c.Exchanges.Count == 0)
+        {
+            return null;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Earlier in this conversation (most recent last):");
+        foreach (var ex in c.Exchanges.TakeLast(5))
+        {
+            sb.AppendLine($"Q: {ex.Question}");
+            sb.AppendLine($"A: {ex.Answer}");
+        }
+        return sb.ToString();
+    }
+
+    private static string Truncate(string q) => q.Length <= 48 ? q : q[..47].TrimEnd() + "…";
+
+    private static string CleanAnswer(string text) =>
+        System.Text.RegularExpressions.Regex.Replace(text, @"\s*\[ref:[^\]]+\]", "").Trim();
+
+    private static Color ConfidenceColor(string confidence) => confidence switch
+    {
+        "High" => Color.Success,
+        "Medium" => Color.Info,
+        "Low" => Color.Warning,
+        _ => Color.Default,
+    };
+
+    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+}

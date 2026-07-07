@@ -50,7 +50,7 @@ else
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
         @foreach (var source in _sources)
         {
-            <div class="nornis-list-row">
+            <a href="@($"/sources/{source.Id}")" class="nornis-list-row nornis-list-link">
                 <div class="nornis-list-thumb">
                     <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" />
                 </div>
@@ -62,7 +62,7 @@ else
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(source.ProcessingStatus)">
                     @source.ProcessingStatus
                 </MudChip>
-            </div>
+            </a>
         }
     </MudPaper>
 }

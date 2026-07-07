@@ -18,6 +18,7 @@ builder.Services.AddHttpClient<NornisApiClient>(client =>
 });
 
 builder.Services.AddScoped<Nornis.Web.State.CampaignState>();
+builder.Services.AddScoped<Nornis.Web.State.AskState>();
 
 var app = builder.Build();
 

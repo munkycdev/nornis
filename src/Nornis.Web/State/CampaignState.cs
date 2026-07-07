@@ -11,6 +11,7 @@ public class CampaignState
 {
     private readonly NornisApiClient _api;
     private bool _loaded;
+    private Task? _loadingTask;
 
     public CampaignState(NornisApiClient api)
     {
@@ -28,15 +29,18 @@ public class CampaignState
 
     public event Action? Changed;
 
-    /// <summary>Loads campaigns once per circuit and selects the first as current.</summary>
-    public async Task EnsureLoadedAsync(CancellationToken ct = default)
+    /// <summary>
+    /// Loads campaigns once per circuit and selects the first as current. Concurrent callers
+    /// (multiple components initializing at once) share a single load rather than each firing one.
+    /// </summary>
+    public Task EnsureLoadedAsync(CancellationToken ct = default)
     {
         if (_loaded)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        await ReloadAsync(ct);
+        return _loadingTask ??= ReloadAsync(ct);
     }
 
     public async Task ReloadAsync(CancellationToken ct = default)

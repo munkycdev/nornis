@@ -19,7 +19,7 @@
     <ChildContent>
         @foreach (var campaign in Campaigns.Campaigns)
         {
-            <MudMenuItem OnClick="@(() => Campaigns.Select(campaign.Id))">@campaign.Name</MudMenuItem>
+            <MudMenuItem OnClick="@(() => SelectCampaignAsync(campaign.Id))">@campaign.Name</MudMenuItem>
         }
         @if (Campaigns.Campaigns.Count > 0)
         {
@@ -79,8 +79,11 @@
 @implements IDisposable
 @inject CampaignState Campaigns
 @inject IDialogService DialogService
+@inject IJSRuntime JS
 
 @code {
+    private const string SelectedCampaignKey = "nornis:campaign";
+
     [Parameter]
     public EventCallback OnCollapse { get; set; }
 
@@ -88,6 +91,44 @@
     {
         Campaigns.Changed += OnCampaignsChanged;
         await Campaigns.EnsureLoadedAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        // Restore the campaign the user last had selected (localStorage needs JS, so after render).
+        // Ensure the list is loaded first — OnAfterRender can fire before OnInitializedAsync's load.
+        await Campaigns.EnsureLoadedAsync();
+        try
+        {
+            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", SelectedCampaignKey);
+            if (Guid.TryParse(saved, out var id) && id != Campaigns.Current?.Id
+                && Campaigns.Campaigns.Any(c => c.Id == id))
+            {
+                Campaigns.Select(id);
+            }
+        }
+        catch
+        {
+            // Best-effort restore; ignore storage failures.
+        }
+    }
+
+    private async Task SelectCampaignAsync(Guid campaignId)
+    {
+        Campaigns.Select(campaignId);
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", SelectedCampaignKey, campaignId.ToString());
+        }
+        catch
+        {
+            // Best-effort persist.
+        }
     }
 
     private void OnCampaignsChanged() => InvokeAsync(StateHasChanged);
@@ -107,7 +148,7 @@
         if (result is not null && !result.Canceled && result.Data is CampaignSummary created)
         {
             await Campaigns.ReloadAsync();
-            Campaigns.Select(created.Id);
+            await SelectCampaignAsync(created.Id);
         }
     }
 

@@ -48,7 +48,7 @@ public record SourceListItem(
     string Visibility,
     string ProcessingStatus);
 
-public record SourceDetail(
+public record SourceDetailDto(
     Guid Id,
     Guid CampaignId,
     string Type,

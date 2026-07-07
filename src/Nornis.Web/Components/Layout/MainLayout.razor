@@ -15,33 +15,12 @@
     </MudDrawer>
 
     <MudMainContent Class="nornis-main">
-        <header class="nornis-topbar">
-            @if (!_navOpen)
-            {
+        @if (!_navOpen)
+        {
+            <header class="nornis-topbar">
                 <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" OnClick="ToggleNav" aria-label="Show navigation" />
-            }
-            <div class="nornis-search">
-                <MudTextField T="string"
-                              Placeholder="Search Nornis…"
-                              Variant="Variant.Outlined"
-                              Margin="Margin.Dense"
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="@Icons.Material.Filled.Search"
-                              AdornmentColor="Color.Tertiary"
-                              Immediate="false" />
-            </div>
-            <MudBadge Dot="true" Color="Color.Secondary" Overlap="true" Bordered="true">
-                <MudIconButton Icon="@Icons.Material.Filled.NotificationsNone" Color="Color.Inherit" aria-label="Notifications" />
-            </MudBadge>
-            <div class="nornis-account">
-                <MudAvatar Color="Color.Primary" Variant="Variant.Filled">N</MudAvatar>
-                <div>
-                    <div class="nornis-account-name">Game Master</div>
-                    <div class="nornis-account-role">Loremaster</div>
-                </div>
-                <MudIcon Icon="@Icons.Material.Filled.KeyboardArrowDown" Color="Color.Tertiary" Size="Size.Small" />
-            </div>
-        </header>
+            </header>
+        }
 
         <div class="nornis-page">
             @Body
