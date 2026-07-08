@@ -270,13 +270,16 @@ public class ContinuityAuditService : IContinuityAuditService
 
             // Keep only evidence ids that resolve; an ungrounded finding is discarded.
             var evidence = (f.Evidence ?? [])
+                .Select(NormalizeRefId)
                 .Where(Resolves)
                 .Distinct(StringComparer.Ordinal)
                 .ToList();
             if (evidence.Count == 0)
                 continue;
 
-            var artifactId = ResolveArtifactId(f.ArtifactRef, evidence, artifactRefs, factRefs);
+            var artifactId = ResolveArtifactId(
+                f.ArtifactRef is null ? null : NormalizeRefId(f.ArtifactRef),
+                evidence, artifactRefs, factRefs);
 
             result.Add(new ContinuityFinding
             {
@@ -295,6 +298,19 @@ public class ContinuityAuditService : IContinuityAuditService
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// The record renders ids as "[ref:fact:GUID]" and the prompt tells the model to copy them
+    /// exactly, so responses reliably echo the "ref:" prefix (and occasionally the brackets).
+    /// Lookups are keyed on the bare "kind:guid" form — normalize before resolving.
+    /// </summary>
+    internal static string NormalizeRefId(string refId)
+    {
+        var id = refId.Trim().TrimStart('[').TrimEnd(']').Trim();
+        if (id.StartsWith("ref:", StringComparison.OrdinalIgnoreCase))
+            id = id[4..];
+        return id;
     }
 
     private static Guid? ResolveArtifactId(

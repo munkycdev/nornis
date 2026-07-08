@@ -131,6 +131,22 @@ public class ContinuityAuditServiceTests
     }
 
     [Test]
+    public async Task RunAssessment_EvidenceWithRefPrefix_AsTheModelActuallyReturnsIt_Resolves()
+    {
+        // The record renders ids as [ref:fact:GUID] and the prompt says to copy them exactly,
+        // so the real model echoes the "ref:" prefix. Regression: these must still resolve.
+        _ai.SetupFindings(Finding(
+            evidence: [$"ref:{FactRef}", $"[ref:{ArtifactRef}]"],
+            artifactRef: $"ref:{ArtifactRef}"));
+
+        var result = await _service.RunAssessmentAsync(_campaignId, null, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.Findings, Has.Count.EqualTo(1));
+        Assert.That(result.Value.Findings[0].ArtifactId, Is.EqualTo(_voss.Id));
+    }
+
+    [Test]
     public async Task RunAssessment_DropsFindingsWithUnresolvableEvidence()
     {
         _ai.SetupFindings(
