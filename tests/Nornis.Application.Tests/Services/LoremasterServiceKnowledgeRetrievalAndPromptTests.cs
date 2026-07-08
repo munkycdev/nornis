@@ -216,7 +216,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
 
         // Assert
         var sentRequest = _aiClient.LastRequest!;
-        Assert.That(sentRequest.SystemPrompt, Does.Contain("Ground all answers exclusively in the provided campaign knowledge context"));
+        Assert.That(sentRequest.SystemPrompt, Does.Contain("Ground every answer exclusively in the provided campaign knowledge context"));
     }
 
     [Test]
@@ -247,7 +247,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
         // Assert
         var sentRequest = _aiClient.LastRequest!;
         Assert.That(sentRequest.SystemPrompt, Does.Contain("Do not invent campaign facts"));
-        Assert.That(sentRequest.SystemPrompt, Does.Contain("Never claim certainty about information not present in the context"));
+        Assert.That(sentRequest.SystemPrompt, Does.Contain("Do not invent campaign facts, events, names, or relationships not present in the context"));
     }
 
     #endregion

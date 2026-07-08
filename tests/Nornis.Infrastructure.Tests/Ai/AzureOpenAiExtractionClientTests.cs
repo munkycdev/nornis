@@ -557,7 +557,7 @@ public class AzureOpenAiExtractionClientTests
 
         Assert.That(prompt, Does.Contain("GMOnly"));
         Assert.That(prompt, Does.Contain("visibility"));
-        Assert.That(prompt, Does.Contain("Never produce a proposal with visibility broader than the source"));
+        Assert.That(prompt, Does.Contain("Never produce a proposal with visibility broader than its source"));
     }
 
     [Test]
@@ -595,7 +595,7 @@ public class AzureOpenAiExtractionClientTests
         var prompt = AzureOpenAiExtractionClient.BuildSystemPrompt(request);
 
         Assert.That(prompt, Does.Contain("Private"));
-        Assert.That(prompt, Does.Contain("Private sources produce ONLY Private proposals"));
+        Assert.That(prompt, Does.Contain("MUST include \"visibility\": \"Private\""));
     }
 
     [Test]
@@ -612,7 +612,7 @@ public class AzureOpenAiExtractionClientTests
         var prompt = AzureOpenAiExtractionClient.BuildSystemPrompt(request);
 
         Assert.That(prompt, Does.Contain("rationale"));
-        Assert.That(prompt, Does.Contain("1-500 characters"));
+        Assert.That(prompt, Does.Contain("max 500 characters"));
     }
 
     #endregion

@@ -15,6 +15,12 @@ public interface IArtifactRepository
 
     Task<IReadOnlyList<Artifact>> SearchByNameAsync(Guid campaignId, string searchTerm, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Exact (case-insensitive) name match within a campaign. Returns all matches so
+    /// callers can detect ambiguous names.
+    /// </summary>
+    Task<IReadOnlyList<Artifact>> ListByExactNameAsync(Guid campaignId, string name, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<Artifact>> ListRecentByCampaignAsync(
         Guid campaignId,
         IReadOnlyList<VisibilityScope> allowedVisibilities,

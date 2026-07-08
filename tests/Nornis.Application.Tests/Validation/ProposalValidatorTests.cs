@@ -399,6 +399,42 @@ public class ProposalValidatorTests
     #region AddRelationship Validation
 
     [Test]
+    public void AddRelationship_NamesInsteadOfIds_ReturnsSuccess()
+    {
+        var json = JsonSerializer.Serialize(new AddRelationshipPayload(
+            null, null, "LocatedIn", null, null, null, null,
+            ArtifactAName: "Captain Voss", ArtifactBName: "Black Harbor"));
+
+        var result = _validator.ValidateProposedValue(json, ReviewChangeType.AddRelationship);
+
+        Assert.That(result.IsSuccess, Is.True);
+    }
+
+    [Test]
+    public void AddRelationship_MixedIdAndName_ReturnsSuccess()
+    {
+        var json = JsonSerializer.Serialize(new AddRelationshipPayload(
+            Guid.NewGuid(), null, "SuspectedIn", null, null, null, null,
+            ArtifactBName: "The Missing Caravan"));
+
+        var result = _validator.ValidateProposedValue(json, ReviewChangeType.AddRelationship);
+
+        Assert.That(result.IsSuccess, Is.True);
+    }
+
+    [Test]
+    public void AddRelationship_NoIdAndNoNameForEndpointA_ReturnsError()
+    {
+        var json = JsonSerializer.Serialize(new AddRelationshipPayload(
+            null, Guid.NewGuid(), "LocatedIn", null, null, null, null));
+
+        var result = _validator.ValidateProposedValue(json, ReviewChangeType.AddRelationship);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Message, Does.Contain("ArtifactAId or ArtifactAName"));
+    }
+
+    [Test]
     public void AddRelationship_ValidPayload_ReturnsSuccess()
     {
         var json = JsonSerializer.Serialize(new AddRelationshipPayload(

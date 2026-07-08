@@ -63,6 +63,18 @@ public class InMemoryArtifactRepository : IArtifactRepository
         return Task.FromResult<IReadOnlyList<Artifact>>(results.AsReadOnly());
     }
 
+    public Task<IReadOnlyList<Artifact>> ListByExactNameAsync(
+        Guid campaignId,
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        var results = _artifacts
+            .Where(a => a.CampaignId == campaignId &&
+                        string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        return Task.FromResult<IReadOnlyList<Artifact>>(results.AsReadOnly());
+    }
+
     public Task<IReadOnlyList<Artifact>> ListRecentByCampaignAsync(
         Guid campaignId,
         IReadOnlyList<VisibilityScope> allowedVisibilities,

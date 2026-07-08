@@ -12,6 +12,11 @@ public class FakeKnowledgeRetriever : IKnowledgeRetriever
     /// </summary>
     public int CallCount { get; private set; }
 
+    /// <summary>
+    /// The question text passed to the most recent <see cref="RetrieveAsync"/> call.
+    /// </summary>
+    public string? LastQuestion { get; private set; }
+
     public Task<KnowledgeContext> RetrieveAsync(
         string question,
         Guid campaignId,
@@ -20,6 +25,7 @@ public class FakeKnowledgeRetriever : IKnowledgeRetriever
         CancellationToken ct)
     {
         CallCount++;
+        LastQuestion = question;
 
         return Task.FromResult(NextContext ?? new KnowledgeContext
         {

@@ -62,6 +62,18 @@ public class ArtifactRepository : IArtifactRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Artifact>> ListByExactNameAsync(Guid campaignId, string name, CancellationToken cancellationToken = default)
+    {
+        // Default SQL Server collation is case-insensitive; ToLower makes the intent
+        // explicit and keeps the in-memory test provider behaviour identical.
+        var normalized = name.ToLowerInvariant();
+
+        return await _context.Artifacts
+            .AsNoTracking()
+            .Where(a => a.CampaignId == campaignId && a.Name.ToLower() == normalized)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Artifact>> ListRecentByCampaignAsync(
         Guid campaignId,
         IReadOnlyList<VisibilityScope> allowedVisibilities,

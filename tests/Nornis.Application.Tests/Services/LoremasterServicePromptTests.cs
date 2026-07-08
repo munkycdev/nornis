@@ -44,7 +44,7 @@ public class LoremasterServicePromptTests
     public void SystemPromptTemplate_ContainsGroundingRules()
     {
         Assert.That(LoremasterService.SystemPromptTemplate,
-            Does.Contain("Ground all answers exclusively in the provided campaign knowledge context"));
+            Does.Contain("Ground every answer exclusively in the provided campaign knowledge context"));
     }
 
     [Test]
@@ -71,7 +71,7 @@ public class LoremasterServicePromptTests
     public void SystemPromptTemplate_InstructsToAcknowledgeMissingInfo()
     {
         Assert.That(LoremasterService.SystemPromptTemplate,
-            Does.Contain("acknowledge this directly"));
+            Does.Contain("say so plainly"));
     }
 
     [Test]
@@ -431,6 +431,186 @@ public class LoremasterServicePromptTests
         Assert.That(result, Does.Contain("LocatedIn [ref:rel-3]"));
         Assert.That(result, Does.Not.Contain("—"));
     }
+
+    #region Conversation context and structured formatting
+
+    [Test]
+    public void BuildPrompt_WithConversationContext_IncludesConversationSection()
+    {
+        var context = CreateEmptyContext();
+        var conversation = "Q: Who is Captain Voss?\nA: A harbor captain in Black Harbor.";
+
+        var request = _service.BuildPrompt("What about his brother?", context, conversation);
+
+        Assert.That(request.UserMessage, Does.Contain("## Conversation So Far"));
+        Assert.That(request.UserMessage, Does.Contain("Who is Captain Voss?"));
+    }
+
+    [Test]
+    public void BuildPrompt_WithoutConversationContext_OmitsConversationSection()
+    {
+        var request = _service.BuildPrompt("Who is Voss?", CreateEmptyContext());
+
+        Assert.That(request.UserMessage, Does.Not.Contain("## Conversation So Far"));
+    }
+
+    [Test]
+    public async Task AskAsync_ConversationContext_ReachesAiPromptAndRetrieval()
+    {
+        var command = new Nornis.Application.Models.AskLoremasterCommand(
+            Guid.NewGuid(),
+            "What about his brother?",
+            Guid.NewGuid(),
+            CampaignRole.Player,
+            "Q: Who is Captain Voss? A: A harbor captain.");
+
+        var result = await _service.AskAsync(command, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_aiClient.LastRequest!.UserMessage, Does.Contain("## Conversation So Far"));
+        Assert.That(_knowledgeRetriever.LastQuestion, Does.Contain("Captain Voss"),
+            "conversation context should participate in retrieval name matching");
+    }
+
+    [Test]
+    public void FormatKnowledgeContext_GroupsFactsUnderTheirArtifact()
+    {
+        var artifactId = Guid.NewGuid();
+        var context = new KnowledgeContext
+        {
+            Artifacts = new List<KnowledgeArtifact>
+            {
+                new() { Id = artifactId, Name = "Captain Voss", Type = "Character", Summary = "A captain", ReferenceId = "art-1" }
+            },
+            Facts = new List<KnowledgeFact>
+            {
+                new() { Id = Guid.NewGuid(), ArtifactId = artifactId, Predicate = "location", Value = "Black Harbor", TruthState = TruthState.Confirmed, ReferenceId = "fact-1" }
+            },
+            Relationships = new List<KnowledgeRelationship>(),
+            SourceReferences = new List<KnowledgeSourceReference>()
+        };
+
+        var formatted = LoremasterService.FormatKnowledgeContext(context);
+
+        var artifactLine = formatted.IndexOf("Captain Voss (Character", StringComparison.Ordinal);
+        var factLine = formatted.IndexOf("location: Black Harbor", StringComparison.Ordinal);
+        Assert.That(artifactLine, Is.GreaterThanOrEqualTo(0));
+        Assert.That(factLine, Is.GreaterThan(artifactLine), "fact should be nested under its artifact");
+        Assert.That(formatted, Does.Not.Contain("### Additional Facts"));
+    }
+
+    [Test]
+    public void FormatKnowledgeContext_NamesRelationshipEndpoints()
+    {
+        var vossId = Guid.NewGuid();
+        var harborId = Guid.NewGuid();
+        var context = new KnowledgeContext
+        {
+            Artifacts = new List<KnowledgeArtifact>
+            {
+                new() { Id = vossId, Name = "Captain Voss", Type = "Character", ReferenceId = "art-1" },
+                new() { Id = harborId, Name = "Black Harbor", Type = "Location", ReferenceId = "art-2" }
+            },
+            Facts = new List<KnowledgeFact>(),
+            Relationships = new List<KnowledgeRelationship>
+            {
+                new() { Id = Guid.NewGuid(), ArtifactAId = vossId, ArtifactBId = harborId, Type = "LocatedIn", TruthState = TruthState.Confirmed, ReferenceId = "rel-1" }
+            },
+            SourceReferences = new List<KnowledgeSourceReference>()
+        };
+
+        var formatted = LoremasterService.FormatKnowledgeContext(context);
+
+        Assert.That(formatted, Does.Contain("Captain Voss <-> Black Harbor: LocatedIn"));
+    }
+
+    [Test]
+    public void FormatKnowledgeContext_LabelsFalseAndHiddenTruthStates()
+    {
+        var artifactId = Guid.NewGuid();
+        var context = new KnowledgeContext
+        {
+            Artifacts = new List<KnowledgeArtifact>
+            {
+                new() { Id = artifactId, Name = "Captain Voss", Type = "Character", ReferenceId = "art-1" }
+            },
+            Facts = new List<KnowledgeFact>
+            {
+                new() { Id = Guid.NewGuid(), ArtifactId = artifactId, Predicate = "allegiance", Value = "The Crown", TruthState = TruthState.False, ReferenceId = "fact-1" },
+                new() { Id = Guid.NewGuid(), ArtifactId = artifactId, Predicate = "true allegiance", Value = "The Shadow Guild", TruthState = TruthState.Hidden, ReferenceId = "fact-2" }
+            },
+            Relationships = new List<KnowledgeRelationship>(),
+            SourceReferences = new List<KnowledgeSourceReference>()
+        };
+
+        var formatted = LoremasterService.FormatKnowledgeContext(context);
+
+        Assert.That(formatted, Does.Contain("[False \u2014 recorded misinformation]"));
+        Assert.That(formatted, Does.Contain("[Hidden \u2014 GM-only truth]"));
+    }
+
+    [Test]
+    public void FormatKnowledgeContext_OrphanFacts_ListedUnderAdditionalFacts()
+    {
+        var context = new KnowledgeContext
+        {
+            Artifacts = new List<KnowledgeArtifact>(),
+            Facts = new List<KnowledgeFact>
+            {
+                new() { Id = Guid.NewGuid(), ArtifactId = Guid.NewGuid(), Predicate = "location", Value = "Black Harbor", TruthState = TruthState.Confirmed, ReferenceId = "fact-1" }
+            },
+            Relationships = new List<KnowledgeRelationship>(),
+            SourceReferences = new List<KnowledgeSourceReference>()
+        };
+
+        var formatted = LoremasterService.FormatKnowledgeContext(context);
+
+        Assert.That(formatted, Does.Contain("### Additional Facts"));
+        Assert.That(formatted, Does.Contain("location: Black Harbor"));
+    }
+
+    [Test]
+    public void FormatKnowledgeContext_IncludesArtifactStatus_WhenPresent()
+    {
+        var context = new KnowledgeContext
+        {
+            Artifacts = new List<KnowledgeArtifact>
+            {
+                new() { Id = Guid.NewGuid(), Name = "The Missing Caravan", Type = "Storyline", Status = "Dormant", ReferenceId = "art-1" }
+            },
+            Facts = new List<KnowledgeFact>(),
+            Relationships = new List<KnowledgeRelationship>(),
+            SourceReferences = new List<KnowledgeSourceReference>()
+        };
+
+        var formatted = LoremasterService.FormatKnowledgeContext(context);
+
+        Assert.That(formatted, Does.Contain("The Missing Caravan (Storyline, Dormant)"));
+    }
+
+    [Test]
+    public void AssembleCaveats_HiddenFacts_AddGmOnlyCaveat()
+    {
+        var context = new KnowledgeContext
+        {
+            Artifacts = new List<KnowledgeArtifact>
+            {
+                new() { Id = Guid.NewGuid(), Name = "Voss", Type = "Character", ReferenceId = "art-1" }
+            },
+            Facts = new List<KnowledgeFact>
+            {
+                new() { Id = Guid.NewGuid(), ArtifactId = Guid.NewGuid(), Predicate = "secret", Value = "traitor", TruthState = TruthState.Hidden, ReferenceId = "fact-1" }
+            },
+            Relationships = new List<KnowledgeRelationship>(),
+            SourceReferences = new List<KnowledgeSourceReference>()
+        };
+
+        var caveats = LoremasterService.AssembleCaveats(context);
+
+        Assert.That(caveats, Does.Contain("Includes GM-only knowledge not visible to players"));
+    }
+
+    #endregion
 
     private static KnowledgeContext CreateEmptyContext() => new()
     {

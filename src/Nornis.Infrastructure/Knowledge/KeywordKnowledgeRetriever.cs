@@ -67,17 +67,22 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
 
         var artifactIds = artifacts.Select(a => a.Id).ToList();
 
-        // 4. Load facts filtered by visibility
+        // 4. Load facts filtered by visibility. Hidden truth state is GM-only regardless of
+        // the visibility scope on the fact itself (parity with CanonService).
+        var isGm = role == CampaignRole.GM;
         var allFacts = await _artifactFactRepository.ListByArtifactIdsAsync(
             artifactIds, _options.MaxFactsPerArtifact, ct);
 
         var filteredFacts = allFacts
             .Where(f => IsVisibleToUser(f.Visibility, allowedScopes))
+            .Where(f => isGm || f.TruthState != TruthState.Hidden)
             .ToList();
 
-        // 5. Load relationships filtered by visibility
-        var relationships = await _artifactRelationshipRepository.ListByArtifactIdsAsync(
-            artifactIds, allowedScopes, ct);
+        // 5. Load relationships filtered by visibility, with the same Hidden gate
+        var relationships = (await _artifactRelationshipRepository.ListByArtifactIdsAsync(
+                artifactIds, allowedScopes, ct))
+            .Where(r => isGm || r.TruthState != TruthState.Hidden)
+            .ToList();
 
         // 6. Load source references for fact and relationship IDs
         var factIds = filteredFacts.Select(f => f.Id).ToList();
@@ -147,6 +152,7 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
         Name = artifact.Name,
         Type = artifact.Type.ToString(),
         Summary = artifact.Summary,
+        Status = artifact.Status.ToString(),
         ReferenceId = $"artifact:{artifact.Id}"
     };
 

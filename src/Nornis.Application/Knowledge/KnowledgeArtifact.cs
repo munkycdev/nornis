@@ -6,5 +6,6 @@ public class KnowledgeArtifact
     public required string Name { get; init; }
     public required string Type { get; init; }
     public string? Summary { get; init; }
+    public string? Status { get; init; }
     public required string ReferenceId { get; init; }
 }

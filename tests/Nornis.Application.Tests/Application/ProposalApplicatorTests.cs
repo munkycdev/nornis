@@ -725,6 +725,199 @@ public class ProposalApplicatorTests
 
     #region Helpers
 
+    #region Name-based artifact references
+
+    private Artifact SeedArtifact(string name, ArtifactType type = ArtifactType.Character)
+    {
+        var artifact = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            CampaignId = _campaignId,
+            Type = type,
+            Name = name,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _artifactRepo.Seed(artifact);
+        return artifact;
+    }
+
+    [Test]
+    public async Task AddFact_ByArtifactName_ResolvesArtifactAndCreatesFact()
+    {
+        var artifact = SeedArtifact("Captain Voss");
+
+        var payload = new AddFactPayload(
+            "denied knowledge of", "the missing caravan", 0.9m, "Confirmed", "PartyVisible",
+            ArtifactName: "Captain Voss");
+        var proposal = MakeProposal(ReviewChangeType.AddFact, payload); // no TargetId
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        var fact = _factRepo.Facts.Single();
+        Assert.That(fact.ArtifactId, Is.EqualTo(artifact.Id));
+        Assert.That(proposal.TargetId, Is.EqualTo(artifact.Id),
+            "resolved artifact should be recorded on the proposal");
+    }
+
+    [Test]
+    public async Task AddFact_ByArtifactName_IsCaseInsensitive()
+    {
+        var artifact = SeedArtifact("Captain Voss");
+
+        var payload = new AddFactPayload(
+            "rank", "Captain", null, null, null, ArtifactName: "captain voss");
+        var proposal = MakeProposal(ReviewChangeType.AddFact, payload);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_factRepo.Facts.Single().ArtifactId, Is.EqualTo(artifact.Id));
+    }
+
+    [Test]
+    public async Task AddFact_ByArtifactName_NotFound_ReturnsNotFoundError()
+    {
+        var payload = new AddFactPayload(
+            "rank", "Captain", null, null, null, ArtifactName: "Captain Voss");
+        var proposal = MakeProposal(ReviewChangeType.AddFact, payload);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("artifact_name_not_found"));
+        Assert.That(_factRepo.Facts, Is.Empty);
+    }
+
+    [Test]
+    public async Task AddFact_ByArtifactName_Ambiguous_ReturnsConflictError()
+    {
+        SeedArtifact("Captain Voss");
+        SeedArtifact("Captain Voss", ArtifactType.Concept);
+
+        var payload = new AddFactPayload(
+            "rank", "Captain", null, null, null, ArtifactName: "Captain Voss");
+        var proposal = MakeProposal(ReviewChangeType.AddFact, payload);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("artifact_name_ambiguous"));
+        Assert.That(_factRepo.Facts, Is.Empty);
+    }
+
+    [Test]
+    public async Task AddFact_ByArtifactName_OtherCampaign_IsNotResolved()
+    {
+        var other = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            CampaignId = Guid.NewGuid(), // different campaign
+            Type = ArtifactType.Character,
+            Name = "Captain Voss",
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _artifactRepo.Seed(other);
+
+        var payload = new AddFactPayload(
+            "rank", "Captain", null, null, null, ArtifactName: "Captain Voss");
+        var proposal = MakeProposal(ReviewChangeType.AddFact, payload);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("artifact_name_not_found"));
+    }
+
+    [Test]
+    public async Task AddFact_NoTargetIdAndNoName_ReturnsError()
+    {
+        var payload = new AddFactPayload("rank", "Captain", null, null, null);
+        var proposal = MakeProposal(ReviewChangeType.AddFact, payload);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("missing_target_id"));
+    }
+
+    [Test]
+    public async Task AddRelationship_ByNames_ResolvesBothEndpoints()
+    {
+        var voss = SeedArtifact("Captain Voss");
+        var harbor = SeedArtifact("Black Harbor", ArtifactType.Location);
+
+        var payload = new AddRelationshipPayload(
+            null, null, "LocatedIn", null, 0.8m, "Likely", "PartyVisible",
+            ArtifactAName: "Captain Voss", ArtifactBName: "Black Harbor");
+        var proposal = MakeProposal(ReviewChangeType.AddRelationship, payload);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        var rel = _relationshipRepo.Relationships.Single();
+        Assert.That(rel.ArtifactAId, Is.EqualTo(voss.Id));
+        Assert.That(rel.ArtifactBId, Is.EqualTo(harbor.Id));
+    }
+
+    [Test]
+    public async Task AddRelationship_MixedIdAndName_Resolves()
+    {
+        var voss = SeedArtifact("Captain Voss");
+        var caravan = SeedArtifact("The Missing Caravan", ArtifactType.Storyline);
+
+        var payload = new AddRelationshipPayload(
+            voss.Id, null, "SuspectedIn", null, null, null, null,
+            ArtifactBName: "The Missing Caravan");
+        var proposal = MakeProposal(ReviewChangeType.AddRelationship, payload);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        var rel = _relationshipRepo.Relationships.Single();
+        Assert.That(rel.ArtifactAId, Is.EqualTo(voss.Id));
+        Assert.That(rel.ArtifactBId, Is.EqualTo(caravan.Id));
+    }
+
+    [Test]
+    public async Task AddRelationship_ByName_NotFound_ReturnsNotFoundError()
+    {
+        SeedArtifact("Captain Voss");
+
+        var payload = new AddRelationshipPayload(
+            null, null, "LocatedIn", null, null, null, null,
+            ArtifactAName: "Captain Voss", ArtifactBName: "Nowhere Keep");
+        var proposal = MakeProposal(ReviewChangeType.AddRelationship, payload);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("artifact_name_not_found"));
+        Assert.That(_relationshipRepo.Relationships, Is.Empty);
+    }
+
+    [Test]
+    public async Task AddRelationship_SameArtifactBothEndpoints_ReturnsError()
+    {
+        var voss = SeedArtifact("Captain Voss");
+
+        var payload = new AddRelationshipPayload(
+            voss.Id, null, "AlliedWith", null, null, null, null,
+            ArtifactBName: "Captain Voss");
+        var proposal = MakeProposal(ReviewChangeType.AddRelationship, payload);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("self_relationship"));
+    }
+
+    #endregion
+
     private static ReviewProposal MakeProposal<T>(
         ReviewChangeType changeType, T payload, Guid? targetId = null)
     {

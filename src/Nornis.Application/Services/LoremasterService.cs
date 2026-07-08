@@ -21,26 +21,52 @@ public partial class LoremasterService : ILoremasterService
     private readonly LoremasterOptions _options;
 
     public const string SystemPromptTemplate = """
-        You are the Loremaster — a knowledgeable, calm, and trustworthy keeper of campaign knowledge.
+        You are the Loremaster — the keeper of this campaign's memory. You are calm, precise, and
+        trustworthy: a sage consulted at the table, not a chatbot. Your authority comes entirely from
+        the campaign record you are given; you never speak beyond it.
 
         ## Grounding Rules
-        - Ground all answers exclusively in the provided campaign knowledge context.
-        - Do not invent campaign facts, events, or relationships not present in the context.
-        - If the provided context does not contain relevant information, acknowledge this directly.
+        - Ground every answer exclusively in the provided campaign knowledge context.
+        - Do not invent campaign facts, events, names, or relationships not present in the context.
+        - Do not import knowledge from real-world games, published adventures, or other campaigns —
+          even when a name in this campaign matches something you recognize.
+        - If the context does not contain the answer, say so plainly: "I don't have a confirmed
+          source for that yet." Offer the nearest related knowledge you DO have, clearly labeled as such.
+        - Partial knowledge is fine to share, as long as you say where the record runs out.
 
         ## Citation Format
-        - Cite sources using [ref:ID] notation where ID matches a provided reference.
-        - Only cite references that are present in the knowledge context.
+        - Cite supporting items using [ref:ID] notation, where ID exactly matches a reference from
+          the knowledge context (e.g., [ref:fact:1234...]).
+        - Place each citation immediately after the claim it supports.
+        - Only cite references present in the knowledge context. Never fabricate a reference.
+        - A claim without a supporting reference should be omitted or explicitly marked as unsupported.
 
         ## Truth State Handling
-        - When a fact is marked Rumor, qualify the claim (e.g., "Rumor suggests...").
-        - When a fact is marked Disputed, note the uncertainty (e.g., "This is disputed, but...").
-        - Present Confirmed and Likely facts with confidence.
+        Facts and relationships carry a truth state. Reflect it faithfully:
+        - Confirmed / Likely: present with confidence.
+        - Rumor: attribute it as hearsay ("Rumor holds that...", "The party has heard that...").
+          Never present a rumor as settled truth.
+        - Disputed: present both sides where known, and name the tension ("Accounts conflict...").
+        - False: this is recorded misinformation. If asked, say the record marks it false — do not
+          repeat it as truth, and do not silently omit it if it answers the question.
+        - Hidden: this is GM-only truth included in your context only when the asker may see it.
+          When you use it, note that it is not party knowledge ("Known to the GM's record...").
 
-        ## Anti-Hallucination Instructions
-        - Keep answers concise and focused on what the campaign sources support.
-        - If unsure, say so rather than fabricating an answer.
-        - Never claim certainty about information not present in the context.
+        ## Storylines
+        - Artifacts of type Storyline are narrative arcs: mysteries, quests, investigations, threats.
+        - Pay attention to their status — Active, Dormant, Resolved, or Archived — and say it when
+          relevant ("The Missing Caravan storyline is still open...").
+        - When asked what matters or what is unresolved, prefer Active and Dormant storylines.
+
+        ## Answer Style
+        - Answer the question first, directly. Add supporting detail after.
+        - Keep answers tight: a few short paragraphs at most. No headers, no bullet lists unless the
+          question genuinely calls for an enumeration.
+        - Plain prose only — your words are rendered as text, not markdown.
+        - Stay in the world's register: measured and slightly formal, never theatrical. You are a
+          record-keeper, not a bard performing.
+        - If the question is a follow-up in a conversation, resolve pronouns and references using
+          the conversation history provided.
         """;
 
     public LoremasterService(
@@ -64,12 +90,18 @@ public partial class LoremasterService : ILoremasterService
         if (validationError is not null)
             return AppResult<LoremasterAnswer>.Fail(validationError);
 
-        // 2. Retrieve knowledge
+        // 2. Retrieve knowledge. Follow-up questions often name artifacts only in earlier
+        // exchanges ("what about his brother?"), so the conversation context participates
+        // in name matching alongside the question itself.
         KnowledgeContext context;
         try
         {
+            var retrievalText = string.IsNullOrWhiteSpace(command.ConversationContext)
+                ? command.Question
+                : $"{command.ConversationContext}\n{command.Question}";
+
             context = await _knowledgeRetriever.RetrieveAsync(
-                command.Question,
+                retrievalText,
                 command.CampaignId,
                 command.UserId,
                 command.UserRole,
@@ -82,7 +114,7 @@ public partial class LoremasterService : ILoremasterService
         }
 
         // 3. Build prompt
-        var request = BuildPrompt(command.Question, context);
+        var request = BuildPrompt(command.Question, context, command.ConversationContext);
 
         // 4. Calculate confidence
         var confidence = DetermineConfidence(context);
@@ -222,6 +254,9 @@ public partial class LoremasterService : ILoremasterService
         if (context.Facts.Any(f => f.TruthState == TruthState.Disputed))
             caveats.Add("Some information is disputed");
 
+        if (context.Facts.Any(f => f.TruthState == TruthState.Hidden))
+            caveats.Add("Includes GM-only knowledge not visible to players");
+
         return caveats;
     }
 
@@ -281,9 +316,10 @@ public partial class LoremasterService : ILoremasterService
         ex.GetType().Name.Contains("Timeout", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Builds the AI request prompt from the question and knowledge context.
+    /// Builds the AI request prompt from the question, knowledge context, and optional
+    /// prior conversation exchanges.
     /// </summary>
-    internal LoremasterAiRequest BuildPrompt(string question, KnowledgeContext context)
+    internal LoremasterAiRequest BuildPrompt(string question, KnowledgeContext context, string? conversationContext = null)
     {
         var userMessage = new StringBuilder();
 
@@ -293,6 +329,14 @@ public partial class LoremasterService : ILoremasterService
             userMessage.AppendLine("## Campaign Knowledge Context");
             userMessage.AppendLine();
             userMessage.AppendLine(formattedContext);
+            userMessage.AppendLine();
+        }
+
+        if (!string.IsNullOrWhiteSpace(conversationContext))
+        {
+            userMessage.AppendLine("## Conversation So Far");
+            userMessage.AppendLine();
+            userMessage.AppendLine(conversationContext);
             userMessage.AppendLine();
         }
 
@@ -323,29 +367,40 @@ public partial class LoremasterService : ILoremasterService
             return string.Empty;
 
         var sb = new StringBuilder();
+        var artifactNames = context.Artifacts.ToDictionary(a => a.Id, a => a.Name);
+        var factsByArtifact = context.Facts
+            .GroupBy(f => f.ArtifactId)
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         if (context.Artifacts.Count > 0)
         {
             sb.AppendLine("### Artifacts");
             foreach (var artifact in context.Artifacts)
             {
-                sb.AppendLine($"- {artifact.Name} ({artifact.Type}): {artifact.Summary ?? "No summary"} [ref:{artifact.ReferenceId}]");
+                var status = artifact.Status is not null ? $", {artifact.Status}" : "";
+                sb.AppendLine($"- {artifact.Name} ({artifact.Type}{status}): {artifact.Summary ?? "No summary"} [ref:{artifact.ReferenceId}]");
+
+                // Facts belong to their artifact — attribution matters, or "location: Black
+                // Harbor" could describe anyone in the context.
+                if (factsByArtifact.TryGetValue(artifact.Id, out var artifactFacts))
+                {
+                    foreach (var fact in artifactFacts)
+                    {
+                        sb.AppendLine($"  - {fact.Predicate}: {fact.Value}{TruthStateLabel(fact.TruthState)} [ref:{fact.ReferenceId}]");
+                    }
+                }
             }
             sb.AppendLine();
         }
 
-        if (context.Facts.Count > 0)
+        // Facts whose artifact wasn't retrieved still carry signal; list them unattributed.
+        var orphanFacts = context.Facts.Where(f => !artifactNames.ContainsKey(f.ArtifactId)).ToList();
+        if (orphanFacts.Count > 0)
         {
-            sb.AppendLine("### Facts");
-            foreach (var fact in context.Facts)
+            sb.AppendLine("### Additional Facts");
+            foreach (var fact in orphanFacts)
             {
-                var label = fact.TruthState switch
-                {
-                    TruthState.Rumor => " [Rumor]",
-                    TruthState.Disputed => " [Disputed]",
-                    _ => ""
-                };
-                sb.AppendLine($"- {fact.Predicate}: {fact.Value}{label} [ref:{fact.ReferenceId}]");
+                sb.AppendLine($"- {fact.Predicate}: {fact.Value}{TruthStateLabel(fact.TruthState)} [ref:{fact.ReferenceId}]");
             }
             sb.AppendLine();
         }
@@ -355,14 +410,10 @@ public partial class LoremasterService : ILoremasterService
             sb.AppendLine("### Relationships");
             foreach (var rel in context.Relationships)
             {
-                var label = rel.TruthState switch
-                {
-                    TruthState.Rumor => " [Rumor]",
-                    TruthState.Disputed => " [Disputed]",
-                    _ => ""
-                };
+                var a = artifactNames.GetValueOrDefault(rel.ArtifactAId, "Unknown artifact");
+                var b = artifactNames.GetValueOrDefault(rel.ArtifactBId, "Unknown artifact");
                 var description = rel.Description is not null ? $" — {rel.Description}" : "";
-                sb.AppendLine($"- {rel.Type}{description}{label} [ref:{rel.ReferenceId}]");
+                sb.AppendLine($"- {a} <-> {b}: {rel.Type}{description}{TruthStateLabel(rel.TruthState)} [ref:{rel.ReferenceId}]");
             }
             sb.AppendLine();
         }
@@ -380,6 +431,15 @@ public partial class LoremasterService : ILoremasterService
 
         return sb.ToString();
     }
+
+    private static string TruthStateLabel(TruthState truthState) => truthState switch
+    {
+        TruthState.Rumor => " [Rumor]",
+        TruthState.Disputed => " [Disputed]",
+        TruthState.False => " [False — recorded misinformation]",
+        TruthState.Hidden => " [Hidden — GM-only truth]",
+        _ => ""
+    };
 
     /// <summary>
     /// Extracts [ref:ID] citation markers from AI response text and maps them to known

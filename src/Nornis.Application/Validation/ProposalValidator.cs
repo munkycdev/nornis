@@ -241,16 +241,20 @@ public sealed class ProposalValidator : IProposalValidator
                 "AddRelationship payload deserialized to null."));
         }
 
-        if (payload.ArtifactAId == Guid.Empty)
+        // Each endpoint needs an id or a name (names cover artifacts created in the same batch,
+        // resolved by the applicator at accept time).
+        if ((payload.ArtifactAId is null || payload.ArtifactAId == Guid.Empty)
+            && string.IsNullOrWhiteSpace(payload.ArtifactAName))
         {
             return AppResult.Fail(new AppError(400, "invalid_payload",
-                "AddRelationship: ArtifactAId is required and must be a non-empty GUID."));
+                "AddRelationship: ArtifactAId or ArtifactAName is required."));
         }
 
-        if (payload.ArtifactBId == Guid.Empty)
+        if ((payload.ArtifactBId is null || payload.ArtifactBId == Guid.Empty)
+            && string.IsNullOrWhiteSpace(payload.ArtifactBName))
         {
             return AppResult.Fail(new AppError(400, "invalid_payload",
-                "AddRelationship: ArtifactBId is required and must be a non-empty GUID."));
+                "AddRelationship: ArtifactBId or ArtifactBName is required."));
         }
 
         if (string.IsNullOrWhiteSpace(payload.Type))

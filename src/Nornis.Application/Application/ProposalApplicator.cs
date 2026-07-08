@@ -224,17 +224,31 @@ public class ProposalApplicator : IProposalApplicator
     private async Task<AppResult<ApplyResult>> ApplyAddFact(
         ReviewProposal proposal, ReviewBatch batch, CancellationToken ct)
     {
-        if (proposal.TargetId is null)
-            return AppResult<ApplyResult>.Fail(new AppError(400, "missing_target_id", "AddFact requires a TargetId referencing an Artifact."));
-
         var payload = Deserialize<AddFactPayload>(proposal.ProposedValueJson);
         if (payload is null)
             return AppResult<ApplyResult>.Fail(new AppError(400, "invalid_payload", "Failed to deserialize AddFact payload."));
 
-        // Verify the target artifact exists
-        var artifact = await _artifactRepository.GetByIdAsync(proposal.TargetId.Value, ct);
-        if (artifact is null)
-            return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target artifact not found."));
+        // Resolve the target artifact: by TargetId, or by name for artifacts created earlier
+        // in the same batch (their GUIDs did not exist at extraction time).
+        Artifact? artifact;
+        if (proposal.TargetId is not null)
+        {
+            artifact = await _artifactRepository.GetByIdAsync(proposal.TargetId.Value, ct);
+            if (artifact is null)
+                return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target artifact not found."));
+        }
+        else if (!string.IsNullOrWhiteSpace(payload.ArtifactName))
+        {
+            var resolution = await ResolveArtifactByNameAsync(batch.CampaignId, payload.ArtifactName, ct);
+            if (!resolution.IsSuccess)
+                return AppResult<ApplyResult>.Fail(resolution.Error!);
+            artifact = resolution.Value!;
+        }
+        else
+        {
+            return AppResult<ApplyResult>.Fail(new AppError(400, "missing_target_id",
+                "AddFact requires a TargetId or an artifactName referencing an Artifact."));
+        }
 
         var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
         if (source is null)
@@ -247,7 +261,7 @@ public class ProposalApplicator : IProposalApplicator
         var fact = new ArtifactFact
         {
             Id = Guid.NewGuid(),
-            ArtifactId = proposal.TargetId.Value,
+            ArtifactId = artifact.Id,
             Predicate = payload.Predicate,
             Value = payload.Value,
             Confidence = payload.Confidence,
@@ -258,6 +272,10 @@ public class ProposalApplicator : IProposalApplicator
         };
 
         await _artifactFactRepository.CreateAsync(fact, ct);
+
+        // Record the resolved artifact on the proposal so the review trail shows what the
+        // name reference resolved to.
+        proposal.TargetId ??= artifact.Id;
 
         await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactFact, fact.Id, ct);
 
@@ -313,14 +331,24 @@ public class ProposalApplicator : IProposalApplicator
         if (payload is null)
             return AppResult<ApplyResult>.Fail(new AppError(400, "invalid_payload", "Failed to deserialize AddRelationship payload."));
 
-        // Verify both referenced artifacts exist
-        var artifactA = await _artifactRepository.GetByIdAsync(payload.ArtifactAId, ct);
-        if (artifactA is null)
-            return AppResult<ApplyResult>.Fail(new AppError(404, "artifact_a_not_found", "ArtifactA not found."));
+        // Resolve both endpoints: by id, or by name for artifacts created earlier in the
+        // same batch (their GUIDs did not exist at extraction time).
+        var endpointA = await ResolveRelationshipEndpointAsync(
+            batch.CampaignId, payload.ArtifactAId, payload.ArtifactAName, "ArtifactA", ct);
+        if (!endpointA.IsSuccess)
+            return AppResult<ApplyResult>.Fail(endpointA.Error!);
 
-        var artifactB = await _artifactRepository.GetByIdAsync(payload.ArtifactBId, ct);
-        if (artifactB is null)
-            return AppResult<ApplyResult>.Fail(new AppError(404, "artifact_b_not_found", "ArtifactB not found."));
+        var endpointB = await ResolveRelationshipEndpointAsync(
+            batch.CampaignId, payload.ArtifactBId, payload.ArtifactBName, "ArtifactB", ct);
+        if (!endpointB.IsSuccess)
+            return AppResult<ApplyResult>.Fail(endpointB.Error!);
+
+        var artifactA = endpointA.Value!;
+        var artifactB = endpointB.Value!;
+
+        if (artifactA.Id == artifactB.Id)
+            return AppResult<ApplyResult>.Fail(new AppError(400, "self_relationship",
+                "A relationship must connect two different artifacts."));
 
         var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
         if (source is null)
@@ -334,8 +362,8 @@ public class ProposalApplicator : IProposalApplicator
         {
             Id = Guid.NewGuid(),
             CampaignId = batch.CampaignId,
-            ArtifactAId = payload.ArtifactAId,
-            ArtifactBId = payload.ArtifactBId,
+            ArtifactAId = artifactA.Id,
+            ArtifactBId = artifactB.Id,
             Type = payload.Type,
             Description = payload.Description,
             Confidence = payload.Confidence,
@@ -395,6 +423,48 @@ public class ProposalApplicator : IProposalApplicator
         await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactRelationship, relationship.Id, ct);
 
         return AppResult<ApplyResult>.Success(new ApplyResult(relationship.Id, SourceReferenceTargetType.ArtifactRelationship));
+    }
+
+    /// <summary>
+    /// Resolves an artifact by exact name within the campaign. Fails when the name matches
+    /// nothing (the referenced CreateArtifact proposal was rejected or not yet accepted) or
+    /// more than one artifact (ambiguous — the reviewer must edit the proposal to use an id).
+    /// </summary>
+    private async Task<AppResult<Artifact>> ResolveArtifactByNameAsync(
+        Guid campaignId, string name, CancellationToken ct)
+    {
+        var matches = await _artifactRepository.ListByExactNameAsync(campaignId, name.Trim(), ct);
+
+        return matches.Count switch
+        {
+            0 => AppResult<Artifact>.Fail(new AppError(404, "artifact_name_not_found",
+                $"No artifact named '{name}' exists in this campaign. If it is proposed in this batch, accept its Create proposal first.")),
+            1 => AppResult<Artifact>.Success(matches[0]),
+            _ => AppResult<Artifact>.Fail(new AppError(409, "artifact_name_ambiguous",
+                $"Multiple artifacts are named '{name}'. Edit the proposal to reference the intended artifact by id."))
+        };
+    }
+
+    private async Task<AppResult<Artifact>> ResolveRelationshipEndpointAsync(
+        Guid campaignId, Guid? artifactId, string? artifactName, string endpointLabel, CancellationToken ct)
+    {
+        if (artifactId is not null && artifactId != Guid.Empty)
+        {
+            var artifact = await _artifactRepository.GetByIdAsync(artifactId.Value, ct);
+            if (artifact is null)
+            {
+                var code = endpointLabel == "ArtifactA" ? "artifact_a_not_found" : "artifact_b_not_found";
+                return AppResult<Artifact>.Fail(new AppError(404, code, $"{endpointLabel} not found."));
+            }
+
+            return AppResult<Artifact>.Success(artifact);
+        }
+
+        if (!string.IsNullOrWhiteSpace(artifactName))
+            return await ResolveArtifactByNameAsync(campaignId, artifactName, ct);
+
+        return AppResult<Artifact>.Fail(new AppError(400, "invalid_payload",
+            $"AddRelationship: {endpointLabel}Id or {endpointLabel}Name is required."));
     }
 
     private async Task CreateSourceReference(
