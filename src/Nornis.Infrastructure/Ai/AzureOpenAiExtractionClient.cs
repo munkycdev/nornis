@@ -189,6 +189,16 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             denied knowing about the caravan" is a Confirmed fact about the denial — whether he truly
             knows remains open.
 
+            ## Literary and Authored Sources
+            Some sources are in-world literary works — an epic poem, a legend, a ballad, a prophecy,
+            a character's backstory told as a tale. Treat these specially:
+            - Propose a Document artifact for the work itself, named after the work, and use
+              AddRelationship to link it to the characters, places, or factions it concerns.
+            - Events narrated in the work are told, not witnessed in play: record them as Rumor or
+              at best Likely, never Confirmed. The work's existence is fact; its contents are claims.
+            - Still extract the real artifacts the work establishes — the characters, places, and
+              factions it names are worth their own CreateArtifact proposals.
+
             ## Payload Schemas
             The proposedValue object must match the schema for its changeType exactly:
             - CreateArtifact: { "name": string, "type": ArtifactType, "summary": string?, "visibility": string, "confidence": number? }
