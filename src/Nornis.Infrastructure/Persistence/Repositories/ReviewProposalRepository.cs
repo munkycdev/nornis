@@ -87,4 +87,33 @@ public class ReviewProposalRepository : IReviewProposalRepository
 
         return (proposals.AsReadOnly(), hasMore);
     }
+
+    public async Task<DateTimeOffset?> GetLatestAcceptanceTimeAsync(
+        Guid campaignId, CancellationToken cancellationToken = default)
+    {
+        var latest = await _context.ReviewProposals
+            .AsNoTracking()
+            .Where(rp => rp.Status == ReviewProposalStatus.Accepted && rp.ReviewedAt != null)
+            .Where(rp => _context.ReviewBatches.Any(rb => rb.Id == rp.ReviewBatchId && rb.CampaignId == campaignId))
+            .OrderByDescending(rp => rp.ReviewedAt)
+            .Select(rp => rp.ReviewedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return latest;
+    }
+
+    public async Task<IReadOnlyList<Guid>> ListCampaignIdsWithAcceptancesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.ReviewProposals
+            .AsNoTracking()
+            .Where(rp => rp.Status == ReviewProposalStatus.Accepted)
+            .Join(
+                _context.ReviewBatches,
+                rp => rp.ReviewBatchId,
+                rb => rb.Id,
+                (rp, rb) => rb.CampaignId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
 }

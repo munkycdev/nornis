@@ -93,4 +93,37 @@ public class InMemoryReviewProposalRepository : IReviewProposalRepository
         return Task.FromResult<(IReadOnlyList<ReviewProposal> Proposals, bool HasMore)>(
             (proposals.AsReadOnly(), hasMore));
     }
+
+    public Task<DateTimeOffset?> GetLatestAcceptanceTimeAsync(
+        Guid campaignId, CancellationToken cancellationToken = default)
+    {
+        var batches = _batchRepository?.Batches ?? [];
+        var campaignBatchIds = batches
+            .Where(b => b.CampaignId == campaignId)
+            .Select(b => b.Id)
+            .ToHashSet();
+
+        var latest = _proposals
+            .Where(p => p.Status == ReviewProposalStatus.Accepted && p.ReviewedAt != null)
+            .Where(p => campaignBatchIds.Contains(p.ReviewBatchId))
+            .OrderByDescending(p => p.ReviewedAt)
+            .Select(p => p.ReviewedAt)
+            .FirstOrDefault();
+
+        return Task.FromResult(latest);
+    }
+
+    public Task<IReadOnlyList<Guid>> ListCampaignIdsWithAcceptancesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var batches = _batchRepository?.Batches ?? [];
+
+        var campaignIds = _proposals
+            .Where(p => p.Status == ReviewProposalStatus.Accepted)
+            .Join(batches, p => p.ReviewBatchId, b => b.Id, (p, b) => b.CampaignId)
+            .Distinct()
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<Guid>>(campaignIds.AsReadOnly());
+    }
 }

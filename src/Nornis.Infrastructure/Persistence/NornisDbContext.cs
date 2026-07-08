@@ -21,6 +21,8 @@ public class NornisDbContext : DbContext
     public DbSet<ReviewBatch> ReviewBatches => Set<ReviewBatch>();
     public DbSet<ReviewProposal> ReviewProposals => Set<ReviewProposal>();
     public DbSet<AiUsageRecord> AiUsageRecords => Set<AiUsageRecord>();
+    public DbSet<HealthAssessment> HealthAssessments => Set<HealthAssessment>();
+    public DbSet<ContinuityFinding> ContinuityFindings => Set<ContinuityFinding>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
