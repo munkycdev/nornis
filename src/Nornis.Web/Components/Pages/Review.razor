@@ -44,6 +44,22 @@ else if (_proposals.Count == 0)
 }
 else
 {
+    @if (PendingIds().Count > 0)
+    {
+        <div class="d-flex gap-2 mb-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.DoneAll"
+                       OnClick="AcceptAllAsync" Disabled="@_batchActing">
+                Accept all
+            </MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.ClearAll"
+                       OnClick="RejectAllAsync" Disabled="@_batchActing">
+                Reject all
+            </MudButton>
+        </div>
+    }
+
     <div class="nornis-proposals">
         @foreach (var p in _proposals)
         {
@@ -108,6 +124,7 @@ else
     private string? _error;
     private IReadOnlyList<ReviewProposal> _proposals = [];
     private readonly HashSet<Guid> _acting = [];
+    private bool _batchActing;
 
     protected override async Task OnInitializedAsync()
     {
@@ -190,6 +207,86 @@ else
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
         StateHasChanged();
+    }
+
+    private List<Guid> PendingIds() =>
+        _proposals.Where(p => p.Status == "Pending").Select(p => p.Id).ToList();
+
+    private Task AcceptAllAsync() => RunBatchAsync(accept: true);
+
+    private async Task RejectAllAsync()
+    {
+        var pendingCount = PendingIds().Count;
+        var confirmed = await DialogService.ShowMessageBox(
+            "Reject all proposals?",
+            $"This discards all {pendingCount} pending proposed changes. It can't be undone.",
+            yesText: "Reject all", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        await RunBatchAsync(accept: false);
+    }
+
+    private async Task RunBatchAsync(bool accept)
+    {
+        var ids = PendingIds();
+        if (ids.Count == 0 || Campaigns.Current is null)
+        {
+            return;
+        }
+
+        _batchActing = true;
+        foreach (var id in ids)
+        {
+            _acting.Add(id);
+        }
+        StateHasChanged();
+
+        var campaignId = Campaigns.Current.Id;
+        var succeeded = 0;
+        var failed = 0;
+        string? firstError = null;
+
+        // The batch endpoints cap at 50 ids per call.
+        foreach (var chunk in ids.Chunk(50))
+        {
+            var result = accept
+                ? await Api.BatchAcceptProposalsAsync(campaignId, chunk)
+                : await Api.BatchRejectProposalsAsync(campaignId, chunk);
+
+            if (result.IsSuccess)
+            {
+                succeeded += result.Value!.Succeeded.Count;
+                failed += result.Value!.Failed.Count;
+            }
+            else
+            {
+                failed += chunk.Length;
+                firstError ??= result.Error!.Message;
+            }
+        }
+
+        _batchActing = false;
+        foreach (var id in ids)
+        {
+            _acting.Remove(id);
+        }
+
+        var verb = accept ? "accepted" : "rejected";
+        if (failed == 0)
+        {
+            Snackbar.Add($"{succeeded} proposal{(succeeded == 1 ? "" : "s")} {verb}.",
+                accept ? Severity.Success : Severity.Info);
+        }
+        else
+        {
+            var detail = firstError is null ? "" : $" {firstError}";
+            Snackbar.Add($"{succeeded} {verb}, {failed} failed.{detail}", Severity.Warning);
+        }
+
+        await LoadAsync();
     }
 
     private async Task EditAsync(ReviewProposal p)

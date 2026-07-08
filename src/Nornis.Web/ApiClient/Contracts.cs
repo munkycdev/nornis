@@ -172,6 +172,15 @@ public record ProposalActionResult(
     string? ProposedValueJson,
     Guid? CreatedEntityId);
 
+public record BatchOperationResult(
+    IReadOnlyList<Guid> Succeeded,
+    IReadOnlyList<BatchFailureItem> Failed);
+
+public record BatchFailureItem(
+    Guid ProposalId,
+    string Code,
+    string Message);
+
 public record CostSummary(
     long TotalInputTokens,
     long TotalOutputTokens,
