@@ -154,7 +154,21 @@ public class NornisApiClient
             $"/api/campaigns/{campaignId}/reviews/proposals/{proposalId}/edit",
             new EditProposalBody(proposedValueJson), ct);
 
+    public Task<ApiResult<BatchOperationResult>> BatchAcceptProposalsAsync(
+        Guid campaignId, IReadOnlyList<Guid> proposalIds, CancellationToken ct = default) =>
+        PostAsync<BatchProposalBody, BatchOperationResult>(
+            $"/api/campaigns/{campaignId}/reviews/proposals/batch-accept",
+            new BatchProposalBody(proposalIds), ct);
+
+    public Task<ApiResult<BatchOperationResult>> BatchRejectProposalsAsync(
+        Guid campaignId, IReadOnlyList<Guid> proposalIds, CancellationToken ct = default) =>
+        PostAsync<BatchProposalBody, BatchOperationResult>(
+            $"/api/campaigns/{campaignId}/reviews/proposals/batch-reject",
+            new BatchProposalBody(proposalIds), ct);
+
     private sealed record EditProposalBody(string ProposedValueJson);
+
+    private sealed record BatchProposalBody(IReadOnlyList<Guid> ProposalIds);
 
     // -------------------------------------------------------------------- Plumbing --
 
