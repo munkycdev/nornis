@@ -318,7 +318,11 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
                 jsonSchemaFormatName: "extraction_proposals",
                 jsonSchema: schema,
-                jsonSchemaIsStrict: true)
+                // Not strict: proposedValue's shape varies by changeType, so the schema declares
+                // it as an open object ("additionalProperties": true) — which strict mode rejects
+                // with HTTP 400. Output shape is still guarded by ParseAndValidateResponse, the
+                // parse-retry loop, and ProposalValidator at accept time.
+                jsonSchemaIsStrict: false)
         };
     }
 

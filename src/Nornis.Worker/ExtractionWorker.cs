@@ -17,16 +17,16 @@ namespace Nornis.Worker;
 public sealed class ExtractionWorker : BackgroundService
 {
     private readonly ServiceBusExtractionProcessor _processor;
-    private readonly IExtractionService _extractionService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ExtractionWorker> _logger;
 
     public ExtractionWorker(
         ServiceBusExtractionProcessor processor,
-        IExtractionService extractionService,
+        IServiceScopeFactory scopeFactory,
         ILogger<ExtractionWorker> logger)
     {
         _processor = processor ?? throw new ArgumentNullException(nameof(processor));
-        _extractionService = extractionService ?? throw new ArgumentNullException(nameof(extractionService));
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -93,7 +93,12 @@ public sealed class ExtractionWorker : BackgroundService
 
         try
         {
-            var outcome = await _extractionService.ProcessExtractionAsync(
+            // One DI scope per message: IExtractionService (and its DbContext) are scoped,
+            // and messages may process concurrently — they must never share a context.
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var extractionService = scope.ServiceProvider.GetRequiredService<IExtractionService>();
+
+            var outcome = await extractionService.ProcessExtractionAsync(
                 message.SourceId, message.CampaignId, args.CancellationToken);
 
             stopwatch.Stop();

@@ -247,15 +247,25 @@ public class ExtractionService : IExtractionService
             {
                 // Timeout — transient failure
                 await TrackUsageAsync(source, campaignId, lastResponse, false, ErrorCategories.Timeout, ct);
-                return ExtractionOutcome.Transient(ErrorCategories.Timeout, "AI call timed out.");
+                return await TransientOutcomeAsync(source, ErrorCategories.Timeout, "AI call timed out.", ct);
+            }
+            catch (HttpRequestException ex) when (IsPermanentHttpFailure(ex))
+            {
+                // 4xx (other than 408/429): the request itself is bad — a retry sends the same
+                // bytes and fails the same way. Fail the source so the problem surfaces.
+                _logger.LogError(ex,
+                    "Permanent AI request failure. SourceId={SourceId}", source.Id);
+                await TrackUsageAsync(source, campaignId, lastResponse, false, ErrorCategories.AiCallFailure, ct);
+                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+                return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
             }
             catch (HttpRequestException ex)
             {
-                // Network error — transient failure
+                // Network error / 5xx / throttling — transient failure
                 _logger.LogWarning(ex,
                     "Network error during AI call. SourceId={SourceId}", source.Id);
                 await TrackUsageAsync(source, campaignId, lastResponse, false, ErrorCategories.TransientError, ct);
-                return ExtractionOutcome.Transient(ErrorCategories.TransientError, ex.Message);
+                return await TransientOutcomeAsync(source, ErrorCategories.TransientError, ex.Message, ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -266,7 +276,7 @@ public class ExtractionService : IExtractionService
                 _logger.LogWarning(ex,
                     "Transient error during AI call. SourceId={SourceId}", source.Id);
                 await TrackUsageAsync(source, campaignId, lastResponse, false, ErrorCategories.TransientError, ct);
-                return ExtractionOutcome.Transient(ErrorCategories.TransientError, ex.Message);
+                return await TransientOutcomeAsync(source, ErrorCategories.TransientError, ex.Message, ct);
             }
             catch (Exception ex)
             {
@@ -561,4 +571,26 @@ public class ExtractionService : IExtractionService
         ex.Message.Contains("503", StringComparison.Ordinal) ||
         ex.Message.Contains("service unavailable", StringComparison.OrdinalIgnoreCase) ||
         ex.Message.Contains("rate limit", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 4xx responses other than timeout (408) and throttling (429) mean the request itself is
+    /// rejected — retrying sends the same request and fails the same way.
+    /// </summary>
+    private static bool IsPermanentHttpFailure(HttpRequestException ex) =>
+        ex.StatusCode is { } code
+        && (int)code >= 400 && (int)code < 500
+        && code != System.Net.HttpStatusCode.RequestTimeout
+        && code != System.Net.HttpStatusCode.TooManyRequests;
+
+    /// <summary>
+    /// A transient failure must put the source back to Queued: the message is abandoned for
+    /// redelivery, and the idempotency check skips any source that is not Queued — leaving the
+    /// status at Processing would turn every retry into a silent no-op.
+    /// </summary>
+    private async Task<ExtractionOutcome> TransientOutcomeAsync(
+        Source source, string category, string message, CancellationToken ct)
+    {
+        await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Queued, ct);
+        return ExtractionOutcome.Transient(category, message);
+    }
 }

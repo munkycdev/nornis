@@ -425,7 +425,7 @@ public class ExtractionServiceTests
     }
 
     [Test]
-    public async Task ProcessExtractionAsync_TransientTimeout_SourceStaysAtProcessing()
+    public async Task ProcessExtractionAsync_TransientTimeout_SourceReturnsToQueued()
     {
         var source = CreateQueuedSource();
         _sourceRepository.Seed(source);
@@ -434,7 +434,7 @@ public class ExtractionServiceTests
         await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
 
         var updated = await _sourceRepository.GetByIdAsync(source.Id);
-        Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Processing));
+        Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Queued));
     }
 
     [Test]
@@ -451,8 +451,10 @@ public class ExtractionServiceTests
     }
 
     [Test]
-    public async Task ProcessExtractionAsync_TransientNetworkError_SourceStaysAtProcessing()
+    public async Task ProcessExtractionAsync_TransientNetworkError_SourceReturnsToQueued()
     {
+        // The abandoned message will be redelivered, and the idempotency check only
+        // processes Queued sources — Processing would make every retry a silent no-op.
         var source = CreateQueuedSource();
         _sourceRepository.Seed(source);
         _aiClient.SetupTransientFailure(new HttpRequestException("Connection refused"));
@@ -460,7 +462,39 @@ public class ExtractionServiceTests
         await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
 
         var updated = await _sourceRepository.GetByIdAsync(source.Id);
-        Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Processing));
+        Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Queued));
+    }
+
+    [Test]
+    public async Task ProcessExtractionAsync_Http400_IsNonTransientAndFailsSource()
+    {
+        // A 4xx response means the request itself is rejected (e.g. an invalid response_format
+        // schema) — retrying sends the same bytes. It must fail fast, not cycle redeliveries.
+        var source = CreateQueuedSource();
+        _sourceRepository.Seed(source);
+        _aiClient.SetupTransientFailure(new HttpRequestException(
+            "AI call failed: HTTP 400", null, System.Net.HttpStatusCode.BadRequest));
+
+        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+
+        Assert.That(result.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
+        var updated = await _sourceRepository.GetByIdAsync(source.Id);
+        Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Failed));
+    }
+
+    [Test]
+    public async Task ProcessExtractionAsync_Http429_StaysTransient()
+    {
+        var source = CreateQueuedSource();
+        _sourceRepository.Seed(source);
+        _aiClient.SetupTransientFailure(new HttpRequestException(
+            "Transient AI service error: HTTP 429", null, System.Net.HttpStatusCode.TooManyRequests));
+
+        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+
+        Assert.That(result.Type, Is.EqualTo(OutcomeType.TransientFailure));
+        var updated = await _sourceRepository.GetByIdAsync(source.Id);
+        Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Queued));
     }
 
     [Test]
