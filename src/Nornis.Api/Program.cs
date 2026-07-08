@@ -1,6 +1,7 @@
 ﻿using Azure.Messaging.ServiceBus;
 using Microsoft.EntityFrameworkCore;
 using Nornis.Api.Authentication;
+using Nornis.Api.BackgroundServices;
 using Nornis.Api.Filters;
 using Nornis.Api.Middleware;
 using Nornis.Api.Development;
@@ -69,6 +70,7 @@ builder.Services.AddScoped<IArtifactFactRepository, ArtifactFactRepository>();
 builder.Services.AddScoped<IArtifactRelationshipRepository, ArtifactRelationshipRepository>();
 builder.Services.AddScoped<ISourceReferenceRepository, SourceReferenceRepository>();
 builder.Services.AddScoped<IAiUsageRecordRepository, AiUsageRecordRepository>();
+builder.Services.AddScoped<IHealthAssessmentRepository, HealthAssessmentRepository>();
 builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
 // Application service registrations
@@ -78,6 +80,7 @@ builder.Services.AddScoped<ISourceService, SourceService>();
 builder.Services.AddScoped<IArtifactService, ArtifactService>();
 builder.Services.AddScoped<ICanonService, CanonService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
+builder.Services.AddScoped<IContinuityAuditService, ContinuityAuditService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddSingleton<IProposalValidator, ProposalValidator>();
 builder.Services.AddScoped<IProposalApplicator, ProposalApplicator>();
@@ -89,6 +92,11 @@ builder.Services.AddScoped<ILoremasterService, LoremasterService>();
 builder.Services.AddScoped<ISuggestionService, SuggestionService>();
 builder.Services.AddScoped<IKnowledgeRetriever, KeywordKnowledgeRetriever>();
 
+// Continuity audit (AI-assessed health): options + hourly auto-trigger. The audit AI client
+// reuses the Loremaster's Azure OpenAI ChatClient and configuration (registered below).
+builder.Services.Configure<ContinuityAuditOptions>(builder.Configuration.GetSection("ContinuityAudit"));
+builder.Services.AddHostedService<ContinuityAuditBackgroundService>();
+
 var loremasterEndpoint = builder.Configuration["Loremaster:AiEndpoint"];
 var loremasterModel = builder.Configuration["Loremaster:AiModel"];
 if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<resource>"))
@@ -99,13 +107,17 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
         new System.ClientModel.ApiKeyCredential(aiKey));
     builder.Services.AddSingleton(openAiClient.GetChatClient(loremasterModel ?? "gpt-4o"));
     builder.Services.AddScoped<ILoremasterAiClient, AzureOpenAiLoremasterClient>();
+    builder.Services.AddScoped<IAuditAiClient, AzureOpenAiAuditClient>();
 }
 else
 {
-    // No Azure OpenAI configured — register a stub that throws on use
+    // No Azure OpenAI configured — register stubs that throw on use
     builder.Services.AddScoped<ILoremasterAiClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable Ask the Loremaster."));
+    builder.Services.AddScoped<IAuditAiClient>(sp =>
+        throw new InvalidOperationException(
+            "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable AI-assessed Continuity Health."));
 }
 
 // Azure Service Bus and extraction queue

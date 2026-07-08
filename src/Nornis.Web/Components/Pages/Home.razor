@@ -196,6 +196,94 @@ else
                 }
             </MudPaper>
 
+            @if (_showAiAssessment)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                    <div class="nornis-card-header">
+                        <span class="nornis-card-title">AI assessment</span>
+                        <MudTooltip Text="An LLM reads the record for continuity risks the heuristics can't see.">
+                            <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Color="Color.Tertiary" Size="Size.Small" />
+                        </MudTooltip>
+                    </div>
+
+                    @if (_assessmentLoading)
+                    {
+                        <LoadingRows Rows="3" />
+                    }
+                    else if (_assessment is { HasData: true } a)
+                    {
+                        <div class="nornis-ai-summary">
+                            <div class="nornis-ai-figure">
+                                <span class="nornis-ai-score">@a.EffectiveScore</span>
+                                <span class="nornis-ai-score-label">effective</span>
+                            </div>
+                            <div class="nornis-ai-meta">
+                                <div class="nornis-ai-asof">as of @Ago(a.CreatedAt!.Value)</div>
+                                <div class="nornis-ai-sub">Heuristic @a.HeuristicScore · @OpenFindingCount(a) open finding@(OpenFindingCount(a) == 1 ? "" : "s")</div>
+                            </div>
+                        </div>
+
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Refresh"
+                                   Disabled="_running" OnClick="RunAssessment" Class="nornis-ai-run">
+                            @(_running ? "Assessing…" : "Run assessment")
+                        </MudButton>
+
+                        @if (_running)
+                        {
+                            <div class="nornis-ai-running"><MudProgressLinear Indeterminate="true" Color="Color.Primary" /></div>
+                        }
+
+                        @foreach (var f in a.Findings.Where(x => x.Status == "Open"))
+                        {
+                            <div class="nornis-finding">
+                                <div class="nornis-finding-head">
+                                    <span class="nornis-chip nornis-chip-cat">@Humanize(f.Category)</span>
+                                    <span class="nornis-chip @SeverityClass(f.Severity)">@f.Severity</span>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                                   aria-label="Dismiss finding" OnClick="() => DismissFinding(f.Id)" />
+                                </div>
+                                <div class="nornis-finding-summary">@f.Summary</div>
+                                @if (!string.IsNullOrWhiteSpace(f.SuggestedAction))
+                                {
+                                    <div class="nornis-finding-action">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Size="Size.Small" />
+                                        <span>@f.SuggestedAction</span>
+                                    </div>
+                                }
+                                @if (f.ArtifactId is { } artifactId)
+                                {
+                                    <a href="@($"/artifacts/{artifactId}")" class="nornis-viewall">Open artifact <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" /></a>
+                                }
+                            </div>
+                        }
+
+                        @if (a.Findings.All(x => x.Status != "Open"))
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">No open findings. The record looks continuous.</MudText>
+                        }
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">No AI assessment yet.</MudText>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.AutoAwesome"
+                                   Disabled="_running" OnClick="RunAssessment" Class="nornis-ai-run">
+                            @(_running ? "Assessing…" : "Run assessment")
+                        </MudButton>
+                        @if (_running)
+                        {
+                            <div class="nornis-ai-running"><MudProgressLinear Indeterminate="true" Color="Color.Primary" /></div>
+                        }
+                    }
+
+                    @if (_assessmentError is not null)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Error">@_assessmentError</MudText>
+                    }
+                </MudPaper>
+            }
+
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                 <div class="nornis-card-header">
                     <span class="nornis-card-title">Review Queue</span>
@@ -259,6 +347,15 @@ else
     private IReadOnlyList<CanonEntry> _canonFacts = [];
     private IReadOnlyList<CanonEntry> _canonRelationships = [];
     private IReadOnlyList<ReviewProposal> _proposals = [];
+
+    // AI-assessed continuity health (GM-only). Loaded lazily alongside the dashboard.
+    private ContinuityAssessment? _assessment;
+    private bool _assessmentLoading;
+    private bool _running;
+    private string? _assessmentError;
+
+    private bool _showAiAssessment =>
+        string.Equals(Campaigns.Current?.MyRole, "GM", StringComparison.OrdinalIgnoreCase);
 
     // Shown until the data-driven suggestions load (or if that call fails).
     private static readonly string[] DefaultSuggestions =
@@ -376,7 +473,92 @@ else
 
         _loading = false;
         StateHasChanged();
+
+        await LoadAssessmentAsync(id);
     }
+
+    // Loads the latest AI assessment. GM-only endpoint, so skip entirely for other roles.
+    private async Task LoadAssessmentAsync(Guid id)
+    {
+        if (!_showAiAssessment)
+        {
+            _assessment = null;
+            return;
+        }
+
+        _assessmentLoading = true;
+        _assessmentError = null;
+        StateHasChanged();
+
+        var result = await Api.GetContinuityAssessmentAsync(id);
+        if (result.IsSuccess)
+        {
+            _assessment = result.Value;
+        }
+        else
+        {
+            _assessmentError = result.Error?.Message;
+        }
+
+        _assessmentLoading = false;
+        StateHasChanged();
+    }
+
+    // Kicks off a fresh assessment. This call runs the LLM and can take ~10-30s.
+    private async Task RunAssessment()
+    {
+        if (Campaigns.Current is null || _running)
+        {
+            return;
+        }
+
+        _running = true;
+        _assessmentError = null;
+        StateHasChanged();
+
+        var result = await Api.RunContinuityAssessmentAsync(Campaigns.Current.Id);
+        if (result.IsSuccess)
+        {
+            _assessment = result.Value;
+        }
+        else
+        {
+            _assessmentError = result.Error?.Message;
+        }
+
+        _running = false;
+        StateHasChanged();
+    }
+
+    private async Task DismissFinding(Guid findingId)
+    {
+        if (Campaigns.Current is null)
+        {
+            return;
+        }
+
+        var result = await Api.DismissFindingAsync(Campaigns.Current.Id, findingId);
+        if (result.IsSuccess)
+        {
+            // Reload so the effective score reflects the now-dismissed finding.
+            await LoadAssessmentAsync(Campaigns.Current.Id);
+        }
+        else
+        {
+            _assessmentError = result.Error?.Message;
+            StateHasChanged();
+        }
+    }
+
+    private static int OpenFindingCount(ContinuityAssessment a) =>
+        a.Findings.Count(f => f.Status == "Open");
+
+    private static string SeverityClass(string severity) => severity switch
+    {
+        "High" => "nornis-chip-high",
+        "Medium" => "nornis-chip-medium",
+        _ => "nornis-chip-low",
+    };
 
     private static string ProposalName(ReviewProposal p)
     {

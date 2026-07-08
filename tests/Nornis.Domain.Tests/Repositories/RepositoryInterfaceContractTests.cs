@@ -20,6 +20,7 @@ public class RepositoryInterfaceContractTests
         typeof(IReviewProposalRepository),
         typeof(ISourceReferenceRepository),
         typeof(IAiUsageRecordRepository),
+        typeof(IHealthAssessmentRepository),
         typeof(IUnitOfWork),
         typeof(ITransactionScope),
     ];
@@ -37,6 +38,7 @@ public class RepositoryInterfaceContractTests
         [typeof(IReviewProposalRepository)] = ["CreateAsync", "GetByIdAsync", "ListByReviewBatchAsync", "ListPendingByCampaignAsync", "UpdateAsync"],
         [typeof(ISourceReferenceRepository)] = ["CreateAsync", "ListByTargetAsync"],
         [typeof(IAiUsageRecordRepository)] = ["CreateAsync", "QueryAsync", "AggregateAsync", "AggregateByOperationTypeAsync", "AggregateByModelAsync", "AggregateByUserAsync", "AggregateByCampaignAsync"],
+        [typeof(IHealthAssessmentRepository)] = ["CreateAsync", "GetLatestWithFindingsAsync", "GetLatestCreatedAtAsync", "GetFindingByIdAsync", "UpdateFindingAsync"],
         [typeof(IUnitOfWork)] = ["BeginTransactionAsync"],
         [typeof(ITransactionScope)] = ["CommitAsync", "RollbackAsync"],
     };

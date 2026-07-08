@@ -221,6 +221,31 @@ public record CampaignHealth(
     int ArtifactCount,
     int StatementCount);
 
+/// <summary>
+/// AI-assessed continuity health. <see cref="Score"/> is the blended snapshot at assessment time;
+/// <see cref="EffectiveScore"/> reflects only the findings still Open. When the campaign has never
+/// been assessed, <see cref="HasData"/> is false.
+/// </summary>
+public record ContinuityAssessment(
+    bool HasData,
+    Guid? AssessmentId,
+    DateTimeOffset? CreatedAt,
+    string? Model,
+    int Score,
+    int EffectiveScore,
+    int HeuristicScore,
+    IReadOnlyList<ContinuityFinding> Findings);
+
+public record ContinuityFinding(
+    Guid Id,
+    string Category,
+    string Severity,
+    string Summary,
+    string? SuggestedAction,
+    IReadOnlyList<string> Evidence,
+    Guid? ArtifactId,
+    string Status);
+
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);
 

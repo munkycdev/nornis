@@ -618,6 +618,121 @@ html, body {
     text-align: center;
 }
 
+/* AI-assessed continuity health card. */
+.nornis-ai-summary {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+}
+
+.nornis-ai-figure {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+}
+
+.nornis-ai-score {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-ai-score-label {
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-ai-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.nornis-ai-asof {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-ai-sub {
+    font-size: 0.8rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-ai-run {
+    margin-bottom: 8px;
+}
+
+.nornis-ai-running {
+    margin: 8px 0;
+}
+
+.nornis-finding {
+    padding: 10px 0;
+    border-top: 1px solid var(--mud-palette-divider);
+}
+
+.nornis-finding-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.nornis-chip {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--mud-palette-divider);
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-chip-cat {
+    color: var(--mud-palette-text-primary);
+    background-color: var(--mud-palette-background-grey);
+}
+
+.nornis-chip-high {
+    color: var(--mud-palette-error);
+    border-color: var(--mud-palette-error);
+}
+
+.nornis-chip-medium {
+    color: var(--mud-palette-warning);
+    border-color: var(--mud-palette-warning);
+}
+
+.nornis-chip-low {
+    color: var(--mud-palette-info);
+    border-color: var(--mud-palette-info);
+}
+
+.nornis-finding-head .mud-icon-button {
+    margin-left: auto;
+}
+
+.nornis-finding-summary {
+    font-size: 0.9rem;
+    color: var(--mud-palette-text-primary);
+    margin-bottom: 4px;
+}
+
+.nornis-finding-action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    color: var(--mud-palette-text-secondary);
+    margin-bottom: 4px;
+}
+
 /* Ring value overlay (centered % inside a MudProgressCircular). */
 .nornis-ring {
     position: relative;

@@ -120,6 +120,17 @@ public class NornisApiClient
     public Task<ApiResult<CampaignHealth>> GetCampaignHealthAsync(Guid campaignId, CancellationToken ct = default) =>
         GetAsync<CampaignHealth>($"/api/campaigns/{campaignId}/health", ct);
 
+    // AI-assessed Continuity Health (GM-only endpoints).
+
+    public Task<ApiResult<ContinuityAssessment>> GetContinuityAssessmentAsync(Guid campaignId, CancellationToken ct = default) =>
+        GetAsync<ContinuityAssessment>($"/api/campaigns/{campaignId}/health/assessment", ct);
+
+    public Task<ApiResult<ContinuityAssessment>> RunContinuityAssessmentAsync(Guid campaignId, CancellationToken ct = default) =>
+        PostAsync<object?, ContinuityAssessment>($"/api/campaigns/{campaignId}/health/assess", null, ct);
+
+    public Task<ApiResult<ContinuityFinding>> DismissFindingAsync(Guid campaignId, Guid findingId, CancellationToken ct = default) =>
+        PostAsync<object?, ContinuityFinding>($"/api/campaigns/{campaignId}/health/findings/{findingId}/dismiss", null, ct);
+
     // ----------------------------------------------------------------------- Costs --
 
     public Task<ApiResult<TimePeriodSummary>> GetCostSummaryAsync(Guid campaignId, CancellationToken ct = default) =>

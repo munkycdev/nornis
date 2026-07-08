@@ -5,5 +5,6 @@ public enum AiOperationType
     SourceExtraction,
     ArtifactSummary,
     AskLoremaster,
-    SourceExtractionRepair
+    SourceExtractionRepair,
+    ContinuityAudit
 }

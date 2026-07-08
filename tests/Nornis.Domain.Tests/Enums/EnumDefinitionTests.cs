@@ -107,7 +107,7 @@ public class EnumDefinitionTests
     public void AiOperationType_HasExpectedValues()
     {
         AssertEnumHasExactValues<AiOperationType>(
-            "SourceExtraction", "ArtifactSummary", "AskLoremaster", "SourceExtractionRepair");
+            "SourceExtraction", "ArtifactSummary", "AskLoremaster", "SourceExtractionRepair", "ContinuityAudit");
     }
 
     [Test]
@@ -197,7 +197,7 @@ public class EnumDefinitionTests
     [Test]
     public void AiOperationType_HasNoUnexpectedValues()
     {
-        Assert.That(Enum.GetNames<AiOperationType>(), Has.Length.EqualTo(4));
+        Assert.That(Enum.GetNames<AiOperationType>(), Has.Length.EqualTo(5));
     }
 
     [Test]
@@ -214,7 +214,8 @@ public class EnumDefinitionTests
             .Where(t => t.IsEnum && t.Namespace == "Nornis.Domain.Enums")
             .ToList();
 
-        Assert.That(enumTypes, Has.Count.EqualTo(15),
-            "Expected exactly 15 enums in Nornis.Domain.Enums namespace.");
+        // 15 original + ContinuityFindingCategory/Severity/Status (AI-assessed Continuity Health).
+        Assert.That(enumTypes, Has.Count.EqualTo(18),
+            "Expected exactly 18 enums in Nornis.Domain.Enums namespace.");
     }
 }
