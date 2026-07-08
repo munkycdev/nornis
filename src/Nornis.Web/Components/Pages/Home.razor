@@ -65,7 +65,7 @@ else
                 <div class="nornis-capture-tiles">
                     @foreach (var tile in _captureTiles)
                     {
-                        <a href="/capture" class="nornis-tile">
+                        <a href="@($"/capture?type={tile.Type}")" class="nornis-tile">
                             <span class="nornis-tile-title">
                                 <MudIcon Icon="@tile.Icon" Color="Color.Primary" Size="Size.Small" />
                                 @tile.Title
@@ -83,7 +83,7 @@ else
 
             @if (_loading)
             {
-                <MudProgressLinear Indeterminate="true" Color="Color.Secondary" />
+                <LoadingRows Rows="4" />
             }
             else
             {
@@ -99,7 +99,7 @@ else
                         }
                         @foreach (var item in _storylines)
                         {
-                            <div class="nornis-list-row">
+                            <a href="@($"/artifacts/{item.Id}")" class="nornis-list-row nornis-list-link">
                                 <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /></div>
                                 <div class="nornis-list-body">
                                     <div class="nornis-list-title">@item.Name</div>
@@ -109,7 +109,7 @@ else
                                 {
                                     <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Color="Color.Warning" Size="Size.Small" />
                                 }
-                            </div>
+                            </a>
                         }
                     </MudPaper>
 
@@ -124,14 +124,14 @@ else
                         }
                         @foreach (var fact in _canonFacts)
                         {
-                            <div class="nornis-list-row">
+                            <a href="@($"/artifacts/{fact.ArtifactId}")" class="nornis-list-row nornis-list-link">
                                 <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Article" Size="Size.Small" /></div>
                                 <div class="nornis-list-body">
                                     <div class="nornis-list-title">@fact.ArtifactName</div>
                                     <div class="nornis-list-sub">@fact.Label@(fact.Detail is null ? "" : $": {fact.Detail}")</div>
                                 </div>
                                 <span class="nornis-list-meta">@Ago(fact.UpdatedAt)</span>
-                            </div>
+                            </a>
                         }
                     </MudPaper>
 
@@ -213,7 +213,7 @@ else
                             <div class="nornis-list-title">@ProposalName(item)</div>
                             <div class="nornis-list-sub">@item.Rationale</div>
                         </div>
-                        <span class="nornis-dot @DotClass(item)"></span>
+                        <span class="nornis-dot @DotClass(item)" role="img" title="@DotLabel(item)" aria-label="@DotLabel(item)"></span>
                     </div>
                 }
                 <div class="nornis-card-foot">
@@ -231,14 +231,14 @@ else
                 }
                 @foreach (var rel in _canonRelationships)
                 {
-                    <div class="nornis-list-row">
+                    <a href="@($"/artifacts/{rel.ArtifactId}")" class="nornis-list-row nornis-list-link">
                         <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /></div>
                         <div class="nornis-list-body">
                             <div class="nornis-list-title">@rel.ArtifactName</div>
                             <div class="nornis-list-sub">@rel.Label @rel.OtherArtifactName</div>
                         </div>
                         <span class="nornis-list-meta">@Ago(rel.UpdatedAt)</span>
-                    </div>
+                    </a>
                 }
                 <div class="nornis-card-foot">
                     <a href="/canon" class="nornis-viewall">View all changes <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" /></a>
@@ -268,14 +268,14 @@ else
         "What should I prep next?",
     ];
 
-    private record Tile(string Title, string Subtitle, string Icon);
+    private record Tile(string Title, string Subtitle, string Icon, string Type);
     private readonly Tile[] _captureTiles =
     [
-        new("Write Notes", "Start typing…", Icons.Material.Outlined.Create),
-        new("Paste Transcript", "From chat or audio", Icons.Material.Outlined.ContentPaste),
-        new("Upload Image", "Maps, notes, assets", Icons.Material.Outlined.Image),
-        new("Handwritten Note", "Upload or scan", Icons.Material.Outlined.Gesture),
-        new("Add Link", "Article, wiki, video", Icons.Material.Outlined.Link),
+        new("Write Notes", "Start typing…", Icons.Material.Outlined.Create, "SessionNote"),
+        new("Paste Transcript", "From chat or audio", Icons.Material.Outlined.ContentPaste, "Transcript"),
+        new("Upload Image", "Maps, notes, assets", Icons.Material.Outlined.Image, "Image"),
+        new("Handwritten Note", "Upload or scan", Icons.Material.Outlined.Gesture, "HandwrittenNotes"),
+        new("Add Link", "Article, wiki, video", Icons.Material.Outlined.Link, "WebLink"),
     ];
 
     private Guid _dashboardCampaignId;
@@ -386,10 +386,15 @@ else
         return Humanize(p.ChangeType);
     }
 
+    private static bool IsConflict(ReviewProposal p) =>
+        p.Rationale?.Contains("conflict", StringComparison.OrdinalIgnoreCase) == true;
+
     private static string DotClass(ReviewProposal p) =>
-        p.Rationale?.Contains("conflict", StringComparison.OrdinalIgnoreCase) == true
-            ? "nornis-dot-error"
-            : "nornis-dot-warning";
+        IsConflict(p) ? "nornis-dot-error" : "nornis-dot-warning";
+
+    // The dot's colour can't be the only signal — name the state for screen readers and on hover.
+    private static string DotLabel(ReviewProposal p) =>
+        IsConflict(p) ? "Conflict" : "Awaiting review";
 
     private static string TypeIcon(string type) => type switch
     {

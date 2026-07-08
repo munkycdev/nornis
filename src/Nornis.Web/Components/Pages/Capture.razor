@@ -91,6 +91,10 @@ else
 
     private readonly string[] _visibilities = ["PartyVisible", "GMOnly", "Private"];
 
+    // Set from the dashboard capture tiles, e.g. /capture?type=WebLink.
+    [Parameter, SupplyParameterFromQuery]
+    public string? Type { get; set; }
+
     private string _title = string.Empty;
     private string _type = "SessionNote";
     private string _visibility = "PartyVisible";
@@ -100,7 +104,14 @@ else
     private bool _busy;
     private string? _error;
 
-    protected override async Task OnInitializedAsync() => await Campaigns.EnsureLoadedAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Type) && _sourceTypes.Contains(Type))
+        {
+            _type = Type;
+        }
+        await Campaigns.EnsureLoadedAsync();
+    }
 
     private async Task SaveAsync(bool process)
     {

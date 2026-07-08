@@ -26,7 +26,7 @@
 }
 else if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="my-4" />
+    <LoadingRows Rows="3" />
 }
 else if (_error is not null)
 {
@@ -167,6 +167,15 @@ else
 
     private async Task RejectAsync(ReviewProposal p)
     {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Reject proposal?",
+            "This discards the proposed change. It can't be undone.",
+            yesText: "Reject", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
         _acting.Add(p.Id);
         var result = await Api.RejectProposalAsync(Campaigns.Current!.Id, p.Id);
         _acting.Remove(p.Id);

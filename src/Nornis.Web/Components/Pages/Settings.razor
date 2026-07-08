@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject CampaignState Campaigns
 @inject NornisApiClient Api
+@inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
 <PageTitle>Settings — Nornis</PageTitle>
@@ -48,7 +49,7 @@
 
             @if (_loadingMembers)
             {
-                <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="my-2" />
+                <LoadingRows Rows="3" Height="48px" />
             }
             else if (_membersError is not null)
             {
@@ -246,6 +247,15 @@
 
     private async Task RemoveAsync(CampaignMember member)
     {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Remove member?",
+            $"Remove {DisplayName(member)} from this campaign?",
+            yesText: "Remove", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
         _busyMembers.Add(member.UserId);
         var result = await Api.RemoveMemberAsync(Campaigns.Current!.Id, member.UserId);
         _busyMembers.Remove(member.UserId);

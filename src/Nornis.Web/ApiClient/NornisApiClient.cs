@@ -122,14 +122,23 @@ public class NornisApiClient
     public Task<ApiResult<TimePeriodSummary>> GetCostSummaryAsync(Guid campaignId, CancellationToken ct = default) =>
         GetAsync<TimePeriodSummary>($"/api/campaigns/{campaignId}/costs/summary", ct);
 
-    public Task<ApiResult<IReadOnlyList<OperationTypeCost>>> GetCostsByOperationAsync(Guid campaignId, CancellationToken ct = default) =>
-        GetAsync<IReadOnlyList<OperationTypeCost>>($"/api/campaigns/{campaignId}/costs/by-operation", ct);
+    public Task<ApiResult<IReadOnlyList<OperationTypeCost>>> GetCostsByOperationAsync(
+        Guid campaignId, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<OperationTypeCost>>(
+            $"/api/campaigns/{campaignId}/costs/by-operation{DateQuery(from, to)}", ct);
 
-    public Task<ApiResult<IReadOnlyList<ModelCost>>> GetCostsByModelAsync(Guid campaignId, CancellationToken ct = default) =>
-        GetAsync<IReadOnlyList<ModelCost>>($"/api/campaigns/{campaignId}/costs/by-model", ct);
+    public Task<ApiResult<IReadOnlyList<ModelCost>>> GetCostsByModelAsync(
+        Guid campaignId, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<ModelCost>>(
+            $"/api/campaigns/{campaignId}/costs/by-model{DateQuery(from, to)}", ct);
 
-    public Task<ApiResult<IReadOnlyList<UserCost>>> GetCostsByUserAsync(Guid campaignId, CancellationToken ct = default) =>
-        GetAsync<IReadOnlyList<UserCost>>($"/api/campaigns/{campaignId}/costs/by-user", ct);
+    public Task<ApiResult<IReadOnlyList<UserCost>>> GetCostsByUserAsync(
+        Guid campaignId, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<UserCost>>(
+            $"/api/campaigns/{campaignId}/costs/by-user{DateQuery(from, to)}", ct);
+
+    private static string DateQuery(DateTimeOffset? from, DateTimeOffset? to) =>
+        Query(("startDate", from?.ToString("o")), ("endDate", to?.ToString("o")));
 
     public Task<ApiResult<ProposalActionResult>> AcceptProposalAsync(Guid campaignId, Guid proposalId, CancellationToken ct = default) =>
         PostAsync<object?, ProposalActionResult>($"/api/campaigns/{campaignId}/reviews/proposals/{proposalId}/accept", null, ct);

@@ -1,0 +1,17 @@
+@* Placeholder rows shown while a list or panel loads, in place of a progress bar. *@
+
+<div class="nornis-skeleton" role="status" aria-label="Loading">
+    @for (var i = 0; i < Rows; i++)
+    {
+        <MudSkeleton SkeletonType="SkeletonType.Rectangle"
+                     Animation="Animation.Wave"
+                     Height="@Height"
+                     Class="nornis-skeleton-row" />
+    }
+</div>
+
+@code {
+    [Parameter] public int Rows { get; set; } = 3;
+
+    [Parameter] public string Height { get; set; } = "56px";
+}

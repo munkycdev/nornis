@@ -6,10 +6,12 @@
 <MudSnackbarProvider />
 
 <MudLayout>
+    @* Persistent from md up; below that it closes itself and reopens as an overlay from the topbar. *@
     <MudDrawer @bind-Open="_navOpen"
                Fixed="true"
                Elevation="0"
-               Variant="DrawerVariant.Persistent"
+               Variant="DrawerVariant.Responsive"
+               Breakpoint="Breakpoint.Md"
                Class="nornis-sidebar">
         <NavMenu OnCollapse="ToggleNav" />
     </MudDrawer>
