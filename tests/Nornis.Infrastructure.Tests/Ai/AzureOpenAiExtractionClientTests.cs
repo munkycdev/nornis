@@ -599,6 +599,25 @@ public class AzureOpenAiExtractionClientTests
     }
 
     [Test]
+    public void BuildSystemPrompt_IncludesLiterarySourceInstructions()
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "Test body",
+            SourceTitle = "Test",
+            SourceType = "SessionNote",
+            SourceVisibility = "PartyVisible"
+        };
+
+        var prompt = AzureOpenAiExtractionClient.BuildSystemPrompt(request);
+
+        Assert.That(prompt, Does.Contain("Literary and Authored Sources"));
+        Assert.That(prompt, Does.Contain("Document artifact for the work itself"));
+        Assert.That(prompt, Does.Contain("at best Likely, never Confirmed"));
+        Assert.That(prompt, Does.Contain("Still extract the real artifacts the work establishes"));
+    }
+
+    [Test]
     public void BuildSystemPrompt_IncludesRationaleInstructions()
     {
         var request = new ExtractionRequest
