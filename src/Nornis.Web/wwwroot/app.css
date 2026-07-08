@@ -1171,3 +1171,9 @@ a.nornis-cite:hover {
         max-width: none;
     }
 }
+
+/* Suggestions inside the Ask empty-state card: two columns fit the narrow column. */
+.nornis-suggestions-ask {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 24px;
+}

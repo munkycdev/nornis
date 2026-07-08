@@ -193,6 +193,8 @@ public record ModelCost(string Model, CostSummary Summary);
 
 public record AskRequest(string Question, string? ConversationContext);
 
+public record AskSuggestion(string Text, string Category);
+
 public record Citation(
     string ReferenceId,
     string Type,

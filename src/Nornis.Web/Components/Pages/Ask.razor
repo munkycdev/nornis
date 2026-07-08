@@ -47,6 +47,18 @@
                     <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
                         The Loremaster answers from your accepted artifacts, facts, and sources — and says so when something isn't known.
                     </MudText>
+                    @if (_suggestions.Count > 0)
+                    {
+                        <div class="nornis-suggestions nornis-suggestions-ask mt-4">
+                            @foreach (var s in _suggestions)
+                            {
+                                <button type="button" class="nornis-suggestion" @onclick="() => AskAsync(s.Text)" disabled="@_asking">
+                                    <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />
+                                    <span>@s.Text</span>
+                                </button>
+                            }
+                        </div>
+                    }
                 </MudPaper>
             }
             else if (_current is not null)
@@ -139,6 +151,7 @@
 
 @code {
     private List<AskConversation> _conversations = [];
+    private IReadOnlyList<AskSuggestion> _suggestions = [];
     private AskConversation? _current;
     private string _input = string.Empty;
     private string? _pendingQuestion;
@@ -184,6 +197,11 @@
         _initialized = true;
         await LoadHistoryAsync();
         _current = _conversations.OrderByDescending(c => c.UpdatedAt).FirstOrDefault();
+        StateHasChanged();
+
+        // Best-effort: the empty state simply shows no chips if this fails.
+        var suggestions = await Api.GetAskSuggestionsAsync(_loadedCampaignId);
+        _suggestions = suggestions.Value ?? [];
         StateHasChanged();
     }
 

@@ -114,6 +114,9 @@ public class NornisApiClient
     public Task<ApiResult<AskAnswer>> AskLoremasterAsync(Guid campaignId, string question, string? conversationContext = null, CancellationToken ct = default) =>
         PostAsync<AskRequest, AskAnswer>($"/api/campaigns/{campaignId}/ask", new AskRequest(question, conversationContext), ct);
 
+    public Task<ApiResult<IReadOnlyList<AskSuggestion>>> GetAskSuggestionsAsync(Guid campaignId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AskSuggestion>>($"/api/campaigns/{campaignId}/ask/suggestions", ct);
+
     public Task<ApiResult<CampaignHealth>> GetCampaignHealthAsync(Guid campaignId, CancellationToken ct = default) =>
         GetAsync<CampaignHealth>($"/api/campaigns/{campaignId}/health", ct);
 

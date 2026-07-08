@@ -36,7 +36,7 @@ public class ErrorResponsesNeverExposeInternalsTests
     {
         // Arrange
         var mockService = Substitute.For<ILoremasterService>();
-        var controller = new LoremasterController(mockService);
+        var controller = new LoremasterController(mockService, Substitute.For<ISuggestionService>());
 
         // Act — invoke MapError via reflection
         var result = (IActionResult)MapErrorMethod.Invoke(controller, [scenario.Error])!;

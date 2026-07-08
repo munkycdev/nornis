@@ -29,7 +29,7 @@ public class LoremasterControllerTests
     public void SetUp()
     {
         _loremasterService = Substitute.For<ILoremasterService>();
-        _controller = new LoremasterController(_loremasterService);
+        _controller = new LoremasterController(_loremasterService, Substitute.For<ISuggestionService>());
 
         // Set up HttpContext with Kelda (GM) as default user
         SetupHttpContext(KeldaUserId, "Kelda", CampaignRole.GM);

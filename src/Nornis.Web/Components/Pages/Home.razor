@@ -260,13 +260,16 @@ else
     private IReadOnlyList<CanonEntry> _canonRelationships = [];
     private IReadOnlyList<ReviewProposal> _proposals = [];
 
-    private readonly string[] _suggestions =
+    // Shown until the data-driven suggestions load (or if that call fails).
+    private static readonly string[] DefaultSuggestions =
     [
         "What changed last session?",
         "What storylines are unresolved?",
-        "What does Tavrin know about Captain Voss?",
+        "Who have we met recently?",
         "What should I prep next?",
     ];
+
+    private IReadOnlyList<string> _suggestions = DefaultSuggestions;
 
     private record Tile(string Title, string Subtitle, string Icon, string Type);
     private readonly Tile[] _captureTiles =
@@ -350,9 +353,15 @@ else
         var artifactsTask = Api.GetArtifactsAsync(id);
         var canonTask = Api.GetCanonAsync(id);
         var reviewTask = Api.GetReviewQueueAsync(id);
-        await Task.WhenAll(storylinesTask, artifactsTask, canonTask, reviewTask);
+        var suggestionsTask = Api.GetAskSuggestionsAsync(id);
+        await Task.WhenAll(storylinesTask, artifactsTask, canonTask, reviewTask, suggestionsTask);
 
         _storylines = storylinesTask.Result.Value ?? [];
+
+        var suggestions = suggestionsTask.Result.Value;
+        _suggestions = suggestions is { Count: > 0 }
+            ? suggestions.Select(x => x.Text).ToList()
+            : DefaultSuggestions;
 
         _recentArtifacts = (artifactsTask.Result.Value ?? [])
             .Where(a => a.Type != "Storyline")

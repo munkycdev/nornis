@@ -86,6 +86,7 @@ builder.Services.AddScoped<ICostService, CostService>();
 // Loremaster service registrations
 builder.Services.Configure<LoremasterOptions>(builder.Configuration.GetSection("Loremaster"));
 builder.Services.AddScoped<ILoremasterService, LoremasterService>();
+builder.Services.AddScoped<ISuggestionService, SuggestionService>();
 builder.Services.AddScoped<IKnowledgeRetriever, KeywordKnowledgeRetriever>();
 
 var loremasterEndpoint = builder.Configuration["Loremaster:AiEndpoint"];

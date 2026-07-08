@@ -16,10 +16,24 @@ namespace Nornis.Api.Controllers;
 public class LoremasterController : ControllerBase
 {
     private readonly ILoremasterService _loremasterService;
+    private readonly ISuggestionService _suggestionService;
 
-    public LoremasterController(ILoremasterService loremasterService)
+    public LoremasterController(ILoremasterService loremasterService, ISuggestionService suggestionService)
     {
         _loremasterService = loremasterService;
+        _suggestionService = suggestionService;
+    }
+
+    [HttpGet("suggestions")]
+    public async Task<IActionResult> GetSuggestions(Guid campaignId, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetCampaignMember();
+
+        var suggestions = await _suggestionService.GetSuggestionsAsync(
+            campaignId, user.Id, member.Role, ct);
+
+        return Ok(suggestions.Select(s => new AskSuggestionResponse(s.Text, s.Category)).ToList());
     }
 
     [HttpPost]

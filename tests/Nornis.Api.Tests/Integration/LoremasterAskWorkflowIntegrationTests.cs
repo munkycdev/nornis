@@ -48,6 +48,28 @@ public class LoremasterAskWorkflowIntegrationTests
 
     private string AskUrl => $"/api/campaigns/{_scenario.Campaign.Id}/ask";
 
+    #region Ask suggestions endpoint
+
+    [Test]
+    public async Task Get_Suggestions_ReturnsFourCampaignGroundedSuggestions()
+    {
+        var response = await _scenario.GmClient.GetAsync($"{AskUrl}/suggestions");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var suggestions = await response.Content.ReadFromJsonAsync<List<AskSuggestionResponse>>();
+        Assert.That(suggestions, Is.Not.Null);
+        Assert.That(suggestions, Has.Count.EqualTo(4));
+        Assert.That(suggestions!.Select(x => x.Text), Is.Unique);
+
+        // The scenario seeds Captain Voss, so at least one suggestion should be
+        // grounded in real campaign data rather than all being evergreen fallbacks.
+        Assert.That(suggestions!.Any(x => x.Text.Contains("Captain Voss")), Is.True,
+            $"expected a Captain Voss suggestion, got: {string.Join(" | ", suggestions!.Select(x => x.Text))}");
+    }
+
+    #endregion
+
     #region Valid Question → 200 with answer, citations, confidence, caveats
 
     [Test]
