@@ -1,0 +1,42 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="NornisTheme.Theme" IsDarkMode="false" />
+<MudPopoverProvider />
+
+<div class="nornis-public">
+    <header class="nornis-public-nav">
+        <a href="/welcome" class="nornis-public-brand">
+            <span class="nornis-public-brand-mark">N</span>
+            <span class="nornis-public-brand-name">NORNIS</span>
+        </a>
+        <nav class="nornis-public-links" aria-label="Public pages">
+            <a href="/about">About</a>
+            <a href="/changelog">Change Log</a>
+        </nav>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/" Class="nornis-public-signin">
+            Sign in
+        </MudButton>
+    </header>
+
+    <main class="nornis-public-main">
+        @Body
+    </main>
+
+    <footer class="nornis-public-footer">
+        <div class="nornis-public-footer-brand">
+            <span class="nornis-public-brand-mark">N</span>
+            <div>
+                <div class="nornis-public-footer-name">Nornis</div>
+                <div class="nornis-public-footer-tag">It's your epic. Every source leaves a mark.</div>
+            </div>
+        </div>
+        <nav class="nornis-public-footer-links" aria-label="Legal and info">
+            <a href="/about">About</a>
+            <a href="/changelog">Change Log</a>
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/terms">Terms of Service</a>
+            <a href="/licenses">Licenses</a>
+        </nav>
+        <div class="nornis-public-footer-copy">© @DateTime.UtcNow.Year Nornis</div>
+    </footer>
+</div>

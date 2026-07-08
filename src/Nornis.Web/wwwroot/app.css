@@ -1177,3 +1177,469 @@ a.nornis-cite:hover {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-top: 24px;
 }
+
+/* ============================================================== Public site -- */
+/* Shared template for the unauthenticated pages (/welcome, /about, ...). Same
+   palette and type system as the app; airier rhythm, no sidebar. */
+
+.nornis-public {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--mud-palette-background);
+    background-image: var(--nornis-topo);
+}
+
+.nornis-public-nav {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 18px 40px;
+    max-width: 1120px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.nornis-public-brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    text-decoration: none;
+}
+
+.nornis-public-brand-mark {
+    font-family: var(--nornis-serif);
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--mud-palette-primary);
+}
+
+.nornis-public-brand-name {
+    font-family: var(--nornis-serif);
+    font-size: 1.05rem;
+    letter-spacing: 0.3em;
+    font-weight: 600;
+    color: var(--mud-palette-primary);
+}
+
+.nornis-public-links {
+    display: flex;
+    gap: 22px;
+    margin-left: auto;
+}
+
+.nornis-public-links a {
+    color: var(--mud-palette-text-secondary);
+    text-decoration: none;
+    font-size: 0.92rem;
+    font-weight: 500;
+}
+
+.nornis-public-links a:hover {
+    color: var(--mud-palette-primary);
+}
+
+.nornis-public-main {
+    flex: 1;
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 40px 80px 40px;
+}
+
+/* ------------------------------------------------------------------ Footer -- */
+
+.nornis-public-footer {
+    border-top: 1px solid var(--mud-palette-divider);
+    background-color: var(--mud-palette-surface);
+    padding: 28px 40px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.nornis-public-footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.nornis-public-footer-name {
+    font-family: var(--nornis-serif);
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-public-footer-tag {
+    font-size: 0.78rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-public-footer-links {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.nornis-public-footer-links a {
+    color: var(--mud-palette-text-secondary);
+    text-decoration: none;
+    font-size: 0.82rem;
+}
+
+.nornis-public-footer-links a:hover {
+    color: var(--mud-palette-primary);
+}
+
+.nornis-public-footer-copy {
+    font-size: 0.82rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* ----------------------------------------------------------------- Landing -- */
+
+.nornis-landing-hero {
+    text-align: center;
+    padding: 96px 0 64px 0;
+}
+
+.nornis-landing-title {
+    font-family: var(--nornis-serif);
+    font-size: clamp(2.6rem, 6vw, 4.4rem);
+    font-weight: 600;
+    line-height: 1.05;
+    color: var(--mud-palette-text-primary);
+    margin: 14px 0 18px 0;
+}
+
+.nornis-landing-sub {
+    font-size: 1.15rem;
+    line-height: 1.6;
+    color: var(--mud-palette-text-secondary);
+    max-width: 640px;
+    margin: 0 auto;
+}
+
+.nornis-landing-cta {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 32px;
+    flex-wrap: wrap;
+}
+
+.nornis-landing-tagline {
+    margin-top: 26px;
+    font-family: var(--nornis-serif);
+    font-style: italic;
+    font-size: 1.05rem;
+    color: var(--mud-palette-secondary);
+}
+
+/* Sample extraction demo. */
+.nornis-landing-demo {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 0 72px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.nornis-landing-source {
+    margin: 0;
+    background-color: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 16px;
+    box-shadow: var(--nornis-card-shadow);
+    padding: 24px 28px;
+}
+
+.nornis-landing-source blockquote {
+    margin: 10px 0 0 0;
+    font-family: var(--nornis-serif);
+    font-size: 1.25rem;
+    line-height: 1.5;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-landing-arrow {
+    text-align: center;
+    color: var(--mud-palette-secondary);
+}
+
+.nornis-landing-proposals {
+    text-align: center;
+}
+
+.nornis-landing-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.nornis-landing-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    background-color: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-divider);
+    font-size: 0.86rem;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-landing-chip .mud-icon-root {
+    color: var(--mud-palette-secondary);
+}
+
+.nornis-landing-chip em {
+    color: var(--mud-palette-text-secondary);
+    font-style: italic;
+}
+
+.nornis-landing-note {
+    margin-top: 16px;
+    font-size: 0.92rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* Sections. */
+.nornis-landing-h2 {
+    font-family: var(--nornis-serif);
+    font-size: 2rem;
+    font-weight: 600;
+    text-align: center;
+    color: var(--mud-palette-text-primary);
+    margin: 0 0 34px 0;
+}
+
+.nornis-landing-how {
+    padding: 48px 0;
+    scroll-margin-top: 24px;
+}
+
+.nornis-landing-steps {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.nornis-landing-step {
+    background-color: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 16px;
+    box-shadow: var(--nornis-card-shadow);
+    padding: 24px;
+    text-align: center;
+}
+
+.nornis-landing-step-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background-color: var(--mud-palette-primary);
+    color: var(--mud-palette-secondary);
+    margin-bottom: 12px;
+}
+
+.nornis-landing-step h3 {
+    font-family: var(--nornis-serif);
+    font-size: 1.2rem;
+    margin: 0 0 8px 0;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-landing-step p,
+.nornis-landing-card p {
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--mud-palette-text-secondary);
+    margin: 0;
+}
+
+.nornis-landing-features {
+    padding: 48px 0;
+}
+
+.nornis-landing-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.nornis-landing-card {
+    background-color: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 16px;
+    box-shadow: var(--nornis-card-shadow);
+    padding: 26px 28px;
+}
+
+.nornis-landing-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--nornis-serif);
+    font-size: 1.25rem;
+    margin: 0 0 10px 0;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-landing-card .mud-icon-root {
+    color: var(--mud-palette-secondary);
+}
+
+.nornis-landing-final {
+    text-align: center;
+    padding: 72px 0 32px 0;
+}
+
+.nornis-landing-final .nornis-landing-sub {
+    margin-bottom: 26px;
+}
+
+/* ----------------------------------------------------------- Prose pages -- */
+
+.nornis-public-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding-top: 56px;
+}
+
+.nornis-public-page h1 {
+    font-family: var(--nornis-serif);
+    font-size: 2.4rem;
+    font-weight: 600;
+    line-height: 1.15;
+    color: var(--mud-palette-text-primary);
+    margin: 10px 0 18px 0;
+}
+
+.nornis-public-page h2 {
+    font-family: var(--nornis-serif);
+    font-size: 1.45rem;
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+    margin: 34px 0 10px 0;
+}
+
+.nornis-public-page p,
+.nornis-public-page li {
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-public-page a {
+    color: var(--mud-palette-primary);
+}
+
+.nornis-public-page ul {
+    padding-left: 22px;
+    margin: 10px 0;
+}
+
+.nornis-public-page li {
+    margin: 6px 0;
+}
+
+.nornis-public-updated {
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-changelog-entry {
+    border-top: 1px solid var(--mud-palette-divider);
+    padding-top: 8px;
+    margin-top: 26px;
+}
+
+.nornis-license-list {
+    display: flex;
+    flex-direction: column;
+    margin: 18px 0;
+}
+
+.nornis-license-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 0;
+    border-top: 1px solid var(--mud-palette-divider);
+}
+
+.nornis-license-row strong {
+    display: block;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-license-row span:not(.nornis-license-tag) {
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-license-tag {
+    flex-shrink: 0;
+    padding: 3px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--mud-palette-divider);
+    background-color: var(--mud-palette-surface);
+    font-size: 0.78rem;
+    color: var(--mud-palette-text-primary);
+}
+
+/* ------------------------------------------------------- Public responsive -- */
+
+@media (max-width: 1000px) {
+    .nornis-landing-steps {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .nornis-landing-cards {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .nornis-public-nav,
+    .nornis-public-footer {
+        padding-left: 18px;
+        padding-right: 18px;
+    }
+
+    .nornis-public-main {
+        padding: 0 18px 56px 18px;
+    }
+
+    .nornis-public-links {
+        display: none; /* footer carries the same links on phones */
+    }
+
+    /* With the links hidden, the sign-in button keeps the right edge itself. */
+    .nornis-public-signin {
+        margin-left: auto;
+    }
+
+    .nornis-landing-hero {
+        padding-top: 56px;
+    }
+
+    .nornis-landing-steps {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .nornis-public-footer-links {
+        margin-left: 0;
+    }
+}

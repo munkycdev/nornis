@@ -1,0 +1,108 @@
+@page "/welcome"
+@layout PublicLayout
+
+<PageTitle>Nornis — Your campaign, remembered</PageTitle>
+
+<section class="nornis-landing-hero">
+    <div class="nornis-eyebrow">Campaign memory engine</div>
+    <h1 class="nornis-landing-title">Your campaign,<br />remembered.</h1>
+    <p class="nornis-landing-sub">
+        Nornis turns session notes, journals, and transcripts into a living record of your
+        tabletop campaign — storylines, canon, and a Loremaster you can ask anything.
+    </p>
+    <div class="nornis-landing-cta">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" Href="/">
+            Start your record
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Large" Href="/welcome#how">
+            See how it works
+        </MudButton>
+    </div>
+    <div class="nornis-landing-tagline">It's your epic. Every source leaves a mark.</div>
+</section>
+
+<section class="nornis-landing-demo" aria-label="Example extraction">
+    <figure class="nornis-landing-source">
+        <figcaption class="nornis-eyebrow">A session note goes in…</figcaption>
+        <blockquote>
+            "We questioned Captain Voss in Black Harbor. He denied knowing about the missing
+            caravan, but Tavrin found the Silver Key in his quarters."
+        </blockquote>
+    </figure>
+    <div class="nornis-landing-arrow" aria-hidden="true">
+        <MudIcon Icon="@Icons.Material.Filled.South" />
+    </div>
+    <div class="nornis-landing-proposals">
+        <div class="nornis-eyebrow">…and Nornis proposes</div>
+        <div class="nornis-landing-chips">
+            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Person" Size="Size.Small" /> Create: Captain Voss</span>
+            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" /> Create: Black Harbor</span>
+            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /> Storyline: The Missing Caravan</span>
+            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Diamond" Size="Size.Small" /> Create: Silver Key</span>
+            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Article" Size="Size.Small" /> Fact: Voss denied knowing about the caravan <em>(rumor)</em></span>
+            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" /> Connect: Voss ↔ Black Harbor</span>
+        </div>
+        <p class="nornis-landing-note">You accept, edit, or reject each one. Nothing enters your canon without you.</p>
+    </div>
+</section>
+
+<section class="nornis-landing-how" id="how">
+    <h2 class="nornis-landing-h2">How it works</h2>
+    <div class="nornis-landing-steps">
+        <div class="nornis-landing-step">
+            <div class="nornis-landing-step-icon"><MudIcon Icon="@Icons.Material.Outlined.Create" /></div>
+            <h3>Capture</h3>
+            <p>Paste session notes, player journals, GM prep, transcripts, or links. Raw and unpolished is fine — that's the point.</p>
+        </div>
+        <div class="nornis-landing-step">
+            <div class="nornis-landing-step-icon"><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /></div>
+            <h3>Nornis proposes</h3>
+            <p>AI reads each source and proposes characters, places, storylines, facts, and connections — every one cited back to its source.</p>
+        </div>
+        <div class="nornis-landing-step">
+            <div class="nornis-landing-step-icon"><MudIcon Icon="@Icons.Material.Outlined.FactCheck" /></div>
+            <h3>You decide</h3>
+            <p>Review every proposal. Accept, edit, or reject — the AI proposes, your table decides what becomes canon.</p>
+        </div>
+        <div class="nornis-landing-step">
+            <div class="nornis-landing-step-icon"><MudIcon Icon="@Icons.Material.Outlined.QuestionAnswer" /></div>
+            <h3>Ask the Loremaster</h3>
+            <p>"What do we know about Captain Voss?" Answers come only from your accepted record, with citations — and it says so when it doesn't know.</p>
+        </div>
+    </div>
+</section>
+
+<section class="nornis-landing-features">
+    <h2 class="nornis-landing-h2">Built for the long campaign</h2>
+    <div class="nornis-landing-cards">
+        <div class="nornis-landing-card">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /> Storylines</h3>
+            <p>
+                Mysteries, quests, rivalries, and prophecies tracked as first-class arcs — active,
+                dormant, or resolved. The stories in motion, always in view.
+            </p>
+        </div>
+        <div class="nornis-landing-card">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Small" /> Canon &amp; truth</h3>
+            <p>
+                Confirmed fact, rumor, disputed account, known misinformation, and hidden GM truth
+                are kept distinct. Player knowledge and GM secrets never blur.
+            </p>
+        </div>
+        <div class="nornis-landing-card">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Receipt" Size="Size.Small" /> Honest AI</h3>
+            <p>
+                Every answer cites its sources. Every AI operation is metered, with token and cost
+                visibility down to the operation. No black boxes at your table.
+            </p>
+        </div>
+    </div>
+</section>
+
+<section class="nornis-landing-final">
+    <h2 class="nornis-landing-h2">Many sources feed one enduring epic.</h2>
+    <p class="nornis-landing-sub">Start capturing tonight's session — Nornis will remember the rest.</p>
+    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Large" Href="/">
+        Start your record
+    </MudButton>
+</section>
