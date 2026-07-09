@@ -634,6 +634,23 @@ public class AzureOpenAiExtractionClientTests
         Assert.That(prompt, Does.Contain("max 500 characters"));
     }
 
+    [Test]
+    public void BuildSystemPrompt_IncludesOpenQuestionConvention()
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "Test body",
+            SourceTitle = "Test",
+            SourceType = "SessionNote",
+            SourceVisibility = "PartyVisible"
+        };
+
+        var prompt = AzureOpenAiExtractionClient.BuildSystemPrompt(request);
+
+        Assert.That(prompt, Does.Contain("open question"));
+        Assert.That(prompt, Does.Contain("re-propose an open question that already exists"));
+    }
+
     #endregion
 
     #region BuildUserMessage Tests

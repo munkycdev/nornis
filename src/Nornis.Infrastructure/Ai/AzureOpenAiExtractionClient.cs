@@ -219,6 +219,17 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             - Order proposals so CreateArtifact proposals come before the facts and relationships
               that reference them.
 
+            ## Open Questions
+            Storylines carry their unresolved tensions as facts with the exact predicate
+            "open question". When a source raises a question the record cannot yet answer — who
+            hired the raiders, what the key opens, why the magistrate lied — propose AddFact on the
+            relevant Storyline artifact with predicate "open question", the question itself as the
+            value (one sentence, ending in a question mark), and truthState "Confirmed" (the
+            question genuinely stands). When a source ANSWERS an open question listed in the
+            existing facts, propose UpdateFact on that fact setting its truthState to "False" (the
+            question is no longer open) alongside whatever new facts record the answer. Do not
+            re-propose an open question that already exists.
+
             ## Naming Conventions
             - Fact predicates: short lowercase noun phrases — "location", "current owner",
               "occupation", "goal", "denied knowledge of". Reuse an existing predicate from the

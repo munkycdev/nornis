@@ -58,12 +58,26 @@
         }
 
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+            @if (OpenQuestions.Count > 0)
+            {
+                <div class="nornis-detail-section-title">Open questions</div>
+                <div class="nornis-open-questions">
+                    @foreach (var q in OpenQuestions)
+                    {
+                        <div class="nornis-open-question">
+                            <MudIcon Icon="@Icons.Material.Outlined.HelpOutline" Size="Size.Small" Color="Color.Secondary" />
+                            <span>@q.Value</span>
+                        </div>
+                    }
+                </div>
+            }
+
             <div class="nornis-detail-section-title">Facts</div>
-            @if (_detail.Facts.Count == 0)
+            @if (RegularFacts.Count == 0)
             {
                 <MudText Typo="Typo.body2" Color="Color.Secondary">No facts recorded.</MudText>
             }
-            @foreach (var f in _detail.Facts)
+            @foreach (var f in RegularFacts)
             {
                 <div class="nornis-fact-row">
                     <div class="nornis-fact-body">
@@ -200,6 +214,25 @@
         "Resolved" => Color.Info,
         _ => Color.Default,
     };
+
+    // Convention over schema: unresolved tensions live as facts with the exact predicate
+    // "open question" (extraction emits them; answering one flips its truth state to False).
+    private const string OpenQuestionPredicate = "open question";
+
+    private IReadOnlyList<ArtifactFactDto> OpenQuestions =>
+        _detail is null
+            ? []
+            : _detail.Facts
+                .Where(f => string.Equals(f.Predicate, OpenQuestionPredicate, StringComparison.OrdinalIgnoreCase)
+                            && f.TruthState != "False")
+                .ToList();
+
+    private IReadOnlyList<ArtifactFactDto> RegularFacts =>
+        _detail is null
+            ? []
+            : _detail.Facts
+                .Where(f => !string.Equals(f.Predicate, OpenQuestionPredicate, StringComparison.OrdinalIgnoreCase))
+                .ToList();
 
     private static Color TruthColor(string truth) => truth switch
     {

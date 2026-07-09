@@ -1780,3 +1780,28 @@ a.nornis-cite:hover {
     font-size: 0.8rem;
     color: var(--mud-palette-text-secondary);
 }
+
+/* Thin daily-budget bar on the Today cost card. */
+.nornis-cost-budget-bar {
+    margin-top: 8px;
+    border-radius: 999px;
+    height: 6px !important;
+}
+
+/* Open questions on artifact/storyline detail. */
+.nornis-open-questions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.nornis-open-question {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-family: var(--nornis-serif);
+    font-size: 1.05rem;
+    font-style: italic;
+    color: var(--mud-palette-text-primary);
+}

@@ -31,6 +31,13 @@ else
                 <span class="nornis-cost-amount">@Money(summary.TotalEstimatedCostUsd)</span>
                 <span class="nornis-cost-sub">@Tokens(summary.TotalTokens) tokens · @summary.OperationCount ops</span>
                 <span class="nornis-cost-sub">@TokenSplit(summary)</span>
+                @if (label == "Today" && _dailyBudgetUsd is { } budget)
+                {
+                    <MudProgressLinear Value="@BudgetPercent(summary, budget)"
+                                       Color="@(BudgetPercent(summary, budget) >= 100 ? Color.Error : Color.Secondary)"
+                                       Class="nornis-cost-budget-bar" aria-label="Daily AI budget used" />
+                    <span class="nornis-cost-sub">of @Money(budget) daily AI budget</span>
+                }
             </MudPaper>
         }
     </div>
@@ -139,6 +146,7 @@ else
     private string? _breakdownError;
 
     private (string Label, CostSummary Summary)[] _periods = [];
+    private decimal? _dailyBudgetUsd;
     private IReadOnlyList<OperationTypeCost> _byOperation = [];
     private IReadOnlyList<ModelCost> _byModel = [];
     private IReadOnlyList<UserCost> _byUser = [];
@@ -216,6 +224,7 @@ else
         }
 
         var s = summary.Value!;
+        _dailyBudgetUsd = s.DailyBudgetUsd;
         _periods =
         [
             ("Today", s.Today),
@@ -270,6 +279,9 @@ else
 
         StateHasChanged();
     }
+
+    private static double BudgetPercent(CostSummary today, decimal budget) =>
+        budget <= 0 ? 0 : Math.Min(100, (double)(today.TotalEstimatedCostUsd / budget * 100));
 
     private static string Money(decimal c) =>
         (c >= 1 ? c.ToString("C2", Usd) : c.ToString("C4", Usd));
