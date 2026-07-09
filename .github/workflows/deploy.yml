@@ -64,12 +64,16 @@ jobs:
         with:
           dotnet-version: 8.0.x
       - name: Apply EF migrations
+        # The connection string must reach the shell as an env var, not inline
+        # ${{ }} substitution — the password contains characters bash re-expands.
+        env:
+          SQL_CONNECTION_STRING: ${{ secrets.SQL_CONNECTION_STRING }}
         run: |
           dotnet tool install --global dotnet-ef --version 8.*
           dotnet ef database update \
             --project src/Nornis.Infrastructure \
             --startup-project src/Nornis.Api \
-            --connection "${{ secrets.SQL_CONNECTION_STRING }}"
+            --connection "$SQL_CONNECTION_STRING"
 
       - name: Deploy container apps
         run: |
