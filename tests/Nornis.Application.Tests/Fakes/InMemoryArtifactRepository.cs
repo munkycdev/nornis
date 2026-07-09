@@ -82,7 +82,9 @@ public class InMemoryArtifactRepository : IArtifactRepository
         CancellationToken cancellationToken = default)
     {
         var results = _artifacts
-            .Where(a => a.CampaignId == campaignId && allowedVisibilities.Contains(a.Visibility))
+            .Where(a => a.CampaignId == campaignId &&
+                        a.Status != ArtifactStatus.Archived &&
+                        allowedVisibilities.Contains(a.Visibility))
             .OrderByDescending(a => a.UpdatedAt)
             .Take(maxCount)
             .ToList();
@@ -97,6 +99,7 @@ public class InMemoryArtifactRepository : IArtifactRepository
     {
         var results = _artifacts
             .Where(a => a.CampaignId == campaignId &&
+                        a.Status != ArtifactStatus.Archived &&
                         allowedVisibilities.Contains(a.Visibility) &&
                         ContainsWholeWord(text, a.Name))
             .ToList();

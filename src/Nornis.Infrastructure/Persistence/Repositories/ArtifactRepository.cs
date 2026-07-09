@@ -82,7 +82,9 @@ public class ArtifactRepository : IArtifactRepository
     {
         return await _context.Artifacts
             .AsNoTracking()
-            .Where(a => a.CampaignId == campaignId && allowedVisibilities.Contains(a.Visibility))
+            .Where(a => a.CampaignId == campaignId
+                && a.Status != ArtifactStatus.Archived
+                && allowedVisibilities.Contains(a.Visibility))
             .OrderByDescending(a => a.UpdatedAt)
             .Take(maxCount)
             .ToListAsync(cancellationToken);
@@ -96,7 +98,9 @@ public class ArtifactRepository : IArtifactRepository
     {
         var candidates = await _context.Artifacts
             .AsNoTracking()
-            .Where(a => a.CampaignId == campaignId && allowedVisibilities.Contains(a.Visibility))
+            .Where(a => a.CampaignId == campaignId
+                && a.Status != ArtifactStatus.Archived
+                && allowedVisibilities.Contains(a.Visibility))
             .ToListAsync(cancellationToken);
 
         return candidates

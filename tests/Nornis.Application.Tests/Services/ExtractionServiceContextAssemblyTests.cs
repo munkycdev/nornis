@@ -370,6 +370,40 @@ public class ExtractionServiceContextAssemblyTests
     }
 
     [Test]
+    public async Task ArchivedArtifacts_ExcludedFromContext_ViaBothRetrievalPaths()
+    {
+        // Arrange: after a merge, the losing duplicate is Archived. It must not re-enter
+        // extraction context via name-matching or recency, or the AI re-proposes the merge.
+        var source = CreateQueuedSource("The Missing Caravan was spotted near Black Harbor.");
+        _sourceRepository.Seed(source);
+
+        // Name-matched path: archived artifact whose name appears in the source body
+        var archivedNameMatched = CreateArtifact("Missing Caravan", updatedAt: DateTimeOffset.UtcNow.AddDays(-2));
+        archivedNameMatched.Status = ArtifactStatus.Archived;
+
+        // Recent path: archived artifact that is the most recently updated
+        var archivedRecent = CreateArtifact("Tavrin Shield", updatedAt: DateTimeOffset.UtcNow.AddMinutes(-1));
+        archivedRecent.Status = ArtifactStatus.Archived;
+
+        var active = CreateArtifact("Black Harbor", updatedAt: DateTimeOffset.UtcNow.AddMinutes(-5));
+
+        _artifactRepository.Seed(archivedNameMatched, archivedRecent, active);
+        ConfigureSuccessfulAiResponse();
+
+        // Act
+        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+
+        // Assert: only the active artifact appears in context
+        var request = _aiClient.Requests[0];
+        var contextIds = request.ExistingArtifacts.Select(a => a.Id).ToList();
+        Assert.That(contextIds, Does.Not.Contain(archivedNameMatched.Id),
+            "Archived artifacts must not appear in extraction context via name-matching");
+        Assert.That(contextIds, Does.Not.Contain(archivedRecent.Id),
+            "Archived artifacts must not appear in extraction context via recency");
+        Assert.That(contextIds, Is.EquivalentTo(new[] { active.Id }));
+    }
+
+    [Test]
     public async Task NullSourceBody_SkipsNameMatching_ShortCircuitsToCompletedBatch()
     {
         // Arrange: source with null body triggers the empty body short-circuit
