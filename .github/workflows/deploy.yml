@@ -1,0 +1,87 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # Azure OIDC login
+  contents: read
+
+env:
+  ACR: acrnornis
+  RESOURCE_GROUP: rg-nornis
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet restore Nornis.sln
+      - run: dotnet build Nornis.sln --no-restore
+      - run: dotnet test Nornis.sln --no-build
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push images (ACR cloud build)
+        run: |
+          for svc in api web worker; do
+            case $svc in
+              api)    df=src/Nornis.Api/Dockerfile ;;
+              web)    df=src/Nornis.Web/Dockerfile ;;
+              worker) df=src/Nornis.Worker/Dockerfile ;;
+            esac
+            az acr build --registry "$ACR" \
+              --image "nornis-$svc:${{ github.sha }}" \
+              --image "nornis-$svc:main-latest" \
+              --build-arg IMAGE_SOURCE="${{ github.server_url }}/${{ github.repository }}" \
+              --build-arg IMAGE_REVISION="${{ github.sha }}" \
+              --file "$df" .
+          done
+
+      # Migrations run before the new images go live. They must stay additive —
+      # the old revision keeps serving until the containerapp update below.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Apply EF migrations
+        run: |
+          dotnet tool install --global dotnet-ef --version 8.*
+          dotnet ef database update \
+            --project src/Nornis.Infrastructure \
+            --startup-project src/Nornis.Api \
+            --connection "${{ secrets.SQL_CONNECTION_STRING }}"
+
+      - name: Deploy container apps
+        run: |
+          for svc in api web worker; do
+            az containerapp update \
+              --name "ca-nornis-$svc" \
+              --resource-group "$RESOURCE_GROUP" \
+              --image "$ACR.azurecr.io/nornis-$svc:${{ github.sha }}" \
+              -o none
+          done
+
+      - name: Report endpoints
+        run: |
+          echo "web: https://$(az containerapp show -g $RESOURCE_GROUP -n ca-nornis-web --query properties.configuration.ingress.fqdn -o tsv)" >> $GITHUB_STEP_SUMMARY
+          echo "api: https://$(az containerapp show -g $RESOURCE_GROUP -n ca-nornis-api --query properties.configuration.ingress.fqdn -o tsv)" >> $GITHUB_STEP_SUMMARY

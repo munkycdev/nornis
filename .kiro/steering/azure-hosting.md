@@ -1,5 +1,13 @@
 # Azure Hosting and Infrastructure
 
+> **Amendment (July 2026):** MVP hosting runs on **Azure Container Apps**, not AKS —
+> same containers and ACR as spec'd below, but no cluster to operate: built-in HTTPS
+> ingress, sticky sessions for the Blazor Server circuit, and a KEDA Service Bus scale
+> rule that runs the worker only when the extraction queue has messages. Provisioning
+> is scripted in `scripts/provision-azure.ps1` (az CLI; Terraform deferred until a
+> second environment exists). Deployment is `.github/workflows/deploy.yml`. The AKS
+> plan below remains the scale-up path if Container Apps is ever outgrown.
+
 ## Hosting Target
 
 Nornis will be hosted on Azure Kubernetes Service.
