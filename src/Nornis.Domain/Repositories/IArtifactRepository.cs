@@ -21,12 +21,21 @@ public interface IArtifactRepository
     /// </summary>
     Task<IReadOnlyList<Artifact>> ListByExactNameAsync(Guid campaignId, string name, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Recent artifacts for AI context/retrieval. Excludes Archived artifacts —
+    /// they are merge leftovers and must not re-enter extraction or ask context.
+    /// </summary>
     Task<IReadOnlyList<Artifact>> ListRecentByCampaignAsync(
         Guid campaignId,
         IReadOnlyList<VisibilityScope> allowedVisibilities,
         int maxCount,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Artifacts whose names appear in the given text, for AI context/retrieval.
+    /// Excludes Archived artifacts — they are merge leftovers and must not
+    /// re-enter extraction or ask context.
+    /// </summary>
     Task<IReadOnlyList<Artifact>> ListByNamesInTextAsync(
         Guid campaignId,
         string text,
