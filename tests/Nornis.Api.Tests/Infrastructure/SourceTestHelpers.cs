@@ -109,8 +109,7 @@ public static class SourceTestHelpers
         Guid worldId,
         Guid userId,
         WorldRole role,
-        string? displayName = null,
-        string? characterName = null)
+        string? displayName = null)
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
@@ -122,7 +121,6 @@ public static class SourceTestHelpers
             UserId = userId,
             Role = role,
             DisplayName = displayName,
-            CharacterName = characterName,
             JoinedAt = DateTimeOffset.UtcNow
         };
 
@@ -193,7 +191,7 @@ public static class SourceTestHelpers
 
         // Add player and observer
         await AddWorldMemberAsync(factory, world.Id, playerUserId, WorldRole.Player,
-            displayName: "Tavrin", characterName: "Tavrin the Bold");
+            displayName: "Tavrin");
 
         await AddWorldMemberAsync(factory, world.Id, observerUserId, WorldRole.Observer,
             displayName: "Jorin");

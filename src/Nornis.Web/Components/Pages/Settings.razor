@@ -63,10 +63,6 @@
                         <MudAvatar Color="Color.Primary" Size="Size.Small">@Initial(m)</MudAvatar>
                         <div class="nornis-list-body">
                             <div class="nornis-list-title">@DisplayName(m)</div>
-                            @if (!string.IsNullOrWhiteSpace(m.CharacterName))
-                            {
-                                <div class="nornis-list-sub">@m.CharacterName</div>
-                            }
                         </div>
                         @if (_isGm)
                         {

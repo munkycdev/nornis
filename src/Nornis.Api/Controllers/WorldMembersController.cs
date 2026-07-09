@@ -150,7 +150,6 @@ public class WorldMembersController : ControllerBase
             UserId: worldMember.UserId,
             Role: worldMember.Role.ToString(),
             DisplayName: worldMember.DisplayName,
-            CharacterName: worldMember.CharacterName,
             JoinedAt: worldMember.JoinedAt);
     }
 

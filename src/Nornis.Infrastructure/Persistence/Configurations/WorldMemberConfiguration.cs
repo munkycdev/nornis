@@ -19,9 +19,6 @@ public class WorldMemberConfiguration : IEntityTypeConfiguration<WorldMember>
         builder.Property(cm => cm.DisplayName)
             .HasMaxLength(200);
 
-        builder.Property(cm => cm.CharacterName)
-            .HasMaxLength(200);
-
         builder.Property(cm => cm.JoinedAt)
             .HasColumnType("datetimeoffset");
 

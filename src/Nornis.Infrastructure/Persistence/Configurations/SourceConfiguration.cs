@@ -42,10 +42,19 @@ public class SourceConfiguration : IEntityTypeConfiguration<Source>
 
         builder.HasIndex(s => new { s.WorldId, s.ProcessingStatus });
 
+        builder.HasIndex(s => s.CampaignId);
+
         builder.HasOne(s => s.World)
             .WithMany()
             .HasForeignKey(s => s.WorldId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Restrict (NO ACTION) to avoid a second cascade path from Worlds; deleting a
+        // campaign clears Source.CampaignId in the repository before the delete.
+        builder.HasOne(s => s.Campaign)
+            .WithMany()
+            .HasForeignKey(s => s.CampaignId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(s => s.CreatedByUser)
             .WithMany()

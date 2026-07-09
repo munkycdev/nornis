@@ -14,12 +14,12 @@ public class WorldMember
 
     public string? DisplayName { get; set; }
 
-    public string? CharacterName { get; set; }
-
     public DateTimeOffset JoinedAt { get; set; }
 
     // Navigation properties
     public World World { get; set; } = null!;
 
     public User User { get; set; } = null!;
+
+    public ICollection<Character> Characters { get; set; } = [];
 }

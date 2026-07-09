@@ -27,7 +27,6 @@ public record WorldMember(
     Guid UserId,
     string Role,
     string? DisplayName,
-    string? CharacterName,
     DateTimeOffset JoinedAt);
 
 public record AddMemberRequest(

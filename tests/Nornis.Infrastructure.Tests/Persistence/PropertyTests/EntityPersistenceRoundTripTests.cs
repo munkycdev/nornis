@@ -88,7 +88,6 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
         Assert.That(retrieved.UserId, Is.EqualTo(generated.UserId));
         Assert.That(retrieved.Role, Is.EqualTo(generated.Role));
         Assert.That(retrieved.DisplayName, Is.EqualTo(generated.DisplayName));
-        Assert.That(retrieved.CharacterName, Is.EqualTo(generated.CharacterName));
         Assert.That(retrieved.JoinedAt, Is.EqualTo(generated.JoinedAt));
     }
 

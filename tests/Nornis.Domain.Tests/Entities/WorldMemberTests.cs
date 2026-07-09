@@ -51,14 +51,6 @@ public class WorldMemberTests
     }
 
     [Test]
-    public void WorldMember_Has_CharacterName_Property_Of_Type_NullableString()
-    {
-        var property = _type.GetProperty("CharacterName");
-        Assert.That(property, Is.Not.Null);
-        Assert.That(property!.PropertyType, Is.EqualTo(typeof(string)));
-    }
-
-    [Test]
     public void WorldMember_Has_JoinedAt_Property_Of_Type_DateTimeOffset()
     {
         var property = _type.GetProperty("JoinedAt");

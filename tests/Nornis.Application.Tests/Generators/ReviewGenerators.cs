@@ -255,7 +255,6 @@ public static class ReviewGenerators
                 UserId = playerUserId,
                 Role = WorldRole.Player,
                 DisplayName = "Tavrin",
-                CharacterName = "Tavrin the Bold",
                 JoinedAt = DateTimeOffset.UtcNow.AddDays(-28)
             },
             new()

@@ -163,7 +163,6 @@ public class ModelValidationTests : IntegrationTestBase
     [TestCase(typeof(World), nameof(World.Description), 2000)]
     [TestCase(typeof(World), nameof(World.GameSystem), 200)]
     [TestCase(typeof(WorldMember), nameof(WorldMember.DisplayName), 200)]
-    [TestCase(typeof(WorldMember), nameof(WorldMember.CharacterName), 200)]
     [TestCase(typeof(Source), nameof(Source.Title), 200)]
     [TestCase(typeof(Source), nameof(Source.Uri), 2000)]
     [TestCase(typeof(Artifact), nameof(Artifact.Name), 200)]

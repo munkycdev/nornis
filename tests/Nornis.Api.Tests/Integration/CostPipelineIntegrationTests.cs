@@ -459,7 +459,7 @@ public class CostPipelineIntegrationTests
 
         await SourceTestHelpers.AddWorldMemberAsync(
             factory, world.Id, playerUserId, WorldRole.Player,
-            displayName: "Tavrin", characterName: "Tavrin the Bold");
+            displayName: "Tavrin");
 
         var now = DateTimeOffset.UtcNow;
         var yesterday = now.AddDays(-1);

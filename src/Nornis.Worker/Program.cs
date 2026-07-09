@@ -48,6 +48,7 @@ var builder = Host.CreateDefaultBuilder(args)
 
         // Repository registrations
         services.AddScoped<ISourceRepository, SourceRepository>();
+        services.AddScoped<ICampaignRepository, CampaignRepository>();
         services.AddScoped<IReviewBatchRepository, ReviewBatchRepository>();
         services.AddScoped<IReviewProposalRepository, ReviewProposalRepository>();
         services.AddScoped<ISourceReferenceRepository, SourceReferenceRepository>();

@@ -62,6 +62,8 @@ builder.Services.AddDbContext<NornisDbContext>(options =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IWorldRepository, WorldRepository>();
 builder.Services.AddScoped<IWorldMemberRepository, WorldMemberRepository>();
+builder.Services.AddScoped<ICampaignRepository, CampaignRepository>();
+builder.Services.AddScoped<ICharacterRepository, CharacterRepository>();
 builder.Services.AddScoped<ISourceRepository, SourceRepository>();
 builder.Services.AddScoped<IReviewProposalRepository, ReviewProposalRepository>();
 builder.Services.AddScoped<IReviewBatchRepository, ReviewBatchRepository>();

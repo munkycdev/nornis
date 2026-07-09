@@ -22,4 +22,6 @@ public class World
     public User CreatedByUser { get; set; } = null!;
 
     public ICollection<WorldMember> WorldMembers { get; set; } = [];
+
+    public ICollection<Campaign> Campaigns { get; set; } = [];
 }

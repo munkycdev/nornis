@@ -6,5 +6,4 @@ public record WorldMemberResponse(
     Guid UserId,
     string Role,
     string? DisplayName,
-    string? CharacterName,
     DateTimeOffset JoinedAt);

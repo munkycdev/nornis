@@ -145,7 +145,6 @@ public static class EntityGenerators
         from userId in GuidGen()
         from role in EnumGen<WorldRole>()
         from displayName in NullableStringGen(200)
-        from characterName in NullableStringGen(200)
         from joinedAt in DateTimeOffsetGen()
         select new WorldMember
         {
@@ -154,7 +153,6 @@ public static class EntityGenerators
             UserId = userId,
             Role = role,
             DisplayName = displayName,
-            CharacterName = characterName,
             JoinedAt = joinedAt
         };
 

@@ -253,7 +253,7 @@ public class LoremasterAuthorizationIntegrationTests
         // Add player and observer members
         await SourceTestHelpers.AddWorldMemberAsync(
             factory, world.Id, playerUserId, WorldRole.Player,
-            displayName: "Tavrin", characterName: "Tavrin the Bold");
+            displayName: "Tavrin");
 
         await SourceTestHelpers.AddWorldMemberAsync(
             factory, world.Id, observerUserId, WorldRole.Observer,

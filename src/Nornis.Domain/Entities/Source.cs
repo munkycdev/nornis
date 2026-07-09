@@ -8,6 +8,12 @@ public class Source
 
     public Guid WorldId { get; set; }
 
+    /// <summary>
+    /// The campaign this source's events happened in, if any. Nullable on purpose:
+    /// worldbuilding lore, GM prep, and setting documents belong to no campaign.
+    /// </summary>
+    public Guid? CampaignId { get; set; }
+
     public SourceType Type { get; set; }
 
     public string Title { get; set; } = string.Empty;
@@ -28,6 +34,8 @@ public class Source
 
     // Navigation properties
     public World World { get; set; } = null!;
+
+    public Campaign? Campaign { get; set; }
 
     public User CreatedByUser { get; set; } = null!;
 
