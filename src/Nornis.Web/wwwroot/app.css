@@ -900,6 +900,13 @@ html, body {
     margin-top: 6px;
 }
 
+.nornis-detail-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .nornis-detail-section-title {
     font-family: var(--nornis-serif);
     font-size: 1.15rem;

@@ -69,6 +69,16 @@ public record CreateSourceRequest(
     string? Uri,
     DateTimeOffset? OccurredAt);
 
+// Mirrors Nornis.Api UpdateSourceRequest: every field is optional and only non-null
+// fields are applied server-side (partial update).
+public record UpdateSourceRequest(
+    string? Title = null,
+    string? Body = null,
+    string? Uri = null,
+    DateTimeOffset? OccurredAt = null,
+    string? Type = null,
+    string? Visibility = null);
+
 public record ArtifactListItem(
     Guid Id,
     Guid CampaignId,
@@ -204,6 +214,8 @@ public record UserCost(Guid UserId, string Username, CostSummary Summary);
 public record OperationTypeCost(string OperationType, CostSummary Summary);
 
 public record ModelCost(string Model, CostSummary Summary);
+
+public record CampaignCost(Guid CampaignId, string CampaignName, CostSummary Summary);
 
 public record AskRequest(string Question, string? ConversationContext);
 
