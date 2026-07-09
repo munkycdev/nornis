@@ -18,6 +18,7 @@ public class SourceRepository : ISourceRepository
     {
         _context.Sources.Add(source);
         await _context.SaveChangesAsync(cancellationToken);
+        await LoadCampaignAsync(source, cancellationToken);
         return source;
     }
 
@@ -62,7 +63,29 @@ public class SourceRepository : ISourceRepository
     {
         _context.Sources.Update(source);
         await _context.SaveChangesAsync(cancellationToken);
+        await LoadCampaignAsync(source, cancellationToken);
         return source;
+    }
+
+    /// <summary>
+    /// Keeps the Campaign navigation in sync with CampaignId after a write, so responses
+    /// mapped from the returned entity carry the (current) campaign name.
+    /// </summary>
+    private async Task LoadCampaignAsync(Source source, CancellationToken cancellationToken)
+    {
+        if (source.Campaign?.Id == source.CampaignId)
+        {
+            return;
+        }
+
+        // The navigation is stale (campaign changed or cleared). Drop it and, when a
+        // campaign is set, reload it from the context.
+        source.Campaign = null;
+
+        if (source.CampaignId is not null)
+        {
+            await _context.Entry(source).Reference(s => s.Campaign).LoadAsync(cancellationToken);
+        }
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)

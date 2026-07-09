@@ -216,10 +216,14 @@ public class SourceService : ISourceService
             }
 
             source.CampaignId = command.CampaignId;
+            // Drop the loaded navigation: EF relationship fixup would otherwise restore
+            // the FK from the stale Campaign object when the entity is re-attached.
+            source.Campaign = null;
         }
         else if (command.ClearCampaign)
         {
             source.CampaignId = null;
+            source.Campaign = null;
         }
 
         source = await _sourceRepository.UpdateAsync(source, ct);
