@@ -677,6 +677,41 @@ public class AzureOpenAiExtractionClientTests
     }
 
     [Test]
+    public void BuildUserMessage_WithCampaign_IncludesCampaignContext()
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "Some content",
+            SourceTitle = "Test Note",
+            SourceType = "SessionNote",
+            SourceVisibility = "PartyVisible",
+            CampaignName = "Rise of Tiamat",
+            CampaignStatus = "Active"
+        };
+
+        var message = AzureOpenAiExtractionClient.BuildUserMessage(request);
+
+        Assert.That(message, Does.Contain("Campaign: Rise of Tiamat (Active)"));
+    }
+
+    [Test]
+    public void BuildUserMessage_NoCampaign_OmitsCampaignContext()
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "Some content",
+            SourceTitle = "Test Note",
+            SourceType = "SessionNote",
+            SourceVisibility = "PartyVisible",
+            CampaignName = null
+        };
+
+        var message = AzureOpenAiExtractionClient.BuildUserMessage(request);
+
+        Assert.That(message, Does.Not.Contain("Campaign:"));
+    }
+
+    [Test]
     public void BuildUserMessage_NullOccurredAt_OmitsTemporalContext()
     {
         var request = new ExtractionRequest
