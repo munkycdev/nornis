@@ -16,7 +16,7 @@ namespace Nornis.Application.Tests.Services;
 /// request so the model can disambiguate recurring names across campaign eras.
 /// </summary>
 [TestFixture]
-public class ExtractionServiceCampaignContextTests
+public partial class ExtractionServiceCampaignContextTests
 {
     private static readonly Guid WorldId = Guid.NewGuid();
 

@@ -677,6 +677,40 @@ public class AzureOpenAiExtractionClientTests
     }
 
     [Test]
+    public void BuildSystemPrompt_ImportedNote_IncludesImportedNotesInstructions()
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "Heading to [[Kastor]]",
+            SourceTitle = "2024-01-24",
+            SourceType = "ImportedNote",
+            SourceVisibility = "PartyVisible"
+        };
+
+        var prompt = AzureOpenAiExtractionClient.BuildSystemPrompt(request);
+
+        Assert.That(prompt, Does.Contain("## Imported Notes"));
+        Assert.That(prompt, Does.Contain("[[double brackets]]"));
+        Assert.That(prompt, Does.Contain("{curly braces}"));
+    }
+
+    [Test]
+    public void BuildSystemPrompt_NonImportedNote_OmitsImportedNotesInstructions()
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "Test body",
+            SourceTitle = "Test",
+            SourceType = "SessionNote",
+            SourceVisibility = "PartyVisible"
+        };
+
+        var prompt = AzureOpenAiExtractionClient.BuildSystemPrompt(request);
+
+        Assert.That(prompt, Does.Not.Contain("## Imported Notes"));
+    }
+
+    [Test]
     public void BuildUserMessage_WithCampaign_IncludesCampaignContext()
     {
         var request = new ExtractionRequest

@@ -113,6 +113,14 @@ public class ExtractionService : IExtractionService
         // 4. Transition: Queued → Processing
         await _sourceRepository.UpdateProcessingStatusAsync(sourceId, SourceProcessingStatus.Processing, ct);
 
+        // Imported notes carry frontmatter and wikilink markup from the previous
+        // system; normalize before the empty-body check so a frontmatter-only note
+        // short-circuits. The entity is detached — the stored body stays raw.
+        if (source.Type == SourceType.ImportedNote && source.Body is not null)
+        {
+            source.Body = ImportedNoteNormalizer.Normalize(source.Body);
+        }
+
         // 5. Empty body short-circuit
         if (string.IsNullOrWhiteSpace(source.Body))
         {

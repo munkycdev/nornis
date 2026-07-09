@@ -82,6 +82,19 @@ This is sufficient for early worlds. As worlds grow, a more sophisticated retrie
 
 Vector search is not required for MVP.
 
+## Imported Notes
+
+Sources of type `ImportedNote` are notes exported from a previous note-taking system and
+receive extra handling at extraction time (the stored source body stays raw):
+
+- The body is normalized before extraction: YAML frontmatter is stripped, and wikilink
+  markup (`[[[[uuid|Label]]]]`, block references, aliases) is reduced to plain
+  `[[Label]]` markers.
+- The prompt tells the model that `[[Label]]` terms were explicit links in the previous
+  system — strong signals for CreateArtifact/AddFact/AddRelationship proposals.
+- `{curly brace}` text is the user's own annotation; `{Question: ...}` routes into the
+  open-question convention instead of becoming a world fact.
+
 ## Deduplication
 
 Before proposing a new artifact, try to match against existing artifacts in the same world.

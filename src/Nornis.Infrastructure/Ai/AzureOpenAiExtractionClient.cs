@@ -151,6 +151,22 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
 
     internal static string BuildSystemPrompt(ExtractionRequest request)
     {
+        var importedNotesSection = request.SourceType == "ImportedNote"
+            ? """
+
+              ## Imported Notes
+              This source was imported from the user's previous note-taking system. Terms wrapped
+              in [[double brackets]] were explicit links to dedicated notes about that subject —
+              the user already decided these are things worth tracking. Treat each linked term as
+              a strong signal: propose CreateArtifact for linked terms the world does not know
+              yet, and make sure the facts and relationships the source establishes about a linked
+              term become proposals rather than being dropped as incidental detail. Text wrapped
+              in {curly braces} is the user's own annotation, not in-world narration; when it
+              poses a question ("Question: ..."), route it through the Open Questions rules
+              rather than recording it as a world fact.
+              """
+            : string.Empty;
+
         // $$""" so the JSON-schema braces below stay literal; interpolations use {{...}}.
         return $$"""
             You are the extraction engine for Nornis, a tabletop RPG world memory system. You read
@@ -229,7 +245,7 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             existing facts, propose UpdateFact on that fact setting its truthState to "False" (the
             question is no longer open) alongside whatever new facts record the answer. Do not
             re-propose an open question that already exists.
-
+            {{importedNotesSection}}
             ## Naming Conventions
             - Fact predicates: short lowercase noun phrases — "location", "current owner",
               "occupation", "goal", "denied knowledge of". Reuse an existing predicate from the
