@@ -69,6 +69,10 @@ var builder = Host.CreateDefaultBuilder(args)
         // AI extraction client
         services.AddScoped<IAiExtractionClient, AzureOpenAiExtractionClient>();
 
+        // Daily AI budget guard (checked before every extraction AI call)
+        services.Configure<AiBudgetOptions>(configuration.GetSection(AiBudgetOptions.SectionName));
+        services.AddScoped<IAiBudgetGuard, AiBudgetGuard>();
+
         // Extraction service
         services.AddScoped<IExtractionService, ExtractionService>();
 

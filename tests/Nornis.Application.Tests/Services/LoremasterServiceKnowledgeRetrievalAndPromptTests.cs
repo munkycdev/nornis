@@ -51,7 +51,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
             _knowledgeRetriever,
             _aiClient,
             _aiUsageRecordRepository,
-            Options.Create(options));
+            new FakeAiBudgetGuard(), Options.Create(options));
     }
 
     #region Knowledge Retrieval Tests

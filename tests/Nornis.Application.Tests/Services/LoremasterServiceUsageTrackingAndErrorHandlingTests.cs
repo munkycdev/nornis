@@ -49,7 +49,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
             _knowledgeRetriever,
             _aiClient,
             _aiUsageRecordRepository,
-            Options.Create(_options));
+            new FakeAiBudgetGuard(), Options.Create(_options));
     }
 
     private AskLoremasterCommand CreateCommand(string question = "Who is Captain Voss?") =>
@@ -520,7 +520,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
             _knowledgeRetriever,
             aiClient,
             _aiUsageRecordRepository,
-            Options.Create(_options));
+            new FakeAiBudgetGuard(), Options.Create(_options));
 
         await service.AskAsync(CreateCommand(), cts.Token);
 
@@ -555,7 +555,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
             retriever,
             _aiClient,
             _aiUsageRecordRepository,
-            Options.Create(_options));
+            new FakeAiBudgetGuard(), Options.Create(_options));
 
         await service.AskAsync(CreateCommand(), cts.Token);
 

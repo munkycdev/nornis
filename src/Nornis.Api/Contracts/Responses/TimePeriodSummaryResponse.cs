@@ -4,4 +4,5 @@ public record TimePeriodSummaryResponse(
     CostSummaryResponse Today,
     CostSummaryResponse ThisWeek,
     CostSummaryResponse ThisMonth,
-    CostSummaryResponse AllTime);
+    CostSummaryResponse AllTime,
+    decimal? DailyBudgetUsd = null);

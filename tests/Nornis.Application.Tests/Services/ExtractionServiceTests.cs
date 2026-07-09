@@ -25,6 +25,7 @@ public class ExtractionServiceTests
     private FakeUnitOfWork _unitOfWork = null!;
     private ExtractionOptions _options = null!;
     private ExtractionService _sut = null!;
+    private FakeAiBudgetGuard _budgetGuard = null!;
 
     private static readonly Guid CampaignId = Guid.NewGuid();
 
@@ -39,6 +40,7 @@ public class ExtractionServiceTests
         _artifactRepository = new InMemoryArtifactRepository();
         _artifactFactRepository = new InMemoryArtifactFactRepository();
         _aiClient = new FakeAiExtractionClient();
+        _budgetGuard = new FakeAiBudgetGuard();
         _unitOfWork = new FakeUnitOfWork();
 
         _options = new ExtractionOptions
@@ -68,7 +70,7 @@ public class ExtractionServiceTests
             _artifactRepository,
             _artifactFactRepository,
             _aiClient,
-            _unitOfWork,
+            _budgetGuard, _unitOfWork,
             Options.Create(_options),
             NullLogger<ExtractionService>.Instance);
     }
@@ -110,6 +112,26 @@ public class ExtractionServiceTests
             Model = "gpt-4o"
         };
     }
+
+    #region Daily AI budget gate
+
+    [Test]
+    public async Task ProcessExtractionAsync_BudgetExceeded_FailsSourceWithoutCallingAi()
+    {
+        var source = CreateQueuedSource();
+        _sourceRepository.Seed(source);
+        _budgetGuard.Exceeded = true;
+
+        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+
+        Assert.That(result.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
+        Assert.That(result.ErrorCategory, Is.EqualTo("BudgetExceeded"));
+        Assert.That(_aiClient.CallCount, Is.EqualTo(0));
+        var updated = await _sourceRepository.GetByIdAsync(source.Id);
+        Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Failed));
+    }
+
+    #endregion
 
     #region Source Not Found → NonTransientFailure with SourceNotFound
 

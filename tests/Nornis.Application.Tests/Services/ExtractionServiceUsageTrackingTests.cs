@@ -75,7 +75,7 @@ public class ExtractionServiceUsageTrackingTests
             _artifactRepo,
             _factRepo,
             _aiClient,
-            _unitOfWork,
+            new FakeAiBudgetGuard(), _unitOfWork,
             Options.Create(opts),
             NullLogger<ExtractionService>.Instance);
     }

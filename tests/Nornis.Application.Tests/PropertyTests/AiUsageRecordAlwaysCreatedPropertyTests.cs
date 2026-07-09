@@ -70,7 +70,7 @@ public class AiUsageRecordAlwaysCreatedPropertyTests
             artifactRepo,
             artifactFactRepo,
             fakeAiClient,
-            unitOfWork,
+            new FakeAiBudgetGuard(), unitOfWork,
             options,
             logger);
     }

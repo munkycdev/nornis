@@ -65,6 +65,7 @@ public class ExtractionServiceContextAssemblyTests
         _artifactRepository,
         _artifactFactRepository,
         _aiClient,
+        new FakeAiBudgetGuard(),
         _unitOfWork,
         Options.Create(_options),
         NullLogger<ExtractionService>.Instance);

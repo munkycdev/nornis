@@ -46,7 +46,7 @@ public class InvalidQuestionsAreRejectedTests
             knowledgeRetriever,
             aiClient,
             usageRepo,
-            options);
+            new FakeAiBudgetGuard(), options);
 
         var command = new AskLoremasterCommand(
             CampaignId: scenario.CampaignId,

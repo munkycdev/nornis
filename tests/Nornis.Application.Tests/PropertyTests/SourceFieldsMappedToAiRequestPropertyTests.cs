@@ -75,7 +75,7 @@ public class SourceFieldsMappedToAiRequestPropertyTests
             artifactRepo,
             artifactFactRepo,
             fakeAiClient,
-            unitOfWork,
+            new FakeAiBudgetGuard(), unitOfWork,
             options,
             logger);
 
@@ -162,7 +162,7 @@ public class SourceFieldsMappedToAiRequestPropertyTests
             artifactRepo,
             artifactFactRepo,
             fakeAiClient,
-            unitOfWork,
+            new FakeAiBudgetGuard(), unitOfWork,
             options,
             logger);
 
@@ -232,7 +232,7 @@ public class SourceFieldsMappedToAiRequestPropertyTests
             artifactRepo,
             artifactFactRepo,
             fakeAiClient,
-            unitOfWork,
+            new FakeAiBudgetGuard(), unitOfWork,
             options,
             logger);
 

@@ -21,6 +21,7 @@ public class ExtractionService : IExtractionService
     private readonly IArtifactRepository _artifactRepository;
     private readonly IArtifactFactRepository _artifactFactRepository;
     private readonly IAiExtractionClient _aiExtractionClient;
+    private readonly IAiBudgetGuard _budgetGuard;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ExtractionOptions _options;
     private readonly ILogger<ExtractionService> _logger;
@@ -45,10 +46,12 @@ public class ExtractionService : IExtractionService
         IArtifactRepository artifactRepository,
         IArtifactFactRepository artifactFactRepository,
         IAiExtractionClient aiExtractionClient,
+        IAiBudgetGuard budgetGuard,
         IUnitOfWork unitOfWork,
         IOptions<ExtractionOptions> options,
         ILogger<ExtractionService> logger)
     {
+        _budgetGuard = budgetGuard;
         _sourceRepository = sourceRepository;
         _reviewBatchRepository = reviewBatchRepository;
         _reviewProposalRepository = reviewProposalRepository;
@@ -117,10 +120,22 @@ public class ExtractionService : IExtractionService
             return await HandleEmptyBodyAsync(source, campaignId, ct);
         }
 
-        // 6. Context assembly
+        // 6. Daily AI budget gate. The message is completed (not redelivered) and the
+        // source fails visibly — the GM can retry from the UI once the budget resets.
+        var budgetError = await _budgetGuard.CheckAsync(campaignId, ct);
+        if (budgetError is not null)
+        {
+            _logger.LogWarning(
+                "Extraction blocked by AI budget. SourceId={SourceId}, CampaignId={CampaignId}",
+                sourceId, campaignId);
+            await _sourceRepository.UpdateProcessingStatusAsync(sourceId, SourceProcessingStatus.Failed, ct);
+            return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
+        }
+
+        // 7. Context assembly
         var context = await AssembleContextAsync(source, campaignId, ct);
 
-        // 7. AI invocation with parse retry
+        // 8. AI invocation with parse retry
         return await InvokeAiWithRetriesAsync(source, campaignId, context, ct);
     }
 

@@ -143,7 +143,7 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
                     artifactRepo,
                     artifactFactRepo,
                     fakeAiClient,
-                    unitOfWork,
+                    new FakeAiBudgetGuard(), unitOfWork,
                     options,
                     logger);
 
@@ -385,7 +385,7 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
             artifactRepo,
             artifactFactRepo,
             fakeAiClient,
-            unitOfWork,
+            new FakeAiBudgetGuard(), unitOfWork,
             options,
             logger);
 

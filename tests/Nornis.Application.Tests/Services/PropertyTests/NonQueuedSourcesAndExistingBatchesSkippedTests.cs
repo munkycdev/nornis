@@ -66,7 +66,7 @@ public class NonQueuedSourcesAndExistingBatchesSkippedTests
             artifactRepo,
             factRepo,
             aiClient,
-            unitOfWork,
+            new FakeAiBudgetGuard(), unitOfWork,
             options,
             NullLogger<ExtractionService>.Instance);
     }

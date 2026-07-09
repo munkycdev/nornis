@@ -77,7 +77,7 @@ public class SuccessfulExtractionStateTransitionsPropertyTests
             artifactRepo,
             artifactFactRepo,
             fakeAiClient,
-            unitOfWork,
+            new FakeAiBudgetGuard(), unitOfWork,
             options,
             logger);
 
@@ -149,7 +149,7 @@ public class SuccessfulExtractionStateTransitionsPropertyTests
             artifactRepo,
             artifactFactRepo,
             fakeAiClient,
-            unitOfWork,
+            new FakeAiBudgetGuard(), unitOfWork,
             options,
             logger);
 

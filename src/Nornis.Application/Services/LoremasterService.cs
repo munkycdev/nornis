@@ -18,6 +18,7 @@ public partial class LoremasterService : ILoremasterService
     private readonly IKnowledgeRetriever _knowledgeRetriever;
     private readonly ILoremasterAiClient _aiClient;
     private readonly IAiUsageRecordRepository _aiUsageRecordRepository;
+    private readonly IAiBudgetGuard _budgetGuard;
     private readonly LoremasterOptions _options;
 
     public const string SystemPromptTemplate = """
@@ -73,11 +74,13 @@ public partial class LoremasterService : ILoremasterService
         IKnowledgeRetriever knowledgeRetriever,
         ILoremasterAiClient aiClient,
         IAiUsageRecordRepository aiUsageRecordRepository,
+        IAiBudgetGuard budgetGuard,
         IOptions<LoremasterOptions> options)
     {
         _knowledgeRetriever = knowledgeRetriever;
         _aiClient = aiClient;
         _aiUsageRecordRepository = aiUsageRecordRepository;
+        _budgetGuard = budgetGuard;
         _options = options.Value;
     }
 
@@ -89,6 +92,11 @@ public partial class LoremasterService : ILoremasterService
         var validationError = ValidateQuestion(command.Question);
         if (validationError is not null)
             return AppResult<LoremasterAnswer>.Fail(validationError);
+
+        // 1b. Daily AI budget gate — before any retrieval or model work.
+        var budgetError = await _budgetGuard.CheckAsync(command.CampaignId, ct);
+        if (budgetError is not null)
+            return AppResult<LoremasterAnswer>.Fail(budgetError);
 
         // 2. Retrieve knowledge. Follow-up questions often name artifacts only in earlier
         // exchanges ("what about his brother?"), so the conversation context participates

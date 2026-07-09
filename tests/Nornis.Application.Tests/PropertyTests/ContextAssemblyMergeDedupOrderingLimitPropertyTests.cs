@@ -248,7 +248,7 @@ public class ContextAssemblyMergeDedupOrderingLimitPropertyTests
             artifactRepo,
             artifactFactRepo,
             fakeAiClient,
-            unitOfWork,
+            new FakeAiBudgetGuard(), unitOfWork,
             options,
             logger);
 

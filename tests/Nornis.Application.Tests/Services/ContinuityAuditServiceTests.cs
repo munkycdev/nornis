@@ -21,6 +21,7 @@ public class ContinuityAuditServiceTests
     private InMemoryHealthAssessmentRepository _assessmentRepo = null!;
     private InMemoryAiUsageRecordRepository _usageRepo = null!;
     private ContinuityAuditService _service = null!;
+    private FakeAiBudgetGuard _budgetGuard = null!;
 
     private Guid _campaignId;
     private Artifact _voss = null!;
@@ -35,6 +36,7 @@ public class ContinuityAuditServiceTests
         _sourceRefRepo = new InMemorySourceReferenceRepository();
         _sourceRepo = new InMemorySourceRepository();
         _ai = new FakeAuditAiClient();
+        _budgetGuard = new FakeAiBudgetGuard();
         _assessmentRepo = new InMemoryHealthAssessmentRepository();
         _usageRepo = new InMemoryAiUsageRecordRepository();
 
@@ -50,6 +52,7 @@ public class ContinuityAuditServiceTests
         });
 
         _service = new ContinuityAuditService(
+            _budgetGuard,
             health, _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo, _sourceRepo,
             _ai, _assessmentRepo, _usageRepo, options);
 
@@ -102,6 +105,18 @@ public class ContinuityAuditServiceTests
             Evidence = evidence ?? [FactRef],
             ArtifactRef = artifactRef
         };
+
+    [Test]
+    public async Task RunAssessment_BudgetExceeded_Returns429WithoutCallingAi()
+    {
+        _budgetGuard.Exceeded = true;
+
+        var result = await _service.RunAssessmentAsync(_campaignId, null, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(429));
+        Assert.That(_ai.CallCount, Is.EqualTo(0));
+    }
 
     [Test]
     public async Task RunAssessment_PersistsFindings()

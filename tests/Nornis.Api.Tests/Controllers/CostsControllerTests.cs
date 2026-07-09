@@ -30,7 +30,7 @@ public class CostsControllerTests
     {
         _costService = Substitute.For<ICostService>();
         var logger = Substitute.For<ILogger<CostsController>>();
-        _controller = new CostsController(_costService, logger);
+        _controller = new CostsController(_costService, logger, Microsoft.Extensions.Options.Options.Create(new Nornis.Application.Configuration.AiBudgetOptions()));
 
         SetupHttpContext(KeldaUserId, "Kelda", CampaignRole.GM);
     }

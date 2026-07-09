@@ -78,7 +78,10 @@ public class ContinuityAuditService : IContinuityAuditService
         (a single ref id or null).
         """;
 
+    private readonly IAiBudgetGuard _budgetGuard;
+
     public ContinuityAuditService(
+        IAiBudgetGuard budgetGuard,
         IHealthService healthService,
         IArtifactRepository artifactRepository,
         IArtifactFactRepository factRepository,
@@ -90,6 +93,7 @@ public class ContinuityAuditService : IContinuityAuditService
         IAiUsageRecordRepository aiUsageRecordRepository,
         IOptions<LoremasterOptions> options)
     {
+        _budgetGuard = budgetGuard;
         _healthService = healthService;
         _artifactRepository = artifactRepository;
         _factRepository = factRepository;
@@ -105,6 +109,11 @@ public class ContinuityAuditService : IContinuityAuditService
     public async Task<AppResult<ContinuityAssessment>> RunAssessmentAsync(
         Guid campaignId, Guid? userId, CancellationToken ct)
     {
+        // 0. Daily AI budget gate — the audit reads the whole record into a prompt.
+        var budgetError = await _budgetGuard.CheckAsync(campaignId, ct);
+        if (budgetError is not null)
+            return AppResult<ContinuityAssessment>.Fail(budgetError);
+
         // 1. Heuristic base score (the fast/free tier we blend against).
         var heuristicResult = await _healthService.GetHealthAsync(campaignId, ct);
         var heuristic = heuristicResult.IsSuccess ? heuristicResult.Value!.OverallScore : 0;

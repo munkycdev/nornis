@@ -309,7 +309,7 @@ public class LoremasterServiceCitationParsingTests
             MaxQuestionLength = 2000
         });
 
-        var service = new LoremasterService(knowledgeRetriever, aiClient, usageRepository, options);
+        var service = new LoremasterService(knowledgeRetriever, aiClient, usageRepository, new FakeAiBudgetGuard(), options);
 
         var artifactId = Guid.NewGuid();
         var factId = Guid.NewGuid();

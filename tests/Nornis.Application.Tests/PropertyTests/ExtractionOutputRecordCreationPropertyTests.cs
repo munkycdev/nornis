@@ -75,7 +75,7 @@ public class ExtractionOutputRecordCreationPropertyTests
             artifactRepo,
             artifactFactRepo,
             fakeAiClient,
-            unitOfWork,
+            new FakeAiBudgetGuard(), unitOfWork,
             options,
             logger);
 

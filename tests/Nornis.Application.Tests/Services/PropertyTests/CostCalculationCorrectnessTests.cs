@@ -61,7 +61,7 @@ public class CostCalculationCorrectnessTests
             knowledgeRetriever,
             aiClient,
             usageRepo,
-            options);
+            new FakeAiBudgetGuard(), options);
 
         var command = new AskLoremasterCommand(
             CampaignId: scenario.CampaignId,
@@ -132,7 +132,7 @@ public class CostCalculationCorrectnessTests
             knowledgeRetriever,
             aiClient,
             usageRepo,
-            options);
+            new FakeAiBudgetGuard(), options);
 
         var command = new AskLoremasterCommand(
             CampaignId: scenario.CampaignId,

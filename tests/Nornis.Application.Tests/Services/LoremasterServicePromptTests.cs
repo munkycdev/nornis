@@ -15,6 +15,7 @@ public class LoremasterServicePromptTests
     private FakeKnowledgeRetriever _knowledgeRetriever = null!;
     private FakeLoremasterAiClient _aiClient = null!;
     private InMemoryAiUsageRecordRepository _aiUsageRecordRepository = null!;
+    private FakeAiBudgetGuard _budgetGuard = null!;
     private LoremasterOptions _options = null!;
 
     [SetUp]
@@ -31,7 +32,8 @@ public class LoremasterServicePromptTests
             MaxQuestionLength = 2000
         };
 
-        _service = new LoremasterService(_knowledgeRetriever, _aiClient, _aiUsageRecordRepository, Options.Create(_options));
+        _budgetGuard = new FakeAiBudgetGuard();
+        _service = new LoremasterService(_knowledgeRetriever, _aiClient, _aiUsageRecordRepository, _budgetGuard, Options.Create(_options));
     }
 
     [Test]
@@ -611,6 +613,21 @@ public class LoremasterServicePromptTests
     }
 
     #endregion
+
+    [Test]
+    public async Task AskAsync_BudgetExceeded_Returns429WithoutCallingAi()
+    {
+        _budgetGuard.Exceeded = true;
+        var command = new Nornis.Application.Models.AskLoremasterCommand(
+            Guid.NewGuid(), "Who is Voss?", Guid.NewGuid(), CampaignRole.Player, null);
+
+        var result = await _service.AskAsync(command, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(429));
+        Assert.That(result.Error.Code, Is.EqualTo("ai_budget_exceeded"));
+        Assert.That(_aiClient.CallCount, Is.EqualTo(0), "the model must not be called when the budget is spent");
+    }
 
     private static KnowledgeContext CreateEmptyContext() => new()
     {

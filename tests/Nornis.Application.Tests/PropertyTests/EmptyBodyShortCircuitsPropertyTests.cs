@@ -74,7 +74,7 @@ public class EmptyBodyShortCircuitsPropertyTests
                     artifactRepo,
                     artifactFactRepo,
                     fakeAiClient,
-                    unitOfWork,
+                    new FakeAiBudgetGuard(), unitOfWork,
                     options,
                     logger);
 

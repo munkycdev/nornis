@@ -73,7 +73,7 @@ public class NonTransientFailuresTransitionSourceToFailedTests
             artifactRepo,
             artifactFactRepo,
             fakeAiClient,
-            unitOfWork,
+            new FakeAiBudgetGuard(), unitOfWork,
             options,
             logger);
 

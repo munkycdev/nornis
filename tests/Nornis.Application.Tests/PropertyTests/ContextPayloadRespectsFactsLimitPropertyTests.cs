@@ -132,7 +132,7 @@ public class ContextPayloadRespectsFactsLimitPropertyTests
                     artifactRepo,
                     artifactFactRepo,
                     fakeAiClient,
-                    unitOfWork,
+                    new FakeAiBudgetGuard(), unitOfWork,
                     options,
                     logger);
 

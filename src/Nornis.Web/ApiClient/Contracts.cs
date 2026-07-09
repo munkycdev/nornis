@@ -196,7 +196,8 @@ public record TimePeriodSummary(
     CostSummary Today,
     CostSummary ThisWeek,
     CostSummary ThisMonth,
-    CostSummary AllTime);
+    CostSummary AllTime,
+    decimal? DailyBudgetUsd = null);
 
 public record UserCost(Guid UserId, string Username, CostSummary Summary);
 

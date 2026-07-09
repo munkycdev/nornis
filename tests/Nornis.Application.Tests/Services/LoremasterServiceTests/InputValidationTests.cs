@@ -4,6 +4,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
+using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
 using NSubstitute;
@@ -42,7 +43,7 @@ public class InputValidationTests
             _knowledgeRetriever,
             _aiClient,
             _aiUsageRecordRepository,
-            Options.Create(options));
+            new FakeAiBudgetGuard(), Options.Create(options));
     }
 
     [Test]

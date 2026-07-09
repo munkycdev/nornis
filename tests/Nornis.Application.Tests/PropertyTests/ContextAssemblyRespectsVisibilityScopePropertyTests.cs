@@ -101,7 +101,7 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                     artifactRepo,
                     artifactFactRepo,
                     fakeAiClient,
-                    unitOfWork,
+                    new FakeAiBudgetGuard(), unitOfWork,
                     options,
                     logger);
 
@@ -255,7 +255,7 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                     artifactRepo,
                     artifactFactRepo,
                     fakeAiClient,
-                    unitOfWork,
+                    new FakeAiBudgetGuard(), unitOfWork,
                     options,
                     logger);
 

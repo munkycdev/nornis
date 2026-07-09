@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
+using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
@@ -16,9 +17,14 @@ public class CostsController : ControllerBase
 {
     private readonly ICostService _costService;
     private readonly ILogger<CostsController> _logger;
+    private readonly AiBudgetOptions _budgetOptions;
 
-    public CostsController(ICostService costService, ILogger<CostsController> logger)
+    public CostsController(
+        ICostService costService,
+        ILogger<CostsController> logger,
+        Microsoft.Extensions.Options.IOptions<AiBudgetOptions> budgetOptions)
     {
+        _budgetOptions = budgetOptions.Value;
         _costService = costService;
         _logger = logger;
     }
@@ -127,9 +133,11 @@ public class CostsController : ControllerBase
         };
     }
 
-    private static TimePeriodSummaryResponse ToTimePeriodSummaryResponse(TimePeriodCostResult result)
+    private TimePeriodSummaryResponse ToTimePeriodSummaryResponse(TimePeriodCostResult result)
     {
+        var budget = _budgetOptions.DailyCampaignBudgetUsd;
         return new TimePeriodSummaryResponse(
+            DailyBudgetUsd: budget > 0 ? budget : null,
             Today: ToCostSummaryResponse(result.Today),
             ThisWeek: ToCostSummaryResponse(result.ThisWeek),
             ThisMonth: ToCostSummaryResponse(result.ThisMonth),
