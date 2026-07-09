@@ -68,6 +68,7 @@ public class ExtractionOutputRecordCreationPropertyTests
 
         var service = new ExtractionService(
             sourceRepo,
+            new InMemoryCampaignRepository(),
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,

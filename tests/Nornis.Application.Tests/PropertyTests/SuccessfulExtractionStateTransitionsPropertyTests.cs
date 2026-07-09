@@ -70,6 +70,7 @@ public class SuccessfulExtractionStateTransitionsPropertyTests
 
         var service = new ExtractionService(
             sourceRepo,
+            new InMemoryCampaignRepository(),
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,
@@ -142,6 +143,7 @@ public class SuccessfulExtractionStateTransitionsPropertyTests
 
         var service = new ExtractionService(
             sourceRepo,
+            new InMemoryCampaignRepository(),
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,

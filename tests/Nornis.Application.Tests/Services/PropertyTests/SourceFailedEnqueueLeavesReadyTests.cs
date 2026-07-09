@@ -35,7 +35,7 @@ public class SourceFailedEnqueueLeavesReadyTests
         var queueClient = new FakeExtractionQueueClient();
         queueClient.ConfigureToFail(true);
 
-        var service = new SourceService(sourceRepo, memberRepo, queueClient);
+        var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient);
 
         var source = new Source
         {

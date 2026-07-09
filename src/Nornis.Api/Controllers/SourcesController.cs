@@ -51,7 +51,8 @@ public class SourcesController : ControllerBase
             CreatingUserRole: member.Role,
             Body: request.Body,
             Uri: request.Uri,
-            OccurredAt: request.OccurredAt);
+            OccurredAt: request.OccurredAt,
+            CampaignId: request.CampaignId);
 
         var result = await _sourceService.CreateAsync(command, ct);
 
@@ -67,12 +68,31 @@ public class SourcesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> List(Guid worldId, CancellationToken ct)
+    public async Task<IActionResult> List(Guid worldId, [FromQuery] string? campaignId, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        var result = await _sourceService.ListByWorldAsync(worldId, user.Id, member.Role, ct);
+        // ?campaignId=<guid> filters to that campaign; ?campaignId=none to unassigned.
+        Guid? campaignFilter = null;
+        var unassignedOnly = false;
+        if (!string.IsNullOrWhiteSpace(campaignId))
+        {
+            if (string.Equals(campaignId, "none", StringComparison.OrdinalIgnoreCase))
+            {
+                unassignedOnly = true;
+            }
+            else if (Guid.TryParse(campaignId, out var parsedCampaignId))
+            {
+                campaignFilter = parsedCampaignId;
+            }
+            else
+            {
+                return BadRequest(new ErrorResponse("invalid_campaign_filter", $"'{campaignId}' is not a valid campaign filter."));
+            }
+        }
+
+        var result = await _sourceService.ListByWorldAsync(worldId, user.Id, member.Role, ct, campaignFilter, unassignedOnly);
 
         if (!result.IsSuccess)
         {
@@ -144,7 +164,9 @@ public class SourcesController : ControllerBase
             Uri: request.Uri,
             OccurredAt: request.OccurredAt,
             Type: sourceType,
-            Visibility: visibility);
+            Visibility: visibility,
+            CampaignId: request.CampaignId,
+            ClearCampaign: request.ClearCampaign);
 
         var result = await _sourceService.UpdateAsync(command, ct);
 
@@ -213,7 +235,9 @@ public class SourcesController : ControllerBase
             CreatedAt: source.CreatedAt,
             CreatedByUserId: source.CreatedByUserId,
             Visibility: source.Visibility.ToString(),
-            ProcessingStatus: source.ProcessingStatus.ToString());
+            ProcessingStatus: source.ProcessingStatus.ToString(),
+            CampaignId: source.CampaignId,
+            CampaignName: source.Campaign?.Name);
     }
 
     private static SourceListItemResponse ToSourceListItemResponse(Source source)
@@ -227,7 +251,9 @@ public class SourcesController : ControllerBase
             CreatedAt: source.CreatedAt,
             CreatedByUserId: source.CreatedByUserId,
             Visibility: source.Visibility.ToString(),
-            ProcessingStatus: source.ProcessingStatus.ToString());
+            ProcessingStatus: source.ProcessingStatus.ToString(),
+            CampaignId: source.CampaignId,
+            CampaignName: source.Campaign?.Name);
     }
 
     private IActionResult MapError(AppError error)

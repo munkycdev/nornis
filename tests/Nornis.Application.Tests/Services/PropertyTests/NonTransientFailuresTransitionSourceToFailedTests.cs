@@ -66,6 +66,7 @@ public class NonTransientFailuresTransitionSourceToFailedTests
 
         var service = new ExtractionService(
             sourceRepo,
+            new InMemoryCampaignRepository(),
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,

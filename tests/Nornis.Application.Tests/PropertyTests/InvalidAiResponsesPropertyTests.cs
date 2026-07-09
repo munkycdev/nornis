@@ -71,6 +71,7 @@ public class InvalidAiResponsesPropertyTests
 
                 var service = new ExtractionService(
                     sourceRepo,
+                    new InMemoryCampaignRepository(),
                     reviewBatchRepo,
                     reviewProposalRepo,
                     sourceReferenceRepo,
@@ -148,6 +149,7 @@ public class InvalidAiResponsesPropertyTests
 
                 var service = new ExtractionService(
                     sourceRepo,
+                    new InMemoryCampaignRepository(),
                     reviewBatchRepo,
                     reviewProposalRepo,
                     sourceReferenceRepo,

@@ -25,6 +25,7 @@ public class SourceRepository : ISourceRepository
     {
         return await _context.Sources
             .AsNoTracking()
+            .Include(s => s.Campaign)
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
     }
 
@@ -32,6 +33,7 @@ public class SourceRepository : ISourceRepository
     {
         var query = _context.Sources
             .AsNoTracking()
+            .Include(s => s.Campaign)
             .Where(s => s.WorldId == worldId);
 
         if (visibility is not null)

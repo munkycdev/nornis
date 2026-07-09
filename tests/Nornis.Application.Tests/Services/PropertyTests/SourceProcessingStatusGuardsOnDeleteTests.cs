@@ -32,7 +32,7 @@ public class SourceProcessingStatusGuardsOnDeleteTests
         var sourceRepo = new InMemorySourceRepository();
         var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
-        var service = new SourceService(sourceRepo, memberRepo, queueClient);
+        var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient);
 
         sourceRepo.CreateAsync(scenario.ExistingSource, CancellationToken.None).GetAwaiter().GetResult();
 
@@ -71,7 +71,7 @@ public class SourceProcessingStatusGuardsOnDeleteTests
         var sourceRepo = new InMemorySourceRepository();
         var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
-        var service = new SourceService(sourceRepo, memberRepo, queueClient);
+        var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient);
 
         sourceRepo.CreateAsync(scenario.ExistingSource, CancellationToken.None).GetAwaiter().GetResult();
 

@@ -68,6 +68,7 @@ public class ExtractionServiceUsageTrackingTests
 
         return new ExtractionService(
             _sourceRepo,
+            new InMemoryCampaignRepository(),
             _batchRepo,
             _proposalRepo,
             _sourceRefRepo,

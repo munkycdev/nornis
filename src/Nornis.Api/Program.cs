@@ -78,6 +78,8 @@ builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 // Application service registrations
 builder.Services.AddScoped<IWorldService, WorldService>();
 builder.Services.AddScoped<IWorldMemberService, WorldMemberService>();
+builder.Services.AddScoped<ICampaignService, CampaignService>();
+builder.Services.AddScoped<ICharacterService, CharacterService>();
 builder.Services.AddScoped<ISourceService, SourceService>();
 builder.Services.AddScoped<IArtifactService, ArtifactService>();
 builder.Services.AddScoped<ICanonService, CanonService>();

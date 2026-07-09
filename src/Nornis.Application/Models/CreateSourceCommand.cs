@@ -11,4 +11,5 @@ public record CreateSourceCommand(
     WorldRole CreatingUserRole,
     string? Body = null,
     string? Uri = null,
-    DateTimeOffset? OccurredAt = null);
+    DateTimeOffset? OccurredAt = null,
+    Guid? CampaignId = null);

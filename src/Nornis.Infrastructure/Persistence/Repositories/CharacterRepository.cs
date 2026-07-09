@@ -40,10 +40,10 @@ public class CharacterRepository : ICharacterRepository
 
     public async Task<IReadOnlyList<Character>> ListByCampaignAsync(Guid campaignId, CancellationToken cancellationToken = default)
     {
-        return await _context.CampaignCharacters
+        return await _context.Characters
             .AsNoTracking()
-            .Where(cc => cc.CampaignId == campaignId)
-            .Select(cc => cc.Character)
+            .Include(c => c.CampaignCharacters)
+            .Where(c => c.CampaignCharacters.Any(cc => cc.CampaignId == campaignId))
             .OrderBy(c => c.Name)
             .ToListAsync(cancellationToken);
     }

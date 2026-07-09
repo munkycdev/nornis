@@ -6,4 +6,6 @@ public record UpdateSourceRequest(
     string? Uri = null,
     DateTimeOffset? OccurredAt = null,
     string? Type = null,
-    string? Visibility = null);
+    string? Visibility = null,
+    Guid? CampaignId = null,
+    bool ClearCampaign = false);

@@ -59,6 +59,7 @@ public class NonQueuedSourcesAndExistingBatchesSkippedTests
 
         return new ExtractionService(
             sourceRepo,
+            new InMemoryCampaignRepository(),
             batchRepo,
             proposalRepo,
             sourceRefRepo,

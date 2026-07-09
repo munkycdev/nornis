@@ -69,6 +69,7 @@ public class CostCalculationCorrectnessPropertyTests
 
         var service = new ExtractionService(
             sourceRepo,
+            new InMemoryCampaignRepository(),
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,

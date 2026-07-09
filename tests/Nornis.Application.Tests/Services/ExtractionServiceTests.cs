@@ -63,6 +63,7 @@ public class ExtractionServiceTests
 
         _sut = new ExtractionService(
             _sourceRepository,
+            new InMemoryCampaignRepository(),
             _reviewBatchRepository,
             _reviewProposalRepository,
             _sourceReferenceRepository,

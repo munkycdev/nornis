@@ -6,4 +6,5 @@ public record CreateSourceRequest(
     string Visibility,
     string? Body = null,
     string? Uri = null,
-    DateTimeOffset? OccurredAt = null);
+    DateTimeOffset? OccurredAt = null,
+    Guid? CampaignId = null);

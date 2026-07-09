@@ -11,6 +11,7 @@ public class SourceService : ISourceService
 {
     private readonly ISourceRepository _sourceRepository;
     private readonly IWorldMemberRepository _worldMemberRepository;
+    private readonly ICampaignRepository _campaignRepository;
     private readonly IExtractionQueueClient _extractionQueueClient;
 
     private static readonly Dictionary<SourceProcessingStatus, HashSet<SourceProcessingStatus>> ValidTransitions = new()
@@ -26,10 +27,12 @@ public class SourceService : ISourceService
     public SourceService(
         ISourceRepository sourceRepository,
         IWorldMemberRepository worldMemberRepository,
+        ICampaignRepository campaignRepository,
         IExtractionQueueClient extractionQueueClient)
     {
         _sourceRepository = sourceRepository;
         _worldMemberRepository = worldMemberRepository;
+        _campaignRepository = campaignRepository;
         _extractionQueueClient = extractionQueueClient;
     }
 
@@ -66,12 +69,23 @@ public class SourceService : ISourceService
             return AppResult<Source>.Fail(new AppError(400, "validation_error", "Players cannot create GMOnly sources."));
         }
 
+        // Campaign, when declared, must belong to the same world
+        if (command.CampaignId is not null)
+        {
+            var campaignError = await ValidateCampaignAsync(command.CampaignId.Value, command.WorldId, ct);
+            if (campaignError is not null)
+            {
+                return AppResult<Source>.Fail(campaignError);
+            }
+        }
+
         var now = DateTimeOffset.UtcNow;
 
         var source = new Source
         {
             Id = Guid.NewGuid(),
             WorldId = command.WorldId,
+            CampaignId = command.CampaignId,
             Type = command.Type,
             Title = command.Title,
             Body = command.Body,
@@ -193,6 +207,21 @@ public class SourceService : ISourceService
             source.Visibility = command.Visibility.Value;
         }
 
+        if (command.CampaignId is not null)
+        {
+            var campaignError = await ValidateCampaignAsync(command.CampaignId.Value, command.WorldId, ct);
+            if (campaignError is not null)
+            {
+                return AppResult<Source>.Fail(campaignError);
+            }
+
+            source.CampaignId = command.CampaignId;
+        }
+        else if (command.ClearCampaign)
+        {
+            source.CampaignId = null;
+        }
+
         source = await _sourceRepository.UpdateAsync(source, ct);
 
         return AppResult<Source>.Success(source);
@@ -231,12 +260,22 @@ public class SourceService : ISourceService
         return AppResult.Success();
     }
 
-    public async Task<AppResult<IReadOnlyList<Source>>> ListByWorldAsync(Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct)
+    public async Task<AppResult<IReadOnlyList<Source>>> ListByWorldAsync(Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct, Guid? campaignId = null, bool unassignedOnly = false)
     {
         var allSources = await _sourceRepository.ListByWorldAsync(worldId, cancellationToken: ct);
 
-        var visibleSources = allSources
-            .Where(s => CanSeeSource(s, requestingUserId, role))
+        var filtered = allSources.Where(s => CanSeeSource(s, requestingUserId, role));
+
+        if (campaignId is not null)
+        {
+            filtered = filtered.Where(s => s.CampaignId == campaignId);
+        }
+        else if (unassignedOnly)
+        {
+            filtered = filtered.Where(s => s.CampaignId is null);
+        }
+
+        var visibleSources = filtered
             .OrderByDescending(s => s.CreatedAt)
             .ToList();
 
@@ -292,6 +331,18 @@ public class SourceService : ISourceService
         source = await _sourceRepository.UpdateAsync(source, ct);
 
         return AppResult<Source>.Success(source);
+    }
+
+    private async Task<AppError?> ValidateCampaignAsync(Guid campaignId, Guid worldId, CancellationToken ct)
+    {
+        var campaign = await _campaignRepository.GetByIdAsync(campaignId, ct);
+
+        if (campaign is null || campaign.WorldId != worldId)
+        {
+            return new AppError(400, "invalid_campaign", "Campaign not found in this world.");
+        }
+
+        return null;
     }
 
     private static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch

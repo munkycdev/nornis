@@ -68,6 +68,7 @@ public class SourceFieldsMappedToAiRequestPropertyTests
 
         var service = new ExtractionService(
             sourceRepo,
+            new InMemoryCampaignRepository(),
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,
@@ -155,6 +156,7 @@ public class SourceFieldsMappedToAiRequestPropertyTests
 
         var service = new ExtractionService(
             sourceRepo,
+            new InMemoryCampaignRepository(),
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,
@@ -225,6 +227,7 @@ public class SourceFieldsMappedToAiRequestPropertyTests
 
         var service = new ExtractionService(
             sourceRepo,
+            new InMemoryCampaignRepository(),
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,

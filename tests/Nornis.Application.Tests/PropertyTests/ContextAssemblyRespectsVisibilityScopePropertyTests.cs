@@ -94,6 +94,7 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
 
                 var service = new ExtractionService(
                     sourceRepo,
+                    new InMemoryCampaignRepository(),
                     reviewBatchRepo,
                     reviewProposalRepo,
                     sourceReferenceRepo,
@@ -248,6 +249,7 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
 
                 var service = new ExtractionService(
                     sourceRepo,
+                    new InMemoryCampaignRepository(),
                     reviewBatchRepo,
                     reviewProposalRepo,
                     sourceReferenceRepo,

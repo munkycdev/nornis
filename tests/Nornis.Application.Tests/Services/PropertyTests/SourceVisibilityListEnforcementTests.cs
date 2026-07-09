@@ -32,7 +32,7 @@ public class SourceVisibilityListEnforcementTests
         var sourceRepo = new InMemorySourceRepository();
         var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
-        var service = new SourceService(sourceRepo, memberRepo, queueClient);
+        var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient);
 
         // Seed all sources in the repository
         foreach (var source in scenario.Sources)

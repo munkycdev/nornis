@@ -32,7 +32,7 @@ public class SourceMutationAuthorizationTests
         var sourceRepo = new InMemorySourceRepository();
         var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
-        var service = new SourceService(sourceRepo, memberRepo, queueClient);
+        var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient);
 
         // Seed the source created by a different user
         sourceRepo.CreateAsync(scenario.ExistingSource, CancellationToken.None).GetAwaiter().GetResult();
@@ -71,7 +71,7 @@ public class SourceMutationAuthorizationTests
         var sourceRepo = new InMemorySourceRepository();
         var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
-        var service = new SourceService(sourceRepo, memberRepo, queueClient);
+        var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient);
 
         // Seed the source created by a different user
         sourceRepo.CreateAsync(scenario.ExistingSource, CancellationToken.None).GetAwaiter().GetResult();
@@ -108,7 +108,7 @@ public class SourceMutationAuthorizationTests
         var sourceRepo = new InMemorySourceRepository();
         var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
-        var service = new SourceService(sourceRepo, memberRepo, queueClient);
+        var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient);
 
         // Seed the source created by a different user (in Draft status for mark-ready)
         var draftSource = scenario.ExistingSource;

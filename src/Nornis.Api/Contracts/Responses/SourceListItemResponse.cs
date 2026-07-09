@@ -9,4 +9,6 @@ public record SourceListItemResponse(
     DateTimeOffset CreatedAt,
     Guid CreatedByUserId,
     string Visibility,
-    string ProcessingStatus);
+    string ProcessingStatus,
+    Guid? CampaignId = null,
+    string? CampaignName = null);

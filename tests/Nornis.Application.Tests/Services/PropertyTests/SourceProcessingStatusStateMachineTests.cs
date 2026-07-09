@@ -52,7 +52,7 @@ public class SourceProcessingStatusStateMachineTests
         var sourceRepo = new InMemorySourceRepository();
         var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
-        var service = new SourceService(sourceRepo, memberRepo, queueClient);
+        var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient);
 
         // Create a source with the given current status
         var source = new Source

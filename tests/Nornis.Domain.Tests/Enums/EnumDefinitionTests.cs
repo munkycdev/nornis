@@ -214,8 +214,9 @@ public class EnumDefinitionTests
             .Where(t => t.IsEnum && t.Namespace == "Nornis.Domain.Enums")
             .ToList();
 
-        // 15 original + ContinuityFindingCategory/Severity/Status (AI-assessed Continuity Health).
-        Assert.That(enumTypes, Has.Count.EqualTo(18),
-            "Expected exactly 18 enums in Nornis.Domain.Enums namespace.");
+        // 15 original + ContinuityFindingCategory/Severity/Status (AI-assessed Continuity
+        // Health) + CampaignStatus (worlds-and-campaigns).
+        Assert.That(enumTypes, Has.Count.EqualTo(19),
+            "Expected exactly 19 enums in Nornis.Domain.Enums namespace.");
     }
 }

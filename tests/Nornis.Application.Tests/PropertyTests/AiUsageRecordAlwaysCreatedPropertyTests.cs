@@ -63,6 +63,7 @@ public class AiUsageRecordAlwaysCreatedPropertyTests
 
         return new ExtractionService(
             sourceRepo,
+            new InMemoryCampaignRepository(),
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,

@@ -14,6 +14,7 @@ namespace Nornis.Application.Services;
 public class ExtractionService : IExtractionService
 {
     private readonly ISourceRepository _sourceRepository;
+    private readonly ICampaignRepository _campaignRepository;
     private readonly IReviewBatchRepository _reviewBatchRepository;
     private readonly IReviewProposalRepository _reviewProposalRepository;
     private readonly ISourceReferenceRepository _sourceReferenceRepository;
@@ -39,6 +40,7 @@ public class ExtractionService : IExtractionService
 
     public ExtractionService(
         ISourceRepository sourceRepository,
+        ICampaignRepository campaignRepository,
         IReviewBatchRepository reviewBatchRepository,
         IReviewProposalRepository reviewProposalRepository,
         ISourceReferenceRepository sourceReferenceRepository,
@@ -53,6 +55,7 @@ public class ExtractionService : IExtractionService
     {
         _budgetGuard = budgetGuard;
         _sourceRepository = sourceRepository;
+        _campaignRepository = campaignRepository;
         _reviewBatchRepository = reviewBatchRepository;
         _reviewProposalRepository = reviewProposalRepository;
         _sourceReferenceRepository = sourceReferenceRepository;
@@ -232,7 +235,14 @@ public class ExtractionService : IExtractionService
     private async Task<ExtractionOutcome> InvokeAiWithRetriesAsync(
         Source source, Guid worldId, IReadOnlyList<ArtifactContext> context, CancellationToken ct)
     {
-        var request = BuildExtractionRequest(source, context);
+        // Campaign context helps the AI disambiguate recurring names across campaign eras.
+        Campaign? campaign = null;
+        if (source.CampaignId is not null)
+        {
+            campaign = await _campaignRepository.GetByIdAsync(source.CampaignId.Value, ct);
+        }
+
+        var request = BuildExtractionRequest(source, campaign, context);
         var maxAttempts = 1 + _options.MaxParseRetryAttempts; // initial + retries
 
         AiExtractionResponse? lastResponse = null;
@@ -553,7 +563,7 @@ public class ExtractionService : IExtractionService
         }
     }
 
-    private static ExtractionRequest BuildExtractionRequest(Source source, IReadOnlyList<ArtifactContext> context)
+    private static ExtractionRequest BuildExtractionRequest(Source source, Campaign? campaign, IReadOnlyList<ArtifactContext> context)
     {
         return new ExtractionRequest
         {
@@ -562,6 +572,8 @@ public class ExtractionService : IExtractionService
             SourceType = source.Type.ToString(),
             SourceVisibility = source.Visibility.ToString(),
             OccurredAt = source.OccurredAt,
+            CampaignName = campaign?.Name,
+            CampaignStatus = campaign?.Status.ToString(),
             ExistingArtifacts = context
         };
     }

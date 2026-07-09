@@ -67,6 +67,7 @@ public class EmptyBodyShortCircuitsPropertyTests
 
                 var service = new ExtractionService(
                     sourceRepo,
+                    new InMemoryCampaignRepository(),
                     reviewBatchRepo,
                     reviewProposalRepo,
                     sourceReferenceRepo,

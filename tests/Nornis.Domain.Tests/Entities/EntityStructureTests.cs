@@ -124,14 +124,15 @@ public class EntityStructureTests
     }
 
     [Test]
-    public void Domain_Assembly_Contains_Exactly_14_Entity_Classes()
+    public void Domain_Assembly_Contains_Exactly_17_Entity_Classes()
     {
         var entityTypes = typeof(User).Assembly
             .GetTypes()
             .Where(t => t.Namespace == "Nornis.Domain.Entities" && t.IsClass && !t.IsAbstract)
             .ToList();
 
-        // 12 original + HealthAssessment + ContinuityFinding (AI-assessed Continuity Health).
-        Assert.That(entityTypes, Has.Count.EqualTo(14));
+        // 12 original + HealthAssessment + ContinuityFinding (AI-assessed Continuity
+        // Health) + Campaign/Character/CampaignCharacter (worlds-and-campaigns).
+        Assert.That(entityTypes, Has.Count.EqualTo(17));
     }
 }

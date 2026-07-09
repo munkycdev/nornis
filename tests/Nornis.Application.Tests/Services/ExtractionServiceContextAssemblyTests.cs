@@ -58,6 +58,7 @@ public class ExtractionServiceContextAssemblyTests
 
     private ExtractionService CreateService() => new(
         _sourceRepository,
+        new InMemoryCampaignRepository(),
         _reviewBatchRepository,
         _reviewProposalRepository,
         _sourceReferenceRepository,

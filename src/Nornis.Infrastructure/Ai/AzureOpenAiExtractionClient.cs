@@ -284,6 +284,12 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             parts.Add($"- Occurred At: {request.OccurredAt.Value:O}");
         }
 
+        if (!string.IsNullOrWhiteSpace(request.CampaignName))
+        {
+            var status = string.IsNullOrWhiteSpace(request.CampaignStatus) ? "" : $" ({request.CampaignStatus})";
+            parts.Add($"- Campaign: {request.CampaignName}{status} — this source describes events from this campaign within the world.");
+        }
+
         parts.Add("");
         parts.Add("## Source Content");
         parts.Add(request.SourceBody);

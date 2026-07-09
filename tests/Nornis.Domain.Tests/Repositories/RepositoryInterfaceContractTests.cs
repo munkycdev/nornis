@@ -21,6 +21,8 @@ public class RepositoryInterfaceContractTests
         typeof(ISourceReferenceRepository),
         typeof(IAiUsageRecordRepository),
         typeof(IHealthAssessmentRepository),
+        typeof(ICampaignRepository),
+        typeof(ICharacterRepository),
         typeof(IUnitOfWork),
         typeof(ITransactionScope),
     ];
@@ -39,6 +41,8 @@ public class RepositoryInterfaceContractTests
         [typeof(ISourceReferenceRepository)] = ["CreateAsync", "ListByTargetAsync"],
         [typeof(IAiUsageRecordRepository)] = ["CreateAsync", "QueryAsync", "AggregateAsync", "AggregateByOperationTypeAsync", "AggregateByModelAsync", "AggregateByUserAsync", "AggregateByWorldAsync"],
         [typeof(IHealthAssessmentRepository)] = ["CreateAsync", "GetLatestWithFindingsAsync", "GetLatestCreatedAtAsync", "GetFindingByIdAsync", "UpdateFindingAsync"],
+        [typeof(ICampaignRepository)] = ["CreateAsync", "GetByIdAsync", "ListByWorldAsync", "UpdateAsync", "DeleteAsync"],
+        [typeof(ICharacterRepository)] = ["CreateAsync", "GetByIdAsync", "ListByWorldAsync", "ListByCampaignAsync", "UpdateAsync", "DeleteAsync", "ReplaceCampaignAssignmentsAsync"],
         [typeof(IUnitOfWork)] = ["BeginTransactionAsync"],
         [typeof(ITransactionScope)] = ["CommitAsync", "RollbackAsync"],
     };
