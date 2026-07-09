@@ -3,6 +3,8 @@
 @inject CampaignState Campaigns
 @inject NornisApiClient Api
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject NavigationManager Nav
 
 <PageTitle>@(_source?.Title ?? "Source") — Nornis</PageTitle>
 
@@ -45,42 +47,110 @@
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@_source.Visibility</MudChip>
                 </div>
             </div>
-            @if (_source.ProcessingStatus is "Draft" or "Failed")
+            @if (!_editing)
             {
-                <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.AutoAwesome"
-                           OnClick="ProcessAsync" Disabled="_processing">
-                    Process
-                </MudButton>
+                <div class="nornis-detail-actions">
+                    @if (_source.ProcessingStatus is "Draft" or "Failed")
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.AutoAwesome"
+                                   OnClick="ProcessAsync" Disabled="_processing">
+                            Process
+                        </MudButton>
+                    }
+                    @if (CanEdit)
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit"
+                                   OnClick="BeginEdit" Disabled="_processing">
+                            Edit
+                        </MudButton>
+                    }
+                    @if (CanDelete)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                       OnClick="DeleteAsync" Disabled="_deleting" aria-label="Delete source" />
+                    }
+                </div>
             }
         </div>
 
-        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-            <div class="nornis-kv">
-                <span class="nornis-kv-key">Created</span>
-                <span class="nornis-kv-value">@_source.CreatedAt.LocalDateTime.ToString("d MMM yyyy, h:mm tt")</span>
-            </div>
-            @if (_source.OccurredAt is not null)
-            {
-                <div class="nornis-kv">
-                    <span class="nornis-kv-key">Occurred</span>
-                    <span class="nornis-kv-value">@_source.OccurredAt.Value.LocalDateTime.ToString("d MMM yyyy")</span>
-                </div>
-            }
-            @if (!string.IsNullOrWhiteSpace(_source.Uri))
-            {
-                <div class="nornis-kv">
-                    <span class="nornis-kv-key">Link</span>
-                    <a href="@_source.Uri" target="_blank" rel="noopener" class="nornis-link">@_source.Uri</a>
-                </div>
-            }
-        </MudPaper>
-
-        @if (!string.IsNullOrWhiteSpace(_source.Body))
+        @if (_editing)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-                <div class="nornis-detail-section-title">Content</div>
-                <div class="nornis-source-body">@_source.Body</div>
+                <div class="nornis-detail-section-title">Edit source</div>
+
+                <MudTextField @bind-Value="_editTitle" Label="Title" Required="true" Immediate="true"
+                              MaxLength="200" Variant="Variant.Outlined" Class="mb-3" />
+
+                <div class="d-flex gap-3 mb-3">
+                    <MudSelect @bind-Value="_editType" Label="Type" Variant="Variant.Outlined" Class="flex-grow-1">
+                        @foreach (var type in _sourceTypes)
+                        {
+                            <MudSelectItem Value="@type">@Humanize(type)</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect @bind-Value="_editVisibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1">
+                        @foreach (var vis in _visibilities)
+                        {
+                            <MudSelectItem Value="@vis">@vis</MudSelectItem>
+                        }
+                    </MudSelect>
+                </div>
+
+                <MudTextField @bind-Value="_editBody" Label="Body" Lines="8"
+                              Placeholder="Paste session notes, a journal entry, a transcript…"
+                              Variant="Variant.Outlined" Class="mb-3" />
+
+                <MudTextField @bind-Value="_editUri" Label="Link (optional)" Placeholder="https://…"
+                              Variant="Variant.Outlined" Class="mb-3" />
+
+                <MudDatePicker @bind-Date="_editOccurredAt" Label="When it happened (optional)"
+                               Variant="Variant.Outlined" Class="mb-3" />
+
+                @if (_editError is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_editError</MudAlert>
+                }
+
+                <div class="d-flex gap-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SaveEditAsync" Disabled="_saving">
+                        Save
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="CancelEdit" Disabled="_saving">
+                        Cancel
+                    </MudButton>
+                </div>
             </MudPaper>
+        }
+        else
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-kv">
+                    <span class="nornis-kv-key">Created</span>
+                    <span class="nornis-kv-value">@_source.CreatedAt.LocalDateTime.ToString("d MMM yyyy, h:mm tt")</span>
+                </div>
+                @if (_source.OccurredAt is not null)
+                {
+                    <div class="nornis-kv">
+                        <span class="nornis-kv-key">Occurred</span>
+                        <span class="nornis-kv-value">@_source.OccurredAt.Value.LocalDateTime.ToString("d MMM yyyy")</span>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(_source.Uri))
+                {
+                    <div class="nornis-kv">
+                        <span class="nornis-kv-key">Link</span>
+                        <a href="@_source.Uri" target="_blank" rel="noopener" class="nornis-link">@_source.Uri</a>
+                    </div>
+                }
+            </MudPaper>
+
+            @if (!string.IsNullOrWhiteSpace(_source.Body))
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="nornis-detail-section-title">Content</div>
+                    <div class="nornis-source-body">@_source.Body</div>
+                </MudPaper>
+            }
         }
     }
 </div>
@@ -94,6 +164,31 @@
     private string? _error;
     private SourceDetailDto? _source;
     private Guid _loadedId;
+
+    // Inline edit form. Mirrors the Capture page's option lists so the two stay in sync.
+    private readonly string[] _sourceTypes =
+    [
+        "SessionNote", "JournalEntry", "Transcript", "GMNote", "WebLink",
+        "Image", "HandwrittenNotes", "Upload", "ImportedNote",
+    ];
+    private readonly string[] _visibilities = ["PartyVisible", "GMOnly", "Private"];
+
+    private bool _editing;
+    private bool _saving;
+    private bool _deleting;
+    private string? _editError;
+    private string _editTitle = string.Empty;
+    private string _editType = "SessionNote";
+    private string _editVisibility = "PartyVisible";
+    private string? _editBody;
+    private string? _editUri;
+    private DateTime? _editOccurredAt;
+
+    // Edits are rejected server-side once the source is Queued/Processing/Processed.
+    private bool CanEdit => _source?.ProcessingStatus is "Draft" or "Ready" or "Failed";
+
+    // Deletes are rejected server-side while Queued/Processing.
+    private bool CanDelete => _source is not null && _source.ProcessingStatus is not ("Queued" or "Processing");
 
     protected override void OnInitialized() => Campaigns.Changed += OnCampaignChanged;
 
@@ -203,6 +298,101 @@
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
         StateHasChanged();
+    }
+
+    private void BeginEdit()
+    {
+        if (_source is null)
+        {
+            return;
+        }
+
+        _editTitle = _source.Title;
+        _editType = _source.Type;
+        _editVisibility = _source.Visibility;
+        _editBody = _source.Body;
+        _editUri = _source.Uri;
+        _editOccurredAt = _source.OccurredAt?.LocalDateTime;
+        _editError = null;
+        _editing = true;
+    }
+
+    private void CancelEdit()
+    {
+        _editing = false;
+        _editError = null;
+    }
+
+    private async Task SaveEditAsync()
+    {
+        if (Campaigns.Current is null || _source is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_editTitle))
+        {
+            _editError = "Title is required.";
+            return;
+        }
+
+        _saving = true;
+        _editError = null;
+
+        var request = new UpdateSourceRequest(
+            Title: _editTitle.Trim(),
+            Body: string.IsNullOrWhiteSpace(_editBody) ? null : _editBody,
+            Uri: string.IsNullOrWhiteSpace(_editUri) ? null : _editUri,
+            OccurredAt: _editOccurredAt.HasValue ? new DateTimeOffset(_editOccurredAt.Value, TimeSpan.Zero) : null,
+            Type: _editType,
+            Visibility: _editVisibility);
+
+        var result = await Api.UpdateSourceAsync(Campaigns.Current.Id, _source.Id, request);
+
+        _saving = false;
+        if (result.IsSuccess)
+        {
+            _source = result.Value!;
+            _editing = false;
+            Snackbar.Add("Source updated.", Severity.Success);
+        }
+        else
+        {
+            _editError = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (Campaigns.Current is null || _source is null)
+        {
+            return;
+        }
+
+        var confirmed = await DialogService.ShowMessageBox(
+            "Delete source?",
+            "This permanently removes the source. Artifacts already accepted from it remain.",
+            yesText: "Delete", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _deleting = true;
+        var result = await Api.DeleteSourceAsync(Campaigns.Current.Id, _source.Id);
+        _deleting = false;
+
+        if (result.IsSuccess)
+        {
+            Snackbar.Add("Source deleted.", Severity.Info);
+            Nav.NavigateTo("/sources");
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+            StateHasChanged();
+        }
     }
 
     private static Color StatusColor(string status) => status switch

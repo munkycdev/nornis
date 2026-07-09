@@ -86,6 +86,15 @@ public class NornisApiClient
     public Task<ApiResult<SourceDetailDto>> MarkSourceReadyAsync(Guid campaignId, Guid sourceId, CancellationToken ct = default) =>
         PostAsync<object?, SourceDetailDto>($"/api/campaigns/{campaignId}/sources/{sourceId}/ready", null, ct);
 
+    /// <summary>Applies a partial update to a source. The server rejects edits once the source
+    /// is Queued/Processing/Processed.</summary>
+    public Task<ApiResult<SourceDetailDto>> UpdateSourceAsync(Guid campaignId, Guid sourceId, UpdateSourceRequest request, CancellationToken ct = default) =>
+        PutAsync<UpdateSourceRequest, SourceDetailDto>($"/api/campaigns/{campaignId}/sources/{sourceId}", request, ct);
+
+    /// <summary>Deletes a source. The server rejects deletes while Queued/Processing.</summary>
+    public Task<ApiResult<bool>> DeleteSourceAsync(Guid campaignId, Guid sourceId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/campaigns/{campaignId}/sources/{sourceId}", ct);
+
     // ------------------------------------------------------------------ Knowledge --
 
     public Task<ApiResult<IReadOnlyList<ArtifactListItem>>> GetArtifactsAsync(
@@ -153,6 +162,12 @@ public class NornisApiClient
 
     private static string DateQuery(DateTimeOffset? from, DateTimeOffset? to) =>
         Query(("startDate", from?.ToString("o")), ("endDate", to?.ToString("o")));
+
+    /// <summary>Cost totals across every campaign where the caller is GM. Not scoped to the
+    /// current campaign and accepts no date range. Returns 403 for callers with no GM campaigns
+    /// only when the endpoint forbids access; callers hide the section on empty or failure.</summary>
+    public Task<ApiResult<IReadOnlyList<CampaignCost>>> GetCostsByCampaignAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<CampaignCost>>("/api/costs/by-campaign", ct);
 
     public Task<ApiResult<ProposalActionResult>> AcceptProposalAsync(Guid campaignId, Guid proposalId, CancellationToken ct = default) =>
         PostAsync<object?, ProposalActionResult>($"/api/campaigns/{campaignId}/reviews/proposals/{proposalId}/accept", null, ct);
