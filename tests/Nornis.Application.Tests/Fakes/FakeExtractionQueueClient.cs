@@ -9,6 +9,9 @@ public class FakeExtractionQueueClient : IExtractionQueueClient
 
     public IReadOnlyList<(Guid SourceId, Guid WorldId)> SentMessages => _sentMessages.AsReadOnly();
 
+    /// <summary>Invoked at the moment of send — lets tests observe state mid-enqueue.</summary>
+    public Action<Guid, Guid>? OnSend { get; set; }
+
     public void ConfigureToFail(bool shouldFail = true)
     {
         _shouldFail = shouldFail;
@@ -16,6 +19,8 @@ public class FakeExtractionQueueClient : IExtractionQueueClient
 
     public Task SendExtractionMessageAsync(Guid sourceId, Guid worldId, CancellationToken ct)
     {
+        OnSend?.Invoke(sourceId, worldId);
+
         if (_shouldFail)
         {
             throw new InvalidOperationException("Simulated queue failure.");

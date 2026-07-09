@@ -318,21 +318,24 @@ public class SourceService : ISourceService
         source.ProcessingStatus = SourceProcessingStatus.Ready;
         source = await _sourceRepository.UpdateAsync(source, ct);
 
-        // Attempt to enqueue extraction message
+        // Commit Queued BEFORE enqueueing: the worker skips (and completes) any message
+        // whose source is not Queued, and a warm worker can receive the message faster
+        // than a post-enqueue status write lands — wedging the source at Queued forever.
+        // Enqueue failure reverts to Ready so the user can retry.
+        source.ProcessingStatus = SourceProcessingStatus.Queued;
+        source = await _sourceRepository.UpdateAsync(source, ct);
+
         try
         {
             await _extractionQueueClient.SendExtractionMessageAsync(source.Id, source.WorldId, ct);
         }
         catch
         {
-            // Failed enqueue: leave at Ready and return error
+            source.ProcessingStatus = SourceProcessingStatus.Ready;
+            source = await _sourceRepository.UpdateAsync(source, ct);
             return AppResult<Source>.Fail(new AppError(502, "enqueue_failed",
                 "Failed to enqueue source for extraction. The source remains at Ready status."));
         }
-
-        // Enqueue succeeded: transition Ready → Queued
-        source.ProcessingStatus = SourceProcessingStatus.Queued;
-        source = await _sourceRepository.UpdateAsync(source, ct);
 
         return AppResult<Source>.Success(source);
     }
