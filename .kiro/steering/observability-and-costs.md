@@ -24,7 +24,7 @@ ai_model
 source_type
 ```
 
-Avoid high-cardinality tags such as raw source IDs or campaign IDs in metrics unless explicitly needed. For logs, campaign IDs may be included when safe and useful.
+Avoid high-cardinality tags such as raw source IDs or world IDs in metrics unless explicitly needed. For logs, world IDs may be included when safe and useful.
 
 ## Required Metrics
 
@@ -72,7 +72,7 @@ Logs should include:
 
 - Correlation ID
 - User ID where safe
-- Campaign ID where safe
+- World ID where safe
 - Operation type
 - Source ID where relevant
 - Review batch ID where relevant
@@ -94,7 +94,7 @@ Nornis must track AI token and dollar usage in the database.
 ```csharp
 AiUsageRecord
 - Id: Guid
-- CampaignId: Guid?
+- WorldId: Guid?
 - UserId: Guid?
 - OperationType: AiOperationType
 - Model: string
@@ -134,7 +134,7 @@ The page should show:
 - This week usage
 - This month usage
 - All-time usage
-- Usage by campaign
+- Usage by world
 - Usage by user
 - Usage by operation type
 - Usage by model
@@ -169,7 +169,7 @@ Suggested configuration:
 Add basic controls:
 
 - Per-user rate limits where practical.
-- Per-campaign daily usage threshold where practical.
+- Per-world daily usage threshold where practical.
 - Logging and alerting for unusually high token usage.
 - Alerts for repeated extraction failures.
 

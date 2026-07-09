@@ -15,8 +15,8 @@ High coverage is useful as a regression signal, but useless tests are worse than
 Every project must have a corresponding test project. Every class should have a corresponding test class.
 
 ```text
-src/Nornis.Domain/Models/Campaign.cs
-    → tests/Nornis.Domain.Tests/Models/CampaignTests.cs
+src/Nornis.Domain/Models/World.cs
+    → tests/Nornis.Domain.Tests/Models/WorldTests.cs
 
 src/Nornis.Application/Services/SourceService.cs
     → tests/Nornis.Application.Tests/Services/SourceServiceTests.cs
@@ -34,7 +34,7 @@ Prioritize tests for:
 4. Source processing state transitions.
 5. Artifact/fact/relationship mutations.
 6. Cost ledger creation.
-7. Campaign membership rules.
+7. World membership rules.
 
 ## Unit Tests
 
@@ -42,7 +42,7 @@ Use unit tests for domain and application behavior.
 
 Important unit test areas:
 
-- Campaign role authorization.
+- World role authorization.
 - Visibility filtering.
 - Proposal acceptance/rejection/editing.
 - Source processing status transitions.
@@ -77,9 +77,9 @@ Authorization deserves explicit test coverage.
 Test that:
 
 - Anonymous requests are rejected except `/health` and approved `/status`.
-- Non-members cannot access campaign resources.
+- Non-members cannot access world resources.
 - Players cannot see GMOnly content.
-- Observers cannot mutate campaign state.
+- Observers cannot mutate world state.
 - Private content is visible only to its creator.
 - AI Ask does not retrieve unauthorized content.
 
@@ -107,7 +107,7 @@ Suggested policy:
 
 ## Test Data
 
-Use realistic campaign examples:
+Use realistic world examples:
 
 - Captain Voss
 - Black Harbor

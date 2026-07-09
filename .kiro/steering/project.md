@@ -1,8 +1,8 @@
-# Nornis - AI-First Campaign Memory
+# Nornis - AI-First World Memory
 
 ## Project Overview
 
-Nornis is an AI-first campaign memory engine for tabletop roleplaying games. It helps Game Masters and players capture campaign sources, extract structured campaign knowledge, review proposed updates, and consult that knowledge through an AI Loremaster.
+Nornis is an AI-first world memory engine for tabletop roleplaying games. It helps Game Masters and players capture world sources, extract structured world knowledge, review proposed updates, and consult that knowledge through an AI Loremaster.
 
 Nornis is not a wiki-first application. The product model is:
 
@@ -41,7 +41,7 @@ It's your epic. Every source leaves a mark.
 - Every project has a corresponding test project.
 - Every class has a corresponding test class.
 - Repository pattern over direct DbContext usage.
-- Use `Storyline`, not `Thread`, for narrative arcs and unresolved campaign developments.
+- Use `Storyline`, not `Thread`, for narrative arcs and unresolved world developments.
 - Use `Source`, not `Evidence`, for raw input material.
 
 ## Build & Run

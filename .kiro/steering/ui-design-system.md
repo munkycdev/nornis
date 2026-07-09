@@ -2,7 +2,7 @@
 
 ## Product Vibe
 
-Nornis should feel like a calm, modern campaign Loremaster with a durable, archival identity.
+Nornis should feel like a calm, modern world Loremaster with a durable, archival identity.
 
 Not:
 
@@ -36,14 +36,14 @@ Preferred metaphor:
 Many sources feed one enduring epic.
 ```
 
-The rune/tree mark represents many sources feeding a single trunk. In product terms, notes, journals, transcripts, handouts, images, maps, links, and ideas feed the durable campaign record.
+The rune/tree mark represents many sources feeding a single trunk. In product terms, notes, journals, transcripts, handouts, images, maps, links, and ideas feed the durable world record.
 
 The UI should no longer lean on the thread/weaving/rope motif as its primary metaphor.
 
 Use supporting language such as:
 
 - Every source leaves a mark.
-- Your campaign, remembered.
+- Your world, remembered.
 - Built from every source.
 - Shaped into story.
 - What is remembered, endures.
@@ -51,7 +51,7 @@ Use supporting language such as:
 Use strata/geologic cues sparingly:
 
 - Subtle layered line patterns in backgrounds or empty states.
-- Source pages may refer to source material as layers beneath the campaign record.
+- Source pages may refer to source material as layers beneath the world record.
 - Canon pages may lightly evoke bedrock, durability, and accepted truth.
 
 Avoid turning the app into geology software with swords. The metaphor should support the UI, not become homework.
@@ -107,7 +107,7 @@ Create sources: session notes, journal entries, GM notes, uploads, web links, ha
 
 ### Artifacts
 
-Browse structured campaign knowledge.
+Browse structured world knowledge.
 
 ### Storylines
 
@@ -127,15 +127,15 @@ Token and dollar usage.
 
 ### Settings
 
-Campaign and user configuration.
+World and user configuration.
 
 ## Core Screens
 
-### Campaign Home
+### World Home
 
 Should answer:
 
-- What campaign am I in?
+- What world am I in?
 - What should I review?
 - What changed recently?
 - What can I ask?
@@ -150,7 +150,7 @@ Tell Nornis what happened
 Supporting copy:
 
 ```text
-Add notes, journals, transcripts, images, maps, or links. Nornis will shape them into your campaign record.
+Add notes, journals, transcripts, images, maps, or links. Nornis will shape them into your world record.
 ```
 
 ### Capture Source
@@ -295,7 +295,7 @@ Display:
 - Today
 - This week
 - This month
-- By campaign
+- By world
 - By user
 - By operation type
 - By model

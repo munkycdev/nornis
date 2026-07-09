@@ -2,13 +2,13 @@
 
 ## Core Rule
 
-AI may propose changes. AI must not silently mutate accepted campaign knowledge.
+AI may propose changes. AI must not silently mutate accepted world knowledge.
 
 All accepted artifact, fact, and relationship changes must come from user review actions or explicit trusted system operations.
 
 ## Extraction Goal
 
-Given a source, extract proposed updates to the campaign knowledge graph.
+Given a source, extract proposed updates to the world knowledge graph.
 
 Input:
 
@@ -67,7 +67,7 @@ Good:
 
 Bad:
 
-- One enormous proposal called "Update campaign" containing 17 different changes.
+- One enormous proposal called "Update world" containing 17 different changes.
 
 ## Existing Context
 
@@ -75,16 +75,16 @@ The extraction process should include relevant existing artifacts to reduce dupl
 
 For MVP, retrieval uses simple SQL search:
 
-- Recently active artifacts in the campaign.
+- Recently active artifacts in the world.
 - Artifacts whose names appear in the source text (name-matched).
 
-This is sufficient for early campaigns. As campaigns grow, a more sophisticated retrieval layer (e.g., Azure AI Search) may be needed. Defer that decision until scale requires it.
+This is sufficient for early worlds. As worlds grow, a more sophisticated retrieval layer (e.g., Azure AI Search) may be needed. Defer that decision until scale requires it.
 
 Vector search is not required for MVP.
 
 ## Deduplication
 
-Before proposing a new artifact, try to match against existing artifacts in the same campaign.
+Before proposing a new artifact, try to match against existing artifacts in the same world.
 
 Suggested matching strategy for MVP:
 
@@ -139,7 +139,7 @@ Every AI call must create an `AiUsageRecord`.
 Capture:
 
 - User
-- Campaign
+- World
 - Operation type
 - Model
 - Input tokens
@@ -152,7 +152,7 @@ Capture:
 
 ## Loremaster Ask Behavior
 
-The Ask interface should answer from structured campaign knowledge first.
+The Ask interface should answer from structured world knowledge first.
 
 Preferred grounding order:
 
@@ -164,13 +164,13 @@ Preferred grounding order:
 
 Answers should cite sources where possible.
 
-The Loremaster must respect visibility and campaign membership.
+The Loremaster must respect visibility and world membership.
 
-**MVP Note:** The retrieval strategy for Ask is deferred. For MVP, use a simple approach (e.g., load relevant artifacts by name/keyword match). A production-grade retrieval layer (potentially Azure AI Search with vector embeddings) will be needed as campaigns grow. Design the Ask interface so the retrieval mechanism is swappable behind an abstraction.
+**MVP Note:** The retrieval strategy for Ask is deferred. For MVP, use a simple approach (e.g., load relevant artifacts by name/keyword match). A production-grade retrieval layer (potentially Azure AI Search with vector embeddings) will be needed as worlds grow. Design the Ask interface so the retrieval mechanism is swappable behind an abstraction.
 
 ## Hallucination Guardrails
 
-When the answer is not supported by campaign knowledge, the assistant should say so.
+When the answer is not supported by world knowledge, the assistant should say so.
 
 Do not invent canon.
 
@@ -183,7 +183,7 @@ I don't have a confirmed source for that yet.
 or
 
 ```text
-The campaign sources suggest this, but it is currently marked as rumor.
+The world sources suggest this, but it is currently marked as rumor.
 ```
 
 ## MVP AI Operations
@@ -192,7 +192,7 @@ MVP should support:
 
 - Extract proposals from text sources.
 - Generate artifact summaries from accepted facts and relationships.
-- Answer campaign questions from accepted artifacts and cited sources.
+- Answer world questions from accepted artifacts and cited sources.
 
 MVP should not support:
 
@@ -201,4 +201,4 @@ MVP should not support:
 - Multi-step planning agents.
 - Audio transcription.
 - Complex OCR pipeline.
-- Expensive whole-campaign reprocessing by default.
+- Expensive whole-world reprocessing by default.

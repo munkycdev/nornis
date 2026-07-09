@@ -72,8 +72,8 @@ Infrastructure
 
 ### Domain
 
-- Campaign
-- CampaignMember
+- World
+- WorldMember
 - Source
 - Artifact
 - ArtifactFact
@@ -114,7 +114,7 @@ UI displays proposal review queue
 ```text
 User accepts proposal
     ↓
-API validates campaign role and visibility
+API validates world role and visibility
     ↓
 Application service applies mutation
     ↓

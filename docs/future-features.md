@@ -16,7 +16,7 @@ even when the player accepts proposed facts from their own sources.
 **Design direction (when needed) — in order of preference:**
 
 1. **Role-clamped truth states** (cheap, uses existing vocabulary):
-   - At extraction: pass the source author's campaign role into the prompt. Player-authored
+   - At extraction: pass the source author's world role into the prompt. Player-authored
      sources default claims to `Likely` at most (in-fiction assertions to `Rumor`);
      GM-authored sources keep `Confirmed`/`Hidden`. Enforce server-side the same way
      `EnforceVisibility` clamps visibility onto every proposal.
@@ -41,7 +41,7 @@ even when the player accepts proposed facts from their own sources.
 player-visible truth and GM truth must be separable, but is silent on authority-weighted
 truth states. Update the steering docs if this gets built.
 
-**Parked because:** no real campaign has hit the problem yet, and the honest risk is
+**Parked because:** no real world has hit the problem yet, and the honest risk is
 building a rigor feature that gets ignored. Revisit when a table complains that player-
 accepted facts polluted canon.
 
@@ -53,7 +53,7 @@ accepted facts polluted canon.
 material they just wrote themselves.
 
 **Design direction.** Ship "Accept all" per batch first (batch API already exists) and
-live with it. If friction remains, add an opt-in per-campaign setting: proposals derived
+live with it. If friction remains, add an opt-in per-world setting: proposals derived
 from GM-authored sources are auto-accepted on extraction. Risk: a bad extraction writes
 wrong facts into canon with nobody looking — which is exactly what review exists to
 prevent. Auto-accept should log loudly and be trivially reversible before it's trusted.
@@ -75,7 +75,7 @@ scheduled AI assessment behind the same `IHealthService` contract, cost-tracked 
 `AiOperationType`. Output should name specific risks with artifact links, not just a
 number.
 
-**Parked because:** heuristic version is good enough until there's a campaign with
+**Parked because:** heuristic version is good enough until there's a world with
 enough data for AI assessment to say something the heuristics can't.
 
 ---
@@ -86,7 +86,7 @@ enough data for AI assessment to say something the heuristics can't.
 can't sync across devices. The domain model already specs optional `Conversation` /
 `ConversationMessage` entities.
 
-**Design direction.** Persist conversations server-side per user per campaign; keep the
+**Design direction.** Persist conversations server-side per user per world; keep the
 localStorage path as offline fallback. Enables future features: sharing an exchange with
 the table, the Loremaster citing prior conversations.
 

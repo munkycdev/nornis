@@ -92,7 +92,7 @@ Repository interfaces are defined in the Domain or Application layer. Infrastruc
 - Authenticate by default.
 - Use explicit authorization policies.
 - Never trust client-provided user IDs.
-- Validate campaign membership for campaign-scoped endpoints.
+- Validate world membership for world-scoped endpoints.
 - Return appropriate status codes.
 - Avoid leaking existence of unauthorized resources where practical.
 

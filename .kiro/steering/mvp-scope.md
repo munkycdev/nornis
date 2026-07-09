@@ -10,13 +10,21 @@ Source → AI extraction → Review proposals → Artifacts/facts/relationships 
 
 ## In Scope
 
-### Campaigns and Members
+### Worlds and Members
 
-- Create campaign.
-- Add campaign members.
+- Create world.
+- Add world members.
 - Roles: GM, Player, Observer.
 - Auth0 authentication with Discord provider.
-- Server-side campaign authorization.
+- Server-side world authorization.
+
+### Campaigns and Characters
+
+- Campaign CRUD within a world (thin: name, description, status, play dates).
+- Characters owned by world members; any number per member.
+- Assign characters to campaigns (many-to-many).
+- Sources may declare an optional campaign.
+- Campaigns add no permissions; world membership governs access.
 
 ### Sources
 
@@ -29,6 +37,7 @@ Source → AI extraction → Review proposals → Artifacts/facts/relationships 
   - Image placeholder
   - HandwrittenNotes placeholder
 - Store OccurredAt and CreatedAt.
+- Optional campaign assignment.
 - Visibility: Private, GMOnly, PartyVisible.
 
 ### Async Extraction
@@ -78,7 +87,7 @@ Source → AI extraction → Review proposals → Artifacts/facts/relationships 
 ### Ask Loremaster
 
 - Ask questions against accepted artifacts, facts, relationships, and source references.
-- Respect visibility and campaign membership.
+- Respect visibility and world membership.
 - Cite sources where possible.
 - Say when information is unknown or unsupported.
 
@@ -86,7 +95,7 @@ Source → AI extraction → Review proposals → Artifacts/facts/relationships 
 
 - Record AI usage for every AI operation.
 - Show cost detail page.
-- Show usage by date range, campaign, user, operation type, and model.
+- Show usage by date range, world, user, operation type, and model.
 
 ### Observability
 
@@ -113,8 +122,8 @@ Source → AI extraction → Review proposals → Artifacts/facts/relationships 
 Required:
 
 - Login
-- Campaign list/home
-- Campaign home
+- World list/home
+- World home
 - Capture source
 - Source detail
 - Review queue
@@ -135,7 +144,7 @@ Optional:
 A user can:
 
 1. Sign in with Discord via Auth0.
-2. Create or join a campaign.
+2. Create or join a world.
 3. Create a session note source.
 4. See extraction status.
 5. Review multiple proposals from that source.

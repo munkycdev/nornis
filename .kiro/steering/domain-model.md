@@ -12,7 +12,7 @@ Artifacts
 Views
 ```
 
-Sources are raw inputs. Artifacts are structured campaign knowledge derived from sources. Views are projections of artifacts for different user needs.
+Sources are raw inputs. Artifacts are structured world knowledge derived from sources. Views are projections of artifacts for different user needs.
 
 Preferred product language:
 
@@ -24,6 +24,16 @@ Canon records what endures.
 ```
 
 Use **Storyline** instead of **Thread** in the domain model and UI. Thread/weaving language belonged to an earlier brand direction and should not be used as a primary product term.
+
+### Worlds and Campaigns
+
+A **World** is the root container: one body of knowledge, one membership list, one canon. A **Campaign** is a play-context within a world — a particular run of sessions with a particular cast. Long-living worlds accumulate multiple campaigns over time (the original campaign, the sequel five in-fiction years later, a side game with a different party).
+
+Division of responsibility:
+
+- The World owns authorization, membership, artifacts, facts, relationships, canon, and cost tracking.
+- A Campaign is a label and a timeline, **not** a second authorization boundary. There are no per-campaign permissions.
+- Sources may declare which campaign they happened in. Which campaign a fact "happened in" is derivable through provenance (`ArtifactFact → SourceReference → Source → CampaignId`); do not stamp campaign IDs onto artifacts or facts.
 
 ## User
 
@@ -47,12 +57,12 @@ Notes:
 - Auth0SubjectId links to the external identity provider.
 - Do not store passwords, tokens, or other auth secrets.
 
-## Campaign
+## World
 
-A campaign is the root collaboration and authorization boundary for MVP.
+A world is the root collaboration and authorization boundary.
 
 ```csharp
-Campaign
+World
 - Id: Guid
 - Name: string
 - Description: string?
@@ -62,23 +72,22 @@ Campaign
 - CreatedByUserId: Guid
 ```
 
-## CampaignMember
+## WorldMember
 
-Campaigns are multiplayer by default.
+Worlds are multiplayer by default.
 
 ```csharp
-CampaignMember
+WorldMember
 - Id: Guid
-- CampaignId: Guid
+- WorldId: Guid
 - UserId: Guid
-- Role: CampaignRole
+- Role: WorldRole
 - DisplayName: string?
-- CharacterName: string?
 - JoinedAt: DateTimeOffset
 ```
 
 ```csharp
-CampaignRole
+WorldRole
 - GM
 - Player
 - Observer
@@ -87,8 +96,68 @@ CampaignRole
 Notes:
 
 - `Observer` may be rendered in the UI as "Fly on the wall".
-- Authorization must always be enforced server-side using campaign membership.
+- Authorization must always be enforced server-side using world membership.
 - Auth0 authenticates identity. Nornis owns authorization.
+- Member characters live on the `Character` entity, not on the membership record — a member may play many characters.
+
+## Campaign
+
+A campaign is a play-context within a world. Deliberately thin.
+
+```csharp
+Campaign
+- Id: Guid
+- WorldId: Guid
+- Name: string
+- Description: string?
+- Status: CampaignStatus
+- StartedAt: DateTimeOffset?
+- EndedAt: DateTimeOffset?
+- CreatedAt: DateTimeOffset
+- UpdatedAt: DateTimeOffset
+- CreatedByUserId: Guid
+```
+
+```csharp
+CampaignStatus
+- Active
+- Completed
+- Archived
+```
+
+Notes:
+
+- Campaigns carry no membership and no permissions; world membership governs access.
+- `StartedAt`/`EndedAt` are real-world dates describing when the campaign was played.
+- Deleting a campaign must not delete knowledge: sources fall back to "no campaign" (`SET NULL`).
+
+## Character
+
+A player character, owned by a world member. A member may have any number of characters in a world, and a character may participate in any number of campaigns.
+
+```csharp
+Character
+- Id: Guid
+- WorldId: Guid
+- WorldMemberId: Guid
+- Name: string
+- Description: string?
+- CreatedAt: DateTimeOffset
+- UpdatedAt: DateTimeOffset
+```
+
+```csharp
+CampaignCharacter
+- Id: Guid
+- CampaignId: Guid
+- CharacterId: Guid
+- CreatedAt: DateTimeOffset
+```
+
+Notes:
+
+- `CampaignCharacter` is a pure join: which characters are (or were) part of which campaign. `(CampaignId, CharacterId)` is unique.
+- A `Character` here is the member's playable identity, not the AI-extracted `Artifact` of type `Character`. The two may describe the same fictional person; linking them is a future feature, not MVP.
 
 ## Source
 
@@ -97,7 +166,8 @@ A source is raw information entered or uploaded by a user.
 ```csharp
 Source
 - Id: Guid
-- CampaignId: Guid
+- WorldId: Guid
+- CampaignId: Guid?
 - Type: SourceType
 - Title: string
 - Body: string?
@@ -134,12 +204,18 @@ SourceProcessingStatus
 
 Date semantics:
 
-- `OccurredAt` is when the described campaign event happened, if known.
+- `OccurredAt` is when the described events happened, if known.
 - `CreatedAt` is when the source was created in Nornis.
+
+Campaign semantics:
+
+- `CampaignId` says which campaign the source's events happened in. It is nullable on purpose: worldbuilding lore, GM prep, and setting documents belong to no campaign.
+- The extraction pipeline should pass the source's campaign (when present) into the prompt as context, so the AI can disambiguate recurring names across campaign eras.
+- A `ReviewBatch` inherits its campaign context from its source; it does not store a campaign ID of its own.
 
 Brand/product note:
 
-- Sources are the many inputs that feed the enduring campaign record.
+- Sources are the many inputs that feed the enduring world record.
 - In UI copy, sources may occasionally be described as "layers" beneath the epic, but the domain term remains `Source`.
 
 ## SourceExtraction
@@ -169,12 +245,12 @@ For MVP, this can be minimal. Do not build a sophisticated OCR or document inges
 
 ## Artifact
 
-An artifact is something Nornis knows about.
+An artifact is something Nornis knows about. Artifacts are world-level: Captain Voss is one artifact no matter how many campaigns he appears in.
 
 ```csharp
 Artifact
 - Id: Guid
-- CampaignId: Guid
+- WorldId: Guid
 - Type: ArtifactType
 - Name: string
 - Summary: string?
@@ -210,6 +286,7 @@ Important design choices:
 - Storyline is an artifact type, not a separate root entity.
 - Storylines can have facts, relationships, source references, confidence, and visibility like any other artifact.
 - Storyline lifecycle transitions (Active → Dormant → Resolved, etc.) are triggered by AI suggestions via review proposals. The AI may propose status changes based on source content, and users accept or reject those proposals like any other change.
+- Artifacts do not carry a campaign ID. Campaign association is derived from source provenance.
 
 ## ArtifactFact
 
@@ -251,7 +328,7 @@ Relationships are bidirectional typed edges between artifacts.
 ```csharp
 ArtifactRelationship
 - Id: Guid
-- CampaignId: Guid
+- WorldId: Guid
 - ArtifactAId: Guid
 - ArtifactBId: Guid
 - Type: string
@@ -313,8 +390,9 @@ VisibilityScope
 Rules:
 
 - `Private` is visible only to the creating user unless future sharing rules are added.
-- `GMOnly` is visible only to campaign GMs.
-- `PartyVisible` is visible to all campaign members.
+- `GMOnly` is visible only to world GMs.
+- `PartyVisible` is visible to all world members.
+- Visibility is world-scoped. Campaigns add no visibility rules.
 
 ## SourceReference
 
@@ -346,7 +424,7 @@ A source extraction run creates a review batch.
 ```csharp
 ReviewBatch
 - Id: Guid
-- CampaignId: Guid
+- WorldId: Guid
 - SourceId: Guid
 - Status: ReviewBatchStatus
 - CreatedAt: DateTimeOffset
@@ -425,7 +503,7 @@ Conversation means saved chat history with the Loremaster.
 ```csharp
 Conversation
 - Id: Guid
-- CampaignId: Guid
+- WorldId: Guid
 - UserId: Guid
 - Title: string
 - CreatedAt: DateTimeOffset
@@ -461,7 +539,7 @@ A truth-state view over artifacts, facts, and relationships.
 
 ### Sources View
 
-A source ledger. This is where users inspect raw inputs.
+A source ledger. This is where users inspect raw inputs. Filterable by campaign.
 
 ### Ask View
 

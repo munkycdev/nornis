@@ -141,10 +141,10 @@ Use Blob Storage for uploads and source attachments.
 Suggested containers:
 
 ```text
-campaign-sources
+world-sources
 ```
 
-Use campaign/user metadata in blob pathing, but do not rely on path structure alone for authorization. Authorization must be enforced by the API.
+Use world/user metadata in blob pathing, but do not rely on path structure alone for authorization. Authorization must be enforced by the API.
 
 ## Ingress and TLS
 
