@@ -103,6 +103,45 @@
         {
             await Campaigns.EnsureLoadedAsync();
             await LoadAsync();
+            _ = PollWhileProcessingAsync();
+        }
+    }
+
+    // Extraction runs out-of-process; poll while this source is mid-pipeline so its
+    // status chip moves Queued -> Processing -> Processed without a manual refresh.
+    private static readonly string[] ActiveStatuses = ["Ready", "Queued", "Processing"];
+    private readonly CancellationTokenSource _pollCts = new();
+    private bool _polling;
+
+    private async Task PollWhileProcessingAsync()
+    {
+        if (_polling)
+            return;
+        _polling = true;
+
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(4));
+            while (await timer.WaitForNextTickAsync(_pollCts.Token))
+            {
+                if (Campaigns.Current is null || _source is null || !ActiveStatuses.Contains(_source.ProcessingStatus))
+                    continue;
+
+                var result = await Api.GetSourceAsync(Campaigns.Current.Id, SourceId, _pollCts.Token);
+                if (result.IsSuccess)
+                {
+                    _source = result.Value!;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Page disposed.
+        }
+        finally
+        {
+            _polling = false;
         }
     }
 
@@ -178,5 +217,10 @@
     private static string Humanize(string pascal) =>
         string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 
-    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+    public void Dispose()
+    {
+        _pollCts.Cancel();
+        _pollCts.Dispose();
+        Campaigns.Changed -= OnCampaignChanged;
+    }
 }

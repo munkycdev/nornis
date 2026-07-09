@@ -46,7 +46,9 @@ public class ReviewsController : ControllerBase
 
         var queueResult = result.Value!;
         var response = new ReviewQueueResponse(
-            Proposals: queueResult.Proposals.Select(ToProposalResponse).ToList(),
+            Proposals: queueResult.Proposals
+                .Select(p => ToProposalResponse(p, queueResult.Context?.GetValueOrDefault(p.Id)))
+                .ToList(),
             HasMore: queueResult.HasMore);
 
         return Ok(response);
@@ -218,7 +220,8 @@ public class ReviewsController : ControllerBase
         return Ok(response);
     }
 
-    private static ReviewProposalResponse ToProposalResponse(ReviewProposal proposal)
+    private static ReviewProposalResponse ToProposalResponse(
+        ReviewProposal proposal, ReviewProposalContext? context = null)
     {
         return new ReviewProposalResponse(
             Id: proposal.Id,
@@ -230,7 +233,11 @@ public class ReviewsController : ControllerBase
             Rationale: proposal.Rationale,
             Confidence: proposal.Confidence,
             Status: proposal.Status.ToString(),
-            CreatedAt: proposal.CreatedAt);
+            CreatedAt: proposal.CreatedAt,
+            SourceId: context?.SourceId,
+            SourceTitle: context?.SourceTitle,
+            TargetName: context?.TargetName,
+            MergeSourceName: context?.MergeSourceName);
     }
 
     private IActionResult MapError(AppError error)

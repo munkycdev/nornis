@@ -20,6 +20,13 @@
     }
 </div>
 
+@if (_hasMore)
+{
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+        Showing the first 200 proposals — more are waiting after these.
+    </MudAlert>
+}
+
 @if (Campaigns.Current is null)
 {
     <NoCampaign />
@@ -68,6 +75,10 @@ else
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ChangeColor(p.ChangeType)">
                         @Humanize(p.ChangeType)
                     </MudChip>
+                    @if (TargetLabel(p) is { } target)
+                    {
+                        <span class="nornis-proposal-target">@target</span>
+                    }
                     @if (p.Confidence is not null)
                     {
                         <span class="nornis-list-meta">@($"{p.Confidence:P0}") confidence</span>
@@ -75,6 +86,13 @@ else
                     @if (p.Status != "Pending")
                     {
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@p.Status</MudChip>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(p.SourceTitle))
+                    {
+                        <span class="nornis-proposal-source" title="Source that produced this proposal">
+                            <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" />
+                            @p.SourceTitle
+                        </span>
                     }
                 </div>
 
@@ -121,6 +139,7 @@ else
 
 @code {
     private bool _loading;
+    private bool _hasMore;
     private string? _error;
     private IReadOnlyList<ReviewProposal> _proposals = [];
     private readonly HashSet<Guid> _acting = [];
@@ -155,6 +174,7 @@ else
         if (result.IsSuccess)
         {
             _proposals = result.Value!.Proposals;
+            _hasMore = result.Value.HasMore;
         }
         else
         {
@@ -338,6 +358,16 @@ else
             list.Add(("value", json));
         }
         return list;
+    }
+
+    /// <summary>
+    /// What the proposal acts on, as a name rather than a GUID. Merges show both sides.
+    /// </summary>
+    private static string? TargetLabel(ReviewProposal p)
+    {
+        if (p.ChangeType == "MergeArtifact" && p.TargetName is not null && p.MergeSourceName is not null)
+            return $"{p.MergeSourceName} → {p.TargetName}";
+        return p.TargetName;
     }
 
     private static Color ChangeColor(string changeType) =>

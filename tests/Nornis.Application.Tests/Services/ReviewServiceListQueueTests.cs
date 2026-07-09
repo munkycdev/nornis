@@ -512,6 +512,123 @@ public class ReviewServiceListQueueTests
 
     #region Helpers
 
+    #region Proposal display context (source title + target names)
+
+    [Test]
+    public async Task ListReviewQueue_ContextCarriesSourceTitleAndTargetNames()
+    {
+        var source = MakeSource(_keldaUserId, VisibilityScope.PartyVisible, "Session 13: The Vault Job");
+        var batch = MakeBatch(source.Id);
+
+        var voss = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            CampaignId = _campaignId,
+            Type = ArtifactType.Character,
+            Name = "Captain Voss",
+            Status = ArtifactStatus.Active,
+            Visibility = VisibilityScope.PartyVisible,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _artifactRepo.Seed(voss);
+
+        // AddFact targeting an existing artifact by id
+        var addFact = new ReviewProposal
+        {
+            Id = Guid.NewGuid(),
+            ReviewBatchId = batch.Id,
+            ChangeType = ReviewChangeType.AddFact,
+            TargetType = ReviewTargetType.ArtifactFact,
+            TargetId = voss.Id,
+            ProposedValueJson = """{"predicate":"rank","value":"Captain"}""",
+            Status = ReviewProposalStatus.Pending,
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-10)
+        };
+        _proposalRepo.CreateAsync(addFact).GetAwaiter().GetResult();
+
+        // AddRelationship referencing one id and one same-batch name
+        var addRel = new ReviewProposal
+        {
+            Id = Guid.NewGuid(),
+            ReviewBatchId = batch.Id,
+            ChangeType = ReviewChangeType.AddRelationship,
+            TargetType = ReviewTargetType.ArtifactRelationship,
+            ProposedValueJson = $$"""{"artifactAId":"{{voss.Id}}","artifactBName":"Black Harbor","type":"LocatedIn"}""",
+            Status = ReviewProposalStatus.Pending,
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-9)
+        };
+        _proposalRepo.CreateAsync(addRel).GetAwaiter().GetResult();
+
+        // CreateArtifact needs no target name — its payload carries the name
+        var create = MakePendingProposal(batch.Id, "Silver Key");
+
+        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        var context = result.Value!.Context;
+        Assert.That(context, Is.Not.Null);
+
+        Assert.That(context![addFact.Id].SourceTitle, Is.EqualTo("Session 13: The Vault Job"));
+        Assert.That(context[addFact.Id].SourceId, Is.EqualTo(source.Id));
+        Assert.That(context[addFact.Id].TargetName, Is.EqualTo("Captain Voss"));
+
+        Assert.That(context[addRel.Id].TargetName, Is.EqualTo("Captain Voss ↔ Black Harbor"));
+
+        Assert.That(context[create.Id].TargetName, Is.Null);
+        Assert.That(context[create.Id].SourceTitle, Is.EqualTo("Session 13: The Vault Job"));
+    }
+
+    [Test]
+    public async Task ListReviewQueue_MergeProposal_ContextNamesBothArtifacts()
+    {
+        var source = MakeSource(_keldaUserId, VisibilityScope.PartyVisible, "Kelda's Notes");
+        var batch = MakeBatch(source.Id);
+
+        Artifact MakeArtifact(string name)
+        {
+            var a = new Artifact
+            {
+                Id = Guid.NewGuid(),
+                CampaignId = _campaignId,
+                Type = ArtifactType.Storyline,
+                Name = name,
+                Status = ArtifactStatus.Active,
+                Visibility = VisibilityScope.PartyVisible,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            };
+            _artifactRepo.Seed(a);
+            return a;
+        }
+
+        var keep = MakeArtifact("The Missing Caravan");
+        var dupe = MakeArtifact("The Missing Caravan (duplicate)");
+
+        var merge = new ReviewProposal
+        {
+            Id = Guid.NewGuid(),
+            ReviewBatchId = batch.Id,
+            ChangeType = ReviewChangeType.MergeArtifact,
+            TargetType = ReviewTargetType.Artifact,
+            TargetId = keep.Id,
+            ProposedValueJson = $$"""{"sourceArtifactId":"{{dupe.Id}}"}""",
+            Status = ReviewProposalStatus.Pending,
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5)
+        };
+        _proposalRepo.CreateAsync(merge).GetAwaiter().GetResult();
+
+        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
+
+        var context = result.Value!.Context!;
+        Assert.That(context[merge.Id].TargetName, Is.EqualTo("The Missing Caravan"));
+        Assert.That(context[merge.Id].MergeSourceName, Is.EqualTo("The Missing Caravan (duplicate)"));
+    }
+
+    #endregion
+
     private Source MakeSource(Guid createdByUserId, VisibilityScope visibility, string title)
     {
         var source = new Source

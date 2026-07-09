@@ -10,4 +10,8 @@ public record ReviewProposalResponse(
     string? Rationale,
     decimal? Confidence,
     string Status,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? SourceId = null,
+    string? SourceTitle = null,
+    string? TargetName = null,
+    string? MergeSourceName = null);

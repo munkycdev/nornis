@@ -72,14 +72,45 @@ else
     private string? _error;
     private IReadOnlyList<SourceListItem> _sources = [];
 
+    // Extraction runs out-of-process; poll while any source is mid-pipeline so the
+    // list moves Queued -> Processing -> Processed without a manual refresh.
+    private static readonly string[] ActiveStatuses = ["Ready", "Queued", "Processing"];
+    private readonly CancellationTokenSource _pollCts = new();
+
     protected override async Task OnInitializedAsync()
     {
         Campaigns.Changed += OnCampaignChanged;
         await Campaigns.EnsureLoadedAsync();
         await LoadSourcesAsync();
+        _ = PollWhileProcessingAsync();
     }
 
     private void OnCampaignChanged() => InvokeAsync(LoadSourcesAsync);
+
+    private async Task PollWhileProcessingAsync()
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(4));
+            while (await timer.WaitForNextTickAsync(_pollCts.Token))
+            {
+                if (Campaigns.Current is null || !_sources.Any(x => ActiveStatuses.Contains(x.ProcessingStatus)))
+                    continue;
+
+                // Quiet refresh: no loading state, just swap the data in place.
+                var result = await Api.GetSourcesAsync(Campaigns.Current.Id, _pollCts.Token);
+                if (result.IsSuccess)
+                {
+                    _sources = result.Value!;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Page disposed.
+        }
+    }
 
     private async Task LoadSourcesAsync()
     {
@@ -122,5 +153,10 @@ else
     private static string Humanize(string pascal) =>
         string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 
-    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+    public void Dispose()
+    {
+        _pollCts.Cancel();
+        _pollCts.Dispose();
+        Campaigns.Changed -= OnCampaignChanged;
+    }
 }

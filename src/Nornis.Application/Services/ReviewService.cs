@@ -70,8 +70,150 @@ public class ReviewService : IReviewService
         var (proposals, hasMore) = await _reviewProposalRepository.ListReviewQueueAsync(
             query.CampaignId, allowedSourceIds, query.FilterByBatchId, limit: 200, ct);
 
-        return AppResult<ReviewQueueResult>.Success(new ReviewQueueResult(proposals, hasMore));
+        var context = await BuildProposalContextAsync(query.CampaignId, proposals, sources, ct);
+
+        return AppResult<ReviewQueueResult>.Success(new ReviewQueueResult(proposals, hasMore, context));
     }
+
+    /// <summary>
+    /// Resolves display context per proposal: the source that produced it (via its batch) and a
+    /// human-readable name for what it targets, so the review UI never shows a bare GUID.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<Guid, ReviewProposalContext>> BuildProposalContextAsync(
+        Guid campaignId,
+        IReadOnlyList<ReviewProposal> proposals,
+        IReadOnlyList<Source> sources,
+        CancellationToken ct)
+    {
+        var result = new Dictionary<Guid, ReviewProposalContext>();
+        if (proposals.Count == 0)
+            return result;
+
+        var batches = (await _reviewBatchRepository.ListByCampaignAsync(campaignId, ct))
+            .ToDictionary(b => b.Id);
+        var sourceTitles = sources.ToDictionary(s => s.Id, s => s.Title);
+
+        var artifacts = await _artifactRepository.ListByCampaignAsync(campaignId, null, null, ct);
+        var artifactNames = artifacts.ToDictionary(a => a.Id, a => a.Name);
+
+        // Facts and relationships are only needed for Update* proposals — load lazily.
+        Dictionary<Guid, ArtifactFact>? factsById = null;
+        Dictionary<Guid, ArtifactRelationship>? relationshipsById = null;
+
+        if (proposals.Any(p => p.ChangeType == ReviewChangeType.UpdateFact && p.TargetId is not null))
+        {
+            var facts = await _artifactFactRepository.ListByArtifactIdsAsync(
+                artifactNames.Keys.ToList(), int.MaxValue, ct);
+            factsById = facts.ToDictionary(f => f.Id);
+        }
+
+        if (proposals.Any(p => p.ChangeType == ReviewChangeType.UpdateRelationship && p.TargetId is not null))
+        {
+            var relationships = await _artifactRelationshipRepository.ListByArtifactIdsAsync(
+                artifactNames.Keys.ToList(),
+                [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private], ct);
+            relationshipsById = relationships.ToDictionary(r => r.Id);
+        }
+
+        foreach (var proposal in proposals)
+        {
+            Guid sourceId = default;
+            var sourceTitle = "Unknown source";
+            if (batches.TryGetValue(proposal.ReviewBatchId, out var batch))
+            {
+                sourceId = batch.SourceId;
+                sourceTitle = sourceTitles.GetValueOrDefault(batch.SourceId, sourceTitle);
+            }
+
+            var targetName = ResolveTargetName(proposal, artifactNames, factsById, relationshipsById);
+
+            string? mergeSourceName = null;
+            if (proposal.ChangeType == ReviewChangeType.MergeArtifact)
+            {
+                var payload = DeserializePayload<MergeArtifactPayload>(proposal.ProposedValueJson);
+                if (payload is not null && artifactNames.TryGetValue(payload.SourceArtifactId, out var name))
+                    mergeSourceName = name;
+            }
+
+            result[proposal.Id] = new ReviewProposalContext(sourceId, sourceTitle, targetName, mergeSourceName);
+        }
+
+        return result;
+    }
+
+    private static string? ResolveTargetName(
+        ReviewProposal proposal,
+        Dictionary<Guid, string> artifactNames,
+        Dictionary<Guid, ArtifactFact>? factsById,
+        Dictionary<Guid, ArtifactRelationship>? relationshipsById)
+    {
+        switch (proposal.ChangeType)
+        {
+            // AddFact's TargetId references the owning artifact; when it is null the payload
+            // carries a same-batch artifactName instead.
+            case ReviewChangeType.AddFact:
+                if (proposal.TargetId is { } factArtifactId)
+                    return artifactNames.GetValueOrDefault(factArtifactId);
+                return DeserializePayload<AddFactPayload>(proposal.ProposedValueJson)?.ArtifactName;
+
+            case ReviewChangeType.UpdateArtifact:
+            case ReviewChangeType.MergeArtifact:
+                return proposal.TargetId is { } artifactId
+                    ? artifactNames.GetValueOrDefault(artifactId)
+                    : null;
+
+            case ReviewChangeType.UpdateFact:
+                if (proposal.TargetId is { } factId && factsById?.GetValueOrDefault(factId) is { } fact)
+                {
+                    var owner = artifactNames.GetValueOrDefault(fact.ArtifactId, "Unknown artifact");
+                    return $"{owner} — {fact.Predicate}";
+                }
+                return null;
+
+            case ReviewChangeType.AddRelationship:
+            {
+                var payload = DeserializePayload<AddRelationshipPayload>(proposal.ProposedValueJson);
+                if (payload is null)
+                    return null;
+                var a = payload.ArtifactAId is { } aId
+                    ? artifactNames.GetValueOrDefault(aId, payload.ArtifactAName ?? "?")
+                    : payload.ArtifactAName ?? "?";
+                var b = payload.ArtifactBId is { } bId
+                    ? artifactNames.GetValueOrDefault(bId, payload.ArtifactBName ?? "?")
+                    : payload.ArtifactBName ?? "?";
+                return $"{a} ↔ {b}";
+            }
+
+            case ReviewChangeType.UpdateRelationship:
+                if (proposal.TargetId is { } relId && relationshipsById?.GetValueOrDefault(relId) is { } rel)
+                {
+                    var a = artifactNames.GetValueOrDefault(rel.ArtifactAId, "?");
+                    var b = artifactNames.GetValueOrDefault(rel.ArtifactBId, "?");
+                    return $"{a} ↔ {b}";
+                }
+                return null;
+
+            default:
+                return null; // CreateArtifact: the payload's own name is already displayed
+        }
+    }
+
+    private static T? DeserializePayload<T>(string json) where T : class
+    {
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<T>(json, PayloadJsonOptions);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static readonly System.Text.Json.JsonSerializerOptions PayloadJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     public async Task<AppResult<AcceptProposalResult>> AcceptProposalAsync(
         AcceptProposalCommand command, CancellationToken ct)

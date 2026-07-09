@@ -1758,3 +1758,18 @@ a.nornis-cite:hover {
         margin-left: 0;
     }
 }
+
+/* Review card context: what the proposal targets and which source produced it. */
+.nornis-proposal-target {
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-proposal-source {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    font-size: 0.8rem;
+    color: var(--mud-palette-text-secondary);
+}
