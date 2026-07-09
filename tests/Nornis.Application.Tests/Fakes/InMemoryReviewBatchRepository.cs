@@ -30,9 +30,9 @@ public class InMemoryReviewBatchRepository : IReviewBatchRepository
         return Task.FromResult(batch);
     }
 
-    public Task<IReadOnlyList<ReviewBatch>> ListByCampaignAsync(Guid campaignId, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ReviewBatch>> ListByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)
     {
-        var batches = _batches.Where(b => b.CampaignId == campaignId).ToList();
+        var batches = _batches.Where(b => b.WorldId == worldId).ToList();
         return Task.FromResult<IReadOnlyList<ReviewBatch>>(batches.AsReadOnly());
     }
 

@@ -19,7 +19,7 @@ namespace Nornis.Application.Tests.PropertyTests;
 /// Property 13: Extraction Output Record Creation
 ///
 /// For any successful AI response containing N proposals (N ≥ 1), the ExtractionService
-/// SHALL create exactly one ReviewBatch (with CampaignId, SourceId, Status=Pending,
+/// SHALL create exactly one ReviewBatch (with WorldId, SourceId, Status=Pending,
 /// CreatedAt ≈ now), exactly N ReviewProposal records (each with correct ChangeType,
 /// TargetType, TargetId, ProposedValueJson ≤ 50,000 chars, Rationale, Confidence between
 /// 0.00–1.00, Status=Pending), and exactly N SourceReference records (each with
@@ -98,7 +98,7 @@ public class ExtractionOutputRecordCreationPropertyTests
         var beforeUtc = DateTimeOffset.UtcNow;
 
         // Act
-        var outcome = service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+        var outcome = service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
             .GetAwaiter().GetResult();
 
         var afterUtc = DateTimeOffset.UtcNow;
@@ -108,8 +108,8 @@ public class ExtractionOutputRecordCreationPropertyTests
             "Exactly one ReviewBatch should be created for a successful extraction.");
 
         var batch = batchRepo.Batches[0];
-        Assert.That(batch.CampaignId, Is.EqualTo(source.CampaignId),
-            "ReviewBatch.CampaignId should match the source's CampaignId.");
+        Assert.That(batch.WorldId, Is.EqualTo(source.WorldId),
+            "ReviewBatch.WorldId should match the source's WorldId.");
         Assert.That(batch.SourceId, Is.EqualTo(source.Id),
             "ReviewBatch.SourceId should match the source's Id.");
         Assert.That(batch.Status, Is.EqualTo(ReviewBatchStatus.Pending),
@@ -134,7 +134,7 @@ public class ExtractionOutputRecordCreationPropertyTests
         var expectedCount = aiResponse.Proposals.Count;
 
         // Act
-        service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+        service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
             .GetAwaiter().GetResult();
 
         // Assert — exactly N ReviewProposals
@@ -188,7 +188,7 @@ public class ExtractionOutputRecordCreationPropertyTests
         var expectedCount = aiResponse.Proposals.Count;
 
         // Act
-        service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+        service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
             .GetAwaiter().GetResult();
 
         // Assert — exactly N SourceReferences

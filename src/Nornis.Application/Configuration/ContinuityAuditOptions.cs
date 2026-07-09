@@ -2,12 +2,12 @@ namespace Nornis.Application.Configuration;
 
 /// <summary>
 /// Tunables for the continuity-audit auto-trigger. The interval controls how often the hosted
-/// service wakes; the two thresholds shape which campaigns are eligible on each tick. Defaults
+/// service wakes; the two thresholds shape which worlds are eligible on each tick. Defaults
 /// give an hourly tick, a one-hour quiet period after the last acceptance, and at-most-daily runs.
 /// </summary>
 public class ContinuityAuditOptions
 {
-    /// <summary>How often the background trigger evaluates campaigns.</summary>
+    /// <summary>How often the background trigger evaluates worlds.</summary>
     public double TickIntervalHours { get; set; } = 1.0;
 
     /// <summary>

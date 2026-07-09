@@ -132,15 +132,15 @@ public class ReviewServicePropertyTests2
     /// <summary>
     /// Seeds the standard source + batch + proposal structure and returns relevant IDs.
     /// </summary>
-    private static (Source Source, ReviewBatch Batch, Guid CampaignId, Guid UserId)
+    private static (Source Source, ReviewBatch Batch, Guid WorldId, Guid UserId)
         SeedSourceAndBatch(TestContext ctx)
     {
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content about Captain Voss",
@@ -152,14 +152,14 @@ public class ReviewServicePropertyTests2
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
         };
         ctx.SourceRepo.Seed(source);
         ctx.BatchRepo.CreateAsync(batch).GetAwaiter().GetResult();
-        return (source, batch, campaignId, userId);
+        return (source, batch, worldId, userId);
     }
 
     #endregion
@@ -181,7 +181,7 @@ public class ReviewServicePropertyTests2
     public Property Update_acceptance_updates_existing_entity(PositiveInt confidenceRaw)
     {
         var ctx = CreateRealService();
-        var (source, batch, campaignId, userId) = SeedSourceAndBatch(ctx);
+        var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
 
         // Create an existing artifact to update
         var originalName = "Captain Voss";
@@ -190,7 +190,7 @@ public class ReviewServicePropertyTests2
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Character,
             Name = originalName,
             Summary = originalSummary,
@@ -223,7 +223,7 @@ public class ReviewServicePropertyTests2
 
         var before = DateTimeOffset.UtcNow;
         var result = ctx.Service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new AcceptProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
         var after = DateTimeOffset.UtcNow;
 
@@ -269,13 +269,13 @@ public class ReviewServicePropertyTests2
         // Use the AddFactProposalWithContext generator via the arbitrary
         // but we build our own here for full control
         var ctx = CreateRealService();
-        var (source, batch, campaignId, userId) = SeedSourceAndBatch(ctx);
+        var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
 
         // Create target artifact
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Summary = "A harbor captain",
@@ -307,7 +307,7 @@ public class ReviewServicePropertyTests2
 
         var before = DateTimeOffset.UtcNow;
         var result = ctx.Service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new AcceptProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
         var after = DateTimeOffset.UtcNow;
 
@@ -341,13 +341,13 @@ public class ReviewServicePropertyTests2
     public Property AddRelationship_acceptance_creates_correct_relationship(ProposalWithContext pwc)
     {
         var ctx = CreateRealService();
-        var (source, batch, campaignId, userId) = SeedSourceAndBatch(ctx);
+        var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
 
         // Create two artifacts for the relationship
         var artifactA = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Visibility = VisibilityScope.PartyVisible,
@@ -358,7 +358,7 @@ public class ReviewServicePropertyTests2
         var artifactB = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Location,
             Name = "Black Harbor",
             Visibility = VisibilityScope.PartyVisible,
@@ -397,7 +397,7 @@ public class ReviewServicePropertyTests2
 
         var before = DateTimeOffset.UtcNow;
         var result = ctx.Service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new AcceptProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
         var after = DateTimeOffset.UtcNow;
 
@@ -413,13 +413,13 @@ public class ReviewServicePropertyTests2
         var aCorrect = rel.ArtifactAId == artifactA.Id;
         var bCorrect = rel.ArtifactBId == artifactB.Id;
         var typeCorrect = rel.Type == relType;
-        var campaignCorrect = rel.CampaignId == campaignId;
+        var worldCorrect = rel.WorldId == worldId;
         var createdAtCorrect = rel.CreatedAt >= before && rel.CreatedAt <= after;
 
         return aCorrect.Label($"ArtifactAId should be {artifactA.Id}")
             .And(bCorrect.Label($"ArtifactBId should be {artifactB.Id}"))
             .And(typeCorrect.Label($"Type should be '{relType}', got '{rel.Type}'"))
-            .And(campaignCorrect.Label($"CampaignId should be {campaignId}"))
+            .And(worldCorrect.Label($"WorldId should be {worldId}"))
             .And(createdAtCorrect.Label("CreatedAt should be approximately current UTC"));
     }
 
@@ -451,13 +451,13 @@ public class ReviewServicePropertyTests2
     public Property MergeArtifact_reassigns_and_archives(PositiveInt seed)
     {
         var ctx = CreateRealService();
-        var (source, batch, campaignId, userId) = SeedSourceAndBatch(ctx);
+        var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
 
         // Create target artifact
         var targetArtifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Character,
             Name = "Voss",
             Summary = "Target summary",
@@ -472,7 +472,7 @@ public class ReviewServicePropertyTests2
         var sourceArtifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Summary = "Source summary",
@@ -488,7 +488,7 @@ public class ReviewServicePropertyTests2
         var thirdArtifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Location,
             Name = "Black Harbor",
             Visibility = VisibilityScope.PartyVisible,
@@ -517,7 +517,7 @@ public class ReviewServicePropertyTests2
         var normalRel = new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             ArtifactAId = sourceArtifact.Id,
             ArtifactBId = thirdArtifact.Id,
             Type = "LocatedIn",
@@ -531,7 +531,7 @@ public class ReviewServicePropertyTests2
         var selfRefRel = new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             ArtifactAId = sourceArtifact.Id,
             ArtifactBId = targetArtifact.Id,
             Type = "SameAs",
@@ -569,7 +569,7 @@ public class ReviewServicePropertyTests2
         ctx.ProposalRepo.CreateAsync(proposal).GetAwaiter().GetResult();
 
         var result = ctx.Service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new AcceptProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -631,7 +631,7 @@ public class ReviewServicePropertyTests2
     public Property Accept_creates_source_reference_for_CreateArtifact(ProposalWithContext pwc)
     {
         var ctx = CreateRealService();
-        var (source, batch, campaignId, userId) = SeedSourceAndBatch(ctx);
+        var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
 
         // Use CreateArtifact type
         var payload = ReviewGenerators.ValidCreateArtifactPayload.Sample(1, 1).First();
@@ -652,7 +652,7 @@ public class ReviewServicePropertyTests2
         ctx.ProposalRepo.CreateAsync(proposal).GetAwaiter().GetResult();
 
         var result = ctx.Service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new AcceptProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -677,13 +677,13 @@ public class ReviewServicePropertyTests2
     public Property Accept_creates_source_reference_for_AddFact(ProposalWithContext pwc)
     {
         var ctx = CreateRealService();
-        var (source, batch, campaignId, userId) = SeedSourceAndBatch(ctx);
+        var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
 
         // Create target artifact for the fact
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Visibility = VisibilityScope.PartyVisible,
@@ -711,7 +711,7 @@ public class ReviewServicePropertyTests2
         ctx.ProposalRepo.CreateAsync(proposal).GetAwaiter().GetResult();
 
         var result = ctx.Service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new AcceptProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -736,12 +736,12 @@ public class ReviewServicePropertyTests2
     public Property Accept_creates_source_reference_for_AddRelationship(ProposalWithContext pwc)
     {
         var ctx = CreateRealService();
-        var (source, batch, campaignId, userId) = SeedSourceAndBatch(ctx);
+        var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
 
         var artifactA = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Visibility = VisibilityScope.PartyVisible,
@@ -752,7 +752,7 @@ public class ReviewServicePropertyTests2
         var artifactB = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Location,
             Name = "Black Harbor",
             Visibility = VisibilityScope.PartyVisible,
@@ -786,7 +786,7 @@ public class ReviewServicePropertyTests2
         ctx.ProposalRepo.CreateAsync(proposal).GetAwaiter().GetResult();
 
         var result = ctx.Service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new AcceptProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -825,11 +825,11 @@ public class ReviewServicePropertyTests2
         var fakeCtx = CreateFakeApplicatorService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -841,7 +841,7 @@ public class ReviewServicePropertyTests2
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -871,7 +871,7 @@ public class ReviewServicePropertyTests2
 
         var before = DateTimeOffset.UtcNow;
         var result = fakeCtx.Service.RejectProposalAsync(
-            new RejectProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new RejectProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
         var after = DateTimeOffset.UtcNow;
 

@@ -11,8 +11,8 @@ using Nornis.Application.Services;
 namespace Nornis.Api.Controllers;
 
 [ApiController]
-[Route("api/campaigns/{campaignId:guid}/ask")]
-[ServiceFilter(typeof(CampaignMemberActionFilter))]
+[Route("api/worlds/{worldId:guid}/ask")]
+[ServiceFilter(typeof(WorldMemberActionFilter))]
 public class LoremasterController : ControllerBase
 {
     private readonly ILoremasterService _loremasterService;
@@ -25,28 +25,28 @@ public class LoremasterController : ControllerBase
     }
 
     [HttpGet("suggestions")]
-    public async Task<IActionResult> GetSuggestions(Guid campaignId, CancellationToken ct)
+    public async Task<IActionResult> GetSuggestions(Guid worldId, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         var suggestions = await _suggestionService.GetSuggestionsAsync(
-            campaignId, user.Id, member.Role, ct);
+            worldId, user.Id, member.Role, ct);
 
         return Ok(suggestions.Select(s => new AskSuggestionResponse(s.Text, s.Category)).ToList());
     }
 
     [HttpPost]
     public async Task<IActionResult> Ask(
-        Guid campaignId,
+        Guid worldId,
         [FromBody] AskLoremasterRequest request,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         var command = new AskLoremasterCommand(
-            CampaignId: campaignId,
+            WorldId: worldId,
             Question: request.Question,
             UserId: user.Id,
             UserRole: member.Role,

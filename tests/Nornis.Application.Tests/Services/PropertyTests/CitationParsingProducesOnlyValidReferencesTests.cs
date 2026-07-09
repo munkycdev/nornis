@@ -292,7 +292,7 @@ public class CitationParsingArbitraries
     {
         var parts = new List<string>();
 
-        parts.Add("Based on the campaign knowledge, here is what I found.");
+        parts.Add("Based on the world knowledge, here is what I found.");
 
         foreach (var validId in validIds)
         {

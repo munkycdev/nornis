@@ -25,7 +25,7 @@ public class ReviewServiceBatchTests
     private FakeProposalApplicator _applicator = null!;
     private ReviewService _service = null!;
 
-    private Guid _campaignId;
+    private Guid _worldId;
     private Guid _gmUserId;
     private Guid _playerUserId;
     private Source _source = null!;
@@ -57,14 +57,14 @@ public class ReviewServiceBatchTests
             _validator,
             _applicator);
 
-        _campaignId = Guid.NewGuid();
+        _worldId = Guid.NewGuid();
         _gmUserId = Guid.NewGuid();
         _playerUserId = Guid.NewGuid();
 
         _source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.SessionNote,
             Title = "Session 1: Black Harbor",
             Body = "We questioned Captain Voss.",
@@ -78,7 +78,7 @@ public class ReviewServiceBatchTests
         _batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = _source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-30)
@@ -91,7 +91,7 @@ public class ReviewServiceBatchTests
     [Test]
     public async Task BatchAccept_EmptyList_ReturnsValidationError()
     {
-        var command = new BatchAcceptCommand([], _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new BatchAcceptCommand([], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -103,7 +103,7 @@ public class ReviewServiceBatchTests
     public async Task BatchAccept_MoreThan50_ReturnsValidationError()
     {
         var ids = Enumerable.Range(0, 51).Select(_ => Guid.NewGuid()).ToList();
-        var command = new BatchAcceptCommand(ids, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new BatchAcceptCommand(ids, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -117,7 +117,7 @@ public class ReviewServiceBatchTests
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
         var ids = new List<Guid> { proposal.Id, proposal.Id, proposal.Id };
-        var command = new BatchAcceptCommand(ids, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new BatchAcceptCommand(ids, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -138,7 +138,7 @@ public class ReviewServiceBatchTests
         await _proposalRepo.CreateAsync(p1);
         await _proposalRepo.CreateAsync(p2);
         var command = new BatchAcceptCommand(
-            [p1.Id, p2.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [p1.Id, p2.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -155,7 +155,7 @@ public class ReviewServiceBatchTests
         var proposal = MakeProposalWithStatus(ReviewProposalStatus.Accepted);
         await _proposalRepo.CreateAsync(proposal);
         var command = new BatchAcceptCommand(
-            [proposal.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [proposal.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -170,7 +170,7 @@ public class ReviewServiceBatchTests
         var proposal = MakeProposalWithStatus(ReviewProposalStatus.Rejected);
         await _proposalRepo.CreateAsync(proposal);
         var command = new BatchAcceptCommand(
-            [proposal.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [proposal.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -191,7 +191,7 @@ public class ReviewServiceBatchTests
         var gmSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.GMNote,
             Title = "GM Secret",
             Visibility = VisibilityScope.GMOnly,
@@ -204,7 +204,7 @@ public class ReviewServiceBatchTests
         var gmBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = gmSource.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow
@@ -216,7 +216,7 @@ public class ReviewServiceBatchTests
 
         // Player can't see GMOnly source
         var command = new BatchAcceptCommand(
-            [proposal.Id], _campaignId, _playerUserId, CampaignRole.Player);
+            [proposal.Id], _worldId, _playerUserId, WorldRole.Player);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -236,7 +236,7 @@ public class ReviewServiceBatchTests
         var otherSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.SessionNote,
             Title = "Other's Notes",
             Visibility = VisibilityScope.PartyVisible,
@@ -249,7 +249,7 @@ public class ReviewServiceBatchTests
         var otherBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = otherSource.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow
@@ -261,7 +261,7 @@ public class ReviewServiceBatchTests
 
         // Player trying to accept proposal from another player's source
         var command = new BatchAcceptCommand(
-            [proposal.Id], _campaignId, _playerUserId, CampaignRole.Player);
+            [proposal.Id], _worldId, _playerUserId, WorldRole.Player);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -287,7 +287,7 @@ public class ReviewServiceBatchTests
 
         var command = new BatchAcceptCommand(
             [goodProposal.Id, rejectedProposal.Id, nonExistentId],
-            _campaignId, _gmUserId, CampaignRole.GM);
+            _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -307,7 +307,7 @@ public class ReviewServiceBatchTests
         await _proposalRepo.CreateAsync(p3);
 
         var command = new BatchAcceptCommand(
-            [p3.Id, p1.Id, p2.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [p3.Id, p1.Id, p2.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -323,7 +323,7 @@ public class ReviewServiceBatchTests
     [Test]
     public async Task BatchReject_EmptyList_ReturnsValidationError()
     {
-        var command = new BatchRejectCommand([], _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new BatchRejectCommand([], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
@@ -335,7 +335,7 @@ public class ReviewServiceBatchTests
     public async Task BatchReject_MoreThan50_ReturnsValidationError()
     {
         var ids = Enumerable.Range(0, 51).Select(_ => Guid.NewGuid()).ToList();
-        var command = new BatchRejectCommand(ids, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new BatchRejectCommand(ids, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
@@ -349,7 +349,7 @@ public class ReviewServiceBatchTests
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
         var ids = new List<Guid> { proposal.Id, proposal.Id };
-        var command = new BatchRejectCommand(ids, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new BatchRejectCommand(ids, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
@@ -370,7 +370,7 @@ public class ReviewServiceBatchTests
         await _proposalRepo.CreateAsync(p1);
         await _proposalRepo.CreateAsync(p2);
         var command = new BatchRejectCommand(
-            [p1.Id, p2.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [p1.Id, p2.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
@@ -387,7 +387,7 @@ public class ReviewServiceBatchTests
         var proposal = MakeProposalWithStatus(ReviewProposalStatus.Rejected);
         await _proposalRepo.CreateAsync(proposal);
         var command = new BatchRejectCommand(
-            [proposal.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [proposal.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
@@ -402,7 +402,7 @@ public class ReviewServiceBatchTests
         var proposal = MakeProposalWithStatus(ReviewProposalStatus.Accepted);
         await _proposalRepo.CreateAsync(proposal);
         var command = new BatchRejectCommand(
-            [proposal.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [proposal.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
@@ -422,7 +422,7 @@ public class ReviewServiceBatchTests
         var gmSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.GMNote,
             Title = "GM Secret",
             Visibility = VisibilityScope.GMOnly,
@@ -435,7 +435,7 @@ public class ReviewServiceBatchTests
         var gmBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = gmSource.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow
@@ -446,7 +446,7 @@ public class ReviewServiceBatchTests
         await _proposalRepo.CreateAsync(proposal);
 
         var command = new BatchRejectCommand(
-            [proposal.Id], _campaignId, _playerUserId, CampaignRole.Player);
+            [proposal.Id], _worldId, _playerUserId, WorldRole.Player);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
@@ -471,7 +471,7 @@ public class ReviewServiceBatchTests
         _unitOfWork.ConfigureCommitFailure(true);
 
         var command = new BatchAcceptCommand(
-            [p1.Id, p2.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [p1.Id, p2.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -493,7 +493,7 @@ public class ReviewServiceBatchTests
         var otherSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.SessionNote,
             Title = "Tavrin's Notes on Silver Key",
             Visibility = VisibilityScope.PartyVisible,
@@ -506,7 +506,7 @@ public class ReviewServiceBatchTests
         var otherBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = otherSource.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow
@@ -520,7 +520,7 @@ public class ReviewServiceBatchTests
 
         // GM can accept proposals from both sources
         var command = new BatchAcceptCommand(
-            [proposalFromPlayer.Id, proposalFromOther.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [proposalFromPlayer.Id, proposalFromOther.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -536,7 +536,7 @@ public class ReviewServiceBatchTests
         var gmSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.GMNote,
             Title = "GM Notes: Black Harbor Secrets",
             Visibility = VisibilityScope.PartyVisible,
@@ -549,7 +549,7 @@ public class ReviewServiceBatchTests
         var gmBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = gmSource.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow
@@ -563,7 +563,7 @@ public class ReviewServiceBatchTests
 
         // Player can only accept from own source — gmProposal is not visible to player
         var command = new BatchAcceptCommand(
-            [ownProposal.Id, gmProposal.Id], _campaignId, _playerUserId, CampaignRole.Player);
+            [ownProposal.Id, gmProposal.Id], _worldId, _playerUserId, WorldRole.Player);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -589,7 +589,7 @@ public class ReviewServiceBatchTests
 
         var command = new BatchRejectCommand(
             [goodProposal.Id, acceptedProposal.Id, nonExistentId],
-            _campaignId, _gmUserId, CampaignRole.GM);
+            _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
@@ -615,7 +615,7 @@ public class ReviewServiceBatchTests
         await _proposalRepo.CreateAsync(p3);
 
         var command = new BatchRejectCommand(
-            [p3.Id, p1.Id, p2.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [p3.Id, p1.Id, p2.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
@@ -634,7 +634,7 @@ public class ReviewServiceBatchTests
         var otherSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.JournalEntry,
             Title = "Tavrin's Journal: Silver Key Discovery",
             Visibility = VisibilityScope.PartyVisible,
@@ -647,7 +647,7 @@ public class ReviewServiceBatchTests
         var otherBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = otherSource.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow
@@ -660,7 +660,7 @@ public class ReviewServiceBatchTests
         await _proposalRepo.CreateAsync(proposalFromOther);
 
         var command = new BatchRejectCommand(
-            [proposalFromPlayer.Id, proposalFromOther.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [proposalFromPlayer.Id, proposalFromOther.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
@@ -675,7 +675,7 @@ public class ReviewServiceBatchTests
         var gmSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.GMNote,
             Title = "GM Notes: Captain Voss Intel",
             Visibility = VisibilityScope.PartyVisible,
@@ -688,7 +688,7 @@ public class ReviewServiceBatchTests
         var gmBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = gmSource.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow
@@ -702,7 +702,7 @@ public class ReviewServiceBatchTests
 
         // Player can only reject proposals from own source
         var command = new BatchRejectCommand(
-            [ownProposal.Id, gmProposal.Id], _campaignId, _playerUserId, CampaignRole.Player);
+            [ownProposal.Id, gmProposal.Id], _worldId, _playerUserId, WorldRole.Player);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
@@ -722,7 +722,7 @@ public class ReviewServiceBatchTests
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
         var command = new BatchAcceptCommand(
-            [proposal.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [proposal.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -741,7 +741,7 @@ public class ReviewServiceBatchTests
             proposals.Add(p);
         }
         var command = new BatchAcceptCommand(
-            proposals.Select(p => p.Id).ToList(), _campaignId, _gmUserId, CampaignRole.GM);
+            proposals.Select(p => p.Id).ToList(), _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -760,7 +760,7 @@ public class ReviewServiceBatchTests
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
         var command = new BatchRejectCommand(
-            [proposal.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [proposal.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
@@ -779,7 +779,7 @@ public class ReviewServiceBatchTests
             proposals.Add(p);
         }
         var command = new BatchRejectCommand(
-            proposals.Select(p => p.Id).ToList(), _campaignId, _gmUserId, CampaignRole.GM);
+            proposals.Select(p => p.Id).ToList(), _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
@@ -804,7 +804,7 @@ public class ReviewServiceBatchTests
         await _proposalRepo.CreateAsync(p2);
 
         var command = new BatchAcceptCommand(
-            [p1.Id, p2.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [p1.Id, p2.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -834,7 +834,7 @@ public class ReviewServiceBatchTests
         await _proposalRepo.CreateAsync(proposal);
 
         var command = new BatchAcceptCommand(
-            [proposal.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [proposal.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
@@ -867,7 +867,7 @@ public class ReviewServiceBatchTests
         await _proposalRepo.CreateAsync(proposal);
 
         var command = new BatchRejectCommand(
-            [proposal.Id], _campaignId, _gmUserId, CampaignRole.GM);
+            [proposal.Id], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
@@ -882,7 +882,7 @@ public class ReviewServiceBatchTests
     {
         var nonExistentId = Guid.NewGuid();
         var command = new BatchRejectCommand(
-            [nonExistentId], _campaignId, _gmUserId, CampaignRole.GM);
+            [nonExistentId], _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 

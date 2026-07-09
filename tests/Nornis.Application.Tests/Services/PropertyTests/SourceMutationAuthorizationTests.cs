@@ -13,24 +13,24 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// <summary>
 /// Property 4: Only Creator or GM Can Mutate a Source
 ///
-/// For any existing source and any campaign member who is neither the source's creator nor a GM,
+/// For any existing source and any world member who is neither the source's creator nor a GM,
 /// attempting to update, delete, or mark-ready that source should be denied with a forbidden error.
 ///
 /// **Validates: Requirements 1.8, 3.2, 4.2, 6.3**
 /// </summary>
 [TestFixture]
-[Category("Feature: campaign-sources, Property 4: Only Creator or GM Can Mutate a Source")]
+[Category("Feature: world-sources, Property 4: Only Creator or GM Can Mutate a Source")]
 public class SourceMutationAuthorizationTests
 {
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(MutationAuthorizationArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 4: Only Creator or GM Can Mutate a Source")]
+    [Description("Feature: world-sources, Property 4: Only Creator or GM Can Mutate a Source")]
     public void NonCreatorPlayer_CannotUpdateSource(MutationScenario scenario)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
@@ -39,9 +39,9 @@ public class SourceMutationAuthorizationTests
 
         var command = new UpdateSourceCommand(
             scenario.ExistingSource.Id,
-            scenario.ExistingSource.CampaignId,
+            scenario.ExistingSource.WorldId,
             scenario.ActingUserId,
-            CampaignRole.Player,
+            WorldRole.Player,
             Title: "Updated Title");
 
         // Act
@@ -64,12 +64,12 @@ public class SourceMutationAuthorizationTests
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(MutationAuthorizationArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 4: Only Creator or GM Can Mutate a Source")]
+    [Description("Feature: world-sources, Property 4: Only Creator or GM Can Mutate a Source")]
     public void NonCreatorPlayer_CannotDeleteSource(MutationScenario scenario)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
@@ -79,9 +79,9 @@ public class SourceMutationAuthorizationTests
         // Act
         var result = service.DeleteAsync(
             scenario.ExistingSource.Id,
-            scenario.ExistingSource.CampaignId,
+            scenario.ExistingSource.WorldId,
             scenario.ActingUserId,
-            CampaignRole.Player,
+            WorldRole.Player,
             CancellationToken.None).GetAwaiter().GetResult();
 
         // Assert — should be denied with forbidden error
@@ -101,12 +101,12 @@ public class SourceMutationAuthorizationTests
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(MutationAuthorizationArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 4: Only Creator or GM Can Mutate a Source")]
+    [Description("Feature: world-sources, Property 4: Only Creator or GM Can Mutate a Source")]
     public void NonCreatorPlayer_CannotMarkSourceReady(MutationScenario scenario)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
@@ -117,9 +117,9 @@ public class SourceMutationAuthorizationTests
 
         var command = new MarkSourceReadyCommand(
             draftSource.Id,
-            draftSource.CampaignId,
+            draftSource.WorldId,
             scenario.ActingUserId,
-            CampaignRole.Player);
+            WorldRole.Player);
 
         // Act
         var result = service.MarkReadyAsync(command, CancellationToken.None).GetAwaiter().GetResult();
@@ -181,10 +181,10 @@ public class MutationAuthorizationArbitraries
             VisibilityScope.GMOnly,
             VisibilityScope.PartyVisible);
 
-        var creatorRoleGen = Gen.Elements(CampaignRole.GM, CampaignRole.Player);
+        var creatorRoleGen = Gen.Elements(WorldRole.GM, WorldRole.Player);
 
         var gen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from creatorUserId in ArbMap.Default.GeneratorFor<Guid>()
             from actingUserId in ArbMap.Default.GeneratorFor<Guid>()
             where actingUserId != creatorUserId // Ensure actor is different from creator
@@ -197,7 +197,7 @@ public class MutationAuthorizationArbitraries
                 new Source
                 {
                     Id = Guid.NewGuid(),
-                    CampaignId = campaignId,
+                    WorldId = worldId,
                     Type = sourceType,
                     Title = title,
                     Body = "Session notes from Black Harbor investigation",

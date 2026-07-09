@@ -27,7 +27,7 @@ public class ExtractionServiceTests
     private ExtractionService _sut = null!;
     private FakeAiBudgetGuard _budgetGuard = null!;
 
-    private static readonly Guid CampaignId = Guid.NewGuid();
+    private static readonly Guid WorldId = Guid.NewGuid();
 
     [SetUp]
     public void SetUp()
@@ -80,7 +80,7 @@ public class ExtractionServiceTests
         return new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = CampaignId,
+            WorldId = WorldId,
             Type = SourceType.SessionNote,
             Title = "Session 5 Notes",
             Body = body,
@@ -122,7 +122,7 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _budgetGuard.Exceeded = true;
 
-        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(result.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
         Assert.That(result.ErrorCategory, Is.EqualTo("BudgetExceeded"));
@@ -140,7 +140,7 @@ public class ExtractionServiceTests
     {
         var nonExistentSourceId = Guid.NewGuid();
 
-        var result = await _sut.ProcessExtractionAsync(nonExistentSourceId, CampaignId, CancellationToken.None);
+        var result = await _sut.ProcessExtractionAsync(nonExistentSourceId, WorldId, CancellationToken.None);
 
         Assert.That(result.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
         Assert.That(result.ErrorCategory, Is.EqualTo(ErrorCategories.SourceNotFound));
@@ -151,7 +151,7 @@ public class ExtractionServiceTests
     {
         var nonExistentSourceId = Guid.NewGuid();
 
-        await _sut.ProcessExtractionAsync(nonExistentSourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(nonExistentSourceId, WorldId, CancellationToken.None);
 
         Assert.That(_reviewBatchRepository.Batches, Is.Empty);
         Assert.That(_reviewProposalRepository.Proposals, Is.Empty);
@@ -172,7 +172,7 @@ public class ExtractionServiceTests
         source.ProcessingStatus = status;
         _sourceRepository.Seed(source);
 
-        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(result.Type, Is.EqualTo(OutcomeType.Skipped));
     }
@@ -187,7 +187,7 @@ public class ExtractionServiceTests
         source.ProcessingStatus = status;
         _sourceRepository.Seed(source);
 
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         var updated = await _sourceRepository.GetByIdAsync(source.Id);
         Assert.That(updated!.ProcessingStatus, Is.EqualTo(status));
@@ -202,7 +202,7 @@ public class ExtractionServiceTests
         source.ProcessingStatus = status;
         _sourceRepository.Seed(source);
 
-        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(result.Type, Is.EqualTo(OutcomeType.Skipped));
     }
@@ -223,14 +223,14 @@ public class ExtractionServiceTests
         var existingBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = CampaignId,
+            WorldId = WorldId,
             SourceId = source.Id,
             Status = batchStatus,
             CreatedAt = DateTimeOffset.UtcNow
         };
         await _reviewBatchRepository.CreateAsync(existingBatch);
 
-        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(result.Type, Is.EqualTo(OutcomeType.Skipped));
     }
@@ -247,14 +247,14 @@ public class ExtractionServiceTests
         var existingBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = CampaignId,
+            WorldId = WorldId,
             SourceId = source.Id,
             Status = batchStatus,
             CreatedAt = DateTimeOffset.UtcNow
         };
         await _reviewBatchRepository.CreateAsync(existingBatch);
 
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Only the pre-existing batch should exist
         Assert.That(_reviewBatchRepository.Batches, Has.Count.EqualTo(1));
@@ -270,7 +270,7 @@ public class ExtractionServiceTests
         var canceledBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = CampaignId,
+            WorldId = WorldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.Canceled,
             CreatedAt = DateTimeOffset.UtcNow
@@ -279,7 +279,7 @@ public class ExtractionServiceTests
 
         _aiClient.SetupSuccess(CreateValidResponse());
 
-        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Should not be skipped — Canceled batches don't block reprocessing
         Assert.That(result.Type, Is.Not.EqualTo(OutcomeType.Skipped));
@@ -296,7 +296,7 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _aiClient.SetupSuccess(CreateValidResponse(3));
 
-        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(result.Type, Is.EqualTo(OutcomeType.Success));
         Assert.That(result.ProposalCount, Is.EqualTo(3));
@@ -310,7 +310,7 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _aiClient.SetupSuccess(CreateValidResponse());
 
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         var updated = await _sourceRepository.GetByIdAsync(source.Id);
         Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Processed));
@@ -323,7 +323,7 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _aiClient.SetupSuccess(CreateValidResponse());
 
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Verify transitions recorded: Queued → Processing, then Processing → Processed
         var transitions = _sourceRepository.StatusTransitions
@@ -344,11 +344,11 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _aiClient.SetupSuccess(CreateValidResponse(2));
 
-        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         var batch = _reviewBatchRepository.Batches.Single();
         Assert.That(batch.SourceId, Is.EqualTo(source.Id));
-        Assert.That(batch.CampaignId, Is.EqualTo(CampaignId));
+        Assert.That(batch.WorldId, Is.EqualTo(WorldId));
         Assert.That(batch.Status, Is.EqualTo(ReviewBatchStatus.Pending));
         Assert.That(batch.Id, Is.EqualTo(result.ReviewBatchId));
     }
@@ -364,7 +364,7 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _aiClient.SetupParseFailure();
 
-        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(result.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
         Assert.That(result.ErrorCategory, Is.EqualTo(ErrorCategories.ParseFailure));
@@ -377,7 +377,7 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _aiClient.SetupParseFailure();
 
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         var updated = await _sourceRepository.GetByIdAsync(source.Id);
         Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Failed));
@@ -390,7 +390,7 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _aiClient.SetupParseFailure();
 
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         var transitions = _sourceRepository.StatusTransitions
             .Where(t => t.SourceId == source.Id)
@@ -410,7 +410,7 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _aiClient.SetupParseFailure();
 
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(_reviewBatchRepository.Batches, Is.Empty);
     }
@@ -422,7 +422,7 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _aiClient.SetupTransientFailure(new InvalidOperationException("Unexpected AI failure"));
 
-        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(result.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
         var updated = await _sourceRepository.GetByIdAsync(source.Id);
@@ -440,7 +440,7 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _aiClient.SetupTransientFailure(new TaskCanceledException("Operation timed out"));
 
-        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(result.Type, Is.EqualTo(OutcomeType.TransientFailure));
         Assert.That(result.ErrorCategory, Is.EqualTo(ErrorCategories.Timeout));
@@ -453,7 +453,7 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _aiClient.SetupTransientFailure(new TaskCanceledException("Operation timed out"));
 
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         var updated = await _sourceRepository.GetByIdAsync(source.Id);
         Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Queued));
@@ -466,7 +466,7 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _aiClient.SetupTransientFailure(new HttpRequestException("Connection refused"));
 
-        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(result.Type, Is.EqualTo(OutcomeType.TransientFailure));
         Assert.That(result.ErrorCategory, Is.EqualTo(ErrorCategories.TransientError));
@@ -481,7 +481,7 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _aiClient.SetupTransientFailure(new HttpRequestException("Connection refused"));
 
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         var updated = await _sourceRepository.GetByIdAsync(source.Id);
         Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Queued));
@@ -497,7 +497,7 @@ public class ExtractionServiceTests
         _aiClient.SetupTransientFailure(new HttpRequestException(
             "AI call failed: HTTP 400", null, System.Net.HttpStatusCode.BadRequest));
 
-        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(result.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
         var updated = await _sourceRepository.GetByIdAsync(source.Id);
@@ -512,7 +512,7 @@ public class ExtractionServiceTests
         _aiClient.SetupTransientFailure(new HttpRequestException(
             "Transient AI service error: HTTP 429", null, System.Net.HttpStatusCode.TooManyRequests));
 
-        var result = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(result.Type, Is.EqualTo(OutcomeType.TransientFailure));
         var updated = await _sourceRepository.GetByIdAsync(source.Id);
@@ -526,7 +526,7 @@ public class ExtractionServiceTests
         _sourceRepository.Seed(source);
         _aiClient.SetupTransientFailure(new TaskCanceledException("Operation timed out"));
 
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(_reviewBatchRepository.Batches, Is.Empty);
     }

@@ -25,7 +25,7 @@ public class ReviewServiceEditTests
     private FakeProposalApplicator _applicator = null!;
     private ReviewService _service = null!;
 
-    private Guid _campaignId;
+    private Guid _worldId;
     private Guid _gmUserId;
     private Guid _playerUserId;
     private Source _source = null!;
@@ -57,14 +57,14 @@ public class ReviewServiceEditTests
             _validator,
             _applicator);
 
-        _campaignId = Guid.NewGuid();
+        _worldId = Guid.NewGuid();
         _gmUserId = Guid.NewGuid();
         _playerUserId = Guid.NewGuid();
 
         _source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.SessionNote,
             Title = "Session 1: Black Harbor",
             Body = "We questioned Captain Voss in Black Harbor.",
@@ -78,7 +78,7 @@ public class ReviewServiceEditTests
         _batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = _source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-30)
@@ -96,7 +96,7 @@ public class ReviewServiceEditTests
 
         var newJson = """{"name":"Captain Voss (Edited)","type":"Character","summary":"A suspicious harbor captain"}""";
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, newJson);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, newJson);
 
         var result = await _service.EditProposalAsync(command, CancellationToken.None);
 
@@ -115,7 +115,7 @@ public class ReviewServiceEditTests
 
         var newJson = """{"name":"Captain Voss (Re-Edited)","type":"Character"}""";
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _playerUserId, CampaignRole.Player, newJson);
+            proposal.Id, _worldId, _playerUserId, WorldRole.Player, newJson);
 
         var result = await _service.EditProposalAsync(command, CancellationToken.None);
 
@@ -133,7 +133,7 @@ public class ReviewServiceEditTests
 
         var newJson = """{"name":"Black Harbor Docks","type":"Location"}""";
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, newJson);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, newJson);
 
         await _service.EditProposalAsync(command, CancellationToken.None);
 
@@ -156,7 +156,7 @@ public class ReviewServiceEditTests
 
         var newJson = """{"name":"Silver Key","type":"Item"}""";
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, newJson);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, newJson);
 
         await _service.EditProposalAsync(command, CancellationToken.None);
 
@@ -172,7 +172,7 @@ public class ReviewServiceEditTests
 
         var newJson = """{"predicate":"location","value":"Black Harbor Docks"}""";
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, newJson);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, newJson);
 
         await _service.EditProposalAsync(command, CancellationToken.None);
 
@@ -190,7 +190,7 @@ public class ReviewServiceEditTests
 
         var newJson = $"{{\"artifactAId\":\"{artifactAId}\",\"artifactBId\":\"{artifactBId}\",\"type\":\"SuspectedIn\"}}";
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, newJson);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, newJson);
 
         await _service.EditProposalAsync(command, CancellationToken.None);
 
@@ -205,7 +205,7 @@ public class ReviewServiceEditTests
 
         var newJson = """{"name":"Captain Voss","type":"Character","summary":"Updated summary"}""";
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, newJson);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, newJson);
 
         await _service.EditProposalAsync(command, CancellationToken.None);
 
@@ -223,7 +223,7 @@ public class ReviewServiceEditTests
         await _proposalRepo.CreateAsync(proposal);
 
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, "not valid json {{{");
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, "not valid json {{{");
 
         var result = await _service.EditProposalAsync(command, CancellationToken.None);
 
@@ -240,7 +240,7 @@ public class ReviewServiceEditTests
 
         var oversizedJson = "{\"name\":\"" + new string('A', 32_769) + "\",\"type\":\"Character\"}";
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, oversizedJson);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, oversizedJson);
 
         var result = await _service.EditProposalAsync(command, CancellationToken.None);
 
@@ -256,7 +256,7 @@ public class ReviewServiceEditTests
         await _proposalRepo.CreateAsync(proposal);
 
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, "");
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, "");
 
         var result = await _service.EditProposalAsync(command, CancellationToken.None);
 
@@ -273,7 +273,7 @@ public class ReviewServiceEditTests
 
         var invalidJson = """{"type":"Character","summary":"No name provided"}""";
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, invalidJson);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, invalidJson);
 
         var result = await _service.EditProposalAsync(command, CancellationToken.None);
 
@@ -294,7 +294,7 @@ public class ReviewServiceEditTests
 
         var newJson = """{"name":"Captain Voss","type":"Character"}""";
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, newJson);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, newJson);
 
         var result = await _service.EditProposalAsync(command, CancellationToken.None);
 
@@ -311,7 +311,7 @@ public class ReviewServiceEditTests
 
         var newJson = """{"name":"Captain Voss","type":"Character"}""";
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, newJson);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, newJson);
 
         var result = await _service.EditProposalAsync(command, CancellationToken.None);
 
@@ -333,14 +333,14 @@ public class ReviewServiceEditTests
         // Edit the proposal
         var editedJson = """{"name":"Captain Voss (Corrected)","type":"Character","summary":"Corrected by reviewer"}""";
         var editCommand = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, editedJson);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, editedJson);
 
         var editResult = await _service.EditProposalAsync(editCommand, CancellationToken.None);
         Assert.That(editResult.IsSuccess, Is.True);
 
         // Accept the edited proposal
         var acceptCommand = new AcceptProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         var acceptResult = await _service.AcceptProposalAsync(acceptCommand, CancellationToken.None);
 
@@ -363,7 +363,7 @@ public class ReviewServiceEditTests
         var pendingBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = _source.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-10)
@@ -375,7 +375,7 @@ public class ReviewServiceEditTests
 
         var newJson = """{"name":"Captain Voss","type":"Character","summary":"Edited summary"}""";
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, newJson);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, newJson);
 
         await _service.EditProposalAsync(command, CancellationToken.None);
 
@@ -392,7 +392,7 @@ public class ReviewServiceEditTests
 
         var newJson = """{"name":"Captain Voss","type":"Character"}""";
         var command = new EditProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM, newJson);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM, newJson);
 
         await _service.EditProposalAsync(command, CancellationToken.None);
 

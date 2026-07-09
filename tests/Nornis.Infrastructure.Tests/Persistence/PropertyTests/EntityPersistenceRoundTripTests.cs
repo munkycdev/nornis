@@ -43,7 +43,7 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
     }
 
     [FsCheck.NUnit.Property(Arbitrary = [typeof(EntityGenerators.DomainArbitraries)], MaxTest = 100)]
-    public void Campaign_RoundTrip_AllPropertiesMatch(Campaign generated)
+    public void World_RoundTrip_AllPropertiesMatch(World generated)
     {
         // Create parent User
         var user = CreateUser();
@@ -52,11 +52,11 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
         generated.CreatedByUserId = user.Id;
         generated.RowVersion = [];
 
-        Context.Campaigns.Add(generated);
+        Context.Worlds.Add(generated);
         Context.SaveChanges();
 
         using var readContext = CreateNewContext();
-        var retrieved = readContext.Campaigns.AsNoTracking().First(c => c.Id == generated.Id);
+        var retrieved = readContext.Worlds.AsNoTracking().First(c => c.Id == generated.Id);
 
         Assert.That(retrieved.Id, Is.EqualTo(generated.Id));
         Assert.That(retrieved.Name, Is.EqualTo(generated.Name));
@@ -68,23 +68,23 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
     }
 
     [FsCheck.NUnit.Property(Arbitrary = [typeof(EntityGenerators.DomainArbitraries)], MaxTest = 100)]
-    public void CampaignMember_RoundTrip_AllPropertiesMatch(CampaignMember generated)
+    public void WorldMember_RoundTrip_AllPropertiesMatch(WorldMember generated)
     {
         var user = CreateUser();
-        var campaign = CreateCampaign(user.Id);
+        var world = CreateWorld(user.Id);
 
         generated.Id = Guid.NewGuid();
-        generated.CampaignId = campaign.Id;
+        generated.WorldId = world.Id;
         generated.UserId = user.Id;
 
-        Context.CampaignMembers.Add(generated);
+        Context.WorldMembers.Add(generated);
         Context.SaveChanges();
 
         using var readContext = CreateNewContext();
-        var retrieved = readContext.CampaignMembers.AsNoTracking().First(cm => cm.Id == generated.Id);
+        var retrieved = readContext.WorldMembers.AsNoTracking().First(cm => cm.Id == generated.Id);
 
         Assert.That(retrieved.Id, Is.EqualTo(generated.Id));
-        Assert.That(retrieved.CampaignId, Is.EqualTo(generated.CampaignId));
+        Assert.That(retrieved.WorldId, Is.EqualTo(generated.WorldId));
         Assert.That(retrieved.UserId, Is.EqualTo(generated.UserId));
         Assert.That(retrieved.Role, Is.EqualTo(generated.Role));
         Assert.That(retrieved.DisplayName, Is.EqualTo(generated.DisplayName));
@@ -96,10 +96,10 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
     public void Source_RoundTrip_AllPropertiesMatch(Source generated)
     {
         var user = CreateUser();
-        var campaign = CreateCampaign(user.Id);
+        var world = CreateWorld(user.Id);
 
         generated.Id = Guid.NewGuid();
-        generated.CampaignId = campaign.Id;
+        generated.WorldId = world.Id;
         generated.CreatedByUserId = user.Id;
 
         Context.Sources.Add(generated);
@@ -109,7 +109,7 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
         var retrieved = readContext.Sources.AsNoTracking().First(s => s.Id == generated.Id);
 
         Assert.That(retrieved.Id, Is.EqualTo(generated.Id));
-        Assert.That(retrieved.CampaignId, Is.EqualTo(generated.CampaignId));
+        Assert.That(retrieved.WorldId, Is.EqualTo(generated.WorldId));
         Assert.That(retrieved.Type, Is.EqualTo(generated.Type));
         Assert.That(retrieved.Title, Is.EqualTo(generated.Title));
         Assert.That(retrieved.Body, Is.EqualTo(generated.Body));
@@ -125,8 +125,8 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
     public void SourceExtraction_RoundTrip_AllPropertiesMatch(SourceExtraction generated)
     {
         var user = CreateUser();
-        var campaign = CreateCampaign(user.Id);
-        var source = CreateSource(campaign.Id, user.Id);
+        var world = CreateWorld(user.Id);
+        var source = CreateSource(world.Id, user.Id);
 
         generated.Id = Guid.NewGuid();
         generated.SourceId = source.Id;
@@ -149,10 +149,10 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
     public void Artifact_RoundTrip_AllPropertiesMatch(Artifact generated)
     {
         var user = CreateUser();
-        var campaign = CreateCampaign(user.Id);
+        var world = CreateWorld(user.Id);
 
         generated.Id = Guid.NewGuid();
-        generated.CampaignId = campaign.Id;
+        generated.WorldId = world.Id;
         generated.RowVersion = [];
 
         Context.Artifacts.Add(generated);
@@ -162,7 +162,7 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
         var retrieved = readContext.Artifacts.AsNoTracking().First(a => a.Id == generated.Id);
 
         Assert.That(retrieved.Id, Is.EqualTo(generated.Id));
-        Assert.That(retrieved.CampaignId, Is.EqualTo(generated.CampaignId));
+        Assert.That(retrieved.WorldId, Is.EqualTo(generated.WorldId));
         Assert.That(retrieved.Type, Is.EqualTo(generated.Type));
         Assert.That(retrieved.Name, Is.EqualTo(generated.Name));
         Assert.That(retrieved.Summary, Is.EqualTo(generated.Summary));
@@ -177,8 +177,8 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
     public void ArtifactFact_RoundTrip_AllPropertiesMatch(ArtifactFact generated)
     {
         var user = CreateUser();
-        var campaign = CreateCampaign(user.Id);
-        var artifact = CreateArtifact(campaign.Id);
+        var world = CreateWorld(user.Id);
+        var artifact = CreateArtifact(world.Id);
 
         generated.Id = Guid.NewGuid();
         generated.ArtifactId = artifact.Id;
@@ -205,12 +205,12 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
     public void ArtifactRelationship_RoundTrip_AllPropertiesMatch(ArtifactRelationship generated)
     {
         var user = CreateUser();
-        var campaign = CreateCampaign(user.Id);
-        var artifactA = CreateArtifact(campaign.Id);
-        var artifactB = CreateArtifact(campaign.Id);
+        var world = CreateWorld(user.Id);
+        var artifactA = CreateArtifact(world.Id);
+        var artifactB = CreateArtifact(world.Id);
 
         generated.Id = Guid.NewGuid();
-        generated.CampaignId = campaign.Id;
+        generated.WorldId = world.Id;
         generated.ArtifactAId = artifactA.Id;
         generated.ArtifactBId = artifactB.Id;
         generated.RowVersion = [];
@@ -222,7 +222,7 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
         var retrieved = readContext.ArtifactRelationships.AsNoTracking().First(ar => ar.Id == generated.Id);
 
         Assert.That(retrieved.Id, Is.EqualTo(generated.Id));
-        Assert.That(retrieved.CampaignId, Is.EqualTo(generated.CampaignId));
+        Assert.That(retrieved.WorldId, Is.EqualTo(generated.WorldId));
         Assert.That(retrieved.ArtifactAId, Is.EqualTo(generated.ArtifactAId));
         Assert.That(retrieved.ArtifactBId, Is.EqualTo(generated.ArtifactBId));
         Assert.That(retrieved.Type, Is.EqualTo(generated.Type));
@@ -238,8 +238,8 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
     public void SourceReference_RoundTrip_AllPropertiesMatch(SourceReference generated)
     {
         var user = CreateUser();
-        var campaign = CreateCampaign(user.Id);
-        var source = CreateSource(campaign.Id, user.Id);
+        var world = CreateWorld(user.Id);
+        var source = CreateSource(world.Id, user.Id);
 
         generated.Id = Guid.NewGuid();
         generated.SourceId = source.Id;
@@ -263,11 +263,11 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
     public void ReviewBatch_RoundTrip_AllPropertiesMatch(ReviewBatch generated)
     {
         var user = CreateUser();
-        var campaign = CreateCampaign(user.Id);
-        var source = CreateSource(campaign.Id, user.Id);
+        var world = CreateWorld(user.Id);
+        var source = CreateSource(world.Id, user.Id);
 
         generated.Id = Guid.NewGuid();
-        generated.CampaignId = campaign.Id;
+        generated.WorldId = world.Id;
         generated.SourceId = source.Id;
 
         Context.ReviewBatches.Add(generated);
@@ -277,7 +277,7 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
         var retrieved = readContext.ReviewBatches.AsNoTracking().First(rb => rb.Id == generated.Id);
 
         Assert.That(retrieved.Id, Is.EqualTo(generated.Id));
-        Assert.That(retrieved.CampaignId, Is.EqualTo(generated.CampaignId));
+        Assert.That(retrieved.WorldId, Is.EqualTo(generated.WorldId));
         Assert.That(retrieved.SourceId, Is.EqualTo(generated.SourceId));
         Assert.That(retrieved.Status, Is.EqualTo(generated.Status));
         Assert.That(retrieved.CreatedAt, Is.EqualTo(generated.CreatedAt));
@@ -288,9 +288,9 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
     public void ReviewProposal_RoundTrip_AllPropertiesMatch(ReviewProposal generated)
     {
         var user = CreateUser();
-        var campaign = CreateCampaign(user.Id);
-        var source = CreateSource(campaign.Id, user.Id);
-        var reviewBatch = CreateReviewBatch(campaign.Id, source.Id);
+        var world = CreateWorld(user.Id);
+        var source = CreateSource(world.Id, user.Id);
+        var reviewBatch = CreateReviewBatch(world.Id, source.Id);
 
         generated.Id = Guid.NewGuid();
         generated.ReviewBatchId = reviewBatch.Id;
@@ -322,7 +322,7 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
     {
         // AiUsageRecord has all nullable FKs — set them to null to avoid constraint issues
         generated.Id = Guid.NewGuid();
-        generated.CampaignId = null;
+        generated.WorldId = null;
         generated.UserId = null;
         generated.SourceId = null;
         generated.ReviewBatchId = null;
@@ -334,7 +334,7 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
         var retrieved = readContext.AiUsageRecords.AsNoTracking().First(r => r.Id == generated.Id);
 
         Assert.That(retrieved.Id, Is.EqualTo(generated.Id));
-        Assert.That(retrieved.CampaignId, Is.EqualTo(generated.CampaignId));
+        Assert.That(retrieved.WorldId, Is.EqualTo(generated.WorldId));
         Assert.That(retrieved.UserId, Is.EqualTo(generated.UserId));
         Assert.That(retrieved.OperationType, Is.EqualTo(generated.OperationType));
         Assert.That(retrieved.Model, Is.EqualTo(generated.Model));
@@ -369,9 +369,9 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
         return user;
     }
 
-    private Campaign CreateCampaign(Guid userId)
+    private World CreateWorld(Guid userId)
     {
-        var campaign = new Campaign
+        var world = new World
         {
             Id = Guid.NewGuid(),
             Name = "Black Harbor Investigation",
@@ -380,17 +380,17 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
             CreatedByUserId = userId,
             RowVersion = []
         };
-        Context.Campaigns.Add(campaign);
+        Context.Worlds.Add(world);
         Context.SaveChanges();
-        return campaign;
+        return world;
     }
 
-    private Source CreateSource(Guid campaignId, Guid userId)
+    private Source CreateSource(Guid worldId, Guid userId)
     {
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Session 1 Notes",
             CreatedAt = DateTimeOffset.UtcNow,
@@ -403,12 +403,12 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
         return source;
     }
 
-    private Artifact CreateArtifact(Guid campaignId)
+    private Artifact CreateArtifact(Guid worldId)
     {
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Visibility = VisibilityScope.PartyVisible,
@@ -422,12 +422,12 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
         return artifact;
     }
 
-    private ReviewBatch CreateReviewBatch(Guid campaignId, Guid sourceId)
+    private ReviewBatch CreateReviewBatch(Guid worldId, Guid sourceId)
     {
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = sourceId,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow

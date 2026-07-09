@@ -1,6 +1,6 @@
 ﻿@page "/storylines"
 @implements IDisposable
-@inject CampaignState Campaigns
+@inject WorldState Worlds
 @inject NornisApiClient Api
 
 <PageTitle>Storylines — Nornis</PageTitle>
@@ -8,9 +8,9 @@
 <MudText Typo="Typo.h4" Class="nornis-serif">Storylines</MudText>
 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">The stories in motion.</MudText>
 
-@if (Campaigns.Current is null)
+@if (Worlds.Current is null)
 {
-    <NoCampaign />
+    <NoWorld />
 }
 else
 {
@@ -88,12 +88,12 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        Campaigns.Changed += OnCampaignChanged;
-        await Campaigns.EnsureLoadedAsync();
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
         await LoadAsync();
     }
 
-    private void OnCampaignChanged() => InvokeAsync(LoadAsync);
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
 
     private async Task SetStatusAsync(string? status)
     {
@@ -103,7 +103,7 @@ else
 
     private async Task LoadAsync()
     {
-        if (Campaigns.Current is null)
+        if (Worlds.Current is null)
         {
             _storylines = [];
             _error = null;
@@ -115,7 +115,7 @@ else
         _error = null;
         StateHasChanged();
 
-        var result = await Api.GetStorylinesAsync(Campaigns.Current.Id, _status);
+        var result = await Api.GetStorylinesAsync(Worlds.Current.Id, _status);
 
         _loading = false;
         if (result.IsSuccess)
@@ -147,5 +147,5 @@ else
         return $"{(int)d.TotalDays}d ago";
     }
 
-    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

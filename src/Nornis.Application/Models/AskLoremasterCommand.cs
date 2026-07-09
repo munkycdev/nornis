@@ -3,8 +3,8 @@ using Nornis.Domain.Enums;
 namespace Nornis.Application.Models;
 
 public record AskLoremasterCommand(
-    Guid CampaignId,
+    Guid WorldId,
     string Question,
     Guid UserId,
-    CampaignRole UserRole,
+    WorldRole UserRole,
     string? ConversationContext);

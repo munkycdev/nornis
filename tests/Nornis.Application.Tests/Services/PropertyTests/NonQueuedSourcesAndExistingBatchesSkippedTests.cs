@@ -96,7 +96,7 @@ public class NonQueuedSourcesAndExistingBatchesSkippedTests
             usageRepo, artifactRepo, factRepo, aiClient, unitOfWork);
 
         // Act
-        var outcome = service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+        var outcome = service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
             .GetAwaiter().GetResult();
 
         // Assert - outcome is Skipped
@@ -154,7 +154,7 @@ public class NonQueuedSourcesAndExistingBatchesSkippedTests
 
         // Act
         var outcome = service.ProcessExtractionAsync(
-            input.Source.Id, input.Source.CampaignId, CancellationToken.None)
+            input.Source.Id, input.Source.WorldId, CancellationToken.None)
             .GetAwaiter().GetResult();
 
         // Assert - outcome is Skipped
@@ -214,7 +214,7 @@ public class QueuedSourceWithExistingBatchArbitraries
             let batch = new ReviewBatch
             {
                 Id = Guid.NewGuid(),
-                CampaignId = source.CampaignId,
+                WorldId = source.WorldId,
                 SourceId = source.Id,
                 Status = batchStatus,
                 CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5)

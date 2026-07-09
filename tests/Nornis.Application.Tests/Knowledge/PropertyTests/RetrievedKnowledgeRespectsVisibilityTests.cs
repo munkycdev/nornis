@@ -63,7 +63,7 @@ public class RetrievedKnowledgeRespectsVisibilityTests
         // Act — use a question that includes an artifact name so retrieval is triggered
         var result = retriever.RetrieveAsync(
             scenario.QuestionText,
-            scenario.CampaignId,
+            scenario.WorldId,
             scenario.UserId,
             scenario.Role,
             CancellationToken.None).GetAwaiter().GetResult();
@@ -85,12 +85,12 @@ public class RetrievedKnowledgeRespectsVisibilityTests
         }
     }
 
-    private static IReadOnlyList<VisibilityScope> GetAllowedScopes(CampaignRole role) =>
+    private static IReadOnlyList<VisibilityScope> GetAllowedScopes(WorldRole role) =>
         role switch
         {
-            CampaignRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
-            CampaignRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
-            CampaignRole.Observer => [VisibilityScope.PartyVisible],
+            WorldRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
+            WorldRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
+            WorldRole.Observer => [VisibilityScope.PartyVisible],
             _ => [VisibilityScope.PartyVisible]
         };
 }
@@ -101,9 +101,9 @@ public class RetrievedKnowledgeRespectsVisibilityTests
 /// relationships at mixed visibilities to verify filtering.
 /// </summary>
 public record RetrievedKnowledgeVisibilityScenario(
-    Guid CampaignId,
+    Guid WorldId,
     Guid UserId,
-    CampaignRole Role,
+    WorldRole Role,
     string QuestionText,
     List<Artifact> Artifacts,
     List<ArtifactFact> Facts,
@@ -111,7 +111,7 @@ public record RetrievedKnowledgeVisibilityScenario(
 
 /// <summary>
 /// Custom FsCheck arbitraries for retrieved knowledge visibility property tests.
-/// Generates campaigns with PartyVisible artifacts (to ensure retrieval),
+/// Generates worlds with PartyVisible artifacts (to ensure retrieval),
 /// associated facts and relationships with mixed visibilities.
 /// </summary>
 public class RetrievedKnowledgeVisibilityArbitraries
@@ -125,22 +125,22 @@ public class RetrievedKnowledgeVisibilityArbitraries
     public static Arbitrary<RetrievedKnowledgeVisibilityScenario> RetrievedKnowledgeVisibilityScenarios()
     {
         var roleGen = Gen.Elements(
-            CampaignRole.GM,
-            CampaignRole.Player,
-            CampaignRole.Observer);
+            WorldRole.GM,
+            WorldRole.Player,
+            WorldRole.Observer);
 
         var gen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from userId in ArbMap.Default.GeneratorFor<Guid>()
             from role in roleGen
-            from scenario in GenScenario(campaignId, userId, role)
+            from scenario in GenScenario(worldId, userId, role)
             select scenario;
 
         return gen.ToArbitrary();
     }
 
     private static Gen<RetrievedKnowledgeVisibilityScenario> GenScenario(
-        Guid campaignId, Guid userId, CampaignRole role)
+        Guid worldId, Guid userId, WorldRole role)
     {
         var visibilityGen = Gen.Elements(
             VisibilityScope.Private,
@@ -160,7 +160,7 @@ public class RetrievedKnowledgeVisibilityArbitraries
             let artifacts = chosenNames.Select(idx => new Artifact
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaignId,
+                WorldId = worldId,
                 Type = ArtifactType.Character,
                 Name = ArtifactNames[idx],
                 Summary = $"Summary of {ArtifactNames[idx]}",
@@ -173,10 +173,10 @@ public class RetrievedKnowledgeVisibilityArbitraries
             }).ToList()
             from factsPerArtifact in Gen.Choose(2, 5)
             from facts in GenFacts(artifacts, factsPerArtifact, visibilityGen, truthStateGen)
-            from relationships in GenRelationships(artifacts, campaignId, visibilityGen, truthStateGen)
+            from relationships in GenRelationships(artifacts, worldId, visibilityGen, truthStateGen)
             let questionText = $"What do we know about {artifacts[0].Name}?"
             select new RetrievedKnowledgeVisibilityScenario(
-                campaignId, userId, role, questionText, artifacts, facts, relationships);
+                worldId, userId, role, questionText, artifacts, facts, relationships);
     }
 
     private static Gen<List<ArtifactFact>> GenFacts(
@@ -226,7 +226,7 @@ public class RetrievedKnowledgeVisibilityArbitraries
 
     private static Gen<List<ArtifactRelationship>> GenRelationships(
         List<Artifact> artifacts,
-        Guid campaignId,
+        Guid worldId,
         Gen<VisibilityScope> visibilityGen,
         Gen<TruthState> truthStateGen)
     {
@@ -235,13 +235,13 @@ public class RetrievedKnowledgeVisibilityArbitraries
 
         return
             from relCount in Gen.Choose(1, Math.Min(4, artifacts.Count))
-            from relationships in GenRelationshipList(artifacts, campaignId, relCount, visibilityGen, truthStateGen)
+            from relationships in GenRelationshipList(artifacts, worldId, relCount, visibilityGen, truthStateGen)
             select relationships;
     }
 
     private static Gen<List<ArtifactRelationship>> GenRelationshipList(
         List<Artifact> artifacts,
-        Guid campaignId,
+        Guid worldId,
         int count,
         Gen<VisibilityScope> visibilityGen,
         Gen<TruthState> truthStateGen)
@@ -259,7 +259,7 @@ public class RetrievedKnowledgeVisibilityArbitraries
                 select new ArtifactRelationship
                 {
                     Id = Guid.NewGuid(),
-                    CampaignId = campaignId,
+                    WorldId = worldId,
                     ArtifactAId = artifactA.Id,
                     ArtifactBId = artifactB.Id,
                     Type = "ConnectedTo",

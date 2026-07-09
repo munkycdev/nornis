@@ -3,7 +3,7 @@ using Nornis.Domain.Enums;
 namespace Nornis.Application.Models;
 
 public record CanonQuery(
-    Guid CampaignId,
+    Guid WorldId,
     Guid ActingUserId,
-    CampaignRole ActingUserRole,
+    WorldRole ActingUserRole,
     TruthState? TruthState = null);

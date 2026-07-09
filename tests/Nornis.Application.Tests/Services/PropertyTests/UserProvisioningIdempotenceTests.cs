@@ -17,13 +17,13 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// **Validates: Requirements 2.1, 2.3**
 /// </summary>
 [TestFixture]
-[Category("Feature: auth-and-campaigns, Property 1: User Provisioning Idempotence")]
+[Category("Feature: auth-and-worlds, Property 1: User Provisioning Idempotence")]
 public class UserProvisioningIdempotenceTests
 {
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(UserProvisioningArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: auth-and-campaigns, Property 1: User Provisioning Idempotence")]
+    [Description("Feature: auth-and-worlds, Property 1: User Provisioning Idempotence")]
     public void GetByAuth0SubjectId_CalledMultipleTimes_ReturnsSameUserWithoutDuplicates(
         UserProvisioningInput input)
     {

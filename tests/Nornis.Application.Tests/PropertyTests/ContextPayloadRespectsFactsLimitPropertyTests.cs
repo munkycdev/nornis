@@ -33,14 +33,14 @@ public class ContextPayloadRespectsFactsLimitPropertyTests
     /// Generator producing an artifact with more than MaxFactsPerArtifact facts,
     /// each with distinct UpdatedAt timestamps for ordering verification.
     /// </summary>
-    private static Gen<(Artifact Artifact, List<ArtifactFact> Facts)> ArtifactWithExcessFacts(Guid campaignId, VisibilityScope visibility) =>
+    private static Gen<(Artifact Artifact, List<ArtifactFact> Facts)> ArtifactWithExcessFacts(Guid worldId, VisibilityScope visibility) =>
         from factCount in Gen.Choose(MaxFactsPerArtifact + 1, MaxFactsPerArtifact + 15)
         from name in Gen.Elements("Captain Voss", "Black Harbor", "Silver Key", "Tavrin", "The Red Lodge")
         let artifactId = Guid.NewGuid()
         let artifact = new Artifact
         {
             Id = artifactId,
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Character,
             Name = name,
             Summary = $"Summary of {name}",
@@ -75,13 +75,13 @@ public class ContextPayloadRespectsFactsLimitPropertyTests
             ((Artifact Artifact, List<ArtifactFact> Facts) artifactData, AiExtractionResponse aiResponse) =>
             {
                 var (artifact, allFacts) = artifactData;
-                var campaignId = artifact.CampaignId;
+                var worldId = artifact.WorldId;
 
                 // Create a source whose body contains the artifact name (so it gets name-matched)
                 var source = new Source
                 {
                     Id = Guid.NewGuid(),
-                    CampaignId = campaignId,
+                    WorldId = worldId,
                     Type = SourceType.SessionNote,
                     Title = "Test session",
                     Body = $"We met {artifact.Name} at the docks.",
@@ -142,7 +142,7 @@ public class ContextPayloadRespectsFactsLimitPropertyTests
                 fakeAiClient.SetupSuccess(aiResponse);
 
                 // Act
-                service.ProcessExtractionAsync(source.Id, campaignId, CancellationToken.None)
+                service.ProcessExtractionAsync(source.Id, worldId, CancellationToken.None)
                     .GetAwaiter().GetResult();
 
                 // Assert — inspect the request the fake AI client received

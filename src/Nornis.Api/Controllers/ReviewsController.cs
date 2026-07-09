@@ -11,8 +11,8 @@ using Nornis.Domain.Entities;
 namespace Nornis.Api.Controllers;
 
 [ApiController]
-[Route("api/campaigns/{campaignId:guid}/reviews")]
-[ServiceFilter(typeof(CampaignMemberActionFilter))]
+[Route("api/worlds/{worldId:guid}/reviews")]
+[ServiceFilter(typeof(WorldMemberActionFilter))]
 public class ReviewsController : ControllerBase
 {
     private readonly IReviewService _reviewService;
@@ -24,15 +24,15 @@ public class ReviewsController : ControllerBase
 
     [HttpGet("proposals")]
     public async Task<IActionResult> ListProposals(
-        Guid campaignId,
+        Guid worldId,
         [FromQuery] Guid? batchId,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         var query = new ReviewQueueQuery(
-            CampaignId: campaignId,
+            WorldId: worldId,
             ActingUserId: user.Id,
             ActingUserRole: member.Role,
             FilterByBatchId: batchId);
@@ -56,16 +56,16 @@ public class ReviewsController : ControllerBase
 
     [HttpPost("proposals/{proposalId:guid}/accept")]
     public async Task<IActionResult> AcceptProposal(
-        Guid campaignId,
+        Guid worldId,
         Guid proposalId,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         var command = new AcceptProposalCommand(
             ProposalId: proposalId,
-            CampaignId: campaignId,
+            WorldId: worldId,
             ActingUserId: user.Id,
             ActingUserRole: member.Role);
 
@@ -89,16 +89,16 @@ public class ReviewsController : ControllerBase
 
     [HttpPost("proposals/{proposalId:guid}/reject")]
     public async Task<IActionResult> RejectProposal(
-        Guid campaignId,
+        Guid worldId,
         Guid proposalId,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         var command = new RejectProposalCommand(
             ProposalId: proposalId,
-            CampaignId: campaignId,
+            WorldId: worldId,
             ActingUserId: user.Id,
             ActingUserRole: member.Role);
 
@@ -121,17 +121,17 @@ public class ReviewsController : ControllerBase
 
     [HttpPost("proposals/{proposalId:guid}/edit")]
     public async Task<IActionResult> EditProposal(
-        Guid campaignId,
+        Guid worldId,
         Guid proposalId,
         [FromBody] EditProposalRequest request,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         var command = new EditProposalCommand(
             ProposalId: proposalId,
-            CampaignId: campaignId,
+            WorldId: worldId,
             ActingUserId: user.Id,
             ActingUserRole: member.Role,
             NewProposedValueJson: request.ProposedValueJson);
@@ -156,16 +156,16 @@ public class ReviewsController : ControllerBase
 
     [HttpPost("proposals/batch-accept")]
     public async Task<IActionResult> BatchAccept(
-        Guid campaignId,
+        Guid worldId,
         [FromBody] BatchAcceptRequest request,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         var command = new BatchAcceptCommand(
             ProposalIds: request.ProposalIds,
-            CampaignId: campaignId,
+            WorldId: worldId,
             ActingUserId: user.Id,
             ActingUserRole: member.Role);
 
@@ -189,16 +189,16 @@ public class ReviewsController : ControllerBase
 
     [HttpPost("proposals/batch-reject")]
     public async Task<IActionResult> BatchReject(
-        Guid campaignId,
+        Guid worldId,
         [FromBody] BatchRejectRequest request,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         var command = new BatchRejectCommand(
             ProposalIds: request.ProposalIds,
-            CampaignId: campaignId,
+            WorldId: worldId,
             ActingUserId: user.Id,
             ActingUserRole: member.Role);
 

@@ -24,13 +24,13 @@ public class StorylinesControllerTests
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
         await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Captain Voss", type: ArtifactType.Character);
+            _factory, scenario.World.Id, "Captain Voss", type: ArtifactType.Character);
         var caravan = await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Missing Caravan", type: ArtifactType.Storyline);
+            _factory, scenario.World.Id, "Missing Caravan", type: ArtifactType.Storyline);
         var prophecy = await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "The Drowned Prophecy", type: ArtifactType.Storyline);
+            _factory, scenario.World.Id, "The Drowned Prophecy", type: ArtifactType.Storyline);
 
-        var response = await scenario.GmClient.GetAsync($"/api/campaigns/{scenario.Campaign.Id}/storylines");
+        var response = await scenario.GmClient.GetAsync($"/api/worlds/{scenario.World.Id}/storylines");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         var storylines = await response.Content.ReadFromJsonAsync<List<ArtifactListItemResponse>>();
@@ -45,12 +45,12 @@ public class StorylinesControllerTests
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
         await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Active Arc", type: ArtifactType.Storyline, status: ArtifactStatus.Active);
+            _factory, scenario.World.Id, "Active Arc", type: ArtifactType.Storyline, status: ArtifactStatus.Active);
         var resolved = await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Resolved Arc", type: ArtifactType.Storyline, status: ArtifactStatus.Resolved);
+            _factory, scenario.World.Id, "Resolved Arc", type: ArtifactType.Storyline, status: ArtifactStatus.Resolved);
 
         var response = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/storylines?status=Resolved");
+            $"/api/worlds/{scenario.World.Id}/storylines?status=Resolved");
 
         var storylines = await response.Content.ReadFromJsonAsync<List<ArtifactListItemResponse>>();
         Assert.That(storylines!.Select(s => s.Id), Is.EqualTo(new[] { resolved.Id }));
@@ -62,7 +62,7 @@ public class StorylinesControllerTests
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
         var response = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/storylines?status=NotAStatus");
+            $"/api/worlds/{scenario.World.Id}/storylines?status=NotAStatus");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
     }
@@ -74,7 +74,7 @@ public class StorylinesControllerTests
         var outsider = _factory.CreateAuthenticatedClient(
             sub: "auth0|outsider-story", email: "outsider-story@example.com", nickname: "Outsider");
 
-        var response = await outsider.GetAsync($"/api/campaigns/{scenario.Campaign.Id}/storylines");
+        var response = await outsider.GetAsync($"/api/worlds/{scenario.World.Id}/storylines");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }

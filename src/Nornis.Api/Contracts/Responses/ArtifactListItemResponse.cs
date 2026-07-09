@@ -2,7 +2,7 @@ namespace Nornis.Api.Contracts.Responses;
 
 public record ArtifactListItemResponse(
     Guid Id,
-    Guid CampaignId,
+    Guid WorldId,
     string Type,
     string Name,
     string? Summary,

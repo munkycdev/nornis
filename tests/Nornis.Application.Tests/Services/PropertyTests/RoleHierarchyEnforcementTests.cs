@@ -10,7 +10,7 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// <summary>
 /// Property 8: Role Hierarchy Enforcement
 ///
-/// For any pair of CampaignRoles (actualRole, requiredRole), access to an operation
+/// For any pair of WorldRoles (actualRole, requiredRole), access to an operation
 /// requiring requiredRole should be granted if and only if actualRole.Rank >= requiredRole.Rank,
 /// using the hierarchy GM (3) > Player (2) > Observer (1).
 ///
@@ -22,7 +22,7 @@ public class RoleHierarchyEnforcementTests
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(RoleHierarchyArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: auth-and-campaigns, Property 8: Role Hierarchy Enforcement")]
+    [Description("Feature: auth-and-worlds, Property 8: Role Hierarchy Enforcement")]
     public void IsAtLeast_GrantsAccess_IfAndOnlyIf_ActualRankIsGreaterThanOrEqualToRequired(RolePair pair)
     {
         // Act
@@ -41,19 +41,19 @@ public class RoleHierarchyEnforcementTests
 /// <summary>
 /// Input model representing a pair of (actualRole, requiredRole) for hierarchy testing.
 /// </summary>
-public record RolePair(CampaignRole ActualRole, CampaignRole RequiredRole);
+public record RolePair(WorldRole ActualRole, WorldRole RequiredRole);
 
 /// <summary>
 /// Custom FsCheck arbitraries for Role Hierarchy Enforcement tests.
-/// Generates all valid pairs of CampaignRole enum values.
+/// Generates all valid pairs of WorldRole enum values.
 /// </summary>
 public class RoleHierarchyArbitraries
 {
     public static Arbitrary<RolePair> RolePairs()
     {
         var gen =
-            from actualRole in Gen.Elements(CampaignRole.GM, CampaignRole.Player, CampaignRole.Observer)
-            from requiredRole in Gen.Elements(CampaignRole.GM, CampaignRole.Player, CampaignRole.Observer)
+            from actualRole in Gen.Elements(WorldRole.GM, WorldRole.Player, WorldRole.Observer)
+            from requiredRole in Gen.Elements(WorldRole.GM, WorldRole.Player, WorldRole.Observer)
             select new RolePair(actualRole, requiredRole);
 
         return gen.ToArbitrary();

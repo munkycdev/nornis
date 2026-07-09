@@ -1,7 +1,7 @@
 @page "/costs"
 @using System.Globalization
 @implements IDisposable
-@inject CampaignState Campaigns
+@inject WorldState Worlds
 @inject NornisApiClient Api
 
 <PageTitle>Costs — Nornis</PageTitle>
@@ -9,9 +9,9 @@
 <MudText Typo="Typo.h4" Class="nornis-serif">Costs</MudText>
 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Token and estimated dollar usage.</MudText>
 
-@if (Campaigns.Current is null)
+@if (Worlds.Current is null)
 {
-    <NoCampaign />
+    <NoWorld />
 }
 else if (_loading)
 {
@@ -121,14 +121,14 @@ else
         </div>
     }
 
-    @if (_byCampaign.Count > 0)
+    @if (_byWorld.Count > 0)
     {
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-            <div class="nornis-detail-section-title">Across your campaigns</div>
-            @foreach (var c in _byCampaign)
+            <div class="nornis-detail-section-title">Across your worlds</div>
+            @foreach (var c in _byWorld)
             {
                 <div class="nornis-cost-row">
-                    <span class="nornis-cost-row-name">@c.CampaignName</span>
+                    <span class="nornis-cost-row-name">@c.WorldName</span>
                     <span class="nornis-list-meta">@TokenSplit(c.Summary)</span>
                     <span class="nornis-cost-row-amount">@Money(c.Summary.TotalEstimatedCostUsd)</span>
                 </div>
@@ -151,10 +151,10 @@ else
     private IReadOnlyList<ModelCost> _byModel = [];
     private IReadOnlyList<UserCost> _byUser = [];
 
-    // Cross-campaign totals (GM-only, all-time). Loaded once with the summary; the by-campaign
-    // endpoint takes no date range. Empty when there are no GM campaigns or the call fails, in
+    // Cross-world totals (GM-only, all-time). Loaded once with the summary; the by-world
+    // endpoint takes no date range. Empty when there are no GM worlds or the call fails, in
     // which case the section is hidden silently.
-    private IReadOnlyList<CampaignCost> _byCampaign = [];
+    private IReadOnlyList<WorldCost> _byWorld = [];
 
     // Breakdown date range. Null on both ends means all time. The summary cards above
     // always cover their own fixed periods and ignore this.
@@ -172,12 +172,12 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        Campaigns.Changed += OnCampaignChanged;
-        await Campaigns.EnsureLoadedAsync();
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
         await LoadAsync();
     }
 
-    private void OnCampaignChanged() => InvokeAsync(LoadAsync);
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
 
     private async Task OnFromChangedAsync(DateTime? date)
     {
@@ -200,7 +200,7 @@ else
 
     private async Task LoadAsync()
     {
-        if (Campaigns.Current is null)
+        if (Worlds.Current is null)
         {
             _periods = [];
             _error = null;
@@ -212,7 +212,7 @@ else
         _error = null;
         StateHasChanged();
 
-        var summary = await Api.GetCostSummaryAsync(Campaigns.Current.Id);
+        var summary = await Api.GetCostSummaryAsync(Worlds.Current.Id);
 
         _loading = false;
 
@@ -233,23 +233,23 @@ else
             ("All time", s.AllTime),
         ];
 
-        // Cross-campaign totals are not scoped to this campaign and take no date range, so load
+        // Cross-world totals are not scoped to this world and take no date range, so load
         // them once here. Any failure (including 403 for non-GMs) leaves the list empty and hides
         // the section.
-        var byCampaign = await Api.GetCostsByCampaignAsync();
-        _byCampaign = byCampaign.IsSuccess ? byCampaign.Value! : [];
+        var byWorld = await Api.GetCostsByWorldAsync();
+        _byWorld = byWorld.IsSuccess ? byWorld.Value! : [];
 
         await LoadBreakdownsAsync();
     }
 
     private async Task LoadBreakdownsAsync()
     {
-        if (Campaigns.Current is null)
+        if (Worlds.Current is null)
         {
             return;
         }
 
-        var id = Campaigns.Current.Id;
+        var id = Worlds.Current.Id;
         var (from, to) = (FromOffset, ToOffset);
 
         _loadingBreakdowns = true;
@@ -294,5 +294,5 @@ else
     private static string Humanize(string pascal) =>
         string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 
-    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

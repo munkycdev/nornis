@@ -38,9 +38,9 @@ public class InMemoryReviewProposalRepository : IReviewProposalRepository
         return Task.FromResult<IReadOnlyList<ReviewProposal>>(proposals.AsReadOnly());
     }
 
-    public Task<IReadOnlyList<ReviewProposal>> ListPendingByCampaignAsync(Guid campaignId, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ReviewProposal>> ListPendingByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)
     {
-        // For this fake, we don't have campaign info directly on proposals,
+        // For this fake, we don't have world info directly on proposals,
         // so we return all pending proposals. Tests can filter as needed.
         var proposals = _proposals
             .Where(p => p.Status == ReviewProposalStatus.Pending)
@@ -59,7 +59,7 @@ public class InMemoryReviewProposalRepository : IReviewProposalRepository
     }
 
     public Task<(IReadOnlyList<ReviewProposal> Proposals, bool HasMore)> ListReviewQueueAsync(
-        Guid campaignId,
+        Guid worldId,
         IReadOnlyList<Guid> allowedSourceIds,
         Guid? filterByBatchId,
         int limit,
@@ -70,7 +70,7 @@ public class InMemoryReviewProposalRepository : IReviewProposalRepository
         var query = _proposals
             .Where(p => p.Status == ReviewProposalStatus.Pending)
             .Join(
-                batches.Where(b => b.CampaignId == campaignId && allowedSourceIds.Contains(b.SourceId)),
+                batches.Where(b => b.WorldId == worldId && allowedSourceIds.Contains(b.SourceId)),
                 p => p.ReviewBatchId,
                 b => b.Id,
                 (p, b) => new { Proposal = p, Batch = b });
@@ -95,17 +95,17 @@ public class InMemoryReviewProposalRepository : IReviewProposalRepository
     }
 
     public Task<DateTimeOffset?> GetLatestAcceptanceTimeAsync(
-        Guid campaignId, CancellationToken cancellationToken = default)
+        Guid worldId, CancellationToken cancellationToken = default)
     {
         var batches = _batchRepository?.Batches ?? [];
-        var campaignBatchIds = batches
-            .Where(b => b.CampaignId == campaignId)
+        var worldBatchIds = batches
+            .Where(b => b.WorldId == worldId)
             .Select(b => b.Id)
             .ToHashSet();
 
         var latest = _proposals
             .Where(p => p.Status == ReviewProposalStatus.Accepted && p.ReviewedAt != null)
-            .Where(p => campaignBatchIds.Contains(p.ReviewBatchId))
+            .Where(p => worldBatchIds.Contains(p.ReviewBatchId))
             .OrderByDescending(p => p.ReviewedAt)
             .Select(p => p.ReviewedAt)
             .FirstOrDefault();
@@ -113,17 +113,17 @@ public class InMemoryReviewProposalRepository : IReviewProposalRepository
         return Task.FromResult(latest);
     }
 
-    public Task<IReadOnlyList<Guid>> ListCampaignIdsWithAcceptancesAsync(
+    public Task<IReadOnlyList<Guid>> ListWorldIdsWithAcceptancesAsync(
         CancellationToken cancellationToken = default)
     {
         var batches = _batchRepository?.Batches ?? [];
 
-        var campaignIds = _proposals
+        var worldIds = _proposals
             .Where(p => p.Status == ReviewProposalStatus.Accepted)
-            .Join(batches, p => p.ReviewBatchId, b => b.Id, (p, b) => b.CampaignId)
+            .Join(batches, p => p.ReviewBatchId, b => b.Id, (p, b) => b.WorldId)
             .Distinct()
             .ToList();
 
-        return Task.FromResult<IReadOnlyList<Guid>>(campaignIds.AsReadOnly());
+        return Task.FromResult<IReadOnlyList<Guid>>(worldIds.AsReadOnly());
     }
 }

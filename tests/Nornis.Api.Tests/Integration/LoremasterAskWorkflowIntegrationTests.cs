@@ -16,7 +16,7 @@ namespace Nornis.Api.Tests.Integration;
 
 /// <summary>
 /// Integration tests for the full Ask Loremaster workflow through HTTP.
-/// These tests exercise the complete pipeline: authentication, campaign membership,
+/// These tests exercise the complete pipeline: authentication, world membership,
 /// knowledge retrieval, AI invocation (via fake), citation parsing, confidence
 /// calculation, usage tracking, and response serialization.
 ///
@@ -46,12 +46,12 @@ public class LoremasterAskWorkflowIntegrationTests
         _factory.Dispose();
     }
 
-    private string AskUrl => $"/api/campaigns/{_scenario.Campaign.Id}/ask";
+    private string AskUrl => $"/api/worlds/{_scenario.World.Id}/ask";
 
     #region Ask suggestions endpoint
 
     [Test]
-    public async Task Get_Suggestions_ReturnsFourCampaignGroundedSuggestions()
+    public async Task Get_Suggestions_ReturnsFourWorldGroundedSuggestions()
     {
         var response = await _scenario.GmClient.GetAsync($"{AskUrl}/suggestions");
 
@@ -63,7 +63,7 @@ public class LoremasterAskWorkflowIntegrationTests
         Assert.That(suggestions!.Select(x => x.Text), Is.Unique);
 
         // The scenario seeds Captain Voss, so at least one suggestion should be
-        // grounded in real campaign data rather than all being evergreen fallbacks.
+        // grounded in real world data rather than all being evergreen fallbacks.
         Assert.That(suggestions!.Any(x => x.Text.Contains("Captain Voss")), Is.True,
             $"expected a Captain Voss suggestion, got: {string.Join(" | ", suggestions!.Select(x => x.Text))}");
     }
@@ -228,14 +228,14 @@ public class LoremasterAskWorkflowIntegrationTests
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
 
         var usageRecords = db.AiUsageRecords
-            .Where(r => r.CampaignId == _scenario.Campaign.Id
+            .Where(r => r.WorldId == _scenario.World.Id
                         && r.OperationType == AiOperationType.AskLoremaster)
             .ToList();
 
         Assert.That(usageRecords, Has.Count.EqualTo(1));
 
         var record = usageRecords[0];
-        Assert.That(record.CampaignId, Is.EqualTo(_scenario.Campaign.Id));
+        Assert.That(record.WorldId, Is.EqualTo(_scenario.World.Id));
         Assert.That(record.UserId, Is.EqualTo(_scenario.GmUserId));
         Assert.That(record.OperationType, Is.EqualTo(AiOperationType.AskLoremaster));
         Assert.That(record.Model, Is.Not.Null.And.Not.Empty);
@@ -253,8 +253,8 @@ public class LoremasterAskWorkflowIntegrationTests
 
     /// <summary>
     /// Sets up the full Ask workflow test scenario:
-    /// - Campaign "Black Harbor Investigation"
-    /// - GM user (Kelda) with CampaignMember
+    /// - World "Black Harbor Investigation"
+    /// - GM user (Kelda) with WorldMember
     /// - Artifacts: Captain Voss, Black Harbor, Silver Key (all PartyVisible)
     /// - Facts: location, occupation (Confirmed/Likely truth state)
     /// - Source references for those facts
@@ -266,12 +266,12 @@ public class LoremasterAskWorkflowIntegrationTests
         var gmUserId = await SourceTestHelpers.ProvisionUserAndGetIdAsync(
             factory, "auth0|gm-kelda-ask", "kelda@blackharbor.com", "Kelda");
 
-        // Create the campaign
-        var campaign = await SourceTestHelpers.CreateTestCampaignAsync(factory, gmUserId);
+        // Create the world
+        var world = await SourceTestHelpers.CreateTestWorldAsync(factory, gmUserId);
 
         // Create a source for citations
         var source = await SourceTestHelpers.CreateTestSourceAsync(
-            factory, campaign.Id, gmUserId,
+            factory, world.Id, gmUserId,
             title: "Session 4 — Questioning Captain Voss",
             type: SourceType.SessionNote,
             visibility: VisibilityScope.PartyVisible,
@@ -287,7 +287,7 @@ public class LoremasterAskWorkflowIntegrationTests
             captainVoss = new Artifact
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 Type = ArtifactType.Character,
                 Name = "Captain Voss",
                 Summary = "A harbor captain suspected of smuggling",
@@ -302,7 +302,7 @@ public class LoremasterAskWorkflowIntegrationTests
             blackHarbor = new Artifact
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 Type = ArtifactType.Location,
                 Name = "Black Harbor",
                 Summary = "A dark port city on the coast",
@@ -317,7 +317,7 @@ public class LoremasterAskWorkflowIntegrationTests
             silverKey = new Artifact
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 Type = ArtifactType.Item,
                 Name = "Silver Key",
                 Summary = "An ornate silver key found in Voss's quarters",
@@ -384,7 +384,7 @@ public class LoremasterAskWorkflowIntegrationTests
 
         return new AskWorkflowScenario
         {
-            Campaign = campaign,
+            World = world,
             GmUserId = gmUserId,
             Source = source,
             CaptainVoss = captainVoss,
@@ -442,7 +442,7 @@ public class LoremasterAskTestFactory : NornisWebApplicationFactory
 /// </summary>
 public class AskWorkflowScenario
 {
-    public required Campaign Campaign { get; init; }
+    public required World World { get; init; }
     public required Guid GmUserId { get; init; }
     public required Source Source { get; init; }
     public required Artifact CaptainVoss { get; init; }

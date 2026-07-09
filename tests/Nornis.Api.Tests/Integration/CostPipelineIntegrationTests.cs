@@ -38,7 +38,7 @@ public class CostPipelineIntegrationTests
         _factory.Dispose();
     }
 
-    private string CostsUrl => $"/api/campaigns/{_scenario.Campaign.Id}/costs";
+    private string CostsUrl => $"/api/worlds/{_scenario.World.Id}/costs";
 
     #region GET summary — correct aggregation values
 
@@ -249,17 +249,17 @@ public class CostPipelineIntegrationTests
 
     #endregion
 
-    #region Empty campaign — all zeros (not error)
+    #region Empty world — all zeros (not error)
 
     [Test]
-    public async Task GetSummary_EmptyCampaign_ReturnsAllZeros()
+    public async Task GetSummary_EmptyWorld_ReturnsAllZeros()
     {
-        // Arrange — create a new campaign with no usage records
-        var emptyCampaignId = await CreateEmptyCampaignForGmAsync();
+        // Arrange — create a new world with no usage records
+        var emptyWorldId = await CreateEmptyWorldForGmAsync();
 
         // Act
         var response = await _scenario.GmClient.GetAsync(
-            $"/api/campaigns/{emptyCampaignId}/costs/summary");
+            $"/api/worlds/{emptyWorldId}/costs/summary");
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -279,14 +279,14 @@ public class CostPipelineIntegrationTests
     }
 
     [Test]
-    public async Task GetByOperation_EmptyCampaign_ReturnsEmptyList()
+    public async Task GetByOperation_EmptyWorld_ReturnsEmptyList()
     {
         // Arrange
-        var emptyCampaignId = await CreateEmptyCampaignForGmAsync();
+        var emptyWorldId = await CreateEmptyWorldForGmAsync();
 
         // Act
         var response = await _scenario.GmClient.GetAsync(
-            $"/api/campaigns/{emptyCampaignId}/costs/by-operation");
+            $"/api/worlds/{emptyWorldId}/costs/by-operation");
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -385,34 +385,34 @@ public class CostPipelineIntegrationTests
 
     #region Helpers
 
-    private async Task<Guid> CreateEmptyCampaignForGmAsync()
+    private async Task<Guid> CreateEmptyWorldForGmAsync()
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
 
-        var campaign = new Campaign
+        var world = new World
         {
             Id = Guid.NewGuid(),
             Name = "Silver Key Mystery",
-            Description = "An empty campaign for testing",
+            Description = "An empty world for testing",
             GameSystem = "D&D 5e",
             CreatedByUserId = _scenario.GmUserId,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
-        db.Campaigns.Add(campaign);
+        db.Worlds.Add(world);
 
-        db.CampaignMembers.Add(new CampaignMember
+        db.WorldMembers.Add(new WorldMember
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaign.Id,
+            WorldId = world.Id,
             UserId = _scenario.GmUserId,
-            Role = CampaignRole.GM,
+            Role = WorldRole.GM,
             JoinedAt = DateTimeOffset.UtcNow
         });
 
         await db.SaveChangesAsync();
-        return campaign.Id;
+        return world.Id;
     }
 
     #endregion
@@ -421,7 +421,7 @@ public class CostPipelineIntegrationTests
 
     /// <summary>
     /// Sets up the cost pipeline test scenario:
-    /// - Campaign "Black Harbor Investigation"
+    /// - World "Black Harbor Investigation"
     /// - GM user (Kelda) with 4 AiUsageRecords
     /// - Player user (Tavrin) with 2 AiUsageRecords
     /// - Records distributed across timestamps, operation types, and models
@@ -445,20 +445,20 @@ public class CostPipelineIntegrationTests
         var playerUserId = await SourceTestHelpers.ProvisionUserAndGetIdAsync(
             factory, "auth0|player-tavrin-cost", "tavrin@blackharbor.com", "Tavrin");
 
-        var campaign = await SourceTestHelpers.CreateTestCampaignAsync(
+        var world = await SourceTestHelpers.CreateTestWorldAsync(
             factory, gmUserId, name: "Black Harbor Investigation");
 
         // Update GM member to have a DisplayName (needed for username resolution)
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-            var gmMember = db.CampaignMembers.First(m => m.UserId == gmUserId && m.CampaignId == campaign.Id);
+            var gmMember = db.WorldMembers.First(m => m.UserId == gmUserId && m.WorldId == world.Id);
             gmMember.DisplayName = "Kelda";
             await db.SaveChangesAsync();
         }
 
-        await SourceTestHelpers.AddCampaignMemberAsync(
-            factory, campaign.Id, playerUserId, CampaignRole.Player,
+        await SourceTestHelpers.AddWorldMemberAsync(
+            factory, world.Id, playerUserId, WorldRole.Player,
             displayName: "Tavrin", characterName: "Tavrin the Bold");
 
         var now = DateTimeOffset.UtcNow;
@@ -471,12 +471,12 @@ public class CostPipelineIntegrationTests
 
             var records = new List<AiUsageRecord>
             {
-                CreateRecord(campaign.Id, gmUserId, AiOperationType.SourceExtraction, "gpt-4o", now),
-                CreateRecord(campaign.Id, gmUserId, AiOperationType.AskLoremaster, "gpt-4o", now),
-                CreateRecord(campaign.Id, gmUserId, AiOperationType.SourceExtraction, "gpt-4o-mini", yesterday),
-                CreateRecord(campaign.Id, gmUserId, AiOperationType.ArtifactSummary, "gpt-4o", thirtyDaysAgo),
-                CreateRecord(campaign.Id, playerUserId, AiOperationType.SourceExtraction, "gpt-4o-mini", yesterday),
-                CreateRecord(campaign.Id, playerUserId, AiOperationType.AskLoremaster, "gpt-4o", thirtyDaysAgo),
+                CreateRecord(world.Id, gmUserId, AiOperationType.SourceExtraction, "gpt-4o", now),
+                CreateRecord(world.Id, gmUserId, AiOperationType.AskLoremaster, "gpt-4o", now),
+                CreateRecord(world.Id, gmUserId, AiOperationType.SourceExtraction, "gpt-4o-mini", yesterday),
+                CreateRecord(world.Id, gmUserId, AiOperationType.ArtifactSummary, "gpt-4o", thirtyDaysAgo),
+                CreateRecord(world.Id, playerUserId, AiOperationType.SourceExtraction, "gpt-4o-mini", yesterday),
+                CreateRecord(world.Id, playerUserId, AiOperationType.AskLoremaster, "gpt-4o", thirtyDaysAgo),
             };
 
             db.AiUsageRecords.AddRange(records);
@@ -485,7 +485,7 @@ public class CostPipelineIntegrationTests
 
         return new CostPipelineScenario
         {
-            Campaign = campaign,
+            World = world,
             GmUserId = gmUserId,
             PlayerUserId = playerUserId,
             GmClient = factory.CreateAuthenticatedClient(
@@ -494,7 +494,7 @@ public class CostPipelineIntegrationTests
     }
 
     private static AiUsageRecord CreateRecord(
-        Guid campaignId,
+        Guid worldId,
         Guid userId,
         AiOperationType operationType,
         string model,
@@ -503,7 +503,7 @@ public class CostPipelineIntegrationTests
         return new AiUsageRecord
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             UserId = userId,
             OperationType = operationType,
             Model = model,
@@ -525,7 +525,7 @@ public class CostPipelineIntegrationTests
 /// </summary>
 public class CostPipelineScenario
 {
-    public required Campaign Campaign { get; init; }
+    public required World World { get; init; }
     public required Guid GmUserId { get; init; }
     public required Guid PlayerUserId { get; init; }
     public required HttpClient GmClient { get; init; }

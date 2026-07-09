@@ -2,7 +2,7 @@
 @using System.Text
 @using System.Text.Json
 @implements IDisposable
-@inject CampaignState Campaigns
+@inject WorldState Worlds
 @inject NornisApiClient Api
 @inject AskState AskState
 @inject IJSRuntime JS
@@ -13,7 +13,7 @@
     <div class="d-flex align-center justify-space-between mb-4">
         <div>
             <MudText Typo="Typo.h4" Class="nornis-serif">Ask the Loremaster</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Grounded in your campaign — with citations.</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Grounded in your world — with citations.</MudText>
         </div>
         <div class="d-flex align-center gap-2">
             @if (_conversations.Count > 0)
@@ -32,9 +32,9 @@
         </div>
     </div>
 
-    @if (Campaigns.Current is null)
+    @if (Worlds.Current is null)
     {
-        <NoCampaign />
+        <NoWorld />
     }
     else
     {
@@ -43,7 +43,7 @@
             {
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
                     <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Large" Class="nornis-comingsoon-icon" />
-                    <MudText Typo="Typo.h5" Class="nornis-serif">Ask anything about your campaign</MudText>
+                    <MudText Typo="Typo.h5" Class="nornis-serif">Ask anything about your world</MudText>
                     <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
                         The Loremaster answers from your accepted artifacts, facts, and sources — and says so when something isn't known.
                     </MudText>
@@ -157,14 +157,14 @@
     private string? _pendingQuestion;
     private bool _asking;
     private string? _error;
-    private Guid _loadedCampaignId;
+    private Guid _loadedWorldId;
     private bool _initialized;
 
-    private string StorageKey => $"nornis:ask:{Campaigns.Current?.Id}";
+    private string StorageKey => $"nornis:ask:{Worlds.Current?.Id}";
 
-    protected override void OnInitialized() => Campaigns.Changed += OnCampaignChanged;
+    protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
 
-    private void OnCampaignChanged() => InvokeAsync(ReloadForCampaignAsync);
+    private void OnWorldChanged() => InvokeAsync(ReloadForWorldAsync);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -173,8 +173,8 @@
             return;
         }
 
-        await Campaigns.EnsureLoadedAsync();
-        await ReloadForCampaignAsync();
+        await Worlds.EnsureLoadedAsync();
+        await ReloadForWorldAsync();
 
         // A question handed off from the dashboard Ask hero starts a fresh conversation.
         var pending = AskState.PendingQuestion;
@@ -186,21 +186,21 @@
         }
     }
 
-    private async Task ReloadForCampaignAsync()
+    private async Task ReloadForWorldAsync()
     {
-        if (Campaigns.Current is null || (_initialized && Campaigns.Current.Id == _loadedCampaignId))
+        if (Worlds.Current is null || (_initialized && Worlds.Current.Id == _loadedWorldId))
         {
             return;
         }
 
-        _loadedCampaignId = Campaigns.Current.Id;
+        _loadedWorldId = Worlds.Current.Id;
         _initialized = true;
         await LoadHistoryAsync();
         _current = _conversations.OrderByDescending(c => c.UpdatedAt).FirstOrDefault();
         StateHasChanged();
 
         // Best-effort: the empty state simply shows no chips if this fails.
-        var suggestions = await Api.GetAskSuggestionsAsync(_loadedCampaignId);
+        var suggestions = await Api.GetAskSuggestionsAsync(_loadedWorldId);
         _suggestions = suggestions.Value ?? [];
         StateHasChanged();
     }
@@ -254,7 +254,7 @@
 
     private async Task AskAsync(string question)
     {
-        if (Campaigns.Current is null || _asking)
+        if (Worlds.Current is null || _asking)
         {
             return;
         }
@@ -271,7 +271,7 @@
         _error = null;
         StateHasChanged();
 
-        var result = await Api.AskLoremasterAsync(Campaigns.Current.Id, question, context);
+        var result = await Api.AskLoremasterAsync(Worlds.Current.Id, question, context);
 
         _asking = false;
         _pendingQuestion = null;
@@ -350,5 +350,5 @@
         _ => Color.Default,
     };
 
-    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

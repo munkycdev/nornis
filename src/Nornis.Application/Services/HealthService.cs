@@ -29,14 +29,14 @@ public class HealthService : IHealthService
         _sourceReferenceRepository = sourceReferenceRepository;
     }
 
-    public async Task<AppResult<CampaignHealth>> GetHealthAsync(Guid campaignId, CancellationToken ct)
+    public async Task<AppResult<WorldHealth>> GetHealthAsync(Guid worldId, CancellationToken ct)
     {
-        var artifacts = await _artifactRepository.ListByCampaignAsync(campaignId, null, null, ct);
+        var artifacts = await _artifactRepository.ListByWorldAsync(worldId, null, null, ct);
 
         if (artifacts.Count == 0)
         {
-            return AppResult<CampaignHealth>.Success(
-                new CampaignHealth(HasData: false, 0, "Not enough data yet", 0, 0, 0, 0, 0, 0));
+            return AppResult<WorldHealth>.Success(
+                new WorldHealth(HasData: false, 0, "Not enough data yet", 0, 0, 0, 0, 0, 0));
         }
 
         var artifactIds = artifacts.Select(a => a.Id).ToList();
@@ -82,7 +82,7 @@ public class HealthService : IHealthService
 
         var overall = (int)Math.Round((consistency + completeness + groundedness + recency) / 4.0);
 
-        var health = new CampaignHealth(
+        var health = new WorldHealth(
             HasData: true,
             OverallScore: overall,
             Label: LabelFor(overall),
@@ -93,7 +93,7 @@ public class HealthService : IHealthService
             ArtifactCount: artifacts.Count,
             StatementCount: statementCount);
 
-        return AppResult<CampaignHealth>.Success(health);
+        return AppResult<WorldHealth>.Success(health);
     }
 
     private static int Percent(int numerator, int denominator) =>

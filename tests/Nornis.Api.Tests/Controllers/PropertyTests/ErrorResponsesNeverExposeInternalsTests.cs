@@ -122,7 +122,7 @@ public class ErrorResponsesNeverExposeInternalsTests
     {
         var combined = $"{code} {message}";
 
-        // Knowledge content patterns that indicate internal campaign data leakage
+        // Knowledge content patterns that indicate internal world data leakage
         Assert.That(combined, Does.Not.Contain("ArtifactFact").IgnoreCase,
             "Response contains internal model name 'ArtifactFact'");
         Assert.That(combined, Does.Not.Contain("TruthState =").IgnoreCase,
@@ -141,7 +141,7 @@ public record ErrorResponseScenario(AppError Error);
 /// <summary>
 /// Custom FsCheck arbitraries for error response property tests.
 /// Generates AppError instances with dangerous content including stack traces,
-/// file paths, exception messages, prompt text, and campaign knowledge.
+/// file paths, exception messages, prompt text, and world knowledge.
 /// </summary>
 public class ErrorResponseArbitraries
 {
@@ -152,17 +152,17 @@ public class ErrorResponseArbitraries
     [
         "at Nornis.Application.Services.LoremasterService.AskAsync(AskLoremasterCommand command) in D:\\repos\\nornis\\src\\Nornis.Application\\Services\\LoremasterService.cs:line 47",
         "at System.Threading.Tasks.Task.ThrowIfExceptional() in /_/src/libraries/System.Private.CoreLib/src/System/Threading/Tasks/Task.cs:line 234",
-        "at Microsoft.EntityFrameworkCore.Query.Internal.QueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()\r\n   at Nornis.Infrastructure.Repositories.ArtifactRepository.ListByNamesInTextAsync(Guid campaignId)",
+        "at Microsoft.EntityFrameworkCore.Query.Internal.QueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()\r\n   at Nornis.Infrastructure.Repositories.ArtifactRepository.ListByNamesInTextAsync(Guid worldId)",
         "System.InvalidOperationException: Sequence contains no matching element\r\n   at System.Linq.ThrowHelper.ThrowNoMatchException()\r\n   at Nornis.Application.Services.LoremasterService.<>c.cs:42",
-        "NullReferenceException: Object reference not set to an instance of an object.\n   at Nornis.Api.Controllers.LoremasterController.Ask(Guid campaignId) in C:\\src\\Controllers\\LoremasterController.cs:line 35"
+        "NullReferenceException: Object reference not set to an instance of an object.\n   at Nornis.Api.Controllers.LoremasterController.Ask(Guid worldId) in C:\\src\\Controllers\\LoremasterController.cs:line 35"
     ];
 
     private static readonly string[] PromptMessages =
     [
-        "You are a Loremaster AI assistant. Ground all answers in the provided campaign knowledge only.",
-        "System prompt: You are the campaign's Loremaster. Use [ref:ID] notation to cite sources.",
-        "Do not invent campaign facts beyond what is provided. Cite sources using [ref:art-123abc].",
-        "The AI model returned: 'You are a Loremaster for the Black Harbor Investigation campaign.'",
+        "You are a Loremaster AI assistant. Ground all answers in the provided world knowledge only.",
+        "System prompt: You are the world's Loremaster. Use [ref:ID] notation to cite sources.",
+        "Do not invent world facts beyond what is provided. Cite sources using [ref:art-123abc].",
+        "The AI model returned: 'You are a Loremaster for the Black Harbor Investigation world.'",
         "Prompt construction failed: system prompt template not found. Ground all answers in provided knowledge."
     ];
 
@@ -171,7 +171,7 @@ public class ErrorResponseArbitraries
         "Knowledge context: Captain Voss is located in Black Harbor. He is suspected in the Missing Caravan investigation.",
         "Retrieved artifacts: Silver Key (Item), Black Harbor (Location), Captain Voss (Character). Facts: Silver Key found in Voss's quarters.",
         "ArtifactFact { Predicate = 'allegiance', Value = 'Shadow Cult', TruthState = Hidden }",
-        "Campaign knowledge indicates: The Silver Key unlocks the vault beneath Black Harbor lighthouse.",
+        "World knowledge indicates: The Silver Key unlocks the vault beneath Black Harbor lighthouse.",
         "GMOnly content: Captain Voss secretly works for the Shadow Cult faction."
     ];
 

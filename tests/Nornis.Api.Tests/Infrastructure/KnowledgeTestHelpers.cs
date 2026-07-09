@@ -14,7 +14,7 @@ public static class KnowledgeTestHelpers
 {
     public static async Task<Artifact> CreateTestArtifactAsync(
         NornisWebApplicationFactory factory,
-        Guid campaignId,
+        Guid worldId,
         string name = "Captain Voss",
         ArtifactType type = ArtifactType.Character,
         VisibilityScope visibility = VisibilityScope.PartyVisible,
@@ -30,7 +30,7 @@ public static class KnowledgeTestHelpers
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = type,
             Name = name,
             Summary = summary,
@@ -79,7 +79,7 @@ public static class KnowledgeTestHelpers
 
     public static async Task<ArtifactRelationship> CreateTestRelationshipAsync(
         NornisWebApplicationFactory factory,
-        Guid campaignId,
+        Guid worldId,
         Guid artifactAId,
         Guid artifactBId,
         string type = "LocatedIn",
@@ -94,7 +94,7 @@ public static class KnowledgeTestHelpers
         var relationship = new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             ArtifactAId = artifactAId,
             ArtifactBId = artifactBId,
             Type = type,

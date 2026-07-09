@@ -36,11 +36,11 @@ public class ReviewProposalRepository : IReviewProposalRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<ReviewProposal>> ListPendingByCampaignAsync(Guid campaignId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ReviewProposal>> ListPendingByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)
     {
         return await _context.ReviewProposals
             .AsNoTracking()
-            .Where(rp => _context.ReviewBatches.Any(rb => rb.Id == rp.ReviewBatchId && rb.CampaignId == campaignId))
+            .Where(rp => _context.ReviewBatches.Any(rb => rb.Id == rp.ReviewBatchId && rb.WorldId == worldId))
             .Where(rp => rp.Status == ReviewProposalStatus.Pending)
             .ToListAsync(cancellationToken);
     }
@@ -53,7 +53,7 @@ public class ReviewProposalRepository : IReviewProposalRepository
     }
 
     public async Task<(IReadOnlyList<ReviewProposal> Proposals, bool HasMore)> ListReviewQueueAsync(
-        Guid campaignId,
+        Guid worldId,
         IReadOnlyList<Guid> allowedSourceIds,
         Guid? filterByBatchId,
         int limit,
@@ -66,7 +66,7 @@ public class ReviewProposalRepository : IReviewProposalRepository
                 rp => rp.ReviewBatchId,
                 rb => rb.Id,
                 (rp, rb) => new { Proposal = rp, Batch = rb })
-            .Where(x => x.Batch.CampaignId == campaignId)
+            .Where(x => x.Batch.WorldId == worldId)
             .Where(x => allowedSourceIds.Contains(x.Batch.SourceId))
             .Where(x => x.Proposal.Status == ReviewProposalStatus.Pending);
 
@@ -89,12 +89,12 @@ public class ReviewProposalRepository : IReviewProposalRepository
     }
 
     public async Task<DateTimeOffset?> GetLatestAcceptanceTimeAsync(
-        Guid campaignId, CancellationToken cancellationToken = default)
+        Guid worldId, CancellationToken cancellationToken = default)
     {
         var latest = await _context.ReviewProposals
             .AsNoTracking()
             .Where(rp => rp.Status == ReviewProposalStatus.Accepted && rp.ReviewedAt != null)
-            .Where(rp => _context.ReviewBatches.Any(rb => rb.Id == rp.ReviewBatchId && rb.CampaignId == campaignId))
+            .Where(rp => _context.ReviewBatches.Any(rb => rb.Id == rp.ReviewBatchId && rb.WorldId == worldId))
             .OrderByDescending(rp => rp.ReviewedAt)
             .Select(rp => rp.ReviewedAt)
             .FirstOrDefaultAsync(cancellationToken);
@@ -102,7 +102,7 @@ public class ReviewProposalRepository : IReviewProposalRepository
         return latest;
     }
 
-    public async Task<IReadOnlyList<Guid>> ListCampaignIdsWithAcceptancesAsync(
+    public async Task<IReadOnlyList<Guid>> ListWorldIdsWithAcceptancesAsync(
         CancellationToken cancellationToken = default)
     {
         return await _context.ReviewProposals
@@ -112,7 +112,7 @@ public class ReviewProposalRepository : IReviewProposalRepository
                 _context.ReviewBatches,
                 rp => rp.ReviewBatchId,
                 rb => rb.Id,
-                (rp, rb) => rb.CampaignId)
+                (rp, rb) => rb.WorldId)
             .Distinct()
             .ToListAsync(cancellationToken);
     }

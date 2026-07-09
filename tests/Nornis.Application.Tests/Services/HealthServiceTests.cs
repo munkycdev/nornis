@@ -15,7 +15,7 @@ public class HealthServiceTests
     private InMemorySourceReferenceRepository _sourceRefRepo = null!;
     private HealthService _service = null!;
 
-    private Guid _campaignId;
+    private Guid _worldId;
 
     [SetUp]
     public void SetUp()
@@ -25,13 +25,13 @@ public class HealthServiceTests
         _relationshipRepo = new InMemoryArtifactRelationshipRepository();
         _sourceRefRepo = new InMemorySourceReferenceRepository();
         _service = new HealthService(_artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo);
-        _campaignId = Guid.NewGuid();
+        _worldId = Guid.NewGuid();
     }
 
     [Test]
-    public async Task GetHealth_EmptyCampaign_ReportsNoData()
+    public async Task GetHealth_EmptyWorld_ReportsNoData()
     {
-        var result = await _service.GetHealthAsync(_campaignId, CancellationToken.None);
+        var result = await _service.GetHealthAsync(_worldId, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value!.HasData, Is.False);
@@ -48,7 +48,7 @@ public class HealthServiceTests
         _factRepo.Seed(fact);
         await _sourceRefRepo.CreateAsync(MakeSourceRef(fact.Id));
 
-        var result = await _service.GetHealthAsync(_campaignId, CancellationToken.None);
+        var result = await _service.GetHealthAsync(_worldId, CancellationToken.None);
 
         var h = result.Value!;
         Assert.That(h.HasData, Is.True);
@@ -69,7 +69,7 @@ public class HealthServiceTests
             MakeFact(voss.Id, TruthState.Confirmed),
             MakeFact(voss.Id, TruthState.Disputed));
 
-        var result = await _service.GetHealthAsync(_campaignId, CancellationToken.None);
+        var result = await _service.GetHealthAsync(_worldId, CancellationToken.None);
 
         // 1 of 2 statements is a contradiction -> 50%.
         Assert.That(result.Value!.Consistency, Is.EqualTo(50));
@@ -85,7 +85,7 @@ public class HealthServiceTests
         _factRepo.Seed(sourced, unsourced);
         await _sourceRefRepo.CreateAsync(MakeSourceRef(sourced.Id));
 
-        var result = await _service.GetHealthAsync(_campaignId, CancellationToken.None);
+        var result = await _service.GetHealthAsync(_worldId, CancellationToken.None);
 
         // 1 of 2 statements is sourced -> 50%.
         Assert.That(result.Value!.Groundedness, Is.EqualTo(50));
@@ -99,7 +99,7 @@ public class HealthServiceTests
         _artifactRepo.Seed(developed, stub);
         _factRepo.Seed(MakeFact(developed.Id, TruthState.Confirmed));
 
-        var result = await _service.GetHealthAsync(_campaignId, CancellationToken.None);
+        var result = await _service.GetHealthAsync(_worldId, CancellationToken.None);
 
         // 1 of 2 artifacts is developed (summary + a fact) -> 50%.
         Assert.That(result.Value!.Completeness, Is.EqualTo(50));
@@ -112,7 +112,7 @@ public class HealthServiceTests
             MakeArtifact("Fresh", summary: "x", updatedAt: DateTimeOffset.UtcNow),
             MakeArtifact("Stale", summary: "x", updatedAt: DateTimeOffset.UtcNow.AddDays(-60)));
 
-        var result = await _service.GetHealthAsync(_campaignId, CancellationToken.None);
+        var result = await _service.GetHealthAsync(_worldId, CancellationToken.None);
 
         // 1 of 2 artifacts updated within the 30-day window -> 50%.
         Assert.That(result.Value!.Recency, Is.EqualTo(50));
@@ -124,7 +124,7 @@ public class HealthServiceTests
         return new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Character,
             Name = name,
             Summary = summary,

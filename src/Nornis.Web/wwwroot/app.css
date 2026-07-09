@@ -141,8 +141,8 @@ html, body {
     color: var(--mud-palette-secondary);
 }
 
-/* Campaign selector card. */
-.nornis-campaign {
+/* World selector card. */
+.nornis-world {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -153,13 +153,13 @@ html, body {
     cursor: pointer;
 }
 
-.nornis-campaign-name {
+.nornis-world-name {
     font-weight: 600;
     color: #FFFDF9;
     line-height: 1.15;
 }
 
-.nornis-campaign-label {
+.nornis-world-label {
     font-size: 0.66rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -200,7 +200,7 @@ html, body {
     color: var(--mud-palette-secondary) !important;
 }
 
-/* Campaign memory ring card at the foot of the sidebar. */
+/* World memory ring card at the foot of the sidebar. */
 .nornis-memory {
     border-radius: 12px;
     background-color: var(--nornis-onnavy-raised);

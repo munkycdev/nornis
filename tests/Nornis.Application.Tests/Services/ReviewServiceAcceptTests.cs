@@ -22,7 +22,7 @@ public class ReviewServiceAcceptTests
     private FakeProposalApplicator _applicator = null!;
     private ReviewService _service = null!;
 
-    private Guid _campaignId;
+    private Guid _worldId;
     private Guid _gmUserId;
     private Guid _playerUserId;
     private Guid _otherPlayerUserId;
@@ -55,7 +55,7 @@ public class ReviewServiceAcceptTests
             _validator,
             _applicator);
 
-        _campaignId = Guid.NewGuid();
+        _worldId = Guid.NewGuid();
         _gmUserId = Guid.NewGuid();
         _playerUserId = Guid.NewGuid();
         _otherPlayerUserId = Guid.NewGuid();
@@ -63,7 +63,7 @@ public class ReviewServiceAcceptTests
         _source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.SessionNote,
             Title = "Session 1: Black Harbor",
             Body = "We questioned Captain Voss in Black Harbor.",
@@ -77,7 +77,7 @@ public class ReviewServiceAcceptTests
         _batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = _source.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-30)
@@ -92,7 +92,7 @@ public class ReviewServiceAcceptTests
     {
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -108,7 +108,7 @@ public class ReviewServiceAcceptTests
         await _proposalRepo.CreateAsync(proposal);
         var before = DateTimeOffset.UtcNow;
 
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
         var after = DateTimeOffset.UtcNow;
@@ -121,7 +121,7 @@ public class ReviewServiceAcceptTests
     {
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -135,7 +135,7 @@ public class ReviewServiceAcceptTests
     {
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _playerUserId, CampaignRole.Player);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _playerUserId, WorldRole.Player);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -152,7 +152,7 @@ public class ReviewServiceAcceptTests
     {
         var proposal = MakeEditedProposal();
         await _proposalRepo.CreateAsync(proposal);
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -167,7 +167,7 @@ public class ReviewServiceAcceptTests
         var editedJson = """{"name":"Captain Voss (Edited)","type":"Character","summary":"Edited summary"}""";
         var proposal = MakeEditedProposal(editedJson);
         await _proposalRepo.CreateAsync(proposal);
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -187,7 +187,7 @@ public class ReviewServiceAcceptTests
         var reviewedBy = _gmUserId;
         var proposal = MakeProposalWithStatus(ReviewProposalStatus.Accepted, reviewedAt, reviewedBy);
         await _proposalRepo.CreateAsync(proposal);
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -202,7 +202,7 @@ public class ReviewServiceAcceptTests
         var proposal = MakeProposalWithStatus(ReviewProposalStatus.Accepted);
         await _proposalRepo.CreateAsync(proposal);
         var initialSourceRefs = _sourceRefRepo.References.Count;
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -219,7 +219,7 @@ public class ReviewServiceAcceptTests
     {
         var proposal = MakeProposalWithStatus(ReviewProposalStatus.Rejected);
         await _proposalRepo.CreateAsync(proposal);
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -238,7 +238,7 @@ public class ReviewServiceAcceptTests
         var gmSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.GMNote,
             Title = "GM Secret: Silver Key location",
             Visibility = VisibilityScope.GMOnly,
@@ -251,7 +251,7 @@ public class ReviewServiceAcceptTests
         var gmBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = gmSource.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow
@@ -261,7 +261,7 @@ public class ReviewServiceAcceptTests
         var proposal = MakePendingProposal(gmBatch.Id);
         await _proposalRepo.CreateAsync(proposal);
 
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _playerUserId, CampaignRole.Player);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _playerUserId, WorldRole.Player);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -276,7 +276,7 @@ public class ReviewServiceAcceptTests
         var privateSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.JournalEntry,
             Title = "Private notes about Black Harbor",
             Visibility = VisibilityScope.Private,
@@ -289,7 +289,7 @@ public class ReviewServiceAcceptTests
         var privateBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = privateSource.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow
@@ -299,7 +299,7 @@ public class ReviewServiceAcceptTests
         var proposal = MakePendingProposal(privateBatch.Id);
         await _proposalRepo.CreateAsync(proposal);
 
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _playerUserId, CampaignRole.Player);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _playerUserId, WorldRole.Player);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -311,7 +311,7 @@ public class ReviewServiceAcceptTests
     [Test]
     public async Task AcceptProposal_NonExistentProposal_ReturnsNotFound()
     {
-        var command = new AcceptProposalCommand(Guid.NewGuid(), _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(Guid.NewGuid(), _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -332,7 +332,7 @@ public class ReviewServiceAcceptTests
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
         var observerUserId = Guid.NewGuid();
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, observerUserId, CampaignRole.Observer);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, observerUserId, WorldRole.Observer);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -356,7 +356,7 @@ public class ReviewServiceAcceptTests
         var gmSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.SessionNote,
             Title = "GM's party notes about Captain Voss",
             Visibility = VisibilityScope.PartyVisible,
@@ -369,7 +369,7 @@ public class ReviewServiceAcceptTests
         var gmBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = gmSource.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow
@@ -381,7 +381,7 @@ public class ReviewServiceAcceptTests
 
         // Player tries to accept from GM's source — visibility check will fail since
         // IsSourceVisibleToUser for Player checks CreatedByUserId == actingUserId
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _playerUserId, CampaignRole.Player);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _playerUserId, WorldRole.Player);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -401,7 +401,7 @@ public class ReviewServiceAcceptTests
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
         _validator.ConfigureFailure("validation_error", "ProposedValueJson is malformed.");
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -415,7 +415,7 @@ public class ReviewServiceAcceptTests
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
         _validator.ConfigureFailure("validation_error", "Invalid JSON.");
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -433,7 +433,7 @@ public class ReviewServiceAcceptTests
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
         _applicator.ConfigureFailure("validation_error", "Target entity not found.");
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -447,7 +447,7 @@ public class ReviewServiceAcceptTests
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
         _applicator.ConfigureFailure("validation_error", "Target artifact not found.");
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -468,7 +468,7 @@ public class ReviewServiceAcceptTests
         _applicator.ConfigureSuccess(entityId);
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -485,7 +485,7 @@ public class ReviewServiceAcceptTests
     {
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -508,7 +508,7 @@ public class ReviewServiceAcceptTests
         var otherPending = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
         await _proposalRepo.CreateAsync(otherPending);
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.AcceptProposalAsync(command, CancellationToken.None);
 
@@ -526,7 +526,7 @@ public class ReviewServiceAcceptTests
         await _proposalRepo.CreateAsync(p1);
         await _proposalRepo.CreateAsync(p2);
 
-        var command = new AcceptProposalCommand(p1.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(p1.Id, _worldId, _gmUserId, WorldRole.GM);
         await _service.AcceptProposalAsync(command, CancellationToken.None);
 
         var updatedBatch = await _batchRepo.GetByIdAsync(_batch.Id);
@@ -550,7 +550,7 @@ public class ReviewServiceAcceptTests
         var lastPending = MakePendingProposal();
         await _proposalRepo.CreateAsync(lastPending);
 
-        var command = new AcceptProposalCommand(lastPending.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(lastPending.Id, _worldId, _gmUserId, WorldRole.GM);
         await _service.AcceptProposalAsync(command, CancellationToken.None);
 
         var updatedBatch = await _batchRepo.GetByIdAsync(_batch.Id);
@@ -569,7 +569,7 @@ public class ReviewServiceAcceptTests
         await _proposalRepo.CreateAsync(p2);
 
         // Accept only p1, p2 stays Pending
-        var command = new AcceptProposalCommand(p1.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(p1.Id, _worldId, _gmUserId, WorldRole.GM);
         await _service.AcceptProposalAsync(command, CancellationToken.None);
 
         var updatedBatch = await _batchRepo.GetByIdAsync(_batch.Id);
@@ -584,7 +584,7 @@ public class ReviewServiceAcceptTests
 
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
-        var command = new AcceptProposalCommand(proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.AcceptProposalAsync(command, CancellationToken.None);
 

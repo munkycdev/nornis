@@ -28,8 +28,8 @@ public class ModelValidationTests : IntegrationTestBase
     #region Table Names
 
     [TestCase(typeof(User), "Users")]
-    [TestCase(typeof(Campaign), "Campaigns")]
-    [TestCase(typeof(CampaignMember), "CampaignMembers")]
+    [TestCase(typeof(World), "Worlds")]
+    [TestCase(typeof(WorldMember), "WorldMembers")]
     [TestCase(typeof(Source), "Sources")]
     [TestCase(typeof(SourceExtraction), "SourceExtractions")]
     [TestCase(typeof(Artifact), "Artifacts")]
@@ -55,7 +55,7 @@ public class ModelValidationTests : IntegrationTestBase
 
         var expectedEntityTypes = new[]
         {
-            typeof(User), typeof(Campaign), typeof(CampaignMember),
+            typeof(User), typeof(World), typeof(WorldMember),
             typeof(Source), typeof(SourceExtraction), typeof(Artifact),
             typeof(ArtifactFact), typeof(ArtifactRelationship), typeof(SourceReference),
             typeof(ReviewBatch), typeof(ReviewProposal), typeof(AiUsageRecord)
@@ -88,23 +88,23 @@ public class ModelValidationTests : IntegrationTestBase
     }
 
     [Test]
-    public void CampaignMember_HasUniqueCompositeIndex_OnCampaignIdAndUserId()
+    public void WorldMember_HasUniqueCompositeIndex_OnWorldIdAndUserId()
     {
         using var context = CreateSqlServerModelContext();
-        var entityType = context.Model.FindEntityType(typeof(CampaignMember))!;
+        var entityType = context.Model.FindEntityType(typeof(WorldMember))!;
         var indexes = entityType.GetIndexes().ToList();
 
         var compositeIndex = indexes.FirstOrDefault(i =>
             i.Properties.Count == 2 &&
-            i.Properties.Any(p => p.Name == nameof(CampaignMember.CampaignId)) &&
-            i.Properties.Any(p => p.Name == nameof(CampaignMember.UserId)));
+            i.Properties.Any(p => p.Name == nameof(WorldMember.WorldId)) &&
+            i.Properties.Any(p => p.Name == nameof(WorldMember.UserId)));
 
-        Assert.That(compositeIndex, Is.Not.Null, "CampaignMember should have a composite index on (CampaignId, UserId)");
+        Assert.That(compositeIndex, Is.Not.Null, "WorldMember should have a composite index on (WorldId, UserId)");
         Assert.That(compositeIndex!.IsUnique, Is.True, "Composite index should be unique");
     }
 
     [Test]
-    public void Source_HasIndex_OnCampaignIdAndProcessingStatus()
+    public void Source_HasIndex_OnWorldIdAndProcessingStatus()
     {
         using var context = CreateSqlServerModelContext();
         var entityType = context.Model.FindEntityType(typeof(Source))!;
@@ -112,10 +112,10 @@ public class ModelValidationTests : IntegrationTestBase
 
         var statusIndex = indexes.FirstOrDefault(i =>
             i.Properties.Count == 2 &&
-            i.Properties.Any(p => p.Name == nameof(Source.CampaignId)) &&
+            i.Properties.Any(p => p.Name == nameof(Source.WorldId)) &&
             i.Properties.Any(p => p.Name == nameof(Source.ProcessingStatus)));
 
-        Assert.That(statusIndex, Is.Not.Null, "Source should have an index on (CampaignId, ProcessingStatus)");
+        Assert.That(statusIndex, Is.Not.Null, "Source should have an index on (WorldId, ProcessingStatus)");
     }
 
     [Test]
@@ -159,11 +159,11 @@ public class ModelValidationTests : IntegrationTestBase
     [TestCase(typeof(User), nameof(User.Auth0SubjectId), 200)]
     [TestCase(typeof(User), nameof(User.Username), 200)]
     [TestCase(typeof(User), nameof(User.Email), 200)]
-    [TestCase(typeof(Campaign), nameof(Campaign.Name), 200)]
-    [TestCase(typeof(Campaign), nameof(Campaign.Description), 2000)]
-    [TestCase(typeof(Campaign), nameof(Campaign.GameSystem), 200)]
-    [TestCase(typeof(CampaignMember), nameof(CampaignMember.DisplayName), 200)]
-    [TestCase(typeof(CampaignMember), nameof(CampaignMember.CharacterName), 200)]
+    [TestCase(typeof(World), nameof(World.Name), 200)]
+    [TestCase(typeof(World), nameof(World.Description), 2000)]
+    [TestCase(typeof(World), nameof(World.GameSystem), 200)]
+    [TestCase(typeof(WorldMember), nameof(WorldMember.DisplayName), 200)]
+    [TestCase(typeof(WorldMember), nameof(WorldMember.CharacterName), 200)]
     [TestCase(typeof(Source), nameof(Source.Title), 200)]
     [TestCase(typeof(Source), nameof(Source.Uri), 2000)]
     [TestCase(typeof(Artifact), nameof(Artifact.Name), 200)]
@@ -210,8 +210,8 @@ public class ModelValidationTests : IntegrationTestBase
 
     [TestCase(typeof(User), nameof(User.CreatedAt), "datetimeoffset")]
     [TestCase(typeof(User), nameof(User.UpdatedAt), "datetimeoffset")]
-    [TestCase(typeof(Campaign), nameof(Campaign.CreatedAt), "datetimeoffset")]
-    [TestCase(typeof(Campaign), nameof(Campaign.UpdatedAt), "datetimeoffset")]
+    [TestCase(typeof(World), nameof(World.CreatedAt), "datetimeoffset")]
+    [TestCase(typeof(World), nameof(World.UpdatedAt), "datetimeoffset")]
     [TestCase(typeof(Source), nameof(Source.CreatedAt), "datetimeoffset")]
     [TestCase(typeof(Artifact), nameof(Artifact.CreatedAt), "datetimeoffset")]
     [TestCase(typeof(Artifact), nameof(Artifact.UpdatedAt), "datetimeoffset")]
@@ -231,7 +231,7 @@ public class ModelValidationTests : IntegrationTestBase
     #region Concurrency Tokens
 
     [TestCase(typeof(User))]
-    [TestCase(typeof(Campaign))]
+    [TestCase(typeof(World))]
     [TestCase(typeof(Artifact))]
     [TestCase(typeof(ArtifactFact))]
     [TestCase(typeof(ArtifactRelationship))]
@@ -254,48 +254,48 @@ public class ModelValidationTests : IntegrationTestBase
     #region Foreign Key Delete Behaviors
 
     [Test]
-    public void Campaign_CreatedByUser_FK_HasRestrictDelete()
+    public void World_CreatedByUser_FK_HasRestrictDelete()
     {
         using var context = CreateSqlServerModelContext();
-        var entityType = context.Model.FindEntityType(typeof(Campaign))!;
+        var entityType = context.Model.FindEntityType(typeof(World))!;
         var fk = entityType.GetForeignKeys()
-            .FirstOrDefault(f => f.Properties.Any(p => p.Name == nameof(Campaign.CreatedByUserId)));
+            .FirstOrDefault(f => f.Properties.Any(p => p.Name == nameof(World.CreatedByUserId)));
 
-        Assert.That(fk, Is.Not.Null, "Campaign should have a FK on CreatedByUserId");
+        Assert.That(fk, Is.Not.Null, "World should have a FK on CreatedByUserId");
         Assert.That(fk!.DeleteBehavior, Is.EqualTo(DeleteBehavior.Restrict));
     }
 
     [Test]
-    public void CampaignMember_Campaign_FK_HasCascadeDelete()
+    public void WorldMember_World_FK_HasCascadeDelete()
     {
         using var context = CreateSqlServerModelContext();
-        var entityType = context.Model.FindEntityType(typeof(CampaignMember))!;
+        var entityType = context.Model.FindEntityType(typeof(WorldMember))!;
         var fk = entityType.GetForeignKeys()
-            .FirstOrDefault(f => f.Properties.Any(p => p.Name == nameof(CampaignMember.CampaignId)));
+            .FirstOrDefault(f => f.Properties.Any(p => p.Name == nameof(WorldMember.WorldId)));
 
         Assert.That(fk, Is.Not.Null);
         Assert.That(fk!.DeleteBehavior, Is.EqualTo(DeleteBehavior.Cascade));
     }
 
     [Test]
-    public void CampaignMember_User_FK_HasRestrictDelete()
+    public void WorldMember_User_FK_HasRestrictDelete()
     {
         using var context = CreateSqlServerModelContext();
-        var entityType = context.Model.FindEntityType(typeof(CampaignMember))!;
+        var entityType = context.Model.FindEntityType(typeof(WorldMember))!;
         var fk = entityType.GetForeignKeys()
-            .FirstOrDefault(f => f.Properties.Any(p => p.Name == nameof(CampaignMember.UserId)));
+            .FirstOrDefault(f => f.Properties.Any(p => p.Name == nameof(WorldMember.UserId)));
 
         Assert.That(fk, Is.Not.Null);
         Assert.That(fk!.DeleteBehavior, Is.EqualTo(DeleteBehavior.Restrict));
     }
 
     [Test]
-    public void Source_Campaign_FK_HasCascadeDelete()
+    public void Source_World_FK_HasCascadeDelete()
     {
         using var context = CreateSqlServerModelContext();
         var entityType = context.Model.FindEntityType(typeof(Source))!;
         var fk = entityType.GetForeignKeys()
-            .FirstOrDefault(f => f.Properties.Any(p => p.Name == nameof(Source.CampaignId)));
+            .FirstOrDefault(f => f.Properties.Any(p => p.Name == nameof(Source.WorldId)));
 
         Assert.That(fk, Is.Not.Null);
         Assert.That(fk!.DeleteBehavior, Is.EqualTo(DeleteBehavior.Cascade));
@@ -338,12 +338,12 @@ public class ModelValidationTests : IntegrationTestBase
     }
 
     [Test]
-    public void ArtifactRelationship_Campaign_FK_HasCascadeDelete()
+    public void ArtifactRelationship_World_FK_HasCascadeDelete()
     {
         using var context = CreateSqlServerModelContext();
         var entityType = context.Model.FindEntityType(typeof(ArtifactRelationship))!;
         var fk = entityType.GetForeignKeys()
-            .FirstOrDefault(f => f.Properties.Any(p => p.Name == nameof(ArtifactRelationship.CampaignId)));
+            .FirstOrDefault(f => f.Properties.Any(p => p.Name == nameof(ArtifactRelationship.WorldId)));
 
         Assert.That(fk, Is.Not.Null);
         Assert.That(fk!.DeleteBehavior, Is.EqualTo(DeleteBehavior.Cascade));
@@ -374,12 +374,12 @@ public class ModelValidationTests : IntegrationTestBase
     }
 
     [Test]
-    public void AiUsageRecord_Campaign_FK_HasSetNullDelete()
+    public void AiUsageRecord_World_FK_HasSetNullDelete()
     {
         using var context = CreateSqlServerModelContext();
         var entityType = context.Model.FindEntityType(typeof(AiUsageRecord))!;
         var fk = entityType.GetForeignKeys()
-            .FirstOrDefault(f => f.Properties.Any(p => p.Name == nameof(AiUsageRecord.CampaignId)));
+            .FirstOrDefault(f => f.Properties.Any(p => p.Name == nameof(AiUsageRecord.WorldId)));
 
         Assert.That(fk, Is.Not.Null);
         Assert.That(fk!.DeleteBehavior, Is.EqualTo(DeleteBehavior.SetNull));
@@ -426,8 +426,8 @@ public class ModelValidationTests : IntegrationTestBase
     {
         // Verify every DbSet is queryable (schema created correctly for all entities)
         Assert.DoesNotThrow(() => Context.Users.ToList());
-        Assert.DoesNotThrow(() => Context.Campaigns.ToList());
-        Assert.DoesNotThrow(() => Context.CampaignMembers.ToList());
+        Assert.DoesNotThrow(() => Context.Worlds.ToList());
+        Assert.DoesNotThrow(() => Context.WorldMembers.ToList());
         Assert.DoesNotThrow(() => Context.Sources.ToList());
         Assert.DoesNotThrow(() => Context.SourceExtractions.ToList());
         Assert.DoesNotThrow(() => Context.Artifacts.ToList());

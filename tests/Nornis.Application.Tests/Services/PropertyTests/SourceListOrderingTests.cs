@@ -12,24 +12,24 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// <summary>
 /// Property 12: List Ordering
 ///
-/// For any campaign with one or more visible sources, listing sources should return them
+/// For any world with one or more visible sources, listing sources should return them
 /// ordered by CreatedAt descending (most recent first).
 ///
 /// **Validates: Requirements 5.4**
 /// </summary>
 [TestFixture]
-[Category("Feature: campaign-sources, Property 12: List Ordering")]
+[Category("Feature: world-sources, Property 12: List Ordering")]
 public class SourceListOrderingTests
 {
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(SourceListOrderingArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 12: List Ordering")]
-    public void ListByCampaign_ReturnsSourcesOrderedByCreatedAtDescending(SourceListOrderingInput input)
+    [Description("Feature: world-sources, Property 12: List Ordering")]
+    public void ListByWorld_ReturnsSourcesOrderedByCreatedAtDescending(SourceListOrderingInput input)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
@@ -40,15 +40,15 @@ public class SourceListOrderingTests
         }
 
         // Act — list as GM who can see everything
-        var result = service.ListByCampaignAsync(
-            input.CampaignId,
+        var result = service.ListByWorldAsync(
+            input.WorldId,
             input.RequestingUserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             CancellationToken.None).GetAwaiter().GetResult();
 
         // Assert — operation should succeed
         Assert.That(result.IsSuccess, Is.True,
-            "ListByCampaignAsync should succeed for a GM.");
+            "ListByWorldAsync should succeed for a GM.");
 
         var returnedSources = result.Value!;
 
@@ -69,7 +69,7 @@ public class SourceListOrderingTests
 /// Input model for Source List Ordering property test.
 /// </summary>
 public record SourceListOrderingInput(
-    Guid CampaignId,
+    Guid WorldId,
     Guid RequestingUserId,
     List<Source> Sources);
 
@@ -104,17 +104,17 @@ public class SourceListOrderingArbitraries
             SourceType.ImportedNote);
 
         var gen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from requestingUserId in ArbMap.Default.GeneratorFor<Guid>()
             from sourceCount in Gen.Choose(2, 15)
-            from sources in GenSources(campaignId, requestingUserId, sourceCount, validTitleGen, sourceTypeGen)
-            select new SourceListOrderingInput(campaignId, requestingUserId, sources);
+            from sources in GenSources(worldId, requestingUserId, sourceCount, validTitleGen, sourceTypeGen)
+            select new SourceListOrderingInput(worldId, requestingUserId, sources);
 
         return gen.ToArbitrary();
     }
 
     private static Gen<List<Source>> GenSources(
-        Guid campaignId,
+        Guid worldId,
         Guid creatorId,
         int count,
         Gen<string> titleGen,
@@ -131,7 +131,7 @@ public class SourceListOrderingArbitraries
             select new Source
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaignId,
+                WorldId = worldId,
                 Type = sourceType,
                 Title = title,
                 Body = null,

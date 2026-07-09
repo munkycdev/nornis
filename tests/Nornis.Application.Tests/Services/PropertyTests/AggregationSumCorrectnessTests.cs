@@ -32,11 +32,11 @@ public class AggregationSumCorrectnessTests
     {
         // Arrange
         var aiUsageRepo = new InMemoryAiUsageRecordRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
-        var campaignRepo = new InMemoryCampaignRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
+        var worldRepo = new InMemoryWorldRepository();
         var logger = NullLogger<CostService>.Instance;
 
-        var service = new CostService(aiUsageRepo, memberRepo, campaignRepo, logger);
+        var service = new CostService(aiUsageRepo, memberRepo, worldRepo, logger);
 
         // Seed records into the in-memory repository
         foreach (var record in input.Records)
@@ -46,9 +46,9 @@ public class AggregationSumCorrectnessTests
 
         // Act - Call GetSummaryAsync as GM (userId filter = null, sees all records)
         var result = service.GetSummaryAsync(
-            input.CampaignId,
+            input.WorldId,
             input.GmUserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             CancellationToken.None).GetAwaiter().GetResult();
 
         // Assert - operation should succeed
@@ -89,7 +89,7 @@ public class AggregationSumCorrectnessTests
 /// Input model for aggregation sum correctness property tests.
 /// </summary>
 public record AggregationSumInput(
-    Guid CampaignId,
+    Guid WorldId,
     Guid GmUserId,
     List<AiUsageRecord> Records);
 
@@ -103,22 +103,22 @@ public class AggregationSumArbitraries
     public static Arbitrary<AggregationSumInput> AggregationSumInputs()
     {
         var inputGen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from gmUserId in ArbMap.Default.GeneratorFor<Guid>()
             from recordCount in Gen.Choose(1, 20)
-            from records in GenRecords(campaignId, recordCount)
-            select new AggregationSumInput(campaignId, gmUserId, records);
+            from records in GenRecords(worldId, recordCount)
+            select new AggregationSumInput(worldId, gmUserId, records);
 
         return inputGen.ToArbitrary();
     }
 
-    private static Gen<List<AiUsageRecord>> GenRecords(Guid campaignId, int count)
+    private static Gen<List<AiUsageRecord>> GenRecords(Guid worldId, int count)
     {
-        return GenRecord(campaignId).ArrayOf(count)
+        return GenRecord(worldId).ArrayOf(count)
             .Select(records => records.ToList());
     }
 
-    private static Gen<AiUsageRecord> GenRecord(Guid campaignId)
+    private static Gen<AiUsageRecord> GenRecord(Guid worldId)
     {
         return
             from id in ArbMap.Default.GeneratorFor<Guid>()
@@ -136,7 +136,7 @@ public class AggregationSumArbitraries
             select new AiUsageRecord
             {
                 Id = id,
-                CampaignId = campaignId,
+                WorldId = worldId,
                 UserId = userId,
                 OperationType = operationType,
                 Model = model,

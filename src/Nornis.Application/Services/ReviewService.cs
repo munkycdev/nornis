@@ -49,28 +49,28 @@ public class ReviewService : IReviewService
         ReviewQueueQuery query, CancellationToken ct)
     {
         // Observer sees nothing
-        if (query.ActingUserRole == CampaignRole.Observer)
+        if (query.ActingUserRole == WorldRole.Observer)
             return AppResult<ReviewQueueResult>.Success(new ReviewQueueResult([], false));
 
         // Validate FilterByBatchId if provided
         if (query.FilterByBatchId is not null)
         {
             var filterBatch = await _reviewBatchRepository.GetByIdAsync(query.FilterByBatchId.Value, ct);
-            if (filterBatch is null || filterBatch.CampaignId != query.CampaignId)
+            if (filterBatch is null || filterBatch.WorldId != query.WorldId)
                 return AppResult<ReviewQueueResult>.Fail(new AppError(404, "not_found", "Review batch not found."));
         }
 
         // Compute allowed source IDs based on role and visibility
-        var sources = await _sourceRepository.ListByCampaignAsync(query.CampaignId, cancellationToken: ct);
+        var sources = await _sourceRepository.ListByWorldAsync(query.WorldId, cancellationToken: ct);
         var allowedSourceIds = GetAllowedSourceIds(sources, query.ActingUserId, query.ActingUserRole);
 
         if (allowedSourceIds.Count == 0)
             return AppResult<ReviewQueueResult>.Success(new ReviewQueueResult([], false));
 
         var (proposals, hasMore) = await _reviewProposalRepository.ListReviewQueueAsync(
-            query.CampaignId, allowedSourceIds, query.FilterByBatchId, limit: 200, ct);
+            query.WorldId, allowedSourceIds, query.FilterByBatchId, limit: 200, ct);
 
-        var context = await BuildProposalContextAsync(query.CampaignId, proposals, sources, ct);
+        var context = await BuildProposalContextAsync(query.WorldId, proposals, sources, ct);
 
         return AppResult<ReviewQueueResult>.Success(new ReviewQueueResult(proposals, hasMore, context));
     }
@@ -80,7 +80,7 @@ public class ReviewService : IReviewService
     /// human-readable name for what it targets, so the review UI never shows a bare GUID.
     /// </summary>
     private async Task<IReadOnlyDictionary<Guid, ReviewProposalContext>> BuildProposalContextAsync(
-        Guid campaignId,
+        Guid worldId,
         IReadOnlyList<ReviewProposal> proposals,
         IReadOnlyList<Source> sources,
         CancellationToken ct)
@@ -89,11 +89,11 @@ public class ReviewService : IReviewService
         if (proposals.Count == 0)
             return result;
 
-        var batches = (await _reviewBatchRepository.ListByCampaignAsync(campaignId, ct))
+        var batches = (await _reviewBatchRepository.ListByWorldAsync(worldId, ct))
             .ToDictionary(b => b.Id);
         var sourceTitles = sources.ToDictionary(s => s.Id, s => s.Title);
 
-        var artifacts = await _artifactRepository.ListByCampaignAsync(campaignId, null, null, ct);
+        var artifacts = await _artifactRepository.ListByWorldAsync(worldId, null, null, ct);
         var artifactNames = artifacts.ToDictionary(a => a.Id, a => a.Name);
 
         // Facts and relationships are only needed for Update* proposals — load lazily.
@@ -223,7 +223,7 @@ public class ReviewService : IReviewService
             return AppResult<AcceptProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
 
         var batch = await _reviewBatchRepository.GetByIdAsync(proposal.ReviewBatchId, ct);
-        if (batch is null || batch.CampaignId != command.CampaignId)
+        if (batch is null || batch.WorldId != command.WorldId)
             return AppResult<AcceptProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
 
         var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
@@ -296,7 +296,7 @@ public class ReviewService : IReviewService
             return AppResult<RejectProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
 
         var batch = await _reviewBatchRepository.GetByIdAsync(proposal.ReviewBatchId, ct);
-        if (batch is null || batch.CampaignId != command.CampaignId)
+        if (batch is null || batch.WorldId != command.WorldId)
             return AppResult<RejectProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
 
         var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
@@ -445,7 +445,7 @@ public class ReviewService : IReviewService
             }
 
             var batch = await _reviewBatchRepository.GetByIdAsync(proposal.ReviewBatchId, ct);
-            if (batch is null || batch.CampaignId != command.CampaignId)
+            if (batch is null || batch.WorldId != command.WorldId)
             {
                 failed.Add(new BatchFailureDetail(proposalId, "not_found", "Proposal not found."));
                 continue;
@@ -561,7 +561,7 @@ public class ReviewService : IReviewService
             }
 
             var batch = await _reviewBatchRepository.GetByIdAsync(proposal.ReviewBatchId, ct);
-            if (batch is null || batch.CampaignId != command.CampaignId)
+            if (batch is null || batch.WorldId != command.WorldId)
             {
                 failed.Add(new BatchFailureDetail(proposalId, "not_found", "Proposal not found."));
                 continue;
@@ -629,37 +629,37 @@ public class ReviewService : IReviewService
     }
 
     private static IReadOnlyList<Guid> GetAllowedSourceIds(
-        IReadOnlyList<Source> campaignSources, Guid userId, CampaignRole role)
+        IReadOnlyList<Source> worldSources, Guid userId, WorldRole role)
     {
         return role switch
         {
-            CampaignRole.GM => campaignSources.Select(s => s.Id).ToList(),
-            CampaignRole.Player => campaignSources
+            WorldRole.GM => worldSources.Select(s => s.Id).ToList(),
+            WorldRole.Player => worldSources
                 .Where(s => s.CreatedByUserId == userId)
                 .Select(s => s.Id).ToList(),
-            CampaignRole.Observer => [],
+            WorldRole.Observer => [],
             _ => []
         };
     }
 
-    private bool IsSourceVisibleToUser(Source source, Guid userId, CampaignRole role)
+    private bool IsSourceVisibleToUser(Source source, Guid userId, WorldRole role)
     {
         return role switch
         {
-            CampaignRole.GM => true,
-            CampaignRole.Player => source.CreatedByUserId == userId,
-            CampaignRole.Observer => false,
+            WorldRole.GM => true,
+            WorldRole.Player => source.CreatedByUserId == userId,
+            WorldRole.Observer => false,
             _ => false
         };
     }
 
-    private static AppResult CheckReviewAuthorization(CampaignRole role, Guid actingUserId, Source source)
+    private static AppResult CheckReviewAuthorization(WorldRole role, Guid actingUserId, Source source)
     {
         return role switch
         {
-            CampaignRole.Observer => AppResult.Fail(
+            WorldRole.Observer => AppResult.Fail(
                 new AppError(403, "forbidden", "Observers cannot review proposals.")),
-            CampaignRole.Player when source.CreatedByUserId != actingUserId => AppResult.Fail(
+            WorldRole.Player when source.CreatedByUserId != actingUserId => AppResult.Fail(
                 new AppError(403, "forbidden", "Players can only review proposals from their own sources.")),
             _ => AppResult.Success()
         };

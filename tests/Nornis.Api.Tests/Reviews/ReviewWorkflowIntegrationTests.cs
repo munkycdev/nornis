@@ -14,7 +14,7 @@ namespace Nornis.Api.Tests.Reviews;
 
 /// <summary>
 /// End-to-end integration tests for the full review proposal workflow through HTTP.
-/// These tests exercise the complete request pipeline: authentication, campaign membership,
+/// These tests exercise the complete request pipeline: authentication, world membership,
 /// review service logic, knowledge graph mutations, and response serialization.
 /// 
 /// Validates: Requirements 1.1, 2.1, 3.1, 4.1, 5.1, 7.4, 10.1, 10.3, 11.1
@@ -41,7 +41,7 @@ public class ReviewWorkflowIntegrationTests
         _factory.Dispose();
     }
 
-    private string ReviewsUrl => $"/api/campaigns/{_scenario.Campaign.Id}/reviews";
+    private string ReviewsUrl => $"/api/worlds/{_scenario.World.Id}/reviews";
 
     #region List Queue → Accept → Verify Artifact Created
 
@@ -93,7 +93,7 @@ public class ReviewWorkflowIntegrationTests
         Assert.That(artifact.Visibility, Is.EqualTo(VisibilityScope.PartyVisible));
         Assert.That(artifact.Confidence, Is.EqualTo(0.85m));
         Assert.That(artifact.Status, Is.EqualTo(ArtifactStatus.Active));
-        Assert.That(artifact.CampaignId, Is.EqualTo(_scenario.Campaign.Id));
+        Assert.That(artifact.WorldId, Is.EqualTo(_scenario.World.Id));
 
         // Verify SourceReference was created
         var sourceRef = db.SourceReferences.FirstOrDefault(
@@ -463,7 +463,7 @@ public class ReviewWorkflowIntegrationTests
         var gmOnlySource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _scenario.Campaign.Id,
+            WorldId = _scenario.World.Id,
             CreatedByUserId = _scenario.GmUserId,
             Title = "Secret GM Notes",
             Type = SourceType.GMNote,
@@ -477,7 +477,7 @@ public class ReviewWorkflowIntegrationTests
         var gmOnlyBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _scenario.Campaign.Id,
+            WorldId = _scenario.World.Id,
             SourceId = gmOnlySource.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow
@@ -514,7 +514,7 @@ public class ReviewWorkflowIntegrationTests
     }
 
     /// <summary>
-    /// Sets up the full review test scenario: campaign, users, members, source, and review batch.
+    /// Sets up the full review test scenario: world, users, members, source, and review batch.
     /// </summary>
     private static async Task<ReviewTestScenario> SetupReviewScenarioAsync(
         NornisWebApplicationFactory factory)
@@ -529,21 +529,21 @@ public class ReviewWorkflowIntegrationTests
         var observerUserId = await SourceTestHelpers.ProvisionUserAndGetIdAsync(
             factory, "auth0|observer-jorin-review", "jorin@blackharbor.com", "Jorin");
 
-        // Create campaign with GM
-        var campaign = await SourceTestHelpers.CreateTestCampaignAsync(factory, gmUserId);
+        // Create world with GM
+        var world = await SourceTestHelpers.CreateTestWorldAsync(factory, gmUserId);
 
         // Add player and observer members
-        await SourceTestHelpers.AddCampaignMemberAsync(
-            factory, campaign.Id, playerUserId, CampaignRole.Player,
+        await SourceTestHelpers.AddWorldMemberAsync(
+            factory, world.Id, playerUserId, WorldRole.Player,
             displayName: "Tavrin", characterName: "Tavrin the Bold");
 
-        await SourceTestHelpers.AddCampaignMemberAsync(
-            factory, campaign.Id, observerUserId, CampaignRole.Observer,
+        await SourceTestHelpers.AddWorldMemberAsync(
+            factory, world.Id, observerUserId, WorldRole.Observer,
             displayName: "Jorin");
 
         // Create a PartyVisible source owned by the GM for seeding proposals
         var gmSource = await SourceTestHelpers.CreateTestSourceAsync(
-            factory, campaign.Id, gmUserId,
+            factory, world.Id, gmUserId,
             title: "Session 4 — Questioning Captain Voss",
             type: SourceType.SessionNote,
             visibility: VisibilityScope.PartyVisible,
@@ -557,7 +557,7 @@ public class ReviewWorkflowIntegrationTests
             reviewBatch = new ReviewBatch
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 SourceId = gmSource.Id,
                 Status = ReviewBatchStatus.Pending,
                 CreatedAt = DateTimeOffset.UtcNow
@@ -568,7 +568,7 @@ public class ReviewWorkflowIntegrationTests
 
         return new ReviewTestScenario
         {
-            Campaign = campaign,
+            World = world,
             GmUserId = gmUserId,
             PlayerUserId = playerUserId,
             ObserverUserId = observerUserId,
@@ -591,7 +591,7 @@ public class ReviewWorkflowIntegrationTests
 /// </summary>
 public class ReviewTestScenario
 {
-    public required Campaign Campaign { get; init; }
+    public required World World { get; init; }
     public required Guid GmUserId { get; init; }
     public required Guid PlayerUserId { get; init; }
     public required Guid ObserverUserId { get; init; }

@@ -195,11 +195,11 @@ public class ReviewServicePropertyTests3
         var ctx = CreateEditService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content about Captain Voss",
@@ -211,7 +211,7 @@ public class ReviewServicePropertyTests3
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -246,7 +246,7 @@ public class ReviewServicePropertyTests3
 
         var before = DateTimeOffset.UtcNow;
         var result = ctx.Service.EditProposalAsync(
-            new EditProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM, newJson),
+            new EditProposalCommand(proposal.Id, worldId, userId, WorldRole.GM, newJson),
             CancellationToken.None).GetAwaiter().GetResult();
         var after = DateTimeOffset.UtcNow;
 
@@ -299,11 +299,11 @@ public class ReviewServicePropertyTests3
         var ctx = CreateRealService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content about Captain Voss",
@@ -315,7 +315,7 @@ public class ReviewServicePropertyTests3
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -344,7 +344,7 @@ public class ReviewServicePropertyTests3
         ctx.ProposalRepo.CreateAsync(proposal).GetAwaiter().GetResult();
 
         var result = ctx.Service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new AcceptProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -366,11 +366,11 @@ public class ReviewServicePropertyTests3
         var ctx = CreateFakeService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content about Captain Voss",
@@ -382,7 +382,7 @@ public class ReviewServicePropertyTests3
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -409,7 +409,7 @@ public class ReviewServicePropertyTests3
 
         var before = DateTimeOffset.UtcNow;
         var result = ctx.Service.RejectProposalAsync(
-            new RejectProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new RejectProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
         var after = DateTimeOffset.UtcNow;
 
@@ -448,11 +448,11 @@ public class ReviewServicePropertyTests3
         var ctx = CreateFakeService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -464,7 +464,7 @@ public class ReviewServicePropertyTests3
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -494,7 +494,7 @@ public class ReviewServicePropertyTests3
         }
 
         var result = ctx.Service.BatchAcceptAsync(
-            new BatchAcceptCommand(proposalIds, campaignId, userId, CampaignRole.GM),
+            new BatchAcceptCommand(proposalIds, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -522,11 +522,11 @@ public class ReviewServicePropertyTests3
         var ctx = CreateFakeService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -538,7 +538,7 @@ public class ReviewServicePropertyTests3
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -568,7 +568,7 @@ public class ReviewServicePropertyTests3
         }
 
         var result = ctx.Service.BatchRejectAsync(
-            new BatchRejectCommand(proposalIds, campaignId, userId, CampaignRole.GM),
+            new BatchRejectCommand(proposalIds, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -609,13 +609,13 @@ public class ReviewServicePropertyTests3
 
         var gmUserId = Guid.NewGuid();
         var playerUserId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
 
         // Source owned by GM — GM can review
         var gmSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "GM Source",
             Body = "Content",
@@ -628,7 +628,7 @@ public class ReviewServicePropertyTests3
         var playerSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Player Source",
             Body = "Content",
@@ -642,7 +642,7 @@ public class ReviewServicePropertyTests3
         var gmBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = gmSource.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-10)
@@ -650,7 +650,7 @@ public class ReviewServicePropertyTests3
         var playerBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = playerSource.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-10)
@@ -722,7 +722,7 @@ public class ReviewServicePropertyTests3
         };
 
         var result = ctx.Service.BatchAcceptAsync(
-            new BatchAcceptCommand(proposalIds, campaignId, gmUserId, CampaignRole.GM),
+            new BatchAcceptCommand(proposalIds, worldId, gmUserId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -769,11 +769,11 @@ public class ReviewServicePropertyTests3
         var ctx = CreateFakeService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -786,7 +786,7 @@ public class ReviewServicePropertyTests3
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -826,7 +826,7 @@ public class ReviewServicePropertyTests3
 
         // Accept the first proposal
         var result = ctx.Service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal1.Id, campaignId, userId, CampaignRole.GM),
+            new AcceptProposalCommand(proposal1.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -846,11 +846,11 @@ public class ReviewServicePropertyTests3
         var ctx = CreateFakeService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -862,7 +862,7 @@ public class ReviewServicePropertyTests3
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -902,7 +902,7 @@ public class ReviewServicePropertyTests3
 
         // Reject the first proposal
         var result = ctx.Service.RejectProposalAsync(
-            new RejectProposalCommand(proposal1.Id, campaignId, userId, CampaignRole.GM),
+            new RejectProposalCommand(proposal1.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -922,11 +922,11 @@ public class ReviewServicePropertyTests3
         var ctx = CreateEditService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -938,7 +938,7 @@ public class ReviewServicePropertyTests3
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -979,7 +979,7 @@ public class ReviewServicePropertyTests3
         // Edit the first proposal with valid new JSON
         var newJson = ReviewGenerators.ValidCreateArtifactPayload.Sample(1, 1).First();
         var result = ctx.Service.EditProposalAsync(
-            new EditProposalCommand(proposal1.Id, campaignId, userId, CampaignRole.GM, newJson),
+            new EditProposalCommand(proposal1.Id, worldId, userId, WorldRole.GM, newJson),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)

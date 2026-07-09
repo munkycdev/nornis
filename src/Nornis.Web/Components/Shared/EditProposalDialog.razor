@@ -28,7 +28,7 @@
     [CascadingParameter]
     private MudDialogInstance MudDialog { get; set; } = default!;
 
-    [Parameter] public Guid CampaignId { get; set; }
+    [Parameter] public Guid WorldId { get; set; }
     [Parameter] public Guid ProposalId { get; set; }
     [Parameter] public string ProposedValueJson { get; set; } = "{}";
 
@@ -56,7 +56,7 @@
         _busy = true;
         _error = null;
 
-        var result = await Api.EditProposalAsync(CampaignId, ProposalId, compact);
+        var result = await Api.EditProposalAsync(WorldId, ProposalId, compact);
 
         _busy = false;
         if (!result.IsSuccess)

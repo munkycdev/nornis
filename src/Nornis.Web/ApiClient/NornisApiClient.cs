@@ -46,150 +46,150 @@ public class NornisApiClient
         }
     }
 
-    // ------------------------------------------------------------------ Campaigns --
+    // ------------------------------------------------------------------ Worlds --
 
-    public Task<ApiResult<IReadOnlyList<CampaignSummary>>> GetCampaignsAsync(CancellationToken ct = default) =>
-        GetAsync<IReadOnlyList<CampaignSummary>>("/api/campaigns", ct);
+    public Task<ApiResult<IReadOnlyList<WorldSummary>>> GetWorldsAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<WorldSummary>>("/api/worlds", ct);
 
-    public Task<ApiResult<CampaignSummary>> CreateCampaignAsync(CreateCampaignRequest request, CancellationToken ct = default) =>
-        PostAsync<CreateCampaignRequest, CampaignSummary>("/api/campaigns", request, ct);
+    public Task<ApiResult<WorldSummary>> CreateWorldAsync(CreateWorldRequest request, CancellationToken ct = default) =>
+        PostAsync<CreateWorldRequest, WorldSummary>("/api/worlds", request, ct);
 
-    public Task<ApiResult<CampaignSummary>> UpdateCampaignAsync(Guid campaignId, UpdateCampaignRequest request, CancellationToken ct = default) =>
-        PutAsync<UpdateCampaignRequest, CampaignSummary>($"/api/campaigns/{campaignId}", request, ct);
+    public Task<ApiResult<WorldSummary>> UpdateWorldAsync(Guid worldId, UpdateWorldRequest request, CancellationToken ct = default) =>
+        PutAsync<UpdateWorldRequest, WorldSummary>($"/api/worlds/{worldId}", request, ct);
 
     // -------------------------------------------------------------------- Members --
 
-    public Task<ApiResult<IReadOnlyList<CampaignMember>>> GetMembersAsync(Guid campaignId, CancellationToken ct = default) =>
-        GetAsync<IReadOnlyList<CampaignMember>>($"/api/campaigns/{campaignId}/members", ct);
+    public Task<ApiResult<IReadOnlyList<WorldMember>>> GetMembersAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<WorldMember>>($"/api/worlds/{worldId}/members", ct);
 
-    public Task<ApiResult<CampaignMember>> AddMemberAsync(Guid campaignId, AddMemberRequest request, CancellationToken ct = default) =>
-        PostAsync<AddMemberRequest, CampaignMember>($"/api/campaigns/{campaignId}/members", request, ct);
+    public Task<ApiResult<WorldMember>> AddMemberAsync(Guid worldId, AddMemberRequest request, CancellationToken ct = default) =>
+        PostAsync<AddMemberRequest, WorldMember>($"/api/worlds/{worldId}/members", request, ct);
 
-    public Task<ApiResult<CampaignMember>> UpdateMemberRoleAsync(Guid campaignId, Guid userId, string role, CancellationToken ct = default) =>
-        PutAsync<UpdateMemberRoleRequest, CampaignMember>($"/api/campaigns/{campaignId}/members/{userId}", new UpdateMemberRoleRequest(role), ct);
+    public Task<ApiResult<WorldMember>> UpdateMemberRoleAsync(Guid worldId, Guid userId, string role, CancellationToken ct = default) =>
+        PutAsync<UpdateMemberRoleRequest, WorldMember>($"/api/worlds/{worldId}/members/{userId}", new UpdateMemberRoleRequest(role), ct);
 
-    public Task<ApiResult<bool>> RemoveMemberAsync(Guid campaignId, Guid userId, CancellationToken ct = default) =>
-        DeleteAsync($"/api/campaigns/{campaignId}/members/{userId}", ct);
+    public Task<ApiResult<bool>> RemoveMemberAsync(Guid worldId, Guid userId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/members/{userId}", ct);
 
     // -------------------------------------------------------------------- Sources --
 
-    public Task<ApiResult<IReadOnlyList<SourceListItem>>> GetSourcesAsync(Guid campaignId, CancellationToken ct = default) =>
-        GetAsync<IReadOnlyList<SourceListItem>>($"/api/campaigns/{campaignId}/sources", ct);
+    public Task<ApiResult<IReadOnlyList<SourceListItem>>> GetSourcesAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<SourceListItem>>($"/api/worlds/{worldId}/sources", ct);
 
-    public Task<ApiResult<SourceDetailDto>> GetSourceAsync(Guid campaignId, Guid sourceId, CancellationToken ct = default) =>
-        GetAsync<SourceDetailDto>($"/api/campaigns/{campaignId}/sources/{sourceId}", ct);
+    public Task<ApiResult<SourceDetailDto>> GetSourceAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
+        GetAsync<SourceDetailDto>($"/api/worlds/{worldId}/sources/{sourceId}", ct);
 
-    public Task<ApiResult<SourceDetailDto>> CreateSourceAsync(Guid campaignId, CreateSourceRequest request, CancellationToken ct = default) =>
-        PostAsync<CreateSourceRequest, SourceDetailDto>($"/api/campaigns/{campaignId}/sources", request, ct);
+    public Task<ApiResult<SourceDetailDto>> CreateSourceAsync(Guid worldId, CreateSourceRequest request, CancellationToken ct = default) =>
+        PostAsync<CreateSourceRequest, SourceDetailDto>($"/api/worlds/{worldId}/sources", request, ct);
 
     /// <summary>Marks a source Ready, which enqueues it for AI extraction.</summary>
-    public Task<ApiResult<SourceDetailDto>> MarkSourceReadyAsync(Guid campaignId, Guid sourceId, CancellationToken ct = default) =>
-        PostAsync<object?, SourceDetailDto>($"/api/campaigns/{campaignId}/sources/{sourceId}/ready", null, ct);
+    public Task<ApiResult<SourceDetailDto>> MarkSourceReadyAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
+        PostAsync<object?, SourceDetailDto>($"/api/worlds/{worldId}/sources/{sourceId}/ready", null, ct);
 
     /// <summary>Applies a partial update to a source. The server rejects edits once the source
     /// is Queued/Processing/Processed.</summary>
-    public Task<ApiResult<SourceDetailDto>> UpdateSourceAsync(Guid campaignId, Guid sourceId, UpdateSourceRequest request, CancellationToken ct = default) =>
-        PutAsync<UpdateSourceRequest, SourceDetailDto>($"/api/campaigns/{campaignId}/sources/{sourceId}", request, ct);
+    public Task<ApiResult<SourceDetailDto>> UpdateSourceAsync(Guid worldId, Guid sourceId, UpdateSourceRequest request, CancellationToken ct = default) =>
+        PutAsync<UpdateSourceRequest, SourceDetailDto>($"/api/worlds/{worldId}/sources/{sourceId}", request, ct);
 
     /// <summary>Deletes a source. The server rejects deletes while Queued/Processing.</summary>
-    public Task<ApiResult<bool>> DeleteSourceAsync(Guid campaignId, Guid sourceId, CancellationToken ct = default) =>
-        DeleteAsync($"/api/campaigns/{campaignId}/sources/{sourceId}", ct);
+    public Task<ApiResult<bool>> DeleteSourceAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/sources/{sourceId}", ct);
 
     // ------------------------------------------------------------------ Knowledge --
 
     public Task<ApiResult<IReadOnlyList<ArtifactListItem>>> GetArtifactsAsync(
-        Guid campaignId, string? type = null, string? status = null, CancellationToken ct = default) =>
+        Guid worldId, string? type = null, string? status = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<ArtifactListItem>>(
-            $"/api/campaigns/{campaignId}/artifacts{Query(("type", type), ("status", status))}", ct);
+            $"/api/worlds/{worldId}/artifacts{Query(("type", type), ("status", status))}", ct);
 
-    public Task<ApiResult<ArtifactDetailDto>> GetArtifactAsync(Guid campaignId, Guid artifactId, CancellationToken ct = default) =>
-        GetAsync<ArtifactDetailDto>($"/api/campaigns/{campaignId}/artifacts/{artifactId}", ct);
+    public Task<ApiResult<ArtifactDetailDto>> GetArtifactAsync(Guid worldId, Guid artifactId, CancellationToken ct = default) =>
+        GetAsync<ArtifactDetailDto>($"/api/worlds/{worldId}/artifacts/{artifactId}", ct);
 
     public Task<ApiResult<IReadOnlyList<ArtifactListItem>>> GetStorylinesAsync(
-        Guid campaignId, string? status = null, CancellationToken ct = default) =>
+        Guid worldId, string? status = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<ArtifactListItem>>(
-            $"/api/campaigns/{campaignId}/storylines{Query(("status", status))}", ct);
+            $"/api/worlds/{worldId}/storylines{Query(("status", status))}", ct);
 
     public Task<ApiResult<IReadOnlyList<CanonEntry>>> GetCanonAsync(
-        Guid campaignId, string? truthState = null, CancellationToken ct = default) =>
+        Guid worldId, string? truthState = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<CanonEntry>>(
-            $"/api/campaigns/{campaignId}/canon{Query(("truthState", truthState))}", ct);
+            $"/api/worlds/{worldId}/canon{Query(("truthState", truthState))}", ct);
 
-    public Task<ApiResult<ReviewQueue>> GetReviewQueueAsync(Guid campaignId, CancellationToken ct = default) =>
-        GetAsync<ReviewQueue>($"/api/campaigns/{campaignId}/reviews/proposals", ct);
+    public Task<ApiResult<ReviewQueue>> GetReviewQueueAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<ReviewQueue>($"/api/worlds/{worldId}/reviews/proposals", ct);
 
     // ------------------------------------------------------------------------ Ask --
 
-    public Task<ApiResult<AskAnswer>> AskLoremasterAsync(Guid campaignId, string question, string? conversationContext = null, CancellationToken ct = default) =>
-        PostAsync<AskRequest, AskAnswer>($"/api/campaigns/{campaignId}/ask", new AskRequest(question, conversationContext), ct);
+    public Task<ApiResult<AskAnswer>> AskLoremasterAsync(Guid worldId, string question, string? conversationContext = null, CancellationToken ct = default) =>
+        PostAsync<AskRequest, AskAnswer>($"/api/worlds/{worldId}/ask", new AskRequest(question, conversationContext), ct);
 
-    public Task<ApiResult<IReadOnlyList<AskSuggestion>>> GetAskSuggestionsAsync(Guid campaignId, CancellationToken ct = default) =>
-        GetAsync<IReadOnlyList<AskSuggestion>>($"/api/campaigns/{campaignId}/ask/suggestions", ct);
+    public Task<ApiResult<IReadOnlyList<AskSuggestion>>> GetAskSuggestionsAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AskSuggestion>>($"/api/worlds/{worldId}/ask/suggestions", ct);
 
-    public Task<ApiResult<CampaignHealth>> GetCampaignHealthAsync(Guid campaignId, CancellationToken ct = default) =>
-        GetAsync<CampaignHealth>($"/api/campaigns/{campaignId}/health", ct);
+    public Task<ApiResult<WorldHealth>> GetWorldHealthAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<WorldHealth>($"/api/worlds/{worldId}/health", ct);
 
     // AI-assessed Continuity Health (GM-only endpoints).
 
-    public Task<ApiResult<ContinuityAssessment>> GetContinuityAssessmentAsync(Guid campaignId, CancellationToken ct = default) =>
-        GetAsync<ContinuityAssessment>($"/api/campaigns/{campaignId}/health/assessment", ct);
+    public Task<ApiResult<ContinuityAssessment>> GetContinuityAssessmentAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<ContinuityAssessment>($"/api/worlds/{worldId}/health/assessment", ct);
 
-    public Task<ApiResult<ContinuityAssessment>> RunContinuityAssessmentAsync(Guid campaignId, CancellationToken ct = default) =>
-        PostAsync<object?, ContinuityAssessment>($"/api/campaigns/{campaignId}/health/assess", null, ct);
+    public Task<ApiResult<ContinuityAssessment>> RunContinuityAssessmentAsync(Guid worldId, CancellationToken ct = default) =>
+        PostAsync<object?, ContinuityAssessment>($"/api/worlds/{worldId}/health/assess", null, ct);
 
-    public Task<ApiResult<ContinuityFinding>> DismissFindingAsync(Guid campaignId, Guid findingId, CancellationToken ct = default) =>
-        PostAsync<object?, ContinuityFinding>($"/api/campaigns/{campaignId}/health/findings/{findingId}/dismiss", null, ct);
+    public Task<ApiResult<ContinuityFinding>> DismissFindingAsync(Guid worldId, Guid findingId, CancellationToken ct = default) =>
+        PostAsync<object?, ContinuityFinding>($"/api/worlds/{worldId}/health/findings/{findingId}/dismiss", null, ct);
 
     // ----------------------------------------------------------------------- Costs --
 
-    public Task<ApiResult<TimePeriodSummary>> GetCostSummaryAsync(Guid campaignId, CancellationToken ct = default) =>
-        GetAsync<TimePeriodSummary>($"/api/campaigns/{campaignId}/costs/summary", ct);
+    public Task<ApiResult<TimePeriodSummary>> GetCostSummaryAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<TimePeriodSummary>($"/api/worlds/{worldId}/costs/summary", ct);
 
     public Task<ApiResult<IReadOnlyList<OperationTypeCost>>> GetCostsByOperationAsync(
-        Guid campaignId, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken ct = default) =>
+        Guid worldId, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<OperationTypeCost>>(
-            $"/api/campaigns/{campaignId}/costs/by-operation{DateQuery(from, to)}", ct);
+            $"/api/worlds/{worldId}/costs/by-operation{DateQuery(from, to)}", ct);
 
     public Task<ApiResult<IReadOnlyList<ModelCost>>> GetCostsByModelAsync(
-        Guid campaignId, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken ct = default) =>
+        Guid worldId, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<ModelCost>>(
-            $"/api/campaigns/{campaignId}/costs/by-model{DateQuery(from, to)}", ct);
+            $"/api/worlds/{worldId}/costs/by-model{DateQuery(from, to)}", ct);
 
     public Task<ApiResult<IReadOnlyList<UserCost>>> GetCostsByUserAsync(
-        Guid campaignId, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken ct = default) =>
+        Guid worldId, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<UserCost>>(
-            $"/api/campaigns/{campaignId}/costs/by-user{DateQuery(from, to)}", ct);
+            $"/api/worlds/{worldId}/costs/by-user{DateQuery(from, to)}", ct);
 
     private static string DateQuery(DateTimeOffset? from, DateTimeOffset? to) =>
         Query(("startDate", from?.ToString("o")), ("endDate", to?.ToString("o")));
 
-    /// <summary>Cost totals across every campaign where the caller is GM. Not scoped to the
-    /// current campaign and accepts no date range. Returns 403 for callers with no GM campaigns
+    /// <summary>Cost totals across every world where the caller is GM. Not scoped to the
+    /// current world and accepts no date range. Returns 403 for callers with no GM worlds
     /// only when the endpoint forbids access; callers hide the section on empty or failure.</summary>
-    public Task<ApiResult<IReadOnlyList<CampaignCost>>> GetCostsByCampaignAsync(CancellationToken ct = default) =>
-        GetAsync<IReadOnlyList<CampaignCost>>("/api/costs/by-campaign", ct);
+    public Task<ApiResult<IReadOnlyList<WorldCost>>> GetCostsByWorldAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<WorldCost>>("/api/costs/by-world", ct);
 
-    public Task<ApiResult<ProposalActionResult>> AcceptProposalAsync(Guid campaignId, Guid proposalId, CancellationToken ct = default) =>
-        PostAsync<object?, ProposalActionResult>($"/api/campaigns/{campaignId}/reviews/proposals/{proposalId}/accept", null, ct);
+    public Task<ApiResult<ProposalActionResult>> AcceptProposalAsync(Guid worldId, Guid proposalId, CancellationToken ct = default) =>
+        PostAsync<object?, ProposalActionResult>($"/api/worlds/{worldId}/reviews/proposals/{proposalId}/accept", null, ct);
 
-    public Task<ApiResult<ProposalActionResult>> RejectProposalAsync(Guid campaignId, Guid proposalId, CancellationToken ct = default) =>
-        PostAsync<object?, ProposalActionResult>($"/api/campaigns/{campaignId}/reviews/proposals/{proposalId}/reject", null, ct);
+    public Task<ApiResult<ProposalActionResult>> RejectProposalAsync(Guid worldId, Guid proposalId, CancellationToken ct = default) =>
+        PostAsync<object?, ProposalActionResult>($"/api/worlds/{worldId}/reviews/proposals/{proposalId}/reject", null, ct);
 
-    public Task<ApiResult<ProposalActionResult>> EditProposalAsync(Guid campaignId, Guid proposalId, string proposedValueJson, CancellationToken ct = default) =>
+    public Task<ApiResult<ProposalActionResult>> EditProposalAsync(Guid worldId, Guid proposalId, string proposedValueJson, CancellationToken ct = default) =>
         PostAsync<EditProposalBody, ProposalActionResult>(
-            $"/api/campaigns/{campaignId}/reviews/proposals/{proposalId}/edit",
+            $"/api/worlds/{worldId}/reviews/proposals/{proposalId}/edit",
             new EditProposalBody(proposedValueJson), ct);
 
     public Task<ApiResult<BatchOperationResult>> BatchAcceptProposalsAsync(
-        Guid campaignId, IReadOnlyList<Guid> proposalIds, CancellationToken ct = default) =>
+        Guid worldId, IReadOnlyList<Guid> proposalIds, CancellationToken ct = default) =>
         PostAsync<BatchProposalBody, BatchOperationResult>(
-            $"/api/campaigns/{campaignId}/reviews/proposals/batch-accept",
+            $"/api/worlds/{worldId}/reviews/proposals/batch-accept",
             new BatchProposalBody(proposalIds), ct);
 
     public Task<ApiResult<BatchOperationResult>> BatchRejectProposalsAsync(
-        Guid campaignId, IReadOnlyList<Guid> proposalIds, CancellationToken ct = default) =>
+        Guid worldId, IReadOnlyList<Guid> proposalIds, CancellationToken ct = default) =>
         PostAsync<BatchProposalBody, BatchOperationResult>(
-            $"/api/campaigns/{campaignId}/reviews/proposals/batch-reject",
+            $"/api/worlds/{worldId}/reviews/proposals/batch-reject",
             new BatchProposalBody(proposalIds), ct);
 
     private sealed record EditProposalBody(string ProposedValueJson);

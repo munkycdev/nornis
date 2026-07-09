@@ -6,7 +6,7 @@ public class AiUsageRecord
 {
     public Guid Id { get; set; }
 
-    public Guid? CampaignId { get; set; }
+    public Guid? WorldId { get; set; }
 
     public Guid? UserId { get; set; }
 

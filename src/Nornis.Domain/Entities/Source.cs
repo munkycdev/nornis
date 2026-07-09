@@ -6,7 +6,7 @@ public class Source
 {
     public Guid Id { get; set; }
 
-    public Guid CampaignId { get; set; }
+    public Guid WorldId { get; set; }
 
     public SourceType Type { get; set; }
 
@@ -27,7 +27,7 @@ public class Source
     public SourceProcessingStatus ProcessingStatus { get; set; }
 
     // Navigation properties
-    public Campaign Campaign { get; set; } = null!;
+    public World World { get; set; } = null!;
 
     public User CreatedByUser { get; set; } = null!;
 

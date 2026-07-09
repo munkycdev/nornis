@@ -125,8 +125,8 @@ public class ReviewServicePropertyTests
     /// <summary>
     /// Property 1: Visibility Filtering
     ///
-    /// For any campaign with sources of mixed VisibilityScope owned by different users,
-    /// and any campaign member requesting the review queue:
+    /// For any world with sources of mixed VisibilityScope owned by different users,
+    /// and any world member requesting the review queue:
     /// - GM sees all pending proposals regardless of source author or visibility
     /// - Player sees only pending proposals from sources the Player created
     /// - Observer sees zero proposals
@@ -140,15 +140,15 @@ public class ReviewServicePropertyTests
         var (service, _, _, _) = CreateServiceWithFakes(scenario);
 
         // GM query
-        var gmQuery = new ReviewQueueQuery(scenario.CampaignId, scenario.GmUserId, CampaignRole.GM);
+        var gmQuery = new ReviewQueueQuery(scenario.WorldId, scenario.GmUserId, WorldRole.GM);
         var gmResult = service.ListReviewQueueAsync(gmQuery, CancellationToken.None).GetAwaiter().GetResult();
 
         // Player query
-        var playerQuery = new ReviewQueueQuery(scenario.CampaignId, scenario.PlayerUserId, CampaignRole.Player);
+        var playerQuery = new ReviewQueueQuery(scenario.WorldId, scenario.PlayerUserId, WorldRole.Player);
         var playerResult = service.ListReviewQueueAsync(playerQuery, CancellationToken.None).GetAwaiter().GetResult();
 
         // Observer query
-        var observerQuery = new ReviewQueueQuery(scenario.CampaignId, scenario.ObserverUserId, CampaignRole.Observer);
+        var observerQuery = new ReviewQueueQuery(scenario.WorldId, scenario.ObserverUserId, WorldRole.Observer);
         var observerResult = service.ListReviewQueueAsync(observerQuery, CancellationToken.None).GetAwaiter().GetResult();
 
         // Compute expected sets
@@ -195,7 +195,7 @@ public class ReviewServicePropertyTests
     /// <summary>
     /// Property 2: Authorization Enforcement
     ///
-    /// For any review operation (accept, reject, or edit) and any proposal in a campaign:
+    /// For any review operation (accept, reject, or edit) and any proposal in a world:
     /// - GM is always authorized regardless of source author
     /// - Player is authorized only if the source was created by that Player
     /// - Observer is always denied with 403
@@ -218,14 +218,14 @@ public class ReviewServicePropertyTests
 
         // GM accept — should succeed (not 403)
         var gmAccept = service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, scenario.CampaignId, scenario.GmUserId, CampaignRole.GM),
+            new AcceptProposalCommand(proposal.Id, scenario.WorldId, scenario.GmUserId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         var gmAuthorized = gmAccept.IsSuccess || gmAccept.Error!.StatusCode != 403;
 
         // Player accept — authorized only if source is owned by player
         var playerAccept = service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, scenario.CampaignId, scenario.PlayerUserId, CampaignRole.Player),
+            new AcceptProposalCommand(proposal.Id, scenario.WorldId, scenario.PlayerUserId, WorldRole.Player),
             CancellationToken.None).GetAwaiter().GetResult();
 
         bool playerCorrect;
@@ -243,7 +243,7 @@ public class ReviewServicePropertyTests
 
         // Observer accept — always denied
         var observerAccept = service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, scenario.CampaignId, scenario.ObserverUserId, CampaignRole.Observer),
+            new AcceptProposalCommand(proposal.Id, scenario.WorldId, scenario.ObserverUserId, WorldRole.Observer),
             CancellationToken.None).GetAwaiter().GetResult();
 
         // Observer gets 404 (invisible) because Observer can never see any proposals
@@ -302,7 +302,7 @@ public class ReviewServicePropertyTests
         {
             // Attempt accept as Player
             var acceptResult = service.AcceptProposalAsync(
-                new AcceptProposalCommand(proposal.Id, scenario.CampaignId, scenario.PlayerUserId, CampaignRole.Player),
+                new AcceptProposalCommand(proposal.Id, scenario.WorldId, scenario.PlayerUserId, WorldRole.Player),
                 CancellationToken.None).GetAwaiter().GetResult();
 
             if (acceptResult.IsSuccess || acceptResult.Error!.StatusCode != 404)
@@ -313,7 +313,7 @@ public class ReviewServicePropertyTests
 
             // Attempt reject as Player
             var rejectResult = service.RejectProposalAsync(
-                new RejectProposalCommand(proposal.Id, scenario.CampaignId, scenario.PlayerUserId, CampaignRole.Player),
+                new RejectProposalCommand(proposal.Id, scenario.WorldId, scenario.PlayerUserId, WorldRole.Player),
                 CancellationToken.None).GetAwaiter().GetResult();
 
             if (rejectResult.IsSuccess || rejectResult.Error!.StatusCode != 404)
@@ -324,7 +324,7 @@ public class ReviewServicePropertyTests
 
             // Attempt edit as Player
             var editResult = service.EditProposalAsync(
-                new EditProposalCommand(proposal.Id, scenario.CampaignId, scenario.PlayerUserId, CampaignRole.Player,
+                new EditProposalCommand(proposal.Id, scenario.WorldId, scenario.PlayerUserId, WorldRole.Player,
                     "{\"name\":\"Test\",\"type\":\"Character\"}"),
                 CancellationToken.None).GetAwaiter().GetResult();
 
@@ -364,9 +364,9 @@ public class ReviewServicePropertyTests
 
         var command = new AcceptProposalCommand(
             ctx.Proposal.Id,
-            ctx.CampaignId,
+            ctx.WorldId,
             ctx.OwnerUserId,
-            CampaignRole.GM);
+            WorldRole.GM);
 
         var result = service.AcceptProposalAsync(command, CancellationToken.None).GetAwaiter().GetResult();
 
@@ -410,7 +410,7 @@ public class ReviewServicePropertyTests
     ///
     /// For any valid CreateArtifact proposal with well-formed ProposedValueJson containing Name, Type,
     /// Summary, Visibility, and Confidence fields, acceptance SHALL create an Artifact with those field
-    /// values, CampaignId from the ReviewBatch, Status Active, and CreatedAt/UpdatedAt set to the
+    /// values, WorldId from the ReviewBatch, Status Active, and CreatedAt/UpdatedAt set to the
     /// current UTC timestamp. The proposal's TargetId SHALL be updated to the newly created Artifact's Id.
     ///
     /// **Validates: Requirements 2.2, 9.1**
@@ -425,9 +425,9 @@ public class ReviewServicePropertyTests
 
         var command = new AcceptProposalCommand(
             ctx.Proposal.Id,
-            ctx.CampaignId,
+            ctx.WorldId,
             ctx.OwnerUserId,
-            CampaignRole.GM);
+            WorldRole.GM);
 
         var result = service.AcceptProposalAsync(command, CancellationToken.None).GetAwaiter().GetResult();
 
@@ -478,7 +478,7 @@ public class ReviewServicePropertyTests
         var visibilityCorrect = artifact.Visibility == expectedVisibility;
 
         var confidenceCorrect = artifact.Confidence == payload.Confidence;
-        var campaignIdCorrect = artifact.CampaignId == ctx.CampaignId;
+        var worldIdCorrect = artifact.WorldId == ctx.WorldId;
         var statusCorrect = artifact.Status == ArtifactStatus.Active;
 
         var createdAtCorrect = artifact.CreatedAt >= before && artifact.CreatedAt <= after;
@@ -496,8 +496,8 @@ public class ReviewServicePropertyTests
                 .Label($"Artifact Visibility should be {expectedVisibility}, got {artifact.Visibility}"))
             .And(confidenceCorrect
                 .Label($"Artifact Confidence should be {payload.Confidence}, got {artifact.Confidence}"))
-            .And(campaignIdCorrect
-                .Label($"Artifact CampaignId should be {ctx.CampaignId}, got {artifact.CampaignId}"))
+            .And(worldIdCorrect
+                .Label($"Artifact WorldId should be {ctx.WorldId}, got {artifact.WorldId}"))
             .And(statusCorrect
                 .Label($"Artifact Status should be Active, got {artifact.Status}"))
             .And(createdAtCorrect

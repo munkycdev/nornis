@@ -20,18 +20,18 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// **Validates: Requirements 7.3**
 /// </summary>
 [TestFixture]
-[Category("Feature: campaign-sources, Property 11: Failed Enqueue Leaves Source at Ready")]
+[Category("Feature: world-sources, Property 11: Failed Enqueue Leaves Source at Ready")]
 public class SourceFailedEnqueueLeavesReadyTests
 {
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(FailedEnqueueArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 11: Failed Enqueue Leaves Source at Ready")]
+    [Description("Feature: world-sources, Property 11: Failed Enqueue Leaves Source at Ready")]
     public void MarkReadyAsync_WhenQueueFails_LeavesSourceAtReady_ReturnsError(FailedEnqueueScenario scenario)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         queueClient.ConfigureToFail(true);
 
@@ -40,7 +40,7 @@ public class SourceFailedEnqueueLeavesReadyTests
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = scenario.CampaignId,
+            WorldId = scenario.WorldId,
             Type = scenario.SourceType,
             Title = scenario.Title,
             Body = scenario.Body,
@@ -54,9 +54,9 @@ public class SourceFailedEnqueueLeavesReadyTests
 
         var command = new MarkSourceReadyCommand(
             source.Id,
-            scenario.CampaignId,
+            scenario.WorldId,
             scenario.CreatorUserId,
-            CampaignRole.GM);
+            WorldRole.GM);
 
         // Act
         var result = service.MarkReadyAsync(command, CancellationToken.None).GetAwaiter().GetResult();
@@ -84,7 +84,7 @@ public class SourceFailedEnqueueLeavesReadyTests
 /// Scenario for testing failed enqueue behavior during mark-ready.
 /// </summary>
 public record FailedEnqueueScenario(
-    Guid CampaignId,
+    Guid WorldId,
     Guid CreatorUserId,
     string Title,
     string? Body,
@@ -134,13 +134,13 @@ public class FailedEnqueueArbitraries
             select (string?)new string(chars));
 
         var gen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from creatorUserId in ArbMap.Default.GeneratorFor<Guid>()
             from title in validTitleGen
             from body in optionalBodyGen
             from sourceType in validSourceTypeGen
             from visibility in validVisibilityGen
-            select new FailedEnqueueScenario(campaignId, creatorUserId, title, body, sourceType, visibility);
+            select new FailedEnqueueScenario(worldId, creatorUserId, title, body, sourceType, visibility);
 
         return gen.ToArbitrary();
     }

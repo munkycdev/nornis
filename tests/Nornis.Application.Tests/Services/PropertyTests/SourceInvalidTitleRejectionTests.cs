@@ -20,28 +20,28 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// **Validates: Requirements 1.5, 3.4**
 /// </summary>
 [TestFixture]
-[Category("Feature: campaign-sources, Property 2: Invalid Titles Are Rejected")]
+[Category("Feature: world-sources, Property 2: Invalid Titles Are Rejected")]
 public class SourceInvalidTitleRejectionTests
 {
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(InvalidSourceTitleArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 2: Invalid Titles Are Rejected - CreateAsync rejects invalid titles")]
+    [Description("Feature: world-sources, Property 2: Invalid Titles Are Rejected - CreateAsync rejects invalid titles")]
     public void CreateAsync_RejectsInvalidTitles(InvalidSourceTitleInput input)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
         var command = new CreateSourceCommand(
-            input.CampaignId,
+            input.WorldId,
             input.InvalidTitle!,
             SourceType.SessionNote,
             VisibilityScope.PartyVisible,
             input.UserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             Body: "Session 4 — Questioning Captain Voss in Black Harbor");
 
         // Act
@@ -64,19 +64,19 @@ public class SourceInvalidTitleRejectionTests
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(InvalidSourceTitleArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 2: Invalid Titles Are Rejected - UpdateAsync rejects invalid titles")]
+    [Description("Feature: world-sources, Property 2: Invalid Titles Are Rejected - UpdateAsync rejects invalid titles")]
     public void UpdateAsync_RejectsInvalidTitles(InvalidSourceTitleInput input)
     {
         // Arrange - create a valid source first
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
         var validSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = input.CampaignId,
+            WorldId = input.WorldId,
             Type = SourceType.SessionNote,
             Title = "Tavrin's Journal — The Silver Key",
             Body = "Found a silver key in Captain Voss's quarters.",
@@ -94,9 +94,9 @@ public class SourceInvalidTitleRejectionTests
         // Act - attempt update with invalid title
         var updateCommand = new UpdateSourceCommand(
             validSource.Id,
-            input.CampaignId,
+            input.WorldId,
             input.UserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             Title: input.InvalidTitle);
 
         var result = service.UpdateAsync(updateCommand, CancellationToken.None).GetAwaiter().GetResult();
@@ -124,7 +124,7 @@ public class SourceInvalidTitleRejectionTests
 /// </summary>
 public record InvalidSourceTitleInput(
     string? InvalidTitle,
-    Guid CampaignId,
+    Guid WorldId,
     Guid UserId);
 
 /// <summary>
@@ -160,9 +160,9 @@ public class InvalidSourceTitleArbitraries
 
         var inputGen =
             from title in invalidTitleGen
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from userId in ArbMap.Default.GeneratorFor<Guid>()
-            select new InvalidSourceTitleInput(title, campaignId, userId);
+            select new InvalidSourceTitleInput(title, worldId, userId);
 
         return inputGen.ToArbitrary();
     }

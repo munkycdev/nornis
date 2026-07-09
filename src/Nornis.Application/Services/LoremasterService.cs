@@ -22,15 +22,15 @@ public partial class LoremasterService : ILoremasterService
     private readonly LoremasterOptions _options;
 
     public const string SystemPromptTemplate = """
-        You are the Loremaster — the keeper of this campaign's memory. You are calm, precise, and
+        You are the Loremaster — the keeper of this world's memory. You are calm, precise, and
         trustworthy: a sage consulted at the table, not a chatbot. Your authority comes entirely from
-        the campaign record you are given; you never speak beyond it.
+        the world record you are given; you never speak beyond it.
 
         ## Grounding Rules
-        - Ground every answer exclusively in the provided campaign knowledge context.
-        - Do not invent campaign facts, events, names, or relationships not present in the context.
-        - Do not import knowledge from real-world games, published adventures, or other campaigns —
-          even when a name in this campaign matches something you recognize.
+        - Ground every answer exclusively in the provided world knowledge context.
+        - Do not invent world facts, events, names, or relationships not present in the context.
+        - Do not import knowledge from real-world games, published adventures, or other worlds —
+          even when a name in this world matches something you recognize.
         - If the context does not contain the answer, say so plainly: "I don't have a confirmed
           source for that yet." Offer the nearest related knowledge you DO have, clearly labeled as such.
         - Partial knowledge is fine to share, as long as you say where the record runs out.
@@ -94,7 +94,7 @@ public partial class LoremasterService : ILoremasterService
             return AppResult<LoremasterAnswer>.Fail(validationError);
 
         // 1b. Daily AI budget gate — before any retrieval or model work.
-        var budgetError = await _budgetGuard.CheckAsync(command.CampaignId, ct);
+        var budgetError = await _budgetGuard.CheckAsync(command.WorldId, ct);
         if (budgetError is not null)
             return AppResult<LoremasterAnswer>.Fail(budgetError);
 
@@ -110,7 +110,7 @@ public partial class LoremasterService : ILoremasterService
 
             context = await _knowledgeRetriever.RetrieveAsync(
                 retrievalText,
-                command.CampaignId,
+                command.WorldId,
                 command.UserId,
                 command.UserRole,
                 ct);
@@ -281,7 +281,7 @@ public partial class LoremasterService : ILoremasterService
         var record = new AiUsageRecord
         {
             Id = Guid.NewGuid(),
-            CampaignId = command.CampaignId,
+            WorldId = command.WorldId,
             UserId = command.UserId,
             OperationType = AiOperationType.AskLoremaster,
             Model = response?.Model ?? _options.AiModel,
@@ -334,7 +334,7 @@ public partial class LoremasterService : ILoremasterService
         var formattedContext = FormatKnowledgeContext(context);
         if (!string.IsNullOrWhiteSpace(formattedContext))
         {
-            userMessage.AppendLine("## Campaign Knowledge Context");
+            userMessage.AppendLine("## World Knowledge Context");
             userMessage.AppendLine();
             userMessage.AppendLine(formattedContext);
             userMessage.AppendLine();

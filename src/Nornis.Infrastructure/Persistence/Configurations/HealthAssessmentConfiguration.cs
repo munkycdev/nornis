@@ -19,12 +19,12 @@ public class HealthAssessmentConfiguration : IEntityTypeConfiguration<HealthAsse
         builder.Property(a => a.CreatedAt)
             .HasColumnType("datetimeoffset");
 
-        // Latest-assessment lookups are always campaign-scoped and ordered by recency.
-        builder.HasIndex(a => new { a.CampaignId, a.CreatedAt });
+        // Latest-assessment lookups are always world-scoped and ordered by recency.
+        builder.HasIndex(a => new { a.WorldId, a.CreatedAt });
 
-        builder.HasOne(a => a.Campaign)
+        builder.HasOne(a => a.World)
             .WithMany()
-            .HasForeignKey(a => a.CampaignId)
+            .HasForeignKey(a => a.WorldId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasMany(a => a.Findings)

@@ -22,7 +22,7 @@ public class ReviewServiceRejectTests
     private FakeProposalApplicator _applicator = null!;
     private ReviewService _service = null!;
 
-    private Guid _campaignId;
+    private Guid _worldId;
     private Guid _gmUserId;
     private Guid _playerUserId;
     private Source _source = null!;
@@ -54,14 +54,14 @@ public class ReviewServiceRejectTests
             _validator,
             _applicator);
 
-        _campaignId = Guid.NewGuid();
+        _worldId = Guid.NewGuid();
         _gmUserId = Guid.NewGuid();
         _playerUserId = Guid.NewGuid();
 
         _source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.SessionNote,
             Title = "Session 1: Black Harbor",
             Body = "We questioned Captain Voss in Black Harbor.",
@@ -75,7 +75,7 @@ public class ReviewServiceRejectTests
         _batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = _source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-30)
@@ -93,7 +93,7 @@ public class ReviewServiceRejectTests
         var beforeReject = DateTimeOffset.UtcNow;
 
         var command = new RejectProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -117,7 +117,7 @@ public class ReviewServiceRejectTests
         await _proposalRepo.CreateAsync(proposal);
 
         var command = new RejectProposalCommand(
-            proposal.Id, _campaignId, _playerUserId, CampaignRole.Player);
+            proposal.Id, _worldId, _playerUserId, WorldRole.Player);
 
         var result = await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -137,7 +137,7 @@ public class ReviewServiceRejectTests
         await _proposalRepo.CreateAsync(proposal);
 
         var command = new RejectProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -159,7 +159,7 @@ public class ReviewServiceRejectTests
         var artifactCountBefore = _artifactRepo.Artifacts.Count;
 
         var command = new RejectProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -175,7 +175,7 @@ public class ReviewServiceRejectTests
         var factCountBefore = _factRepo.Facts.Count;
 
         var command = new RejectProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -191,7 +191,7 @@ public class ReviewServiceRejectTests
         var relationshipCountBefore = _relationshipRepo.Relationships.Count;
 
         var command = new RejectProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -207,7 +207,7 @@ public class ReviewServiceRejectTests
         var refCountBefore = _sourceRefRepo.References.Count;
 
         var command = new RejectProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -240,7 +240,7 @@ public class ReviewServiceRejectTests
         await _proposalRepo.CreateAsync(proposal);
 
         var command = new RejectProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -273,7 +273,7 @@ public class ReviewServiceRejectTests
 
         var anotherUserId = Guid.NewGuid();
         var command = new RejectProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -293,7 +293,7 @@ public class ReviewServiceRejectTests
         await _proposalRepo.CreateAsync(proposal);
 
         var command = new RejectProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -309,7 +309,7 @@ public class ReviewServiceRejectTests
         await _proposalRepo.CreateAsync(proposal);
 
         var command = new RejectProposalCommand(
-            proposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+            proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -326,7 +326,7 @@ public class ReviewServiceRejectTests
         var gmSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.GMNote,
             Title = "GM secrets about Black Harbor",
             Visibility = VisibilityScope.GMOnly,
@@ -339,7 +339,7 @@ public class ReviewServiceRejectTests
         var gmBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = gmSource.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow
@@ -351,7 +351,7 @@ public class ReviewServiceRejectTests
 
         // Player cannot see GMOnly source
         var command = new RejectProposalCommand(
-            proposal.Id, _campaignId, _playerUserId, CampaignRole.Player);
+            proposal.Id, _worldId, _playerUserId, WorldRole.Player);
 
         var result = await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -367,7 +367,7 @@ public class ReviewServiceRejectTests
         var privateSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.JournalEntry,
             Title = "Captain Voss private notes",
             Visibility = VisibilityScope.Private,
@@ -380,7 +380,7 @@ public class ReviewServiceRejectTests
         var privateBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = privateSource.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow
@@ -392,7 +392,7 @@ public class ReviewServiceRejectTests
 
         // Player cannot see another player's private source
         var command = new RejectProposalCommand(
-            proposal.Id, _campaignId, _playerUserId, CampaignRole.Player);
+            proposal.Id, _worldId, _playerUserId, WorldRole.Player);
 
         var result = await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -406,7 +406,7 @@ public class ReviewServiceRejectTests
     {
         var nonExistentId = Guid.NewGuid();
         var command = new RejectProposalCommand(
-            nonExistentId, _campaignId, _gmUserId, CampaignRole.GM);
+            nonExistentId, _worldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -416,15 +416,15 @@ public class ReviewServiceRejectTests
     }
 
     [Test]
-    public async Task RejectProposal_ProposalInDifferentCampaign_ReturnsNotFound()
+    public async Task RejectProposal_ProposalInDifferentWorld_ReturnsNotFound()
     {
-        var otherCampaignId = Guid.NewGuid();
+        var otherWorldId = Guid.NewGuid();
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
 
-        // Use a different campaignId than the batch's campaign
+        // Use a different worldId than the batch's world
         var command = new RejectProposalCommand(
-            proposal.Id, otherCampaignId, _gmUserId, CampaignRole.GM);
+            proposal.Id, otherWorldId, _gmUserId, WorldRole.GM);
 
         var result = await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -443,7 +443,7 @@ public class ReviewServiceRejectTests
         var pendingBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = _source.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-15)
@@ -456,7 +456,7 @@ public class ReviewServiceRejectTests
         await _proposalRepo.CreateAsync(otherPendingProposal);
 
         var command = new RejectProposalCommand(
-            proposalToReject.Id, _campaignId, _gmUserId, CampaignRole.GM);
+            proposalToReject.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -469,7 +469,7 @@ public class ReviewServiceRejectTests
         var pendingBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = _source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-15)
@@ -497,7 +497,7 @@ public class ReviewServiceRejectTests
         await _proposalRepo.CreateAsync(lastProposal);
 
         var command = new RejectProposalCommand(
-            lastProposal.Id, _campaignId, _gmUserId, CampaignRole.GM);
+            lastProposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.RejectProposalAsync(command, CancellationToken.None);
 
@@ -515,7 +515,7 @@ public class ReviewServiceRejectTests
         await _proposalRepo.CreateAsync(proposalToReject);
 
         var command = new RejectProposalCommand(
-            proposalToReject.Id, _campaignId, _gmUserId, CampaignRole.GM);
+            proposalToReject.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.RejectProposalAsync(command, CancellationToken.None);
 

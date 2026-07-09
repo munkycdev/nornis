@@ -5,27 +5,27 @@
     <div class="nornis-brand-tagline">Shape fate. Build legacy.</div>
 </div>
 
-<MudMenu AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter" Class="nornis-campaign-menu">
+<MudMenu AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter" Class="nornis-world-menu">
     <ActivatorContent>
-        <div class="nornis-campaign">
+        <div class="nornis-world">
             <MudIcon Icon="@Icons.Material.Outlined.Terrain" Color="Color.Secondary" />
             <div class="flex-grow-1">
-                <div class="nornis-campaign-name">@(Campaigns.Current?.Name ?? "No campaign")</div>
-                <div class="nornis-campaign-label">@(Campaigns.Current is null ? "Select or create" : "Campaign")</div>
+                <div class="nornis-world-name">@(Worlds.Current?.Name ?? "No world")</div>
+                <div class="nornis-world-label">@(Worlds.Current is null ? "Select or create" : "World")</div>
             </div>
             <MudIcon Icon="@Icons.Material.Filled.KeyboardArrowDown" Size="Size.Small" />
         </div>
     </ActivatorContent>
     <ChildContent>
-        @foreach (var campaign in Campaigns.Campaigns)
+        @foreach (var world in Worlds.Worlds)
         {
-            <MudMenuItem OnClick="@(() => SelectCampaignAsync(campaign.Id))">@campaign.Name</MudMenuItem>
+            <MudMenuItem OnClick="@(() => SelectWorldAsync(world.Id))">@world.Name</MudMenuItem>
         }
-        @if (Campaigns.Campaigns.Count > 0)
+        @if (Worlds.Worlds.Count > 0)
         {
             <MudDivider />
         }
-        <MudMenuItem Icon="@Icons.Material.Filled.Add" OnClick="CreateCampaign">New campaign</MudMenuItem>
+        <MudMenuItem Icon="@Icons.Material.Filled.Add" OnClick="CreateWorld">New world</MudMenuItem>
     </ChildContent>
 </MudMenu>
 
@@ -41,14 +41,14 @@
 </MudNavMenu>
 
 <div class="nornis-memory">
-    <div class="nornis-memory-title">Campaign Memory</div>
+    <div class="nornis-memory-title">World Memory</div>
     <div class="nornis-memory-row">
         <div class="nornis-ring">
-            <MudProgressCircular Value="@(Campaigns.Health?.OverallScore ?? 0)" Min="0" Max="100"
+            <MudProgressCircular Value="@(Worlds.Health?.OverallScore ?? 0)" Min="0" Max="100"
                                  Color="@HealthColor" Size="Size.Medium" StrokeWidth="4" Class="nornis-ring-onnavy" />
         </div>
         <div class="nornis-memory-figure">
-            @if (Campaigns.Health is { HasData: true } h)
+            @if (Worlds.Health is { HasData: true } h)
             {
                 <span class="nornis-memory-pct">@h.OverallScore%</span>
                 <span class="nornis-memory-state">@h.Label</span>
@@ -56,7 +56,7 @@
             else
             {
                 <span class="nornis-memory-pct">—</span>
-                <span class="nornis-memory-state">@(Campaigns.Health is null ? "Loading…" : "No data yet")</span>
+                <span class="nornis-memory-state">@(Worlds.Health is null ? "Loading…" : "No data yet")</span>
             }
         </div>
     </div>
@@ -77,20 +77,20 @@
 </MudButton>
 
 @implements IDisposable
-@inject CampaignState Campaigns
+@inject WorldState Worlds
 @inject IDialogService DialogService
 @inject IJSRuntime JS
 
 @code {
-    private const string SelectedCampaignKey = "nornis:campaign";
+    private const string SelectedWorldKey = "nornis:world";
 
     [Parameter]
     public EventCallback OnCollapse { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        Campaigns.Changed += OnCampaignsChanged;
-        await Campaigns.EnsureLoadedAsync();
+        Worlds.Changed += OnWorldsChanged;
+        await Worlds.EnsureLoadedAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -100,16 +100,16 @@
             return;
         }
 
-        // Restore the campaign the user last had selected (localStorage needs JS, so after render).
+        // Restore the world the user last had selected (localStorage needs JS, so after render).
         // Ensure the list is loaded first — OnAfterRender can fire before OnInitializedAsync's load.
-        await Campaigns.EnsureLoadedAsync();
+        await Worlds.EnsureLoadedAsync();
         try
         {
-            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", SelectedCampaignKey);
-            if (Guid.TryParse(saved, out var id) && id != Campaigns.Current?.Id
-                && Campaigns.Campaigns.Any(c => c.Id == id))
+            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", SelectedWorldKey);
+            if (Guid.TryParse(saved, out var id) && id != Worlds.Current?.Id
+                && Worlds.Worlds.Any(c => c.Id == id))
             {
-                Campaigns.Select(id);
+                Worlds.Select(id);
             }
         }
         catch
@@ -118,12 +118,12 @@
         }
     }
 
-    private async Task SelectCampaignAsync(Guid campaignId)
+    private async Task SelectWorldAsync(Guid worldId)
     {
-        Campaigns.Select(campaignId);
+        Worlds.Select(worldId);
         try
         {
-            await JS.InvokeVoidAsync("localStorage.setItem", SelectedCampaignKey, campaignId.ToString());
+            await JS.InvokeVoidAsync("localStorage.setItem", SelectedWorldKey, worldId.ToString());
         }
         catch
         {
@@ -131,26 +131,26 @@
         }
     }
 
-    private void OnCampaignsChanged() => InvokeAsync(StateHasChanged);
+    private void OnWorldsChanged() => InvokeAsync(StateHasChanged);
 
-    private Color HealthColor => (Campaigns.Health?.OverallScore ?? 0) switch
+    private Color HealthColor => (Worlds.Health?.OverallScore ?? 0) switch
     {
         >= 70 => Color.Success,
         >= 50 => Color.Warning,
         _ => Color.Error,
     };
 
-    private async Task CreateCampaign()
+    private async Task CreateWorld()
     {
-        var dialog = await DialogService.ShowAsync<CreateCampaignDialog>("New campaign");
+        var dialog = await DialogService.ShowAsync<CreateWorldDialog>("New world");
         var result = await dialog.Result;
 
-        if (result is not null && !result.Canceled && result.Data is CampaignSummary created)
+        if (result is not null && !result.Canceled && result.Data is WorldSummary created)
         {
-            await Campaigns.ReloadAsync();
-            await SelectCampaignAsync(created.Id);
+            await Worlds.ReloadAsync();
+            await SelectWorldAsync(created.Id);
         }
     }
 
-    public void Dispose() => Campaigns.Changed -= OnCampaignsChanged;
+    public void Dispose() => Worlds.Changed -= OnWorldsChanged;
 }

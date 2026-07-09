@@ -43,7 +43,7 @@ public sealed class TestableExtractionWorker
         try
         {
             message = JsonSerializer.Deserialize<ExtractionMessage>(context.MessageBody);
-            if (message is null || message.SourceId == Guid.Empty || message.CampaignId == Guid.Empty)
+            if (message is null || message.SourceId == Guid.Empty || message.WorldId == Guid.Empty)
             {
                 _logger.LogError(
                     "Deserialization returned null or invalid message. CorrelationId={CorrelationId}, Body={MessageBody}",
@@ -67,15 +67,15 @@ public sealed class TestableExtractionWorker
         }
 
         _logger.LogInformation(
-            "Processing extraction message. CorrelationId={CorrelationId}, SourceId={SourceId}, CampaignId={CampaignId}",
+            "Processing extraction message. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}",
             correlationId,
             message.SourceId,
-            message.CampaignId);
+            message.WorldId);
 
         try
         {
             var outcome = await _extractionService.ProcessExtractionAsync(
-                message.SourceId, message.CampaignId, cancellationToken);
+                message.SourceId, message.WorldId, cancellationToken);
 
             stopwatch.Stop();
 
@@ -83,10 +83,10 @@ public sealed class TestableExtractionWorker
             {
                 case OutcomeType.Success:
                     _logger.LogInformation(
-                        "Extraction succeeded. CorrelationId={CorrelationId}, SourceId={SourceId}, CampaignId={CampaignId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, ReviewBatchId={ReviewBatchId}, ProposalCount={ProposalCount}",
+                        "Extraction succeeded. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, ReviewBatchId={ReviewBatchId}, ProposalCount={ProposalCount}",
                         correlationId,
                         message.SourceId,
-                        message.CampaignId,
+                        message.WorldId,
                         outcome.Type,
                         stopwatch.ElapsedMilliseconds,
                         outcome.ReviewBatchId,
@@ -96,10 +96,10 @@ public sealed class TestableExtractionWorker
 
                 case OutcomeType.Skipped:
                     _logger.LogInformation(
-                        "Extraction skipped. CorrelationId={CorrelationId}, SourceId={SourceId}, CampaignId={CampaignId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, Reason={Reason}",
+                        "Extraction skipped. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, Reason={Reason}",
                         correlationId,
                         message.SourceId,
-                        message.CampaignId,
+                        message.WorldId,
                         outcome.Type,
                         stopwatch.ElapsedMilliseconds,
                         outcome.ErrorMessage);
@@ -108,10 +108,10 @@ public sealed class TestableExtractionWorker
 
                 case OutcomeType.NonTransientFailure:
                     _logger.LogError(
-                        "Extraction failed with non-transient error. CorrelationId={CorrelationId}, SourceId={SourceId}, CampaignId={CampaignId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, ErrorCategory={ErrorCategory}, ErrorMessage={ErrorMessage}",
+                        "Extraction failed with non-transient error. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, ErrorCategory={ErrorCategory}, ErrorMessage={ErrorMessage}",
                         correlationId,
                         message.SourceId,
-                        message.CampaignId,
+                        message.WorldId,
                         outcome.Type,
                         stopwatch.ElapsedMilliseconds,
                         outcome.ErrorCategory,
@@ -121,10 +121,10 @@ public sealed class TestableExtractionWorker
 
                 case OutcomeType.TransientFailure:
                     _logger.LogWarning(
-                        "Extraction failed with transient error, abandoning message for redelivery. CorrelationId={CorrelationId}, SourceId={SourceId}, CampaignId={CampaignId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, ErrorCategory={ErrorCategory}, ErrorMessage={ErrorMessage}",
+                        "Extraction failed with transient error, abandoning message for redelivery. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, ErrorCategory={ErrorCategory}, ErrorMessage={ErrorMessage}",
                         correlationId,
                         message.SourceId,
-                        message.CampaignId,
+                        message.WorldId,
                         outcome.Type,
                         stopwatch.ElapsedMilliseconds,
                         outcome.ErrorCategory,
@@ -139,10 +139,10 @@ public sealed class TestableExtractionWorker
 
             _logger.LogError(
                 ex,
-                "Unexpected exception during extraction processing. CorrelationId={CorrelationId}, SourceId={SourceId}, CampaignId={CampaignId}, DurationMs={DurationMs}",
+                "Unexpected exception during extraction processing. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}, DurationMs={DurationMs}",
                 correlationId,
                 message.SourceId,
-                message.CampaignId,
+                message.WorldId,
                 stopwatch.ElapsedMilliseconds);
 
             await context.AbandonMessageAsync(cancellationToken);

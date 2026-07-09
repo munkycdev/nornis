@@ -25,34 +25,34 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 public class DateRangeValidationTests
 {
     private InMemoryAiUsageRecordRepository _aiUsageRepo = null!;
-    private InMemoryCampaignMemberRepository _memberRepo = null!;
-    private InMemoryCampaignRepository _campaignRepo = null!;
+    private InMemoryWorldMemberRepository _memberRepo = null!;
+    private InMemoryWorldRepository _worldRepo = null!;
     private CostService _costService = null!;
-    private Guid _campaignId;
+    private Guid _worldId;
     private Guid _userId;
 
     [SetUp]
     public void SetUp()
     {
         _aiUsageRepo = new InMemoryAiUsageRecordRepository();
-        _memberRepo = new InMemoryCampaignMemberRepository();
-        _campaignRepo = new InMemoryCampaignRepository();
+        _memberRepo = new InMemoryWorldMemberRepository();
+        _worldRepo = new InMemoryWorldRepository();
         _costService = new CostService(
             _aiUsageRepo,
             _memberRepo,
-            _campaignRepo,
+            _worldRepo,
             NullLogger<CostService>.Instance);
 
-        _campaignId = Guid.NewGuid();
+        _worldId = Guid.NewGuid();
         _userId = Guid.NewGuid();
 
-        // Seed a campaign member so username resolution works
-        _memberRepo.CreateAsync(new CampaignMember
+        // Seed a world member so username resolution works
+        _memberRepo.CreateAsync(new WorldMember
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             UserId = _userId,
-            Role = CampaignRole.GM,
+            Role = WorldRole.GM,
             DisplayName = "Kelda",
             JoinedAt = DateTimeOffset.UtcNow
         }).GetAwaiter().GetResult();
@@ -61,7 +61,7 @@ public class DateRangeValidationTests
         _aiUsageRepo.CreateAsync(new AiUsageRecord
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             UserId = _userId,
             OperationType = AiOperationType.AskLoremaster,
             Model = "gpt-4o",
@@ -83,7 +83,7 @@ public class DateRangeValidationTests
     {
         // Act
         var result = _costService.GetByUserAsync(
-            _campaignId, _userId, CampaignRole.GM,
+            _worldId, _userId, WorldRole.GM,
             pair.StartDate, pair.EndDate, CancellationToken.None)
             .GetAwaiter().GetResult();
 
@@ -101,7 +101,7 @@ public class DateRangeValidationTests
     {
         // Act
         var result = _costService.GetByOperationTypeAsync(
-            _campaignId, _userId, CampaignRole.GM,
+            _worldId, _userId, WorldRole.GM,
             pair.StartDate, pair.EndDate, CancellationToken.None)
             .GetAwaiter().GetResult();
 
@@ -119,7 +119,7 @@ public class DateRangeValidationTests
     {
         // Act
         var result = _costService.GetByModelAsync(
-            _campaignId, _userId, CampaignRole.GM,
+            _worldId, _userId, WorldRole.GM,
             pair.StartDate, pair.EndDate, CancellationToken.None)
             .GetAwaiter().GetResult();
 
@@ -137,7 +137,7 @@ public class DateRangeValidationTests
     {
         // Act
         var result = _costService.GetByUserAsync(
-            _campaignId, _userId, CampaignRole.GM,
+            _worldId, _userId, WorldRole.GM,
             pair.StartDate, pair.EndDate, CancellationToken.None)
             .GetAwaiter().GetResult();
 
@@ -154,7 +154,7 @@ public class DateRangeValidationTests
     {
         // Act
         var result = _costService.GetByOperationTypeAsync(
-            _campaignId, _userId, CampaignRole.GM,
+            _worldId, _userId, WorldRole.GM,
             pair.StartDate, pair.EndDate, CancellationToken.None)
             .GetAwaiter().GetResult();
 
@@ -171,7 +171,7 @@ public class DateRangeValidationTests
     {
         // Act
         var result = _costService.GetByModelAsync(
-            _campaignId, _userId, CampaignRole.GM,
+            _worldId, _userId, WorldRole.GM,
             pair.StartDate, pair.EndDate, CancellationToken.None)
             .GetAwaiter().GetResult();
 

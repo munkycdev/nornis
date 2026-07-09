@@ -14,7 +14,7 @@ namespace Nornis.Api.Tests.Integration;
 
 /// <summary>
 /// Integration tests for LoremasterController authorization and role-based visibility filtering.
-/// These tests exercise the full HTTP pipeline: JWT validation, CampaignMemberActionFilter,
+/// These tests exercise the full HTTP pipeline: JWT validation, WorldMemberActionFilter,
 /// knowledge retrieval with visibility filtering, and response assembly.
 ///
 /// Validates: Requirements 1.1, 1.2, 1.3, 3.1, 3.2, 3.3, 3.4
@@ -42,7 +42,7 @@ public class LoremasterAuthorizationIntegrationTests
         _factory.Dispose();
     }
 
-    private string AskUrl => $"/api/campaigns/{_scenario.Campaign.Id}/ask";
+    private string AskUrl => $"/api/worlds/{_scenario.World.Id}/ask";
 
     #region Authorization Tests
 
@@ -62,25 +62,25 @@ public class LoremasterAuthorizationIntegrationTests
     }
 
     [Test]
-    public async Task Ask_NonMember_Returns403WithoutRevealingCampaignExistence()
+    public async Task Ask_NonMember_Returns403WithoutRevealingWorldExistence()
     {
-        // Arrange — user who is not a member of the campaign
+        // Arrange — user who is not a member of the world
         var request = new AskLoremasterRequest("Who is Captain Voss?");
 
         // Act
         var response = await _scenario.NonMemberClient.PostAsJsonAsync(AskUrl, request);
 
-        // Assert — 403, not 404 (but importantly, same response for both existing and non-existing campaigns)
+        // Assert — 403, not 404 (but importantly, same response for both existing and non-existing worlds)
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
 
-        // Also verify that requesting a non-existent campaign returns the same status
-        var nonExistentCampaignUrl = $"/api/campaigns/{Guid.NewGuid()}/ask";
-        var response2 = await _scenario.NonMemberClient.PostAsJsonAsync(nonExistentCampaignUrl, request);
+        // Also verify that requesting a non-existent world returns the same status
+        var nonExistentWorldUrl = $"/api/worlds/{Guid.NewGuid()}/ask";
+        var response2 = await _scenario.NonMemberClient.PostAsJsonAsync(nonExistentWorldUrl, request);
         Assert.That(response2.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }
 
     [Test]
-    public async Task Ask_CampaignMemberActionFilter_AppliedToEndpoint()
+    public async Task Ask_WorldMemberActionFilter_AppliedToEndpoint()
     {
         // Arrange — GM user who IS a member
         var request = new AskLoremasterRequest("Who is Captain Voss?");
@@ -224,10 +224,10 @@ public class LoremasterAuthorizationIntegrationTests
 
     /// <summary>
     /// Sets up a complete Loremaster test scenario with:
-    /// - A campaign
-    /// - A GM user (Kelda) with GM CampaignMember
-    /// - A Player user (Tavrin) with Player CampaignMember
-    /// - An Observer user (Jorin) with Observer CampaignMember
+    /// - A world
+    /// - A GM user (Kelda) with GM WorldMember
+    /// - A Player user (Tavrin) with Player WorldMember
+    /// - An Observer user (Jorin) with Observer WorldMember
     /// - A non-member user
     /// - Artifacts with different visibilities: PartyVisible, GMOnly, Private (owned by GM)
     /// </summary>
@@ -247,16 +247,16 @@ public class LoremasterAuthorizationIntegrationTests
         var nonMemberUserId = await SourceTestHelpers.ProvisionUserAndGetIdAsync(
             factory, "auth0|nonmember-stranger", "stranger@elsewhere.com", "Stranger");
 
-        // Create campaign with GM
-        var campaign = await SourceTestHelpers.CreateTestCampaignAsync(factory, gmUserId);
+        // Create world with GM
+        var world = await SourceTestHelpers.CreateTestWorldAsync(factory, gmUserId);
 
         // Add player and observer members
-        await SourceTestHelpers.AddCampaignMemberAsync(
-            factory, campaign.Id, playerUserId, CampaignRole.Player,
+        await SourceTestHelpers.AddWorldMemberAsync(
+            factory, world.Id, playerUserId, WorldRole.Player,
             displayName: "Tavrin", characterName: "Tavrin the Bold");
 
-        await SourceTestHelpers.AddCampaignMemberAsync(
-            factory, campaign.Id, observerUserId, CampaignRole.Observer,
+        await SourceTestHelpers.AddWorldMemberAsync(
+            factory, world.Id, observerUserId, WorldRole.Observer,
             displayName: "Jorin");
 
         // Seed artifacts with different visibilities
@@ -268,7 +268,7 @@ public class LoremasterAuthorizationIntegrationTests
             var partyVisibleArtifact = new Artifact
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 Name = "CaptainVoss",
                 Type = ArtifactType.Character,
                 Summary = "A harbor captain suspected of smuggling",
@@ -284,7 +284,7 @@ public class LoremasterAuthorizationIntegrationTests
             var gmOnlyArtifact = new Artifact
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 Name = "SecretGmPlot",
                 Type = ArtifactType.Event,
                 Summary = "A secret plot only the GM knows about",
@@ -300,7 +300,7 @@ public class LoremasterAuthorizationIntegrationTests
             var gmPrivateArtifact = new Artifact
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 Name = "GmPrivateNote",
                 Type = ArtifactType.Concept,
                 Summary = "Private notes only the GM can see",
@@ -360,7 +360,7 @@ public class LoremasterAuthorizationIntegrationTests
 
         return new LoremasterTestScenario
         {
-            Campaign = campaign,
+            World = world,
             GmUserId = gmUserId,
             PlayerUserId = playerUserId,
             ObserverUserId = observerUserId,
@@ -383,7 +383,7 @@ public class LoremasterAuthorizationIntegrationTests
 /// </summary>
 public class LoremasterTestScenario
 {
-    public required Campaign Campaign { get; init; }
+    public required World World { get; init; }
     public required Guid GmUserId { get; init; }
     public required Guid PlayerUserId { get; init; }
     public required Guid ObserverUserId { get; init; }
@@ -423,7 +423,7 @@ public class LoremasterAuthorizationTestFactory : NornisWebApplicationFactory
 /// <summary>
 /// A fake AI client that echoes back ONLY the knowledge context section from the prompt.
 /// The user message has the format:
-/// "## Campaign Knowledge Context\n...\n## Question\n..."
+/// "## World Knowledge Context\n...\n## Question\n..."
 /// We extract just the context part (before "## Question") so that assertions on the answer
 /// only reflect what the knowledge retriever included, not the question text itself.
 /// </summary>

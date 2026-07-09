@@ -49,7 +49,7 @@ public class InvalidQuestionsAreRejectedTests
             new FakeAiBudgetGuard(), options);
 
         var command = new AskLoremasterCommand(
-            CampaignId: scenario.CampaignId,
+            WorldId: scenario.WorldId,
             Question: scenario.InvalidQuestion,
             UserId: scenario.UserId,
             UserRole: scenario.UserRole,
@@ -84,9 +84,9 @@ public class InvalidQuestionsAreRejectedTests
 /// Input model for invalid question scenarios.
 /// </summary>
 public record InvalidQuestionScenario(
-    Guid CampaignId,
+    Guid WorldId,
     Guid UserId,
-    CampaignRole UserRole,
+    WorldRole UserRole,
     string InvalidQuestion,
     string QuestionCategory);
 
@@ -101,9 +101,9 @@ public class InvalidQuestionArbitraries
     public static Arbitrary<InvalidQuestionScenario> InvalidQuestionScenarios()
     {
         var roleGen = Gen.Elements(
-            CampaignRole.GM,
-            CampaignRole.Player,
-            CampaignRole.Observer);
+            WorldRole.GM,
+            WorldRole.Player,
+            WorldRole.Observer);
 
         var emptyStringGen = Gen.Constant(string.Empty)
             .Select(q => (Question: q, Category: "empty"));
@@ -132,12 +132,12 @@ public class InvalidQuestionArbitraries
             (3, overLengthGen));
 
         var gen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from userId in ArbMap.Default.GeneratorFor<Guid>()
             from role in roleGen
             from invalidQuestion in invalidQuestionGen
             select new InvalidQuestionScenario(
-                campaignId,
+                worldId,
                 userId,
                 role,
                 invalidQuestion.Question,

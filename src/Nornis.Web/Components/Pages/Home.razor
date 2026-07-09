@@ -1,16 +1,16 @@
 ﻿@page "/"
 @using System.Text.Json
 @implements IDisposable
-@inject CampaignState Campaigns
+@inject WorldState Worlds
 @inject NornisApiClient Api
 @inject AskState AskState
 @inject NavigationManager Nav
 
 <PageTitle>Ask the Loremaster — Nornis</PageTitle>
 
-@if (Campaigns.Current is null)
+@if (Worlds.Current is null)
 {
-    <NoCampaign />
+    <NoWorld />
 }
 else
 {
@@ -20,7 +20,7 @@ else
             <MudPaper Elevation="0" Class="nornis-card nornis-hero">
                 <div class="nornis-hero-mark">N</div>
                 <div class="nornis-hero-title">Ask the Loremaster</div>
-                <div class="nornis-hero-sub">Your campaign. Remembered. Understood.</div>
+                <div class="nornis-hero-sub">Your world. Remembered. Understood.</div>
 
                 <div class="nornis-ask">
                     <MudTextField T="string"
@@ -77,7 +77,7 @@ else
 
                 <div class="nornis-capture-foot">
                     <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
-                    All inputs are private to your campaign
+                    All inputs are private to your world
                 </div>
             </MudPaper>
 
@@ -168,7 +168,7 @@ else
                         <MudIcon Icon="@Icons.Material.Outlined.Info" Color="Color.Tertiary" Size="Size.Small" />
                     </MudTooltip>
                 </div>
-                @if (Campaigns.Health is { HasData: true } h)
+                @if (Worlds.Health is { HasData: true } h)
                 {
                     <div class="nornis-health-row">
                         <div class="nornis-ring">
@@ -191,7 +191,7 @@ else
                 else
                 {
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @(Campaigns.Health is null ? "Computing…" : "Not enough data yet.")
+                        @(Worlds.Health is null ? "Computing…" : "Not enough data yet.")
                     </MudText>
                 }
             </MudPaper>
@@ -355,7 +355,7 @@ else
     private string? _assessmentError;
 
     private bool _showAiAssessment =>
-        string.Equals(Campaigns.Current?.MyRole, "GM", StringComparison.OrdinalIgnoreCase);
+        string.Equals(Worlds.Current?.MyRole, "GM", StringComparison.OrdinalIgnoreCase);
 
     // Shown until the data-driven suggestions load (or if that call fails).
     private static readonly string[] DefaultSuggestions =
@@ -378,12 +378,12 @@ else
         new("Add Link", "Article, wiki, video", Icons.Material.Outlined.Link, "WebLink"),
     ];
 
-    private Guid _dashboardCampaignId;
+    private Guid _dashboardWorldId;
 
     protected override async Task OnInitializedAsync()
     {
-        Campaigns.Changed += OnCampaignChanged;
-        await Campaigns.EnsureLoadedAsync();
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
         await LoadDashboardAsync();
     }
 
@@ -405,7 +405,7 @@ else
     // otherwise the page just opens (e.g. to browse saved conversations).
     private void GoAsk()
     {
-        if (Campaigns.Current is null)
+        if (Worlds.Current is null)
         {
             return;
         }
@@ -418,11 +418,11 @@ else
         Nav.NavigateTo("/ask");
     }
 
-    // Reload dashboard data only when the campaign actually changes; other notifications
-    // (e.g. the health score arriving) just re-render so the card picks up Campaigns.Health.
-    private void OnCampaignChanged() => InvokeAsync(async () =>
+    // Reload dashboard data only when the world actually changes; other notifications
+    // (e.g. the health score arriving) just re-render so the card picks up Worlds.Health.
+    private void OnWorldChanged() => InvokeAsync(async () =>
     {
-        if (Campaigns.Current?.Id != _dashboardCampaignId)
+        if (Worlds.Current?.Id != _dashboardWorldId)
         {
             await LoadDashboardAsync();
         }
@@ -434,15 +434,15 @@ else
 
     private async Task LoadDashboardAsync()
     {
-        if (Campaigns.Current is null)
+        if (Worlds.Current is null)
         {
-            _dashboardCampaignId = Guid.Empty;
+            _dashboardWorldId = Guid.Empty;
             StateHasChanged();
             return;
         }
 
-        var id = Campaigns.Current.Id;
-        _dashboardCampaignId = id;
+        var id = Worlds.Current.Id;
+        _dashboardWorldId = id;
         _loading = true;
         StateHasChanged();
 
@@ -507,7 +507,7 @@ else
     // Kicks off a fresh assessment. This call runs the LLM and can take ~10-30s.
     private async Task RunAssessment()
     {
-        if (Campaigns.Current is null || _running)
+        if (Worlds.Current is null || _running)
         {
             return;
         }
@@ -516,7 +516,7 @@ else
         _assessmentError = null;
         StateHasChanged();
 
-        var result = await Api.RunContinuityAssessmentAsync(Campaigns.Current.Id);
+        var result = await Api.RunContinuityAssessmentAsync(Worlds.Current.Id);
         if (result.IsSuccess)
         {
             _assessment = result.Value;
@@ -532,16 +532,16 @@ else
 
     private async Task DismissFinding(Guid findingId)
     {
-        if (Campaigns.Current is null)
+        if (Worlds.Current is null)
         {
             return;
         }
 
-        var result = await Api.DismissFindingAsync(Campaigns.Current.Id, findingId);
+        var result = await Api.DismissFindingAsync(Worlds.Current.Id, findingId);
         if (result.IsSuccess)
         {
             // Reload so the effective score reflects the now-dismissed finding.
-            await LoadAssessmentAsync(Campaigns.Current.Id);
+            await LoadAssessmentAsync(Worlds.Current.Id);
         }
         else
         {
@@ -617,5 +617,5 @@ else
         _ => Color.Error,
     };
 
-    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

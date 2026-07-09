@@ -20,28 +20,28 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// **Validates: Requirements 1.9, 3.6, 9.5**
 /// </summary>
 [TestFixture]
-[Category("Feature: campaign-sources, Property 3: Players Cannot Set GMOnly Visibility")]
+[Category("Feature: world-sources, Property 3: Players Cannot Set GMOnly Visibility")]
 public class SourcePlayerCannotSetGMOnlyVisibilityTests
 {
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(PlayerGMOnlyArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 3: Players Cannot Set GMOnly Visibility - CreateAsync rejects Player GMOnly")]
+    [Description("Feature: world-sources, Property 3: Players Cannot Set GMOnly Visibility - CreateAsync rejects Player GMOnly")]
     public void CreateAsync_RejectsPlayerWithGMOnlyVisibility(PlayerGMOnlyCreateInput input)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
         var command = new CreateSourceCommand(
-            input.CampaignId,
+            input.WorldId,
             input.Title,
             input.Type,
             VisibilityScope.GMOnly,
             input.UserId,
-            CampaignRole.Player,
+            WorldRole.Player,
             input.Body,
             input.Uri,
             input.OccurredAt);
@@ -66,19 +66,19 @@ public class SourcePlayerCannotSetGMOnlyVisibilityTests
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(PlayerGMOnlyArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 3: Players Cannot Set GMOnly Visibility - UpdateAsync rejects Player GMOnly")]
+    [Description("Feature: world-sources, Property 3: Players Cannot Set GMOnly Visibility - UpdateAsync rejects Player GMOnly")]
     public void UpdateAsync_RejectsPlayerUpdatingToGMOnlyVisibility(PlayerGMOnlyUpdateInput input)
     {
         // Arrange - create a valid source owned by the Player
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
         var existingSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = input.CampaignId,
+            WorldId = input.WorldId,
             Type = input.Type,
             Title = input.Title,
             Body = input.Body,
@@ -97,9 +97,9 @@ public class SourcePlayerCannotSetGMOnlyVisibilityTests
         // Act - attempt update with GMOnly visibility
         var updateCommand = new UpdateSourceCommand(
             existingSource.Id,
-            input.CampaignId,
+            input.WorldId,
             input.UserId,
-            CampaignRole.Player,
+            WorldRole.Player,
             Visibility: VisibilityScope.GMOnly);
 
         var result = service.UpdateAsync(updateCommand, CancellationToken.None).GetAwaiter().GetResult();
@@ -126,7 +126,7 @@ public class SourcePlayerCannotSetGMOnlyVisibilityTests
 /// Input model for Player GMOnly create scenario.
 /// </summary>
 public record PlayerGMOnlyCreateInput(
-    Guid CampaignId,
+    Guid WorldId,
     string Title,
     SourceType Type,
     Guid UserId,
@@ -138,7 +138,7 @@ public record PlayerGMOnlyCreateInput(
 /// Input model for Player GMOnly update scenario.
 /// </summary>
 public record PlayerGMOnlyUpdateInput(
-    Guid CampaignId,
+    Guid WorldId,
     string Title,
     SourceType Type,
     VisibilityScope OriginalVisibility,
@@ -199,14 +199,14 @@ public class PlayerGMOnlyArbitraries
             select (DateTimeOffset?)DateTimeOffset.UtcNow.AddDays(-daysAgo));
 
         var inputGen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from title in validTitleGen
             from sourceType in sourceTypeGen
             from userId in ArbMap.Default.GeneratorFor<Guid>()
             from body in optionalBodyGen
             from uri in optionalUriGen
             from occurredAt in optionalOccurredAtGen
-            select new PlayerGMOnlyCreateInput(campaignId, title, sourceType, userId, body, uri, occurredAt);
+            select new PlayerGMOnlyCreateInput(worldId, title, sourceType, userId, body, uri, occurredAt);
 
         return inputGen.ToArbitrary();
     }
@@ -250,14 +250,14 @@ public class PlayerGMOnlyArbitraries
             select (string?)new string(chars));
 
         var inputGen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from title in validTitleGen
             from sourceType in sourceTypeGen
             from originalVisibility in originalVisibilityGen
             from userId in ArbMap.Default.GeneratorFor<Guid>()
             from body in optionalBodyGen
             from uri in optionalUriGen
-            select new PlayerGMOnlyUpdateInput(campaignId, title, sourceType, originalVisibility, userId, body, uri);
+            select new PlayerGMOnlyUpdateInput(worldId, title, sourceType, originalVisibility, userId, body, uri);
 
         return inputGen.ToArbitrary();
     }

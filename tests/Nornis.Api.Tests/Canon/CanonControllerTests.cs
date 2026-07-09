@@ -24,16 +24,16 @@ public class CanonControllerTests
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
         var voss = await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Captain Voss");
+            _factory, scenario.World.Id, "Captain Voss");
         var harbor = await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Black Harbor", type: ArtifactType.Location);
+            _factory, scenario.World.Id, "Black Harbor", type: ArtifactType.Location);
 
         await KnowledgeTestHelpers.CreateTestFactAsync(
             _factory, voss.Id, "denied", "knowing about the caravan", TruthState.Rumor);
         await KnowledgeTestHelpers.CreateTestRelationshipAsync(
-            _factory, scenario.Campaign.Id, voss.Id, harbor.Id, "LocatedIn", TruthState.Confirmed);
+            _factory, scenario.World.Id, voss.Id, harbor.Id, "LocatedIn", TruthState.Confirmed);
 
-        var response = await scenario.GmClient.GetAsync($"/api/campaigns/{scenario.Campaign.Id}/canon");
+        var response = await scenario.GmClient.GetAsync($"/api/worlds/{scenario.World.Id}/canon");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         var entries = await response.Content.ReadFromJsonAsync<List<CanonEntryResponse>>();
@@ -48,7 +48,7 @@ public class CanonControllerTests
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
         var voss = await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Captain Voss");
+            _factory, scenario.World.Id, "Captain Voss");
 
         await KnowledgeTestHelpers.CreateTestFactAsync(
             _factory, voss.Id, "public", "in Black Harbor", TruthState.Confirmed, VisibilityScope.PartyVisible);
@@ -58,7 +58,7 @@ public class CanonControllerTests
         await KnowledgeTestHelpers.CreateTestFactAsync(
             _factory, voss.Id, "truth", "is the traitor", TruthState.Hidden, VisibilityScope.PartyVisible);
 
-        var response = await scenario.PlayerClient.GetAsync($"/api/campaigns/{scenario.Campaign.Id}/canon");
+        var response = await scenario.PlayerClient.GetAsync($"/api/worlds/{scenario.World.Id}/canon");
 
         var entries = await response.Content.ReadFromJsonAsync<List<CanonEntryResponse>>();
         Assert.That(entries!, Has.Count.EqualTo(1));
@@ -71,14 +71,14 @@ public class CanonControllerTests
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
         var voss = await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Captain Voss");
+            _factory, scenario.World.Id, "Captain Voss");
         await KnowledgeTestHelpers.CreateTestFactAsync(
             _factory, voss.Id, "confirmed", "value", TruthState.Confirmed);
         await KnowledgeTestHelpers.CreateTestFactAsync(
             _factory, voss.Id, "rumor", "value", TruthState.Rumor);
 
         var response = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/canon?truthState=Rumor");
+            $"/api/worlds/{scenario.World.Id}/canon?truthState=Rumor");
 
         var entries = await response.Content.ReadFromJsonAsync<List<CanonEntryResponse>>();
         Assert.That(entries!, Has.Count.EqualTo(1));
@@ -92,7 +92,7 @@ public class CanonControllerTests
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
         var response = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/canon?truthState=NotAState");
+            $"/api/worlds/{scenario.World.Id}/canon?truthState=NotAState");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
     }
@@ -104,7 +104,7 @@ public class CanonControllerTests
         var outsider = _factory.CreateAuthenticatedClient(
             sub: "auth0|outsider-canon", email: "outsider-canon@example.com", nickname: "Outsider");
 
-        var response = await outsider.GetAsync($"/api/campaigns/{scenario.Campaign.Id}/canon");
+        var response = await outsider.GetAsync($"/api/worlds/{scenario.World.Id}/canon");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }

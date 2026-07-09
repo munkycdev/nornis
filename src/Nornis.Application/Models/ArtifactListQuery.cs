@@ -3,8 +3,8 @@ using Nornis.Domain.Enums;
 namespace Nornis.Application.Models;
 
 public record ArtifactListQuery(
-    Guid CampaignId,
+    Guid WorldId,
     Guid ActingUserId,
-    CampaignRole ActingUserRole,
+    WorldRole ActingUserRole,
     ArtifactType? Type = null,
     ArtifactStatus? Status = null);

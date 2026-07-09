@@ -31,7 +31,7 @@ public class ExtractionServiceProposalCreationTests
     private FakeUnitOfWork _unitOfWork = null!;
     private ExtractionService _sut = null!;
 
-    private static readonly Guid CampaignId = Guid.NewGuid();
+    private static readonly Guid WorldId = Guid.NewGuid();
     private static readonly Guid SourceId = Guid.NewGuid();
     private static readonly Guid UserId = Guid.NewGuid();
 
@@ -83,7 +83,7 @@ public class ExtractionServiceProposalCreationTests
         var source = new Source
         {
             Id = SourceId,
-            CampaignId = CampaignId,
+            WorldId = WorldId,
             Type = SourceType.SessionNote,
             Title = "Session 5 Notes",
             Body = body,
@@ -122,21 +122,21 @@ public class ExtractionServiceProposalCreationTests
     #region ReviewBatch creation (Requirement 7.1)
 
     [Test]
-    public async Task ReviewBatch_IsCreated_WithCorrectCampaignId_And_SourceId()
+    public async Task ReviewBatch_IsCreated_WithCorrectWorldId_And_SourceId()
     {
         // Arrange
         CreateQueuedSource();
         _aiClient.SetupSuccess(CreateSuccessResponse());
 
         // Act
-        var outcome = await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        var outcome = await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
         Assert.That(_batchRepo.Batches, Has.Count.EqualTo(1));
 
         var batch = _batchRepo.Batches[0];
-        Assert.That(batch.CampaignId, Is.EqualTo(CampaignId));
+        Assert.That(batch.WorldId, Is.EqualTo(WorldId));
         Assert.That(batch.SourceId, Is.EqualTo(SourceId));
     }
 
@@ -148,7 +148,7 @@ public class ExtractionServiceProposalCreationTests
         _aiClient.SetupSuccess(CreateSuccessResponse());
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         var batch = _batchRepo.Batches[0];
@@ -164,7 +164,7 @@ public class ExtractionServiceProposalCreationTests
         var before = DateTimeOffset.UtcNow;
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         var after = DateTimeOffset.UtcNow;
@@ -186,7 +186,7 @@ public class ExtractionServiceProposalCreationTests
         _aiClient.SetupSuccess(CreateSuccessResponse(proposalCount));
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         Assert.That(_proposalRepo.Proposals, Has.Count.EqualTo(proposalCount));
@@ -221,7 +221,7 @@ public class ExtractionServiceProposalCreationTests
         _aiClient.SetupSuccess(aiResponse);
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         var proposal = _proposalRepo.Proposals[0];
@@ -241,7 +241,7 @@ public class ExtractionServiceProposalCreationTests
         _aiClient.SetupSuccess(CreateSuccessResponse());
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         var batch = _batchRepo.Batches[0];
@@ -279,7 +279,7 @@ public class ExtractionServiceProposalCreationTests
         _aiClient.SetupSuccess(aiResponse);
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         var proposal = _proposalRepo.Proposals[0];
@@ -304,7 +304,7 @@ public class ExtractionServiceProposalCreationTests
         _aiClient.SetupSuccess(CreateSuccessResponse(proposalCount));
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         Assert.That(_sourceRefRepo.References, Has.Count.EqualTo(proposalCount));
@@ -318,7 +318,7 @@ public class ExtractionServiceProposalCreationTests
         _aiClient.SetupSuccess(CreateSuccessResponse(1));
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         var reference = _sourceRefRepo.References[0];
@@ -334,7 +334,7 @@ public class ExtractionServiceProposalCreationTests
         _aiClient.SetupSuccess(CreateSuccessResponse(2));
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         var proposalIds = _proposalRepo.Proposals.Select(p => p.Id).ToHashSet();
@@ -375,7 +375,7 @@ public class ExtractionServiceProposalCreationTests
         _aiClient.SetupSuccess(aiResponse);
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         var proposal = _proposalRepo.Proposals[0];
@@ -410,7 +410,7 @@ public class ExtractionServiceProposalCreationTests
         _aiClient.SetupSuccess(aiResponse);
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         var proposal = _proposalRepo.Proposals[0];
@@ -446,7 +446,7 @@ public class ExtractionServiceProposalCreationTests
         _aiClient.SetupSuccess(aiResponse);
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         var proposal = _proposalRepo.Proposals[0];
@@ -498,7 +498,7 @@ public class ExtractionServiceProposalCreationTests
         _aiClient.SetupSuccess(aiResponse);
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert — all proposals should have GMOnly visibility
         foreach (var proposal in _proposalRepo.Proposals)
@@ -530,7 +530,7 @@ public class ExtractionServiceProposalCreationTests
         _aiClient.SetupSuccess(emptyResponse);
 
         // Act
-        var outcome = await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        var outcome = await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
@@ -558,7 +558,7 @@ public class ExtractionServiceProposalCreationTests
         _aiClient.SetupSuccess(emptyResponse);
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert
         Assert.That(_proposalRepo.Proposals, Is.Empty);
@@ -578,7 +578,7 @@ public class ExtractionServiceProposalCreationTests
         _unitOfWork.ConfigureCommitFailure(shouldFail: true);
 
         // Act
-        var outcome = await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        var outcome = await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert — outcome is non-transient failure
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
@@ -593,7 +593,7 @@ public class ExtractionServiceProposalCreationTests
         _unitOfWork.ConfigureCommitFailure(shouldFail: true);
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert — the transaction was rolled back
         Assert.That(_unitOfWork.Transactions, Has.Count.EqualTo(1));
@@ -610,7 +610,7 @@ public class ExtractionServiceProposalCreationTests
         _unitOfWork.ConfigureCommitFailure(shouldFail: true);
 
         // Act
-        await _sut.ProcessExtractionAsync(SourceId, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         // Assert — source should be marked Failed
         var source = await _sourceRepo.GetByIdAsync(SourceId);

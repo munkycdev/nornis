@@ -11,7 +11,7 @@ namespace Nornis.Infrastructure.Tests.Persistence.PropertyTests;
 /// <summary>
 /// Property 3: Optimistic Concurrency Detection
 ///
-/// For any mutable entity (Campaign, User, Artifact, ArtifactFact, ArtifactRelationship, ReviewProposal),
+/// For any mutable entity (World, User, Artifact, ArtifactFact, ArtifactRelationship, ReviewProposal),
 /// if two concurrent modifications are attempted against the same row version, the second save should
 /// fail with a concurrency exception.
 ///
@@ -67,9 +67,9 @@ public class OptimisticConcurrencyTests : IDisposable
         return user;
     }
 
-    private async Task<Campaign> CreatePrerequisiteCampaignAsync(Guid userId)
+    private async Task<World> CreatePrerequisiteWorldAsync(Guid userId)
     {
-        var campaign = new Campaign
+        var world = new World
         {
             Id = Guid.NewGuid(),
             Name = "Black Harbor Investigation",
@@ -78,17 +78,17 @@ public class OptimisticConcurrencyTests : IDisposable
             CreatedByUserId = userId,
             RowVersion = new byte[] { 0x01 }
         };
-        _context.Campaigns.Add(campaign);
+        _context.Worlds.Add(world);
         await _context.SaveChangesAsync();
-        return campaign;
+        return world;
     }
 
-    private async Task<Artifact> CreatePrerequisiteArtifactAsync(Guid campaignId)
+    private async Task<Artifact> CreatePrerequisiteArtifactAsync(Guid worldId)
     {
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Character,
             Name = "Tavrin",
             Visibility = VisibilityScope.PartyVisible,
@@ -102,12 +102,12 @@ public class OptimisticConcurrencyTests : IDisposable
         return artifact;
     }
 
-    private async Task<Source> CreatePrerequisiteSourceAsync(Guid campaignId, Guid userId)
+    private async Task<Source> CreatePrerequisiteSourceAsync(Guid worldId, Guid userId)
     {
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Session 1",
             CreatedAt = DateTimeOffset.UtcNow,
@@ -120,12 +120,12 @@ public class OptimisticConcurrencyTests : IDisposable
         return source;
     }
 
-    private async Task<ReviewBatch> CreatePrerequisiteReviewBatchAsync(Guid campaignId, Guid sourceId)
+    private async Task<ReviewBatch> CreatePrerequisiteReviewBatchAsync(Guid worldId, Guid sourceId)
     {
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = sourceId,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow
@@ -167,13 +167,13 @@ public class OptimisticConcurrencyTests : IDisposable
     }
 
     [Property(MaxTest = 100, Arbitrary = new[] { typeof(DomainArbitraries) })]
-    public void CampaignConcurrencyConflictIsDetected(Campaign generated)
+    public void WorldConcurrencyConflictIsDetected(World generated)
     {
         Task.Run(async () =>
         {
             var user = await CreatePrerequisiteUserAsync();
 
-            var campaign = new Campaign
+            var world = new World
             {
                 Id = Guid.NewGuid(),
                 Name = generated.Name,
@@ -184,11 +184,11 @@ public class OptimisticConcurrencyTests : IDisposable
                 CreatedByUserId = user.Id,
                 RowVersion = new byte[] { 0x01 }
             };
-            _context.Campaigns.Add(campaign);
+            _context.Worlds.Add(world);
             await _context.SaveChangesAsync();
 
-            await AssertConcurrencyConflict<Campaign>(
-                campaign.Id,
+            await AssertConcurrencyConflict<World>(
+                world.Id,
                 b => b.Name = "Modified by B");
         }).GetAwaiter().GetResult();
     }
@@ -223,12 +223,12 @@ public class OptimisticConcurrencyTests : IDisposable
         Task.Run(async () =>
         {
             var user = await CreatePrerequisiteUserAsync();
-            var campaign = await CreatePrerequisiteCampaignAsync(user.Id);
+            var world = await CreatePrerequisiteWorldAsync(user.Id);
 
             var artifact = new Artifact
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 Type = generated.Type,
                 Name = generated.Name,
                 Summary = generated.Summary,
@@ -254,8 +254,8 @@ public class OptimisticConcurrencyTests : IDisposable
         Task.Run(async () =>
         {
             var user = await CreatePrerequisiteUserAsync();
-            var campaign = await CreatePrerequisiteCampaignAsync(user.Id);
-            var artifact = await CreatePrerequisiteArtifactAsync(campaign.Id);
+            var world = await CreatePrerequisiteWorldAsync(user.Id);
+            var artifact = await CreatePrerequisiteArtifactAsync(world.Id);
 
             var fact = new ArtifactFact
             {
@@ -285,12 +285,12 @@ public class OptimisticConcurrencyTests : IDisposable
         Task.Run(async () =>
         {
             var user = await CreatePrerequisiteUserAsync();
-            var campaign = await CreatePrerequisiteCampaignAsync(user.Id);
+            var world = await CreatePrerequisiteWorldAsync(user.Id);
 
             var artifactA = new Artifact
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 Type = ArtifactType.Character,
                 Name = "Artifact A",
                 Visibility = VisibilityScope.PartyVisible,
@@ -302,7 +302,7 @@ public class OptimisticConcurrencyTests : IDisposable
             var artifactB = new Artifact
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 Type = ArtifactType.Location,
                 Name = "Artifact B",
                 Visibility = VisibilityScope.PartyVisible,
@@ -317,7 +317,7 @@ public class OptimisticConcurrencyTests : IDisposable
             var relationship = new ArtifactRelationship
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 ArtifactAId = artifactA.Id,
                 ArtifactBId = artifactB.Id,
                 Type = generated.Type,
@@ -344,9 +344,9 @@ public class OptimisticConcurrencyTests : IDisposable
         Task.Run(async () =>
         {
             var user = await CreatePrerequisiteUserAsync();
-            var campaign = await CreatePrerequisiteCampaignAsync(user.Id);
-            var source = await CreatePrerequisiteSourceAsync(campaign.Id, user.Id);
-            var batch = await CreatePrerequisiteReviewBatchAsync(campaign.Id, source.Id);
+            var world = await CreatePrerequisiteWorldAsync(user.Id);
+            var source = await CreatePrerequisiteSourceAsync(world.Id, user.Id);
+            var batch = await CreatePrerequisiteReviewBatchAsync(world.Id, source.Id);
 
             var proposal = new ReviewProposal
             {

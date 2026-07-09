@@ -25,11 +25,11 @@ public class CanonService : ICanonService
     public async Task<AppResult<IReadOnlyList<CanonEntry>>> GetCanonAsync(CanonQuery query, CancellationToken ct)
     {
         var allowedScopes = GetAllowedScopes(query.ActingUserRole);
-        var isGm = query.ActingUserRole == CampaignRole.GM;
+        var isGm = query.ActingUserRole == WorldRole.GM;
 
         // Only artifacts the caller may see contribute to canon. Facts and relationships have
-        // no campaign FK, so campaign-wide retrieval goes through the visible artifact ids.
-        var artifacts = await _artifactRepository.ListByCampaignAsync(query.CampaignId, null, null, ct);
+        // no world FK, so world-wide retrieval goes through the visible artifact ids.
+        var artifacts = await _artifactRepository.ListByWorldAsync(query.WorldId, null, null, ct);
         var artifactsById = artifacts
             .Where(a => allowedScopes.Contains(a.Visibility))
             .ToDictionary(a => a.Id);
@@ -116,12 +116,12 @@ public class CanonService : ICanonService
         return true;
     }
 
-    private static IReadOnlyList<VisibilityScope> GetAllowedScopes(CampaignRole role) =>
+    private static IReadOnlyList<VisibilityScope> GetAllowedScopes(WorldRole role) =>
         role switch
         {
-            CampaignRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
-            CampaignRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
-            CampaignRole.Observer => [VisibilityScope.PartyVisible],
+            WorldRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
+            WorldRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
+            WorldRole.Observer => [VisibilityScope.PartyVisible],
             _ => [VisibilityScope.PartyVisible]
         };
 }

@@ -12,25 +12,25 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// <summary>
 /// Property 6: Visibility Enforcement on List
 ///
-/// For any set of sources in a campaign and any campaign member, listing sources should return exactly
+/// For any set of sources in a world and any world member, listing sources should return exactly
 /// the subset of sources the member is authorized to see: GMs see all sources; Players see PartyVisible
 /// sources plus their own Private sources; Observers see only PartyVisible sources.
 ///
 /// **Validates: Requirements 5.1, 5.2, 5.3**
 /// </summary>
 [TestFixture]
-[Category("Feature: campaign-sources, Property 6: Visibility Enforcement on List")]
+[Category("Feature: world-sources, Property 6: Visibility Enforcement on List")]
 public class SourceVisibilityListEnforcementTests
 {
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(VisibilityListArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 6: Visibility Enforcement on List")]
-    public void ListByCampaign_ReturnsExactlyTheVisibleSubset(VisibilityListScenario scenario)
+    [Description("Feature: world-sources, Property 6: Visibility Enforcement on List")]
+    public void ListByWorld_ReturnsExactlyTheVisibleSubset(VisibilityListScenario scenario)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
@@ -47,15 +47,15 @@ public class SourceVisibilityListEnforcementTests
             .ToHashSet();
 
         // Act
-        var result = service.ListByCampaignAsync(
-            scenario.CampaignId,
+        var result = service.ListByWorldAsync(
+            scenario.WorldId,
             scenario.RequestingUserId,
             scenario.RequestingRole,
             CancellationToken.None).GetAwaiter().GetResult();
 
         // Assert — operation should succeed
         Assert.That(result.IsSuccess, Is.True,
-            "ListByCampaignAsync should always succeed.");
+            "ListByWorldAsync should always succeed.");
 
         var returnedSources = result.Value!;
         var returnedIds = returnedSources.Select(s => s.Id).ToHashSet();
@@ -72,24 +72,24 @@ public class SourceVisibilityListEnforcementTests
         }
     }
 
-    private static bool IsVisibleTo(Source source, Guid userId, CampaignRole role) => source.Visibility switch
+    private static bool IsVisibleTo(Source source, Guid userId, WorldRole role) => source.Visibility switch
     {
         VisibilityScope.PartyVisible => true,
-        VisibilityScope.Private => role == CampaignRole.GM || source.CreatedByUserId == userId,
-        VisibilityScope.GMOnly => role == CampaignRole.GM,
+        VisibilityScope.Private => role == WorldRole.GM || source.CreatedByUserId == userId,
+        VisibilityScope.GMOnly => role == WorldRole.GM,
         _ => false
     };
 }
 
 /// <summary>
 /// Input model for visibility list enforcement scenarios.
-/// Represents a campaign with multiple sources and a requesting member with a specific role.
+/// Represents a world with multiple sources and a requesting member with a specific role.
 /// </summary>
 public record VisibilityListScenario(
-    Guid CampaignId,
+    Guid WorldId,
     List<Source> Sources,
     Guid RequestingUserId,
-    CampaignRole RequestingRole);
+    WorldRole RequestingRole);
 
 /// <summary>
 /// Custom FsCheck arbitraries for visibility list enforcement tests.
@@ -127,23 +127,23 @@ public class VisibilityListArbitraries
             VisibilityScope.PartyVisible);
 
         var roleGen = Gen.Elements(
-            CampaignRole.GM,
-            CampaignRole.Player,
-            CampaignRole.Observer);
+            WorldRole.GM,
+            WorldRole.Player,
+            WorldRole.Observer);
 
         var gen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from requestingUserId in ArbMap.Default.GeneratorFor<Guid>()
             from requestingRole in roleGen
             from sourceCount in Gen.Choose(2, 10)
-            from sources in GenSources(campaignId, requestingUserId, sourceCount, validTitleGen, sourceTypeGen, visibilityGen)
-            select new VisibilityListScenario(campaignId, sources, requestingUserId, requestingRole);
+            from sources in GenSources(worldId, requestingUserId, sourceCount, validTitleGen, sourceTypeGen, visibilityGen)
+            select new VisibilityListScenario(worldId, sources, requestingUserId, requestingRole);
 
         return gen.ToArbitrary();
     }
 
     private static Gen<List<Source>> GenSources(
-        Guid campaignId,
+        Guid worldId,
         Guid requestingUserId,
         int count,
         Gen<string> titleGen,
@@ -162,7 +162,7 @@ public class VisibilityListArbitraries
             select new Source
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaignId,
+                WorldId = worldId,
                 Type = sourceType,
                 Title = title,
                 Body = null,

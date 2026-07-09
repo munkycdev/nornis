@@ -39,11 +39,11 @@ public class ReviewBatchRepository : IReviewBatchRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<ReviewBatch>> ListByCampaignAsync(Guid campaignId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ReviewBatch>> ListByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)
     {
         return await _context.ReviewBatches
             .AsNoTracking()
-            .Where(rb => rb.CampaignId == campaignId)
+            .Where(rb => rb.WorldId == worldId)
             .ToListAsync(cancellationToken);
     }
 

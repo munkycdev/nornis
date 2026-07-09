@@ -21,23 +21,23 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// **Validates: Requirements 1.1, 1.2, 1.3, 1.4**
 /// </summary>
 [TestFixture]
-[Category("Feature: campaign-sources, Property 1: Source Creation Field Mapping")]
+[Category("Feature: world-sources, Property 1: Source Creation Field Mapping")]
 public class SourceCreationFieldMappingTests
 {
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(SourceCreationArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 1: Source Creation Field Mapping")]
+    [Description("Feature: world-sources, Property 1: Source Creation Field Mapping")]
     public void SourceCreation_MapsAllFieldsCorrectly(SourceCreationInput input)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
         var command = new CreateSourceCommand(
-            input.CampaignId,
+            input.WorldId,
             input.Title,
             input.Type,
             input.Visibility,
@@ -101,9 +101,9 @@ public class SourceCreationFieldMappingTests
         Assert.That(source.Id, Is.Not.EqualTo(Guid.Empty),
             "Source Id must be a non-empty Guid.");
 
-        // Assert - CampaignId matches input
-        Assert.That(source.CampaignId, Is.EqualTo(input.CampaignId),
-            "Source CampaignId must match the provided input.");
+        // Assert - WorldId matches input
+        Assert.That(source.WorldId, Is.EqualTo(input.WorldId),
+            "Source WorldId must match the provided input.");
     }
 }
 
@@ -111,12 +111,12 @@ public class SourceCreationFieldMappingTests
 /// Input model for source creation field mapping property tests.
 /// </summary>
 public record SourceCreationInput(
-    Guid CampaignId,
+    Guid WorldId,
     string Title,
     SourceType Type,
     VisibilityScope Visibility,
     Guid CreatingUserId,
-    CampaignRole CreatingUserRole,
+    WorldRole CreatingUserRole,
     string? Body,
     string? Uri,
     DateTimeOffset? OccurredAt);
@@ -162,7 +162,7 @@ public class SourceCreationArbitraries
         // GM can set any visibility; Player cannot set GMOnly
         // To keep the generator simple and always valid, we generate GM or Player roles
         // and constrain visibility based on role
-        var roleGen = Gen.Elements(CampaignRole.GM, CampaignRole.Player);
+        var roleGen = Gen.Elements(WorldRole.GM, WorldRole.Player);
 
         var optionalBodyGen = Gen.OneOf(
             Gen.Constant<string?>(null),
@@ -182,18 +182,18 @@ public class SourceCreationArbitraries
             select (DateTimeOffset?)DateTimeOffset.UtcNow.AddDays(-daysAgo));
 
         var inputGen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from title in validTitleGen
             from sourceType in validSourceTypeGen
             from role in roleGen
-            from visibility in role == CampaignRole.GM
+            from visibility in role == WorldRole.GM
                 ? Gen.Elements(VisibilityScope.Private, VisibilityScope.GMOnly, VisibilityScope.PartyVisible)
                 : validVisibilityGen
             from userId in ArbMap.Default.GeneratorFor<Guid>()
             from body in optionalBodyGen
             from uri in optionalUriGen
             from occurredAt in optionalOccurredAtGen
-            select new SourceCreationInput(campaignId, title, sourceType, visibility, userId, role, body, uri, occurredAt);
+            select new SourceCreationInput(worldId, title, sourceType, visibility, userId, role, body, uri, occurredAt);
 
         return inputGen.ToArbitrary();
     }

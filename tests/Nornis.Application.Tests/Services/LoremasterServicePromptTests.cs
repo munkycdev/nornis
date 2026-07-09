@@ -46,7 +46,7 @@ public class LoremasterServicePromptTests
     public void SystemPromptTemplate_ContainsGroundingRules()
     {
         Assert.That(LoremasterService.SystemPromptTemplate,
-            Does.Contain("Ground every answer exclusively in the provided campaign knowledge context"));
+            Does.Contain("Ground every answer exclusively in the provided world knowledge context"));
     }
 
     [Test]
@@ -66,7 +66,7 @@ public class LoremasterServicePromptTests
     public void SystemPromptTemplate_ContainsAntiHallucinationInstructions()
     {
         Assert.That(LoremasterService.SystemPromptTemplate,
-            Does.Contain("Do not invent campaign facts"));
+            Does.Contain("Do not invent world facts"));
     }
 
     [Test]
@@ -365,7 +365,7 @@ public class LoremasterServicePromptTests
 
         var request = _service.BuildPrompt("Any question", context);
 
-        Assert.That(request.UserMessage, Does.Not.Contain("Campaign Knowledge Context"));
+        Assert.That(request.UserMessage, Does.Not.Contain("World Knowledge Context"));
     }
 
     [Test]
@@ -375,7 +375,7 @@ public class LoremasterServicePromptTests
 
         var request = _service.BuildPrompt("Who is Voss?", context);
 
-        Assert.That(request.UserMessage, Does.Contain("Campaign Knowledge Context"));
+        Assert.That(request.UserMessage, Does.Contain("World Knowledge Context"));
     }
 
     [Test]
@@ -463,7 +463,7 @@ public class LoremasterServicePromptTests
             Guid.NewGuid(),
             "What about his brother?",
             Guid.NewGuid(),
-            CampaignRole.Player,
+            WorldRole.Player,
             "Q: Who is Captain Voss? A: A harbor captain.");
 
         var result = await _service.AskAsync(command, CancellationToken.None);
@@ -619,7 +619,7 @@ public class LoremasterServicePromptTests
     {
         _budgetGuard.Exceeded = true;
         var command = new Nornis.Application.Models.AskLoremasterCommand(
-            Guid.NewGuid(), "Who is Voss?", Guid.NewGuid(), CampaignRole.Player, null);
+            Guid.NewGuid(), "Who is Voss?", Guid.NewGuid(), WorldRole.Player, null);
 
         var result = await _service.AskAsync(command, CancellationToken.None);
 

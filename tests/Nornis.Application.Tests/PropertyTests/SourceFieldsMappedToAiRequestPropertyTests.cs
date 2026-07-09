@@ -86,7 +86,7 @@ public class SourceFieldsMappedToAiRequestPropertyTests
         fakeAiClient.SetupSuccess(aiResponse);
 
         // Act
-        var outcome = service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+        var outcome = service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
             .GetAwaiter().GetResult();
 
         // Assert — the fake AI client should have captured exactly one request
@@ -170,7 +170,7 @@ public class SourceFieldsMappedToAiRequestPropertyTests
         fakeAiClient.SetupSuccess(aiResponse);
 
         // Act
-        service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+        service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
             .GetAwaiter().GetResult();
 
         // Assert
@@ -240,7 +240,7 @@ public class SourceFieldsMappedToAiRequestPropertyTests
         fakeAiClient.SetupSuccess(aiResponse);
 
         // Act
-        service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+        service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
             .GetAwaiter().GetResult();
 
         // Assert

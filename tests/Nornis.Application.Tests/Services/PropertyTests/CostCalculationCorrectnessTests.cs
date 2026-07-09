@@ -64,10 +64,10 @@ public class CostCalculationCorrectnessTests
             new FakeAiBudgetGuard(), options);
 
         var command = new AskLoremasterCommand(
-            CampaignId: scenario.CampaignId,
+            WorldId: scenario.WorldId,
             Question: scenario.Question,
             UserId: scenario.UserId,
-            UserRole: CampaignRole.GM,
+            UserRole: WorldRole.GM,
             ConversationContext: null);
 
         // Act
@@ -135,10 +135,10 @@ public class CostCalculationCorrectnessTests
             new FakeAiBudgetGuard(), options);
 
         var command = new AskLoremasterCommand(
-            CampaignId: scenario.CampaignId,
+            WorldId: scenario.WorldId,
             Question: scenario.Question,
             UserId: scenario.UserId,
-            UserRole: CampaignRole.Player,
+            UserRole: WorldRole.Player,
             ConversationContext: null);
 
         // Act
@@ -161,7 +161,7 @@ public class CostCalculationCorrectnessTests
 /// and configured model pricing rates.
 /// </summary>
 public record CostCalculationScenario(
-    Guid CampaignId,
+    Guid WorldId,
     Guid UserId,
     string Question,
     string ModelName,
@@ -184,7 +184,7 @@ public class CostCalculationArbitraries
     public static Arbitrary<CostCalculationScenario> CostCalculationScenarios()
     {
         var gen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from userId in ArbMap.Default.GeneratorFor<Guid>()
             from modelIdx in Gen.Choose(0, ModelNames.Length - 1)
             let modelName = ModelNames[modelIdx]
@@ -196,7 +196,7 @@ public class CostCalculationArbitraries
             let outputRate = outputRateCents / 100m
             let aiResponse = new LoremasterAiResponse
             {
-                AnswerText = "The Loremaster provides this answer based on campaign knowledge.",
+                AnswerText = "The Loremaster provides this answer based on world knowledge.",
                 InputTokens = inputTokens,
                 OutputTokens = outputTokens,
                 TotalTokens = inputTokens + outputTokens,
@@ -221,7 +221,7 @@ public class CostCalculationArbitraries
                 SourceReferences = new List<KnowledgeSourceReference>()
             }
             select new CostCalculationScenario(
-                campaignId,
+                worldId,
                 userId,
                 "What do we know about Captain Voss?",
                 modelName,

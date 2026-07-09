@@ -29,7 +29,7 @@ public class ArtifactService : IArtifactService
     {
         var allowedScopes = GetAllowedScopes(query.ActingUserRole);
 
-        var artifacts = await _artifactRepository.ListByCampaignAsync(query.CampaignId, query.Type, null, ct);
+        var artifacts = await _artifactRepository.ListByWorldAsync(query.WorldId, query.Type, null, ct);
 
         var visible = artifacts
             .Where(a => allowedScopes.Contains(a.Visibility))
@@ -42,19 +42,19 @@ public class ArtifactService : IArtifactService
 
     public async Task<AppResult<ArtifactDetail>> GetDetailAsync(
         Guid artifactId,
-        Guid campaignId,
+        Guid worldId,
         Guid requestingUserId,
-        CampaignRole role,
+        WorldRole role,
         CancellationToken ct)
     {
         var allowedScopes = GetAllowedScopes(role);
 
         var artifact = await _artifactRepository.GetByIdAsync(artifactId, ct);
 
-        // Return not-found for missing, cross-campaign, or invisible artifacts so we do not
+        // Return not-found for missing, cross-world, or invisible artifacts so we do not
         // leak the existence of resources the caller may not see.
         if (artifact is null
-            || artifact.CampaignId != campaignId
+            || artifact.WorldId != worldId
             || !allowedScopes.Contains(artifact.Visibility))
         {
             return AppResult<ArtifactDetail>.Fail(new AppError(404, "not_found", "Artifact not found."));
@@ -71,9 +71,9 @@ public class ArtifactService : IArtifactService
             .ToList();
 
         // Resolve the counterpart artifact for each relationship, keeping only those the
-        // caller may see and that belong to the same campaign.
+        // caller may see and that belong to the same world.
         var connectedArtifacts = await ResolveConnectedArtifactsAsync(
-            artifactId, campaignId, relationships, allowedScopes, ct);
+            artifactId, worldId, relationships, allowedScopes, ct);
 
         // Source references may cite the artifact itself, any of its facts, or any of its
         // relationships. Target ids are distinct GUIDs, so a single id-based lookup is safe.
@@ -95,7 +95,7 @@ public class ArtifactService : IArtifactService
 
     private async Task<IReadOnlyList<Artifact>> ResolveConnectedArtifactsAsync(
         Guid artifactId,
-        Guid campaignId,
+        Guid worldId,
         IReadOnlyList<ArtifactRelationship> relationships,
         IReadOnlyList<VisibilityScope> allowedScopes,
         CancellationToken ct)
@@ -110,7 +110,7 @@ public class ArtifactService : IArtifactService
         {
             var other = await _artifactRepository.GetByIdAsync(otherId, ct);
             if (other is not null
-                && other.CampaignId == campaignId
+                && other.WorldId == worldId
                 && allowedScopes.Contains(other.Visibility))
             {
                 connected.Add(other);
@@ -121,16 +121,16 @@ public class ArtifactService : IArtifactService
     }
 
     /// <summary>
-    /// Maps a campaign role to the visibility scopes it may read. Artifacts, facts, and
+    /// Maps a world role to the visibility scopes it may read. Artifacts, facts, and
     /// relationships carry no per-record creator, so Private content is visible to any GM or
-    /// Player in the campaign. This mirrors the retrieval scoping used by the Loremaster.
+    /// Player in the world. This mirrors the retrieval scoping used by the Loremaster.
     /// </summary>
-    private static IReadOnlyList<VisibilityScope> GetAllowedScopes(CampaignRole role) =>
+    private static IReadOnlyList<VisibilityScope> GetAllowedScopes(WorldRole role) =>
         role switch
         {
-            CampaignRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
-            CampaignRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
-            CampaignRole.Observer => [VisibilityScope.PartyVisible],
+            WorldRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
+            WorldRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
+            WorldRole.Observer => [VisibilityScope.PartyVisible],
             _ => [VisibilityScope.PartyVisible]
         };
 }

@@ -11,8 +11,8 @@ using Nornis.Domain.Enums;
 namespace Nornis.Api.Controllers;
 
 [ApiController]
-[Route("api/campaigns/{campaignId:guid}/artifacts")]
-[ServiceFilter(typeof(CampaignMemberActionFilter))]
+[Route("api/worlds/{worldId:guid}/artifacts")]
+[ServiceFilter(typeof(WorldMemberActionFilter))]
 public class ArtifactsController : ControllerBase
 {
     private readonly IArtifactService _artifactService;
@@ -24,13 +24,13 @@ public class ArtifactsController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> List(
-        Guid campaignId,
+        Guid worldId,
         [FromQuery] string? type,
         [FromQuery] string? status,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         ArtifactType? typeFilter = null;
         if (type is not null)
@@ -53,7 +53,7 @@ public class ArtifactsController : ControllerBase
         }
 
         var query = new ArtifactListQuery(
-            CampaignId: campaignId,
+            WorldId: worldId,
             ActingUserId: user.Id,
             ActingUserRole: member.Role,
             Type: typeFilter,
@@ -72,12 +72,12 @@ public class ArtifactsController : ControllerBase
     }
 
     [HttpGet("{artifactId:guid}")]
-    public async Task<IActionResult> GetById(Guid campaignId, Guid artifactId, CancellationToken ct)
+    public async Task<IActionResult> GetById(Guid worldId, Guid artifactId, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
-        var result = await _artifactService.GetDetailAsync(artifactId, campaignId, user.Id, member.Role, ct);
+        var result = await _artifactService.GetDetailAsync(artifactId, worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -91,7 +91,7 @@ public class ArtifactsController : ControllerBase
     {
         return new ArtifactListItemResponse(
             Id: artifact.Id,
-            CampaignId: artifact.CampaignId,
+            WorldId: artifact.WorldId,
             Type: artifact.Type.ToString(),
             Name: artifact.Name,
             Summary: artifact.Summary,
@@ -108,7 +108,7 @@ public class ArtifactsController : ControllerBase
 
         return new ArtifactDetailResponse(
             Id: artifact.Id,
-            CampaignId: artifact.CampaignId,
+            WorldId: artifact.WorldId,
             Type: artifact.Type.ToString(),
             Name: artifact.Name,
             Summary: artifact.Summary,

@@ -11,19 +11,19 @@ public interface IHealthAssessmentRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Returns the most recent assessment for the campaign with its findings attached,
-    /// or null if the campaign has never been assessed.
+    /// Returns the most recent assessment for the world with its findings attached,
+    /// or null if the world has never been assessed.
     /// </summary>
     Task<HealthAssessment?> GetLatestWithFindingsAsync(
-        Guid campaignId,
+        Guid worldId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Returns the <see cref="HealthAssessment.CreatedAt"/> of the campaign's most recent
+    /// Returns the <see cref="HealthAssessment.CreatedAt"/> of the world's most recent
     /// assessment, or null if none exists. Used by the auto-trigger eligibility check.
     /// </summary>
     Task<DateTimeOffset?> GetLatestCreatedAtAsync(
-        Guid campaignId,
+        Guid worldId,
         CancellationToken cancellationToken = default);
 
     /// <summary>Loads a single finding by id (no assessment navigation), or null.</summary>

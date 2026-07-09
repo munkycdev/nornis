@@ -26,13 +26,13 @@ public class InMemoryArtifactRepository : IArtifactRepository
         return Task.FromResult(artifact);
     }
 
-    public Task<IReadOnlyList<Artifact>> ListByCampaignAsync(
-        Guid campaignId,
+    public Task<IReadOnlyList<Artifact>> ListByWorldAsync(
+        Guid worldId,
         ArtifactType? type = null,
         VisibilityScope? visibility = null,
         CancellationToken cancellationToken = default)
     {
-        var query = _artifacts.Where(a => a.CampaignId == campaignId);
+        var query = _artifacts.Where(a => a.WorldId == worldId);
         if (type.HasValue)
             query = query.Where(a => a.Type == type.Value);
         if (visibility.HasValue)
@@ -52,37 +52,37 @@ public class InMemoryArtifactRepository : IArtifactRepository
     }
 
     public Task<IReadOnlyList<Artifact>> SearchByNameAsync(
-        Guid campaignId,
+        Guid worldId,
         string searchTerm,
         CancellationToken cancellationToken = default)
     {
         var results = _artifacts
-            .Where(a => a.CampaignId == campaignId &&
+            .Where(a => a.WorldId == worldId &&
                         a.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
             .ToList();
         return Task.FromResult<IReadOnlyList<Artifact>>(results.AsReadOnly());
     }
 
     public Task<IReadOnlyList<Artifact>> ListByExactNameAsync(
-        Guid campaignId,
+        Guid worldId,
         string name,
         CancellationToken cancellationToken = default)
     {
         var results = _artifacts
-            .Where(a => a.CampaignId == campaignId &&
+            .Where(a => a.WorldId == worldId &&
                         string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase))
             .ToList();
         return Task.FromResult<IReadOnlyList<Artifact>>(results.AsReadOnly());
     }
 
-    public Task<IReadOnlyList<Artifact>> ListRecentByCampaignAsync(
-        Guid campaignId,
+    public Task<IReadOnlyList<Artifact>> ListRecentByWorldAsync(
+        Guid worldId,
         IReadOnlyList<VisibilityScope> allowedVisibilities,
         int maxCount,
         CancellationToken cancellationToken = default)
     {
         var results = _artifacts
-            .Where(a => a.CampaignId == campaignId &&
+            .Where(a => a.WorldId == worldId &&
                         a.Status != ArtifactStatus.Archived &&
                         allowedVisibilities.Contains(a.Visibility))
             .OrderByDescending(a => a.UpdatedAt)
@@ -92,13 +92,13 @@ public class InMemoryArtifactRepository : IArtifactRepository
     }
 
     public Task<IReadOnlyList<Artifact>> ListByNamesInTextAsync(
-        Guid campaignId,
+        Guid worldId,
         string text,
         IReadOnlyList<VisibilityScope> allowedVisibilities,
         CancellationToken cancellationToken = default)
     {
         var results = _artifacts
-            .Where(a => a.CampaignId == campaignId &&
+            .Where(a => a.WorldId == worldId &&
                         a.Status != ArtifactStatus.Archived &&
                         allowedVisibilities.Contains(a.Visibility) &&
                         ContainsWholeWord(text, a.Name))

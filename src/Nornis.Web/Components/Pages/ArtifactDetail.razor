@@ -1,6 +1,6 @@
 ﻿@page "/artifacts/{ArtifactId:guid}"
 @implements IDisposable
-@inject CampaignState Campaigns
+@inject WorldState Worlds
 @inject NornisApiClient Api
 
 <PageTitle>@(_detail?.Name ?? "Artifact") — Nornis</PageTitle>
@@ -10,9 +10,9 @@
         Artifacts
     </MudButton>
 
-    @if (Campaigns.Current is null)
+    @if (Worlds.Current is null)
     {
-        <NoCampaign />
+        <NoWorld />
     }
     else if (_loading)
     {
@@ -153,22 +153,22 @@
     private ArtifactDetailDto? _detail;
     private Guid _loadedId;
 
-    protected override void OnInitialized() => Campaigns.Changed += OnCampaignChanged;
+    protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
 
     protected override async Task OnParametersSetAsync()
     {
         if (ArtifactId != _loadedId)
         {
-            await Campaigns.EnsureLoadedAsync();
+            await Worlds.EnsureLoadedAsync();
             await LoadAsync();
         }
     }
 
-    private void OnCampaignChanged() => InvokeAsync(LoadAsync);
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
 
     private async Task LoadAsync()
     {
-        if (Campaigns.Current is null)
+        if (Worlds.Current is null)
         {
             _detail = null;
             StateHasChanged();
@@ -181,7 +181,7 @@
         _loadedId = ArtifactId;
         StateHasChanged();
 
-        var result = await Api.GetArtifactAsync(Campaigns.Current.Id, ArtifactId);
+        var result = await Api.GetArtifactAsync(Worlds.Current.Id, ArtifactId);
 
         _loading = false;
         if (result.IsSuccess)
@@ -256,5 +256,5 @@
         _ => Icons.Material.Outlined.Description,
     };
 
-    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

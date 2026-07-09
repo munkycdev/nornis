@@ -18,7 +18,7 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
     }
 
     public Task<IReadOnlyList<AiUsageRecord>> QueryAsync(
-        Guid? campaignId = null,
+        Guid? worldId = null,
         Guid? userId = null,
         DateTimeOffset? fromDate = null,
         DateTimeOffset? toDate = null,
@@ -27,8 +27,8 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
     {
         var query = _records.AsEnumerable();
 
-        if (campaignId.HasValue)
-            query = query.Where(r => r.CampaignId == campaignId.Value);
+        if (worldId.HasValue)
+            query = query.Where(r => r.WorldId == worldId.Value);
         if (userId.HasValue)
             query = query.Where(r => r.UserId == userId.Value);
         if (fromDate.HasValue)
@@ -42,13 +42,13 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
     }
 
     public Task<CostSummary> AggregateAsync(
-        Guid campaignId,
+        Guid worldId,
         Guid? userId,
         DateTimeOffset? fromDate,
         DateTimeOffset? toDate,
         CancellationToken cancellationToken = default)
     {
-        var query = _records.Where(r => r.CampaignId == campaignId);
+        var query = _records.Where(r => r.WorldId == worldId);
 
         if (userId.HasValue)
             query = query.Where(r => r.UserId == userId.Value);
@@ -72,13 +72,13 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
     }
 
     public Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByOperationTypeAsync(
-        Guid campaignId,
+        Guid worldId,
         Guid? userId,
         DateTimeOffset? fromDate,
         DateTimeOffset? toDate,
         CancellationToken cancellationToken = default)
     {
-        var query = FilterRecords(campaignId, userId, fromDate, toDate);
+        var query = FilterRecords(worldId, userId, fromDate, toDate);
 
         var result = query
             .GroupBy(r => r.OperationType.ToString())
@@ -93,13 +93,13 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
     }
 
     public Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByModelAsync(
-        Guid campaignId,
+        Guid worldId,
         Guid? userId,
         DateTimeOffset? fromDate,
         DateTimeOffset? toDate,
         CancellationToken cancellationToken = default)
     {
-        var query = FilterRecords(campaignId, userId, fromDate, toDate);
+        var query = FilterRecords(worldId, userId, fromDate, toDate);
 
         var result = query
             .GroupBy(r => r.Model)
@@ -114,13 +114,13 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
     }
 
     public Task<IReadOnlyList<GroupedCostSummary<Guid>>> AggregateByUserAsync(
-        Guid campaignId,
+        Guid worldId,
         Guid? userId,
         DateTimeOffset? fromDate,
         DateTimeOffset? toDate,
         CancellationToken cancellationToken = default)
     {
-        var query = FilterRecords(campaignId, userId, fromDate, toDate);
+        var query = FilterRecords(worldId, userId, fromDate, toDate);
 
         var result = query
             .Where(r => r.UserId.HasValue)
@@ -135,13 +135,13 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
         return Task.FromResult<IReadOnlyList<GroupedCostSummary<Guid>>>(result.AsReadOnly());
     }
 
-    public Task<IReadOnlyList<GroupedCostSummary<Guid>>> AggregateByCampaignAsync(
-        IReadOnlyList<Guid> campaignIds,
+    public Task<IReadOnlyList<GroupedCostSummary<Guid>>> AggregateByWorldAsync(
+        IReadOnlyList<Guid> worldIds,
         DateTimeOffset? fromDate,
         DateTimeOffset? toDate,
         CancellationToken cancellationToken = default)
     {
-        var query = _records.Where(r => r.CampaignId.HasValue && campaignIds.Contains(r.CampaignId.Value));
+        var query = _records.Where(r => r.WorldId.HasValue && worldIds.Contains(r.WorldId.Value));
 
         if (fromDate.HasValue)
             query = query.Where(r => r.CreatedAt >= fromDate.Value);
@@ -149,7 +149,7 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
             query = query.Where(r => r.CreatedAt <= toDate.Value);
 
         var result = query
-            .GroupBy(r => r.CampaignId!.Value)
+            .GroupBy(r => r.WorldId!.Value)
             .Select(g => new GroupedCostSummary<Guid>
             {
                 Key = g.Key,
@@ -161,9 +161,9 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
     }
 
     private IEnumerable<AiUsageRecord> FilterRecords(
-        Guid campaignId, Guid? userId, DateTimeOffset? fromDate, DateTimeOffset? toDate)
+        Guid worldId, Guid? userId, DateTimeOffset? fromDate, DateTimeOffset? toDate)
     {
-        var query = _records.Where(r => r.CampaignId == campaignId);
+        var query = _records.Where(r => r.WorldId == worldId);
 
         if (userId.HasValue)
             query = query.Where(r => r.UserId == userId.Value);

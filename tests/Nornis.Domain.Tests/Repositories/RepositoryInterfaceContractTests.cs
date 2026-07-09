@@ -9,8 +9,8 @@ public class RepositoryInterfaceContractTests
 {
     private static readonly Type[] RepositoryInterfaces =
     [
-        typeof(ICampaignRepository),
-        typeof(ICampaignMemberRepository),
+        typeof(IWorldRepository),
+        typeof(IWorldMemberRepository),
         typeof(IUserRepository),
         typeof(ISourceRepository),
         typeof(IArtifactRepository),
@@ -27,17 +27,17 @@ public class RepositoryInterfaceContractTests
 
     private static readonly Dictionary<Type, string[]> ExpectedMethods = new()
     {
-        [typeof(ICampaignRepository)] = ["CreateAsync", "GetByIdAsync", "UpdateAsync", "ListByUserAsync", "GetByIdsAsync"],
-        [typeof(ICampaignMemberRepository)] = ["CreateAsync", "GetByCampaignAndUserAsync", "ListByCampaignAsync", "RemoveAsync", "ListByUserAsync"],
+        [typeof(IWorldRepository)] = ["CreateAsync", "GetByIdAsync", "UpdateAsync", "ListByUserAsync", "GetByIdsAsync"],
+        [typeof(IWorldMemberRepository)] = ["CreateAsync", "GetByWorldAndUserAsync", "ListByWorldAsync", "RemoveAsync", "ListByUserAsync"],
         [typeof(IUserRepository)] = ["CreateAsync", "GetByIdAsync", "GetByAuth0SubjectIdAsync", "UpdateAsync"],
-        [typeof(ISourceRepository)] = ["CreateAsync", "GetByIdAsync", "ListByCampaignAsync", "UpdateProcessingStatusAsync"],
-        [typeof(IArtifactRepository)] = ["CreateAsync", "GetByIdAsync", "ListByCampaignAsync", "UpdateAsync", "SearchByNameAsync"],
+        [typeof(ISourceRepository)] = ["CreateAsync", "GetByIdAsync", "ListByWorldAsync", "UpdateProcessingStatusAsync"],
+        [typeof(IArtifactRepository)] = ["CreateAsync", "GetByIdAsync", "ListByWorldAsync", "UpdateAsync", "SearchByNameAsync"],
         [typeof(IArtifactFactRepository)] = ["CreateAsync", "GetByIdAsync", "ListByArtifactAsync", "UpdateAsync"],
         [typeof(IArtifactRelationshipRepository)] = ["CreateAsync", "GetByIdAsync", "ListByArtifactAsync", "UpdateAsync"],
-        [typeof(IReviewBatchRepository)] = ["CreateAsync", "GetByIdAsync", "ListByCampaignAsync", "UpdateStatusAsync"],
-        [typeof(IReviewProposalRepository)] = ["CreateAsync", "GetByIdAsync", "ListByReviewBatchAsync", "ListPendingByCampaignAsync", "UpdateAsync"],
+        [typeof(IReviewBatchRepository)] = ["CreateAsync", "GetByIdAsync", "ListByWorldAsync", "UpdateStatusAsync"],
+        [typeof(IReviewProposalRepository)] = ["CreateAsync", "GetByIdAsync", "ListByReviewBatchAsync", "ListPendingByWorldAsync", "UpdateAsync"],
         [typeof(ISourceReferenceRepository)] = ["CreateAsync", "ListByTargetAsync"],
-        [typeof(IAiUsageRecordRepository)] = ["CreateAsync", "QueryAsync", "AggregateAsync", "AggregateByOperationTypeAsync", "AggregateByModelAsync", "AggregateByUserAsync", "AggregateByCampaignAsync"],
+        [typeof(IAiUsageRecordRepository)] = ["CreateAsync", "QueryAsync", "AggregateAsync", "AggregateByOperationTypeAsync", "AggregateByModelAsync", "AggregateByUserAsync", "AggregateByWorldAsync"],
         [typeof(IHealthAssessmentRepository)] = ["CreateAsync", "GetLatestWithFindingsAsync", "GetLatestCreatedAtAsync", "GetFindingByIdAsync", "UpdateFindingAsync"],
         [typeof(IUnitOfWork)] = ["BeginTransactionAsync"],
         [typeof(ITransactionScope)] = ["CommitAsync", "RollbackAsync"],
@@ -115,7 +115,7 @@ public class RepositoryInterfaceContractTests
     [Test]
     public void AllRepositoryInterfaces_ArePresent()
     {
-        var assembly = typeof(ICampaignRepository).Assembly;
+        var assembly = typeof(IWorldRepository).Assembly;
         var repositoryInterfaces = assembly.GetTypes()
             .Where(t => t.IsInterface && t.Namespace == "Nornis.Domain.Repositories")
             .OrderBy(t => t.Name)

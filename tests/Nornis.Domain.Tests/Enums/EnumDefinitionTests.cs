@@ -15,9 +15,9 @@ public class EnumDefinitionTests
     }
 
     [Test]
-    public void CampaignRole_HasExpectedValues()
+    public void WorldRole_HasExpectedValues()
     {
-        AssertEnumHasExactValues<CampaignRole>("GM", "Player", "Observer");
+        AssertEnumHasExactValues<WorldRole>("GM", "Player", "Observer");
     }
 
     [Test]
@@ -117,9 +117,9 @@ public class EnumDefinitionTests
     }
 
     [Test]
-    public void CampaignRole_HasNoUnexpectedValues()
+    public void WorldRole_HasNoUnexpectedValues()
     {
-        Assert.That(Enum.GetNames<CampaignRole>(), Has.Length.EqualTo(3));
+        Assert.That(Enum.GetNames<WorldRole>(), Has.Length.EqualTo(3));
     }
 
     [Test]
@@ -209,7 +209,7 @@ public class EnumDefinitionTests
     [Test]
     public void AllEnums_AreInExpectedNamespace()
     {
-        var enumTypes = typeof(CampaignRole).Assembly
+        var enumTypes = typeof(WorldRole).Assembly
             .GetTypes()
             .Where(t => t.IsEnum && t.Namespace == "Nornis.Domain.Enums")
             .ToList();

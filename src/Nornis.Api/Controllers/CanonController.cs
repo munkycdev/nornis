@@ -15,8 +15,8 @@ namespace Nornis.Api.Controllers;
 /// sections. Hidden entries are only returned to GMs.
 /// </summary>
 [ApiController]
-[Route("api/campaigns/{campaignId:guid}/canon")]
-[ServiceFilter(typeof(CampaignMemberActionFilter))]
+[Route("api/worlds/{worldId:guid}/canon")]
+[ServiceFilter(typeof(WorldMemberActionFilter))]
 public class CanonController : ControllerBase
 {
     private readonly ICanonService _canonService;
@@ -28,12 +28,12 @@ public class CanonController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> Get(
-        Guid campaignId,
+        Guid worldId,
         [FromQuery] string? truthState,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         TruthState? truthStateFilter = null;
         if (truthState is not null)
@@ -46,7 +46,7 @@ public class CanonController : ControllerBase
         }
 
         var query = new CanonQuery(
-            CampaignId: campaignId,
+            WorldId: worldId,
             ActingUserId: user.Id,
             ActingUserRole: member.Role,
             TruthState: truthStateFilter);

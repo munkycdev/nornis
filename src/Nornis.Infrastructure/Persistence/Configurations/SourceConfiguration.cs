@@ -40,11 +40,11 @@ public class SourceConfiguration : IEntityTypeConfiguration<Source>
         builder.Property(s => s.CreatedAt)
             .HasColumnType("datetimeoffset");
 
-        builder.HasIndex(s => new { s.CampaignId, s.ProcessingStatus });
+        builder.HasIndex(s => new { s.WorldId, s.ProcessingStatus });
 
-        builder.HasOne(s => s.Campaign)
+        builder.HasOne(s => s.World)
             .WithMany()
-            .HasForeignKey(s => s.CampaignId)
+            .HasForeignKey(s => s.WorldId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(s => s.CreatedByUser)

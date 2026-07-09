@@ -6,7 +6,7 @@ using Nornis.Domain.Repositories;
 namespace Nornis.Application.Services;
 
 /// <summary>
-/// Builds ask suggestions from live campaign data using deterministic templates — no AI
+/// Builds ask suggestions from live world data using deterministic templates — no AI
 /// call, no cost. Candidates are grouped by category; one suggestion is taken per category
 /// in priority order (storyline, character, rumor, world, recap) and padded with evergreen
 /// fallbacks so callers always receive exactly four. A day-based seed rotates the choices
@@ -43,16 +43,16 @@ public class SuggestionService : ISuggestionService
     }
 
     public async Task<IReadOnlyList<AskSuggestion>> GetSuggestionsAsync(
-        Guid campaignId,
+        Guid worldId,
         Guid userId,
-        CampaignRole role,
+        WorldRole role,
         CancellationToken ct)
     {
         var allowedScopes = GetAllowedScopes(role);
-        var seed = DaySeed(campaignId);
+        var seed = DaySeed(worldId);
 
-        var recent = await _artifactRepository.ListRecentByCampaignAsync(
-            campaignId, allowedScopes, RecentArtifactWindow, ct);
+        var recent = await _artifactRepository.ListRecentByWorldAsync(
+            worldId, allowedScopes, RecentArtifactWindow, ct);
 
         // One candidate pool per category, in selection priority order.
         var pools = new List<(string Category, List<string> Candidates)>
@@ -61,7 +61,7 @@ public class SuggestionService : ISuggestionService
             ("character", CharacterCandidates(recent)),
             ("rumor", await RumorCandidatesAsync(recent, role, allowedScopes, ct)),
             ("world", WorldCandidates(recent)),
-            ("recap", await RecapCandidatesAsync(campaignId, userId, role, ct)),
+            ("recap", await RecapCandidatesAsync(worldId, userId, role, ct)),
         };
 
         var suggestions = new List<AskSuggestion>(SuggestionCount);
@@ -138,7 +138,7 @@ public class SuggestionService : ISuggestionService
 
     private async Task<List<string>> RumorCandidatesAsync(
         IReadOnlyList<Artifact> recent,
-        CampaignRole role,
+        WorldRole role,
         IReadOnlyList<VisibilityScope> allowedScopes,
         CancellationToken ct)
     {
@@ -148,7 +148,7 @@ public class SuggestionService : ISuggestionService
         var facts = await _artifactFactRepository.ListByArtifactIdsAsync(
             recent.Select(a => a.Id).ToList(), MaxFactsPerArtifact, ct);
 
-        var isGm = role == CampaignRole.GM;
+        var isGm = role == WorldRole.GM;
         var hasUnconfirmed = facts.Any(f =>
             allowedScopes.Contains(f.Visibility) &&
             (isGm || f.TruthState != TruthState.Hidden) &&
@@ -160,9 +160,9 @@ public class SuggestionService : ISuggestionService
     }
 
     private async Task<List<string>> RecapCandidatesAsync(
-        Guid campaignId, Guid userId, CampaignRole role, CancellationToken ct)
+        Guid worldId, Guid userId, WorldRole role, CancellationToken ct)
     {
-        var sources = await _sourceRepository.ListByCampaignAsync(campaignId, null, ct);
+        var sources = await _sourceRepository.ListByWorldAsync(worldId, null, ct);
         var cutoff = DateTimeOffset.UtcNow.AddDays(-RecentSourceWindowDays);
 
         var latest = sources
@@ -173,37 +173,37 @@ public class SuggestionService : ISuggestionService
         return latest is null ? [] : [$"What changed since \"{latest.Title}\"?"];
     }
 
-    private static bool IsSourceVisible(Source source, Guid userId, CampaignRole role) =>
+    private static bool IsSourceVisible(Source source, Guid userId, WorldRole role) =>
         role switch
         {
-            CampaignRole.GM => true,
-            CampaignRole.Player => source.Visibility == VisibilityScope.PartyVisible
+            WorldRole.GM => true,
+            WorldRole.Player => source.Visibility == VisibilityScope.PartyVisible
                                    || (source.Visibility == VisibilityScope.Private && source.CreatedByUserId == userId),
             _ => source.Visibility == VisibilityScope.PartyVisible
         };
 
-    private static IReadOnlyList<VisibilityScope> GetAllowedScopes(CampaignRole role) =>
+    private static IReadOnlyList<VisibilityScope> GetAllowedScopes(WorldRole role) =>
         role switch
         {
-            CampaignRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
-            CampaignRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
-            CampaignRole.Observer => [VisibilityScope.PartyVisible],
+            WorldRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
+            WorldRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
+            WorldRole.Observer => [VisibilityScope.PartyVisible],
             _ => [VisibilityScope.PartyVisible]
         };
 
     /// <summary>
-    /// Stable FNV-1a hash of the campaign id and the current UTC date, so suggestions
+    /// Stable FNV-1a hash of the world id and the current UTC date, so suggestions
     /// rotate daily but stay fixed within a day (string.GetHashCode is randomized per
     /// process and would flicker across server restarts).
     /// </summary>
-    internal static uint DaySeed(Guid campaignId, DateOnly? today = null)
+    internal static uint DaySeed(Guid worldId, DateOnly? today = null)
     {
         var date = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
 
         const uint fnvPrime = 16777619;
         var hash = 2166136261;
 
-        foreach (var b in campaignId.ToByteArray())
+        foreach (var b in worldId.ToByteArray())
         {
             hash ^= b;
             hash *= fnvPrime;

@@ -30,7 +30,7 @@ public class SourcesMarkReadyTests
     }
 
     private string MarkReadyUrl(Guid sourceId) =>
-        $"/api/campaigns/{_scenario.Campaign.Id}/sources/{sourceId}/ready";
+        $"/api/worlds/{_scenario.World.Id}/sources/{sourceId}/ready";
 
     #region Happy Path — Mark Ready from Draft
 
@@ -40,7 +40,7 @@ public class SourcesMarkReadyTests
         // Arrange — Player creates a Draft source
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.PlayerUserId,
             title: "Tavrin's Journal — The Silver Key",
             type: SourceType.JournalEntry,
@@ -66,7 +66,7 @@ public class SourcesMarkReadyTests
         // Arrange — Player creates a Draft source, but GM marks it ready
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.PlayerUserId,
             title: "Session 4 — Questioning Captain Voss",
             type: SourceType.SessionNote,
@@ -98,7 +98,7 @@ public class SourcesMarkReadyTests
         // Arrange — Create a source already in a non-Draft state
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.GmUserId,
             title: $"Source in {currentStatus} — Black Harbor Clue",
             type: SourceType.SessionNote,
@@ -122,7 +122,7 @@ public class SourcesMarkReadyTests
         // Arrange — GM creates a source, Player (non-creator, non-GM) tries to mark ready
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.GmUserId,
             title: "GM Notes — Black Harbor Conspiracy",
             type: SourceType.GMNote,
@@ -142,7 +142,7 @@ public class SourcesMarkReadyTests
         // Arrange — Player creates a source
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.PlayerUserId,
             title: "Session 5 — The Missing Caravan",
             type: SourceType.SessionNote,
@@ -166,7 +166,7 @@ public class SourcesMarkReadyTests
         // Arrange
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.GmUserId,
             title: "Session 6 — Captain Voss Escapes",
             type: SourceType.SessionNote,
@@ -186,7 +186,7 @@ public class SourcesMarkReadyTests
         _factory.ExtractionQueueClient.ConfigureToFail(false);
 
         var getResponse = await _scenario.GmClient.GetAsync(
-            $"/api/campaigns/{_scenario.Campaign.Id}/sources/{source.Id}");
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}");
         Assert.That(getResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
         var result = await getResponse.Content.ReadFromJsonAsync<SourceResponse>();
@@ -199,14 +199,14 @@ public class SourcesMarkReadyTests
     #region Extraction Message Verification
 
     [Test]
-    public async Task MarkReady_Success_ExtractionMessageContainsCorrectSourceIdAndCampaignId()
+    public async Task MarkReady_Success_ExtractionMessageContainsCorrectSourceIdAndWorldId()
     {
         // Arrange
         _factory.ExtractionQueueClient.Reset();
 
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.PlayerUserId,
             title: "Tavrin's Discovery — The Silver Key",
             type: SourceType.JournalEntry,
@@ -224,7 +224,7 @@ public class SourcesMarkReadyTests
 
         var message = _factory.ExtractionQueueClient.SentMessages[0];
         Assert.That(message.SourceId, Is.EqualTo(source.Id));
-        Assert.That(message.CampaignId, Is.EqualTo(_scenario.Campaign.Id));
+        Assert.That(message.WorldId, Is.EqualTo(_scenario.World.Id));
     }
 
     #endregion

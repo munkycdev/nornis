@@ -13,8 +13,8 @@ public class EntityStructureTests
     private static readonly Type[] AllEntityTypes =
     [
         typeof(User),
-        typeof(Campaign),
-        typeof(CampaignMember),
+        typeof(World),
+        typeof(WorldMember),
         typeof(Source),
         typeof(SourceExtraction),
         typeof(Artifact),

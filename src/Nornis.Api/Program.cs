@@ -46,7 +46,7 @@ if (builder.Environment.IsDevelopment())
         {
             Title = "Nornis API",
             Version = "v1",
-            Description = "Campaign knowledge management API for tabletop RPGs"
+            Description = "World knowledge management API for tabletop RPGs"
         });
     });
 }
@@ -60,8 +60,8 @@ builder.Services.AddDbContext<NornisDbContext>(options =>
 
 // Repository registrations
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<ICampaignRepository, CampaignRepository>();
-builder.Services.AddScoped<ICampaignMemberRepository, CampaignMemberRepository>();
+builder.Services.AddScoped<IWorldRepository, WorldRepository>();
+builder.Services.AddScoped<IWorldMemberRepository, WorldMemberRepository>();
 builder.Services.AddScoped<ISourceRepository, SourceRepository>();
 builder.Services.AddScoped<IReviewProposalRepository, ReviewProposalRepository>();
 builder.Services.AddScoped<IReviewBatchRepository, ReviewBatchRepository>();
@@ -74,8 +74,8 @@ builder.Services.AddScoped<IHealthAssessmentRepository, HealthAssessmentReposito
 builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
 // Application service registrations
-builder.Services.AddScoped<ICampaignService, CampaignService>();
-builder.Services.AddScoped<ICampaignMemberService, CampaignMemberService>();
+builder.Services.AddScoped<IWorldService, WorldService>();
+builder.Services.AddScoped<IWorldMemberService, WorldMemberService>();
 builder.Services.AddScoped<ISourceService, SourceService>();
 builder.Services.AddScoped<IArtifactService, ArtifactService>();
 builder.Services.AddScoped<ICanonService, CanonService>();
@@ -135,8 +135,8 @@ else
     builder.Services.AddSingleton<IExtractionQueueClient, NoOpExtractionQueueClient>();
 }
 
-// MVC action filter for campaign-scoped endpoints
-builder.Services.AddScoped<CampaignMemberActionFilter>();
+// MVC action filter for world-scoped endpoints
+builder.Services.AddScoped<WorldMemberActionFilter>();
 
 var app = builder.Build();
 

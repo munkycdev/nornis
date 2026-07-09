@@ -18,7 +18,7 @@ namespace Nornis.Api.Tests.Controllers;
 [TestFixture]
 public class LoremasterControllerTests
 {
-    private static readonly Guid CampaignId = Guid.Parse("aaaaaaaa-1111-2222-3333-444444444444");
+    private static readonly Guid WorldId = Guid.Parse("aaaaaaaa-1111-2222-3333-444444444444");
     private static readonly Guid KeldaUserId = Guid.Parse("bbbbbbbb-1111-2222-3333-444444444444");
     private static readonly Guid TavrinUserId = Guid.Parse("cccccccc-1111-2222-3333-444444444444");
 
@@ -32,10 +32,10 @@ public class LoremasterControllerTests
         _controller = new LoremasterController(_loremasterService, Substitute.For<ISuggestionService>());
 
         // Set up HttpContext with Kelda (GM) as default user
-        SetupHttpContext(KeldaUserId, "Kelda", CampaignRole.GM);
+        SetupHttpContext(KeldaUserId, "Kelda", WorldRole.GM);
     }
 
-    private void SetupHttpContext(Guid userId, string username, CampaignRole role)
+    private void SetupHttpContext(Guid userId, string username, WorldRole role)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Items["NornisUser"] = new User
@@ -47,10 +47,10 @@ public class LoremasterControllerTests
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
-        httpContext.Items["CampaignMember"] = new CampaignMember
+        httpContext.Items["WorldMember"] = new WorldMember
         {
             Id = Guid.NewGuid(),
-            CampaignId = CampaignId,
+            WorldId = WorldId,
             UserId = userId,
             Role = role,
             DisplayName = username,
@@ -108,7 +108,7 @@ public class LoremasterControllerTests
             .Returns(AppResult<LoremasterAnswer>.Success(answer));
 
         // Act
-        var result = await _controller.Ask(CampaignId, request, CancellationToken.None);
+        var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
         var okResult = result as OkObjectResult;
@@ -156,7 +156,7 @@ public class LoremasterControllerTests
             .Returns(AppResult<LoremasterAnswer>.Success(answer));
 
         // Act
-        var result = await _controller.Ask(CampaignId, request, CancellationToken.None);
+        var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
         var okResult = result as OkObjectResult;
@@ -179,7 +179,7 @@ public class LoremasterControllerTests
     public async Task Ask_ValidRequest_PassesCorrectCommandToService()
     {
         // Arrange
-        SetupHttpContext(TavrinUserId, "Tavrin", CampaignRole.Player);
+        SetupHttpContext(TavrinUserId, "Tavrin", WorldRole.Player);
         var request = new AskLoremasterRequest("What happened at Black Harbor?", "Previous question about Captain Voss");
 
         _loremasterService
@@ -187,27 +187,27 @@ public class LoremasterControllerTests
             .Returns(AppResult<LoremasterAnswer>.Success(CreateSimpleAnswer()));
 
         // Act
-        await _controller.Ask(CampaignId, request, CancellationToken.None);
+        await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
         await _loremasterService.Received(1).AskAsync(
             Arg.Is<AskLoremasterCommand>(cmd =>
-                cmd.CampaignId == CampaignId &&
+                cmd.WorldId == WorldId &&
                 cmd.Question == "What happened at Black Harbor?" &&
                 cmd.UserId == TavrinUserId &&
-                cmd.UserRole == CampaignRole.Player &&
+                cmd.UserRole == WorldRole.Player &&
                 cmd.ConversationContext == "Previous question about Captain Voss"),
             Arg.Any<CancellationToken>());
     }
 
     #endregion
 
-    #region Membership Enforcement via CampaignMemberActionFilter
+    #region Membership Enforcement via WorldMemberActionFilter
 
     [Test]
-    public void Controller_HasServiceFilterAttribute_ForCampaignMemberActionFilter()
+    public void Controller_HasServiceFilterAttribute_ForWorldMemberActionFilter()
     {
-        // Verify that [ServiceFilter(typeof(CampaignMemberActionFilter))] is present on the controller
+        // Verify that [ServiceFilter(typeof(WorldMemberActionFilter))] is present on the controller
         var attributes = typeof(LoremasterController)
             .GetCustomAttributes(typeof(ServiceFilterAttribute), inherit: true)
             .Cast<ServiceFilterAttribute>()
@@ -215,9 +215,9 @@ public class LoremasterControllerTests
 
         Assert.That(attributes, Has.Count.GreaterThanOrEqualTo(1));
         Assert.That(
-            attributes.Any(a => a.ServiceType == typeof(CampaignMemberActionFilter)),
+            attributes.Any(a => a.ServiceType == typeof(WorldMemberActionFilter)),
             Is.True,
-            "LoremasterController must have [ServiceFilter(typeof(CampaignMemberActionFilter))]");
+            "LoremasterController must have [ServiceFilter(typeof(WorldMemberActionFilter))]");
     }
 
     [Test]
@@ -236,7 +236,7 @@ public class LoremasterControllerTests
             .FirstOrDefault();
 
         Assert.That(routeAttribute, Is.Not.Null);
-        Assert.That(routeAttribute!.Template, Is.EqualTo("api/campaigns/{campaignId:guid}/ask"));
+        Assert.That(routeAttribute!.Template, Is.EqualTo("api/worlds/{worldId:guid}/ask"));
     }
 
     #endregion
@@ -254,7 +254,7 @@ public class LoremasterControllerTests
             .Returns(AppResult<LoremasterAnswer>.Success(CreateSimpleAnswer()));
 
         // Act
-        var result = await _controller.Ask(CampaignId, request, CancellationToken.None);
+        var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
         var okResult = result as OkObjectResult;
@@ -278,7 +278,7 @@ public class LoremasterControllerTests
             .Returns(AppResult<LoremasterAnswer>.Success(CreateSimpleAnswer()));
 
         // Act
-        await _controller.Ask(CampaignId, request, CancellationToken.None);
+        await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
         await _loremasterService.Received(1).AskAsync(
@@ -303,7 +303,7 @@ public class LoremasterControllerTests
                 new AppError(400, "invalid_question", "Question must not be empty.")));
 
         // Act
-        var result = await _controller.Ask(CampaignId, request, CancellationToken.None);
+        var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
         var badRequestResult = result as BadRequestObjectResult;
@@ -328,7 +328,7 @@ public class LoremasterControllerTests
                 new AppError(400, "invalid_question", "Question must not exceed 2000 characters.")));
 
         // Act
-        var result = await _controller.Ask(CampaignId, request, CancellationToken.None);
+        var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
         var badRequestResult = result as BadRequestObjectResult;
@@ -356,7 +356,7 @@ public class LoremasterControllerTests
                 new AppError(503, "service_unavailable", "The Loremaster is temporarily unavailable. Please try again.")));
 
         // Act
-        var result = await _controller.Ask(CampaignId, request, CancellationToken.None);
+        var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
         var objectResult = result as ObjectResult;
@@ -385,7 +385,7 @@ public class LoremasterControllerTests
                 new AppError(429, "rate_limited", "Too many requests. Please try again in a moment.")));
 
         // Act
-        var result = await _controller.Ask(CampaignId, request, CancellationToken.None);
+        var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
         var objectResult = result as ObjectResult;
@@ -414,7 +414,7 @@ public class LoremasterControllerTests
                 new AppError(500, "retrieval_failed", "NullReferenceException at Nornis.Infrastructure...")));
 
         // Act
-        var result = await _controller.Ask(CampaignId, request, CancellationToken.None);
+        var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
         var objectResult = result as ObjectResult;
@@ -440,7 +440,7 @@ public class LoremasterControllerTests
                     "at Nornis.Application.Services.LoremasterService.AskAsync() in D:\\repos\\nornis\\src\\LoremasterService.cs:line 47")));
 
         // Act
-        var result = await _controller.Ask(CampaignId, request, CancellationToken.None);
+        var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
         var objectResult = result as ObjectResult;
@@ -469,7 +469,7 @@ public class LoremasterControllerTests
                 new AppError(502, "bad_gateway", "Upstream service failed with detailed internal error.")));
 
         // Act
-        var result = await _controller.Ask(CampaignId, request, CancellationToken.None);
+        var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
         var objectResult = result as ObjectResult;

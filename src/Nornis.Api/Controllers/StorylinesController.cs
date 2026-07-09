@@ -14,8 +14,8 @@ namespace Nornis.Api.Controllers;
 /// read view over the same artifact data, matching the Storylines navigation item.
 /// </summary>
 [ApiController]
-[Route("api/campaigns/{campaignId:guid}/storylines")]
-[ServiceFilter(typeof(CampaignMemberActionFilter))]
+[Route("api/worlds/{worldId:guid}/storylines")]
+[ServiceFilter(typeof(WorldMemberActionFilter))]
 public class StorylinesController : ControllerBase
 {
     private readonly IArtifactService _artifactService;
@@ -27,12 +27,12 @@ public class StorylinesController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> List(
-        Guid campaignId,
+        Guid worldId,
         [FromQuery] string? status,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         ArtifactStatus? statusFilter = null;
         if (status is not null)
@@ -45,7 +45,7 @@ public class StorylinesController : ControllerBase
         }
 
         var query = new ArtifactListQuery(
-            CampaignId: campaignId,
+            WorldId: worldId,
             ActingUserId: user.Id,
             ActingUserRole: member.Role,
             Type: ArtifactType.Storyline,

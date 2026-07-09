@@ -84,7 +84,7 @@ public class CostCalculationCorrectnessPropertyTests
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = Guid.NewGuid(),
+            WorldId = Guid.NewGuid(),
             Type = SourceType.SessionNote,
             Title = "Cost test session",
             Body = "We questioned Captain Voss in Black Harbor.",
@@ -122,7 +122,7 @@ public class CostCalculationCorrectnessPropertyTests
         fakeAiClient.SetupSuccess(aiResponse);
 
         // Act
-        var outcome = service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+        var outcome = service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
             .GetAwaiter().GetResult();
 
         // Assert — verify cost calculation in the persisted AiUsageRecord

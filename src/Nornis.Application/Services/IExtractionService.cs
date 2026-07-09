@@ -6,6 +6,6 @@ public interface IExtractionService
 {
     Task<ExtractionOutcome> ProcessExtractionAsync(
         Guid sourceId,
-        Guid campaignId,
+        Guid worldId,
         CancellationToken ct);
 }

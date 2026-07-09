@@ -67,12 +67,12 @@ public class ExtractionService : IExtractionService
 
     public async Task<ExtractionOutcome> ProcessExtractionAsync(
         Guid sourceId,
-        Guid campaignId,
+        Guid worldId,
         CancellationToken ct)
     {
         _logger.LogInformation(
-            "Starting extraction for SourceId={SourceId}, CampaignId={CampaignId}",
-            sourceId, campaignId);
+            "Starting extraction for SourceId={SourceId}, WorldId={WorldId}",
+            sourceId, worldId);
 
         // 1. Retrieve source
         var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
@@ -80,8 +80,8 @@ public class ExtractionService : IExtractionService
         if (source is null)
         {
             _logger.LogWarning(
-                "Source not found. SourceId={SourceId}, CampaignId={CampaignId}",
-                sourceId, campaignId);
+                "Source not found. SourceId={SourceId}, WorldId={WorldId}",
+                sourceId, worldId);
             return ExtractionOutcome.NonTransient(ErrorCategories.SourceNotFound, "Source not found.");
         }
 
@@ -117,37 +117,37 @@ public class ExtractionService : IExtractionService
                 "Source body is empty, creating completed batch with zero proposals. SourceId={SourceId}",
                 sourceId);
 
-            return await HandleEmptyBodyAsync(source, campaignId, ct);
+            return await HandleEmptyBodyAsync(source, worldId, ct);
         }
 
         // 6. Daily AI budget gate. The message is completed (not redelivered) and the
         // source fails visibly — the GM can retry from the UI once the budget resets.
-        var budgetError = await _budgetGuard.CheckAsync(campaignId, ct);
+        var budgetError = await _budgetGuard.CheckAsync(worldId, ct);
         if (budgetError is not null)
         {
             _logger.LogWarning(
-                "Extraction blocked by AI budget. SourceId={SourceId}, CampaignId={CampaignId}",
-                sourceId, campaignId);
+                "Extraction blocked by AI budget. SourceId={SourceId}, WorldId={WorldId}",
+                sourceId, worldId);
             await _sourceRepository.UpdateProcessingStatusAsync(sourceId, SourceProcessingStatus.Failed, ct);
             return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
         }
 
         // 7. Context assembly
-        var context = await AssembleContextAsync(source, campaignId, ct);
+        var context = await AssembleContextAsync(source, worldId, ct);
 
         // 8. AI invocation with parse retry
-        return await InvokeAiWithRetriesAsync(source, campaignId, context, ct);
+        return await InvokeAiWithRetriesAsync(source, worldId, context, ct);
     }
 
     private async Task<ExtractionOutcome> HandleEmptyBodyAsync(
-        Source source, Guid campaignId, CancellationToken ct)
+        Source source, Guid worldId, CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
 
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.Completed,
             CreatedAt = now,
@@ -161,17 +161,17 @@ public class ExtractionService : IExtractionService
     }
 
     private async Task<IReadOnlyList<ArtifactContext>> AssembleContextAsync(
-        Source source, Guid campaignId, CancellationToken ct)
+        Source source, Guid worldId, CancellationToken ct)
     {
         var allowedVisibilities = GetAllowedContextScopes(source.Visibility);
 
         // Load name-matched artifacts
         var nameMatched = await _artifactRepository.ListByNamesInTextAsync(
-            campaignId, source.Body!, allowedVisibilities, ct);
+            worldId, source.Body!, allowedVisibilities, ct);
 
         // Load recent artifacts
-        var recent = await _artifactRepository.ListRecentByCampaignAsync(
-            campaignId, allowedVisibilities, _options.MaxArtifactContextCount, ct);
+        var recent = await _artifactRepository.ListRecentByWorldAsync(
+            worldId, allowedVisibilities, _options.MaxArtifactContextCount, ct);
 
         // Merge: name-matched first, then recent, deduplicate by Id
         var seen = new HashSet<Guid>();
@@ -230,7 +230,7 @@ public class ExtractionService : IExtractionService
     }
 
     private async Task<ExtractionOutcome> InvokeAiWithRetriesAsync(
-        Source source, Guid campaignId, IReadOnlyList<ArtifactContext> context, CancellationToken ct)
+        Source source, Guid worldId, IReadOnlyList<ArtifactContext> context, CancellationToken ct)
     {
         var request = BuildExtractionRequest(source, context);
         var maxAttempts = 1 + _options.MaxParseRetryAttempts; // initial + retries
@@ -250,7 +250,7 @@ public class ExtractionService : IExtractionService
                 if (validationError is null)
                 {
                     // Success — create proposals and track usage
-                    return await HandleSuccessfulResponseAsync(source, campaignId, response, ct);
+                    return await HandleSuccessfulResponseAsync(source, worldId, response, ct);
                 }
 
                 lastError = validationError;
@@ -261,7 +261,7 @@ public class ExtractionService : IExtractionService
             catch (TaskCanceledException) when (!ct.IsCancellationRequested)
             {
                 // Timeout — transient failure
-                await TrackUsageAsync(source, campaignId, lastResponse, false, ErrorCategories.Timeout, ct);
+                await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.Timeout, ct);
                 return await TransientOutcomeAsync(source, ErrorCategories.Timeout, "AI call timed out.", ct);
             }
             catch (HttpRequestException ex) when (IsPermanentHttpFailure(ex))
@@ -270,7 +270,7 @@ public class ExtractionService : IExtractionService
                 // bytes and fails the same way. Fail the source so the problem surfaces.
                 _logger.LogError(ex,
                     "Permanent AI request failure. SourceId={SourceId}", source.Id);
-                await TrackUsageAsync(source, campaignId, lastResponse, false, ErrorCategories.AiCallFailure, ct);
+                await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.AiCallFailure, ct);
                 await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
                 return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
             }
@@ -279,7 +279,7 @@ public class ExtractionService : IExtractionService
                 // Network error / 5xx / throttling — transient failure
                 _logger.LogWarning(ex,
                     "Network error during AI call. SourceId={SourceId}", source.Id);
-                await TrackUsageAsync(source, campaignId, lastResponse, false, ErrorCategories.TransientError, ct);
+                await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.TransientError, ct);
                 return await TransientOutcomeAsync(source, ErrorCategories.TransientError, ex.Message, ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -290,7 +290,7 @@ public class ExtractionService : IExtractionService
             {
                 _logger.LogWarning(ex,
                     "Transient error during AI call. SourceId={SourceId}", source.Id);
-                await TrackUsageAsync(source, campaignId, lastResponse, false, ErrorCategories.TransientError, ct);
+                await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.TransientError, ct);
                 return await TransientOutcomeAsync(source, ErrorCategories.TransientError, ex.Message, ct);
             }
             catch (Exception ex)
@@ -298,7 +298,7 @@ public class ExtractionService : IExtractionService
                 // Non-transient AI call failure
                 _logger.LogError(ex,
                     "Non-transient AI call failure. SourceId={SourceId}", source.Id);
-                await TrackUsageAsync(source, campaignId, lastResponse, false, ErrorCategories.AiCallFailure, ct);
+                await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.AiCallFailure, ct);
                 await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
                 return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
             }
@@ -309,14 +309,14 @@ public class ExtractionService : IExtractionService
             "Parse retries exhausted. SourceId={SourceId}, Error={Error}",
             source.Id, lastError);
 
-        await TrackUsageAsync(source, campaignId, lastResponse, false, ErrorCategories.ParseFailure, ct);
+        await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.ParseFailure, ct);
         await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
         return ExtractionOutcome.NonTransient(ErrorCategories.ParseFailure,
             $"AI response validation failed after {_options.MaxParseRetryAttempts} retries: {lastError}");
     }
 
     private async Task<ExtractionOutcome> HandleSuccessfulResponseAsync(
-        Source source, Guid campaignId, AiExtractionResponse response, CancellationToken ct)
+        Source source, Guid worldId, AiExtractionResponse response, CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
 
@@ -326,7 +326,7 @@ public class ExtractionService : IExtractionService
             var emptyBatch = new ReviewBatch
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaignId,
+                WorldId = worldId,
                 SourceId = source.Id,
                 Status = ReviewBatchStatus.Completed,
                 CreatedAt = now,
@@ -335,7 +335,7 @@ public class ExtractionService : IExtractionService
 
             await _reviewBatchRepository.CreateAsync(emptyBatch, ct);
             await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Processed, ct);
-            await TrackUsageAsync(source, campaignId, response, true, null, ct, emptyBatch.Id);
+            await TrackUsageAsync(source, worldId, response, true, null, ct, emptyBatch.Id);
 
             return ExtractionOutcome.Succeeded(emptyBatch.Id, 0);
         }
@@ -344,13 +344,13 @@ public class ExtractionService : IExtractionService
         Guid batchId;
         try
         {
-            batchId = await CreateProposalsAtomicallyAsync(source, campaignId, response, now, ct);
+            batchId = await CreateProposalsAtomicallyAsync(source, worldId, response, now, ct);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
                 "Failed to persist proposals atomically. SourceId={SourceId}", source.Id);
-            await TrackUsageAsync(source, campaignId, response, false, ErrorCategories.ValidationFailure, ct);
+            await TrackUsageAsync(source, worldId, response, false, ErrorCategories.ValidationFailure, ct);
             await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
             return ExtractionOutcome.NonTransient(ErrorCategories.ValidationFailure,
                 "Failed to persist proposals: " + ex.Message);
@@ -360,13 +360,13 @@ public class ExtractionService : IExtractionService
         await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Processed, ct);
 
         // Track usage OUTSIDE the proposal transaction (persists even on rollback)
-        await TrackUsageAsync(source, campaignId, response, true, null, ct, batchId);
+        await TrackUsageAsync(source, worldId, response, true, null, ct, batchId);
 
         return ExtractionOutcome.Succeeded(batchId, response.Proposals.Count);
     }
 
     private async Task<Guid> CreateProposalsAtomicallyAsync(
-        Source source, Guid campaignId, AiExtractionResponse response,
+        Source source, Guid worldId, AiExtractionResponse response,
         DateTimeOffset now, CancellationToken ct)
     {
         await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
@@ -376,7 +376,7 @@ public class ExtractionService : IExtractionService
             var batch = new ReviewBatch
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaignId,
+                WorldId = worldId,
                 SourceId = source.Id,
                 Status = ReviewBatchStatus.Pending,
                 CreatedAt = now
@@ -427,7 +427,7 @@ public class ExtractionService : IExtractionService
     }
 
     private async Task TrackUsageAsync(
-        Source source, Guid campaignId, AiExtractionResponse? response,
+        Source source, Guid worldId, AiExtractionResponse? response,
         bool succeeded, string? errorCode, CancellationToken ct, Guid? reviewBatchId = null)
     {
         var costUsd = CalculateCost(response);
@@ -435,7 +435,7 @@ public class ExtractionService : IExtractionService
         var record = new AiUsageRecord
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             OperationType = AiOperationType.SourceExtraction,
             Model = response?.Model ?? _options.AiModel,

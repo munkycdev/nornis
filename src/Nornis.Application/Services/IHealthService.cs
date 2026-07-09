@@ -6,8 +6,8 @@ namespace Nornis.Application.Services;
 public interface IHealthService
 {
     /// <summary>
-    /// Computes a heuristic continuity-health score for the campaign from its artifacts, facts,
+    /// Computes a heuristic continuity-health score for the world from its artifacts, facts,
     /// relationships, and source references. Deterministic and cheap — recomputed on demand.
     /// </summary>
-    Task<AppResult<CampaignHealth>> GetHealthAsync(Guid campaignId, CancellationToken ct);
+    Task<AppResult<WorldHealth>> GetHealthAsync(Guid worldId, CancellationToken ct);
 }

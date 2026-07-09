@@ -54,8 +54,8 @@ public static class ReviewGenerators
 
     // --- Enum generators ---
 
-    public static Gen<CampaignRole> CampaignRoleGen =>
-        Gen.Elements(CampaignRole.GM, CampaignRole.Player, CampaignRole.Observer);
+    public static Gen<WorldRole> WorldRoleGen =>
+        Gen.Elements(WorldRole.GM, WorldRole.Player, WorldRole.Observer);
 
     public static Gen<VisibilityScope> VisibilityScopeGen =>
         Gen.Elements(VisibilityScope.Private, VisibilityScope.GMOnly, VisibilityScope.PartyVisible);
@@ -98,7 +98,7 @@ public static class ReviewGenerators
         {
             ["name"] = name,
             ["type"] = artifactType.ToString(),
-            ["summary"] = hasSummary ? $"Summary of {name} in the campaign" : null,
+            ["summary"] = hasSummary ? $"Summary of {name} in the world" : null,
             ["visibility"] = hasVisibility ? visibility : null,
             ["confidence"] = hasConfidence ? (decimal)confidence / 100m : null
         }.Where(kv => kv.Value is not null).ToDictionary(kv => kv.Key, kv => kv.Value)
@@ -181,8 +181,8 @@ public static class ReviewGenerators
     // --- Scenario generators ---
 
     /// <summary>
-    /// Generates a complete ReviewScenario with a campaign, multiple sources with mixed visibility,
-    /// batches, proposals, and campaign members with different roles.
+    /// Generates a complete ReviewScenario with a world, multiple sources with mixed visibility,
+    /// batches, proposals, and world members with different roles.
     /// This is the most complex generator — it creates a realistic test world.
     /// </summary>
     public static Gen<ReviewScenario> ReviewScenarioGen =>
@@ -195,11 +195,11 @@ public static class ReviewGenerators
         where observerUserId != gmUserId && observerUserId != playerUserId
         from visibilities in VisibilityScopeGen.ArrayOf(sourceCount)
         from sourceOwners in Gen.Elements(true, false).ArrayOf(sourceCount)
-        let campaignId = Guid.NewGuid()
+        let worldId = Guid.NewGuid()
         let sources = Enumerable.Range(0, sourceCount).Select(i => new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = $"Source {i + 1} — {ArtifactNames[i % ArtifactNames.Length]}",
             Body = $"Content about {ArtifactNames[i % ArtifactNames.Length]}",
@@ -211,7 +211,7 @@ public static class ReviewGenerators
         let batches = sources.Select(s => new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = s.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = s.CreatedAt.AddMinutes(5)
@@ -237,23 +237,23 @@ public static class ReviewGenerators
                 Status = ReviewProposalStatus.Pending,
                 CreatedAt = b.CreatedAt.AddMinutes(pi + 1)
             })).ToList()
-        let members = new List<CampaignMember>
+        let members = new List<WorldMember>
         {
             new()
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaignId,
+                WorldId = worldId,
                 UserId = gmUserId,
-                Role = CampaignRole.GM,
+                Role = WorldRole.GM,
                 DisplayName = "Kelda",
                 JoinedAt = DateTimeOffset.UtcNow.AddDays(-30)
             },
             new()
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaignId,
+                WorldId = worldId,
                 UserId = playerUserId,
-                Role = CampaignRole.Player,
+                Role = WorldRole.Player,
                 DisplayName = "Tavrin",
                 CharacterName = "Tavrin the Bold",
                 JoinedAt = DateTimeOffset.UtcNow.AddDays(-28)
@@ -261,15 +261,15 @@ public static class ReviewGenerators
             new()
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaignId,
+                WorldId = worldId,
                 UserId = observerUserId,
-                Role = CampaignRole.Observer,
+                Role = WorldRole.Observer,
                 DisplayName = "Jorin",
                 JoinedAt = DateTimeOffset.UtcNow.AddDays(-25)
             }
         }
         select new ReviewScenario(
-            campaignId,
+            worldId,
             sources,
             batches,
             proposals,
@@ -280,17 +280,17 @@ public static class ReviewGenerators
 
     /// <summary>
     /// Generates a CreateArtifact proposal with valid JSON that can be directly accepted.
-    /// Includes campaign/source/batch context needed by ReviewService.
+    /// Includes world/source/batch context needed by ReviewService.
     /// </summary>
     public static Gen<ProposalWithContext> CreateArtifactProposalWithContext =>
         from payload in ValidCreateArtifactPayload
         from visibility in VisibilityScopeGen
         from userId in ArbMap.Default.GeneratorFor<Guid>()
-        let campaignId = Guid.NewGuid()
+        let worldId = Guid.NewGuid()
         let source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Test content",
@@ -302,7 +302,7 @@ public static class ReviewGenerators
         let batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -320,7 +320,7 @@ public static class ReviewGenerators
             Status = ReviewProposalStatus.Pending,
             CreatedAt = batch.CreatedAt.AddMinutes(1)
         }
-        select new ProposalWithContext(proposal, batch, source, campaignId, userId);
+        select new ProposalWithContext(proposal, batch, source, worldId, userId);
 
     /// <summary>
     /// Generates an AddFact proposal with valid JSON and an existing target artifact.
@@ -329,12 +329,12 @@ public static class ReviewGenerators
         from payload in ValidAddFactPayload
         from visibility in VisibilityScopeGen
         from userId in ArbMap.Default.GeneratorFor<Guid>()
-        let campaignId = Guid.NewGuid()
+        let worldId = Guid.NewGuid()
         let artifactId = Guid.NewGuid()
         let source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Test content",
@@ -346,7 +346,7 @@ public static class ReviewGenerators
         let batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -364,7 +364,7 @@ public static class ReviewGenerators
             Status = ReviewProposalStatus.Pending,
             CreatedAt = batch.CreatedAt.AddMinutes(1)
         }
-        select new ProposalWithContext(proposal, batch, source, campaignId, userId, artifactId);
+        select new ProposalWithContext(proposal, batch, source, worldId, userId, artifactId);
 
     /// <summary>
     /// Generates a proposal with Pending or Edited status suitable for accept/reject/edit operations.
@@ -374,11 +374,11 @@ public static class ReviewGenerators
         from payload in ValidCreateArtifactPayload
         from visibility in VisibilityScopeGen
         from userId in ArbMap.Default.GeneratorFor<Guid>()
-        let campaignId = Guid.NewGuid()
+        let worldId = Guid.NewGuid()
         let source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content about Captain Voss",
@@ -390,7 +390,7 @@ public static class ReviewGenerators
         let batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -408,7 +408,7 @@ public static class ReviewGenerators
             Status = status,
             CreatedAt = batch.CreatedAt.AddMinutes(1)
         }
-        select new ProposalWithContext(proposal, batch, source, campaignId, userId);
+        select new ProposalWithContext(proposal, batch, source, worldId, userId);
 
     private static readonly JsonSerializerOptions JsonSerializerOptions = new()
     {
@@ -418,27 +418,27 @@ public static class ReviewGenerators
 }
 
 /// <summary>
-/// A complete test world for review property tests: campaign, sources (with mixed visibility),
+/// A complete test world for review property tests: world, sources (with mixed visibility),
 /// batches, proposals, and members with varying roles.
 /// </summary>
 public record ReviewScenario(
-    Guid CampaignId,
+    Guid WorldId,
     List<Source> Sources,
     List<ReviewBatch> Batches,
     List<ReviewProposal> Proposals,
-    List<CampaignMember> Members,
+    List<WorldMember> Members,
     Guid GmUserId,
     Guid PlayerUserId,
     Guid ObserverUserId);
 
 /// <summary>
-/// A single proposal with its full context (source, batch, campaign) for property tests.
+/// A single proposal with its full context (source, batch, world) for property tests.
 /// </summary>
 public record ProposalWithContext(
     ReviewProposal Proposal,
     ReviewBatch Batch,
     Source Source,
-    Guid CampaignId,
+    Guid WorldId,
     Guid OwnerUserId,
     Guid? TargetArtifactId = null);
 
@@ -454,8 +454,8 @@ public class ReviewArbitraries
     public static Arbitrary<ProposalWithContext> ProposalsWithContext() =>
         ReviewGenerators.CreateArtifactProposalWithContext.ToArbitrary();
 
-    public static Arbitrary<CampaignRole> CampaignRoles() =>
-        ReviewGenerators.CampaignRoleGen.ToArbitrary();
+    public static Arbitrary<WorldRole> WorldRoles() =>
+        ReviewGenerators.WorldRoleGen.ToArbitrary();
 
     public static Arbitrary<VisibilityScope> VisibilityScopes() =>
         ReviewGenerators.VisibilityScopeGen.ToArbitrary();

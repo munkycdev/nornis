@@ -17,7 +17,7 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// Property 10: AiUsageRecord Always Created
 ///
 /// For any Ask invocation that reaches the AI call step (valid question, retrieval succeeds),
-/// an AiUsageRecord SHALL be created with OperationType=AskLoremaster, the correct CampaignId,
+/// an AiUsageRecord SHALL be created with OperationType=AskLoremaster, the correct WorldId,
 /// UserId, Model, InputTokens, OutputTokens, TotalTokens, EstimatedCostUsd, DurationMs,
 /// and Succeeded flag — regardless of whether the AI call succeeds or fails.
 ///
@@ -82,7 +82,7 @@ public class AiUsageRecordAlwaysCreatedTests
             new FakeAiBudgetGuard(), options);
 
         var command = new AskLoremasterCommand(
-            CampaignId: scenario.CampaignId,
+            WorldId: scenario.WorldId,
             Question: scenario.Question,
             UserId: scenario.UserId,
             UserRole: scenario.UserRole,
@@ -102,9 +102,9 @@ public class AiUsageRecordAlwaysCreatedTests
         Assert.That(record.OperationType, Is.EqualTo(AiOperationType.AskLoremaster),
             "AiUsageRecord must have OperationType=AskLoremaster.");
 
-        // Assert — correct CampaignId
-        Assert.That(record.CampaignId, Is.EqualTo(scenario.CampaignId),
-            "AiUsageRecord must have the correct CampaignId.");
+        // Assert — correct WorldId
+        Assert.That(record.WorldId, Is.EqualTo(scenario.WorldId),
+            "AiUsageRecord must have the correct WorldId.");
 
         // Assert — correct UserId
         Assert.That(record.UserId, Is.EqualTo(scenario.UserId),
@@ -159,9 +159,9 @@ public class AiUsageRecordAlwaysCreatedTests
 /// Input model for AiUsageRecord creation scenarios.
 /// </summary>
 public record AiUsageRecordScenario(
-    Guid CampaignId,
+    Guid WorldId,
     Guid UserId,
-    CampaignRole UserRole,
+    WorldRole UserRole,
     string Question,
     KnowledgeContext KnowledgeContext,
     bool AiSucceeds,
@@ -222,9 +222,9 @@ public class AiUsageRecordScenarioArbitraries
     public static Arbitrary<AiUsageRecordScenario> AiUsageRecordScenarios()
     {
         var roleGen = Gen.Elements(
-            CampaignRole.GM,
-            CampaignRole.Player,
-            CampaignRole.Observer);
+            WorldRole.GM,
+            WorldRole.Player,
+            WorldRole.Observer);
 
         var questionGen = Gen.Elements(QuestionTemplates);
 
@@ -268,21 +268,21 @@ public class AiUsageRecordScenarioArbitraries
 
         // Success scenario
         var successGen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from userId in ArbMap.Default.GeneratorFor<Guid>()
             from role in roleGen
             from question in questionGen
             from context in contextGen
             from aiResponse in aiResponseGen
             select new AiUsageRecordScenario(
-                campaignId, userId, role, question, context,
+                worldId, userId, role, question, context,
                 AiSucceeds: true,
                 AiResponse: aiResponse,
                 FailureType: AiFailureType.None);
 
         // Failure scenario
         var failureGen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from userId in ArbMap.Default.GeneratorFor<Guid>()
             from role in roleGen
             from question in questionGen
@@ -290,7 +290,7 @@ public class AiUsageRecordScenarioArbitraries
             from aiResponse in aiResponseGen
             from failureType in failureTypeGen
             select new AiUsageRecordScenario(
-                campaignId, userId, role, question, context,
+                worldId, userId, role, question, context,
                 AiSucceeds: false,
                 AiResponse: aiResponse,
                 FailureType: failureType);

@@ -16,27 +16,27 @@ namespace Nornis.Application.Tests.Services;
 [TestFixture]
 public class CostServiceDateRangeAndAggregationTests
 {
-    private static readonly Guid CampaignId = Guid.NewGuid();
+    private static readonly Guid WorldId = Guid.NewGuid();
     private static readonly Guid KeldaUserId = Guid.NewGuid();
 
     private InMemoryAiUsageRecordRepository _aiUsageRepo = null!;
-    private InMemoryCampaignMemberRepository _memberRepo = null!;
-    private InMemoryCampaignRepository _campaignRepo = null!;
+    private InMemoryWorldMemberRepository _memberRepo = null!;
+    private InMemoryWorldRepository _worldRepo = null!;
     private CostService _costService = null!;
 
     [SetUp]
     public void SetUp()
     {
         _aiUsageRepo = new InMemoryAiUsageRecordRepository();
-        _memberRepo = new InMemoryCampaignMemberRepository();
-        _campaignRepo = new InMemoryCampaignRepository(_memberRepo);
+        _memberRepo = new InMemoryWorldMemberRepository();
+        _worldRepo = new InMemoryWorldRepository(_memberRepo);
 
-        _memberRepo.CreateAsync(new CampaignMember
+        _memberRepo.CreateAsync(new WorldMember
         {
             Id = Guid.NewGuid(),
-            CampaignId = CampaignId,
+            WorldId = WorldId,
             UserId = KeldaUserId,
-            Role = CampaignRole.GM,
+            Role = WorldRole.GM,
             DisplayName = "Kelda",
             JoinedAt = DateTimeOffset.UtcNow.AddDays(-30)
         }).GetAwaiter().GetResult();
@@ -44,7 +44,7 @@ public class CostServiceDateRangeAndAggregationTests
         _costService = new CostService(
             _aiUsageRepo,
             _memberRepo,
-            _campaignRepo,
+            _worldRepo,
             NullLogger<CostService>.Instance);
     }
 
@@ -57,7 +57,7 @@ public class CostServiceDateRangeAndAggregationTests
         var endDate = new DateTimeOffset(2024, 6, 10, 0, 0, 0, TimeSpan.Zero);
 
         var result = await _costService.GetByUserAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, startDate, endDate, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, startDate, endDate, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
@@ -71,7 +71,7 @@ public class CostServiceDateRangeAndAggregationTests
         var endDate = new DateTimeOffset(2024, 8, 19, 12, 0, 0, TimeSpan.Zero);
 
         var result = await _costService.GetByOperationTypeAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, startDate, endDate, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, startDate, endDate, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
@@ -85,7 +85,7 @@ public class CostServiceDateRangeAndAggregationTests
         var endDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         var result = await _costService.GetByModelAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, startDate, endDate, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, startDate, endDate, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
@@ -103,7 +103,7 @@ public class CostServiceDateRangeAndAggregationTests
         SeedRecord(createdAt: sameDate);
 
         var result = await _costService.GetByUserAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, sameDate, sameDate, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, sameDate, sameDate, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value, Is.Not.Null);
@@ -116,7 +116,7 @@ public class CostServiceDateRangeAndAggregationTests
         SeedRecord(createdAt: sameDate);
 
         var result = await _costService.GetByOperationTypeAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, sameDate, sameDate, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, sameDate, sameDate, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value, Is.Not.Null);
@@ -129,7 +129,7 @@ public class CostServiceDateRangeAndAggregationTests
         SeedRecord(createdAt: sameDate);
 
         var result = await _costService.GetByModelAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, sameDate, sameDate, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, sameDate, sameDate, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value, Is.Not.Null);
@@ -147,7 +147,7 @@ public class CostServiceDateRangeAndAggregationTests
         SeedRecord(createdAt: DateTimeOffset.UtcNow.AddDays(-1));
 
         var result = await _costService.GetByUserAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, null, null, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, null, null, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var totalOps = result.Value!.Sum(u => u.Summary.OperationCount);
@@ -161,7 +161,7 @@ public class CostServiceDateRangeAndAggregationTests
         SeedRecord(createdAt: DateTimeOffset.UtcNow.AddDays(-10));
 
         var result = await _costService.GetByOperationTypeAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, null, null, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, null, null, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var totalOps = result.Value!.Sum(r => r.Summary.OperationCount);
@@ -175,7 +175,7 @@ public class CostServiceDateRangeAndAggregationTests
         SeedRecord(createdAt: DateTimeOffset.UtcNow);
 
         var result = await _costService.GetByModelAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, null, null, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, null, null, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var totalOps = result.Value!.Sum(r => r.Summary.OperationCount);
@@ -195,7 +195,7 @@ public class CostServiceDateRangeAndAggregationTests
         SeedRecord(createdAt: new DateTimeOffset(2024, 7, 1, 0, 0, 0, TimeSpan.Zero));  // after
 
         var result = await _costService.GetByUserAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, cutoff, null, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, cutoff, null, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var totalOps = result.Value!.Sum(u => u.Summary.OperationCount);
@@ -211,7 +211,7 @@ public class CostServiceDateRangeAndAggregationTests
         SeedRecord(createdAt: new DateTimeOffset(2024, 4, 15, 0, 0, 0, TimeSpan.Zero));     // after
 
         var result = await _costService.GetByOperationTypeAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, cutoff, null, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, cutoff, null, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var totalOps = result.Value!.Sum(r => r.Summary.OperationCount);
@@ -227,7 +227,7 @@ public class CostServiceDateRangeAndAggregationTests
         SeedRecord(createdAt: new DateTimeOffset(2024, 10, 1, 0, 0, 0, TimeSpan.Zero)); // after
 
         var result = await _costService.GetByModelAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, cutoff, null, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, cutoff, null, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var totalOps = result.Value!.Sum(r => r.Summary.OperationCount);
@@ -247,7 +247,7 @@ public class CostServiceDateRangeAndAggregationTests
         SeedRecord(createdAt: new DateTimeOffset(2024, 7, 1, 0, 0, 0, TimeSpan.Zero));  // after cutoff
 
         var result = await _costService.GetByUserAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, null, cutoff, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, null, cutoff, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var totalOps = result.Value!.Sum(u => u.Summary.OperationCount);
@@ -263,7 +263,7 @@ public class CostServiceDateRangeAndAggregationTests
         SeedRecord(createdAt: new DateTimeOffset(2024, 5, 1, 0, 0, 0, TimeSpan.Zero));  // after
 
         var result = await _costService.GetByOperationTypeAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, null, cutoff, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, null, cutoff, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var totalOps = result.Value!.Sum(r => r.Summary.OperationCount);
@@ -279,7 +279,7 @@ public class CostServiceDateRangeAndAggregationTests
         SeedRecord(createdAt: new DateTimeOffset(2024, 12, 1, 0, 0, 0, TimeSpan.Zero));   // after
 
         var result = await _costService.GetByModelAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, null, cutoff, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, null, cutoff, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var totalOps = result.Value!.Sum(r => r.Summary.OperationCount);
@@ -288,14 +288,14 @@ public class CostServiceDateRangeAndAggregationTests
 
     #endregion
 
-    #region Empty campaign → all CostSummary fields are zero
+    #region Empty world → all CostSummary fields are zero
 
     [Test]
-    public async Task GetSummaryAsync_EmptyCampaign_AllCostSummaryFieldsAreZero()
+    public async Task GetSummaryAsync_EmptyWorld_AllCostSummaryFieldsAreZero()
     {
-        // No records seeded — campaign is empty
+        // No records seeded — world is empty
         var result = await _costService.GetSummaryAsync(
-            CampaignId, KeldaUserId, CampaignRole.GM, CancellationToken.None);
+            WorldId, KeldaUserId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
 
@@ -319,7 +319,7 @@ public class CostServiceDateRangeAndAggregationTests
         _aiUsageRepo.CreateAsync(new AiUsageRecord
         {
             Id = Guid.NewGuid(),
-            CampaignId = CampaignId,
+            WorldId = WorldId,
             UserId = userId ?? KeldaUserId,
             OperationType = AiOperationType.SourceExtraction,
             Model = "gpt-4o",

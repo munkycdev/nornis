@@ -20,7 +20,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
     private InMemoryAiUsageRecordRepository _aiUsageRecordRepository = null!;
     private LoremasterOptions _options = null!;
 
-    private static readonly Guid CampaignId = Guid.NewGuid();
+    private static readonly Guid WorldId = Guid.NewGuid();
     private static readonly Guid UserId = Guid.NewGuid();
 
     [SetUp]
@@ -53,7 +53,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
     }
 
     private AskLoremasterCommand CreateCommand(string question = "Who is Captain Voss?") =>
-        new(CampaignId, question, UserId, CampaignRole.GM, null);
+        new(WorldId, question, UserId, WorldRole.GM, null);
 
     private void SetupKnowledgeContext()
     {
@@ -111,7 +111,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
     }
 
     [Test]
-    public async Task AskAsync_SuccessfulAiCall_RecordHasCorrectCampaignId()
+    public async Task AskAsync_SuccessfulAiCall_RecordHasCorrectWorldId()
     {
         SetupKnowledgeContext();
         _aiClient.SetupSuccess("Captain Voss is located in Black Harbor.");
@@ -119,7 +119,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         await _service.AskAsync(CreateCommand(), CancellationToken.None);
 
         var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.CampaignId, Is.EqualTo(CampaignId));
+        Assert.That(record.WorldId, Is.EqualTo(WorldId));
     }
 
     [Test]
@@ -280,7 +280,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
     }
 
     [Test]
-    public async Task AskAsync_FailedAiCall_RecordStillHasCorrectCampaignAndUser()
+    public async Task AskAsync_FailedAiCall_RecordStillHasCorrectWorldAndUser()
     {
         SetupKnowledgeContext();
         _aiClient.SetupServiceError();
@@ -288,7 +288,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         await _service.AskAsync(CreateCommand(), CancellationToken.None);
 
         var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.CampaignId, Is.EqualTo(CampaignId));
+        Assert.That(record.WorldId, Is.EqualTo(WorldId));
         Assert.That(record.UserId, Is.EqualTo(UserId));
         Assert.That(record.OperationType, Is.EqualTo(AiOperationType.AskLoremaster));
     }
@@ -444,7 +444,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         SetupKnowledgeContext();
         _aiClient.SetupSuccess(new LoremasterAiResponse
         {
-            AnswerText = "Detailed answer about the campaign.",
+            AnswerText = "Detailed answer about the world.",
             InputTokens = 8000,
             OutputTokens = 2000,
             TotalTokens = 10000,
@@ -539,7 +539,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
                 Arg.Any<string>(),
                 Arg.Any<Guid>(),
                 Arg.Any<Guid>(),
-                Arg.Any<CampaignRole>(),
+                Arg.Any<WorldRole>(),
                 Arg.Any<CancellationToken>())
             .Returns(new KnowledgeContext
             {
@@ -563,7 +563,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
             Arg.Any<string>(),
             Arg.Any<Guid>(),
             Arg.Any<Guid>(),
-            Arg.Any<CampaignRole>(),
+            Arg.Any<WorldRole>(),
             cts.Token);
     }
 

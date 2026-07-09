@@ -1,3 +1,3 @@
 namespace Nornis.Application.Messaging;
 
-public record ExtractionMessage(Guid SourceId, Guid CampaignId);
+public record ExtractionMessage(Guid SourceId, Guid WorldId);

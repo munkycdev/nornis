@@ -26,11 +26,11 @@ public class ArtifactsControllerTests
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
         var voss = await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Captain Voss", visibility: VisibilityScope.PartyVisible);
+            _factory, scenario.World.Id, "Captain Voss", visibility: VisibilityScope.PartyVisible);
         await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Hidden Ledger", visibility: VisibilityScope.GMOnly);
+            _factory, scenario.World.Id, "Hidden Ledger", visibility: VisibilityScope.GMOnly);
 
-        var response = await scenario.PlayerClient.GetAsync($"/api/campaigns/{scenario.Campaign.Id}/artifacts");
+        var response = await scenario.PlayerClient.GetAsync($"/api/worlds/{scenario.World.Id}/artifacts");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         var artifacts = await response.Content.ReadFromJsonAsync<List<ArtifactListItemResponse>>();
@@ -44,12 +44,12 @@ public class ArtifactsControllerTests
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
         await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Captain Voss", type: ArtifactType.Character);
+            _factory, scenario.World.Id, "Captain Voss", type: ArtifactType.Character);
         var caravan = await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Missing Caravan", type: ArtifactType.Storyline);
+            _factory, scenario.World.Id, "Missing Caravan", type: ArtifactType.Storyline);
 
         var response = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/artifacts?type=Storyline");
+            $"/api/worlds/{scenario.World.Id}/artifacts?type=Storyline");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         var artifacts = await response.Content.ReadFromJsonAsync<List<ArtifactListItemResponse>>();
@@ -63,12 +63,12 @@ public class ArtifactsControllerTests
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
         await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Active Plot", status: ArtifactStatus.Active);
+            _factory, scenario.World.Id, "Active Plot", status: ArtifactStatus.Active);
         var resolved = await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Resolved Plot", status: ArtifactStatus.Resolved);
+            _factory, scenario.World.Id, "Resolved Plot", status: ArtifactStatus.Resolved);
 
         var response = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/artifacts?status=Resolved");
+            $"/api/worlds/{scenario.World.Id}/artifacts?status=Resolved");
 
         var artifacts = await response.Content.ReadFromJsonAsync<List<ArtifactListItemResponse>>();
         Assert.That(artifacts!.Select(a => a.Id), Is.EqualTo(new[] { resolved.Id }));
@@ -80,7 +80,7 @@ public class ArtifactsControllerTests
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
         var response = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/artifacts?type=NotAType");
+            $"/api/worlds/{scenario.World.Id}/artifacts?type=NotAType");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
     }
@@ -92,7 +92,7 @@ public class ArtifactsControllerTests
         var outsider = _factory.CreateAuthenticatedClient(
             sub: "auth0|outsider", email: "outsider@example.com", nickname: "Outsider");
 
-        var response = await outsider.GetAsync($"/api/campaigns/{scenario.Campaign.Id}/artifacts");
+        var response = await outsider.GetAsync($"/api/worlds/{scenario.World.Id}/artifacts");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }
@@ -107,22 +107,22 @@ public class ArtifactsControllerTests
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
         var voss = await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Captain Voss");
+            _factory, scenario.World.Id, "Captain Voss");
         var harbor = await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Black Harbor", type: ArtifactType.Location);
+            _factory, scenario.World.Id, "Black Harbor", type: ArtifactType.Location);
 
         var fact = await KnowledgeTestHelpers.CreateTestFactAsync(
             _factory, voss.Id, "denied", "knowing about the caravan", TruthState.Rumor);
         var rel = await KnowledgeTestHelpers.CreateTestRelationshipAsync(
-            _factory, scenario.Campaign.Id, voss.Id, harbor.Id, "LocatedIn");
+            _factory, scenario.World.Id, voss.Id, harbor.Id, "LocatedIn");
 
         var source = await SourceTestHelpers.CreateTestSourceAsync(
-            _factory, scenario.Campaign.Id, scenario.GmUserId);
+            _factory, scenario.World.Id, scenario.GmUserId);
         await KnowledgeTestHelpers.CreateTestSourceReferenceAsync(
             _factory, source.Id, SourceReferenceTargetType.ArtifactFact, fact.Id, quote: "He denied it.");
 
         var response = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/artifacts/{voss.Id}");
+            $"/api/worlds/{scenario.World.Id}/artifacts/{voss.Id}");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         var detail = await response.Content.ReadFromJsonAsync<ArtifactDetailResponse>();
@@ -140,7 +140,7 @@ public class ArtifactsControllerTests
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
         var response = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/artifacts/{Guid.NewGuid()}");
+            $"/api/worlds/{scenario.World.Id}/artifacts/{Guid.NewGuid()}");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
@@ -151,10 +151,10 @@ public class ArtifactsControllerTests
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
         var hidden = await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.Campaign.Id, "Hidden Ledger", visibility: VisibilityScope.GMOnly);
+            _factory, scenario.World.Id, "Hidden Ledger", visibility: VisibilityScope.GMOnly);
 
         var response = await scenario.PlayerClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/artifacts/{hidden.Id}");
+            $"/api/worlds/{scenario.World.Id}/artifacts/{hidden.Id}");
 
         // Not-found (not forbidden) so a Player cannot even confirm the artifact exists.
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));

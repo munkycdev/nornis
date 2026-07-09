@@ -26,7 +26,7 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// **Validates: Requirements 8.1, 8.2, 8.3, 8.4**
 /// </summary>
 [TestFixture]
-[Category("Feature: campaign-sources, Property 9: Processing Status State Machine")]
+[Category("Feature: world-sources, Property 9: Processing Status State Machine")]
 public class SourceProcessingStatusStateMachineTests
 {
     /// <summary>
@@ -45,12 +45,12 @@ public class SourceProcessingStatusStateMachineTests
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(ProcessingStatusStateMachineArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 9: Processing Status State Machine")]
+    [Description("Feature: world-sources, Property 9: Processing Status State Machine")]
     public void MarkReadyAsync_SucceedsOnlyFromDraft_RejectsAllOtherStatuses(StatusTransitionScenario scenario)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
@@ -58,7 +58,7 @@ public class SourceProcessingStatusStateMachineTests
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = scenario.CampaignId,
+            WorldId = scenario.WorldId,
             Type = SourceType.SessionNote,
             Title = "Session 4 — Questioning Captain Voss",
             Body = "We questioned Captain Voss in Black Harbor.",
@@ -73,9 +73,9 @@ public class SourceProcessingStatusStateMachineTests
         // MarkReadyAsync attempts Draft→Ready transition
         var command = new MarkSourceReadyCommand(
             source.Id,
-            scenario.CampaignId,
+            scenario.WorldId,
             scenario.ActingUserId,
-            CampaignRole.GM);
+            WorldRole.GM);
 
         // The target of MarkReadyAsync is Ready
         var targetStatus = SourceProcessingStatus.Ready;
@@ -117,7 +117,7 @@ public class SourceProcessingStatusStateMachineTests
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(ProcessingStatusStateMachineArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 9: Processing Status State Machine")]
+    [Description("Feature: world-sources, Property 9: Processing Status State Machine")]
     public void AllStatusPairs_OnlyValidTransitionsSucceed(StatusTransitionPair pair)
     {
         // This test validates the state machine conceptually by testing all (current, target) pairs
@@ -155,7 +155,7 @@ public class SourceProcessingStatusStateMachineTests
 /// </summary>
 public record StatusTransitionScenario(
     SourceProcessingStatus CurrentStatus,
-    Guid CampaignId,
+    Guid WorldId,
     Guid ActingUserId);
 
 /// <summary>
@@ -184,9 +184,9 @@ public class ProcessingStatusStateMachineArbitraries
     {
         var gen =
             from status in Gen.Elements(AllStatuses)
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from userId in ArbMap.Default.GeneratorFor<Guid>()
-            select new StatusTransitionScenario(status, campaignId, userId);
+            select new StatusTransitionScenario(status, worldId, userId);
 
         return gen.ToArbitrary();
     }

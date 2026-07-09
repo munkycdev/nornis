@@ -23,9 +23,9 @@ public class ReviewBatchConfiguration : IEntityTypeConfiguration<ReviewBatch>
         builder.Property(rb => rb.CompletedAt)
             .HasColumnType("datetimeoffset");
 
-        builder.HasOne(rb => rb.Campaign)
+        builder.HasOne(rb => rb.World)
             .WithMany()
-            .HasForeignKey(rb => rb.CampaignId)
+            .HasForeignKey(rb => rb.WorldId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(rb => rb.Source)

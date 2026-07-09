@@ -16,7 +16,7 @@ namespace Nornis.Infrastructure.Tests.Knowledge;
 [TestFixture]
 public class HiddenTruthStateGateTests
 {
-    private Guid _campaignId;
+    private Guid _worldId;
     private InMemoryArtifactRepository _artifactRepo = null!;
     private InMemoryArtifactFactRepository _factRepo = null!;
     private InMemoryArtifactRelationshipRepository _relationshipRepo = null!;
@@ -28,7 +28,7 @@ public class HiddenTruthStateGateTests
     [SetUp]
     public void SetUp()
     {
-        _campaignId = Guid.NewGuid();
+        _worldId = Guid.NewGuid();
         _artifactRepo = new InMemoryArtifactRepository();
         _factRepo = new InMemoryArtifactFactRepository();
         _relationshipRepo = new InMemoryArtifactRelationshipRepository();
@@ -54,7 +54,7 @@ public class HiddenTruthStateGateTests
         _relationshipRepo.Seed(new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             ArtifactAId = _voss.Id,
             ArtifactBId = _harbor.Id,
             Type = "SecretlyControls",
@@ -74,12 +74,12 @@ public class HiddenTruthStateGateTests
             _artifactRepo, _factRepo, _relationshipRepo, new InMemorySourceReferenceRepository(), options);
     }
 
-    [TestCase(CampaignRole.Player)]
-    [TestCase(CampaignRole.Observer)]
-    public async Task HiddenTruthState_IsFilteredForNonGmRoles(CampaignRole role)
+    [TestCase(WorldRole.Player)]
+    [TestCase(WorldRole.Observer)]
+    public async Task HiddenTruthState_IsFilteredForNonGmRoles(WorldRole role)
     {
         var context = await _retriever.RetrieveAsync(
-            "What do we know about Captain Voss?", _campaignId, Guid.NewGuid(), role, CancellationToken.None);
+            "What do we know about Captain Voss?", _worldId, Guid.NewGuid(), role, CancellationToken.None);
 
         Assert.That(context.Facts, Is.Empty, "Hidden facts must not reach non-GM askers");
         Assert.That(context.Relationships, Is.Empty, "Hidden relationships must not reach non-GM askers");
@@ -89,7 +89,7 @@ public class HiddenTruthStateGateTests
     public async Task HiddenTruthState_IsIncludedForGm()
     {
         var context = await _retriever.RetrieveAsync(
-            "What do we know about Captain Voss?", _campaignId, Guid.NewGuid(), CampaignRole.GM, CancellationToken.None);
+            "What do we know about Captain Voss?", _worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(context.Facts, Has.Count.EqualTo(1));
         Assert.That(context.Facts[0].TruthState, Is.EqualTo(TruthState.Hidden));
@@ -100,7 +100,7 @@ public class HiddenTruthStateGateTests
     public async Task RetrievedArtifacts_CarryStatus()
     {
         var context = await _retriever.RetrieveAsync(
-            "Tell me about Captain Voss", _campaignId, Guid.NewGuid(), CampaignRole.GM, CancellationToken.None);
+            "Tell me about Captain Voss", _worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         var voss = context.Artifacts.Single(a => a.Id == _voss.Id);
         Assert.That(voss.Status, Is.EqualTo("Active"));
@@ -109,7 +109,7 @@ public class HiddenTruthStateGateTests
     private Artifact MakeArtifact(string name, ArtifactType type) => new()
     {
         Id = Guid.NewGuid(),
-        CampaignId = _campaignId,
+        WorldId = _worldId,
         Type = type,
         Name = name,
         Summary = $"Test artifact {name}",

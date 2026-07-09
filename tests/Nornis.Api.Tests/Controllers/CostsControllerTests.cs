@@ -18,7 +18,7 @@ namespace Nornis.Api.Tests.Controllers;
 [TestFixture]
 public class CostsControllerTests
 {
-    private static readonly Guid CampaignId = Guid.Parse("aaaaaaaa-1111-2222-3333-444444444444");
+    private static readonly Guid WorldId = Guid.Parse("aaaaaaaa-1111-2222-3333-444444444444");
     private static readonly Guid KeldaUserId = Guid.Parse("bbbbbbbb-1111-2222-3333-444444444444");
     private static readonly Guid TavrinUserId = Guid.Parse("cccccccc-1111-2222-3333-444444444444");
 
@@ -32,10 +32,10 @@ public class CostsControllerTests
         var logger = Substitute.For<ILogger<CostsController>>();
         _controller = new CostsController(_costService, logger, Microsoft.Extensions.Options.Options.Create(new Nornis.Application.Configuration.AiBudgetOptions()));
 
-        SetupHttpContext(KeldaUserId, "Kelda", CampaignRole.GM);
+        SetupHttpContext(KeldaUserId, "Kelda", WorldRole.GM);
     }
 
-    private void SetupHttpContext(Guid userId, string username, CampaignRole role)
+    private void SetupHttpContext(Guid userId, string username, WorldRole role)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Items["NornisUser"] = new User
@@ -47,10 +47,10 @@ public class CostsControllerTests
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
-        httpContext.Items["CampaignMember"] = new CampaignMember
+        httpContext.Items["WorldMember"] = new WorldMember
         {
             Id = Guid.NewGuid(),
-            CampaignId = CampaignId,
+            WorldId = WorldId,
             UserId = userId,
             Role = role,
             DisplayName = username,
@@ -106,11 +106,11 @@ public class CostsControllerTests
         };
 
         _costService
-            .GetSummaryAsync(CampaignId, KeldaUserId, CampaignRole.GM, Arg.Any<CancellationToken>())
+            .GetSummaryAsync(WorldId, KeldaUserId, WorldRole.GM, Arg.Any<CancellationToken>())
             .Returns(AppResult<TimePeriodCostResult>.Success(summary));
 
         // Act
-        var result = await _controller.GetSummary(CampaignId, CancellationToken.None);
+        var result = await _controller.GetSummary(WorldId, CancellationToken.None);
 
         // Assert
         var okResult = result as OkObjectResult;
@@ -134,26 +134,26 @@ public class CostsControllerTests
     public async Task GetSummary_PassesCorrectParametersToService()
     {
         // Arrange
-        SetupHttpContext(TavrinUserId, "Tavrin", CampaignRole.Player);
+        SetupHttpContext(TavrinUserId, "Tavrin", WorldRole.Player);
 
         _costService
-            .GetSummaryAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CampaignRole>(), Arg.Any<CancellationToken>())
+            .GetSummaryAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<WorldRole>(), Arg.Any<CancellationToken>())
             .Returns(AppResult<TimePeriodCostResult>.Success(CreateEmptyTimePeriodResult()));
 
         // Act
-        await _controller.GetSummary(CampaignId, CancellationToken.None);
+        await _controller.GetSummary(WorldId, CancellationToken.None);
 
         // Assert
         await _costService.Received(1).GetSummaryAsync(
-            CampaignId, TavrinUserId, CampaignRole.Player, Arg.Any<CancellationToken>());
+            WorldId, TavrinUserId, WorldRole.Player, Arg.Any<CancellationToken>());
     }
 
     #endregion
 
-    #region CampaignMemberActionFilter Applied (non-member → 403)
+    #region WorldMemberActionFilter Applied (non-member → 403)
 
     [Test]
-    public void CostsController_HasServiceFilterAttribute_ForCampaignMemberActionFilter()
+    public void CostsController_HasServiceFilterAttribute_ForWorldMemberActionFilter()
     {
         var attributes = typeof(CostsController)
             .GetCustomAttributes(typeof(ServiceFilterAttribute), inherit: true)
@@ -162,9 +162,9 @@ public class CostsControllerTests
 
         Assert.That(attributes, Has.Count.GreaterThanOrEqualTo(1));
         Assert.That(
-            attributes.Any(a => a.ServiceType == typeof(CampaignMemberActionFilter)),
+            attributes.Any(a => a.ServiceType == typeof(WorldMemberActionFilter)),
             Is.True,
-            "CostsController must have [ServiceFilter(typeof(CampaignMemberActionFilter))]");
+            "CostsController must have [ServiceFilter(typeof(WorldMemberActionFilter))]");
     }
 
     [Test]
@@ -183,7 +183,7 @@ public class CostsControllerTests
             .FirstOrDefault();
 
         Assert.That(routeAttribute, Is.Not.Null);
-        Assert.That(routeAttribute!.Template, Is.EqualTo("api/campaigns/{campaignId:guid}/costs"));
+        Assert.That(routeAttribute!.Template, Is.EqualTo("api/worlds/{worldId:guid}/costs"));
     }
 
     #endregion
@@ -198,12 +198,12 @@ public class CostsControllerTests
         var endDate = startDate.AddDays(-7); // end before start
 
         _costService
-            .GetByUserAsync(CampaignId, KeldaUserId, CampaignRole.GM, startDate, endDate, Arg.Any<CancellationToken>())
+            .GetByUserAsync(WorldId, KeldaUserId, WorldRole.GM, startDate, endDate, Arg.Any<CancellationToken>())
             .Returns(AppResult<IReadOnlyList<UserCostResult>>.Fail(
                 new AppError(400, "invalid_date_range", "Start date must be before or equal to end date.")));
 
         // Act
-        var result = await _controller.GetByUser(CampaignId, startDate, endDate, CancellationToken.None);
+        var result = await _controller.GetByUser(WorldId, startDate, endDate, CancellationToken.None);
 
         // Assert
         var badRequestResult = result as BadRequestObjectResult;
@@ -224,12 +224,12 @@ public class CostsControllerTests
         var endDate = startDate.AddDays(-1);
 
         _costService
-            .GetByOperationTypeAsync(CampaignId, KeldaUserId, CampaignRole.GM, startDate, endDate, Arg.Any<CancellationToken>())
+            .GetByOperationTypeAsync(WorldId, KeldaUserId, WorldRole.GM, startDate, endDate, Arg.Any<CancellationToken>())
             .Returns(AppResult<IReadOnlyList<OperationTypeCostResult>>.Fail(
                 new AppError(400, "invalid_date_range", "Start date must be before or equal to end date.")));
 
         // Act
-        var result = await _controller.GetByOperation(CampaignId, startDate, endDate, CancellationToken.None);
+        var result = await _controller.GetByOperation(WorldId, startDate, endDate, CancellationToken.None);
 
         // Assert
         var badRequestResult = result as BadRequestObjectResult;
@@ -248,12 +248,12 @@ public class CostsControllerTests
         var endDate = startDate.AddDays(-3);
 
         _costService
-            .GetByModelAsync(CampaignId, KeldaUserId, CampaignRole.GM, startDate, endDate, Arg.Any<CancellationToken>())
+            .GetByModelAsync(WorldId, KeldaUserId, WorldRole.GM, startDate, endDate, Arg.Any<CancellationToken>())
             .Returns(AppResult<IReadOnlyList<ModelCostResult>>.Fail(
                 new AppError(400, "invalid_date_range", "Start date must be before or equal to end date.")));
 
         // Act
-        var result = await _controller.GetByModel(CampaignId, startDate, endDate, CancellationToken.None);
+        var result = await _controller.GetByModel(WorldId, startDate, endDate, CancellationToken.None);
 
         // Assert
         var badRequestResult = result as BadRequestObjectResult;
@@ -266,12 +266,12 @@ public class CostsControllerTests
 
     #endregion
 
-    #region Invalid CampaignId Format → 404 (Route Constraint)
+    #region Invalid WorldId Format → 404 (Route Constraint)
 
     [Test]
     public void CostsController_RouteConstraint_RequiresGuidFormat()
     {
-        // The route "api/campaigns/{campaignId:guid}/costs" has a :guid constraint.
+        // The route "api/worlds/{worldId:guid}/costs" has a :guid constraint.
         // Non-GUID values will never reach the controller action (ASP.NET Core returns 404 at routing level).
         // We verify the route template declares the constraint.
         var routeAttribute = typeof(CostsController)
@@ -280,8 +280,8 @@ public class CostsControllerTests
             .FirstOrDefault();
 
         Assert.That(routeAttribute, Is.Not.Null);
-        Assert.That(routeAttribute!.Template, Does.Contain("{campaignId:guid}"),
-            "Route must include :guid constraint to reject non-GUID campaignId values with 404");
+        Assert.That(routeAttribute!.Template, Does.Contain("{worldId:guid}"),
+            "Route must include :guid constraint to reject non-GUID worldId values with 404");
     }
 
     #endregion
@@ -293,12 +293,12 @@ public class CostsControllerTests
     {
         // Arrange
         _costService
-            .GetSummaryAsync(CampaignId, KeldaUserId, CampaignRole.GM, Arg.Any<CancellationToken>())
+            .GetSummaryAsync(WorldId, KeldaUserId, WorldRole.GM, Arg.Any<CancellationToken>())
             .Returns(AppResult<TimePeriodCostResult>.Fail(
                 new AppError(500, "aggregation_failed", "NullReferenceException at Nornis.Infrastructure.Persistence...")));
 
         // Act
-        var result = await _controller.GetSummary(CampaignId, CancellationToken.None);
+        var result = await _controller.GetSummary(WorldId, CancellationToken.None);
 
         // Assert
         var objectResult = result as ObjectResult;
@@ -316,13 +316,13 @@ public class CostsControllerTests
     {
         // Arrange
         _costService
-            .GetSummaryAsync(CampaignId, KeldaUserId, CampaignRole.GM, Arg.Any<CancellationToken>())
+            .GetSummaryAsync(WorldId, KeldaUserId, WorldRole.GM, Arg.Any<CancellationToken>())
             .Returns(AppResult<TimePeriodCostResult>.Fail(
                 new AppError(500, "internal_error",
                     "at Nornis.Infrastructure.Persistence.AiUsageRecordRepository.AggregateAsync() in D:\\repos\\nornis\\src:line 123")));
 
         // Act
-        var result = await _controller.GetSummary(CampaignId, CancellationToken.None);
+        var result = await _controller.GetSummary(WorldId, CancellationToken.None);
 
         // Assert
         var objectResult = result as ObjectResult;
@@ -342,12 +342,12 @@ public class CostsControllerTests
     {
         // Arrange
         _costService
-            .GetByUserAsync(CampaignId, KeldaUserId, CampaignRole.GM, null, null, Arg.Any<CancellationToken>())
+            .GetByUserAsync(WorldId, KeldaUserId, WorldRole.GM, null, null, Arg.Any<CancellationToken>())
             .Returns(AppResult<IReadOnlyList<UserCostResult>>.Fail(
                 new AppError(500, "database_timeout", "SQL timeout after 30 seconds querying AiUsageRecords.")));
 
         // Act
-        var result = await _controller.GetByUser(CampaignId, null, null, CancellationToken.None);
+        var result = await _controller.GetByUser(WorldId, null, null, CancellationToken.None);
 
         // Assert
         var objectResult = result as ObjectResult;
@@ -367,12 +367,12 @@ public class CostsControllerTests
     {
         // Arrange — an unexpected status code from the service
         _costService
-            .GetSummaryAsync(CampaignId, KeldaUserId, CampaignRole.GM, Arg.Any<CancellationToken>())
+            .GetSummaryAsync(WorldId, KeldaUserId, WorldRole.GM, Arg.Any<CancellationToken>())
             .Returns(AppResult<TimePeriodCostResult>.Fail(
                 new AppError(502, "upstream_failure", "Detailed internal failure info.")));
 
         // Act
-        var result = await _controller.GetSummary(CampaignId, CancellationToken.None);
+        var result = await _controller.GetSummary(WorldId, CancellationToken.None);
 
         // Assert
         var objectResult = result as ObjectResult;
@@ -388,34 +388,34 @@ public class CostsControllerTests
 
     #endregion
 
-    #region Cross-Campaign Endpoint Accessible Without Campaign-Scoped Filter
+    #region Cross-World Endpoint Accessible Without World-Scoped Filter
 
     [Test]
-    public void CrossCampaignCostsController_DoesNotHaveCampaignMemberActionFilter()
+    public void CrossWorldCostsController_DoesNotHaveWorldMemberActionFilter()
     {
-        // The CrossCampaignCostsController should NOT have the CampaignMemberActionFilter
-        // because it is not scoped to a single campaign.
-        var attributes = typeof(CrossCampaignCostsController)
+        // The CrossWorldCostsController should NOT have the WorldMemberActionFilter
+        // because it is not scoped to a single world.
+        var attributes = typeof(CrossWorldCostsController)
             .GetCustomAttributes(typeof(ServiceFilterAttribute), inherit: true)
             .Cast<ServiceFilterAttribute>()
             .ToList();
 
-        var hasCampaignFilter = attributes.Any(a => a.ServiceType == typeof(CampaignMemberActionFilter));
-        Assert.That(hasCampaignFilter, Is.False,
-            "CrossCampaignCostsController must NOT have CampaignMemberActionFilter since it is not campaign-scoped");
+        var hasWorldFilter = attributes.Any(a => a.ServiceType == typeof(WorldMemberActionFilter));
+        Assert.That(hasWorldFilter, Is.False,
+            "CrossWorldCostsController must NOT have WorldMemberActionFilter since it is not world-scoped");
     }
 
     [Test]
-    public void CrossCampaignCostsController_HasApiControllerAttribute()
+    public void CrossWorldCostsController_HasApiControllerAttribute()
     {
-        var hasAttribute = Attribute.IsDefined(typeof(CrossCampaignCostsController), typeof(ApiControllerAttribute));
-        Assert.That(hasAttribute, Is.True, "CrossCampaignCostsController must have [ApiController] attribute");
+        var hasAttribute = Attribute.IsDefined(typeof(CrossWorldCostsController), typeof(ApiControllerAttribute));
+        Assert.That(hasAttribute, Is.True, "CrossWorldCostsController must have [ApiController] attribute");
     }
 
     [Test]
-    public void CrossCampaignCostsController_HasCorrectRouteAttribute()
+    public void CrossWorldCostsController_HasCorrectRouteAttribute()
     {
-        var routeAttribute = typeof(CrossCampaignCostsController)
+        var routeAttribute = typeof(CrossWorldCostsController)
             .GetCustomAttributes(typeof(RouteAttribute), inherit: true)
             .Cast<RouteAttribute>()
             .FirstOrDefault();
@@ -425,12 +425,12 @@ public class CostsControllerTests
     }
 
     [Test]
-    public async Task CrossCampaignCostsController_GetByCampaign_Returns200WithResults()
+    public async Task CrossWorldCostsController_GetByWorld_Returns200WithResults()
     {
         // Arrange
         var costService = Substitute.For<ICostService>();
-        var logger = Substitute.For<ILogger<CrossCampaignCostsController>>();
-        var controller = new CrossCampaignCostsController(costService, logger);
+        var logger = Substitute.For<ILogger<CrossWorldCostsController>>();
+        var controller = new CrossWorldCostsController(costService, logger);
 
         var httpContext = new DefaultHttpContext();
         httpContext.Items["NornisUser"] = new User
@@ -448,12 +448,12 @@ public class CostsControllerTests
             HttpContext = httpContext
         };
 
-        var campaignResults = new List<CampaignCostResult>
+        var worldResults = new List<WorldCostResult>
         {
             new()
             {
-                CampaignId = Guid.NewGuid(),
-                CampaignName = "Black Harbor Investigation",
+                WorldId = Guid.NewGuid(),
+                WorldName = "Black Harbor Investigation",
                 Summary = new CostSummary
                 {
                     TotalInputTokens = 5000,
@@ -465,8 +465,8 @@ public class CostsControllerTests
             },
             new()
             {
-                CampaignId = Guid.NewGuid(),
-                CampaignName = "Silver Key Mystery",
+                WorldId = Guid.NewGuid(),
+                WorldName = "Silver Key Mystery",
                 Summary = new CostSummary
                 {
                     TotalInputTokens = 3000,
@@ -479,31 +479,31 @@ public class CostsControllerTests
         };
 
         costService
-            .GetByCampaignAsync(KeldaUserId, Arg.Any<CancellationToken>())
-            .Returns(AppResult<IReadOnlyList<CampaignCostResult>>.Success(campaignResults));
+            .GetByWorldAsync(KeldaUserId, Arg.Any<CancellationToken>())
+            .Returns(AppResult<IReadOnlyList<WorldCostResult>>.Success(worldResults));
 
         // Act
-        var result = await controller.GetByCampaign(CancellationToken.None);
+        var result = await controller.GetByWorld(CancellationToken.None);
 
         // Assert
         var okResult = result as OkObjectResult;
         Assert.That(okResult, Is.Not.Null);
         Assert.That(okResult!.StatusCode, Is.EqualTo(200));
 
-        var response = okResult.Value as List<CampaignCostResponse>;
+        var response = okResult.Value as List<WorldCostResponse>;
         Assert.That(response, Is.Not.Null);
         Assert.That(response!, Has.Count.EqualTo(2));
-        Assert.That(response![0].CampaignName, Is.EqualTo("Black Harbor Investigation"));
-        Assert.That(response[1].CampaignName, Is.EqualTo("Silver Key Mystery"));
+        Assert.That(response![0].WorldName, Is.EqualTo("Black Harbor Investigation"));
+        Assert.That(response[1].WorldName, Is.EqualTo("Silver Key Mystery"));
     }
 
     [Test]
-    public async Task CrossCampaignCostsController_DoesNotRequireCampaignMember()
+    public async Task CrossWorldCostsController_DoesNotRequireWorldMember()
     {
-        // Arrange - set up HttpContext with only the NornisUser (no CampaignMember needed)
+        // Arrange - set up HttpContext with only the NornisUser (no WorldMember needed)
         var costService = Substitute.For<ICostService>();
-        var logger = Substitute.For<ILogger<CrossCampaignCostsController>>();
-        var controller = new CrossCampaignCostsController(costService, logger);
+        var logger = Substitute.For<ILogger<CrossWorldCostsController>>();
+        var controller = new CrossWorldCostsController(costService, logger);
 
         var httpContext = new DefaultHttpContext();
         httpContext.Items["NornisUser"] = new User
@@ -515,7 +515,7 @@ public class CostsControllerTests
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
-        // Deliberately NOT setting CampaignMember in HttpContext
+        // Deliberately NOT setting WorldMember in HttpContext
 
         controller.ControllerContext = new ControllerContext
         {
@@ -523,12 +523,12 @@ public class CostsControllerTests
         };
 
         costService
-            .GetByCampaignAsync(KeldaUserId, Arg.Any<CancellationToken>())
-            .Returns(AppResult<IReadOnlyList<CampaignCostResult>>.Success(
-                new List<CampaignCostResult>()));
+            .GetByWorldAsync(KeldaUserId, Arg.Any<CancellationToken>())
+            .Returns(AppResult<IReadOnlyList<WorldCostResult>>.Success(
+                new List<WorldCostResult>()));
 
-        // Act — should not throw even without CampaignMember
-        var result = await controller.GetByCampaign(CancellationToken.None);
+        // Act — should not throw even without WorldMember
+        var result = await controller.GetByWorld(CancellationToken.None);
 
         // Assert
         var okResult = result as OkObjectResult;

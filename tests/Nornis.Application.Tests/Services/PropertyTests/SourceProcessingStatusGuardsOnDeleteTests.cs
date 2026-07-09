@@ -19,18 +19,18 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// **Validates: Requirements 4.3**
 /// </summary>
 [TestFixture]
-[Category("Feature: campaign-sources, Property 8: Processing Status Guards on Delete")]
+[Category("Feature: world-sources, Property 8: Processing Status Guards on Delete")]
 public class SourceProcessingStatusGuardsOnDeleteTests
 {
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(DeleteProcessingGuardArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 8: Processing Status Guards on Delete")]
+    [Description("Feature: world-sources, Property 8: Processing Status Guards on Delete")]
     public void CreatorCannotDeleteSource_WhenProcessingStatusIsQueuedOrProcessing(DeleteProcessingGuardScenario scenario)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
@@ -39,9 +39,9 @@ public class SourceProcessingStatusGuardsOnDeleteTests
         // Act — creator attempts to delete
         var result = service.DeleteAsync(
             scenario.ExistingSource.Id,
-            scenario.ExistingSource.CampaignId,
+            scenario.ExistingSource.WorldId,
             scenario.ExistingSource.CreatedByUserId,
-            CampaignRole.Player,
+            WorldRole.Player,
             CancellationToken.None).GetAwaiter().GetResult();
 
         // Assert — should be rejected with invalid_status error
@@ -64,12 +64,12 @@ public class SourceProcessingStatusGuardsOnDeleteTests
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(DeleteProcessingGuardArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 8: Processing Status Guards on Delete")]
+    [Description("Feature: world-sources, Property 8: Processing Status Guards on Delete")]
     public void GMCannotDeleteSource_WhenProcessingStatusIsQueuedOrProcessing(DeleteProcessingGuardScenario scenario)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
@@ -78,9 +78,9 @@ public class SourceProcessingStatusGuardsOnDeleteTests
         // Act — GM attempts to delete (GMs are normally authorized, but processing status blocks it)
         var result = service.DeleteAsync(
             scenario.ExistingSource.Id,
-            scenario.ExistingSource.CampaignId,
+            scenario.ExistingSource.WorldId,
             scenario.GmUserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             CancellationToken.None).GetAwaiter().GetResult();
 
         // Assert — should be rejected with invalid_status error
@@ -149,7 +149,7 @@ public class DeleteProcessingGuardArbitraries
             SourceProcessingStatus.Processing);
 
         var gen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from creatorUserId in ArbMap.Default.GeneratorFor<Guid>()
             from gmUserId in ArbMap.Default.GeneratorFor<Guid>()
             where gmUserId != creatorUserId
@@ -162,7 +162,7 @@ public class DeleteProcessingGuardArbitraries
                 new Source
                 {
                     Id = Guid.NewGuid(),
-                    CampaignId = campaignId,
+                    WorldId = worldId,
                     Type = sourceType,
                     Title = title,
                     Body = "Tavrin's Journal — The Silver Key found in Captain Voss's quarters",

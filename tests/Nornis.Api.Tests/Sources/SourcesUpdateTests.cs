@@ -35,7 +35,7 @@ public class SourcesUpdateTests
         // Arrange — Player creates a source, then updates it
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.PlayerUserId,
             title: "Tavrin's Journal — The Silver Key",
             type: SourceType.JournalEntry,
@@ -49,7 +49,7 @@ public class SourcesUpdateTests
 
         // Act
         var response = await _scenario.PlayerClient.PutAsJsonAsync(
-            $"/api/campaigns/{_scenario.Campaign.Id}/sources/{source.Id}", updateRequest);
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}", updateRequest);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -59,7 +59,7 @@ public class SourcesUpdateTests
         Assert.That(updated!.Title, Is.EqualTo("Tavrin's Journal — The Silver Key (Revised)"));
         Assert.That(updated.Body, Is.EqualTo("Found the Silver Key hidden beneath the floorboards in Voss's quarters."));
         Assert.That(updated.Id, Is.EqualTo(source.Id));
-        Assert.That(updated.CampaignId, Is.EqualTo(_scenario.Campaign.Id));
+        Assert.That(updated.WorldId, Is.EqualTo(_scenario.World.Id));
         Assert.That(updated.CreatedByUserId, Is.EqualTo(_scenario.PlayerUserId));
     }
 
@@ -73,7 +73,7 @@ public class SourcesUpdateTests
         // Arrange — Player's source, GM updates it
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.PlayerUserId,
             title: "Session 4 — Questioning Captain Voss",
             type: SourceType.SessionNote,
@@ -86,7 +86,7 @@ public class SourcesUpdateTests
 
         // Act
         var response = await _scenario.GmClient.PutAsJsonAsync(
-            $"/api/campaigns/{_scenario.Campaign.Id}/sources/{source.Id}", updateRequest);
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}", updateRequest);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -108,7 +108,7 @@ public class SourcesUpdateTests
         // Arrange — GM creates a PartyVisible source; a different Player tries to update
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.GmUserId,
             title: "GM Notes — Black Harbor Conspirators",
             type: SourceType.GMNote,
@@ -118,7 +118,7 @@ public class SourcesUpdateTests
 
         // Act
         var response = await _scenario.PlayerClient.PutAsJsonAsync(
-            $"/api/campaigns/{_scenario.Campaign.Id}/sources/{source.Id}", updateRequest);
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}", updateRequest);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
@@ -134,7 +134,7 @@ public class SourcesUpdateTests
         // Arrange — GM creates a PartyVisible source; Observer tries to update
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.GmUserId,
             title: "Session 3 — The Missing Caravan",
             type: SourceType.SessionNote,
@@ -144,7 +144,7 @@ public class SourcesUpdateTests
 
         // Act
         var response = await _scenario.ObserverClient.PutAsJsonAsync(
-            $"/api/campaigns/{_scenario.Campaign.Id}/sources/{source.Id}", updateRequest);
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}", updateRequest);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
@@ -160,7 +160,7 @@ public class SourcesUpdateTests
         // Arrange
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.GmUserId,
             title: "Session 5 — Stormwatch");
 
@@ -168,7 +168,7 @@ public class SourcesUpdateTests
 
         // Act
         var response = await _scenario.GmClient.PutAsJsonAsync(
-            $"/api/campaigns/{_scenario.Campaign.Id}/sources/{source.Id}", updateRequest);
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}", updateRequest);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
@@ -180,7 +180,7 @@ public class SourcesUpdateTests
         // Arrange
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.GmUserId,
             title: "Session 5 — Stormwatch");
 
@@ -188,7 +188,7 @@ public class SourcesUpdateTests
 
         // Act
         var response = await _scenario.GmClient.PutAsJsonAsync(
-            $"/api/campaigns/{_scenario.Campaign.Id}/sources/{source.Id}", updateRequest);
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}", updateRequest);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
@@ -200,7 +200,7 @@ public class SourcesUpdateTests
         // Arrange
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.GmUserId,
             title: "Session 5 — Stormwatch");
 
@@ -209,7 +209,7 @@ public class SourcesUpdateTests
 
         // Act
         var response = await _scenario.GmClient.PutAsJsonAsync(
-            $"/api/campaigns/{_scenario.Campaign.Id}/sources/{source.Id}", updateRequest);
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}", updateRequest);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
@@ -225,7 +225,7 @@ public class SourcesUpdateTests
         // Arrange — Player creates their own source, then tries to set it to GMOnly
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.PlayerUserId,
             title: "Tavrin's Private Notes",
             type: SourceType.JournalEntry,
@@ -235,7 +235,7 @@ public class SourcesUpdateTests
 
         // Act
         var response = await _scenario.PlayerClient.PutAsJsonAsync(
-            $"/api/campaigns/{_scenario.Campaign.Id}/sources/{source.Id}", updateRequest);
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}", updateRequest);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
@@ -251,7 +251,7 @@ public class SourcesUpdateTests
         // Arrange
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.GmUserId,
             title: "Queued Source — Harbor Witnesses",
             processingStatus: SourceProcessingStatus.Queued);
@@ -260,7 +260,7 @@ public class SourcesUpdateTests
 
         // Act
         var response = await _scenario.GmClient.PutAsJsonAsync(
-            $"/api/campaigns/{_scenario.Campaign.Id}/sources/{source.Id}", updateRequest);
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}", updateRequest);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
@@ -272,7 +272,7 @@ public class SourcesUpdateTests
         // Arrange
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.GmUserId,
             title: "Processing Source — Dockside Logs",
             processingStatus: SourceProcessingStatus.Processing);
@@ -281,7 +281,7 @@ public class SourcesUpdateTests
 
         // Act
         var response = await _scenario.GmClient.PutAsJsonAsync(
-            $"/api/campaigns/{_scenario.Campaign.Id}/sources/{source.Id}", updateRequest);
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}", updateRequest);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
@@ -293,7 +293,7 @@ public class SourcesUpdateTests
         // Arrange
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.GmUserId,
             title: "Processed Source — Captain Voss Testimony",
             processingStatus: SourceProcessingStatus.Processed);
@@ -302,7 +302,7 @@ public class SourcesUpdateTests
 
         // Act
         var response = await _scenario.GmClient.PutAsJsonAsync(
-            $"/api/campaigns/{_scenario.Campaign.Id}/sources/{source.Id}", updateRequest);
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}", updateRequest);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
@@ -319,7 +319,7 @@ public class SourcesUpdateTests
         var originalOccurredAt = new DateTimeOffset(2024, 3, 15, 19, 0, 0, TimeSpan.Zero);
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.GmUserId,
             title: "Session 6 — The Warehouse Raid",
             type: SourceType.SessionNote,
@@ -333,7 +333,7 @@ public class SourcesUpdateTests
 
         // Act
         var response = await _scenario.GmClient.PutAsJsonAsync(
-            $"/api/campaigns/{_scenario.Campaign.Id}/sources/{source.Id}", updateRequest);
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}", updateRequest);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -360,7 +360,7 @@ public class SourcesUpdateTests
         // Arrange
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.PlayerUserId,
             title: "Tavrin's Journal — Suspicious Cargo",
             type: SourceType.JournalEntry,
@@ -373,7 +373,7 @@ public class SourcesUpdateTests
 
         // Act
         var response = await _scenario.PlayerClient.PutAsJsonAsync(
-            $"/api/campaigns/{_scenario.Campaign.Id}/sources/{source.Id}", updateRequest);
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}", updateRequest);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));

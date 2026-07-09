@@ -18,7 +18,7 @@ public class ProposalApplicatorTests
     private InMemorySourceRepository _sourceRepo = null!;
     private ProposalApplicator _applicator = null!;
 
-    private Guid _campaignId;
+    private Guid _worldId;
     private Guid _sourceId;
     private Guid _batchId;
     private Source _source = null!;
@@ -40,14 +40,14 @@ public class ProposalApplicatorTests
             _sourceRefRepo,
             _sourceRepo);
 
-        _campaignId = Guid.NewGuid();
+        _worldId = Guid.NewGuid();
         _sourceId = Guid.NewGuid();
         _batchId = Guid.NewGuid();
 
         _source = new Source
         {
             Id = _sourceId,
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.SessionNote,
             Title = "Session 1: Black Harbor",
             Body = "We questioned Captain Voss in Black Harbor.",
@@ -61,7 +61,7 @@ public class ProposalApplicatorTests
         _batch = new ReviewBatch
         {
             Id = _batchId,
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = _sourceId,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-30)
@@ -87,7 +87,7 @@ public class ProposalApplicatorTests
         Assert.That(artifact.Visibility, Is.EqualTo(VisibilityScope.PartyVisible));
         Assert.That(artifact.Confidence, Is.EqualTo(0.85m));
         Assert.That(artifact.Status, Is.EqualTo(ArtifactStatus.Active));
-        Assert.That(artifact.CampaignId, Is.EqualTo(_campaignId));
+        Assert.That(artifact.WorldId, Is.EqualTo(_worldId));
         Assert.That(artifact.CreatedAt, Is.EqualTo(artifact.UpdatedAt));
     }
 
@@ -119,7 +119,7 @@ public class ProposalApplicatorTests
         var existingArtifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Summary = "Original summary",
@@ -171,7 +171,7 @@ public class ProposalApplicatorTests
         var targetArtifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Summary = "Target artifact",
@@ -184,7 +184,7 @@ public class ProposalApplicatorTests
         var sourceArtifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Character,
             Name = "Cpt. Voss",
             Summary = "Duplicate",
@@ -197,7 +197,7 @@ public class ProposalApplicatorTests
         var thirdArtifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Location,
             Name = "Black Harbor",
             Status = ArtifactStatus.Active,
@@ -223,7 +223,7 @@ public class ProposalApplicatorTests
         var relationship = new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             ArtifactAId = sourceArtifact.Id,
             ArtifactBId = thirdArtifact.Id,
             Type = "LocatedIn",
@@ -237,7 +237,7 @@ public class ProposalApplicatorTests
         var selfRefRelationship = new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             ArtifactAId = sourceArtifact.Id,
             ArtifactBId = targetArtifact.Id,
             Type = "DuplicateOf",
@@ -295,7 +295,7 @@ public class ProposalApplicatorTests
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Status = ArtifactStatus.Active,
@@ -344,7 +344,7 @@ public class ProposalApplicatorTests
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Status = ArtifactStatus.Active,
@@ -407,7 +407,7 @@ public class ProposalApplicatorTests
         var artifactA = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Status = ArtifactStatus.Active,
@@ -417,7 +417,7 @@ public class ProposalApplicatorTests
         var artifactB = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Location,
             Name = "Black Harbor",
             Status = ArtifactStatus.Active,
@@ -435,7 +435,7 @@ public class ProposalApplicatorTests
 
         Assert.That(result.IsSuccess, Is.True);
         var rel = _relationshipRepo.Relationships.Single();
-        Assert.That(rel.CampaignId, Is.EqualTo(_campaignId));
+        Assert.That(rel.WorldId, Is.EqualTo(_worldId));
         Assert.That(rel.ArtifactAId, Is.EqualTo(artifactA.Id));
         Assert.That(rel.ArtifactBId, Is.EqualTo(artifactB.Id));
         Assert.That(rel.Type, Is.EqualTo("LocatedIn"));
@@ -452,7 +452,7 @@ public class ProposalApplicatorTests
         var artifactB = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Location,
             Name = "Black Harbor",
             Status = ArtifactStatus.Active,
@@ -477,7 +477,7 @@ public class ProposalApplicatorTests
         var artifactA = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Status = ArtifactStatus.Active,
@@ -506,7 +506,7 @@ public class ProposalApplicatorTests
         var existingRelationship = new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             ArtifactAId = Guid.NewGuid(),
             ArtifactBId = Guid.NewGuid(),
             Type = "LocatedIn",
@@ -578,7 +578,7 @@ public class ProposalApplicatorTests
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Status = ArtifactStatus.Active,
@@ -605,7 +605,7 @@ public class ProposalApplicatorTests
         var artifactA = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Status = ArtifactStatus.Active,
@@ -615,7 +615,7 @@ public class ProposalApplicatorTests
         var artifactB = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Location,
             Name = "Black Harbor",
             Status = ArtifactStatus.Active,
@@ -643,7 +643,7 @@ public class ProposalApplicatorTests
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Status = ArtifactStatus.Active,
@@ -675,7 +675,7 @@ public class ProposalApplicatorTests
         var gmSource = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.GMNote,
             Title = "GM Notes",
             Visibility = VisibilityScope.GMOnly,
@@ -688,7 +688,7 @@ public class ProposalApplicatorTests
         var gmBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = gmSource.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = DateTimeOffset.UtcNow
@@ -732,7 +732,7 @@ public class ProposalApplicatorTests
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = type,
             Name = name,
             Status = ArtifactStatus.Active,
@@ -809,12 +809,12 @@ public class ProposalApplicatorTests
     }
 
     [Test]
-    public async Task AddFact_ByArtifactName_OtherCampaign_IsNotResolved()
+    public async Task AddFact_ByArtifactName_OtherWorld_IsNotResolved()
     {
         var other = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = Guid.NewGuid(), // different campaign
+            WorldId = Guid.NewGuid(), // different world
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Status = ArtifactStatus.Active,

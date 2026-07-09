@@ -3,12 +3,12 @@ using Nornis.Domain.Enums;
 namespace Nornis.Application.Models;
 
 public record CreateSourceCommand(
-    Guid CampaignId,
+    Guid WorldId,
     string Title,
     SourceType Type,
     VisibilityScope Visibility,
     Guid CreatingUserId,
-    CampaignRole CreatingUserRole,
+    WorldRole CreatingUserRole,
     string? Body = null,
     string? Uri = null,
     DateTimeOffset? OccurredAt = null);

@@ -19,32 +19,32 @@ namespace Nornis.Infrastructure.Tests.Persistence.PropertyTests;
 public class UpdatePersistenceTests : IntegrationTestBase
 {
     [FsCheck.NUnit.Property(Arbitrary = new[] { typeof(EntityGenerators.DomainArbitraries) }, MaxTest = 100)]
-    public async Task<bool> Campaign_Update_Name_Is_Persisted(Campaign campaign)
+    public async Task<bool> World_Update_Name_Is_Persisted(World world)
     {
         // Arrange: create parent User to satisfy FK
         var user = CreateValidUser();
         Context.Users.Add(user);
         await Context.SaveChangesAsync();
 
-        campaign.Id = Guid.NewGuid();
-        campaign.CreatedByUserId = user.Id;
-        campaign.RowVersion = [];
+        world.Id = Guid.NewGuid();
+        world.CreatedByUserId = user.Id;
+        world.RowVersion = [];
 
-        var repo = new CampaignRepository(Context);
-        await repo.CreateAsync(campaign);
+        var repo = new WorldRepository(Context);
+        await repo.CreateAsync(world);
 
         // Act: mutate name
-        var newName = "Updated " + campaign.Name;
+        var newName = "Updated " + world.Name;
         if (newName.Length > 200)
             newName = newName[..200];
-        campaign.Name = newName;
-        await repo.UpdateAsync(campaign);
+        world.Name = newName;
+        await repo.UpdateAsync(world);
 
         // Assert: retrieve with fresh context
         using var freshContext = CreateNewContext();
-        var retrieved = await freshContext.Campaigns
+        var retrieved = await freshContext.Worlds
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == campaign.Id);
+            .FirstOrDefaultAsync(c => c.Id == world.Id);
 
         return retrieved is not null && retrieved.Name == newName;
     }
@@ -79,17 +79,17 @@ public class UpdatePersistenceTests : IntegrationTestBase
     [FsCheck.NUnit.Property(Arbitrary = new[] { typeof(EntityGenerators.DomainArbitraries) }, MaxTest = 100)]
     public async Task<bool> Artifact_Update_Summary_Is_Persisted(Artifact artifact)
     {
-        // Arrange: create parent User and Campaign to satisfy FK chain
+        // Arrange: create parent User and World to satisfy FK chain
         var user = CreateValidUser();
         Context.Users.Add(user);
         await Context.SaveChangesAsync();
 
-        var campaignEntity = CreateValidCampaign(user.Id);
-        Context.Campaigns.Add(campaignEntity);
+        var worldEntity = CreateValidWorld(user.Id);
+        Context.Worlds.Add(worldEntity);
         await Context.SaveChangesAsync();
 
         artifact.Id = Guid.NewGuid();
-        artifact.CampaignId = campaignEntity.Id;
+        artifact.WorldId = worldEntity.Id;
         artifact.RowVersion = [];
 
         var repo = new ArtifactRepository(Context);
@@ -114,16 +114,16 @@ public class UpdatePersistenceTests : IntegrationTestBase
     [FsCheck.NUnit.Property(Arbitrary = new[] { typeof(EntityGenerators.DomainArbitraries) }, MaxTest = 100)]
     public async Task<bool> ArtifactFact_Update_Value_Is_Persisted(ArtifactFact fact)
     {
-        // Arrange: create parent User, Campaign, and Artifact to satisfy FK chain
+        // Arrange: create parent User, World, and Artifact to satisfy FK chain
         var user = CreateValidUser();
         Context.Users.Add(user);
         await Context.SaveChangesAsync();
 
-        var campaignEntity = CreateValidCampaign(user.Id);
-        Context.Campaigns.Add(campaignEntity);
+        var worldEntity = CreateValidWorld(user.Id);
+        Context.Worlds.Add(worldEntity);
         await Context.SaveChangesAsync();
 
-        var artifactEntity = CreateValidArtifact(campaignEntity.Id);
+        var artifactEntity = CreateValidArtifact(worldEntity.Id);
         Context.Artifacts.Add(artifactEntity);
         await Context.SaveChangesAsync();
 
@@ -153,22 +153,22 @@ public class UpdatePersistenceTests : IntegrationTestBase
     [FsCheck.NUnit.Property(Arbitrary = new[] { typeof(EntityGenerators.DomainArbitraries) }, MaxTest = 100)]
     public async Task<bool> ArtifactRelationship_Update_Description_Is_Persisted(ArtifactRelationship relationship)
     {
-        // Arrange: create parent User, Campaign, and two Artifacts to satisfy FK chain
+        // Arrange: create parent User, World, and two Artifacts to satisfy FK chain
         var user = CreateValidUser();
         Context.Users.Add(user);
         await Context.SaveChangesAsync();
 
-        var campaignEntity = CreateValidCampaign(user.Id);
-        Context.Campaigns.Add(campaignEntity);
+        var worldEntity = CreateValidWorld(user.Id);
+        Context.Worlds.Add(worldEntity);
         await Context.SaveChangesAsync();
 
-        var artifactA = CreateValidArtifact(campaignEntity.Id);
-        var artifactB = CreateValidArtifact(campaignEntity.Id);
+        var artifactA = CreateValidArtifact(worldEntity.Id);
+        var artifactB = CreateValidArtifact(worldEntity.Id);
         Context.Artifacts.AddRange(artifactA, artifactB);
         await Context.SaveChangesAsync();
 
         relationship.Id = Guid.NewGuid();
-        relationship.CampaignId = campaignEntity.Id;
+        relationship.WorldId = worldEntity.Id;
         relationship.ArtifactAId = artifactA.Id;
         relationship.ArtifactBId = artifactB.Id;
         relationship.RowVersion = [];
@@ -195,20 +195,20 @@ public class UpdatePersistenceTests : IntegrationTestBase
     [FsCheck.NUnit.Property(Arbitrary = new[] { typeof(EntityGenerators.DomainArbitraries) }, MaxTest = 100)]
     public async Task<bool> ReviewProposal_Update_Status_Is_Persisted(ReviewProposal proposal)
     {
-        // Arrange: create parent User, Campaign, Source, and ReviewBatch to satisfy FK chain
+        // Arrange: create parent User, World, Source, and ReviewBatch to satisfy FK chain
         var user = CreateValidUser();
         Context.Users.Add(user);
         await Context.SaveChangesAsync();
 
-        var campaignEntity = CreateValidCampaign(user.Id);
-        Context.Campaigns.Add(campaignEntity);
+        var worldEntity = CreateValidWorld(user.Id);
+        Context.Worlds.Add(worldEntity);
         await Context.SaveChangesAsync();
 
-        var source = CreateValidSource(campaignEntity.Id, user.Id);
+        var source = CreateValidSource(worldEntity.Id, user.Id);
         Context.Sources.Add(source);
         await Context.SaveChangesAsync();
 
-        var reviewBatch = CreateValidReviewBatch(campaignEntity.Id, source.Id);
+        var reviewBatch = CreateValidReviewBatch(worldEntity.Id, source.Id);
         Context.ReviewBatches.Add(reviewBatch);
         await Context.SaveChangesAsync();
 
@@ -249,7 +249,7 @@ public class UpdatePersistenceTests : IntegrationTestBase
         RowVersion = []
     };
 
-    private static Campaign CreateValidCampaign(Guid userId) => new()
+    private static World CreateValidWorld(Guid userId) => new()
     {
         Id = Guid.NewGuid(),
         Name = "Black Harbor Investigation",
@@ -259,10 +259,10 @@ public class UpdatePersistenceTests : IntegrationTestBase
         RowVersion = []
     };
 
-    private static Artifact CreateValidArtifact(Guid campaignId) => new()
+    private static Artifact CreateValidArtifact(Guid worldId) => new()
     {
         Id = Guid.NewGuid(),
-        CampaignId = campaignId,
+        WorldId = worldId,
         Type = ArtifactType.Character,
         Name = "Captain Voss",
         Visibility = VisibilityScope.PartyVisible,
@@ -272,10 +272,10 @@ public class UpdatePersistenceTests : IntegrationTestBase
         RowVersion = []
     };
 
-    private static Source CreateValidSource(Guid campaignId, Guid userId) => new()
+    private static Source CreateValidSource(Guid worldId, Guid userId) => new()
     {
         Id = Guid.NewGuid(),
-        CampaignId = campaignId,
+        WorldId = worldId,
         Type = SourceType.SessionNote,
         Title = "Session 1 Notes",
         CreatedAt = DateTimeOffset.UtcNow,
@@ -284,10 +284,10 @@ public class UpdatePersistenceTests : IntegrationTestBase
         ProcessingStatus = SourceProcessingStatus.Processed
     };
 
-    private static ReviewBatch CreateValidReviewBatch(Guid campaignId, Guid sourceId) => new()
+    private static ReviewBatch CreateValidReviewBatch(Guid worldId, Guid sourceId) => new()
     {
         Id = Guid.NewGuid(),
-        CampaignId = campaignId,
+        WorldId = worldId,
         SourceId = sourceId,
         Status = ReviewBatchStatus.Completed,
         CreatedAt = DateTimeOffset.UtcNow

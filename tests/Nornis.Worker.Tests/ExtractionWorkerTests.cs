@@ -14,7 +14,7 @@ namespace Nornis.Worker.Tests;
 /// Unit tests for <see cref="ExtractionWorker"/> message handling logic.
 /// Tests verify that the worker correctly completes or abandons messages
 /// based on extraction outcome, and that structured logging includes
-/// required fields (CorrelationId, SourceId, CampaignId).
+/// required fields (CorrelationId, SourceId, WorldId).
 /// </summary>
 [TestFixture]
 public class ExtractionWorkerTests
@@ -24,7 +24,7 @@ public class ExtractionWorkerTests
     private TestableExtractionWorker _worker = null!;
 
     private static readonly Guid SourceId = Guid.NewGuid();
-    private static readonly Guid CampaignId = Guid.NewGuid();
+    private static readonly Guid WorldId = Guid.NewGuid();
 
     [SetUp]
     public void SetUp()
@@ -40,7 +40,7 @@ public class ExtractionWorkerTests
         // Arrange
         var outcome = ExtractionOutcome.Succeeded(Guid.NewGuid(), 3);
         _extractionService
-            .ProcessExtractionAsync(SourceId, CampaignId, Arg.Any<CancellationToken>())
+            .ProcessExtractionAsync(SourceId, WorldId, Arg.Any<CancellationToken>())
             .Returns(outcome);
 
         var context = new FakeMessageContext(CreateValidMessageBody());
@@ -59,7 +59,7 @@ public class ExtractionWorkerTests
         // Arrange
         var outcome = ExtractionOutcome.SkippedIdempotent("Source already processed");
         _extractionService
-            .ProcessExtractionAsync(SourceId, CampaignId, Arg.Any<CancellationToken>())
+            .ProcessExtractionAsync(SourceId, WorldId, Arg.Any<CancellationToken>())
             .Returns(outcome);
 
         var context = new FakeMessageContext(CreateValidMessageBody());
@@ -78,7 +78,7 @@ public class ExtractionWorkerTests
         // Arrange
         var outcome = ExtractionOutcome.NonTransient("SourceNotFound", "Source does not exist");
         _extractionService
-            .ProcessExtractionAsync(SourceId, CampaignId, Arg.Any<CancellationToken>())
+            .ProcessExtractionAsync(SourceId, WorldId, Arg.Any<CancellationToken>())
             .Returns(outcome);
 
         var context = new FakeMessageContext(CreateValidMessageBody());
@@ -97,7 +97,7 @@ public class ExtractionWorkerTests
         // Arrange
         var outcome = ExtractionOutcome.Transient("Timeout", "AI call timed out after 60s");
         _extractionService
-            .ProcessExtractionAsync(SourceId, CampaignId, Arg.Any<CancellationToken>())
+            .ProcessExtractionAsync(SourceId, WorldId, Arg.Any<CancellationToken>())
             .Returns(outcome);
 
         var context = new FakeMessageContext(CreateValidMessageBody());
@@ -130,7 +130,7 @@ public class ExtractionWorkerTests
     {
         // Arrange — valid JSON but empty/invalid content (empty GUIDs)
         var context = new FakeMessageContext(
-            JsonSerializer.Serialize(new { SourceId = Guid.Empty, CampaignId = Guid.Empty }));
+            JsonSerializer.Serialize(new { SourceId = Guid.Empty, WorldId = Guid.Empty }));
 
         // Act
         await _worker.InvokeProcessMessageAsync(context);
@@ -146,7 +146,7 @@ public class ExtractionWorkerTests
     {
         // Arrange — extraction service throws unexpected exception
         _extractionService
-            .ProcessExtractionAsync(SourceId, CampaignId, Arg.Any<CancellationToken>())
+            .ProcessExtractionAsync(SourceId, WorldId, Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("Unexpected database error"));
 
         var context = new FakeMessageContext(CreateValidMessageBody());
@@ -165,7 +165,7 @@ public class ExtractionWorkerTests
         // Arrange
         var outcome = ExtractionOutcome.Succeeded(Guid.NewGuid(), 5);
         _extractionService
-            .ProcessExtractionAsync(SourceId, CampaignId, Arg.Any<CancellationToken>())
+            .ProcessExtractionAsync(SourceId, WorldId, Arg.Any<CancellationToken>())
             .Returns(outcome);
 
         var context = new FakeMessageContext(CreateValidMessageBody());
@@ -173,13 +173,13 @@ public class ExtractionWorkerTests
         // Act
         await _worker.InvokeProcessMessageAsync(context);
 
-        // Assert — verify structured logging includes CorrelationId, SourceId, CampaignId
+        // Assert — verify structured logging includes CorrelationId, SourceId, WorldId
         Assert.That(_logger.HasLoggedContaining("CorrelationId"), Is.True,
             "Log should contain CorrelationId");
         Assert.That(_logger.HasLoggedContaining("SourceId"), Is.True,
             "Log should contain SourceId");
-        Assert.That(_logger.HasLoggedContaining("CampaignId"), Is.True,
-            "Log should contain CampaignId");
+        Assert.That(_logger.HasLoggedContaining("WorldId"), Is.True,
+            "Log should contain WorldId");
     }
 
     [Test]
@@ -188,7 +188,7 @@ public class ExtractionWorkerTests
         // Arrange
         var outcome = ExtractionOutcome.Transient("TransientError", "Network failure");
         _extractionService
-            .ProcessExtractionAsync(SourceId, CampaignId, Arg.Any<CancellationToken>())
+            .ProcessExtractionAsync(SourceId, WorldId, Arg.Any<CancellationToken>())
             .Returns(outcome);
 
         var context = new FakeMessageContext(CreateValidMessageBody());
@@ -199,7 +199,7 @@ public class ExtractionWorkerTests
         // Assert
         Assert.That(_logger.HasLoggedContaining("CorrelationId"), Is.True);
         Assert.That(_logger.HasLoggedContaining("SourceId"), Is.True);
-        Assert.That(_logger.HasLoggedContaining("CampaignId"), Is.True);
+        Assert.That(_logger.HasLoggedContaining("WorldId"), Is.True);
     }
 
     [Test]
@@ -208,7 +208,7 @@ public class ExtractionWorkerTests
         // Arrange
         var outcome = ExtractionOutcome.NonTransient("ParseFailure", "AI response malformed");
         _extractionService
-            .ProcessExtractionAsync(SourceId, CampaignId, Arg.Any<CancellationToken>())
+            .ProcessExtractionAsync(SourceId, WorldId, Arg.Any<CancellationToken>())
             .Returns(outcome);
 
         var context = new FakeMessageContext(CreateValidMessageBody());
@@ -220,11 +220,11 @@ public class ExtractionWorkerTests
         Assert.That(_logger.HasLoggedError(), Is.True);
         Assert.That(_logger.HasLoggedContaining("CorrelationId"), Is.True);
         Assert.That(_logger.HasLoggedContaining("SourceId"), Is.True);
-        Assert.That(_logger.HasLoggedContaining("CampaignId"), Is.True);
+        Assert.That(_logger.HasLoggedContaining("WorldId"), Is.True);
     }
 
     private string CreateValidMessageBody()
     {
-        return JsonSerializer.Serialize(new ExtractionMessage(SourceId, CampaignId));
+        return JsonSerializer.Serialize(new ExtractionMessage(SourceId, WorldId));
     }
 }

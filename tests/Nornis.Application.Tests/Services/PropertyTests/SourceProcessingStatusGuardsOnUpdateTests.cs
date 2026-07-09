@@ -20,18 +20,18 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// **Validates: Requirements 3.3**
 /// </summary>
 [TestFixture]
-[Category("Feature: campaign-sources, Property 7: Processing Status Guards on Update")]
+[Category("Feature: world-sources, Property 7: Processing Status Guards on Update")]
 public class SourceProcessingStatusGuardsOnUpdateTests
 {
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(ProcessingStatusGuardUpdateArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 7: Processing Status Guards on Update")]
+    [Description("Feature: world-sources, Property 7: Processing Status Guards on Update")]
     public void Creator_CannotUpdateSource_WhenProcessingStatusBlocked(ProcessingStatusUpdateScenario scenario)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
@@ -40,9 +40,9 @@ public class SourceProcessingStatusGuardsOnUpdateTests
         // Actor is the creator
         var command = new UpdateSourceCommand(
             scenario.ExistingSource.Id,
-            scenario.ExistingSource.CampaignId,
+            scenario.ExistingSource.WorldId,
             scenario.ExistingSource.CreatedByUserId,
-            CampaignRole.Player,
+            WorldRole.Player,
             Title: "Updated Title — Session 5");
 
         // Act
@@ -68,12 +68,12 @@ public class SourceProcessingStatusGuardsOnUpdateTests
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(ProcessingStatusGuardUpdateArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 7: Processing Status Guards on Update")]
+    [Description("Feature: world-sources, Property 7: Processing Status Guards on Update")]
     public void GM_CannotUpdateSource_WhenProcessingStatusBlocked(ProcessingStatusUpdateScenario scenario)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
@@ -83,9 +83,9 @@ public class SourceProcessingStatusGuardsOnUpdateTests
         var gmUserId = Guid.NewGuid();
         var command = new UpdateSourceCommand(
             scenario.ExistingSource.Id,
-            scenario.ExistingSource.CampaignId,
+            scenario.ExistingSource.WorldId,
             gmUserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             Title: "GM Updated Title — Black Harbor");
 
         // Act
@@ -156,7 +156,7 @@ public class ProcessingStatusGuardUpdateArbitraries
             SourceProcessingStatus.Processed);
 
         var gen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from creatorUserId in ArbMap.Default.GeneratorFor<Guid>()
             from title in validTitleGen
             from sourceType in sourceTypeGen
@@ -167,7 +167,7 @@ public class ProcessingStatusGuardUpdateArbitraries
                 new Source
                 {
                     Id = Guid.NewGuid(),
-                    CampaignId = campaignId,
+                    WorldId = worldId,
                     Type = sourceType,
                     Title = title,
                     Body = "Captain Voss denied knowing about the missing caravan",

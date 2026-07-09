@@ -1,7 +1,7 @@
 ﻿@page "/review"
 @using System.Text.Json
 @implements IDisposable
-@inject CampaignState Campaigns
+@inject WorldState Worlds
 @inject NornisApiClient Api
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
@@ -27,9 +27,9 @@
     </MudAlert>
 }
 
-@if (Campaigns.Current is null)
+@if (Worlds.Current is null)
 {
-    <NoCampaign />
+    <NoWorld />
 }
 else if (_loading)
 {
@@ -147,16 +147,16 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        Campaigns.Changed += OnCampaignChanged;
-        await Campaigns.EnsureLoadedAsync();
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
         await LoadAsync();
     }
 
-    private void OnCampaignChanged() => InvokeAsync(LoadAsync);
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
 
     private async Task LoadAsync()
     {
-        if (Campaigns.Current is null)
+        if (Worlds.Current is null)
         {
             _proposals = [];
             _error = null;
@@ -168,7 +168,7 @@ else
         _error = null;
         StateHasChanged();
 
-        var result = await Api.GetReviewQueueAsync(Campaigns.Current.Id);
+        var result = await Api.GetReviewQueueAsync(Worlds.Current.Id);
 
         _loading = false;
         if (result.IsSuccess)
@@ -187,7 +187,7 @@ else
     private async Task AcceptAsync(ReviewProposal p)
     {
         _acting.Add(p.Id);
-        var result = await Api.AcceptProposalAsync(Campaigns.Current!.Id, p.Id);
+        var result = await Api.AcceptProposalAsync(Worlds.Current!.Id, p.Id);
         _acting.Remove(p.Id);
 
         if (result.IsSuccess)
@@ -214,7 +214,7 @@ else
         }
 
         _acting.Add(p.Id);
-        var result = await Api.RejectProposalAsync(Campaigns.Current!.Id, p.Id);
+        var result = await Api.RejectProposalAsync(Worlds.Current!.Id, p.Id);
         _acting.Remove(p.Id);
 
         if (result.IsSuccess)
@@ -270,7 +270,7 @@ else
     private async Task RunBatchAsync(bool accept)
     {
         var ids = accept ? PendingIdsInDependencyOrder() : PendingIds();
-        if (ids.Count == 0 || Campaigns.Current is null)
+        if (ids.Count == 0 || Worlds.Current is null)
         {
             return;
         }
@@ -282,7 +282,7 @@ else
         }
         StateHasChanged();
 
-        var campaignId = Campaigns.Current.Id;
+        var worldId = Worlds.Current.Id;
         var succeeded = 0;
         var failed = 0;
         string? firstError = null;
@@ -291,8 +291,8 @@ else
         foreach (var chunk in ids.Chunk(50))
         {
             var result = accept
-                ? await Api.BatchAcceptProposalsAsync(campaignId, chunk)
-                : await Api.BatchRejectProposalsAsync(campaignId, chunk);
+                ? await Api.BatchAcceptProposalsAsync(worldId, chunk)
+                : await Api.BatchRejectProposalsAsync(worldId, chunk);
 
             if (result.IsSuccess)
             {
@@ -331,7 +331,7 @@ else
     {
         var parameters = new DialogParameters
         {
-            { nameof(EditProposalDialog.CampaignId), Campaigns.Current!.Id },
+            { nameof(EditProposalDialog.WorldId), Worlds.Current!.Id },
             { nameof(EditProposalDialog.ProposalId), p.Id },
             { nameof(EditProposalDialog.ProposedValueJson), p.ProposedValueJson },
         };
@@ -397,5 +397,5 @@ else
     private static string Humanize(string pascal) =>
         string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 
-    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

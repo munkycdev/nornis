@@ -19,9 +19,9 @@ public class SourceTests
     }
 
     [Test]
-    public void Source_Has_CampaignId_Property_Of_Type_Guid()
+    public void Source_Has_WorldId_Property_Of_Type_Guid()
     {
-        var property = _type.GetProperty("CampaignId");
+        var property = _type.GetProperty("WorldId");
         Assert.That(property, Is.Not.Null);
         Assert.That(property!.PropertyType, Is.EqualTo(typeof(Guid)));
     }
@@ -99,11 +99,11 @@ public class SourceTests
     }
 
     [Test]
-    public void Source_Has_Campaign_Navigation_Property()
+    public void Source_Has_World_Navigation_Property()
     {
-        var property = _type.GetProperty("Campaign");
+        var property = _type.GetProperty("World");
         Assert.That(property, Is.Not.Null);
-        Assert.That(property!.PropertyType, Is.EqualTo(typeof(Campaign)));
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(World)));
     }
 
     [Test]

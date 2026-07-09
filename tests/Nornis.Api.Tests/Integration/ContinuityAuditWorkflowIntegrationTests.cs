@@ -40,7 +40,7 @@ public class ContinuityAuditWorkflowIntegrationTests
         _factory.Dispose();
     }
 
-    private string HealthUrl => $"/api/campaigns/{_scenario.Campaign.Id}/health";
+    private string HealthUrl => $"/api/worlds/{_scenario.World.Id}/health";
 
     [Test]
     public async Task Assess_Get_Dismiss_RoundTrip()
@@ -94,7 +94,7 @@ public class ContinuityAuditWorkflowIntegrationTests
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
         var usage = db.AiUsageRecords
-            .Where(r => r.CampaignId == _scenario.Campaign.Id
+            .Where(r => r.WorldId == _scenario.World.Id
                         && r.OperationType == AiOperationType.ContinuityAudit)
             .ToList();
         Assert.That(usage, Has.Count.EqualTo(1));
@@ -136,9 +136,9 @@ public class ContinuityAuditWorkflowIntegrationTests
         var playerUserId = await SourceTestHelpers.ProvisionUserAndGetIdAsync(
             factory, "auth0|player-continuity", "player@continuity.test", "Tavrin");
 
-        var campaign = await SourceTestHelpers.CreateTestCampaignAsync(factory, gmUserId);
-        await SourceTestHelpers.AddCampaignMemberAsync(
-            factory, campaign.Id, playerUserId, CampaignRole.Player, displayName: "Tavrin");
+        var world = await SourceTestHelpers.CreateTestWorldAsync(factory, gmUserId);
+        await SourceTestHelpers.AddWorldMemberAsync(
+            factory, world.Id, playerUserId, WorldRole.Player, displayName: "Tavrin");
 
         Artifact voss;
         using (var scope = factory.Services.CreateScope())
@@ -148,7 +148,7 @@ public class ContinuityAuditWorkflowIntegrationTests
             voss = new Artifact
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 Type = ArtifactType.Character,
                 Name = "Captain Voss",
                 Summary = "A harbor captain suspected of smuggling.",
@@ -176,7 +176,7 @@ public class ContinuityAuditWorkflowIntegrationTests
 
         return new ContinuityAuditScenario
         {
-            Campaign = campaign,
+            World = world,
             Voss = voss,
             GmClient = factory.CreateAuthenticatedClient(
                 sub: "auth0|gm-continuity", email: "gm@continuity.test", nickname: "Kelda"),
@@ -219,7 +219,7 @@ public class ContinuityAuditTestFactory : NornisWebApplicationFactory
 
 public class ContinuityAuditScenario
 {
-    public required Campaign Campaign { get; init; }
+    public required World World { get; init; }
     public required Artifact Voss { get; init; }
     public required HttpClient GmClient { get; init; }
     public required HttpClient PlayerClient { get; init; }

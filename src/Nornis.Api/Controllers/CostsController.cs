@@ -11,8 +11,8 @@ using Nornis.Domain.Models;
 namespace Nornis.Api.Controllers;
 
 [ApiController]
-[Route("api/campaigns/{campaignId:guid}/costs")]
-[ServiceFilter(typeof(CampaignMemberActionFilter))]
+[Route("api/worlds/{worldId:guid}/costs")]
+[ServiceFilter(typeof(WorldMemberActionFilter))]
 public class CostsController : ControllerBase
 {
     private readonly ICostService _costService;
@@ -30,16 +30,16 @@ public class CostsController : ControllerBase
     }
 
     [HttpGet("summary")]
-    public async Task<IActionResult> GetSummary(Guid campaignId, CancellationToken ct)
+    public async Task<IActionResult> GetSummary(Guid worldId, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         _logger.LogInformation(
-            "Cost summary requested. CampaignId={CampaignId}, UserId={UserId}, CorrelationId={CorrelationId}",
-            campaignId, user.Id, HttpContext.TraceIdentifier);
+            "Cost summary requested. WorldId={WorldId}, UserId={UserId}, CorrelationId={CorrelationId}",
+            worldId, user.Id, HttpContext.TraceIdentifier);
 
-        var result = await _costService.GetSummaryAsync(campaignId, user.Id, member.Role, ct);
+        var result = await _costService.GetSummaryAsync(worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -51,20 +51,20 @@ public class CostsController : ControllerBase
 
     [HttpGet("by-user")]
     public async Task<IActionResult> GetByUser(
-        Guid campaignId,
+        Guid worldId,
         [FromQuery] DateTimeOffset? startDate,
         [FromQuery] DateTimeOffset? endDate,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         _logger.LogInformation(
-            "Cost by-user requested. CampaignId={CampaignId}, UserId={UserId}, CorrelationId={CorrelationId}",
-            campaignId, user.Id, HttpContext.TraceIdentifier);
+            "Cost by-user requested. WorldId={WorldId}, UserId={UserId}, CorrelationId={CorrelationId}",
+            worldId, user.Id, HttpContext.TraceIdentifier);
 
         var result = await _costService.GetByUserAsync(
-            campaignId, user.Id, member.Role, startDate, endDate, ct);
+            worldId, user.Id, member.Role, startDate, endDate, ct);
 
         if (!result.IsSuccess)
         {
@@ -76,20 +76,20 @@ public class CostsController : ControllerBase
 
     [HttpGet("by-operation")]
     public async Task<IActionResult> GetByOperation(
-        Guid campaignId,
+        Guid worldId,
         [FromQuery] DateTimeOffset? startDate,
         [FromQuery] DateTimeOffset? endDate,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         _logger.LogInformation(
-            "Cost by-operation requested. CampaignId={CampaignId}, UserId={UserId}, CorrelationId={CorrelationId}",
-            campaignId, user.Id, HttpContext.TraceIdentifier);
+            "Cost by-operation requested. WorldId={WorldId}, UserId={UserId}, CorrelationId={CorrelationId}",
+            worldId, user.Id, HttpContext.TraceIdentifier);
 
         var result = await _costService.GetByOperationTypeAsync(
-            campaignId, user.Id, member.Role, startDate, endDate, ct);
+            worldId, user.Id, member.Role, startDate, endDate, ct);
 
         if (!result.IsSuccess)
         {
@@ -101,20 +101,20 @@ public class CostsController : ControllerBase
 
     [HttpGet("by-model")]
     public async Task<IActionResult> GetByModel(
-        Guid campaignId,
+        Guid worldId,
         [FromQuery] DateTimeOffset? startDate,
         [FromQuery] DateTimeOffset? endDate,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         _logger.LogInformation(
-            "Cost by-model requested. CampaignId={CampaignId}, UserId={UserId}, CorrelationId={CorrelationId}",
-            campaignId, user.Id, HttpContext.TraceIdentifier);
+            "Cost by-model requested. WorldId={WorldId}, UserId={UserId}, CorrelationId={CorrelationId}",
+            worldId, user.Id, HttpContext.TraceIdentifier);
 
         var result = await _costService.GetByModelAsync(
-            campaignId, user.Id, member.Role, startDate, endDate, ct);
+            worldId, user.Id, member.Role, startDate, endDate, ct);
 
         if (!result.IsSuccess)
         {
@@ -135,7 +135,7 @@ public class CostsController : ControllerBase
 
     private TimePeriodSummaryResponse ToTimePeriodSummaryResponse(TimePeriodCostResult result)
     {
-        var budget = _budgetOptions.DailyCampaignBudgetUsd;
+        var budget = _budgetOptions.DailyWorldBudgetUsd;
         return new TimePeriodSummaryResponse(
             DailyBudgetUsd: budget > 0 ? budget : null,
             Today: ToCostSummaryResponse(result.Today),
@@ -178,40 +178,40 @@ public class CostsController : ControllerBase
 }
 
 /// <summary>
-/// Cross-campaign cost endpoint. Not scoped to a single campaign and does not require
-/// campaign membership validation — only an authenticated user (resolved by UserProvisioningMiddleware).
-/// The service internally queries all campaigns where the user holds the GM role.
+/// Cross-world cost endpoint. Not scoped to a single world and does not require
+/// world membership validation — only an authenticated user (resolved by UserProvisioningMiddleware).
+/// The service internally queries all worlds where the user holds the GM role.
 /// </summary>
 [ApiController]
 [Route("api/costs")]
-public class CrossCampaignCostsController : ControllerBase
+public class CrossWorldCostsController : ControllerBase
 {
     private readonly ICostService _costService;
-    private readonly ILogger<CrossCampaignCostsController> _logger;
+    private readonly ILogger<CrossWorldCostsController> _logger;
 
-    public CrossCampaignCostsController(ICostService costService, ILogger<CrossCampaignCostsController> logger)
+    public CrossWorldCostsController(ICostService costService, ILogger<CrossWorldCostsController> logger)
     {
         _costService = costService;
         _logger = logger;
     }
 
-    [HttpGet("by-campaign")]
-    public async Task<IActionResult> GetByCampaign(CancellationToken ct)
+    [HttpGet("by-world")]
+    public async Task<IActionResult> GetByWorld(CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
 
         _logger.LogInformation(
-            "Cost by-campaign requested. UserId={UserId}, CorrelationId={CorrelationId}",
+            "Cost by-world requested. UserId={UserId}, CorrelationId={CorrelationId}",
             user.Id, HttpContext.TraceIdentifier);
 
-        var result = await _costService.GetByCampaignAsync(user.Id, ct);
+        var result = await _costService.GetByWorldAsync(user.Id, ct);
 
         if (!result.IsSuccess)
         {
             return MapError(result.Error!);
         }
 
-        return Ok(result.Value!.Select(ToCampaignCostResponse).ToList());
+        return Ok(result.Value!.Select(ToWorldCostResponse).ToList());
     }
 
     private IActionResult MapError(AppError error)
@@ -223,11 +223,11 @@ public class CrossCampaignCostsController : ControllerBase
         };
     }
 
-    private static CampaignCostResponse ToCampaignCostResponse(CampaignCostResult result)
+    private static WorldCostResponse ToWorldCostResponse(WorldCostResult result)
     {
-        return new CampaignCostResponse(
-            CampaignId: result.CampaignId,
-            CampaignName: result.CampaignName,
+        return new WorldCostResponse(
+            WorldId: result.WorldId,
+            WorldName: result.WorldName,
             Summary: ToCostSummaryResponse(result.Summary));
     }
 

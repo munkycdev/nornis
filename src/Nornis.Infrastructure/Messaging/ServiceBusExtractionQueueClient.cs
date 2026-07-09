@@ -15,9 +15,9 @@ public class ServiceBusExtractionQueueClient : IExtractionQueueClient
         _serviceBusClient = serviceBusClient ?? throw new ArgumentNullException(nameof(serviceBusClient));
     }
 
-    public async Task SendExtractionMessageAsync(Guid sourceId, Guid campaignId, CancellationToken ct)
+    public async Task SendExtractionMessageAsync(Guid sourceId, Guid worldId, CancellationToken ct)
     {
-        var message = new ExtractionMessage(sourceId, campaignId);
+        var message = new ExtractionMessage(sourceId, worldId);
         var json = JsonSerializer.Serialize(message);
 
         await using var sender = _serviceBusClient.CreateSender(QueueName);

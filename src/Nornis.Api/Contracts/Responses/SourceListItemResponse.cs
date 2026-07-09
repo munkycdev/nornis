@@ -2,7 +2,7 @@ namespace Nornis.Api.Contracts.Responses;
 
 public record SourceListItemResponse(
     Guid Id,
-    Guid CampaignId,
+    Guid WorldId,
     string Type,
     string Title,
     DateTimeOffset? OccurredAt,

@@ -68,7 +68,7 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
                 var source = new Source
                 {
                     Id = Guid.NewGuid(),
-                    CampaignId = Guid.NewGuid(),
+                    WorldId = Guid.NewGuid(),
                     Type = SourceType.SessionNote,
                     Title = "Test Session",
                     Body = "We questioned Captain Voss in Black Harbor.",
@@ -151,7 +151,7 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
                 fakeAiClient.SetupSuccess(aiResponse);
 
                 // Act
-                service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+                service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
                     .GetAwaiter().GetResult();
 
                 // Assert: every persisted proposal's ProposedValueJson has visibility = source visibility
@@ -206,7 +206,7 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
                 var source = new Source
                 {
                     Id = Guid.NewGuid(),
-                    CampaignId = Guid.NewGuid(),
+                    WorldId = Guid.NewGuid(),
                     Type = SourceType.GMNote,
                     Title = "Private GM Note",
                     Body = "Secret information about the villain's plans.",
@@ -242,7 +242,7 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
                 var (service, reviewProposalRepo) = CreateServiceAndRepo(source, aiResponse);
 
                 // Act
-                service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+                service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
                     .GetAwaiter().GetResult();
 
                 // Assert: all proposals must have "Private" visibility
@@ -276,7 +276,7 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
                 var source = new Source
                 {
                     Id = Guid.NewGuid(),
-                    CampaignId = Guid.NewGuid(),
+                    WorldId = Guid.NewGuid(),
                     Type = SourceType.GMNote,
                     Title = "GM-Only Note",
                     Body = "The Red Lodge is planning an ambush at the crossroads.",
@@ -313,7 +313,7 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
                 var (service, reviewProposalRepo) = CreateServiceAndRepo(source, aiResponse);
 
                 // Act
-                service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+                service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
                     .GetAwaiter().GetResult();
 
                 // Assert: all proposals must have "GMOnly" visibility

@@ -3,7 +3,7 @@ using Nornis.Domain.Enums;
 namespace Nornis.Application.Models;
 
 public record UpdateMemberRoleCommand(
-    Guid CampaignId,
+    Guid WorldId,
     Guid TargetUserId,
-    CampaignRole NewRole,
+    WorldRole NewRole,
     Guid ActingUserId);

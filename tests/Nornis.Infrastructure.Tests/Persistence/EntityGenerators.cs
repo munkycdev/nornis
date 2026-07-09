@@ -119,7 +119,7 @@ public static class EntityGenerators
             RowVersion = []
         };
 
-    public static Gen<Campaign> CampaignGen() =>
+    public static Gen<World> WorldGen() =>
         from id in GuidGen()
         from name in NonEmptyStringGen(200)
         from description in NullableStringGen(2000)
@@ -127,7 +127,7 @@ public static class EntityGenerators
         from createdAt in DateTimeOffsetGen()
         from updatedAt in DateTimeOffsetGen()
         from createdByUserId in GuidGen()
-        select new Campaign
+        select new World
         {
             Id = id,
             Name = name,
@@ -139,18 +139,18 @@ public static class EntityGenerators
             RowVersion = []
         };
 
-    public static Gen<CampaignMember> CampaignMemberGen() =>
+    public static Gen<WorldMember> WorldMemberGen() =>
         from id in GuidGen()
-        from campaignId in GuidGen()
+        from worldId in GuidGen()
         from userId in GuidGen()
-        from role in EnumGen<CampaignRole>()
+        from role in EnumGen<WorldRole>()
         from displayName in NullableStringGen(200)
         from characterName in NullableStringGen(200)
         from joinedAt in DateTimeOffsetGen()
-        select new CampaignMember
+        select new WorldMember
         {
             Id = id,
-            CampaignId = campaignId,
+            WorldId = worldId,
             UserId = userId,
             Role = role,
             DisplayName = displayName,
@@ -160,7 +160,7 @@ public static class EntityGenerators
 
     public static Gen<Source> SourceGen() =>
         from id in GuidGen()
-        from campaignId in GuidGen()
+        from worldId in GuidGen()
         from type in EnumGen<SourceType>()
         from title in NonEmptyStringGen(200)
         from body in NullableStringGen(2000)
@@ -173,7 +173,7 @@ public static class EntityGenerators
         select new Source
         {
             Id = id,
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = type,
             Title = title,
             Body = body,
@@ -204,7 +204,7 @@ public static class EntityGenerators
 
     public static Gen<Artifact> ArtifactGen() =>
         from id in GuidGen()
-        from campaignId in GuidGen()
+        from worldId in GuidGen()
         from type in EnumGen<ArtifactType>()
         from name in NonEmptyStringGen(200)
         from summary in NullableStringGen(2000)
@@ -216,7 +216,7 @@ public static class EntityGenerators
         select new Artifact
         {
             Id = id,
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = type,
             Name = name,
             Summary = summary,
@@ -254,7 +254,7 @@ public static class EntityGenerators
 
     public static Gen<ArtifactRelationship> ArtifactRelationshipGen() =>
         from id in GuidGen()
-        from campaignId in GuidGen()
+        from worldId in GuidGen()
         from artifactAId in GuidGen()
         from artifactBId in GuidGen()
         from type in Gen.Elements(RelationshipTypes)
@@ -267,7 +267,7 @@ public static class EntityGenerators
         select new ArtifactRelationship
         {
             Id = id,
-            CampaignId = campaignId,
+            WorldId = worldId,
             ArtifactAId = artifactAId,
             ArtifactBId = artifactBId,
             Type = type,
@@ -301,7 +301,7 @@ public static class EntityGenerators
 
     public static Gen<ReviewBatch> ReviewBatchGen() =>
         from id in GuidGen()
-        from campaignId in GuidGen()
+        from worldId in GuidGen()
         from sourceId in GuidGen()
         from status in EnumGen<ReviewBatchStatus>()
         from createdAt in DateTimeOffsetGen()
@@ -309,7 +309,7 @@ public static class EntityGenerators
         select new ReviewBatch
         {
             Id = id,
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = sourceId,
             Status = status,
             CreatedAt = createdAt,
@@ -348,7 +348,7 @@ public static class EntityGenerators
 
     public static Gen<AiUsageRecord> AiUsageRecordGen() =>
         from id in GuidGen()
-        from campaignId in NullableGuidGen()
+        from worldId in NullableGuidGen()
         from userId in NullableGuidGen()
         from operationType in EnumGen<AiOperationType>()
         from model in Gen.Elements(Models)
@@ -364,7 +364,7 @@ public static class EntityGenerators
         select new AiUsageRecord
         {
             Id = id,
-            CampaignId = campaignId,
+            WorldId = worldId,
             UserId = userId,
             OperationType = operationType,
             Model = model,
@@ -389,11 +389,11 @@ public static class EntityGenerators
         public static Arbitrary<User> Users() =>
             UserGen().ToArbitrary();
 
-        public static Arbitrary<Campaign> Campaigns() =>
-            CampaignGen().ToArbitrary();
+        public static Arbitrary<World> Worlds() =>
+            WorldGen().ToArbitrary();
 
-        public static Arbitrary<CampaignMember> CampaignMembers() =>
-            CampaignMemberGen().ToArbitrary();
+        public static Arbitrary<WorldMember> WorldMembers() =>
+            WorldMemberGen().ToArbitrary();
 
         public static Arbitrary<Source> Sources() =>
             SourceGen().ToArbitrary();

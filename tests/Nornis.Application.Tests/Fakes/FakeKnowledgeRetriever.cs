@@ -19,9 +19,9 @@ public class FakeKnowledgeRetriever : IKnowledgeRetriever
 
     public Task<KnowledgeContext> RetrieveAsync(
         string question,
-        Guid campaignId,
+        Guid worldId,
         Guid userId,
-        CampaignRole role,
+        WorldRole role,
         CancellationToken ct)
     {
         CallCount++;

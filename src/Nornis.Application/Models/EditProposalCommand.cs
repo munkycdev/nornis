@@ -4,7 +4,7 @@ namespace Nornis.Application.Models;
 
 public record EditProposalCommand(
     Guid ProposalId,
-    Guid CampaignId,
+    Guid WorldId,
     Guid ActingUserId,
-    CampaignRole ActingUserRole,
+    WorldRole ActingUserRole,
     string NewProposedValueJson);

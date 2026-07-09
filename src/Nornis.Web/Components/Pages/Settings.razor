@@ -1,6 +1,6 @@
 ﻿@page "/settings"
 @implements IDisposable
-@inject CampaignState Campaigns
+@inject WorldState Worlds
 @inject NornisApiClient Api
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
@@ -9,16 +9,16 @@
 
 <div class="nornis-narrow">
     <MudText Typo="Typo.h4" Class="nornis-serif">Settings</MudText>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Campaign configuration and members.</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">World configuration and members.</MudText>
 
-    @if (Campaigns.Current is null)
+    @if (Worlds.Current is null)
     {
-        <NoCampaign />
+        <NoWorld />
     }
     else
     {
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-            <div class="nornis-detail-section-title">Campaign</div>
+            <div class="nornis-detail-section-title">World</div>
             @if (_isGm)
             {
                 <MudTextField @bind-Value="_name" Label="Name" Required="true" Immediate="true"
@@ -27,20 +27,20 @@
                               Variant="Variant.Outlined" Class="mb-3" />
                 <MudTextField @bind-Value="_gameSystem" Label="Game system" Placeholder="e.g. D&D 5e"
                               Variant="Variant.Outlined" Class="mb-3" />
-                @if (_campaignError is not null)
+                @if (_worldError is not null)
                 {
-                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_campaignError</MudAlert>
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_worldError</MudAlert>
                 }
-                <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SaveCampaignAsync" Disabled="_savingCampaign">
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SaveWorldAsync" Disabled="_savingWorld">
                     Save changes
                 </MudButton>
             }
             else
             {
-                <div class="nornis-kv"><span class="nornis-kv-key">Name</span><span class="nornis-kv-value">@Campaigns.Current.Name</span></div>
-                <div class="nornis-kv"><span class="nornis-kv-key">Description</span><span class="nornis-kv-value">@(string.IsNullOrWhiteSpace(Campaigns.Current.Description) ? "—" : Campaigns.Current.Description)</span></div>
-                <div class="nornis-kv"><span class="nornis-kv-key">Game system</span><span class="nornis-kv-value">@(string.IsNullOrWhiteSpace(Campaigns.Current.GameSystem) ? "—" : Campaigns.Current.GameSystem)</span></div>
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">Only GMs can edit campaign settings.</MudText>
+                <div class="nornis-kv"><span class="nornis-kv-key">Name</span><span class="nornis-kv-value">@Worlds.Current.Name</span></div>
+                <div class="nornis-kv"><span class="nornis-kv-key">Description</span><span class="nornis-kv-value">@(string.IsNullOrWhiteSpace(Worlds.Current.Description) ? "—" : Worlds.Current.Description)</span></div>
+                <div class="nornis-kv"><span class="nornis-kv-key">Game system</span><span class="nornis-kv-value">@(string.IsNullOrWhiteSpace(Worlds.Current.GameSystem) ? "—" : Worlds.Current.GameSystem)</span></div>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">Only GMs can edit world settings.</MudText>
             }
         </MudPaper>
 
@@ -116,19 +116,19 @@
 @code {
     private readonly string[] _roles = ["GM", "Player", "Observer"];
 
-    private bool _isGm => Campaigns.Current?.MyRole == "GM";
+    private bool _isGm => Worlds.Current?.MyRole == "GM";
 
-    // Campaign settings form
+    // World settings form
     private string _name = string.Empty;
     private string? _description;
     private string? _gameSystem;
-    private bool _savingCampaign;
-    private string? _campaignError;
+    private bool _savingWorld;
+    private string? _worldError;
 
     // Members
     private bool _loadingMembers;
     private string? _membersError;
-    private IReadOnlyList<CampaignMember> _members = [];
+    private IReadOnlyList<WorldMember> _members = [];
     private readonly HashSet<Guid> _busyMembers = [];
 
     // Add member
@@ -137,67 +137,67 @@
     private bool _addingMember;
     private string? _addError;
 
-    private Guid _loadedCampaignId;
+    private Guid _loadedWorldId;
 
-    protected override void OnInitialized() => Campaigns.Changed += OnCampaignChanged;
+    protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
 
     protected override async Task OnInitializedAsync()
     {
-        await Campaigns.EnsureLoadedAsync();
-        SyncFromCampaign();
+        await Worlds.EnsureLoadedAsync();
+        SyncFromWorld();
         await LoadMembersAsync();
     }
 
-    private void OnCampaignChanged() => InvokeAsync(async () =>
+    private void OnWorldChanged() => InvokeAsync(async () =>
     {
-        SyncFromCampaign();
+        SyncFromWorld();
         await LoadMembersAsync();
     });
 
-    private void SyncFromCampaign()
+    private void SyncFromWorld()
     {
-        if (Campaigns.Current is { } c && c.Id != _loadedCampaignId)
+        if (Worlds.Current is { } c && c.Id != _loadedWorldId)
         {
             _name = c.Name;
             _description = c.Description;
             _gameSystem = c.GameSystem;
-            _loadedCampaignId = c.Id;
+            _loadedWorldId = c.Id;
         }
     }
 
-    private async Task SaveCampaignAsync()
+    private async Task SaveWorldAsync()
     {
-        if (Campaigns.Current is null)
+        if (Worlds.Current is null)
         {
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_name))
         {
-            _campaignError = "Name is required.";
+            _worldError = "Name is required.";
             return;
         }
 
-        _savingCampaign = true;
-        _campaignError = null;
+        _savingWorld = true;
+        _worldError = null;
 
-        var result = await Api.UpdateCampaignAsync(Campaigns.Current.Id,
-            new UpdateCampaignRequest(_name.Trim(), _description, _gameSystem));
+        var result = await Api.UpdateWorldAsync(Worlds.Current.Id,
+            new UpdateWorldRequest(_name.Trim(), _description, _gameSystem));
 
-        _savingCampaign = false;
+        _savingWorld = false;
         if (!result.IsSuccess)
         {
-            _campaignError = result.Error!.Message;
+            _worldError = result.Error!.Message;
             return;
         }
 
-        await Campaigns.ReloadAsync(); // refresh the sidebar name
-        Snackbar.Add("Campaign settings saved.", Severity.Success);
+        await Worlds.ReloadAsync(); // refresh the sidebar name
+        Snackbar.Add("World settings saved.", Severity.Success);
     }
 
     private async Task LoadMembersAsync()
     {
-        if (Campaigns.Current is null)
+        if (Worlds.Current is null)
         {
             _members = [];
             return;
@@ -207,7 +207,7 @@
         _membersError = null;
         StateHasChanged();
 
-        var result = await Api.GetMembersAsync(Campaigns.Current.Id);
+        var result = await Api.GetMembersAsync(Worlds.Current.Id);
 
         _loadingMembers = false;
         if (result.IsSuccess)
@@ -222,7 +222,7 @@
         StateHasChanged();
     }
 
-    private async Task ChangeRoleAsync(CampaignMember member, string newRole)
+    private async Task ChangeRoleAsync(WorldMember member, string newRole)
     {
         if (newRole == member.Role)
         {
@@ -230,7 +230,7 @@
         }
 
         _busyMembers.Add(member.UserId);
-        var result = await Api.UpdateMemberRoleAsync(Campaigns.Current!.Id, member.UserId, newRole);
+        var result = await Api.UpdateMemberRoleAsync(Worlds.Current!.Id, member.UserId, newRole);
         _busyMembers.Remove(member.UserId);
 
         if (result.IsSuccess)
@@ -245,11 +245,11 @@
         StateHasChanged();
     }
 
-    private async Task RemoveAsync(CampaignMember member)
+    private async Task RemoveAsync(WorldMember member)
     {
         var confirmed = await DialogService.ShowMessageBox(
             "Remove member?",
-            $"Remove {DisplayName(member)} from this campaign?",
+            $"Remove {DisplayName(member)} from this world?",
             yesText: "Remove", cancelText: "Cancel");
         if (confirmed != true)
         {
@@ -257,7 +257,7 @@
         }
 
         _busyMembers.Add(member.UserId);
-        var result = await Api.RemoveMemberAsync(Campaigns.Current!.Id, member.UserId);
+        var result = await Api.RemoveMemberAsync(Worlds.Current!.Id, member.UserId);
         _busyMembers.Remove(member.UserId);
 
         if (result.IsSuccess)
@@ -283,7 +283,7 @@
         }
 
         _addingMember = true;
-        var result = await Api.AddMemberAsync(Campaigns.Current!.Id, new AddMemberRequest(userId, _newRole));
+        var result = await Api.AddMemberAsync(Worlds.Current!.Id, new AddMemberRequest(userId, _newRole));
         _addingMember = false;
 
         if (result.IsSuccess)
@@ -299,12 +299,12 @@
         StateHasChanged();
     }
 
-    private static string DisplayName(CampaignMember m) =>
+    private static string DisplayName(WorldMember m) =>
         !string.IsNullOrWhiteSpace(m.DisplayName) ? m.DisplayName! : $"User {m.UserId.ToString()[..8]}";
 
-    private static string Initial(CampaignMember m) => DisplayName(m)[..1].ToUpperInvariant();
+    private static string Initial(WorldMember m) => DisplayName(m)[..1].ToUpperInvariant();
 
     private static string RoleLabel(string role) => role == "Observer" ? "Fly on the wall" : role;
 
-    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

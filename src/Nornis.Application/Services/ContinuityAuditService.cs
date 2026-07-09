@@ -39,8 +39,8 @@ public class ContinuityAuditService : IContinuityAuditService
         [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private];
 
     public const string SystemPrompt = """
-        You are the Continuity Auditor for Nornis, a tabletop RPG campaign memory system. You read a
-        campaign's structured record — artifacts (characters, locations, items, factions, events,
+        You are the Continuity Auditor for Nornis, a tabletop RPG world memory system. You read a
+        world's structured record — artifacts (characters, locations, items, factions, events,
         storylines, concepts, documents), the facts attached to them, the relationships between them,
         and the source quotes behind them — and you report specific problems with its SEMANTIC
         CONTINUITY. You are not a proofreader and you do not grade quality; you find risks a careful
@@ -107,19 +107,19 @@ public class ContinuityAuditService : IContinuityAuditService
     }
 
     public async Task<AppResult<ContinuityAssessment>> RunAssessmentAsync(
-        Guid campaignId, Guid? userId, CancellationToken ct)
+        Guid worldId, Guid? userId, CancellationToken ct)
     {
         // 0. Daily AI budget gate — the audit reads the whole record into a prompt.
-        var budgetError = await _budgetGuard.CheckAsync(campaignId, ct);
+        var budgetError = await _budgetGuard.CheckAsync(worldId, ct);
         if (budgetError is not null)
             return AppResult<ContinuityAssessment>.Fail(budgetError);
 
         // 1. Heuristic base score (the fast/free tier we blend against).
-        var heuristicResult = await _healthService.GetHealthAsync(campaignId, ct);
+        var heuristicResult = await _healthService.GetHealthAsync(worldId, ct);
         var heuristic = heuristicResult.IsSuccess ? heuristicResult.Value!.OverallScore : 0;
 
         // 2. Load the full GM-scoped record.
-        var artifacts = await _artifactRepository.ListByCampaignAsync(campaignId, null, null, ct);
+        var artifacts = await _artifactRepository.ListByWorldAsync(worldId, null, null, ct);
         var artifactIds = artifacts.Select(a => a.Id).ToList();
 
         var facts = artifactIds.Count > 0
@@ -135,9 +135,9 @@ public class ContinuityAuditService : IContinuityAuditService
         var sourceRefs = targetIds.Count > 0
             ? await _sourceReferenceRepository.ListByTargetIdsAsync(targetIds, ct)
             : [];
-        var sources = await _sourceRepository.ListByCampaignAsync(campaignId, null, ct);
+        var sources = await _sourceRepository.ListByWorldAsync(worldId, null, ct);
 
-        var recordText = FormatCampaignRecord(artifacts, facts, relationships, sourceRefs, sources);
+        var recordText = FormatWorldRecord(artifacts, facts, relationships, sourceRefs, sources);
 
         // 3. Call the AI. Track usage on success and failure alike (parity with LoremasterService).
         var request = new AuditAiRequest
@@ -159,13 +159,13 @@ public class ContinuityAuditService : IContinuityAuditService
         }
         catch (Exception)
         {
-            await TrackUsageAsync(campaignId, userId, null, false, "ServiceError", ct);
+            await TrackUsageAsync(worldId, userId, null, false, "ServiceError", ct);
             return AppResult<ContinuityAssessment>.Fail(
                 new AppError(503, "service_unavailable",
                     "The continuity auditor is temporarily unavailable. Please try again."));
         }
 
-        await TrackUsageAsync(campaignId, userId, response, true, null, ct);
+        await TrackUsageAsync(worldId, userId, response, true, null, ct);
 
         // 4. Validate + persist.
         var findings = BuildValidatedFindings(response.Findings, artifacts, facts, relationships);
@@ -173,7 +173,7 @@ public class ContinuityAuditService : IContinuityAuditService
         var assessment = new HealthAssessment
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             CreatedAt = DateTimeOffset.UtcNow,
             Model = response.Model,
             Score = BlendScore(heuristic, findings.Select(f => f.Severity)),
@@ -190,9 +190,9 @@ public class ContinuityAuditService : IContinuityAuditService
             ToAssessment(assessment, findings, heuristic));
     }
 
-    public async Task<AppResult<ContinuityAssessment>> GetLatestAsync(Guid campaignId, CancellationToken ct)
+    public async Task<AppResult<ContinuityAssessment>> GetLatestAsync(Guid worldId, CancellationToken ct)
     {
-        var assessment = await _assessmentRepository.GetLatestWithFindingsAsync(campaignId, ct);
+        var assessment = await _assessmentRepository.GetLatestWithFindingsAsync(worldId, ct);
         if (assessment is null)
         {
             return AppResult<ContinuityAssessment>.Success(
@@ -201,7 +201,7 @@ public class ContinuityAuditService : IContinuityAuditService
 
         // Effective score uses the current heuristic (always fresh/free) minus penalties for the
         // findings that are still Open — dismissing a finding raises the effective score.
-        var heuristicResult = await _healthService.GetHealthAsync(campaignId, ct);
+        var heuristicResult = await _healthService.GetHealthAsync(worldId, ct);
         var heuristic = heuristicResult.IsSuccess ? heuristicResult.Value!.OverallScore : 0;
 
         return AppResult<ContinuityAssessment>.Success(
@@ -209,7 +209,7 @@ public class ContinuityAuditService : IContinuityAuditService
     }
 
     public async Task<AppResult<ContinuityFindingView>> DismissFindingAsync(
-        Guid campaignId, Guid findingId, CancellationToken ct)
+        Guid worldId, Guid findingId, CancellationToken ct)
     {
         var finding = await _assessmentRepository.GetFindingByIdAsync(findingId, ct);
         if (finding is null)
@@ -250,7 +250,7 @@ public class ContinuityAuditService : IContinuityAuditService
 
     /// <summary>
     /// Turns raw AI findings into persistable entities: invalid category/severity are dropped,
-    /// evidence ids that don't resolve to real campaign items are stripped, findings left with no
+    /// evidence ids that don't resolve to real world items are stripped, findings left with no
     /// grounding are dropped entirely (mirroring ParseCitations), and the total is capped.
     /// </summary>
     internal static List<ContinuityFinding> BuildValidatedFindings(
@@ -403,7 +403,7 @@ public class ContinuityAuditService : IContinuityAuditService
     /// their facts (with truth state), relationships with endpoint names, a source-quote list, and
     /// an OccurredAt timeline — each item tagged with the [ref:...] id the AI must cite.
     /// </summary>
-    internal static string FormatCampaignRecord(
+    internal static string FormatWorldRecord(
         IReadOnlyList<Artifact> artifacts,
         IReadOnlyList<ArtifactFact> facts,
         IReadOnlyList<ArtifactRelationship> relationships,
@@ -414,7 +414,7 @@ public class ContinuityAuditService : IContinuityAuditService
         var names = artifacts.ToDictionary(a => a.Id, a => a.Name);
         var factsByArtifact = facts.GroupBy(f => f.ArtifactId).ToDictionary(g => g.Key, g => g.ToList());
 
-        sb.AppendLine("# Campaign Record");
+        sb.AppendLine("# World Record");
         sb.AppendLine();
 
         sb.AppendLine("## Artifacts");
@@ -494,13 +494,13 @@ public class ContinuityAuditService : IContinuityAuditService
     // --------------------------------------------------------------------- Usage tracking --
 
     private async Task TrackUsageAsync(
-        Guid campaignId, Guid? userId, AuditAiResponse? response, bool succeeded, string? errorCode,
+        Guid worldId, Guid? userId, AuditAiResponse? response, bool succeeded, string? errorCode,
         CancellationToken ct)
     {
         var record = new AiUsageRecord
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             UserId = userId,
             OperationType = AiOperationType.ContinuityAudit,
             Model = response?.Model ?? _options.AiModel,

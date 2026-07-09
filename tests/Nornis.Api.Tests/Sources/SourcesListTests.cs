@@ -33,14 +33,14 @@ public class SourcesListTests
         // Create sources with all visibility types
         var partyVisible = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.PlayerUserId,
             title: "Session 4 — Questioning Captain Voss",
             visibility: VisibilityScope.PartyVisible);
 
         var privateSource = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.PlayerUserId,
             title: "Tavrin's Journal — The Silver Key",
             type: SourceType.JournalEntry,
@@ -48,7 +48,7 @@ public class SourcesListTests
 
         var gmOnly = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.GmUserId,
             title: "GM Notes — Captain Voss's True Allegiance",
             type: SourceType.GMNote,
@@ -56,7 +56,7 @@ public class SourcesListTests
 
         // Act
         var response = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/sources");
+            $"/api/worlds/{scenario.World.Id}/sources");
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -79,14 +79,14 @@ public class SourcesListTests
 
         var partyVisible = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.GmUserId,
             title: "Session 4 — Questioning Captain Voss",
             visibility: VisibilityScope.PartyVisible);
 
         var playerPrivate = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.PlayerUserId,
             title: "Tavrin's Journal — The Silver Key",
             type: SourceType.JournalEntry,
@@ -95,7 +95,7 @@ public class SourcesListTests
         // Another user's private source — player should NOT see this
         var otherPrivate = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.GmUserId,
             title: "GM's Private Prep Notes",
             type: SourceType.GMNote,
@@ -103,7 +103,7 @@ public class SourcesListTests
 
         var gmOnly = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.GmUserId,
             title: "GM Only — Black Harbor Secret",
             type: SourceType.GMNote,
@@ -111,7 +111,7 @@ public class SourcesListTests
 
         // Act
         var response = await scenario.PlayerClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/sources");
+            $"/api/worlds/{scenario.World.Id}/sources");
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -135,14 +135,14 @@ public class SourcesListTests
 
         var partyVisible = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.GmUserId,
             title: "Session 4 — Questioning Captain Voss",
             visibility: VisibilityScope.PartyVisible);
 
         var privateSource = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.PlayerUserId,
             title: "Tavrin's Journal — The Silver Key",
             type: SourceType.JournalEntry,
@@ -150,7 +150,7 @@ public class SourcesListTests
 
         var gmOnly = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.GmUserId,
             title: "GM Notes — Captain Voss's True Allegiance",
             type: SourceType.GMNote,
@@ -158,7 +158,7 @@ public class SourcesListTests
 
         // Act
         var response = await scenario.ObserverClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/sources");
+            $"/api/worlds/{scenario.World.Id}/sources");
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -177,28 +177,28 @@ public class SourcesListTests
 
         var oldest = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.GmUserId,
             title: "Session 1 — Arrival at Black Harbor",
             createdAt: DateTimeOffset.UtcNow.AddDays(-3));
 
         var middle = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.GmUserId,
             title: "Session 2 — The Missing Caravan",
             createdAt: DateTimeOffset.UtcNow.AddDays(-2));
 
         var newest = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.GmUserId,
             title: "Session 3 — The Silver Key Discovery",
             createdAt: DateTimeOffset.UtcNow.AddDays(-1));
 
         // Act
         var response = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/sources");
+            $"/api/worlds/{scenario.World.Id}/sources");
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -218,16 +218,16 @@ public class SourcesListTests
     }
 
     [Test]
-    public async Task ListSources_EmptyCampaign_ReturnsEmptyList()
+    public async Task ListSources_EmptyWorld_ReturnsEmptyList()
     {
         // Arrange
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
-        // No sources created — campaign is empty
+        // No sources created — world is empty
 
         // Act
         var response = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/sources");
+            $"/api/worlds/{scenario.World.Id}/sources");
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));

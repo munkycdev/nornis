@@ -22,10 +22,10 @@ public class InMemoryHealthAssessmentRepository : IHealthAssessmentRepository
     }
 
     public Task<HealthAssessment?> GetLatestWithFindingsAsync(
-        Guid campaignId, CancellationToken cancellationToken = default)
+        Guid worldId, CancellationToken cancellationToken = default)
     {
         var latest = _assessments
-            .Where(a => a.CampaignId == campaignId)
+            .Where(a => a.WorldId == worldId)
             .OrderByDescending(a => a.CreatedAt)
             .FirstOrDefault();
 
@@ -38,10 +38,10 @@ public class InMemoryHealthAssessmentRepository : IHealthAssessmentRepository
     }
 
     public Task<DateTimeOffset?> GetLatestCreatedAtAsync(
-        Guid campaignId, CancellationToken cancellationToken = default)
+        Guid worldId, CancellationToken cancellationToken = default)
     {
         var latest = _assessments
-            .Where(a => a.CampaignId == campaignId)
+            .Where(a => a.WorldId == worldId)
             .OrderByDescending(a => a.CreatedAt)
             .Select(a => (DateTimeOffset?)a.CreatedAt)
             .FirstOrDefault();

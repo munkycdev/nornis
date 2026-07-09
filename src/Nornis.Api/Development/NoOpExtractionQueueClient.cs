@@ -17,13 +17,13 @@ public class NoOpExtractionQueueClient : IExtractionQueueClient
         _logger = logger;
     }
 
-    public Task SendExtractionMessageAsync(Guid sourceId, Guid campaignId, CancellationToken ct)
+    public Task SendExtractionMessageAsync(Guid sourceId, Guid worldId, CancellationToken ct)
     {
         _logger.LogWarning(
-            "[DEV] Extraction message skipped (no Service Bus). SourceId={SourceId}, CampaignId={CampaignId}. " +
+            "[DEV] Extraction message skipped (no Service Bus). SourceId={SourceId}, WorldId={WorldId}. " +
             "Source will remain in Queued status until a worker processes it.",
             sourceId,
-            campaignId);
+            worldId);
 
         return Task.CompletedTask;
     }

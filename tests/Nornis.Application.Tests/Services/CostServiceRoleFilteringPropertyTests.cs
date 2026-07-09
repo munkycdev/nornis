@@ -13,10 +13,10 @@ namespace Nornis.Application.Tests.Services;
 /// <summary>
 /// Property 1: Role-Based Record Filtering
 ///
-/// For any campaign with AiUsageRecords from multiple users, when a non-GM user (Player or Observer)
+/// For any world with AiUsageRecords from multiple users, when a non-GM user (Player or Observer)
 /// requests cost data, the aggregated result SHALL include only records where UserId matches the
 /// requesting user. When a GM requests cost data, the result SHALL include records from all users
-/// in the campaign.
+/// in the world.
 ///
 /// **Validates: Requirements 2.1, 2.2, 2.3, 2.4, 5.3, 6.5, 7.5**
 /// </summary>
@@ -35,9 +35,9 @@ public class CostServiceRoleFilteringPropertyTests
 
         // Act — GM requests summary
         var result = costService.GetSummaryAsync(
-            scenario.CampaignId,
+            scenario.WorldId,
             scenario.GmUserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             CancellationToken.None).GetAwaiter().GetResult();
 
         // Assert — GM sees all records (all-time has no date filter)
@@ -59,9 +59,9 @@ public class CostServiceRoleFilteringPropertyTests
 
         // Act — Player requests summary
         var result = costService.GetSummaryAsync(
-            scenario.CampaignId,
+            scenario.WorldId,
             scenario.PlayerUserId,
-            CampaignRole.Player,
+            WorldRole.Player,
             CancellationToken.None).GetAwaiter().GetResult();
 
         // Assert — Player sees only their own records
@@ -83,9 +83,9 @@ public class CostServiceRoleFilteringPropertyTests
 
         // Act — Observer requests summary
         var result = costService.GetSummaryAsync(
-            scenario.CampaignId,
+            scenario.WorldId,
             scenario.ObserverUserId,
-            CampaignRole.Observer,
+            WorldRole.Observer,
             CancellationToken.None).GetAwaiter().GetResult();
 
         // Assert — Observer sees only their own records
@@ -107,9 +107,9 @@ public class CostServiceRoleFilteringPropertyTests
 
         // Act — GM requests by operation type
         var result = costService.GetByOperationTypeAsync(
-            scenario.CampaignId,
+            scenario.WorldId,
             scenario.GmUserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             null, null,
             CancellationToken.None).GetAwaiter().GetResult();
 
@@ -131,9 +131,9 @@ public class CostServiceRoleFilteringPropertyTests
 
         // Act — Player requests by model
         var result = costService.GetByModelAsync(
-            scenario.CampaignId,
+            scenario.WorldId,
             scenario.PlayerUserId,
-            CampaignRole.Player,
+            WorldRole.Player,
             null, null,
             CancellationToken.None).GetAwaiter().GetResult();
 
@@ -156,9 +156,9 @@ public class CostServiceRoleFilteringPropertyTests
 
         // Act — Observer requests by operation type
         var result = costService.GetByOperationTypeAsync(
-            scenario.CampaignId,
+            scenario.WorldId,
             scenario.ObserverUserId,
-            CampaignRole.Observer,
+            WorldRole.Observer,
             null, null,
             CancellationToken.None).GetAwaiter().GetResult();
 
@@ -173,36 +173,36 @@ public class CostServiceRoleFilteringPropertyTests
     private static (CostService, InMemoryAiUsageRecordRepository) BuildCostService(RoleFilteringScenario scenario)
     {
         var aiUsageRepo = new InMemoryAiUsageRecordRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
-        var campaignRepo = new InMemoryCampaignRepository(memberRepo);
+        var memberRepo = new InMemoryWorldMemberRepository();
+        var worldRepo = new InMemoryWorldRepository(memberRepo);
 
-        // Seed campaign members: Kelda (GM), Tavrin (Player), Jorin (Observer)
-        memberRepo.CreateAsync(new CampaignMember
+        // Seed world members: Kelda (GM), Tavrin (Player), Jorin (Observer)
+        memberRepo.CreateAsync(new WorldMember
         {
             Id = Guid.NewGuid(),
-            CampaignId = scenario.CampaignId,
+            WorldId = scenario.WorldId,
             UserId = scenario.GmUserId,
-            Role = CampaignRole.GM,
+            Role = WorldRole.GM,
             DisplayName = "Kelda",
             JoinedAt = DateTimeOffset.UtcNow.AddDays(-30)
         }, CancellationToken.None).GetAwaiter().GetResult();
 
-        memberRepo.CreateAsync(new CampaignMember
+        memberRepo.CreateAsync(new WorldMember
         {
             Id = Guid.NewGuid(),
-            CampaignId = scenario.CampaignId,
+            WorldId = scenario.WorldId,
             UserId = scenario.PlayerUserId,
-            Role = CampaignRole.Player,
+            Role = WorldRole.Player,
             DisplayName = "Tavrin",
             JoinedAt = DateTimeOffset.UtcNow.AddDays(-14)
         }, CancellationToken.None).GetAwaiter().GetResult();
 
-        memberRepo.CreateAsync(new CampaignMember
+        memberRepo.CreateAsync(new WorldMember
         {
             Id = Guid.NewGuid(),
-            CampaignId = scenario.CampaignId,
+            WorldId = scenario.WorldId,
             UserId = scenario.ObserverUserId,
-            Role = CampaignRole.Observer,
+            Role = WorldRole.Observer,
             DisplayName = "Jorin",
             JoinedAt = DateTimeOffset.UtcNow.AddDays(-7)
         }, CancellationToken.None).GetAwaiter().GetResult();
@@ -218,7 +218,7 @@ public class CostServiceRoleFilteringPropertyTests
         var costService = new CostService(
             aiUsageRepo,
             memberRepo,
-            campaignRepo,
+            worldRepo,
             logger);
 
         return (costService, aiUsageRepo);
@@ -229,7 +229,7 @@ public class CostServiceRoleFilteringPropertyTests
 /// Represents a role-based filtering test scenario with records distributed across multiple users.
 /// </summary>
 public record RoleFilteringScenario(
-    Guid CampaignId,
+    Guid WorldId,
     Guid GmUserId,
     Guid PlayerUserId,
     Guid ObserverUserId,
@@ -237,7 +237,7 @@ public record RoleFilteringScenario(
 
 /// <summary>
 /// FsCheck Arbitrary for role-based filtering property tests.
-/// Generates campaigns with AiUsageRecords distributed across multiple users (GM, Player, Observer).
+/// Generates worlds with AiUsageRecords distributed across multiple users (GM, Player, Observer).
 /// </summary>
 public class RoleFilteringArbitraries
 {
@@ -246,41 +246,41 @@ public class RoleFilteringArbitraries
     public static Arbitrary<RoleFilteringScenario> RoleFilteringScenarios()
     {
         var gen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from gmUserId in ArbMap.Default.GeneratorFor<Guid>()
             from playerUserId in ArbMap.Default.GeneratorFor<Guid>()
             where playerUserId != gmUserId
             from observerUserId in ArbMap.Default.GeneratorFor<Guid>()
             where observerUserId != gmUserId && observerUserId != playerUserId
             from recordCount in Gen.Choose(3, 20)
-            from records in GenRecords(campaignId, gmUserId, playerUserId, observerUserId, recordCount)
-            select new RoleFilteringScenario(campaignId, gmUserId, playerUserId, observerUserId, records);
+            from records in GenRecords(worldId, gmUserId, playerUserId, observerUserId, recordCount)
+            select new RoleFilteringScenario(worldId, gmUserId, playerUserId, observerUserId, records);
 
         return gen.ToArbitrary();
     }
 
     private static Gen<List<AiUsageRecord>> GenRecords(
-        Guid campaignId, Guid gmUserId, Guid playerUserId, Guid observerUserId, int count)
+        Guid worldId, Guid gmUserId, Guid playerUserId, Guid observerUserId, int count)
     {
         var userIds = new[] { gmUserId, playerUserId, observerUserId };
 
         var extraRecordGen =
             from userIdx in Gen.Choose(0, userIds.Length - 1)
-            from record in GenSingleRecord(campaignId, userIds[userIdx])
+            from record in GenSingleRecord(worldId, userIds[userIdx])
             select record;
 
         // Ensure at least one record per user, then fill remaining randomly
         var gen =
-            from gmRecord in GenSingleRecord(campaignId, gmUserId)
-            from playerRecord in GenSingleRecord(campaignId, playerUserId)
-            from observerRecord in GenSingleRecord(campaignId, observerUserId)
+            from gmRecord in GenSingleRecord(worldId, gmUserId)
+            from playerRecord in GenSingleRecord(worldId, playerUserId)
+            from observerRecord in GenSingleRecord(worldId, observerUserId)
             from extraRecords in extraRecordGen.ListOf(Math.Max(0, count - 3))
             select new List<AiUsageRecord>(new[] { gmRecord, playerRecord, observerRecord }.Concat(extraRecords));
 
         return gen;
     }
 
-    private static Gen<AiUsageRecord> GenSingleRecord(Guid campaignId, Guid userId)
+    private static Gen<AiUsageRecord> GenSingleRecord(Guid worldId, Guid userId)
     {
         return
             from inputTokens in Gen.Choose(10, 5000)
@@ -295,7 +295,7 @@ public class RoleFilteringArbitraries
             select new AiUsageRecord
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaignId,
+                WorldId = worldId,
                 UserId = userId,
                 OperationType = operationType,
                 Model = Models[modelIdx],

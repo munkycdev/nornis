@@ -31,20 +31,20 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
 
     public async Task<KnowledgeContext> RetrieveAsync(
         string question,
-        Guid campaignId,
+        Guid worldId,
         Guid userId,
-        CampaignRole role,
+        WorldRole role,
         CancellationToken ct)
     {
         var allowedScopes = GetAllowedScopes(role);
 
         // 1. Name-matched artifacts
         var nameMatched = await _artifactRepository.ListByNamesInTextAsync(
-            campaignId, question, allowedScopes, ct);
+            worldId, question, allowedScopes, ct);
 
         // 2. Recent artifacts
-        var recent = await _artifactRepository.ListRecentByCampaignAsync(
-            campaignId, allowedScopes, _options.MaxRetrievalCount, ct);
+        var recent = await _artifactRepository.ListRecentByWorldAsync(
+            worldId, allowedScopes, _options.MaxRetrievalCount, ct);
 
         // 3. Merge and deduplicate (name-matched first, then recent), cap at MaxRetrievalCount
         var artifacts = MergeAndDeduplicate(nameMatched, recent, _options.MaxRetrievalCount);
@@ -69,7 +69,7 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
 
         // 4. Load facts filtered by visibility. Hidden truth state is GM-only regardless of
         // the visibility scope on the fact itself (parity with CanonService).
-        var isGm = role == CampaignRole.GM;
+        var isGm = role == WorldRole.GM;
         var allFacts = await _artifactFactRepository.ListByArtifactIdsAsync(
             artifactIds, _options.MaxFactsPerArtifact, ct);
 
@@ -103,12 +103,12 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
         };
     }
 
-    internal static IReadOnlyList<VisibilityScope> GetAllowedScopes(CampaignRole role) =>
+    internal static IReadOnlyList<VisibilityScope> GetAllowedScopes(WorldRole role) =>
         role switch
         {
-            CampaignRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
-            CampaignRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
-            CampaignRole.Observer => [VisibilityScope.PartyVisible],
+            WorldRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
+            WorldRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
+            WorldRole.Observer => [VisibilityScope.PartyVisible],
             _ => [VisibilityScope.PartyVisible]
         };
 

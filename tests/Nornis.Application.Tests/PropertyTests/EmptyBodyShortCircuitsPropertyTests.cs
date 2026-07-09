@@ -83,7 +83,7 @@ public class EmptyBodyShortCircuitsPropertyTests
                 sourceRepo.Seed(source);
 
                 // Act
-                var outcome = service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+                var outcome = service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
                     .GetAwaiter().GetResult();
 
                 // Assert

@@ -20,7 +20,7 @@ public class InputValidationTests
     private IAiUsageRecordRepository _aiUsageRecordRepository = null!;
     private LoremasterService _service = null!;
 
-    private static readonly Guid CampaignId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid WorldId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid KeldaUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid TavrinUserId = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
@@ -91,7 +91,7 @@ public class InputValidationTests
             Arg.Any<string>(),
             Arg.Any<Guid>(),
             Arg.Any<Guid>(),
-            Arg.Any<CampaignRole>(),
+            Arg.Any<WorldRole>(),
             Arg.Any<CancellationToken>())
             .Returns(CreateEmptyContext());
 
@@ -104,9 +104,9 @@ public class InputValidationTests
 
         await _knowledgeRetriever.Received(1).RetrieveAsync(
             "Who is Captain Voss?",
-            CampaignId,
+            WorldId,
             KeldaUserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             Arg.Any<CancellationToken>());
     }
 
@@ -121,7 +121,7 @@ public class InputValidationTests
             Arg.Any<string>(),
             Arg.Any<Guid>(),
             Arg.Any<Guid>(),
-            Arg.Any<CampaignRole>(),
+            Arg.Any<WorldRole>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -148,7 +148,7 @@ public class InputValidationTests
             Arg.Any<string>(),
             Arg.Any<Guid>(),
             Arg.Any<Guid>(),
-            Arg.Any<CampaignRole>(),
+            Arg.Any<WorldRole>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -176,7 +176,7 @@ public class InputValidationTests
             Arg.Any<string>(),
             Arg.Any<Guid>(),
             Arg.Any<Guid>(),
-            Arg.Any<CampaignRole>(),
+            Arg.Any<WorldRole>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -202,7 +202,7 @@ public class InputValidationTests
             Arg.Any<string>(),
             Arg.Any<Guid>(),
             Arg.Any<Guid>(),
-            Arg.Any<CampaignRole>(),
+            Arg.Any<WorldRole>(),
             Arg.Any<CancellationToken>())
             .Returns(CreateEmptyContext());
 
@@ -218,18 +218,18 @@ public class InputValidationTests
             Arg.Any<string>(),
             Arg.Any<Guid>(),
             Arg.Any<Guid>(),
-            Arg.Any<CampaignRole>(),
+            Arg.Any<WorldRole>(),
             Arg.Any<CancellationToken>());
     }
 
     private AskLoremasterCommand CreateCommand(
         string question,
-        Guid? campaignId = null,
+        Guid? worldId = null,
         Guid? userId = null,
-        CampaignRole role = CampaignRole.GM)
+        WorldRole role = WorldRole.GM)
     {
         return new AskLoremasterCommand(
-            CampaignId: campaignId ?? CampaignId,
+            WorldId: worldId ?? WorldId,
             Question: question,
             UserId: userId ?? KeldaUserId,
             UserRole: role,

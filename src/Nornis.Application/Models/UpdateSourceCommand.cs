@@ -4,9 +4,9 @@ namespace Nornis.Application.Models;
 
 public record UpdateSourceCommand(
     Guid SourceId,
-    Guid CampaignId,
+    Guid WorldId,
     Guid ActingUserId,
-    CampaignRole ActingUserRole,
+    WorldRole ActingUserRole,
     string? Title = null,
     string? Body = null,
     string? Uri = null,

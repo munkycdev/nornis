@@ -350,10 +350,10 @@ public class LoremasterServiceCitationParsingTests
         aiClient.SetupSuccess(answerWithMarkers);
 
         var command = new AskLoremasterCommand(
-            CampaignId: Guid.NewGuid(),
+            WorldId: Guid.NewGuid(),
             Question: "Where is Captain Voss?",
             UserId: Guid.NewGuid(),
-            UserRole: CampaignRole.GM,
+            UserRole: WorldRole.GM,
             ConversationContext: null);
 
         // Act

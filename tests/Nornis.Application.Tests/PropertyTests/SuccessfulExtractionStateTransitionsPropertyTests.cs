@@ -88,7 +88,7 @@ public class SuccessfulExtractionStateTransitionsPropertyTests
         fakeAiClient.SetupSuccess(aiResponse);
 
         // Act
-        var outcome = service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+        var outcome = service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
             .GetAwaiter().GetResult();
 
         // Assert
@@ -160,7 +160,7 @@ public class SuccessfulExtractionStateTransitionsPropertyTests
         fakeAiClient.SetupSuccess(aiResponse);
 
         // Act
-        service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+        service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
             .GetAwaiter().GetResult();
 
         // Assert — the state transitions should include Queued → Processing and Processing → Processed

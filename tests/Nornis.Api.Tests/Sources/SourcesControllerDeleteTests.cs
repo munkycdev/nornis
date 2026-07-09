@@ -32,7 +32,7 @@ public class SourcesControllerDeleteTests
 
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.PlayerUserId,
             title: "Tavrin's Journal — The Silver Key",
             type: SourceType.JournalEntry,
@@ -41,14 +41,14 @@ public class SourcesControllerDeleteTests
 
         // Act
         var deleteResponse = await scenario.PlayerClient.DeleteAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/sources/{source.Id}");
+            $"/api/worlds/{scenario.World.Id}/sources/{source.Id}");
 
         // Assert
         Assert.That(deleteResponse.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
 
         // Verify the source no longer exists (GET should return 404)
         var getResponse = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/sources/{source.Id}");
+            $"/api/worlds/{scenario.World.Id}/sources/{source.Id}");
         Assert.That(getResponse.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 
@@ -61,7 +61,7 @@ public class SourcesControllerDeleteTests
         // Player creates a source
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.PlayerUserId,
             title: "Session 4 — Questioning Captain Voss",
             type: SourceType.SessionNote,
@@ -70,14 +70,14 @@ public class SourcesControllerDeleteTests
 
         // Act — GM deletes the player's source
         var deleteResponse = await scenario.GmClient.DeleteAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/sources/{source.Id}");
+            $"/api/worlds/{scenario.World.Id}/sources/{source.Id}");
 
         // Assert
         Assert.That(deleteResponse.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
 
         // Verify deletion
         var getResponse = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/sources/{source.Id}");
+            $"/api/worlds/{scenario.World.Id}/sources/{source.Id}");
         Assert.That(getResponse.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 
@@ -90,7 +90,7 @@ public class SourcesControllerDeleteTests
         // GM creates a source
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.GmUserId,
             title: "GM Notes — Black Harbor Conspiracy",
             type: SourceType.GMNote,
@@ -99,7 +99,7 @@ public class SourcesControllerDeleteTests
 
         // Act — Player (non-creator, non-GM) tries to delete
         var deleteResponse = await scenario.PlayerClient.DeleteAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/sources/{source.Id}");
+            $"/api/worlds/{scenario.World.Id}/sources/{source.Id}");
 
         // Assert
         Assert.That(deleteResponse.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
@@ -115,7 +115,7 @@ public class SourcesControllerDeleteTests
 
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.GmUserId,
             title: "Session 5 — The Missing Caravan",
             type: SourceType.SessionNote,
@@ -124,7 +124,7 @@ public class SourcesControllerDeleteTests
 
         // Act — Even the GM cannot delete while processing
         var deleteResponse = await scenario.GmClient.DeleteAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/sources/{source.Id}");
+            $"/api/worlds/{scenario.World.Id}/sources/{source.Id}");
 
         // Assert
         Assert.That(deleteResponse.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
@@ -142,7 +142,7 @@ public class SourcesControllerDeleteTests
 
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            scenario.Campaign.Id,
+            scenario.World.Id,
             scenario.GmUserId,
             title: $"Source in {allowedStatus} status — Silver Key clue",
             type: SourceType.SessionNote,
@@ -151,14 +151,14 @@ public class SourcesControllerDeleteTests
 
         // Act
         var deleteResponse = await scenario.GmClient.DeleteAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/sources/{source.Id}");
+            $"/api/worlds/{scenario.World.Id}/sources/{source.Id}");
 
         // Assert
         Assert.That(deleteResponse.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
 
         // Verify deleted
         var getResponse = await scenario.GmClient.GetAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/sources/{source.Id}");
+            $"/api/worlds/{scenario.World.Id}/sources/{source.Id}");
         Assert.That(getResponse.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 
@@ -171,7 +171,7 @@ public class SourcesControllerDeleteTests
 
         // Act
         var deleteResponse = await scenario.GmClient.DeleteAsync(
-            $"/api/campaigns/{scenario.Campaign.Id}/sources/{nonExistentSourceId}");
+            $"/api/worlds/{scenario.World.Id}/sources/{nonExistentSourceId}");
 
         // Assert
         Assert.That(deleteResponse.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));

@@ -2,7 +2,7 @@ namespace Nornis.Api.Contracts.Responses;
 
 public record SourceResponse(
     Guid Id,
-    Guid CampaignId,
+    Guid WorldId,
     string Type,
     string Title,
     string? Body,

@@ -1,13 +1,13 @@
 namespace Nornis.Application.Services;
 
 /// <summary>
-/// Pure, fully-derivable decision for whether a campaign is due an auto-triggered continuity
+/// Pure, fully-derivable decision for whether a world is due an auto-triggered continuity
 /// audit. Extracted from the hosted service so the rule can be unit-tested without any I/O.
 /// </summary>
 public static class ContinuityAuditEligibility
 {
     /// <summary>
-    /// A campaign is eligible when new canon was accepted since the last assessment, that
+    /// A world is eligible when new canon was accepted since the last assessment, that
     /// acceptance has had time to settle (quiet period), and we have not assessed too recently.
     /// </summary>
     /// <param name="latestAcceptanceAt">Timestamp of the most recent accepted proposal, or null if none.</param>

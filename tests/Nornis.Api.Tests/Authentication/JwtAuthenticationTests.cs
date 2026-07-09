@@ -32,7 +32,7 @@ public class JwtAuthenticationTests
             nickname: "Captain Voss");
 
         // Act
-        var response = await client.GetAsync("/api/campaigns");
+        var response = await client.GetAsync("/api/worlds");
 
         // Assert - valid token should not yield 401
         Assert.That(response.StatusCode, Is.Not.EqualTo(HttpStatusCode.Unauthorized));
@@ -45,7 +45,7 @@ public class JwtAuthenticationTests
         var client = _factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync("/api/campaigns");
+        var response = await client.GetAsync("/api/worlds");
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
@@ -64,7 +64,7 @@ public class JwtAuthenticationTests
             new AuthenticationHeaderValue("Bearer", expiredToken);
 
         // Act
-        var response = await client.GetAsync("/api/campaigns");
+        var response = await client.GetAsync("/api/worlds");
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
@@ -83,7 +83,7 @@ public class JwtAuthenticationTests
             new AuthenticationHeaderValue("Bearer", wrongIssuerToken);
 
         // Act
-        var response = await client.GetAsync("/api/campaigns");
+        var response = await client.GetAsync("/api/worlds");
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));

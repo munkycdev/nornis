@@ -1,6 +1,6 @@
 ﻿@page "/canon"
 @implements IDisposable
-@inject CampaignState Campaigns
+@inject WorldState Worlds
 @inject NornisApiClient Api
 
 <PageTitle>Canon — Nornis</PageTitle>
@@ -9,9 +9,9 @@
     <MudText Typo="Typo.h4" Class="nornis-serif">Canon</MudText>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">What is remembered, endures.</MudText>
 
-    @if (Campaigns.Current is null)
+    @if (Worlds.Current is null)
     {
-        <NoCampaign />
+        <NoWorld />
     }
     else if (_loading)
     {
@@ -27,7 +27,7 @@
             <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Large" Class="nornis-comingsoon-icon" />
             <MudText Typo="Typo.h5" Class="nornis-serif">No canon yet</MudText>
             <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
-                As you accept facts and relationships, they settle here as the durable truth-state of your campaign.
+                As you accept facts and relationships, they settle here as the durable truth-state of your world.
             </MudText>
         </MudPaper>
     }
@@ -86,16 +86,16 @@
 
     protected override async Task OnInitializedAsync()
     {
-        Campaigns.Changed += OnCampaignChanged;
-        await Campaigns.EnsureLoadedAsync();
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
         await LoadAsync();
     }
 
-    private void OnCampaignChanged() => InvokeAsync(LoadAsync);
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
 
     private async Task LoadAsync()
     {
-        if (Campaigns.Current is null)
+        if (Worlds.Current is null)
         {
             _entries = [];
             _error = null;
@@ -107,7 +107,7 @@
         _error = null;
         StateHasChanged();
 
-        var result = await Api.GetCanonAsync(Campaigns.Current.Id);
+        var result = await Api.GetCanonAsync(Worlds.Current.Id);
 
         _loading = false;
         if (result.IsSuccess)
@@ -136,5 +136,5 @@
         return $"{(int)d.TotalDays}d ago";
     }
 
-    public void Dispose() => Campaigns.Changed -= OnCampaignChanged;
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

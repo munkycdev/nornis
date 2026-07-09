@@ -1,6 +1,6 @@
 ﻿@page "/sources"
 @implements IDisposable
-@inject CampaignState Campaigns
+@inject WorldState Worlds
 @inject NornisApiClient Api
 
 <PageTitle>Sources — Nornis</PageTitle>
@@ -14,14 +14,14 @@
                Color="Color.Secondary"
                StartIcon="@Icons.Material.Filled.Add"
                Href="/capture"
-               Disabled="@(Campaigns.Current is null)">
+               Disabled="@(Worlds.Current is null)">
         Capture source
     </MudButton>
 </div>
 
-@if (Campaigns.Current is null)
+@if (Worlds.Current is null)
 {
-    <NoCampaign />
+    <NoWorld />
 }
 else if (_loading)
 {
@@ -79,13 +79,13 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        Campaigns.Changed += OnCampaignChanged;
-        await Campaigns.EnsureLoadedAsync();
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
         await LoadSourcesAsync();
         _ = PollWhileProcessingAsync();
     }
 
-    private void OnCampaignChanged() => InvokeAsync(LoadSourcesAsync);
+    private void OnWorldChanged() => InvokeAsync(LoadSourcesAsync);
 
     private async Task PollWhileProcessingAsync()
     {
@@ -94,11 +94,11 @@ else
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(4));
             while (await timer.WaitForNextTickAsync(_pollCts.Token))
             {
-                if (Campaigns.Current is null || !_sources.Any(x => ActiveStatuses.Contains(x.ProcessingStatus)))
+                if (Worlds.Current is null || !_sources.Any(x => ActiveStatuses.Contains(x.ProcessingStatus)))
                     continue;
 
                 // Quiet refresh: no loading state, just swap the data in place.
-                var result = await Api.GetSourcesAsync(Campaigns.Current.Id, _pollCts.Token);
+                var result = await Api.GetSourcesAsync(Worlds.Current.Id, _pollCts.Token);
                 if (result.IsSuccess)
                 {
                     _sources = result.Value!;
@@ -114,7 +114,7 @@ else
 
     private async Task LoadSourcesAsync()
     {
-        if (Campaigns.Current is null)
+        if (Worlds.Current is null)
         {
             _sources = [];
             _error = null;
@@ -126,7 +126,7 @@ else
         _error = null;
         StateHasChanged();
 
-        var result = await Api.GetSourcesAsync(Campaigns.Current.Id);
+        var result = await Api.GetSourcesAsync(Worlds.Current.Id);
 
         _loading = false;
         if (result.IsSuccess)
@@ -157,6 +157,6 @@ else
     {
         _pollCts.Cancel();
         _pollCts.Dispose();
-        Campaigns.Changed -= OnCampaignChanged;
+        Worlds.Changed -= OnWorldChanged;
     }
 }

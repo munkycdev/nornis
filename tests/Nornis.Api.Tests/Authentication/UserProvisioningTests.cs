@@ -35,7 +35,7 @@ public class UserProvisioningTests
         var client = _factory.CreateAuthenticatedClient(sub: sub, email: email, nickname: nickname);
 
         // Act - make any authenticated request to trigger user provisioning
-        var response = await client.GetAsync("/api/campaigns");
+        var response = await client.GetAsync("/api/worlds");
 
         // Assert - request should succeed (not 401/503)
         Assert.That(response.StatusCode, Is.Not.EqualTo(HttpStatusCode.Unauthorized));
@@ -63,7 +63,7 @@ public class UserProvisioningTests
         var client = _factory.CreateAuthenticatedClient(sub: sub, email: email, nickname: nickname);
 
         // First request - creates the user
-        await client.GetAsync("/api/campaigns");
+        await client.GetAsync("/api/worlds");
 
         // Record the user state after first request
         using (var scope = _factory.Services.CreateScope())
@@ -74,7 +74,7 @@ public class UserProvisioningTests
         }
 
         // Act - second request with same sub should resolve existing user
-        var response = await client.GetAsync("/api/campaigns");
+        var response = await client.GetAsync("/api/worlds");
 
         // Assert
         Assert.That(response.StatusCode, Is.Not.EqualTo(HttpStatusCode.Unauthorized));
@@ -102,7 +102,7 @@ public class UserProvisioningTests
         client.WithAuthToken(token);
 
         // Act
-        var response = await client.GetAsync("/api/campaigns");
+        var response = await client.GetAsync("/api/worlds");
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
@@ -118,7 +118,7 @@ public class UserProvisioningTests
         var client = _factory.CreateAuthenticatedClient(sub: sub, email: email, nickname: null);
 
         // Act
-        var response = await client.GetAsync("/api/campaigns");
+        var response = await client.GetAsync("/api/worlds");
 
         // Assert - request should succeed
         Assert.That(response.StatusCode, Is.Not.EqualTo(HttpStatusCode.Unauthorized));

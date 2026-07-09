@@ -12,8 +12,8 @@ namespace Nornis.Api.Tests.Integration;
 
 /// <summary>
 /// Integration tests for CostsController authorization, role-based visibility, and the
-/// cross-campaign endpoint. These tests exercise the full HTTP pipeline: JWT validation,
-/// UserProvisioningMiddleware, CampaignMemberActionFilter, CostService role filtering,
+/// cross-world endpoint. These tests exercise the full HTTP pipeline: JWT validation,
+/// UserProvisioningMiddleware, WorldMemberActionFilter, CostService role filtering,
 /// and response assembly.
 ///
 /// Validates: Requirements 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 4.2
@@ -41,11 +41,11 @@ public class CostDashboardAuthorizationIntegrationTests
         _factory.Dispose();
     }
 
-    private string SummaryUrl => $"/api/campaigns/{_scenario.Campaign.Id}/costs/summary";
-    private string ByUserUrl => $"/api/campaigns/{_scenario.Campaign.Id}/costs/by-user";
-    private string ByOperationUrl => $"/api/campaigns/{_scenario.Campaign.Id}/costs/by-operation";
-    private string ByModelUrl => $"/api/campaigns/{_scenario.Campaign.Id}/costs/by-model";
-    private string ByCampaignUrl => "/api/costs/by-campaign";
+    private string SummaryUrl => $"/api/worlds/{_scenario.World.Id}/costs/summary";
+    private string ByUserUrl => $"/api/worlds/{_scenario.World.Id}/costs/by-user";
+    private string ByOperationUrl => $"/api/worlds/{_scenario.World.Id}/costs/by-operation";
+    private string ByModelUrl => $"/api/worlds/{_scenario.World.Id}/costs/by-model";
+    private string ByWorldUrl => "/api/costs/by-world";
 
     #region Missing JWT → 401
 
@@ -71,33 +71,33 @@ public class CostDashboardAuthorizationIntegrationTests
     }
 
     [Test]
-    public async Task GetByCampaign_WithoutJwt_Returns401()
+    public async Task GetByWorld_WithoutJwt_Returns401()
     {
         var client = _factory.CreateClient();
-        var response = await client.GetAsync(ByCampaignUrl);
+        var response = await client.GetAsync(ByWorldUrl);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
     }
 
     #endregion
 
-    #region Non-member → 403 without revealing campaign existence
+    #region Non-member → 403 without revealing world existence
 
     [Test]
     public async Task GetSummary_NonMember_Returns403()
     {
-        // Arrange — user who is not a member of the campaign
+        // Arrange — user who is not a member of the world
         // Act
         var response = await _scenario.NonMemberClient.GetAsync(SummaryUrl);
 
-        // Assert — 403, does not reveal campaign existence
+        // Assert — 403, does not reveal world existence
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }
 
     [Test]
-    public async Task GetSummary_NonMemberOnNonExistentCampaign_Returns403()
+    public async Task GetSummary_NonMemberOnNonExistentWorld_Returns403()
     {
-        // Verify same response for non-existent campaign (no information leakage)
-        var nonExistentUrl = $"/api/campaigns/{Guid.NewGuid()}/costs/summary";
+        // Verify same response for non-existent world (no information leakage)
+        var nonExistentUrl = $"/api/worlds/{Guid.NewGuid()}/costs/summary";
         var response = await _scenario.NonMemberClient.GetAsync(nonExistentUrl);
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
@@ -126,7 +126,7 @@ public class CostDashboardAuthorizationIntegrationTests
 
     #endregion
 
-    #region GM sees aggregated data for all users in campaign
+    #region GM sees aggregated data for all users in world
 
     [Test]
     public async Task GetSummary_GmRole_SeesAllUsersAggregatedData()
@@ -285,38 +285,38 @@ public class CostDashboardAuthorizationIntegrationTests
 
     #endregion
 
-    #region Cross-campaign endpoint returns only GM-role campaigns
+    #region Cross-world endpoint returns only GM-role worlds
 
     [Test]
-    public async Task GetByCampaign_ReturnsOnlyGmRoleCampaigns()
+    public async Task GetByWorld_ReturnsOnlyGmRoleWorlds()
     {
         // Act — GM user (Kelda) is GM on "Black Harbor Investigation"
         //        and Player on "Silver Key Mystery"
-        var response = await _scenario.GmClient.GetAsync(ByCampaignUrl);
+        var response = await _scenario.GmClient.GetAsync(ByWorldUrl);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
-        var results = await response.Content.ReadFromJsonAsync<List<CampaignCostResponse>>();
+        var results = await response.Content.ReadFromJsonAsync<List<WorldCostResponse>>();
         Assert.That(results, Is.Not.Null);
 
-        // Should only contain the campaign where user is GM (Black Harbor Investigation)
-        // Should NOT contain the campaign where user is Player (Silver Key Mystery)
+        // Should only contain the world where user is GM (Black Harbor Investigation)
+        // Should NOT contain the world where user is Player (Silver Key Mystery)
         Assert.That(results!.Count, Is.EqualTo(1));
-        Assert.That(results[0].CampaignId, Is.EqualTo(_scenario.Campaign.Id));
-        Assert.That(results[0].CampaignName, Is.EqualTo("Black Harbor Investigation"));
+        Assert.That(results[0].WorldId, Is.EqualTo(_scenario.World.Id));
+        Assert.That(results[0].WorldName, Is.EqualTo("Black Harbor Investigation"));
     }
 
     [Test]
-    public async Task GetByCampaign_UserWithNoGmCampaigns_ReturnsEmptyList()
+    public async Task GetByWorld_UserWithNoGmWorlds_ReturnsEmptyList()
     {
         // Act — Player user (Tavrin) is only Player, never GM
-        var response = await _scenario.PlayerClient.GetAsync(ByCampaignUrl);
+        var response = await _scenario.PlayerClient.GetAsync(ByWorldUrl);
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
-        var results = await response.Content.ReadFromJsonAsync<List<CampaignCostResponse>>();
+        var results = await response.Content.ReadFromJsonAsync<List<WorldCostResponse>>();
         Assert.That(results, Is.Not.Null);
         Assert.That(results!.Count, Is.EqualTo(0));
     }
@@ -327,10 +327,10 @@ public class CostDashboardAuthorizationIntegrationTests
 
     /// <summary>
     /// Sets up a complete Cost Dashboard test scenario with:
-    /// - Campaign "Black Harbor Investigation" with Kelda (GM), Tavrin (Player), Jorin (Observer)
-    /// - A second campaign "Silver Key Mystery" where Kelda is a Player (not GM)
-    /// - AiUsageRecords distributed across users for the primary campaign
-    /// - AiUsageRecords in the second campaign (should NOT appear in cross-campaign for Kelda as Player)
+    /// - World "Black Harbor Investigation" with Kelda (GM), Tavrin (Player), Jorin (Observer)
+    /// - A second world "Silver Key Mystery" where Kelda is a Player (not GM)
+    /// - AiUsageRecords distributed across users for the primary world
+    /// - AiUsageRecords in the second world (should NOT appear in cross-world for Kelda as Player)
     /// </summary>
     private static async Task<CostDashboardTestScenario> SetupCostDashboardScenarioAsync(
         NornisWebApplicationFactory factory)
@@ -348,34 +348,34 @@ public class CostDashboardAuthorizationIntegrationTests
         var nonMemberUserId = await SourceTestHelpers.ProvisionUserAndGetIdAsync(
             factory, "auth0|nonmember-stranger-cost", "stranger@elsewhere.com", "Stranger");
 
-        // Create primary campaign with Kelda as GM
-        var campaign = await SourceTestHelpers.CreateTestCampaignAsync(factory, gmUserId);
+        // Create primary world with Kelda as GM
+        var world = await SourceTestHelpers.CreateTestWorldAsync(factory, gmUserId);
 
-        // Add player and observer members to the primary campaign
-        await SourceTestHelpers.AddCampaignMemberAsync(
-            factory, campaign.Id, playerUserId, CampaignRole.Player,
+        // Add player and observer members to the primary world
+        await SourceTestHelpers.AddWorldMemberAsync(
+            factory, world.Id, playerUserId, WorldRole.Player,
             displayName: "Tavrin", characterName: "Tavrin the Bold");
 
-        await SourceTestHelpers.AddCampaignMemberAsync(
-            factory, campaign.Id, observerUserId, CampaignRole.Observer,
+        await SourceTestHelpers.AddWorldMemberAsync(
+            factory, world.Id, observerUserId, WorldRole.Observer,
             displayName: "Jorin");
 
-        // Create a second campaign where Kelda is a Player (not GM)
-        // This tests that cross-campaign only returns GM campaigns
-        var secondCampaignCreatorId = await SourceTestHelpers.ProvisionUserAndGetIdAsync(
+        // Create a second world where Kelda is a Player (not GM)
+        // This tests that cross-world only returns GM worlds
+        var secondWorldCreatorId = await SourceTestHelpers.ProvisionUserAndGetIdAsync(
             factory, "auth0|other-gm-cost", "othergm@silverkey.com", "OtherGM");
 
-        var secondCampaign = await SourceTestHelpers.CreateTestCampaignAsync(
-            factory, secondCampaignCreatorId,
+        var secondWorld = await SourceTestHelpers.CreateTestWorldAsync(
+            factory, secondWorldCreatorId,
             name: "Silver Key Mystery",
             description: "A mystery involving the Silver Key");
 
-        // Add Kelda as a Player in the second campaign
-        await SourceTestHelpers.AddCampaignMemberAsync(
-            factory, secondCampaign.Id, gmUserId, CampaignRole.Player,
+        // Add Kelda as a Player in the second world
+        await SourceTestHelpers.AddWorldMemberAsync(
+            factory, secondWorld.Id, gmUserId, WorldRole.Player,
             displayName: "Kelda");
 
-        // Seed AiUsageRecords in the primary campaign
+        // Seed AiUsageRecords in the primary world
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
@@ -384,7 +384,7 @@ public class CostDashboardAuthorizationIntegrationTests
             db.AiUsageRecords.Add(new AiUsageRecord
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 UserId = gmUserId,
                 OperationType = AiOperationType.SourceExtraction,
                 Model = "gpt-4o",
@@ -400,7 +400,7 @@ public class CostDashboardAuthorizationIntegrationTests
             db.AiUsageRecords.Add(new AiUsageRecord
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 UserId = gmUserId,
                 OperationType = AiOperationType.ArtifactSummary,
                 Model = "gpt-4o-mini",
@@ -417,7 +417,7 @@ public class CostDashboardAuthorizationIntegrationTests
             db.AiUsageRecords.Add(new AiUsageRecord
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 UserId = playerUserId,
                 OperationType = AiOperationType.AskLoremaster,
                 Model = "gpt-4o",
@@ -433,7 +433,7 @@ public class CostDashboardAuthorizationIntegrationTests
             db.AiUsageRecords.Add(new AiUsageRecord
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 UserId = playerUserId,
                 OperationType = AiOperationType.SourceExtraction,
                 Model = "gpt-4o",
@@ -450,7 +450,7 @@ public class CostDashboardAuthorizationIntegrationTests
             db.AiUsageRecords.Add(new AiUsageRecord
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaign.Id,
+                WorldId = world.Id,
                 UserId = observerUserId,
                 OperationType = AiOperationType.AskLoremaster,
                 Model = "gpt-4o-mini",
@@ -463,11 +463,11 @@ public class CostDashboardAuthorizationIntegrationTests
                 CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-15)
             });
 
-            // Second campaign records (Kelda is Player here, not GM)
+            // Second world records (Kelda is Player here, not GM)
             db.AiUsageRecords.Add(new AiUsageRecord
             {
                 Id = Guid.NewGuid(),
-                CampaignId = secondCampaign.Id,
+                WorldId = secondWorld.Id,
                 UserId = gmUserId,
                 OperationType = AiOperationType.AskLoremaster,
                 Model = "gpt-4o",
@@ -485,8 +485,8 @@ public class CostDashboardAuthorizationIntegrationTests
 
         return new CostDashboardTestScenario
         {
-            Campaign = campaign,
-            SecondCampaign = secondCampaign,
+            World = world,
+            SecondWorld = secondWorld,
             GmUserId = gmUserId,
             PlayerUserId = playerUserId,
             ObserverUserId = observerUserId,
@@ -509,8 +509,8 @@ public class CostDashboardAuthorizationIntegrationTests
 /// </summary>
 public class CostDashboardTestScenario
 {
-    public required Campaign Campaign { get; init; }
-    public required Campaign SecondCampaign { get; init; }
+    public required World World { get; init; }
+    public required World SecondWorld { get; init; }
     public required Guid GmUserId { get; init; }
     public required Guid PlayerUserId { get; init; }
     public required Guid ObserverUserId { get; init; }

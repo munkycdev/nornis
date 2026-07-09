@@ -3,7 +3,7 @@ using Nornis.Domain.Enums;
 namespace Nornis.Application.Models;
 
 public record AddMemberCommand(
-    Guid CampaignId,
+    Guid WorldId,
     Guid TargetUserId,
-    CampaignRole Role,
+    WorldRole Role,
     Guid ActingUserId);

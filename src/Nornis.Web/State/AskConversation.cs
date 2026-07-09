@@ -1,6 +1,6 @@
 namespace Nornis.Web.State;
 
-// Client-side conversation model, persisted to browser localStorage per campaign.
+// Client-side conversation model, persisted to browser localStorage per world.
 // Plain settable properties so it round-trips cleanly through System.Text.Json.
 
 public class AskCitation

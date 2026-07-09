@@ -16,7 +16,7 @@ public class ReviewGeneratorsSanityTests
         MaxTest = 20)]
     public void ReviewScenario_HasConsistentData(ReviewScenario scenario)
     {
-        Assert.That(scenario.CampaignId, Is.Not.EqualTo(Guid.Empty));
+        Assert.That(scenario.WorldId, Is.Not.EqualTo(Guid.Empty));
         Assert.That(scenario.Sources, Is.Not.Empty);
         Assert.That(scenario.Batches, Is.Not.Empty);
         Assert.That(scenario.Proposals, Is.Not.Empty);
@@ -29,7 +29,7 @@ public class ReviewGeneratorsSanityTests
         foreach (var batch in scenario.Batches)
         {
             Assert.That(sourceIds, Does.Contain(batch.SourceId));
-            Assert.That(batch.CampaignId, Is.EqualTo(scenario.CampaignId));
+            Assert.That(batch.WorldId, Is.EqualTo(scenario.WorldId));
         }
 
         // All proposals reference valid batches
@@ -48,8 +48,8 @@ public class ReviewGeneratorsSanityTests
     {
         Assert.That(ctx.Proposal.ReviewBatchId, Is.EqualTo(ctx.Batch.Id));
         Assert.That(ctx.Batch.SourceId, Is.EqualTo(ctx.Source.Id));
-        Assert.That(ctx.Batch.CampaignId, Is.EqualTo(ctx.CampaignId));
-        Assert.That(ctx.Source.CampaignId, Is.EqualTo(ctx.CampaignId));
+        Assert.That(ctx.Batch.WorldId, Is.EqualTo(ctx.WorldId));
+        Assert.That(ctx.Source.WorldId, Is.EqualTo(ctx.WorldId));
         Assert.That(ctx.Source.CreatedByUserId, Is.EqualTo(ctx.OwnerUserId));
         Assert.That(string.IsNullOrEmpty(ctx.Proposal.ProposedValueJson), Is.False);
     }

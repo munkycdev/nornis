@@ -18,11 +18,11 @@ namespace Nornis.Application.Tests.Services;
 public class CostServiceRoleFilteringTests
 {
     private InMemoryAiUsageRecordRepository _aiUsageRepo = null!;
-    private InMemoryCampaignMemberRepository _memberRepo = null!;
-    private InMemoryCampaignRepository _campaignRepo = null!;
+    private InMemoryWorldMemberRepository _memberRepo = null!;
+    private InMemoryWorldRepository _worldRepo = null!;
     private CostService _costService = null!;
 
-    private Guid _campaignId;
+    private Guid _worldId;
     private Guid _keldaId;   // GM
     private Guid _tavrinId;  // Player
     private Guid _jorinId;   // Observer
@@ -31,47 +31,47 @@ public class CostServiceRoleFilteringTests
     public void SetUp()
     {
         _aiUsageRepo = new InMemoryAiUsageRecordRepository();
-        _memberRepo = new InMemoryCampaignMemberRepository();
-        _campaignRepo = new InMemoryCampaignRepository(_memberRepo);
+        _memberRepo = new InMemoryWorldMemberRepository();
+        _worldRepo = new InMemoryWorldRepository(_memberRepo);
 
         _costService = new CostService(
             _aiUsageRepo,
             _memberRepo,
-            _campaignRepo,
+            _worldRepo,
             NullLogger<CostService>.Instance);
 
-        _campaignId = Guid.NewGuid();
+        _worldId = Guid.NewGuid();
         _keldaId = Guid.NewGuid();
         _tavrinId = Guid.NewGuid();
         _jorinId = Guid.NewGuid();
 
-        // Set up campaign members: Kelda (GM), Tavrin (Player), Jorin (Observer)
-        _memberRepo.CreateAsync(new CampaignMember
+        // Set up world members: Kelda (GM), Tavrin (Player), Jorin (Observer)
+        _memberRepo.CreateAsync(new WorldMember
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             UserId = _keldaId,
-            Role = CampaignRole.GM,
+            Role = WorldRole.GM,
             DisplayName = "Kelda",
             JoinedAt = DateTimeOffset.UtcNow.AddDays(-30)
         }).GetAwaiter().GetResult();
 
-        _memberRepo.CreateAsync(new CampaignMember
+        _memberRepo.CreateAsync(new WorldMember
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             UserId = _tavrinId,
-            Role = CampaignRole.Player,
+            Role = WorldRole.Player,
             DisplayName = "Tavrin",
             JoinedAt = DateTimeOffset.UtcNow.AddDays(-14)
         }).GetAwaiter().GetResult();
 
-        _memberRepo.CreateAsync(new CampaignMember
+        _memberRepo.CreateAsync(new WorldMember
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             UserId = _jorinId,
-            Role = CampaignRole.Observer,
+            Role = WorldRole.Observer,
             DisplayName = "Jorin",
             JoinedAt = DateTimeOffset.UtcNow.AddDays(-7)
         }).GetAwaiter().GetResult();
@@ -90,7 +90,7 @@ public class CostServiceRoleFilteringTests
     {
         // Act
         var result = await _costService.GetSummaryAsync(
-            _campaignId, _keldaId, CampaignRole.GM, CancellationToken.None);
+            _worldId, _keldaId, WorldRole.GM, CancellationToken.None);
 
         // Assert — GM sees all 6 records
         Assert.That(result.IsSuccess, Is.True);
@@ -102,7 +102,7 @@ public class CostServiceRoleFilteringTests
     {
         // Act
         var result = await _costService.GetSummaryAsync(
-            _campaignId, _tavrinId, CampaignRole.Player, CancellationToken.None);
+            _worldId, _tavrinId, WorldRole.Player, CancellationToken.None);
 
         // Assert — Tavrin sees only their 2 records
         Assert.That(result.IsSuccess, Is.True);
@@ -114,7 +114,7 @@ public class CostServiceRoleFilteringTests
     {
         // Act
         var result = await _costService.GetSummaryAsync(
-            _campaignId, _jorinId, CampaignRole.Observer, CancellationToken.None);
+            _worldId, _jorinId, WorldRole.Observer, CancellationToken.None);
 
         // Assert — Jorin sees only their 1 record
         Assert.That(result.IsSuccess, Is.True);
@@ -126,7 +126,7 @@ public class CostServiceRoleFilteringTests
     {
         // Act
         var result = await _costService.GetByUserAsync(
-            _campaignId, _tavrinId, CampaignRole.Player, null, null, CancellationToken.None);
+            _worldId, _tavrinId, WorldRole.Player, null, null, CancellationToken.None);
 
         // Assert — Player gets a single-element list with only their own summary
         Assert.That(result.IsSuccess, Is.True);
@@ -142,7 +142,7 @@ public class CostServiceRoleFilteringTests
     {
         // Act
         var result = await _costService.GetByUserAsync(
-            _campaignId, _keldaId, CampaignRole.GM, null, null, CancellationToken.None);
+            _worldId, _keldaId, WorldRole.GM, null, null, CancellationToken.None);
 
         // Assert — GM sees entries for all 3 users
         Assert.That(result.IsSuccess, Is.True);
@@ -157,7 +157,7 @@ public class CostServiceRoleFilteringTests
     {
         // Act
         var result = await _costService.GetByUserAsync(
-            _campaignId, _jorinId, CampaignRole.Observer, null, null, CancellationToken.None);
+            _worldId, _jorinId, WorldRole.Observer, null, null, CancellationToken.None);
 
         // Assert — Observer gets a single-element list with only their own summary
         Assert.That(result.IsSuccess, Is.True);
@@ -173,7 +173,7 @@ public class CostServiceRoleFilteringTests
     {
         // Act
         var result = await _costService.GetByOperationTypeAsync(
-            _campaignId, _keldaId, CampaignRole.GM, null, null, CancellationToken.None);
+            _worldId, _keldaId, WorldRole.GM, null, null, CancellationToken.None);
 
         // Assert — total across groups equals all 6 records
         Assert.That(result.IsSuccess, Is.True);
@@ -186,7 +186,7 @@ public class CostServiceRoleFilteringTests
     {
         // Act
         var result = await _costService.GetByOperationTypeAsync(
-            _campaignId, _tavrinId, CampaignRole.Player, null, null, CancellationToken.None);
+            _worldId, _tavrinId, WorldRole.Player, null, null, CancellationToken.None);
 
         // Assert — Tavrin sees only their 2 AskLoremaster records
         Assert.That(result.IsSuccess, Is.True);
@@ -199,7 +199,7 @@ public class CostServiceRoleFilteringTests
     {
         // Act
         var result = await _costService.GetByModelAsync(
-            _campaignId, _jorinId, CampaignRole.Observer, null, null, CancellationToken.None);
+            _worldId, _jorinId, WorldRole.Observer, null, null, CancellationToken.None);
 
         // Assert — Jorin sees only their 1 record
         Assert.That(result.IsSuccess, Is.True);
@@ -217,7 +217,7 @@ public class CostServiceRoleFilteringTests
         _aiUsageRepo.CreateAsync(new AiUsageRecord
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             UserId = userId,
             OperationType = operationType,
             Model = model,

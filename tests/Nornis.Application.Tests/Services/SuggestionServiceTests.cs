@@ -9,7 +9,7 @@ namespace Nornis.Application.Tests.Services;
 [TestFixture]
 public class SuggestionServiceTests
 {
-    private Guid _campaignId;
+    private Guid _worldId;
     private Guid _userId;
     private InMemoryArtifactRepository _artifactRepo = null!;
     private InMemoryArtifactFactRepository _factRepo = null!;
@@ -19,7 +19,7 @@ public class SuggestionServiceTests
     [SetUp]
     public void SetUp()
     {
-        _campaignId = Guid.NewGuid();
+        _worldId = Guid.NewGuid();
         _userId = Guid.NewGuid();
         _artifactRepo = new InMemoryArtifactRepository();
         _factRepo = new InMemoryArtifactFactRepository();
@@ -36,7 +36,7 @@ public class SuggestionServiceTests
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = type,
             Name = name,
             Status = status,
@@ -48,11 +48,11 @@ public class SuggestionServiceTests
         return artifact;
     }
 
-    private Task<IReadOnlyList<Nornis.Application.Models.AskSuggestion>> GetAsync(CampaignRole role = CampaignRole.GM) =>
-        _service.GetSuggestionsAsync(_campaignId, _userId, role, CancellationToken.None);
+    private Task<IReadOnlyList<Nornis.Application.Models.AskSuggestion>> GetAsync(WorldRole role = WorldRole.GM) =>
+        _service.GetSuggestionsAsync(_worldId, _userId, role, CancellationToken.None);
 
     [Test]
-    public async Task EmptyCampaign_ReturnsFourFallbacks()
+    public async Task EmptyWorld_ReturnsFourFallbacks()
     {
         var suggestions = await GetAsync();
 
@@ -166,7 +166,7 @@ public class SuggestionServiceTests
         SeedArtifact("Secret Villain", ArtifactType.Character, visibility: VisibilityScope.GMOnly);
         SeedArtifact("Hidden Plot", ArtifactType.Storyline, visibility: VisibilityScope.GMOnly);
 
-        var suggestions = await GetAsync(CampaignRole.Observer);
+        var suggestions = await GetAsync(WorldRole.Observer);
 
         Assert.That(suggestions.Select(s => s.Text), Has.None.Contains("Secret Villain"));
         Assert.That(suggestions.Select(s => s.Text), Has.None.Contains("Hidden Plot"));
@@ -178,7 +178,7 @@ public class SuggestionServiceTests
         _sourceRepo.Seed(new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.SessionNote,
             Title = "Session 12: The Docks",
             Visibility = VisibilityScope.PartyVisible,
@@ -199,7 +199,7 @@ public class SuggestionServiceTests
         _sourceRepo.Seed(new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.SessionNote,
             Title = "Ancient History",
             Visibility = VisibilityScope.PartyVisible,
@@ -219,7 +219,7 @@ public class SuggestionServiceTests
         _sourceRepo.Seed(new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.JournalEntry,
             Title = "Someone Else's Diary",
             Visibility = VisibilityScope.Private,
@@ -228,7 +228,7 @@ public class SuggestionServiceTests
             CreatedAt = DateTimeOffset.UtcNow.AddDays(-1)
         });
 
-        var suggestions = await GetAsync(CampaignRole.Player);
+        var suggestions = await GetAsync(WorldRole.Player);
 
         Assert.That(suggestions.Select(s => s.Text), Has.None.Contains("Someone Else's Diary"));
     }
@@ -246,14 +246,14 @@ public class SuggestionServiceTests
     }
 
     [Test]
-    public void DaySeed_IsStableForCampaignAndDate()
+    public void DaySeed_IsStableForWorldAndDate()
     {
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var date = new DateOnly(2026, 7, 7);
 
-        Assert.That(SuggestionService.DaySeed(campaignId, date),
-            Is.EqualTo(SuggestionService.DaySeed(campaignId, date)));
-        Assert.That(SuggestionService.DaySeed(campaignId, date),
-            Is.Not.EqualTo(SuggestionService.DaySeed(campaignId, date.AddDays(1))));
+        Assert.That(SuggestionService.DaySeed(worldId, date),
+            Is.EqualTo(SuggestionService.DaySeed(worldId, date)));
+        Assert.That(SuggestionService.DaySeed(worldId, date),
+            Is.Not.EqualTo(SuggestionService.DaySeed(worldId, date.AddDays(1))));
     }
 }

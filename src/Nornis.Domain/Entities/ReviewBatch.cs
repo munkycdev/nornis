@@ -6,7 +6,7 @@ public class ReviewBatch
 {
     public Guid Id { get; set; }
 
-    public Guid CampaignId { get; set; }
+    public Guid WorldId { get; set; }
 
     public Guid SourceId { get; set; }
 
@@ -17,7 +17,7 @@ public class ReviewBatch
     public DateTimeOffset? CompletedAt { get; set; }
 
     // Navigation properties
-    public Campaign Campaign { get; set; } = null!;
+    public World World { get; set; } = null!;
 
     public Source Source { get; set; } = null!;
 

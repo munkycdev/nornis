@@ -4,6 +4,6 @@ namespace Nornis.Application.Models;
 
 public record BatchAcceptCommand(
     IReadOnlyList<Guid> ProposalIds,
-    Guid CampaignId,
+    Guid WorldId,
     Guid ActingUserId,
-    CampaignRole ActingUserRole);
+    WorldRole ActingUserRole);

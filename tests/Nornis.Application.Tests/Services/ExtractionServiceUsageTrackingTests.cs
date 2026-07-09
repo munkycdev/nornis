@@ -85,7 +85,7 @@ public class ExtractionServiceUsageTrackingTests
         return new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = Guid.NewGuid(),
+            WorldId = Guid.NewGuid(),
             Type = SourceType.SessionNote,
             Title = "Session 1 Notes",
             Body = body,
@@ -138,14 +138,14 @@ public class ExtractionServiceUsageTrackingTests
         var service = CreateService();
 
         // Act
-        var outcome = await service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None);
+        var outcome = await service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None);
 
         // Assert
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
         Assert.That(_usageRepo.Records, Has.Count.EqualTo(1));
 
         var record = _usageRepo.Records[0];
-        Assert.That(record.CampaignId, Is.EqualTo(source.CampaignId));
+        Assert.That(record.WorldId, Is.EqualTo(source.WorldId));
         Assert.That(record.SourceId, Is.EqualTo(source.Id));
         Assert.That(record.OperationType, Is.EqualTo(AiOperationType.SourceExtraction));
         Assert.That(record.Model, Is.EqualTo(DefaultModel));
@@ -173,14 +173,14 @@ public class ExtractionServiceUsageTrackingTests
         // Actually, let's use parse failure which is more predictable
         _aiClient.SetupParseFailure();
 
-        var outcome = await service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None);
+        var outcome = await service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None);
 
         // Assert
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
         Assert.That(_usageRepo.Records, Has.Count.EqualTo(1));
 
         var record = _usageRepo.Records[0];
-        Assert.That(record.CampaignId, Is.EqualTo(source.CampaignId));
+        Assert.That(record.WorldId, Is.EqualTo(source.WorldId));
         Assert.That(record.SourceId, Is.EqualTo(source.Id));
         Assert.That(record.Succeeded, Is.False);
         Assert.That(record.ErrorCode, Is.EqualTo(ErrorCategories.ParseFailure));
@@ -227,7 +227,7 @@ public class ExtractionServiceUsageTrackingTests
         var service = CreateService(options);
 
         // Act
-        var outcome = await service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None);
+        var outcome = await service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None);
 
         // Assert
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
@@ -250,7 +250,7 @@ public class ExtractionServiceUsageTrackingTests
         var service = CreateService();
 
         // Act
-        var outcome = await service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None);
+        var outcome = await service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None);
 
         // Assert
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.TransientFailure));
@@ -277,7 +277,7 @@ public class ExtractionServiceUsageTrackingTests
         var service = CreateService();
 
         // Act
-        var outcome = await service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None);
+        var outcome = await service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None);
 
         // Assert
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
@@ -301,7 +301,7 @@ public class ExtractionServiceUsageTrackingTests
         var service = CreateService();
 
         // Act
-        var outcome = await service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None);
+        var outcome = await service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None);
 
         // Assert
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
@@ -344,7 +344,7 @@ public class ExtractionServiceUsageTrackingTests
         var service = CreateService();
 
         // Act
-        var outcome = await service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None);
+        var outcome = await service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None);
 
         // Assert
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
@@ -368,7 +368,7 @@ public class ExtractionServiceUsageTrackingTests
         var service = CreateService();
 
         // Act
-        var outcome = await service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None);
+        var outcome = await service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None);
 
         // Assert
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.TransientFailure));

@@ -35,9 +35,9 @@ public class GroupingProducesCorrectPartitionsTests
 
         // Act
         var result = costService.GetByOperationTypeAsync(
-            scenario.CampaignId,
+            scenario.WorldId,
             scenario.GmUserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             null, null,
             CancellationToken.None).GetAwaiter().GetResult();
 
@@ -80,9 +80,9 @@ public class GroupingProducesCorrectPartitionsTests
 
         // Act
         var result = costService.GetByModelAsync(
-            scenario.CampaignId,
+            scenario.WorldId,
             scenario.GmUserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             null, null,
             CancellationToken.None).GetAwaiter().GetResult();
 
@@ -125,9 +125,9 @@ public class GroupingProducesCorrectPartitionsTests
 
         // Act
         var result = costService.GetByUserAsync(
-            scenario.CampaignId,
+            scenario.WorldId,
             scenario.GmUserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             null, null,
             CancellationToken.None).GetAwaiter().GetResult();
 
@@ -163,8 +163,8 @@ public class GroupingProducesCorrectPartitionsTests
     private static (CostService, InMemoryAiUsageRecordRepository) SetupServices(GroupingScenario scenario)
     {
         var aiUsageRepo = new InMemoryAiUsageRecordRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
-        var campaignRepo = new InMemoryCampaignRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
+        var worldRepo = new InMemoryWorldRepository();
 
         // Seed usage records
         foreach (var record in scenario.Records)
@@ -172,15 +172,15 @@ public class GroupingProducesCorrectPartitionsTests
             aiUsageRepo.CreateAsync(record, CancellationToken.None).GetAwaiter().GetResult();
         }
 
-        // Seed campaign members for username resolution
+        // Seed world members for username resolution
         foreach (var userId in scenario.UserIds)
         {
-            memberRepo.CreateAsync(new CampaignMember
+            memberRepo.CreateAsync(new WorldMember
             {
                 Id = Guid.NewGuid(),
-                CampaignId = scenario.CampaignId,
+                WorldId = scenario.WorldId,
                 UserId = userId,
-                Role = userId == scenario.GmUserId ? CampaignRole.GM : CampaignRole.Player,
+                Role = userId == scenario.GmUserId ? WorldRole.GM : WorldRole.Player,
                 DisplayName = $"User-{userId.ToString()[..8]}",
                 JoinedAt = DateTimeOffset.UtcNow.AddDays(-7)
             }, CancellationToken.None).GetAwaiter().GetResult();
@@ -189,7 +189,7 @@ public class GroupingProducesCorrectPartitionsTests
         var costService = new CostService(
             aiUsageRepo,
             memberRepo,
-            campaignRepo,
+            worldRepo,
             NullLogger<CostService>.Instance);
 
         return (costService, aiUsageRepo);
@@ -200,7 +200,7 @@ public class GroupingProducesCorrectPartitionsTests
 /// Input model for grouping property test scenarios.
 /// </summary>
 public record GroupingScenario(
-    Guid CampaignId,
+    Guid WorldId,
     Guid GmUserId,
     List<Guid> UserIds,
     List<AiUsageRecord> Records);
@@ -229,20 +229,20 @@ public class GroupingScenarioArbitraries
     public static Arbitrary<GroupingScenario> GroupingScenarios()
     {
         var gen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from gmUserId in ArbMap.Default.GeneratorFor<Guid>()
             from additionalUserCount in Gen.Choose(1, 4)
             from additionalUserIds in ArbMap.Default.GeneratorFor<Guid>().ArrayOf(additionalUserCount)
             let allUserIds = new[] { gmUserId }.Concat(additionalUserIds).Distinct().ToList()
             from recordCount in Gen.Choose(3, 20)
-            from records in GenRecord(campaignId, allUserIds).ListOf(recordCount)
+            from records in GenRecord(worldId, allUserIds).ListOf(recordCount)
             where records.Count > 0
-            select new GroupingScenario(campaignId, gmUserId, allUserIds, records.ToList());
+            select new GroupingScenario(worldId, gmUserId, allUserIds, records.ToList());
 
         return gen.ToArbitrary();
     }
 
-    private static Gen<AiUsageRecord> GenRecord(Guid campaignId, List<Guid> userIds)
+    private static Gen<AiUsageRecord> GenRecord(Guid worldId, List<Guid> userIds)
     {
         return
             from userId in Gen.Elements(userIds.ToArray())
@@ -254,7 +254,7 @@ public class GroupingScenarioArbitraries
             select new AiUsageRecord
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaignId,
+                WorldId = worldId,
                 UserId = userId,
                 OperationType = operationType,
                 Model = model,

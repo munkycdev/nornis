@@ -101,13 +101,13 @@ public static class ExtractionGenerators
         from artifactType in Gen.Elements(Enum.GetValues<ArtifactType>())
         from visibility in Gen.Elements(Enum.GetValues<VisibilityScope>())
         from factCount in Gen.Choose(0, 30)
-        from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+        from worldId in ArbMap.Default.GeneratorFor<Guid>()
         from name in Gen.Elements(ArtifactNames)
         let artifactId = Guid.NewGuid()
         let artifact = new Artifact
         {
             Id = artifactId,
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = artifactType,
             Name = name,
             Summary = $"Summary of {name}",
@@ -176,7 +176,7 @@ public static class ExtractionGenerators
         select new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = Guid.NewGuid(),
+            WorldId = Guid.NewGuid(),
             Type = sourceType,
             Title = $"Session {daysAgo}",
             Body = body,
@@ -199,7 +199,7 @@ public static class ExtractionGenerators
         select new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = Guid.NewGuid(),
+            WorldId = Guid.NewGuid(),
             Type = sourceType,
             Title = "Session without date",
             Body = body,
@@ -223,7 +223,7 @@ public static class ExtractionGenerators
         select new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = Guid.NewGuid(),
+            WorldId = Guid.NewGuid(),
             Type = sourceType,
             Title = $"Session {daysAgo}",
             Body = body,
@@ -245,7 +245,7 @@ public static class ExtractionGenerators
         select new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = Guid.NewGuid(),
+            WorldId = Guid.NewGuid(),
             Type = sourceType,
             Title = "Empty source",
             Body = body,
@@ -269,7 +269,7 @@ public static class ExtractionGenerators
         select new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = Guid.NewGuid(),
+            WorldId = Guid.NewGuid(),
             Type = SourceType.SessionNote,
             Title = "Non-queued source",
             Body = "Some body content",

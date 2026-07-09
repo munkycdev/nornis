@@ -14,7 +14,7 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// <summary>
 /// Property 2: Visibility Filter Correctness
 ///
-/// For any campaign role (GM, Player, Observer), requesting user ID, and any set of knowledge items
+/// For any world role (GM, Player, Observer), requesting user ID, and any set of knowledge items
 /// with mixed visibility scopes and owners, the visibility filter SHALL return exactly those items
 /// permitted for that role: GMs see PartyVisible + GMOnly + own Private; Players see PartyVisible +
 /// own Private; Observers see only PartyVisible. Private items owned by a different user SHALL never
@@ -58,7 +58,7 @@ public class VisibilityFilterCorrectnessTests
         // Act
         var result = await retriever.RetrieveAsync(
             question,
-            scenario.CampaignId,
+            scenario.WorldId,
             scenario.RequestingUserId,
             scenario.RequestingRole,
             CancellationToken.None);
@@ -116,7 +116,7 @@ public class VisibilityFilterCorrectnessTests
         // facts (which have no owner field either) and relationships. The key invariant is that
         // the allowedScopes mechanism correctly excludes Private for Observer.
         // For the Observer role, no Private items should appear.
-        if (scenario.RequestingRole == CampaignRole.Observer)
+        if (scenario.RequestingRole == WorldRole.Observer)
         {
             var hasPrivateArtifact = result.Artifacts.Any(a =>
                 scenario.Artifacts.Any(sa => sa.Id == a.Id && sa.Visibility == VisibilityScope.Private));
@@ -135,8 +135,8 @@ public class VisibilityFilterCorrectnessTests
         }
 
         // Assert — GMOnly never visible to Player or Observer
-        if (scenario.RequestingRole == CampaignRole.Player ||
-            scenario.RequestingRole == CampaignRole.Observer)
+        if (scenario.RequestingRole == WorldRole.Player ||
+            scenario.RequestingRole == WorldRole.Observer)
         {
             var hasGMOnlyArtifact = result.Artifacts.Any(a =>
                 scenario.Artifacts.Any(sa => sa.Id == a.Id && sa.Visibility == VisibilityScope.GMOnly));
@@ -157,12 +157,12 @@ public class VisibilityFilterCorrectnessTests
         return true;
     }
 
-    private static IReadOnlyList<VisibilityScope> GetExpectedAllowedScopes(CampaignRole role) =>
+    private static IReadOnlyList<VisibilityScope> GetExpectedAllowedScopes(WorldRole role) =>
         role switch
         {
-            CampaignRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
-            CampaignRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
-            CampaignRole.Observer => [VisibilityScope.PartyVisible],
+            WorldRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
+            WorldRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
+            WorldRole.Observer => [VisibilityScope.PartyVisible],
             _ => [VisibilityScope.PartyVisible]
         };
 }
@@ -171,16 +171,16 @@ public class VisibilityFilterCorrectnessTests
 /// Input model for visibility filter correctness scenarios.
 /// </summary>
 public record VisibilityFilterScenario(
-    Guid CampaignId,
+    Guid WorldId,
     Guid RequestingUserId,
-    CampaignRole RequestingRole,
+    WorldRole RequestingRole,
     List<Artifact> Artifacts,
     List<ArtifactFact> Facts,
     List<ArtifactRelationship> Relationships);
 
 /// <summary>
 /// Custom FsCheck arbitraries for visibility filter correctness tests.
-/// Generates campaigns with mixed-visibility artifacts, facts, and relationships
+/// Generates worlds with mixed-visibility artifacts, facts, and relationships
 /// owned by different users, with a requesting user and role.
 /// </summary>
 public class VisibilityFilterArbitraries
@@ -205,9 +205,9 @@ public class VisibilityFilterArbitraries
             VisibilityScope.PartyVisible);
 
         var roleGen = Gen.Elements(
-            CampaignRole.GM,
-            CampaignRole.Player,
-            CampaignRole.Observer);
+            WorldRole.GM,
+            WorldRole.Player,
+            WorldRole.Observer);
 
         var truthStateGen = Gen.Elements(
             TruthState.Confirmed,
@@ -223,7 +223,7 @@ public class VisibilityFilterArbitraries
             ArtifactType.Event);
 
         var gen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from requestingUserId in ArbMap.Default.GeneratorFor<Guid>()
             from requestingRole in roleGen
             from artifactCount in Gen.Choose(2, 6)
@@ -231,18 +231,18 @@ public class VisibilityFilterArbitraries
                 .ArrayOf(artifactCount)
             let distinctNames = nameIndices.Distinct().Select(i => ArtifactNames[i]).Take(artifactCount).ToArray()
             where distinctNames.Length >= 2
-            from artifacts in GenArtifacts(campaignId, distinctNames, artifactTypeGen, visibilityGen)
+            from artifacts in GenArtifacts(worldId, distinctNames, artifactTypeGen, visibilityGen)
             from facts in GenFacts(artifacts, visibilityGen, truthStateGen)
-            from relationships in GenRelationships(campaignId, artifacts, visibilityGen, truthStateGen)
+            from relationships in GenRelationships(worldId, artifacts, visibilityGen, truthStateGen)
             select new VisibilityFilterScenario(
-                campaignId, requestingUserId, requestingRole,
+                worldId, requestingUserId, requestingRole,
                 artifacts, facts, relationships);
 
         return gen.ToArbitrary();
     }
 
     private static Gen<List<Artifact>> GenArtifacts(
-        Guid campaignId,
+        Guid worldId,
         string[] names,
         Gen<ArtifactType> typeGen,
         Gen<VisibilityScope> visibilityGen)
@@ -257,7 +257,7 @@ public class VisibilityFilterArbitraries
             pairs.Zip(names, (p, name) => new Artifact
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaignId,
+                WorldId = worldId,
                 Type = p.artifactType,
                 Name = name,
                 Summary = $"Summary of {name}",
@@ -312,7 +312,7 @@ public class VisibilityFilterArbitraries
     }
 
     private static Gen<List<ArtifactRelationship>> GenRelationships(
-        Guid campaignId,
+        Guid worldId,
         List<Artifact> artifacts,
         Gen<VisibilityScope> visibilityGen,
         Gen<TruthState> truthStateGen)
@@ -331,7 +331,7 @@ public class VisibilityFilterArbitraries
             select new ArtifactRelationship
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaignId,
+                WorldId = worldId,
                 ArtifactAId = artifacts[indexA].Id,
                 ArtifactBId = artifacts[indexB].Id,
                 Type = relType,

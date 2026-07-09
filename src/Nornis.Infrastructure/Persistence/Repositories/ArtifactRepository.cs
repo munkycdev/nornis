@@ -28,11 +28,11 @@ public class ArtifactRepository : IArtifactRepository
             .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Artifact>> ListByCampaignAsync(Guid campaignId, ArtifactType? type = null, VisibilityScope? visibility = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Artifact>> ListByWorldAsync(Guid worldId, ArtifactType? type = null, VisibilityScope? visibility = null, CancellationToken cancellationToken = default)
     {
         var query = _context.Artifacts
             .AsNoTracking()
-            .Where(a => a.CampaignId == campaignId);
+            .Where(a => a.WorldId == worldId);
 
         if (type is not null)
         {
@@ -54,15 +54,15 @@ public class ArtifactRepository : IArtifactRepository
         return artifact;
     }
 
-    public async Task<IReadOnlyList<Artifact>> SearchByNameAsync(Guid campaignId, string searchTerm, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Artifact>> SearchByNameAsync(Guid worldId, string searchTerm, CancellationToken cancellationToken = default)
     {
         return await _context.Artifacts
             .AsNoTracking()
-            .Where(a => a.CampaignId == campaignId && EF.Functions.Like(a.Name, $"%{searchTerm}%"))
+            .Where(a => a.WorldId == worldId && EF.Functions.Like(a.Name, $"%{searchTerm}%"))
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Artifact>> ListByExactNameAsync(Guid campaignId, string name, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Artifact>> ListByExactNameAsync(Guid worldId, string name, CancellationToken cancellationToken = default)
     {
         // Default SQL Server collation is case-insensitive; ToLower makes the intent
         // explicit and keeps the in-memory test provider behaviour identical.
@@ -70,19 +70,19 @@ public class ArtifactRepository : IArtifactRepository
 
         return await _context.Artifacts
             .AsNoTracking()
-            .Where(a => a.CampaignId == campaignId && a.Name.ToLower() == normalized)
+            .Where(a => a.WorldId == worldId && a.Name.ToLower() == normalized)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Artifact>> ListRecentByCampaignAsync(
-        Guid campaignId,
+    public async Task<IReadOnlyList<Artifact>> ListRecentByWorldAsync(
+        Guid worldId,
         IReadOnlyList<VisibilityScope> allowedVisibilities,
         int maxCount,
         CancellationToken cancellationToken = default)
     {
         return await _context.Artifacts
             .AsNoTracking()
-            .Where(a => a.CampaignId == campaignId
+            .Where(a => a.WorldId == worldId
                 && a.Status != ArtifactStatus.Archived
                 && allowedVisibilities.Contains(a.Visibility))
             .OrderByDescending(a => a.UpdatedAt)
@@ -91,14 +91,14 @@ public class ArtifactRepository : IArtifactRepository
     }
 
     public async Task<IReadOnlyList<Artifact>> ListByNamesInTextAsync(
-        Guid campaignId,
+        Guid worldId,
         string text,
         IReadOnlyList<VisibilityScope> allowedVisibilities,
         CancellationToken cancellationToken = default)
     {
         var candidates = await _context.Artifacts
             .AsNoTracking()
-            .Where(a => a.CampaignId == campaignId
+            .Where(a => a.WorldId == worldId
                 && a.Status != ArtifactStatus.Archived
                 && allowedVisibilities.Contains(a.Visibility))
             .ToListAsync(cancellationToken);

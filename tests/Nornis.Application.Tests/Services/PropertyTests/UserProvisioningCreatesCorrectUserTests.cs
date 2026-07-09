@@ -17,13 +17,13 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// **Validates: Requirements 2.2**
 /// </summary>
 [TestFixture]
-[Category("Feature: auth-and-campaigns, Property 2: User Provisioning Creates Correct User from Claims")]
+[Category("Feature: auth-and-worlds, Property 2: User Provisioning Creates Correct User from Claims")]
 public class UserProvisioningCreatesCorrectUserTests
 {
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(ClaimsTupleArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: auth-and-campaigns, Property 2: User Provisioning Creates Correct User from Claims")]
+    [Description("Feature: auth-and-worlds, Property 2: User Provisioning Creates Correct User from Claims")]
     public void Provisioning_CreatesUserWithCorrectFieldsFromClaims(ClaimsTupleInput input)
     {
         // Arrange - empty repository (no user for that sub)
@@ -76,7 +76,7 @@ public class UserProvisioningCreatesCorrectUserTests
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(ClaimsTupleArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: auth-and-campaigns, Property 2: User Provisioning - Username falls back to sub when nickname is absent")]
+    [Description("Feature: auth-and-worlds, Property 2: User Provisioning - Username falls back to sub when nickname is absent")]
     public void Provisioning_UsernameDefaultsToSub_WhenNicknameAbsent(SubWithoutNicknameInput input)
     {
         // Arrange - empty repository

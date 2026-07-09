@@ -1,5 +1,5 @@
 ﻿@page "/capture"
-@inject CampaignState Campaigns
+@inject WorldState Worlds
 @inject NornisApiClient Api
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
@@ -8,12 +8,12 @@
 
 <MudText Typo="Typo.h4" Class="nornis-serif">Tell Nornis what happened</MudText>
 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-    Add a source. Nornis reads it and proposes updates to your campaign record.
+    Add a source. Nornis reads it and proposes updates to your world record.
 </MudText>
 
-@if (Campaigns.Current is null)
+@if (Worlds.Current is null)
 {
-    <NoCampaign />
+    <NoWorld />
 }
 else
 {
@@ -110,12 +110,12 @@ else
         {
             _type = Type;
         }
-        await Campaigns.EnsureLoadedAsync();
+        await Worlds.EnsureLoadedAsync();
     }
 
     private async Task SaveAsync(bool process)
     {
-        if (Campaigns.Current is null)
+        if (Worlds.Current is null)
         {
             return;
         }
@@ -137,7 +137,7 @@ else
             string.IsNullOrWhiteSpace(_uri) ? null : _uri,
             _occurredAt.HasValue ? new DateTimeOffset(_occurredAt.Value, TimeSpan.Zero) : null);
 
-        var created = await Api.CreateSourceAsync(Campaigns.Current.Id, request);
+        var created = await Api.CreateSourceAsync(Worlds.Current.Id, request);
 
         if (!created.IsSuccess)
         {
@@ -148,7 +148,7 @@ else
 
         if (process)
         {
-            var ready = await Api.MarkSourceReadyAsync(Campaigns.Current.Id, created.Value!.Id);
+            var ready = await Api.MarkSourceReadyAsync(Worlds.Current.Id, created.Value!.Id);
             if (!ready.IsSuccess)
             {
                 _busy = false;

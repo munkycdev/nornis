@@ -39,10 +39,10 @@ public class BidirectionalRelationshipQueryTests : IntegrationTestBase
             RowVersion = []
         };
 
-        var campaignId = Guid.NewGuid();
-        var campaign = new Campaign
+        var worldId = Guid.NewGuid();
+        var world = new World
         {
-            Id = campaignId,
+            Id = worldId,
             Name = "Black Harbor Investigation",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
@@ -51,15 +51,15 @@ public class BidirectionalRelationshipQueryTests : IntegrationTestBase
         };
 
         // Create 3 artifacts: X (the target), Y, and Z
-        var artifactX = CreateArtifact(campaignId, "Silver Key");
-        var artifactY = CreateArtifact(campaignId, "Captain Voss");
-        var artifactZ = CreateArtifact(campaignId, "Black Harbor");
+        var artifactX = CreateArtifact(worldId, "Silver Key");
+        var artifactY = CreateArtifact(worldId, "Captain Voss");
+        var artifactZ = CreateArtifact(worldId, "Black Harbor");
 
         // Relationship1: ArtifactX is on the A side
         var rel1 = new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             ArtifactAId = artifactX.Id,
             ArtifactBId = artifactY.Id,
             Type = relationship1Template.Type,
@@ -76,7 +76,7 @@ public class BidirectionalRelationshipQueryTests : IntegrationTestBase
         var rel2 = new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             ArtifactAId = artifactZ.Id,
             ArtifactBId = artifactX.Id,
             Type = relationship2Template.Type,
@@ -93,7 +93,7 @@ public class BidirectionalRelationshipQueryTests : IntegrationTestBase
         var rel3 = new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             ArtifactAId = artifactY.Id,
             ArtifactBId = artifactZ.Id,
             Type = relationship3Template.Type,
@@ -108,7 +108,7 @@ public class BidirectionalRelationshipQueryTests : IntegrationTestBase
 
         // Persist all entities
         Context.Users.Add(user);
-        Context.Campaigns.Add(campaign);
+        Context.Worlds.Add(world);
         Context.Artifacts.AddRange(artifactX, artifactY, artifactZ);
         Context.ArtifactRelationships.AddRange(rel1, rel2, rel3);
         await Context.SaveChangesAsync();
@@ -129,17 +129,17 @@ public class BidirectionalRelationshipQueryTests : IntegrationTestBase
         // Clean up for next iteration (SQLite in-memory shares connection)
         Context.ArtifactRelationships.RemoveRange(Context.ArtifactRelationships);
         Context.Artifacts.RemoveRange(Context.Artifacts);
-        Context.Campaigns.RemoveRange(Context.Campaigns);
+        Context.Worlds.RemoveRange(Context.Worlds);
         Context.Users.RemoveRange(Context.Users);
         await Context.SaveChangesAsync();
 
         return containsRel1 && containsRel2 && doesNotContainRel3 && exactlyTwo;
     }
 
-    private static Artifact CreateArtifact(Guid campaignId, string name) => new()
+    private static Artifact CreateArtifact(Guid worldId, string name) => new()
     {
         Id = Guid.NewGuid(),
-        CampaignId = campaignId,
+        WorldId = worldId,
         Type = ArtifactType.Item,
         Name = name,
         Visibility = VisibilityScope.PartyVisible,

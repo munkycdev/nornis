@@ -10,7 +10,7 @@ namespace Nornis.Application.Services;
 public class SourceService : ISourceService
 {
     private readonly ISourceRepository _sourceRepository;
-    private readonly ICampaignMemberRepository _campaignMemberRepository;
+    private readonly IWorldMemberRepository _worldMemberRepository;
     private readonly IExtractionQueueClient _extractionQueueClient;
 
     private static readonly Dictionary<SourceProcessingStatus, HashSet<SourceProcessingStatus>> ValidTransitions = new()
@@ -25,18 +25,18 @@ public class SourceService : ISourceService
 
     public SourceService(
         ISourceRepository sourceRepository,
-        ICampaignMemberRepository campaignMemberRepository,
+        IWorldMemberRepository worldMemberRepository,
         IExtractionQueueClient extractionQueueClient)
     {
         _sourceRepository = sourceRepository;
-        _campaignMemberRepository = campaignMemberRepository;
+        _worldMemberRepository = worldMemberRepository;
         _extractionQueueClient = extractionQueueClient;
     }
 
     public async Task<AppResult<Source>> CreateAsync(CreateSourceCommand command, CancellationToken ct)
     {
         // Role enforcement: Observer cannot create
-        if (command.CreatingUserRole == CampaignRole.Observer)
+        if (command.CreatingUserRole == WorldRole.Observer)
         {
             return AppResult<Source>.Fail(new AppError(403, "insufficient_role", "Observers cannot create sources."));
         }
@@ -61,7 +61,7 @@ public class SourceService : ISourceService
         }
 
         // Player cannot set GMOnly visibility
-        if (command.CreatingUserRole == CampaignRole.Player && command.Visibility == VisibilityScope.GMOnly)
+        if (command.CreatingUserRole == WorldRole.Player && command.Visibility == VisibilityScope.GMOnly)
         {
             return AppResult<Source>.Fail(new AppError(400, "validation_error", "Players cannot create GMOnly sources."));
         }
@@ -71,7 +71,7 @@ public class SourceService : ISourceService
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = command.CampaignId,
+            WorldId = command.WorldId,
             Type = command.Type,
             Title = command.Title,
             Body = command.Body,
@@ -88,11 +88,11 @@ public class SourceService : ISourceService
         return AppResult<Source>.Success(source);
     }
 
-    public async Task<AppResult<Source>> GetByIdAsync(Guid sourceId, Guid campaignId, Guid requestingUserId, CampaignRole role, CancellationToken ct)
+    public async Task<AppResult<Source>> GetByIdAsync(Guid sourceId, Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct)
     {
         var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
 
-        if (source is null || source.CampaignId != campaignId)
+        if (source is null || source.WorldId != worldId)
         {
             return AppResult<Source>.Fail(new AppError(404, "not_found", "Source not found."));
         }
@@ -109,20 +109,20 @@ public class SourceService : ISourceService
     public async Task<AppResult<Source>> UpdateAsync(UpdateSourceCommand command, CancellationToken ct)
     {
         // Role enforcement: Observer cannot update
-        if (command.ActingUserRole == CampaignRole.Observer)
+        if (command.ActingUserRole == WorldRole.Observer)
         {
             return AppResult<Source>.Fail(new AppError(403, "insufficient_role", "Observers cannot update sources."));
         }
 
         var source = await _sourceRepository.GetByIdAsync(command.SourceId, ct);
 
-        if (source is null || source.CampaignId != command.CampaignId)
+        if (source is null || source.WorldId != command.WorldId)
         {
             return AppResult<Source>.Fail(new AppError(404, "not_found", "Source not found."));
         }
 
         // Ownership enforcement: only creator or GM can update
-        if (source.CreatedByUserId != command.ActingUserId && command.ActingUserRole != CampaignRole.GM)
+        if (source.CreatedByUserId != command.ActingUserId && command.ActingUserRole != WorldRole.GM)
         {
             return AppResult<Source>.Fail(new AppError(403, "forbidden", "Only the source creator or a GM can update this source."));
         }
@@ -185,7 +185,7 @@ public class SourceService : ISourceService
         if (command.Visibility is not null)
         {
             // Player cannot set GMOnly visibility
-            if (command.ActingUserRole == CampaignRole.Player && command.Visibility == VisibilityScope.GMOnly)
+            if (command.ActingUserRole == WorldRole.Player && command.Visibility == VisibilityScope.GMOnly)
             {
                 return AppResult<Source>.Fail(new AppError(400, "validation_error", "Players cannot set GMOnly visibility."));
             }
@@ -198,23 +198,23 @@ public class SourceService : ISourceService
         return AppResult<Source>.Success(source);
     }
 
-    public async Task<AppResult> DeleteAsync(Guid sourceId, Guid campaignId, Guid actingUserId, CampaignRole role, CancellationToken ct)
+    public async Task<AppResult> DeleteAsync(Guid sourceId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)
     {
         // Role enforcement: Observer cannot delete
-        if (role == CampaignRole.Observer)
+        if (role == WorldRole.Observer)
         {
             return AppResult.Fail(new AppError(403, "insufficient_role", "Observers cannot delete sources."));
         }
 
         var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
 
-        if (source is null || source.CampaignId != campaignId)
+        if (source is null || source.WorldId != worldId)
         {
             return AppResult.Fail(new AppError(404, "not_found", "Source not found."));
         }
 
         // Ownership enforcement: only creator or GM can delete
-        if (source.CreatedByUserId != actingUserId && role != CampaignRole.GM)
+        if (source.CreatedByUserId != actingUserId && role != WorldRole.GM)
         {
             return AppResult.Fail(new AppError(403, "forbidden", "Only the source creator or a GM can delete this source."));
         }
@@ -231,9 +231,9 @@ public class SourceService : ISourceService
         return AppResult.Success();
     }
 
-    public async Task<AppResult<IReadOnlyList<Source>>> ListByCampaignAsync(Guid campaignId, Guid requestingUserId, CampaignRole role, CancellationToken ct)
+    public async Task<AppResult<IReadOnlyList<Source>>> ListByWorldAsync(Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct)
     {
-        var allSources = await _sourceRepository.ListByCampaignAsync(campaignId, cancellationToken: ct);
+        var allSources = await _sourceRepository.ListByWorldAsync(worldId, cancellationToken: ct);
 
         var visibleSources = allSources
             .Where(s => CanSeeSource(s, requestingUserId, role))
@@ -246,20 +246,20 @@ public class SourceService : ISourceService
     public async Task<AppResult<Source>> MarkReadyAsync(MarkSourceReadyCommand command, CancellationToken ct)
     {
         // Role enforcement: Observer cannot mark ready
-        if (command.ActingUserRole == CampaignRole.Observer)
+        if (command.ActingUserRole == WorldRole.Observer)
         {
             return AppResult<Source>.Fail(new AppError(403, "insufficient_role", "Observers cannot mark sources as ready."));
         }
 
         var source = await _sourceRepository.GetByIdAsync(command.SourceId, ct);
 
-        if (source is null || source.CampaignId != command.CampaignId)
+        if (source is null || source.WorldId != command.WorldId)
         {
             return AppResult<Source>.Fail(new AppError(404, "not_found", "Source not found."));
         }
 
         // Ownership enforcement: only creator or GM can mark ready
-        if (source.CreatedByUserId != command.ActingUserId && command.ActingUserRole != CampaignRole.GM)
+        if (source.CreatedByUserId != command.ActingUserId && command.ActingUserRole != WorldRole.GM)
         {
             return AppResult<Source>.Fail(new AppError(403, "forbidden", "Only the source creator or a GM can mark this source as ready."));
         }
@@ -278,7 +278,7 @@ public class SourceService : ISourceService
         // Attempt to enqueue extraction message
         try
         {
-            await _extractionQueueClient.SendExtractionMessageAsync(source.Id, source.CampaignId, ct);
+            await _extractionQueueClient.SendExtractionMessageAsync(source.Id, source.WorldId, ct);
         }
         catch
         {
@@ -294,11 +294,11 @@ public class SourceService : ISourceService
         return AppResult<Source>.Success(source);
     }
 
-    private static bool CanSeeSource(Source source, Guid userId, CampaignRole role) => source.Visibility switch
+    private static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch
     {
         VisibilityScope.PartyVisible => true,
-        VisibilityScope.Private => role == CampaignRole.GM || source.CreatedByUserId == userId,
-        VisibilityScope.GMOnly => role == CampaignRole.GM,
+        VisibilityScope.Private => role == WorldRole.GM || source.CreatedByUserId == userId,
+        VisibilityScope.GMOnly => role == WorldRole.GM,
         _ => false
     };
 

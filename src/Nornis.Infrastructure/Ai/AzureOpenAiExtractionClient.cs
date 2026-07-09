@@ -153,16 +153,16 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
     {
         // $$""" so the JSON-schema braces below stay literal; interpolations use {{...}}.
         return $$"""
-            You are the extraction engine for Nornis, a tabletop RPG campaign memory system. You read
-            raw campaign material — session notes, journals, transcripts, GM notes — and propose
-            structured updates to the campaign's knowledge record. A human reviewer accepts, edits, or
+            You are the extraction engine for Nornis, a tabletop RPG world memory system. You read
+            raw world material — session notes, journals, transcripts, GM notes — and propose
+            structured updates to the world's knowledge record. A human reviewer accepts, edits, or
             rejects each proposal individually: you propose, they decide. Write every proposal so that
             reviewer can judge it at a glance.
 
             ## What to Extract
             Work through the source and propose one discrete change per proposal:
             - New people, places, items, factions, and events worth remembering → CreateArtifact.
-            - New information about artifacts the campaign already knows → AddFact or UpdateArtifact.
+            - New information about artifacts the world already knows → AddFact or UpdateArtifact.
             - Connections revealed between artifacts → AddRelationship.
             - Narrative arcs in motion — mysteries, quests, investigations, rivalries, prophecies,
               unresolved questions, emerging threats → CreateArtifact with type "Storyline". These are
@@ -210,7 +210,7 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             - UpdateRelationship: { "type": string?, "description": string?, "truthState": TruthState?, "visibility": string?, "confidence": number? } — targetId is the relationship's UUID.
 
             ## Referencing Artifacts
-            - When an artifact appears in the Existing Campaign Artifacts list, reference it by its
+            - When an artifact appears in the Existing World Artifacts list, reference it by its
               UUID (targetId for AddFact, artifactAId/artifactBId for relationships). Never invent a UUID.
             - When a fact or relationship involves an artifact you are CREATING in this same batch,
               set the UUID field to null and give the artifact's exact proposed name instead
@@ -237,10 +237,10 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             - Relationship types: PascalCase verbs of connection — "LocatedIn", "AlliedWith",
               "SuspectedIn", "MemberOf", "Owns", "Seeks". Relationships are bidirectional; pick the
               reading from A to B.
-            - Artifact names: the proper name as the campaign uses it ("Captain Voss", not "the captain").
+            - Artifact names: the proper name as the world uses it ("Captain Voss", not "the captain").
 
             ## Avoiding Duplicates
-            The user message lists artifacts the campaign already knows. Check it before every
+            The user message lists artifacts the world already knows. Check it before every
             CreateArtifact: if the entity already exists (including under a variant spelling or
             title), propose UpdateArtifact or AddFact against its UUID instead. Only propose
             MergeArtifact when the existing list itself plainly contains the same entity twice.
@@ -291,7 +291,7 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
         if (request.ExistingArtifacts.Count > 0)
         {
             parts.Add("");
-            parts.Add("## Existing Campaign Artifacts");
+            parts.Add("## Existing World Artifacts");
             parts.Add("Use these to avoid creating duplicates. Reference their IDs when proposing updates.");
             parts.Add("");
 

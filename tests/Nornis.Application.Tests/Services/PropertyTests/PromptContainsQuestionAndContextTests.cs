@@ -61,10 +61,10 @@ public class PromptContainsQuestionAndContextTests
             new FakeAiBudgetGuard(), options);
 
         var command = new AskLoremasterCommand(
-            CampaignId: scenario.CampaignId,
+            WorldId: scenario.WorldId,
             Question: scenario.Question,
             UserId: scenario.UserId,
-            UserRole: CampaignRole.GM,
+            UserRole: WorldRole.GM,
             ConversationContext: null);
 
         // Act
@@ -98,7 +98,7 @@ public class PromptContainsQuestionAndContextTests
 /// Contains a valid question and a non-empty knowledge context with at least one artifact.
 /// </summary>
 public record PromptContainsQuestionAndContextScenario(
-    Guid CampaignId,
+    Guid WorldId,
     Guid UserId,
     string Question,
     KnowledgeContext Context);
@@ -157,7 +157,7 @@ public class PromptContainsQuestionAndContextArbitraries
     public static Arbitrary<PromptContainsQuestionAndContextScenario> PromptContainsQuestionAndContextScenarios()
     {
         var gen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from userId in ArbMap.Default.GeneratorFor<Guid>()
             from artifactCount in Gen.Choose(1, 5)
             from artifacts in GenArtifacts(artifactCount)
@@ -174,7 +174,7 @@ public class PromptContainsQuestionAndContextArbitraries
                 SourceReferences = []
             }
             select new PromptContainsQuestionAndContextScenario(
-                campaignId,
+                worldId,
                 userId,
                 question,
                 context);

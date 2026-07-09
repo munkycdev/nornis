@@ -28,11 +28,11 @@ public class SourceRepository : ISourceRepository
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Source>> ListByCampaignAsync(Guid campaignId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default)
     {
         var query = _context.Sources
             .AsNoTracking()
-            .Where(s => s.CampaignId == campaignId);
+            .Where(s => s.WorldId == worldId);
 
         if (visibility is not null)
         {

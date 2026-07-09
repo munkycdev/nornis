@@ -1,15 +1,15 @@
 namespace Nornis.Domain.Entities;
 
 /// <summary>
-/// A point-in-time AI-assessed continuity health run for a campaign. Complements the fast/free
-/// heuristic <c>CampaignHealth</c> score with an LLM read of the record for semantic continuity
+/// A point-in-time AI-assessed continuity health run for a world. Complements the fast/free
+/// heuristic <c>WorldHealth</c> score with an LLM read of the record for semantic continuity
 /// problems, each captured as a <see cref="ContinuityFinding"/>.
 /// </summary>
 public class HealthAssessment
 {
     public Guid Id { get; set; }
 
-    public Guid CampaignId { get; set; }
+    public Guid WorldId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
@@ -24,7 +24,7 @@ public class HealthAssessment
     public int Score { get; set; }
 
     // Navigation properties
-    public Campaign Campaign { get; set; } = null!;
+    public World World { get; set; } = null!;
 
     public ICollection<ContinuityFinding> Findings { get; set; } = [];
 }

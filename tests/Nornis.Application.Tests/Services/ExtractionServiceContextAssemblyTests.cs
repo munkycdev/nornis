@@ -26,7 +26,7 @@ public class ExtractionServiceContextAssemblyTests
     private ExtractionOptions _options = null!;
     private ExtractionService _sut = null!;
 
-    private static readonly Guid CampaignId = Guid.NewGuid();
+    private static readonly Guid WorldId = Guid.NewGuid();
 
     [SetUp]
     public void SetUp()
@@ -77,7 +77,7 @@ public class ExtractionServiceContextAssemblyTests
         return new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = CampaignId,
+            WorldId = WorldId,
             Type = SourceType.SessionNote,
             Title = "Session 5 Notes",
             Body = body,
@@ -97,7 +97,7 @@ public class ExtractionServiceContextAssemblyTests
         return new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = CampaignId,
+            WorldId = WorldId,
             Type = ArtifactType.Character,
             Name = name,
             Summary = $"{name} summary",
@@ -153,7 +153,7 @@ public class ExtractionServiceContextAssemblyTests
         ConfigureSuccessfulAiResponse();
 
         // Act
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: The AI client should receive at most 5 artifacts in context
         Assert.That(_aiClient.Requests, Has.Count.EqualTo(1));
@@ -184,7 +184,7 @@ public class ExtractionServiceContextAssemblyTests
         ConfigureSuccessfulAiResponse();
 
         // Act
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: Name-matched (Captain Voss, Silver Key) should come first
         var request = _aiClient.Requests[0];
@@ -219,7 +219,7 @@ public class ExtractionServiceContextAssemblyTests
         ConfigureSuccessfulAiResponse();
 
         // Act
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: No duplicates — each artifact should appear exactly once
         var request = _aiClient.Requests[0];
@@ -249,7 +249,7 @@ public class ExtractionServiceContextAssemblyTests
         ConfigureSuccessfulAiResponse();
 
         // Act
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: Only Private artifacts should appear in context
         var request = _aiClient.Requests[0];
@@ -275,7 +275,7 @@ public class ExtractionServiceContextAssemblyTests
         ConfigureSuccessfulAiResponse();
 
         // Act
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: GMOnly and PartyVisible artifacts, but not Private
         var request = _aiClient.Requests[0];
@@ -303,7 +303,7 @@ public class ExtractionServiceContextAssemblyTests
         ConfigureSuccessfulAiResponse();
 
         // Act
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: Only PartyVisible artifacts
         var request = _aiClient.Requests[0];
@@ -343,7 +343,7 @@ public class ExtractionServiceContextAssemblyTests
         ConfigureSuccessfulAiResponse();
 
         // Act
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: Only 3 facts should appear in context
         var request = _aiClient.Requests[0];
@@ -352,9 +352,9 @@ public class ExtractionServiceContextAssemblyTests
     }
 
     [Test]
-    public async Task EmptyCampaign_NoArtifacts_ProceedsWithoutError()
+    public async Task EmptyWorld_NoArtifacts_ProceedsWithoutError()
     {
-        // Arrange: campaign with no artifacts at all
+        // Arrange: world with no artifacts at all
         var source = CreateQueuedSource("Captain Voss sailed the stormy seas.");
         _sourceRepository.Seed(source);
 
@@ -362,7 +362,7 @@ public class ExtractionServiceContextAssemblyTests
         ConfigureSuccessfulAiResponse();
 
         // Act
-        var outcome = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var outcome = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: Service proceeds successfully, AI is called with empty context
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
@@ -392,7 +392,7 @@ public class ExtractionServiceContextAssemblyTests
         ConfigureSuccessfulAiResponse();
 
         // Act
-        await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: only the active artifact appears in context
         var request = _aiClient.Requests[0];
@@ -417,7 +417,7 @@ public class ExtractionServiceContextAssemblyTests
         ConfigureSuccessfulAiResponse();
 
         // Act
-        var outcome = await _sut.ProcessExtractionAsync(source.Id, CampaignId, CancellationToken.None);
+        var outcome = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: AI was never called (body short-circuit), so no name-matching happened
         Assert.That(_aiClient.CallCount, Is.EqualTo(0),

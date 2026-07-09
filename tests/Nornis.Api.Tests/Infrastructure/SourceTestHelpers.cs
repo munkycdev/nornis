@@ -51,7 +51,7 @@ public static class SourceTestHelpers
         string? nickname = null)
     {
         var client = factory.CreateAuthenticatedClient(sub: auth0Sub, email: email, nickname: nickname);
-        await client.GetAsync("/api/campaigns");
+        await client.GetAsync("/api/worlds");
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
@@ -60,10 +60,10 @@ public static class SourceTestHelpers
     }
 
     /// <summary>
-    /// Creates a campaign directly in the database and returns the Campaign entity.
-    /// Also creates the specified user as a GM member of the campaign.
+    /// Creates a world directly in the database and returns the World entity.
+    /// Also creates the specified user as a GM member of the world.
     /// </summary>
-    public static async Task<Campaign> CreateTestCampaignAsync(
+    public static async Task<World> CreateTestWorldAsync(
         NornisWebApplicationFactory factory,
         Guid createdByUserId,
         string name = "Black Harbor Investigation",
@@ -73,7 +73,7 @@ public static class SourceTestHelpers
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
 
-        var campaign = new Campaign
+        var world = new World
         {
             Id = Guid.NewGuid(),
             Name = name,
@@ -84,41 +84,41 @@ public static class SourceTestHelpers
             UpdatedAt = DateTimeOffset.UtcNow
         };
 
-        db.Campaigns.Add(campaign);
+        db.Worlds.Add(world);
 
         // Add the creator as a GM member
-        db.CampaignMembers.Add(new CampaignMember
+        db.WorldMembers.Add(new WorldMember
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaign.Id,
+            WorldId = world.Id,
             UserId = createdByUserId,
-            Role = CampaignRole.GM,
+            Role = WorldRole.GM,
             JoinedAt = DateTimeOffset.UtcNow
         });
 
         await db.SaveChangesAsync();
-        return campaign;
+        return world;
     }
 
     /// <summary>
-    /// Adds a campaign member with the specified role directly in the database.
+    /// Adds a world member with the specified role directly in the database.
     /// The user must already exist in the database.
     /// </summary>
-    public static async Task<CampaignMember> AddCampaignMemberAsync(
+    public static async Task<WorldMember> AddWorldMemberAsync(
         NornisWebApplicationFactory factory,
-        Guid campaignId,
+        Guid worldId,
         Guid userId,
-        CampaignRole role,
+        WorldRole role,
         string? displayName = null,
         string? characterName = null)
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
 
-        var member = new CampaignMember
+        var member = new WorldMember
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             UserId = userId,
             Role = role,
             DisplayName = displayName,
@@ -126,7 +126,7 @@ public static class SourceTestHelpers
             JoinedAt = DateTimeOffset.UtcNow
         };
 
-        db.CampaignMembers.Add(member);
+        db.WorldMembers.Add(member);
         await db.SaveChangesAsync();
         return member;
     }
@@ -137,7 +137,7 @@ public static class SourceTestHelpers
     /// </summary>
     public static async Task<Source> CreateTestSourceAsync(
         NornisWebApplicationFactory factory,
-        Guid campaignId,
+        Guid worldId,
         Guid createdByUserId,
         string title = "Session 4 — Questioning Captain Voss",
         SourceType type = SourceType.SessionNote,
@@ -154,7 +154,7 @@ public static class SourceTestHelpers
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             CreatedByUserId = createdByUserId,
             Title = title,
             Type = type,
@@ -172,7 +172,7 @@ public static class SourceTestHelpers
     }
 
     /// <summary>
-    /// Sets up a complete test scenario with a campaign, GM user, and optionally a player and observer.
+    /// Sets up a complete test scenario with a world, GM user, and optionally a player and observer.
     /// Returns all created entities for use in assertions.
     /// </summary>
     public static async Task<SourceTestScenario> SetupFullScenarioAsync(
@@ -188,19 +188,19 @@ public static class SourceTestHelpers
         var observerUserId = await ProvisionUserAndGetIdAsync(
             factory, "auth0|observer-jorin-source", "jorin@blackharbor.com", "Jorin");
 
-        // Create campaign with GM
-        var campaign = await CreateTestCampaignAsync(factory, gmUserId);
+        // Create world with GM
+        var world = await CreateTestWorldAsync(factory, gmUserId);
 
         // Add player and observer
-        await AddCampaignMemberAsync(factory, campaign.Id, playerUserId, CampaignRole.Player,
+        await AddWorldMemberAsync(factory, world.Id, playerUserId, WorldRole.Player,
             displayName: "Tavrin", characterName: "Tavrin the Bold");
 
-        await AddCampaignMemberAsync(factory, campaign.Id, observerUserId, CampaignRole.Observer,
+        await AddWorldMemberAsync(factory, world.Id, observerUserId, WorldRole.Observer,
             displayName: "Jorin");
 
         return new SourceTestScenario
         {
-            Campaign = campaign,
+            World = world,
             GmUserId = gmUserId,
             PlayerUserId = playerUserId,
             ObserverUserId = observerUserId,
@@ -219,7 +219,7 @@ public static class SourceTestHelpers
 /// </summary>
 public class SourceTestScenario
 {
-    public required Campaign Campaign { get; init; }
+    public required World World { get; init; }
     public required Guid GmUserId { get; init; }
     public required Guid PlayerUserId { get; init; }
     public required Guid ObserverUserId { get; init; }

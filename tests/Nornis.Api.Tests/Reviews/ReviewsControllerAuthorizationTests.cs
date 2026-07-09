@@ -12,7 +12,7 @@ using NUnit.Framework;
 namespace Nornis.Api.Tests.Reviews;
 
 /// <summary>
-/// Integration tests for ReviewsController authorization and campaign membership enforcement.
+/// Integration tests for ReviewsController authorization and world membership enforcement.
 /// Validates: Requirements 6.5, 6.6, 12.1–12.6
 /// </summary>
 [TestFixture]
@@ -31,7 +31,7 @@ public class ReviewsControllerAuthorizationTests
         // Seed a source, review batch, and proposal so we have something to test against
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
-            _scenario.Campaign.Id,
+            _scenario.World.Id,
             _scenario.GmUserId,
             title: "Session 4 — Questioning Captain Voss",
             visibility: VisibilityScope.PartyVisible,
@@ -43,7 +43,7 @@ public class ReviewsControllerAuthorizationTests
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _scenario.Campaign.Id,
+            WorldId = _scenario.World.Id,
             SourceId = source.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow
@@ -84,17 +84,17 @@ public class ReviewsControllerAuthorizationTests
         _factory.Dispose();
     }
 
-    private string ProposalsUrl => $"/api/campaigns/{_scenario.Campaign.Id}/reviews/proposals";
-    private string AcceptUrl => $"/api/campaigns/{_scenario.Campaign.Id}/reviews/proposals/{_proposalId}/accept";
-    private string RejectUrl => $"/api/campaigns/{_scenario.Campaign.Id}/reviews/proposals/{_proposalId}/reject";
-    private string EditUrl => $"/api/campaigns/{_scenario.Campaign.Id}/reviews/proposals/{_proposalId}/edit";
-    private string BatchAcceptUrl => $"/api/campaigns/{_scenario.Campaign.Id}/reviews/proposals/batch-accept";
-    private string BatchRejectUrl => $"/api/campaigns/{_scenario.Campaign.Id}/reviews/proposals/batch-reject";
+    private string ProposalsUrl => $"/api/worlds/{_scenario.World.Id}/reviews/proposals";
+    private string AcceptUrl => $"/api/worlds/{_scenario.World.Id}/reviews/proposals/{_proposalId}/accept";
+    private string RejectUrl => $"/api/worlds/{_scenario.World.Id}/reviews/proposals/{_proposalId}/reject";
+    private string EditUrl => $"/api/worlds/{_scenario.World.Id}/reviews/proposals/{_proposalId}/edit";
+    private string BatchAcceptUrl => $"/api/worlds/{_scenario.World.Id}/reviews/proposals/batch-accept";
+    private string BatchRejectUrl => $"/api/worlds/{_scenario.World.Id}/reviews/proposals/batch-reject";
 
-    #region CampaignMemberActionFilter applied to all review endpoints (Req 12.1)
+    #region WorldMemberActionFilter applied to all review endpoints (Req 12.1)
 
     /// <summary>
-    /// All review endpoints require campaign membership via CampaignMemberActionFilter.
+    /// All review endpoints require world membership via WorldMemberActionFilter.
     /// A non-member should get 403 for every endpoint.
     /// Validates: Requirements 12.1, 12.2
     /// </summary>
@@ -107,7 +107,7 @@ public class ReviewsControllerAuthorizationTests
             nickname: "Rando");
 
         // Trigger user provisioning
-        await outsider.GetAsync("/api/campaigns");
+        await outsider.GetAsync("/api/worlds");
 
         var response = await outsider.GetAsync(ProposalsUrl);
 
@@ -123,7 +123,7 @@ public class ReviewsControllerAuthorizationTests
             email: "rando@outsider.com",
             nickname: "Rando");
 
-        await outsider.GetAsync("/api/campaigns");
+        await outsider.GetAsync("/api/worlds");
 
         var response = await outsider.PostAsync(AcceptUrl, null);
 
@@ -139,7 +139,7 @@ public class ReviewsControllerAuthorizationTests
             email: "rando@outsider.com",
             nickname: "Rando");
 
-        await outsider.GetAsync("/api/campaigns");
+        await outsider.GetAsync("/api/worlds");
 
         var response = await outsider.PostAsync(RejectUrl, null);
 
@@ -155,7 +155,7 @@ public class ReviewsControllerAuthorizationTests
             email: "rando@outsider.com",
             nickname: "Rando");
 
-        await outsider.GetAsync("/api/campaigns");
+        await outsider.GetAsync("/api/worlds");
 
         var request = new EditProposalRequest("{\"name\":\"Modified\"}");
         var response = await outsider.PostAsJsonAsync(EditUrl, request);
@@ -172,7 +172,7 @@ public class ReviewsControllerAuthorizationTests
             email: "rando@outsider.com",
             nickname: "Rando");
 
-        await outsider.GetAsync("/api/campaigns");
+        await outsider.GetAsync("/api/worlds");
 
         var request = new BatchAcceptRequest([_proposalId]);
         var response = await outsider.PostAsJsonAsync(BatchAcceptUrl, request);
@@ -189,7 +189,7 @@ public class ReviewsControllerAuthorizationTests
             email: "rando@outsider.com",
             nickname: "Rando");
 
-        await outsider.GetAsync("/api/campaigns");
+        await outsider.GetAsync("/api/worlds");
 
         var request = new BatchRejectRequest([_proposalId]);
         var response = await outsider.PostAsJsonAsync(BatchRejectUrl, request);
@@ -200,65 +200,65 @@ public class ReviewsControllerAuthorizationTests
 
     #endregion
 
-    #region Invalid campaignId returns 404 (Req 12.5)
+    #region Invalid worldId returns 404 (Req 12.5)
 
     /// <summary>
-    /// When the campaignId route parameter is not a valid GUID, the API returns 404.
+    /// When the worldId route parameter is not a valid GUID, the API returns 404.
     /// Validates: Requirement 12.5
     /// </summary>
     [Test]
-    public async Task ListProposals_InvalidCampaignIdFormat_Returns404()
+    public async Task ListProposals_InvalidWorldIdFormat_Returns404()
     {
-        var response = await _scenario.GmClient.GetAsync("/api/campaigns/not-a-guid/reviews/proposals");
+        var response = await _scenario.GmClient.GetAsync("/api/worlds/not-a-guid/reviews/proposals");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 
     [Test]
-    public async Task AcceptProposal_InvalidCampaignIdFormat_Returns404()
+    public async Task AcceptProposal_InvalidWorldIdFormat_Returns404()
     {
         var response = await _scenario.GmClient.PostAsync(
-            $"/api/campaigns/not-a-guid/reviews/proposals/{_proposalId}/accept", null);
+            $"/api/worlds/not-a-guid/reviews/proposals/{_proposalId}/accept", null);
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 
     [Test]
-    public async Task RejectProposal_InvalidCampaignIdFormat_Returns404()
+    public async Task RejectProposal_InvalidWorldIdFormat_Returns404()
     {
         var response = await _scenario.GmClient.PostAsync(
-            $"/api/campaigns/not-a-guid/reviews/proposals/{_proposalId}/reject", null);
+            $"/api/worlds/not-a-guid/reviews/proposals/{_proposalId}/reject", null);
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 
     #endregion
 
-    #region Non-existent campaign returns 403 for non-member (Req 12.4)
+    #region Non-existent world returns 403 for non-member (Req 12.4)
 
     /// <summary>
-    /// When a review endpoint references a campaign that does not exist, 
+    /// When a review endpoint references a world that does not exist, 
     /// the API returns 403 (indistinguishable from non-member).
     /// Validates: Requirement 12.4
     /// </summary>
     [Test]
-    public async Task ListProposals_NonExistentCampaign_Returns403()
+    public async Task ListProposals_NonExistentWorld_Returns403()
     {
-        var nonExistentCampaignId = Guid.NewGuid();
+        var nonExistentWorldId = Guid.NewGuid();
 
         var response = await _scenario.GmClient.GetAsync(
-            $"/api/campaigns/{nonExistentCampaignId}/reviews/proposals");
+            $"/api/worlds/{nonExistentWorldId}/reviews/proposals");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }
 
     [Test]
-    public async Task AcceptProposal_NonExistentCampaign_Returns403()
+    public async Task AcceptProposal_NonExistentWorld_Returns403()
     {
-        var nonExistentCampaignId = Guid.NewGuid();
+        var nonExistentWorldId = Guid.NewGuid();
 
         var response = await _scenario.GmClient.PostAsync(
-            $"/api/campaigns/{nonExistentCampaignId}/reviews/proposals/{_proposalId}/accept", null);
+            $"/api/worlds/{nonExistentWorldId}/reviews/proposals/{_proposalId}/accept", null);
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }
@@ -351,7 +351,7 @@ public class ReviewsControllerAuthorizationTests
     #region Observer attempting accept/reject/edit returns 404 (Req 6.4 + 7.4)
 
     /// <summary>
-    /// An Observer is a member of the campaign but cannot perform review operations.
+    /// An Observer is a member of the world but cannot perform review operations.
     /// Per Req 7.4, proposals invisible due to visibility rules are treated as not-found.
     /// Since Observers have zero visibility (IsSourceVisibleToUser always returns false),
     /// the visibility check triggers before the role-based authorization check,

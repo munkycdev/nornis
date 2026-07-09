@@ -14,7 +14,7 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// <summary>
 /// Property 5: Retrieval Count Cap
 ///
-/// For any campaign with N artifacts (where N exceeds the configured MaxRetrievalCount),
+/// For any world with N artifacts (where N exceeds the configured MaxRetrievalCount),
 /// the knowledge retriever SHALL return at most MaxRetrievalCount artifacts, with no artifact
 /// appearing more than once.
 ///
@@ -54,7 +54,7 @@ public class RetrievalCountCapTests
         // Act
         var result = retriever.RetrieveAsync(
             scenario.Question,
-            scenario.CampaignId,
+            scenario.WorldId,
             scenario.RequestingUserId,
             scenario.RequestingRole,
             CancellationToken.None).GetAwaiter().GetResult();
@@ -73,20 +73,20 @@ public class RetrievalCountCapTests
 
 /// <summary>
 /// Input model for retrieval count cap scenarios.
-/// Represents a campaign with more artifacts than MaxRetrievalCount, a question that
+/// Represents a world with more artifacts than MaxRetrievalCount, a question that
 /// references some artifact names, and a requesting user.
 /// </summary>
 public record RetrievalCountCapScenario(
-    Guid CampaignId,
+    Guid WorldId,
     Guid RequestingUserId,
-    CampaignRole RequestingRole,
+    WorldRole RequestingRole,
     List<Artifact> Artifacts,
     string Question,
     int MaxRetrievalCount);
 
 /// <summary>
 /// Custom FsCheck arbitraries for retrieval count cap tests.
-/// Generates campaigns with artifact count exceeding MaxRetrievalCount,
+/// Generates worlds with artifact count exceeding MaxRetrievalCount,
 /// ensuring some artifacts are name-matched and some are recent.
 /// </summary>
 public class RetrievalCountCapArbitraries
@@ -104,28 +104,28 @@ public class RetrievalCountCapArbitraries
     public static Arbitrary<RetrievalCountCapScenario> RetrievalCountCapScenarios()
     {
         var roleGen = Gen.Elements(
-            CampaignRole.GM,
-            CampaignRole.Player,
-            CampaignRole.Observer);
+            WorldRole.GM,
+            WorldRole.Player,
+            WorldRole.Observer);
 
         // MaxRetrievalCount between 3 and 8 for manageable test sizes
         var maxCountGen = Gen.Choose(3, 8);
 
         var gen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from requestingUserId in ArbMap.Default.GeneratorFor<Guid>()
             from role in roleGen
             from maxCount in maxCountGen
             // Generate more artifacts than maxCount (between maxCount+2 and maxCount+15)
             from extraCount in Gen.Choose(2, 15)
             let artifactCount = maxCount + extraCount
-            from artifacts in GenArtifacts(campaignId, artifactCount)
+            from artifacts in GenArtifacts(worldId, artifactCount)
             // Pick 1-3 indices of artifacts to mention in the question (name-matching)
             from nameMatchCount in Gen.Choose(1, Math.Min(3, artifactCount))
             from matchedIndices in Gen.Choose(0, artifactCount - 1).ArrayOf(nameMatchCount)
             let question = BuildQuestion(artifacts, matchedIndices.Distinct().ToList())
             select new RetrievalCountCapScenario(
-                campaignId,
+                worldId,
                 requestingUserId,
                 role,
                 artifacts,
@@ -135,7 +135,7 @@ public class RetrievalCountCapArbitraries
         return gen.ToArbitrary();
     }
 
-    private static Gen<List<Artifact>> GenArtifacts(Guid campaignId, int count)
+    private static Gen<List<Artifact>> GenArtifacts(Guid worldId, int count)
     {
         var artifactTypeGen = Gen.Elements(
             ArtifactType.Character,
@@ -177,7 +177,7 @@ public class RetrievalCountCapArbitraries
                 artifacts.Add(new Artifact
                 {
                     Id = Guid.NewGuid(),
-                    CampaignId = campaignId,
+                    WorldId = worldId,
                     Type = item.Type,
                     Name = name,
                     Summary = $"Summary of {name}",
@@ -203,7 +203,7 @@ public class RetrievalCountCapArbitraries
             .ToList();
 
         if (names.Count == 0)
-            return "Tell me about the campaign";
+            return "Tell me about the world";
 
         return $"What do we know about {string.Join(" and ", names)}?";
     }

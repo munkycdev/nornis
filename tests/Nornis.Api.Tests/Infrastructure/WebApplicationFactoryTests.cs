@@ -65,7 +65,7 @@ public class WebApplicationFactoryTests
         var client = _factory.CreateClient();
 
         // Act - any endpoint other than /health requires auth
-        var response = await client.GetAsync("/api/campaigns");
+        var response = await client.GetAsync("/api/worlds");
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
@@ -81,7 +81,7 @@ public class WebApplicationFactoryTests
             nickname: "Tavrin");
 
         // Act
-        var response = await client.GetAsync("/api/campaigns");
+        var response = await client.GetAsync("/api/worlds");
 
         // Assert - should NOT be 401 (might be 200 empty list or another valid status)
         Assert.That(response.StatusCode, Is.Not.EqualTo(HttpStatusCode.Unauthorized));

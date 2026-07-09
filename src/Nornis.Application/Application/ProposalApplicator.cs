@@ -73,7 +73,7 @@ public class ProposalApplicator : IProposalApplicator
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = batch.CampaignId,
+            WorldId = batch.WorldId,
             Type = artifactType,
             Name = payload.Name,
             Summary = payload.Summary,
@@ -239,7 +239,7 @@ public class ProposalApplicator : IProposalApplicator
         }
         else if (!string.IsNullOrWhiteSpace(payload.ArtifactName))
         {
-            var resolution = await ResolveArtifactByNameAsync(batch.CampaignId, payload.ArtifactName, ct);
+            var resolution = await ResolveArtifactByNameAsync(batch.WorldId, payload.ArtifactName, ct);
             if (!resolution.IsSuccess)
                 return AppResult<ApplyResult>.Fail(resolution.Error!);
             artifact = resolution.Value!;
@@ -334,12 +334,12 @@ public class ProposalApplicator : IProposalApplicator
         // Resolve both endpoints: by id, or by name for artifacts created earlier in the
         // same batch (their GUIDs did not exist at extraction time).
         var endpointA = await ResolveRelationshipEndpointAsync(
-            batch.CampaignId, payload.ArtifactAId, payload.ArtifactAName, "ArtifactA", ct);
+            batch.WorldId, payload.ArtifactAId, payload.ArtifactAName, "ArtifactA", ct);
         if (!endpointA.IsSuccess)
             return AppResult<ApplyResult>.Fail(endpointA.Error!);
 
         var endpointB = await ResolveRelationshipEndpointAsync(
-            batch.CampaignId, payload.ArtifactBId, payload.ArtifactBName, "ArtifactB", ct);
+            batch.WorldId, payload.ArtifactBId, payload.ArtifactBName, "ArtifactB", ct);
         if (!endpointB.IsSuccess)
             return AppResult<ApplyResult>.Fail(endpointB.Error!);
 
@@ -361,7 +361,7 @@ public class ProposalApplicator : IProposalApplicator
         var relationship = new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
-            CampaignId = batch.CampaignId,
+            WorldId = batch.WorldId,
             ArtifactAId = artifactA.Id,
             ArtifactBId = artifactB.Id,
             Type = payload.Type,
@@ -426,19 +426,19 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     /// <summary>
-    /// Resolves an artifact by exact name within the campaign. Fails when the name matches
+    /// Resolves an artifact by exact name within the world. Fails when the name matches
     /// nothing (the referenced CreateArtifact proposal was rejected or not yet accepted) or
     /// more than one artifact (ambiguous — the reviewer must edit the proposal to use an id).
     /// </summary>
     private async Task<AppResult<Artifact>> ResolveArtifactByNameAsync(
-        Guid campaignId, string name, CancellationToken ct)
+        Guid worldId, string name, CancellationToken ct)
     {
-        var matches = await _artifactRepository.ListByExactNameAsync(campaignId, name.Trim(), ct);
+        var matches = await _artifactRepository.ListByExactNameAsync(worldId, name.Trim(), ct);
 
         return matches.Count switch
         {
             0 => AppResult<Artifact>.Fail(new AppError(404, "artifact_name_not_found",
-                $"No artifact named '{name}' exists in this campaign. If it is proposed in this batch, accept its Create proposal first.")),
+                $"No artifact named '{name}' exists in this world. If it is proposed in this batch, accept its Create proposal first.")),
             1 => AppResult<Artifact>.Success(matches[0]),
             _ => AppResult<Artifact>.Fail(new AppError(409, "artifact_name_ambiguous",
                 $"Multiple artifacts are named '{name}'. Edit the proposal to reference the intended artifact by id."))
@@ -446,7 +446,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<Artifact>> ResolveRelationshipEndpointAsync(
-        Guid campaignId, Guid? artifactId, string? artifactName, string endpointLabel, CancellationToken ct)
+        Guid worldId, Guid? artifactId, string? artifactName, string endpointLabel, CancellationToken ct)
     {
         if (artifactId is not null && artifactId != Guid.Empty)
         {
@@ -461,7 +461,7 @@ public class ProposalApplicator : IProposalApplicator
         }
 
         if (!string.IsNullOrWhiteSpace(artifactName))
-            return await ResolveArtifactByNameAsync(campaignId, artifactName, ct);
+            return await ResolveArtifactByNameAsync(worldId, artifactName, ct);
 
         return AppResult<Artifact>.Fail(new AppError(400, "invalid_payload",
             $"AddRelationship: {endpointLabel}Id or {endpointLabel}Name is required."));

@@ -5,7 +5,7 @@ namespace Nornis.Domain.Entities;
 /// <summary>
 /// One specific continuity risk the AI identified within a <see cref="HealthAssessment"/> —
 /// a contradiction, dangling promise, dormant load-bearing storyline, timeline conflict, or a
-/// summary that no longer matches its facts. Every finding is grounded in cited campaign item ids.
+/// summary that no longer matches its facts. Every finding is grounded in cited world item ids.
 /// </summary>
 public class ContinuityFinding
 {
@@ -25,7 +25,7 @@ public class ContinuityFinding
 
     /// <summary>
     /// JSON array of the resolved artifact/fact/relationship reference ids this finding cites,
-    /// after server-side validation dropped any that didn't resolve to real campaign items.
+    /// after server-side validation dropped any that didn't resolve to real world items.
     /// </summary>
     public string EvidenceJson { get; set; } = "[]";
 

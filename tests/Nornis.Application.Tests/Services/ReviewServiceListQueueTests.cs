@@ -22,8 +22,8 @@ public class ReviewServiceListQueueTests
     private FakeProposalApplicator _applicator = null!;
     private ReviewService _service = null!;
 
-    // Campaign: "Black Harbor Investigation"
-    private Guid _campaignId;
+    // World: "Black Harbor Investigation"
+    private Guid _worldId;
 
     // Users
     private Guid _keldaUserId;   // GM
@@ -56,7 +56,7 @@ public class ReviewServiceListQueueTests
             _validator,
             _applicator);
 
-        _campaignId = Guid.NewGuid();
+        _worldId = Guid.NewGuid();
         _keldaUserId = Guid.NewGuid();
         _tavrinUserId = Guid.NewGuid();
         _jorinUserId = Guid.NewGuid();
@@ -78,7 +78,7 @@ public class ReviewServiceListQueueTests
         var p1 = MakePendingProposal(batch1.Id, "Captain Voss");
         var p2 = MakePendingProposal(batch2.Id, "Silver Key");
 
-        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var query = new ReviewQueueQuery(_worldId, _keldaUserId, WorldRole.GM);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -104,7 +104,7 @@ public class ReviewServiceListQueueTests
         var p1 = MakePendingProposal(batch1.Id, "Captain Voss");
         var p2 = MakePendingProposal(batch2.Id, "Silver Key");
 
-        var query = new ReviewQueueQuery(_campaignId, _tavrinUserId, CampaignRole.Player);
+        var query = new ReviewQueueQuery(_worldId, _tavrinUserId, WorldRole.Player);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -124,7 +124,7 @@ public class ReviewServiceListQueueTests
         var batch = MakeBatch(tavrinSource.Id);
         MakePendingProposal(batch.Id, "Captain Voss");
 
-        var query = new ReviewQueueQuery(_campaignId, _jorinUserId, CampaignRole.Observer);
+        var query = new ReviewQueueQuery(_worldId, _jorinUserId, WorldRole.Observer);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -145,7 +145,7 @@ public class ReviewServiceListQueueTests
         MakePendingProposal(batch.Id, "Hidden NPC");
 
         // Player (Tavrin) should not see proposals from GMOnly sources
-        var query = new ReviewQueueQuery(_campaignId, _tavrinUserId, CampaignRole.Player);
+        var query = new ReviewQueueQuery(_worldId, _tavrinUserId, WorldRole.Player);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -161,7 +161,7 @@ public class ReviewServiceListQueueTests
         var proposal = MakePendingProposal(batch.Id, "Hidden NPC");
 
         // GM (Kelda) should see proposals from GMOnly sources
-        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var query = new ReviewQueueQuery(_worldId, _keldaUserId, WorldRole.GM);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -184,7 +184,7 @@ public class ReviewServiceListQueueTests
 
         // A different player can't see Private source proposals
         var otherPlayerId = Guid.NewGuid();
-        var query = new ReviewQueueQuery(_campaignId, otherPlayerId, CampaignRole.Player);
+        var query = new ReviewQueueQuery(_worldId, otherPlayerId, WorldRole.Player);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -200,7 +200,7 @@ public class ReviewServiceListQueueTests
         var proposal = MakePendingProposal(batch.Id, "Private Secret");
 
         // Tavrin (creator) should see their own private source proposals
-        var query = new ReviewQueueQuery(_campaignId, _tavrinUserId, CampaignRole.Player);
+        var query = new ReviewQueueQuery(_worldId, _tavrinUserId, WorldRole.Player);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -217,7 +217,7 @@ public class ReviewServiceListQueueTests
         var proposal = MakePendingProposal(batch.Id, "Private Secret");
 
         // GM should see Private source proposals
-        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var query = new ReviewQueueQuery(_worldId, _keldaUserId, WorldRole.GM);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -237,7 +237,7 @@ public class ReviewServiceListQueueTests
         var batch = MakeBatch(partySource.Id);
         var proposal = MakePendingProposal(batch.Id, "Black Harbor");
 
-        var query = new ReviewQueueQuery(_campaignId, _tavrinUserId, CampaignRole.Player);
+        var query = new ReviewQueueQuery(_worldId, _tavrinUserId, WorldRole.Player);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -253,7 +253,7 @@ public class ReviewServiceListQueueTests
         var batch = MakeBatch(partySource.Id);
         var proposal = MakePendingProposal(batch.Id, "Black Harbor");
 
-        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var query = new ReviewQueueQuery(_worldId, _keldaUserId, WorldRole.GM);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -272,7 +272,7 @@ public class ReviewServiceListQueueTests
         MakePendingProposal(batch.Id, "Black Harbor");
 
         var otherPlayerId = Guid.NewGuid();
-        var query = new ReviewQueueQuery(_campaignId, otherPlayerId, CampaignRole.Player);
+        var query = new ReviewQueueQuery(_worldId, otherPlayerId, WorldRole.Player);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -293,7 +293,7 @@ public class ReviewServiceListQueueTests
         var batch2 = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow.AddHours(-2)
@@ -303,7 +303,7 @@ public class ReviewServiceListQueueTests
         var batch1 = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow.AddHours(-1)
@@ -322,7 +322,7 @@ public class ReviewServiceListQueueTests
         var p1b = MakePendingProposalWithCreatedAt(batch1.Id, "Newer Batch Second",
             DateTimeOffset.UtcNow.AddMinutes(-20));
 
-        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var query = new ReviewQueueQuery(_worldId, _keldaUserId, WorldRole.GM);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -354,7 +354,7 @@ public class ReviewServiceListQueueTests
                 DateTimeOffset.UtcNow.AddMinutes(i));
         }
 
-        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var query = new ReviewQueueQuery(_worldId, _keldaUserId, WorldRole.GM);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -375,7 +375,7 @@ public class ReviewServiceListQueueTests
                 DateTimeOffset.UtcNow.AddMinutes(i));
         }
 
-        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var query = new ReviewQueueQuery(_worldId, _keldaUserId, WorldRole.GM);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -398,7 +398,7 @@ public class ReviewServiceListQueueTests
         var p1 = MakePendingProposal(batch1.Id, "From Batch 1");
         var p2 = MakePendingProposal(batch2.Id, "From Batch 2");
 
-        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM, FilterByBatchId: batch1.Id);
+        var query = new ReviewQueueQuery(_worldId, _keldaUserId, WorldRole.GM, FilterByBatchId: batch1.Id);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -415,7 +415,7 @@ public class ReviewServiceListQueueTests
     public async Task ListReviewQueue_NonExistentBatchId_ReturnsNotFound()
     {
         var nonExistentBatchId = Guid.NewGuid();
-        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM, FilterByBatchId: nonExistentBatchId);
+        var query = new ReviewQueueQuery(_worldId, _keldaUserId, WorldRole.GM, FilterByBatchId: nonExistentBatchId);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -425,16 +425,16 @@ public class ReviewServiceListQueueTests
     }
 
     [Test]
-    public async Task ListReviewQueue_BatchIdFromDifferentCampaign_ReturnsNotFound()
+    public async Task ListReviewQueue_BatchIdFromDifferentWorld_ReturnsNotFound()
     {
-        // Batch exists but belongs to a different campaign
-        var otherCampaignId = Guid.NewGuid();
+        // Batch exists but belongs to a different world
+        var otherWorldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = otherCampaignId,
+            WorldId = otherWorldId,
             Type = SourceType.SessionNote,
-            Title = "Other Campaign Source",
+            Title = "Other World Source",
             Visibility = VisibilityScope.PartyVisible,
             ProcessingStatus = SourceProcessingStatus.Processed,
             CreatedByUserId = _keldaUserId,
@@ -442,18 +442,18 @@ public class ReviewServiceListQueueTests
         };
         _sourceRepo.Seed(source);
 
-        var otherCampaignBatch = new ReviewBatch
+        var otherWorldBatch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = otherCampaignId,
+            WorldId = otherWorldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow
         };
-        _batchRepo.CreateAsync(otherCampaignBatch).GetAwaiter().GetResult();
+        _batchRepo.CreateAsync(otherWorldBatch).GetAwaiter().GetResult();
 
-        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM,
-            FilterByBatchId: otherCampaignBatch.Id);
+        var query = new ReviewQueueQuery(_worldId, _keldaUserId, WorldRole.GM,
+            FilterByBatchId: otherWorldBatch.Id);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -468,8 +468,8 @@ public class ReviewServiceListQueueTests
     [Test]
     public async Task ListReviewQueue_EmptyQueue_ReturnsEmptyListNoError()
     {
-        // No sources, batches, or proposals in this campaign
-        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        // No sources, batches, or proposals in this world
+        var query = new ReviewQueueQuery(_worldId, _keldaUserId, WorldRole.GM);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -500,7 +500,7 @@ public class ReviewServiceListQueueTests
         };
         _proposalRepo.CreateAsync(acceptedProposal).GetAwaiter().GetResult();
 
-        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var query = new ReviewQueueQuery(_worldId, _keldaUserId, WorldRole.GM);
 
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
@@ -523,7 +523,7 @@ public class ReviewServiceListQueueTests
         var voss = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = ArtifactType.Character,
             Name = "Captain Voss",
             Status = ArtifactStatus.Active,
@@ -563,7 +563,7 @@ public class ReviewServiceListQueueTests
         // CreateArtifact needs no target name — its payload carries the name
         var create = MakePendingProposal(batch.Id, "Silver Key");
 
-        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var query = new ReviewQueueQuery(_worldId, _keldaUserId, WorldRole.GM);
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
@@ -591,7 +591,7 @@ public class ReviewServiceListQueueTests
             var a = new Artifact
             {
                 Id = Guid.NewGuid(),
-                CampaignId = _campaignId,
+                WorldId = _worldId,
                 Type = ArtifactType.Storyline,
                 Name = name,
                 Status = ArtifactStatus.Active,
@@ -619,7 +619,7 @@ public class ReviewServiceListQueueTests
         };
         _proposalRepo.CreateAsync(merge).GetAwaiter().GetResult();
 
-        var query = new ReviewQueueQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var query = new ReviewQueueQuery(_worldId, _keldaUserId, WorldRole.GM);
         var result = await _service.ListReviewQueueAsync(query, CancellationToken.None);
 
         var context = result.Value!.Context!;
@@ -634,7 +634,7 @@ public class ReviewServiceListQueueTests
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             Type = SourceType.SessionNote,
             Title = title,
             Body = "We questioned Captain Voss in Black Harbor.",
@@ -652,7 +652,7 @@ public class ReviewServiceListQueueTests
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             SourceId = sourceId,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-30)

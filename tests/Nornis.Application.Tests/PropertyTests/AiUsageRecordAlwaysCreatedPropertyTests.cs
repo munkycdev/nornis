@@ -20,7 +20,7 @@ namespace Nornis.Application.Tests.PropertyTests;
 ///
 /// For any extraction that reaches the AI invocation step (source has non-empty body
 /// and passes idempotency checks), an AiUsageRecord SHALL be created with the correct
-/// CampaignId, SourceId, OperationType=SourceExtraction, Model name, and DurationMs ≥ 0
+/// WorldId, SourceId, OperationType=SourceExtraction, Model name, and DurationMs ≥ 0
 /// — regardless of whether the AI call succeeds or fails.
 ///
 /// **Validates: Requirements 6.1, 6.3**
@@ -103,7 +103,7 @@ public class AiUsageRecordAlwaysCreatedPropertyTests
         fakeAiClient.SetupSuccess(aiResponse);
 
         // Act
-        service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+        service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
             .GetAwaiter().GetResult();
 
         // Assert
@@ -111,8 +111,8 @@ public class AiUsageRecordAlwaysCreatedPropertyTests
 
         return (records.Count >= 1)
             .Label("At least one AiUsageRecord should be created on success")
-            .And((records.Any(r => r.CampaignId == source.CampaignId))
-                .Label($"AiUsageRecord should have CampaignId={source.CampaignId}"))
+            .And((records.Any(r => r.WorldId == source.WorldId))
+                .Label($"AiUsageRecord should have WorldId={source.WorldId}"))
             .And((records.Any(r => r.SourceId == source.Id))
                 .Label($"AiUsageRecord should have SourceId={source.Id}"))
             .And((records.All(r => r.OperationType == AiOperationType.SourceExtraction))
@@ -151,7 +151,7 @@ public class AiUsageRecordAlwaysCreatedPropertyTests
                 fakeAiClient.SetupTransientFailure(new HttpRequestException("Service unavailable"));
 
                 // Act
-                service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+                service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
                     .GetAwaiter().GetResult();
 
                 // Assert
@@ -159,8 +159,8 @@ public class AiUsageRecordAlwaysCreatedPropertyTests
 
                 return (records.Count >= 1)
                     .Label("At least one AiUsageRecord should be created on transient failure")
-                    .And((records.Any(r => r.CampaignId == source.CampaignId))
-                        .Label($"AiUsageRecord should have CampaignId={source.CampaignId}"))
+                    .And((records.Any(r => r.WorldId == source.WorldId))
+                        .Label($"AiUsageRecord should have WorldId={source.WorldId}"))
                     .And((records.Any(r => r.SourceId == source.Id))
                         .Label($"AiUsageRecord should have SourceId={source.Id}"))
                     .And((records.All(r => r.OperationType == AiOperationType.SourceExtraction))
@@ -203,7 +203,7 @@ public class AiUsageRecordAlwaysCreatedPropertyTests
                 fakeAiClient.SetupSuccess(invalidResponse);
 
                 // Act
-                service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+                service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
                     .GetAwaiter().GetResult();
 
                 // Assert
@@ -211,8 +211,8 @@ public class AiUsageRecordAlwaysCreatedPropertyTests
 
                 return (records.Count >= 1)
                     .Label("At least one AiUsageRecord should be created on parse failure")
-                    .And((records.Any(r => r.CampaignId == source.CampaignId))
-                        .Label($"AiUsageRecord should have CampaignId={source.CampaignId}"))
+                    .And((records.Any(r => r.WorldId == source.WorldId))
+                        .Label($"AiUsageRecord should have WorldId={source.WorldId}"))
                     .And((records.Any(r => r.SourceId == source.Id))
                         .Label($"AiUsageRecord should have SourceId={source.Id}"))
                     .And((records.All(r => r.OperationType == AiOperationType.SourceExtraction))
@@ -255,7 +255,7 @@ public class AiUsageRecordAlwaysCreatedPropertyTests
                 fakeAiClient.SetupTransientFailure(new TaskCanceledException("AI call timed out"));
 
                 // Act
-                service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+                service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
                     .GetAwaiter().GetResult();
 
                 // Assert
@@ -263,8 +263,8 @@ public class AiUsageRecordAlwaysCreatedPropertyTests
 
                 return (records.Count >= 1)
                     .Label("At least one AiUsageRecord should be created on timeout")
-                    .And((records.Any(r => r.CampaignId == source.CampaignId))
-                        .Label($"AiUsageRecord should have CampaignId={source.CampaignId}"))
+                    .And((records.Any(r => r.WorldId == source.WorldId))
+                        .Label($"AiUsageRecord should have WorldId={source.WorldId}"))
                     .And((records.Any(r => r.SourceId == source.Id))
                         .Label($"AiUsageRecord should have SourceId={source.Id}"))
                     .And((records.All(r => r.OperationType == AiOperationType.SourceExtraction))

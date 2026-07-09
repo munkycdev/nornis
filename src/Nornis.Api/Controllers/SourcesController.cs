@@ -12,8 +12,8 @@ using Nornis.Domain.Enums;
 namespace Nornis.Api.Controllers;
 
 [ApiController]
-[Route("api/campaigns/{campaignId:guid}/sources")]
-[ServiceFilter(typeof(CampaignMemberActionFilter))]
+[Route("api/worlds/{worldId:guid}/sources")]
+[ServiceFilter(typeof(WorldMemberActionFilter))]
 public class SourcesController : ControllerBase
 {
     private readonly ISourceService _sourceService;
@@ -25,12 +25,12 @@ public class SourcesController : ControllerBase
 
     [HttpPost]
     public async Task<IActionResult> Create(
-        Guid campaignId,
+        Guid worldId,
         [FromBody] CreateSourceRequest request,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         if (!Enum.TryParse<SourceType>(request.Type, ignoreCase: true, out var sourceType))
         {
@@ -43,7 +43,7 @@ public class SourcesController : ControllerBase
         }
 
         var command = new CreateSourceCommand(
-            CampaignId: campaignId,
+            WorldId: worldId,
             Title: request.Title,
             Type: sourceType,
             Visibility: visibility,
@@ -63,16 +63,16 @@ public class SourcesController : ControllerBase
         var source = result.Value!;
         var response = ToSourceResponse(source);
 
-        return CreatedAtAction(nameof(GetById), new { campaignId, sourceId = source.Id }, response);
+        return CreatedAtAction(nameof(GetById), new { worldId, sourceId = source.Id }, response);
     }
 
     [HttpGet]
-    public async Task<IActionResult> List(Guid campaignId, CancellationToken ct)
+    public async Task<IActionResult> List(Guid worldId, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
-        var result = await _sourceService.ListByCampaignAsync(campaignId, user.Id, member.Role, ct);
+        var result = await _sourceService.ListByWorldAsync(worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -86,12 +86,12 @@ public class SourcesController : ControllerBase
     }
 
     [HttpGet("{sourceId:guid}")]
-    public async Task<IActionResult> GetById(Guid campaignId, Guid sourceId, CancellationToken ct)
+    public async Task<IActionResult> GetById(Guid worldId, Guid sourceId, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
-        var result = await _sourceService.GetByIdAsync(sourceId, campaignId, user.Id, member.Role, ct);
+        var result = await _sourceService.GetByIdAsync(sourceId, worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -106,13 +106,13 @@ public class SourcesController : ControllerBase
 
     [HttpPut("{sourceId:guid}")]
     public async Task<IActionResult> Update(
-        Guid campaignId,
+        Guid worldId,
         Guid sourceId,
         [FromBody] UpdateSourceRequest request,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         SourceType? sourceType = null;
         if (request.Type is not null)
@@ -136,7 +136,7 @@ public class SourcesController : ControllerBase
 
         var command = new UpdateSourceCommand(
             SourceId: sourceId,
-            CampaignId: campaignId,
+            WorldId: worldId,
             ActingUserId: user.Id,
             ActingUserRole: member.Role,
             Title: request.Title,
@@ -160,12 +160,12 @@ public class SourcesController : ControllerBase
     }
 
     [HttpDelete("{sourceId:guid}")]
-    public async Task<IActionResult> Delete(Guid campaignId, Guid sourceId, CancellationToken ct)
+    public async Task<IActionResult> Delete(Guid worldId, Guid sourceId, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
-        var result = await _sourceService.DeleteAsync(sourceId, campaignId, user.Id, member.Role, ct);
+        var result = await _sourceService.DeleteAsync(sourceId, worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -176,14 +176,14 @@ public class SourcesController : ControllerBase
     }
 
     [HttpPost("{sourceId:guid}/ready")]
-    public async Task<IActionResult> MarkReady(Guid campaignId, Guid sourceId, CancellationToken ct)
+    public async Task<IActionResult> MarkReady(Guid worldId, Guid sourceId, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetCampaignMember();
+        var member = HttpContext.GetWorldMember();
 
         var command = new MarkSourceReadyCommand(
             SourceId: sourceId,
-            CampaignId: campaignId,
+            WorldId: worldId,
             ActingUserId: user.Id,
             ActingUserRole: member.Role);
 
@@ -204,7 +204,7 @@ public class SourcesController : ControllerBase
     {
         return new SourceResponse(
             Id: source.Id,
-            CampaignId: source.CampaignId,
+            WorldId: source.WorldId,
             Type: source.Type.ToString(),
             Title: source.Title,
             Body: source.Body,
@@ -220,7 +220,7 @@ public class SourcesController : ControllerBase
     {
         return new SourceListItemResponse(
             Id: source.Id,
-            CampaignId: source.CampaignId,
+            WorldId: source.WorldId,
             Type: source.Type.ToString(),
             Title: source.Title,
             OccurredAt: source.OccurredAt,

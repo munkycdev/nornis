@@ -17,7 +17,7 @@ namespace Nornis.Application.Tests.PropertyTests;
 /// <summary>
 /// Property 7: Context Assembly Merge, Dedup, Ordering, and Limit
 ///
-/// For any campaign with N artifacts (where N exceeds the configured MaxArtifactContextCount),
+/// For any world with N artifacts (where N exceeds the configured MaxArtifactContextCount),
 /// the assembled context SHALL contain at most MaxArtifactContextCount artifacts, with
 /// name-matched artifacts appearing before recently-updated artifacts, and no artifact
 /// appearing more than once in the list.
@@ -41,7 +41,7 @@ public class ContextAssemblyMergeDedupOrderingLimitPropertyTests
             {
                 var (service, fakeAiClient) = CreateServiceWithScenario(scenario, aiResponse);
 
-                service.ProcessExtractionAsync(scenario.Source.Id, scenario.Source.CampaignId, CancellationToken.None)
+                service.ProcessExtractionAsync(scenario.Source.Id, scenario.Source.WorldId, CancellationToken.None)
                     .GetAwaiter().GetResult();
 
                 var request = fakeAiClient.Requests.FirstOrDefault();
@@ -64,7 +64,7 @@ public class ContextAssemblyMergeDedupOrderingLimitPropertyTests
             {
                 var (service, fakeAiClient) = CreateServiceWithScenario(scenario, aiResponse);
 
-                service.ProcessExtractionAsync(scenario.Source.Id, scenario.Source.CampaignId, CancellationToken.None)
+                service.ProcessExtractionAsync(scenario.Source.Id, scenario.Source.WorldId, CancellationToken.None)
                     .GetAwaiter().GetResult();
 
                 var request = fakeAiClient.Requests.FirstOrDefault();
@@ -90,7 +90,7 @@ public class ContextAssemblyMergeDedupOrderingLimitPropertyTests
             {
                 var (service, fakeAiClient) = CreateServiceWithScenario(scenario, aiResponse);
 
-                service.ProcessExtractionAsync(scenario.Source.Id, scenario.Source.CampaignId, CancellationToken.None)
+                service.ProcessExtractionAsync(scenario.Source.Id, scenario.Source.WorldId, CancellationToken.None)
                     .GetAwaiter().GetResult();
 
                 var request = fakeAiClient.Requests.FirstOrDefault();
@@ -146,17 +146,17 @@ public class ContextAssemblyMergeDedupOrderingLimitPropertyTests
                from recentOnlyCount in Gen.Choose(2, 6)
                from overlapCount in Gen.Choose(1, 4)
                from visibility in Gen.Elements(Enum.GetValues<VisibilityScope>())
-               let campaignId = Guid.NewGuid()
+               let worldId = Guid.NewGuid()
                let total = nameMatchedCount + recentOnlyCount + overlapCount
                where total > MaxArtifactContextCount
                let nameMatchedArtifacts = Enumerable.Range(0, nameMatchedCount).Select(i =>
-                   CreateArtifact(campaignId, $"NameOnly{i}", visibility,
+                   CreateArtifact(worldId, $"NameOnly{i}", visibility,
                        DateTimeOffset.UtcNow.AddDays(-(100 + i)))).ToList()
                let overlapArtifacts = Enumerable.Range(0, overlapCount).Select(i =>
-                   CreateArtifact(campaignId, $"Overlap{i}", visibility,
+                   CreateArtifact(worldId, $"Overlap{i}", visibility,
                        DateTimeOffset.UtcNow.AddDays(-i))).ToList()
                let recentOnlyArtifacts = Enumerable.Range(0, recentOnlyCount).Select(i =>
-                   CreateArtifact(campaignId, $"RecentOnly{i}", visibility,
+                   CreateArtifact(worldId, $"RecentOnly{i}", visibility,
                        DateTimeOffset.UtcNow.AddDays(-(i + overlapCount)))).ToList()
                let allArtifacts = nameMatchedArtifacts
                    .Concat(overlapArtifacts)
@@ -167,7 +167,7 @@ public class ContextAssemblyMergeDedupOrderingLimitPropertyTests
                let source = new Source
                {
                    Id = Guid.NewGuid(),
-                   CampaignId = campaignId,
+                   WorldId = worldId,
                    Type = SourceType.SessionNote,
                    Title = "Context test session",
                    Body = sourceBody,
@@ -188,12 +188,12 @@ public class ContextAssemblyMergeDedupOrderingLimitPropertyTests
                };
     }
 
-    private static Artifact CreateArtifact(Guid campaignId, string name, VisibilityScope visibility, DateTimeOffset updatedAt)
+    private static Artifact CreateArtifact(Guid worldId, string name, VisibilityScope visibility, DateTimeOffset updatedAt)
     {
         return new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Character,
             Name = name,
             Summary = $"Summary of {name}",

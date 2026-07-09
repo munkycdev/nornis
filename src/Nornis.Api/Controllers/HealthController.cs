@@ -10,12 +10,12 @@ using Nornis.Domain.Enums;
 namespace Nornis.Api.Controllers;
 
 /// <summary>
-/// Continuity health — a heuristic quality score for the campaign's recorded memory, plus an
+/// Continuity health — a heuristic quality score for the world's recorded memory, plus an
 /// on-demand AI assessment that names specific continuity risks with artifact links.
 /// </summary>
 [ApiController]
-[Route("api/campaigns/{campaignId:guid}/health")]
-[ServiceFilter(typeof(CampaignMemberActionFilter))]
+[Route("api/worlds/{worldId:guid}/health")]
+[ServiceFilter(typeof(WorldMemberActionFilter))]
 public class HealthController : ControllerBase
 {
     private readonly IHealthService _healthService;
@@ -28,9 +28,9 @@ public class HealthController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> Get(Guid campaignId, CancellationToken ct)
+    public async Task<IActionResult> Get(Guid worldId, CancellationToken ct)
     {
-        var result = await _healthService.GetHealthAsync(campaignId, ct);
+        var result = await _healthService.GetHealthAsync(worldId, ct);
 
         if (!result.IsSuccess)
         {
@@ -42,7 +42,7 @@ public class HealthController : ControllerBase
 
     /// <summary>Runs a fresh AI continuity assessment. GM-only; takes ~10-30s.</summary>
     [HttpPost("assess")]
-    public async Task<IActionResult> Assess(Guid campaignId, CancellationToken ct)
+    public async Task<IActionResult> Assess(Guid worldId, CancellationToken ct)
     {
         if (RequireGm() is { } forbidden)
         {
@@ -50,7 +50,7 @@ public class HealthController : ControllerBase
         }
 
         var user = HttpContext.GetNornisUser();
-        var result = await _auditService.RunAssessmentAsync(campaignId, user.Id, ct);
+        var result = await _auditService.RunAssessmentAsync(worldId, user.Id, ct);
 
         if (!result.IsSuccess)
         {
@@ -62,14 +62,14 @@ public class HealthController : ControllerBase
 
     /// <summary>Returns the latest AI assessment with findings and the current effective score. GM-only.</summary>
     [HttpGet("assessment")]
-    public async Task<IActionResult> GetAssessment(Guid campaignId, CancellationToken ct)
+    public async Task<IActionResult> GetAssessment(Guid worldId, CancellationToken ct)
     {
         if (RequireGm() is { } forbidden)
         {
             return forbidden;
         }
 
-        var result = await _auditService.GetLatestAsync(campaignId, ct);
+        var result = await _auditService.GetLatestAsync(worldId, ct);
 
         if (!result.IsSuccess)
         {
@@ -81,14 +81,14 @@ public class HealthController : ControllerBase
 
     /// <summary>Dismisses an Open finding (Open -> Dismissed). GM-only.</summary>
     [HttpPost("findings/{findingId:guid}/dismiss")]
-    public async Task<IActionResult> DismissFinding(Guid campaignId, Guid findingId, CancellationToken ct)
+    public async Task<IActionResult> DismissFinding(Guid worldId, Guid findingId, CancellationToken ct)
     {
         if (RequireGm() is { } forbidden)
         {
             return forbidden;
         }
 
-        var result = await _auditService.DismissFindingAsync(campaignId, findingId, ct);
+        var result = await _auditService.DismissFindingAsync(worldId, findingId, ct);
 
         if (!result.IsSuccess)
         {
@@ -100,15 +100,15 @@ public class HealthController : ControllerBase
 
     private IActionResult? RequireGm()
     {
-        var member = HttpContext.GetCampaignMember();
-        if (member.Role != CampaignRole.GM)
+        var member = HttpContext.GetWorldMember();
+        if (member.Role != WorldRole.GM)
         {
             return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can run continuity assessments."));
         }
         return null;
     }
 
-    private static CampaignHealthResponse ToResponse(CampaignHealth h) =>
+    private static WorldHealthResponse ToResponse(WorldHealth h) =>
         new(h.HasData, h.OverallScore, h.Label, h.Consistency, h.Completeness,
             h.Groundedness, h.Recency, h.ArtifactCount, h.StatementCount);
 

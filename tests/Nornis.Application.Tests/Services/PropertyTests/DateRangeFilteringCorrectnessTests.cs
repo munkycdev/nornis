@@ -31,11 +31,11 @@ public class DateRangeFilteringCorrectnessTests
     {
         // Arrange
         var aiUsageRepo = new InMemoryAiUsageRecordRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
-        var campaignRepo = new InMemoryCampaignRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
+        var worldRepo = new InMemoryWorldRepository();
         var logger = NullLogger<CostService>.Instance;
 
-        var service = new CostService(aiUsageRepo, memberRepo, campaignRepo, logger);
+        var service = new CostService(aiUsageRepo, memberRepo, worldRepo, logger);
 
         // Seed all records into the in-memory repository
         foreach (var record in input.Records)
@@ -45,9 +45,9 @@ public class DateRangeFilteringCorrectnessTests
 
         // Act - Call GetByOperationTypeAsync as GM with the date range
         var result = service.GetByOperationTypeAsync(
-            input.CampaignId,
+            input.WorldId,
             input.GmUserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             input.StartDate,
             input.EndDate,
             CancellationToken.None).GetAwaiter().GetResult();
@@ -77,11 +77,11 @@ public class DateRangeFilteringCorrectnessTests
     {
         // Arrange
         var aiUsageRepo = new InMemoryAiUsageRecordRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
-        var campaignRepo = new InMemoryCampaignRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
+        var worldRepo = new InMemoryWorldRepository();
         var logger = NullLogger<CostService>.Instance;
 
-        var service = new CostService(aiUsageRepo, memberRepo, campaignRepo, logger);
+        var service = new CostService(aiUsageRepo, memberRepo, worldRepo, logger);
 
         foreach (var record in input.Records)
         {
@@ -90,9 +90,9 @@ public class DateRangeFilteringCorrectnessTests
 
         // Act
         var result = service.GetByModelAsync(
-            input.CampaignId,
+            input.WorldId,
             input.GmUserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             input.StartDate,
             input.EndDate,
             CancellationToken.None).GetAwaiter().GetResult();
@@ -119,19 +119,19 @@ public class DateRangeFilteringCorrectnessTests
     {
         // Arrange
         var aiUsageRepo = new InMemoryAiUsageRecordRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
-        var campaignRepo = new InMemoryCampaignRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
+        var worldRepo = new InMemoryWorldRepository();
         var logger = NullLogger<CostService>.Instance;
 
-        var service = new CostService(aiUsageRepo, memberRepo, campaignRepo, logger);
+        var service = new CostService(aiUsageRepo, memberRepo, worldRepo, logger);
 
-        // Seed a campaign member so username resolution works
-        memberRepo.CreateAsync(new CampaignMember
+        // Seed a world member so username resolution works
+        memberRepo.CreateAsync(new WorldMember
         {
             Id = Guid.NewGuid(),
-            CampaignId = input.CampaignId,
+            WorldId = input.WorldId,
             UserId = input.GmUserId,
-            Role = CampaignRole.GM,
+            Role = WorldRole.GM,
             DisplayName = "Kelda",
             JoinedAt = DateTimeOffset.UtcNow
         }).GetAwaiter().GetResult();
@@ -143,9 +143,9 @@ public class DateRangeFilteringCorrectnessTests
 
         // Act
         var result = service.GetByUserAsync(
-            input.CampaignId,
+            input.WorldId,
             input.GmUserId,
-            CampaignRole.GM,
+            WorldRole.GM,
             input.StartDate,
             input.EndDate,
             CancellationToken.None).GetAwaiter().GetResult();
@@ -169,7 +169,7 @@ public class DateRangeFilteringCorrectnessTests
 /// Input model for date range filtering correctness property tests.
 /// </summary>
 public record DateRangeFilteringInput(
-    Guid CampaignId,
+    Guid WorldId,
     Guid GmUserId,
     DateTimeOffset StartDate,
     DateTimeOffset EndDate,
@@ -187,13 +187,13 @@ public class DateRangeFilteringArbitraries
     public static Arbitrary<DateRangeFilteringInput> DateRangeFilteringInputs()
     {
         var inputGen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from gmUserId in ArbMap.Default.GeneratorFor<Guid>()
             from recordCount in Gen.Choose(1, 25)
-            from records in GenRecords(campaignId, gmUserId, recordCount)
+            from records in GenRecords(worldId, gmUserId, recordCount)
             from dateRange in GenDateRange()
             select new DateRangeFilteringInput(
-                campaignId,
+                worldId,
                 gmUserId,
                 dateRange.Start,
                 dateRange.End,
@@ -202,13 +202,13 @@ public class DateRangeFilteringArbitraries
         return inputGen.ToArbitrary();
     }
 
-    private static Gen<List<AiUsageRecord>> GenRecords(Guid campaignId, Guid gmUserId, int count)
+    private static Gen<List<AiUsageRecord>> GenRecords(Guid worldId, Guid gmUserId, int count)
     {
-        return GenRecord(campaignId, gmUserId).ArrayOf(count)
+        return GenRecord(worldId, gmUserId).ArrayOf(count)
             .Select(records => records.ToList());
     }
 
-    private static Gen<AiUsageRecord> GenRecord(Guid campaignId, Guid gmUserId)
+    private static Gen<AiUsageRecord> GenRecord(Guid worldId, Guid gmUserId)
     {
         return
             from id in ArbMap.Default.GeneratorFor<Guid>()
@@ -229,7 +229,7 @@ public class DateRangeFilteringArbitraries
             select new AiUsageRecord
             {
                 Id = id,
-                CampaignId = campaignId,
+                WorldId = worldId,
                 UserId = userId,
                 OperationType = operationType,
                 Model = model,

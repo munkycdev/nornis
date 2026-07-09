@@ -24,7 +24,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
     private LoremasterService _service = null!;
 
     // Realistic test data
-    private static readonly Guid CampaignId = Guid.NewGuid();
+    private static readonly Guid WorldId = Guid.NewGuid();
     private static readonly Guid KeldaUserId = Guid.NewGuid();
     private static readonly Guid TavrinUserId = Guid.NewGuid();
 
@@ -57,11 +57,11 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
     #region Knowledge Retrieval Tests
 
     [Test]
-    public async Task AskAsync_ValidQuestion_TriggersRetrievalWithCorrectCampaignId()
+    public async Task AskAsync_ValidQuestion_TriggersRetrievalWithCorrectWorldId()
     {
         // Arrange
         SetupEmptyKnowledgeContext();
-        var command = CreateCommand("Who is Captain Voss?", CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand("Who is Captain Voss?", WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
@@ -69,9 +69,9 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
         // Assert
         await _knowledgeRetriever.Received(1).RetrieveAsync(
             Arg.Any<string>(),
-            CampaignId,
+            WorldId,
             Arg.Any<Guid>(),
-            Arg.Any<CampaignRole>(),
+            Arg.Any<WorldRole>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -80,7 +80,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
     {
         // Arrange
         SetupEmptyKnowledgeContext();
-        var command = CreateCommand("Where is Black Harbor?", CampaignId, TavrinUserId, CampaignRole.Player);
+        var command = CreateCommand("Where is Black Harbor?", WorldId, TavrinUserId, WorldRole.Player);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
@@ -90,7 +90,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
             Arg.Any<string>(),
             Arg.Any<Guid>(),
             TavrinUserId,
-            Arg.Any<CampaignRole>(),
+            Arg.Any<WorldRole>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -99,7 +99,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
     {
         // Arrange
         SetupEmptyKnowledgeContext();
-        var command = CreateCommand("What is the Silver Key?", CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand("What is the Silver Key?", WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
@@ -109,7 +109,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
             Arg.Any<string>(),
             Arg.Any<Guid>(),
             Arg.Any<Guid>(),
-            CampaignRole.GM,
+            WorldRole.GM,
             Arg.Any<CancellationToken>());
     }
 
@@ -118,7 +118,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
     {
         // Arrange
         SetupEmptyKnowledgeContext();
-        var command = CreateCommand("What do we know about the caravan?", CampaignId, TavrinUserId, CampaignRole.Player);
+        var command = CreateCommand("What do we know about the caravan?", WorldId, TavrinUserId, WorldRole.Player);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
@@ -128,7 +128,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
             Arg.Any<string>(),
             Arg.Any<Guid>(),
             Arg.Any<Guid>(),
-            CampaignRole.Player,
+            WorldRole.Player,
             Arg.Any<CancellationToken>());
     }
 
@@ -138,7 +138,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
         // Arrange
         var question = "Who is Captain Voss and where can I find him?";
         SetupEmptyKnowledgeContext();
-        var command = CreateCommand(question, CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand(question, WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
@@ -148,7 +148,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
             question,
             Arg.Any<Guid>(),
             Arg.Any<Guid>(),
-            Arg.Any<CampaignRole>(),
+            Arg.Any<WorldRole>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -161,7 +161,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
     {
         // Arrange
         SetupEmptyKnowledgeContext();
-        var command = CreateCommand("Tell me about the lost temple", CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand("Tell me about the lost temple", WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         var result = await _service.AskAsync(command, CancellationToken.None);
@@ -176,7 +176,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
     {
         // Arrange
         SetupEmptyKnowledgeContext();
-        var command = CreateCommand("What is the Shadow Guild?", CampaignId, TavrinUserId, CampaignRole.Player);
+        var command = CreateCommand("What is the Shadow Guild?", WorldId, TavrinUserId, WorldRole.Player);
 
         // Act
         var result = await _service.AskAsync(command, CancellationToken.None);
@@ -191,7 +191,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
     {
         // Arrange
         SetupEmptyKnowledgeContext();
-        var command = CreateCommand("Anything about the old ruins?", CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand("Anything about the old ruins?", WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
@@ -209,14 +209,14 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
     {
         // Arrange
         SetupContextWithArtifacts();
-        var command = CreateCommand("Who is Captain Voss?", CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand("Who is Captain Voss?", WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
 
         // Assert
         var sentRequest = _aiClient.LastRequest!;
-        Assert.That(sentRequest.SystemPrompt, Does.Contain("Ground every answer exclusively in the provided campaign knowledge context"));
+        Assert.That(sentRequest.SystemPrompt, Does.Contain("Ground every answer exclusively in the provided world knowledge context"));
     }
 
     [Test]
@@ -224,7 +224,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
     {
         // Arrange
         SetupContextWithArtifacts();
-        var command = CreateCommand("Where is Black Harbor?", CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand("Where is Black Harbor?", WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
@@ -239,15 +239,15 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
     {
         // Arrange
         SetupContextWithArtifacts();
-        var command = CreateCommand("Tell me about the missing caravan", CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand("Tell me about the missing caravan", WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
 
         // Assert
         var sentRequest = _aiClient.LastRequest!;
-        Assert.That(sentRequest.SystemPrompt, Does.Contain("Do not invent campaign facts"));
-        Assert.That(sentRequest.SystemPrompt, Does.Contain("Do not invent campaign facts, events, names, or relationships not present in the context"));
+        Assert.That(sentRequest.SystemPrompt, Does.Contain("Do not invent world facts"));
+        Assert.That(sentRequest.SystemPrompt, Does.Contain("Do not invent world facts, events, names, or relationships not present in the context"));
     }
 
     #endregion
@@ -260,7 +260,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
         // Arrange
         var question = "Who is Captain Voss and what is his role in Black Harbor?";
         SetupContextWithArtifacts();
-        var command = CreateCommand(question, CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand(question, WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
@@ -276,7 +276,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
         // Arrange
         var artifactName = "Captain Voss";
         SetupContextWithNamedArtifact(artifactName, "Character", "A sea captain in Black Harbor");
-        var command = CreateCommand("Who is Captain Voss?", CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand("Who is Captain Voss?", WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
@@ -303,7 +303,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
             SourceReferences = new List<KnowledgeSourceReference>()
         };
         SetupKnowledgeContext(context);
-        var command = CreateCommand("What connections exist between Voss and the key?", CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand("What connections exist between Voss and the key?", WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
@@ -345,7 +345,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
             SourceReferences = new List<KnowledgeSourceReference>()
         };
         SetupKnowledgeContext(context);
-        var command = CreateCommand("Who does Voss work for?", CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand("Who does Voss work for?", WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
@@ -381,7 +381,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
             SourceReferences = new List<KnowledgeSourceReference>()
         };
         SetupKnowledgeContext(context);
-        var command = CreateCommand("Was Voss involved in the heist?", CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand("Was Voss involved in the heist?", WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
@@ -418,7 +418,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
             SourceReferences = new List<KnowledgeSourceReference>()
         };
         SetupKnowledgeContext(context);
-        var command = CreateCommand("Who are Voss's allies?", CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand("Who are Voss's allies?", WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
@@ -455,7 +455,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
             SourceReferences = new List<KnowledgeSourceReference>()
         };
         SetupKnowledgeContext(context);
-        var command = CreateCommand("Who controls Black Harbor?", CampaignId, KeldaUserId, CampaignRole.GM);
+        var command = CreateCommand("Who controls Black Harbor?", WorldId, KeldaUserId, WorldRole.GM);
 
         // Act
         await _service.AskAsync(command, CancellationToken.None);
@@ -471,10 +471,10 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
 
     private static AskLoremasterCommand CreateCommand(
         string question,
-        Guid campaignId,
+        Guid worldId,
         Guid userId,
-        CampaignRole role) =>
-        new(campaignId, question, userId, role, ConversationContext: null);
+        WorldRole role) =>
+        new(worldId, question, userId, role, ConversationContext: null);
 
     private void SetupEmptyKnowledgeContext()
     {
@@ -489,7 +489,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
             Arg.Any<string>(),
             Arg.Any<Guid>(),
             Arg.Any<Guid>(),
-            Arg.Any<CampaignRole>(),
+            Arg.Any<WorldRole>(),
             Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(emptyContext));
     }
@@ -534,7 +534,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
             Arg.Any<string>(),
             Arg.Any<Guid>(),
             Arg.Any<Guid>(),
-            Arg.Any<CampaignRole>(),
+            Arg.Any<WorldRole>(),
             Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(context));
     }

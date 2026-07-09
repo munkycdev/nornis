@@ -16,9 +16,9 @@ public class ArtifactServiceTests
     private InMemorySourceReferenceRepository _sourceRefRepo = null!;
     private ArtifactService _service = null!;
 
-    // Campaign: "Black Harbor Investigation"
-    private Guid _campaignId;
-    private Guid _otherCampaignId;
+    // World: "Black Harbor Investigation"
+    private Guid _worldId;
+    private Guid _otherWorldId;
 
     // Users
     private Guid _keldaUserId;   // GM
@@ -34,8 +34,8 @@ public class ArtifactServiceTests
 
         _service = new ArtifactService(_artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo);
 
-        _campaignId = Guid.NewGuid();
-        _otherCampaignId = Guid.NewGuid();
+        _worldId = Guid.NewGuid();
+        _otherWorldId = Guid.NewGuid();
         _keldaUserId = Guid.NewGuid();
         _tavrinUserId = Guid.NewGuid();
     }
@@ -50,7 +50,7 @@ public class ArtifactServiceTests
             MakeArtifact("Hidden Ledger", VisibilityScope.GMOnly),
             MakeArtifact("Kelda's Private Note", VisibilityScope.Private));
 
-        var query = new ArtifactListQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var query = new ArtifactListQuery(_worldId, _keldaUserId, WorldRole.GM);
 
         var result = await _service.ListAsync(query, CancellationToken.None);
 
@@ -66,7 +66,7 @@ public class ArtifactServiceTests
             MakeArtifact("Hidden Ledger", VisibilityScope.GMOnly),
             MakeArtifact("Party Private Note", VisibilityScope.Private));
 
-        var query = new ArtifactListQuery(_campaignId, _tavrinUserId, CampaignRole.Player);
+        var query = new ArtifactListQuery(_worldId, _tavrinUserId, WorldRole.Player);
 
         var result = await _service.ListAsync(query, CancellationToken.None);
 
@@ -86,7 +86,7 @@ public class ArtifactServiceTests
             MakeArtifact("Hidden Ledger", VisibilityScope.GMOnly),
             MakeArtifact("Private Note", VisibilityScope.Private));
 
-        var query = new ArtifactListQuery(_campaignId, _tavrinUserId, CampaignRole.Observer);
+        var query = new ArtifactListQuery(_worldId, _tavrinUserId, WorldRole.Observer);
 
         var result = await _service.ListAsync(query, CancellationToken.None);
 
@@ -108,7 +108,7 @@ public class ArtifactServiceTests
         newer.UpdatedAt = DateTimeOffset.UtcNow;
         _artifactRepo.Seed(older, newer);
 
-        var query = new ArtifactListQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var query = new ArtifactListQuery(_worldId, _keldaUserId, WorldRole.GM);
 
         var result = await _service.ListAsync(query, CancellationToken.None);
 
@@ -122,7 +122,7 @@ public class ArtifactServiceTests
             MakeArtifact("Captain Voss", VisibilityScope.PartyVisible, ArtifactType.Character),
             MakeArtifact("Missing Caravan", VisibilityScope.PartyVisible, ArtifactType.Storyline));
 
-        var query = new ArtifactListQuery(_campaignId, _keldaUserId, CampaignRole.GM, Type: ArtifactType.Storyline);
+        var query = new ArtifactListQuery(_worldId, _keldaUserId, WorldRole.GM, Type: ArtifactType.Storyline);
 
         var result = await _service.ListAsync(query, CancellationToken.None);
 
@@ -137,7 +137,7 @@ public class ArtifactServiceTests
             MakeArtifact("Active Plot", VisibilityScope.PartyVisible, status: ArtifactStatus.Active),
             MakeArtifact("Resolved Plot", VisibilityScope.PartyVisible, status: ArtifactStatus.Resolved));
 
-        var query = new ArtifactListQuery(_campaignId, _keldaUserId, CampaignRole.GM, Status: ArtifactStatus.Resolved);
+        var query = new ArtifactListQuery(_worldId, _keldaUserId, WorldRole.GM, Status: ArtifactStatus.Resolved);
 
         var result = await _service.ListAsync(query, CancellationToken.None);
 
@@ -146,12 +146,12 @@ public class ArtifactServiceTests
     }
 
     [Test]
-    public async Task ListAsync_ExcludesOtherCampaigns()
+    public async Task ListAsync_ExcludesOtherWorlds()
     {
         _artifactRepo.Seed(MakeArtifact("Captain Voss", VisibilityScope.PartyVisible));
-        _artifactRepo.Seed(MakeArtifact("Foreign Artifact", VisibilityScope.PartyVisible, campaignId: _otherCampaignId));
+        _artifactRepo.Seed(MakeArtifact("Foreign Artifact", VisibilityScope.PartyVisible, worldId: _otherWorldId));
 
-        var query = new ArtifactListQuery(_campaignId, _keldaUserId, CampaignRole.GM);
+        var query = new ArtifactListQuery(_worldId, _keldaUserId, WorldRole.GM);
 
         var result = await _service.ListAsync(query, CancellationToken.None);
 
@@ -167,20 +167,20 @@ public class ArtifactServiceTests
     public async Task GetDetailAsync_ReturnsNotFound_WhenMissing()
     {
         var result = await _service.GetDetailAsync(
-            Guid.NewGuid(), _campaignId, _keldaUserId, CampaignRole.GM, CancellationToken.None);
+            Guid.NewGuid(), _worldId, _keldaUserId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
     }
 
     [Test]
-    public async Task GetDetailAsync_ReturnsNotFound_WhenBelongsToAnotherCampaign()
+    public async Task GetDetailAsync_ReturnsNotFound_WhenBelongsToAnotherWorld()
     {
-        var foreign = MakeArtifact("Foreign Artifact", VisibilityScope.PartyVisible, campaignId: _otherCampaignId);
+        var foreign = MakeArtifact("Foreign Artifact", VisibilityScope.PartyVisible, worldId: _otherWorldId);
         _artifactRepo.Seed(foreign);
 
         var result = await _service.GetDetailAsync(
-            foreign.Id, _campaignId, _keldaUserId, CampaignRole.GM, CancellationToken.None);
+            foreign.Id, _worldId, _keldaUserId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
@@ -194,7 +194,7 @@ public class ArtifactServiceTests
 
         // Player cannot see a GMOnly artifact — must not even learn it exists.
         var result = await _service.GetDetailAsync(
-            gmOnly.Id, _campaignId, _tavrinUserId, CampaignRole.Player, CancellationToken.None);
+            gmOnly.Id, _worldId, _tavrinUserId, WorldRole.Player, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
@@ -214,7 +214,7 @@ public class ArtifactServiceTests
             MakeFact(voss.Id, "secret", "Is a smuggler", VisibilityScope.GMOnly));
 
         var result = await _service.GetDetailAsync(
-            voss.Id, _campaignId, _tavrinUserId, CampaignRole.Player, CancellationToken.None);
+            voss.Id, _worldId, _tavrinUserId, WorldRole.Player, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value!.Facts, Has.Count.EqualTo(1));
@@ -231,7 +231,7 @@ public class ArtifactServiceTests
             MakeFact(voss.Id, "secret", "Is a smuggler", VisibilityScope.GMOnly));
 
         var result = await _service.GetDetailAsync(
-            voss.Id, _campaignId, _keldaUserId, CampaignRole.GM, CancellationToken.None);
+            voss.Id, _worldId, _keldaUserId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.Value!.Facts, Has.Count.EqualTo(2));
     }
@@ -251,7 +251,7 @@ public class ArtifactServiceTests
         // Player: relationships are party-visible, but the Secret Lair counterpart is GMOnly
         // and must be dropped from the connected list.
         var result = await _service.GetDetailAsync(
-            voss.Id, _campaignId, _tavrinUserId, CampaignRole.Player, CancellationToken.None);
+            voss.Id, _worldId, _tavrinUserId, WorldRole.Player, CancellationToken.None);
 
         Assert.That(result.Value!.Relationships, Has.Count.EqualTo(2));
         var connectedNames = result.Value.ConnectedArtifacts.Select(a => a.Name).ToList();
@@ -278,7 +278,7 @@ public class ArtifactServiceTests
         _sourceRefRepo.CreateAsync(MakeSourceRef(sourceId, SourceReferenceTargetType.ArtifactRelationship, rel.Id)).Wait();
 
         var result = await _service.GetDetailAsync(
-            voss.Id, _campaignId, _keldaUserId, CampaignRole.GM, CancellationToken.None);
+            voss.Id, _worldId, _keldaUserId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.Value!.SourceReferences, Has.Count.EqualTo(3));
     }
@@ -292,13 +292,13 @@ public class ArtifactServiceTests
         VisibilityScope visibility,
         ArtifactType type = ArtifactType.Character,
         ArtifactStatus status = ArtifactStatus.Active,
-        Guid? campaignId = null)
+        Guid? worldId = null)
     {
         var now = DateTimeOffset.UtcNow;
         return new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId ?? _campaignId,
+            WorldId = worldId ?? _worldId,
             Type = type,
             Name = name,
             Summary = null,
@@ -331,7 +331,7 @@ public class ArtifactServiceTests
         return new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             ArtifactAId = aId,
             ArtifactBId = bId,
             Type = type,

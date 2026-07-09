@@ -43,9 +43,9 @@ public class ArtifactConfiguration : IEntityTypeConfiguration<Artifact>
         builder.Property(a => a.RowVersion)
             .IsRowVersion();
 
-        builder.HasOne(a => a.Campaign)
+        builder.HasOne(a => a.World)
             .WithMany()
-            .HasForeignKey(a => a.CampaignId)
+            .HasForeignKey(a => a.WorldId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

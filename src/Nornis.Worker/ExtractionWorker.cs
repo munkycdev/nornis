@@ -62,7 +62,7 @@ public sealed class ExtractionWorker : BackgroundService
         try
         {
             message = JsonSerializer.Deserialize<ExtractionMessage>(args.Message.Body.ToString());
-            if (message is null || message.SourceId == Guid.Empty || message.CampaignId == Guid.Empty)
+            if (message is null || message.SourceId == Guid.Empty || message.WorldId == Guid.Empty)
             {
                 _logger.LogError(
                     "Deserialization returned null or invalid message. CorrelationId={CorrelationId}, Body={MessageBody}",
@@ -86,10 +86,10 @@ public sealed class ExtractionWorker : BackgroundService
         }
 
         _logger.LogInformation(
-            "Processing extraction message. CorrelationId={CorrelationId}, SourceId={SourceId}, CampaignId={CampaignId}",
+            "Processing extraction message. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}",
             correlationId,
             message.SourceId,
-            message.CampaignId);
+            message.WorldId);
 
         try
         {
@@ -99,7 +99,7 @@ public sealed class ExtractionWorker : BackgroundService
             var extractionService = scope.ServiceProvider.GetRequiredService<IExtractionService>();
 
             var outcome = await extractionService.ProcessExtractionAsync(
-                message.SourceId, message.CampaignId, args.CancellationToken);
+                message.SourceId, message.WorldId, args.CancellationToken);
 
             stopwatch.Stop();
 
@@ -107,10 +107,10 @@ public sealed class ExtractionWorker : BackgroundService
             {
                 case OutcomeType.Success:
                     _logger.LogInformation(
-                        "Extraction succeeded. CorrelationId={CorrelationId}, SourceId={SourceId}, CampaignId={CampaignId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, ReviewBatchId={ReviewBatchId}, ProposalCount={ProposalCount}",
+                        "Extraction succeeded. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, ReviewBatchId={ReviewBatchId}, ProposalCount={ProposalCount}",
                         correlationId,
                         message.SourceId,
-                        message.CampaignId,
+                        message.WorldId,
                         outcome.Type,
                         stopwatch.ElapsedMilliseconds,
                         outcome.ReviewBatchId,
@@ -120,10 +120,10 @@ public sealed class ExtractionWorker : BackgroundService
 
                 case OutcomeType.Skipped:
                     _logger.LogInformation(
-                        "Extraction skipped. CorrelationId={CorrelationId}, SourceId={SourceId}, CampaignId={CampaignId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, Reason={Reason}",
+                        "Extraction skipped. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, Reason={Reason}",
                         correlationId,
                         message.SourceId,
-                        message.CampaignId,
+                        message.WorldId,
                         outcome.Type,
                         stopwatch.ElapsedMilliseconds,
                         outcome.ErrorMessage);
@@ -132,10 +132,10 @@ public sealed class ExtractionWorker : BackgroundService
 
                 case OutcomeType.NonTransientFailure:
                     _logger.LogError(
-                        "Extraction failed with non-transient error. CorrelationId={CorrelationId}, SourceId={SourceId}, CampaignId={CampaignId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, ErrorCategory={ErrorCategory}, ErrorMessage={ErrorMessage}",
+                        "Extraction failed with non-transient error. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, ErrorCategory={ErrorCategory}, ErrorMessage={ErrorMessage}",
                         correlationId,
                         message.SourceId,
-                        message.CampaignId,
+                        message.WorldId,
                         outcome.Type,
                         stopwatch.ElapsedMilliseconds,
                         outcome.ErrorCategory,
@@ -145,10 +145,10 @@ public sealed class ExtractionWorker : BackgroundService
 
                 case OutcomeType.TransientFailure:
                     _logger.LogWarning(
-                        "Extraction failed with transient error, abandoning message for redelivery. CorrelationId={CorrelationId}, SourceId={SourceId}, CampaignId={CampaignId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, ErrorCategory={ErrorCategory}, ErrorMessage={ErrorMessage}",
+                        "Extraction failed with transient error, abandoning message for redelivery. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}, OutcomeType={OutcomeType}, DurationMs={DurationMs}, ErrorCategory={ErrorCategory}, ErrorMessage={ErrorMessage}",
                         correlationId,
                         message.SourceId,
-                        message.CampaignId,
+                        message.WorldId,
                         outcome.Type,
                         stopwatch.ElapsedMilliseconds,
                         outcome.ErrorCategory,
@@ -163,10 +163,10 @@ public sealed class ExtractionWorker : BackgroundService
 
             _logger.LogError(
                 ex,
-                "Unexpected exception during extraction processing. CorrelationId={CorrelationId}, SourceId={SourceId}, CampaignId={CampaignId}, DurationMs={DurationMs}",
+                "Unexpected exception during extraction processing. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}, DurationMs={DurationMs}",
                 correlationId,
                 message.SourceId,
-                message.CampaignId,
+                message.WorldId,
                 stopwatch.ElapsedMilliseconds);
 
             // Unexpected exceptions are treated as transient — abandon for redelivery.

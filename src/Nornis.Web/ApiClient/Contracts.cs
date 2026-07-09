@@ -4,26 +4,26 @@ namespace Nornis.Web.ApiClient;
 // so it owns its view of the wire shape rather than referencing the API's types. Enum-valued
 // fields are carried as strings, exactly as the API serializes them.
 
-public record CampaignSummary(
+public record WorldSummary(
     Guid Id,
     string Name,
     string? Description,
     string? GameSystem,
     string MyRole);
 
-public record CreateCampaignRequest(
+public record CreateWorldRequest(
     string Name,
     string? Description,
     string? GameSystem);
 
-public record UpdateCampaignRequest(
+public record UpdateWorldRequest(
     string Name,
     string? Description,
     string? GameSystem);
 
-public record CampaignMember(
+public record WorldMember(
     Guid Id,
-    Guid CampaignId,
+    Guid WorldId,
     Guid UserId,
     string Role,
     string? DisplayName,
@@ -39,7 +39,7 @@ public record UpdateMemberRoleRequest(
 
 public record SourceListItem(
     Guid Id,
-    Guid CampaignId,
+    Guid WorldId,
     string Type,
     string Title,
     DateTimeOffset? OccurredAt,
@@ -50,7 +50,7 @@ public record SourceListItem(
 
 public record SourceDetailDto(
     Guid Id,
-    Guid CampaignId,
+    Guid WorldId,
     string Type,
     string Title,
     string? Body,
@@ -81,7 +81,7 @@ public record UpdateSourceRequest(
 
 public record ArtifactListItem(
     Guid Id,
-    Guid CampaignId,
+    Guid WorldId,
     string Type,
     string Name,
     string? Summary,
@@ -128,7 +128,7 @@ public record SourceReferenceDto(
 
 public record ArtifactDetailDto(
     Guid Id,
-    Guid CampaignId,
+    Guid WorldId,
     string Type,
     string Name,
     string? Summary,
@@ -215,7 +215,7 @@ public record OperationTypeCost(string OperationType, CostSummary Summary);
 
 public record ModelCost(string Model, CostSummary Summary);
 
-public record CampaignCost(Guid CampaignId, string CampaignName, CostSummary Summary);
+public record WorldCost(Guid WorldId, string WorldName, CostSummary Summary);
 
 public record AskRequest(string Question, string? ConversationContext);
 
@@ -236,7 +236,7 @@ public record AskAnswer(
     string Confidence,
     IReadOnlyList<string> Caveats);
 
-public record CampaignHealth(
+public record WorldHealth(
     bool HasData,
     int OverallScore,
     string Label,
@@ -249,7 +249,7 @@ public record CampaignHealth(
 
 /// <summary>
 /// AI-assessed continuity health. <see cref="Score"/> is the blended snapshot at assessment time;
-/// <see cref="EffectiveScore"/> reflects only the findings still Open. When the campaign has never
+/// <see cref="EffectiveScore"/> reflects only the findings still Open. When the world has never
 /// been assessed, <see cref="HasData"/> is false.
 /// </summary>
 public record ContinuityAssessment(

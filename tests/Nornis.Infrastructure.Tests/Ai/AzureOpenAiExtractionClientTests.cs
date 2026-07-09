@@ -328,7 +328,7 @@ public class AzureOpenAiExtractionClientTests
               "proposals": [
                 {
                   "changeType": "CreateArtifact",
-                  "targetType": "Campaign",
+                  "targetType": "World",
                   "targetId": null,
                   "proposedValue": { "name": "Voss" },
                   "rationale": "Test rationale.",

@@ -10,9 +10,9 @@ public static class HttpContextExtensions
             ?? throw new InvalidOperationException("NornisUser not found in HttpContext. Ensure UserProvisioningMiddleware is in the pipeline.");
     }
 
-    public static CampaignMember GetCampaignMember(this HttpContext context)
+    public static WorldMember GetWorldMember(this HttpContext context)
     {
-        return context.Items["CampaignMember"] as CampaignMember
-            ?? throw new InvalidOperationException("CampaignMember not found in HttpContext. Ensure CampaignMemberFilter is applied.");
+        return context.Items["WorldMember"] as WorldMember
+            ?? throw new InvalidOperationException("WorldMember not found in HttpContext. Ensure WorldMemberFilter is applied.");
     }
 }

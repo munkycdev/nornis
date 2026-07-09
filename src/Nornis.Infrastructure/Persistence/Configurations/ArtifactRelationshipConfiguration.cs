@@ -43,9 +43,9 @@ public class ArtifactRelationshipConfiguration : IEntityTypeConfiguration<Artifa
 
         builder.HasIndex(ar => ar.ArtifactBId);
 
-        builder.HasOne(ar => ar.Campaign)
+        builder.HasOne(ar => ar.World)
             .WithMany()
-            .HasForeignKey(ar => ar.CampaignId)
+            .HasForeignKey(ar => ar.WorldId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(ar => ar.ArtifactA)

@@ -11,26 +11,26 @@ namespace Nornis.Application.Services;
 public class CostService : ICostService
 {
     private readonly IAiUsageRecordRepository _aiUsageRecordRepository;
-    private readonly ICampaignMemberRepository _campaignMemberRepository;
-    private readonly ICampaignRepository _campaignRepository;
+    private readonly IWorldMemberRepository _worldMemberRepository;
+    private readonly IWorldRepository _worldRepository;
     private readonly ILogger<CostService> _logger;
 
     public CostService(
         IAiUsageRecordRepository aiUsageRecordRepository,
-        ICampaignMemberRepository campaignMemberRepository,
-        ICampaignRepository campaignRepository,
+        IWorldMemberRepository worldMemberRepository,
+        IWorldRepository worldRepository,
         ILogger<CostService> logger)
     {
         _aiUsageRecordRepository = aiUsageRecordRepository;
-        _campaignMemberRepository = campaignMemberRepository;
-        _campaignRepository = campaignRepository;
+        _worldMemberRepository = worldMemberRepository;
+        _worldRepository = worldRepository;
         _logger = logger;
     }
 
     public async Task<AppResult<TimePeriodCostResult>> GetSummaryAsync(
-        Guid campaignId,
+        Guid worldId,
         Guid userId,
-        CampaignRole role,
+        WorldRole role,
         CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
@@ -44,10 +44,10 @@ public class CostService : ICostService
         // These aggregates must run sequentially: they share one scoped DbContext, and EF Core
         // forbids concurrent operations on a single context (Task.WhenAll here throws under the
         // relational provider's concurrency detector).
-        var today = await _aiUsageRecordRepository.AggregateAsync(campaignId, userIdFilter, todayRange.Start, todayRange.End, ct);
-        var week = await _aiUsageRecordRepository.AggregateAsync(campaignId, userIdFilter, weekRange.Start, weekRange.End, ct);
-        var month = await _aiUsageRecordRepository.AggregateAsync(campaignId, userIdFilter, monthRange.Start, monthRange.End, ct);
-        var allTime = await _aiUsageRecordRepository.AggregateAsync(campaignId, userIdFilter, null, null, ct);
+        var today = await _aiUsageRecordRepository.AggregateAsync(worldId, userIdFilter, todayRange.Start, todayRange.End, ct);
+        var week = await _aiUsageRecordRepository.AggregateAsync(worldId, userIdFilter, weekRange.Start, weekRange.End, ct);
+        var month = await _aiUsageRecordRepository.AggregateAsync(worldId, userIdFilter, monthRange.Start, monthRange.End, ct);
+        var allTime = await _aiUsageRecordRepository.AggregateAsync(worldId, userIdFilter, null, null, ct);
 
         var result = new TimePeriodCostResult
         {
@@ -59,61 +59,61 @@ public class CostService : ICostService
 
         sw.Stop();
         _logger.LogInformation(
-            "Cost summary aggregation completed for campaign {CampaignId} in {ElapsedMs}ms",
-            campaignId, sw.ElapsedMilliseconds);
+            "Cost summary aggregation completed for world {WorldId} in {ElapsedMs}ms",
+            worldId, sw.ElapsedMilliseconds);
 
         return AppResult<TimePeriodCostResult>.Success(result);
     }
 
-    public async Task<AppResult<IReadOnlyList<CampaignCostResult>>> GetByCampaignAsync(
+    public async Task<AppResult<IReadOnlyList<WorldCostResult>>> GetByWorldAsync(
         Guid userId,
         CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
 
-        var memberships = await _campaignMemberRepository.ListByUserAsync(userId, ct);
-        var gmCampaignIds = memberships
-            .Where(m => m.Role == CampaignRole.GM)
-            .Select(m => m.CampaignId)
+        var memberships = await _worldMemberRepository.ListByUserAsync(userId, ct);
+        var gmWorldIds = memberships
+            .Where(m => m.Role == WorldRole.GM)
+            .Select(m => m.WorldId)
             .ToList();
 
-        if (gmCampaignIds.Count == 0)
+        if (gmWorldIds.Count == 0)
         {
             sw.Stop();
             _logger.LogInformation(
-                "Cost by-campaign aggregation completed for user {UserId} in {ElapsedMs}ms (no GM campaigns)",
+                "Cost by-world aggregation completed for user {UserId} in {ElapsedMs}ms (no GM worlds)",
                 userId, sw.ElapsedMilliseconds);
 
-            return AppResult<IReadOnlyList<CampaignCostResult>>.Success(
-                Array.Empty<CampaignCostResult>());
+            return AppResult<IReadOnlyList<WorldCostResult>>.Success(
+                Array.Empty<WorldCostResult>());
         }
 
-        var groupedSummaries = await _aiUsageRecordRepository.AggregateByCampaignAsync(gmCampaignIds, null, null, ct);
+        var groupedSummaries = await _aiUsageRecordRepository.AggregateByWorldAsync(gmWorldIds, null, null, ct);
 
-        var campaigns = await _campaignRepository.GetByIdsAsync(gmCampaignIds, ct);
-        var campaignNameMap = campaigns.ToDictionary(c => c.Id, c => c.Name);
+        var worlds = await _worldRepository.GetByIdsAsync(gmWorldIds, ct);
+        var worldNameMap = worlds.ToDictionary(c => c.Id, c => c.Name);
 
         var results = groupedSummaries
-            .Select(g => new CampaignCostResult
+            .Select(g => new WorldCostResult
             {
-                CampaignId = g.Key,
-                CampaignName = campaignNameMap.GetValueOrDefault(g.Key, "Unknown"),
+                WorldId = g.Key,
+                WorldName = worldNameMap.GetValueOrDefault(g.Key, "Unknown"),
                 Summary = g.Summary
             })
             .ToList();
 
         sw.Stop();
         _logger.LogInformation(
-            "Cost by-campaign aggregation completed for user {UserId} in {ElapsedMs}ms",
+            "Cost by-world aggregation completed for user {UserId} in {ElapsedMs}ms",
             userId, sw.ElapsedMilliseconds);
 
-        return AppResult<IReadOnlyList<CampaignCostResult>>.Success(results);
+        return AppResult<IReadOnlyList<WorldCostResult>>.Success(results);
     }
 
     public async Task<AppResult<IReadOnlyList<UserCostResult>>> GetByUserAsync(
-        Guid campaignId,
+        Guid worldId,
         Guid userId,
-        CampaignRole role,
+        WorldRole role,
         DateTimeOffset? startDate,
         DateTimeOffset? endDate,
         CancellationToken ct)
@@ -129,17 +129,17 @@ public class CostService : ICostService
         var userIdFilter = DetermineUserIdFilter(userId, role);
 
         var groupedSummaries = await _aiUsageRecordRepository.AggregateByUserAsync(
-            campaignId, userIdFilter, startDate, endDate, ct);
+            worldId, userIdFilter, startDate, endDate, ct);
 
-        // Resolve usernames from campaign members
-        var campaignMembers = await _campaignMemberRepository.ListByCampaignAsync(campaignId, ct);
-        var usernameMap = campaignMembers.ToDictionary(
+        // Resolve usernames from world members
+        var worldMembers = await _worldMemberRepository.ListByWorldAsync(worldId, ct);
+        var usernameMap = worldMembers.ToDictionary(
             m => m.UserId,
             m => m.DisplayName ?? m.User?.Username ?? "Unknown");
 
         IReadOnlyList<UserCostResult> results;
 
-        if (role != CampaignRole.GM)
+        if (role != WorldRole.GM)
         {
             // Non-GM: return only the requesting user's summary
             var userEntry = groupedSummaries.FirstOrDefault(g => g.Key == userId);
@@ -169,16 +169,16 @@ public class CostService : ICostService
 
         sw.Stop();
         _logger.LogInformation(
-            "Cost by-user aggregation completed for campaign {CampaignId} in {ElapsedMs}ms",
-            campaignId, sw.ElapsedMilliseconds);
+            "Cost by-user aggregation completed for world {WorldId} in {ElapsedMs}ms",
+            worldId, sw.ElapsedMilliseconds);
 
         return AppResult<IReadOnlyList<UserCostResult>>.Success(results);
     }
 
     public async Task<AppResult<IReadOnlyList<OperationTypeCostResult>>> GetByOperationTypeAsync(
-        Guid campaignId,
+        Guid worldId,
         Guid userId,
-        CampaignRole role,
+        WorldRole role,
         DateTimeOffset? startDate,
         DateTimeOffset? endDate,
         CancellationToken ct)
@@ -194,7 +194,7 @@ public class CostService : ICostService
         var userIdFilter = DetermineUserIdFilter(userId, role);
 
         var groupedSummaries = await _aiUsageRecordRepository.AggregateByOperationTypeAsync(
-            campaignId, userIdFilter, startDate, endDate, ct);
+            worldId, userIdFilter, startDate, endDate, ct);
 
         var results = groupedSummaries
             .Select(g => new OperationTypeCostResult
@@ -206,16 +206,16 @@ public class CostService : ICostService
 
         sw.Stop();
         _logger.LogInformation(
-            "Cost by-operation-type aggregation completed for campaign {CampaignId} in {ElapsedMs}ms",
-            campaignId, sw.ElapsedMilliseconds);
+            "Cost by-operation-type aggregation completed for world {WorldId} in {ElapsedMs}ms",
+            worldId, sw.ElapsedMilliseconds);
 
         return AppResult<IReadOnlyList<OperationTypeCostResult>>.Success(results);
     }
 
     public async Task<AppResult<IReadOnlyList<ModelCostResult>>> GetByModelAsync(
-        Guid campaignId,
+        Guid worldId,
         Guid userId,
-        CampaignRole role,
+        WorldRole role,
         DateTimeOffset? startDate,
         DateTimeOffset? endDate,
         CancellationToken ct)
@@ -231,7 +231,7 @@ public class CostService : ICostService
         var userIdFilter = DetermineUserIdFilter(userId, role);
 
         var groupedSummaries = await _aiUsageRecordRepository.AggregateByModelAsync(
-            campaignId, userIdFilter, startDate, endDate, ct);
+            worldId, userIdFilter, startDate, endDate, ct);
 
         var results = groupedSummaries
             .Select(g => new ModelCostResult
@@ -243,15 +243,15 @@ public class CostService : ICostService
 
         sw.Stop();
         _logger.LogInformation(
-            "Cost by-model aggregation completed for campaign {CampaignId} in {ElapsedMs}ms",
-            campaignId, sw.ElapsedMilliseconds);
+            "Cost by-model aggregation completed for world {WorldId} in {ElapsedMs}ms",
+            worldId, sw.ElapsedMilliseconds);
 
         return AppResult<IReadOnlyList<ModelCostResult>>.Success(results);
     }
 
-    private static Guid? DetermineUserIdFilter(Guid userId, CampaignRole role)
+    private static Guid? DetermineUserIdFilter(Guid userId, WorldRole role)
     {
-        return role == CampaignRole.GM ? null : userId;
+        return role == WorldRole.GM ? null : userId;
     }
 
     private static AppError? ValidateDateRange(DateTimeOffset? startDate, DateTimeOffset? endDate)

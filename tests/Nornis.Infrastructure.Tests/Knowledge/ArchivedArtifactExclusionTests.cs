@@ -16,7 +16,7 @@ namespace Nornis.Infrastructure.Tests.Knowledge;
 [TestFixture]
 public class ArchivedArtifactExclusionTests
 {
-    private Guid _campaignId;
+    private Guid _worldId;
     private InMemoryArtifactRepository _artifactRepo = null!;
     private KeywordKnowledgeRetriever _retriever = null!;
 
@@ -26,7 +26,7 @@ public class ArchivedArtifactExclusionTests
     [SetUp]
     public void SetUp()
     {
-        _campaignId = Guid.NewGuid();
+        _worldId = Guid.NewGuid();
         _artifactRepo = new InMemoryArtifactRepository();
 
         // Archived twin: name-matches the question AND is the most recently updated,
@@ -49,13 +49,13 @@ public class ArchivedArtifactExclusionTests
             options);
     }
 
-    [TestCase(CampaignRole.GM)]
-    [TestCase(CampaignRole.Player)]
-    [TestCase(CampaignRole.Observer)]
-    public async Task ArchivedArtifacts_AreExcludedFromRetrieval(CampaignRole role)
+    [TestCase(WorldRole.GM)]
+    [TestCase(WorldRole.Player)]
+    [TestCase(WorldRole.Observer)]
+    public async Task ArchivedArtifacts_AreExcludedFromRetrieval(WorldRole role)
     {
         var context = await _retriever.RetrieveAsync(
-            "What happened to the Missing Caravan?", _campaignId, Guid.NewGuid(), role, CancellationToken.None);
+            "What happened to the Missing Caravan?", _worldId, Guid.NewGuid(), role, CancellationToken.None);
 
         Assert.That(context.Artifacts.Select(a => a.Id), Does.Not.Contain(_archived.Id),
             "Archived artifacts must not reach ask retrieval");
@@ -66,7 +66,7 @@ public class ArchivedArtifactExclusionTests
     private Artifact MakeArtifact(string name, ArtifactStatus status, DateTimeOffset updatedAt) => new()
     {
         Id = Guid.NewGuid(),
-        CampaignId = _campaignId,
+        WorldId = _worldId,
         Type = ArtifactType.Character,
         Name = name,
         Summary = $"Test artifact {name}",

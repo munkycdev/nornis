@@ -19,9 +19,9 @@ public class AiUsageRecordTests
     }
 
     [Test]
-    public void AiUsageRecord_Has_CampaignId_Property_Of_Type_NullableGuid()
+    public void AiUsageRecord_Has_WorldId_Property_Of_Type_NullableGuid()
     {
-        var property = _type.GetProperty("CampaignId");
+        var property = _type.GetProperty("WorldId");
         Assert.That(property, Is.Not.Null);
         Assert.That(property!.PropertyType, Is.EqualTo(typeof(Guid?)));
     }

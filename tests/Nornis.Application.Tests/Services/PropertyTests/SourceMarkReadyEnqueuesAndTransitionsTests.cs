@@ -14,31 +14,31 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// Property 10: Mark Ready Enqueues and Transitions to Queued
 ///
 /// For any source in Draft status where the acting user is the creator or a GM, marking the source as ready
-/// should: place an extraction message on the queue containing the Source Id and Campaign Id, and transition
+/// should: place an extraction message on the queue containing the Source Id and World Id, and transition
 /// the ProcessingStatus to Queued.
 ///
 /// **Validates: Requirements 6.1, 7.1, 7.2**
 /// </summary>
 [TestFixture]
-[Category("Feature: campaign-sources, Property 10: Mark Ready Enqueues and Transitions to Queued")]
+[Category("Feature: world-sources, Property 10: Mark Ready Enqueues and Transitions to Queued")]
 public class SourceMarkReadyEnqueuesAndTransitionsTests
 {
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(MarkReadyEnqueueArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: campaign-sources, Property 10: Mark Ready Enqueues and Transitions to Queued")]
+    [Description("Feature: world-sources, Property 10: Mark Ready Enqueues and Transitions to Queued")]
     public void MarkReady_DraftSource_EnqueuesMessageAndTransitionsToQueued(MarkReadyScenario scenario)
     {
         // Arrange
         var sourceRepo = new InMemorySourceRepository();
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, queueClient);
 
         var source = new Source
         {
             Id = scenario.SourceId,
-            CampaignId = scenario.CampaignId,
+            WorldId = scenario.WorldId,
             Type = scenario.SourceType,
             Title = scenario.Title,
             Body = scenario.Body,
@@ -52,7 +52,7 @@ public class SourceMarkReadyEnqueuesAndTransitionsTests
 
         // Determine acting user: either the creator or a GM (different user)
         var actingUserId = scenario.ActAsCreator ? scenario.CreatorUserId : scenario.GmUserId;
-        var actingRole = scenario.ActAsCreator ? CampaignRole.GM : CampaignRole.GM;
+        var actingRole = scenario.ActAsCreator ? WorldRole.GM : WorldRole.GM;
         // If acting as creator, they could be a Player or GM — but must be creator OR GM
         if (scenario.ActAsCreator)
         {
@@ -61,7 +61,7 @@ public class SourceMarkReadyEnqueuesAndTransitionsTests
 
         var command = new MarkSourceReadyCommand(
             scenario.SourceId,
-            scenario.CampaignId,
+            scenario.WorldId,
             actingUserId,
             actingRole);
 
@@ -81,12 +81,12 @@ public class SourceMarkReadyEnqueuesAndTransitionsTests
         Assert.That(queueClient.SentMessages.Count, Is.EqualTo(1),
             "Exactly one extraction message should be placed on the queue.");
 
-        // Assert - message contains correct SourceId and CampaignId
+        // Assert - message contains correct SourceId and WorldId
         var sentMessage = queueClient.SentMessages[0];
         Assert.That(sentMessage.SourceId, Is.EqualTo(scenario.SourceId),
             "Extraction message must contain the correct Source Id.");
-        Assert.That(sentMessage.CampaignId, Is.EqualTo(scenario.CampaignId),
-            "Extraction message must contain the correct Campaign Id.");
+        Assert.That(sentMessage.WorldId, Is.EqualTo(scenario.WorldId),
+            "Extraction message must contain the correct World Id.");
     }
 }
 
@@ -95,11 +95,11 @@ public class SourceMarkReadyEnqueuesAndTransitionsTests
 /// </summary>
 public record MarkReadyScenario(
     Guid SourceId,
-    Guid CampaignId,
+    Guid WorldId,
     Guid CreatorUserId,
     Guid GmUserId,
     bool ActAsCreator,
-    CampaignRole CreatorRole,
+    WorldRole CreatorRole,
     SourceType SourceType,
     string Title,
     string? Body,
@@ -139,7 +139,7 @@ public class MarkReadyEnqueueArbitraries
             VisibilityScope.PartyVisible);
 
         // Creator can be GM or Player (both are allowed to mark ready on their own sources)
-        var creatorRoleGen = Gen.Elements(CampaignRole.GM, CampaignRole.Player);
+        var creatorRoleGen = Gen.Elements(WorldRole.GM, WorldRole.Player);
 
         var optionalBodyGen = Gen.OneOf(
             Gen.Constant<string?>(null),
@@ -147,7 +147,7 @@ public class MarkReadyEnqueueArbitraries
 
         var gen =
             from sourceId in ArbMap.Default.GeneratorFor<Guid>()
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from creatorUserId in ArbMap.Default.GeneratorFor<Guid>()
             from gmUserId in ArbMap.Default.GeneratorFor<Guid>()
             where creatorUserId != gmUserId
@@ -159,7 +159,7 @@ public class MarkReadyEnqueueArbitraries
             from visibility in visibilityGen
             select new MarkReadyScenario(
                 sourceId,
-                campaignId,
+                worldId,
                 creatorUserId,
                 gmUserId,
                 actAsCreator,

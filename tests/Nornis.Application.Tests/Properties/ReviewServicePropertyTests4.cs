@@ -146,11 +146,11 @@ public class ReviewServicePropertyTests4
         var ctx = CreateFakeService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -163,7 +163,7 @@ public class ReviewServicePropertyTests4
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -213,7 +213,7 @@ public class ReviewServicePropertyTests4
         if (lastAccepted)
         {
             var result = ctx.Service.AcceptProposalAsync(
-                new AcceptProposalCommand(lastProposal.Id, campaignId, userId, CampaignRole.GM),
+                new AcceptProposalCommand(lastProposal.Id, worldId, userId, WorldRole.GM),
                 CancellationToken.None).GetAwaiter().GetResult();
             if (!result.IsSuccess)
                 return false.Label($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
@@ -221,7 +221,7 @@ public class ReviewServicePropertyTests4
         else
         {
             var result = ctx.Service.RejectProposalAsync(
-                new RejectProposalCommand(lastProposal.Id, campaignId, userId, CampaignRole.GM),
+                new RejectProposalCommand(lastProposal.Id, worldId, userId, WorldRole.GM),
                 CancellationToken.None).GetAwaiter().GetResult();
             if (!result.IsSuccess)
                 return false.Label($"Reject failed: {result.Error!.Code} - {result.Error!.Message}");
@@ -256,11 +256,11 @@ public class ReviewServicePropertyTests4
         var ctx = CreateFakeService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -272,7 +272,7 @@ public class ReviewServicePropertyTests4
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.Pending,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -306,7 +306,7 @@ public class ReviewServicePropertyTests4
         for (var i = 0; i < reviewCount; i++)
         {
             ctx.Service.AcceptProposalAsync(
-                new AcceptProposalCommand(proposalIds[i], campaignId, userId, CampaignRole.GM),
+                new AcceptProposalCommand(proposalIds[i], worldId, userId, WorldRole.GM),
                 CancellationToken.None).GetAwaiter().GetResult();
         }
 
@@ -341,13 +341,13 @@ public class ReviewServicePropertyTests4
 
         var userId = Guid.NewGuid();
         var originalReviewerId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var originalReviewedAt = DateTimeOffset.UtcNow.AddMinutes(-10);
 
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -359,7 +359,7 @@ public class ReviewServicePropertyTests4
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -390,7 +390,7 @@ public class ReviewServicePropertyTests4
 
         // Accept the already-accepted proposal again (different user)
         var result = ctx.Service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new AcceptProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -416,13 +416,13 @@ public class ReviewServicePropertyTests4
 
         var userId = Guid.NewGuid();
         var originalReviewerId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var originalReviewedAt = DateTimeOffset.UtcNow.AddMinutes(-10);
 
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -434,7 +434,7 @@ public class ReviewServicePropertyTests4
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -462,7 +462,7 @@ public class ReviewServicePropertyTests4
 
         // Reject the already-rejected proposal again (different user)
         var result = ctx.Service.RejectProposalAsync(
-            new RejectProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new RejectProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -501,11 +501,11 @@ public class ReviewServicePropertyTests4
         var ctx = CreateFakeService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -517,7 +517,7 @@ public class ReviewServicePropertyTests4
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -545,7 +545,7 @@ public class ReviewServicePropertyTests4
 
         // Try to accept it — should fail with conflict
         var result = ctx.Service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new AcceptProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         var isError = !result.IsSuccess;
@@ -564,11 +564,11 @@ public class ReviewServicePropertyTests4
         var ctx = CreateFakeService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -580,7 +580,7 @@ public class ReviewServicePropertyTests4
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -608,7 +608,7 @@ public class ReviewServicePropertyTests4
 
         // Try to reject it — should fail with conflict
         var result = ctx.Service.RejectProposalAsync(
-            new RejectProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new RejectProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         var isError = !result.IsSuccess;
@@ -640,11 +640,11 @@ public class ReviewServicePropertyTests4
         var ctx = CreateRealService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -656,7 +656,7 @@ public class ReviewServicePropertyTests4
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -688,7 +688,7 @@ public class ReviewServicePropertyTests4
         ctx.ProposalRepo.CreateAsync(proposal).GetAwaiter().GetResult();
 
         var result = ctx.Service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new AcceptProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -713,11 +713,11 @@ public class ReviewServicePropertyTests4
         var ctx = CreateRealService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -729,7 +729,7 @@ public class ReviewServicePropertyTests4
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -762,7 +762,7 @@ public class ReviewServicePropertyTests4
         ctx.ProposalRepo.CreateAsync(proposal).GetAwaiter().GetResult();
 
         var result = ctx.Service.AcceptProposalAsync(
-            new AcceptProposalCommand(proposal.Id, campaignId, userId, CampaignRole.GM),
+            new AcceptProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -801,11 +801,11 @@ public class ReviewServicePropertyTests4
         var ctx = CreateFakeService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -823,7 +823,7 @@ public class ReviewServicePropertyTests4
             var batch = new ReviewBatch
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaignId,
+                WorldId = worldId,
                 SourceId = source.Id,
                 Status = ReviewBatchStatus.InReview,
                 // Reverse order to test sorting: batch 0 has latest timestamp
@@ -860,7 +860,7 @@ public class ReviewServicePropertyTests4
 
         // List review queue
         var result = ctx.Service.ListReviewQueueAsync(
-            new ReviewQueueQuery(campaignId, userId, CampaignRole.GM),
+            new ReviewQueueQuery(worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -918,11 +918,11 @@ public class ReviewServicePropertyTests4
         var ctx = CreateFakeService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -934,7 +934,7 @@ public class ReviewServicePropertyTests4
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -963,7 +963,7 @@ public class ReviewServicePropertyTests4
 
         // List review queue
         var result = ctx.Service.ListReviewQueueAsync(
-            new ReviewQueueQuery(campaignId, userId, CampaignRole.GM),
+            new ReviewQueueQuery(worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
@@ -985,11 +985,11 @@ public class ReviewServicePropertyTests4
         var ctx = CreateFakeService();
 
         var userId = Guid.NewGuid();
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var source = new Source
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = SourceType.SessionNote,
             Title = "Test Source",
             Body = "Content",
@@ -1001,7 +1001,7 @@ public class ReviewServicePropertyTests4
         var batch = new ReviewBatch
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             SourceId = source.Id,
             Status = ReviewBatchStatus.InReview,
             CreatedAt = source.CreatedAt.AddMinutes(5)
@@ -1030,7 +1030,7 @@ public class ReviewServicePropertyTests4
 
         // List review queue
         var result = ctx.Service.ListReviewQueueAsync(
-            new ReviewQueueQuery(campaignId, userId, CampaignRole.GM),
+            new ReviewQueueQuery(worldId, userId, WorldRole.GM),
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)

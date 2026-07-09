@@ -41,13 +41,13 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                 var (sourceVisibility, allowedScopes) = scenario;
 
                 // Arrange
-                var campaignId = Guid.NewGuid();
+                var worldId = Guid.NewGuid();
                 var creatorUserId = Guid.NewGuid();
 
                 var source = new Source
                 {
                     Id = Guid.NewGuid(),
-                    CampaignId = campaignId,
+                    WorldId = worldId,
                     Type = SourceType.SessionNote,
                     Title = "Test Session",
                     Body = "We questioned Captain Voss in Black Harbor near Iron Gate.",
@@ -58,9 +58,9 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                 };
 
                 // Create artifacts for each visibility scope
-                var privateArtifact = CreateArtifact(campaignId, "Captain Voss", VisibilityScope.Private);
-                var gmOnlyArtifact = CreateArtifact(campaignId, "Black Harbor", VisibilityScope.GMOnly);
-                var partyVisibleArtifact = CreateArtifact(campaignId, "Iron Gate", VisibilityScope.PartyVisible);
+                var privateArtifact = CreateArtifact(worldId, "Captain Voss", VisibilityScope.Private);
+                var gmOnlyArtifact = CreateArtifact(worldId, "Black Harbor", VisibilityScope.GMOnly);
+                var partyVisibleArtifact = CreateArtifact(worldId, "Iron Gate", VisibilityScope.PartyVisible);
 
                 var sourceRepo = new InMemorySourceRepository();
                 var reviewBatchRepo = new InMemoryReviewBatchRepository();
@@ -135,7 +135,7 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                 });
 
                 // Act
-                service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+                service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
                     .GetAwaiter().GetResult();
 
                 // Assert: the AI request's ExistingArtifacts only contains permitted visibility artifacts
@@ -193,13 +193,13 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                     _ => new[] { VisibilityScope.PartyVisible }
                 };
 
-                var campaignId = Guid.NewGuid();
+                var worldId = Guid.NewGuid();
 
                 // Create a source with a body that contains some artifact names
                 var source = new Source
                 {
                     Id = Guid.NewGuid(),
-                    CampaignId = campaignId,
+                    WorldId = worldId,
                     Type = SourceType.SessionNote,
                     Title = "Random Session",
                     Body = "We explored the area and found interesting things.",
@@ -213,7 +213,7 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                 var artifacts = Enumerable.Range(0, artifactCount).Select(i =>
                 {
                     var vis = (VisibilityScope)(i % 3); // Cycles through Private(0), GMOnly(1), PartyVisible(2)
-                    return CreateArtifact(campaignId, $"Artifact-{i}", vis);
+                    return CreateArtifact(worldId, $"Artifact-{i}", vis);
                 }).ToArray();
 
                 var sourceRepo = new InMemorySourceRepository();
@@ -289,7 +289,7 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                 });
 
                 // Act
-                service.ProcessExtractionAsync(source.Id, source.CampaignId, CancellationToken.None)
+                service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
                     .GetAwaiter().GetResult();
 
                 // Assert: every artifact in context has a permitted visibility
@@ -319,10 +319,10 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
             });
     }
 
-    private static Artifact CreateArtifact(Guid campaignId, string name, VisibilityScope visibility) => new()
+    private static Artifact CreateArtifact(Guid worldId, string name, VisibilityScope visibility) => new()
     {
         Id = Guid.NewGuid(),
-        CampaignId = campaignId,
+        WorldId = worldId,
         Type = ArtifactType.Character,
         Name = name,
         Summary = $"Summary of {name}",

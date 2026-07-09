@@ -12,7 +12,7 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// <summary>
 /// Property 10: Member List Ordering
 ///
-/// For any campaign with N members (N ≥ 1), listing members should return exactly N entries
+/// For any world with N members (N ≥ 1), listing members should return exactly N entries
 /// where each entry's JoinedAt is less than or equal to the next entry's JoinedAt (ascending order).
 ///
 /// **Validates: Requirements 6.1, 6.4**
@@ -23,13 +23,13 @@ public class MemberListOrderingTests
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(MemberListOrderingArbitraries)],
         MaxTest = 100)]
-    [Description("Feature: auth-and-campaigns, Property 10: Member List Ordering")]
+    [Description("Feature: auth-and-worlds, Property 10: Member List Ordering")]
     public void MemberListIsOrderedByJoinedAtAscending(MemberListOrderingInput input)
     {
         // Arrange
-        var memberRepo = new InMemoryCampaignMemberRepository();
+        var memberRepo = new InMemoryWorldMemberRepository();
         var userRepo = new InMemoryUserRepository();
-        var service = new CampaignMemberService(memberRepo, userRepo);
+        var service = new WorldMemberService(memberRepo, userRepo);
 
         // Seed all members into the repository
         foreach (var member in input.Members)
@@ -39,12 +39,12 @@ public class MemberListOrderingTests
 
         // Act — list members as the requesting user (who is one of the members)
         var result = service.ListMembersAsync(
-            input.CampaignId,
+            input.WorldId,
             input.RequestingUserId,
             CancellationToken.None).GetAwaiter().GetResult();
 
         // Assert — result is successful
-        Assert.That(result.IsSuccess, Is.True, "ListMembersAsync should succeed for a campaign member");
+        Assert.That(result.IsSuccess, Is.True, "ListMembersAsync should succeed for a world member");
 
         var members = result.Value!;
 
@@ -65,39 +65,39 @@ public class MemberListOrderingTests
 /// Input model for Member List Ordering property test.
 /// </summary>
 public record MemberListOrderingInput(
-    Guid CampaignId,
+    Guid WorldId,
     Guid RequestingUserId,
-    IReadOnlyList<CampaignMember> Members);
+    IReadOnlyList<WorldMember> Members);
 
 /// <summary>
 /// Custom FsCheck arbitraries for Member List Ordering test.
-/// Generates a campaign with N members (1–10) with random JoinedAt dates,
+/// Generates a world with N members (1–10) with random JoinedAt dates,
 /// ensuring the requesting user is one of the members.
 /// </summary>
 public class MemberListOrderingArbitraries
 {
     public static Arbitrary<MemberListOrderingInput> MemberListOrderingInputs()
     {
-        var roleGen = Gen.Elements(CampaignRole.GM, CampaignRole.Player, CampaignRole.Observer);
+        var roleGen = Gen.Elements(WorldRole.GM, WorldRole.Player, WorldRole.Observer);
 
         var inputGen =
-            from campaignId in ArbMap.Default.GeneratorFor<Guid>()
+            from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from memberCount in Gen.Choose(1, 10)
             from userIds in ArbMap.Default.GeneratorFor<Guid>().ArrayOf(memberCount)
             from roles in roleGen.ArrayOf(memberCount)
             from ticks in Gen.Choose(0, 100_000).ArrayOf(memberCount)
             let baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero)
-            let members = userIds.Select((userId, i) => new CampaignMember
+            let members = userIds.Select((userId, i) => new WorldMember
             {
                 Id = Guid.NewGuid(),
-                CampaignId = campaignId,
+                WorldId = worldId,
                 UserId = userId,
                 Role = roles[i],
                 JoinedAt = baseDate.AddMinutes(ticks[i])
             }).ToList()
             // Ensure requesting user is one of the members
             let requestingUserId = members[0].UserId
-            select new MemberListOrderingInput(campaignId, requestingUserId, members);
+            select new MemberListOrderingInput(worldId, requestingUserId, members);
 
         return inputGen.ToArbitrary();
     }

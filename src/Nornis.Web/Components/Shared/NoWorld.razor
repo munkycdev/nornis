@@ -1,0 +1,31 @@
+﻿@inject IDialogService DialogService
+@inject WorldState Worlds
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+    <MudIcon Icon="@Icons.Material.Outlined.Terrain" Size="Size.Large" Class="nornis-comingsoon-icon" />
+    <MudText Typo="Typo.h5" Class="nornis-serif">No world yet</MudText>
+    <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+        Create a world to start capturing sources and building your record.
+    </MudText>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Secondary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Class="mt-4"
+               OnClick="CreateWorld">
+        New world
+    </MudButton>
+</MudPaper>
+
+@code {
+    private async Task CreateWorld()
+    {
+        var dialog = await DialogService.ShowAsync<CreateWorldDialog>("New world");
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is WorldSummary created)
+        {
+            await Worlds.ReloadAsync();
+            Worlds.Select(created.Id);
+        }
+    }
+}

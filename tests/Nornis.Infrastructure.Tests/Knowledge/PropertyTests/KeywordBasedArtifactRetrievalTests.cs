@@ -15,7 +15,7 @@ namespace Nornis.Infrastructure.Tests.Knowledge.PropertyTests;
 
 /// <summary>
 /// Property 3: Keyword-Based Artifact Retrieval
-/// For any question text containing the exact name of an artifact in the campaign (case-insensitive),
+/// For any question text containing the exact name of an artifact in the world (case-insensitive),
 /// the knowledge retriever SHALL include that artifact in the retrieved context, provided the
 /// artifact's visibility is permitted for the requesting user's role.
 ///
@@ -43,7 +43,7 @@ public class KeywordBasedArtifactRetrievalTests
     private static readonly string[] QuestionSuffixes =
     [
         "?",
-        " in the campaign?",
+        " in the world?",
         " recently?",
         " and their connections?"
     ];
@@ -58,7 +58,7 @@ public class KeywordBasedArtifactRetrievalTests
             (from artifactName in Gen.Elements(ArtifactNames)
              from prefix in Gen.Elements(QuestionPrefixes)
              from suffix in Gen.Elements(QuestionSuffixes)
-             from role in Gen.Elements(CampaignRole.GM, CampaignRole.Player, CampaignRole.Observer)
+             from role in Gen.Elements(WorldRole.GM, WorldRole.Player, WorldRole.Observer)
              from visibility in Gen.Elements(VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private)
              select new KeywordRetrievalScenario(
                  ArtifactName: artifactName,
@@ -71,7 +71,7 @@ public class KeywordBasedArtifactRetrievalTests
     public record KeywordRetrievalScenario(
         string ArtifactName,
         string Question,
-        CampaignRole Role,
+        WorldRole Role,
         VisibilityScope ArtifactVisibility);
 
     [Property(MaxTest = 100, Arbitrary = new[] { typeof(KeywordRetrievalArbitraries) })]
@@ -79,13 +79,13 @@ public class KeywordBasedArtifactRetrievalTests
         KeywordRetrievalScenario scenario)
     {
         // Arrange
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var userId = Guid.NewGuid();
 
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Character,
             Name = scenario.ArtifactName,
             Summary = $"A test artifact named {scenario.ArtifactName}",
@@ -119,7 +119,7 @@ public class KeywordBasedArtifactRetrievalTests
 
         // Act
         var context = await retriever.RetrieveAsync(
-            scenario.Question, campaignId, userId, scenario.Role, CancellationToken.None);
+            scenario.Question, worldId, userId, scenario.Role, CancellationToken.None);
 
         // Assert
         if (shouldBeVisible)
@@ -139,7 +139,7 @@ public class KeywordBasedArtifactRetrievalTests
         KeywordRetrievalScenario scenario)
     {
         // Arrange: create an artifact whose name is NOT in the question
-        var campaignId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
         var userId = Guid.NewGuid();
 
         // Use a name that won't appear in the generated question
@@ -147,7 +147,7 @@ public class KeywordBasedArtifactRetrievalTests
         var unrelatedArtifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Item,
             Name = unrelatedName,
             Summary = "An unrelated artifact",
@@ -163,7 +163,7 @@ public class KeywordBasedArtifactRetrievalTests
         var namedArtifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId,
+            WorldId = worldId,
             Type = ArtifactType.Character,
             Name = scenario.ArtifactName,
             Summary = $"A test artifact named {scenario.ArtifactName}",
@@ -197,7 +197,7 @@ public class KeywordBasedArtifactRetrievalTests
         // The key property: the question text does NOT contain "Zephyr Blade of the Ancients",
         // so if it does appear, it's only via the "recent" path, not name-matching.
         var context = await retriever.RetrieveAsync(
-            scenario.Question, campaignId, userId, scenario.Role, CancellationToken.None);
+            scenario.Question, worldId, userId, scenario.Role, CancellationToken.None);
 
         // The named artifact should appear (if visible), while the unrelated artifact
         // may or may not appear (via recent retrieval). The key assertion is that

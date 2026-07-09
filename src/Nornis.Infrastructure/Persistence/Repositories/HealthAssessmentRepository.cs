@@ -28,22 +28,22 @@ public class HealthAssessmentRepository : IHealthAssessmentRepository
     }
 
     public async Task<HealthAssessment?> GetLatestWithFindingsAsync(
-        Guid campaignId, CancellationToken cancellationToken = default)
+        Guid worldId, CancellationToken cancellationToken = default)
     {
         return await _context.HealthAssessments
             .AsNoTracking()
-            .Where(a => a.CampaignId == campaignId)
+            .Where(a => a.WorldId == worldId)
             .OrderByDescending(a => a.CreatedAt)
             .Include(a => a.Findings)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<DateTimeOffset?> GetLatestCreatedAtAsync(
-        Guid campaignId, CancellationToken cancellationToken = default)
+        Guid worldId, CancellationToken cancellationToken = default)
     {
         var latest = await _context.HealthAssessments
             .AsNoTracking()
-            .Where(a => a.CampaignId == campaignId)
+            .Where(a => a.WorldId == worldId)
             .OrderByDescending(a => a.CreatedAt)
             .Select(a => (DateTimeOffset?)a.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);

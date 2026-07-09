@@ -6,7 +6,7 @@ public class Artifact
 {
     public Guid Id { get; set; }
 
-    public Guid CampaignId { get; set; }
+    public Guid WorldId { get; set; }
 
     public ArtifactType Type { get; set; }
 
@@ -27,7 +27,7 @@ public class Artifact
     public byte[] RowVersion { get; set; } = [];
 
     // Navigation properties
-    public Campaign Campaign { get; set; } = null!;
+    public World World { get; set; } = null!;
 
     public ICollection<ArtifactFact> ArtifactFacts { get; set; } = [];
 }

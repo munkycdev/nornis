@@ -15,9 +15,9 @@ public class CanonServiceTests
     private InMemoryArtifactRelationshipRepository _relationshipRepo = null!;
     private CanonService _service = null!;
 
-    // Campaign: "Black Harbor Investigation"
-    private Guid _campaignId;
-    private Guid _otherCampaignId;
+    // World: "Black Harbor Investigation"
+    private Guid _worldId;
+    private Guid _otherWorldId;
 
     private Guid _keldaUserId;   // GM
     private Guid _tavrinUserId;  // Player
@@ -31,8 +31,8 @@ public class CanonServiceTests
 
         _service = new CanonService(_artifactRepo, _factRepo, _relationshipRepo);
 
-        _campaignId = Guid.NewGuid();
-        _otherCampaignId = Guid.NewGuid();
+        _worldId = Guid.NewGuid();
+        _otherWorldId = Guid.NewGuid();
         _keldaUserId = Guid.NewGuid();
         _tavrinUserId = Guid.NewGuid();
     }
@@ -48,7 +48,7 @@ public class CanonServiceTests
         _factRepo.Seed(MakeFact(voss.Id, "denied", "knowing about the caravan", VisibilityScope.PartyVisible, TruthState.Rumor));
         _relationshipRepo.Seed(MakeRelationship(voss.Id, harbor.Id, "LocatedIn", VisibilityScope.PartyVisible, TruthState.Confirmed));
 
-        var result = await _service.GetCanonAsync(Query(_keldaUserId, CampaignRole.GM), CancellationToken.None);
+        var result = await _service.GetCanonAsync(Query(_keldaUserId, WorldRole.GM), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value!, Has.Count.EqualTo(2));
@@ -76,31 +76,31 @@ public class CanonServiceTests
         newer.UpdatedAt = DateTimeOffset.UtcNow;
         _factRepo.Seed(older, newer);
 
-        var result = await _service.GetCanonAsync(Query(_keldaUserId, CampaignRole.GM), CancellationToken.None);
+        var result = await _service.GetCanonAsync(Query(_keldaUserId, WorldRole.GM), CancellationToken.None);
 
         Assert.That(result.Value!.Select(e => e.Label), Is.EqualTo(new[] { "new", "old" }));
     }
 
     [Test]
-    public async Task GetCanonAsync_EmptyCampaign_ReturnsEmpty()
+    public async Task GetCanonAsync_EmptyWorld_ReturnsEmpty()
     {
-        var result = await _service.GetCanonAsync(Query(_keldaUserId, CampaignRole.GM), CancellationToken.None);
+        var result = await _service.GetCanonAsync(Query(_keldaUserId, WorldRole.GM), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value!, Is.Empty);
     }
 
     [Test]
-    public async Task GetCanonAsync_ExcludesOtherCampaigns()
+    public async Task GetCanonAsync_ExcludesOtherWorlds()
     {
         var voss = MakeArtifact("Captain Voss", VisibilityScope.PartyVisible);
-        var foreign = MakeArtifact("Foreign", VisibilityScope.PartyVisible, campaignId: _otherCampaignId);
+        var foreign = MakeArtifact("Foreign", VisibilityScope.PartyVisible, worldId: _otherWorldId);
         _artifactRepo.Seed(voss, foreign);
         _factRepo.Seed(
             MakeFact(voss.Id, "here", "value", VisibilityScope.PartyVisible, TruthState.Confirmed),
             MakeFact(foreign.Id, "elsewhere", "value", VisibilityScope.PartyVisible, TruthState.Confirmed));
 
-        var result = await _service.GetCanonAsync(Query(_keldaUserId, CampaignRole.GM), CancellationToken.None);
+        var result = await _service.GetCanonAsync(Query(_keldaUserId, WorldRole.GM), CancellationToken.None);
 
         Assert.That(result.Value!, Has.Count.EqualTo(1));
         Assert.That(result.Value![0].Label, Is.EqualTo("here"));
@@ -119,7 +119,7 @@ public class CanonServiceTests
             MakeFact(voss.Id, "public", "in Black Harbor", VisibilityScope.PartyVisible, TruthState.Confirmed),
             MakeFact(voss.Id, "secret", "is a smuggler", VisibilityScope.GMOnly, TruthState.Confirmed));
 
-        var result = await _service.GetCanonAsync(Query(_tavrinUserId, CampaignRole.Player), CancellationToken.None);
+        var result = await _service.GetCanonAsync(Query(_tavrinUserId, WorldRole.Player), CancellationToken.None);
 
         Assert.That(result.Value!, Has.Count.EqualTo(1));
         Assert.That(result.Value![0].Label, Is.EqualTo("public"));
@@ -134,7 +134,7 @@ public class CanonServiceTests
             MakeFact(voss.Id, "public", "value", VisibilityScope.PartyVisible, TruthState.Confirmed),
             MakeFact(voss.Id, "private", "value", VisibilityScope.Private, TruthState.Confirmed));
 
-        var result = await _service.GetCanonAsync(Query(_tavrinUserId, CampaignRole.Observer), CancellationToken.None);
+        var result = await _service.GetCanonAsync(Query(_tavrinUserId, WorldRole.Observer), CancellationToken.None);
 
         Assert.That(result.Value!, Has.Count.EqualTo(1));
         Assert.That(result.Value![0].Label, Is.EqualTo("public"));
@@ -150,7 +150,7 @@ public class CanonServiceTests
 
         // The relationship itself is party-visible, but revealing it would expose the GMOnly
         // counterpart, so it must be dropped for the Player.
-        var result = await _service.GetCanonAsync(Query(_tavrinUserId, CampaignRole.Player), CancellationToken.None);
+        var result = await _service.GetCanonAsync(Query(_tavrinUserId, WorldRole.Player), CancellationToken.None);
 
         Assert.That(result.Value!, Is.Empty);
     }
@@ -167,7 +167,7 @@ public class CanonServiceTests
         // Deliberately party-visible scope but Hidden truth state — must still be GM-only.
         _factRepo.Seed(MakeFact(voss.Id, "truth", "is the traitor", VisibilityScope.PartyVisible, TruthState.Hidden));
 
-        var result = await _service.GetCanonAsync(Query(_tavrinUserId, CampaignRole.Player), CancellationToken.None);
+        var result = await _service.GetCanonAsync(Query(_tavrinUserId, WorldRole.Player), CancellationToken.None);
 
         Assert.That(result.Value!, Is.Empty);
     }
@@ -179,7 +179,7 @@ public class CanonServiceTests
         _artifactRepo.Seed(voss);
         _factRepo.Seed(MakeFact(voss.Id, "truth", "is the traitor", VisibilityScope.GMOnly, TruthState.Hidden));
 
-        var result = await _service.GetCanonAsync(Query(_keldaUserId, CampaignRole.GM), CancellationToken.None);
+        var result = await _service.GetCanonAsync(Query(_keldaUserId, WorldRole.GM), CancellationToken.None);
 
         Assert.That(result.Value!, Has.Count.EqualTo(1));
         Assert.That(result.Value![0].TruthState, Is.EqualTo(TruthState.Hidden));
@@ -199,7 +199,7 @@ public class CanonServiceTests
             MakeFact(voss.Id, "rumor", "value", VisibilityScope.PartyVisible, TruthState.Rumor),
             MakeFact(voss.Id, "disputed", "value", VisibilityScope.PartyVisible, TruthState.Disputed));
 
-        var query = Query(_keldaUserId, CampaignRole.GM) with { TruthState = TruthState.Rumor };
+        var query = Query(_keldaUserId, WorldRole.GM) with { TruthState = TruthState.Rumor };
 
         var result = await _service.GetCanonAsync(query, CancellationToken.None);
 
@@ -211,16 +211,16 @@ public class CanonServiceTests
 
     #region Helpers
 
-    private CanonQuery Query(Guid userId, CampaignRole role) =>
-        new(_campaignId, userId, role);
+    private CanonQuery Query(Guid userId, WorldRole role) =>
+        new(_worldId, userId, role);
 
-    private Artifact MakeArtifact(string name, VisibilityScope visibility, Guid? campaignId = null)
+    private Artifact MakeArtifact(string name, VisibilityScope visibility, Guid? worldId = null)
     {
         var now = DateTimeOffset.UtcNow;
         return new Artifact
         {
             Id = Guid.NewGuid(),
-            CampaignId = campaignId ?? _campaignId,
+            WorldId = worldId ?? _worldId,
             Type = ArtifactType.Character,
             Name = name,
             Visibility = visibility,
@@ -254,7 +254,7 @@ public class CanonServiceTests
         return new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
-            CampaignId = _campaignId,
+            WorldId = _worldId,
             ArtifactAId = aId,
             ArtifactBId = bId,
             Type = type,

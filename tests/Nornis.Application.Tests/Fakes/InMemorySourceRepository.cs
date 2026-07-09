@@ -34,9 +34,9 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.FromResult(source);
     }
 
-    public Task<IReadOnlyList<Source>> ListByCampaignAsync(Guid campaignId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default)
     {
-        var query = _sources.Where(s => s.CampaignId == campaignId);
+        var query = _sources.Where(s => s.WorldId == worldId);
 
         if (visibility is not null)
         {

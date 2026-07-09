@@ -1,6 +1,6 @@
 ﻿@page "/sources/{SourceId:guid}"
 @implements IDisposable
-@inject CampaignState Campaigns
+@inject WorldState Worlds
 @inject NornisApiClient Api
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
@@ -13,9 +13,9 @@
         Sources
     </MudButton>
 
-    @if (Campaigns.Current is null)
+    @if (Worlds.Current is null)
     {
-        <NoCampaign />
+        <NoWorld />
     }
     else if (_loading)
     {
@@ -190,13 +190,13 @@
     // Deletes are rejected server-side while Queued/Processing.
     private bool CanDelete => _source is not null && _source.ProcessingStatus is not ("Queued" or "Processing");
 
-    protected override void OnInitialized() => Campaigns.Changed += OnCampaignChanged;
+    protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
 
     protected override async Task OnParametersSetAsync()
     {
         if (SourceId != _loadedId)
         {
-            await Campaigns.EnsureLoadedAsync();
+            await Worlds.EnsureLoadedAsync();
             await LoadAsync();
             _ = PollWhileProcessingAsync();
         }
@@ -219,10 +219,10 @@
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(4));
             while (await timer.WaitForNextTickAsync(_pollCts.Token))
             {
-                if (Campaigns.Current is null || _source is null || !ActiveStatuses.Contains(_source.ProcessingStatus))
+                if (Worlds.Current is null || _source is null || !ActiveStatuses.Contains(_source.ProcessingStatus))
                     continue;
 
-                var result = await Api.GetSourceAsync(Campaigns.Current.Id, SourceId, _pollCts.Token);
+                var result = await Api.GetSourceAsync(Worlds.Current.Id, SourceId, _pollCts.Token);
                 if (result.IsSuccess)
                 {
                     _source = result.Value!;
@@ -240,11 +240,11 @@
         }
     }
 
-    private void OnCampaignChanged() => InvokeAsync(LoadAsync);
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
 
     private async Task LoadAsync()
     {
-        if (Campaigns.Current is null)
+        if (Worlds.Current is null)
         {
             _source = null;
             StateHasChanged();
@@ -257,7 +257,7 @@
         _loadedId = SourceId;
         StateHasChanged();
 
-        var result = await Api.GetSourceAsync(Campaigns.Current.Id, SourceId);
+        var result = await Api.GetSourceAsync(Worlds.Current.Id, SourceId);
 
         _loading = false;
         if (result.IsSuccess)
@@ -279,13 +279,13 @@
 
     private async Task ProcessAsync()
     {
-        if (Campaigns.Current is null || _source is null)
+        if (Worlds.Current is null || _source is null)
         {
             return;
         }
 
         _processing = true;
-        var result = await Api.MarkSourceReadyAsync(Campaigns.Current.Id, _source.Id);
+        var result = await Api.MarkSourceReadyAsync(Worlds.Current.Id, _source.Id);
         _processing = false;
 
         if (result.IsSuccess)
@@ -325,7 +325,7 @@
 
     private async Task SaveEditAsync()
     {
-        if (Campaigns.Current is null || _source is null)
+        if (Worlds.Current is null || _source is null)
         {
             return;
         }
@@ -347,7 +347,7 @@
             Type: _editType,
             Visibility: _editVisibility);
 
-        var result = await Api.UpdateSourceAsync(Campaigns.Current.Id, _source.Id, request);
+        var result = await Api.UpdateSourceAsync(Worlds.Current.Id, _source.Id, request);
 
         _saving = false;
         if (result.IsSuccess)
@@ -365,7 +365,7 @@
 
     private async Task DeleteAsync()
     {
-        if (Campaigns.Current is null || _source is null)
+        if (Worlds.Current is null || _source is null)
         {
             return;
         }
@@ -380,7 +380,7 @@
         }
 
         _deleting = true;
-        var result = await Api.DeleteSourceAsync(Campaigns.Current.Id, _source.Id);
+        var result = await Api.DeleteSourceAsync(Worlds.Current.Id, _source.Id);
         _deleting = false;
 
         if (result.IsSuccess)
@@ -411,6 +411,6 @@
     {
         _pollCts.Cancel();
         _pollCts.Dispose();
-        Campaigns.Changed -= OnCampaignChanged;
+        Worlds.Changed -= OnWorldChanged;
     }
 }
