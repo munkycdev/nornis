@@ -59,6 +59,19 @@ else
                        Variant="Variant.Outlined"
                        Class="mb-3" />
 
+        @if (_campaigns.Count > 0)
+        {
+            <MudSelect T="Guid?" @bind-Value="_campaignId" Label="Campaign (optional)"
+                       Variant="Variant.Outlined" Class="mb-3"
+                       HelperText="Which campaign these events happened in. Leave empty for world lore or prep.">
+                <MudSelectItem T="Guid?" Value="@((Guid?)null)">No campaign</MudSelectItem>
+                @foreach (var c in _campaigns)
+                {
+                    <MudSelectItem T="Guid?" Value="@((Guid?)c.Id)">@c.Name</MudSelectItem>
+                }
+            </MudSelect>
+        }
+
         @if (_error is not null)
         {
             <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_error</MudAlert>
@@ -101,6 +114,8 @@ else
     private string? _body;
     private string? _uri;
     private DateTime? _occurredAt;
+    private Guid? _campaignId;
+    private IReadOnlyList<CampaignDto> _campaigns = [];
     private bool _busy;
     private string? _error;
 
@@ -111,6 +126,21 @@ else
             _type = Type;
         }
         await Worlds.EnsureLoadedAsync();
+
+        if (Worlds.Current is not null)
+        {
+            var campaigns = await Api.GetCampaignsAsync(Worlds.Current.Id);
+            if (campaigns.IsSuccess)
+            {
+                _campaigns = campaigns.Value!;
+                // Preselect when exactly one campaign is active — the common case.
+                var active = _campaigns.Where(c => c.Status == "Active").ToList();
+                if (active.Count == 1)
+                {
+                    _campaignId = active[0].Id;
+                }
+            }
+        }
     }
 
     private async Task SaveAsync(bool process)
@@ -135,7 +165,8 @@ else
             _visibility,
             string.IsNullOrWhiteSpace(_body) ? null : _body,
             string.IsNullOrWhiteSpace(_uri) ? null : _uri,
-            _occurredAt.HasValue ? new DateTimeOffset(_occurredAt.Value, TimeSpan.Zero) : null);
+            _occurredAt.HasValue ? new DateTimeOffset(_occurredAt.Value, TimeSpan.Zero) : null,
+            _campaignId);
 
         var created = await Api.CreateSourceAsync(Worlds.Current.Id, request);
 

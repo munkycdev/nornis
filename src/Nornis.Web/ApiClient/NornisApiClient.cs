@@ -71,10 +71,46 @@ public class NornisApiClient
     public Task<ApiResult<bool>> RemoveMemberAsync(Guid worldId, Guid userId, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}/members/{userId}", ct);
 
+    // ------------------------------------------------------------------ Campaigns --
+
+    public Task<ApiResult<IReadOnlyList<CampaignDto>>> GetCampaignsAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<CampaignDto>>($"/api/worlds/{worldId}/campaigns", ct);
+
+    public Task<ApiResult<CampaignDto>> CreateCampaignAsync(Guid worldId, CreateCampaignRequest request, CancellationToken ct = default) =>
+        PostAsync<CreateCampaignRequest, CampaignDto>($"/api/worlds/{worldId}/campaigns", request, ct);
+
+    public Task<ApiResult<CampaignDto>> UpdateCampaignAsync(Guid worldId, Guid campaignId, UpdateCampaignRequest request, CancellationToken ct = default) =>
+        PutAsync<UpdateCampaignRequest, CampaignDto>($"/api/worlds/{worldId}/campaigns/{campaignId}", request, ct);
+
+    public Task<ApiResult<bool>> DeleteCampaignAsync(Guid worldId, Guid campaignId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/campaigns/{campaignId}", ct);
+
+    /// <summary>Replaces the full set of characters assigned to a campaign.</summary>
+    public Task<ApiResult<IReadOnlyList<CharacterDto>>> AssignCampaignCharactersAsync(
+        Guid worldId, Guid campaignId, IReadOnlyCollection<Guid> characterIds, CancellationToken ct = default) =>
+        PutAsync<AssignCampaignCharactersRequest, IReadOnlyList<CharacterDto>>(
+            $"/api/worlds/{worldId}/campaigns/{campaignId}/characters",
+            new AssignCampaignCharactersRequest(characterIds), ct);
+
+    // ----------------------------------------------------------------- Characters --
+
+    public Task<ApiResult<IReadOnlyList<CharacterDto>>> GetCharactersAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<CharacterDto>>($"/api/worlds/{worldId}/characters", ct);
+
+    public Task<ApiResult<CharacterDto>> CreateCharacterAsync(Guid worldId, CreateCharacterRequest request, CancellationToken ct = default) =>
+        PostAsync<CreateCharacterRequest, CharacterDto>($"/api/worlds/{worldId}/characters", request, ct);
+
+    public Task<ApiResult<CharacterDto>> UpdateCharacterAsync(Guid worldId, Guid characterId, UpdateCharacterRequest request, CancellationToken ct = default) =>
+        PutAsync<UpdateCharacterRequest, CharacterDto>($"/api/worlds/{worldId}/characters/{characterId}", request, ct);
+
+    public Task<ApiResult<bool>> DeleteCharacterAsync(Guid worldId, Guid characterId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/characters/{characterId}", ct);
+
     // -------------------------------------------------------------------- Sources --
 
-    public Task<ApiResult<IReadOnlyList<SourceListItem>>> GetSourcesAsync(Guid worldId, CancellationToken ct = default) =>
-        GetAsync<IReadOnlyList<SourceListItem>>($"/api/worlds/{worldId}/sources", ct);
+    /// <param name="campaignFilter">A campaign id, the literal "none" for unassigned sources, or null for all.</param>
+    public Task<ApiResult<IReadOnlyList<SourceListItem>>> GetSourcesAsync(Guid worldId, string? campaignFilter = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<SourceListItem>>($"/api/worlds/{worldId}/sources{Query(("campaignId", campaignFilter))}", ct);
 
     public Task<ApiResult<SourceDetailDto>> GetSourceAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         GetAsync<SourceDetailDto>($"/api/worlds/{worldId}/sources/{sourceId}", ct);

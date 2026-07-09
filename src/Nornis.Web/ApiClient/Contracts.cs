@@ -45,7 +45,9 @@ public record SourceListItem(
     DateTimeOffset CreatedAt,
     Guid CreatedByUserId,
     string Visibility,
-    string ProcessingStatus);
+    string ProcessingStatus,
+    Guid? CampaignId = null,
+    string? CampaignName = null);
 
 public record SourceDetailDto(
     Guid Id,
@@ -58,7 +60,9 @@ public record SourceDetailDto(
     DateTimeOffset CreatedAt,
     Guid CreatedByUserId,
     string Visibility,
-    string ProcessingStatus);
+    string ProcessingStatus,
+    Guid? CampaignId = null,
+    string? CampaignName = null);
 
 public record CreateSourceRequest(
     string Title,
@@ -66,7 +70,8 @@ public record CreateSourceRequest(
     string Visibility,
     string? Body,
     string? Uri,
-    DateTimeOffset? OccurredAt);
+    DateTimeOffset? OccurredAt,
+    Guid? CampaignId = null);
 
 // Mirrors Nornis.Api UpdateSourceRequest: every field is optional and only non-null
 // fields are applied server-side (partial update).
@@ -76,7 +81,57 @@ public record UpdateSourceRequest(
     string? Uri = null,
     DateTimeOffset? OccurredAt = null,
     string? Type = null,
-    string? Visibility = null);
+    string? Visibility = null,
+    Guid? CampaignId = null,
+    bool ClearCampaign = false);
+
+public record CampaignDto(
+    Guid Id,
+    Guid WorldId,
+    string Name,
+    string? Description,
+    string Status,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? EndedAt,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    Guid CreatedByUserId);
+
+public record CreateCampaignRequest(
+    string Name,
+    string? Description = null,
+    string? Status = null,
+    DateTimeOffset? StartedAt = null,
+    DateTimeOffset? EndedAt = null);
+
+public record UpdateCampaignRequest(
+    string? Name = null,
+    string? Description = null,
+    string? Status = null,
+    DateTimeOffset? StartedAt = null,
+    DateTimeOffset? EndedAt = null);
+
+public record CharacterDto(
+    Guid Id,
+    Guid WorldId,
+    Guid WorldMemberId,
+    string Name,
+    string? Description,
+    IReadOnlyList<Guid> CampaignIds,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
+public record CreateCharacterRequest(
+    string Name,
+    string? Description = null,
+    Guid? WorldMemberId = null);
+
+public record UpdateCharacterRequest(
+    string? Name = null,
+    string? Description = null);
+
+public record AssignCampaignCharactersRequest(
+    IReadOnlyCollection<Guid> CharacterIds);
 
 public record ArtifactListItem(
     Guid Id,

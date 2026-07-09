@@ -45,6 +45,10 @@
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@Humanize(_source.Type)</MudChip>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_source.ProcessingStatus)">@_source.ProcessingStatus</MudChip>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@_source.Visibility</MudChip>
+                    @if (_source.CampaignName is not null)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary">@_source.CampaignName</MudChip>
+                    }
                 </div>
             </div>
             @if (!_editing)
@@ -106,6 +110,18 @@
                 <MudDatePicker @bind-Date="_editOccurredAt" Label="When it happened (optional)"
                                Variant="Variant.Outlined" Class="mb-3" />
 
+                @if (_campaigns.Count > 0)
+                {
+                    <MudSelect T="Guid?" @bind-Value="_editCampaignId" Label="Campaign (optional)"
+                               Variant="Variant.Outlined" Class="mb-3">
+                        <MudSelectItem T="Guid?" Value="@((Guid?)null)">No campaign</MudSelectItem>
+                        @foreach (var c in _campaigns)
+                        {
+                            <MudSelectItem T="Guid?" Value="@((Guid?)c.Id)">@c.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                }
+
                 @if (_editError is not null)
                 {
                     <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_editError</MudAlert>
@@ -133,6 +149,13 @@
                     <div class="nornis-kv">
                         <span class="nornis-kv-key">Occurred</span>
                         <span class="nornis-kv-value">@_source.OccurredAt.Value.LocalDateTime.ToString("d MMM yyyy")</span>
+                    </div>
+                }
+                @if (_source.CampaignName is not null)
+                {
+                    <div class="nornis-kv">
+                        <span class="nornis-kv-key">Campaign</span>
+                        <span class="nornis-kv-value">@_source.CampaignName</span>
                     </div>
                 }
                 @if (!string.IsNullOrWhiteSpace(_source.Uri))
@@ -183,6 +206,8 @@
     private string? _editBody;
     private string? _editUri;
     private DateTime? _editOccurredAt;
+    private Guid? _editCampaignId;
+    private IReadOnlyList<CampaignDto> _campaigns = [];
 
     // Edits are rejected server-side once the source is Queued/Processing/Processed.
     private bool CanEdit => _source?.ProcessingStatus is "Draft" or "Ready" or "Failed";
@@ -257,6 +282,9 @@
         _loadedId = SourceId;
         StateHasChanged();
 
+        var campaignsResult = await Api.GetCampaignsAsync(Worlds.Current.Id);
+        _campaigns = campaignsResult.IsSuccess ? campaignsResult.Value! : [];
+
         var result = await Api.GetSourceAsync(Worlds.Current.Id, SourceId);
 
         _loading = false;
@@ -313,6 +341,7 @@
         _editBody = _source.Body;
         _editUri = _source.Uri;
         _editOccurredAt = _source.OccurredAt?.LocalDateTime;
+        _editCampaignId = _source.CampaignId;
         _editError = null;
         _editing = true;
     }
@@ -345,7 +374,9 @@
             Uri: string.IsNullOrWhiteSpace(_editUri) ? null : _editUri,
             OccurredAt: _editOccurredAt.HasValue ? new DateTimeOffset(_editOccurredAt.Value, TimeSpan.Zero) : null,
             Type: _editType,
-            Visibility: _editVisibility);
+            Visibility: _editVisibility,
+            CampaignId: _editCampaignId,
+            ClearCampaign: _editCampaignId is null && _source.CampaignId is not null);
 
         var result = await Api.UpdateSourceAsync(Worlds.Current.Id, _source.Id, request);
 

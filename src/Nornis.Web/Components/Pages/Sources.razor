@@ -10,13 +10,27 @@
         <MudText Typo="Typo.h4" Class="nornis-serif">Sources</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">The layers beneath your epic.</MudText>
     </div>
-    <MudButton Variant="Variant.Filled"
-               Color="Color.Secondary"
-               StartIcon="@Icons.Material.Filled.Add"
-               Href="/capture"
-               Disabled="@(Worlds.Current is null)">
-        Capture source
-    </MudButton>
+    <div class="d-flex gap-3 align-center">
+        @if (_campaigns.Count > 0)
+        {
+            <MudSelect T="string" Value="_campaignFilter" ValueChanged="OnCampaignFilterChanged"
+                       Dense="true" Variant="Variant.Outlined" Label="Campaign" Class="nornis-role-select">
+                <MudSelectItem T="string" Value="@("")">All campaigns</MudSelectItem>
+                <MudSelectItem T="string" Value="@("none")">No campaign</MudSelectItem>
+                @foreach (var c in _campaigns)
+                {
+                    <MudSelectItem T="string" Value="@c.Id.ToString()">@c.Name</MudSelectItem>
+                }
+            </MudSelect>
+        }
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Secondary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   Href="/capture"
+                   Disabled="@(Worlds.Current is null)">
+            Capture source
+        </MudButton>
+    </div>
 </div>
 
 @if (Worlds.Current is null)
@@ -58,6 +72,10 @@ else
                     <div class="nornis-list-title">@source.Title</div>
                     <div class="nornis-list-sub">@Humanize(source.Type) · @source.CreatedAt.LocalDateTime.ToString("d MMM yyyy")</div>
                 </div>
+                @if (source.CampaignName is not null)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary">@source.CampaignName</MudChip>
+                }
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@source.Visibility</MudChip>
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(source.ProcessingStatus)">
                     @source.ProcessingStatus
@@ -71,6 +89,8 @@ else
     private bool _loading;
     private string? _error;
     private IReadOnlyList<SourceListItem> _sources = [];
+    private IReadOnlyList<CampaignDto> _campaigns = [];
+    private string _campaignFilter = string.Empty;
 
     // Extraction runs out-of-process; poll while any source is mid-pipeline so the
     // list moves Queued -> Processing -> Processed without a manual refresh.
@@ -81,11 +101,35 @@ else
     {
         Worlds.Changed += OnWorldChanged;
         await Worlds.EnsureLoadedAsync();
+        await LoadCampaignsAsync();
         await LoadSourcesAsync();
         _ = PollWhileProcessingAsync();
     }
 
-    private void OnWorldChanged() => InvokeAsync(LoadSourcesAsync);
+    private void OnWorldChanged() => InvokeAsync(async () =>
+    {
+        _campaignFilter = string.Empty;
+        await LoadCampaignsAsync();
+        await LoadSourcesAsync();
+    });
+
+    private async Task LoadCampaignsAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            _campaigns = [];
+            return;
+        }
+
+        var result = await Api.GetCampaignsAsync(Worlds.Current.Id);
+        _campaigns = result.IsSuccess ? result.Value! : [];
+    }
+
+    private async Task OnCampaignFilterChanged(string value)
+    {
+        _campaignFilter = value;
+        await LoadSourcesAsync();
+    }
 
     private async Task PollWhileProcessingAsync()
     {
@@ -98,7 +142,7 @@ else
                     continue;
 
                 // Quiet refresh: no loading state, just swap the data in place.
-                var result = await Api.GetSourcesAsync(Worlds.Current.Id, _pollCts.Token);
+                var result = await Api.GetSourcesAsync(Worlds.Current.Id, CampaignFilterOrNull, _pollCts.Token);
                 if (result.IsSuccess)
                 {
                     _sources = result.Value!;
@@ -126,7 +170,7 @@ else
         _error = null;
         StateHasChanged();
 
-        var result = await Api.GetSourcesAsync(Worlds.Current.Id);
+        var result = await Api.GetSourcesAsync(Worlds.Current.Id, CampaignFilterOrNull);
 
         _loading = false;
         if (result.IsSuccess)
@@ -140,6 +184,8 @@ else
         }
         StateHasChanged();
     }
+
+    private string? CampaignFilterOrNull => string.IsNullOrEmpty(_campaignFilter) ? null : _campaignFilter;
 
     private static Color StatusColor(string status) => status switch
     {
