@@ -232,6 +232,24 @@ else
     private List<Guid> PendingIds() =>
         _proposals.Where(p => p.Status == "Pending").Select(p => p.Id).ToList();
 
+    /// <summary>
+    /// Batch order matters: the server processes ids sequentially in request order, and facts or
+    /// relationships may reference artifacts created in the same batch by name — those creates
+    /// must be applied first or the references fail to resolve.
+    /// </summary>
+    private List<Guid> PendingIdsInDependencyOrder() =>
+        _proposals
+            .Where(p => p.Status == "Pending")
+            .OrderBy(p => p.ChangeType switch
+            {
+                "CreateArtifact" => 0,
+                "MergeArtifact" => 1,
+                "UpdateArtifact" => 2,
+                _ => 3,
+            })
+            .Select(p => p.Id)
+            .ToList();
+
     private Task AcceptAllAsync() => RunBatchAsync(accept: true);
 
     private async Task RejectAllAsync()
@@ -251,7 +269,7 @@ else
 
     private async Task RunBatchAsync(bool accept)
     {
-        var ids = PendingIds();
+        var ids = accept ? PendingIdsInDependencyOrder() : PendingIds();
         if (ids.Count == 0 || Campaigns.Current is null)
         {
             return;
