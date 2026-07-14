@@ -136,6 +136,10 @@
                             {
                                 <span class="nornis-list-sub">@s.Notes</span>
                             }
+                            @if (s.SourceTitle is not null)
+                            {
+                                <a href="@($"/sources/{s.SourceId}")" class="nornis-link nornis-list-sub">@s.SourceTitle</a>
+                            }
                         </div>
                     </div>
                 }

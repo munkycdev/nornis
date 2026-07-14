@@ -7,4 +7,5 @@ public record SourceReferenceResponse(
     Guid TargetId,
     string? Quote,
     string? Notes,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? SourceTitle = null);

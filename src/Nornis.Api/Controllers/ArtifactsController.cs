@@ -120,7 +120,7 @@ public class ArtifactsController : ControllerBase
             Facts: detail.Facts.Select(ToFactResponse).ToList(),
             Relationships: detail.Relationships.Select(ToRelationshipResponse).ToList(),
             ConnectedArtifacts: detail.ConnectedArtifacts.Select(ToConnectedResponse).ToList(),
-            SourceReferences: detail.SourceReferences.Select(ToSourceReferenceResponse).ToList());
+            SourceReferences: detail.SourceReferences.Select(r => ToSourceReferenceResponse(r, detail.SourceTitles)).ToList());
     }
 
     private static ArtifactFactResponse ToFactResponse(ArtifactFact fact)
@@ -158,7 +158,8 @@ public class ArtifactsController : ControllerBase
             Type: artifact.Type.ToString());
     }
 
-    private static SourceReferenceResponse ToSourceReferenceResponse(SourceReference reference)
+    private static SourceReferenceResponse ToSourceReferenceResponse(
+        SourceReference reference, IReadOnlyDictionary<Guid, string>? sourceTitles = null)
     {
         return new SourceReferenceResponse(
             Id: reference.Id,
@@ -167,7 +168,8 @@ public class ArtifactsController : ControllerBase
             TargetId: reference.TargetId,
             Quote: reference.Quote,
             Notes: reference.Notes,
-            CreatedAt: reference.CreatedAt);
+            CreatedAt: reference.CreatedAt,
+            SourceTitle: sourceTitles?.GetValueOrDefault(reference.SourceId));
     }
 
     private IActionResult MapError(AppError error)

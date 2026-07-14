@@ -178,7 +178,8 @@ public record SourceReferenceDto(
     Guid TargetId,
     string? Quote,
     string? Notes,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? SourceTitle = null);
 
 public record ArtifactDetailDto(
     Guid Id,

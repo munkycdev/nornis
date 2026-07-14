@@ -12,18 +12,29 @@ public class ArtifactService : IArtifactService
     private readonly IArtifactFactRepository _factRepository;
     private readonly IArtifactRelationshipRepository _relationshipRepository;
     private readonly ISourceReferenceRepository _sourceReferenceRepository;
+    private readonly ISourceRepository _sourceRepository;
 
     public ArtifactService(
         IArtifactRepository artifactRepository,
         IArtifactFactRepository factRepository,
         IArtifactRelationshipRepository relationshipRepository,
-        ISourceReferenceRepository sourceReferenceRepository)
+        ISourceReferenceRepository sourceReferenceRepository,
+        ISourceRepository sourceRepository)
     {
         _artifactRepository = artifactRepository;
         _factRepository = factRepository;
         _relationshipRepository = relationshipRepository;
         _sourceReferenceRepository = sourceReferenceRepository;
+        _sourceRepository = sourceRepository;
     }
+
+    private static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch
+    {
+        VisibilityScope.PartyVisible => true,
+        VisibilityScope.Private => role == WorldRole.GM || source.CreatedByUserId == userId,
+        VisibilityScope.GMOnly => role == WorldRole.GM,
+        _ => false
+    };
 
     public async Task<AppResult<IReadOnlyList<Artifact>>> ListAsync(ArtifactListQuery query, CancellationToken ct)
     {
@@ -83,12 +94,25 @@ public class ArtifactService : IArtifactService
 
         var sourceReferences = await _sourceReferenceRepository.ListByTargetIdsAsync(targetIds, ct);
 
+        // Resolve titles for the cited sources so the UI can link back to them —
+        // but only for sources the caller is allowed to see.
+        var sourceTitles = new Dictionary<Guid, string>();
+        foreach (var sourceId in sourceReferences.Select(r => r.SourceId).Distinct())
+        {
+            var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
+            if (source is not null && CanSeeSource(source, requestingUserId, role))
+            {
+                sourceTitles[sourceId] = source.Title;
+            }
+        }
+
         var detail = new ArtifactDetail(
             Artifact: artifact,
             Facts: facts,
             Relationships: relationships,
             ConnectedArtifacts: connectedArtifacts,
-            SourceReferences: sourceReferences);
+            SourceReferences: sourceReferences,
+            SourceTitles: sourceTitles);
 
         return AppResult<ArtifactDetail>.Success(detail);
     }

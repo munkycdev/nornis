@@ -89,7 +89,7 @@ public class ProposalApplicator : IProposalApplicator
         // Update proposal TargetId to the newly created artifact
         proposal.TargetId = artifact.Id;
 
-        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, artifact.Id, ct);
+        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, artifact.Id, proposal.Id, ct);
 
         return AppResult<ApplyResult>.Success(new ApplyResult(artifact.Id, SourceReferenceTargetType.Artifact));
     }
@@ -134,7 +134,7 @@ public class ProposalApplicator : IProposalApplicator
 
         await _artifactRepository.UpdateAsync(artifact, ct);
 
-        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, artifact.Id, ct);
+        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, artifact.Id, proposal.Id, ct);
 
         return AppResult<ApplyResult>.Success(new ApplyResult(artifact.Id, SourceReferenceTargetType.Artifact));
     }
@@ -216,7 +216,7 @@ public class ProposalApplicator : IProposalApplicator
         sourceArtifact.UpdatedAt = DateTimeOffset.UtcNow;
         await _artifactRepository.UpdateAsync(sourceArtifact, ct);
 
-        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, targetArtifact.Id, ct);
+        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, targetArtifact.Id, proposal.Id, ct);
 
         return AppResult<ApplyResult>.Success(new ApplyResult(targetArtifact.Id, SourceReferenceTargetType.Artifact));
     }
@@ -277,7 +277,7 @@ public class ProposalApplicator : IProposalApplicator
         // name reference resolved to.
         proposal.TargetId ??= artifact.Id;
 
-        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactFact, fact.Id, ct);
+        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactFact, fact.Id, proposal.Id, ct);
 
         return AppResult<ApplyResult>.Success(new ApplyResult(fact.Id, SourceReferenceTargetType.ArtifactFact));
     }
@@ -319,7 +319,7 @@ public class ProposalApplicator : IProposalApplicator
 
         await _artifactFactRepository.UpdateAsync(fact, ct);
 
-        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactFact, fact.Id, ct);
+        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactFact, fact.Id, proposal.Id, ct);
 
         return AppResult<ApplyResult>.Success(new ApplyResult(fact.Id, SourceReferenceTargetType.ArtifactFact));
     }
@@ -375,7 +375,7 @@ public class ProposalApplicator : IProposalApplicator
 
         await _artifactRelationshipRepository.CreateAsync(relationship, ct);
 
-        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactRelationship, relationship.Id, ct);
+        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactRelationship, relationship.Id, proposal.Id, ct);
 
         return AppResult<ApplyResult>.Success(new ApplyResult(relationship.Id, SourceReferenceTargetType.ArtifactRelationship));
     }
@@ -420,7 +420,7 @@ public class ProposalApplicator : IProposalApplicator
 
         await _artifactRelationshipRepository.UpdateAsync(relationship, ct);
 
-        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactRelationship, relationship.Id, ct);
+        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactRelationship, relationship.Id, proposal.Id, ct);
 
         return AppResult<ApplyResult>.Success(new ApplyResult(relationship.Id, SourceReferenceTargetType.ArtifactRelationship));
     }
@@ -468,14 +468,20 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task CreateSourceReference(
-        Guid sourceId, SourceReferenceTargetType targetType, Guid targetId, CancellationToken ct)
+        Guid sourceId, SourceReferenceTargetType targetType, Guid targetId, Guid proposalId, CancellationToken ct)
     {
+        // Carry the supporting excerpt captured at extraction onto the accepted
+        // entity's reference so artifact detail can show it.
+        var proposalReferences = await _sourceReferenceRepository.ListByTargetAsync(
+            SourceReferenceTargetType.ReviewProposal, proposalId, ct);
+
         var reference = new SourceReference
         {
             Id = Guid.NewGuid(),
             SourceId = sourceId,
             TargetType = targetType,
             TargetId = targetId,
+            Quote = proposalReferences.FirstOrDefault()?.Quote,
             CreatedAt = DateTimeOffset.UtcNow
         };
 

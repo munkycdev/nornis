@@ -68,6 +68,52 @@ public class ProposalApplicatorTests
         };
     }
 
+    #region Quote carry-through
+
+    [Test]
+    public async Task CreateArtifact_CarriesExtractionQuoteOntoArtifactReference()
+    {
+        var payload = new CreateArtifactPayload(
+            "Captain Voss", "Character", "A harbor captain", "PartyVisible", 0.85m);
+        var proposal = MakeProposal(ReviewChangeType.CreateArtifact, payload);
+
+        // Extraction records the supporting excerpt on the proposal's own reference.
+        _sourceRefRepo.Seed(new SourceReference
+        {
+            Id = Guid.NewGuid(),
+            SourceId = _sourceId,
+            TargetType = SourceReferenceTargetType.ReviewProposal,
+            TargetId = proposal.Id,
+            Quote = "We questioned Captain Voss in Black Harbor.",
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-10)
+        });
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        var artifactRef = _sourceRefRepo.References
+            .Single(r => r.TargetType == SourceReferenceTargetType.Artifact);
+        Assert.That(artifactRef.Quote, Is.EqualTo("We questioned Captain Voss in Black Harbor."),
+            "the excerpt captured at extraction must survive onto the accepted entity's reference");
+    }
+
+    [Test]
+    public async Task CreateArtifact_NoExtractionQuote_ReferenceHasNullQuote()
+    {
+        var payload = new CreateArtifactPayload(
+            "Captain Voss", "Character", null, "PartyVisible", null);
+        var proposal = MakeProposal(ReviewChangeType.CreateArtifact, payload);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        var artifactRef = _sourceRefRepo.References
+            .Single(r => r.TargetType == SourceReferenceTargetType.Artifact);
+        Assert.That(artifactRef.Quote, Is.Null);
+    }
+
+    #endregion
+
     #region CreateArtifact
 
     [Test]

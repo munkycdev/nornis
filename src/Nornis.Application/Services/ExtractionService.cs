@@ -451,6 +451,7 @@ public class ExtractionService : IExtractionService
                     SourceId = source.Id,
                     TargetType = SourceReferenceTargetType.ReviewProposal,
                     TargetId = reviewProposal.Id,
+                    Quote = proposal.Quote,
                     CreatedAt = now
                 };
 

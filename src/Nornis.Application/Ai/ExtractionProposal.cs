@@ -8,4 +8,7 @@ public class ExtractionProposal
     public required object ProposedValue { get; init; }
     public required string Rationale { get; init; }
     public decimal? Confidence { get; init; }
+
+    /// <summary>Short verbatim excerpt from the source supporting this proposal.</summary>
+    public string? Quote { get; init; }
 }

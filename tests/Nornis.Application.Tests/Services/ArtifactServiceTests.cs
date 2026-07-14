@@ -32,7 +32,7 @@ public class ArtifactServiceTests
         _relationshipRepo = new InMemoryArtifactRelationshipRepository();
         _sourceRefRepo = new InMemorySourceReferenceRepository();
 
-        _service = new ArtifactService(_artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo);
+        _service = new ArtifactService(_artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo, new InMemorySourceRepository());
 
         _worldId = Guid.NewGuid();
         _otherWorldId = Guid.NewGuid();

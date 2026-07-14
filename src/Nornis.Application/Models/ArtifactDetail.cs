@@ -13,4 +13,5 @@ public record ArtifactDetail(
     IReadOnlyList<ArtifactFact> Facts,
     IReadOnlyList<ArtifactRelationship> Relationships,
     IReadOnlyList<Artifact> ConnectedArtifacts,
-    IReadOnlyList<SourceReference> SourceReferences);
+    IReadOnlyList<SourceReference> SourceReferences,
+    IReadOnlyDictionary<Guid, string> SourceTitles);

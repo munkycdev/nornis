@@ -283,7 +283,9 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             ## Output Format
             Respond with a JSON object matching the structured output schema: a "proposals" array of
             0 to 50 proposal objects, each with changeType, targetType, targetId, proposedValue,
-            rationale, and confidence. targetType is "Artifact" for artifact changes, "ArtifactFact"
+            rationale, confidence, and quote — a short verbatim excerpt (under 300 characters)
+            copied from the source text that best supports the proposal, or null when no single
+            passage does. targetType is "Artifact" for artifact changes, "ArtifactFact"
             for fact changes, "ArtifactRelationship" for relationship changes.
             If nothing in the source warrants a proposal, return an empty proposals array.
             """;
@@ -394,6 +396,9 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
                       },
                       "confidence": {
                         "type": "number"
+                      },
+                      "quote": {
+                        "type": ["string", "null"]
                       }
                     },
                     "required": ["changeType", "targetType", "proposedValue", "rationale", "confidence"],
@@ -487,6 +492,21 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
         var proposedValueNode = node["proposedValue"]
             ?? throw new AiExtractionParseException($"Proposal at index {index} missing required 'proposedValue' field.");
 
+        string? quote = null;
+        var quoteNode = node["quote"];
+        if (quoteNode is not null && quoteNode.GetValueKind() == JsonValueKind.String)
+        {
+            quote = quoteNode.GetValue<string>().Trim();
+            if (quote.Length == 0)
+            {
+                quote = null;
+            }
+            else if (quote.Length > 500)
+            {
+                quote = quote[..500];
+            }
+        }
+
         Guid? targetId = null;
         var targetIdNode = node["targetId"];
         if (targetIdNode is not null && targetIdNode.GetValueKind() != JsonValueKind.Null)
@@ -514,7 +534,8 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             TargetId = targetId,
             ProposedValue = proposedValue,
             Rationale = rationale,
-            Confidence = confidence
+            Confidence = confidence,
+            Quote = quote
         };
     }
 

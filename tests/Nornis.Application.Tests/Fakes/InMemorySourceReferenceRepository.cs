@@ -10,6 +10,8 @@ public class InMemorySourceReferenceRepository : ISourceReferenceRepository
 
     public IReadOnlyList<SourceReference> References => _references.AsReadOnly();
 
+    public void Seed(params SourceReference[] references) => _references.AddRange(references);
+
     public Task<SourceReference> CreateAsync(SourceReference reference, CancellationToken cancellationToken = default)
     {
         _references.Add(reference);
