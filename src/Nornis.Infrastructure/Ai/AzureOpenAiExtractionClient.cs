@@ -221,13 +221,16 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             - UpdateArtifact: { "name": string?, "summary": string?, "visibility": string?, "confidence": number?, "status": "Active"|"Dormant"|"Resolved"|"Archived"? } — include only fields that change; targetId is the artifact's UUID.
             - MergeArtifact: { "sourceArtifactId": uuid, "name": string?, "summary": string?, "visibility": string?, "confidence": number? } — targetId is the artifact to keep; sourceArtifactId is the duplicate to fold into it.
             - AddFact: { "predicate": string, "value": string, "truthState": TruthState?, "visibility": string?, "confidence": number?, "artifactName": string? } — targetId is the UUID of the artifact the fact describes.
-            - UpdateFact: { "value": string?, "truthState": TruthState?, "visibility": string?, "confidence": number? } — targetId is the fact's UUID.
+            - UpdateFact: { "value": string?, "truthState": TruthState?, "visibility": string?, "confidence": number? } — targetId MUST be a factId copied from the Existing World Artifacts list; never propose UpdateFact for a fact that is not listed there.
             - AddRelationship: { "artifactAId": uuid?, "artifactBId": uuid?, "artifactAName": string?, "artifactBName": string?, "type": string, "description": string?, "truthState": TruthState?, "visibility": string?, "confidence": number? }
             - UpdateRelationship: { "type": string?, "description": string?, "truthState": TruthState?, "visibility": string?, "confidence": number? } — targetId is the relationship's UUID.
 
             ## Referencing Artifacts
             - When an artifact appears in the Existing World Artifacts list, reference it by its
               UUID (targetId for AddFact, artifactAId/artifactBId for relationships). Never invent a UUID.
+            - ID fields (targetId, artifactAId, artifactBId, sourceArtifactId) take UUIDs ONLY.
+              If you only know a name, put it in the matching Name field (artifactAName,
+              artifactBName, artifactName) and leave the ID field null — never put a name in an ID field.
             - When a fact or relationship involves an artifact you are CREATING in this same batch,
               set the UUID field to null and give the artifact's exact proposed name instead
               (artifactName, or artifactAName/artifactBName). Names must match your CreateArtifact
@@ -242,9 +245,10 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             relevant Storyline artifact with predicate "open question", the question itself as the
             value (one sentence, ending in a question mark), and truthState "Confirmed" (the
             question genuinely stands). When a source ANSWERS an open question listed in the
-            existing facts, propose UpdateFact on that fact setting its truthState to "False" (the
-            question is no longer open) alongside whatever new facts record the answer. Do not
-            re-propose an open question that already exists.
+            existing facts, propose UpdateFact on that fact — its targetId is the factId shown
+            beside it in the Existing World Artifacts list — setting its truthState to "False"
+            (the question is no longer open) alongside whatever new facts record the answer. Do
+            not re-propose an open question that already exists.
             {{importedNotesSection}}
             ## Naming Conventions
             - Fact predicates: short lowercase noun phrases — "location", "current owner",
@@ -328,10 +332,10 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
 
                 if (artifact.Facts.Count > 0)
                 {
-                    parts.Add("Known facts:");
+                    parts.Add("Known facts (factId is the targetId for UpdateFact):");
                     foreach (var fact in artifact.Facts)
                     {
-                        parts.Add($"  - {fact.Predicate}: {fact.Value}");
+                        parts.Add($"  - [factId: {fact.Id}] {fact.Predicate}: {fact.Value}");
                     }
                 }
 

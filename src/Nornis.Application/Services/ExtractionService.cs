@@ -254,6 +254,7 @@ public class ExtractionService : IExtractionService
             Facts = factsByArtifact.TryGetValue(a.Id, out var artifactFacts)
                 ? artifactFacts.Select(f => new FactContext
                 {
+                    Id = f.Id,
                     Predicate = f.Predicate,
                     Value = f.Value
                 }).ToList()
@@ -426,6 +427,7 @@ public class ExtractionService : IExtractionService
             foreach (var proposal in response.Proposals)
             {
                 var proposedValueJson = EnforceVisibility(proposal.ProposedValue, source.Visibility);
+                proposedValueJson = NormalizeIdFields(proposedValueJson, proposal.ChangeType);
 
                 var reviewProposal = new ReviewProposal
                 {
@@ -553,6 +555,53 @@ public class ExtractionService : IExtractionService
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// The model occasionally puts an artifact NAME in a relationship ID field, which
+    /// would fail Guid deserialization at accept time. Move any non-UUID string from an
+    /// ID field into the matching Name field (when that is empty) so the proposal stays
+    /// acceptable.
+    /// </summary>
+    internal static string NormalizeIdFields(string proposedValueJson, string changeType)
+    {
+        if (changeType is not "AddRelationship")
+        {
+            return proposedValueJson;
+        }
+
+        try
+        {
+            if (JsonNode.Parse(proposedValueJson) is not JsonObject obj)
+            {
+                return proposedValueJson;
+            }
+
+            var changed = false;
+            foreach (var (idField, nameField) in new[] { ("artifactAId", "artifactAName"), ("artifactBId", "artifactBName") })
+            {
+                var raw = obj[idField]?.GetValue<string?>();
+                if (string.IsNullOrWhiteSpace(raw) || Guid.TryParse(raw, out _))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(obj[nameField]?.GetValue<string?>()))
+                {
+                    obj[nameField] = raw;
+                }
+
+                obj[idField] = null;
+                changed = true;
+            }
+
+            return changed ? obj.ToJsonString() : proposedValueJson;
+        }
+        catch (Exception)
+        {
+            // Malformed payloads are the validator's problem, not ours.
+            return proposedValueJson;
+        }
     }
 
     private static string EnforceVisibility(object proposedValue, VisibilityScope sourceVisibility)

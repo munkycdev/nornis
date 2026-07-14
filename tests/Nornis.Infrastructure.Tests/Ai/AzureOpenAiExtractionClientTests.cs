@@ -781,8 +781,8 @@ public class AzureOpenAiExtractionClientTests
                     Summary = "A shady harbor captain.",
                     Facts =
                     [
-                        new FactContext { Predicate = "location", Value = "Black Harbor" },
-                        new FactContext { Predicate = "occupation", Value = "Ship captain" }
+                        new FactContext { Id = Guid.Parse("22222222-2222-2222-2222-222222222222"), Predicate = "location", Value = "Black Harbor" },
+                        new FactContext { Id = Guid.Parse("33333333-3333-3333-3333-333333333333"), Predicate = "occupation", Value = "Ship captain" }
                     ]
                 }
             ]
@@ -796,6 +796,8 @@ public class AzureOpenAiExtractionClientTests
         Assert.That(message, Does.Contain("A shady harbor captain."));
         Assert.That(message, Does.Contain("location: Black Harbor"));
         Assert.That(message, Does.Contain("occupation: Ship captain"));
+        Assert.That(message, Does.Contain("[factId: 22222222-2222-2222-2222-222222222222]"),
+            "fact ids must reach the model — UpdateFact targeting depends on them");
     }
 
     #endregion
