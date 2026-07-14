@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
+@inject ISnackbar Snackbar
 
 <PageTitle>@(_detail?.Name ?? "Artifact") — Nornis</PageTitle>
 
@@ -145,6 +146,38 @@
                 }
             </MudPaper>
         }
+
+        @if (Worlds.Current?.MyRole != "Observer")
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">Add to the record</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                    Know something about @_detail.Name that isn't captured here? Write it down —
+                    Nornis will read it and propose updates for review.
+                </MudText>
+                <MudTextField @bind-Value="_quickAddText" Lines="4" Immediate="true"
+                              Placeholder="@($"e.g. {_detail.Name} was last seen…")"
+                              Variant="Variant.Outlined" Class="mb-2" />
+                <div class="d-flex gap-3 align-center">
+                    <MudSelect T="string" @bind-Value="_quickAddVisibility" Dense="true" Label="Visibility"
+                               Variant="Variant.Outlined" Class="nornis-role-select">
+                        <MudSelectItem Value="@("PartyVisible")">PartyVisible</MudSelectItem>
+                        <MudSelectItem Value="@("GMOnly")">GMOnly</MudSelectItem>
+                        <MudSelectItem Value="@("Private")">Private</MudSelectItem>
+                    </MudSelect>
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.AutoAwesome"
+                               OnClick="QuickAddAsync"
+                               Disabled="@(_quickAddBusy || string.IsNullOrWhiteSpace(_quickAddText))">
+                        Add to record
+                    </MudButton>
+                </div>
+                @if (_quickAddError is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_quickAddError</MudAlert>
+                }
+            </MudPaper>
+        }
     }
 </div>
 
@@ -156,6 +189,54 @@
     private string? _error;
     private ArtifactDetailDto? _detail;
     private Guid _loadedId;
+
+    // Quick-add: the note becomes an ordinary source; prefixing the artifact's name
+    // pulls it into extraction context via name matching.
+    private string _quickAddText = string.Empty;
+    private string _quickAddVisibility = "PartyVisible";
+    private bool _quickAddBusy;
+    private string? _quickAddError;
+
+    private async Task QuickAddAsync()
+    {
+        if (Worlds.Current is null || _detail is null || string.IsNullOrWhiteSpace(_quickAddText))
+        {
+            return;
+        }
+
+        _quickAddBusy = true;
+        _quickAddError = null;
+
+        var isGm = Worlds.Current.MyRole == "GM";
+        var request = new CreateSourceRequest(
+            Title: $"Note on {_detail.Name} — {DateTime.Now:yyyy-MM-dd}",
+            Type: isGm ? "GMNote" : "JournalEntry",
+            Visibility: _quickAddVisibility,
+            Body: $"Regarding {_detail.Name}: {_quickAddText.Trim()}",
+            Uri: null,
+            OccurredAt: null);
+
+        var created = await Api.CreateSourceAsync(Worlds.Current.Id, request);
+        if (!created.IsSuccess)
+        {
+            _quickAddBusy = false;
+            _quickAddError = created.Error!.Message;
+            return;
+        }
+
+        var ready = await Api.MarkSourceReadyAsync(Worlds.Current.Id, created.Value!.Id);
+        _quickAddBusy = false;
+
+        if (!ready.IsSuccess)
+        {
+            _quickAddError = $"Saved as draft, but could not queue it: {ready.Error!.Message}";
+            return;
+        }
+
+        _quickAddText = string.Empty;
+        Snackbar.Add("Noted — proposals will appear in the review queue shortly.", Severity.Success);
+        StateHasChanged();
+    }
 
     protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
 
