@@ -8,4 +8,5 @@ public record WorldResponse(
     Guid CreatedByUserId,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    string? MyRole = null);
+    string? MyRole = null,
+    decimal? DailyAiBudgetUsd = null);

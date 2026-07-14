@@ -27,6 +27,10 @@
                               Variant="Variant.Outlined" Class="mb-3" />
                 <MudTextField @bind-Value="_gameSystem" Label="Game system" Placeholder="e.g. D&D 5e"
                               Variant="Variant.Outlined" Class="mb-3" />
+                <MudNumericField T="decimal?" @bind-Value="_dailyAiBudget" Label="Daily AI budget (USD)"
+                                 Placeholder="server default" Min="0.01m" Max="100m" Step="0.5m"
+                                 HelperText="Cap on this world's AI spend per day (extraction, Loremaster, audits). Leave empty to use the server default."
+                                 Variant="Variant.Outlined" Class="mb-3" />
                 @if (_worldError is not null)
                 {
                     <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_worldError</MudAlert>
@@ -294,6 +298,7 @@
     private string _name = string.Empty;
     private string? _description;
     private string? _gameSystem;
+    private decimal? _dailyAiBudget;
     private bool _savingWorld;
     private string? _worldError;
 
@@ -611,6 +616,7 @@
             _name = c.Name;
             _description = c.Description;
             _gameSystem = c.GameSystem;
+            _dailyAiBudget = c.DailyAiBudgetUsd;
             _loadedWorldId = c.Id;
         }
     }
@@ -632,7 +638,9 @@
         _worldError = null;
 
         var result = await Api.UpdateWorldAsync(Worlds.Current.Id,
-            new UpdateWorldRequest(_name.Trim(), _description, _gameSystem));
+            new UpdateWorldRequest(_name.Trim(), _description, _gameSystem,
+                DailyAiBudgetUsd: _dailyAiBudget,
+                ClearDailyAiBudget: _dailyAiBudget is null));
 
         _savingWorld = false;
         if (!result.IsSuccess)

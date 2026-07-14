@@ -5,4 +5,6 @@ public record UpdateWorldCommand(
     string? Name,
     string? Description,
     string? GameSystem,
-    Guid ActingUserId);
+    Guid ActingUserId,
+    decimal? DailyAiBudgetUsd = null,
+    bool ClearDailyAiBudget = false);

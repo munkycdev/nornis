@@ -19,6 +19,9 @@ public class WorldConfiguration : IEntityTypeConfiguration<World>
         builder.Property(c => c.Description)
             .HasMaxLength(2000);
 
+        builder.Property(c => c.DailyAiBudgetUsd)
+            .HasColumnType("decimal(6,2)");
+
         builder.Property(c => c.GameSystem)
             .HasMaxLength(200);
 

@@ -9,7 +9,8 @@ public record WorldSummary(
     string Name,
     string? Description,
     string? GameSystem,
-    string MyRole);
+    string MyRole,
+    decimal? DailyAiBudgetUsd = null);
 
 public record CreateWorldRequest(
     string Name,
@@ -19,7 +20,9 @@ public record CreateWorldRequest(
 public record UpdateWorldRequest(
     string Name,
     string? Description,
-    string? GameSystem);
+    string? GameSystem,
+    decimal? DailyAiBudgetUsd = null,
+    bool ClearDailyAiBudget = false);
 
 public record WorldMember(
     Guid Id,

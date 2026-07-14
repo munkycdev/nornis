@@ -113,6 +113,21 @@ public class WorldService : IWorldService
             world.GameSystem = command.GameSystem;
         }
 
+        if (command.DailyAiBudgetUsd is not null)
+        {
+            if (command.DailyAiBudgetUsd is < 0.01m or > 100m)
+            {
+                return AppResult<World>.Fail(new AppError(400, "validation_error",
+                    "Daily AI budget must be between $0.01 and $100."));
+            }
+
+            world.DailyAiBudgetUsd = command.DailyAiBudgetUsd;
+        }
+        else if (command.ClearDailyAiBudget)
+        {
+            world.DailyAiBudgetUsd = null;
+        }
+
         world.UpdatedAt = DateTimeOffset.UtcNow;
 
         world = await _worldRepository.UpdateAsync(world, ct);

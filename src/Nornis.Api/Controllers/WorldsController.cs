@@ -136,7 +136,8 @@ public class WorldsController : ControllerBase
             CreatedByUserId: world.CreatedByUserId,
             CreatedAt: world.CreatedAt,
             UpdatedAt: world.UpdatedAt,
-            MyRole: role.ToString());
+            MyRole: role.ToString(),
+            DailyAiBudgetUsd: world.DailyAiBudgetUsd);
     }
 
     private IActionResult MapError(AppError error)

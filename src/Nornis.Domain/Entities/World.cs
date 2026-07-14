@@ -16,6 +16,12 @@ public class World
 
     public Guid CreatedByUserId { get; set; }
 
+    /// <summary>
+    /// Per-world daily AI budget override in USD; when null the server-configured
+    /// default applies.
+    /// </summary>
+    public decimal? DailyAiBudgetUsd { get; set; }
+
     public byte[] RowVersion { get; set; } = [];
 
     // Navigation properties

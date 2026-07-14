@@ -8,17 +8,24 @@ namespace Nornis.Application.Services;
 public class AiBudgetGuard : IAiBudgetGuard
 {
     private readonly IAiUsageRecordRepository _usageRepository;
+    private readonly IWorldRepository _worldRepository;
     private readonly AiBudgetOptions _options;
 
-    public AiBudgetGuard(IAiUsageRecordRepository usageRepository, IOptions<AiBudgetOptions> options)
+    public AiBudgetGuard(
+        IAiUsageRecordRepository usageRepository,
+        IWorldRepository worldRepository,
+        IOptions<AiBudgetOptions> options)
     {
         _usageRepository = usageRepository;
+        _worldRepository = worldRepository;
         _options = options.Value;
     }
 
     public async Task<AiBudgetStatus> GetStatusAsync(Guid worldId, CancellationToken ct)
     {
-        var budget = _options.DailyWorldBudgetUsd;
+        // A world-level override wins over the configured default.
+        var world = await _worldRepository.GetByIdAsync(worldId, ct);
+        var budget = world?.DailyAiBudgetUsd ?? _options.DailyWorldBudgetUsd;
         if (budget <= 0)
             return new AiBudgetStatus(0m, 0m, IsExceeded: false);
 

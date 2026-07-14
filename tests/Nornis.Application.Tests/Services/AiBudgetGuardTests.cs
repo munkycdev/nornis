@@ -13,16 +13,31 @@ public class AiBudgetGuardTests
 {
     private Guid _worldId;
     private InMemoryAiUsageRecordRepository _usageRepo = null!;
+    private InMemoryWorldRepository _worldRepo = null!;
 
     [SetUp]
     public void SetUp()
     {
         _worldId = Guid.NewGuid();
         _usageRepo = new InMemoryAiUsageRecordRepository();
+        _worldRepo = new InMemoryWorldRepository();
     }
 
     private AiBudgetGuard MakeGuard(decimal dailyBudgetUsd) =>
-        new(_usageRepo, Options.Create(new AiBudgetOptions { DailyWorldBudgetUsd = dailyBudgetUsd }));
+        new(_usageRepo, _worldRepo, Options.Create(new AiBudgetOptions { DailyWorldBudgetUsd = dailyBudgetUsd }));
+
+    private void SeedWorld(decimal? dailyAiBudgetUsd)
+    {
+        _worldRepo.CreateAsync(new Nornis.Domain.Entities.World
+        {
+            Id = _worldId,
+            Name = "Test World",
+            DailyAiBudgetUsd = dailyAiBudgetUsd,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            CreatedByUserId = Guid.NewGuid()
+        }).GetAwaiter().GetResult();
+    }
 
     private void SeedUsage(decimal costUsd, DateTimeOffset createdAt, Guid? worldId = null)
     {
@@ -40,6 +55,32 @@ public class AiBudgetGuardTests
             Succeeded = true,
             CreatedAt = createdAt
         }).GetAwaiter().GetResult();
+    }
+
+    [Test]
+    public async Task GetStatusAsync_WorldOverride_WinsOverConfigDefault()
+    {
+        SeedWorld(dailyAiBudgetUsd: 10m);
+        SeedUsage(5m, DateTimeOffset.UtcNow);
+        var guard = MakeGuard(dailyBudgetUsd: 2m);
+
+        var status = await guard.GetStatusAsync(_worldId, CancellationToken.None);
+
+        Assert.That(status.DailyBudgetUsd, Is.EqualTo(10m));
+        Assert.That(status.IsExceeded, Is.False, "under the world's $10 override despite exceeding the $2 default");
+    }
+
+    [Test]
+    public async Task GetStatusAsync_WorldWithoutOverride_UsesConfigDefault()
+    {
+        SeedWorld(dailyAiBudgetUsd: null);
+        SeedUsage(3m, DateTimeOffset.UtcNow);
+        var guard = MakeGuard(dailyBudgetUsd: 2m);
+
+        var status = await guard.GetStatusAsync(_worldId, CancellationToken.None);
+
+        Assert.That(status.DailyBudgetUsd, Is.EqualTo(2m));
+        Assert.That(status.IsExceeded, Is.True);
     }
 
     [Test]

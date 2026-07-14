@@ -23,6 +23,7 @@ public class CostsControllerTests
     private static readonly Guid TavrinUserId = Guid.Parse("cccccccc-1111-2222-3333-444444444444");
 
     private ICostService _costService = null!;
+    private IAiBudgetGuard _budgetGuard = null!;
     private CostsController _controller = null!;
 
     [SetUp]
@@ -30,7 +31,10 @@ public class CostsControllerTests
     {
         _costService = Substitute.For<ICostService>();
         var logger = Substitute.For<ILogger<CostsController>>();
-        _controller = new CostsController(_costService, logger, Microsoft.Extensions.Options.Options.Create(new Nornis.Application.Configuration.AiBudgetOptions()));
+        _budgetGuard = Substitute.For<IAiBudgetGuard>();
+        _budgetGuard.GetStatusAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(new AiBudgetStatus(0m, 2m, IsExceeded: false));
+        _controller = new CostsController(_costService, logger, _budgetGuard);
 
         SetupHttpContext(KeldaUserId, "Kelda", WorldRole.GM);
     }

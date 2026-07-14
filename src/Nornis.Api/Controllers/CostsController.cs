@@ -17,14 +17,14 @@ public class CostsController : ControllerBase
 {
     private readonly ICostService _costService;
     private readonly ILogger<CostsController> _logger;
-    private readonly AiBudgetOptions _budgetOptions;
+    private readonly IAiBudgetGuard _budgetGuard;
 
     public CostsController(
         ICostService costService,
         ILogger<CostsController> logger,
-        Microsoft.Extensions.Options.IOptions<AiBudgetOptions> budgetOptions)
+        IAiBudgetGuard budgetGuard)
     {
-        _budgetOptions = budgetOptions.Value;
+        _budgetGuard = budgetGuard;
         _costService = costService;
         _logger = logger;
     }
@@ -46,7 +46,9 @@ public class CostsController : ControllerBase
             return MapError(result.Error!);
         }
 
-        return Ok(ToTimePeriodSummaryResponse(result.Value!));
+        // Budget display honors any per-world override.
+        var budgetStatus = await _budgetGuard.GetStatusAsync(worldId, ct);
+        return Ok(ToTimePeriodSummaryResponse(result.Value!, budgetStatus.DailyBudgetUsd));
     }
 
     [HttpGet("by-user")]
@@ -133,9 +135,8 @@ public class CostsController : ControllerBase
         };
     }
 
-    private TimePeriodSummaryResponse ToTimePeriodSummaryResponse(TimePeriodCostResult result)
+    private static TimePeriodSummaryResponse ToTimePeriodSummaryResponse(TimePeriodCostResult result, decimal budget)
     {
-        var budget = _budgetOptions.DailyWorldBudgetUsd;
         return new TimePeriodSummaryResponse(
             DailyBudgetUsd: budget > 0 ? budget : null,
             Today: ToCostSummaryResponse(result.Today),
