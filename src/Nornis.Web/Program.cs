@@ -95,6 +95,17 @@ builder.Services.AddScoped<Nornis.Web.State.AskState>();
 
 var app = builder.Build();
 
+// Container Apps terminates TLS at ingress; honor X-Forwarded-Proto/For so OIDC
+// redirect URIs (and any absolute URL generation) use https and the real host.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+                     | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor,
+    // The ingress proxy is not a fixed address we can enumerate.
+    KnownNetworks = { },
+    KnownProxies = { }
+});
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
