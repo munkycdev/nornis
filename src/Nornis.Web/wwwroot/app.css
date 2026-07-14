@@ -117,12 +117,9 @@ html, body {
     padding: 8px 0 4px 0;
 }
 
-.nornis-brand-mark {
-    font-family: var(--nornis-serif);
-    font-size: 2.4rem;
-    font-weight: 700;
-    line-height: 1;
-    color: #FFFDF9;
+.nornis-brand-logo {
+    width: 92px;
+    height: auto;
 }
 
 .nornis-brand-name {
