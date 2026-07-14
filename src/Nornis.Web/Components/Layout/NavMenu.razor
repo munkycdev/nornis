@@ -34,7 +34,24 @@
     <MudNavLink Href="/artifacts" Icon="@Icons.Material.Outlined.Category">Artifacts</MudNavLink>
     <MudNavLink Href="/storylines" Icon="@Icons.Material.Outlined.Hub">Storylines</MudNavLink>
     <MudNavLink Href="/canon" Icon="@Icons.Material.Outlined.MenuBook">Canon</MudNavLink>
-    <MudNavLink Href="/sources" Icon="@Icons.Material.Outlined.Layers">Sources</MudNavLink>
+    <MudNavLink Href="/review" Icon="@Icons.Material.Outlined.FactCheck">
+        Review
+        @if (_activity is { PendingProposals: > 0 })
+        {
+            <span class="nornis-nav-count">@(_activity.PendingProposalsCapped ? "200+" : _activity.PendingProposals.ToString())</span>
+        }
+    </MudNavLink>
+    <MudNavLink Href="/sources" Icon="@Icons.Material.Outlined.Layers">
+        Sources
+        @if (_activity is { Failed: > 0 })
+        {
+            <span class="nornis-nav-count nornis-nav-count-failed" title="@($"{_activity.Failed} failed")">@_activity.Failed</span>
+        }
+        else if (_activity is { InFlight: > 0 })
+        {
+            <span class="nornis-nav-count" title="processing">@_activity.InFlight</span>
+        }
+    </MudNavLink>
     <MudNavLink Href="/costs" Icon="@Icons.Material.Outlined.Paid">Costs</MudNavLink>
     <MudNavLink Href="/settings" Icon="@Icons.Material.Outlined.Settings">Settings</MudNavLink>
 </MudNavMenu>
@@ -93,6 +110,7 @@
 
 @implements IDisposable
 @inject WorldState Worlds
+@inject NornisApiClient Api
 @inject Nornis.Web.Authentication.AuthFeature Auth
 @inject IDialogService DialogService
 @inject IJSRuntime JS
@@ -107,6 +125,44 @@
     {
         Worlds.Changed += OnWorldsChanged;
         await Worlds.EnsureLoadedAsync();
+        await RefreshActivityAsync();
+        _ = PollActivityAsync();
+    }
+
+    // Light poll so processing/review badges move without navigation.
+    private SourceActivity? _activity;
+    private readonly CancellationTokenSource _activityCts = new();
+
+    private async Task PollActivityAsync()
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+            while (await timer.WaitForNextTickAsync(_activityCts.Token))
+            {
+                await RefreshActivityAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Component disposed.
+        }
+    }
+
+    private async Task RefreshActivityAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            _activity = null;
+            return;
+        }
+
+        var result = await Api.GetSourceActivityAsync(Worlds.Current.Id, _activityCts.Token);
+        if (result.IsSuccess)
+        {
+            _activity = result.Value;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -147,7 +203,11 @@
         }
     }
 
-    private void OnWorldsChanged() => InvokeAsync(StateHasChanged);
+    private void OnWorldsChanged() => InvokeAsync(async () =>
+    {
+        await RefreshActivityAsync();
+        StateHasChanged();
+    });
 
     private Color HealthColor => (Worlds.Health?.OverallScore ?? 0) switch
     {
@@ -168,5 +228,10 @@
         }
     }
 
-    public void Dispose() => Worlds.Changed -= OnWorldsChanged;
+    public void Dispose()
+    {
+        _activityCts.Cancel();
+        _activityCts.Dispose();
+        Worlds.Changed -= OnWorldsChanged;
+    }
 }

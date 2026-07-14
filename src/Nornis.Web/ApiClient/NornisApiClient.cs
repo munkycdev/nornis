@@ -108,6 +108,10 @@ public class NornisApiClient
 
     // -------------------------------------------------------------------- Sources --
 
+    /// <summary>Lightweight activity counts for navigation badges.</summary>
+    public Task<ApiResult<SourceActivity>> GetSourceActivityAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<SourceActivity>($"/api/worlds/{worldId}/sources/activity", ct);
+
     /// <param name="campaignFilter">A campaign id, the literal "none" for unassigned sources, or null for all.</param>
     public Task<ApiResult<IReadOnlyList<SourceListItem>>> GetSourcesAsync(Guid worldId, string? campaignFilter = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<SourceListItem>>($"/api/worlds/{worldId}/sources{Query(("campaignId", campaignFilter))}", ct);

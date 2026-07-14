@@ -117,6 +117,24 @@ html, body {
     padding: 8px 0 4px 0;
 }
 
+.nornis-nav-count {
+    display: inline-block;
+    min-width: 20px;
+    padding: 1px 7px;
+    margin-left: 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-align: center;
+    background: var(--mud-palette-secondary);
+    color: #10263B;
+}
+
+.nornis-nav-count-failed {
+    background: var(--mud-palette-error);
+    color: #FFFDF9;
+}
+
 .nornis-brand-logo {
     width: 92px;
     height: auto;

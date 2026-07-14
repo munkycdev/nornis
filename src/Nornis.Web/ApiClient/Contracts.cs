@@ -332,6 +332,17 @@ public record ContinuityFinding(
 
 public record MergeResult(Guid TargetArtifactId);
 
+public record SourceActivity(
+    int Ready,
+    int Queued,
+    int Processing,
+    int Failed,
+    int PendingProposals,
+    bool PendingProposalsCapped)
+{
+    public int InFlight => Ready + Queued + Processing;
+}
+
 public record RetrospectiveResult(
     int AssessedCount,
     int ProposedCount,

@@ -105,6 +105,42 @@ public class SourcesController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>Activity counts for nav badges: in-flight/failed sources + pending proposals.</summary>
+    [HttpGet("activity")]
+    public async Task<IActionResult> GetActivity(
+        Guid worldId,
+        [FromServices] IReviewService reviewService,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var sourcesResult = await _sourceService.ListByWorldAsync(worldId, user.Id, member.Role, ct);
+        if (!sourcesResult.IsSuccess)
+        {
+            return MapError(sourcesResult.Error!);
+        }
+
+        var queueResult = await reviewService.ListReviewQueueAsync(
+            new ReviewQueueQuery(worldId, user.Id, member.Role, null), ct);
+        if (!queueResult.IsSuccess)
+        {
+            return MapError(queueResult.Error!);
+        }
+
+        var byStatus = sourcesResult.Value!
+            .GroupBy(s => s.ProcessingStatus)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        return Ok(new SourceActivityResponse(
+            Ready: byStatus.GetValueOrDefault(SourceProcessingStatus.Ready),
+            Queued: byStatus.GetValueOrDefault(SourceProcessingStatus.Queued),
+            Processing: byStatus.GetValueOrDefault(SourceProcessingStatus.Processing),
+            Failed: byStatus.GetValueOrDefault(SourceProcessingStatus.Failed),
+            PendingProposals: queueResult.Value!.Proposals.Count,
+            PendingProposalsCapped: queueResult.Value.HasMore));
+    }
+
     [HttpGet("{sourceId:guid}")]
     public async Task<IActionResult> GetById(Guid worldId, Guid sourceId, CancellationToken ct)
     {
