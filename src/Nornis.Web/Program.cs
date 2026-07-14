@@ -97,14 +97,16 @@ var app = builder.Build();
 
 // Container Apps terminates TLS at ingress; honor X-Forwarded-Proto/For so OIDC
 // redirect URIs (and any absolute URL generation) use https and the real host.
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+var forwardedOptions = new ForwardedHeadersOptions
 {
     ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
-                     | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor,
-    // The ingress proxy is not a fixed address we can enumerate.
-    KnownNetworks = { },
-    KnownProxies = { }
-});
+                     | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+};
+// The ingress proxy is not a fixed address; clearing the loopback-only defaults is
+// required or the headers are silently ignored ({ } in an initializer clears nothing).
+forwardedOptions.KnownNetworks.Clear();
+forwardedOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedOptions);
 
 if (!app.Environment.IsDevelopment())
 {
