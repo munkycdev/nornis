@@ -82,6 +82,7 @@ builder.Services.AddScoped<ICampaignService, CampaignService>();
 builder.Services.AddScoped<ICharacterService, CharacterService>();
 builder.Services.AddScoped<ISourceService, SourceService>();
 builder.Services.AddScoped<IArtifactService, ArtifactService>();
+builder.Services.AddScoped<IArtifactMergeService, ArtifactMergeService>();
 builder.Services.AddScoped<ICanonService, CanonService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<IContinuityAuditService, ContinuityAuditService>();

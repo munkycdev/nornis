@@ -330,6 +330,8 @@ public record ContinuityFinding(
     Guid? ArtifactId,
     string Status);
 
+public record MergeResult(Guid TargetArtifactId);
+
 public record RetrospectiveResult(
     int AssessedCount,
     int ProposedCount,

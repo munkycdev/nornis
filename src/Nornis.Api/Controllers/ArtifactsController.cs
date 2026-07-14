@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
@@ -16,10 +17,37 @@ namespace Nornis.Api.Controllers;
 public class ArtifactsController : ControllerBase
 {
     private readonly IArtifactService _artifactService;
+    private readonly IArtifactMergeService _mergeService;
 
-    public ArtifactsController(IArtifactService artifactService)
+    public ArtifactsController(IArtifactService artifactService, IArtifactMergeService mergeService)
     {
         _artifactService = artifactService;
+        _mergeService = mergeService;
+    }
+
+    /// <summary>
+    /// GM-only: folds the duplicate named in the body into the target named in the
+    /// route (facts and relationships move; the duplicate is archived).
+    /// </summary>
+    [HttpPost("{artifactId:guid}/merge")]
+    public async Task<IActionResult> Merge(
+        Guid worldId,
+        Guid artifactId,
+        [FromBody] MergeArtifactRequest request,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _mergeService.MergeAsync(
+            worldId, request.SourceArtifactId, artifactId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return Ok(new { targetArtifactId = result.Value });
     }
 
     [HttpGet]

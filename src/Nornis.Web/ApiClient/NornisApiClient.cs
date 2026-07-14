@@ -141,6 +141,13 @@ public class NornisApiClient
     public Task<ApiResult<ArtifactDetailDto>> GetArtifactAsync(Guid worldId, Guid artifactId, CancellationToken ct = default) =>
         GetAsync<ArtifactDetailDto>($"/api/worlds/{worldId}/artifacts/{artifactId}", ct);
 
+    /// <summary>GM-only: folds the duplicate into the target; the duplicate is archived.</summary>
+    public Task<ApiResult<MergeResult>> MergeArtifactAsync(Guid worldId, Guid targetArtifactId, Guid duplicateArtifactId, CancellationToken ct = default) =>
+        PostAsync<MergeArtifactBody, MergeResult>($"/api/worlds/{worldId}/artifacts/{targetArtifactId}/merge",
+            new MergeArtifactBody(duplicateArtifactId), ct);
+
+    private sealed record MergeArtifactBody(Guid SourceArtifactId);
+
     /// <summary>GM-only: assess Active storylines and propose closures as review proposals.</summary>
     public Task<ApiResult<RetrospectiveResult>> RunStorylineRetrospectiveAsync(Guid worldId, CancellationToken ct = default) =>
         PostAsync<object?, RetrospectiveResult>($"/api/worlds/{worldId}/storylines/retrospective", null, ct);

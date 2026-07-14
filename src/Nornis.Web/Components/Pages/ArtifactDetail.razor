@@ -3,6 +3,8 @@
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
+@inject IDialogService DialogService
 
 <PageTitle>@(_detail?.Name ?? "Artifact") — Nornis</PageTitle>
 
@@ -147,6 +149,33 @@
             </MudPaper>
         }
 
+        @if (Worlds.Current?.MyRole == "GM")
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">Merge duplicate</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                    Is @_detail.Name a duplicate? Merge it into the real artifact: its facts and
+                    relationships move there, and this artifact is archived.
+                </MudText>
+                <div class="d-flex gap-3 align-center">
+                    <MudAutocomplete T="ArtifactListItem" @bind-Value="_mergeTarget"
+                                     SearchFunc="SearchMergeTargetsAsync"
+                                     ToStringFunc="@(a => a?.Name)"
+                                     Label="Merge into…" Variant="Variant.Outlined" Dense="true"
+                                     Class="flex-grow-1" Clearable="true" />
+                    <MudButton Variant="Variant.Outlined" Color="Color.Warning"
+                               StartIcon="@Icons.Material.Filled.CallMerge"
+                               OnClick="MergeAsync" Disabled="@(_mergeBusy || _mergeTarget is null)">
+                        Merge
+                    </MudButton>
+                </div>
+                @if (_mergeError is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_mergeError</MudAlert>
+                }
+            </MudPaper>
+        }
+
         @if (Worlds.Current?.MyRole != "Observer")
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
@@ -189,6 +218,64 @@
     private string? _error;
     private ArtifactDetailDto? _detail;
     private Guid _loadedId;
+
+    // Merge duplicate (GM): folds this artifact into a chosen target.
+    private ArtifactListItem? _mergeTarget;
+    private bool _mergeBusy;
+    private string? _mergeError;
+
+    private async Task<IEnumerable<ArtifactListItem>> SearchMergeTargetsAsync(string value, CancellationToken ct)
+    {
+        if (Worlds.Current is null)
+        {
+            return [];
+        }
+
+        var result = await Api.GetArtifactsAsync(Worlds.Current.Id, ct: ct);
+        if (!result.IsSuccess)
+        {
+            return [];
+        }
+
+        return result.Value!
+            .Where(a => a.Id != ArtifactId)
+            .Where(a => string.IsNullOrWhiteSpace(value) || a.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(a => a.Name)
+            .Take(15);
+    }
+
+    private async Task MergeAsync()
+    {
+        if (Worlds.Current is null || _detail is null || _mergeTarget is null)
+        {
+            return;
+        }
+
+        var confirmed = await DialogService.ShowMessageBox(
+            "Merge artifacts?",
+            $"Move all facts and relationships from \"{_detail.Name}\" to \"{_mergeTarget.Name}\" and archive \"{_detail.Name}\"? This cannot be undone from the UI.",
+            yesText: "Merge", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _mergeBusy = true;
+        _mergeError = null;
+
+        var result = await Api.MergeArtifactAsync(Worlds.Current.Id, _mergeTarget.Id, _detail.Id);
+        _mergeBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            _mergeError = result.Error!.Message;
+            StateHasChanged();
+            return;
+        }
+
+        Snackbar.Add($"Merged into {_mergeTarget.Name}.", Severity.Success);
+        Nav.NavigateTo($"/artifacts/{result.Value!.TargetArtifactId}");
+    }
 
     // Quick-add: the note becomes an ordinary source; prefixing the artifact's name
     // pulls it into extraction context via name matching.
