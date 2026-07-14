@@ -56,23 +56,25 @@
     <MudNavLink Href="/settings" Icon="@Icons.Material.Outlined.Settings">Settings</MudNavLink>
 </MudNavMenu>
 
+@if (Worlds.Current?.MyRole == "GM")
+{
 <div class="nornis-memory">
     <div class="nornis-memory-title">World Memory</div>
     <div class="nornis-memory-row">
         <div class="nornis-ring">
-            <MudProgressCircular Value="@(Worlds.Health?.OverallScore ?? 0)" Min="0" Max="100"
+            <MudProgressCircular Value="@(Worlds.Continuity?.EffectiveScore ?? 0)" Min="0" Max="100"
                                  Color="@HealthColor" Size="Size.Medium" StrokeWidth="4" Class="nornis-ring-onnavy" />
         </div>
         <div class="nornis-memory-figure">
-            @if (Worlds.Health is { HasData: true } h)
+            @if (Worlds.Continuity is { HasData: true } a)
             {
-                <span class="nornis-memory-pct">@h.OverallScore%</span>
-                <span class="nornis-memory-state">@h.Label</span>
+                <span class="nornis-memory-pct">@a.EffectiveScore%</span>
+                <span class="nornis-memory-state">AI assessed</span>
             }
             else
             {
                 <span class="nornis-memory-pct">—</span>
-                <span class="nornis-memory-state">@(Worlds.Health is null ? "Loading…" : "No data yet")</span>
+                <span class="nornis-memory-state">Not yet assessed</span>
             }
         </div>
     </div>
@@ -84,6 +86,7 @@
         View details
     </MudButton>
 </div>
+}
 
 @if (Auth.Enabled)
 {
@@ -209,7 +212,7 @@
         StateHasChanged();
     });
 
-    private Color HealthColor => (Worlds.Health?.OverallScore ?? 0) switch
+    private Color HealthColor => (Worlds.Continuity?.EffectiveScore ?? 0) switch
     {
         >= 70 => Color.Success,
         >= 50 => Color.Warning,

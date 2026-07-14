@@ -1,13 +1,12 @@
 # Future Features
 
+Shipped from this list so far: manual artifact merge, processing/review nav badges, heuristic health widget removal (AI assessment is now the only Continuity Health).
+
 Stack-ranked by when to work on them. One line each; when an item gets picked up, it
 gets a real spec under `docs/features/`.
 
 ## Now-ish — polish the record you're actively using
 
-1. **Manual artifact merge** — GM picks duplicate → target (Karvosti/Karvosthi, Farah Maroun/Moroun); reuse `ProposalApplicator`'s merge semantics behind an endpoint + UI. Known duplicates sit in the live record today.
-2. **Processing queue visibility** — show sources mid-pipeline (Queued/Processing) somewhere obvious.
-3. **Remove heuristic health widget** — the AI-driven assessment supersedes it; delete the old one.
 4. **Categorized tree projection of artifacts** — collapsible type → status → name grouping; pure client-side, cheap.
 5. **Organize the Canon section** — 1,000+ facts post-import need grouping/filtering to be readable (pairs naturally with the tree work).
 6. **Better icons** — replace placeholder Material icons where the vocabulary deserves its own marks.

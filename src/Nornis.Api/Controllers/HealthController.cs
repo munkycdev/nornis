@@ -18,26 +18,11 @@ namespace Nornis.Api.Controllers;
 [ServiceFilter(typeof(WorldMemberActionFilter))]
 public class HealthController : ControllerBase
 {
-    private readonly IHealthService _healthService;
     private readonly IContinuityAuditService _auditService;
 
-    public HealthController(IHealthService healthService, IContinuityAuditService auditService)
+    public HealthController(IContinuityAuditService auditService)
     {
-        _healthService = healthService;
         _auditService = auditService;
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> Get(Guid worldId, CancellationToken ct)
-    {
-        var result = await _healthService.GetHealthAsync(worldId, ct);
-
-        if (!result.IsSuccess)
-        {
-            return MapError(result.Error!);
-        }
-
-        return Ok(ToResponse(result.Value!));
     }
 
     /// <summary>Runs a fresh AI continuity assessment. GM-only; takes ~10-30s.</summary>
@@ -107,10 +92,6 @@ public class HealthController : ControllerBase
         }
         return null;
     }
-
-    private static WorldHealthResponse ToResponse(WorldHealth h) =>
-        new(h.HasData, h.OverallScore, h.Label, h.Consistency, h.Completeness,
-            h.Groundedness, h.Recency, h.ArtifactCount, h.StatementCount);
 
     private static ContinuityAssessmentResponse ToResponse(ContinuityAssessment a) =>
         new(a.HasData, a.AssessmentId, a.CreatedAt, a.Model, a.Score, a.EffectiveScore, a.HeuristicScore,

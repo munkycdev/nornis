@@ -161,47 +161,12 @@ else
         </div>
 
         <div class="nornis-rail">
-            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-                <div class="nornis-card-header">
-                    <span class="nornis-card-title">Continuity Health</span>
-                    <MudTooltip Text="A heuristic score from your artifacts, facts, relationships, and sources.">
-                        <MudIcon Icon="@Icons.Material.Outlined.Info" Color="Color.Tertiary" Size="Size.Small" />
-                    </MudTooltip>
-                </div>
-                @if (Worlds.Health is { HasData: true } h)
-                {
-                    <div class="nornis-health-row">
-                        <div class="nornis-ring">
-                            <MudProgressCircular Value="@h.OverallScore" Min="0" Max="100" Color="@HealthColor(h.OverallScore)" Size="Size.Large" StrokeWidth="5" />
-                            <div class="nornis-ring-value">
-                                <div class="nornis-health-figure">
-                                    <span class="nornis-health-pct">@h.OverallScore%</span>
-                                    <span class="nornis-health-state">@h.Label</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex-grow-1">
-                            <div class="nornis-metric"><span class="nornis-metric-label">Consistency</span><span class="nornis-metric-value">@h.Consistency%</span></div>
-                            <div class="nornis-metric"><span class="nornis-metric-label">Completeness</span><span class="nornis-metric-value">@h.Completeness%</span></div>
-                            <div class="nornis-metric"><span class="nornis-metric-label">Groundedness</span><span class="nornis-metric-value">@h.Groundedness%</span></div>
-                            <div class="nornis-metric"><span class="nornis-metric-label">Recency</span><span class="nornis-metric-value">@h.Recency%</span></div>
-                        </div>
-                    </div>
-                }
-                else
-                {
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @(Worlds.Health is null ? "Computing…" : "Not enough data yet.")
-                    </MudText>
-                }
-            </MudPaper>
-
             @if (_showAiAssessment)
             {
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                     <div class="nornis-card-header">
-                        <span class="nornis-card-title">AI assessment</span>
-                        <MudTooltip Text="An LLM reads the record for continuity risks the heuristics can't see.">
+                        <span class="nornis-card-title">Continuity Health</span>
+                        <MudTooltip Text="An LLM reads the record for contradictions, dangling threads, and stale storylines.">
                             <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Color="Color.Tertiary" Size="Size.Small" />
                         </MudTooltip>
                     </div>
@@ -609,13 +574,6 @@ else
 
     private static string Humanize(string pascal) =>
         string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
-
-    private static Color HealthColor(int score) => score switch
-    {
-        >= 70 => Color.Success,
-        >= 50 => Color.Warning,
-        _ => Color.Error,
-    };
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

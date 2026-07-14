@@ -294,17 +294,6 @@ public record AskAnswer(
     string Confidence,
     IReadOnlyList<string> Caveats);
 
-public record WorldHealth(
-    bool HasData,
-    int OverallScore,
-    string Label,
-    int Consistency,
-    int Completeness,
-    int Groundedness,
-    int Recency,
-    int ArtifactCount,
-    int StatementCount);
-
 /// <summary>
 /// AI-assessed continuity health. <see cref="Score"/> is the blended snapshot at assessment time;
 /// <see cref="EffectiveScore"/> reflects only the findings still Open. When the world has never

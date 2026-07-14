@@ -21,8 +21,11 @@ public class WorldState
     public IReadOnlyList<WorldSummary> Worlds { get; private set; } = [];
     public WorldSummary? Current { get; private set; }
 
-    /// <summary>Heuristic continuity-health score for <see cref="Current"/>, loaded on selection.</summary>
-    public WorldHealth? Health { get; private set; }
+    /// <summary>
+    /// AI continuity assessment for <see cref="Current"/>, loaded on selection. Null for
+    /// non-GM members (the endpoint is GM-only) — the UI hides the score ring then.
+    /// </summary>
+    public ContinuityAssessment? Continuity { get; private set; }
 
     /// <summary>Set when the world list could not be loaded (e.g. the API is unreachable).</summary>
     public ApiError? LoadError { get; private set; }
@@ -63,7 +66,7 @@ public class WorldState
         Current = Worlds.FirstOrDefault(c => c.Id == Current?.Id) ?? Worlds.FirstOrDefault();
         Changed?.Invoke();
 
-        await LoadHealthAsync(ct);
+        await LoadContinuityAsync(ct);
     }
 
     public void Select(Guid worldId)
@@ -72,23 +75,23 @@ public class WorldState
         if (match is not null && match.Id != Current?.Id)
         {
             Current = match;
-            Health = null;
+            Continuity = null;
             Changed?.Invoke();
-            _ = LoadHealthAsync();
+            _ = LoadContinuityAsync();
         }
     }
 
-    /// <summary>Loads the continuity-health score for the current world, then notifies.</summary>
-    public async Task LoadHealthAsync(CancellationToken ct = default)
+    /// <summary>Loads the AI continuity assessment for the current world, then notifies.</summary>
+    public async Task LoadContinuityAsync(CancellationToken ct = default)
     {
         if (Current is null)
         {
-            Health = null;
+            Continuity = null;
             return;
         }
 
-        var result = await _api.GetWorldHealthAsync(Current.Id, ct);
-        Health = result.IsSuccess ? result.Value : null;
+        var result = await _api.GetContinuityAssessmentAsync(Current.Id, ct);
+        Continuity = result.IsSuccess ? result.Value : null;
         Changed?.Invoke();
     }
 }

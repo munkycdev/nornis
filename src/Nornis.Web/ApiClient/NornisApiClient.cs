@@ -177,9 +177,6 @@ public class NornisApiClient
     public Task<ApiResult<IReadOnlyList<AskSuggestion>>> GetAskSuggestionsAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<AskSuggestion>>($"/api/worlds/{worldId}/ask/suggestions", ct);
 
-    public Task<ApiResult<WorldHealth>> GetWorldHealthAsync(Guid worldId, CancellationToken ct = default) =>
-        GetAsync<WorldHealth>($"/api/worlds/{worldId}/health", ct);
-
     // AI-assessed Continuity Health (GM-only endpoints).
 
     public Task<ApiResult<ContinuityAssessment>> GetContinuityAssessmentAsync(Guid worldId, CancellationToken ct = default) =>
