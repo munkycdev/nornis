@@ -1,0 +1,3 @@
+@* Every app page requires login when Auth0 is configured; the router ignores this
+   locally where auth is disabled. Public pages opt out in Pages/Public/_Imports. *@
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]

@@ -69,6 +69,22 @@
     </MudButton>
 </div>
 
+@if (Auth.Enabled)
+{
+    <AuthorizeView>
+        <Authorized>
+            <div class="nornis-member-row px-4 py-2">
+                <MudIcon Icon="@Icons.Material.Outlined.AccountCircle" Size="Size.Small" />
+                <span class="nornis-list-sub flex-grow-1">@context.User.Identity?.Name</span>
+                <MudTooltip Text="Sign out">
+                    <MudIconButton Icon="@Icons.Material.Filled.Logout" Size="Size.Small"
+                                   Href="/account/logout" aria-label="Sign out" />
+                </MudTooltip>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+}
+
 <MudButton Variant="Variant.Text"
            StartIcon="@Icons.Material.Filled.KeyboardDoubleArrowLeft"
            OnClick="OnCollapse"
@@ -78,6 +94,7 @@
 
 @implements IDisposable
 @inject WorldState Worlds
+@inject Nornis.Web.Authentication.AuthFeature Auth
 @inject IDialogService DialogService
 @inject IJSRuntime JS
 
