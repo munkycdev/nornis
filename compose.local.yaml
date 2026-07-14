@@ -1,0 +1,37 @@
+# Local full-stack infrastructure: SQL Server + Azure Service Bus emulator.
+# Boot with scripts/start-local.ps1 (which also applies migrations and launches the
+# apps with connection strings pointed here instead of at cloud resources).
+#
+# SA password is local-only throwaway; the SB emulator requires the same password to
+# reach its companion SQL store.
+
+name: nornis-local
+
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Nornis!LocalDev1"
+    ports:
+      - "14330:1433"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Nornis!LocalDev1' -Q 'SELECT 1' -b"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  servicebus:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Nornis!LocalDev1"
+      SQL_SERVER: sql
+    ports:
+      - "5672:5672"
+    volumes:
+      - ./scripts/servicebus-emulator.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+    depends_on:
+      sql:
+        condition: service_healthy
