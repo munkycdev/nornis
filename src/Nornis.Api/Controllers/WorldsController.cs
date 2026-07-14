@@ -111,7 +111,9 @@ public class WorldsController : ControllerBase
             Name: request.Name,
             Description: request.Description,
             GameSystem: request.GameSystem,
-            ActingUserId: user.Id);
+            ActingUserId: user.Id,
+            DailyAiBudgetUsd: request.DailyAiBudgetUsd,
+            ClearDailyAiBudget: request.ClearDailyAiBudget);
 
         var result = await _worldService.UpdateAsync(command, ct);
 

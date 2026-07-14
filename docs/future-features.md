@@ -13,6 +13,7 @@ problem actually bites.
 * Add a handwriting capture mode for iPad use
 * Find some way to organize the Canon section
 * I'd like to see the processing queue somewhere
+* When does it make sense to make the Ask feature driven by Azure AI Search or some other RAG scheme?
 
 ---
 

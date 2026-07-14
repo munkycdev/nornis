@@ -253,6 +253,35 @@ public class WorldCrudTests
     }
 
     [Test]
+    public async Task UpdateWorld_DailyAiBudget_RoundTripsThroughTheApi()
+    {
+        // Regression: the controller silently dropped DailyAiBudgetUsd from the
+        // request→command mapping, so the budget never persisted (found dogfooding
+        // the setting before a storyline retrospective run).
+        var client = _factory.CreateAuthenticatedClient(
+            sub: "auth0|gm-budget",
+            email: "gm-budget@blackharbor.com",
+            nickname: "Budget GM");
+
+        var createResponse = await client.PostAsJsonAsync("/api/worlds",
+            new CreateWorldRequest(Name: "Budgeted World", Description: null, GameSystem: null));
+        var created = await createResponse.Content.ReadFromJsonAsync<WorldResponse>();
+
+        var response = await client.PutAsJsonAsync($"/api/worlds/{created!.Id}",
+            new UpdateWorldRequest(DailyAiBudgetUsd: 10m));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var updated = await response.Content.ReadFromJsonAsync<WorldResponse>();
+        Assert.That(updated!.DailyAiBudgetUsd, Is.EqualTo(10m));
+
+        // Clearing reverts to the server default (null on the world).
+        var clearResponse = await client.PutAsJsonAsync($"/api/worlds/{created.Id}",
+            new UpdateWorldRequest(ClearDailyAiBudget: true));
+        var cleared = await clearResponse.Content.ReadFromJsonAsync<WorldResponse>();
+        Assert.That(cleared!.DailyAiBudgetUsd, Is.Null);
+    }
+
+    [Test]
     public async Task UpdateWorld_ByNonGm_Returns403()
     {
         // Arrange - GM creates world
