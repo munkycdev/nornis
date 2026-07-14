@@ -4,6 +4,16 @@ Ideas discussed but deliberately not built. Each entry records the problem, the 
 direction we'd start from, and why it's parked — so the thinking survives until the
 problem actually bites.
 
+## List of unprocessed features
+
+* Swap in logo and favicon images
+* Find better icons for display
+* Remove heuristic widget now that we have the AI-driven one
+* Make the "Capture" page act more like Chronicis' so that I can reference external information while I'm taking notes
+* Add a handwriting capture mode for iPad use
+* Find some way to organize the Canon section
+* I'd like to see the processing queue somewhere
+
 ---
 
 ## Source authority & fact reliability weighting
@@ -60,23 +70,6 @@ prevent. Auto-accept should log loudly and be trivially reversible before it's t
 
 **Parked because:** "Accept all" (in flight) likely covers 90% of the friction, and the
 spec's core principle is "AI proposes, users decide."
-
----
-
-## AI-assessed Continuity Health
-
-**Problem.** The current Continuity Health score is heuristic (consistency /
-completeness / groundedness / recency). The philosophical goal was always AI-assessed:
-an LLM reading the record for dangling promises, contradicted facts, and load-bearing
-dormant storylines.
-
-**Design direction.** Keep the heuristic as the fast/free tier; add an on-demand or
-scheduled AI assessment behind the same `IHealthService` contract, cost-tracked as a new
-`AiOperationType`. Output should name specific risks with artifact links, not just a
-number.
-
-**Parked because:** heuristic version is good enough until there's a world with
-enough data for AI assessment to say something the heuristics can't.
 
 ---
 

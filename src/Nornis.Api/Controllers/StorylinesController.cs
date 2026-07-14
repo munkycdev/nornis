@@ -19,10 +19,35 @@ namespace Nornis.Api.Controllers;
 public class StorylinesController : ControllerBase
 {
     private readonly IArtifactService _artifactService;
+    private readonly IStorylineRetrospectiveService _retrospectiveService;
 
-    public StorylinesController(IArtifactService artifactService)
+    public StorylinesController(
+        IArtifactService artifactService,
+        IStorylineRetrospectiveService retrospectiveService)
     {
         _artifactService = artifactService;
+        _retrospectiveService = retrospectiveService;
+    }
+
+    /// <summary>
+    /// GM-only: assess every Active storyline against the record and propose closures
+    /// as review proposals.
+    /// </summary>
+    [HttpPost("retrospective")]
+    public async Task<IActionResult> RunRetrospective(Guid worldId, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _retrospectiveService.RunAsync(worldId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var value = result.Value!;
+        return Ok(new RetrospectiveResponse(value.AssessedCount, value.ProposedCount, value.ReviewBatchId));
     }
 
     [HttpGet]

@@ -85,6 +85,7 @@ builder.Services.AddScoped<IArtifactService, ArtifactService>();
 builder.Services.AddScoped<ICanonService, CanonService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<IContinuityAuditService, ContinuityAuditService>();
+builder.Services.AddScoped<IStorylineRetrospectiveService, StorylineRetrospectiveService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddSingleton<IProposalValidator, ProposalValidator>();
 builder.Services.AddScoped<IProposalApplicator, ProposalApplicator>();
@@ -114,6 +115,7 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
     builder.Services.AddSingleton(openAiClient.GetChatClient(loremasterModel ?? "gpt-4o"));
     builder.Services.AddScoped<ILoremasterAiClient, AzureOpenAiLoremasterClient>();
     builder.Services.AddScoped<IAuditAiClient, AzureOpenAiAuditClient>();
+    builder.Services.AddScoped<IRetrospectiveAiClient, AzureOpenAiRetrospectiveClient>();
 }
 else
 {
@@ -124,6 +126,9 @@ else
     builder.Services.AddScoped<IAuditAiClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable AI-assessed Continuity Health."));
+    builder.Services.AddScoped<IRetrospectiveAiClient>(sp =>
+        throw new InvalidOperationException(
+            "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable storyline retrospectives."));
 }
 
 // Azure Service Bus and extraction queue

@@ -65,6 +65,17 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
 
             services.AddSingleton<IExtractionQueueClient>(_fakeExtractionQueueClient);
 
+            // The DI stub for IRetrospectiveAiClient throws at resolution when Azure
+            // OpenAI is unconfigured, which would break controller activation for every
+            // Storylines endpoint. Replace it with a benign fake.
+            var retroDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(Nornis.Application.Ai.IRetrospectiveAiClient));
+            if (retroDescriptor is not null)
+            {
+                services.Remove(retroDescriptor);
+            }
+            services.AddScoped<Nornis.Application.Ai.IRetrospectiveAiClient, FakeRetrospectiveAiClient>();
+
             // Override JWT Bearer authentication to validate against the test issuer
             services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
             {

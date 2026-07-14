@@ -141,6 +141,10 @@ public class NornisApiClient
     public Task<ApiResult<ArtifactDetailDto>> GetArtifactAsync(Guid worldId, Guid artifactId, CancellationToken ct = default) =>
         GetAsync<ArtifactDetailDto>($"/api/worlds/{worldId}/artifacts/{artifactId}", ct);
 
+    /// <summary>GM-only: assess Active storylines and propose closures as review proposals.</summary>
+    public Task<ApiResult<RetrospectiveResult>> RunStorylineRetrospectiveAsync(Guid worldId, CancellationToken ct = default) =>
+        PostAsync<object?, RetrospectiveResult>($"/api/worlds/{worldId}/storylines/retrospective", null, ct);
+
     public Task<ApiResult<IReadOnlyList<ArtifactListItem>>> GetStorylinesAsync(
         Guid worldId, string? status = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<ArtifactListItem>>(

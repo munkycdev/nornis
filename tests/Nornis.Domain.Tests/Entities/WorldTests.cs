@@ -94,6 +94,6 @@ public class WorldTests
     public void World_Has_Expected_Property_Count()
     {
         var properties = _type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        Assert.That(properties, Has.Length.EqualTo(11));
+        Assert.That(properties, Has.Length.EqualTo(12));
     }
 }

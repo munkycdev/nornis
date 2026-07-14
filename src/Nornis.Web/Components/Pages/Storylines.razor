@@ -2,11 +2,26 @@
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
+@inject ISnackbar Snackbar
 
 <PageTitle>Storylines — Nornis</PageTitle>
 
-<MudText Typo="Typo.h4" Class="nornis-serif">Storylines</MudText>
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">The stories in motion.</MudText>
+<div class="d-flex align-center justify-space-between mb-4">
+    <div>
+        <MudText Typo="Typo.h4" Class="nornis-serif">Storylines</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">The stories in motion.</MudText>
+    </div>
+    @if (Worlds.Current?.MyRole == "GM")
+    {
+        <MudTooltip Text="AI reads each Active storyline against the record and proposes closing the finished ones — you review every proposal.">
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.Checklist"
+                       OnClick="RunRetrospectiveAsync" Disabled="_retroBusy">
+                @(_retroBusy ? "Assessing…" : "Run retrospective")
+            </MudButton>
+        </MudTooltip>
+    }
+</div>
 
 @if (Worlds.Current is null)
 {
@@ -84,7 +99,36 @@ else
     private bool _loading;
     private string? _error;
     private string? _status;
+    private bool _retroBusy;
     private IReadOnlyList<ArtifactListItem> _storylines = [];
+
+    private async Task RunRetrospectiveAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _retroBusy = true;
+        StateHasChanged();
+
+        var result = await Api.RunStorylineRetrospectiveAsync(Worlds.Current.Id);
+        _retroBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        else if (result.Value!.ProposedCount == 0)
+        {
+            Snackbar.Add($"Assessed {result.Value.AssessedCount} storylines — all look genuinely active.", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add($"Assessed {result.Value.AssessedCount} storylines; {result.Value.ProposedCount} closure proposals are in the review queue.", Severity.Success);
+        }
+        StateHasChanged();
+    }
 
     protected override async Task OnInitializedAsync()
     {

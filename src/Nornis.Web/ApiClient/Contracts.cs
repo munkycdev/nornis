@@ -330,6 +330,11 @@ public record ContinuityFinding(
     Guid? ArtifactId,
     string Status);
 
+public record RetrospectiveResult(
+    int AssessedCount,
+    int ProposedCount,
+    Guid? ReviewBatchId);
+
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);
 
