@@ -17,7 +17,8 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// <summary>
 /// Property 2: Non-Queued Sources and Existing Batches Are Skipped
 ///
-/// For any source whose ProcessingStatus is not Queued (Draft, Ready, Processing, Processed, or Failed),
+/// For any source whose ProcessingStatus is not Queued (Draft, Ready, Processed, or Failed —
+/// Processing is excluded: with no batch it is a crashed run the worker resumes),
 /// or any source that already has a ReviewBatch in Pending, InReview, or Completed status,
 /// processing the extraction message SHALL return a Skipped outcome without creating new ReviewBatch,
 /// ReviewProposal, or AiUsageRecord records, and without modifying the source's ProcessingStatus.

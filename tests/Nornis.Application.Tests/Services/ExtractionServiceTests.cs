@@ -163,8 +163,9 @@ public class ExtractionServiceTests
 
     #region Source in Processing/Processed/Failed status → Skipped outcome
 
+    // Processing is deliberately absent: with no batch it is a crashed run that the
+    // worker resumes (see ExtractionServiceCrashRecoveryTests).
     [Test]
-    [TestCase(SourceProcessingStatus.Processing)]
     [TestCase(SourceProcessingStatus.Processed)]
     [TestCase(SourceProcessingStatus.Failed)]
     public async Task ProcessExtractionAsync_SourceNotQueued_ReturnsSkipped(SourceProcessingStatus status)
@@ -179,7 +180,6 @@ public class ExtractionServiceTests
     }
 
     [Test]
-    [TestCase(SourceProcessingStatus.Processing)]
     [TestCase(SourceProcessingStatus.Processed)]
     [TestCase(SourceProcessingStatus.Failed)]
     public async Task ProcessExtractionAsync_SourceNotQueued_DoesNotModifyStatus(SourceProcessingStatus status)

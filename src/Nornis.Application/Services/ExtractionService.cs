@@ -88,26 +88,47 @@ public class ExtractionService : IExtractionService
             return ExtractionOutcome.NonTransient(ErrorCategories.SourceNotFound, "Source not found.");
         }
 
-        // 2. Idempotency: check source status
-        if (source.ProcessingStatus != SourceProcessingStatus.Queued)
+        // 2. Idempotency: check the ReviewBatch first — its presence proves extraction
+        //    completed even when a crash landed before the final status write.
+        var existingBatch = await _reviewBatchRepository.GetBySourceIdAsync(sourceId, ct);
+
+        if (existingBatch is not null)
+        {
+            // Repair a run that committed its batch but crashed before transitioning
+            // the source out of Processing; otherwise the source wedges forever.
+            if (source.ProcessingStatus == SourceProcessingStatus.Processing)
+            {
+                await _sourceRepository.UpdateProcessingStatusAsync(sourceId, SourceProcessingStatus.Processed, ct);
+                _logger.LogWarning(
+                    "Repaired source stuck in Processing with a completed batch. SourceId={SourceId}, BatchId={BatchId}",
+                    sourceId, existingBatch.Id);
+                return ExtractionOutcome.SkippedIdempotent(
+                    $"ReviewBatch already exists in {existingBatch.Status} status; source repaired to Processed.");
+            }
+
+            _logger.LogInformation(
+                "ReviewBatch already exists for source. SourceId={SourceId}, BatchId={BatchId}, BatchStatus={BatchStatus}",
+                sourceId, existingBatch.Id, existingBatch.Status);
+            return ExtractionOutcome.SkippedIdempotent(
+                $"ReviewBatch already exists in {existingBatch.Status} status.");
+        }
+
+        // 3. Idempotency: only Queued sources start extraction — except Processing with
+        //    no batch, which is a run that crashed mid-extraction (the message was
+        //    redelivered after a worker restart) and must be resumed, not skipped.
+        if (source.ProcessingStatus == SourceProcessingStatus.Processing)
+        {
+            _logger.LogWarning(
+                "Resuming extraction for source stuck in Processing with no batch (crashed run). SourceId={SourceId}",
+                sourceId);
+        }
+        else if (source.ProcessingStatus != SourceProcessingStatus.Queued)
         {
             _logger.LogInformation(
                 "Source already processed or not in Queued status. SourceId={SourceId}, Status={Status}",
                 sourceId, source.ProcessingStatus);
             return ExtractionOutcome.SkippedIdempotent(
                 $"Source is in {source.ProcessingStatus} status, not Queued.");
-        }
-
-        // 3. Idempotency: check existing ReviewBatch
-        var existingBatch = await _reviewBatchRepository.GetBySourceIdAsync(sourceId, ct);
-
-        if (existingBatch is not null)
-        {
-            _logger.LogInformation(
-                "ReviewBatch already exists for source. SourceId={SourceId}, BatchId={BatchId}, BatchStatus={BatchStatus}",
-                sourceId, existingBatch.Id, existingBatch.Status);
-            return ExtractionOutcome.SkippedIdempotent(
-                $"ReviewBatch already exists in {existingBatch.Status} status.");
         }
 
         // 4. Transition: Queued → Processing

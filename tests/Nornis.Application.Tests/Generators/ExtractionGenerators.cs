@@ -256,13 +256,14 @@ public static class ExtractionGenerators
         };
 
     /// <summary>
-    /// Generates a Source entity in a non-Queued status.
+    /// Generates a Source entity in a status the worker must skip. Processing is
+    /// deliberately absent: a Processing source with no batch is a crashed run that
+    /// the worker resumes (see ExtractionServiceCrashRecoveryTests).
     /// </summary>
     public static Gen<Source> NonQueuedSource =>
         from status in Gen.Elements(
             SourceProcessingStatus.Draft,
             SourceProcessingStatus.Ready,
-            SourceProcessingStatus.Processing,
             SourceProcessingStatus.Processed,
             SourceProcessingStatus.Failed)
         from visibility in Gen.Elements(Enum.GetValues<VisibilityScope>())
