@@ -106,6 +106,10 @@ public class NornisApiClient
     public Task<ApiResult<bool>> DeleteCharacterAsync(Guid worldId, Guid characterId, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}/characters/{characterId}", ct);
 
+    /// <summary>Transfers ownership of an existing character to the calling member.</summary>
+    public Task<ApiResult<CharacterDto>> ClaimCharacterAsync(Guid worldId, Guid characterId, CancellationToken ct = default) =>
+        PostAsync<object?, CharacterDto>($"/api/worlds/{worldId}/characters/{characterId}/claim", null, ct);
+
     // -------------------------------------------------------------------- Sources --
 
     /// <summary>Lightweight activity counts for navigation badges.</summary>

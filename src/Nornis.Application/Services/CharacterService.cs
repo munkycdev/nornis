@@ -152,6 +152,38 @@ public class CharacterService : ICharacterService
         return AppResult<Character>.Success(character);
     }
 
+    public async Task<AppResult<Character>> ClaimAsync(Guid characterId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)
+    {
+        if (role == WorldRole.Observer)
+        {
+            return AppResult<Character>.Fail(new AppError(403, "insufficient_role", "Observers cannot claim characters."));
+        }
+
+        var character = await _characterRepository.GetByIdAsync(characterId, ct);
+
+        if (character is null || character.WorldId != worldId)
+        {
+            return AppResult<Character>.Fail(new AppError(404, "not_found", "Character not found."));
+        }
+
+        var actingMember = await _worldMemberRepository.GetByWorldAndUserAsync(worldId, actingUserId, ct);
+        if (actingMember is null)
+        {
+            return AppResult<Character>.Fail(new AppError(404, "not_found", "World membership not found."));
+        }
+
+        if (character.WorldMemberId == actingMember.Id)
+        {
+            return AppResult<Character>.Success(character);
+        }
+
+        character.WorldMemberId = actingMember.Id;
+        character.UpdatedAt = DateTimeOffset.UtcNow;
+        character = await _characterRepository.UpdateAsync(character, ct);
+
+        return AppResult<Character>.Success(character);
+    }
+
     public async Task<AppResult> DeleteAsync(Guid characterId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)
     {
         if (role == WorldRole.Observer)

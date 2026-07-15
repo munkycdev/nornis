@@ -361,6 +361,63 @@ public class CharacterServiceTests
         Assert.That(result.Error!.Code, Is.EqualTo("invalid_artifact_link"));
     }
 
+    // -------------------------------------------------------------------- Claim --
+
+    [Test]
+    public async Task ClaimAsync_PlayerClaimsGmOwnedCharacter()
+    {
+        var character = SeedCharacter(_gm);
+
+        var result = await _sut.ClaimAsync(character.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.WorldMemberId, Is.EqualTo(_player.Id));
+    }
+
+    [Test]
+    public async Task ClaimAsync_AlreadyOwned_IsNoOp()
+    {
+        var character = SeedCharacter(_player);
+        var before = character.UpdatedAt;
+
+        var result = await _sut.ClaimAsync(character.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.WorldMemberId, Is.EqualTo(_player.Id));
+        Assert.That(result.Value.UpdatedAt, Is.EqualTo(before));
+    }
+
+    [Test]
+    public async Task ClaimAsync_Observer_Returns403()
+    {
+        var character = SeedCharacter(_gm);
+
+        var result = await _sut.ClaimAsync(character.Id, WorldId, _observer.UserId, WorldRole.Observer, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+    }
+
+    [Test]
+    public async Task ClaimAsync_WrongWorld_Returns404()
+    {
+        var character = SeedCharacter(_player);
+
+        var result = await _sut.ClaimAsync(character.Id, Guid.NewGuid(), _otherPlayer.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
+    [Test]
+    public async Task ClaimAsync_MissingCharacter_Returns404()
+    {
+        var result = await _sut.ClaimAsync(Guid.NewGuid(), WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
     // ------------------------------------------------------------------- Delete --
 
     [Test]

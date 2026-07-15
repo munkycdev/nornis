@@ -115,6 +115,23 @@ public class CharactersController : ControllerBase
         return Ok(ToCharacterResponse(result.Value!));
     }
 
+    /// <summary>Transfers ownership of the character to the calling member.</summary>
+    [HttpPost("{characterId:guid}/claim")]
+    public async Task<IActionResult> Claim(Guid worldId, Guid characterId, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _characterService.ClaimAsync(characterId, worldId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return Ok(ToCharacterResponse(result.Value!));
+    }
+
     [HttpDelete("{characterId:guid}")]
     public async Task<IActionResult> Delete(Guid worldId, Guid characterId, CancellationToken ct)
     {

@@ -80,6 +80,37 @@ public class CharacterArtifactLinkTests
     }
 
     [Test]
+    public async Task Claim_PlayerTakesOverGmCharacter()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var character = await CreateCharacterAsync(scenario.GmClient, scenario.World.Id, "Orphaned Hero");
+
+        var response = await scenario.PlayerClient.PostAsync(
+            $"/api/worlds/{scenario.World.Id}/characters/{character.Id}/claim", null);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var claimed = await response.Content.ReadFromJsonAsync<CharacterResponse>();
+        Assert.That(claimed!.WorldMemberId, Is.Not.EqualTo(character.WorldMemberId));
+
+        // The player's mine=true list now includes it.
+        var mine = await scenario.PlayerClient.GetFromJsonAsync<List<CharacterResponse>>(
+            $"/api/worlds/{scenario.World.Id}/characters?mine=true");
+        Assert.That(mine!.Select(c => c.Id), Does.Contain(character.Id));
+    }
+
+    [Test]
+    public async Task Claim_AsObserver_ReturnsForbidden()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var character = await CreateCharacterAsync(scenario.GmClient, scenario.World.Id, "Untouchable");
+
+        var response = await scenario.ObserverClient.PostAsync(
+            $"/api/worlds/{scenario.World.Id}/characters/{character.Id}/claim", null);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
     public async Task Update_PlayerLinksGmOnlyArtifact_ReturnsBadRequest()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
