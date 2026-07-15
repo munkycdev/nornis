@@ -50,6 +50,34 @@ public class StorylinesController : ControllerBase
         return Ok(new RetrospectiveResponse(value.AssessedCount, value.ProposedCount, value.ReviewBatchId));
     }
 
+    /// <summary>
+    /// The storyline timeline: lanes of session-dated developments per storyline, the
+    /// sessions that produced them, and explicit storyline-to-storyline links.
+    /// </summary>
+    [HttpGet("timeline")]
+    public async Task<IActionResult> GetTimeline(Guid worldId, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _artifactService.GetStorylineTimelineAsync(worldId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var timeline = result.Value!;
+        return Ok(new StorylineTimelineResponse(
+            timeline.Sessions.Select(s => new TimelineSessionResponse(s.SourceId, s.Title, s.OccurredAt, s.StorylineCount)).ToList(),
+            timeline.Lanes.Select(l => new TimelineLaneResponse(
+                l.StorylineId, l.Name, l.Status,
+                l.Points.Select(p => new TimelinePointResponse(
+                    p.SourceId, p.OccurredAt,
+                    p.Developments.Select(d => new TimelineDevelopmentResponse(d.Kind, d.Text, d.Quote, d.IsOpenQuestion)).ToList())).ToList())).ToList(),
+            timeline.Links.Select(x => new TimelineLinkResponse(x.FromStorylineId, x.ToStorylineId, x.Type)).ToList()));
+    }
+
     [HttpGet]
     public async Task<IActionResult> List(
         Guid worldId,

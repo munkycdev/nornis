@@ -1,0 +1,244 @@
+@using System.Globalization
+@inject NavigationManager Nav
+
+@* Branching storyline timeline on a real-world calendar. Lanes are storylines; dots are
+   sessions where the arc advanced (sized by how much happened); translucent bands mark
+   sessions that touched several storylines at once — the convergence points. *@
+
+@if (Lanes.Count == 0)
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            No dated storyline activity yet — sessions need an "occurred at" date to place
+            their developments on the calendar.
+        </MudText>
+    </MudPaper>
+}
+else
+{
+    <div class="nornis-timeline-legend">
+        @foreach (var (status, color) in StatusColors)
+        {
+            <span class="nornis-graph-legend-item">
+                <span class="nornis-graph-dot" style="background:@color"></span>@status
+            </span>
+        }
+        <span class="nornis-list-meta">larger dot = busier session</span>
+        <span class="nornis-list-meta">halo = open question</span>
+        <span class="nornis-list-meta">band = session touching several storylines</span>
+    </div>
+
+    <div class="nornis-timeline-scroll">
+        <svg width="@TotalWidth" height="@TotalHeight" role="img" aria-label="Storyline timeline">
+
+            @* Month gridlines + calendar labels along the bottom *@
+            @foreach (var month in MonthTicks)
+            {
+                var mx = X(month);
+                <line x1="@mx" y1="@PlotTop" x2="@mx" y2="@LaneBottom" stroke="rgba(42,59,76,0.08)" stroke-width="1" />
+                @SvgText(mx + 4, LaneBottom + 34, 11, "rgba(42,59,76,0.55)",
+                    month.ToString(month.Month == 1 ? "MMM yyyy" : "MMM", CultureInfo.InvariantCulture))
+            }
+
+            @* Convergence bands: sessions advancing 2+ storylines *@
+            @foreach (var session in Data.Sessions.Where(s => s.StorylineCount >= 2))
+            {
+                var sx = X(session.OccurredAt);
+                <line x1="@sx" y1="@PlotTop" x2="@sx" y2="@LaneBottom" stroke="rgba(63,96,121,0.16)" stroke-width="3">
+                    <title>@SessionTitle(session)</title>
+                </line>
+            }
+
+            @* Axis baseline + session ticks *@
+            <line x1="@GutterWidth" y1="@LaneBottom" x2="@TotalWidth" y2="@LaneBottom" stroke="rgba(42,59,76,0.25)" stroke-width="1" />
+            @foreach (var session in Data.Sessions)
+            {
+                var sx = X(session.OccurredAt);
+                <line x1="@sx" y1="@LaneBottom" x2="@sx" y2="@(LaneBottom + 8)"
+                      stroke="@(session.StorylineCount >= 2 ? "#3F6079" : "rgba(42,59,76,0.45)")" stroke-width="2">
+                    <title>@SessionTitle(session)</title>
+                </line>
+            }
+
+            @* Lanes *@
+            @foreach (var (lane, index) in Lanes.Select((l, i) => (l, i)))
+            {
+                var y = LaneY(index);
+                var color = StatusColor(lane.Status);
+                var first = X(lane.Points[0].OccurredAt);
+                var last = X(lane.Points[^1].OccurredAt);
+
+                <g style="cursor:pointer" @onclick="@(() => Nav.NavigateTo($"/artifacts/{lane.StorylineId}"))">
+                    <circle cx="12" cy="@y" r="4" fill="@color" />
+                    @SvgText(22, y + 4, 12, "#2A3B4C", Truncate(lane.Name, 26))
+                    <title>@lane.Name (@lane.Status) — open the artifact</title>
+                </g>
+
+                @if (last > first)
+                {
+                    <line x1="@first" y1="@y" x2="@last" y2="@y" stroke="@color" stroke-width="2" opacity="0.45" />
+                }
+
+                @foreach (var point in lane.Points)
+                {
+                    var px = X(point.OccurredAt);
+                    var r = 4 + Math.Min(point.Developments.Count - 1, 3);
+                    <g style="cursor:pointer" @onclick="@(() => Nav.NavigateTo($"/sources/{point.SourceId}"))">
+                        @if (point.Developments.Any(d => d.IsOpenQuestion))
+                        {
+                            <circle cx="@px" cy="@y" r="@(r + 4)" fill="none" stroke="@color" stroke-width="1.5" opacity="0.55" />
+                        }
+                        <circle cx="@px" cy="@y" r="@r" fill="@color" stroke="#FDFBF7" stroke-width="2" />
+                        <title>@PointTitle(lane, point)</title>
+                    </g>
+                }
+            }
+
+            @* Explicit storyline-to-storyline links, drawn where the later arc begins *@
+            @foreach (var link in DrawableLinks)
+            {
+                <path d="@link.Path" fill="none" stroke="#9AA5B1" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.8">
+                    <title>@link.Title</title>
+                </path>
+            }
+        </svg>
+    </div>
+
+    @if (UndatedCount > 0)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
+            @UndatedCount storyline@(UndatedCount == 1 ? " has" : "s have") no dated activity yet and @(UndatedCount == 1 ? "is" : "are") not shown.
+        </MudText>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public StorylineTimelineDto Data { get; set; } = new([], [], []);
+
+    /// <summary>Statuses to include; empty shows everything.</summary>
+    [Parameter] public string? StatusFilter { get; set; }
+
+    private const int GutterWidth = 210;
+    private const int RowHeight = 36;
+    private const int PlotTop = 10;
+    private const int AxisHeight = 48;
+    private const int PadDays = 10;
+    private const double MinPxPerDay = 2.2;
+    private const int MinPlotWidth = 720;
+
+    private static readonly (string Status, string Color)[] StatusColors =
+    [
+        ("Active", "#4E9A6B"), ("Dormant", "#C08A2E"), ("Resolved", "#3F6079"),
+    ];
+
+    private IReadOnlyList<TimelineLaneDto> Lanes =>
+        Data.Lanes
+            .Where(l => l.Points.Count > 0)
+            .Where(l => StatusFilter is null || l.Status == StatusFilter)
+            .ToList();
+
+    private int UndatedCount =>
+        Data.Lanes.Count(l => l.Points.Count == 0 && (StatusFilter is null || l.Status == StatusFilter));
+
+    private DateTimeOffset MinDate =>
+        (Data.Sessions.Count > 0 ? Data.Sessions[0].OccurredAt : DateTimeOffset.UtcNow).AddDays(-PadDays);
+
+    private DateTimeOffset MaxDate =>
+        (Data.Sessions.Count > 0 ? Data.Sessions[^1].OccurredAt : DateTimeOffset.UtcNow).AddDays(PadDays);
+
+    private double SpanDays => Math.Max(1, (MaxDate - MinDate).TotalDays);
+
+    private double PxPerDay => Math.Max(MinPxPerDay, MinPlotWidth / SpanDays);
+
+    private int TotalWidth => GutterWidth + (int)(SpanDays * PxPerDay) + 30;
+
+    private int LaneBottom => PlotTop + Lanes.Count * RowHeight + 8;
+
+    private int TotalHeight => LaneBottom + AxisHeight;
+
+    private int X(DateTimeOffset date) =>
+        GutterWidth + (int)((date - MinDate).TotalDays * PxPerDay);
+
+    private int LaneY(int index) => PlotTop + index * RowHeight + RowHeight / 2;
+
+    private IEnumerable<DateTimeOffset> MonthTicks
+    {
+        get
+        {
+            var tick = new DateTimeOffset(MinDate.Year, MinDate.Month, 1, 0, 0, 0, MinDate.Offset).AddMonths(1);
+            while (tick <= MaxDate)
+            {
+                yield return tick;
+                tick = tick.AddMonths(1);
+            }
+        }
+    }
+
+    private string StatusColor(string status) =>
+        StatusColors.FirstOrDefault(s => s.Status == status).Color ?? "#9AA5B1";
+
+    private static string Truncate(string text, int max) =>
+        text.Length <= max ? text : text[..(max - 1)] + "…";
+
+    // Razor reserves the <text> tag, so SVG text elements are emitted as raw markup.
+    private static MarkupString SvgText(int x, int y, int fontSize, string fill, string content) =>
+        new($"<text x=\"{x}\" y=\"{y}\" font-size=\"{fontSize}\" fill=\"{fill}\">{System.Net.WebUtility.HtmlEncode(content)}</text>");
+
+    private static string SessionTitle(TimelineSessionDto s) =>
+        $"{s.Title} — {s.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}"
+        + (s.StorylineCount >= 2 ? $"\nAdvances {s.StorylineCount} storylines" : "");
+
+    private string PointTitle(TimelineLaneDto lane, TimelinePointDto point)
+    {
+        var session = Data.Sessions.FirstOrDefault(s => s.SourceId == point.SourceId);
+        var header = $"{session?.Title ?? "Session"} — {point.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}";
+        var lines = point.Developments.Take(6)
+            .Select(d => $"• {(d.IsOpenQuestion ? "Open question — " : "")}{Truncate(d.Text, 110)}");
+        var more = point.Developments.Count > 6 ? $"\n…and {point.Developments.Count - 6} more" : "";
+        return $"{header}\n{string.Join("\n", lines)}{more}\n(click to open the session)";
+    }
+
+    private sealed record DrawableLink(string Path, string Title);
+
+    private IReadOnlyList<DrawableLink> DrawableLinks
+    {
+        get
+        {
+            var lanes = Lanes;
+            var indexById = lanes.Select((l, i) => (l.StorylineId, i)).ToDictionary(x => x.StorylineId, x => x.i);
+            var result = new List<DrawableLink>();
+
+            foreach (var link in Data.Links)
+            {
+                if (!indexById.TryGetValue(link.FromStorylineId, out var ai)
+                    || !indexById.TryGetValue(link.ToStorylineId, out var bi))
+                {
+                    continue;
+                }
+
+                var laneA = lanes[ai];
+                var laneB = lanes[bi];
+
+                // Anchor at the first session the two arcs share; failing that, where the
+                // later arc begins.
+                var shared = laneA.Points.Select(p => p.SourceId)
+                    .Intersect(laneB.Points.Select(p => p.SourceId))
+                    .ToHashSet();
+                var anchor = shared.Count > 0
+                    ? laneA.Points.First(p => shared.Contains(p.SourceId)).OccurredAt
+                    : new[] { laneA.Points[0].OccurredAt, laneB.Points[0].OccurredAt }.Max();
+
+                var x = X(anchor);
+                var y1 = LaneY(Math.Min(ai, bi));
+                var y2 = LaneY(Math.Max(ai, bi));
+                var bulge = x + 18;
+
+                result.Add(new DrawableLink(
+                    $"M {x} {y1} C {bulge} {y1}, {bulge} {y2}, {x} {y2}",
+                    $"{laneA.Name} — {link.Type} — {laneB.Name}"));
+            }
+
+            return result;
+        }
+    }
+}

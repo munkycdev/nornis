@@ -34,4 +34,10 @@ public interface IArtifactService
     /// same authority requirement as merging.
     /// </summary>
     Task<AppResult<Artifact>> RenameAsync(RenameArtifactCommand command, CancellationToken ct);
+
+    /// <summary>
+    /// The storyline timeline: non-archived storylines as lanes of developments dated by
+    /// the sessions that established them, all scoped to the caller's visibility.
+    /// </summary>
+    Task<AppResult<StorylineTimeline>> GetStorylineTimelineAsync(Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct);
 }

@@ -149,6 +149,149 @@ public class ArtifactService : IArtifactService
         return AppResult<ArtifactDetail>.Success(detail);
     }
 
+    public async Task<AppResult<StorylineTimeline>> GetStorylineTimelineAsync(
+        Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct)
+    {
+        var allowedScopes = GetAllowedScopes(role);
+
+        // Every visible artifact — storylines become lanes; the rest resolve relationship
+        // counterpart names. Archived storylines are merge leftovers and stay out.
+        var allArtifacts = (await _artifactRepository.ListByWorldAsync(worldId, null, null, ct))
+            .Where(a => allowedScopes.Contains(a.Visibility))
+            .ToDictionary(a => a.Id);
+
+        var storylines = allArtifacts.Values
+            .Where(a => a.Type == ArtifactType.Storyline && a.Status != ArtifactStatus.Archived)
+            .ToList();
+
+        if (storylines.Count == 0)
+        {
+            return AppResult<StorylineTimeline>.Success(new StorylineTimeline([], [], []));
+        }
+
+        var storylineIds = storylines.Select(s => s.Id).ToList();
+        var storylineIdSet = storylineIds.ToHashSet();
+
+        var facts = (await _factRepository.ListByArtifactIdsAsync(storylineIds, int.MaxValue, ct))
+            .Where(f => allowedScopes.Contains(f.Visibility))
+            .ToList();
+
+        var relationships = (await _relationshipRepository.ListByArtifactIdsAsync(storylineIds, allowedScopes, ct))
+            .DistinctBy(r => r.Id)
+            .ToList();
+
+        var links = relationships
+            .Where(r => storylineIdSet.Contains(r.ArtifactAId) && storylineIdSet.Contains(r.ArtifactBId))
+            .Select(r => new TimelineLink(r.ArtifactAId, r.ArtifactBId, r.Type))
+            .ToList();
+
+        // Sessions the caller may see, dated. Undated sources (lore documents) carry no
+        // position on a real-world axis and are skipped.
+        var sources = (await _sourceRepository.ListByWorldAsync(worldId, null, ct))
+            .Where(s => s.OccurredAt is not null && CanSeeSource(s, requestingUserId, role))
+            .ToDictionary(s => s.Id);
+
+        var targetIds = storylineIds
+            .Concat(facts.Select(f => f.Id))
+            .Concat(relationships.Select(r => r.Id))
+            .ToList();
+        var references = await _sourceReferenceRepository.ListByTargetIdsAsync(targetIds, ct);
+
+        var factsById = facts.ToDictionary(f => f.Id);
+        var relationshipsById = relationships.ToDictionary(r => r.Id);
+        var quotesByTarget = references
+            .GroupBy(r => (r.TargetId, r.SourceId))
+            .ToDictionary(g => g.Key, g => g.First().Quote);
+
+        // (storyline, source) → developments. A reference attributes its target to the
+        // owning storyline: facts to their artifact, relationships to their storyline
+        // endpoint(s), artifact-level citations to the storyline itself.
+        var developments = new Dictionary<(Guid StorylineId, Guid SourceId), List<TimelineDevelopment>>();
+
+        void Add(Guid storylineId, Guid sourceId, TimelineDevelopment development)
+        {
+            if (!sources.ContainsKey(sourceId))
+            {
+                return;
+            }
+
+            var key = (storylineId, sourceId);
+            if (!developments.TryGetValue(key, out var list))
+            {
+                developments[key] = list = [];
+            }
+            if (!list.Any(d => d.Kind == development.Kind && d.Text == development.Text))
+            {
+                list.Add(development);
+            }
+        }
+
+        foreach (var reference in references)
+        {
+            var quote = quotesByTarget.GetValueOrDefault((reference.TargetId, reference.SourceId));
+
+            if (factsById.TryGetValue(reference.TargetId, out var fact))
+            {
+                var isOpenQuestion = string.Equals(fact.Predicate, "open question", StringComparison.OrdinalIgnoreCase)
+                    && fact.TruthState != TruthState.False;
+                // Open questions read as bare questions — the UI prefixes them, so the
+                // predicate would just repeat itself.
+                var text = isOpenQuestion ? fact.Value : $"{fact.Predicate}: {fact.Value}";
+                Add(fact.ArtifactId, reference.SourceId,
+                    new TimelineDevelopment("Fact", text, quote, isOpenQuestion));
+            }
+            else if (relationshipsById.TryGetValue(reference.TargetId, out var relationship))
+            {
+                foreach (var endpoint in new[] { relationship.ArtifactAId, relationship.ArtifactBId })
+                {
+                    if (!storylineIdSet.Contains(endpoint))
+                    {
+                        continue;
+                    }
+
+                    var otherId = endpoint == relationship.ArtifactAId ? relationship.ArtifactBId : relationship.ArtifactAId;
+                    var otherName = allArtifacts.TryGetValue(otherId, out var other) ? other.Name : "another artifact";
+                    Add(endpoint, reference.SourceId,
+                        new TimelineDevelopment("Relationship", $"{relationship.Type} — {otherName}", quote, false));
+                }
+            }
+            else if (storylineIdSet.Contains(reference.TargetId))
+            {
+                Add(reference.TargetId, reference.SourceId,
+                    new TimelineDevelopment("Mention", "Storyline cited in this session", quote, false));
+            }
+        }
+
+        var lanes = storylines
+            .Select(s => new TimelineLane(
+                s.Id,
+                s.Name,
+                s.Status.ToString(),
+                developments
+                    .Where(kv => kv.Key.StorylineId == s.Id)
+                    .Select(kv => new TimelinePoint(
+                        kv.Key.SourceId,
+                        sources[kv.Key.SourceId].OccurredAt!.Value,
+                        kv.Value))
+                    .OrderBy(p => p.OccurredAt)
+                    .ToList()))
+            .OrderBy(l => l.Points.Count == 0)
+            .ThenBy(l => l.Points.FirstOrDefault()?.OccurredAt ?? DateTimeOffset.MaxValue)
+            .ToList();
+
+        var sessions = developments.Keys
+            .GroupBy(k => k.SourceId)
+            .Select(g => new TimelineSession(
+                g.Key,
+                sources[g.Key].Title,
+                sources[g.Key].OccurredAt!.Value,
+                g.Select(k => k.StorylineId).Distinct().Count()))
+            .OrderBy(s => s.OccurredAt)
+            .ToList();
+
+        return AppResult<StorylineTimeline>.Success(new StorylineTimeline(sessions, lanes, links));
+    }
+
     /// <summary>
     /// Reverse lookup from a Character artifact to the members playing it: any Character
     /// record linking to this artifact names its owner. Non-Character artifacts skip the

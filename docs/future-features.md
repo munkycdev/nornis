@@ -7,7 +7,9 @@
   * Add the ability to hand-write notes
   * Perhaps have a tabbed interface instead of displaying all of the source options
 * Storylines
-  * We need to find a better visualization. Perhaps a graph view as well?
+  * Storyline dossier: a dedicated detail view reading as "the story so far" — open questions pinned, developments grouped under session headings with quotes, cast strip. Shares the timeline's aggregation.
+  * Index attention signals: session-anchored staleness ("last advanced N sessions ago"), open-question counts, continuity-finding flags on cards.
+  * Teach extraction to propose Event↔Storyline relationships (only 1 exists) so timeline event markers get real; consider a backfill sweep for processed sources.
 * Canon
   * Also need to find a way to make this useful. 
 * Sources

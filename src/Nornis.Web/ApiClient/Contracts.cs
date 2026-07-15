@@ -350,6 +350,39 @@ public record RetrospectiveResult(
     int ProposedCount,
     Guid? ReviewBatchId);
 
+public record StorylineTimelineDto(
+    IReadOnlyList<TimelineSessionDto> Sessions,
+    IReadOnlyList<TimelineLaneDto> Lanes,
+    IReadOnlyList<TimelineLinkDto> Links);
+
+public record TimelineSessionDto(
+    Guid SourceId,
+    string Title,
+    DateTimeOffset OccurredAt,
+    int StorylineCount);
+
+public record TimelineLaneDto(
+    Guid StorylineId,
+    string Name,
+    string Status,
+    IReadOnlyList<TimelinePointDto> Points);
+
+public record TimelinePointDto(
+    Guid SourceId,
+    DateTimeOffset OccurredAt,
+    IReadOnlyList<TimelineDevelopmentDto> Developments);
+
+public record TimelineDevelopmentDto(
+    string Kind,
+    string Text,
+    string? Quote,
+    bool IsOpenQuestion);
+
+public record TimelineLinkDto(
+    Guid FromStorylineId,
+    Guid ToStorylineId,
+    string Type);
+
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);
 

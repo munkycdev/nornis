@@ -184,6 +184,10 @@ public class NornisApiClient
         GetAsync<IReadOnlyList<ArtifactListItem>>(
             $"/api/worlds/{worldId}/storylines{Query(("status", status))}", ct);
 
+    /// <summary>Session-dated storyline lanes for the timeline view.</summary>
+    public Task<ApiResult<StorylineTimelineDto>> GetStorylineTimelineAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<StorylineTimelineDto>($"/api/worlds/{worldId}/storylines/timeline", ct);
+
     public Task<ApiResult<IReadOnlyList<CanonEntry>>> GetCanonAsync(
         Guid worldId, string? truthState = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<CanonEntry>>(
