@@ -6,8 +6,6 @@
   * Update the capture interface to increase the size of the input text box and create it as a markdown wysiwyg like Chronicis
   * Add the ability to hand-write notes
   * Perhaps have a tabbed interface instead of displaying all of the source options
-* Artifacts
-  * Show "played by <member>" on a Character artifact's detail page when a Character record links to it (reverse lookup in GetDetailAsync)
 * Storylines
   * We need to find a better visualization. Perhaps a graph view as well?
 * Canon

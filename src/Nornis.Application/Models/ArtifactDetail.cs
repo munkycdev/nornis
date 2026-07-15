@@ -6,7 +6,8 @@ namespace Nornis.Application.Models;
 /// Aggregated read model for an artifact detail view: the artifact itself plus its
 /// visible facts, relationships, the counterpart artifacts those relationships connect to,
 /// and the supporting source references. All collections are already visibility-filtered
-/// for the requesting user's role.
+/// for the requesting user's role. <paramref name="PlayedBy"/> carries the display names
+/// of members whose Character records link to this artifact (Character artifacts only).
 /// </summary>
 public record ArtifactDetail(
     Artifact Artifact,
@@ -14,4 +15,5 @@ public record ArtifactDetail(
     IReadOnlyList<ArtifactRelationship> Relationships,
     IReadOnlyList<Artifact> ConnectedArtifacts,
     IReadOnlyList<SourceReference> SourceReferences,
-    IReadOnlyDictionary<Guid, string> SourceTitles);
+    IReadOnlyDictionary<Guid, string> SourceTitles,
+    IReadOnlyList<string> PlayedBy);

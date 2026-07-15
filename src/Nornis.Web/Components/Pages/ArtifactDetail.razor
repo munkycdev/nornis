@@ -54,6 +54,13 @@
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_detail.Type</MudChip>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_detail.Status)">@_detail.Status</MudChip>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@_detail.Visibility</MudChip>
+                    @if (_detail.PlayedBy is { Count: > 0 } players)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary"
+                                 Icon="@Icons.Material.Outlined.Person">
+                            Played by @string.Join(", ", players)
+                        </MudChip>
+                    }
                     @if (_detail.Confidence is not null)
                     {
                         <span class="nornis-list-meta">@($"{_detail.Confidence:P0}") confidence</span>

@@ -13,19 +13,25 @@ public class ArtifactService : IArtifactService
     private readonly IArtifactRelationshipRepository _relationshipRepository;
     private readonly ISourceReferenceRepository _sourceReferenceRepository;
     private readonly ISourceRepository _sourceRepository;
+    private readonly ICharacterRepository _characterRepository;
+    private readonly IWorldMemberRepository _worldMemberRepository;
 
     public ArtifactService(
         IArtifactRepository artifactRepository,
         IArtifactFactRepository factRepository,
         IArtifactRelationshipRepository relationshipRepository,
         ISourceReferenceRepository sourceReferenceRepository,
-        ISourceRepository sourceRepository)
+        ISourceRepository sourceRepository,
+        ICharacterRepository characterRepository,
+        IWorldMemberRepository worldMemberRepository)
     {
         _artifactRepository = artifactRepository;
         _factRepository = factRepository;
         _relationshipRepository = relationshipRepository;
         _sourceReferenceRepository = sourceReferenceRepository;
         _sourceRepository = sourceRepository;
+        _characterRepository = characterRepository;
+        _worldMemberRepository = worldMemberRepository;
     }
 
     private static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch
@@ -129,15 +135,51 @@ public class ArtifactService : IArtifactService
             }
         }
 
+        var playedBy = await ResolvePlayedByAsync(artifact, ct);
+
         var detail = new ArtifactDetail(
             Artifact: artifact,
             Facts: facts,
             Relationships: relationships,
             ConnectedArtifacts: connectedArtifacts,
             SourceReferences: sourceReferences,
-            SourceTitles: sourceTitles);
+            SourceTitles: sourceTitles,
+            PlayedBy: playedBy);
 
         return AppResult<ArtifactDetail>.Success(detail);
+    }
+
+    /// <summary>
+    /// Reverse lookup from a Character artifact to the members playing it: any Character
+    /// record linking to this artifact names its owner. Non-Character artifacts skip the
+    /// queries entirely.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> ResolvePlayedByAsync(Artifact artifact, CancellationToken ct)
+    {
+        if (artifact.Type != ArtifactType.Character)
+        {
+            return [];
+        }
+
+        var linkedCharacters = (await _characterRepository.ListByWorldAsync(artifact.WorldId, ct))
+            .Where(c => c.ArtifactId == artifact.Id)
+            .ToList();
+
+        if (linkedCharacters.Count == 0)
+        {
+            return [];
+        }
+
+        var members = await _worldMemberRepository.ListByWorldAsync(artifact.WorldId, ct);
+
+        return linkedCharacters
+            .Select(c => members.FirstOrDefault(m => m.Id == c.WorldMemberId))
+            .Where(m => m is not null)
+            .Select(m => !string.IsNullOrWhiteSpace(m!.DisplayName)
+                ? m.DisplayName!
+                : $"User {m.UserId.ToString()[..8]}")
+            .Distinct()
+            .ToList();
     }
 
     public async Task<AppResult<Artifact>> RenameAsync(RenameArtifactCommand command, CancellationToken ct)

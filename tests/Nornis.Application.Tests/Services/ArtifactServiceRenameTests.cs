@@ -26,7 +26,9 @@ public class ArtifactServiceRenameTests
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
             new InMemorySourceReferenceRepository(),
-            new InMemorySourceRepository());
+            new InMemorySourceRepository(),
+            new InMemoryCharacterRepository(),
+            new InMemoryWorldMemberRepository());
 
         _worldId = Guid.NewGuid();
         _otherWorldId = Guid.NewGuid();

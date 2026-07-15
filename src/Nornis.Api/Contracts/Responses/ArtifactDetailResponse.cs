@@ -14,4 +14,5 @@ public record ArtifactDetailResponse(
     IReadOnlyList<ArtifactFactResponse> Facts,
     IReadOnlyList<ArtifactRelationshipResponse> Relationships,
     IReadOnlyList<ConnectedArtifactResponse> ConnectedArtifacts,
-    IReadOnlyList<SourceReferenceResponse> SourceReferences);
+    IReadOnlyList<SourceReferenceResponse> SourceReferences,
+    IReadOnlyList<string> PlayedBy);

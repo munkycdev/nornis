@@ -14,6 +14,8 @@ public class ArtifactServiceTests
     private InMemoryArtifactFactRepository _factRepo = null!;
     private InMemoryArtifactRelationshipRepository _relationshipRepo = null!;
     private InMemorySourceReferenceRepository _sourceRefRepo = null!;
+    private InMemoryCharacterRepository _characterRepo = null!;
+    private InMemoryWorldMemberRepository _memberRepo = null!;
     private ArtifactService _service = null!;
 
     // World: "Black Harbor Investigation"
@@ -32,7 +34,10 @@ public class ArtifactServiceTests
         _relationshipRepo = new InMemoryArtifactRelationshipRepository();
         _sourceRefRepo = new InMemorySourceReferenceRepository();
 
-        _service = new ArtifactService(_artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo, new InMemorySourceRepository());
+        _characterRepo = new InMemoryCharacterRepository();
+        _memberRepo = new InMemoryWorldMemberRepository();
+        _service = new ArtifactService(_artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo,
+            new InMemorySourceRepository(), _characterRepo, _memberRepo);
 
         _worldId = Guid.NewGuid();
         _otherWorldId = Guid.NewGuid();
@@ -286,6 +291,90 @@ public class ArtifactServiceTests
     #endregion
 
     #region Helpers
+
+    #region GetDetailAsync — played by
+
+    private async Task<WorldMember> SeedMember(string? displayName)
+    {
+        return await _memberRepo.CreateAsync(new WorldMember
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            UserId = Guid.NewGuid(),
+            Role = WorldRole.Player,
+            DisplayName = displayName,
+            JoinedAt = DateTimeOffset.UtcNow
+        });
+    }
+
+    private void SeedLinkedCharacter(WorldMember owner, Guid artifactId, string name = "Ugma")
+    {
+        _characterRepo.Seed(new Character
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            WorldMemberId = owner.Id,
+            Name = name,
+            ArtifactId = artifactId,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+    }
+
+    [Test]
+    public async Task GetDetailAsync_CharacterArtifactWithLinkedCharacter_NamesThePlayer()
+    {
+        var artifact = MakeArtifact("Ugma", VisibilityScope.PartyVisible);
+        _artifactRepo.Seed(artifact);
+        var member = await SeedMember("Dave");
+        SeedLinkedCharacter(member, artifact.Id);
+
+        var result = await _service.GetDetailAsync(artifact.Id, _worldId, _tavrinUserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.PlayedBy, Is.EqualTo(new[] { "Dave" }));
+    }
+
+    [Test]
+    public async Task GetDetailAsync_MemberWithoutDisplayName_FallsBackToUserId()
+    {
+        var artifact = MakeArtifact("Ugma", VisibilityScope.PartyVisible);
+        _artifactRepo.Seed(artifact);
+        var member = await SeedMember(null);
+        SeedLinkedCharacter(member, artifact.Id);
+
+        var result = await _service.GetDetailAsync(artifact.Id, _worldId, _tavrinUserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.PlayedBy, Has.Count.EqualTo(1));
+        Assert.That(result.Value.PlayedBy[0], Does.StartWith("User "));
+    }
+
+    [Test]
+    public async Task GetDetailAsync_UnlinkedCharacterArtifact_HasEmptyPlayedBy()
+    {
+        var artifact = MakeArtifact("Dagasto", VisibilityScope.PartyVisible);
+        _artifactRepo.Seed(artifact);
+
+        var result = await _service.GetDetailAsync(artifact.Id, _worldId, _tavrinUserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.PlayedBy, Is.Empty);
+    }
+
+    [Test]
+    public async Task GetDetailAsync_NonCharacterArtifact_HasEmptyPlayedBy()
+    {
+        var artifact = MakeArtifact("Black Harbor", VisibilityScope.PartyVisible, type: ArtifactType.Location);
+        _artifactRepo.Seed(artifact);
+
+        var result = await _service.GetDetailAsync(artifact.Id, _worldId, _tavrinUserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.PlayedBy, Is.Empty);
+    }
+
+    #endregion
 
     private Artifact MakeArtifact(
         string name,

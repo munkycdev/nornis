@@ -202,7 +202,8 @@ public record ArtifactDetailDto(
     IReadOnlyList<ArtifactFactDto> Facts,
     IReadOnlyList<ArtifactRelationshipDto> Relationships,
     IReadOnlyList<ConnectedArtifact> ConnectedArtifacts,
-    IReadOnlyList<SourceReferenceDto> SourceReferences);
+    IReadOnlyList<SourceReferenceDto> SourceReferences,
+    IReadOnlyList<string>? PlayedBy = null);
 
 public record CanonEntry(
     string Kind,

@@ -195,7 +195,8 @@ public class ArtifactsController : ControllerBase
             Facts: detail.Facts.Select(ToFactResponse).ToList(),
             Relationships: detail.Relationships.Select(ToRelationshipResponse).ToList(),
             ConnectedArtifacts: detail.ConnectedArtifacts.Select(ToConnectedResponse).ToList(),
-            SourceReferences: detail.SourceReferences.Select(r => ToSourceReferenceResponse(r, detail.SourceTitles)).ToList());
+            SourceReferences: detail.SourceReferences.Select(r => ToSourceReferenceResponse(r, detail.SourceTitles)).ToList(),
+            PlayedBy: detail.PlayedBy);
     }
 
     private static ArtifactFactResponse ToFactResponse(ArtifactFact fact)
