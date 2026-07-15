@@ -1,14 +1,15 @@
-﻿@page "/storylines"
+﻿@page "/timeline"
+@page "/storylines"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject ISnackbar Snackbar
 
-<PageTitle>Storylines — Nornis</PageTitle>
+<PageTitle>Timeline — Nornis</PageTitle>
 
 <div class="d-flex align-center justify-space-between mb-4">
     <div>
-        <MudText Typo="Typo.h4" Class="nornis-serif">Storylines</MudText>
+        <MudText Typo="Typo.h4" Class="nornis-serif">Timeline</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">The stories in motion.</MudText>
     </div>
     @if (Worlds.Current?.MyRole == "GM")
@@ -121,7 +122,7 @@ else
     private bool _loading;
     private string? _error;
     private string? _status;
-    private string _view = "cards";
+    private string _view = "timeline";
     private bool _retroBusy;
     private IReadOnlyList<ArtifactListItem> _storylines = [];
 
