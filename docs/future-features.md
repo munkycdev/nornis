@@ -15,9 +15,7 @@
 * Sources
   * Extraction context includes GM-only and Private facts regardless of the source's visibility (`ListByArtifactIdsAsync` doesn't filter facts by scope) — a PartyVisible extraction prompt can see Hidden truths and echo them into party-visible proposals. Scope context facts to the source's allowed visibilities.
 * Admin
-  * Let's create an "Admin" menu item that's only visible to the GM.
-  * Move Costs and Settings to tabs inside Admin
-  * Let's also have a tab for a processing queue, showing status and allowing resubmission of failed items.
+  * Settings (now an Admin tab) is GM-only, which removed players' self-service character management. Decide whether players need a lightweight "My characters" surface elsewhere.
 * World Memory
   * Let's create a page which shows a detailed health assessment - how we get to the AI number.
 * General

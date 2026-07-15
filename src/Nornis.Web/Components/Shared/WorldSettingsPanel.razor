@@ -1,0 +1,820 @@
+﻿@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+@* World configuration, campaigns, characters, and members. Formerly the /settings page;
+   now a tab on the GM-only Admin page. *@
+
+<div class="nornis-narrow">
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">World configuration and members.</MudText>
+
+    @if (Worlds.Current is null)
+    {
+        <NoWorld />
+    }
+    else
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <div class="nornis-detail-section-title">World</div>
+            @if (_isGm)
+            {
+                <MudTextField @bind-Value="_name" Label="Name" Required="true" Immediate="true"
+                              MaxLength="200" Variant="Variant.Outlined" Class="mb-3" />
+                <MudTextField @bind-Value="_description" Label="Description" Lines="2"
+                              Variant="Variant.Outlined" Class="mb-3" />
+                <MudTextField @bind-Value="_gameSystem" Label="Game system" Placeholder="e.g. D&D 5e"
+                              Variant="Variant.Outlined" Class="mb-3" />
+                <MudNumericField T="decimal?" @bind-Value="_dailyAiBudget" Label="Daily AI budget (USD)"
+                                 Placeholder="server default" Min="0.01m" Max="100m" Step="0.5m"
+                                 HelperText="Cap on this world's AI spend per day (extraction, Loremaster, audits). Leave empty to use the server default."
+                                 Variant="Variant.Outlined" Class="mb-3" />
+                @if (_worldError is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_worldError</MudAlert>
+                }
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SaveWorldAsync" Disabled="_savingWorld">
+                    Save changes
+                </MudButton>
+            }
+            else
+            {
+                <div class="nornis-kv"><span class="nornis-kv-key">Name</span><span class="nornis-kv-value">@Worlds.Current.Name</span></div>
+                <div class="nornis-kv"><span class="nornis-kv-key">Description</span><span class="nornis-kv-value">@(string.IsNullOrWhiteSpace(Worlds.Current.Description) ? "—" : Worlds.Current.Description)</span></div>
+                <div class="nornis-kv"><span class="nornis-kv-key">Game system</span><span class="nornis-kv-value">@(string.IsNullOrWhiteSpace(Worlds.Current.GameSystem) ? "—" : Worlds.Current.GameSystem)</span></div>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">Only GMs can edit world settings.</MudText>
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+            <div class="nornis-detail-section-title">Campaigns</div>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                Runs of play within this world. Sources can declare which campaign their events happened in.
+            </MudText>
+
+            @if (_loadingCampaigns)
+            {
+                <LoadingRows Rows="2" Height="48px" />
+            }
+            else if (_campaignsError is not null)
+            {
+                <MudAlert Severity="Severity.Error">@_campaignsError</MudAlert>
+            }
+            else
+            {
+                @if (_campaigns.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">No campaigns yet.</MudText>
+                }
+                @foreach (var c in _campaigns)
+                {
+                    <div class="nornis-member-row">
+                        <div class="nornis-list-body">
+                            <div class="nornis-list-title">@c.Name</div>
+                            <div class="nornis-list-sub">
+                                @CampaignDates(c)
+                                @if (CampaignCharacterNames(c) is { Length: > 0 } names)
+                                {
+                                    <span> · @names</span>
+                                }
+                            </div>
+                        </div>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
+                                 Color="@(c.Status == "Active" ? Color.Success : Color.Default)">@c.Status</MudChip>
+                        @if (_isGm)
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                           OnClick="() => BeginEditCampaign(c)" aria-label="Edit campaign" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                           OnClick="() => DeleteCampaignAsync(c)" aria-label="Delete campaign" />
+                        }
+                    </div>
+                    @if (_isGm && _editingCampaignId == c.Id)
+                    {
+                        <div class="nornis-card-pad mb-2">
+                            <MudTextField @bind-Value="_campaignName" Label="Name" Required="true" MaxLength="200"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+                            <MudTextField @bind-Value="_campaignDescription" Label="Description" Lines="2"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+                            <MudSelect T="string" @bind-Value="_campaignStatus" Label="Status" Dense="true"
+                                       Variant="Variant.Outlined" Class="mb-2">
+                                @foreach (var status in _campaignStatuses)
+                                {
+                                    <MudSelectItem Value="@status">@status</MudSelectItem>
+                                }
+                            </MudSelect>
+                            <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_campaignCharacterIds"
+                                       Label="Characters in this campaign" Dense="true" Variant="Variant.Outlined" Class="mb-2">
+                                @foreach (var ch in _characters)
+                                {
+                                    <MudSelectItem T="Guid" Value="@ch.Id">@ch.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                            @if (_campaignError is not null)
+                            {
+                                <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2">@_campaignError</MudAlert>
+                            }
+                            <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Small"
+                                       OnClick="SaveCampaignAsync" Disabled="_savingCampaign" Class="mr-2">Save</MudButton>
+                            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="CancelEditCampaign">Cancel</MudButton>
+                        </div>
+                    }
+                }
+
+                @if (_isGm)
+                {
+                    <div class="nornis-add-member mt-3">
+                        <MudTextField @bind-Value="_newCampaignName" Label="New campaign name" MaxLength="200"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" />
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="AddCampaignAsync" Disabled="_addingCampaign">
+                            Add
+                        </MudButton>
+                    </div>
+                    @if (_addCampaignError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_addCampaignError</MudAlert>
+                    }
+                }
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+            <div class="nornis-detail-section-title">Characters</div>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                Player characters in this world. A member can play several at once, and a character can span campaigns.
+            </MudText>
+
+            @if (_loadingCharacters)
+            {
+                <LoadingRows Rows="2" Height="48px" />
+            }
+            else if (_charactersError is not null)
+            {
+                <MudAlert Severity="Severity.Error">@_charactersError</MudAlert>
+            }
+            else
+            {
+                @if (_characters.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">No characters yet.</MudText>
+                }
+                @foreach (var ch in _characters)
+                {
+                    <div class="nornis-member-row">
+                        <MudAvatar Color="Color.Tertiary" Size="Size.Small">@ch.Name[..1].ToUpperInvariant()</MudAvatar>
+                        <div class="nornis-list-body">
+                            <div class="nornis-list-title">@ch.Name</div>
+                            <div class="nornis-list-sub">
+                                @MemberName(ch.WorldMemberId)
+                                @if (CharacterCampaignNames(ch) is { Length: > 0 } campaigns)
+                                {
+                                    <span> · @campaigns</span>
+                                }
+                                @if (ch.ArtifactId is { } linkedId)
+                                {
+                                    <span> · </span><a href="@($"/artifacts/{linkedId}")" class="nornis-link">Linked artifact</a>
+                                }
+                            </div>
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                       OnClick="() => BeginEditCharacter(ch)" aria-label="Edit character" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                       OnClick="() => DeleteCharacterAsync(ch)" aria-label="Delete character" />
+                    </div>
+                    @if (_editingCharacterId == ch.Id)
+                    {
+                        <div class="nornis-card-pad mb-2">
+                            <MudTextField @bind-Value="_characterName" Label="Name" Required="true" MaxLength="200"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+                            <MudTextField @bind-Value="_characterDescription" Label="Description" Lines="2"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+                            <MudAutocomplete T="ArtifactListItem" @bind-Value="_characterArtifact"
+                                             SearchFunc="SearchCharacterArtifactsAsync" ToStringFunc="@(a => a?.Name)"
+                                             Label="Linked artifact" HelperText="The AI-extracted Character record for this character"
+                                             Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                                             Clearable="true" ResetValueOnEmptyText="true" Class="mb-2" />
+                            @if (_characterError is not null)
+                            {
+                                <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2">@_characterError</MudAlert>
+                            }
+                            <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Small"
+                                       OnClick="SaveCharacterAsync" Disabled="_savingCharacter" Class="mr-2">Save</MudButton>
+                            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="CancelEditCharacter">Cancel</MudButton>
+                        </div>
+                    }
+                }
+
+                <div class="nornis-add-member mt-3">
+                    <MudTextField @bind-Value="_newCharacterName" Label="New character name" MaxLength="200"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" />
+                    @if (_isGm && _members.Count > 0)
+                    {
+                        <MudSelect T="Guid?" @bind-Value="_newCharacterMemberId" Label="Player" Dense="true"
+                                   Variant="Variant.Outlined" Class="nornis-role-select">
+                            <MudSelectItem T="Guid?" Value="@((Guid?)null)">Me</MudSelectItem>
+                            @foreach (var m in _members)
+                            {
+                                <MudSelectItem T="Guid?" Value="@((Guid?)m.Id)">@DisplayName(m)</MudSelectItem>
+                            }
+                        </MudSelect>
+                    }
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="AddCharacterAsync" Disabled="_addingCharacter">
+                        Add
+                    </MudButton>
+                </div>
+                @if (_addCharacterError is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_addCharacterError</MudAlert>
+                }
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+            <div class="nornis-detail-section-title">Members</div>
+
+            @if (_loadingMembers)
+            {
+                <LoadingRows Rows="3" Height="48px" />
+            }
+            else if (_membersError is not null)
+            {
+                <MudAlert Severity="Severity.Error">@_membersError</MudAlert>
+            }
+            else
+            {
+                @foreach (var m in _members)
+                {
+                    <div class="nornis-member-row">
+                        <MudAvatar Color="Color.Primary" Size="Size.Small">@Initial(m)</MudAvatar>
+                        <div class="nornis-list-body">
+                            <div class="nornis-list-title">@DisplayName(m)</div>
+                        </div>
+                        @if (_isGm)
+                        {
+                            <MudSelect T="string" Value="m.Role" ValueChanged="(string r) => ChangeRoleAsync(m, r)"
+                                       Dense="true" Variant="Variant.Outlined" Class="nornis-role-select" Disabled="@_busyMembers.Contains(m.UserId)">
+                                @foreach (var role in _roles)
+                                {
+                                    <MudSelectItem Value="@role">@RoleLabel(role)</MudSelectItem>
+                                }
+                            </MudSelect>
+                            <MudIconButton Icon="@Icons.Material.Filled.PersonRemove" Color="Color.Error" Size="Size.Small"
+                                           OnClick="() => RemoveAsync(m)" Disabled="@_busyMembers.Contains(m.UserId)" aria-label="Remove member" />
+                        }
+                        else
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@RoleLabel(m.Role)</MudChip>
+                        }
+                    </div>
+                }
+
+                @if (_isGm)
+                {
+                    <div class="nornis-add-member mt-3">
+                        <MudTextField @bind-Value="_newUserId" Label="Add member by user ID" Placeholder="00000000-0000-0000-0000-000000000000"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" />
+                        <MudSelect T="string" @bind-Value="_newRole" Dense="true" Variant="Variant.Outlined" Class="nornis-role-select">
+                            @foreach (var role in _roles)
+                            {
+                                <MudSelectItem Value="@role">@RoleLabel(role)</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
+                                   OnClick="AddMemberAsync" Disabled="_addingMember">
+                            Add
+                        </MudButton>
+                    </div>
+                    @if (_addError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_addError</MudAlert>
+                    }
+                }
+            }
+        </MudPaper>
+    }
+</div>
+
+@code {
+    private readonly string[] _roles = ["GM", "Player", "Observer"];
+
+    private bool _isGm => Worlds.Current?.MyRole == "GM";
+
+    // World settings form
+    private string _name = string.Empty;
+    private string? _description;
+    private string? _gameSystem;
+    private decimal? _dailyAiBudget;
+    private bool _savingWorld;
+    private string? _worldError;
+
+    // Members
+    private bool _loadingMembers;
+    private string? _membersError;
+    private IReadOnlyList<WorldMember> _members = [];
+    private readonly HashSet<Guid> _busyMembers = [];
+
+    // Add member
+    private string _newUserId = string.Empty;
+    private string _newRole = "Player";
+    private bool _addingMember;
+    private string? _addError;
+
+    // Campaigns
+    private readonly string[] _campaignStatuses = ["Active", "Completed", "Archived"];
+    private bool _loadingCampaigns;
+    private string? _campaignsError;
+    private IReadOnlyList<CampaignDto> _campaigns = [];
+    private string _newCampaignName = string.Empty;
+    private bool _addingCampaign;
+    private string? _addCampaignError;
+    private Guid? _editingCampaignId;
+    private string _campaignName = string.Empty;
+    private string? _campaignDescription;
+    private string _campaignStatus = "Active";
+    private IEnumerable<Guid> _campaignCharacterIds = [];
+    private bool _savingCampaign;
+    private string? _campaignError;
+
+    // Characters
+    private bool _loadingCharacters;
+    private string? _charactersError;
+    private IReadOnlyList<CharacterDto> _characters = [];
+    private string _newCharacterName = string.Empty;
+    private Guid? _newCharacterMemberId;
+    private bool _addingCharacter;
+    private string? _addCharacterError;
+    private Guid? _editingCharacterId;
+    private string _characterName = string.Empty;
+    private string? _characterDescription;
+    private bool _savingCharacter;
+    private string? _characterError;
+
+    private Guid _loadedWorldId;
+
+    protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Worlds.EnsureLoadedAsync();
+        SyncFromWorld();
+        await LoadMembersAsync();
+        await LoadCampaignsAndCharactersAsync();
+    }
+
+    private void OnWorldChanged() => InvokeAsync(async () =>
+    {
+        SyncFromWorld();
+        await LoadMembersAsync();
+        await LoadCampaignsAndCharactersAsync();
+    });
+
+    private async Task LoadCampaignsAndCharactersAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            _campaigns = [];
+            _characters = [];
+            return;
+        }
+
+        _loadingCampaigns = _loadingCharacters = true;
+        _campaignsError = _charactersError = null;
+        _characterArtifacts = null;
+        StateHasChanged();
+
+        var campaignsTask = Api.GetCampaignsAsync(Worlds.Current.Id);
+        var charactersTask = Api.GetCharactersAsync(Worlds.Current.Id);
+        var campaigns = await campaignsTask;
+        var characters = await charactersTask;
+
+        _loadingCampaigns = _loadingCharacters = false;
+        if (campaigns.IsSuccess)
+        {
+            _campaigns = campaigns.Value!;
+        }
+        else
+        {
+            _campaignsError = campaigns.Error!.Message;
+            _campaigns = [];
+        }
+
+        if (characters.IsSuccess)
+        {
+            _characters = characters.Value!;
+        }
+        else
+        {
+            _charactersError = characters.Error!.Message;
+            _characters = [];
+        }
+        StateHasChanged();
+    }
+
+    private string CampaignDates(CampaignDto c)
+    {
+        var start = c.StartedAt?.ToString("MMM yyyy");
+        var end = c.EndedAt?.ToString("MMM yyyy");
+        return (start, end) switch
+        {
+            (null, null) => "No dates set",
+            (not null, null) => $"Since {start}",
+            (null, not null) => $"Until {end}",
+            _ => $"{start} – {end}"
+        };
+    }
+
+    private string CampaignCharacterNames(CampaignDto c) =>
+        string.Join(", ", _characters.Where(ch => ch.CampaignIds.Contains(c.Id)).Select(ch => ch.Name));
+
+    private string CharacterCampaignNames(CharacterDto ch) =>
+        string.Join(", ", _campaigns.Where(c => ch.CampaignIds.Contains(c.Id)).Select(c => c.Name));
+
+    private string MemberName(Guid worldMemberId) =>
+        _members.FirstOrDefault(m => m.Id == worldMemberId) is { } m ? DisplayName(m) : "Unknown member";
+
+    private async Task AddCampaignAsync()
+    {
+        _addCampaignError = null;
+        if (string.IsNullOrWhiteSpace(_newCampaignName))
+        {
+            _addCampaignError = "Enter a campaign name.";
+            return;
+        }
+
+        _addingCampaign = true;
+        var result = await Api.CreateCampaignAsync(Worlds.Current!.Id, new CreateCampaignRequest(_newCampaignName.Trim()));
+        _addingCampaign = false;
+
+        if (result.IsSuccess)
+        {
+            _campaigns = _campaigns.Prepend(result.Value!).ToList();
+            _newCampaignName = string.Empty;
+            Snackbar.Add("Campaign created.", Severity.Success);
+        }
+        else
+        {
+            _addCampaignError = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    private void BeginEditCampaign(CampaignDto c)
+    {
+        _editingCampaignId = c.Id;
+        _campaignName = c.Name;
+        _campaignDescription = c.Description;
+        _campaignStatus = c.Status;
+        _campaignCharacterIds = _characters.Where(ch => ch.CampaignIds.Contains(c.Id)).Select(ch => ch.Id).ToList();
+        _campaignError = null;
+    }
+
+    private void CancelEditCampaign() => _editingCampaignId = null;
+
+    private async Task SaveCampaignAsync()
+    {
+        if (_editingCampaignId is not { } campaignId || Worlds.Current is null)
+        {
+            return;
+        }
+
+        _savingCampaign = true;
+        _campaignError = null;
+
+        var update = await Api.UpdateCampaignAsync(Worlds.Current.Id, campaignId,
+            new UpdateCampaignRequest(_campaignName, _campaignDescription, _campaignStatus));
+
+        if (!update.IsSuccess)
+        {
+            _savingCampaign = false;
+            _campaignError = update.Error!.Message;
+            return;
+        }
+
+        var assign = await Api.AssignCampaignCharactersAsync(Worlds.Current.Id, campaignId, _campaignCharacterIds.ToList());
+        _savingCampaign = false;
+
+        if (!assign.IsSuccess)
+        {
+            _campaignError = assign.Error!.Message;
+            return;
+        }
+
+        _editingCampaignId = null;
+        Snackbar.Add("Campaign saved.", Severity.Success);
+        await LoadCampaignsAndCharactersAsync();
+    }
+
+    private async Task DeleteCampaignAsync(CampaignDto c)
+    {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Delete campaign?",
+            $"Delete \"{c.Name}\"? Sources keep their content and revert to no campaign; nothing else is removed.",
+            yesText: "Delete", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var result = await Api.DeleteCampaignAsync(Worlds.Current!.Id, c.Id);
+        if (result.IsSuccess)
+        {
+            _campaigns = _campaigns.Where(x => x.Id != c.Id).ToList();
+            Snackbar.Add("Campaign deleted.", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private async Task AddCharacterAsync()
+    {
+        _addCharacterError = null;
+        if (string.IsNullOrWhiteSpace(_newCharacterName))
+        {
+            _addCharacterError = "Enter a character name.";
+            return;
+        }
+
+        _addingCharacter = true;
+        var result = await Api.CreateCharacterAsync(Worlds.Current!.Id,
+            new CreateCharacterRequest(_newCharacterName.Trim(), WorldMemberId: _newCharacterMemberId));
+        _addingCharacter = false;
+
+        if (result.IsSuccess)
+        {
+            _characters = _characters.Append(result.Value!).OrderBy(x => x.Name).ToList();
+            _newCharacterName = string.Empty;
+            Snackbar.Add("Character created.", Severity.Success);
+        }
+        else
+        {
+            _addCharacterError = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    // Character-type artifacts for the "Linked artifact" picker, fetched lazily per world.
+    private IReadOnlyList<ArtifactListItem>? _characterArtifacts;
+    private ArtifactListItem? _characterArtifact;
+    private Guid? _characterOriginalArtifactId;
+
+    private async Task<IReadOnlyList<ArtifactListItem>> EnsureCharacterArtifactsAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return [];
+        }
+
+        if (_characterArtifacts is null)
+        {
+            var result = await Api.GetArtifactsAsync(Worlds.Current.Id, "Character");
+            _characterArtifacts = result.IsSuccess ? result.Value! : [];
+        }
+
+        return _characterArtifacts;
+    }
+
+    private async Task<IEnumerable<ArtifactListItem>> SearchCharacterArtifactsAsync(string value, CancellationToken ct)
+    {
+        var artifacts = await EnsureCharacterArtifactsAsync();
+        return artifacts
+            .Where(a => string.IsNullOrWhiteSpace(value) || a.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(a => a.Name)
+            .Take(15);
+    }
+
+    private async Task BeginEditCharacter(CharacterDto ch)
+    {
+        _editingCharacterId = ch.Id;
+        _characterName = ch.Name;
+        _characterDescription = ch.Description;
+        _characterOriginalArtifactId = ch.ArtifactId;
+        _characterArtifact = null;
+        _characterError = null;
+
+        if (ch.ArtifactId is { } artifactId)
+        {
+            var artifacts = await EnsureCharacterArtifactsAsync();
+            _characterArtifact = artifacts.FirstOrDefault(a => a.Id == artifactId);
+            StateHasChanged();
+        }
+    }
+
+    private void CancelEditCharacter() => _editingCharacterId = null;
+
+    private async Task SaveCharacterAsync()
+    {
+        if (_editingCharacterId is not { } characterId || Worlds.Current is null)
+        {
+            return;
+        }
+
+        _savingCharacter = true;
+        _characterError = null;
+
+        var result = await Api.UpdateCharacterAsync(Worlds.Current.Id, characterId,
+            new UpdateCharacterRequest(
+                _characterName,
+                _characterDescription,
+                ArtifactId: _characterArtifact?.Id,
+                UnlinkArtifact: _characterOriginalArtifactId is not null && _characterArtifact is null));
+        _savingCharacter = false;
+
+        if (!result.IsSuccess)
+        {
+            _characterError = result.Error!.Message;
+            return;
+        }
+
+        _characters = _characters.Select(x => x.Id == characterId ? result.Value! : x).ToList();
+        _editingCharacterId = null;
+        Snackbar.Add("Character saved.", Severity.Success);
+        StateHasChanged();
+    }
+
+    private async Task DeleteCharacterAsync(CharacterDto ch)
+    {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Delete character?",
+            $"Delete {ch.Name}? Campaign assignments are removed with it.",
+            yesText: "Delete", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var result = await Api.DeleteCharacterAsync(Worlds.Current!.Id, ch.Id);
+        if (result.IsSuccess)
+        {
+            _characters = _characters.Where(x => x.Id != ch.Id).ToList();
+            Snackbar.Add("Character deleted.", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private void SyncFromWorld()
+    {
+        if (Worlds.Current is { } c && c.Id != _loadedWorldId)
+        {
+            _name = c.Name;
+            _description = c.Description;
+            _gameSystem = c.GameSystem;
+            _dailyAiBudget = c.DailyAiBudgetUsd;
+            _loadedWorldId = c.Id;
+        }
+    }
+
+    private async Task SaveWorldAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _worldError = "Name is required.";
+            return;
+        }
+
+        _savingWorld = true;
+        _worldError = null;
+
+        var result = await Api.UpdateWorldAsync(Worlds.Current.Id,
+            new UpdateWorldRequest(_name.Trim(), _description, _gameSystem,
+                DailyAiBudgetUsd: _dailyAiBudget,
+                ClearDailyAiBudget: _dailyAiBudget is null));
+
+        _savingWorld = false;
+        if (!result.IsSuccess)
+        {
+            _worldError = result.Error!.Message;
+            return;
+        }
+
+        await Worlds.ReloadAsync(); // refresh the sidebar name
+        Snackbar.Add("World settings saved.", Severity.Success);
+    }
+
+    private async Task LoadMembersAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            _members = [];
+            return;
+        }
+
+        _loadingMembers = true;
+        _membersError = null;
+        StateHasChanged();
+
+        var result = await Api.GetMembersAsync(Worlds.Current.Id);
+
+        _loadingMembers = false;
+        if (result.IsSuccess)
+        {
+            _members = result.Value!;
+        }
+        else
+        {
+            _membersError = result.Error!.Message;
+            _members = [];
+        }
+        StateHasChanged();
+    }
+
+    private async Task ChangeRoleAsync(WorldMember member, string newRole)
+    {
+        if (newRole == member.Role)
+        {
+            return;
+        }
+
+        _busyMembers.Add(member.UserId);
+        var result = await Api.UpdateMemberRoleAsync(Worlds.Current!.Id, member.UserId, newRole);
+        _busyMembers.Remove(member.UserId);
+
+        if (result.IsSuccess)
+        {
+            _members = _members.Select(x => x.UserId == member.UserId ? x with { Role = newRole } : x).ToList();
+            Snackbar.Add($"Role updated to {RoleLabel(newRole)}.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private async Task RemoveAsync(WorldMember member)
+    {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Remove member?",
+            $"Remove {DisplayName(member)} from this world?",
+            yesText: "Remove", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _busyMembers.Add(member.UserId);
+        var result = await Api.RemoveMemberAsync(Worlds.Current!.Id, member.UserId);
+        _busyMembers.Remove(member.UserId);
+
+        if (result.IsSuccess)
+        {
+            _members = _members.Where(x => x.UserId != member.UserId).ToList();
+            Snackbar.Add("Member removed.", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private async Task AddMemberAsync()
+    {
+        _addError = null;
+
+        if (!Guid.TryParse(_newUserId, out var userId))
+        {
+            _addError = "Enter a valid user ID (GUID).";
+            return;
+        }
+
+        _addingMember = true;
+        var result = await Api.AddMemberAsync(Worlds.Current!.Id, new AddMemberRequest(userId, _newRole));
+        _addingMember = false;
+
+        if (result.IsSuccess)
+        {
+            _members = _members.Append(result.Value!).ToList();
+            _newUserId = string.Empty;
+            Snackbar.Add("Member added.", Severity.Success);
+        }
+        else
+        {
+            _addError = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    private static string DisplayName(WorldMember m) =>
+        !string.IsNullOrWhiteSpace(m.DisplayName) ? m.DisplayName! : $"User {m.UserId.ToString()[..8]}";
+
+    private static string Initial(WorldMember m) => DisplayName(m)[..1].ToUpperInvariant();
+
+    private static string RoleLabel(string role) => role == "Observer" ? "Fly on the wall" : role;
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}

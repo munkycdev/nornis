@@ -1,0 +1,176 @@
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+
+@* Extraction pipeline status: every source that is not yet Processed, with one-click
+   resubmission for Failed items (Failed → Ready → Queued on the server). *@
+
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    Sources moving through extraction. Failed items can be resubmitted.
+</MudText>
+
+@if (Worlds.Current is null)
+{
+    <NoWorld />
+}
+else if (_loading)
+{
+    <LoadingRows Rows="3" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else
+{
+    <div class="d-flex gap-2 align-center mb-3">
+        @foreach (var (label, count) in StatusCounts)
+        {
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@StatusColor(label)">@label: @count</MudChip>
+        }
+        <MudSpacer />
+        <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
+                       OnClick="LoadAsync" aria-label="Refresh queue" />
+    </div>
+
+    @if (Pending.Count == 0)
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                The queue is clear — every source has been processed.
+            </MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            @foreach (var s in Pending)
+            {
+                <div class="nornis-list-row">
+                    <div class="nornis-list-body">
+                        <a href="@($"/sources/{s.Id}")" class="nornis-list-title nornis-link">@s.Title</a>
+                        <div class="nornis-list-sub">@s.Type · added @Ago(s.CreatedAt)</div>
+                    </div>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(s.ProcessingStatus)">
+                        @s.ProcessingStatus
+                    </MudChip>
+                    @if (s.ProcessingStatus == "Failed")
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Replay"
+                                   OnClick="() => ResubmitAsync(s)" Disabled="_resubmitting.Contains(s.Id)">
+                            Resubmit
+                        </MudButton>
+                    }
+                </div>
+            }
+        </MudPaper>
+    }
+}
+
+@code {
+    private bool _loading;
+    private string? _error;
+    private IReadOnlyList<SourceListItem> _sources = [];
+    private readonly HashSet<Guid> _resubmitting = [];
+
+    private static readonly string[] PendingStatuses = ["Failed", "Ready", "Queued", "Processing"];
+
+    private IReadOnlyList<SourceListItem> Pending =>
+        _sources
+            .Where(s => s.ProcessingStatus != "Processed")
+            .OrderBy(s => Array.IndexOf(PendingStatuses, s.ProcessingStatus))
+            .ThenByDescending(s => s.CreatedAt)
+            .ToList();
+
+    private IEnumerable<(string Label, int Count)> StatusCounts =>
+        PendingStatuses
+            .Select(status => (status, _sources.Count(s => s.ProcessingStatus == status)))
+            .Where(x => x.Item2 > 0)
+            .Append(("Processed", _sources.Count(s => s.ProcessingStatus == "Processed")));
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
+
+    private async Task LoadAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            _sources = [];
+            _error = null;
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        var result = await Api.GetSourcesAsync(Worlds.Current.Id);
+
+        _loading = false;
+        if (result.IsSuccess)
+        {
+            _sources = result.Value!;
+        }
+        else
+        {
+            _error = result.Error!.Message;
+            _sources = [];
+        }
+        StateHasChanged();
+    }
+
+    private async Task ResubmitAsync(SourceListItem source)
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _resubmitting.Add(source.Id);
+        StateHasChanged();
+
+        var result = await Api.MarkSourceReadyAsync(Worlds.Current.Id, source.Id);
+
+        _resubmitting.Remove(source.Id);
+        if (result.IsSuccess)
+        {
+            Snackbar.Add($"Resubmitted \"{source.Title}\" for extraction.", Severity.Success);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add($"Could not resubmit: {result.Error!.Message}", Severity.Error);
+            StateHasChanged();
+        }
+    }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Failed" => Color.Error,
+        "Processing" => Color.Info,
+        "Queued" => Color.Warning,
+        "Ready" => Color.Warning,
+        "Processed" => Color.Success,
+        _ => Color.Default,
+    };
+
+    private static string Ago(DateTimeOffset t)
+    {
+        var d = DateTimeOffset.UtcNow - t.ToUniversalTime();
+        if (d.TotalMinutes < 60) return $"{Math.Max(1, (int)d.TotalMinutes)}m ago";
+        if (d.TotalHours < 24) return $"{(int)d.TotalHours}h ago";
+        if (d.TotalDays < 2) return "Yesterday";
+        return $"{(int)d.TotalDays}d ago";
+    }
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}

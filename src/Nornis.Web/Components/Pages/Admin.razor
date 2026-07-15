@@ -1,0 +1,50 @@
+@page "/admin"
+@implements IDisposable
+@inject WorldState Worlds
+
+<PageTitle>Admin — Nornis</PageTitle>
+
+<MudText Typo="Typo.h4" Class="nornis-serif">Admin</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">World administration.</MudText>
+
+@if (Worlds.Current is null)
+{
+    <NoWorld />
+}
+else if (Worlds.Current.MyRole != "GM")
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+        <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Large" Class="nornis-comingsoon-icon" />
+        <MudText Typo="Typo.h5" Class="nornis-serif">GMs only</MudText>
+        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+            World administration is available to the GM of this world.
+        </MudText>
+    </MudPaper>
+}
+else
+{
+    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pt-4"
+             Color="Color.Transparent" SliderColor="Color.Secondary">
+        <MudTabPanel Text="Settings" Icon="@Icons.Material.Outlined.Tune">
+            <WorldSettingsPanel />
+        </MudTabPanel>
+        <MudTabPanel Text="Costs" Icon="@Icons.Material.Outlined.Paid">
+            <CostsPanel />
+        </MudTabPanel>
+        <MudTabPanel Text="Processing" Icon="@Icons.Material.Outlined.Sync">
+            <ProcessingQueuePanel />
+        </MudTabPanel>
+    </MudTabs>
+}
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldsChanged;
+        await Worlds.EnsureLoadedAsync();
+    }
+
+    private void OnWorldsChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Worlds.Changed -= OnWorldsChanged;
+}
