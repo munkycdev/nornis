@@ -81,6 +81,16 @@ public class WorldState
         }
     }
 
+    /// <summary>
+    /// Replaces the cached assessment with a fresher copy (e.g. after Home runs an assessment
+    /// or dismisses a finding), then notifies so the sidebar ring stays in sync.
+    /// </summary>
+    public void SetContinuity(ContinuityAssessment? assessment)
+    {
+        Continuity = assessment;
+        Changed?.Invoke();
+    }
+
     /// <summary>Loads the AI continuity assessment for the current world, then notifies.</summary>
     public async Task LoadContinuityAsync(CancellationToken ct = default)
     {

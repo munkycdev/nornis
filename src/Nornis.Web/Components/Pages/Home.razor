@@ -178,9 +178,10 @@ else
                     else if (_assessment is { HasData: true } a)
                     {
                         <div class="nornis-ai-summary">
-                            <div class="nornis-ai-figure">
-                                <span class="nornis-ai-score">@a.EffectiveScore</span>
-                                <span class="nornis-ai-score-label">effective</span>
+                            <div class="nornis-ring">
+                                <MudProgressCircular Value="@a.EffectiveScore" Min="0" Max="100"
+                                                     Color="@HealthColor(a.EffectiveScore)" Size="Size.Medium" StrokeWidth="4" />
+                                <span class="nornis-ring-value">@a.EffectiveScore</span>
                             </div>
                             <div class="nornis-ai-meta">
                                 <div class="nornis-ai-asof">as of @Ago(a.CreatedAt!.Value)</div>
@@ -418,7 +419,7 @@ else
         var suggestionsTask = Api.GetAskSuggestionsAsync(id);
         await Task.WhenAll(storylinesTask, artifactsTask, canonTask, reviewTask, suggestionsTask);
 
-        _storylines = storylinesTask.Result.Value ?? [];
+        _storylines = (storylinesTask.Result.Value ?? []).Take(10).ToList();
 
         var suggestions = suggestionsTask.Result.Value;
         _suggestions = suggestions is { Count: > 0 }
@@ -477,14 +478,21 @@ else
             return;
         }
 
+        var worldId = Worlds.Current.Id;
         _running = true;
         _assessmentError = null;
         StateHasChanged();
 
-        var result = await Api.RunContinuityAssessmentAsync(Worlds.Current.Id);
+        var result = await Api.RunContinuityAssessmentAsync(worldId);
         if (result.IsSuccess)
         {
             _assessment = result.Value;
+            // The sidebar ring reads its own copy from WorldState; the run can take ~30s,
+            // so only push if the user hasn't switched worlds meanwhile.
+            if (Worlds.Current?.Id == worldId)
+            {
+                Worlds.SetContinuity(result.Value);
+            }
         }
         else
         {
@@ -502,11 +510,16 @@ else
             return;
         }
 
-        var result = await Api.DismissFindingAsync(Worlds.Current.Id, findingId);
+        var worldId = Worlds.Current.Id;
+        var result = await Api.DismissFindingAsync(worldId, findingId);
         if (result.IsSuccess)
         {
             // Reload so the effective score reflects the now-dismissed finding.
-            await LoadAssessmentAsync(Worlds.Current.Id);
+            await LoadAssessmentAsync(worldId);
+            if (Worlds.Current?.Id == worldId)
+            {
+                Worlds.SetContinuity(_assessment);
+            }
         }
         else
         {
@@ -517,6 +530,13 @@ else
 
     private static int OpenFindingCount(ContinuityAssessment a) =>
         a.Findings.Count(f => f.Status == "Open");
+
+    private static Color HealthColor(int score) => score switch
+    {
+        >= 70 => Color.Success,
+        >= 50 => Color.Warning,
+        _ => Color.Error,
+    };
 
     private static string SeverityClass(string severity) => severity switch
     {
