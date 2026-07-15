@@ -128,6 +128,11 @@ html, body {
     background: #FDFBF7;
 }
 
+/* Compact variant for inline embeds (artifact detail Connections). */
+.nornis-graph-canvas-sm {
+    height: 340px;
+}
+
 .nornis-graph-card {
     position: absolute;
     top: 12px;
@@ -741,26 +746,6 @@ html, body {
     margin-bottom: 12px;
 }
 
-.nornis-ai-figure {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    line-height: 1;
-}
-
-.nornis-ai-score {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: var(--mud-palette-text-primary);
-}
-
-.nornis-ai-score-label {
-    font-size: 0.62rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--mud-palette-text-secondary);
-}
-
 .nornis-ai-meta {
     display: flex;
     flex-direction: column;
@@ -862,6 +847,7 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 0.85rem;
     font-weight: 700;
     color: var(--mud-palette-text-primary);
 }

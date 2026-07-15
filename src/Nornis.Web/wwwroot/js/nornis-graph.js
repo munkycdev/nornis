@@ -1,10 +1,9 @@
 // force-graph wrapper for the artifact graph: a live d3-force simulation, so edges
 // behave like springs — drag a node and the web stretches and relaxes. Blazor hands
 // over the full world graph once; focus/depth filtering happens here. Node taps call
-// back into .NET.
+// back into .NET. Instances are keyed by element id so multiple graphs can coexist.
 window.nornisGraph = (function () {
-    let fg = null;
-    let resizeObserver = null;
+    const instances = new Map();
 
     const typeColors = {
         Character: "#C98A4B",
@@ -44,12 +43,12 @@ window.nornisGraph = (function () {
     function render(elementId, nodes, edges, focusId, depth, dotnetRef) {
         const el = document.getElementById(elementId);
         if (!el) return 0;
-        destroy();
+        destroy(elementId);
 
         const sub = neighborhood(nodes, edges, focusId, depth);
         let zoomedOnce = false;
 
-        fg = ForceGraph()(el)
+        const fg = ForceGraph()(el)
             .width(el.clientWidth)
             .height(el.clientHeight)
             .graphData({
@@ -110,23 +109,22 @@ window.nornisGraph = (function () {
                 }
             });
 
-        resizeObserver = new ResizeObserver(() => {
-            if (fg) {
-                fg.width(el.clientWidth).height(el.clientHeight);
-            }
+        const resizeObserver = new ResizeObserver(() => {
+            fg.width(el.clientWidth).height(el.clientHeight);
         });
         resizeObserver.observe(el);
+
+        instances.set(elementId, { fg, resizeObserver });
 
         return sub.nodes.length;
     }
 
-    function destroy() {
-        resizeObserver?.disconnect();
-        resizeObserver = null;
-        if (fg) {
-            fg._destructor?.();
-            fg = null;
-        }
+    function destroy(elementId) {
+        const instance = instances.get(elementId);
+        if (!instance) return;
+        instance.resizeObserver.disconnect();
+        instance.fg._destructor?.();
+        instances.delete(elementId);
     }
 
     return { render, destroy };

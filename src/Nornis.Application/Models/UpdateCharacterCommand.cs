@@ -8,4 +8,6 @@ public record UpdateCharacterCommand(
     Guid ActingUserId,
     WorldRole ActingUserRole,
     string? Name = null,
-    string? Description = null);
+    string? Description = null,
+    Guid? ArtifactId = null,
+    bool UnlinkArtifact = false);

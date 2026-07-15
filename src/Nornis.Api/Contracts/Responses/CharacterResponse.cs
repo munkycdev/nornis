@@ -6,6 +6,7 @@ public record CharacterResponse(
     Guid WorldMemberId,
     string Name,
     string? Description,
+    Guid? ArtifactId,
     IReadOnlyList<Guid> CampaignIds,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);

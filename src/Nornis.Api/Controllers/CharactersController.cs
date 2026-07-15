@@ -92,7 +92,9 @@ public class CharactersController : ControllerBase
             ActingUserId: user.Id,
             ActingUserRole: member.Role,
             Name: request.Name,
-            Description: request.Description);
+            Description: request.Description,
+            ArtifactId: request.ArtifactId,
+            UnlinkArtifact: request.UnlinkArtifact);
 
         var result = await _characterService.UpdateAsync(command, ct);
 
@@ -128,6 +130,7 @@ public class CharactersController : ControllerBase
             WorldMemberId: character.WorldMemberId,
             Name: character.Name,
             Description: character.Description,
+            ArtifactId: character.ArtifactId,
             CampaignIds: character.CampaignCharacters.Select(cc => cc.CampaignId).ToList(),
             CreatedAt: character.CreatedAt,
             UpdatedAt: character.UpdatedAt);

@@ -17,6 +17,12 @@ public class Character
 
     public string? Description { get; set; }
 
+    /// <summary>
+    /// Optional link to the AI-extracted Artifact (Type == Character) describing the
+    /// same fictional person.
+    /// </summary>
+    public Guid? ArtifactId { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
@@ -25,6 +31,8 @@ public class Character
     public World World { get; set; } = null!;
 
     public WorldMember WorldMember { get; set; } = null!;
+
+    public Artifact? Artifact { get; set; }
 
     public ICollection<CampaignCharacter> CampaignCharacters { get; set; } = [];
 }

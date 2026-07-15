@@ -38,5 +38,16 @@ public class CharacterConfiguration : IEntityTypeConfiguration<Character>
             .WithMany(m => m.Characters)
             .HasForeignKey(c => c.WorldMemberId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasIndex(c => c.ArtifactId);
+
+        // ClientSetNull (NO ACTION in SQL) — a SET NULL here would add a second cascade
+        // path into Characters (Worlds→Artifacts→Characters vs Worlds→Members→Characters),
+        // which SQL Server rejects. Artifacts are never hard-deleted (merge archives them),
+        // so the constraint never fires in practice.
+        builder.HasOne(c => c.Artifact)
+            .WithMany()
+            .HasForeignKey(c => c.ArtifactId)
+            .OnDelete(DeleteBehavior.ClientSetNull);
     }
 }

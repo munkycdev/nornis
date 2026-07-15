@@ -1,0 +1,120 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* Reusable force-graph canvas over the artifact web. Callers pass pre-filtered nodes
+   and edges; focus/depth neighborhood trimming happens in JS. Each instance gets its
+   own element id so multiple graphs can coexist across (or within) pages. *@
+
+<div class="nornis-graph-wrap">
+    <div id="@_elementId" class="nornis-graph-canvas @CanvasClass"></div>
+    @ChildContent
+</div>
+
+@if (ShowLegend)
+{
+    <div class="nornis-graph-legend mt-2">
+        @foreach (var (type, color) in Legend)
+        {
+            <span class="nornis-graph-legend-item">
+                <span class="nornis-graph-dot" style="background:@color"></span>@type
+            </span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<GraphNode> Nodes { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<GraphEdge> Edges { get; set; } = [];
+    [Parameter] public Guid? FocusId { get; set; }
+
+    /// <summary>Neighborhood hops around the focus; 0 renders the whole node set.</summary>
+    [Parameter] public int Depth { get; set; }
+
+    /// <summary>Extra class on the canvas div, e.g. a height variant.</summary>
+    [Parameter] public string? CanvasClass { get; set; }
+
+    [Parameter] public bool ShowLegend { get; set; } = true;
+    [Parameter] public EventCallback<GraphNode> NodeSelected { get; set; }
+    [Parameter] public EventCallback<int> RenderedCountChanged { get; set; }
+
+    /// <summary>Overlay content positioned inside the graph wrap (e.g. a selected-node card).</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Node colors per artifact type — mirrors typeColors in nornis-graph.js.</summary>
+    public static readonly (string Type, string Color)[] Legend =
+    [
+        ("Character", "#C98A4B"), ("Location", "#4B8AC9"), ("Item", "#8A6FC9"),
+        ("Faction", "#C94B6E"), ("Event", "#4BC98A"), ("Storyline", "#C9B44B"),
+        ("Concept", "#6EC9C0"), ("Document", "#9AA5B1"),
+    ];
+
+    private readonly string _elementId = $"nornis-graph-{Guid.NewGuid():N}";
+    private DotNetObjectReference<ArtifactGraph>? _selfRef;
+    private bool _pendingRender;
+
+    private IReadOnlyList<GraphNode>? _renderedNodes;
+    private IReadOnlyList<GraphEdge>? _renderedEdges;
+    private Guid? _renderedFocus;
+    private int _renderedDepth = -1;
+
+    protected override void OnParametersSet()
+    {
+        // Reference comparison on the lists: callers materialize a new list when the
+        // underlying selection changes (.ToList()), so this catches real changes without
+        // deep-diffing on every render.
+        if (!ReferenceEquals(Nodes, _renderedNodes)
+            || !ReferenceEquals(Edges, _renderedEdges)
+            || FocusId != _renderedFocus
+            || Depth != _renderedDepth)
+        {
+            _pendingRender = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_pendingRender)
+        {
+            _pendingRender = false;
+            await RenderGraphAsync();
+        }
+    }
+
+    private async Task RenderGraphAsync()
+    {
+        _renderedNodes = Nodes;
+        _renderedEdges = Edges;
+        _renderedFocus = FocusId;
+        _renderedDepth = Depth;
+
+        _selfRef ??= DotNetObjectReference.Create(this);
+
+        // Depth 0 means "everything" — the JS BFS would trim to just the focus node,
+        // so suppress the focus in that case (same contract the /graph page used).
+        var focusId = Depth == 0 ? null : FocusId?.ToString();
+        var count = await JS.InvokeAsync<int>("nornisGraph.render",
+            _elementId, Nodes, Edges, focusId, Depth, _selfRef);
+
+        if (RenderedCountChanged.HasDelegate)
+        {
+            await RenderedCountChanged.InvokeAsync(count);
+        }
+    }
+
+    [JSInvokable]
+    public Task OnNodeSelected(string id, string name, string type, string status) =>
+        NodeSelected.InvokeAsync(new GraphNode(Guid.Parse(id), name, type, status));
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("nornisGraph.destroy", _elementId);
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit already gone.
+        }
+        _selfRef?.Dispose();
+    }
+}

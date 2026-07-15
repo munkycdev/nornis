@@ -10,11 +10,16 @@ public class CharacterService : ICharacterService
 {
     private readonly ICharacterRepository _characterRepository;
     private readonly IWorldMemberRepository _worldMemberRepository;
+    private readonly IArtifactRepository _artifactRepository;
 
-    public CharacterService(ICharacterRepository characterRepository, IWorldMemberRepository worldMemberRepository)
+    public CharacterService(
+        ICharacterRepository characterRepository,
+        IWorldMemberRepository worldMemberRepository,
+        IArtifactRepository artifactRepository)
     {
         _characterRepository = characterRepository;
         _worldMemberRepository = worldMemberRepository;
+        _artifactRepository = artifactRepository;
     }
 
     public async Task<AppResult<Character>> CreateAsync(CreateCharacterCommand command, CancellationToken ct)
@@ -126,6 +131,21 @@ public class CharacterService : ICharacterService
             character.Description = command.Description;
         }
 
+        if (command.UnlinkArtifact)
+        {
+            character.ArtifactId = null;
+        }
+        else if (command.ArtifactId is { } artifactId)
+        {
+            var linkError = await ValidateArtifactLinkAsync(artifactId, command.WorldId, command.ActingUserRole, ct);
+            if (linkError is not null)
+            {
+                return AppResult<Character>.Fail(linkError);
+            }
+
+            character.ArtifactId = artifactId;
+        }
+
         character.UpdatedAt = DateTimeOffset.UtcNow;
         character = await _characterRepository.UpdateAsync(character, ct);
 
@@ -172,6 +192,33 @@ public class CharacterService : ICharacterService
         if (actingMember is null || character.WorldMemberId != actingMember.Id)
         {
             return new AppError(403, "forbidden", "Only the owning member or a GM can manage this character.");
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// A character may only link to an existing Character-type artifact in the same
+    /// world. Non-GMs also cannot link GM-only artifacts; the same error is returned
+    /// for every failure so probing ids reveals nothing about hidden artifacts.
+    /// </summary>
+    private async Task<AppError?> ValidateArtifactLinkAsync(Guid artifactId, Guid worldId, WorldRole role, CancellationToken ct)
+    {
+        var invalid = new AppError(400, "invalid_artifact_link",
+            "The linked artifact must be a Character artifact in this world.");
+
+        var artifact = await _artifactRepository.GetByIdAsync(artifactId, ct);
+
+        if (artifact is null
+            || artifact.WorldId != worldId
+            || artifact.Type != ArtifactType.Character)
+        {
+            return invalid;
+        }
+
+        if (role != WorldRole.GM && artifact.Visibility == VisibilityScope.GMOnly)
+        {
+            return invalid;
         }
 
         return null;

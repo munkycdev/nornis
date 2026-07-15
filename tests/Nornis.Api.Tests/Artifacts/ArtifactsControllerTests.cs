@@ -99,6 +99,70 @@ public class ArtifactsControllerTests
 
     #endregion
 
+    #region Rename
+
+    [Test]
+    public async Task Rename_AsGm_UpdatesTheName()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var voss = await KnowledgeTestHelpers.CreateTestArtifactAsync(
+            _factory, scenario.World.Id, "Captain Voss");
+
+        var response = await scenario.GmClient.PutAsJsonAsync(
+            $"/api/worlds/{scenario.World.Id}/artifacts/{voss.Id}/name",
+            new { name = "Captain Ilsa Voss" });
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var renamed = await response.Content.ReadFromJsonAsync<ArtifactListItemResponse>();
+        Assert.That(renamed!.Name, Is.EqualTo("Captain Ilsa Voss"));
+
+        var detail = await scenario.GmClient.GetFromJsonAsync<ArtifactDetailResponse>(
+            $"/api/worlds/{scenario.World.Id}/artifacts/{voss.Id}");
+        Assert.That(detail!.Name, Is.EqualTo("Captain Ilsa Voss"));
+    }
+
+    [Test]
+    public async Task Rename_AsPlayer_ReturnsForbidden()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var voss = await KnowledgeTestHelpers.CreateTestArtifactAsync(
+            _factory, scenario.World.Id, "Captain Voss");
+
+        var response = await scenario.PlayerClient.PutAsJsonAsync(
+            $"/api/worlds/{scenario.World.Id}/artifacts/{voss.Id}/name",
+            new { name = "Vandalized" });
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
+    public async Task Rename_EmptyName_ReturnsBadRequest()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var voss = await KnowledgeTestHelpers.CreateTestArtifactAsync(
+            _factory, scenario.World.Id, "Captain Voss");
+
+        var response = await scenario.GmClient.PutAsJsonAsync(
+            $"/api/worlds/{scenario.World.Id}/artifacts/{voss.Id}/name",
+            new { name = "   " });
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+    }
+
+    [Test]
+    public async Task Rename_UnknownArtifact_ReturnsNotFound()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+
+        var response = await scenario.GmClient.PutAsJsonAsync(
+            $"/api/worlds/{scenario.World.Id}/artifacts/{Guid.NewGuid()}/name",
+            new { name = "Anything" });
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
+
+    #endregion
+
     #region Detail
 
     [Test]

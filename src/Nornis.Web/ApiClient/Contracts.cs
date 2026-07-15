@@ -120,6 +120,7 @@ public record CharacterDto(
     Guid WorldMemberId,
     string Name,
     string? Description,
+    Guid? ArtifactId,
     IReadOnlyList<Guid> CampaignIds,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
@@ -131,7 +132,9 @@ public record CreateCharacterRequest(
 
 public record UpdateCharacterRequest(
     string? Name = null,
-    string? Description = null);
+    string? Description = null,
+    Guid? ArtifactId = null,
+    bool UnlinkArtifact = false);
 
 public record AssignCampaignCharactersRequest(
     IReadOnlyCollection<Guid> CharacterIds);

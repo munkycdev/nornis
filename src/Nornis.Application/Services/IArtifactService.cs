@@ -28,4 +28,10 @@ public interface IArtifactService
         Guid requestingUserId,
         WorldRole role,
         CancellationToken ct);
+
+    /// <summary>
+    /// GM-only: renames an artifact. Artifacts are shared canon, so renaming carries the
+    /// same authority requirement as merging.
+    /// </summary>
+    Task<AppResult<Artifact>> RenameAsync(RenameArtifactCommand command, CancellationToken ct);
 }

@@ -99,6 +99,34 @@ public class ArtifactsController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>GM-only: renames an artifact.</summary>
+    [HttpPut("{artifactId:guid}/name")]
+    public async Task<IActionResult> Rename(
+        Guid worldId,
+        Guid artifactId,
+        [FromBody] RenameArtifactRequest request,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var command = new RenameArtifactCommand(
+            ArtifactId: artifactId,
+            WorldId: worldId,
+            ActingUserId: user.Id,
+            ActingUserRole: member.Role,
+            Name: request.Name);
+
+        var result = await _artifactService.RenameAsync(command, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return Ok(ToListItemResponse(result.Value!));
+    }
+
     /// <summary>The caller-visible world graph: artifacts as nodes, relationships as edges.</summary>
     [HttpGet("graph")]
     public async Task<IActionResult> GetGraph(Guid worldId, CancellationToken ct)

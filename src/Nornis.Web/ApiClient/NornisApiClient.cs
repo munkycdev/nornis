@@ -155,6 +155,13 @@ public class NornisApiClient
 
     private sealed record MergeArtifactBody(Guid SourceArtifactId);
 
+    /// <summary>GM-only: renames an artifact.</summary>
+    public Task<ApiResult<ArtifactListItem>> RenameArtifactAsync(Guid worldId, Guid artifactId, string name, CancellationToken ct = default) =>
+        PutAsync<RenameArtifactBody, ArtifactListItem>($"/api/worlds/{worldId}/artifacts/{artifactId}/name",
+            new RenameArtifactBody(name), ct);
+
+    private sealed record RenameArtifactBody(string Name);
+
     /// <summary>GM-only: assess Active storylines and propose closures as review proposals.</summary>
     public Task<ApiResult<RetrospectiveResult>> RunStorylineRetrospectiveAsync(Guid worldId, CancellationToken ct = default) =>
         PostAsync<object?, RetrospectiveResult>($"/api/worlds/{worldId}/storylines/retrospective", null, ct);

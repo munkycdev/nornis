@@ -14,6 +14,7 @@ public class CharacterServiceTests
 
     private InMemoryCharacterRepository _characterRepository = null!;
     private InMemoryWorldMemberRepository _memberRepository = null!;
+    private InMemoryArtifactRepository _artifactRepository = null!;
     private CharacterService _sut = null!;
 
     private WorldMember _gm = null!;
@@ -26,7 +27,8 @@ public class CharacterServiceTests
     {
         _characterRepository = new InMemoryCharacterRepository();
         _memberRepository = new InMemoryWorldMemberRepository();
-        _sut = new CharacterService(_characterRepository, _memberRepository);
+        _artifactRepository = new InMemoryArtifactRepository();
+        _sut = new CharacterService(_characterRepository, _memberRepository, _artifactRepository);
 
         _gm = await AddMember(WorldRole.GM, "Dave");
         _player = await AddMember(WorldRole.Player, "Tavrin's player");
@@ -213,6 +215,150 @@ public class CharacterServiceTests
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
+    // ------------------------------------------------------- Artifact linking --
+
+    private Artifact SeedArtifact(
+        ArtifactType type = ArtifactType.Character,
+        VisibilityScope visibility = VisibilityScope.PartyVisible,
+        Guid? worldId = null)
+    {
+        var artifact = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            WorldId = worldId ?? WorldId,
+            Type = type,
+            Name = "Tavrin (record)",
+            Visibility = visibility,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _artifactRepository.Seed(artifact);
+        return artifact;
+    }
+
+    [Test]
+    public async Task UpdateAsync_OwnerLinksCharacterArtifact()
+    {
+        var character = SeedCharacter(_player);
+        var artifact = SeedArtifact();
+
+        var command = new UpdateCharacterCommand(character.Id, WorldId, _player.UserId, WorldRole.Player,
+            ArtifactId: artifact.Id);
+
+        var result = await _sut.UpdateAsync(command, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.ArtifactId, Is.EqualTo(artifact.Id));
+    }
+
+    [Test]
+    public async Task UpdateAsync_GmLinksAnyCharacter()
+    {
+        var character = SeedCharacter(_player);
+        var artifact = SeedArtifact(visibility: VisibilityScope.GMOnly);
+
+        var command = new UpdateCharacterCommand(character.Id, WorldId, _gm.UserId, WorldRole.GM,
+            ArtifactId: artifact.Id);
+
+        var result = await _sut.UpdateAsync(command, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.ArtifactId, Is.EqualTo(artifact.Id));
+    }
+
+    [Test]
+    public async Task UpdateAsync_UnlinkFlag_ClearsTheLink()
+    {
+        var character = SeedCharacter(_player);
+        var artifact = SeedArtifact();
+        character.ArtifactId = artifact.Id;
+
+        var command = new UpdateCharacterCommand(character.Id, WorldId, _player.UserId, WorldRole.Player,
+            UnlinkArtifact: true);
+
+        var result = await _sut.UpdateAsync(command, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.ArtifactId, Is.Null);
+    }
+
+    [Test]
+    public async Task UpdateAsync_NullArtifactId_LeavesExistingLinkUntouched()
+    {
+        var character = SeedCharacter(_player);
+        var artifact = SeedArtifact();
+        character.ArtifactId = artifact.Id;
+
+        var command = new UpdateCharacterCommand(character.Id, WorldId, _player.UserId, WorldRole.Player,
+            Name: "Tavrin the Bold");
+
+        var result = await _sut.UpdateAsync(command, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.ArtifactId, Is.EqualTo(artifact.Id));
+    }
+
+    [Test]
+    public async Task UpdateAsync_LinkToNonexistentArtifact_Returns400()
+    {
+        var character = SeedCharacter(_player);
+
+        var command = new UpdateCharacterCommand(character.Id, WorldId, _player.UserId, WorldRole.Player,
+            ArtifactId: Guid.NewGuid());
+
+        var result = await _sut.UpdateAsync(command, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("invalid_artifact_link"));
+        Assert.That(result.Error.StatusCode, Is.EqualTo(400));
+    }
+
+    [Test]
+    public async Task UpdateAsync_LinkToWrongTypeArtifact_Returns400()
+    {
+        var character = SeedCharacter(_player);
+        var artifact = SeedArtifact(type: ArtifactType.Location);
+
+        var command = new UpdateCharacterCommand(character.Id, WorldId, _player.UserId, WorldRole.Player,
+            ArtifactId: artifact.Id);
+
+        var result = await _sut.UpdateAsync(command, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("invalid_artifact_link"));
+    }
+
+    [Test]
+    public async Task UpdateAsync_LinkToArtifactInAnotherWorld_Returns400()
+    {
+        var character = SeedCharacter(_player);
+        var artifact = SeedArtifact(worldId: Guid.NewGuid());
+
+        var command = new UpdateCharacterCommand(character.Id, WorldId, _player.UserId, WorldRole.Player,
+            ArtifactId: artifact.Id);
+
+        var result = await _sut.UpdateAsync(command, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("invalid_artifact_link"));
+    }
+
+    [Test]
+    public async Task UpdateAsync_PlayerLinksGmOnlyArtifact_Returns400()
+    {
+        var character = SeedCharacter(_player);
+        var artifact = SeedArtifact(visibility: VisibilityScope.GMOnly);
+
+        var command = new UpdateCharacterCommand(character.Id, WorldId, _player.UserId, WorldRole.Player,
+            ArtifactId: artifact.Id);
+
+        var result = await _sut.UpdateAsync(command, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("invalid_artifact_link"));
     }
 
     // ------------------------------------------------------------------- Delete --

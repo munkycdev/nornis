@@ -40,15 +40,20 @@
         <div class="nornis-detail-head">
             <div class="nornis-list-thumb"><MudIcon Icon="@TypeIcon(_detail.Type)" /></div>
             <div>
-                <MudText Typo="Typo.h4" Class="nornis-serif">@_detail.Name</MudText>
+                <div class="d-flex align-center gap-1">
+                    <MudText Typo="Typo.h4" Class="nornis-serif">@_detail.Name</MudText>
+                    @if (Worlds.Current?.MyRole == "GM")
+                    {
+                        <MudTooltip Text="Rename">
+                            <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small"
+                                           OnClick="RenameAsync" aria-label="Rename artifact" />
+                        </MudTooltip>
+                    }
+                </div>
                 <div class="nornis-detail-chips">
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_detail.Type</MudChip>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_detail.Status)">@_detail.Status</MudChip>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@_detail.Visibility</MudChip>
-                    <MudTooltip Text="View in graph">
-                        <MudIconButton Icon="@Icons.Material.Outlined.Hub" Size="Size.Small"
-                                       Href="@($"/graph/{_detail.Id}")" aria-label="View in graph" />
-                    </MudTooltip>
                     @if (_detail.Confidence is not null)
                     {
                         <span class="nornis-list-meta">@($"{_detail.Confidence:P0}") confidence</span>
@@ -125,6 +130,23 @@
                 </div>
             }
         </MudPaper>
+
+        @if (_detail.Relationships.Count > 0 && _graph is not null)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="d-flex align-center justify-space-between mb-2">
+                    <div class="nornis-detail-section-title">Connections</div>
+                    <MudToggleGroup T="int" @bind-Value="_graphDepth" SelectionMode="SelectionMode.SingleSelection"
+                                    Color="Color.Secondary" Size="Size.Small">
+                        <MudToggleItem Value="1">1 hop</MudToggleItem>
+                        <MudToggleItem Value="2">2 hops</MudToggleItem>
+                    </MudToggleGroup>
+                </div>
+                <ArtifactGraph Nodes="_graph.Nodes" Edges="_graph.Edges" FocusId="_detail.Id" Depth="_graphDepth"
+                               CanvasClass="nornis-graph-canvas-sm" ShowLegend="false"
+                               NodeSelected="OnConnectionSelected" />
+            </MudPaper>
+        }
 
         @if (_detail.SourceReferences.Count > 0)
         {
@@ -281,6 +303,30 @@
         Nav.NavigateTo($"/artifacts/{result.Value!.TargetArtifactId}");
     }
 
+    private async Task RenameAsync()
+    {
+        if (Worlds.Current is null || _detail is null)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters<RenameArtifactDialog>
+        {
+            { d => d.WorldId, Worlds.Current.Id },
+            { d => d.ArtifactId, _detail.Id },
+            { d => d.CurrentName, _detail.Name },
+        };
+
+        var dialog = await DialogService.ShowAsync<RenameArtifactDialog>("Rename artifact", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is ArtifactListItem renamed)
+        {
+            _detail = _detail with { Name = renamed.Name, UpdatedAt = renamed.UpdatedAt };
+            Snackbar.Add("Artifact renamed.", Severity.Success);
+        }
+    }
+
     // Quick-add: the note becomes an ordinary source; prefixing the artifact's name
     // pulls it into extraction context via name matching.
     private string _quickAddText = string.Empty;
@@ -375,6 +421,43 @@
             _detail = null;
         }
         StateHasChanged();
+
+        await LoadConnectionsGraphAsync();
+    }
+
+    // Whole-world graph for the Connections neighborhood; the BFS trim to FocusId/depth
+    // happens in JS. Loaded per world and kept across in-world navigation.
+    private ArtifactGraphDto? _graph;
+    private Guid _graphWorldId;
+    private int _graphDepth = 1;
+
+    private async Task LoadConnectionsGraphAsync()
+    {
+        if (Worlds.Current is null || _detail is null || _detail.Relationships.Count == 0)
+        {
+            return;
+        }
+
+        if (_graph is not null && _graphWorldId == Worlds.Current.Id)
+        {
+            return;
+        }
+
+        var result = await Api.GetArtifactGraphAsync(Worlds.Current.Id);
+        if (result.IsSuccess)
+        {
+            _graph = result.Value!;
+            _graphWorldId = Worlds.Current.Id;
+            StateHasChanged();
+        }
+    }
+
+    private void OnConnectionSelected(GraphNode node)
+    {
+        if (node.Id != _detail?.Id)
+        {
+            Nav.NavigateTo($"/artifacts/{node.Id}");
+        }
     }
 
     private ConnectedArtifact? OtherArtifact(ArtifactRelationshipDto r)

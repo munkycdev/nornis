@@ -140,6 +140,37 @@ public class ArtifactService : IArtifactService
         return AppResult<ArtifactDetail>.Success(detail);
     }
 
+    public async Task<AppResult<Artifact>> RenameAsync(RenameArtifactCommand command, CancellationToken ct)
+    {
+        if (command.ActingUserRole != WorldRole.GM)
+        {
+            return AppResult<Artifact>.Fail(new AppError(403, "insufficient_role", "Only GMs can rename artifacts."));
+        }
+
+        var name = command.Name?.Trim();
+        if (string.IsNullOrEmpty(name))
+        {
+            return AppResult<Artifact>.Fail(new AppError(400, "validation_error", "Artifact name must not be empty or whitespace."));
+        }
+
+        if (name.Length > 200)
+        {
+            return AppResult<Artifact>.Fail(new AppError(400, "validation_error", "Artifact name must be between 1 and 200 characters."));
+        }
+
+        var artifact = await _artifactRepository.GetByIdAsync(command.ArtifactId, ct);
+        if (artifact is null || artifact.WorldId != command.WorldId)
+        {
+            return AppResult<Artifact>.Fail(new AppError(404, "not_found", "Artifact not found."));
+        }
+
+        artifact.Name = name;
+        artifact.UpdatedAt = DateTimeOffset.UtcNow;
+        artifact = await _artifactRepository.UpdateAsync(artifact, ct);
+
+        return AppResult<Artifact>.Success(artifact);
+    }
+
     private async Task<IReadOnlyList<Artifact>> ResolveConnectedArtifactsAsync(
         Guid artifactId,
         Guid worldId,

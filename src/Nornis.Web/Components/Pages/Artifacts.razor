@@ -16,18 +16,35 @@ else
 {
     <div class="nornis-filter-row mb-2">
         <MudChip T="string"
-                 Variant="@(_type is null ? Variant.Filled : Variant.Outlined)"
-                 Color="@(_type is null ? Color.Secondary : Color.Default)"
-                 OnClick="() => SetTypeAsync(null)">
+                 Variant="@(_selectedTypes.Count == 0 ? Variant.Filled : Variant.Outlined)"
+                 Color="@(_selectedTypes.Count == 0 ? Color.Secondary : Color.Default)"
+                 OnClick="() => _selectedTypes.Clear()">
             All
         </MudChip>
         @foreach (var type in _types)
         {
             <MudChip T="string"
-                     Variant="@(_type == type ? Variant.Filled : Variant.Outlined)"
-                     Color="@(_type == type ? Color.Secondary : Color.Default)"
-                     OnClick="() => SetTypeAsync(type)">
+                     Variant="@(_selectedTypes.Contains(type) ? Variant.Filled : Variant.Outlined)"
+                     Color="@(_selectedTypes.Contains(type) ? Color.Secondary : Color.Default)"
+                     OnClick="() => ToggleFilter(_selectedTypes, type)">
                 @type
+            </MudChip>
+        }
+    </div>
+    <div class="nornis-filter-row mb-2">
+        <MudChip T="string" Size="Size.Small"
+                 Variant="@(_selectedStatuses.Count == 0 ? Variant.Filled : Variant.Outlined)"
+                 Color="@(_selectedStatuses.Count == 0 ? Color.Secondary : Color.Default)"
+                 OnClick="() => _selectedStatuses.Clear()">
+            All
+        </MudChip>
+        @foreach (var status in _statuses)
+        {
+            <MudChip T="string" Size="Size.Small"
+                     Variant="@(_selectedStatuses.Contains(status) ? Variant.Filled : Variant.Outlined)"
+                     Color="@(_selectedStatuses.Contains(status) ? StatusColor(status) : Color.Default)"
+                     OnClick="() => ToggleFilter(_selectedStatuses, status)">
+                @status
             </MudChip>
         }
     </div>
@@ -35,10 +52,16 @@ else
         <MudTextField T="string" @bind-Value="_search" Immediate="true" Clearable="true"
                       Placeholder="Search artifacts…" Variant="Variant.Outlined" Margin="Margin.Dense"
                       Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="flex-grow-1" />
-        <MudToggleGroup T="string" @bind-Value="_view" SelectionMode="SelectionMode.SingleSelection"
+        <MudToggleGroup T="string" @bind-Value="_sort" SelectionMode="SelectionMode.SingleSelection"
+                        Color="Color.Secondary" Size="Size.Small">
+            <MudToggleItem Value="@("recency")">Recency</MudToggleItem>
+            <MudToggleItem Value="@("title")">Title</MudToggleItem>
+        </MudToggleGroup>
+        <MudToggleGroup T="string" Value="_view" ValueChanged="OnViewChangedAsync" SelectionMode="SelectionMode.SingleSelection"
                         Color="Color.Secondary" Size="Size.Small">
             <MudToggleItem Value="@("cards")"><MudIcon Icon="@Icons.Material.Outlined.GridView" Size="Size.Small" /></MudToggleItem>
             <MudToggleItem Value="@("tree")"><MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" /></MudToggleItem>
+            <MudToggleItem Value="@("graph")"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /></MudToggleItem>
         </MudToggleGroup>
     </div>
 
@@ -54,11 +77,37 @@ else
     {
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
             <MudIcon Icon="@Icons.Material.Outlined.Category" Size="Size.Large" Class="nornis-comingsoon-icon" />
-            <MudText Typo="Typo.h5" Class="nornis-serif">No artifacts@(_type is null ? "" : $" of type {_type}") yet</MudText>
+            <MudText Typo="Typo.h5" Class="nornis-serif">No artifacts match the current filters</MudText>
             <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
                 Accept proposals from your sources and Nornis will build them into artifacts here.
             </MudText>
         </MudPaper>
+    }
+    else if (_view == "graph")
+    {
+        @if (_graphError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_graphError</MudAlert>
+        }
+        else if (_graphData is null)
+        {
+            <LoadingRows Rows="3" />
+        }
+        else
+        {
+            <ArtifactGraph Nodes="FilteredGraph.Nodes" Edges="FilteredGraph.Edges" Depth="0"
+                           NodeSelected="OnGraphNodeSelected">
+                @if (_graphSelected is not null)
+                {
+                    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-graph-card">
+                        <div class="nornis-list-title">@_graphSelected.Name</div>
+                        <div class="nornis-list-sub mb-2">@_graphSelected.Type · @_graphSelected.Status</div>
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Secondary"
+                                   Href="@($"/artifacts/{_graphSelected.Id}")">Open</MudButton>
+                    </MudPaper>
+                }
+            </ArtifactGraph>
+        }
     }
     else if (_view == "tree")
     {
@@ -127,19 +176,106 @@ else
         "Character", "Location", "Item", "Faction", "Event", "Storyline", "Concept", "Document",
     ];
 
+    private static readonly string[] _statuses = ["Active", "Dormant", "Resolved", "Archived"];
+
     private bool _loading;
     private string? _error;
-    private string? _type;
+    private readonly HashSet<string> _selectedTypes = [];
+    private readonly HashSet<string> _selectedStatuses = [];
     private string _search = string.Empty;
+    private string _sort = "recency";
     private string _view = "cards";
     private readonly HashSet<string> _collapsed = [];
     private IReadOnlyList<ArtifactListItem> _artifacts = [];
 
-    private IEnumerable<ArtifactListItem> Filtered =>
-        string.IsNullOrWhiteSpace(_search)
-            ? _artifacts
-            : _artifacts.Where(a => a.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
-                                 || (a.Summary?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false));
+    private IEnumerable<ArtifactListItem> Filtered
+    {
+        get
+        {
+            var filtered = _artifacts.Where(a =>
+                (_selectedTypes.Count == 0 || _selectedTypes.Contains(a.Type))
+                && (_selectedStatuses.Count == 0 || _selectedStatuses.Contains(a.Status))
+                && (string.IsNullOrWhiteSpace(_search)
+                    || a.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                    || (a.Summary?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)));
+
+            return _sort == "title"
+                ? filtered.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+                : filtered.OrderByDescending(a => a.UpdatedAt);
+        }
+    }
+
+    private static void ToggleFilter(HashSet<string> set, string value)
+    {
+        if (!set.Remove(value))
+        {
+            set.Add(value);
+        }
+    }
+
+    // ---------------------------------------------------------------- Graph view --
+
+    private ArtifactGraphDto? _graphData;
+    private string? _graphError;
+    private GraphNode? _graphSelected;
+
+    // Memoized filtered graph: the ArtifactGraph component re-renders on list reference
+    // change, so we must hand back the same list instances until the filter state moves.
+    private (IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphEdge> Edges) _graphCache = ([], []);
+    private (object? Artifacts, object? Graph, string Types, string Statuses, string Search) _graphCacheKey;
+
+    private (IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphEdge> Edges) FilteredGraph
+    {
+        get
+        {
+            var key = ((object?)_artifacts, (object?)_graphData,
+                string.Join('|', _selectedTypes.Order()),
+                string.Join('|', _selectedStatuses.Order()),
+                _search);
+
+            if (_graphData is not null && !key.Equals(_graphCacheKey))
+            {
+                var ids = Filtered.Select(a => a.Id).ToHashSet();
+                _graphCache = (
+                    _graphData.Nodes.Where(n => ids.Contains(n.Id)).ToList(),
+                    _graphData.Edges.Where(e => ids.Contains(e.SourceId) && ids.Contains(e.TargetId)).ToList());
+                _graphCacheKey = key;
+            }
+
+            return _graphCache;
+        }
+    }
+
+    private async Task OnViewChangedAsync(string view)
+    {
+        _view = view;
+        if (view == "graph" && _graphData is null)
+        {
+            await LoadGraphAsync();
+        }
+    }
+
+    private async Task LoadGraphAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _graphError = null;
+        var result = await Api.GetArtifactGraphAsync(Worlds.Current.Id);
+        if (result.IsSuccess)
+        {
+            _graphData = result.Value!;
+        }
+        else
+        {
+            _graphError = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    private void OnGraphNodeSelected(GraphNode node) => _graphSelected = node;
 
     private bool IsCollapsed(string key) => _collapsed.Contains(key);
 
@@ -169,12 +305,6 @@ else
 
     private void OnWorldChanged() => InvokeAsync(LoadAsync);
 
-    private async Task SetTypeAsync(string? type)
-    {
-        _type = type;
-        await LoadAsync();
-    }
-
     private async Task LoadAsync()
     {
         if (Worlds.Current is null)
@@ -189,7 +319,7 @@ else
         _error = null;
         StateHasChanged();
 
-        var result = await Api.GetArtifactsAsync(Worlds.Current.Id, _type);
+        var result = await Api.GetArtifactsAsync(Worlds.Current.Id);
 
         _loading = false;
         if (result.IsSuccess)
@@ -201,7 +331,16 @@ else
             _error = result.Error!.Message;
             _artifacts = [];
         }
+
+        // World data changed — the cached graph belongs to the previous load.
+        _graphData = null;
+        _graphSelected = null;
         StateHasChanged();
+
+        if (_view == "graph")
+        {
+            await LoadGraphAsync();
+        }
     }
 
     private static Color StatusColor(string status) => status switch
