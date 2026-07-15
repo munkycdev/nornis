@@ -99,7 +99,11 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
         catch (ClientResultException ex)
         {
             stopwatch.Stop();
-            _logger.LogError(ex, "AI call failed with status {Status}", ex.Status);
+            // The response body names the exact failure — for content_filter 400s it carries
+            // per-category verdicts (violence/hate/sexual/self-harm severity, jailbreak) that
+            // the exception message omits. Log it or the failure is undiagnosable.
+            _logger.LogError(ex, "AI call failed with status {Status}. Response body: {ResponseBody}",
+                ex.Status, GetRawResponseBody(ex));
             throw new HttpRequestException(
                 $"AI call failed: HTTP {ex.Status}",
                 ex,
@@ -567,5 +571,17 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
     {
         return ex.Status == (int)HttpStatusCode.TooManyRequests ||
                ex.Status == (int)HttpStatusCode.ServiceUnavailable;
+    }
+
+    private static string GetRawResponseBody(ClientResultException ex)
+    {
+        try
+        {
+            return ex.GetRawResponse()?.Content?.ToString() ?? "(no response body)";
+        }
+        catch
+        {
+            return "(response body unavailable)";
+        }
     }
 }
