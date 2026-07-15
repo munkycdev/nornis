@@ -1,0 +1,225 @@
+@page "/graph"
+@page "/graph/{FocusId:guid}"
+@implements IAsyncDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>Graph — Nornis</PageTitle>
+
+<div class="d-flex align-center justify-space-between mb-4">
+    <div>
+        <MudText Typo="Typo.h4" Class="nornis-serif">Graph</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">How everything connects.</MudText>
+    </div>
+</div>
+
+@if (Worlds.Current is null)
+{
+    <NoWorld />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else
+{
+    <div class="d-flex gap-3 align-center mb-3 flex-wrap">
+        <MudAutocomplete T="GraphNode" Value="_focus" ValueChanged="OnFocusChangedAsync"
+                         SearchFunc="SearchNodesAsync" ToStringFunc="@(n => n?.Name)"
+                         Label="Focus artifact" Variant="Variant.Outlined" Dense="true"
+                         Clearable="true" Class="nornis-graph-focus" />
+        <MudToggleGroup T="int" Value="_depth" ValueChanged="OnDepthChangedAsync"
+                        SelectionMode="SelectionMode.SingleSelection" Color="Color.Secondary" Size="Size.Small">
+            <MudToggleItem Value="1">1 hop</MudToggleItem>
+            <MudToggleItem Value="2">2 hops</MudToggleItem>
+            <MudToggleItem Value="0">Whole world</MudToggleItem>
+        </MudToggleGroup>
+        <span class="nornis-list-meta">@_renderedCount of @(_graph?.Nodes.Count ?? 0) artifacts</span>
+    </div>
+
+    <div class="nornis-graph-wrap">
+        <div id="nornis-graph" class="nornis-graph-canvas"></div>
+
+        @if (_selected is not null)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-graph-card">
+                <div class="nornis-list-title">@_selected.Name</div>
+                <div class="nornis-list-sub mb-2">@_selected.Type · @_selected.Status</div>
+                <div class="d-flex gap-2">
+                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Secondary"
+                               Href="@($"/artifacts/{_selected.Id}")">Open</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                               OnClick="() => FocusOnAsync(_selected)">Focus here</MudButton>
+                </div>
+            </MudPaper>
+        }
+    </div>
+
+    <div class="nornis-graph-legend mt-2">
+        @foreach (var (type, color) in _legend)
+        {
+            <span class="nornis-graph-legend-item">
+                <span class="nornis-graph-dot" style="background:@color"></span>@type
+            </span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid? FocusId { get; set; }
+
+    private ArtifactGraphDto? _graph;
+    private GraphNode? _focus;
+    private GraphNode? _selected;
+    private int _depth = 2;
+    private int _renderedCount;
+    private string? _error;
+    private Guid _loadedWorldId;
+    private DotNetObjectReference<Graph>? _selfRef;
+    private bool _pendingRender;
+
+    private readonly (string Type, string Color)[] _legend =
+    [
+        ("Character", "#C98A4B"), ("Location", "#4B8AC9"), ("Item", "#8A6FC9"),
+        ("Faction", "#C94B6E"), ("Event", "#4BC98A"), ("Storyline", "#C9B44B"),
+        ("Concept", "#6EC9C0"), ("Document", "#9AA5B1"),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_pendingRender)
+        {
+            _pendingRender = false;
+            await RenderGraphAsync();
+        }
+    }
+
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
+
+    private async Task LoadAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            _graph = null;
+            return;
+        }
+
+        if (Worlds.Current.Id == _loadedWorldId && _graph is not null)
+        {
+            return;
+        }
+
+        var result = await Api.GetArtifactGraphAsync(Worlds.Current.Id);
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        _graph = result.Value!;
+        _loadedWorldId = Worlds.Current.Id;
+
+        _focus = FocusId is { } id ? _graph.Nodes.FirstOrDefault(n => n.Id == id) : null;
+        if (_focus is null && _depth != 0)
+        {
+            // No focus and a depth selected: default to the whole world only when small,
+            // otherwise pick the best-connected node as a starting point.
+            if (_graph.Nodes.Count > 60)
+            {
+                var degree = _graph.Edges
+                    .SelectMany(e => new[] { e.SourceId, e.TargetId })
+                    .GroupBy(x => x)
+                    .ToDictionary(g => g.Key, g => g.Count());
+                _focus = _graph.Nodes.OrderByDescending(n => degree.GetValueOrDefault(n.Id)).FirstOrDefault();
+            }
+            else
+            {
+                _depth = 0;
+            }
+        }
+
+        _pendingRender = true;
+        StateHasChanged();
+    }
+
+    private async Task RenderGraphAsync()
+    {
+        if (_graph is null)
+        {
+            return;
+        }
+
+        _selfRef ??= DotNetObjectReference.Create(this);
+        _renderedCount = await JS.InvokeAsync<int>("nornisGraph.render",
+            "nornis-graph", _graph.Nodes, _graph.Edges,
+            _depth == 0 ? null : _focus?.Id.ToString(), _depth, _selfRef);
+        StateHasChanged();
+    }
+
+    private Task<IEnumerable<GraphNode>> SearchNodesAsync(string value, CancellationToken ct)
+    {
+        var nodes = _graph?.Nodes ?? [];
+        return Task.FromResult(nodes
+            .Where(n => string.IsNullOrWhiteSpace(value) || n.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(n => n.Name)
+            .Take(15)
+            .AsEnumerable());
+    }
+
+    private async Task OnFocusChangedAsync(GraphNode? node)
+    {
+        _focus = node;
+        if (node is not null && _depth == 0)
+        {
+            _depth = 2;
+        }
+        await RenderGraphAsync();
+    }
+
+    private async Task OnDepthChangedAsync(int depth)
+    {
+        _depth = depth;
+        await RenderGraphAsync();
+    }
+
+    private async Task FocusOnAsync(GraphNode node)
+    {
+        _focus = node;
+        _selected = null;
+        if (_depth == 0)
+        {
+            _depth = 2;
+        }
+        await RenderGraphAsync();
+    }
+
+    [JSInvokable]
+    public Task OnNodeSelected(string id, string name, string type, string status)
+    {
+        _selected = new GraphNode(Guid.Parse(id), name, type, status);
+        return InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Worlds.Changed -= OnWorldChanged;
+        try
+        {
+            await JS.InvokeVoidAsync("nornisGraph.destroy");
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit already gone.
+        }
+        _selfRef?.Dispose();
+    }
+}

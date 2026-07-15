@@ -15,15 +15,20 @@ public class DevAuthBypassMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<DevAuthBypassMiddleware> _logger;
+    private readonly string _subjectId;
+    private readonly string _email;
+    private readonly string _username;
 
-    private const string DevSubjectId = "dev|local-testing-user";
-    private const string DevEmail = "dev@nornis.local";
-    private const string DevUsername = "DevUser";
-
-    public DevAuthBypassMiddleware(RequestDelegate next, ILogger<DevAuthBypassMiddleware> logger)
+    public DevAuthBypassMiddleware(RequestDelegate next, ILogger<DevAuthBypassMiddleware> logger, IConfiguration configuration)
     {
         _next = next;
         _logger = logger;
+        // DevAuth:SubjectId lets a local run act as an existing user (e.g. against a
+        // shared database whose data belongs to a real account). Defaults preserve the
+        // classic local-only dev user.
+        _subjectId = configuration["DevAuth:SubjectId"] ?? "dev|local-testing-user";
+        _email = configuration["DevAuth:Email"] ?? "dev@nornis.local";
+        _username = configuration["DevAuth:Username"] ?? "DevUser";
     }
 
     public async Task InvokeAsync(HttpContext context, IUserRepository userRepository)
@@ -38,27 +43,27 @@ public class DevAuthBypassMiddleware
         // Set up a fake authenticated identity
         var claims = new[]
         {
-            new Claim(ClaimTypes.NameIdentifier, DevSubjectId),
-            new Claim("sub", DevSubjectId),
-            new Claim(ClaimTypes.Email, DevEmail),
-            new Claim("email", DevEmail),
-            new Claim("nickname", DevUsername)
+            new Claim(ClaimTypes.NameIdentifier, _subjectId),
+            new Claim("sub", _subjectId),
+            new Claim(ClaimTypes.Email, _email),
+            new Claim("email", _email),
+            new Claim("nickname", _username)
         };
 
         var identity = new ClaimsIdentity(claims, "DevBypass");
         context.User = new ClaimsPrincipal(identity);
 
         // Provision or retrieve the dev user
-        var user = await userRepository.GetByAuth0SubjectIdAsync(DevSubjectId, context.RequestAborted);
+        var user = await userRepository.GetByAuth0SubjectIdAsync(_subjectId, context.RequestAborted);
 
         if (user is null)
         {
             user = await userRepository.CreateAsync(new User
             {
                 Id = Guid.NewGuid(),
-                Auth0SubjectId = DevSubjectId,
-                Username = DevUsername,
-                Email = DevEmail,
+                Auth0SubjectId = _subjectId,
+                Username = _username,
+                Email = _email,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
             }, context.RequestAborted);

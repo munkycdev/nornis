@@ -99,6 +99,25 @@ public class ArtifactsController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>The caller-visible world graph: artifacts as nodes, relationships as edges.</summary>
+    [HttpGet("graph")]
+    public async Task<IActionResult> GetGraph(Guid worldId, CancellationToken ct)
+    {
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _artifactService.GetGraphAsync(worldId, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var graph = result.Value!;
+        return Ok(new ArtifactGraphResponse(
+            graph.Nodes.Select(n => new ArtifactGraphNodeResponse(n.Id, n.Name, n.Type, n.Status)).ToList(),
+            graph.Edges.Select(e => new ArtifactGraphEdgeResponse(e.Id, e.SourceId, e.TargetId, e.Type)).ToList()));
+    }
+
     [HttpGet("{artifactId:guid}")]
     public async Task<IActionResult> GetById(Guid worldId, Guid artifactId, CancellationToken ct)
     {

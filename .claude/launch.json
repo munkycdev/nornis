@@ -3,14 +3,20 @@
   "configurations": [
     {
       "name": "nornis-api",
-      "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "src/Nornis.Api/Nornis.Api.csproj"],
+      "runtimeExecutable": "pwsh",
+      "runtimeArgs": [
+        "-Command",
+        "$env:ConnectionStrings__DefaultConnection = az containerapp secret show -n ca-nornis-api -g rg-nornis --secret-name sql-conn --query value -o tsv; $env:DevAuth__SubjectId='oauth2|discord|992501439685460139'; $env:DevAuth__Email='david@castillo.life'; $env:DevAuth__Username='munkyc'; $env:Auth0__Domain='your-tenant.auth0.com'; $env:ASPNETCORE_ENVIRONMENT='Development'; $env:ASPNETCORE_URLS='http://localhost:5000'; dotnet run --project src/Nornis.Api/Nornis.Api.csproj --no-build"
+      ],
       "port": 5000
     },
     {
       "name": "nornis-web",
-      "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "src/Nornis.Web/Nornis.Web.csproj"],
+      "runtimeExecutable": "pwsh",
+      "runtimeArgs": [
+        "-Command",
+        "$env:Api__BaseUrl='http://localhost:5000'; $env:ASPNETCORE_ENVIRONMENT='Development'; $env:ASPNETCORE_URLS='http://localhost:5100'; dotnet run --project src/Nornis.Web/Nornis.Web.csproj --no-build"
+      ],
       "port": 5100
     }
   ]

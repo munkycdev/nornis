@@ -1,6 +1,6 @@
 # Future Features
 
-Shipped from this list so far: manual artifact merge, processing/review nav badges, heuristic health widget removal (AI assessment is now the only Continuity Health), artifact tree projection + search, Canon grouping + search.
+Shipped from this list so far: manual artifact merge, processing/review nav badges, heuristic health widget removal (AI assessment is now the only Continuity Health), artifact tree projection + search, Canon grouping + search, graph view.
 
 Stack-ranked by when to work on them. One line each; when an item gets picked up, it
 gets a real spec under `docs/features/`.
@@ -12,7 +12,6 @@ gets a real spec under `docs/features/`.
 ## Next — improve the weekly capture loop
 
 7. **Capture page à la Chronicis** — reference external information alongside the editor while taking session notes.
-8. **Graph view of artifacts** — Cytoscape/vis-network over relationships; start from a selected artifact's neighborhood, not the 360-node hairball. Biggest UI lift, biggest wow.
 9. **Access-token refresh** — the 24h token/cookie expiry currently ends in 401s/re-login; add `offline_access` + refresh in the bearer handler.
 10. **Auto-accept for GM-authored sources** — opt-in per-world setting; the bulk importer already proved accept-as-you-go (extraction context only sees accepted knowledge).
 11. **Character ↔ artifact linking** — connect a member's Character record to its AI-extracted Character artifact.

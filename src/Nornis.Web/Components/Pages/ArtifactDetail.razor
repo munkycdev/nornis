@@ -45,6 +45,10 @@
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_detail.Type</MudChip>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_detail.Status)">@_detail.Status</MudChip>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@_detail.Visibility</MudChip>
+                    <MudTooltip Text="View in graph">
+                        <MudIconButton Icon="@Icons.Material.Outlined.Hub" Size="Size.Small"
+                                       Href="@($"/graph/{_detail.Id}")" aria-label="View in graph" />
+                    </MudTooltip>
                     @if (_detail.Confidence is not null)
                     {
                         <span class="nornis-list-meta">@($"{_detail.Confidence:P0}") confidence</span>

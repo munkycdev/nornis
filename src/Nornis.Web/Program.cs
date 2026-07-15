@@ -81,6 +81,15 @@ if (authEnabled)
 
     builder.Services.AddAuthorization();
 }
+else
+{
+    // Without Auth0, [Authorize] page metadata still engages the framework's
+    // authorization machinery — give it a scheme that signs everyone in locally.
+    builder.Services.AddAuthentication(DevAuthenticationHandler.SchemeName)
+        .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, DevAuthenticationHandler>(
+            DevAuthenticationHandler.SchemeName, null);
+    builder.Services.AddAuthorization();
+}
 
 // Typed HTTP client to nornis-api. Web never touches the database directly.
 var apiBaseUrl = builder.Configuration["Api:BaseUrl"] ?? "http://localhost:5000";
@@ -117,11 +126,11 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 if (authEnabled)
 {
-    app.UseAuthentication();
-    app.UseAuthorization();
-
     app.MapGet("/account/login", (string? returnUrl) =>
         Results.Challenge(new Microsoft.AspNetCore.Authentication.AuthenticationProperties
         {

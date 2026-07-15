@@ -145,6 +145,9 @@ public class NornisApiClient
     public Task<ApiResult<ArtifactDetailDto>> GetArtifactAsync(Guid worldId, Guid artifactId, CancellationToken ct = default) =>
         GetAsync<ArtifactDetailDto>($"/api/worlds/{worldId}/artifacts/{artifactId}", ct);
 
+    public Task<ApiResult<ArtifactGraphDto>> GetArtifactGraphAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<ArtifactGraphDto>($"/api/worlds/{worldId}/artifacts/graph", ct);
+
     /// <summary>GM-only: folds the duplicate into the target; the duplicate is archived.</summary>
     public Task<ApiResult<MergeResult>> MergeArtifactAsync(Guid worldId, Guid targetArtifactId, Guid duplicateArtifactId, CancellationToken ct = default) =>
         PostAsync<MergeArtifactBody, MergeResult>($"/api/worlds/{worldId}/artifacts/{targetArtifactId}/merge",

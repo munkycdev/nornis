@@ -51,6 +51,29 @@ public class ArtifactService : IArtifactService
         return AppResult<IReadOnlyList<Artifact>>.Success(visible);
     }
 
+    public async Task<AppResult<ArtifactGraph>> GetGraphAsync(Guid worldId, WorldRole role, CancellationToken ct)
+    {
+        var allowedScopes = GetAllowedScopes(role);
+
+        var artifacts = (await _artifactRepository.ListByWorldAsync(worldId, null, null, ct))
+            .Where(a => allowedScopes.Contains(a.Visibility))
+            .ToList();
+
+        var nodes = artifacts
+            .Select(a => new ArtifactGraphNode(a.Id, a.Name, a.Type.ToString(), a.Status.ToString()))
+            .ToList();
+
+        var visibleIds = artifacts.Select(a => a.Id).ToHashSet();
+
+        var edges = (await _relationshipRepository.ListByArtifactIdsAsync(visibleIds.ToList(), allowedScopes, ct))
+            .Where(r => visibleIds.Contains(r.ArtifactAId) && visibleIds.Contains(r.ArtifactBId))
+            .DistinctBy(r => r.Id)
+            .Select(r => new ArtifactGraphEdge(r.Id, r.ArtifactAId, r.ArtifactBId, r.Type))
+            .ToList();
+
+        return AppResult<ArtifactGraph>.Success(new ArtifactGraph(nodes, edges));
+    }
+
     public async Task<AppResult<ArtifactDetail>> GetDetailAsync(
         Guid artifactId,
         Guid worldId,

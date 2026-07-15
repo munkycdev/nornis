@@ -19,6 +19,9 @@ public interface IArtifactService
     /// Returns not-found if the artifact does not exist, belongs to another world, or is
     /// not visible to the requesting role.
     /// </summary>
+    /// <summary>Caller-visible artifacts and relationships as a renderable graph.</summary>
+    Task<AppResult<ArtifactGraph>> GetGraphAsync(Guid worldId, WorldRole role, CancellationToken ct);
+
     Task<AppResult<ArtifactDetail>> GetDetailAsync(
         Guid artifactId,
         Guid worldId,

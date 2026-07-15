@@ -117,6 +117,51 @@ html, body {
     padding: 8px 0 4px 0;
 }
 
+.nornis-graph-wrap {
+    position: relative;
+}
+
+.nornis-graph-canvas {
+    height: min(72vh, 780px);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    background: #FDFBF7;
+}
+
+.nornis-graph-card {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    max-width: 260px;
+    z-index: 5;
+}
+
+.nornis-graph-focus {
+    min-width: 260px;
+    max-width: 340px;
+}
+
+.nornis-graph-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 0.75rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-graph-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.nornis-graph-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
 .nornis-tree-group {
     margin-bottom: 4px;
 }

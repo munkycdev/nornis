@@ -321,6 +321,14 @@ public record ContinuityFinding(
 
 public record MergeResult(Guid TargetArtifactId);
 
+public record ArtifactGraphDto(
+    IReadOnlyList<GraphNode> Nodes,
+    IReadOnlyList<GraphEdge> Edges);
+
+public record GraphNode(Guid Id, string Name, string Type, string Status);
+
+public record GraphEdge(Guid Id, Guid SourceId, Guid TargetId, string Type);
+
 public record SourceActivity(
     int Ready,
     int Queued,
