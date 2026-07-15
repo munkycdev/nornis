@@ -128,7 +128,8 @@ public record CharacterDto(
 public record CreateCharacterRequest(
     string Name,
     string? Description = null,
-    Guid? WorldMemberId = null);
+    Guid? WorldMemberId = null,
+    Guid? ArtifactId = null);
 
 public record UpdateCharacterRequest(
     string? Name = null,

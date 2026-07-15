@@ -37,7 +37,8 @@ public class CharactersController : ControllerBase
             ActingUserId: user.Id,
             ActingUserRole: member.Role,
             Description: request.Description,
-            ForWorldMemberId: request.WorldMemberId);
+            ForWorldMemberId: request.WorldMemberId,
+            ArtifactId: request.ArtifactId);
 
         var result = await _characterService.CreateAsync(command, ct);
 

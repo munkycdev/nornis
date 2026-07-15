@@ -361,6 +361,34 @@ public class CharacterServiceTests
         Assert.That(result.Error!.Code, Is.EqualTo("invalid_artifact_link"));
     }
 
+    [Test]
+    public async Task CreateAsync_WithArtifactId_LinksTheArtifact()
+    {
+        var artifact = SeedArtifact();
+
+        var command = new CreateCharacterCommand(WorldId, "Ugma", _player.UserId, WorldRole.Player,
+            ArtifactId: artifact.Id);
+
+        var result = await _sut.CreateAsync(command, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.ArtifactId, Is.EqualTo(artifact.Id));
+    }
+
+    [Test]
+    public async Task CreateAsync_WithWrongTypeArtifact_Returns400()
+    {
+        var artifact = SeedArtifact(type: ArtifactType.Location);
+
+        var command = new CreateCharacterCommand(WorldId, "Ugma", _player.UserId, WorldRole.Player,
+            ArtifactId: artifact.Id);
+
+        var result = await _sut.CreateAsync(command, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("invalid_artifact_link"));
+    }
+
     // -------------------------------------------------------------------- Claim --
 
     [Test]

@@ -59,6 +59,15 @@ public class CharacterService : ICharacterService
             ownerMemberId = command.ForWorldMemberId.Value;
         }
 
+        if (command.ArtifactId is { } artifactId)
+        {
+            var linkError = await ValidateArtifactLinkAsync(artifactId, command.WorldId, command.ActingUserRole, ct);
+            if (linkError is not null)
+            {
+                return AppResult<Character>.Fail(linkError);
+            }
+        }
+
         var now = DateTimeOffset.UtcNow;
 
         var character = new Character
@@ -68,6 +77,7 @@ public class CharacterService : ICharacterService
             WorldMemberId = ownerMemberId,
             Name = command.Name.Trim(),
             Description = command.Description,
+            ArtifactId = command.ArtifactId,
             CreatedAt = now,
             UpdatedAt = now
         };

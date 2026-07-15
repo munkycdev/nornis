@@ -12,4 +12,5 @@ public record CreateCharacterCommand(
     Guid ActingUserId,
     WorldRole ActingUserRole,
     string? Description = null,
-    Guid? ForWorldMemberId = null);
+    Guid? ForWorldMemberId = null,
+    Guid? ArtifactId = null);

@@ -110,17 +110,17 @@
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">Claim an existing character</div>
                 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                    If your character already exists in this world — created by the GM or imported
-                    before you joined — claim it to take it over.
+                    If your character already exists in this world — extracted into the world record,
+                    created by the GM, or imported before you joined — claim it to make it yours.
                 </MudText>
                 <div class="nornis-add-member">
-                    <MudAutocomplete T="CharacterDto" @bind-Value="_claimTarget"
+                    <MudAutocomplete T="ClaimOption" @bind-Value="_claimTarget"
                                      SearchFunc="SearchClaimableAsync" ToStringFunc="@(c => c?.Name)"
                                      Label="Character" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
                                      Clearable="true" ResetValueOnEmptyText="true" Class="flex-grow-1">
                         <ItemTemplate Context="c">
                             <span>@c.Name</span>
-                            <span class="nornis-list-meta ml-2">played by @OwnerName(c.WorldMemberId)</span>
+                            <span class="nornis-list-meta ml-2">@c.Origin</span>
                         </ItemTemplate>
                     </MudAutocomplete>
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
@@ -208,7 +208,12 @@
 
     // ------------------------------------------------------------------ Claiming --
 
-    private CharacterDto? _claimTarget;
+    // A claimable character comes from one of two places: a Character record another
+    // member owns (claiming transfers ownership), or an AI-extracted Character artifact
+    // nobody has claimed yet (claiming creates a Character record linked to it).
+    private sealed record ClaimOption(string Name, string Origin, CharacterDto? Record, ArtifactListItem? Artifact);
+
+    private ClaimOption? _claimTarget;
     private bool _claiming;
 
     // All characters + members, fetched lazily the first time the claim picker searches.
@@ -220,7 +225,7 @@
             ? (!string.IsNullOrWhiteSpace(m.DisplayName) ? m.DisplayName! : $"User {m.UserId.ToString()[..8]}")
             : "another member";
 
-    private async Task<IEnumerable<CharacterDto>> SearchClaimableAsync(string value, CancellationToken ct)
+    private async Task<IEnumerable<ClaimOption>> SearchClaimableAsync(string value, CancellationToken ct)
     {
         if (Worlds.Current is null)
         {
@@ -237,11 +242,26 @@
             _members = members.IsSuccess ? members.Value! : [];
         }
 
+        var artifacts = await EnsureCharacterArtifactsAsync();
+
         var mine = _characters.Select(c => c.Id).ToHashSet();
-        return _allCharacters
+        var records = _allCharacters
             .Where(c => !mine.Contains(c.Id))
-            .Where(c => string.IsNullOrWhiteSpace(value) || c.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(c => c.Name)
+            .Select(c => new ClaimOption(c.Name, $"played by {OwnerName(c.WorldMemberId)}", c, null));
+
+        // Artifacts already linked to any Character record are someone's — claim the
+        // record instead, so the same character never shows up twice.
+        var linkedArtifactIds = _allCharacters
+            .Where(c => c.ArtifactId is not null)
+            .Select(c => c.ArtifactId!.Value)
+            .ToHashSet();
+        var unclaimedArtifacts = artifacts
+            .Where(a => !linkedArtifactIds.Contains(a.Id))
+            .Select(a => new ClaimOption(a.Name, "from the world record", null, a));
+
+        return records.Concat(unclaimedArtifacts)
+            .Where(o => string.IsNullOrWhiteSpace(value) || o.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(o => o.Name)
             .Take(15);
     }
 
@@ -252,29 +272,56 @@
             return;
         }
 
+        var target = _claimTarget;
+        var (message, action) = target switch
+        {
+            { Record: { } record } => (
+                $"Take over \"{record.Name}\"? It is currently played by {OwnerName(record.WorldMemberId)}.",
+                (Func<Task<bool>>)(async () =>
+                {
+                    var result = await Api.ClaimCharacterAsync(Worlds.Current.Id, record.Id);
+                    if (!result.IsSuccess)
+                    {
+                        Snackbar.Add($"Could not claim: {result.Error!.Message}", Severity.Error);
+                    }
+                    return result.IsSuccess;
+                })),
+            { Artifact: { } artifact } => (
+                $"Create your character from the world record \"{artifact.Name}\"?",
+                (Func<Task<bool>>)(async () =>
+                {
+                    var description = artifact.Summary is { Length: > 2000 } s ? s[..2000] : artifact.Summary;
+                    var result = await Api.CreateCharacterAsync(Worlds.Current.Id,
+                        new CreateCharacterRequest(artifact.Name, description, ArtifactId: artifact.Id));
+                    if (!result.IsSuccess)
+                    {
+                        Snackbar.Add($"Could not claim: {result.Error!.Message}", Severity.Error);
+                    }
+                    return result.IsSuccess;
+                })),
+            _ => (string.Empty, (Func<Task<bool>>)(() => Task.FromResult(false)))
+        };
+
         var confirmed = await DialogService.ShowMessageBox(
-            "Claim character?",
-            $"Take over \"{_claimTarget.Name}\"? It is currently played by {OwnerName(_claimTarget.WorldMemberId)}.",
-            yesText: "Claim", cancelText: "Cancel");
+            "Claim character?", message, yesText: "Claim", cancelText: "Cancel");
         if (confirmed != true)
         {
             return;
         }
 
         _claiming = true;
-        var result = await Api.ClaimCharacterAsync(Worlds.Current.Id, _claimTarget.Id);
+        var succeeded = await action();
         _claiming = false;
 
-        if (result.IsSuccess)
+        if (succeeded)
         {
-            Snackbar.Add($"\"{result.Value!.Name}\" is now yours.", Severity.Success);
+            Snackbar.Add($"\"{target.Name}\" is now yours.", Severity.Success);
             _claimTarget = null;
             _allCharacters = null;
             await LoadAsync();
         }
         else
         {
-            Snackbar.Add($"Could not claim: {result.Error!.Message}", Severity.Error);
             StateHasChanged();
         }
     }
