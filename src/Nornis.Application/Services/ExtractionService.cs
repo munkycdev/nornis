@@ -298,6 +298,21 @@ public class ExtractionService : IExtractionService
                     "AI response validation failed on attempt {Attempt}/{MaxAttempts}. SourceId={SourceId}, Error={Error}",
                     attempt, maxAttempts, source.Id, validationError);
             }
+            catch (AiExtractionParseException ex)
+            {
+                // Malformed AI output (bad JSON, invalid fields) is retryable: sampling
+                // variance means the next attempt usually parses. Exhausted retries fall
+                // through to the ParseFailure path below.
+                lastError = ex.Message;
+                _logger.LogWarning(ex,
+                    "AI response parse failed on attempt {Attempt}/{MaxAttempts}. SourceId={SourceId}",
+                    attempt, maxAttempts, source.Id);
+            }
+            catch (AiExtractionTimeoutException ex)
+            {
+                await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.Timeout, ct);
+                return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
+            }
             catch (TaskCanceledException) when (!ct.IsCancellationRequested)
             {
                 // Timeout — transient failure

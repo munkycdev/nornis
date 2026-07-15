@@ -5,6 +5,7 @@ namespace Nornis.Application.Tests.Fakes;
 public class FakeAiExtractionClient : IAiExtractionClient
 {
     private readonly List<ExtractionRequest> _requests = [];
+    private readonly Queue<Func<AiExtractionResponse>> _script = new();
     private AiExtractionResponse? _successResponse;
     private Exception? _transientException;
     private bool _parseFailure;
@@ -12,6 +13,15 @@ public class FakeAiExtractionClient : IAiExtractionClient
 
     public IReadOnlyList<ExtractionRequest> Requests => _requests.AsReadOnly();
     public int CallCount => _callCount;
+
+    /// <summary>
+    /// Enqueues one call's behavior. Scripted calls take precedence over the Setup* modes,
+    /// letting tests express sequences like "throw once, then succeed".
+    /// </summary>
+    public void EnqueueThrow(Exception exception) => _script.Enqueue(() => throw exception);
+
+    /// <inheritdoc cref="EnqueueThrow" />
+    public void EnqueueSuccess(AiExtractionResponse response) => _script.Enqueue(() => response);
 
     /// <summary>
     /// Configures the fake to return a successful response on each call.
@@ -48,6 +58,11 @@ public class FakeAiExtractionClient : IAiExtractionClient
     {
         _requests.Add(request);
         _callCount++;
+
+        if (_script.Count > 0)
+        {
+            return Task.FromResult(_script.Dequeue()());
+        }
 
         if (_transientException is not null)
         {

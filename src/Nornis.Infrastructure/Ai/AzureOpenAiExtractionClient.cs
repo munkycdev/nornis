@@ -425,10 +425,19 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             throw new AiExtractionParseException("AI response 'proposals' field is not an array.");
         }
 
+        // Rich sources can legitimately overrun the 50-proposal cap the prompt asks for.
+        // Keep the first 50 (the prompt orders CreateArtifact proposals first, so creates
+        // survive) rather than failing the whole extraction and losing everything.
         if (proposalsArray.Count > 50)
         {
-            throw new AiExtractionParseException(
-                $"AI response contains {proposalsArray.Count} proposals, exceeding maximum of 50.");
+            _logger.LogWarning(
+                "AI response contains {ProposalCount} proposals; keeping the first 50 and dropping the rest.",
+                proposalsArray.Count);
+
+            while (proposalsArray.Count > 50)
+            {
+                proposalsArray.RemoveAt(proposalsArray.Count - 1);
+            }
         }
 
         if (proposalsArray.Count == 0)

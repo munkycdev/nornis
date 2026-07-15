@@ -418,9 +418,9 @@ public class AzureOpenAiExtractionClientTests
     }
 
     [Test]
-    public void ExtractAsync_MoreThan50Proposals_ThrowsParseException()
+    public async Task ExtractAsync_MoreThan50Proposals_ClampsToFirst50()
     {
-        var proposals = string.Join(",\n", Enumerable.Range(0, 51).Select(i => $$"""
+        var proposals = string.Join(",\n", Enumerable.Range(0, 54).Select(i => $$"""
                 {
                   "changeType": "CreateArtifact",
                   "targetType": "Artifact",
@@ -441,8 +441,12 @@ public class AzureOpenAiExtractionClientTests
 
         SetupMockToReturn(responseJson);
 
-        Assert.ThrowsAsync<AiExtractionParseException>(
-            async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
+        var response = await _client.ExtractAsync(DefaultRequest, CancellationToken.None);
+
+        Assert.That(response.Proposals, Has.Count.EqualTo(50));
+        // The first 50 in response order survive; the tail is dropped.
+        Assert.That(response.Proposals[0].Rationale, Is.EqualTo("Proposal number 0."));
+        Assert.That(response.Proposals[49].Rationale, Is.EqualTo("Proposal number 49."));
     }
 
     #endregion

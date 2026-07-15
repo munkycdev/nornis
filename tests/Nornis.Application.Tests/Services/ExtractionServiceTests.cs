@@ -359,6 +359,59 @@ public class ExtractionServiceTests
     #region Non-transient failure: Queued → Processing → Failed
 
     [Test]
+    public async Task ProcessExtractionAsync_ParseExceptionThenSuccess_Succeeds()
+    {
+        var source = CreateQueuedSource();
+        _sourceRepository.Seed(source);
+        _aiClient.EnqueueThrow(new AiExtractionParseException("AI response was null or empty."));
+        _aiClient.EnqueueSuccess(CreateValidResponse());
+
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+
+        Assert.That(result.Type, Is.EqualTo(OutcomeType.Success));
+        Assert.That(_aiClient.CallCount, Is.EqualTo(2));
+
+        var updated = await _sourceRepository.GetByIdAsync(source.Id);
+        Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Processed));
+    }
+
+    [Test]
+    public async Task ProcessExtractionAsync_ParseExceptionOnEveryAttempt_FailsAsParseFailureAfterRetries()
+    {
+        var source = CreateQueuedSource();
+        _sourceRepository.Seed(source);
+        // 1 initial + MaxParseRetryAttempts (2) = 3 attempts
+        _aiClient.EnqueueThrow(new AiExtractionParseException("Proposal at index 0 has invalid targetId 'not-a-uuid' (expected UUID or null)."));
+        _aiClient.EnqueueThrow(new AiExtractionParseException("Proposal at index 0 has invalid targetId 'not-a-uuid' (expected UUID or null)."));
+        _aiClient.EnqueueThrow(new AiExtractionParseException("Proposal at index 0 has invalid targetId 'not-a-uuid' (expected UUID or null)."));
+
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+
+        Assert.That(result.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
+        Assert.That(result.ErrorCategory, Is.EqualTo(ErrorCategories.ParseFailure));
+        Assert.That(_aiClient.CallCount, Is.EqualTo(3));
+
+        var updated = await _sourceRepository.GetByIdAsync(source.Id);
+        Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Failed));
+    }
+
+    [Test]
+    public async Task ProcessExtractionAsync_TimeoutException_IsTransientAndRequeues()
+    {
+        var source = CreateQueuedSource();
+        _sourceRepository.Seed(source);
+        _aiClient.EnqueueThrow(new AiExtractionTimeoutException("AI extraction timed out after 60 seconds.", 60000));
+
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+
+        Assert.That(result.Type, Is.EqualTo(OutcomeType.TransientFailure));
+        Assert.That(result.ErrorCategory, Is.EqualTo(ErrorCategories.Timeout));
+
+        var updated = await _sourceRepository.GetByIdAsync(source.Id);
+        Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Queued));
+    }
+
+    [Test]
     public async Task ProcessExtractionAsync_NonTransientFailure_ReturnsNonTransientOutcome()
     {
         var source = CreateQueuedSource();

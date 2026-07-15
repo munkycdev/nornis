@@ -1,4 +1,4 @@
-namespace Nornis.Infrastructure.Ai;
+namespace Nornis.Application.Ai;
 
 /// <summary>
 /// Thrown when an AI extraction call exceeds the configured timeout.
