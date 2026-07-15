@@ -94,8 +94,8 @@ public class NornisApiClient
 
     // ----------------------------------------------------------------- Characters --
 
-    public Task<ApiResult<IReadOnlyList<CharacterDto>>> GetCharactersAsync(Guid worldId, CancellationToken ct = default) =>
-        GetAsync<IReadOnlyList<CharacterDto>>($"/api/worlds/{worldId}/characters", ct);
+    public Task<ApiResult<IReadOnlyList<CharacterDto>>> GetCharactersAsync(Guid worldId, bool mine = false, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<CharacterDto>>($"/api/worlds/{worldId}/characters{(mine ? "?mine=true" : "")}", ct);
 
     public Task<ApiResult<CharacterDto>> CreateCharacterAsync(Guid worldId, CreateCharacterRequest request, CancellationToken ct = default) =>
         PostAsync<CreateCharacterRequest, CharacterDto>($"/api/worlds/{worldId}/characters", request, ct);

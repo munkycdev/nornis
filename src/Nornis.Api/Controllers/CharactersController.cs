@@ -51,9 +51,18 @@ public class CharactersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> List(Guid worldId, CancellationToken ct)
+    public async Task<IActionResult> List(Guid worldId, [FromQuery] bool mine, CancellationToken ct)
     {
         var result = await _characterService.ListByWorldAsync(worldId, ct);
+
+        if (result.IsSuccess && mine)
+        {
+            var member = HttpContext.GetWorldMember();
+            return Ok(result.Value!
+                .Where(c => c.WorldMemberId == member.Id)
+                .Select(ToCharacterResponse)
+                .ToList());
+        }
 
         if (!result.IsSuccess)
         {

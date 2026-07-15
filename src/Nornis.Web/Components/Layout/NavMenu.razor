@@ -95,8 +95,10 @@
     <AuthorizeView>
         <Authorized>
             <div class="nornis-member-row px-4 py-2">
-                <MudIcon Icon="@Icons.Material.Outlined.AccountCircle" Size="Size.Small" />
-                <span class="nornis-list-sub flex-grow-1">@context.User.Identity?.Name</span>
+                <a href="/profile" class="nornis-link d-flex align-center gap-2 flex-grow-1" title="Your settings">
+                    <MudIcon Icon="@Icons.Material.Outlined.AccountCircle" Size="Size.Small" />
+                    <span class="nornis-list-sub">@context.User.Identity?.Name</span>
+                </a>
                 <MudTooltip Text="Sign out">
                     <MudIconButton Icon="@Icons.Material.Filled.Logout" Size="Size.Small"
                                    Href="/account/logout" aria-label="Sign out" />
@@ -104,6 +106,16 @@
             </div>
         </Authorized>
     </AuthorizeView>
+}
+else
+{
+    @* Dev auth: no identity to show, but the profile page still needs its entry point. *@
+    <div class="nornis-member-row px-4 py-2">
+        <a href="/profile" class="nornis-link d-flex align-center gap-2 flex-grow-1" title="Your settings">
+            <MudIcon Icon="@Icons.Material.Outlined.AccountCircle" Size="Size.Small" />
+            <span class="nornis-list-sub">Your settings</span>
+        </a>
+    </div>
 }
 
 <MudButton Variant="Variant.Text"
