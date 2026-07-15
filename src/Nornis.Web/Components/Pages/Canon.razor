@@ -33,34 +33,49 @@
     }
     else
     {
+        <MudTextField T="string" @bind-Value="_search" Immediate="true" Clearable="true"
+                      Placeholder="Search canon — artifact, fact, or relationship text…"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+
         @foreach (var tier in _sections)
         {
-            var entries = _entries.Where(e => e.TruthState == tier.TruthState).ToList();
+            var entries = FilteredEntries.Where(e => e.TruthState == tier.TruthState).ToList();
             if (entries.Count > 0)
             {
+                var sectionOpen = Searching || !_collapsed.Contains(tier.TruthState);
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-                    <div class="nornis-detail-section-title">
+                    <div class="nornis-detail-section-title nornis-tree-header" @onclick="() => ToggleSection(tier.TruthState)">
+                        <MudIcon Icon="@(sectionOpen ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)" Size="Size.Small" />
                         <MudIcon Icon="@tier.Icon" Size="Size.Small" Color="@tier.Color" Class="mr-1" />
                         @tier.Title
+                        <span class="nornis-list-meta ml-2">@entries.Count</span>
                     </div>
-                    @foreach (var e in entries)
+                    @if (sectionOpen)
                     {
-                        <div class="nornis-list-row">
-                            <div class="nornis-list-thumb">
-                                <MudIcon Icon="@(e.Kind == "Relationship" ? Icons.Material.Outlined.Hub : Icons.Material.Outlined.Article)" Size="Size.Small" />
+                        @foreach (var artifactGroup in entries.GroupBy(e => (e.ArtifactId, e.ArtifactName)).OrderBy(g => g.Key.ArtifactName))
+                        {
+                            <div class="nornis-canon-artifact">
+                                <a href="@($"/artifacts/{artifactGroup.Key.ArtifactId}")" class="nornis-link nornis-canon-artifact-name">@artifactGroup.Key.ArtifactName</a>
+                                <span class="nornis-list-meta">@artifactGroup.Count()</span>
                             </div>
-                            <div class="nornis-list-body">
-                                <div class="nornis-list-title">
-                                    <a href="@($"/artifacts/{e.ArtifactId}")" class="nornis-link">@e.ArtifactName</a>
-                                </div>
-                                <div class="nornis-list-sub">@Statement(e)</div>
-                            </div>
-                            @if (e.Visibility == "GMOnly")
+                            @foreach (var e in artifactGroup)
                             {
-                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">GM only</MudChip>
+                                <div class="nornis-list-row nornis-canon-entry">
+                                    <div class="nornis-list-thumb">
+                                        <MudIcon Icon="@(e.Kind == "Relationship" ? Icons.Material.Outlined.Hub : Icons.Material.Outlined.Article)" Size="Size.Small" />
+                                    </div>
+                                    <div class="nornis-list-body">
+                                        <div class="nornis-list-sub">@Statement(e)</div>
+                                    </div>
+                                    @if (e.Visibility == "GMOnly")
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">GM only</MudChip>
+                                    }
+                                    <span class="nornis-list-meta">@Ago(e.UpdatedAt)</span>
+                                </div>
                             }
-                            <span class="nornis-list-meta">@Ago(e.UpdatedAt)</span>
-                        </div>
+                        }
                     }
                 </MudPaper>
             }
@@ -71,7 +86,28 @@
 @code {
     private bool _loading;
     private string? _error;
+    private string _search = string.Empty;
+    private readonly HashSet<string> _collapsed = [];
     private IReadOnlyList<CanonEntry> _entries = [];
+
+    private bool Searching => !string.IsNullOrWhiteSpace(_search);
+
+    private IEnumerable<CanonEntry> FilteredEntries =>
+        !Searching
+            ? _entries
+            : _entries.Where(e =>
+                e.ArtifactName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                || (e.OtherArtifactName?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)
+                || e.Label.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                || (e.Detail?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    private void ToggleSection(string truthState)
+    {
+        if (!_collapsed.Remove(truthState))
+        {
+            _collapsed.Add(truthState);
+        }
+    }
 
     private record Section(string TruthState, string Title, string Icon, Color Color);
     private readonly Section[] _sections =

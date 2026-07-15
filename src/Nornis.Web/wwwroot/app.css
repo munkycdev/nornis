@@ -117,6 +117,61 @@ html, body {
     padding: 8px 0 4px 0;
 }
 
+.nornis-tree-group {
+    margin-bottom: 4px;
+}
+
+.nornis-tree-header,
+.nornis-tree-subheader {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 4px;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 6px;
+}
+
+.nornis-tree-header:hover,
+.nornis-tree-subheader:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.nornis-tree-subheader {
+    margin-left: 22px;
+}
+
+.nornis-tree-title {
+    font-weight: 600;
+}
+
+.nornis-tree-leaf {
+    display: block;
+    margin-left: 62px;
+    padding: 3px 6px;
+    border-radius: 4px;
+}
+
+.nornis-tree-leaf:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.nornis-canon-artifact {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 2px 4px;
+}
+
+.nornis-canon-artifact-name {
+    font-weight: 600;
+}
+
+.nornis-canon-entry {
+    margin-left: 18px;
+}
+
 .nornis-nav-count {
     display: inline-block;
     min-width: 20px;

@@ -14,7 +14,7 @@
 }
 else
 {
-    <div class="nornis-filter-row mb-4">
+    <div class="nornis-filter-row mb-2">
         <MudChip T="string"
                  Variant="@(_type is null ? Variant.Filled : Variant.Outlined)"
                  Color="@(_type is null ? Color.Secondary : Color.Default)"
@@ -31,6 +31,16 @@ else
             </MudChip>
         }
     </div>
+    <div class="d-flex gap-3 align-center mb-4">
+        <MudTextField T="string" @bind-Value="_search" Immediate="true" Clearable="true"
+                      Placeholder="Search artifacts…" Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="flex-grow-1" />
+        <MudToggleGroup T="string" @bind-Value="_view" SelectionMode="SelectionMode.SingleSelection"
+                        Color="Color.Secondary" Size="Size.Small">
+            <MudToggleItem Value="@("cards")"><MudIcon Icon="@Icons.Material.Outlined.GridView" Size="Size.Small" /></MudToggleItem>
+            <MudToggleItem Value="@("tree")"><MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" /></MudToggleItem>
+        </MudToggleGroup>
+    </div>
 
     @if (_loading)
     {
@@ -40,7 +50,7 @@ else
     {
         <MudAlert Severity="Severity.Error">@_error</MudAlert>
     }
-    else if (_artifacts.Count == 0)
+    else if (!Filtered.Any())
     {
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
             <MudIcon Icon="@Icons.Material.Outlined.Category" Size="Size.Large" Class="nornis-comingsoon-icon" />
@@ -50,10 +60,46 @@ else
             </MudText>
         </MudPaper>
     }
+    else if (_view == "tree")
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            @foreach (var typeGroup in Filtered.GroupBy(a => a.Type).OrderBy(g => g.Key))
+            {
+                var typeKey = typeGroup.Key;
+                <div class="nornis-tree-group">
+                    <div class="nornis-tree-header" @onclick="() => Toggle(typeKey)">
+                        <MudIcon Icon="@(IsCollapsed(typeKey) ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ExpandMore)" Size="Size.Small" />
+                        <MudIcon Icon="@TypeIcon(typeKey)" Size="Size.Small" Class="ml-1 mr-2" />
+                        <span class="nornis-tree-title">@typeKey</span>
+                        <span class="nornis-list-meta ml-2">@typeGroup.Count()</span>
+                    </div>
+                    @if (!IsCollapsed(typeKey))
+                    {
+                        @foreach (var statusGroup in typeGroup.GroupBy(a => a.Status).OrderBy(g => StatusOrder(g.Key)))
+                        {
+                            var statusKey = $"{typeKey}/{statusGroup.Key}";
+                            <div class="nornis-tree-subheader" @onclick="() => Toggle(statusKey)">
+                                <MudIcon Icon="@(IsCollapsed(statusKey) ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ExpandMore)" Size="Size.Small" />
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@StatusColor(statusGroup.Key)">@statusGroup.Key</MudChip>
+                                <span class="nornis-list-meta">@statusGroup.Count()</span>
+                            </div>
+                            @if (!IsCollapsed(statusKey))
+                            {
+                                @foreach (var a in statusGroup.OrderBy(x => x.Name))
+                                {
+                                    <a href="@($"/artifacts/{a.Id}")" class="nornis-tree-leaf nornis-link">@a.Name</a>
+                                }
+                            }
+                        }
+                    }
+                </div>
+            }
+        </MudPaper>
+    }
     else
     {
         <div class="nornis-artifact-grid">
-            @foreach (var a in _artifacts)
+            @foreach (var a in Filtered)
             {
                 <a href="@($"/artifacts/{a.Id}")" class="nornis-card nornis-artifact-card">
                     <div class="nornis-artifact-card-head">
@@ -84,7 +130,35 @@ else
     private bool _loading;
     private string? _error;
     private string? _type;
+    private string _search = string.Empty;
+    private string _view = "cards";
+    private readonly HashSet<string> _collapsed = [];
     private IReadOnlyList<ArtifactListItem> _artifacts = [];
+
+    private IEnumerable<ArtifactListItem> Filtered =>
+        string.IsNullOrWhiteSpace(_search)
+            ? _artifacts
+            : _artifacts.Where(a => a.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                                 || (a.Summary?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    private bool IsCollapsed(string key) => _collapsed.Contains(key);
+
+    private void Toggle(string key)
+    {
+        if (!_collapsed.Remove(key))
+        {
+            _collapsed.Add(key);
+        }
+    }
+
+    private static int StatusOrder(string status) => status switch
+    {
+        "Active" => 0,
+        "Dormant" => 1,
+        "Resolved" => 2,
+        "Archived" => 3,
+        _ => 4,
+    };
 
     protected override async Task OnInitializedAsync()
     {

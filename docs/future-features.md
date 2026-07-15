@@ -1,14 +1,12 @@
 # Future Features
 
-Shipped from this list so far: manual artifact merge, processing/review nav badges, heuristic health widget removal (AI assessment is now the only Continuity Health).
+Shipped from this list so far: manual artifact merge, processing/review nav badges, heuristic health widget removal (AI assessment is now the only Continuity Health), artifact tree projection + search, Canon grouping + search.
 
 Stack-ranked by when to work on them. One line each; when an item gets picked up, it
 gets a real spec under `docs/features/`.
 
 ## Now-ish — polish the record you're actively using
 
-4. **Categorized tree projection of artifacts** — collapsible type → status → name grouping; pure client-side, cheap.
-5. **Organize the Canon section** — 1,000+ facts post-import need grouping/filtering to be readable (pairs naturally with the tree work).
 6. **Better icons** — replace placeholder Material icons where the vocabulary deserves its own marks.
 
 ## Next — improve the weekly capture loop
