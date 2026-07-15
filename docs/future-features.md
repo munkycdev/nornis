@@ -13,7 +13,7 @@
 * Canon
   * Also need to find a way to make this useful. 
 * Sources
-  * There are two failing processing items. We need to fix them
+  * Extraction context includes GM-only and Private facts regardless of the source's visibility (`ListByArtifactIdsAsync` doesn't filter facts by scope) — a PartyVisible extraction prompt can see Hidden truths and echo them into party-visible proposals. Scope context facts to the source's allowed visibilities.
 * Admin
   * Let's create an "Admin" menu item that's only visible to the GM.
   * Move Costs and Settings to tabs inside Admin
