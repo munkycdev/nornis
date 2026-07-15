@@ -1,7 +1,10 @@
-// Cytoscape wrapper for the artifact graph. Blazor hands over the full world graph
-// once; focus/depth filtering happens here. Node taps call back into .NET.
+// force-graph wrapper for the artifact graph: a live d3-force simulation, so edges
+// behave like springs — drag a node and the web stretches and relaxes. Blazor hands
+// over the full world graph once; focus/depth filtering happens here. Node taps call
+// back into .NET.
 window.nornisGraph = (function () {
-    let cy = null;
+    let fg = null;
+    let resizeObserver = null;
 
     const typeColors = {
         Character: "#C98A4B",
@@ -41,84 +44,89 @@ window.nornisGraph = (function () {
     function render(elementId, nodes, edges, focusId, depth, dotnetRef) {
         const el = document.getElementById(elementId);
         if (!el) return 0;
-        if (cy) { cy.destroy(); cy = null; }
+        destroy();
 
         const sub = neighborhood(nodes, edges, focusId, depth);
+        let zoomedOnce = false;
 
-        cy = cytoscape({
-            container: el,
-            elements: [
-                ...sub.nodes.map(n => ({
-                    data: { id: n.id, label: n.name, type: n.type, status: n.status }
-                })),
-                ...sub.edges.map(e => ({
-                    data: { id: e.id, source: e.sourceId, target: e.targetId, label: e.type }
-                }))
-            ],
-            style: [
-                {
-                    selector: "node",
-                    style: {
-                        "background-color": ele => typeColors[ele.data("type")] ?? "#9AA5B1",
-                        "label": "data(label)",
-                        "font-size": "10px",
-                        "color": "#2A3B4C",
-                        "text-valign": "bottom",
-                        "text-margin-y": "4px",
-                        "width": 22,
-                        "height": 22,
-                        "text-wrap": "ellipsis",
-                        "text-max-width": "110px",
-                        "opacity": ele => ele.data("status") === "Archived" ? 0.35 : 1
-                    }
-                },
-                {
-                    selector: `node[id = "${focusId}"]`,
-                    style: {
-                        "width": 38,
-                        "height": 38,
-                        "border-width": 3,
-                        "border-color": "#C98A4B",
-                        "font-weight": "bold"
-                    }
-                },
-                {
-                    selector: "edge",
-                    style: {
-                        "width": 1.5,
-                        "line-color": "#C6CFD8",
-                        "curve-style": "bezier",
-                        "label": "data(label)",
-                        "font-size": "7px",
-                        "color": "#8A97A5",
-                        "text-rotation": "autorotate"
-                    }
-                },
-                {
-                    selector: "node:selected",
-                    style: { "border-width": 3, "border-color": "#2A3B4C" }
+        fg = ForceGraph()(el)
+            .width(el.clientWidth)
+            .height(el.clientHeight)
+            .graphData({
+                nodes: sub.nodes.map(n => ({ ...n })),
+                links: sub.edges.map(e => ({ source: e.sourceId, target: e.targetId, type: e.type }))
+            })
+            .nodeId("id")
+            .nodeLabel(n => `${n.name} — ${n.type} · ${n.status}`)
+            .nodeCanvasObject((node, ctx, scale) => {
+                const isFocus = node.id === focusId;
+                const r = isFocus ? 9 : 5;
+                const color = typeColors[node.type] ?? "#9AA5B1";
+
+                ctx.globalAlpha = node.status === "Archived" ? 0.35 : 1;
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
+                ctx.fillStyle = color;
+                ctx.fill();
+                if (isFocus) {
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = "#2A3B4C";
+                    ctx.stroke();
                 }
-            ],
-            layout: {
-                name: "cose",
-                animate: false,
-                padding: 30,
-                nodeRepulsion: 8000,
-                idealEdgeLength: 90
-            },
-            wheelSensitivity: 0.3
-        });
 
-        cy.on("tap", "node", evt => {
-            const d = evt.target.data();
-            dotnetRef.invokeMethodAsync("OnNodeSelected", d.id, d.label, d.type, d.status);
+                // Labels only when zoomed in enough to read them (or on the focus node)
+                if (scale > 1.2 || isFocus) {
+                    const fontSize = Math.max(10 / scale, 2.5);
+                    ctx.font = `${isFocus ? "bold " : ""}${fontSize}px Inter, sans-serif`;
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "top";
+                    ctx.fillStyle = "#2A3B4C";
+                    ctx.fillText(node.name, node.x, node.y + r + 2);
+                }
+                ctx.globalAlpha = 1;
+            })
+            .nodePointerAreaPaint((node, color, ctx) => {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 10, 0, 2 * Math.PI);
+                ctx.fillStyle = color;
+                ctx.fill();
+            })
+            .linkColor(() => "#C6CFD8")
+            .linkWidth(1)
+            .linkLabel(l => l.type)
+            .d3VelocityDecay(0.25)
+            .cooldownTime(8000)
+            .onNodeClick(n => dotnetRef.invokeMethodAsync("OnNodeSelected", n.id, n.name, n.type, n.status))
+            .onNodeDragEnd(n => {
+                // Release the node so the springs pull the web back into shape —
+                // this is the elastic feel; pinning (fx/fy) would freeze it.
+                n.fx = undefined;
+                n.fy = undefined;
+            })
+            .onEngineStop(() => {
+                if (!zoomedOnce) {
+                    zoomedOnce = true;
+                    fg.zoomToFit(400, 40);
+                }
+            });
+
+        resizeObserver = new ResizeObserver(() => {
+            if (fg) {
+                fg.width(el.clientWidth).height(el.clientHeight);
+            }
         });
+        resizeObserver.observe(el);
 
         return sub.nodes.length;
     }
 
     function destroy() {
-        if (cy) { cy.destroy(); cy = null; }
+        resizeObserver?.disconnect();
+        resizeObserver = null;
+        if (fg) {
+            fg._destructor?.();
+            fg = null;
+        }
     }
 
     return { render, destroy };

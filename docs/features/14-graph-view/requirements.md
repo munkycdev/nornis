@@ -16,4 +16,5 @@ time. A graph view makes the connective tissue visible.
 3. Nodes SHALL be colored by artifact type with a legend; clicking a node SHALL show its
    name/type/status and offer opening its detail page; clicking also refocuses the
    neighborhood on that node.
-4. Rendering SHALL use a locally vendored Cytoscape (no CDN at runtime).
+4. Rendering SHALL use a locally vendored force-graph (d3-force physics; no CDN at
+   runtime) with a live simulation — dragging nodes stretches connections elastically.
