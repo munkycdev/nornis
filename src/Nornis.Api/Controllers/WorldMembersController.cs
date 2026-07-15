@@ -41,6 +41,32 @@ public class WorldMembersController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>The calling user's own membership in this world.</summary>
+    [HttpGet("me")]
+    public IActionResult GetMe()
+    {
+        return Ok(ToWorldMemberResponse(HttpContext.GetWorldMember()));
+    }
+
+    /// <summary>Updates the calling user's own membership — currently just the display name.</summary>
+    [HttpPut("me")]
+    public async Task<IActionResult> UpdateMe(
+        Guid worldId,
+        [FromBody] UpdateMyMemberRequest request,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+
+        var result = await _worldMemberService.UpdateDisplayNameAsync(worldId, user.Id, request.DisplayName, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return Ok(ToWorldMemberResponse(result.Value!));
+    }
+
     [HttpPost]
     public async Task<IActionResult> AddMember(
         Guid worldId,

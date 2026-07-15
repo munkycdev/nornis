@@ -142,6 +142,27 @@ public class WorldMemberService : IWorldMemberService
         return AppResult<WorldMember>.Success(updated);
     }
 
+    public async Task<AppResult<WorldMember>> UpdateDisplayNameAsync(Guid worldId, Guid actingUserId, string? displayName, CancellationToken ct)
+    {
+        var member = await _memberRepository.GetByWorldAndUserAsync(worldId, actingUserId, ct);
+        if (member is null)
+        {
+            return AppResult<WorldMember>.Fail(
+                new AppError(404, "not_found", "World membership not found."));
+        }
+
+        var trimmed = displayName?.Trim();
+        if (trimmed is { Length: > 200 })
+        {
+            return AppResult<WorldMember>.Fail(
+                new AppError(400, "validation_error", "Display name must be 200 characters or fewer."));
+        }
+
+        member.DisplayName = string.IsNullOrEmpty(trimmed) ? null : trimmed;
+        var updated = await _memberRepository.UpdateAsync(member, ct);
+        return AppResult<WorldMember>.Success(updated);
+    }
+
     public async Task<AppResult<IReadOnlyList<WorldMember>>> ListMembersAsync(Guid worldId, Guid requestingUserId, CancellationToken ct)
     {
         // Verify requesting user is a member

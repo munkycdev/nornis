@@ -62,6 +62,15 @@ public class NornisApiClient
     public Task<ApiResult<IReadOnlyList<WorldMember>>> GetMembersAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<WorldMember>>($"/api/worlds/{worldId}/members", ct);
 
+    public Task<ApiResult<WorldMember>> GetMyMembershipAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<WorldMember>($"/api/worlds/{worldId}/members/me", ct);
+
+    /// <summary>Sets the caller's own display name in this world; empty clears it.</summary>
+    public Task<ApiResult<WorldMember>> UpdateMyDisplayNameAsync(Guid worldId, string? displayName, CancellationToken ct = default) =>
+        PutAsync<UpdateMyMemberBody, WorldMember>($"/api/worlds/{worldId}/members/me", new UpdateMyMemberBody(displayName), ct);
+
+    private sealed record UpdateMyMemberBody(string? DisplayName);
+
     public Task<ApiResult<WorldMember>> AddMemberAsync(Guid worldId, AddMemberRequest request, CancellationToken ct = default) =>
         PostAsync<AddMemberRequest, WorldMember>($"/api/worlds/{worldId}/members", request, ct);
 

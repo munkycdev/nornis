@@ -17,6 +17,26 @@
     }
     else
     {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4">
+            <div class="nornis-detail-section-title">Display name</div>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                How other members see you in @Worlds.Current.Name — on the members list and
+                beside the characters you play. Leave empty to show a generated label.
+            </MudText>
+            <div class="nornis-add-member">
+                <MudTextField @bind-Value="_displayName" Label="Display name" MaxLength="200"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Class="flex-grow-1" />
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                           OnClick="SaveDisplayNameAsync" Disabled="_savingDisplayName">
+                    Save
+                </MudButton>
+            </div>
+            @if (_displayNameError is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_displayNameError</MudAlert>
+            }
+        </MudPaper>
+
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
             <div class="nornis-detail-section-title">Your characters</div>
             <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
@@ -201,10 +221,59 @@
         // Campaign names are decoration on the character rows; a failure just hides them.
         _campaigns = campaigns.IsSuccess ? campaigns.Value! : [];
         StateHasChanged();
+
+        await LoadMembershipAsync();
     }
 
     private string CharacterCampaignNames(CharacterDto ch) =>
         string.Join(", ", _campaigns.Where(c => ch.CampaignIds.Contains(c.Id)).Select(c => c.Name));
+
+    // -------------------------------------------------------------- Display name --
+
+    private string? _displayName;
+    private bool _savingDisplayName;
+    private string? _displayNameError;
+
+    private async Task LoadMembershipAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            _displayName = null;
+            return;
+        }
+
+        var result = await Api.GetMyMembershipAsync(Worlds.Current.Id);
+        if (result.IsSuccess)
+        {
+            _displayName = result.Value!.DisplayName;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveDisplayNameAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _savingDisplayName = true;
+        _displayNameError = null;
+
+        var result = await Api.UpdateMyDisplayNameAsync(Worlds.Current.Id, _displayName);
+
+        _savingDisplayName = false;
+        if (result.IsSuccess)
+        {
+            _displayName = result.Value!.DisplayName;
+            Snackbar.Add("Display name saved.", Severity.Success);
+        }
+        else
+        {
+            _displayNameError = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
 
     // ------------------------------------------------------------------ Claiming --
 
