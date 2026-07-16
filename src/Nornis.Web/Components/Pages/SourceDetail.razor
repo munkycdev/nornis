@@ -171,7 +171,9 @@
             {
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                     <div class="nornis-detail-section-title">Content</div>
-                    <div class="nornis-source-body">@_source.Body</div>
+                    @* Bodies are markdown (capture editor) or legacy plain text — both render
+                       safely here: raw HTML is disabled and single newlines become breaks. *@
+                    <div class="nornis-source-body nornis-markdown">@Nornis.Web.Services.MarkdownRenderer.ToHtml(_source.Body)</div>
                 </MudPaper>
             }
         }

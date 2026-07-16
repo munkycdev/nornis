@@ -1184,9 +1184,10 @@ html, body {
 }
 
 .nornis-source-body {
+    /* Content is Markdig-rendered HTML (markdown or legacy plain text) — no pre-wrap;
+       line breaks come through as <br> via soft-break-as-hard rendering. */
     color: var(--mud-palette-text-primary);
     line-height: 1.6;
-    white-space: pre-wrap;
 }
 
 /* --------------------------------------------------------------- Settings -- */
@@ -2013,4 +2014,198 @@ a.nornis-cite:hover {
     font-size: 1.05rem;
     font-style: italic;
     color: var(--mud-palette-text-primary);
+}
+
+/* ============================================================
+   Capture editor (TipTap) + rendered markdown
+   ============================================================ */
+
+.nornis-editor {
+    border: 1px solid var(--mud-palette-lines-inputs, rgba(0, 0, 0, 0.23));
+    border-radius: 6px;
+    background: #FFFFFF;
+    overflow: hidden;
+}
+
+.nornis-editor:focus-within {
+    border-color: var(--mud-palette-primary);
+    box-shadow: 0 0 0 2px rgba(63, 96, 121, 0.15);
+}
+
+.nornis-editor-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    background: #FDFBF7;
+}
+
+.nornis-editor-toolbar-sep {
+    width: 1px;
+    height: 20px;
+    margin: 0 6px;
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.nornis-editor-content {
+    position: relative;
+    padding: 14px 18px;
+    min-height: 320px;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--mud-palette-text-primary);
+    cursor: text;
+}
+
+.nornis-editor-content .ProseMirror {
+    outline: none;
+    min-height: 292px;
+    white-space: pre-wrap;
+}
+
+/* Placeholder — nornis-editor-empty is toggled by nornis-editor.js from editor.isEmpty */
+.nornis-editor-content.nornis-editor-empty::before {
+    content: attr(data-placeholder);
+    position: absolute;
+    top: 14px;
+    left: 18px;
+    right: 18px;
+    color: rgba(0, 0, 0, 0.38);
+    pointer-events: none;
+}
+
+/* Shared typography for editor content and rendered markdown bodies */
+.nornis-editor-content h1, .nornis-markdown h1,
+.nornis-editor-content h2, .nornis-markdown h2,
+.nornis-editor-content h3, .nornis-markdown h3,
+.nornis-editor-content h4, .nornis-markdown h4,
+.nornis-editor-content h5, .nornis-markdown h5,
+.nornis-editor-content h6, .nornis-markdown h6 {
+    font-family: var(--nornis-serif);
+    font-weight: 600;
+    line-height: 1.3;
+    margin: 0.9em 0 0.4em;
+}
+
+.nornis-editor-content h1:first-child, .nornis-markdown h1:first-child,
+.nornis-editor-content h2:first-child, .nornis-markdown h2:first-child,
+.nornis-editor-content h3:first-child, .nornis-markdown h3:first-child {
+    margin-top: 0;
+}
+
+.nornis-editor-content h1, .nornis-markdown h1 {
+    font-size: 1.8rem;
+    border-bottom: 1px solid rgba(196, 161, 90, 0.45);
+    padding-bottom: 0.2em;
+}
+
+.nornis-editor-content h2, .nornis-markdown h2 {
+    font-size: 1.5rem;
+    border-bottom: 1px solid rgba(196, 161, 90, 0.25);
+    padding-bottom: 0.15em;
+}
+
+.nornis-editor-content h3, .nornis-markdown h3 { font-size: 1.25rem; }
+.nornis-editor-content h4, .nornis-markdown h4 { font-size: 1.1rem; }
+.nornis-editor-content h5, .nornis-markdown h5 { font-size: 1rem; }
+.nornis-editor-content h6, .nornis-markdown h6 { font-size: 0.95rem; }
+
+.nornis-editor-content p, .nornis-markdown p {
+    margin: 0 0 0.7em;
+}
+
+.nornis-editor-content p:last-child, .nornis-markdown p:last-child {
+    margin-bottom: 0;
+}
+
+.nornis-editor-content ul, .nornis-markdown ul,
+.nornis-editor-content ol, .nornis-markdown ol {
+    margin: 0 0 0.7em;
+    padding-left: 1.5em;
+}
+
+.nornis-editor-content li > p {
+    margin-bottom: 0.2em;
+}
+
+.nornis-editor-content blockquote, .nornis-markdown blockquote {
+    margin: 0 0 0.7em;
+    padding: 0.2em 0 0.2em 0.9em;
+    border-left: 3px solid rgba(196, 161, 90, 0.55);
+    color: var(--mud-palette-text-secondary);
+    font-style: italic;
+}
+
+.nornis-editor-content code, .nornis-markdown code {
+    font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+    font-size: 0.9em;
+    background: rgba(18, 35, 59, 0.06);
+    border-radius: 3px;
+    padding: 0.1em 0.35em;
+}
+
+.nornis-editor-content pre, .nornis-markdown pre {
+    background: rgba(18, 35, 59, 0.06);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 0 0 0.7em;
+    overflow-x: auto;
+}
+
+.nornis-editor-content pre code, .nornis-markdown pre code {
+    background: none;
+    padding: 0;
+}
+
+.nornis-editor-content hr, .nornis-markdown hr {
+    border: none;
+    border-top: 1px solid rgba(196, 161, 90, 0.45);
+    margin: 1.2em 0;
+}
+
+.nornis-editor-content table, .nornis-markdown table {
+    border-collapse: collapse;
+    margin: 0 0 0.7em;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.nornis-editor-content th, .nornis-markdown th,
+.nornis-editor-content td, .nornis-markdown td {
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    padding: 6px 10px;
+    text-align: left;
+    vertical-align: top;
+    word-break: break-word;
+}
+
+.nornis-editor-content th, .nornis-markdown th {
+    background: #FDFBF7;
+    font-weight: 600;
+}
+
+/* TipTap table editing affordances */
+.nornis-editor-content .tableWrapper {
+    overflow-x: auto;
+    margin-bottom: 0.7em;
+}
+
+.nornis-editor-content .selectedCell {
+    background: rgba(63, 96, 121, 0.12);
+}
+
+.nornis-editor-content .column-resize-handle {
+    position: absolute;
+    right: -2px;
+    top: 0;
+    bottom: -2px;
+    width: 4px;
+    background-color: var(--mud-palette-primary);
+    pointer-events: none;
+}
+
+.nornis-editor-content .resize-cursor {
+    cursor: col-resize;
 }

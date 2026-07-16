@@ -41,12 +41,10 @@ else
             </MudSelect>
         </div>
 
-        <MudTextField @bind-Value="_body"
-                      Label="Body"
-                      Lines="8"
-                      Placeholder="Paste session notes, a journal entry, a transcript…"
-                      Variant="Variant.Outlined"
-                      Class="mb-3" />
+        <div class="mb-3">
+            <NotesEditor @ref="_editor"
+                         Placeholder="Paste session notes, a journal entry, a transcript… Type # for a heading, - for a list, **bold**." />
+        </div>
 
         <MudTextField @bind-Value="_uri"
                       Label="Link (optional)"
@@ -111,7 +109,7 @@ else
     private string _title = string.Empty;
     private string _type = "SessionNote";
     private string _visibility = "PartyVisible";
-    private string? _body;
+    private NotesEditor? _editor;
     private string? _uri;
     private DateTime? _occurredAt;
     private Guid? _campaignId;
@@ -159,11 +157,13 @@ else
         _busy = true;
         _error = null;
 
+        var body = _editor is null ? null : await _editor.GetMarkdownAsync();
+
         var request = new CreateSourceRequest(
             _title.Trim(),
             _type,
             _visibility,
-            string.IsNullOrWhiteSpace(_body) ? null : _body,
+            body,
             string.IsNullOrWhiteSpace(_uri) ? null : _uri,
             _occurredAt.HasValue ? new DateTimeOffset(_occurredAt.Value, TimeSpan.Zero) : null,
             _campaignId);

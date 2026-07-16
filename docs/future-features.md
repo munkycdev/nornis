@@ -3,7 +3,6 @@
 ## List of unprocessed features
 
 * Capture
-  * Update the capture interface to increase the size of the input text box and create it as a markdown wysiwyg like Chronicis
   * Add the ability to hand-write notes
   * Perhaps have a tabbed interface instead of displaying all of the source options
 * Timeline

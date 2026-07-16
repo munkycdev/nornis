@@ -1,0 +1,133 @@
+@using Nornis.Web.Services
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* TipTap WYSIWYG for capture notes (ported from Chronicis, styling only — no wiki links or
+   external references). Edits HTML in the browser; the page pulls markdown once at save via
+   GetMarkdownAsync. Markdown-style typing (**bold**, # heading, - list) and the usual
+   hotkeys work alongside the toolbar. *@
+
+<div class="nornis-editor">
+    <div class="nornis-editor-toolbar">
+        <MudTooltip Text="Bold (Ctrl+B)">
+            <MudIconButton Icon="@Icons.Material.Filled.FormatBold" Size="Size.Small"
+                           OnClick="@(() => ExecAsync("bold"))" aria-label="Bold" />
+        </MudTooltip>
+        <MudTooltip Text="Italic (Ctrl+I)">
+            <MudIconButton Icon="@Icons.Material.Filled.FormatItalic" Size="Size.Small"
+                           OnClick="@(() => ExecAsync("italic"))" aria-label="Italic" />
+        </MudTooltip>
+        <MudTooltip Text="Strikethrough">
+            <MudIconButton Icon="@Icons.Material.Filled.FormatStrikethrough" Size="Size.Small"
+                           OnClick="@(() => ExecAsync("strike"))" aria-label="Strikethrough" />
+        </MudTooltip>
+
+        <span class="nornis-editor-toolbar-sep"></span>
+
+        <MudTooltip Text="Heading 1 (or type # )">
+            <MudIconButton Icon="@Icons.Material.Filled.LooksOne" Size="Size.Small"
+                           OnClick="@(() => ExecAsync("h1"))" aria-label="Heading 1" />
+        </MudTooltip>
+        <MudTooltip Text="Heading 2 (or type ## )">
+            <MudIconButton Icon="@Icons.Material.Filled.LooksTwo" Size="Size.Small"
+                           OnClick="@(() => ExecAsync("h2"))" aria-label="Heading 2" />
+        </MudTooltip>
+        <MudTooltip Text="Heading 3 (or type ### )">
+            <MudIconButton Icon="@Icons.Material.Filled.Looks3" Size="Size.Small"
+                           OnClick="@(() => ExecAsync("h3"))" aria-label="Heading 3" />
+        </MudTooltip>
+
+        <span class="nornis-editor-toolbar-sep"></span>
+
+        <MudTooltip Text="Bullet list (or type - )">
+            <MudIconButton Icon="@Icons.Material.Filled.FormatListBulleted" Size="Size.Small"
+                           OnClick="@(() => ExecAsync("bulletList"))" aria-label="Bullet list" />
+        </MudTooltip>
+        <MudTooltip Text="Numbered list (or type 1. )">
+            <MudIconButton Icon="@Icons.Material.Filled.FormatListNumbered" Size="Size.Small"
+                           OnClick="@(() => ExecAsync("orderedList"))" aria-label="Numbered list" />
+        </MudTooltip>
+
+        <span class="nornis-editor-toolbar-sep"></span>
+
+        <MudTooltip Text="Quote">
+            <MudIconButton Icon="@Icons.Material.Filled.FormatQuote" Size="Size.Small"
+                           OnClick="@(() => ExecAsync("blockquote"))" aria-label="Quote" />
+        </MudTooltip>
+        <MudTooltip Text="Code block">
+            <MudIconButton Icon="@Icons.Material.Filled.Code" Size="Size.Small"
+                           OnClick="@(() => ExecAsync("codeBlock"))" aria-label="Code block" />
+        </MudTooltip>
+        <MudTooltip Text="Divider">
+            <MudIconButton Icon="@Icons.Material.Filled.HorizontalRule" Size="Size.Small"
+                           OnClick="@(() => ExecAsync("hr"))" aria-label="Divider" />
+        </MudTooltip>
+
+        <span class="nornis-editor-toolbar-sep"></span>
+
+        <MudMenu Dense="true" AnchorOrigin="Origin.BottomLeft">
+            <ActivatorContent>
+                <MudTooltip Text="Table">
+                    <MudIconButton Icon="@Icons.Material.Filled.TableChart" Size="Size.Small" aria-label="Table" />
+                </MudTooltip>
+            </ActivatorContent>
+            <ChildContent>
+                <MudMenuItem OnClick="@(() => ExecAsync("insertTable"))">Insert table</MudMenuItem>
+                <MudMenuItem OnClick="@(() => ExecAsync("addRowAfter"))">Add row below</MudMenuItem>
+                <MudMenuItem OnClick="@(() => ExecAsync("addColumnAfter"))">Add column right</MudMenuItem>
+                <MudMenuItem OnClick="@(() => ExecAsync("toggleHeaderRow"))">Toggle header row</MudMenuItem>
+                <MudMenuItem OnClick="@(() => ExecAsync("deleteRow"))">Delete row</MudMenuItem>
+                <MudMenuItem OnClick="@(() => ExecAsync("deleteColumn"))">Delete column</MudMenuItem>
+                <MudMenuItem OnClick="@(() => ExecAsync("deleteTable"))">Delete table</MudMenuItem>
+            </ChildContent>
+        </MudMenu>
+    </div>
+    <div id="@_elementId" class="nornis-editor-content"></div>
+</div>
+
+@code {
+    /// <summary>Markdown to load into the editor on first render.</summary>
+    [Parameter] public string? InitialMarkdown { get; set; }
+
+    [Parameter] public string? Placeholder { get; set; }
+
+    private readonly string _elementId = $"nornis-editor-{Guid.NewGuid():N}";
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("nornisEditor.init", _elementId, InitialMarkdown, Placeholder);
+            _initialized = true;
+        }
+    }
+
+    /// <summary>Current content as markdown, or null when effectively empty.</summary>
+    public async Task<string?> GetMarkdownAsync()
+    {
+        if (!_initialized)
+        {
+            return null;
+        }
+
+        var html = await JS.InvokeAsync<string>("nornisEditor.getHtml", _elementId);
+        var markdown = HtmlToMarkdownConverter.Convert(html);
+        return string.IsNullOrWhiteSpace(markdown) ? null : markdown;
+    }
+
+    private async Task ExecAsync(string command) =>
+        await JS.InvokeVoidAsync("nornisEditor.exec", _elementId, command);
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("nornisEditor.destroy", _elementId);
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit already gone — the browser cleaned the editor up with the page.
+        }
+    }
+}
