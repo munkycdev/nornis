@@ -21,9 +21,14 @@ RUN dotnet restore "src/Nornis.Api/Nornis.Api.csproj" \
  && dotnet restore "src/Nornis.Worker/Nornis.Worker.csproj"
 
 COPY . .
-RUN dotnet publish "src/Nornis.Api/Nornis.Api.csproj" -c Release -o /app/api --no-restore \
- && dotnet publish "src/Nornis.Web/Nornis.Web.csproj" -c Release -o /app/web --no-restore \
- && dotnet publish "src/Nornis.Worker/Nornis.Worker.csproj" -c Release -o /app/worker --no-restore
+# No --no-restore here: under the .NET 10 SDK, restore computes the static-web-assets
+# projection, and a restore done against the csproj-only layer (no wwwroot, no sources)
+# leaves the framework scripts (_framework/blazor.web.js) out of the publish output
+# entirely. The earlier restore layer still pre-warms the NuGet cache, so this re-restore
+# is cheap.
+RUN dotnet publish "src/Nornis.Api/Nornis.Api.csproj" -c Release -o /app/api \
+ && dotnet publish "src/Nornis.Web/Nornis.Web.csproj" -c Release -o /app/web \
+ && dotnet publish "src/Nornis.Worker/Nornis.Worker.csproj" -c Release -o /app/worker
 
 # ----------------------------------------------------------------------- api --
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS api
