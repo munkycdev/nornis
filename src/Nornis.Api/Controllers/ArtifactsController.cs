@@ -201,10 +201,14 @@ public class ArtifactsController : ControllerBase
             return MapError(result.Error!);
         }
 
-        var graph = result.Value!;
-        return Ok(new ArtifactGraphResponse(
+        return Ok(ToGraphResponse(result.Value!));
+    }
+
+    internal static ArtifactGraphResponse ToGraphResponse(ArtifactGraph graph)
+    {
+        return new ArtifactGraphResponse(
             graph.Nodes.Select(n => new ArtifactGraphNodeResponse(n.Id, n.Name, n.Type, n.Status)).ToList(),
-            graph.Edges.Select(e => new ArtifactGraphEdgeResponse(e.Id, e.SourceId, e.TargetId, e.Type)).ToList()));
+            graph.Edges.Select(e => new ArtifactGraphEdgeResponse(e.Id, e.SourceId, e.TargetId, e.Type)).ToList());
     }
 
     [HttpGet("{artifactId:guid}")]

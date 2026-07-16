@@ -97,6 +97,22 @@ public class PublicControllerTests
     }
 
     [Test]
+    public async Task PublicArtifactGraph_ExcludesGmOnlyNodes()
+    {
+        var scenario = await SetupPublicWorldAsync();
+        var visible = await KnowledgeTestHelpers.CreateTestArtifactAsync(
+            _factory, scenario.World.Id, "Captain Voss", visibility: VisibilityScope.PartyVisible);
+        var hidden = await KnowledgeTestHelpers.CreateTestArtifactAsync(
+            _factory, scenario.World.Id, "Hidden Ledger", visibility: VisibilityScope.GMOnly);
+
+        var graph = await _anonymous.GetFromJsonAsync<ArtifactGraphResponse>(
+            "/api/public/worlds/black-harbor/artifacts/graph");
+
+        Assert.That(graph!.Nodes.Select(n => n.Id), Does.Contain(visible.Id));
+        Assert.That(graph.Nodes.Select(n => n.Id), Does.Not.Contain(hidden.Id));
+    }
+
+    [Test]
     public async Task PublicSources_PartyVisibleReadable_GmOnly404()
     {
         var scenario = await SetupPublicWorldAsync();

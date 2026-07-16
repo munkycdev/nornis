@@ -66,6 +66,19 @@ public class PublicController : ControllerBase
             : PublicNotFound();
     }
 
+    [HttpGet("artifacts/graph")]
+    public async Task<IActionResult> GetArtifactGraph(string slug, CancellationToken ct)
+    {
+        var world = await ResolveAsync(slug, ct);
+        if (world is null)
+        {
+            return PublicNotFound();
+        }
+
+        var result = await _artifactService.GetGraphAsync(world.Id, PublicRole, ct);
+        return result.IsSuccess ? Ok(ArtifactsController.ToGraphResponse(result.Value!)) : PublicNotFound();
+    }
+
     [HttpGet("artifacts/{artifactId:guid}")]
     public async Task<IActionResult> GetArtifact(string slug, Guid artifactId, CancellationToken ct)
     {

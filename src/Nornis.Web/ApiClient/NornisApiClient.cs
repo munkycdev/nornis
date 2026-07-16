@@ -161,6 +161,9 @@ public class NornisApiClient
     public Task<ApiResult<ArtifactDetailDto>> GetPublicArtifactAsync(string slug, Guid artifactId, CancellationToken ct = default) =>
         GetAsync<ArtifactDetailDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/artifacts/{artifactId}", ct);
 
+    public Task<ApiResult<ArtifactGraphDto>> GetPublicArtifactGraphAsync(string slug, CancellationToken ct = default) =>
+        GetAsync<ArtifactGraphDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/artifacts/graph", ct);
+
     public Task<ApiResult<StorylineTimelineDto>> GetPublicTimelineAsync(string slug, CancellationToken ct = default) =>
         GetAsync<StorylineTimelineDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/timeline", ct);
 
