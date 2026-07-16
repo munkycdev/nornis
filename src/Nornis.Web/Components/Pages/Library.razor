@@ -82,8 +82,9 @@ else
                 </MudTooltip>
                 @if (CanManage(doc))
                 {
-                    <MudTooltip Text="Delete">
+                    <MudTooltip Text="@(doc.Status == "Indexing" ? "Available once indexing finishes" : "Delete")">
                         <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small"
+                                       Disabled="@(doc.Status == "Indexing")"
                                        OnClick="() => DeleteAsync(doc)" aria-label="Delete" />
                     </MudTooltip>
                 }

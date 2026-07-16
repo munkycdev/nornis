@@ -207,6 +207,34 @@ public class LibraryServiceTests
     }
 
     [Test]
+    public async Task Delete_WhileIndexing_Returns409()
+    {
+        var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexing, "Big book", uploadedBy: GmId);
+        doc.UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-2);
+        _documents.Seed(doc);
+
+        var result = await _sut.DeleteAsync(doc.Id, WorldId, GmId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("indexing_in_progress"));
+        Assert.That(_documents.Documents, Has.Count.EqualTo(1), "the row must survive");
+    }
+
+    [Test]
+    public async Task Delete_StaleIndexingRow_IsDeletable()
+    {
+        // A worker that died mid-index must not make the document immortal.
+        var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexing, "Wedged book", uploadedBy: GmId);
+        doc.UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-(LibraryService.StaleIndexingMinutes + 5));
+        _documents.Seed(doc);
+
+        var result = await _sut.DeleteAsync(doc.Id, WorldId, GmId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_documents.Documents, Is.Empty);
+    }
+
+    [Test]
     public async Task Reindex_NonPdf_Returns400()
     {
         var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Stored, "Map", contentType: "image/png");

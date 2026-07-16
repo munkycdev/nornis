@@ -75,10 +75,14 @@
                     </MudButton>
                 }
                 <MudSpacer />
-                <MudButton Variant="Variant.Text" Color="Color.Error"
-                           StartIcon="@Icons.Material.Outlined.Delete" OnClick="DeleteAsync">
-                    Delete
-                </MudButton>
+                <MudTooltip Text="@(_document.Status == "Indexing" ? "Available once indexing finishes" : null)">
+                    <MudButton Variant="Variant.Text" Color="Color.Error"
+                               StartIcon="@Icons.Material.Outlined.Delete"
+                               Disabled="@(_document.Status == "Indexing")"
+                               OnClick="DeleteAsync">
+                        Delete
+                    </MudButton>
+                </MudTooltip>
             </div>
         </MudPaper>
     }

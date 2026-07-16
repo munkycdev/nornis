@@ -143,6 +143,13 @@ public class LibraryIndexingService : ILibraryIndexingService
         }
         catch (Exception ex)
         {
+            // The document may have been deleted mid-run — that's a skip, not a failure.
+            if (await _documentRepository.GetByIdAsync(document.Id, ct) is null)
+            {
+                _logger.LogInformation("Library document {DocumentId} was deleted during indexing; skipping", document.Id);
+                return ExtractionOutcome.SkippedIdempotent("Document was deleted during indexing.");
+            }
+
             _logger.LogError(ex, "Indexing failed for library document {DocumentId}", document.Id);
             await TrackUsageAsync(document, 0, (int)stopwatch.ElapsedMilliseconds, succeeded: false, ct);
             return await FailAsync(document, "index_error", Truncate(ex.Message, 1900), ct);
@@ -151,10 +158,19 @@ public class LibraryIndexingService : ILibraryIndexingService
 
     private async Task<ExtractionOutcome> FailAsync(LibraryDocument document, string category, string message, CancellationToken ct)
     {
-        document.Status = LibraryDocumentStatus.IndexFailed;
-        document.ErrorMessage = message;
-        document.UpdatedAt = DateTimeOffset.UtcNow;
-        await _documentRepository.UpdateAsync(document, ct);
+        try
+        {
+            document.Status = LibraryDocumentStatus.IndexFailed;
+            document.ErrorMessage = message;
+            document.UpdatedAt = DateTimeOffset.UtcNow;
+            await _documentRepository.UpdateAsync(document, ct);
+        }
+        catch (Exception ex)
+        {
+            // Failing to record the failure (row deleted meanwhile) must not resurrect
+            // the message — the outcome below still completes it.
+            _logger.LogWarning(ex, "Could not persist IndexFailed for {DocumentId}", document.Id);
+        }
         return ExtractionOutcome.NonTransient(category, message);
     }
 

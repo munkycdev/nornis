@@ -22,6 +22,10 @@ public class LibraryService : ILibraryService
 {
     public const string PdfContentType = "application/pdf";
 
+    /// <summary>An Indexing row older than this is presumed abandoned (worker died) and
+    /// becomes deletable again.</summary>
+    public const int StaleIndexingMinutes = 30;
+
     private static readonly FrozenDictionary<string, string> AllowedExtensions =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -218,6 +222,17 @@ public class LibraryService : ILibraryService
         if (role != WorldRole.GM && document.UploadedByUserId != actingUserId)
         {
             return AppResult<bool>.Fail(new AppError(403, "insufficient_role", "Only the uploader or a GM can delete a library document."));
+        }
+
+        // Deleting mid-index races the worker's chunk-insert transaction (lock timeouts,
+        // then a worker crash into a vanished row). Refuse until indexing settles — unless
+        // the row has sat in Indexing so long the worker clearly died, which would otherwise
+        // make the document undeletable.
+        if (document.Status == LibraryDocumentStatus.Indexing
+            && document.UpdatedAt > DateTimeOffset.UtcNow.AddMinutes(-StaleIndexingMinutes))
+        {
+            return AppResult<bool>.Fail(new AppError(409, "indexing_in_progress",
+                "This document is still being indexed — it can be deleted once indexing finishes."));
         }
 
         // Blob first, failure swallowed (per Chronicis): an orphaned blob beats an orphaned
