@@ -2347,3 +2347,24 @@ a.nornis-cite:hover {
 .nornis-cite-book {
     gap: 5px;
 }
+
+/* Read-only editor variant — presentation surface, no input chrome. */
+.nornis-editor-ro {
+    border: none;
+    background: transparent;
+}
+
+.nornis-editor-ro:focus-within {
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.nornis-editor-ro .nornis-editor-content {
+    padding: 0;
+    min-height: 0;
+    cursor: default;
+}
+
+.nornis-editor-ro .nornis-editor-content .ProseMirror {
+    min-height: 0;
+}

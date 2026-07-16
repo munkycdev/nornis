@@ -100,9 +100,10 @@
                     </MudSelect>
                 </div>
 
-                <MudTextField @bind-Value="_editBody" Label="Body" Lines="8"
-                              Placeholder="Paste session notes, a journal entry, a transcript…"
-                              Variant="Variant.Outlined" Class="mb-3" />
+                <div class="mb-3">
+                    <NotesEditor @ref="_bodyEditor" InitialMarkdown="@_editBody"
+                                 Placeholder="Paste session notes, a journal entry, a transcript…" />
+                </div>
 
                 <MudTextField @bind-Value="_editUri" Label="Link (optional)" Placeholder="https://…"
                               Variant="Variant.Outlined" Class="mb-3" />
@@ -171,9 +172,12 @@
             {
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                     <div class="nornis-detail-section-title">Content</div>
-                    @* Bodies are markdown (capture editor) or legacy plain text — both render
-                       safely here: raw HTML is disabled and single newlines become breaks. *@
-                    <div class="nornis-source-body nornis-markdown">@Nornis.Web.Services.MarkdownRenderer.ToHtml(_source.Body)</div>
+                    @* Markdig parses the markdown (best CommonMark fidelity, HTML-safe), and a
+                       read-only TipTap instance presents it — the same surface the capture
+                       editor uses, so notes look exactly as authored. @key remounts the
+                       component when navigating between sources. *@
+                    <NotesEditor @key="_source.Id" ReadOnly="true"
+                                 InitialHtml="@Nornis.Web.Services.MarkdownRenderer.ToHtml(_source.Body).Value" />
                 </MudPaper>
             }
         }
@@ -206,6 +210,7 @@
     private string _editType = "SessionNote";
     private string _editVisibility = "PartyVisible";
     private string? _editBody;
+    private NotesEditor? _bodyEditor;
     private string? _editUri;
     private DateTime? _editOccurredAt;
     private Guid? _editCampaignId;
@@ -370,9 +375,12 @@
         _saving = true;
         _editError = null;
 
+        // The body lives in the TipTap editor; pull it as markdown once at save.
+        var body = _bodyEditor is null ? _editBody : await _bodyEditor.GetMarkdownAsync();
+
         var request = new UpdateSourceRequest(
             Title: _editTitle.Trim(),
-            Body: string.IsNullOrWhiteSpace(_editBody) ? null : _editBody,
+            Body: string.IsNullOrWhiteSpace(body) ? null : body,
             Uri: string.IsNullOrWhiteSpace(_editUri) ? null : _editUri,
             OccurredAt: _editOccurredAt.HasValue ? new DateTimeOffset(_editOccurredAt.Value, TimeSpan.Zero) : null,
             Type: _editType,

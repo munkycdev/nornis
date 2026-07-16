@@ -255,7 +255,7 @@
     // ── Public API ──
 
     window.nornisEditor = {
-        init(elementId, initialMarkdown, placeholder) {
+        init(elementId, initialContent, placeholder, editable = true) {
             const container = document.getElementById(elementId);
             if (!container || !window.TipTap) {
                 console.error('nornisEditor.init: missing container or TipTap bundle', elementId);
@@ -264,26 +264,26 @@
 
             this.destroy(elementId);
 
-            if (placeholder) {
+            if (placeholder && editable) {
                 container.dataset.placeholder = placeholder;
             }
 
-            const content = convertMarkdownPipeTablesInHtml(ensureHtml(initialMarkdown));
+            const content = convertMarkdownPipeTablesInHtml(ensureHtml(initialContent));
             const editor = new window.TipTap.Editor({
                 element: container,
                 extensions: [
                     window.TipTap.StarterKit.configure({ heading: { levels: [1, 2, 3, 4, 5, 6] } }),
-                    window.TipTap.Table.configure({ resizable: true }),
+                    window.TipTap.Table.configure({ resizable: editable }),
                     window.TipTap.TableRow,
                     window.TipTap.TableHeader,
                     window.TipTap.TableCell,
                 ],
                 content: content,
-                editable: true,
-                onCreate: ({ editor }) => updateEmptyState(container, editor),
+                editable: editable,
+                onCreate: ({ editor }) => { if (editable) updateEmptyState(container, editor); },
                 onUpdate: ({ editor }) => {
                     normalizeMarkdownTables(elementId, editor);
-                    updateEmptyState(container, editor);
+                    if (editable) updateEmptyState(container, editor);
                 },
             });
 

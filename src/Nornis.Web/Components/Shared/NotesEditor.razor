@@ -7,7 +7,9 @@
    GetMarkdownAsync. Markdown-style typing (**bold**, # heading, - list) and the usual
    hotkeys work alongside the toolbar. *@
 
-<div class="nornis-editor">
+<div class="nornis-editor @(ReadOnly ? "nornis-editor-ro" : "")">
+    @if (!ReadOnly)
+    {
     <div class="nornis-editor-toolbar">
         <MudTooltip Text="Bold (Ctrl+B)">
             <MudIconButton Icon="@Icons.Material.Filled.FormatBold" Size="Size.Small"
@@ -82,6 +84,7 @@
             </ChildContent>
         </MudMenu>
     </div>
+    }
     <div id="@_elementId" class="nornis-editor-content"></div>
 </div>
 
@@ -89,7 +92,14 @@
     /// <summary>Markdown to load into the editor on first render.</summary>
     [Parameter] public string? InitialMarkdown { get; set; }
 
+    /// <summary>Pre-rendered HTML to load instead of markdown — used by read views that
+    /// parse markdown with Markdig (better CommonMark fidelity than the JS converter).</summary>
+    [Parameter] public string? InitialHtml { get; set; }
+
     [Parameter] public string? Placeholder { get; set; }
+
+    /// <summary>Display mode: no toolbar, not editable, chrome stripped by CSS.</summary>
+    [Parameter] public bool ReadOnly { get; set; }
 
     private readonly string _elementId = $"nornis-editor-{Guid.NewGuid():N}";
     private bool _initialized;
@@ -98,7 +108,9 @@
     {
         if (firstRender)
         {
-            await JS.InvokeVoidAsync("nornisEditor.init", _elementId, InitialMarkdown, Placeholder);
+            // ensureHtml on the JS side auto-detects HTML vs markdown content.
+            await JS.InvokeVoidAsync("nornisEditor.init",
+                _elementId, InitialHtml ?? InitialMarkdown, ReadOnly ? null : Placeholder, !ReadOnly);
             _initialized = true;
         }
     }
