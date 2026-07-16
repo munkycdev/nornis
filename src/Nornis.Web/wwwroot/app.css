@@ -2209,3 +2209,93 @@ a.nornis-cite:hover {
 .nornis-editor-content .resize-cursor {
     cursor: col-resize;
 }
+
+/* ---------------------------------------------- Loremaster rail panel --- */
+
+/* Stays in view while writing long notes; falls back into flow when the
+   dashboard grid collapses to one column. */
+.nornis-capture-rail {
+    position: sticky;
+    top: 16px;
+}
+
+@media (max-width: 1200px) {
+    .nornis-capture-rail {
+        position: static;
+    }
+}
+
+/* column-reverse pins the scroll position to the newest exchange without JS;
+   children are rendered newest-first. */
+.nornis-lm-thread {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 14px;
+    max-height: 52vh;
+    overflow-y: auto;
+    margin-bottom: 12px;
+    padding-right: 4px;
+}
+
+.nornis-lm-q {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--mud-palette-text-primary);
+    margin-bottom: 6px;
+}
+
+.nornis-lm-answer {
+    background-color: var(--mud-palette-background);
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 0.88rem;
+    line-height: 1.55;
+}
+
+.nornis-lm-answer-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.nornis-lm-answer-text {
+    white-space: pre-wrap;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-lm-thinking {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--mud-palette-text-secondary);
+    font-style: italic;
+}
+
+.nornis-lm-caveat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.78rem;
+    margin-top: 8px;
+}
+
+.nornis-lm-cites {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--mud-palette-divider);
+}
+
+.nornis-lm-composer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}

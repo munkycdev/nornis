@@ -1,0 +1,256 @@
+@using System.Text
+@using System.Text.Json
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject IJSRuntime JS
+
+@* Compact ask-the-Loremaster panel for page rails — quick questions mid-session without
+   leaving the page. Threads persist into the same per-world localStorage history the /ask
+   page reads, so a mid-session thread can be picked up there later. *@
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-lm">
+    <div class="nornis-card-header">
+        <span class="nornis-card-title">Ask the Loremaster</span>
+        @if (_conversation.Exchanges.Count > 0)
+        {
+            <MudTooltip Text="Start a fresh thread">
+                <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small"
+                               OnClick="NewThread" Disabled="_asking" aria-label="New thread" />
+            </MudTooltip>
+        }
+    </div>
+
+    @if (_conversation.Exchanges.Count == 0 && !_asking)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Quick questions while you take notes — answered from your world record, with citations.
+        </MudText>
+    }
+    else
+    {
+        @* column-reverse keeps the scroll pinned to the newest exchange, so children are
+           rendered newest-first (thinking indicator first = visually last). *@
+        <div class="nornis-lm-thread">
+            @if (_asking)
+            {
+                <div class="nornis-lm-exchange">
+                    @if (_pendingQuestion is not null)
+                    {
+                        <div class="nornis-lm-q">
+                            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                            <span>@_pendingQuestion</span>
+                        </div>
+                    }
+                    <div class="nornis-lm-answer nornis-lm-thinking">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Secondary" />
+                        <span>Consulting the Loremaster…</span>
+                    </div>
+                </div>
+            }
+            @foreach (var ex in Enumerable.Reverse(_conversation.Exchanges))
+            {
+                <div class="nornis-lm-exchange">
+                    <div class="nornis-lm-q">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                        <span>@ex.Question</span>
+                    </div>
+                    <div class="nornis-lm-answer">
+                        <div class="nornis-lm-answer-head">
+                            <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@ConfidenceColor(ex.Confidence)">
+                                @ex.Confidence
+                            </MudChip>
+                        </div>
+                        <div class="nornis-lm-answer-text">@ex.Answer</div>
+                        @foreach (var caveat in ex.Caveats)
+                        {
+                            <div class="nornis-lm-caveat">
+                                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" Color="Color.Tertiary" />
+                                <span>@caveat</span>
+                            </div>
+                        }
+                        @if (ex.Citations.Count > 0)
+                        {
+                            <div class="nornis-lm-cites">
+                                @foreach (var c in ex.Citations)
+                                {
+                                    @if (c.ArtifactId is not null)
+                                    {
+                                        <a href="@($"/artifacts/{c.ArtifactId}")" class="nornis-cite">@c.DisplayName</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="nornis-cite">@c.DisplayName</span>
+                                    }
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2"
+                  ShowCloseIcon="true" CloseIconClicked="() => _error = null">@_error</MudAlert>
+    }
+
+    <div class="nornis-lm-composer">
+        <MudTextField T="string"
+                      @bind-Value="_input"
+                      Immediate="true"
+                      Placeholder="@(_conversation.Exchanges.Count > 0 ? "Ask a follow-up…" : "Who is the watch captain?")"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      OnKeyUp="OnKeyUp"
+                      Disabled="_asking"
+                      Class="flex-grow-1" />
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       OnClick="SendAsync"
+                       Disabled="_asking"
+                       aria-label="Ask" />
+    </div>
+</MudPaper>
+
+@code {
+    private AskConversation _conversation = new();
+    private string _input = string.Empty;
+    private string? _pendingQuestion;
+    private bool _asking;
+    private string? _error;
+    private Guid _worldId;
+
+    private string StorageKey => $"nornis:ask:{Worlds.Current?.Id}";
+
+    protected override void OnInitialized()
+    {
+        _worldId = Worlds.Current?.Id ?? Guid.Empty;
+        Worlds.Changed += OnWorldChanged;
+    }
+
+    // Switching worlds mid-thread would mix records — drop the thread for the new world.
+    private void OnWorldChanged() => InvokeAsync(() =>
+    {
+        if (Worlds.Current?.Id != _worldId)
+        {
+            _worldId = Worlds.Current?.Id ?? Guid.Empty;
+            NewThread();
+            StateHasChanged();
+        }
+    });
+
+    private void NewThread()
+    {
+        _conversation = new AskConversation();
+        _error = null;
+    }
+
+    private async Task OnKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SendAsync();
+        }
+    }
+
+    private async Task SendAsync()
+    {
+        var q = _input?.Trim();
+        if (string.IsNullOrWhiteSpace(q) || Worlds.Current is null || _asking)
+        {
+            return;
+        }
+
+        _input = string.Empty;
+        _pendingQuestion = q;
+        _asking = true;
+        _error = null;
+        StateHasChanged();
+
+        var result = await Api.AskLoremasterAsync(Worlds.Current.Id, q, BuildContext(_conversation));
+
+        _asking = false;
+        _pendingQuestion = null;
+
+        if (result.IsSuccess)
+        {
+            var a = result.Value!;
+            _conversation.Exchanges.Add(new AskExchange
+            {
+                Question = q,
+                Answer = CleanAnswer(a.Answer),
+                Confidence = a.Confidence,
+                Citations = a.Citations.Select(c => new AskCitation { DisplayName = c.DisplayName, ArtifactId = c.ArtifactId }).ToList(),
+                Caveats = a.Caveats.ToList(),
+            });
+            if (_conversation.Exchanges.Count == 1)
+            {
+                _conversation.Title = Truncate(q);
+            }
+            _conversation.UpdatedAt = DateTimeOffset.UtcNow;
+            await SaveToHistoryAsync();
+        }
+        else
+        {
+            _error = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    // Upserts this thread into the shared /ask history without clobbering other conversations.
+    private async Task SaveToHistoryAsync()
+    {
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+            var conversations = string.IsNullOrWhiteSpace(json)
+                ? []
+                : JsonSerializer.Deserialize<List<AskConversation>>(json) ?? [];
+            conversations.RemoveAll(c => c.Id == _conversation.Id);
+            conversations.Add(_conversation);
+            await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, JsonSerializer.Serialize(conversations));
+        }
+        catch
+        {
+            // Persistence is best-effort; the thread still lives in the panel.
+        }
+    }
+
+    private static string? BuildContext(AskConversation c)
+    {
+        if (c.Exchanges.Count == 0)
+        {
+            return null;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Earlier in this conversation (most recent last):");
+        foreach (var ex in c.Exchanges.TakeLast(5))
+        {
+            sb.AppendLine($"Q: {ex.Question}");
+            sb.AppendLine($"A: {ex.Answer}");
+        }
+        return sb.ToString();
+    }
+
+    private static string Truncate(string q) => q.Length <= 48 ? q : q[..47].TrimEnd() + "…";
+
+    private static string CleanAnswer(string text) =>
+        System.Text.RegularExpressions.Regex.Replace(text, @"\s*\[ref:[^\]]+\]", "").Trim();
+
+    private static Color ConfidenceColor(string confidence) => confidence switch
+    {
+        "High" => Color.Success,
+        "Medium" => Color.Info,
+        "Low" => Color.Warning,
+        _ => Color.Default,
+    };
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}

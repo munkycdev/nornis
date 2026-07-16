@@ -2,10 +2,14 @@
 
 ## List of unprocessed features
 
+* Artifacts
+  * The graph view should link storylines that have a parent/child relationship
 * Capture
   * Add the ability to hand-write notes
   * Perhaps have a tabbed interface instead of displaying all of the source options
 * Timeline
+  * Bug: drag and drop doesn't create a parent/child relationship
+  * Bug: drag and drop is fiddly - it's hard to drop in the right place
   * Backfill sweep: the 85 already-processed sources predate the Event↔Storyline and PartOf extraction teachings; a re-extraction pass (or targeted relationship sweep) would light up the historical timeline.
 * Sources
   * Extraction context includes GM-only and Private facts regardless of the source's visibility (`ListByArtifactIdsAsync` doesn't filter facts by scope) — a PartyVisible extraction prompt can see Hidden truths and echo them into party-visible proposals. Scope context facts to the source's allowed visibilities.

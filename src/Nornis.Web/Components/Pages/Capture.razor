@@ -17,80 +17,88 @@
 }
 else
 {
-    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-measure">
-        <MudTextField @bind-Value="_title"
-                      Label="Title"
-                      Required="true"
-                      Immediate="true"
-                      MaxLength="200"
-                      Variant="Variant.Outlined"
-                      Class="mb-3" />
+    <div class="nornis-dashboard">
+        <div class="nornis-dashboard-main">
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                <MudTextField @bind-Value="_title"
+                              Label="Title"
+                              Required="true"
+                              Immediate="true"
+                              MaxLength="200"
+                              Variant="Variant.Outlined"
+                              Class="mb-3" />
 
-        <div class="d-flex gap-3 mb-3">
-            <MudSelect @bind-Value="_type" Label="Type" Variant="Variant.Outlined" Class="flex-grow-1">
-                @foreach (var type in _sourceTypes)
+                <div class="d-flex gap-3 mb-3">
+                    <MudSelect @bind-Value="_type" Label="Type" Variant="Variant.Outlined" Class="flex-grow-1">
+                        @foreach (var type in _sourceTypes)
+                        {
+                            <MudSelectItem Value="@type">@Humanize(type)</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect @bind-Value="_visibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1">
+                        @foreach (var vis in _visibilities)
+                        {
+                            <MudSelectItem Value="@vis">@vis</MudSelectItem>
+                        }
+                    </MudSelect>
+                </div>
+
+                <div class="mb-3">
+                    <NotesEditor @ref="_editor"
+                                 Placeholder="Paste session notes, a journal entry, a transcript… Type # for a heading, - for a list, **bold**." />
+                </div>
+
+                <MudTextField @bind-Value="_uri"
+                              Label="Link (optional)"
+                              Placeholder="https://…"
+                              Variant="Variant.Outlined"
+                              Class="mb-3" />
+
+                <MudDatePicker @bind-Date="_occurredAt"
+                               Label="When it happened (optional)"
+                               Variant="Variant.Outlined"
+                               Class="mb-3" />
+
+                @if (_campaigns.Count > 0)
                 {
-                    <MudSelectItem Value="@type">@Humanize(type)</MudSelectItem>
+                    <MudSelect T="Guid?" @bind-Value="_campaignId" Label="Campaign (optional)"
+                               Variant="Variant.Outlined" Class="mb-3"
+                               HelperText="Which campaign these events happened in. Leave empty for world lore or prep.">
+                        <MudSelectItem T="Guid?" Value="@((Guid?)null)">No campaign</MudSelectItem>
+                        @foreach (var c in _campaigns)
+                        {
+                            <MudSelectItem T="Guid?" Value="@((Guid?)c.Id)">@c.Name</MudSelectItem>
+                        }
+                    </MudSelect>
                 }
-            </MudSelect>
-            <MudSelect @bind-Value="_visibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1">
-                @foreach (var vis in _visibilities)
+
+                @if (_error is not null)
                 {
-                    <MudSelectItem Value="@vis">@vis</MudSelectItem>
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_error</MudAlert>
                 }
-            </MudSelect>
+
+                <div class="d-flex gap-2">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               OnClick="() => SaveAsync(process: false)"
+                               Disabled="_busy">
+                        Save draft
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.AutoAwesome"
+                               OnClick="() => SaveAsync(process: true)"
+                               Disabled="_busy">
+                        Save &amp; process
+                    </MudButton>
+                </div>
+            </MudPaper>
         </div>
 
-        <div class="mb-3">
-            <NotesEditor @ref="_editor"
-                         Placeholder="Paste session notes, a journal entry, a transcript… Type # for a heading, - for a list, **bold**." />
+        <div class="nornis-rail nornis-capture-rail">
+            <LoremasterPanel />
         </div>
-
-        <MudTextField @bind-Value="_uri"
-                      Label="Link (optional)"
-                      Placeholder="https://…"
-                      Variant="Variant.Outlined"
-                      Class="mb-3" />
-
-        <MudDatePicker @bind-Date="_occurredAt"
-                       Label="When it happened (optional)"
-                       Variant="Variant.Outlined"
-                       Class="mb-3" />
-
-        @if (_campaigns.Count > 0)
-        {
-            <MudSelect T="Guid?" @bind-Value="_campaignId" Label="Campaign (optional)"
-                       Variant="Variant.Outlined" Class="mb-3"
-                       HelperText="Which campaign these events happened in. Leave empty for world lore or prep.">
-                <MudSelectItem T="Guid?" Value="@((Guid?)null)">No campaign</MudSelectItem>
-                @foreach (var c in _campaigns)
-                {
-                    <MudSelectItem T="Guid?" Value="@((Guid?)c.Id)">@c.Name</MudSelectItem>
-                }
-            </MudSelect>
-        }
-
-        @if (_error is not null)
-        {
-            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_error</MudAlert>
-        }
-
-        <div class="d-flex gap-2">
-            <MudButton Variant="Variant.Outlined"
-                       Color="Color.Primary"
-                       OnClick="() => SaveAsync(process: false)"
-                       Disabled="_busy">
-                Save draft
-            </MudButton>
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Secondary"
-                       StartIcon="@Icons.Material.Filled.AutoAwesome"
-                       OnClick="() => SaveAsync(process: true)"
-                       Disabled="_busy">
-                Save &amp; process
-            </MudButton>
-        </div>
-    </MudPaper>
+    </div>
 }
 
 @code {
