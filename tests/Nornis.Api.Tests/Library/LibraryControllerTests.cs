@@ -157,9 +157,11 @@ public class LibraryControllerTests
     [Test]
     public async Task Delete_AsGm_RemovesDocumentAndBlob()
     {
+        // An image lands in Stored (no indexing), so it is immediately deletable.
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
-        var ticket = await RequestUploadAsync(scenario.GmClient, scenario.World.Id, UploadRequest());
-        SimulateBrowserPut(ticket);
+        var ticket = await RequestUploadAsync(scenario.GmClient, scenario.World.Id,
+            UploadRequest(title: "Region map", fileName: "map.png", contentType: "image/png"));
+        SimulateBrowserPut(ticket, contentType: "image/png");
         await scenario.GmClient.PostAsync($"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}/confirm", null);
 
         var response = await scenario.GmClient.DeleteAsync(
@@ -170,5 +172,23 @@ public class LibraryControllerTests
         var list = await scenario.GmClient.GetFromJsonAsync<List<LibraryDocumentResponse>>(
             $"/api/worlds/{scenario.World.Id}/library");
         Assert.That(list, Is.Empty);
+    }
+
+    [Test]
+    public async Task Delete_WhileIndexing_Returns409()
+    {
+        // A freshly confirmed PDF is Indexing — deletion must be refused until it settles.
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var ticket = await RequestUploadAsync(scenario.GmClient, scenario.World.Id, UploadRequest());
+        SimulateBrowserPut(ticket);
+        await scenario.GmClient.PostAsync($"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}/confirm", null);
+
+        var response = await scenario.GmClient.DeleteAsync(
+            $"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+        var doc = await scenario.GmClient.GetFromJsonAsync<LibraryDocumentResponse>(
+            $"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}");
+        Assert.That(doc!.Status, Is.EqualTo("Indexing"), "the document must survive the refused delete");
     }
 }
