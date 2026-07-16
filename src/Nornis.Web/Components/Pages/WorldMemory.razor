@@ -46,74 +46,41 @@
     {
         <MudAlert Severity="Severity.Error">@_error</MudAlert>
     }
-    else if (_health is { HasData: false })
+    else if (_assessment is not { HasData: true })
     {
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
             <MudIcon Icon="@Icons.Material.Outlined.MonitorHeart" Size="Size.Large" Class="nornis-comingsoon-icon" />
-            <MudText Typo="Typo.h5" Class="nornis-serif">Not enough data yet</MudText>
+            <MudText Typo="Typo.h5" Class="nornis-serif">No assessment yet</MudText>
             <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
-                Once sources produce artifacts and facts, the record can be measured.
+                Run an assessment and the auditor will read the record and name specific continuity risks.
             </MudText>
         </MudPaper>
     }
-    else if (_health is not null)
+    else
     {
         @* The number, and the arithmetic that produces it *@
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
             <div class="d-flex align-center gap-4 flex-wrap">
                 <div class="nornis-ring">
-                    <MudProgressCircular Value="@EffectiveScore" Min="0" Max="100"
-                                         Color="@HealthColor(EffectiveScore)" Size="Size.Large" StrokeWidth="4" />
-                    <span class="nornis-ring-value">@EffectiveScore</span>
+                    <MudProgressCircular Value="@_assessment.EffectiveScore" Min="0" Max="100"
+                                         Color="@HealthColor(_assessment.EffectiveScore)" Size="Size.Large" StrokeWidth="4" />
+                    <span class="nornis-ring-value">@_assessment.EffectiveScore</span>
                 </div>
                 <div class="flex-grow-1">
-                    <MudText Typo="Typo.h6" Class="nornis-serif">@_health.Label</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-wm-formula">
-                        Heuristic <b>@_health.OverallScore</b>
+                        Heuristic <b>@_assessment.HeuristicScore</b>
                         − findings penalty <b>@TotalPenalty</b>@(PenaltyCapped ? " (capped at 40)" : "")
-                        = effective <b>@EffectiveScore</b>
+                        = effective <b>@_assessment.EffectiveScore</b>
                     </MudText>
-                    @if (_assessment is { HasData: true })
-                    {
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">
-                            AI audit ran @Ago(_assessment.CreatedAt!.Value) with @_assessment.Model ·
-                            the heuristic is recomputed live, so the effective score stays current between audits
-                        </MudText>
-                    }
-                    else
-                    {
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">
-                            No AI audit yet — the effective score is the bare heuristic until one runs.
-                        </MudText>
-                    }
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        AI audit ran @Ago(_assessment.CreatedAt!.Value) with @_assessment.Model ·
+                        the heuristic is recomputed live, so the effective score stays current between audits
+                    </MudText>
                 </div>
             </div>
         </MudPaper>
 
-        @* Tier 1: the heuristic — four measured components, averaged *@
-        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-            <div class="nornis-detail-section-title">The heuristic — measured from the record, no AI</div>
-            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                Four components, each 0–100, over @_health.ArtifactCount artifacts and
-                @_health.StatementCount statements (facts + relationships). Their average is the
-                heuristic score of <b>@_health.OverallScore</b>.
-            </MudText>
-
-            @foreach (var component in Components)
-            {
-                <div class="nornis-wm-component">
-                    <div class="d-flex align-center justify-space-between">
-                        <span class="nornis-list-title">@component.Name</span>
-                        <span class="nornis-cost-row-amount">@component.Value</span>
-                    </div>
-                    <MudProgressLinear Value="@component.Value" Color="@HealthColor(component.Value)"
-                                       Class="nornis-wm-bar" aria-label="@component.Name" />
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@component.Explainer</MudText>
-                </div>
-            }
-        </MudPaper>
-
-        @* Tier 2: the AI audit — findings and their penalty arithmetic *@
+        @* The AI audit — findings and their penalty arithmetic *@
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
             <div class="nornis-detail-section-title">The AI audit — named risks, deterministic penalties</div>
             <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
@@ -123,37 +90,30 @@
                 and dismissing a finding gives its points back.
             </MudText>
 
-            @if (_assessment is not { HasData: true })
+            @foreach (var (severity, penalty) in SeverityPenalties)
             {
-                <MudText Typo="Typo.body2" Color="Color.Secondary">No assessment yet — run one to see what the auditor finds.</MudText>
+                var count = OpenFindings.Count(f => f.Severity == severity);
+                if (count > 0)
+                {
+                    <div class="nornis-cost-row">
+                        <span class="nornis-cost-row-name">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SeverityColor(severity)">@severity</MudChip>
+                        </span>
+                        <span class="nornis-list-meta">@count × @penalty</span>
+                        <span class="nornis-cost-row-amount">−@(count * penalty)</span>
+                    </div>
+                }
+            }
+            @if (OpenFindings.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">No open findings — no penalty. The record looks continuous.</MudText>
             }
             else
             {
-                @foreach (var (severity, penalty) in SeverityPenalties)
-                {
-                    var count = OpenFindings.Count(f => f.Severity == severity);
-                    if (count > 0)
-                    {
-                        <div class="nornis-cost-row">
-                            <span class="nornis-cost-row-name">
-                                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SeverityColor(severity)">@severity</MudChip>
-                            </span>
-                            <span class="nornis-list-meta">@count × @penalty</span>
-                            <span class="nornis-cost-row-amount">−@(count * penalty)</span>
-                        </div>
-                    }
-                }
-                @if (OpenFindings.Count == 0)
-                {
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">No open findings — no penalty. The record looks continuous.</MudText>
-                }
-                else
-                {
-                    <div class="nornis-cost-row nornis-wm-total">
-                        <span class="nornis-cost-row-name">Total penalty@(PenaltyCapped ? $" (raw {RawPenalty}, capped)" : "")</span>
-                        <span class="nornis-cost-row-amount">−@TotalPenalty</span>
-                    </div>
-                }
+                <div class="nornis-cost-row nornis-wm-total">
+                    <span class="nornis-cost-row-name">Total penalty@(PenaltyCapped ? $" (raw {RawPenalty}, capped)" : "")</span>
+                    <span class="nornis-cost-row-amount">−@TotalPenalty</span>
+                </div>
             }
         </MudPaper>
 
@@ -204,7 +164,6 @@
     private bool _loading;
     private bool _running;
     private string? _error;
-    private WorldHealthDto? _health;
     private ContinuityAssessment? _assessment;
 
     // Mirrors ContinuityAuditService.PenaltyFor / TotalPenalty (High 12, Medium 6, Low 2, cap 40).
@@ -221,18 +180,6 @@
 
     private bool PenaltyCapped => RawPenalty > 40;
 
-    private int EffectiveScore =>
-        _assessment is { HasData: true } a ? a.EffectiveScore : _health?.OverallScore ?? 0;
-
-    private IEnumerable<(string Name, int Value, string Explainer)> Components =>
-        _health is null ? [] :
-        [
-            ("Consistency", _health.Consistency, "Statements free of Disputed or False truth states — contradictions drag this down."),
-            ("Completeness", _health.Completeness, "Artifacts that are fleshed out: a summary plus at least one fact or relationship."),
-            ("Groundedness", _health.Groundedness, "Statements traceable to a source quote rather than floating unattributed."),
-            ("Recency", _health.Recency, "Artifacts touched in the last 30 days — a record that moves with the campaign."),
-        ];
-
     protected override async Task OnInitializedAsync()
     {
         Worlds.Changed += OnWorldChanged;
@@ -246,7 +193,6 @@
     {
         if (Worlds.Current is null || Worlds.Current.MyRole != "GM")
         {
-            _health = null;
             _assessment = null;
             StateHasChanged();
             return;
@@ -256,22 +202,17 @@
         _error = null;
         StateHasChanged();
 
-        var healthTask = Api.GetWorldHealthAsync(Worlds.Current.Id);
-        var assessmentTask = Api.GetContinuityAssessmentAsync(Worlds.Current.Id);
-        var health = await healthTask;
-        var assessment = await assessmentTask;
+        var assessment = await Api.GetContinuityAssessmentAsync(Worlds.Current.Id);
 
         _loading = false;
-        if (health.IsSuccess)
+        if (assessment.IsSuccess)
         {
-            _health = health.Value!;
+            _assessment = assessment.Value;
         }
         else
         {
-            _error = health.Error!.Message;
+            _error = assessment.Error!.Message;
         }
-
-        _assessment = assessment.IsSuccess ? assessment.Value : null;
         StateHasChanged();
     }
 
@@ -315,7 +256,7 @@
             _assessment = _assessment with
             {
                 Findings = _assessment.Findings.Select(f => f.Id == finding.Id ? result.Value! : f).ToList(),
-                EffectiveScore = Math.Max(0, (_health?.OverallScore ?? 0) - Math.Min(40,
+                EffectiveScore = Math.Max(0, _assessment.HeuristicScore - Math.Min(40,
                     _assessment.Findings.Where(f => f.Id != finding.Id && f.Status == "Open")
                         .Sum(f => SeverityPenalties.FirstOrDefault(s => s.Severity == f.Severity).Penalty)))
             };

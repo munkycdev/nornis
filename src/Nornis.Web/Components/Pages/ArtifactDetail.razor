@@ -89,6 +89,36 @@
             </div>
         </div>
 
+        @if (Worlds.Current?.MyRole == "GM" && ArtifactFindings.Count > 0)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">
+                    <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Size="Size.Small" Color="Color.Tertiary" Class="mr-1" />
+                    Continuity findings
+                </div>
+                @foreach (var finding in ArtifactFindings)
+                {
+                    <div class="nornis-list-row">
+                        <div class="nornis-list-body">
+                            <div class="nornis-list-title">
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@FindingSeverityColor(finding.Severity)">@finding.Severity</MudChip>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@Humanize(finding.Category)</MudChip>
+                            </div>
+                            <div class="nornis-list-sub mt-1">@finding.Summary</div>
+                            @if (!string.IsNullOrWhiteSpace(finding.SuggestedAction))
+                            {
+                                <div class="nornis-list-meta mt-1">Suggested: @finding.SuggestedAction</div>
+                            }
+                        </div>
+                        <MudTooltip Text="Dismiss — gives its penalty points back">
+                            <MudIconButton Icon="@Icons.Material.Outlined.Close" Size="Size.Small"
+                                           OnClick="() => DismissFindingAsync(finding)" aria-label="Dismiss finding" />
+                        </MudTooltip>
+                    </div>
+                }
+            </MudPaper>
+        }
+
         @if (!string.IsNullOrWhiteSpace(_detail.Summary))
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
@@ -659,6 +689,44 @@
             : _detail.Facts
                 .Where(f => !string.Equals(f.Predicate, OpenQuestionPredicate, StringComparison.OrdinalIgnoreCase))
                 .ToList();
+
+    // Open continuity findings pointing at this artifact, from the assessment the circuit
+    // already holds — no extra fetch. GM-only by data: non-GMs have no Continuity loaded.
+    private IReadOnlyList<ContinuityFinding> ArtifactFindings =>
+        Worlds.Continuity is { HasData: true } c
+            ? c.Findings.Where(f => f.Status == "Open" && f.ArtifactId == ArtifactId).ToList()
+            : [];
+
+    private async Task DismissFindingAsync(ContinuityFinding finding)
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        var result = await Api.DismissFindingAsync(Worlds.Current.Id, finding.Id);
+        if (result.IsSuccess)
+        {
+            // Refetch so the effective score is recomputed server-side; the sidebar ring
+            // and this card both follow WorldState.
+            await Worlds.LoadContinuityAsync();
+            Snackbar.Add("Finding dismissed — its penalty points are back.", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private static Color FindingSeverityColor(string severity) => severity switch
+    {
+        "High" => Color.Error,
+        "Medium" => Color.Warning,
+        _ => Color.Default,
+    };
+
+    private static string Humanize(string pascal) =>
+        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 
     private static Color TruthColor(string truth) => truth switch
     {

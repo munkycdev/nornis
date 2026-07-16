@@ -304,18 +304,6 @@ public record AskAnswer(
 /// <see cref="EffectiveScore"/> reflects only the findings still Open. When the world has never
 /// been assessed, <see cref="HasData"/> is false.
 /// </summary>
-/// <summary>The heuristic tier of Continuity Health: four 0–100 components and their inputs.</summary>
-public record WorldHealthDto(
-    bool HasData,
-    int OverallScore,
-    string Label,
-    int Consistency,
-    int Completeness,
-    int Groundedness,
-    int Recency,
-    int ArtifactCount,
-    int StatementCount);
-
 public record ContinuityAssessment(
     bool HasData,
     Guid? AssessmentId,

@@ -19,35 +19,10 @@ namespace Nornis.Api.Controllers;
 public class HealthController : ControllerBase
 {
     private readonly IContinuityAuditService _auditService;
-    private readonly IHealthService _healthService;
 
-    public HealthController(IContinuityAuditService auditService, IHealthService healthService)
+    public HealthController(IContinuityAuditService auditService)
     {
         _auditService = auditService;
-        _healthService = healthService;
-    }
-
-    /// <summary>The heuristic score with its component breakdown. GM-only.</summary>
-    [HttpGet]
-    public async Task<IActionResult> GetHeuristic(Guid worldId, CancellationToken ct)
-    {
-        if (RequireGm() is { } forbidden)
-        {
-            return forbidden;
-        }
-
-        var result = await _healthService.GetHealthAsync(worldId, ct);
-
-        if (!result.IsSuccess)
-        {
-            return MapError(result.Error!);
-        }
-
-        var h = result.Value!;
-        return Ok(new WorldHealthResponse(
-            h.HasData, h.OverallScore, h.Label,
-            h.Consistency, h.Completeness, h.Groundedness, h.Recency,
-            h.ArtifactCount, h.StatementCount));
     }
 
     /// <summary>Runs a fresh AI continuity assessment. GM-only; takes ~10-30s.</summary>

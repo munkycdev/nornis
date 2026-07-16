@@ -199,35 +199,6 @@ else
                         {
                             <div class="nornis-ai-running"><MudProgressLinear Indeterminate="true" Color="Color.Primary" /></div>
                         }
-
-                        @foreach (var f in a.Findings.Where(x => x.Status == "Open"))
-                        {
-                            <div class="nornis-finding">
-                                <div class="nornis-finding-head">
-                                    <span class="nornis-chip nornis-chip-cat">@Humanize(f.Category)</span>
-                                    <span class="nornis-chip @SeverityClass(f.Severity)">@f.Severity</span>
-                                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
-                                                   aria-label="Dismiss finding" OnClick="() => DismissFinding(f.Id)" />
-                                </div>
-                                <div class="nornis-finding-summary">@f.Summary</div>
-                                @if (!string.IsNullOrWhiteSpace(f.SuggestedAction))
-                                {
-                                    <div class="nornis-finding-action">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Size="Size.Small" />
-                                        <span>@f.SuggestedAction</span>
-                                    </div>
-                                }
-                                @if (f.ArtifactId is { } artifactId)
-                                {
-                                    <a href="@($"/artifacts/{artifactId}")" class="nornis-viewall">Open artifact <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" /></a>
-                                }
-                            </div>
-                        }
-
-                        @if (a.Findings.All(x => x.Status != "Open"))
-                        {
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">No open findings. The record looks continuous.</MudText>
-                        }
                     }
                     else
                     {
@@ -500,31 +471,6 @@ else
         StateHasChanged();
     }
 
-    private async Task DismissFinding(Guid findingId)
-    {
-        if (Worlds.Current is null)
-        {
-            return;
-        }
-
-        var worldId = Worlds.Current.Id;
-        var result = await Api.DismissFindingAsync(worldId, findingId);
-        if (result.IsSuccess)
-        {
-            // Reload so the effective score reflects the now-dismissed finding.
-            await LoadAssessmentAsync(worldId);
-            if (Worlds.Current?.Id == worldId)
-            {
-                Worlds.SetContinuity(_assessment);
-            }
-        }
-        else
-        {
-            _assessmentError = result.Error?.Message;
-            StateHasChanged();
-        }
-    }
-
     private static int OpenFindingCount(ContinuityAssessment a) =>
         a.Findings.Count(f => f.Status == "Open");
 
@@ -533,13 +479,6 @@ else
         >= 70 => Color.Success,
         >= 50 => Color.Warning,
         _ => Color.Error,
-    };
-
-    private static string SeverityClass(string severity) => severity switch
-    {
-        "High" => "nornis-chip-high",
-        "Medium" => "nornis-chip-medium",
-        _ => "nornis-chip-low",
     };
 
     private static string ProposalName(ReviewProposal p)
