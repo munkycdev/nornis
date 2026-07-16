@@ -33,8 +33,7 @@ LABEL org.opencontainers.image.source="${IMAGE_SOURCE}"
 LABEL org.opencontainers.image.revision="${IMAGE_REVISION}"
 WORKDIR /app
 EXPOSE 8080
-RUN adduser --disabled-password --gecos "" appuser
-USER appuser
+USER app
 COPY --from=build /app/api .
 ENTRYPOINT ["dotnet", "Nornis.Api.dll"]
 
@@ -46,8 +45,7 @@ LABEL org.opencontainers.image.source="${IMAGE_SOURCE}"
 LABEL org.opencontainers.image.revision="${IMAGE_REVISION}"
 WORKDIR /app
 EXPOSE 8080
-RUN adduser --disabled-password --gecos "" appuser
-USER appuser
+USER app
 COPY --from=build /app/web .
 ENTRYPOINT ["dotnet", "Nornis.Web.dll"]
 
@@ -58,7 +56,6 @@ ARG IMAGE_REVISION=""
 LABEL org.opencontainers.image.source="${IMAGE_SOURCE}"
 LABEL org.opencontainers.image.revision="${IMAGE_REVISION}"
 WORKDIR /app
-RUN adduser --disabled-password --gecos "" appuser
-USER appuser
+USER app
 COPY --from=build /app/worker .
 ENTRYPOINT ["dotnet", "Nornis.Worker.dll"]
