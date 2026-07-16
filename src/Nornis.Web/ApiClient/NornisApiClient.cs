@@ -220,6 +220,9 @@ public class NornisApiClient
 
     // AI-assessed Continuity Health (GM-only endpoints).
 
+    public Task<ApiResult<WorldHealthDto>> GetWorldHealthAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<WorldHealthDto>($"/api/worlds/{worldId}/health", ct);
+
     public Task<ApiResult<ContinuityAssessment>> GetContinuityAssessmentAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<ContinuityAssessment>($"/api/worlds/{worldId}/health/assessment", ct);
 

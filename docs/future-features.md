@@ -10,8 +10,6 @@
   * Backfill sweep: the 85 already-processed sources predate the Event↔Storyline and PartOf extraction teachings; a re-extraction pass (or targeted relationship sweep) would light up the historical timeline.
 * Sources
   * Extraction context includes GM-only and Private facts regardless of the source's visibility (`ListByArtifactIdsAsync` doesn't filter facts by scope) — a PartyVisible extraction prompt can see Hidden truths and echo them into party-visible proposals. Scope context facts to the source's allowed visibilities.
-* World Memory
-  * Let's create a page which shows a detailed health assessment - how we get to the AI number.
 * General
   * When does it make sense to make the Ask feature driven by Azure AI Search or some other RAG scheme?
   * Can you remove the background color from the site logo?

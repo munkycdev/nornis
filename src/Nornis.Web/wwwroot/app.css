@@ -134,6 +134,31 @@ html, body {
 }
 
 /* Storyline timeline (calendar lanes). */
+/* World Memory detail page. */
+.nornis-wm-formula {
+    margin: 4px 0;
+}
+
+.nornis-wm-component {
+    margin-bottom: 14px;
+}
+
+.nornis-wm-bar {
+    border-radius: 4px;
+    margin: 4px 0;
+}
+
+.nornis-wm-total {
+    border-top: 1px solid rgba(42, 59, 76, 0.15);
+    margin-top: 6px;
+    padding-top: 8px;
+    font-weight: 600;
+}
+
+.nornis-wm-dismissed {
+    opacity: 0.55;
+}
+
 /* Footer with public-page links on authenticated pages. */
 .nornis-footer {
     display: flex;

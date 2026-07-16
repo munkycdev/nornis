@@ -1,0 +1,366 @@
+@page "/world-memory"
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>World Memory — Nornis</PageTitle>
+
+<div class="nornis-narrow">
+    <div class="d-flex align-center justify-space-between mb-4">
+        <div>
+            <MudText Typo="Typo.h4" Class="nornis-serif">World Memory</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">How the health number is derived.</MudText>
+        </div>
+        @if (Worlds.Current?.MyRole == "GM")
+        {
+            <MudTooltip Text="AI reads the whole record and names specific continuity risks — takes 10–30s.">
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.Psychology"
+                           OnClick="RunAssessmentAsync" Disabled="_running">
+                    @(_running ? "Assessing…" : "Run assessment")
+                </MudButton>
+            </MudTooltip>
+        }
+    </div>
+
+    @if (Worlds.Current is null)
+    {
+        <NoWorld />
+    }
+    else if (Worlds.Current.MyRole != "GM")
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+            <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Large" Class="nornis-comingsoon-icon" />
+            <MudText Typo="Typo.h5" Class="nornis-serif">GMs only</MudText>
+            <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+                The health assessment reads the full record, including GM-only material.
+            </MudText>
+        </MudPaper>
+    }
+    else if (_loading)
+    {
+        <LoadingRows Rows="3" />
+    }
+    else if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_health is { HasData: false })
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+            <MudIcon Icon="@Icons.Material.Outlined.MonitorHeart" Size="Size.Large" Class="nornis-comingsoon-icon" />
+            <MudText Typo="Typo.h5" Class="nornis-serif">Not enough data yet</MudText>
+            <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+                Once sources produce artifacts and facts, the record can be measured.
+            </MudText>
+        </MudPaper>
+    }
+    else if (_health is not null)
+    {
+        @* The number, and the arithmetic that produces it *@
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <div class="d-flex align-center gap-4 flex-wrap">
+                <div class="nornis-ring">
+                    <MudProgressCircular Value="@EffectiveScore" Min="0" Max="100"
+                                         Color="@HealthColor(EffectiveScore)" Size="Size.Large" StrokeWidth="4" />
+                    <span class="nornis-ring-value">@EffectiveScore</span>
+                </div>
+                <div class="flex-grow-1">
+                    <MudText Typo="Typo.h6" Class="nornis-serif">@_health.Label</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-wm-formula">
+                        Heuristic <b>@_health.OverallScore</b>
+                        − findings penalty <b>@TotalPenalty</b>@(PenaltyCapped ? " (capped at 40)" : "")
+                        = effective <b>@EffectiveScore</b>
+                    </MudText>
+                    @if (_assessment is { HasData: true })
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            AI audit ran @Ago(_assessment.CreatedAt!.Value) with @_assessment.Model ·
+                            the heuristic is recomputed live, so the effective score stays current between audits
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            No AI audit yet — the effective score is the bare heuristic until one runs.
+                        </MudText>
+                    }
+                </div>
+            </div>
+        </MudPaper>
+
+        @* Tier 1: the heuristic — four measured components, averaged *@
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+            <div class="nornis-detail-section-title">The heuristic — measured from the record, no AI</div>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                Four components, each 0–100, over @_health.ArtifactCount artifacts and
+                @_health.StatementCount statements (facts + relationships). Their average is the
+                heuristic score of <b>@_health.OverallScore</b>.
+            </MudText>
+
+            @foreach (var component in Components)
+            {
+                <div class="nornis-wm-component">
+                    <div class="d-flex align-center justify-space-between">
+                        <span class="nornis-list-title">@component.Name</span>
+                        <span class="nornis-cost-row-amount">@component.Value</span>
+                    </div>
+                    <MudProgressLinear Value="@component.Value" Color="@HealthColor(component.Value)"
+                                       Class="nornis-wm-bar" aria-label="@component.Name" />
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@component.Explainer</MudText>
+                </div>
+            }
+        </MudPaper>
+
+        @* Tier 2: the AI audit — findings and their penalty arithmetic *@
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+            <div class="nornis-detail-section-title">The AI audit — named risks, deterministic penalties</div>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                The auditor reads the whole record and names specific continuity risks; every finding
+                must cite real record items or it is dropped. The AI never grades the score — each
+                open finding subtracts a fixed penalty (High 12, Medium 6, Low 2, total capped at 40),
+                and dismissing a finding gives its points back.
+            </MudText>
+
+            @if (_assessment is not { HasData: true })
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">No assessment yet — run one to see what the auditor finds.</MudText>
+            }
+            else
+            {
+                @foreach (var (severity, penalty) in SeverityPenalties)
+                {
+                    var count = OpenFindings.Count(f => f.Severity == severity);
+                    if (count > 0)
+                    {
+                        <div class="nornis-cost-row">
+                            <span class="nornis-cost-row-name">
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SeverityColor(severity)">@severity</MudChip>
+                            </span>
+                            <span class="nornis-list-meta">@count × @penalty</span>
+                            <span class="nornis-cost-row-amount">−@(count * penalty)</span>
+                        </div>
+                    }
+                }
+                @if (OpenFindings.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">No open findings — no penalty. The record looks continuous.</MudText>
+                }
+                else
+                {
+                    <div class="nornis-cost-row nornis-wm-total">
+                        <span class="nornis-cost-row-name">Total penalty@(PenaltyCapped ? $" (raw {RawPenalty}, capped)" : "")</span>
+                        <span class="nornis-cost-row-amount">−@TotalPenalty</span>
+                    </div>
+                }
+            }
+        </MudPaper>
+
+        @* The findings themselves *@
+        @if (_assessment is { HasData: true } && _assessment.Findings.Count > 0)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">Findings</div>
+                @foreach (var finding in _assessment.Findings.OrderBy(f => f.Status != "Open").ThenBy(f => SeverityRank(f.Severity)))
+                {
+                    <div class="nornis-list-row @(finding.Status != "Open" ? "nornis-wm-dismissed" : "")">
+                        <div class="nornis-list-body">
+                            <div class="nornis-list-title">
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SeverityColor(finding.Severity)">@finding.Severity</MudChip>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@Humanize(finding.Category)</MudChip>
+                                @if (finding.Status != "Open")
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">Dismissed</MudChip>
+                                }
+                            </div>
+                            <div class="nornis-list-sub mt-1">@finding.Summary</div>
+                            @if (!string.IsNullOrWhiteSpace(finding.SuggestedAction))
+                            {
+                                <div class="nornis-list-meta mt-1">Suggested: @finding.SuggestedAction</div>
+                            }
+                        </div>
+                        @if (finding.ArtifactId is { } artifactId)
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" Href="@($"/artifacts/{artifactId}")">
+                                Open artifact
+                            </MudButton>
+                        }
+                        @if (finding.Status == "Open")
+                        {
+                            <MudTooltip Text="Dismiss — gives its penalty points back">
+                                <MudIconButton Icon="@Icons.Material.Outlined.Close" Size="Size.Small"
+                                               OnClick="() => DismissAsync(finding)" aria-label="Dismiss finding" />
+                            </MudTooltip>
+                        }
+                    </div>
+                }
+            </MudPaper>
+        }
+    }
+</div>
+
+@code {
+    private bool _loading;
+    private bool _running;
+    private string? _error;
+    private WorldHealthDto? _health;
+    private ContinuityAssessment? _assessment;
+
+    // Mirrors ContinuityAuditService.PenaltyFor / TotalPenalty (High 12, Medium 6, Low 2, cap 40).
+    private static readonly (string Severity, int Penalty)[] SeverityPenalties =
+        [("High", 12), ("Medium", 6), ("Low", 2)];
+
+    private IReadOnlyList<ContinuityFinding> OpenFindings =>
+        _assessment is { HasData: true } a ? a.Findings.Where(f => f.Status == "Open").ToList() : [];
+
+    private int RawPenalty =>
+        OpenFindings.Sum(f => SeverityPenalties.FirstOrDefault(s => s.Severity == f.Severity).Penalty);
+
+    private int TotalPenalty => Math.Min(40, RawPenalty);
+
+    private bool PenaltyCapped => RawPenalty > 40;
+
+    private int EffectiveScore =>
+        _assessment is { HasData: true } a ? a.EffectiveScore : _health?.OverallScore ?? 0;
+
+    private IEnumerable<(string Name, int Value, string Explainer)> Components =>
+        _health is null ? [] :
+        [
+            ("Consistency", _health.Consistency, "Statements free of Disputed or False truth states — contradictions drag this down."),
+            ("Completeness", _health.Completeness, "Artifacts that are fleshed out: a summary plus at least one fact or relationship."),
+            ("Groundedness", _health.Groundedness, "Statements traceable to a source quote rather than floating unattributed."),
+            ("Recency", _health.Recency, "Artifacts touched in the last 30 days — a record that moves with the campaign."),
+        ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
+
+    private async Task LoadAsync()
+    {
+        if (Worlds.Current is null || Worlds.Current.MyRole != "GM")
+        {
+            _health = null;
+            _assessment = null;
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        var healthTask = Api.GetWorldHealthAsync(Worlds.Current.Id);
+        var assessmentTask = Api.GetContinuityAssessmentAsync(Worlds.Current.Id);
+        var health = await healthTask;
+        var assessment = await assessmentTask;
+
+        _loading = false;
+        if (health.IsSuccess)
+        {
+            _health = health.Value!;
+        }
+        else
+        {
+            _error = health.Error!.Message;
+        }
+
+        _assessment = assessment.IsSuccess ? assessment.Value : null;
+        StateHasChanged();
+    }
+
+    private async Task RunAssessmentAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _running = true;
+        StateHasChanged();
+
+        var result = await Api.RunContinuityAssessmentAsync(Worlds.Current.Id);
+        _running = false;
+
+        if (result.IsSuccess)
+        {
+            _assessment = result.Value!;
+            Worlds.SetContinuity(_assessment);
+            Snackbar.Add($"Assessment complete — {OpenFindings.Count} open finding(s).", Severity.Success);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+            StateHasChanged();
+        }
+    }
+
+    private async Task DismissAsync(ContinuityFinding finding)
+    {
+        if (Worlds.Current is null || _assessment is null)
+        {
+            return;
+        }
+
+        var result = await Api.DismissFindingAsync(Worlds.Current.Id, finding.Id);
+        if (result.IsSuccess)
+        {
+            _assessment = _assessment with
+            {
+                Findings = _assessment.Findings.Select(f => f.Id == finding.Id ? result.Value! : f).ToList(),
+                EffectiveScore = Math.Max(0, (_health?.OverallScore ?? 0) - Math.Min(40,
+                    _assessment.Findings.Where(f => f.Id != finding.Id && f.Status == "Open")
+                        .Sum(f => SeverityPenalties.FirstOrDefault(s => s.Severity == f.Severity).Penalty)))
+            };
+            Worlds.SetContinuity(_assessment);
+            Snackbar.Add("Finding dismissed — its penalty points are back.", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private static Color HealthColor(int score) => score switch
+    {
+        >= 70 => Color.Success,
+        >= 50 => Color.Warning,
+        _ => Color.Error,
+    };
+
+    private static Color SeverityColor(string severity) => severity switch
+    {
+        "High" => Color.Error,
+        "Medium" => Color.Warning,
+        _ => Color.Default,
+    };
+
+    private static int SeverityRank(string severity) => severity switch
+    {
+        "High" => 0,
+        "Medium" => 1,
+        _ => 2,
+    };
+
+    private static string Humanize(string pascal) =>
+        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+
+    private static string Ago(DateTimeOffset t)
+    {
+        var d = DateTimeOffset.UtcNow - t.ToUniversalTime();
+        if (d.TotalMinutes < 60) return $"{Math.Max(1, (int)d.TotalMinutes)}m ago";
+        if (d.TotalHours < 24) return $"{(int)d.TotalHours}h ago";
+        if (d.TotalDays < 2) return "yesterday";
+        return $"{(int)d.TotalDays}d ago";
+    }
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}
