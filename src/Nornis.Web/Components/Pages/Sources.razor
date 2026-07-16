@@ -14,7 +14,7 @@
         @if (_campaigns.Count > 0)
         {
             <MudSelect T="string" Value="_campaignFilter" ValueChanged="OnCampaignFilterChanged"
-                       Dense="true" Variant="Variant.Outlined" Label="Campaign" Class="nornis-role-select">
+                       Dense="true" Variant="Variant.Outlined" Class="nornis-role-select">
                 <MudSelectItem T="string" Value="@("")">All campaigns</MudSelectItem>
                 <MudSelectItem T="string" Value="@("none")">No campaign</MudSelectItem>
                 @foreach (var c in _campaigns)
