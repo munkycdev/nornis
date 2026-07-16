@@ -18,6 +18,7 @@ public class NornisDbContext : DbContext
     public DbSet<Character> Characters => Set<Character>();
     public DbSet<CampaignCharacter> CampaignCharacters => Set<CampaignCharacter>();
     public DbSet<Source> Sources => Set<Source>();
+    public DbSet<SourceAttachment> SourceAttachments => Set<SourceAttachment>();
     public DbSet<SourceExtraction> SourceExtractions => Set<SourceExtraction>();
     public DbSet<Artifact> Artifacts => Set<Artifact>();
     public DbSet<ArtifactFact> ArtifactFacts => Set<ArtifactFact>();

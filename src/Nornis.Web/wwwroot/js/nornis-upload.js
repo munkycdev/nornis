@@ -12,12 +12,23 @@
             return file ? { name: file.name, size: file.size, type: file.type || '' } : null;
         },
 
+        /// Returns all selected files' {name, size, type} for a multi-file input.
+        getFileInfos(inputId) {
+            const input = document.getElementById(inputId);
+            return Array.from(input?.files ?? []).map(f => ({ name: f.name, size: f.size, type: f.type || '' }));
+        },
+
         /// PUTs the selected file to the SAS URL. Reports progress (0-100) via
         /// dotnetRef.OnUploadProgress and resolves true/false for success.
         send(inputId, sasUrl, contentType, dotnetRef) {
+            return this.sendAt(inputId, 0, sasUrl, contentType, dotnetRef);
+        },
+
+        /// PUTs the file at the given index of a (multi-file) input to the SAS URL.
+        sendAt(inputId, index, sasUrl, contentType, dotnetRef) {
             return new Promise(resolve => {
                 const input = document.getElementById(inputId);
-                const file = input?.files?.[0];
+                const file = input?.files?.[index];
                 if (!file) {
                     resolve(false);
                     return;

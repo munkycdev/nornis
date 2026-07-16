@@ -39,6 +39,12 @@ public sealed class AzureBlobStorageService : IBlobStorageService
         return $"worlds/{worldId}/library/{documentId}/{sanitized}";
     }
 
+    public string BuildSourceBlobPath(Guid worldId, Guid sourceId, string fileName)
+    {
+        var sanitized = SanitizeFileName(fileName);
+        return $"worlds/{worldId}/sources/{sourceId}/{sanitized}";
+    }
+
     public Task<string> GenerateUploadSasUrlAsync(string blobPath, CancellationToken cancellationToken = default)
     {
         var sasBuilder = CreateSasBuilder(blobPath);

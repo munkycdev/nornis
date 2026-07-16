@@ -144,7 +144,10 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
                     artifactRepo,
                     artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),
+                    new InMemorySourceAttachmentRepository(),
+                    new FakeBlobStorageService(),
                     fakeAiClient,
+                    new FakeHandwritingTranscriptionClient(),
                     new FakeAiBudgetGuard(), unitOfWork,
                     options,
                     logger);
@@ -388,7 +391,10 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
             artifactRepo,
             artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),
+            new InMemorySourceAttachmentRepository(),
+            new FakeBlobStorageService(),
             fakeAiClient,
+            new FakeHandwritingTranscriptionClient(),
             new FakeAiBudgetGuard(), unitOfWork,
             options,
             logger);

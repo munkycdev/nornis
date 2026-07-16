@@ -171,13 +171,31 @@
             @if (!string.IsNullOrWhiteSpace(_source.Body))
             {
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-                    <div class="nornis-detail-section-title">Content</div>
+                    <div class="nornis-detail-section-title">
+                        @(_source.Type == "HandwrittenNotes" ? "Transcription" : "Content")
+                    </div>
                     @* Markdig parses the markdown (best CommonMark fidelity, HTML-safe), and a
                        read-only TipTap instance presents it — the same surface the capture
                        editor uses, so notes look exactly as authored. @key remounts the
                        component when navigating between sources. *@
                     <NotesEditor @key="_source.Id" ReadOnly="true"
                                  InitialHtml="@Nornis.Web.Services.MarkdownRenderer.ToHtml(_source.Body).Value" />
+                </MudPaper>
+            }
+
+            @if (PageImages.Count > 0)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="nornis-detail-section-title">Original pages</div>
+                    <div class="nornis-page-grid">
+                        @foreach (var pageImage in PageImages)
+                        {
+                            <a href="@pageImage.Url" target="_blank" rel="noopener" class="nornis-page-thumb"
+                               title="@pageImage.FileName">
+                                <img src="@pageImage.Url" alt="@pageImage.FileName" loading="lazy" />
+                            </a>
+                        }
+                    </div>
                 </MudPaper>
             }
         }
@@ -193,6 +211,10 @@
     private string? _error;
     private SourceDetailDto? _source;
     private Guid _loadedId;
+    private IReadOnlyList<SourceAttachmentDto> _attachments = [];
+
+    private IReadOnlyList<SourceAttachmentDto> PageImages =>
+        _attachments.Where(a => a.Kind == "PageImage" && a.Url is not null).ToList();
 
     // Inline edit form. Mirrors the Capture page's option lists so the two stay in sync.
     private readonly string[] _sourceTypes =
@@ -298,6 +320,15 @@
         if (result.IsSuccess)
         {
             _source = result.Value!;
+
+            // Blob-backed page images (handwritten sources). URLs are short-lived SAS
+            // links minted per load.
+            _attachments = [];
+            if (_source.Type == "HandwrittenNotes")
+            {
+                var attachments = await Api.GetSourceAttachmentsAsync(Worlds.Current.Id, SourceId);
+                _attachments = attachments.IsSuccess ? attachments.Value! : [];
+            }
         }
         else if (result.Error!.Code == "not_found")
         {

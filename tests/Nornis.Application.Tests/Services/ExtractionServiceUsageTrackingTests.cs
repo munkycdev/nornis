@@ -76,7 +76,10 @@ public class ExtractionServiceUsageTrackingTests
             _artifactRepo,
             _factRepo,
             new InMemoryArtifactRelationshipRepository(),
+            new InMemorySourceAttachmentRepository(),
+            new FakeBlobStorageService(),
             _aiClient,
+            new FakeHandwritingTranscriptionClient(),
             new FakeAiBudgetGuard(), _unitOfWork,
             Options.Create(opts),
             NullLogger<ExtractionService>.Instance);

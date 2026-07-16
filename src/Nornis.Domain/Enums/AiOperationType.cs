@@ -9,5 +9,6 @@ public enum AiOperationType
     ContinuityAudit,
     StorylineRetrospective,
     Embedding,
-    RelationshipBackfill
+    RelationshipBackfill,
+    HandwritingTranscription
 }

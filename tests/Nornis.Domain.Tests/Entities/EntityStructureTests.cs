@@ -132,7 +132,8 @@ public class EntityStructureTests
             .ToList();
 
         // 12 original + HealthAssessment + ContinuityFinding (AI-assessed Continuity
-        // Health) + Campaign/Character/CampaignCharacter (worlds-and-campaigns).
-        Assert.That(entityTypes, Has.Count.EqualTo(19));
+        // Health) + Campaign/Character/CampaignCharacter (worlds-and-campaigns)
+        // + SourceAttachment (handwritten notes).
+        Assert.That(entityTypes, Has.Count.EqualTo(20));
     }
 }

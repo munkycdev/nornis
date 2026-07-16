@@ -59,6 +59,22 @@ public class SourceRepository : ISourceRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task UpdateBodyAsync(Guid id, string body, CancellationToken cancellationToken = default)
+    {
+        // Scoped column write (same tracked-load pattern as UpdateProcessingStatusAsync):
+        // the worker persists a vision transcription without clobbering other columns.
+        var source = await _context.Sources
+            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+
+        if (source is null)
+        {
+            throw new InvalidOperationException($"Source with id '{id}' not found.");
+        }
+
+        source.Body = body;
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<Source> UpdateAsync(Source source, CancellationToken cancellationToken = default)
     {
         _context.Sources.Update(source);

@@ -11,6 +11,9 @@ public interface ISourceRepository
 
     Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default);
 
+    /// <summary>Scoped Body write — used by the worker to persist a vision transcription.</summary>
+    Task UpdateBodyAsync(Guid id, string body, CancellationToken cancellationToken = default);
+
     Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default);
 
     Task<Source> UpdateAsync(Source source, CancellationToken cancellationToken = default);

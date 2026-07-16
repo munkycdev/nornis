@@ -25,6 +25,7 @@ public class RepositoryInterfaceContractTests
         typeof(ICharacterRepository),
         typeof(ILibraryDocumentRepository),
         typeof(ILibraryChunkRepository),
+        typeof(ISourceAttachmentRepository),
         typeof(IUnitOfWork),
         typeof(ITransactionScope),
     ];
@@ -47,6 +48,7 @@ public class RepositoryInterfaceContractTests
         [typeof(ICharacterRepository)] = ["CreateAsync", "GetByIdAsync", "ListByWorldAsync", "ListByCampaignAsync", "UpdateAsync", "DeleteAsync", "ReplaceCampaignAssignmentsAsync"],
         [typeof(ILibraryDocumentRepository)] = ["CreateAsync", "GetByIdAsync", "ListByWorldAsync", "AnyIndexedAsync", "UpdateAsync", "DeleteAsync"],
         [typeof(ILibraryChunkRepository)] = ["ReplaceForDocumentAsync", "DeleteForDocumentAsync", "SearchAsync"],
+        [typeof(ISourceAttachmentRepository)] = ["CreateAsync", "GetByIdAsync", "ListBySourceAsync", "UpdateAsync", "DeleteAsync"],
         [typeof(IUnitOfWork)] = ["BeginTransactionAsync"],
         [typeof(ITransactionScope)] = ["CommitAsync", "RollbackAsync"],
     };

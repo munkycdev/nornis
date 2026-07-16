@@ -1631,6 +1631,33 @@ a.nornis-cite:hover {
     color: var(--mud-palette-text-secondary);
 }
 
+/* ---------------------------------------------------- Handwritten page images -- */
+
+.nornis-page-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.nornis-page-thumb {
+    display: block;
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: var(--mud-palette-surface);
+}
+
+.nornis-page-thumb:hover {
+    border-color: var(--mud-palette-secondary);
+}
+
+.nornis-page-thumb img {
+    display: block;
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+}
+
 /* ------------------------------------------------------- Public world (/w/) -- */
 
 .nornis-public-world-head {

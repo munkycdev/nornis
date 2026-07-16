@@ -17,10 +17,12 @@ namespace Nornis.Api.Controllers;
 public class SourcesController : ControllerBase
 {
     private readonly ISourceService _sourceService;
+    private readonly ISourceAttachmentService _attachmentService;
 
-    public SourcesController(ISourceService sourceService)
+    public SourcesController(ISourceService sourceService, ISourceAttachmentService attachmentService)
     {
         _sourceService = sourceService;
+        _attachmentService = attachmentService;
     }
 
     [HttpPost]
@@ -256,6 +258,121 @@ public class SourcesController : ControllerBase
         var response = ToSourceResponse(source);
 
         return Ok(response);
+    }
+
+    // ------------------------------------------------------------- Attachments --
+    // Blob-backed files on a source (handwritten page images, ink documents), using the
+    // same SAS handshake as the Library: request-upload → browser PUT → confirm.
+
+    [HttpPost("{sourceId:guid}/attachments/request-upload")]
+    public async Task<IActionResult> RequestAttachmentUpload(
+        Guid worldId, Guid sourceId, [FromBody] RequestSourceAttachmentUploadRequest request, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        if (!Enum.TryParse<SourceAttachmentKind>(request.Kind, ignoreCase: true, out var kind))
+        {
+            return BadRequest(new ErrorResponse("invalid_kind", $"'{request.Kind}' is not a valid attachment kind."));
+        }
+
+        var command = new RequestSourceAttachmentUploadCommand(
+            WorldId: worldId,
+            SourceId: sourceId,
+            ActingUserId: user.Id,
+            ActingUserRole: member.Role,
+            FileName: request.FileName,
+            ContentType: request.ContentType,
+            SizeBytes: request.SizeBytes,
+            Kind: kind,
+            Ord: request.Ord);
+
+        var result = await _attachmentService.RequestUploadAsync(command, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var ticket = result.Value!;
+        return Ok(new SourceAttachmentUploadResponse(ToAttachmentResponse(ticket.Attachment), ticket.UploadUrl));
+    }
+
+    [HttpPost("{sourceId:guid}/attachments/{attachmentId:guid}/confirm")]
+    public async Task<IActionResult> ConfirmAttachmentUpload(
+        Guid worldId, Guid sourceId, Guid attachmentId, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _attachmentService.ConfirmUploadAsync(attachmentId, sourceId, worldId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return Ok(ToAttachmentResponse(result.Value!));
+    }
+
+    [HttpGet("{sourceId:guid}/attachments")]
+    public async Task<IActionResult> ListAttachments(Guid worldId, Guid sourceId, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        // Read access rides on source read access: resolve the source through the same
+        // visibility rules the detail endpoint uses before exposing attachment URLs.
+        var sourceResult = await _sourceService.GetByIdAsync(sourceId, worldId, user.Id, member.Role, ct);
+        if (!sourceResult.IsSuccess)
+        {
+            return MapError(sourceResult.Error!);
+        }
+
+        var result = await _attachmentService.ListAsync(sourceId, worldId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var response = result.Value!
+            .Select(x => ToAttachmentResponse(x.Attachment, x.Url))
+            .ToList();
+
+        return Ok(response);
+    }
+
+    [HttpDelete("{sourceId:guid}/attachments/{attachmentId:guid}")]
+    public async Task<IActionResult> DeleteAttachment(
+        Guid worldId, Guid sourceId, Guid attachmentId, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _attachmentService.DeleteAsync(attachmentId, sourceId, worldId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return NoContent();
+    }
+
+    private static SourceAttachmentResponse ToAttachmentResponse(SourceAttachment attachment, string? url = null)
+    {
+        return new SourceAttachmentResponse(
+            Id: attachment.Id,
+            SourceId: attachment.SourceId,
+            Kind: attachment.Kind.ToString(),
+            FileName: attachment.FileName,
+            ContentType: attachment.ContentType,
+            SizeBytes: attachment.SizeBytes,
+            Ord: attachment.Ord,
+            Status: attachment.Status.ToString(),
+            CreatedAt: attachment.CreatedAt,
+            Url: url);
     }
 
     internal static SourceResponse ToSourceResponse(Source source)

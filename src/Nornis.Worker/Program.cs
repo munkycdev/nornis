@@ -50,6 +50,7 @@ var builder = Host.CreateDefaultBuilder(args)
 
         // Repository registrations
         services.AddScoped<ISourceRepository, SourceRepository>();
+        services.AddScoped<ISourceAttachmentRepository, SourceAttachmentRepository>();
         services.AddScoped<ICampaignRepository, CampaignRepository>();
         services.AddScoped<IWorldRepository, WorldRepository>();
         services.AddScoped<IReviewBatchRepository, ReviewBatchRepository>();
@@ -73,6 +74,9 @@ var builder = Host.CreateDefaultBuilder(args)
 
         // AI extraction client
         services.AddScoped<IAiExtractionClient, AzureOpenAiExtractionClient>();
+
+        // Handwriting transcription (vision) — shares the extraction ChatClient
+        services.AddScoped<IHandwritingTranscriptionClient, AzureOpenAiHandwritingTranscriptionClient>();
 
         // Daily AI budget guard (checked before every extraction AI call)
         services.Configure<AiBudgetOptions>(configuration.GetSection(AiBudgetOptions.SectionName));

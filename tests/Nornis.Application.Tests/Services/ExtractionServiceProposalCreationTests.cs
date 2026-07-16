@@ -72,7 +72,10 @@ public class ExtractionServiceProposalCreationTests
             _artifactRepo,
             _factRepo,
             new InMemoryArtifactRelationshipRepository(),
+            new InMemorySourceAttachmentRepository(),
+            new FakeBlobStorageService(),
             _aiClient,
+            new FakeHandwritingTranscriptionClient(),
             new FakeAiBudgetGuard(), _unitOfWork,
             options,
             NullLogger<ExtractionService>.Instance);

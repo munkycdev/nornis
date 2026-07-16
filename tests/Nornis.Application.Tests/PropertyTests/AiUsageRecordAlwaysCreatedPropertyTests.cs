@@ -71,7 +71,10 @@ public class AiUsageRecordAlwaysCreatedPropertyTests
             artifactRepo,
             artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),
+            new InMemorySourceAttachmentRepository(),
+            new FakeBlobStorageService(),
             fakeAiClient,
+            new FakeHandwritingTranscriptionClient(),
             new FakeAiBudgetGuard(), unitOfWork,
             options,
             logger);

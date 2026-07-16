@@ -139,6 +139,26 @@ public class NornisApiClient
     public Task<ApiResult<SourceDetailDto>> MarkSourceReadyAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         PostAsync<object?, SourceDetailDto>($"/api/worlds/{worldId}/sources/{sourceId}/ready", null, ct);
 
+    // Source attachments (handwritten page images, ink documents) — SAS upload handshake.
+
+    public Task<ApiResult<SourceAttachmentUploadTicketDto>> RequestSourceAttachmentUploadAsync(
+        Guid worldId, Guid sourceId, RequestSourceAttachmentUploadRequest request, CancellationToken ct = default) =>
+        PostAsync<RequestSourceAttachmentUploadRequest, SourceAttachmentUploadTicketDto>(
+            $"/api/worlds/{worldId}/sources/{sourceId}/attachments/request-upload", request, ct);
+
+    public Task<ApiResult<SourceAttachmentDto>> ConfirmSourceAttachmentUploadAsync(
+        Guid worldId, Guid sourceId, Guid attachmentId, CancellationToken ct = default) =>
+        PostAsync<object?, SourceAttachmentDto>(
+            $"/api/worlds/{worldId}/sources/{sourceId}/attachments/{attachmentId}/confirm", null, ct);
+
+    public Task<ApiResult<IReadOnlyList<SourceAttachmentDto>>> GetSourceAttachmentsAsync(
+        Guid worldId, Guid sourceId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<SourceAttachmentDto>>($"/api/worlds/{worldId}/sources/{sourceId}/attachments", ct);
+
+    public Task<ApiResult<bool>> DeleteSourceAttachmentAsync(
+        Guid worldId, Guid sourceId, Guid attachmentId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/sources/{sourceId}/attachments/{attachmentId}", ct);
+
     /// <summary>Applies a partial update to a source. The server rejects edits once the source
     /// is Queued/Processing/Processed.</summary>
     public Task<ApiResult<SourceDetailDto>> UpdateSourceAsync(Guid worldId, Guid sourceId, UpdateSourceRequest request, CancellationToken ct = default) =>

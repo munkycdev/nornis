@@ -11,6 +11,9 @@ public class FakeBlobStorageService : IBlobStorageService
     public string BuildBlobPath(Guid worldId, Guid documentId, string fileName) =>
         $"worlds/{worldId}/library/{documentId}/{fileName}";
 
+    public string BuildSourceBlobPath(Guid worldId, Guid sourceId, string fileName) =>
+        $"worlds/{worldId}/sources/{sourceId}/{fileName}";
+
     public Task<string> GenerateUploadSasUrlAsync(string blobPath, CancellationToken cancellationToken = default) =>
         Task.FromResult($"https://blob.test/{blobPath}?sas=upload");
 

@@ -13,6 +13,9 @@ public interface IBlobStorageService
     /// <summary>Deterministic blob path: worlds/{worldId}/library/{documentId}/{sanitized-filename}.</summary>
     string BuildBlobPath(Guid worldId, Guid documentId, string fileName);
 
+    /// <summary>Deterministic blob path for source attachments: worlds/{worldId}/sources/{sourceId}/{sanitized-filename}.</summary>
+    string BuildSourceBlobPath(Guid worldId, Guid sourceId, string fileName);
+
     /// <summary>Write-only SAS URL (Create|Write), 15-minute expiry, for direct browser upload.</summary>
     Task<string> GenerateUploadSasUrlAsync(string blobPath, CancellationToken cancellationToken = default);
 

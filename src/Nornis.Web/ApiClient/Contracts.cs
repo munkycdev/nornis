@@ -56,6 +56,29 @@ public record SourceListItem(
     Guid? CampaignId = null,
     string? CampaignName = null);
 
+public record SourceAttachmentDto(
+    Guid Id,
+    Guid SourceId,
+    string Kind,
+    string FileName,
+    string ContentType,
+    long SizeBytes,
+    int Ord,
+    string Status,
+    DateTimeOffset CreatedAt,
+    string? Url = null);
+
+public record SourceAttachmentUploadTicketDto(
+    SourceAttachmentDto Attachment,
+    string UploadUrl);
+
+public record RequestSourceAttachmentUploadRequest(
+    string FileName,
+    string ContentType,
+    long SizeBytes,
+    string Kind,
+    int Ord = 0);
+
 public record SourceDetailDto(
     Guid Id,
     Guid WorldId,

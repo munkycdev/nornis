@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Models;
+using Nornis.Application.Storage;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
@@ -22,7 +23,10 @@ public class ExtractionService : IExtractionService
     private readonly IArtifactRepository _artifactRepository;
     private readonly IArtifactFactRepository _artifactFactRepository;
     private readonly IArtifactRelationshipRepository _artifactRelationshipRepository;
+    private readonly ISourceAttachmentRepository _sourceAttachmentRepository;
+    private readonly IBlobStorageService _blobStorage;
     private readonly IAiExtractionClient _aiExtractionClient;
+    private readonly IHandwritingTranscriptionClient _transcriptionClient;
     private readonly IAiBudgetGuard _budgetGuard;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ExtractionOptions _options;
@@ -49,12 +53,18 @@ public class ExtractionService : IExtractionService
         IArtifactRepository artifactRepository,
         IArtifactFactRepository artifactFactRepository,
         IArtifactRelationshipRepository artifactRelationshipRepository,
+        ISourceAttachmentRepository sourceAttachmentRepository,
+        IBlobStorageService blobStorage,
         IAiExtractionClient aiExtractionClient,
+        IHandwritingTranscriptionClient transcriptionClient,
         IAiBudgetGuard budgetGuard,
         IUnitOfWork unitOfWork,
         IOptions<ExtractionOptions> options,
         ILogger<ExtractionService> logger)
     {
+        _sourceAttachmentRepository = sourceAttachmentRepository;
+        _blobStorage = blobStorage;
+        _transcriptionClient = transcriptionClient;
         _budgetGuard = budgetGuard;
         _sourceRepository = sourceRepository;
         _campaignRepository = campaignRepository;
@@ -137,6 +147,18 @@ public class ExtractionService : IExtractionService
         // 4. Transition: Queued → Processing
         await _sourceRepository.UpdateProcessingStatusAsync(sourceId, SourceProcessingStatus.Processing, ct);
 
+        // 4b. Handwritten notes arrive as page images; vision transcription produces the
+        // body here, then the normal pipeline continues. The transcription is persisted,
+        // so a redelivered message sees a non-empty body and skips this step.
+        if (source.Type == SourceType.HandwrittenNotes && string.IsNullOrWhiteSpace(source.Body))
+        {
+            var transcriptionOutcome = await TranscribeHandwrittenAsync(source, worldId, ct);
+            if (transcriptionOutcome is not null)
+            {
+                return transcriptionOutcome;
+            }
+        }
+
         // Imported notes carry frontmatter and wikilink markup from the previous
         // system; normalize before the empty-body check so a frontmatter-only note
         // short-circuits. The entity is detached — the stored body stays raw.
@@ -172,6 +194,143 @@ public class ExtractionService : IExtractionService
 
         // 8. AI invocation with parse retry
         return await InvokeAiWithRetriesAsync(source, worldId, context, ct);
+    }
+
+    /// <summary>
+    /// Vision-transcribes a handwritten source's page images into its Body. Returns null
+    /// to continue the normal pipeline (transcription succeeded, or there were no pages
+    /// and the empty-body path should handle it), or a terminal outcome on failure.
+    /// </summary>
+    private async Task<ExtractionOutcome?> TranscribeHandwrittenAsync(Source source, Guid worldId, CancellationToken ct)
+    {
+        var pages = (await _sourceAttachmentRepository.ListBySourceAsync(source.Id, ct))
+            .Where(a => a.Kind == SourceAttachmentKind.PageImage && a.Status == SourceAttachmentStatus.Stored)
+            .ToList();
+
+        if (pages.Count == 0)
+        {
+            return null; // nothing to transcribe — the empty-body short-circuit takes it
+        }
+
+        // Transcription is an AI spend of its own; gate it like extraction.
+        var budgetError = await _budgetGuard.CheckAsync(worldId, ct);
+        if (budgetError is not null)
+        {
+            _logger.LogWarning(
+                "Handwriting transcription blocked by AI budget. SourceId={SourceId}, WorldId={WorldId}",
+                source.Id, worldId);
+            await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+            return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
+        }
+
+        var images = new List<TranscriptionPage>(pages.Count);
+        foreach (var page in pages)
+        {
+            try
+            {
+                await using var stream = await _blobStorage.OpenReadAsync(page.BlobPath, ct);
+                using var buffer = new MemoryStream();
+                await stream.CopyToAsync(buffer, ct);
+                images.Add(new TranscriptionPage(buffer.ToArray(), page.ContentType));
+            }
+            catch (FileNotFoundException)
+            {
+                _logger.LogError(
+                    "Page image blob missing for handwritten source. SourceId={SourceId}, BlobPath={BlobPath}",
+                    source.Id, page.BlobPath);
+                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+                return ExtractionOutcome.NonTransient(ErrorCategories.ValidationFailure,
+                    $"Page image '{page.FileName}' is missing from storage.");
+            }
+        }
+
+        HandwritingTranscriptionResponse response;
+        try
+        {
+            response = await _transcriptionClient.TranscribeAsync(new HandwritingTranscriptionRequest
+            {
+                Pages = images,
+                Model = _options.AiModel,
+                TimeoutSeconds = _options.AiTimeoutSeconds
+            }, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (TimeoutException ex)
+        {
+            await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.Timeout, ct);
+            return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
+        }
+        catch (HttpRequestException ex) when (IsPermanentHttpFailure(ex))
+        {
+            _logger.LogError(ex, "Permanent transcription failure. SourceId={SourceId}", source.Id);
+            await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.AiCallFailure, ct);
+            await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+            return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "Transient transcription failure. SourceId={SourceId}", source.Id);
+            await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.TransientError, ct);
+            return await TransientOutcomeAsync(source, ErrorCategories.TransientError, ex.Message, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected transcription failure. SourceId={SourceId}", source.Id);
+            await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.AiCallFailure, ct);
+            await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+            return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
+        }
+
+        await TrackTranscriptionUsageAsync(source, worldId, response, true, null, ct);
+
+        if (string.IsNullOrWhiteSpace(response.Markdown))
+        {
+            // Blank pages: nothing to extract — let the empty-body path close it out.
+            _logger.LogInformation(
+                "Transcription produced no text. SourceId={SourceId}, Pages={Pages}", source.Id, pages.Count);
+            return null;
+        }
+
+        // Persist before continuing: extraction may still fail and retry, and the
+        // transcription must not be re-bought on redelivery.
+        await _sourceRepository.UpdateBodyAsync(source.Id, response.Markdown, ct);
+        source.Body = response.Markdown;
+
+        _logger.LogInformation(
+            "Handwriting transcribed. SourceId={SourceId}, Pages={Pages}, Chars={Chars}",
+            source.Id, pages.Count, response.Markdown.Length);
+
+        return null;
+    }
+
+    private async Task TrackTranscriptionUsageAsync(
+        Source source, Guid worldId, HandwritingTranscriptionResponse? response,
+        bool succeeded, string? errorCode, CancellationToken ct)
+    {
+        var costUsd = response is null || !_options.ModelPricing.TryGetValue(response.Model, out var pricing)
+            ? 0m
+            : response.InputTokens * pricing.InputPerMillionTokensUsd / 1_000_000m
+              + response.OutputTokens * pricing.OutputPerMillionTokensUsd / 1_000_000m;
+
+        await _aiUsageRecordRepository.CreateAsync(new AiUsageRecord
+        {
+            Id = Guid.NewGuid(),
+            WorldId = worldId,
+            SourceId = source.Id,
+            OperationType = AiOperationType.HandwritingTranscription,
+            Model = response?.Model ?? _options.AiModel,
+            InputTokens = response?.InputTokens ?? 0,
+            OutputTokens = response?.OutputTokens ?? 0,
+            TotalTokens = response?.TotalTokens ?? 0,
+            EstimatedCostUsd = costUsd,
+            DurationMs = response?.DurationMs ?? 0,
+            Succeeded = succeeded,
+            ErrorCode = errorCode,
+            CreatedAt = DateTimeOffset.UtcNow
+        }, ct);
     }
 
     private async Task<ExtractionOutcome> HandleEmptyBodyAsync(

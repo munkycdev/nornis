@@ -3,6 +3,8 @@
 @inject NornisApiClient Api
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@implements IDisposable
 
 <PageTitle>Capture — Nornis</PageTitle>
 
@@ -43,10 +45,41 @@ else
                     </MudSelect>
                 </div>
 
-                <div class="mb-3">
-                    <NotesEditor @ref="_editor"
-                                 Placeholder="Paste session notes, a journal entry, a transcript… Type # for a heading, - for a list, **bold**." />
-                </div>
+                @if (_type == "HandwrittenNotes")
+                {
+                    @* Page images go straight to blob via the SAS handshake; the worker
+                       vision-transcribes them into the body, then extraction runs. *@
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                        Add photos or page exports of your handwritten notes, in reading order.
+                        Nornis transcribes them and pulls artifacts from the transcription.
+                    </MudText>
+                    <InputFile id="@_pagesInputId" OnChange="OnPagesSelected" multiple
+                               class="nornis-upload-input mb-2" accept=".png,.jpg,.jpeg,.webp" />
+                    @if (_pageFiles.Count > 0)
+                    {
+                        <div class="mb-3">
+                            @for (var i = 0; i < _pageFiles.Count; i++)
+                            {
+                                var page = _pageFiles[i];
+                                <MudText Typo="Typo.body2">@($"Page {i + 1}: {page.Name} ({FormatSize(page.Size)})")</MudText>
+                            }
+                        </div>
+                    }
+                    @if (_busy && _pageFiles.Count > 0)
+                    {
+                        <MudProgressLinear Value="@_uploadProgress" Color="Color.Primary" Class="mb-2" />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                            Uploading page @(_uploadingIndex + 1) of @_pageFiles.Count…
+                        </MudText>
+                    }
+                }
+                else
+                {
+                    <div class="mb-3">
+                        <NotesEditor @ref="_editor"
+                                     Placeholder="Paste session notes, a journal entry, a transcript… Type # for a heading, - for a list, **bold**." />
+                    </div>
+                }
 
                 <MudTextField @bind-Value="_uri"
                               Label="Link (optional)"
@@ -150,6 +183,69 @@ else
         }
     }
 
+    // --------------------------------------------------- Handwritten page uploads --
+
+    private sealed record PendingPage(string Name, long Size, string Type);
+
+    private readonly string _pagesInputId = $"nornis-pages-{Guid.NewGuid():N}";
+    private List<PendingPage> _pageFiles = [];
+    private int _uploadingIndex;
+    private int _uploadProgress;
+    private DotNetObjectReference<Capture>? _selfRef;
+
+    private void OnPagesSelected(InputFileChangeEventArgs e)
+    {
+        _pageFiles = e.GetMultipleFiles(50)
+            .Select(f => new PendingPage(f.Name, f.Size, f.ContentType))
+            .ToList();
+    }
+
+    [JSInvokable]
+    public void OnUploadProgress(int percent)
+    {
+        _uploadProgress = percent;
+        InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Uploads each selected page via the SAS handshake. Returns null on success,
+    /// or the error message for the page that failed.</summary>
+    private async Task<string?> UploadPagesAsync(Guid worldId, Guid sourceId)
+    {
+        _selfRef ??= DotNetObjectReference.Create(this);
+
+        for (var i = 0; i < _pageFiles.Count; i++)
+        {
+            _uploadingIndex = i;
+            _uploadProgress = 0;
+            StateHasChanged();
+
+            var page = _pageFiles[i];
+            var ticket = await Api.RequestSourceAttachmentUploadAsync(worldId, sourceId,
+                new RequestSourceAttachmentUploadRequest(page.Name, page.Type, page.Size, "PageImage", Ord: i));
+            if (!ticket.IsSuccess)
+            {
+                return ticket.Error!.Message;
+            }
+
+            var sent = await JS.InvokeAsync<bool>("nornisUpload.sendAt",
+                _pagesInputId, i, ticket.Value!.UploadUrl, ticket.Value.Attachment.ContentType, _selfRef);
+            if (!sent)
+            {
+                return $"Page {i + 1} never reached storage. Try again.";
+            }
+
+            var confirmed = await Api.ConfirmSourceAttachmentUploadAsync(worldId, sourceId, ticket.Value.Attachment.Id);
+            if (!confirmed.IsSuccess)
+            {
+                return confirmed.Error!.Message;
+            }
+        }
+
+        return null;
+    }
+
+    public void Dispose() => _selfRef?.Dispose();
+
     private async Task SaveAsync(bool process)
     {
         if (Worlds.Current is null)
@@ -163,10 +259,17 @@ else
             return;
         }
 
+        var isHandwritten = _type == "HandwrittenNotes";
+        if (isHandwritten && _pageFiles.Count == 0)
+        {
+            _error = "Add at least one page image of your handwritten notes.";
+            return;
+        }
+
         _busy = true;
         _error = null;
 
-        var body = _editor is null ? null : await _editor.GetMarkdownAsync();
+        var body = isHandwritten || _editor is null ? null : await _editor.GetMarkdownAsync();
 
         var request = new CreateSourceRequest(
             _title.Trim(),
@@ -184,6 +287,17 @@ else
             _busy = false;
             _error = created.Error!.Message;
             return;
+        }
+
+        if (isHandwritten)
+        {
+            var uploadError = await UploadPagesAsync(Worlds.Current.Id, created.Value!.Id);
+            if (uploadError is not null)
+            {
+                _busy = false;
+                _error = $"Source saved as a draft, but a page upload failed: {uploadError}";
+                return;
+            }
         }
 
         if (process)
@@ -204,4 +318,11 @@ else
 
     private static string Humanize(string pascal) =>
         string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} MB",
+        >= 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes} B",
+    };
 }
