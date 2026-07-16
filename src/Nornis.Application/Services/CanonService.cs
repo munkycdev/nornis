@@ -41,7 +41,7 @@ public class CanonService : ICanonService
 
         var visibleIds = artifactsById.Keys.ToList();
 
-        var facts = await _factRepository.ListByArtifactIdsAsync(visibleIds, int.MaxValue, ct);
+        var facts = await _factRepository.ListByArtifactIdsAsync(visibleIds, allowedScopes, int.MaxValue, ct);
         var relationships = await _relationshipRepository.ListByArtifactIdsAsync(visibleIds, allowedScopes, ct);
 
         var entries = new List<CanonEntry>();

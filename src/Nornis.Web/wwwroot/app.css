@@ -14,7 +14,7 @@
     --nornis-onnavy-border: rgba(255, 255, 255, 0.10);
     --nornis-onnavy-muted: rgba(183, 193, 206, 0.75);
 
-    --nornis-card-shadow: 0 1px 2px rgba(18, 35, 59, 0.05), 0 8px 24px rgba(18, 35, 59, 0.05);
+    --nornis-card-shadow: 0 1px 2px rgba(14, 46, 74, 0.05), 0 8px 24px rgba(14, 46, 74, 0.05);
     --nornis-topo: radial-gradient(120% 100% at 50% 0%, rgba(196, 161, 90, 0.05) 0%, rgba(196, 161, 90, 0) 55%);
 }
 
@@ -2141,13 +2141,13 @@ a.nornis-cite:hover {
 .nornis-editor-content code, .nornis-markdown code {
     font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
     font-size: 0.9em;
-    background: rgba(18, 35, 59, 0.06);
+    background: rgba(14, 46, 74, 0.06);
     border-radius: 3px;
     padding: 0.1em 0.35em;
 }
 
 .nornis-editor-content pre, .nornis-markdown pre {
-    background: rgba(18, 35, 59, 0.06);
+    background: rgba(14, 46, 74, 0.06);
     border-radius: 6px;
     padding: 10px 12px;
     margin: 0 0 0.7em;
@@ -2225,15 +2225,21 @@ a.nornis-cite:hover {
     }
 }
 
-/* column-reverse pins the scroll position to the newest exchange without JS;
-   children are rendered newest-first. */
+/* The panel caps at the visible window (the rail is sticky at top:16px) and the
+   thread gets its own scrollbar; exchanges render newest-first under the composer. */
+.nornis-lm {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 32px);
+}
+
 .nornis-lm-thread {
     display: flex;
-    flex-direction: column-reverse;
+    flex-direction: column;
     gap: 14px;
-    max-height: 52vh;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
-    margin-bottom: 12px;
     padding-right: 4px;
 }
 
@@ -2298,4 +2304,29 @@ a.nornis-cite:hover {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+/* ------------------------------------------- Timeline drag-to-nest (JS) --- */
+
+.nornis-timeline-draggable {
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.nornis-timeline-ghost {
+    position: fixed;
+    z-index: 10000;
+    pointer-events: none;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 3px 10px;
+    border-radius: 6px;
+    background: #FDFBF7;
+    border: 1px solid rgba(63, 96, 121, 0.45);
+    box-shadow: 0 4px 14px rgba(14, 46, 74, 0.18);
+    font-size: 0.75rem;
+    color: #2A3B4C;
 }

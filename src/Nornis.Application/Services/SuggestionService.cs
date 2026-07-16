@@ -146,7 +146,7 @@ public class SuggestionService : ISuggestionService
             return [];
 
         var facts = await _artifactFactRepository.ListByArtifactIdsAsync(
-            recent.Select(a => a.Id).ToList(), MaxFactsPerArtifact, ct);
+            recent.Select(a => a.Id).ToList(), allowedScopes, MaxFactsPerArtifact, ct);
 
         var isGm = role == WorldRole.GM;
         var hasUnconfirmed = facts.Any(f =>

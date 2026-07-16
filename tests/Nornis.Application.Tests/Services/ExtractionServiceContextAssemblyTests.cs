@@ -432,6 +432,122 @@ public class ExtractionServiceContextAssemblyTests
         Assert.That(_reviewBatchRepository.Batches[0].Status, Is.EqualTo(ReviewBatchStatus.Completed));
     }
 
+    private ArtifactFact CreateFact(
+        Guid artifactId,
+        string predicate,
+        VisibilityScope visibility = VisibilityScope.PartyVisible,
+        TruthState truthState = TruthState.Confirmed,
+        DateTimeOffset? updatedAt = null)
+    {
+        return new ArtifactFact
+        {
+            Id = Guid.NewGuid(),
+            ArtifactId = artifactId,
+            Predicate = predicate,
+            Value = $"{predicate} value",
+            TruthState = truthState,
+            Visibility = visibility,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-10),
+            UpdatedAt = updatedAt ?? DateTimeOffset.UtcNow.AddHours(-1)
+        };
+    }
+
+    [Test]
+    public async Task FactScoping_PartyVisibleSource_ExcludesGmOnlyAndPrivateFacts()
+    {
+        // A PartyVisible extraction prompt must never see GM-only or Private facts,
+        // or it can echo hidden material into party-visible proposals.
+        var source = CreateQueuedSource("Captain Voss is in town.", VisibilityScope.PartyVisible);
+        _sourceRepository.Seed(source);
+
+        var artifact = CreateArtifact("Captain Voss");
+        _artifactRepository.Seed(artifact);
+        _artifactFactRepository.Seed(
+            CreateFact(artifact.Id, "public fact", VisibilityScope.PartyVisible),
+            CreateFact(artifact.Id, "gm secret", VisibilityScope.GMOnly),
+            CreateFact(artifact.Id, "private note", VisibilityScope.Private));
+
+        ConfigureSuccessfulAiResponse();
+
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+
+        var context = _aiClient.Requests[0].ExistingArtifacts.Single(a => a.Id == artifact.Id);
+        Assert.That(context.Facts.Select(f => f.Predicate), Is.EquivalentTo(new[] { "public fact" }));
+    }
+
+    [Test]
+    public async Task FactScoping_PartyVisibleSource_ExcludesHiddenTruthFacts()
+    {
+        // Hidden truth states are GM knowledge even when the fact's visibility scope is
+        // PartyVisible — same gate Ask and Canon apply.
+        var source = CreateQueuedSource("Captain Voss is in town.", VisibilityScope.PartyVisible);
+        _sourceRepository.Seed(source);
+
+        var artifact = CreateArtifact("Captain Voss");
+        _artifactRepository.Seed(artifact);
+        _artifactFactRepository.Seed(
+            CreateFact(artifact.Id, "known fact", VisibilityScope.PartyVisible, TruthState.Confirmed),
+            CreateFact(artifact.Id, "hidden truth", VisibilityScope.PartyVisible, TruthState.Hidden));
+
+        ConfigureSuccessfulAiResponse();
+
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+
+        var context = _aiClient.Requests[0].ExistingArtifacts.Single(a => a.Id == artifact.Id);
+        Assert.That(context.Facts.Select(f => f.Predicate), Is.EquivalentTo(new[] { "known fact" }));
+    }
+
+    [Test]
+    public async Task FactScoping_GmOnlySource_SeesGmFactsAndHiddenTruths()
+    {
+        // GM-authored sources extract against the full GM view (minus Private).
+        var source = CreateQueuedSource("Captain Voss is in town.", VisibilityScope.GMOnly);
+        _sourceRepository.Seed(source);
+
+        var artifact = CreateArtifact("Captain Voss");
+        _artifactRepository.Seed(artifact);
+        _artifactFactRepository.Seed(
+            CreateFact(artifact.Id, "public fact", VisibilityScope.PartyVisible),
+            CreateFact(artifact.Id, "gm secret", VisibilityScope.GMOnly),
+            CreateFact(artifact.Id, "hidden truth", VisibilityScope.PartyVisible, TruthState.Hidden),
+            CreateFact(artifact.Id, "private note", VisibilityScope.Private));
+
+        ConfigureSuccessfulAiResponse();
+
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+
+        var context = _aiClient.Requests[0].ExistingArtifacts.Single(a => a.Id == artifact.Id);
+        Assert.That(context.Facts.Select(f => f.Predicate),
+            Is.EquivalentTo(new[] { "public fact", "gm secret", "hidden truth" }));
+    }
+
+    [Test]
+    public async Task FactScoping_OutOfScopeFacts_DoNotConsumeCapSlots()
+    {
+        // The visibility filter applies before MaxFactsPerArtifact, so newer GM-only
+        // facts can't crowd party-visible facts out of a PartyVisible prompt.
+        _options.MaxFactsPerArtifact = 2;
+        _sut = CreateService();
+
+        var source = CreateQueuedSource("Captain Voss is in town.", VisibilityScope.PartyVisible);
+        _sourceRepository.Seed(source);
+
+        var artifact = CreateArtifact("Captain Voss");
+        _artifactRepository.Seed(artifact);
+        _artifactFactRepository.Seed(
+            CreateFact(artifact.Id, "gm newest", VisibilityScope.GMOnly, updatedAt: DateTimeOffset.UtcNow),
+            CreateFact(artifact.Id, "gm newer", VisibilityScope.GMOnly, updatedAt: DateTimeOffset.UtcNow.AddMinutes(-1)),
+            CreateFact(artifact.Id, "party a", VisibilityScope.PartyVisible, updatedAt: DateTimeOffset.UtcNow.AddMinutes(-2)),
+            CreateFact(artifact.Id, "party b", VisibilityScope.PartyVisible, updatedAt: DateTimeOffset.UtcNow.AddMinutes(-3)));
+
+        ConfigureSuccessfulAiResponse();
+
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+
+        var context = _aiClient.Requests[0].ExistingArtifacts.Single(a => a.Id == artifact.Id);
+        Assert.That(context.Facts.Select(f => f.Predicate), Is.EquivalentTo(new[] { "party a", "party b" }));
+    }
+
     [Test]
     public async Task Context_NestedStoryline_CarriesItsParentName()
     {

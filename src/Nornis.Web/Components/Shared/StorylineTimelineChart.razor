@@ -1,11 +1,14 @@
 @using System.Globalization
+@implements IAsyncDisposable
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 @* Branching storyline timeline on a real-world calendar, drawn like a git tree.
    Lanes are storylines grouped into campaign bands and ordered as families: children
    indent beneath their PartOf parent, fork connectors drop where a child arc begins,
    and Resolved children merge back into their parent where they end. Labels are an
-   HTML layer over the SVG so GMs can drag one storyline onto another to re-parent it. *@
+   HTML layer over the SVG; drag-to-nest is pointer-based via nornis-timeline.js —
+   grab a label and release anywhere on the target storyline's row. *@
 
 @if (Rows.Count == 0)
 {
@@ -30,12 +33,12 @@ else
         <span class="nornis-list-meta">band = session touching several storylines</span>
         @if (CanEdit)
         {
-            <span class="nornis-list-meta">drag a storyline onto another to nest it</span>
+            <span class="nornis-list-meta">drag a storyline label onto another row to nest it</span>
         }
     </div>
 
     <div class="nornis-timeline-scroll">
-        <div class="nornis-timeline-wrap" style="width:@(TotalWidth)px; height:@(TotalHeight)px">
+        <div id="@_elementId" class="nornis-timeline-wrap" style="width:@(TotalWidth)px; height:@(TotalHeight)px">
             <svg width="@TotalWidth" height="@TotalHeight" role="img" aria-label="Storyline timeline">
 
                 @* Month gridlines + calendar labels along the bottom *@
@@ -125,18 +128,11 @@ else
                 else
                 {
                     var lane = row.Lane;
-                    <div class="nornis-timeline-label @(_dragOverId == lane.StorylineId ? "nornis-timeline-droptarget" : "")"
+                    <div class="nornis-timeline-label @(CanEdit ? "nornis-timeline-draggable" : "")"
                          style="top:@(row.Top)px; height:@(row.Height)px; width:@(GutterWidth - 8)px; padding-left:@(8 + row.Depth * 16)px"
-                         title="@lane.Name (@lane.Status)@(CanEdit ? " — drag onto another storyline to nest it" : "")"
-                         draggable="@(CanEdit ? "true" : "false")"
-                         @onclick="@(() => Nav.NavigateTo($"/artifacts/{lane.StorylineId}"))"
-                         @ondragstart="@(() => _draggingId = lane.StorylineId)"
-                         @ondragend="@(() => { _draggingId = null; _dragOverId = null; })"
-                         @ondragenter="@(() => OnDragEnter(lane.StorylineId))"
-                         @ondragleave="@(() => OnDragLeave(lane.StorylineId))"
-                         @ondragover:preventDefault="true"
-                         @ondrop="@(() => OnDropAsync(lane))"
-                         @ondrop:preventDefault="true">
+                         title="@lane.Name (@lane.Status)@(CanEdit ? " — drag onto another storyline's row to nest it" : "")"
+                         data-storyline-id="@(CanEdit ? lane.StorylineId.ToString() : null)"
+                         @onclick="@(() => Nav.NavigateTo($"/artifacts/{lane.StorylineId}"))">
                         <span class="nornis-graph-dot" style="background:@StatusColor(lane.Status)"></span>
                         <span class="nornis-timeline-label-text">@lane.Name</span>
                     </div>
@@ -179,41 +175,52 @@ else
         ("Active", "#4E9A6B"), ("Dormant", "#C08A2E"), ("Resolved", "#3F6079"),
     ];
 
-    private Guid? _draggingId;
-    private Guid? _dragOverId;
+    private readonly string _elementId = $"nornis-timeline-{Guid.NewGuid():N}";
+    private DotNetObjectReference<StorylineTimelineChart>? _selfRef;
+    private bool _dragInitialized;
 
-    private void OnDragEnter(Guid laneId)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_draggingId is not null && _draggingId != laneId)
+        // The wrap div only exists once there are rows, so init on the first render
+        // that actually drew it rather than strictly on firstRender.
+        if (CanEdit && !_dragInitialized && Rows.Count > 0)
         {
-            _dragOverId = laneId;
+            _dragInitialized = true;
+            _selfRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("nornisTimeline.init", _elementId, _selfRef);
         }
     }
 
-    private void OnDragLeave(Guid laneId)
+    [JSInvokable]
+    public async Task OnJsReparent(string childId, string parentId)
     {
-        if (_dragOverId == laneId)
-        {
-            _dragOverId = null;
-        }
-    }
-
-    private async Task OnDropAsync(TimelineLaneDto target)
-    {
-        var draggingId = _draggingId;
-        _draggingId = null;
-        _dragOverId = null;
-
-        if (!CanEdit || draggingId is null || draggingId == target.StorylineId)
+        if (!CanEdit || !Guid.TryParse(childId, out var child) || !Guid.TryParse(parentId, out var parent) || child == parent)
         {
             return;
         }
 
-        var child = Data.Lanes.FirstOrDefault(l => l.StorylineId == draggingId);
-        if (child is not null)
+        var childLane = Data.Lanes.FirstOrDefault(l => l.StorylineId == child);
+        var parentLane = Data.Lanes.FirstOrDefault(l => l.StorylineId == parent);
+        if (childLane is not null && parentLane is not null)
         {
-            await ReparentRequested.InvokeAsync((child, target));
+            await InvokeAsync(() => ReparentRequested.InvokeAsync((childLane, parentLane)));
         }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_dragInitialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("nornisTimeline.destroy", _elementId);
+            }
+            catch (JSDisconnectedException)
+            {
+                // Circuit already gone — the browser cleaned up with the page.
+            }
+        }
+        _selfRef?.Dispose();
     }
 
     // ------------------------------------------------------------------ Layout --

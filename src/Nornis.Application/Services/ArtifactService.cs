@@ -292,8 +292,10 @@ public class ArtifactService : IArtifactService
         var storylineIds = storylines.Select(s => s.Id).ToList();
         var storylineIdSet = storylineIds.ToHashSet();
 
-        var facts = (await _factRepository.ListByArtifactIdsAsync(storylineIds, int.MaxValue, ct))
-            .Where(f => allowedScopes.Contains(f.Visibility))
+        // Hidden truth states are GM knowledge regardless of visibility scope — same gate
+        // Ask and Canon apply, so the timeline can't surface them to players either.
+        var facts = (await _factRepository.ListByArtifactIdsAsync(storylineIds, allowedScopes, int.MaxValue, ct))
+            .Where(f => role == WorldRole.GM || f.TruthState != TruthState.Hidden)
             .ToList();
 
         var relationships = (await _relationshipRepository.ListByArtifactIdsAsync(storylineIds, allowedScopes, ct))

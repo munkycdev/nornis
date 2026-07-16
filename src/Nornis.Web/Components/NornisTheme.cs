@@ -15,12 +15,12 @@ public static class NornisTheme
         PaletteLight = new PaletteLight
         {
             // Brand
-            Primary = "#12233B",          // deep navy — sidebar, primary actions
+            Primary = "#0E2E4A",          // deep navy — sidebar, primary actions (matches the logo background)
             Secondary = "#C4A15A",        // aged gold — accents, badges, active nav
             Tertiary = "#5E6B7A",         // slate — muted detail
 
             // Neutrals
-            Black = "#12233B",
+            Black = "#0E2E4A",
             White = "#FFFDF9",
             Background = "#F5F1E9",       // warm off-white body
             BackgroundGray = "#EFEADF",
@@ -28,8 +28,8 @@ public static class NornisTheme
 
             // Navigation (deep navy sidebar with light text + gold icons)
             AppbarBackground = "#FFFDF9",
-            AppbarText = "#12233B",
-            DrawerBackground = "#12233B",
+            AppbarText = "#0E2E4A",
+            DrawerBackground = "#0E2E4A",
             DrawerText = "#B7C1CE",
             DrawerIcon = "#C4A15A",
 

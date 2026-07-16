@@ -21,16 +21,41 @@
         }
     </div>
 
+    <div class="nornis-lm-composer mb-2">
+        <MudTextField T="string"
+                      @bind-Value="_input"
+                      Immediate="true"
+                      Placeholder="@(_conversation.Exchanges.Count > 0 ? "Ask a follow-up…" : "Who is the watch captain?")"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      OnKeyUp="OnKeyUp"
+                      Disabled="_asking"
+                      Class="flex-grow-1" />
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       OnClick="SendAsync"
+                       Disabled="_asking"
+                       aria-label="Ask" />
+    </div>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2"
+                  ShowCloseIcon="true" CloseIconClicked="() => _error = null">@_error</MudAlert>
+    }
+
     @if (_conversation.Exchanges.Count == 0 && !_asking)
     {
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
             Quick questions while you take notes — answered from your world record, with citations.
         </MudText>
     }
     else
     {
-        @* column-reverse keeps the scroll pinned to the newest exchange, so children are
-           rendered newest-first (thinking indicator first = visually last). *@
+        @* Newest first: the composer sits on top and the freshest answer lands right
+           under it; older exchanges scroll away below. *@
         <div class="nornis-lm-thread">
             @if (_asking)
             {
@@ -92,30 +117,6 @@
         </div>
     }
 
-    @if (_error is not null)
-    {
-        <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2"
-                  ShowCloseIcon="true" CloseIconClicked="() => _error = null">@_error</MudAlert>
-    }
-
-    <div class="nornis-lm-composer">
-        <MudTextField T="string"
-                      @bind-Value="_input"
-                      Immediate="true"
-                      Placeholder="@(_conversation.Exchanges.Count > 0 ? "Ask a follow-up…" : "Who is the watch captain?")"
-                      Variant="Variant.Outlined"
-                      Margin="Margin.Dense"
-                      OnKeyUp="OnKeyUp"
-                      Disabled="_asking"
-                      Class="flex-grow-1" />
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
-                       Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       Size="Size.Small"
-                       OnClick="SendAsync"
-                       Disabled="_asking"
-                       aria-label="Ask" />
-    </div>
 </MudPaper>
 
 @code {

@@ -173,6 +173,24 @@ public class ArtifactServiceTimelineTests
     }
 
     [Test]
+    public async Task Timeline_HiddenTruthFactsHiddenFromPlayers()
+    {
+        // Hidden truth states are GM knowledge even when the fact's visibility scope is
+        // PartyVisible — the timeline applies the same gate as Ask and Canon.
+        var storyline = SeedArtifact("Arc");
+        var session = SeedSession("Session", DateTimeOffset.UtcNow.AddDays(-3));
+        var hidden = SeedFact(storyline, "twist", "The patron is the villain",
+            VisibilityScope.PartyVisible, TruthState.Hidden);
+        SeedReference(hidden.Id, SourceReferenceTargetType.ArtifactFact, session);
+
+        var asPlayer = await _service.GetStorylineTimelineAsync(_worldId, _gmUserId, WorldRole.Player, CancellationToken.None);
+        var asGm = await _service.GetStorylineTimelineAsync(_worldId, _gmUserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(asPlayer.Value!.Lanes.Single().Points, Is.Empty);
+        Assert.That(asGm.Value!.Lanes.Single().Points, Has.Count.EqualTo(1));
+    }
+
+    [Test]
     public async Task Timeline_ArchivedStorylinesExcluded()
     {
         SeedArtifact("Merged leftover", status: ArtifactStatus.Archived);

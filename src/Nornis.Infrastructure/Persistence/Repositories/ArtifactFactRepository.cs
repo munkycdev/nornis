@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Persistence.Repositories;
@@ -44,6 +45,7 @@ public class ArtifactFactRepository : IArtifactFactRepository
 
     public async Task<IReadOnlyList<ArtifactFact>> ListByArtifactIdsAsync(
         IReadOnlyList<Guid> artifactIds,
+        IReadOnlyList<VisibilityScope> allowedVisibilities,
         int maxPerArtifact,
         CancellationToken cancellationToken = default)
     {
@@ -53,6 +55,7 @@ public class ArtifactFactRepository : IArtifactFactRepository
         var facts = await _context.ArtifactFacts
             .AsNoTracking()
             .Where(f => artifactIds.Contains(f.ArtifactId))
+            .Where(f => allowedVisibilities.Contains(f.Visibility))
             .OrderByDescending(f => f.UpdatedAt)
             .ToListAsync(cancellationToken);
 

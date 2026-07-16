@@ -71,7 +71,7 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
         // the visibility scope on the fact itself (parity with CanonService).
         var isGm = role == WorldRole.GM;
         var allFacts = await _artifactFactRepository.ListByArtifactIdsAsync(
-            artifactIds, _options.MaxFactsPerArtifact, ct);
+            artifactIds, allowedScopes, _options.MaxFactsPerArtifact, ct);
 
         var filteredFacts = allFacts
             .Where(f => IsVisibleToUser(f.Visibility, allowedScopes))

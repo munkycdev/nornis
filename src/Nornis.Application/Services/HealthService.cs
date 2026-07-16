@@ -41,7 +41,7 @@ public class HealthService : IHealthService
 
         var artifactIds = artifacts.Select(a => a.Id).ToList();
 
-        var facts = await _factRepository.ListByArtifactIdsAsync(artifactIds, int.MaxValue, ct);
+        var facts = await _factRepository.ListByArtifactIdsAsync(artifactIds, AllScopes, int.MaxValue, ct);
         var relationships = await _relationshipRepository.ListByArtifactIdsAsync(artifactIds, AllScopes, ct);
 
         var statementCount = facts.Count + relationships.Count;

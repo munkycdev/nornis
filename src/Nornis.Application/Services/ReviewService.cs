@@ -102,8 +102,11 @@ public class ReviewService : IReviewService
 
         if (proposals.Any(p => p.ChangeType == ReviewChangeType.UpdateFact && p.TargetId is not null))
         {
+            // Name resolution for the review UI — all scopes, same as the relationship load below.
             var facts = await _artifactFactRepository.ListByArtifactIdsAsync(
-                artifactNames.Keys.ToList(), int.MaxValue, ct);
+                artifactNames.Keys.ToList(),
+                [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
+                int.MaxValue, ct);
             factsById = facts.ToDictionary(f => f.Id);
         }
 

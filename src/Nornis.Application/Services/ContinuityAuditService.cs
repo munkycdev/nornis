@@ -134,7 +134,7 @@ public class ContinuityAuditService : IContinuityAuditService
         var artifactIds = artifacts.Select(a => a.Id).ToList();
 
         var facts = artifactIds.Count > 0
-            ? await _factRepository.ListByArtifactIdsAsync(artifactIds, MaxFactsPerArtifactInAudit, ct)
+            ? await _factRepository.ListByArtifactIdsAsync(artifactIds, AllScopes, MaxFactsPerArtifactInAudit, ct)
             : [];
         var relationships = artifactIds.Count > 0
             ? await _relationshipRepository.ListByArtifactIdsAsync(artifactIds, AllScopes, ct)

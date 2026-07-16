@@ -239,10 +239,16 @@ public class ExtractionService : IExtractionService
             return [];
         }
 
-        // Load facts for each artifact
+        // Load facts for each artifact, scoped to what this source's readers may see —
+        // a PartyVisible extraction must never quote GM-only material back into
+        // party-visible proposals. Hidden truth states are GM knowledge regardless of
+        // the fact's visibility scope, so only GM-authored (GMOnly) sources see them.
         var artifactIds = merged.Select(a => a.Id).ToList();
-        var facts = await _artifactFactRepository.ListByArtifactIdsAsync(
-            artifactIds, _options.MaxFactsPerArtifact, ct);
+        var includeHiddenTruths = source.Visibility == VisibilityScope.GMOnly;
+        var facts = (await _artifactFactRepository.ListByArtifactIdsAsync(
+                artifactIds, allowedVisibilities, _options.MaxFactsPerArtifact, ct))
+            .Where(f => includeHiddenTruths || f.TruthState != TruthState.Hidden)
+            .ToList();
 
         var factsByArtifact = facts.GroupBy(f => f.ArtifactId)
             .ToDictionary(g => g.Key, g => g.ToList());
