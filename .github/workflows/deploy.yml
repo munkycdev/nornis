@@ -91,6 +91,7 @@ jobs:
           SQL_CONNECTION_STRING: ${{ secrets.SQL_CONNECTION_STRING }}
         run: |
           dotnet tool install --global dotnet-ef --version 10.*
+          dotnet restore Nornis.sln
           dotnet ef database update \
             --project src/Nornis.Infrastructure \
             --startup-project src/Nornis.Api \
