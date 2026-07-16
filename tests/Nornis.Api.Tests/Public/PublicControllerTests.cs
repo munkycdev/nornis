@@ -113,6 +113,34 @@ public class PublicControllerTests
     }
 
     [Test]
+    public async Task PublicSources_ListLimitedToSessionAndImportedNotes_DetailStillReachable()
+    {
+        var scenario = await SetupPublicWorldAsync();
+
+        var session = await scenario.GmClient.PostAsJsonAsync($"/api/worlds/{scenario.World.Id}/sources",
+            new CreateSourceRequest("Session 1", "SessionNote", "PartyVisible", Body: "We sailed."));
+        var sessionId = (await session.Content.ReadFromJsonAsync<SourceResponse>())!.Id;
+
+        var imported = await scenario.GmClient.PostAsJsonAsync($"/api/worlds/{scenario.World.Id}/sources",
+            new CreateSourceRequest("Old campaign log", "ImportedNote", "PartyVisible", Body: "Year one."));
+        var importedId = (await imported.Content.ReadFromJsonAsync<SourceResponse>())!.Id;
+
+        var journal = await scenario.GmClient.PostAsJsonAsync($"/api/worlds/{scenario.World.Id}/sources",
+            new CreateSourceRequest("Voss's diary", "JournalEntry", "PartyVisible", Body: "Dear diary."));
+        var journalId = (await journal.Content.ReadFromJsonAsync<SourceResponse>())!.Id;
+
+        var list = await _anonymous.GetFromJsonAsync<List<SourceListItemResponse>>(
+            "/api/public/worlds/black-harbor/sources");
+        var journalDetail = await _anonymous.GetAsync($"/api/public/worlds/black-harbor/sources/{journalId}");
+
+        Assert.That(list!.Select(s => s.Id), Is.SupersetOf(new[] { sessionId, importedId }));
+        Assert.That(list!.Select(s => s.Id), Does.Not.Contain(journalId),
+            "only SessionNote and ImportedNote appear in the public list");
+        Assert.That(journalDetail.StatusCode, Is.EqualTo(HttpStatusCode.OK),
+            "party-visible sources of other types stay reachable by direct link (timeline points)");
+    }
+
+    [Test]
     public async Task PublicSources_PartyVisibleReadable_GmOnly404()
     {
         var scenario = await SetupPublicWorldAsync();
