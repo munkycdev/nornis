@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using Nornis.Domain.Repositories;
 using NUnit.Framework;
 
@@ -23,6 +23,8 @@ public class RepositoryInterfaceContractTests
         typeof(IHealthAssessmentRepository),
         typeof(ICampaignRepository),
         typeof(ICharacterRepository),
+        typeof(ILibraryDocumentRepository),
+        typeof(ILibraryChunkRepository),
         typeof(IUnitOfWork),
         typeof(ITransactionScope),
     ];
@@ -43,6 +45,8 @@ public class RepositoryInterfaceContractTests
         [typeof(IHealthAssessmentRepository)] = ["CreateAsync", "GetLatestWithFindingsAsync", "GetLatestCreatedAtAsync", "GetFindingByIdAsync", "UpdateFindingAsync"],
         [typeof(ICampaignRepository)] = ["CreateAsync", "GetByIdAsync", "ListByWorldAsync", "UpdateAsync", "DeleteAsync"],
         [typeof(ICharacterRepository)] = ["CreateAsync", "GetByIdAsync", "ListByWorldAsync", "ListByCampaignAsync", "UpdateAsync", "DeleteAsync", "ReplaceCampaignAssignmentsAsync"],
+        [typeof(ILibraryDocumentRepository)] = ["CreateAsync", "GetByIdAsync", "ListByWorldAsync", "AnyIndexedAsync", "UpdateAsync", "DeleteAsync"],
+        [typeof(ILibraryChunkRepository)] = ["ReplaceForDocumentAsync", "DeleteForDocumentAsync", "SearchAsync"],
         [typeof(IUnitOfWork)] = ["BeginTransactionAsync"],
         [typeof(ITransactionScope)] = ["CommitAsync", "RollbackAsync"],
     };

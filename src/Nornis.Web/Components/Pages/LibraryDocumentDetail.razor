@@ -1,0 +1,194 @@
+@page "/library/{DocumentId:guid}"
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject NavigationManager Nav
+
+<PageTitle>@(_document?.Title ?? "Library") — Nornis</PageTitle>
+
+<div class="nornis-narrow">
+    <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text"
+               Color="Color.Default" Href="/library" Class="mb-3">
+        Library
+    </MudButton>
+
+    @if (Worlds.Current is null)
+    {
+        <NoWorld />
+    }
+    else if (_loading)
+    {
+        <LoadingRows Rows="3" />
+    }
+    else if (_document is null)
+    {
+        <MudAlert Severity="Severity.Warning">This document doesn't exist or you can't see it.</MudAlert>
+    }
+    else
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <div class="d-flex align-center gap-3 mb-2">
+                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Large" Color="Color.Secondary" />
+                <div class="flex-grow-1">
+                    <MudText Typo="Typo.h5" Class="nornis-serif">@_document.Title</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @_document.Kind · @_document.FileName · @FormatSize(_document.SizeBytes)
+                        @(_document.PageCount is { } p ? $" · {p} pages" : "")
+                    </MudText>
+                </div>
+                @if (_document.Visibility == "GMOnly")
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">GM only</MudChip>
+                }
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_document.Status)">
+                    @(_document.Status == "Indexed" ? $"Indexed · {_document.ChunkCount} passages" : _document.Status)
+                </MudChip>
+            </div>
+
+            @if (_document.Status == "Indexed")
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    The Loremaster can quote this book — ask it anything and citations will
+                    point back here with page numbers.
+                </MudText>
+            }
+            else if (_document.Status == "IndexFailed")
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">
+                    Indexing failed: @_document.ErrorMessage
+                </MudAlert>
+            }
+
+            <div class="d-flex gap-2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.Download" OnClick="DownloadAsync">
+                    Download
+                </MudButton>
+                @if (_document.Status == "IndexFailed")
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Outlined.Refresh" OnClick="ReindexAsync">
+                        Retry indexing
+                    </MudButton>
+                }
+                <MudSpacer />
+                <MudButton Variant="Variant.Text" Color="Color.Error"
+                           StartIcon="@Icons.Material.Outlined.Delete" OnClick="DeleteAsync">
+                    Delete
+                </MudButton>
+            </div>
+        </MudPaper>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid DocumentId { get; set; }
+
+    private bool _loading;
+    private LibraryDocumentDto? _document;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_document is not null && _document.Id != DocumentId)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
+
+    private async Task LoadAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            _document = null;
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        StateHasChanged();
+
+        var result = await Api.GetLibraryDocumentAsync(Worlds.Current.Id, DocumentId);
+        _loading = false;
+        _document = result.IsSuccess ? result.Value : null;
+        StateHasChanged();
+    }
+
+    private async Task DownloadAsync()
+    {
+        if (Worlds.Current is null || _document is null) return;
+        var result = await Api.GetLibraryDownloadAsync(Worlds.Current.Id, _document.Id);
+        if (result.IsSuccess)
+        {
+            await JS.InvokeVoidAsync("nornisUpload.open", result.Value!.DownloadUrl);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private async Task ReindexAsync()
+    {
+        if (Worlds.Current is null || _document is null) return;
+        var result = await Api.ReindexLibraryDocumentAsync(Worlds.Current.Id, _document.Id);
+        if (result.IsSuccess)
+        {
+            Snackbar.Add("Indexing queued.", Severity.Info);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (Worlds.Current is null || _document is null) return;
+        var confirmed = await DialogService.ShowMessageBox(
+            "Delete document?",
+            $"Remove \"{_document.Title}\" from the library? Its file and indexed passages are deleted.",
+            yesText: "Delete", cancelText: "Cancel");
+        if (confirmed != true) return;
+
+        var result = await Api.DeleteLibraryDocumentAsync(Worlds.Current.Id, _document.Id);
+        if (result.IsSuccess)
+        {
+            Snackbar.Add($"\"{_document.Title}\" removed.", Severity.Success);
+            Nav.NavigateTo("/library");
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Indexed" => Color.Success,
+        "Indexing" => Color.Info,
+        "IndexFailed" => Color.Error,
+        _ => Color.Default,
+    };
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} MB",
+        >= 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes} B",
+    };
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}

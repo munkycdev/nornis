@@ -11,6 +11,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Messaging;
 using Nornis.Application.Services;
+using Nornis.Application.Storage;
 using Nornis.Application.Validation;
 using Nornis.Domain.Repositories;
 using Nornis.Infrastructure.Ai;
@@ -18,6 +19,7 @@ using Nornis.Infrastructure.Knowledge;
 using Nornis.Infrastructure.Messaging;
 using Nornis.Infrastructure.Persistence;
 using Nornis.Infrastructure.Persistence.Repositories;
+using Nornis.Infrastructure.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,6 +75,8 @@ builder.Services.AddScoped<IArtifactRelationshipRepository, ArtifactRelationship
 builder.Services.AddScoped<ISourceReferenceRepository, SourceReferenceRepository>();
 builder.Services.AddScoped<IAiUsageRecordRepository, AiUsageRecordRepository>();
 builder.Services.AddScoped<IHealthAssessmentRepository, HealthAssessmentRepository>();
+builder.Services.AddScoped<ILibraryDocumentRepository, LibraryDocumentRepository>();
+builder.Services.AddScoped<ILibraryChunkRepository, LibraryChunkRepository>();
 builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
 // Application service registrations
@@ -117,6 +121,11 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
     builder.Services.AddScoped<ILoremasterAiClient, AzureOpenAiLoremasterClient>();
     builder.Services.AddScoped<IAuditAiClient, AzureOpenAiAuditClient>();
     builder.Services.AddScoped<IRetrospectiveAiClient, AzureOpenAiRetrospectiveClient>();
+
+    // Library passage retrieval reuses the same account with the embedding deployment.
+    var embeddingDeployment = builder.Configuration["Library:EmbeddingDeployment"] ?? "nornis-embed";
+    builder.Services.AddSingleton(openAiClient.GetEmbeddingClient(embeddingDeployment));
+    builder.Services.AddScoped<IEmbeddingClient, AzureOpenAiEmbeddingClient>();
 }
 else
 {
@@ -130,6 +139,9 @@ else
     builder.Services.AddScoped<IRetrospectiveAiClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable storyline retrospectives."));
+    builder.Services.AddScoped<IEmbeddingClient>(sp =>
+        throw new InvalidOperationException(
+            "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable library passage retrieval."));
 }
 
 // Azure Service Bus and extraction queue
@@ -138,11 +150,33 @@ if (!string.IsNullOrEmpty(serviceBusConnectionString))
 {
     builder.Services.AddSingleton(new ServiceBusClient(serviceBusConnectionString));
     builder.Services.AddSingleton<IExtractionQueueClient, ServiceBusExtractionQueueClient>();
+    builder.Services.AddSingleton<ILibraryIndexingQueueClient, ServiceBusLibraryIndexingQueueClient>();
 }
 else
 {
     // In development without Service Bus, use a no-op client that logs instead of sending
     builder.Services.AddSingleton<IExtractionQueueClient, NoOpExtractionQueueClient>();
+    builder.Services.AddSingleton<ILibraryIndexingQueueClient, NoOpLibraryIndexingQueueClient>();
+}
+
+// Library: blob storage + document management
+builder.Services.Configure<LibraryOptions>(builder.Configuration.GetSection(LibraryOptions.SectionName));
+builder.Services.AddScoped<ILibraryService, LibraryService>();
+builder.Services.AddScoped<IReferencePassageRetriever, ReferencePassageRetriever>();
+var blobConnectionString = builder.Configuration["BlobStorage:ConnectionString"];
+if (!string.IsNullOrEmpty(blobConnectionString))
+{
+    builder.Services.AddSingleton<IBlobStorageService>(sp =>
+        new AzureBlobStorageService(
+            blobConnectionString,
+            builder.Configuration["BlobStorage:ContainerName"] ?? AzureBlobStorageService.DefaultContainerName,
+            sp.GetRequiredService<ILogger<AzureBlobStorageService>>()));
+}
+else
+{
+    builder.Services.AddSingleton<IBlobStorageService>(sp =>
+        throw new InvalidOperationException(
+            "Blob storage is not configured. Set 'BlobStorage:ConnectionString' to enable the Library."));
 }
 
 // MVC action filter for world-scoped endpoints

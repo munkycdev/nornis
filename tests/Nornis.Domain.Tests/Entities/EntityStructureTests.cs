@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using Nornis.Domain.Entities;
 using NUnit.Framework;
 
@@ -124,7 +124,7 @@ public class EntityStructureTests
     }
 
     [Test]
-    public void Domain_Assembly_Contains_Exactly_17_Entity_Classes()
+    public void Domain_Assembly_Contains_Exactly_19_Entity_Classes()
     {
         var entityTypes = typeof(User).Assembly
             .GetTypes()
@@ -133,6 +133,6 @@ public class EntityStructureTests
 
         // 12 original + HealthAssessment + ContinuityFinding (AI-assessed Continuity
         // Health) + Campaign/Character/CampaignCharacter (worlds-and-campaigns).
-        Assert.That(entityTypes, Has.Count.EqualTo(17));
+        Assert.That(entityTypes, Has.Count.EqualTo(19));
     }
 }

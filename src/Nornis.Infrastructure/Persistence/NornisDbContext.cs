@@ -1,5 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.Data.SqlTypes;
+using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
+using Nornis.Infrastructure.Persistence.Configurations;
 
 namespace Nornis.Infrastructure.Persistence;
 
@@ -26,9 +28,22 @@ public class NornisDbContext : DbContext
     public DbSet<AiUsageRecord> AiUsageRecords => Set<AiUsageRecord>();
     public DbSet<HealthAssessment> HealthAssessments => Set<HealthAssessment>();
     public DbSet<ContinuityFinding> ContinuityFindings => Set<ContinuityFinding>();
+    public DbSet<LibraryDocument> LibraryDocuments => Set<LibraryDocument>();
+    public DbSet<LibraryChunk> LibraryChunks => Set<LibraryChunk>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(NornisDbContext).Assembly);
+
+        // The chunk embedding is a SQL Server-native vector column; Sqlite/InMemory test
+        // providers have no such type, so it exists only on the real provider. Repository
+        // vector paths (Replace/Search) therefore require SQL Server.
+        if (Database.IsSqlServer())
+        {
+            modelBuilder.Entity<LibraryChunk>()
+                .Property<SqlVector<float>>(LibraryChunkConfiguration.EmbeddingProperty)
+                .HasColumnType($"vector({LibraryChunkConfiguration.EmbeddingDimensions})")
+                .IsRequired();
+        }
     }
 }

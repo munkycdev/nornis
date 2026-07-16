@@ -148,6 +148,30 @@ public class NornisApiClient
     public Task<ApiResult<bool>> DeleteSourceAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}/sources/{sourceId}", ct);
 
+    // ------------------------------------------------------------------ Library --
+
+    public Task<ApiResult<LibraryUploadTicketDto>> RequestLibraryUploadAsync(
+        Guid worldId, RequestLibraryUploadRequest request, CancellationToken ct = default) =>
+        PostAsync<RequestLibraryUploadRequest, LibraryUploadTicketDto>($"/api/worlds/{worldId}/library/request-upload", request, ct);
+
+    public Task<ApiResult<LibraryDocumentDto>> ConfirmLibraryUploadAsync(Guid worldId, Guid documentId, CancellationToken ct = default) =>
+        PostAsync<object?, LibraryDocumentDto>($"/api/worlds/{worldId}/library/{documentId}/confirm", null, ct);
+
+    public Task<ApiResult<IReadOnlyList<LibraryDocumentDto>>> GetLibraryAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<LibraryDocumentDto>>($"/api/worlds/{worldId}/library", ct);
+
+    public Task<ApiResult<LibraryDocumentDto>> GetLibraryDocumentAsync(Guid worldId, Guid documentId, CancellationToken ct = default) =>
+        GetAsync<LibraryDocumentDto>($"/api/worlds/{worldId}/library/{documentId}", ct);
+
+    public Task<ApiResult<LibraryDownloadDto>> GetLibraryDownloadAsync(Guid worldId, Guid documentId, CancellationToken ct = default) =>
+        GetAsync<LibraryDownloadDto>($"/api/worlds/{worldId}/library/{documentId}/download", ct);
+
+    public Task<ApiResult<bool>> DeleteLibraryDocumentAsync(Guid worldId, Guid documentId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/library/{documentId}", ct);
+
+    public Task<ApiResult<LibraryDocumentDto>> ReindexLibraryDocumentAsync(Guid worldId, Guid documentId, CancellationToken ct = default) =>
+        PostAsync<object?, LibraryDocumentDto>($"/api/worlds/{worldId}/library/{documentId}/reindex", null, ct);
+
     // ------------------------------------------------------------------ Knowledge --
 
     public Task<ApiResult<IReadOnlyList<ArtifactListItem>>> GetArtifactsAsync(

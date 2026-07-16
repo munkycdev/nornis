@@ -7,5 +7,6 @@ public enum AiOperationType
     AskLoremaster,
     SourceExtractionRepair,
     ContinuityAudit,
-    StorylineRetrospective
+    StorylineRetrospective,
+    Embedding
 }

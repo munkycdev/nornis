@@ -33,7 +33,7 @@ public class LoremasterServicePromptTests
         };
 
         _budgetGuard = new FakeAiBudgetGuard();
-        _service = new LoremasterService(_knowledgeRetriever, _aiClient, _aiUsageRecordRepository, _budgetGuard, Options.Create(_options));
+        _service = new LoremasterService(_knowledgeRetriever, new FakeReferencePassageRetriever(), _aiClient, _aiUsageRecordRepository, _budgetGuard, Options.Create(_options));
     }
 
     [Test]

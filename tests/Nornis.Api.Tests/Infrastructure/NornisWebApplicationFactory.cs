@@ -21,12 +21,15 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _databaseName = Guid.NewGuid().ToString();
     private readonly FakeExtractionQueueClient _fakeExtractionQueueClient = new();
+    private readonly FakeBlobStorageService _fakeBlobStorage = new();
 
     /// <summary>
     /// The fake extraction queue client used by this factory instance.
     /// Tests can use this to assert on messages sent or configure failures.
     /// </summary>
     public FakeExtractionQueueClient ExtractionQueueClient => _fakeExtractionQueueClient;
+
+    public FakeBlobStorageService BlobStorage => _fakeBlobStorage;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -72,6 +75,27 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
                 services.Remove(retroDescriptor);
             }
             services.AddScoped<Nornis.Application.Ai.IRetrospectiveAiClient, FakeRetrospectiveAiClient>();
+
+            // Same story for the library passage retriever: its embedding client is a
+            // throwing DI stub when Azure OpenAI is unconfigured, which would break
+            // controller activation for every Loremaster endpoint.
+            var passageDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(Nornis.Application.Knowledge.IReferencePassageRetriever));
+            if (passageDescriptor is not null)
+            {
+                services.Remove(passageDescriptor);
+            }
+            services.AddScoped<Nornis.Application.Knowledge.IReferencePassageRetriever, FakeReferencePassageRetriever>();
+
+            // Blob storage is a throwing DI stub when unconfigured — replace with an
+            // in-memory fake so Library endpoints are testable.
+            var blobDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(Nornis.Application.Storage.IBlobStorageService));
+            if (blobDescriptor is not null)
+            {
+                services.Remove(blobDescriptor);
+            }
+            services.AddSingleton<Nornis.Application.Storage.IBlobStorageService>(_fakeBlobStorage);
 
             // Override JWT Bearer authentication to validate against the test issuer
             services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>

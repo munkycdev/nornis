@@ -2330,3 +2330,20 @@ a.nornis-cite:hover {
     font-size: 0.75rem;
     color: #2A3B4C;
 }
+
+/* --------------------------------------------------------------- Library --- */
+
+.nornis-upload-input {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    border: 1px dashed var(--mud-palette-lines-inputs);
+    border-radius: 8px;
+    background: var(--mud-palette-background);
+    cursor: pointer;
+}
+
+/* Book citations (Loremaster passage refs) get a small book glyph. */
+.nornis-cite-book {
+    gap: 5px;
+}

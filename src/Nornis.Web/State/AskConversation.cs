@@ -7,6 +7,9 @@ public class AskCitation
 {
     public string DisplayName { get; set; } = string.Empty;
     public Guid? ArtifactId { get; set; }
+
+    /// <summary>Library document, for passage citations ("Title, p. N").</summary>
+    public Guid? DocumentId { get; set; }
 }
 
 public class AskExchange

@@ -76,7 +76,7 @@ public class AiUsageRecordAlwaysCreatedTests
         });
 
         var service = new LoremasterService(
-            knowledgeRetriever,
+            knowledgeRetriever, new FakeReferencePassageRetriever(),
             aiClient,
             usageRepo,
             new FakeAiBudgetGuard(), options);

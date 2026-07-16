@@ -9,4 +9,7 @@ public class Citation
     public Guid? FactId { get; init; }
     public Guid? RelationshipId { get; init; }
     public Guid? SourceId { get; init; }
+
+    /// <summary>Library document for Passage citations — links to /library/{id}.</summary>
+    public Guid? DocumentId { get; init; }
 }

@@ -104,6 +104,12 @@
                                     {
                                         <a href="@($"/artifacts/{c.ArtifactId}")" class="nornis-cite">@c.DisplayName</a>
                                     }
+                                    else if (c.DocumentId is not null)
+                                    {
+                                        <a href="@($"/library/{c.DocumentId}")" class="nornis-cite nornis-cite-book">
+                                            <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Small" />@c.DisplayName
+                                        </a>
+                                    }
                                     else
                                     {
                                         <span class="nornis-cite">@c.DisplayName</span>
@@ -187,7 +193,7 @@
                 Question = q,
                 Answer = CleanAnswer(a.Answer),
                 Confidence = a.Confidence,
-                Citations = a.Citations.Select(c => new AskCitation { DisplayName = c.DisplayName, ArtifactId = c.ArtifactId }).ToList(),
+                Citations = a.Citations.Select(c => new AskCitation { DisplayName = c.DisplayName, ArtifactId = c.ArtifactId, DocumentId = c.DocumentId }).ToList(),
                 Caveats = a.Caveats.ToList(),
             });
             if (_conversation.Exchanges.Count == 1)

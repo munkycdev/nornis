@@ -1,4 +1,4 @@
-﻿using Nornis.Domain.Enums;
+using Nornis.Domain.Enums;
 using NUnit.Framework;
 
 namespace Nornis.Domain.Tests.Enums;
@@ -107,7 +107,7 @@ public class EnumDefinitionTests
     public void AiOperationType_HasExpectedValues()
     {
         AssertEnumHasExactValues<AiOperationType>(
-            "SourceExtraction", "ArtifactSummary", "AskLoremaster", "SourceExtractionRepair", "ContinuityAudit", "StorylineRetrospective");
+            "SourceExtraction", "ArtifactSummary", "AskLoremaster", "SourceExtractionRepair", "ContinuityAudit", "StorylineRetrospective", "Embedding");
     }
 
     [Test]
@@ -197,7 +197,7 @@ public class EnumDefinitionTests
     [Test]
     public void AiOperationType_HasNoUnexpectedValues()
     {
-        Assert.That(Enum.GetNames<AiOperationType>(), Has.Length.EqualTo(6));
+        Assert.That(Enum.GetNames<AiOperationType>(), Has.Length.EqualTo(7));
     }
 
     [Test]
@@ -215,8 +215,8 @@ public class EnumDefinitionTests
             .ToList();
 
         // 15 original + ContinuityFindingCategory/Severity/Status (AI-assessed Continuity
-        // Health) + CampaignStatus (worlds-and-campaigns).
-        Assert.That(enumTypes, Has.Count.EqualTo(19),
-            "Expected exactly 19 enums in Nornis.Domain.Enums namespace.");
+        // Health) + CampaignStatus (worlds-and-campaigns) + LibraryDocumentKind/Status (Library).
+        Assert.That(enumTypes, Has.Count.EqualTo(21),
+            "Expected exactly 21 enums in Nornis.Domain.Enums namespace.");
     }
 }

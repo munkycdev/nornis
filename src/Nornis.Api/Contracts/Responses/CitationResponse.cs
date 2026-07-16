@@ -7,4 +7,5 @@ public record CitationResponse(
     Guid? ArtifactId,
     Guid? FactId,
     Guid? RelationshipId,
-    Guid? SourceId);
+    Guid? SourceId,
+    Guid? DocumentId = null);

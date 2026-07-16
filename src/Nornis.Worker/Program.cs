@@ -5,11 +5,13 @@ using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Services;
+using Nornis.Application.Storage;
 using Nornis.Domain.Repositories;
 using Nornis.Infrastructure.Ai;
 using Nornis.Infrastructure.Messaging;
 using Nornis.Infrastructure.Persistence;
 using Nornis.Infrastructure.Persistence.Repositories;
+using Nornis.Infrastructure.Storage;
 using Nornis.Worker;
 using Nornis.Worker.Configuration;
 using OpenAI.Chat;
@@ -91,8 +93,50 @@ var builder = Host.CreateDefaultBuilder(args)
                 options.MaxAutoLockRenewalDuration);
         });
 
-        // Hosted service
+        // Library indexing: blob storage, PDF text extraction, embeddings, chunk store
+        services.Configure<LibraryOptions>(configuration.GetSection(LibraryOptions.SectionName));
+        services.AddScoped<ILibraryDocumentRepository, LibraryDocumentRepository>();
+        services.AddScoped<ILibraryChunkRepository, LibraryChunkRepository>();
+        services.AddSingleton<IPdfTextExtractor, PdfPigTextExtractor>();
+        services.AddScoped<ILibraryIndexingService, LibraryIndexingService>();
+
+        var blobConnectionString = configuration["BlobStorage:ConnectionString"];
+        if (string.IsNullOrWhiteSpace(blobConnectionString))
+            throw new InvalidOperationException(
+                "Required configuration 'BlobStorage:ConnectionString' is missing. The worker cannot index library documents without blob storage.");
+        services.AddSingleton<IBlobStorageService>(sp =>
+            new AzureBlobStorageService(
+                blobConnectionString,
+                configuration["BlobStorage:ContainerName"] ?? AzureBlobStorageService.DefaultContainerName,
+                sp.GetRequiredService<ILogger<AzureBlobStorageService>>()));
+
+        // Embedding client shares the extraction endpoint/key with the nornis-embed deployment.
+        services.AddSingleton<OpenAI.Embeddings.EmbeddingClient>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<ExtractionOptions>>().Value;
+            var libraryOptions = sp.GetRequiredService<IOptions<LibraryOptions>>().Value;
+            var azureClient = new AzureOpenAIClient(
+                new Uri(options.AiEndpoint),
+                new ApiKeyCredential(configuration["Extraction:AiApiKey"] ?? string.Empty));
+            return azureClient.GetEmbeddingClient(libraryOptions.EmbeddingDeployment);
+        });
+        services.AddScoped<IEmbeddingClient, AzureOpenAiEmbeddingClient>();
+
+        // Second queue processor (keyed): same Service Bus namespace, library-indexing queue.
+        services.AddKeyedSingleton<ServiceBusExtractionProcessor>(LibraryIndexingWorker.ProcessorKey, (sp, _) =>
+        {
+            var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
+            return new ServiceBusExtractionProcessor(
+                options.ConnectionString,
+                ServiceBusLibraryIndexingQueueClient.QueueName,
+                options.MaxConcurrentCalls,
+                options.PrefetchCount,
+                options.MaxAutoLockRenewalDuration);
+        });
+
+        // Hosted services
         services.AddHostedService<ExtractionWorker>();
+        services.AddHostedService<LibraryIndexingWorker>();
     });
 
 var host = builder.Build();

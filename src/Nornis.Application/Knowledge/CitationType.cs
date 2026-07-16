@@ -5,5 +5,6 @@ public enum CitationType
     Artifact,
     Fact,
     Relationship,
-    Source
+    Source,
+    Passage
 }

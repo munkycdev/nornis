@@ -79,7 +79,8 @@ public class LoremasterController : ControllerBase
             ArtifactId: citation.ArtifactId,
             FactId: citation.FactId,
             RelationshipId: citation.RelationshipId,
-            SourceId: citation.SourceId);
+            SourceId: citation.SourceId,
+            DocumentId: citation.DocumentId);
     }
 
     private IActionResult MapError(AppError error)

@@ -1,0 +1,154 @@
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+@* Chronicis's 3-step SAS handshake from Blazor Server: request-upload mints the write URL,
+   nornis-upload.js PUTs the file straight to blob storage (never over the SignalR circuit),
+   and confirm verifies arrival — queueing indexing when it's a PDF. *@
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="_title" Label="Title" Required="true" Immediate="true"
+                      MaxLength="200" Variant="Variant.Outlined" Class="mb-3" />
+
+        <div class="d-flex gap-3 mb-3">
+            <MudSelect @bind-Value="_kind" Label="Kind" Variant="Variant.Outlined" Class="flex-grow-1">
+                @foreach (var kind in Kinds)
+                {
+                    <MudSelectItem Value="@kind">@kind</MudSelectItem>
+                }
+            </MudSelect>
+            @if (Worlds.Current?.MyRole == "GM")
+            {
+                <MudSelect @bind-Value="_visibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1">
+                    <MudSelectItem Value="@("GMOnly")">GM only</MudSelectItem>
+                    <MudSelectItem Value="@("PartyVisible")">Party visible</MudSelectItem>
+                </MudSelect>
+            }
+        </div>
+
+        @* Plain file input: nornis-upload.js reads it by id for the direct-to-blob PUT. *@
+        <InputFile id="@_inputId" OnChange="OnFileSelected" class="nornis-upload-input"
+                   accept=".pdf,.png,.jpg,.jpeg,.gif,.webp" />
+
+        @if (_fileName is not null)
+        {
+            <MudText Typo="Typo.body2" Class="mt-2">@_fileName (@FormatSize(_fileSize))</MudText>
+        }
+
+        @if (_uploading)
+        {
+            <MudProgressLinear Value="@_progress" Color="Color.Primary" Class="mt-3" />
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Uploading… @_progress%</MudText>
+        }
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Disabled="_uploading">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                   OnClick="UploadAsync"
+                   Disabled="@(_uploading || _fileName is null || string.IsNullOrWhiteSpace(_title))">
+            Upload
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private static readonly string[] Kinds = ["Sourcebook", "Map", "Handout", "Other"];
+
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = null!;
+
+    private readonly string _inputId = $"nornis-upload-{Guid.NewGuid():N}";
+    private string _title = string.Empty;
+    private string _kind = "Sourcebook";
+    private string _visibility = "GMOnly";
+    private string? _fileName;
+    private string _contentType = string.Empty;
+    private long _fileSize;
+    private bool _uploading;
+    private int _progress;
+    private string? _error;
+    private DotNetObjectReference<LibraryUploadDialog>? _selfRef;
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        _fileName = file.Name;
+        _fileSize = file.Size;
+        _contentType = file.ContentType;
+        if (string.IsNullOrWhiteSpace(_title))
+        {
+            _title = Path.GetFileNameWithoutExtension(file.Name);
+        }
+    }
+
+    [JSInvokable]
+    public void OnUploadProgress(int percent)
+    {
+        _progress = percent;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task UploadAsync()
+    {
+        if (Worlds.Current is null || _fileName is null)
+        {
+            return;
+        }
+
+        _uploading = true;
+        _progress = 0;
+        _error = null;
+
+        var visibility = Worlds.Current.MyRole == "GM" ? _visibility : "PartyVisible";
+        var ticket = await Api.RequestLibraryUploadAsync(Worlds.Current.Id,
+            new RequestLibraryUploadRequest(_title.Trim(), _fileName, _contentType, _fileSize, _kind, visibility));
+
+        if (!ticket.IsSuccess)
+        {
+            _uploading = false;
+            _error = ticket.Error!.Message;
+            return;
+        }
+
+        _selfRef ??= DotNetObjectReference.Create(this);
+        var uploaded = await JS.InvokeAsync<bool>("nornisUpload.send",
+            _inputId, ticket.Value!.UploadUrl, ticket.Value.Document.ContentType, _selfRef);
+
+        if (!uploaded)
+        {
+            _uploading = false;
+            _error = "Upload failed — the file never reached storage. Try again.";
+            return;
+        }
+
+        var confirmed = await Api.ConfirmLibraryUploadAsync(Worlds.Current.Id, ticket.Value.Document.Id);
+        _uploading = false;
+
+        if (!confirmed.IsSuccess)
+        {
+            _error = confirmed.Error!.Message;
+            return;
+        }
+
+        var isPdf = confirmed.Value!.Status == "Indexing";
+        Snackbar.Add(isPdf
+            ? $"\"{_title.Trim()}\" uploaded — indexing for the Loremaster now."
+            : $"\"{_title.Trim()}\" uploaded.", Severity.Success);
+        MudDialog.Close(DialogResult.Ok(confirmed.Value));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} MB",
+        >= 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes} B",
+    };
+}

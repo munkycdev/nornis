@@ -1,0 +1,239 @@
+@page "/library"
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Library — Nornis</PageTitle>
+
+<div class="d-flex align-center justify-space-between mb-4">
+    <div>
+        <MudText Typo="Typo.h4" Class="nornis-serif">Library</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Sourcebooks, maps, and handouts — reference material, not world memory.
+            Indexed PDFs answer through the Loremaster with page citations.
+        </MudText>
+    </div>
+    @if (Worlds.Current is not null && Worlds.Current.MyRole != "Observer")
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                   StartIcon="@Icons.Material.Outlined.UploadFile"
+                   OnClick="OpenUploadAsync">
+            Add to library
+        </MudButton>
+    }
+</div>
+
+@if (Worlds.Current is null)
+{
+    <NoWorld />
+}
+else if (_loading)
+{
+    <LoadingRows Rows="3" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_documents.Count == 0)
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+        <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Large" Class="nornis-comingsoon-icon" />
+        <MudText Typo="Typo.h5" Class="nornis-serif">The shelves are empty</MudText>
+        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+            Upload adventure sourcebooks and the Loremaster can quote them mid-session —
+            "what happens at level 8?" answered with page citations.
+        </MudText>
+    </MudPaper>
+}
+else
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+        @foreach (var doc in _documents)
+        {
+            <div class="nornis-list-row">
+                <div class="nornis-list-thumb"><MudIcon Icon="@KindIcon(doc.Kind)" Size="Size.Small" /></div>
+                <div class="nornis-list-body">
+                    <a href="@($"/library/{doc.Id}")" class="nornis-list-title nornis-link">@doc.Title</a>
+                    <div class="nornis-list-sub">
+                        @doc.Kind · @FormatSize(doc.SizeBytes)@(doc.PageCount is { } p ? $" · {p} pages" : "")
+                    </div>
+                </div>
+                @if (doc.Visibility == "GMOnly")
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">GM only</MudChip>
+                }
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(doc.Status)">
+                    @StatusLabel(doc)
+                </MudChip>
+                @if (doc.Status == "IndexFailed")
+                {
+                    <MudTooltip Text="@($"Retry indexing. {doc.ErrorMessage}")">
+                        <MudIconButton Icon="@Icons.Material.Outlined.Refresh" Size="Size.Small"
+                                       OnClick="() => ReindexAsync(doc)" aria-label="Retry indexing" />
+                    </MudTooltip>
+                }
+                <MudTooltip Text="Download">
+                    <MudIconButton Icon="@Icons.Material.Outlined.Download" Size="Size.Small"
+                                   OnClick="() => DownloadAsync(doc)" aria-label="Download" />
+                </MudTooltip>
+                @if (CanManage(doc))
+                {
+                    <MudTooltip Text="Delete">
+                        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small"
+                                       OnClick="() => DeleteAsync(doc)" aria-label="Delete" />
+                    </MudTooltip>
+                }
+            </div>
+        }
+    </MudPaper>
+}
+
+@code {
+    private bool _loading;
+    private string? _error;
+    private IReadOnlyList<LibraryDocumentDto> _documents = [];
+    private Guid? _myUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
+
+    private async Task LoadAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            _documents = [];
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        var listTask = Api.GetLibraryAsync(Worlds.Current.Id);
+        var meTask = Api.GetMyMembershipAsync(Worlds.Current.Id);
+        await Task.WhenAll(listTask, meTask);
+
+        _loading = false;
+        if (listTask.Result.IsSuccess)
+        {
+            _documents = listTask.Result.Value!;
+        }
+        else
+        {
+            _error = listTask.Result.Error!.Message;
+        }
+        _myUserId = meTask.Result.Value?.UserId;
+        StateHasChanged();
+    }
+
+    private async Task OpenUploadAsync()
+    {
+        var dialog = await DialogService.ShowAsync<LibraryUploadDialog>("Add to library",
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task DownloadAsync(LibraryDocumentDto doc)
+    {
+        if (Worlds.Current is null) return;
+        var result = await Api.GetLibraryDownloadAsync(Worlds.Current.Id, doc.Id);
+        if (result.IsSuccess)
+        {
+            await JS.InvokeVoidAsync("nornisUpload.open", result.Value!.DownloadUrl);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private async Task DeleteAsync(LibraryDocumentDto doc)
+    {
+        if (Worlds.Current is null) return;
+        var confirmed = await DialogService.ShowMessageBox(
+            "Delete document?",
+            $"Remove \"{doc.Title}\" from the library? Its file and indexed passages are deleted.",
+            yesText: "Delete", cancelText: "Cancel");
+        if (confirmed != true) return;
+
+        var result = await Api.DeleteLibraryDocumentAsync(Worlds.Current.Id, doc.Id);
+        if (result.IsSuccess)
+        {
+            Snackbar.Add($"\"{doc.Title}\" removed from the library.", Severity.Success);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private async Task ReindexAsync(LibraryDocumentDto doc)
+    {
+        if (Worlds.Current is null) return;
+        var result = await Api.ReindexLibraryDocumentAsync(Worlds.Current.Id, doc.Id);
+        if (result.IsSuccess)
+        {
+            Snackbar.Add("Indexing queued.", Severity.Info);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    // Mirrors the server rule (uploader or GM); the server still enforces it.
+    private bool CanManage(LibraryDocumentDto doc) =>
+        Worlds.Current?.MyRole == "GM" || doc.UploadedByUserId == _myUserId;
+
+    private static string StatusLabel(LibraryDocumentDto doc) => doc.Status switch
+    {
+        "Indexed" => $"Indexed · {doc.ChunkCount} passages",
+        "Indexing" => "Indexing…",
+        "IndexFailed" => "Index failed",
+        "Stored" => "Stored",
+        _ => doc.Status,
+    };
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Indexed" => Color.Success,
+        "Indexing" => Color.Info,
+        "IndexFailed" => Color.Error,
+        _ => Color.Default,
+    };
+
+    private static string KindIcon(string kind) => kind switch
+    {
+        "Sourcebook" => Icons.Material.Outlined.MenuBook,
+        "Map" => Icons.Material.Outlined.Map,
+        "Handout" => Icons.Material.Outlined.Description,
+        _ => Icons.Material.Outlined.InsertDriveFile,
+    };
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024 * 1024):0.#} GB",
+        >= 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} MB",
+        >= 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes} B",
+    };
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}

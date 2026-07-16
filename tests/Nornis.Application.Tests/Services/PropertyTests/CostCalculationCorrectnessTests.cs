@@ -58,7 +58,7 @@ public class CostCalculationCorrectnessTests
         });
 
         var service = new LoremasterService(
-            knowledgeRetriever,
+            knowledgeRetriever, new FakeReferencePassageRetriever(),
             aiClient,
             usageRepo,
             new FakeAiBudgetGuard(), options);
@@ -129,7 +129,7 @@ public class CostCalculationCorrectnessTests
         });
 
         var service = new LoremasterService(
-            knowledgeRetriever,
+            knowledgeRetriever, new FakeReferencePassageRetriever(),
             aiClient,
             usageRepo,
             new FakeAiBudgetGuard(), options);

@@ -16,6 +16,7 @@ namespace Nornis.Application.Services;
 public partial class LoremasterService : ILoremasterService
 {
     private readonly IKnowledgeRetriever _knowledgeRetriever;
+    private readonly IReferencePassageRetriever _passageRetriever;
     private readonly ILoremasterAiClient _aiClient;
     private readonly IAiUsageRecordRepository _aiUsageRecordRepository;
     private readonly IAiBudgetGuard _budgetGuard;
@@ -30,10 +31,21 @@ public partial class LoremasterService : ILoremasterService
         - Ground every answer exclusively in the provided world knowledge context.
         - Do not invent world facts, events, names, or relationships not present in the context.
         - Do not import knowledge from real-world games, published adventures, or other worlds —
-          even when a name in this world matches something you recognize.
+          even when a name in this world matches something you recognize. The only exception is
+          the Published Reference section below, when present.
         - If the context does not contain the answer, say so plainly: "I don't have a confirmed
           source for that yet." Offer the nearest related knowledge you DO have, clearly labeled as such.
         - Partial knowledge is fine to share, as long as you say where the record runs out.
+
+        ## Published Reference Material
+        - The context may include a "Published Reference" section: passages from rulebooks and
+          adventure modules the group has loaded into their library. Use them freely for rules
+          questions and module content ("what happens at level 8?").
+        - Reference material describes what a book says, not what has happened in this world.
+          Never present module events as things that occurred; world canon lives only in the
+          artifacts, facts, and relationships above it. When the two disagree, the world record
+          wins and the disagreement is worth naming.
+        - Cite passages like any other reference: [ref:passage:ID].
 
         ## Citation Format
         - Cite supporting items using [ref:ID] notation, where ID exactly matches a reference from
@@ -72,12 +84,14 @@ public partial class LoremasterService : ILoremasterService
 
     public LoremasterService(
         IKnowledgeRetriever knowledgeRetriever,
+        IReferencePassageRetriever passageRetriever,
         ILoremasterAiClient aiClient,
         IAiUsageRecordRepository aiUsageRecordRepository,
         IAiBudgetGuard budgetGuard,
         IOptions<LoremasterOptions> options)
     {
         _knowledgeRetriever = knowledgeRetriever;
+        _passageRetriever = passageRetriever;
         _aiClient = aiClient;
         _aiUsageRecordRepository = aiUsageRecordRepository;
         _budgetGuard = budgetGuard;
@@ -114,6 +128,22 @@ public partial class LoremasterService : ILoremasterService
                 command.UserId,
                 command.UserRole,
                 ct);
+
+            // Library passages ride alongside world memory. The retriever is defensive
+            // (returns [] on any failure) and skips embedding when no docs are indexed.
+            var passages = await _passageRetriever.RetrieveAsync(
+                command.Question, command.WorldId, command.UserId, command.UserRole, ct);
+            if (passages.Count > 0)
+            {
+                context = new KnowledgeContext
+                {
+                    Artifacts = context.Artifacts,
+                    Facts = context.Facts,
+                    Relationships = context.Relationships,
+                    SourceReferences = context.SourceReferences,
+                    Passages = passages,
+                };
+            }
         }
         catch (Exception)
         {
@@ -369,7 +399,8 @@ public partial class LoremasterService : ILoremasterService
         var hasContent = context.Artifacts.Count > 0
                       || context.Facts.Count > 0
                       || context.Relationships.Count > 0
-                      || context.SourceReferences.Count > 0;
+                      || context.SourceReferences.Count > 0
+                      || context.Passages.Count > 0;
 
         if (!hasContent)
             return string.Empty;
@@ -437,6 +468,17 @@ public partial class LoremasterService : ILoremasterService
             sb.AppendLine();
         }
 
+        if (context.Passages.Count > 0)
+        {
+            sb.AppendLine("### Published Reference (rulebooks and modules — not world canon)");
+            foreach (var passage in context.Passages)
+            {
+                sb.AppendLine($"- From \"{passage.DocumentTitle}\", p. {passage.Page} [ref:{passage.ReferenceId}]:");
+                sb.AppendLine($"  {passage.Text.ReplaceLineEndings("\n  ")}");
+            }
+            sb.AppendLine();
+        }
+
         return sb.ToString();
     }
 
@@ -471,6 +513,7 @@ public partial class LoremasterService : ILoremasterService
         var factLookup = context.Facts.ToDictionary(f => f.ReferenceId, StringComparer.Ordinal);
         var relationshipLookup = context.Relationships.ToDictionary(r => r.ReferenceId, StringComparer.Ordinal);
         var sourceLookup = context.SourceReferences.ToDictionary(s => s.ReferenceId, StringComparer.Ordinal);
+        var passageLookup = context.Passages.ToDictionary(p => p.ReferenceId, StringComparer.Ordinal);
 
         foreach (Match match in matches)
         {
@@ -480,7 +523,7 @@ public partial class LoremasterService : ILoremasterService
             if (!seen.Add(referenceId))
                 continue;
 
-            var citation = ResolveCitation(referenceId, artifactLookup, factLookup, relationshipLookup, sourceLookup);
+            var citation = ResolveCitation(referenceId, artifactLookup, factLookup, relationshipLookup, sourceLookup, passageLookup);
             if (citation is not null)
                 citations.Add(citation);
         }
@@ -493,7 +536,8 @@ public partial class LoremasterService : ILoremasterService
         Dictionary<string, KnowledgeArtifact> artifacts,
         Dictionary<string, KnowledgeFact> facts,
         Dictionary<string, KnowledgeRelationship> relationships,
-        Dictionary<string, KnowledgeSourceReference> sources)
+        Dictionary<string, KnowledgeSourceReference> sources,
+        Dictionary<string, KnowledgePassage> passages)
     {
         if (artifacts.TryGetValue(referenceId, out var artifact))
         {
@@ -536,6 +580,17 @@ public partial class LoremasterService : ILoremasterService
                 Type = CitationType.Source,
                 DisplayName = source.Quote ?? $"Source reference {source.Id}",
                 SourceId = source.Id
+            };
+        }
+
+        if (passages.TryGetValue(referenceId, out var passage))
+        {
+            return new Citation
+            {
+                ReferenceId = referenceId,
+                Type = CitationType.Passage,
+                DisplayName = $"{passage.DocumentTitle}, p. {passage.Page}",
+                DocumentId = passage.DocumentId
             };
         }
 

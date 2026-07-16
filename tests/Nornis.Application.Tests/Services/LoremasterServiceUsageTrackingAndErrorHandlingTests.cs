@@ -46,7 +46,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         };
 
         _service = new LoremasterService(
-            _knowledgeRetriever,
+            _knowledgeRetriever, new FakeReferencePassageRetriever(),
             _aiClient,
             _aiUsageRecordRepository,
             new FakeAiBudgetGuard(), Options.Create(_options));
@@ -517,7 +517,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
             });
 
         var service = new LoremasterService(
-            _knowledgeRetriever,
+            _knowledgeRetriever, new FakeReferencePassageRetriever(),
             aiClient,
             _aiUsageRecordRepository,
             new FakeAiBudgetGuard(), Options.Create(_options));
@@ -552,7 +552,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         _aiClient.SetupSuccess("Answer text");
 
         var service = new LoremasterService(
-            retriever,
+            retriever, new FakeReferencePassageRetriever(),
             _aiClient,
             _aiUsageRecordRepository,
             new FakeAiBudgetGuard(), Options.Create(_options));

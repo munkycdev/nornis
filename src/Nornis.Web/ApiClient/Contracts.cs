@@ -291,7 +291,8 @@ public record Citation(
     Guid? ArtifactId,
     Guid? FactId,
     Guid? RelationshipId,
-    Guid? SourceId);
+    Guid? SourceId,
+    Guid? DocumentId = null);
 
 public record AskAnswer(
     string Answer,
@@ -384,6 +385,35 @@ public record TimelineLinkDto(
     Guid FromStorylineId,
     Guid ToStorylineId,
     string Type);
+
+public record LibraryDocumentDto(
+    Guid Id,
+    Guid WorldId,
+    string Title,
+    string FileName,
+    string ContentType,
+    long SizeBytes,
+    string Kind,
+    string Visibility,
+    string Status,
+    int? PageCount,
+    int ChunkCount,
+    string? ErrorMessage,
+    Guid UploadedByUserId,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
+public record RequestLibraryUploadRequest(
+    string Title,
+    string FileName,
+    string ContentType,
+    long SizeBytes,
+    string Kind,
+    string Visibility);
+
+public record LibraryUploadTicketDto(LibraryDocumentDto Document, string UploadUrl);
+
+public record LibraryDownloadDto(string DownloadUrl, string FileName, string ContentType, long SizeBytes);
 
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);

@@ -40,7 +40,7 @@ public class InputValidationTests
         };
 
         _service = new LoremasterService(
-            _knowledgeRetriever,
+            _knowledgeRetriever, new FakeReferencePassageRetriever(),
             _aiClient,
             _aiUsageRecordRepository,
             new FakeAiBudgetGuard(), Options.Create(options));
