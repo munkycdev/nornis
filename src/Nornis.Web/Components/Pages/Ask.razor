@@ -6,6 +6,7 @@
 @inject NornisApiClient Api
 @inject AskState AskState
 @inject IJSRuntime JS
+@inject IDialogService DialogService
 
 <PageTitle>Ask the Loremaster — Nornis</PageTitle>
 
@@ -24,6 +25,15 @@
                         <MudMenuItem OnClick="() => SelectConversation(c.Id)">@c.Title</MudMenuItem>
                     }
                 </MudMenu>
+            }
+            @if (_current is { Exchanges.Count: > 0 })
+            {
+                <MudTooltip Text="Delete this conversation from your history">
+                    <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Outlined.DeleteSweep"
+                               OnClick="ClearConversationAsync" Disabled="_asking">
+                        Clear
+                    </MudButton>
+                </MudTooltip>
             }
             <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                        OnClick="NewConversation" Disabled="_asking">
@@ -318,6 +328,29 @@
         _current = null;
         _input = string.Empty;
         _error = null;
+    }
+
+    private async Task ClearConversationAsync()
+    {
+        if (_current is null)
+        {
+            return;
+        }
+
+        var confirmed = await DialogService.ShowMessageBox(
+            "Delete conversation?",
+            $"Remove \"{_current.Title}\" from your ask history? This cannot be undone.",
+            yesText: "Delete", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _conversations.Remove(_current);
+        await SaveHistoryAsync();
+        _current = _conversations.OrderByDescending(c => c.UpdatedAt).FirstOrDefault();
+        _error = null;
+        StateHasChanged();
     }
 
     private void SelectConversation(string id)

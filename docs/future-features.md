@@ -1,20 +1,10 @@
-# Future Features
+﻿# Future Features
 
 ## List of unprocessed features
 
-* Sources
-  * Add ability to load files that are subsequently stored — *possibly satisfied by the new
-    Library feature (2026-07-16), which stores uploaded files in blob storage; revisit if
-    Sources specifically need attachments (e.g. a session recording tied to a session note).*
-  * If a source is markdown formatted, it should render as markdown
-* Ask
-  * Add a "Clear" button
-* Review
-  * Make Review stretch the full width of the page, like all the others
 * Capture
   * Add the ability to hand-write notes
   * Perhaps have a tabbed interface instead of displaying all of the source options
-  * Default "When it happened" to the current date
 * Timeline
   * Backfill sweep: the 85 already-processed sources predate the Event↔Storyline and PartOf extraction teachings; a re-extraction pass (or targeted relationship sweep) would light up the historical timeline.
 * General

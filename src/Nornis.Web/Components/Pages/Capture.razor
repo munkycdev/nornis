@@ -119,7 +119,8 @@ else
     private string _visibility = "PartyVisible";
     private NotesEditor? _editor;
     private string? _uri;
-    private DateTime? _occurredAt;
+    // Defaults to today — most captures describe the session just played.
+    private DateTime? _occurredAt = DateTime.Today;
     private Guid? _campaignId;
     private IReadOnlyList<CampaignDto> _campaigns = [];
     private bool _busy;
