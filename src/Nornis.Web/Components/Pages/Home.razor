@@ -136,12 +136,12 @@ else
 
                     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                         <div class="nornis-card-header">
-                            <span class="nornis-card-title">Recently Active Artifacts</span>
+                            <span class="nornis-card-title">Recent Codex Activity</span>
                             <a href="/artifacts" class="nornis-viewall">View all <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" /></a>
                         </div>
                         @if (_recentArtifacts.Count == 0)
                         {
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">No artifacts yet.</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">The codex is empty so far.</MudText>
                         }
                         @foreach (var item in _recentArtifacts)
                         {

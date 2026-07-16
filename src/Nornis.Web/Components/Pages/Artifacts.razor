@@ -3,10 +3,10 @@
 @inject WorldState Worlds
 @inject NornisApiClient Api
 
-<PageTitle>Artifacts — Nornis</PageTitle>
+<PageTitle>Codex — Nornis</PageTitle>
 
-<MudText Typo="Typo.h4" Class="nornis-serif">Artifacts</MudText>
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Browse structured world knowledge.</MudText>
+<MudText Typo="Typo.h4" Class="nornis-serif">Codex</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">The world's structured memory — every artifact in one place.</MudText>
 
 @if (Worlds.Current is null)
 {
@@ -50,7 +50,7 @@ else
     </div>
     <div class="d-flex gap-3 align-center mb-4">
         <MudTextField T="string" @bind-Value="_search" Immediate="true" Clearable="true"
-                      Placeholder="Search artifacts…" Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Placeholder="Search the codex…" Variant="Variant.Outlined" Margin="Margin.Dense"
                       Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="flex-grow-1" />
         <MudToggleGroup T="string" @bind-Value="_sort" SelectionMode="SelectionMode.SingleSelection"
                         Color="Color.Secondary" Size="Size.Small">
