@@ -5,8 +5,6 @@
 * Capture
   * Add the ability to hand-write notes
   * Perhaps have a tabbed interface instead of displaying all of the source options
-* Timeline
-  * Backfill sweep: the 85 already-processed sources predate the Event↔Storyline and PartOf extraction teachings; a re-extraction pass (or targeted relationship sweep) would light up the historical timeline.
 * General
   * Access-token refresh — the 24h token/cookie expiry currently ends in 401s/re-login; add `offline_access` + refresh in the bearer handler.
 

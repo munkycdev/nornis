@@ -122,10 +122,12 @@ public class ReviewService : IReviewService
         {
             Guid sourceId = default;
             var sourceTitle = "Unknown source";
+            string? batchKind = null;
             if (batches.TryGetValue(proposal.ReviewBatchId, out var batch))
             {
                 sourceId = batch.SourceId;
                 sourceTitle = sourceTitles.GetValueOrDefault(batch.SourceId, sourceTitle);
+                batchKind = batch.Kind;
             }
 
             var targetName = ResolveTargetName(proposal, artifactNames, factsById, relationshipsById);
@@ -138,7 +140,7 @@ public class ReviewService : IReviewService
                     mergeSourceName = name;
             }
 
-            result[proposal.Id] = new ReviewProposalContext(sourceId, sourceTitle, targetName, mergeSourceName);
+            result[proposal.Id] = new ReviewProposalContext(sourceId, sourceTitle, targetName, mergeSourceName, batchKind);
         }
 
         return result;

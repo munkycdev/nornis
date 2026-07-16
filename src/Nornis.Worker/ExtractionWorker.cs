@@ -86,20 +86,23 @@ public sealed class ExtractionWorker : BackgroundService
         }
 
         _logger.LogInformation(
-            "Processing extraction message. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}",
+            "Processing extraction message. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}, Kind={Kind}",
             correlationId,
             message.SourceId,
-            message.WorldId);
+            message.WorldId,
+            message.Kind);
 
         try
         {
-            // One DI scope per message: IExtractionService (and its DbContext) are scoped,
+            // One DI scope per message: the services (and their DbContext) are scoped,
             // and messages may process concurrently — they must never share a context.
             await using var scope = _scopeFactory.CreateAsyncScope();
-            var extractionService = scope.ServiceProvider.GetRequiredService<IExtractionService>();
 
-            var outcome = await extractionService.ProcessExtractionAsync(
-                message.SourceId, message.WorldId, args.CancellationToken);
+            var outcome = message.Kind == ExtractionKind.RelationshipBackfill
+                ? await scope.ServiceProvider.GetRequiredService<IRelationshipBackfillService>()
+                    .ProcessBackfillAsync(message.SourceId, message.WorldId, args.CancellationToken)
+                : await scope.ServiceProvider.GetRequiredService<IExtractionService>()
+                    .ProcessExtractionAsync(message.SourceId, message.WorldId, args.CancellationToken);
 
             stopwatch.Stop();
 

@@ -34,6 +34,21 @@ else
                        OnClick="LoadAsync" aria-label="Refresh queue" />
     </div>
 
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4">
+        <div class="nornis-detail-section-title">Backfill storyline links</div>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Older sources were extracted before Nornis learned to link Events to Storylines
+            and nest Storylines beneath broader arcs. This sweep re-reads each processed
+            source and proposes only those missing links — every proposal lands in Review.
+            Safe to re-run: already-swept sources are skipped.
+        </MudText>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Outlined.Timeline"
+                   OnClick="RunBackfillAsync" Disabled="_backfillBusy">
+            @(_backfillBusy ? "Queuing…" : "Backfill storyline links")
+        </MudButton>
+    </MudPaper>
+
     @if (Pending.Count == 0)
     {
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
@@ -124,6 +139,40 @@ else
         {
             _error = result.Error!.Message;
             _sources = [];
+        }
+        StateHasChanged();
+    }
+
+    private bool _backfillBusy;
+
+    private async Task RunBackfillAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _backfillBusy = true;
+        StateHasChanged();
+
+        var result = await Api.QueueRelationshipBackfillAsync(Worlds.Current.Id);
+
+        _backfillBusy = false;
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        else if (result.Value!.QueuedCount == 0)
+        {
+            Snackbar.Add($"Nothing to do — all {result.Value.TotalEligible} processed sources are already swept.", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add(
+                $"Queued {result.Value.QueuedCount} sources for the storyline link sweep" +
+                (result.Value.AlreadySweptCount > 0 ? $" ({result.Value.AlreadySweptCount} already swept)" : "") +
+                ". Proposals will arrive in Review as the worker processes them.",
+                Severity.Success);
         }
         StateHasChanged();
     }

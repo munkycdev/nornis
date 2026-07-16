@@ -24,10 +24,17 @@ public class InMemoryReviewBatchRepository : IReviewBatchRepository
 
     public Task<ReviewBatch?> GetBySourceIdAsync(Guid sourceId, CancellationToken cancellationToken = default)
     {
+        // Mirrors the EF repository: only extraction batches (Kind == null) count.
         var batch = _batches.FirstOrDefault(b =>
             b.SourceId == sourceId &&
+            b.Kind == null &&
             b.Status is ReviewBatchStatus.Pending or ReviewBatchStatus.InReview or ReviewBatchStatus.Completed);
         return Task.FromResult(batch);
+    }
+
+    public Task<bool> ExistsForSourceAsync(Guid sourceId, string kind, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(_batches.Any(b => b.SourceId == sourceId && b.Kind == kind));
     }
 
     public Task<IReadOnlyList<ReviewBatch>> ListByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)

@@ -17,6 +17,9 @@ public class ReviewBatchConfiguration : IEntityTypeConfiguration<ReviewBatch>
             .IsRequired()
             .HasConversion<string>();
 
+        builder.Property(rb => rb.Kind)
+            .HasMaxLength(40);
+
         builder.Property(rb => rb.CreatedAt)
             .HasColumnType("datetimeoffset");
 

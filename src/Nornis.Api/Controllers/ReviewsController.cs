@@ -237,7 +237,8 @@ public class ReviewsController : ControllerBase
             SourceId: context?.SourceId,
             SourceTitle: context?.SourceTitle,
             TargetName: context?.TargetName,
-            MergeSourceName: context?.MergeSourceName);
+            MergeSourceName: context?.MergeSourceName,
+            BatchKind: context?.BatchKind);
     }
 
     private IActionResult MapError(AppError error)

@@ -11,6 +11,9 @@ public interface IReviewBatchRepository
 
     Task<ReviewBatch?> GetBySourceIdAsync(Guid sourceId, CancellationToken cancellationToken = default);
 
+    /// <summary>Whether a batch of the given kind exists for the source (sweep idempotency).</summary>
+    Task<bool> ExistsForSourceAsync(Guid sourceId, string kind, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ReviewBatch>> ListByWorldAsync(Guid worldId, CancellationToken cancellationToken = default);
 
     Task UpdateStatusAsync(Guid id, ReviewBatchStatus status, CancellationToken cancellationToken = default);

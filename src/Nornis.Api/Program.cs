@@ -91,6 +91,7 @@ builder.Services.AddScoped<ICanonService, CanonService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<IContinuityAuditService, ContinuityAuditService>();
 builder.Services.AddScoped<IStorylineRetrospectiveService, StorylineRetrospectiveService>();
+builder.Services.AddScoped<IRelationshipBackfillQueueService, RelationshipBackfillQueueService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddSingleton<IProposalValidator, ProposalValidator>();
 builder.Services.AddScoped<IProposalApplicator, ProposalApplicator>();

@@ -242,6 +242,10 @@ public class NornisApiClient
     public Task<ApiResult<RetrospectiveResult>> RunStorylineRetrospectiveAsync(Guid worldId, CancellationToken ct = default) =>
         PostAsync<object?, RetrospectiveResult>($"/api/worlds/{worldId}/storylines/retrospective", null, ct);
 
+    /// <summary>GM-only: queue the relationship backfill sweep over processed sources.</summary>
+    public Task<ApiResult<BackfillQueueResult>> QueueRelationshipBackfillAsync(Guid worldId, CancellationToken ct = default) =>
+        PostAsync<object?, BackfillQueueResult>($"/api/worlds/{worldId}/storylines/backfill-relationships", null, ct);
+
     public Task<ApiResult<IReadOnlyList<ArtifactListItem>>> GetStorylinesAsync(
         Guid worldId, string? status = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<ArtifactListItem>>(

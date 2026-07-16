@@ -16,4 +16,5 @@ public record ReviewProposalContext(
     Guid SourceId,
     string SourceTitle,
     string? TargetName,
-    string? MergeSourceName);
+    string? MergeSourceName,
+    string? BatchKind = null);

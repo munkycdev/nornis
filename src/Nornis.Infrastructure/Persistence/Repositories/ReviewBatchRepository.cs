@@ -30,13 +30,24 @@ public class ReviewBatchRepository : IReviewBatchRepository
 
     public async Task<ReviewBatch?> GetBySourceIdAsync(Guid sourceId, CancellationToken cancellationToken = default)
     {
+        // Kind == null keeps this the *extraction* batch: sweep batches (e.g. the
+        // relationship backfill) also live on the source but must not satisfy
+        // extraction's one-batch-per-source idempotency check.
         return await _context.ReviewBatches
             .AsNoTracking()
             .Where(rb => rb.SourceId == sourceId
+                && rb.Kind == null
                 && (rb.Status == ReviewBatchStatus.Pending
                     || rb.Status == ReviewBatchStatus.InReview
                     || rb.Status == ReviewBatchStatus.Completed))
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<bool> ExistsForSourceAsync(Guid sourceId, string kind, CancellationToken cancellationToken = default)
+    {
+        return await _context.ReviewBatches
+            .AsNoTracking()
+            .AnyAsync(rb => rb.SourceId == sourceId && rb.Kind == kind, cancellationToken);
     }
 
     public async Task<IReadOnlyList<ReviewBatch>> ListByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)

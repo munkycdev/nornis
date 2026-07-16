@@ -20,13 +20,16 @@ public class StorylinesController : ControllerBase
 {
     private readonly IArtifactService _artifactService;
     private readonly IStorylineRetrospectiveService _retrospectiveService;
+    private readonly IRelationshipBackfillQueueService _backfillQueueService;
 
     public StorylinesController(
         IArtifactService artifactService,
-        IStorylineRetrospectiveService retrospectiveService)
+        IStorylineRetrospectiveService retrospectiveService,
+        IRelationshipBackfillQueueService backfillQueueService)
     {
         _artifactService = artifactService;
         _retrospectiveService = retrospectiveService;
+        _backfillQueueService = backfillQueueService;
     }
 
     /// <summary>
@@ -48,6 +51,27 @@ public class StorylinesController : ControllerBase
 
         var value = result.Value!;
         return Ok(new RetrospectiveResponse(value.AssessedCount, value.ProposedCount, value.ReviewBatchId));
+    }
+
+    /// <summary>
+    /// GM-only: queue the relationship backfill sweep — one worker message per processed
+    /// source not yet swept, each producing Advances/PartOf link proposals for review.
+    /// Safe to re-run; already-swept sources are skipped.
+    /// </summary>
+    [HttpPost("backfill-relationships")]
+    public async Task<IActionResult> QueueRelationshipBackfill(Guid worldId, CancellationToken ct)
+    {
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _backfillQueueService.QueueBackfillAsync(worldId, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var value = result.Value!;
+        return Ok(new BackfillQueueResponse(value.QueuedCount, value.AlreadySweptCount, value.TotalEligible));
     }
 
     /// <summary>

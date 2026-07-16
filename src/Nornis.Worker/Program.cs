@@ -81,6 +81,10 @@ var builder = Host.CreateDefaultBuilder(args)
         // Extraction service
         services.AddScoped<IExtractionService, ExtractionService>();
 
+        // Relationship backfill sweep (same queue, ExtractionKind.RelationshipBackfill messages)
+        services.AddScoped<IRelationshipBackfillAiClient, AzureOpenAiRelationshipBackfillClient>();
+        services.AddScoped<IRelationshipBackfillService, RelationshipBackfillService>();
+
         // Service Bus extraction processor
         services.AddSingleton<ServiceBusExtractionProcessor>(sp =>
         {

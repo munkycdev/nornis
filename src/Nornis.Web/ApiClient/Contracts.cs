@@ -237,7 +237,8 @@ public record ReviewProposal(
     Guid? SourceId = null,
     string? SourceTitle = null,
     string? TargetName = null,
-    string? MergeSourceName = null);
+    string? MergeSourceName = null,
+    string? BatchKind = null);
 
 public record ReviewQueue(
     IReadOnlyList<ReviewProposal> Proposals,
@@ -349,6 +350,11 @@ public record SourceActivity(
 {
     public int InFlight => Ready + Queued + Processing;
 }
+
+public record BackfillQueueResult(
+    int QueuedCount,
+    int AlreadySweptCount,
+    int TotalEligible);
 
 public record RetrospectiveResult(
     int AssessedCount,

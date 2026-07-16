@@ -34,7 +34,7 @@ public class FakeExtractionQueueClient : IExtractionQueueClient
         _shouldFail = false;
     }
 
-    public Task SendExtractionMessageAsync(Guid sourceId, Guid worldId, CancellationToken ct)
+    public Task SendExtractionMessageAsync(Guid sourceId, Guid worldId, CancellationToken ct, ExtractionKind kind = ExtractionKind.Extraction)
     {
         if (_shouldFail)
         {

@@ -8,5 +8,6 @@ public enum AiOperationType
     SourceExtractionRepair,
     ContinuityAudit,
     StorylineRetrospective,
-    Embedding
+    Embedding,
+    RelationshipBackfill
 }

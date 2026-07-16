@@ -93,6 +93,10 @@ else
                             @p.SourceTitle
                         </span>
                     }
+                    @if (p.BatchKind == "RelationshipBackfill")
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Tertiary">Backfill</MudChip>
+                    }
                 </div>
 
                 <div class="nornis-proposal-fields">
