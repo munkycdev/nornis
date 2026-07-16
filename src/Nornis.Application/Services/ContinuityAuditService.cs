@@ -35,6 +35,14 @@ public class ContinuityAuditService : IContinuityAuditService
     /// <summary>Findings accepted per assessment are capped to keep the report actionable.</summary>
     public const int MaxFindings = 20;
 
+    /// <summary>
+    /// Prompt-size guards: the audit reads the whole record in one request, and a grown world
+    /// can outrun the AI deployment's tokens-per-minute quota. Archived artifacts are skipped
+    /// outright (merge leftovers), facts cap per artifact, and quotes cap overall.
+    /// </summary>
+    public const int MaxFactsPerArtifactInAudit = 25;
+    public const int MaxQuotesInAudit = 100;
+
     private static readonly IReadOnlyList<VisibilityScope> AllScopes =
         [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private];
 
@@ -118,12 +126,15 @@ public class ContinuityAuditService : IContinuityAuditService
         var heuristicResult = await _healthService.GetHealthAsync(worldId, ct);
         var heuristic = heuristicResult.IsSuccess ? heuristicResult.Value!.OverallScore : 0;
 
-        // 2. Load the full GM-scoped record.
-        var artifacts = await _artifactRepository.ListByWorldAsync(worldId, null, null, ct);
+        // 2. Load the full GM-scoped record. Archived artifacts (merge leftovers) are dead
+        // weight for a continuity read and stay out of the prompt.
+        var artifacts = (await _artifactRepository.ListByWorldAsync(worldId, null, null, ct))
+            .Where(a => a.Status != ArtifactStatus.Archived)
+            .ToList();
         var artifactIds = artifacts.Select(a => a.Id).ToList();
 
         var facts = artifactIds.Count > 0
-            ? await _factRepository.ListByArtifactIdsAsync(artifactIds, int.MaxValue, ct)
+            ? await _factRepository.ListByArtifactIdsAsync(artifactIds, MaxFactsPerArtifactInAudit, ct)
             : [];
         var relationships = artifactIds.Count > 0
             ? await _relationshipRepository.ListByArtifactIdsAsync(artifactIds, AllScopes, ct)
@@ -464,12 +475,20 @@ public class ContinuityAuditService : IContinuityAuditService
             sb.AppendLine();
         }
 
-        if (sourceRefs.Count > 0)
+        var quoted = sourceRefs
+            .Where(s => !string.IsNullOrWhiteSpace(s.Quote))
+            .OrderByDescending(s => s.CreatedAt)
+            .ToList();
+        if (quoted.Count > 0)
         {
             sb.AppendLine("## Source Quotes");
-            foreach (var s in sourceRefs.Where(s => !string.IsNullOrWhiteSpace(s.Quote)))
+            foreach (var s in quoted.Take(MaxQuotesInAudit))
             {
                 sb.AppendLine($"- \"{s.Quote}\"");
+            }
+            if (quoted.Count > MaxQuotesInAudit)
+            {
+                sb.AppendLine($"(+{quoted.Count - MaxQuotesInAudit} older quotes omitted)");
             }
             sb.AppendLine();
         }

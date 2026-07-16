@@ -264,4 +264,48 @@ public class ContinuityAuditServiceTests
         Assert.That(result.Value!.HasData, Is.False);
         Assert.That(result.Value.Findings, Is.Empty);
     }
+
+    [Test]
+    public async Task RunAssessment_ArchivedArtifactsStayOutOfThePrompt()
+    {
+        _artifactRepo.Seed(new Artifact
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = ArtifactType.Character,
+            Name = "Merged Leftover Voss",
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Archived,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        _ai.SetupFindings();
+
+        await _service.RunAssessmentAsync(_worldId, null, CancellationToken.None);
+
+        Assert.That(_ai.LastRequest!.UserMessage, Does.Contain("Captain Voss"));
+        Assert.That(_ai.LastRequest.UserMessage, Does.Not.Contain("Merged Leftover Voss"));
+    }
+
+    [Test]
+    public void FormatWorldRecord_CapsQuotesAndNamesTheOmission()
+    {
+        var refs = Enumerable.Range(0, ContinuityAuditService.MaxQuotesInAudit + 15)
+            .Select(i => new SourceReference
+            {
+                Id = Guid.NewGuid(),
+                SourceId = Guid.NewGuid(),
+                TargetType = SourceReferenceTargetType.Artifact,
+                TargetId = Guid.NewGuid(),
+                Quote = $"Quote number {i}",
+                CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-i)
+            })
+            .ToList();
+
+        var record = ContinuityAuditService.FormatWorldRecord([], [], [], refs, []);
+
+        Assert.That(record, Does.Contain("Quote number 0"));
+        Assert.That(record, Does.Not.Contain($"Quote number {ContinuityAuditService.MaxQuotesInAudit + 5}"));
+        Assert.That(record, Does.Contain("(+15 older quotes omitted)"));
+    }
 }
