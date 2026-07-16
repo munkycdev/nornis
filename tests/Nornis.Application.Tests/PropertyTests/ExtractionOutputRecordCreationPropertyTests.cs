@@ -75,6 +75,7 @@ public class ExtractionOutputRecordCreationPropertyTests
             aiUsageRecordRepo,
             artifactRepo,
             artifactFactRepo,
+            new InMemoryArtifactRelationshipRepository(),
             fakeAiClient,
             new FakeAiBudgetGuard(), unitOfWork,
             options,

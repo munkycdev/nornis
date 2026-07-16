@@ -21,6 +21,7 @@ public class ExtractionService : IExtractionService
     private readonly IAiUsageRecordRepository _aiUsageRecordRepository;
     private readonly IArtifactRepository _artifactRepository;
     private readonly IArtifactFactRepository _artifactFactRepository;
+    private readonly IArtifactRelationshipRepository _artifactRelationshipRepository;
     private readonly IAiExtractionClient _aiExtractionClient;
     private readonly IAiBudgetGuard _budgetGuard;
     private readonly IUnitOfWork _unitOfWork;
@@ -47,6 +48,7 @@ public class ExtractionService : IExtractionService
         IAiUsageRecordRepository aiUsageRecordRepository,
         IArtifactRepository artifactRepository,
         IArtifactFactRepository artifactFactRepository,
+        IArtifactRelationshipRepository artifactRelationshipRepository,
         IAiExtractionClient aiExtractionClient,
         IAiBudgetGuard budgetGuard,
         IUnitOfWork unitOfWork,
@@ -62,6 +64,7 @@ public class ExtractionService : IExtractionService
         _aiUsageRecordRepository = aiUsageRecordRepository;
         _artifactRepository = artifactRepository;
         _artifactFactRepository = artifactFactRepository;
+        _artifactRelationshipRepository = artifactRelationshipRepository;
         _aiExtractionClient = aiExtractionClient;
         _unitOfWork = unitOfWork;
         _options = options.Value;
@@ -244,6 +247,31 @@ public class ExtractionService : IExtractionService
         var factsByArtifact = facts.GroupBy(f => f.ArtifactId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
+        // The GM's storyline hierarchy ("PartOf" links) grounds the model's own PartOf
+        // proposals: a storyline that already has a parent must not get another.
+        var storylineIds = merged
+            .Where(a => a.Type == ArtifactType.Storyline)
+            .Select(a => a.Id)
+            .ToList();
+        var parentNameByChild = new Dictionary<Guid, string>();
+        if (storylineIds.Count > 0)
+        {
+            var partOfLinks = (await _artifactRelationshipRepository.ListByArtifactIdsAsync(storylineIds, allowedVisibilities, ct))
+                .Where(r => r.Type == ArtifactService.PartOfRelationshipType && storylineIds.Contains(r.ArtifactAId))
+                .DistinctBy(r => r.ArtifactAId)
+                .ToList();
+
+            var namesById = merged.ToDictionary(a => a.Id, a => a.Name);
+            foreach (var link in partOfLinks)
+            {
+                if (!namesById.TryGetValue(link.ArtifactBId, out var parentName))
+                {
+                    parentName = (await _artifactRepository.GetByIdAsync(link.ArtifactBId, ct))?.Name ?? "another storyline";
+                }
+                parentNameByChild[link.ArtifactAId] = parentName;
+            }
+        }
+
         // Build context models
         return merged.Select(a => new ArtifactContext
         {
@@ -258,7 +286,8 @@ public class ExtractionService : IExtractionService
                     Predicate = f.Predicate,
                     Value = f.Value
                 }).ToList()
-                : []
+                : [],
+            PartOfName = parentNameByChild.GetValueOrDefault(a.Id)
         }).ToList();
     }
 

@@ -70,6 +70,7 @@ public class ExtractionServiceTests
             _aiUsageRecordRepository,
             _artifactRepository,
             _artifactFactRepository,
+            new InMemoryArtifactRelationshipRepository(),
             _aiClient,
             _budgetGuard, _unitOfWork,
             Options.Create(_options),

@@ -67,6 +67,7 @@ public class NonQueuedSourcesAndExistingBatchesSkippedTests
             usageRepo,
             artifactRepo,
             factRepo,
+            new InMemoryArtifactRelationshipRepository(),
             aiClient,
             new FakeAiBudgetGuard(), unitOfWork,
             options,

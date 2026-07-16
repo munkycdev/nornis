@@ -59,6 +59,7 @@ public partial class ExtractionServiceCampaignContextTests
             new InMemoryAiUsageRecordRepository(),
             new InMemoryArtifactRepository(),
             new InMemoryArtifactFactRepository(),
+            new InMemoryArtifactRelationshipRepository(),
             _aiClient,
             new FakeAiBudgetGuard(),
             new FakeUnitOfWork(),

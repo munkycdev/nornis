@@ -74,6 +74,7 @@ public class EmptyBodyShortCircuitsPropertyTests
                     aiUsageRecordRepo,
                     artifactRepo,
                     artifactFactRepo,
+            new InMemoryArtifactRelationshipRepository(),
                     fakeAiClient,
                     new FakeAiBudgetGuard(), unitOfWork,
                     options,

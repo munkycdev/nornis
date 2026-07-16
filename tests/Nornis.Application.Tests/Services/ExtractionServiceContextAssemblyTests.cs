@@ -21,6 +21,7 @@ public class ExtractionServiceContextAssemblyTests
     private InMemoryAiUsageRecordRepository _aiUsageRecordRepository = null!;
     private InMemoryArtifactRepository _artifactRepository = null!;
     private InMemoryArtifactFactRepository _artifactFactRepository = null!;
+    private InMemoryArtifactRelationshipRepository _relationshipRepository = null!;
     private FakeAiExtractionClient _aiClient = null!;
     private FakeUnitOfWork _unitOfWork = null!;
     private ExtractionOptions _options = null!;
@@ -38,6 +39,7 @@ public class ExtractionServiceContextAssemblyTests
         _aiUsageRecordRepository = new InMemoryAiUsageRecordRepository();
         _artifactRepository = new InMemoryArtifactRepository();
         _artifactFactRepository = new InMemoryArtifactFactRepository();
+        _relationshipRepository = new InMemoryArtifactRelationshipRepository();
         _aiClient = new FakeAiExtractionClient();
         _unitOfWork = new FakeUnitOfWork();
         _options = new ExtractionOptions
@@ -65,6 +67,7 @@ public class ExtractionServiceContextAssemblyTests
         _aiUsageRecordRepository,
         _artifactRepository,
         _artifactFactRepository,
+        _relationshipRepository,
         _aiClient,
         new FakeAiBudgetGuard(),
         _unitOfWork,
@@ -427,5 +430,39 @@ public class ExtractionServiceContextAssemblyTests
         // A completed batch with zero proposals should exist
         Assert.That(_reviewBatchRepository.Batches, Has.Count.EqualTo(1));
         Assert.That(_reviewBatchRepository.Batches[0].Status, Is.EqualTo(ReviewBatchStatus.Completed));
+    }
+
+    [Test]
+    public async Task Context_NestedStoryline_CarriesItsParentName()
+    {
+        var parent = CreateArtifact("Kastor Crisis");
+        parent.Type = ArtifactType.Storyline;
+        var child = CreateArtifact("Kastor Watch Investigation");
+        child.Type = ArtifactType.Storyline;
+        _artifactRepository.Seed(parent, child);
+        _relationshipRepository.Seed(new ArtifactRelationship
+        {
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            ArtifactAId = child.Id,
+            ArtifactBId = parent.Id,
+            Type = ArtifactService.PartOfRelationshipType,
+            TruthState = TruthState.Confirmed,
+            Visibility = VisibilityScope.PartyVisible,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        var source = CreateQueuedSource(body: "The Kastor Watch Investigation deepens.");
+        _sourceRepository.Seed(source);
+        ConfigureSuccessfulAiResponse();
+
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+
+        var request = _aiClient.Requests[0];
+        var childContext = request.ExistingArtifacts.Single(a => a.Name == "Kastor Watch Investigation");
+        var parentContext = request.ExistingArtifacts.Single(a => a.Name == "Kastor Crisis");
+        Assert.That(childContext.PartOfName, Is.EqualTo("Kastor Crisis"));
+        Assert.That(parentContext.PartOfName, Is.Null);
     }
 }

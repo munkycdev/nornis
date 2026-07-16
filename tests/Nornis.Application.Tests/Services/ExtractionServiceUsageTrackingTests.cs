@@ -75,6 +75,7 @@ public class ExtractionServiceUsageTrackingTests
             _usageRepo,
             _artifactRepo,
             _factRepo,
+            new InMemoryArtifactRelationshipRepository(),
             _aiClient,
             new FakeAiBudgetGuard(), _unitOfWork,
             Options.Create(opts),

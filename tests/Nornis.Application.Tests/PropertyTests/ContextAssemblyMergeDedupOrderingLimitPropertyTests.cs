@@ -248,6 +248,7 @@ public class ContextAssemblyMergeDedupOrderingLimitPropertyTests
             aiUsageRecordRepo,
             artifactRepo,
             artifactFactRepo,
+            new InMemoryArtifactRelationshipRepository(),
             fakeAiClient,
             new FakeAiBudgetGuard(), unitOfWork,
             options,

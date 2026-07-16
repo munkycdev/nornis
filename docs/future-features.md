@@ -6,11 +6,8 @@
   * Update the capture interface to increase the size of the input text box and create it as a markdown wysiwyg like Chronicis
   * Add the ability to hand-write notes
   * Perhaps have a tabbed interface instead of displaying all of the source options
-* Storylines
-  * Storyline dossier: a dedicated detail view reading as "the story so far" — open questions pinned, developments grouped under session headings with quotes, cast strip. Shares the timeline's aggregation.
-  * Index attention signals: session-anchored staleness ("last advanced N sessions ago"), open-question counts, continuity-finding flags on cards.
-  * Teach extraction to propose Event↔Storyline relationships (only 1 exists) so timeline event markers get real; consider a backfill sweep for processed sources.
-  * Teach extraction to propose PartOf (storyline hierarchy) links for obviously-spawned arcs, grounded in the GM's manually curated tree; proposals flow through the review queue.
+* Timeline
+  * Backfill sweep: the 85 already-processed sources predate the Event↔Storyline and PartOf extraction teachings; a re-extraction pass (or targeted relationship sweep) would light up the historical timeline.
 * Canon
   * Also need to find a way to make this useful. 
 * Sources

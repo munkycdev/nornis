@@ -188,6 +188,10 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
               unresolved questions, emerging threats → CreateArtifact with type "Storyline". These are
               first-class: if the source advances, opens, or closes an arc, say so. When a source
               resolves or stalls an existing storyline, propose UpdateArtifact changing its status.
+            - When an Event artifact (new or existing) advances, opens, or closes a Storyline,
+              also propose AddRelationship linking the Event to that Storyline (type "Advances").
+              An Event that matters almost always belongs to an arc — leaving it unlinked hides
+              it from the storyline's timeline.
             Prefer several small, atomic proposals over one sweeping one. A fact the reviewer can
             reject independently is worth more than a paragraph stuffed into a summary. But do not
             manufacture proposals from incidental detail — mundane table talk, rules discussion, and
@@ -241,6 +245,16 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
               proposal character for character.
             - Order proposals so CreateArtifact proposals come before the facts and relationships
               that reference them.
+
+            ## Storyline Hierarchy
+            Storylines nest beneath broader arcs; the Existing World Artifacts list shows each
+            nested storyline's place as "Part of: <parent>". When this source makes a storyline's
+            lineage plain — a side investigation opening inside a larger crisis, a quest chain
+            spawning from a campaign arc — propose AddRelationship with type "PartOf", where
+            artifactAId/artifactAName is the child storyline and artifactBId/artifactBName is the
+            parent storyline. Both endpoints must be Storylines. Never propose PartOf for a
+            storyline that already shows "Part of", and never guess: the GM curates this tree, so
+            propose lineage only when the source itself establishes it.
 
             ## Open Questions
             Storylines carry their unresolved tensions as facts with the exact predicate
@@ -334,6 +348,11 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
                 if (!string.IsNullOrWhiteSpace(artifact.Summary))
                 {
                     parts.Add($"Summary: {artifact.Summary}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(artifact.PartOfName))
+                {
+                    parts.Add($"Part of: {artifact.PartOfName}");
                 }
 
                 if (artifact.Facts.Count > 0)

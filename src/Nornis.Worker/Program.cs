@@ -56,6 +56,7 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<IAiUsageRecordRepository, AiUsageRecordRepository>();
         services.AddScoped<IArtifactRepository, ArtifactRepository>();
         services.AddScoped<IArtifactFactRepository, ArtifactFactRepository>();
+        services.AddScoped<IArtifactRelationshipRepository, ArtifactRelationshipRepository>();
 
         // Azure OpenAI client
         services.AddSingleton<ChatClient>(sp =>

@@ -71,6 +71,7 @@ public class ExtractionServiceProposalCreationTests
             _usageRepo,
             _artifactRepo,
             _factRepo,
+            new InMemoryArtifactRelationshipRepository(),
             _aiClient,
             new FakeAiBudgetGuard(), _unitOfWork,
             options,

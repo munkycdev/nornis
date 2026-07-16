@@ -73,6 +73,7 @@ public class NonTransientFailuresTransitionSourceToFailedTests
             aiUsageRecordRepo,
             artifactRepo,
             artifactFactRepo,
+            new InMemoryArtifactRelationshipRepository(),
             fakeAiClient,
             new FakeAiBudgetGuard(), unitOfWork,
             options,

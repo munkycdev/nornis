@@ -603,6 +603,69 @@ public class AzureOpenAiExtractionClientTests
     }
 
     [Test]
+    public void BuildSystemPrompt_TeachesEventStorylineLinks()
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "Test body",
+            SourceTitle = "Test",
+            SourceType = "SessionNote",
+            SourceVisibility = "PartyVisible"
+        };
+
+        var prompt = AzureOpenAiExtractionClient.BuildSystemPrompt(request);
+
+        Assert.That(prompt, Does.Contain("also propose AddRelationship linking the Event to that Storyline"));
+        Assert.That(prompt, Does.Contain("\"Advances\""));
+    }
+
+    [Test]
+    public void BuildSystemPrompt_TeachesStorylineHierarchy()
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "Test body",
+            SourceTitle = "Test",
+            SourceType = "SessionNote",
+            SourceVisibility = "PartyVisible"
+        };
+
+        var prompt = AzureOpenAiExtractionClient.BuildSystemPrompt(request);
+
+        Assert.That(prompt, Does.Contain("Storyline Hierarchy"));
+        Assert.That(prompt, Does.Contain("\"PartOf\""));
+        Assert.That(prompt, Does.Contain("Never propose PartOf for a"));
+        Assert.That(prompt, Does.Contain("already shows \"Part of\""));
+    }
+
+    [Test]
+    public void BuildUserMessage_NestedStoryline_ShowsPartOfLine()
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "Test body",
+            SourceTitle = "Test",
+            SourceType = "SessionNote",
+            SourceVisibility = "PartyVisible",
+            ExistingArtifacts =
+            [
+                new ArtifactContext
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Kastor Watch Investigation",
+                    Type = "Storyline",
+                    Summary = "The watch digs in.",
+                    PartOfName = "Kastor Crisis"
+                }
+            ]
+        };
+
+        var message = AzureOpenAiExtractionClient.BuildUserMessage(request);
+
+        Assert.That(message, Does.Contain("Part of: Kastor Crisis"));
+    }
+
+    [Test]
     public void BuildSystemPrompt_IncludesLiterarySourceInstructions()
     {
         var request = new ExtractionRequest
