@@ -8,8 +8,6 @@
   * Perhaps have a tabbed interface instead of displaying all of the source options
 * Timeline
   * Backfill sweep: the 85 already-processed sources predate the Event↔Storyline and PartOf extraction teachings; a re-extraction pass (or targeted relationship sweep) would light up the historical timeline.
-* Canon
-  * Also need to find a way to make this useful. 
 * Sources
   * Extraction context includes GM-only and Private facts regardless of the source's visibility (`ListByArtifactIdsAsync` doesn't filter facts by scope) — a PartyVisible extraction prompt can see Hidden truths and echo them into party-visible proposals. Scope context facts to the source's allowed visibilities.
 * World Memory
@@ -17,8 +15,31 @@
 * General
   * When does it make sense to make the Ask feature driven by Azure AI Search or some other RAG scheme?
   * Can you remove the background color from the site logo?
-  * Add links to public pages to the bottom of all authenticated pages
   * Access-token refresh — the 24h token/cookie expiry currently ends in 401s/re-login; add `offline_access` + refresh in the bearer handler.
+
+---
+
+## Canon page (removed 2026-07-15)
+
+**Decision.** The Canon page was removed from navigation — nobody read it. It was an
+inventory of accepted facts grouped by truth state, which duplicated what the artifact
+pages already show with better context. The `/canon` route redirects home; the canon API
+endpoint remains (it feeds the Home "Canon Updates" card), and accepted facts remain the
+substance behind artifacts, Ask, and Continuity Health.
+
+**Revival directions, if a real reader appears** (from the 2026-07-15 design discussion):
+
+1. **Epistemic board** — the state of the record rather than the record: Disputed facts
+   and contradictions (same artifact + predicate, conflicting values), the Rumor mill,
+   and open questions across all storylines. Confirmed truth becomes backdrop, not list.
+2. **Ledger** — canon over time: accepted proposals carry `ReviewedAt`, reviewer, batch,
+   and source session, so "what entered canon since last session" is fully derivable.
+   The Home "Recent Changes" card is the peephole version of this.
+3. **Codex export** — party-visible Confirmed/Likely knowledge as a shareable document
+   (markdown/PDF handout), organized by type and artifact. Publishing, not browsing.
+
+Pick whichever matches who finally wants to read it: GM prep → board, players catching
+up → ledger, table handout → codex.
 
 ---
 

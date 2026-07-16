@@ -134,6 +134,25 @@ html, body {
 }
 
 /* Storyline timeline (calendar lanes). */
+/* Footer with public-page links on authenticated pages. */
+.nornis-footer {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px 24px 28px;
+    font-size: 0.75rem;
+}
+
+.nornis-footer a {
+    color: rgba(42, 59, 76, 0.5);
+    text-decoration: none;
+}
+
+.nornis-footer a:hover {
+    color: rgba(42, 59, 76, 0.85);
+    text-decoration: underline;
+}
+
 .nornis-timeline-legend {
     display: flex;
     flex-wrap: wrap;

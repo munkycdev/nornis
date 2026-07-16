@@ -116,7 +116,6 @@ else
                     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                         <div class="nornis-card-header">
                             <span class="nornis-card-title">Canon Updates</span>
-                            <a href="/canon" class="nornis-viewall">View all <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" /></a>
                         </div>
                         @if (_canonFacts.Count == 0)
                         {
@@ -294,9 +293,6 @@ else
                         <span class="nornis-list-meta">@Ago(rel.UpdatedAt)</span>
                     </a>
                 }
-                <div class="nornis-card-foot">
-                    <a href="/canon" class="nornis-viewall">View all changes <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" /></a>
-                </div>
             </MudPaper>
         </div>
     </div>
