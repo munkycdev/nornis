@@ -22,6 +22,13 @@ public class World
     /// </summary>
     public decimal? DailyAiBudgetUsd { get; set; }
 
+    /// <summary>GM-chosen URL slug for public read-only access (nornis.app/w/{slug}).
+    /// Kept when access is toggled off, so re-enabling restores the same link.</summary>
+    public string? PublicSlug { get; set; }
+
+    /// <summary>Gate for anonymous read-only access to party-visible knowledge. Default off.</summary>
+    public bool PublicAccessEnabled { get; set; }
+
     public byte[] RowVersion { get; set; } = [];
 
     // Navigation properties

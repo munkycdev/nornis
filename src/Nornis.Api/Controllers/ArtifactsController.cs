@@ -238,7 +238,7 @@ public class ArtifactsController : ControllerBase
             UpdatedAt: artifact.UpdatedAt);
     }
 
-    private static ArtifactDetailResponse ToDetailResponse(ArtifactDetail detail)
+    internal static ArtifactDetailResponse ToDetailResponse(ArtifactDetail detail)
     {
         var artifact = detail.Artifact;
 

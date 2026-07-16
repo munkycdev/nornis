@@ -3,6 +3,7 @@
 @inject NornisApiClient Api
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 @* World configuration, campaigns, characters, and members. Formerly the /settings page;
    now a tab on the GM-only Admin page. *@
@@ -30,6 +31,30 @@
                                  Placeholder="server default" Min="0.01m" Max="100m" Step="0.5m"
                                  HelperText="Cap on this world's AI spend per day (extraction, Loremaster, audits). Leave empty to use the server default."
                                  Variant="Variant.Outlined" Class="mb-3" />
+
+                <div class="nornis-detail-section-title mt-2">Public access</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                    Share this world's party-visible knowledge — codex, timeline, and sessions —
+                    with anyone via a read-only link. GM-only and private material never appears.
+                </MudText>
+                <MudTextField @bind-Value="_publicSlug" Label="Public URL slug" Immediate="true"
+                              Placeholder="@SuggestedSlug" MaxLength="60"
+                              HelperText="Lowercase letters, digits, and hyphens (3–60 characters)."
+                              Variant="Variant.Outlined" Class="mb-2"
+                              Adornment="Adornment.Start" AdornmentText="nornis.app/w/" />
+                <div class="d-flex align-center gap-3 mb-3">
+                    <MudSwitch T="bool" @bind-Value="_publicAccessEnabled" Color="Color.Secondary"
+                               Label="Publicly accessible" Disabled="@(string.IsNullOrWhiteSpace(_publicSlug))" />
+                    @if (_publicAccessEnabled && !string.IsNullOrWhiteSpace(_publicSlug))
+                    {
+                        <MudTooltip Text="Copy public link">
+                            <MudIconButton Icon="@Icons.Material.Outlined.ContentCopy" Size="Size.Small"
+                                           OnClick="CopyPublicLinkAsync" aria-label="Copy public link" />
+                        </MudTooltip>
+                        <a href="@PublicUrl" target="_blank" rel="noopener" class="nornis-link">@PublicUrl</a>
+                    }
+                </div>
+
                 @if (_worldError is not null)
                 {
                     <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_worldError</MudAlert>
@@ -215,6 +240,8 @@
     private string? _description;
     private string? _gameSystem;
     private decimal? _dailyAiBudget;
+    private string? _publicSlug;
+    private bool _publicAccessEnabled;
     private bool _savingWorld;
     private string? _worldError;
 
@@ -423,8 +450,23 @@
             _description = c.Description;
             _gameSystem = c.GameSystem;
             _dailyAiBudget = c.DailyAiBudgetUsd;
+            _publicSlug = c.PublicSlug;
+            _publicAccessEnabled = c.PublicAccessEnabled;
             _loadedWorldId = c.Id;
         }
+    }
+
+    private string SuggestedSlug =>
+        Worlds.Current is { } c
+            ? new string(c.Name.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()).Trim('-')
+            : "my-world";
+
+    private string PublicUrl => $"https://nornis.app/w/{_publicSlug?.Trim().ToLowerInvariant()}";
+
+    private async Task CopyPublicLinkAsync()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", PublicUrl);
+        Snackbar.Add("Public link copied.", Severity.Info);
     }
 
     private async Task SaveWorldAsync()
@@ -446,7 +488,9 @@
         var result = await Api.UpdateWorldAsync(Worlds.Current.Id,
             new UpdateWorldRequest(_name.Trim(), _description, _gameSystem,
                 DailyAiBudgetUsd: _dailyAiBudget,
-                ClearDailyAiBudget: _dailyAiBudget is null));
+                ClearDailyAiBudget: _dailyAiBudget is null,
+                PublicSlug: string.IsNullOrWhiteSpace(_publicSlug) ? null : _publicSlug.Trim(),
+                PublicAccessEnabled: _publicAccessEnabled));
 
         _savingWorld = false;
         if (!result.IsSuccess)

@@ -67,8 +67,12 @@ public class StorylinesController : ControllerBase
             return MapError(result.Error!);
         }
 
-        var timeline = result.Value!;
-        return Ok(new StorylineTimelineResponse(
+        return Ok(ToTimelineResponse(result.Value!));
+    }
+
+    /// <summary>Shared with the public read-only endpoints.</summary>
+    internal static StorylineTimelineResponse ToTimelineResponse(Application.Models.StorylineTimeline timeline) =>
+        new(
             timeline.Sessions.Select(s => new TimelineSessionResponse(s.SourceId, s.Title, s.OccurredAt, s.StorylineCount)).ToList(),
             timeline.Lanes.Select(l => new TimelineLaneResponse(
                 l.StorylineId, l.Name, l.Status,
@@ -76,8 +80,7 @@ public class StorylinesController : ControllerBase
                     p.SourceId, p.OccurredAt,
                     p.Developments.Select(d => new TimelineDevelopmentResponse(d.Kind, d.Text, d.Quote, d.IsOpenQuestion)).ToList())).ToList(),
                 l.ParentStorylineId, l.CampaignName)).ToList(),
-            timeline.Links.Select(x => new TimelineLinkResponse(x.FromStorylineId, x.ToStorylineId, x.Type)).ToList()));
-    }
+            timeline.Links.Select(x => new TimelineLinkResponse(x.FromStorylineId, x.ToStorylineId, x.Type)).ToList());
 
     [HttpGet]
     public async Task<IActionResult> List(

@@ -25,6 +25,14 @@ public class WorldConfiguration : IEntityTypeConfiguration<World>
         builder.Property(c => c.GameSystem)
             .HasMaxLength(200);
 
+        builder.Property(c => c.PublicSlug)
+            .HasMaxLength(60);
+
+        // One slug maps to one world; the filter lets many worlds have no slug.
+        builder.HasIndex(c => c.PublicSlug)
+            .IsUnique()
+            .HasFilter("[PublicSlug] IS NOT NULL");
+
         builder.Property(c => c.CreatedAt)
             .HasColumnType("datetimeoffset");
 

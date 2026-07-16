@@ -9,4 +9,6 @@ public record WorldResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     string? MyRole = null,
-    decimal? DailyAiBudgetUsd = null);
+    decimal? DailyAiBudgetUsd = null,
+    string? PublicSlug = null,
+    bool PublicAccessEnabled = false);

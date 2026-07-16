@@ -1,0 +1,108 @@
+@page "/w/{Slug}/artifacts/{ArtifactId:guid}"
+@layout PublicLayout
+@inject NornisApiClient Api
+
+<PageTitle>@(_detail?.Name ?? "Codex") — Nornis</PageTitle>
+
+<PublicWorldFrame Slug="@Slug" Active="artifacts">
+    <ChildContent Context="world">
+        <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text"
+                   Color="Color.Default" Href="@($"/w/{Slug}/artifacts")" Class="mb-3">Codex</MudButton>
+
+        @if (_loading)
+        {
+            <LoadingRows Rows="3" />
+        }
+        else if (_detail is null)
+        {
+            <MudAlert Severity="Severity.Warning">This entry doesn't exist or isn't public.</MudAlert>
+        }
+        else
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                <MudText Typo="Typo.h5" Class="nornis-serif">@_detail.Name</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@_detail.Type · @_detail.Status</MudText>
+                @if (!string.IsNullOrWhiteSpace(_detail.Summary))
+                {
+                    <MudText Typo="Typo.body1">@_detail.Summary</MudText>
+                }
+            </MudPaper>
+
+            @if (_detail.Facts.Count > 0)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="nornis-detail-section-title">What's known</div>
+                    @foreach (var fact in _detail.Facts)
+                    {
+                        <div class="nornis-list-row">
+                            <div class="nornis-list-body">
+                                <div class="nornis-list-title">@fact.Predicate</div>
+                                <div class="nornis-list-sub">@fact.Value</div>
+                            </div>
+                            @if (fact.TruthState is "Rumor" or "Disputed" or "False")
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                         Color="@(fact.TruthState == "Rumor" ? Color.Warning : Color.Error)">
+                                    @fact.TruthState
+                                </MudChip>
+                            }
+                        </div>
+                    }
+                </MudPaper>
+            }
+
+            @if (_detail.ConnectedArtifacts.Count > 0)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="nornis-detail-section-title">Connections</div>
+                    @foreach (var rel in _detail.Relationships)
+                    {
+                        var other = OtherEnd(rel);
+                        if (other is not null)
+                        {
+                            <div class="nornis-list-row">
+                                <div class="nornis-list-body">
+                                    <div class="nornis-list-title">
+                                        <a href="@($"/w/{Slug}/artifacts/{other.Id}")" class="nornis-link">@other.Name</a>
+                                    </div>
+                                    <div class="nornis-list-sub">@Humanize(rel.Type)@(rel.Description is null ? "" : $" — {rel.Description}")</div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </MudPaper>
+            }
+        }
+    </ChildContent>
+</PublicWorldFrame>
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+    [Parameter] public Guid ArtifactId { get; set; }
+
+    private bool _loading = true;
+    private ArtifactDetailDto? _detail;
+    private (string Slug, Guid Id)? _loadedKey;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedKey == (Slug, ArtifactId))
+        {
+            return;
+        }
+        _loadedKey = (Slug, ArtifactId);
+        _loading = true;
+        var result = await Api.GetPublicArtifactAsync(Slug, ArtifactId);
+        _detail = result.IsSuccess ? result.Value : null;
+        _loading = false;
+    }
+
+    private ConnectedArtifact? OtherEnd(ArtifactRelationshipDto rel)
+    {
+        var otherId = rel.ArtifactAId == ArtifactId ? rel.ArtifactBId : rel.ArtifactAId;
+        return _detail?.ConnectedArtifacts.FirstOrDefault(c => c.Id == otherId);
+    }
+
+    private static string Humanize(string pascal) =>
+        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+}

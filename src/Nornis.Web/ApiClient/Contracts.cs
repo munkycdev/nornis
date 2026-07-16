@@ -10,7 +10,9 @@ public record WorldSummary(
     string? Description,
     string? GameSystem,
     string MyRole,
-    decimal? DailyAiBudgetUsd = null);
+    decimal? DailyAiBudgetUsd = null,
+    string? PublicSlug = null,
+    bool PublicAccessEnabled = false);
 
 public record CreateWorldRequest(
     string Name,
@@ -22,7 +24,9 @@ public record UpdateWorldRequest(
     string? Description,
     string? GameSystem,
     decimal? DailyAiBudgetUsd = null,
-    bool ClearDailyAiBudget = false);
+    bool ClearDailyAiBudget = false,
+    string? PublicSlug = null,
+    bool? PublicAccessEnabled = null);
 
 public record WorldMember(
     Guid Id,
@@ -414,6 +418,13 @@ public record RequestLibraryUploadRequest(
 public record LibraryUploadTicketDto(LibraryDocumentDto Document, string UploadUrl);
 
 public record LibraryDownloadDto(string DownloadUrl, string FileName, string ContentType, long SizeBytes);
+
+/// <summary>Public face of a world — the anonymous /w/{slug} pages' card.</summary>
+public record PublicWorldDto(
+    string Slug,
+    string Name,
+    string? Description,
+    string? GameSystem);
 
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);

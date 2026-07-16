@@ -33,8 +33,10 @@ public class DevAuthBypassMiddleware
 
     public async Task InvokeAsync(HttpContext context, IUserRepository userRepository)
     {
-        // Skip for health endpoint
-        if (context.Request.Path.StartsWithSegments("/health"))
+        // Skip for the health endpoint and the public read-only API — the latter must
+        // stay genuinely anonymous locally or the public path can't be exercised in dev.
+        if (context.Request.Path.StartsWithSegments("/health")
+            || context.Request.Path.StartsWithSegments("/api/public"))
         {
             await _next(context);
             return;

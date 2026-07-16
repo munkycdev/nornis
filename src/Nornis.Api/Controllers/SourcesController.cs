@@ -258,7 +258,7 @@ public class SourcesController : ControllerBase
         return Ok(response);
     }
 
-    private static SourceResponse ToSourceResponse(Source source)
+    internal static SourceResponse ToSourceResponse(Source source)
     {
         return new SourceResponse(
             Id: source.Id,
@@ -276,7 +276,7 @@ public class SourcesController : ControllerBase
             CampaignName: source.Campaign?.Name);
     }
 
-    private static SourceListItemResponse ToSourceListItemResponse(Source source)
+    internal static SourceListItemResponse ToSourceListItemResponse(Source source)
     {
         return new SourceListItemResponse(
             Id: source.Id,

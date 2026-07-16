@@ -35,6 +35,10 @@ public class InMemoryWorldRepository : IWorldRepository
         return Task.FromResult(world);
     }
 
+    public Task<World?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_worlds.FirstOrDefault(w =>
+            string.Equals(w.PublicSlug, slug, StringComparison.OrdinalIgnoreCase)));
+
     public Task<World> UpdateAsync(World world, CancellationToken cancellationToken = default)
     {
         var index = _worlds.FindIndex(c => c.Id == world.Id);

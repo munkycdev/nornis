@@ -104,7 +104,7 @@ else
                     {
                         var px = X(point.OccurredAt);
                         var r = 4 + Math.Min(point.Developments.Count - 1, 3);
-                        <g style="cursor:pointer" @onclick="@(() => Nav.NavigateTo($"/sources/{point.SourceId}"))">
+                        <g style="cursor:pointer" @onclick="@(() => Nav.NavigateTo($"{SourceLinkBase}/{point.SourceId}"))">
                             @if (point.Developments.Any(d => d.IsOpenQuestion))
                             {
                                 <circle cx="@px" cy="@y" r="@(r + 4)" fill="none" stroke="@color" stroke-width="1.5" opacity="0.55" />
@@ -132,7 +132,7 @@ else
                          style="top:@(row.Top)px; height:@(row.Height)px; width:@(GutterWidth - 8)px; padding-left:@(8 + row.Depth * 16)px"
                          title="@lane.Name (@lane.Status)@(CanEdit ? " — drag onto another storyline's row to nest it" : "")"
                          data-storyline-id="@(CanEdit ? lane.StorylineId.ToString() : null)"
-                         @onclick="@(() => Nav.NavigateTo($"/artifacts/{lane.StorylineId}"))">
+                         @onclick="@(() => Nav.NavigateTo($"{ArtifactLinkBase}/{lane.StorylineId}"))">
                         <span class="nornis-graph-dot" style="background:@StatusColor(lane.Status)"></span>
                         <span class="nornis-timeline-label-text">@lane.Name</span>
                     </div>
@@ -157,6 +157,10 @@ else
 
     /// <summary>Enables drag-to-nest on lane labels (GM only).</summary>
     [Parameter] public bool CanEdit { get; set; }
+
+    /// <summary>Route prefixes for point/lane clicks; the public /w/{slug} pages override these.</summary>
+    [Parameter] public string SourceLinkBase { get; set; } = "/sources";
+    [Parameter] public string ArtifactLinkBase { get; set; } = "/artifacts";
 
     /// <summary>Raised when a lane is dropped onto another: (child, new parent).</summary>
     [Parameter] public EventCallback<(TimelineLaneDto Child, TimelineLaneDto Parent)> ReparentRequested { get; set; }

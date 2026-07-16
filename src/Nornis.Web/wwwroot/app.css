@@ -1631,6 +1631,56 @@ a.nornis-cite:hover {
     color: var(--mud-palette-text-secondary);
 }
 
+/* ------------------------------------------------------- Public world (/w/) -- */
+
+.nornis-public-world-head {
+    padding: 40px 0 8px 0;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--mud-palette-divider);
+}
+
+.nornis-public-tabs {
+    display: flex;
+    gap: 4px;
+    margin-top: 16px;
+}
+
+.nornis-public-tab {
+    padding: 8px 14px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--mud-palette-text-secondary);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+
+.nornis-public-tab:hover {
+    color: var(--mud-palette-primary);
+}
+
+.nornis-public-tab-active {
+    color: var(--mud-palette-primary);
+    border-bottom-color: var(--mud-palette-primary);
+}
+
+.nornis-public-notfound {
+    text-align: center;
+    padding: 96px 24px;
+}
+
+.nornis-public-sections {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+@media (max-width: 700px) {
+    .nornis-public-sections {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* ----------------------------------------------------------------- Landing -- */
 
 .nornis-landing-hero {

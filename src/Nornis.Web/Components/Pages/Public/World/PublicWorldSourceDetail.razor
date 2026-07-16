@@ -1,0 +1,80 @@
+@page "/w/{Slug}/sources/{SourceId:guid}"
+@layout PublicLayout
+@inject NornisApiClient Api
+
+<PageTitle>@(_source?.Title ?? "Session") — Nornis</PageTitle>
+
+<PublicWorldFrame Slug="@Slug" Active="sources">
+    <ChildContent Context="world">
+        <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text"
+                   Color="Color.Default" Href="@($"/w/{Slug}/sources")" Class="mb-3">Sessions</MudButton>
+
+        @if (_loading)
+        {
+            <LoadingRows Rows="3" />
+        }
+        else if (_source is null)
+        {
+            <MudAlert Severity="Severity.Warning">This chronicle doesn't exist or isn't public.</MudAlert>
+        }
+        else
+        {
+            <div class="nornis-detail-head">
+                <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Description" /></div>
+                <div class="flex-grow-1">
+                    <MudText Typo="Typo.h4" Class="nornis-serif">@_source.Title</MudText>
+                    <div class="nornis-detail-chips">
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@Humanize(_source.Type)</MudChip>
+                        @if (_source.OccurredAt is not null)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_source.OccurredAt.Value.LocalDateTime.ToString("d MMM yyyy")</MudChip>
+                        }
+                        @if (_source.CampaignName is not null)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary">@_source.CampaignName</MudChip>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_source.Body))
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <NotesEditor @key="_source.Id" ReadOnly="true"
+                                 InitialHtml="@Nornis.Web.Services.MarkdownRenderer.ToHtml(_source.Body).Value" />
+                </MudPaper>
+            }
+            @if (!string.IsNullOrWhiteSpace(_source.Uri))
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <a href="@_source.Uri" target="_blank" rel="noopener noreferrer" class="nornis-link">@_source.Uri</a>
+                </MudPaper>
+            }
+        }
+    </ChildContent>
+</PublicWorldFrame>
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+    [Parameter] public Guid SourceId { get; set; }
+
+    private bool _loading = true;
+    private SourceDetailDto? _source;
+    private (string Slug, Guid Id)? _loadedKey;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedKey == (Slug, SourceId))
+        {
+            return;
+        }
+        _loadedKey = (Slug, SourceId);
+        _loading = true;
+        var result = await Api.GetPublicSourceAsync(Slug, SourceId);
+        _source = result.IsSuccess ? result.Value : null;
+        _loading = false;
+    }
+
+    private static string Humanize(string pascal) =>
+        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+}

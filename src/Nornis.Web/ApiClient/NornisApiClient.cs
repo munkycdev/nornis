@@ -148,6 +148,28 @@ public class NornisApiClient
     public Task<ApiResult<bool>> DeleteSourceAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}/sources/{sourceId}", ct);
 
+    // ------------------------------------------------------------------ Public --
+    // Anonymous read-only endpoints (/w/{slug} pages). Requests go out tokenless on
+    // anonymous circuits — BearerTokenHandler no-ops without a token.
+
+    public Task<ApiResult<PublicWorldDto>> GetPublicWorldAsync(string slug, CancellationToken ct = default) =>
+        GetAsync<PublicWorldDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}", ct);
+
+    public Task<ApiResult<IReadOnlyList<ArtifactListItem>>> GetPublicArtifactsAsync(string slug, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<ArtifactListItem>>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/artifacts", ct);
+
+    public Task<ApiResult<ArtifactDetailDto>> GetPublicArtifactAsync(string slug, Guid artifactId, CancellationToken ct = default) =>
+        GetAsync<ArtifactDetailDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/artifacts/{artifactId}", ct);
+
+    public Task<ApiResult<StorylineTimelineDto>> GetPublicTimelineAsync(string slug, CancellationToken ct = default) =>
+        GetAsync<StorylineTimelineDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/timeline", ct);
+
+    public Task<ApiResult<IReadOnlyList<SourceListItem>>> GetPublicSourcesAsync(string slug, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<SourceListItem>>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/sources", ct);
+
+    public Task<ApiResult<SourceDetailDto>> GetPublicSourceAsync(string slug, Guid sourceId, CancellationToken ct = default) =>
+        GetAsync<SourceDetailDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/sources/{sourceId}", ct);
+
     // ------------------------------------------------------------------ Library --
 
     public Task<ApiResult<LibraryUploadTicketDto>> RequestLibraryUploadAsync(

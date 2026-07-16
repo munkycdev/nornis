@@ -182,6 +182,21 @@ else
 // MVC action filter for world-scoped endpoints
 builder.Services.AddScoped<WorldMemberActionFilter>();
 
+// Rate limit only the anonymous public surface — authenticated traffic is unaffected.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("public", httpContext =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+});
+
 var app = builder.Build();
 
 // Middleware pipeline order:
@@ -212,6 +227,8 @@ else
     app.UseAuthorization();
     app.UseMiddleware<UserProvisioningMiddleware>();
 }
+
+app.UseRateLimiter();
 
 app.MapControllers();
 

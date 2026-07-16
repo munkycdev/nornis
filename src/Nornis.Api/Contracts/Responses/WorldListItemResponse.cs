@@ -5,4 +5,6 @@ public record WorldListItemResponse(
     string Name,
     string? Description,
     string? GameSystem,
-    string MyRole);
+    string MyRole,
+    string? PublicSlug = null,
+    bool PublicAccessEnabled = false);

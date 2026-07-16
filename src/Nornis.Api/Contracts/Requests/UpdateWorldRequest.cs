@@ -5,4 +5,6 @@ public record UpdateWorldRequest(
     string? Description = null,
     string? GameSystem = null,
     decimal? DailyAiBudgetUsd = null,
-    bool ClearDailyAiBudget = false);
+    bool ClearDailyAiBudget = false,
+    string? PublicSlug = null,
+    bool? PublicAccessEnabled = null);

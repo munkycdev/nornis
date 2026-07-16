@@ -1,0 +1,68 @@
+@inject NornisApiClient Api
+
+@* Shared shell for the anonymous /w/{slug} pages: resolves the world card once, renders
+   the name + section tabs, and shows a friendly not-public view for unknown/disabled
+   slugs (the API answers both identically — no existence oracle to preserve here). *@
+
+@if (_loading)
+{
+    <LoadingRows Rows="3" />
+}
+else if (_world is null)
+{
+    <div class="nornis-public-notfound">
+        <MudIcon Icon="@Icons.Material.Outlined.VisibilityOff" Size="Size.Large" Class="nornis-comingsoon-icon" />
+        <MudText Typo="Typo.h5" Class="nornis-serif">This world isn't public</MudText>
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-2">
+            The link may be wrong, or the game master has turned public access off.
+        </MudText>
+    </div>
+}
+else
+{
+    <div class="nornis-public-world-head">
+        <MudText Typo="Typo.h4" Class="nornis-serif">@_world.Name</MudText>
+        @if (!string.IsNullOrWhiteSpace(_world.GameSystem))
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary">@_world.GameSystem</MudText>
+        }
+        <nav class="nornis-public-tabs">
+            <a href="@($"/w/{Slug}")" class="@TabClass("home")">Overview</a>
+            <a href="@($"/w/{Slug}/artifacts")" class="@TabClass("artifacts")">Codex</a>
+            <a href="@($"/w/{Slug}/timeline")" class="@TabClass("timeline")">Timeline</a>
+            <a href="@($"/w/{Slug}/sources")" class="@TabClass("sources")">Sessions</a>
+        </nav>
+    </div>
+
+    @ChildContent(_world)
+}
+
+@code {
+    [Parameter, EditorRequired] public string Slug { get; set; } = string.Empty;
+
+    /// <summary>Which tab renders as active: home | artifacts | timeline | sources.</summary>
+    [Parameter, EditorRequired] public string Active { get; set; } = "home";
+
+    [Parameter, EditorRequired] public RenderFragment<PublicWorldDto> ChildContent { get; set; } = null!;
+
+    private bool _loading = true;
+    private PublicWorldDto? _world;
+    private string? _loadedSlug;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Slug == _loadedSlug)
+        {
+            return;
+        }
+
+        _loadedSlug = Slug;
+        _loading = true;
+        var result = await Api.GetPublicWorldAsync(Slug);
+        _world = result.IsSuccess ? result.Value : null;
+        _loading = false;
+    }
+
+    private string TabClass(string tab) =>
+        Active == tab ? "nornis-public-tab nornis-public-tab-active" : "nornis-public-tab";
+}

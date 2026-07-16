@@ -1,0 +1,42 @@
+@page "/w/{Slug}"
+@layout PublicLayout
+@inject NornisApiClient Api
+
+<PageTitle>World — Nornis</PageTitle>
+
+<PublicWorldFrame Slug="@Slug" Active="home">
+    <ChildContent Context="world">
+        <PageTitle>@world.Name — Nornis</PageTitle>
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            @if (!string.IsNullOrWhiteSpace(world.Description))
+            {
+                <MudText Typo="Typo.body1" Class="mb-4">@world.Description</MudText>
+            }
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                A living record of this world, kept by its game master with Nornis.
+                Browse the codex of people, places, and storylines; follow the timeline;
+                or read the session chronicles. Everything here is what the party knows —
+                the GM's secrets stay secret.
+            </MudText>
+        </MudPaper>
+
+        <div class="nornis-public-sections mt-4">
+            <a href="@($"/w/{Slug}/artifacts")" class="nornis-tile">
+                <span class="nornis-tile-title"><MudIcon Icon="@Icons.Material.Outlined.Category" Color="Color.Primary" Size="Size.Small" /> Codex</span>
+                <span class="nornis-tile-sub">Characters, places, factions, and storylines</span>
+            </a>
+            <a href="@($"/w/{Slug}/timeline")" class="nornis-tile">
+                <span class="nornis-tile-title"><MudIcon Icon="@Icons.Material.Outlined.Timeline" Color="Color.Primary" Size="Size.Small" /> Timeline</span>
+                <span class="nornis-tile-sub">The stories in motion, session by session</span>
+            </a>
+            <a href="@($"/w/{Slug}/sources")" class="nornis-tile">
+                <span class="nornis-tile-title"><MudIcon Icon="@Icons.Material.Outlined.Layers" Color="Color.Primary" Size="Size.Small" /> Sessions</span>
+                <span class="nornis-tile-sub">The chronicles as they were written</span>
+            </a>
+        </div>
+    </ChildContent>
+</PublicWorldFrame>
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+}

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Repositories;
 
@@ -25,6 +25,14 @@ public class WorldRepository : IWorldRepository
         return await _context.Worlds
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+    }
+
+    public async Task<World?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
+    {
+        var normalized = slug.ToLowerInvariant();
+        return await _context.Worlds
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.PublicSlug == normalized, cancellationToken);
     }
 
     public async Task<World> UpdateAsync(World world, CancellationToken cancellationToken = default)

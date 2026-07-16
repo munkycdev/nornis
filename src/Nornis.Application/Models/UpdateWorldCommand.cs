@@ -7,4 +7,6 @@ public record UpdateWorldCommand(
     string? GameSystem,
     Guid ActingUserId,
     decimal? DailyAiBudgetUsd = null,
-    bool ClearDailyAiBudget = false);
+    bool ClearDailyAiBudget = false,
+    string? PublicSlug = null,
+    bool? PublicAccessEnabled = null);

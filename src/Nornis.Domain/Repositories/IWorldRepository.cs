@@ -8,6 +8,9 @@ public interface IWorldRepository
 
     Task<World?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>Case-insensitive public-slug lookup (slugs are stored lowercase).</summary>
+    Task<World?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);
+
     Task<World> UpdateAsync(World world, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<World>> ListByUserAsync(Guid userId, CancellationToken cancellationToken = default);

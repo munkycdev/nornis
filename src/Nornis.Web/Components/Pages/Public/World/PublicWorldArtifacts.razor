@@ -1,0 +1,100 @@
+@page "/w/{Slug}/artifacts"
+@layout PublicLayout
+@inject NornisApiClient Api
+
+<PageTitle>Codex — Nornis</PageTitle>
+
+<PublicWorldFrame Slug="@Slug" Active="artifacts">
+    <ChildContent Context="world">
+        @if (_artifacts is null)
+        {
+            <LoadingRows Rows="3" />
+        }
+        else
+        {
+            <div class="d-flex gap-3 align-center mb-4 flex-wrap">
+                <div class="nornis-filter-row flex-grow-1">
+                    <MudChip T="string" Variant="@(_type is null ? Variant.Filled : Variant.Outlined)"
+                             Color="@(_type is null ? Color.Secondary : Color.Default)"
+                             OnClick="() => _type = null">All</MudChip>
+                    @foreach (var type in Types)
+                    {
+                        var t = type;
+                        <MudChip T="string" Variant="@(_type == t ? Variant.Filled : Variant.Outlined)"
+                                 Color="@(_type == t ? Color.Secondary : Color.Default)"
+                                 OnClick="() => _type = t">@t</MudChip>
+                    }
+                </div>
+                <MudTextField T="string" @bind-Value="_search" Immediate="true" Placeholder="Search the codex…"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 260px" />
+            </div>
+
+            @if (Filtered.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Nothing here matches.</MudText>
+            }
+            <div class="nornis-artifact-grid">
+                @foreach (var a in Filtered)
+                {
+                    <a href="@($"/w/{Slug}/artifacts/{a.Id}")" class="nornis-card nornis-artifact-card">
+                        <div class="nornis-artifact-card-head">
+                            <div class="nornis-list-thumb"><MudIcon Icon="@TypeIcon(a.Type)" Size="Size.Small" /></div>
+                            <div class="nornis-artifact-card-title">@a.Name</div>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(a.Summary))
+                        {
+                            <p class="nornis-artifact-card-summary">@a.Summary</p>
+                        }
+                        <div class="nornis-artifact-card-foot">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text">@a.Type</MudChip>
+                        </div>
+                    </a>
+                }
+            </div>
+        }
+    </ChildContent>
+</PublicWorldFrame>
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    private static readonly string[] Types =
+        ["Character", "Location", "Item", "Faction", "Event", "Storyline", "Concept", "Document"];
+
+    private IReadOnlyList<ArtifactListItem>? _artifacts;
+    private string? _type;
+    private string _search = string.Empty;
+    private string? _loadedSlug;
+
+    private IReadOnlyList<ArtifactListItem> Filtered =>
+        (_artifacts ?? [])
+            .Where(a => _type is null || a.Type == _type)
+            .Where(a => string.IsNullOrWhiteSpace(_search)
+                || a.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                || (a.Summary?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false))
+            .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Slug == _loadedSlug)
+        {
+            return;
+        }
+        _loadedSlug = Slug;
+        var result = await Api.GetPublicArtifactsAsync(Slug);
+        _artifacts = result.IsSuccess ? result.Value : [];
+    }
+
+    private static string TypeIcon(string type) => type switch
+    {
+        "Character" => Icons.Material.Outlined.Person,
+        "Location" => Icons.Material.Outlined.Place,
+        "Item" => Icons.Material.Outlined.Diamond,
+        "Faction" => Icons.Material.Outlined.Groups,
+        "Event" => Icons.Material.Outlined.Event,
+        "Storyline" => Icons.Material.Outlined.Hub,
+        _ => Icons.Material.Outlined.Category,
+    };
+}

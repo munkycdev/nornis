@@ -1,0 +1,48 @@
+@page "/w/{Slug}/timeline"
+@layout PublicLayout
+@inject NornisApiClient Api
+
+<PageTitle>Timeline — Nornis</PageTitle>
+
+<PublicWorldFrame Slug="@Slug" Active="timeline">
+    <ChildContent Context="world">
+        @if (_timeline is null)
+        {
+            <LoadingRows Rows="3" />
+        }
+        else if (_timeline.Lanes.Count == 0)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+                <MudIcon Icon="@Icons.Material.Outlined.Timeline" Size="Size.Large" Class="nornis-comingsoon-icon" />
+                <MudText Typo="Typo.h5" Class="nornis-serif">No storylines yet</MudText>
+                <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+                    As the chronicle grows, the stories in motion appear here.
+                </MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <StorylineTimelineChart Data="_timeline" CanEdit="false"
+                                    SourceLinkBase="@($"/w/{Slug}/sources")"
+                                    ArtifactLinkBase="@($"/w/{Slug}/artifacts")" />
+        }
+    </ChildContent>
+</PublicWorldFrame>
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    private StorylineTimelineDto? _timeline;
+    private string? _loadedSlug;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Slug == _loadedSlug)
+        {
+            return;
+        }
+        _loadedSlug = Slug;
+        var result = await Api.GetPublicTimelineAsync(Slug);
+        _timeline = result.IsSuccess ? result.Value : new StorylineTimelineDto([], [], []);
+    }
+}

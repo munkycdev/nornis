@@ -128,6 +128,37 @@ public class WorldService : IWorldService
             world.DailyAiBudgetUsd = null;
         }
 
+        if (command.PublicSlug is not null)
+        {
+            var normalized = command.PublicSlug.Trim().ToLowerInvariant();
+            var slugValidation = ValidatePublicSlug(normalized);
+            if (slugValidation is not null)
+            {
+                return AppResult<World>.Fail(slugValidation);
+            }
+
+            // One slug, one world. The unique index is the race backstop.
+            var existing = await _worldRepository.GetBySlugAsync(normalized, ct);
+            if (existing is not null && existing.Id != world.Id)
+            {
+                return AppResult<World>.Fail(new AppError(409, "slug_taken",
+                    "That public URL is already used by another world."));
+            }
+
+            world.PublicSlug = normalized;
+        }
+
+        if (command.PublicAccessEnabled is not null)
+        {
+            if (command.PublicAccessEnabled.Value && string.IsNullOrEmpty(world.PublicSlug))
+            {
+                return AppResult<World>.Fail(new AppError(400, "validation_error",
+                    "Set a public URL slug before enabling public access."));
+            }
+
+            world.PublicAccessEnabled = command.PublicAccessEnabled.Value;
+        }
+
         world.UpdatedAt = DateTimeOffset.UtcNow;
 
         world = await _worldRepository.UpdateAsync(world, ct);
@@ -151,6 +182,18 @@ public class WorldService : IWorldService
         }
 
         return AppResult<IReadOnlyList<WorldWithRoleDto>>.Success(result);
+    }
+
+    /// <summary>Slugs are lowercase a-z0-9 with interior hyphens, 3-60 chars.</summary>
+    private static AppError? ValidatePublicSlug(string slug)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(slug, "^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$"))
+        {
+            return new AppError(400, "validation_error",
+                "The public URL slug must be 3-60 characters: lowercase letters, digits, and hyphens (not at the ends).");
+        }
+
+        return null;
     }
 
     private static AppError? ValidateName(string? name)
