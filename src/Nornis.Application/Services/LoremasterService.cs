@@ -45,6 +45,10 @@ public partial class LoremasterService : ILoremasterService
           Never present module events as things that occurred; world canon lives only in the
           artifacts, facts, and relationships above it. When the two disagree, the world record
           wins and the disagreement is worth naming.
+        - When the passages only partially cover the question, share what they DO establish and
+          name the nearest matching concept — if the asker's wording doesn't appear in the books
+          but a passage describes something that plainly matches it (a class, rule, or creature
+          under a different name), say so and answer for that concept.
         - Cite passages like any other reference: [ref:passage:ID].
 
         ## Citation Format
@@ -131,8 +135,10 @@ public partial class LoremasterService : ILoremasterService
 
             // Library passages ride alongside world memory. The retriever is defensive
             // (returns [] on any failure) and skips embedding when no docs are indexed.
+            // Follow-ups name their subject in earlier exchanges, so the conversation
+            // context participates in the embedding just as it does in name matching.
             var passages = await _passageRetriever.RetrieveAsync(
-                command.Question, command.WorldId, command.UserId, command.UserRole, ct);
+                retrievalText, command.WorldId, command.UserId, command.UserRole, ct);
             if (passages.Count > 0)
             {
                 context = new KnowledgeContext

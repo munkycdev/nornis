@@ -25,8 +25,15 @@ public class LibraryOptions
     /// <summary>Chunks per embedding API call.</summary>
     public int EmbedBatchSize { get; set; } = 64;
 
-    /// <summary>Passages retrieved per ask.</summary>
+    /// <summary>Similarity seeds retrieved per ask (before neighbor expansion).</summary>
     public int RetrievalTopK { get; set; } = 6;
+
+    /// <summary>Adjacent chunks pulled in around each seed hit (per side), so answers that
+    /// span a chunk boundary — class tables, level progressions — arrive whole.</summary>
+    public int NeighborRadius { get; set; } = 1;
+
+    /// <summary>Hard cap on passages sent to the prompt after expansion.</summary>
+    public int MaxContextPassages { get; set; } = 12;
 
     public int MaxUploadSizeBytes { get; set; } = 209_715_200; // 200 MB, matches Chronicis
 

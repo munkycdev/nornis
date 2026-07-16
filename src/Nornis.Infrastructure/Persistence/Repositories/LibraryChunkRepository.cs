@@ -48,6 +48,19 @@ public class LibraryChunkRepository : ILibraryChunkRepository
             .ExecuteDeleteAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<LibraryChunkHit>> ListByDocumentOrdsAsync(
+        Guid documentId,
+        IReadOnlyList<int> ords,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.LibraryChunks
+            .AsNoTracking()
+            .Where(c => c.DocumentId == documentId && ords.Contains(c.Ord))
+            .OrderBy(c => c.Ord)
+            .Select(c => new LibraryChunkHit(c.Id, c.DocumentId, c.Document.Title, c.Ord, c.Page, c.Text, 0d))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<LibraryChunkHit>> SearchAsync(
         Guid worldId,
         float[] queryEmbedding,
@@ -73,6 +86,7 @@ public class LibraryChunkRepository : ILibraryChunkRepository
                 c.Id,
                 c.DocumentId,
                 c.Document.Title,
+                c.Ord,
                 c.Page,
                 c.Text,
                 EF.Functions.VectorDistance(

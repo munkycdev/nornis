@@ -22,4 +22,12 @@ public interface ILibraryChunkRepository
         IReadOnlyList<VisibilityScope> allowedVisibilities,
         int topK,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Specific chunks of one document by ordinal — neighbor expansion around
+    /// similarity hits, so answers that span a chunk boundary (class tables, level
+    /// progressions) arrive whole.</summary>
+    Task<IReadOnlyList<LibraryChunkHit>> ListByDocumentOrdsAsync(
+        Guid documentId,
+        IReadOnlyList<int> ords,
+        CancellationToken cancellationToken = default);
 }

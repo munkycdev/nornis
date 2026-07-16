@@ -6,6 +6,7 @@ using Nornis.Application.Knowledge;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Knowledge;
@@ -62,7 +63,9 @@ public class ReferencePassageRetriever : IReferencePassageRetriever
             var hits = await _chunkRepository.SearchAsync(
                 worldId, embedding.Embeddings[0], allowedScopes, _options.RetrievalTopK, ct);
 
-            return hits.Select(h => new KnowledgePassage
+            var expanded = await ExpandWithNeighborsAsync(hits, ct);
+
+            return expanded.Select(h => new KnowledgePassage
             {
                 ChunkId = h.ChunkId,
                 DocumentId = h.DocumentId,
@@ -78,6 +81,47 @@ public class ReferencePassageRetriever : IReferencePassageRetriever
             _logger.LogError(ex, "Reference passage retrieval failed for world {WorldId}", worldId);
             return [];
         }
+    }
+
+    /// <summary>
+    /// Pulls each seed hit's adjacent chunks (±NeighborRadius within its document) so
+    /// content split across a chunk boundary reads whole, then orders everything by
+    /// document reading order. Seeds always survive the cap; neighbors fill the rest.
+    /// </summary>
+    private async Task<IReadOnlyList<LibraryChunkHit>> ExpandWithNeighborsAsync(
+        IReadOnlyList<LibraryChunkHit> hits, CancellationToken ct)
+    {
+        if (hits.Count == 0 || _options.NeighborRadius <= 0)
+        {
+            return hits;
+        }
+
+        var byId = hits.ToDictionary(h => h.ChunkId);
+        var neighbors = new List<LibraryChunkHit>();
+
+        foreach (var documentGroup in hits.GroupBy(h => h.DocumentId))
+        {
+            var wantedOrds = documentGroup
+                .SelectMany(h => Enumerable.Range(h.Ord - _options.NeighborRadius, _options.NeighborRadius * 2 + 1))
+                .Where(o => o >= 0)
+                .Except(documentGroup.Select(h => h.Ord))
+                .Distinct()
+                .ToList();
+
+            if (wantedOrds.Count > 0)
+            {
+                neighbors.AddRange(await _chunkRepository.ListByDocumentOrdsAsync(documentGroup.Key, wantedOrds, ct));
+            }
+        }
+
+        var extras = neighbors
+            .Where(n => !byId.ContainsKey(n.ChunkId))
+            .Take(Math.Max(0, _options.MaxContextPassages - hits.Count));
+
+        return hits.Concat(extras)
+            .OrderBy(h => h.DocumentTitle, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(h => h.Ord)
+            .ToList();
     }
 
     private async Task TrackUsageAsync(Guid worldId, Guid userId, int inputTokens, CancellationToken ct)

@@ -61,6 +61,9 @@ public class InMemoryLibraryChunkRepository : ILibraryChunkRepository
 
     public List<LibraryChunkHit> SearchHits { get; } = [];
 
+    /// <summary>All chunks in the store — the source for ListByDocumentOrdsAsync.</summary>
+    public List<LibraryChunkHit> AllChunks { get; } = [];
+
     public Task ReplaceForDocumentAsync(Guid documentId, IReadOnlyList<LibraryChunkWrite> chunks, CancellationToken cancellationToken = default)
     {
         WritesByDocument[documentId] = chunks;
@@ -77,6 +80,13 @@ public class InMemoryLibraryChunkRepository : ILibraryChunkRepository
         Guid worldId, float[] queryEmbedding, IReadOnlyList<VisibilityScope> allowedVisibilities, int topK,
         CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<LibraryChunkHit>>(SearchHits.Take(topK).ToList());
+
+    public Task<IReadOnlyList<LibraryChunkHit>> ListByDocumentOrdsAsync(
+        Guid documentId, IReadOnlyList<int> ords, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<LibraryChunkHit>>(AllChunks
+            .Where(c => c.DocumentId == documentId && ords.Contains(c.Ord))
+            .OrderBy(c => c.Ord)
+            .ToList());
 }
 
 public class FakeBlobStorageService : IBlobStorageService

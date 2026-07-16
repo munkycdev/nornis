@@ -6,11 +6,13 @@ public sealed record LibraryChunkWrite(
     Entities.LibraryChunk Chunk,
     float[] Embedding);
 
-/// <summary>A similarity-search hit, pre-joined with what a citation needs.</summary>
+/// <summary>A similarity-search hit, pre-joined with what a citation needs.
+/// <paramref name="Ord"/> enables neighbor expansion around the hit.</summary>
 public sealed record LibraryChunkHit(
     Guid ChunkId,
     Guid DocumentId,
     string DocumentTitle,
+    int Ord,
     int Page,
     string Text,
     double Distance);
