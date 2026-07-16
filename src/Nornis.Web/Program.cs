@@ -113,7 +113,7 @@ var forwardedOptions = new ForwardedHeadersOptions
 };
 // The ingress proxy is not a fixed address; clearing the loopback-only defaults is
 // required or the headers are silently ignored ({ } in an initializer clears nothing).
-forwardedOptions.KnownNetworks.Clear();
+forwardedOptions.KnownIPNetworks.Clear();
 forwardedOptions.KnownProxies.Clear();
 app.UseForwardedHeaders(forwardedOptions);
 

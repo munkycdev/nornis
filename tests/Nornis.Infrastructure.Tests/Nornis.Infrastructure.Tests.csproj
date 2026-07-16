@@ -9,7 +9,10 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="NUnit" Version="4.2.2" />
     <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.2" />
+    <!-- EF Sqlite 10.0.2 transitively pins SQLitePCLRaw 2.1.11 (GHSA-2m69-gcr7-jv3q,
+         NU1903 → error under TreatWarningsAsErrors); reference the patched bundle directly. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
     <PackageReference Include="FsCheck" Version="3.3.3" />
     <PackageReference Include="FsCheck.NUnit" Version="3.3.3" />
     <PackageReference Include="NSubstitute" Version="5.3.0" />

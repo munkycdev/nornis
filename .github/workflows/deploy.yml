@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
       - run: dotnet restore Nornis.sln
       - run: dotnet build Nornis.sln --no-restore
       - run: dotnet test Nornis.sln --no-build
@@ -83,14 +83,14 @@ jobs:
       # the old revision keeps serving until the containerapp update below.
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
       - name: Apply EF migrations
         # The connection string must reach the shell as an env var, not inline
         # ${{ }} substitution — the password contains characters bash re-expands.
         env:
           SQL_CONNECTION_STRING: ${{ secrets.SQL_CONNECTION_STRING }}
         run: |
-          dotnet tool install --global dotnet-ef --version 8.*
+          dotnet tool install --global dotnet-ef --version 10.*
           dotnet ef database update \
             --project src/Nornis.Infrastructure \
             --startup-project src/Nornis.Api \

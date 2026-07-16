@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <PackageReference Include="Markdig" Version="0.41.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.2" />
     <PackageReference Include="MudBlazor" Version="7.15.0" />
   </ItemGroup>
 

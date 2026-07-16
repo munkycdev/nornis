@@ -3,7 +3,7 @@
 # `--target api|web|worker`. Replaces the three per-service Dockerfiles that each
 # compiled the whole solution from scratch.
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Project files first so restore caches independently of source changes
@@ -26,7 +26,7 @@ RUN dotnet publish "src/Nornis.Api/Nornis.Api.csproj" -c Release -o /app/api --n
  && dotnet publish "src/Nornis.Worker/Nornis.Worker.csproj" -c Release -o /app/worker --no-restore
 
 # ----------------------------------------------------------------------- api --
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS api
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS api
 ARG IMAGE_SOURCE=""
 ARG IMAGE_REVISION=""
 LABEL org.opencontainers.image.source="${IMAGE_SOURCE}"
@@ -39,7 +39,7 @@ COPY --from=build /app/api .
 ENTRYPOINT ["dotnet", "Nornis.Api.dll"]
 
 # ----------------------------------------------------------------------- web --
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS web
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS web
 ARG IMAGE_SOURCE=""
 ARG IMAGE_REVISION=""
 LABEL org.opencontainers.image.source="${IMAGE_SOURCE}"
@@ -52,7 +52,7 @@ COPY --from=build /app/web .
 ENTRYPOINT ["dotnet", "Nornis.Web.dll"]
 
 # -------------------------------------------------------------------- worker --
-FROM mcr.microsoft.com/dotnet/runtime:8.0 AS worker
+FROM mcr.microsoft.com/dotnet/runtime:10.0 AS worker
 ARG IMAGE_SOURCE=""
 ARG IMAGE_REVISION=""
 LABEL org.opencontainers.image.source="${IMAGE_SOURCE}"

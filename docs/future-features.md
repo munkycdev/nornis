@@ -2,15 +2,24 @@
 
 ## List of unprocessed features
 
+* Sources
+  * Add ability to load files that are subsequently stored
+  * If a source is markdown formatted, it should render as markdown
+* Ask
+  * Add a "Clear" button
+* Review
+  * Make Review stretch the full width of the page, like all the others
 * Capture
   * Add the ability to hand-write notes
   * Perhaps have a tabbed interface instead of displaying all of the source options
+  * Default "When it happened" to the current date
 * Timeline
   * Backfill sweep: the 85 already-processed sources predate the Event↔Storyline and PartOf extraction teachings; a re-extraction pass (or targeted relationship sweep) would light up the historical timeline.
 * General
   * We need a way to manage campaigns
   * When does it make sense to make the Ask feature driven by Azure AI Search or some other RAG scheme?
   * Access-token refresh — the 24h token/cookie expiry currently ends in 401s/re-login; add `offline_access` + refresh in the bearer handler.
+  * I'd like to figure out a way for public access to knowledge, allowing read-only access. This should be tied to a GM-defined URL slug and default to not accessible. The ability to make it accessible should be in the world configuration page.
 
 ---
 

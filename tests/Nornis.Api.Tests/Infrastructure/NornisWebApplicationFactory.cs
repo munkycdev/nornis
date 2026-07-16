@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Nornis.Application.Messaging;
@@ -31,20 +32,16 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
     {
         builder.ConfigureServices(services =>
         {
-            // Remove the existing DbContext registration
-            var dbContextDescriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(DbContextOptions<NornisDbContext>));
-            if (dbContextDescriptor is not null)
+            // Remove the existing DbContext registration. Since EF 9, AddDbContext also
+            // registers IDbContextOptionsConfiguration<T> entries that re-apply UseSqlServer
+            // even after the options descriptor is removed — strip those too, or both
+            // providers end up registered and EF refuses to initialize.
+            foreach (var descriptor in services.Where(d =>
+                         d.ServiceType == typeof(DbContextOptions<NornisDbContext>)
+                         || d.ServiceType == typeof(IDbContextOptionsConfiguration<NornisDbContext>)
+                         || d.ServiceType == typeof(NornisDbContext)).ToList())
             {
-                services.Remove(dbContextDescriptor);
-            }
-
-            // Remove the existing DbContext service itself if registered directly
-            var dbContextServiceDescriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(NornisDbContext));
-            if (dbContextServiceDescriptor is not null)
-            {
-                services.Remove(dbContextServiceDescriptor);
+                services.Remove(descriptor);
             }
 
             // Add in-memory database with transaction warning suppressed
