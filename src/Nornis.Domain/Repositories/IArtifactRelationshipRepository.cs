@@ -17,4 +17,6 @@ public interface IArtifactRelationshipRepository
         CancellationToken cancellationToken = default);
 
     Task<ArtifactRelationship> UpdateAsync(ArtifactRelationship relationship, CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(Guid relationshipId, CancellationToken cancellationToken = default);
 }

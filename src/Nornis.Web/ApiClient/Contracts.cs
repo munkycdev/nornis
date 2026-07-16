@@ -365,7 +365,9 @@ public record TimelineLaneDto(
     Guid StorylineId,
     string Name,
     string Status,
-    IReadOnlyList<TimelinePointDto> Points);
+    IReadOnlyList<TimelinePointDto> Points,
+    Guid? ParentStorylineId = null,
+    string? CampaignName = null);
 
 public record TimelinePointDto(
     Guid SourceId,

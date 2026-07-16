@@ -127,6 +127,67 @@ public class ArtifactsController : ControllerBase
         return Ok(ToListItemResponse(result.Value!));
     }
 
+    /// <summary>GM-only: sets or clears a storyline's parent (the "PartOf" hierarchy link).</summary>
+    [HttpPut("{artifactId:guid}/parent")]
+    public async Task<IActionResult> SetParent(
+        Guid worldId,
+        Guid artifactId,
+        [FromBody] SetStorylineParentRequest request,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var command = new SetStorylineParentCommand(
+            ArtifactId: artifactId,
+            WorldId: worldId,
+            ActingUserId: user.Id,
+            ActingUserRole: member.Role,
+            ParentArtifactId: request.ParentArtifactId);
+
+        var result = await _artifactService.SetStorylineParentAsync(command, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>GM-only: sets an artifact's lifecycle status.</summary>
+    [HttpPut("{artifactId:guid}/status")]
+    public async Task<IActionResult> SetStatus(
+        Guid worldId,
+        Guid artifactId,
+        [FromBody] SetArtifactStatusRequest request,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        if (!Enum.TryParse<ArtifactStatus>(request.Status, ignoreCase: true, out var status))
+        {
+            return BadRequest(new ErrorResponse("invalid_artifact_status", $"'{request.Status}' is not a valid artifact status."));
+        }
+
+        var command = new SetArtifactStatusCommand(
+            ArtifactId: artifactId,
+            WorldId: worldId,
+            ActingUserId: user.Id,
+            ActingUserRole: member.Role,
+            Status: status);
+
+        var result = await _artifactService.SetStatusAsync(command, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return Ok(ToListItemResponse(result.Value!));
+    }
+
     /// <summary>The caller-visible world graph: artifacts as nodes, relationships as edges.</summary>
     [HttpGet("graph")]
     public async Task<IActionResult> GetGraph(Guid worldId, CancellationToken ct)

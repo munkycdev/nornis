@@ -175,6 +175,20 @@ public class NornisApiClient
 
     private sealed record RenameArtifactBody(string Name);
 
+    /// <summary>GM-only: sets or clears a storyline's parent storyline (null clears).</summary>
+    public Task<ApiResult<bool>> SetStorylineParentAsync(Guid worldId, Guid artifactId, Guid? parentArtifactId, CancellationToken ct = default) =>
+        PutAsync<SetStorylineParentBody, bool>($"/api/worlds/{worldId}/artifacts/{artifactId}/parent",
+            new SetStorylineParentBody(parentArtifactId), ct);
+
+    private sealed record SetStorylineParentBody(Guid? ParentArtifactId);
+
+    /// <summary>GM-only: sets an artifact's lifecycle status.</summary>
+    public Task<ApiResult<ArtifactListItem>> SetArtifactStatusAsync(Guid worldId, Guid artifactId, string status, CancellationToken ct = default) =>
+        PutAsync<SetArtifactStatusBody, ArtifactListItem>($"/api/worlds/{worldId}/artifacts/{artifactId}/status",
+            new SetArtifactStatusBody(status), ct);
+
+    private sealed record SetArtifactStatusBody(string Status);
+
     /// <summary>GM-only: assess Active storylines and propose closures as review proposals.</summary>
     public Task<ApiResult<RetrospectiveResult>> RunStorylineRetrospectiveAsync(Guid worldId, CancellationToken ct = default) =>
         PostAsync<object?, RetrospectiveResult>($"/api/worlds/{worldId}/storylines/retrospective", null, ct);

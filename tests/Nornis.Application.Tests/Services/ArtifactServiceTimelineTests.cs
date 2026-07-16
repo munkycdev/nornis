@@ -184,6 +184,48 @@ public class ArtifactServiceTimelineTests
     }
 
     [Test]
+    public async Task Timeline_PartOfBecomesLaneParent_NotLink()
+    {
+        var parent = SeedArtifact("Main arc");
+        var child = SeedArtifact("Sub-arc");
+        _relationshipRepo.Seed(new ArtifactRelationship
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            ArtifactAId = child.Id,
+            ArtifactBId = parent.Id,
+            Type = ArtifactService.PartOfRelationshipType,
+            TruthState = TruthState.Confirmed,
+            Visibility = VisibilityScope.PartyVisible,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        var result = await _service.GetStorylineTimelineAsync(_worldId, _gmUserId, WorldRole.GM, CancellationToken.None);
+
+        var childLane = result.Value!.Lanes.Single(l => l.StorylineId == child.Id);
+        Assert.That(childLane.ParentStorylineId, Is.EqualTo(parent.Id));
+        Assert.That(result.Value.Links, Is.Empty);
+    }
+
+    [Test]
+    public async Task Timeline_LaneCarriesItsMajorityCampaign()
+    {
+        var storyline = SeedArtifact("Arc");
+        var campaign = new Campaign { Id = Guid.NewGuid(), WorldId = _worldId, Name = "The Throne of Thorns" };
+        var session = SeedSession("Session", DateTimeOffset.UtcNow.AddDays(-3));
+        session.CampaignId = campaign.Id;
+        session.Campaign = campaign;
+
+        var fact = SeedFact(storyline, "development", "Something happened");
+        SeedReference(fact.Id, SourceReferenceTargetType.ArtifactFact, session);
+
+        var result = await _service.GetStorylineTimelineAsync(_worldId, _gmUserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.Value!.Lanes.Single().CampaignName, Is.EqualTo("The Throne of Thorns"));
+    }
+
+    [Test]
     public async Task Timeline_StorylineToStorylineRelationshipsBecomeLinks()
     {
         var arcA = SeedArtifact("Arc A");

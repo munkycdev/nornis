@@ -52,7 +52,27 @@
                 </div>
                 <div class="nornis-detail-chips">
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_detail.Type</MudChip>
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_detail.Status)">@_detail.Status</MudChip>
+                    @if (Worlds.Current?.MyRole == "GM")
+                    {
+                        <MudMenu Dense="true">
+                            <ActivatorContent>
+                                <MudTooltip Text="Change status">
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_detail.Status)"
+                                             Icon="@Icons.Material.Filled.ArrowDropDown">@_detail.Status</MudChip>
+                                </MudTooltip>
+                            </ActivatorContent>
+                            <ChildContent>
+                                @foreach (var status in AllStatuses)
+                                {
+                                    <MudMenuItem OnClick="() => SetStatusAsync(status)">@status</MudMenuItem>
+                                }
+                            </ChildContent>
+                        </MudMenu>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_detail.Status)">@_detail.Status</MudChip>
+                    }
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@_detail.Visibility</MudChip>
                     @if (_detail.PlayedBy is { Count: > 0 } players)
                     {
@@ -137,6 +157,41 @@
                 </div>
             }
         </MudPaper>
+
+        @if (_detail.Type == "Storyline" && Worlds.Current?.MyRole == "GM")
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">Part of</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Nest this storyline beneath a parent arc — the Timeline draws it as a branch
+                    and merges it back when it resolves.
+                </MudText>
+                @if (CurrentParent is { } parent)
+                {
+                    <div class="d-flex align-center gap-2 mb-3">
+                        <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
+                        <a href="@($"/artifacts/{parent.Id}")" class="nornis-link">@parent.Name</a>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearParentAsync" Disabled="_parentBusy">
+                            Detach
+                        </MudButton>
+                    </div>
+                }
+                <div class="nornis-add-member">
+                    <MudAutocomplete T="ArtifactListItem" @bind-Value="_parentTarget"
+                                     SearchFunc="SearchParentTargetsAsync" ToStringFunc="@(a => a?.Name)"
+                                     Label="Parent storyline" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                                     Clearable="true" ResetValueOnEmptyText="true" Class="flex-grow-1" />
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                               OnClick="SetParentAsync" Disabled="_parentBusy || _parentTarget is null">
+                        @(CurrentParent is null ? "Set parent" : "Move")
+                    </MudButton>
+                </div>
+                @if (_parentError is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_parentError</MudAlert>
+                }
+            </MudPaper>
+        }
 
         @if (_detail.Relationships.Count > 0 && _graph is not null)
         {
@@ -308,6 +363,111 @@
 
         Snackbar.Add($"Merged into {_mergeTarget.Name}.", Severity.Success);
         Nav.NavigateTo($"/artifacts/{result.Value!.TargetArtifactId}");
+    }
+
+    private static readonly string[] AllStatuses = ["Active", "Dormant", "Resolved", "Archived"];
+
+    private async Task SetStatusAsync(string status)
+    {
+        if (Worlds.Current is null || _detail is null || status == _detail.Status)
+        {
+            return;
+        }
+
+        var result = await Api.SetArtifactStatusAsync(Worlds.Current.Id, _detail.Id, status);
+        if (result.IsSuccess)
+        {
+            _detail = _detail with { Status = result.Value!.Status, UpdatedAt = result.Value.UpdatedAt };
+            Snackbar.Add($"Status set to {result.Value.Status}.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    // Part-of editor (storylines, GM). The current parent is read straight from the
+    // loaded relationships: the PartOf edge where this artifact is the child.
+    private ArtifactListItem? _parentTarget;
+    private bool _parentBusy;
+    private string? _parentError;
+
+    private ConnectedArtifact? CurrentParent =>
+        _detail?.Relationships
+            .Where(r => r.Type == "PartOf" && r.ArtifactAId == _detail.Id)
+            .Select(r => _detail.ConnectedArtifacts.FirstOrDefault(c => c.Id == r.ArtifactBId))
+            .FirstOrDefault(c => c is not null);
+
+    private async Task<IEnumerable<ArtifactListItem>> SearchParentTargetsAsync(string value, CancellationToken ct)
+    {
+        if (Worlds.Current is null)
+        {
+            return [];
+        }
+
+        var result = await Api.GetArtifactsAsync(Worlds.Current.Id, "Storyline", ct: ct);
+        if (!result.IsSuccess)
+        {
+            return [];
+        }
+
+        return result.Value!
+            .Where(a => a.Id != ArtifactId)
+            .Where(a => string.IsNullOrWhiteSpace(value) || a.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(a => a.Name)
+            .Take(15);
+    }
+
+    private async Task SetParentAsync()
+    {
+        if (Worlds.Current is null || _detail is null || _parentTarget is null)
+        {
+            return;
+        }
+
+        _parentBusy = true;
+        _parentError = null;
+
+        var result = await Api.SetStorylineParentAsync(Worlds.Current.Id, _detail.Id, _parentTarget.Id);
+
+        _parentBusy = false;
+        if (result.IsSuccess)
+        {
+            Snackbar.Add($"Now part of \"{_parentTarget.Name}\".", Severity.Success);
+            _parentTarget = null;
+            await LoadAsync();
+        }
+        else
+        {
+            _parentError = result.Error!.Message;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ClearParentAsync()
+    {
+        if (Worlds.Current is null || _detail is null)
+        {
+            return;
+        }
+
+        _parentBusy = true;
+        _parentError = null;
+
+        var result = await Api.SetStorylineParentAsync(Worlds.Current.Id, _detail.Id, null);
+
+        _parentBusy = false;
+        if (result.IsSuccess)
+        {
+            Snackbar.Add("Detached from its parent.", Severity.Info);
+            await LoadAsync();
+        }
+        else
+        {
+            _parentError = result.Error!.Message;
+            StateHasChanged();
+        }
     }
 
     private async Task RenameAsync()

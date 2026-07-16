@@ -1,11 +1,13 @@
 @using System.Globalization
 @inject NavigationManager Nav
 
-@* Branching storyline timeline on a real-world calendar. Lanes are storylines; dots are
-   sessions where the arc advanced (sized by how much happened); translucent bands mark
-   sessions that touched several storylines at once — the convergence points. *@
+@* Branching storyline timeline on a real-world calendar, drawn like a git tree.
+   Lanes are storylines grouped into campaign bands and ordered as families: children
+   indent beneath their PartOf parent, fork connectors drop where a child arc begins,
+   and Resolved children merge back into their parent where they end. Labels are an
+   HTML layer over the SVG so GMs can drag one storyline onto another to re-parent it. *@
 
-@if (Lanes.Count == 0)
+@if (Rows.Count == 0)
 {
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
         <MudText Typo="Typo.body2" Color="Color.Secondary">
@@ -26,82 +28,121 @@ else
         <span class="nornis-list-meta">larger dot = busier session</span>
         <span class="nornis-list-meta">halo = open question</span>
         <span class="nornis-list-meta">band = session touching several storylines</span>
+        @if (CanEdit)
+        {
+            <span class="nornis-list-meta">drag a storyline onto another to nest it</span>
+        }
     </div>
 
     <div class="nornis-timeline-scroll">
-        <svg width="@TotalWidth" height="@TotalHeight" role="img" aria-label="Storyline timeline">
+        <div class="nornis-timeline-wrap" style="width:@(TotalWidth)px; height:@(TotalHeight)px">
+            <svg width="@TotalWidth" height="@TotalHeight" role="img" aria-label="Storyline timeline">
 
-            @* Month gridlines + calendar labels along the bottom *@
-            @foreach (var month in MonthTicks)
-            {
-                var mx = X(month);
-                <line x1="@mx" y1="@PlotTop" x2="@mx" y2="@LaneBottom" stroke="rgba(42,59,76,0.08)" stroke-width="1" />
-                @SvgText(mx + 4, LaneBottom + 34, 11, "rgba(42,59,76,0.55)",
-                    month.ToString(month.Month == 1 ? "MMM yyyy" : "MMM", CultureInfo.InvariantCulture))
-            }
-
-            @* Convergence bands: sessions advancing 2+ storylines *@
-            @foreach (var session in Data.Sessions.Where(s => s.StorylineCount >= 2))
-            {
-                var sx = X(session.OccurredAt);
-                <line x1="@sx" y1="@PlotTop" x2="@sx" y2="@LaneBottom" stroke="rgba(63,96,121,0.16)" stroke-width="3">
-                    <title>@SessionTitle(session)</title>
-                </line>
-            }
-
-            @* Axis baseline + session ticks *@
-            <line x1="@GutterWidth" y1="@LaneBottom" x2="@TotalWidth" y2="@LaneBottom" stroke="rgba(42,59,76,0.25)" stroke-width="1" />
-            @foreach (var session in Data.Sessions)
-            {
-                var sx = X(session.OccurredAt);
-                <line x1="@sx" y1="@LaneBottom" x2="@sx" y2="@(LaneBottom + 8)"
-                      stroke="@(session.StorylineCount >= 2 ? "#3F6079" : "rgba(42,59,76,0.45)")" stroke-width="2">
-                    <title>@SessionTitle(session)</title>
-                </line>
-            }
-
-            @* Lanes *@
-            @foreach (var (lane, index) in Lanes.Select((l, i) => (l, i)))
-            {
-                var y = LaneY(index);
-                var color = StatusColor(lane.Status);
-                var first = X(lane.Points[0].OccurredAt);
-                var last = X(lane.Points[^1].OccurredAt);
-
-                <g style="cursor:pointer" @onclick="@(() => Nav.NavigateTo($"/artifacts/{lane.StorylineId}"))">
-                    <circle cx="12" cy="@y" r="4" fill="@color" />
-                    @SvgText(22, y + 4, 12, "#2A3B4C", Truncate(lane.Name, 26))
-                    <title>@lane.Name (@lane.Status) — open the artifact</title>
-                </g>
-
-                @if (last > first)
+                @* Month gridlines + calendar labels along the bottom *@
+                @foreach (var month in MonthTicks)
                 {
-                    <line x1="@first" y1="@y" x2="@last" y2="@y" stroke="@color" stroke-width="2" opacity="0.45" />
+                    var mx = X(month);
+                    <line x1="@mx" y1="@PlotTop" x2="@mx" y2="@LaneBottom" stroke="rgba(42,59,76,0.08)" stroke-width="1" />
+                    @SvgText(mx + 4, LaneBottom + 34, 11, "rgba(42,59,76,0.55)",
+                        month.ToString(month.Month == 1 ? "MMM yyyy" : "MMM", CultureInfo.InvariantCulture))
                 }
 
-                @foreach (var point in lane.Points)
+                @* Convergence bands: sessions advancing 2+ storylines *@
+                @foreach (var session in Data.Sessions.Where(s => s.StorylineCount >= 2))
                 {
-                    var px = X(point.OccurredAt);
-                    var r = 4 + Math.Min(point.Developments.Count - 1, 3);
-                    <g style="cursor:pointer" @onclick="@(() => Nav.NavigateTo($"/sources/{point.SourceId}"))">
-                        @if (point.Developments.Any(d => d.IsOpenQuestion))
-                        {
-                            <circle cx="@px" cy="@y" r="@(r + 4)" fill="none" stroke="@color" stroke-width="1.5" opacity="0.55" />
-                        }
-                        <circle cx="@px" cy="@y" r="@r" fill="@color" stroke="#FDFBF7" stroke-width="2" />
-                        <title>@PointTitle(lane, point)</title>
-                    </g>
+                    var sx = X(session.OccurredAt);
+                    <line x1="@sx" y1="@PlotTop" x2="@sx" y2="@LaneBottom" stroke="rgba(63,96,121,0.16)" stroke-width="3">
+                        <title>@SessionTitle(session)</title>
+                    </line>
+                }
+
+                @* Axis baseline + session ticks *@
+                <line x1="@GutterWidth" y1="@LaneBottom" x2="@TotalWidth" y2="@LaneBottom" stroke="rgba(42,59,76,0.25)" stroke-width="1" />
+                @foreach (var session in Data.Sessions)
+                {
+                    var sx = X(session.OccurredAt);
+                    <line x1="@sx" y1="@LaneBottom" x2="@sx" y2="@(LaneBottom + 8)"
+                          stroke="@(session.StorylineCount >= 2 ? "#3F6079" : "rgba(42,59,76,0.45)")" stroke-width="2">
+                        <title>@SessionTitle(session)</title>
+                    </line>
+                }
+
+                @* Fork and merge connectors (drawn beneath the lane dots) *@
+                @foreach (var connector in Connectors)
+                {
+                    <path d="@connector.Path" fill="none" stroke="@connector.Color" stroke-width="1.5" opacity="0.7">
+                        <title>@connector.Title</title>
+                    </path>
+                }
+
+                @* Non-hierarchy storyline links stay dashed *@
+                @foreach (var link in DrawableLinks)
+                {
+                    <path d="@link.Path" fill="none" stroke="#9AA5B1" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.8">
+                        <title>@link.Title</title>
+                    </path>
+                }
+
+                @* Lane tracks and dots *@
+                @foreach (var row in Rows.Where(r => r.Lane is not null))
+                {
+                    var lane = row.Lane!;
+                    var y = RowCenterY(row);
+                    var color = StatusColor(lane.Status);
+                    var first = X(lane.Points[0].OccurredAt);
+                    var last = X(lane.Points[^1].OccurredAt);
+
+                    @if (last > first)
+                    {
+                        <line x1="@first" y1="@y" x2="@last" y2="@y" stroke="@color" stroke-width="2" opacity="0.45" />
+                    }
+
+                    @foreach (var point in lane.Points)
+                    {
+                        var px = X(point.OccurredAt);
+                        var r = 4 + Math.Min(point.Developments.Count - 1, 3);
+                        <g style="cursor:pointer" @onclick="@(() => Nav.NavigateTo($"/sources/{point.SourceId}"))">
+                            @if (point.Developments.Any(d => d.IsOpenQuestion))
+                            {
+                                <circle cx="@px" cy="@y" r="@(r + 4)" fill="none" stroke="@color" stroke-width="1.5" opacity="0.55" />
+                            }
+                            <circle cx="@px" cy="@y" r="@r" fill="@color" stroke="#FDFBF7" stroke-width="2" />
+                            <title>@PointTitle(lane, point)</title>
+                        </g>
+                    }
+                }
+            </svg>
+
+            @* HTML label layer: band headers and draggable lane labels over the gutter *@
+            @foreach (var row in Rows)
+            {
+                @if (row.Lane is null)
+                {
+                    <div class="nornis-timeline-band" style="top:@(row.Top)px; height:@(row.Height)px; width:@(TotalWidth)px">
+                        @row.BandName
+                    </div>
+                }
+                else
+                {
+                    var lane = row.Lane;
+                    <div class="nornis-timeline-label @(_dragOverId == lane.StorylineId ? "nornis-timeline-droptarget" : "")"
+                         style="top:@(row.Top)px; height:@(row.Height)px; width:@(GutterWidth - 8)px; padding-left:@(8 + row.Depth * 16)px"
+                         title="@lane.Name (@lane.Status)@(CanEdit ? " — drag onto another storyline to nest it" : "")"
+                         draggable="@(CanEdit ? "true" : "false")"
+                         @onclick="@(() => Nav.NavigateTo($"/artifacts/{lane.StorylineId}"))"
+                         @ondragstart="@(() => _draggingId = lane.StorylineId)"
+                         @ondragend="@(() => { _draggingId = null; _dragOverId = null; })"
+                         @ondragenter="@(() => OnDragEnter(lane.StorylineId))"
+                         @ondragleave="@(() => OnDragLeave(lane.StorylineId))"
+                         @ondragover:preventDefault="true"
+                         @ondrop="@(() => OnDropAsync(lane))"
+                         @ondrop:preventDefault="true">
+                        <span class="nornis-graph-dot" style="background:@StatusColor(lane.Status)"></span>
+                        <span class="nornis-timeline-label-text">@lane.Name</span>
+                    </div>
                 }
             }
-
-            @* Explicit storyline-to-storyline links, drawn where the later arc begins *@
-            @foreach (var link in DrawableLinks)
-            {
-                <path d="@link.Path" fill="none" stroke="#9AA5B1" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.8">
-                    <title>@link.Title</title>
-                </path>
-            }
-        </svg>
+        </div>
     </div>
 
     @if (UndatedCount > 0)
@@ -115,11 +156,18 @@ else
 @code {
     [Parameter, EditorRequired] public StorylineTimelineDto Data { get; set; } = new([], [], []);
 
-    /// <summary>Statuses to include; empty shows everything.</summary>
+    /// <summary>Statuses to include; null shows everything.</summary>
     [Parameter] public string? StatusFilter { get; set; }
 
-    private const int GutterWidth = 210;
+    /// <summary>Enables drag-to-nest on lane labels (GM only).</summary>
+    [Parameter] public bool CanEdit { get; set; }
+
+    /// <summary>Raised when a lane is dropped onto another: (child, new parent).</summary>
+    [Parameter] public EventCallback<(TimelineLaneDto Child, TimelineLaneDto Parent)> ReparentRequested { get; set; }
+
+    private const int GutterWidth = 230;
     private const int RowHeight = 36;
+    private const int BandHeight = 30;
     private const int PlotTop = 10;
     private const int AxisHeight = 48;
     private const int PadDays = 10;
@@ -131,11 +179,107 @@ else
         ("Active", "#4E9A6B"), ("Dormant", "#C08A2E"), ("Resolved", "#3F6079"),
     ];
 
-    private IReadOnlyList<TimelineLaneDto> Lanes =>
-        Data.Lanes
-            .Where(l => l.Points.Count > 0)
-            .Where(l => StatusFilter is null || l.Status == StatusFilter)
-            .ToList();
+    private Guid? _draggingId;
+    private Guid? _dragOverId;
+
+    private void OnDragEnter(Guid laneId)
+    {
+        if (_draggingId is not null && _draggingId != laneId)
+        {
+            _dragOverId = laneId;
+        }
+    }
+
+    private void OnDragLeave(Guid laneId)
+    {
+        if (_dragOverId == laneId)
+        {
+            _dragOverId = null;
+        }
+    }
+
+    private async Task OnDropAsync(TimelineLaneDto target)
+    {
+        var draggingId = _draggingId;
+        _draggingId = null;
+        _dragOverId = null;
+
+        if (!CanEdit || draggingId is null || draggingId == target.StorylineId)
+        {
+            return;
+        }
+
+        var child = Data.Lanes.FirstOrDefault(l => l.StorylineId == draggingId);
+        if (child is not null)
+        {
+            await ReparentRequested.InvokeAsync((child, target));
+        }
+    }
+
+    // ------------------------------------------------------------------ Layout --
+
+    private sealed record Row(string? BandName, TimelineLaneDto? Lane, int Depth, int Top, int Height);
+
+    private IReadOnlyList<Row> Rows
+    {
+        get
+        {
+            var visible = Data.Lanes
+                .Where(l => l.Points.Count > 0)
+                .Where(l => StatusFilter is null || l.Status == StatusFilter)
+                .ToList();
+            var visibleIds = visible.Select(l => l.StorylineId).ToHashSet();
+
+            // Children attach only when their parent is also visible; otherwise they
+            // stand as roots so the filter never hides a lane entirely.
+            var childrenByParent = visible
+                .Where(l => l.ParentStorylineId is { } p && visibleIds.Contains(p))
+                .GroupBy(l => l.ParentStorylineId!.Value)
+                .ToDictionary(g => g.Key, g => g.OrderBy(l => l.Points[0].OccurredAt).ToList());
+            var roots = visible
+                .Where(l => l.ParentStorylineId is not { } p || !visibleIds.Contains(p))
+                .OrderBy(l => l.Points[0].OccurredAt)
+                .ToList();
+
+            // Families live in the band of their root's campaign; bands order by the
+            // earliest family they contain.
+            var bands = roots
+                .GroupBy(r => r.CampaignName ?? "No campaign")
+                .OrderBy(g => g.Min(r => r.Points[0].OccurredAt))
+                .ToList();
+
+            var rows = new List<Row>();
+            var top = PlotTop;
+
+            void AddFamily(TimelineLaneDto lane, int depth)
+            {
+                rows.Add(new Row(null, lane, depth, top, RowHeight));
+                top += RowHeight;
+                if (childrenByParent.TryGetValue(lane.StorylineId, out var children))
+                {
+                    foreach (var childLane in children)
+                    {
+                        AddFamily(childLane, depth + 1);
+                    }
+                }
+            }
+
+            foreach (var band in bands)
+            {
+                if (bands.Count > 1 || band.Key != "No campaign")
+                {
+                    rows.Add(new Row(band.Key, null, 0, top, BandHeight));
+                    top += BandHeight;
+                }
+                foreach (var root in band)
+                {
+                    AddFamily(root, 0);
+                }
+            }
+
+            return rows;
+        }
+    }
 
     private int UndatedCount =>
         Data.Lanes.Count(l => l.Points.Count == 0 && (StatusFilter is null || l.Status == StatusFilter));
@@ -152,14 +296,14 @@ else
 
     private int TotalWidth => GutterWidth + (int)(SpanDays * PxPerDay) + 30;
 
-    private int LaneBottom => PlotTop + Lanes.Count * RowHeight + 8;
+    private int LaneBottom => (Rows.Count > 0 ? Rows[^1].Top + Rows[^1].Height : PlotTop) + 8;
 
     private int TotalHeight => LaneBottom + AxisHeight;
 
     private int X(DateTimeOffset date) =>
         GutterWidth + (int)((date - MinDate).TotalDays * PxPerDay);
 
-    private int LaneY(int index) => PlotTop + index * RowHeight + RowHeight / 2;
+    private static int RowCenterY(Row row) => row.Top + row.Height / 2;
 
     private IEnumerable<DateTimeOffset> MonthTicks
     {
@@ -198,29 +342,76 @@ else
         return $"{header}\n{string.Join("\n", lines)}{more}\n(click to open the session)";
     }
 
+    // ------------------------------------------------------------- Connectors --
+
+    private sealed record Connector(string Path, string Color, string Title);
+
+    /// <summary>
+    /// Git-style hierarchy connectors: a fork from the parent lane where the child's
+    /// first session sits, and a merge back into the parent where a Resolved child ends.
+    /// </summary>
+    private IReadOnlyList<Connector> Connectors
+    {
+        get
+        {
+            var rows = Rows;
+            var rowByLane = rows.Where(r => r.Lane is not null).ToDictionary(r => r.Lane!.StorylineId);
+            var result = new List<Connector>();
+
+            foreach (var row in rows)
+            {
+                var lane = row.Lane;
+                if (lane?.ParentStorylineId is not { } parentId || !rowByLane.TryGetValue(parentId, out var parentRow))
+                {
+                    continue;
+                }
+
+                var yChild = RowCenterY(row);
+                var yParent = RowCenterY(parentRow);
+                var color = StatusColor(lane.Status);
+                var parentName = parentRow.Lane!.Name;
+
+                var xStart = X(lane.Points[0].OccurredAt);
+                result.Add(new Connector(
+                    $"M {xStart - 18} {yParent} C {xStart} {yParent}, {xStart - 18} {yChild}, {xStart} {yChild}",
+                    color,
+                    $"{lane.Name} branches from {parentName}"));
+
+                if (lane.Status == "Resolved")
+                {
+                    var xEnd = X(lane.Points[^1].OccurredAt);
+                    result.Add(new Connector(
+                        $"M {xEnd} {yChild} C {xEnd + 18} {yChild}, {xEnd} {yParent}, {xEnd + 18} {yParent}",
+                        color,
+                        $"{lane.Name} resolves back into {parentName}"));
+                }
+            }
+
+            return result;
+        }
+    }
+
     private sealed record DrawableLink(string Path, string Title);
 
     private IReadOnlyList<DrawableLink> DrawableLinks
     {
         get
         {
-            var lanes = Lanes;
-            var indexById = lanes.Select((l, i) => (l.StorylineId, i)).ToDictionary(x => x.StorylineId, x => x.i);
+            var rows = Rows;
+            var rowByLane = rows.Where(r => r.Lane is not null).ToDictionary(r => r.Lane!.StorylineId);
             var result = new List<DrawableLink>();
 
             foreach (var link in Data.Links)
             {
-                if (!indexById.TryGetValue(link.FromStorylineId, out var ai)
-                    || !indexById.TryGetValue(link.ToStorylineId, out var bi))
+                if (!rowByLane.TryGetValue(link.FromStorylineId, out var rowA)
+                    || !rowByLane.TryGetValue(link.ToStorylineId, out var rowB))
                 {
                     continue;
                 }
 
-                var laneA = lanes[ai];
-                var laneB = lanes[bi];
+                var laneA = rowA.Lane!;
+                var laneB = rowB.Lane!;
 
-                // Anchor at the first session the two arcs share; failing that, where the
-                // later arc begins.
                 var shared = laneA.Points.Select(p => p.SourceId)
                     .Intersect(laneB.Points.Select(p => p.SourceId))
                     .ToHashSet();
@@ -229,8 +420,8 @@ else
                     : new[] { laneA.Points[0].OccurredAt, laneB.Points[0].OccurredAt }.Max();
 
                 var x = X(anchor);
-                var y1 = LaneY(Math.Min(ai, bi));
-                var y2 = LaneY(Math.Max(ai, bi));
+                var y1 = Math.Min(RowCenterY(rowA), RowCenterY(rowB));
+                var y2 = Math.Max(RowCenterY(rowA), RowCenterY(rowB));
                 var bulge = x + 18;
 
                 result.Add(new DrawableLink(

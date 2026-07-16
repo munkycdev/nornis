@@ -74,7 +74,8 @@ public class StorylinesController : ControllerBase
                 l.StorylineId, l.Name, l.Status,
                 l.Points.Select(p => new TimelinePointResponse(
                     p.SourceId, p.OccurredAt,
-                    p.Developments.Select(d => new TimelineDevelopmentResponse(d.Kind, d.Text, d.Quote, d.IsOpenQuestion)).ToList())).ToList())).ToList(),
+                    p.Developments.Select(d => new TimelineDevelopmentResponse(d.Kind, d.Text, d.Quote, d.IsOpenQuestion)).ToList())).ToList(),
+                l.ParentStorylineId, l.CampaignName)).ToList(),
             timeline.Links.Select(x => new TimelineLinkResponse(x.FromStorylineId, x.ToStorylineId, x.Type)).ToList()));
     }
 

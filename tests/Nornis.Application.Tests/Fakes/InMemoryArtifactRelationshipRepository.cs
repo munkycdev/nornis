@@ -50,6 +50,12 @@ public class InMemoryArtifactRelationshipRepository : IArtifactRelationshipRepos
         return Task.FromResult<IReadOnlyList<ArtifactRelationship>>(results.AsReadOnly());
     }
 
+    public Task DeleteAsync(Guid relationshipId, CancellationToken cancellationToken = default)
+    {
+        _relationships.RemoveAll(r => r.Id == relationshipId);
+        return Task.CompletedTask;
+    }
+
     public Task<ArtifactRelationship> UpdateAsync(ArtifactRelationship relationship, CancellationToken cancellationToken = default)
     {
         var index = _relationships.FindIndex(r => r.Id == relationship.Id);

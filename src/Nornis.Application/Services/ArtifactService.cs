@@ -149,6 +149,126 @@ public class ArtifactService : IArtifactService
         return AppResult<ArtifactDetail>.Success(detail);
     }
 
+    /// <summary>
+    /// Reserved relationship type expressing storyline hierarchy: ArtifactA (child) is
+    /// part of ArtifactB (parent). The timeline renders these as fork/merge connectors.
+    /// </summary>
+    public const string PartOfRelationshipType = "PartOf";
+
+    public async Task<AppResult> SetStorylineParentAsync(SetStorylineParentCommand command, CancellationToken ct)
+    {
+        if (command.ActingUserRole != WorldRole.GM)
+        {
+            return AppResult.Fail(new AppError(403, "insufficient_role", "Only GMs can restructure storylines."));
+        }
+
+        var child = await _artifactRepository.GetByIdAsync(command.ArtifactId, ct);
+        if (child is null || child.WorldId != command.WorldId || child.Type != ArtifactType.Storyline)
+        {
+            return AppResult.Fail(new AppError(404, "not_found", "Storyline not found."));
+        }
+
+        // The child's current PartOf link, if any. A storyline holds at most one.
+        var childRelationships = await _relationshipRepository.ListByArtifactAsync(child.Id, ct);
+        var existing = childRelationships.FirstOrDefault(r =>
+            r.Type == PartOfRelationshipType && r.ArtifactAId == child.Id);
+
+        if (command.ParentArtifactId is not { } parentId)
+        {
+            if (existing is not null)
+            {
+                await _relationshipRepository.DeleteAsync(existing.Id, ct);
+            }
+            return AppResult.Success();
+        }
+
+        if (parentId == child.Id)
+        {
+            return AppResult.Fail(new AppError(400, "invalid_parent", "A storyline cannot be part of itself."));
+        }
+
+        var parent = await _artifactRepository.GetByIdAsync(parentId, ct);
+        if (parent is null || parent.WorldId != command.WorldId || parent.Type != ArtifactType.Storyline)
+        {
+            return AppResult.Fail(new AppError(400, "invalid_parent", "The parent must be a storyline in this world."));
+        }
+
+        // Cycle guard: walk up from the intended parent; hitting the child means the
+        // child is already an ancestor of the parent.
+        var storylineIds = (await _artifactRepository.ListByWorldAsync(command.WorldId, ArtifactType.Storyline, null, ct))
+            .Select(a => a.Id)
+            .ToList();
+        var partOfEdges = (await _relationshipRepository.ListByArtifactIdsAsync(
+                storylineIds,
+                [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private], ct))
+            .Where(r => r.Type == PartOfRelationshipType)
+            .ToDictionary(r => r.ArtifactAId, r => r.ArtifactBId);
+
+        var cursor = (Guid?)parentId;
+        var hops = 0;
+        while (cursor is { } current && hops++ < 100)
+        {
+            if (current == child.Id)
+            {
+                return AppResult.Fail(new AppError(409, "cycle",
+                    $"\"{parent.Name}\" already sits beneath \"{child.Name}\" — that link would create a cycle."));
+            }
+            cursor = partOfEdges.TryGetValue(current, out var next) ? next : null;
+        }
+
+        // A structural link is only as visible as its least visible endpoint.
+        var visibility = new[] { child.Visibility, parent.Visibility }.Contains(VisibilityScope.GMOnly)
+            ? VisibilityScope.GMOnly
+            : new[] { child.Visibility, parent.Visibility }.Contains(VisibilityScope.Private)
+                ? VisibilityScope.Private
+                : VisibilityScope.PartyVisible;
+
+        if (existing is not null)
+        {
+            existing.ArtifactBId = parentId;
+            existing.Visibility = visibility;
+            existing.UpdatedAt = DateTimeOffset.UtcNow;
+            await _relationshipRepository.UpdateAsync(existing, ct);
+        }
+        else
+        {
+            await _relationshipRepository.CreateAsync(new ArtifactRelationship
+            {
+                Id = Guid.NewGuid(),
+                WorldId = command.WorldId,
+                ArtifactAId = child.Id,
+                ArtifactBId = parentId,
+                Type = PartOfRelationshipType,
+                TruthState = TruthState.Confirmed,
+                Visibility = visibility,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            }, ct);
+        }
+
+        return AppResult.Success();
+    }
+
+    public async Task<AppResult<Artifact>> SetStatusAsync(SetArtifactStatusCommand command, CancellationToken ct)
+    {
+        if (command.ActingUserRole != WorldRole.GM)
+        {
+            return AppResult<Artifact>.Fail(new AppError(403, "insufficient_role", "Only GMs can change artifact status."));
+        }
+
+        var artifact = await _artifactRepository.GetByIdAsync(command.ArtifactId, ct);
+        if (artifact is null || artifact.WorldId != command.WorldId)
+        {
+            return AppResult<Artifact>.Fail(new AppError(404, "not_found", "Artifact not found."));
+        }
+
+        artifact.Status = command.Status;
+        artifact.UpdatedAt = DateTimeOffset.UtcNow;
+        artifact = await _artifactRepository.UpdateAsync(artifact, ct);
+
+        return AppResult<Artifact>.Success(artifact);
+    }
+
     public async Task<AppResult<StorylineTimeline>> GetStorylineTimelineAsync(
         Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct)
     {
@@ -180,8 +300,16 @@ public class ArtifactService : IArtifactService
             .DistinctBy(r => r.Id)
             .ToList();
 
+        // PartOf is structural — it becomes the lane's parent rather than a generic link.
+        var parentByChild = relationships
+            .Where(r => r.Type == PartOfRelationshipType
+                && storylineIdSet.Contains(r.ArtifactAId) && storylineIdSet.Contains(r.ArtifactBId))
+            .GroupBy(r => r.ArtifactAId)
+            .ToDictionary(g => g.Key, g => g.First().ArtifactBId);
+
         var links = relationships
-            .Where(r => storylineIdSet.Contains(r.ArtifactAId) && storylineIdSet.Contains(r.ArtifactBId))
+            .Where(r => r.Type != PartOfRelationshipType
+                && storylineIdSet.Contains(r.ArtifactAId) && storylineIdSet.Contains(r.ArtifactBId))
             .Select(r => new TimelineLink(r.ArtifactAId, r.ArtifactBId, r.Type))
             .ToList();
 
@@ -263,18 +391,33 @@ public class ArtifactService : IArtifactService
         }
 
         var lanes = storylines
-            .Select(s => new TimelineLane(
-                s.Id,
-                s.Name,
-                s.Status.ToString(),
-                developments
+            .Select(s =>
+            {
+                var points = developments
                     .Where(kv => kv.Key.StorylineId == s.Id)
                     .Select(kv => new TimelinePoint(
                         kv.Key.SourceId,
                         sources[kv.Key.SourceId].OccurredAt!.Value,
                         kv.Value))
                     .OrderBy(p => p.OccurredAt)
-                    .ToList()))
+                    .ToList();
+
+                // The lane's campaign is whichever campaign most of its sessions declare.
+                var campaignName = points
+                    .Select(p => sources[p.SourceId].Campaign?.Name)
+                    .Where(n => !string.IsNullOrEmpty(n))
+                    .GroupBy(n => n)
+                    .OrderByDescending(g => g.Count())
+                    .FirstOrDefault()?.Key;
+
+                return new TimelineLane(
+                    s.Id,
+                    s.Name,
+                    s.Status.ToString(),
+                    points,
+                    parentByChild.TryGetValue(s.Id, out var parentId) ? parentId : null,
+                    campaignName);
+            })
             .OrderBy(l => l.Points.Count == 0)
             .ThenBy(l => l.Points.FirstOrDefault()?.OccurredAt ?? DateTimeOffset.MaxValue)
             .ToList();

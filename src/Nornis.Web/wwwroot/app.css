@@ -149,6 +149,54 @@ html, body {
     background: #FDFBF7;
 }
 
+.nornis-timeline-wrap {
+    position: relative;
+}
+
+.nornis-timeline-band {
+    position: absolute;
+    left: 0;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(42, 59, 76, 0.55);
+    border-top: 1px solid rgba(42, 59, 76, 0.12);
+    pointer-events: none;
+}
+
+.nornis-timeline-label {
+    position: absolute;
+    left: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: #2A3B4C;
+    cursor: pointer;
+    border-radius: 6px;
+    background: #FDFBF7;
+}
+
+.nornis-timeline-label:hover {
+    background: rgba(63, 96, 121, 0.08);
+}
+
+.nornis-timeline-label-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nornis-timeline-droptarget {
+    outline: 2px dashed #3F6079;
+    outline-offset: -2px;
+    background: rgba(63, 96, 121, 0.10);
+}
+
 .nornis-graph-card {
     position: absolute;
     top: 12px;

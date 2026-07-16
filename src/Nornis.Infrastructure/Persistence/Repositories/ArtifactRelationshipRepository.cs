@@ -58,4 +58,15 @@ public class ArtifactRelationshipRepository : IArtifactRelationshipRepository
         await _context.SaveChangesAsync(cancellationToken);
         return relationship;
     }
+
+    public async Task DeleteAsync(Guid relationshipId, CancellationToken cancellationToken = default)
+    {
+        var relationship = await _context.ArtifactRelationships
+            .FirstOrDefaultAsync(ar => ar.Id == relationshipId, cancellationToken);
+        if (relationship is not null)
+        {
+            _context.ArtifactRelationships.Remove(relationship);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+    }
 }

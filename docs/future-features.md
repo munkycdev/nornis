@@ -10,6 +10,7 @@
   * Storyline dossier: a dedicated detail view reading as "the story so far" — open questions pinned, developments grouped under session headings with quotes, cast strip. Shares the timeline's aggregation.
   * Index attention signals: session-anchored staleness ("last advanced N sessions ago"), open-question counts, continuity-finding flags on cards.
   * Teach extraction to propose Event↔Storyline relationships (only 1 exists) so timeline event markers get real; consider a backfill sweep for processed sources.
+  * Teach extraction to propose PartOf (storyline hierarchy) links for obviously-spawned arcs, grounded in the GM's manually curated tree; proposals flow through the review queue.
 * Canon
   * Also need to find a way to make this useful. 
 * Sources

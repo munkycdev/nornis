@@ -40,4 +40,13 @@ public interface IArtifactService
     /// the sessions that established them, all scoped to the caller's visibility.
     /// </summary>
     Task<AppResult<StorylineTimeline>> GetStorylineTimelineAsync(Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct);
+
+    /// <summary>
+    /// GM-only: sets or clears the storyline's parent (the reserved "PartOf" relationship).
+    /// Rejects cycles and non-storyline endpoints.
+    /// </summary>
+    Task<AppResult> SetStorylineParentAsync(SetStorylineParentCommand command, CancellationToken ct);
+
+    /// <summary>GM-only: sets an artifact's lifecycle status directly.</summary>
+    Task<AppResult<Artifact>> SetStatusAsync(SetArtifactStatusCommand command, CancellationToken ct);
 }

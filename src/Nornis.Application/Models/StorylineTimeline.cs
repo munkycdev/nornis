@@ -21,7 +21,9 @@ public record TimelineLane(
     Guid StorylineId,
     string Name,
     string Status,
-    IReadOnlyList<TimelinePoint> Points);
+    IReadOnlyList<TimelinePoint> Points,
+    Guid? ParentStorylineId,
+    string? CampaignName);
 
 /// <summary>One session's worth of developments on one storyline.</summary>
 public record TimelinePoint(
