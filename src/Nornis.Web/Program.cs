@@ -30,11 +30,17 @@ if (authEnabled)
     })
     .AddCookie(options =>
     {
-        // Auth0 access tokens for the Nornis API live 24h; keep the cookie aligned so
-        // a stale cookie cannot outlive its ability to call the API.
-        options.ExpireTimeSpan = TimeSpan.FromHours(24);
-        options.SlidingExpiration = false;
+        // Access tokens live 24h but are silently renewed via the offline_access
+        // refresh token (Auth0TokenRefresher) — the cookie itself slides for a month
+        // of activity. Expired-and-unrefreshable tokens reject the principal, so a
+        // long-lived cookie can never outlive its ability to call the API.
+        options.ExpireTimeSpan = TimeSpan.FromDays(30);
+        options.SlidingExpiration = true;
         options.AccessDeniedPath = "/welcome";
+        options.Events.OnValidatePrincipal = context =>
+            context.HttpContext.RequestServices
+                .GetRequiredService<Auth0TokenRefresher>()
+                .ValidatePrincipalAsync(context);
     })
     .AddOpenIdConnect(options =>
     {
@@ -48,6 +54,7 @@ if (authEnabled)
         options.Scope.Add("openid");
         options.Scope.Add("profile");
         options.Scope.Add("email");
+        options.Scope.Add("offline_access"); // refresh token — sessions outlive the 24h access token
 
         options.CallbackPath = "/signin-oidc";
         options.SignedOutCallbackPath = "/signout-callback-oidc";
@@ -90,6 +97,10 @@ else
             DevAuthenticationHandler.SchemeName, null);
     builder.Services.AddAuthorization();
 }
+
+// Silent Auth0 token renewal (no-op passthrough when auth is disabled locally).
+builder.Services.AddSingleton<Auth0TokenRefresher>();
+builder.Services.AddHttpClient(nameof(Auth0TokenRefresher));
 
 // Typed HTTP client to nornis-api. Web never touches the database directly.
 var apiBaseUrl = builder.Configuration["Api:BaseUrl"] ?? "http://localhost:5000";

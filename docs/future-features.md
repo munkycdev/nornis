@@ -2,8 +2,8 @@
 
 ## List of unprocessed features
 
-* General
-  * Access-token refresh — the 24h token/cookie expiry currently ends in 401s/re-login; add `offline_access` + refresh in the bearer handler.
+* Timeline
+  * When mousing over a tree, give the name of the associated storyline in a tooltip. When hovering over a session, indicate the name and relevant detail about why it's marked with the storyline in the tooltip.
 ---
 
 ## Open questions on storylines
