@@ -2,6 +2,7 @@ using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
 using Nornis.Application.Models;
+using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -35,7 +36,9 @@ public class SourceFailedEnqueueLeavesReadyTests
         var queueClient = new FakeExtractionQueueClient();
         queueClient.ConfigureToFail(true);
 
-        var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient);
+        var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient,
+            new InMemoryReviewBatchRepository(), new InMemorySourceAttachmentRepository(),
+            new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
 
         var source = new Source
         {

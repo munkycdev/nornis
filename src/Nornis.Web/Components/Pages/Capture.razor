@@ -49,9 +49,14 @@ else
                 {
                     @* Page images go straight to blob via the SAS handshake; the worker
                        vision-transcribes them into the body, then extraction runs. *@
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mb-3"
+                               StartIcon="@Icons.Material.Filled.Draw" Href="/capture/ink">
+                        Open ink canvas
+                    </MudButton>
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-                        Add photos or page exports of your handwritten notes, in reading order.
-                        Nornis transcribes them and pulls artifacts from the transcription.
+                        Write directly in Nornis with the canvas above — or add photos / page
+                        exports of notes written elsewhere, in reading order. Either way, Nornis
+                        transcribes the handwriting and pulls artifacts from the transcription.
                     </MudText>
                     <InputFile id="@_pagesInputId" OnChange="OnPagesSelected" multiple
                                class="nornis-upload-input mb-2" accept=".png,.jpg,.jpeg,.webp" />
@@ -60,8 +65,11 @@ else
                         <div class="mb-3">
                             @for (var i = 0; i < _pageFiles.Count; i++)
                             {
+                                @* Local copies: MudText's child content renders after the
+                                   loop finishes, so referencing i directly is off-by-N. *@
+                                var pageNumber = i + 1;
                                 var page = _pageFiles[i];
-                                <MudText Typo="Typo.body2">@($"Page {i + 1}: {page.Name} ({FormatSize(page.Size)})")</MudText>
+                                <MudText Typo="Typo.body2">@($"Page {pageNumber}: {page.Name} ({FormatSize(page.Size)})")</MudText>
                             }
                         </div>
                     }
@@ -277,7 +285,9 @@ else
             _visibility,
             body,
             string.IsNullOrWhiteSpace(_uri) ? null : _uri,
-            _occurredAt.HasValue ? new DateTimeOffset(_occurredAt.Value, TimeSpan.Zero) : null,
+            // SpecifyKind: picker dates are Kind.Local, and DateTimeOffset's ctor throws
+            // when the kind's implied offset disagrees with the one supplied.
+            _occurredAt.HasValue ? new DateTimeOffset(DateTime.SpecifyKind(_occurredAt.Value, DateTimeKind.Utc), TimeSpan.Zero) : null,
             _campaignId);
 
         var created = await Api.CreateSourceAsync(Worlds.Current.Id, request);

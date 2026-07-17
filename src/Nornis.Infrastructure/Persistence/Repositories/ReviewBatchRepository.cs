@@ -50,6 +50,33 @@ public class ReviewBatchRepository : IReviewBatchRepository
             .AnyAsync(rb => rb.SourceId == sourceId && rb.Kind == kind, cancellationToken);
     }
 
+    public async Task DeleteBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default)
+    {
+        // Tracked-load delete: the InMemory provider used in tests lacks ExecuteDelete.
+        var batches = await _context.ReviewBatches
+            .Where(rb => rb.SourceId == sourceId)
+            .ToListAsync(cancellationToken);
+
+        if (batches.Count == 0)
+        {
+            return;
+        }
+
+        // The cost ledger outlives the batches it references (its FK is NoAction by
+        // design) — detach the link instead of losing the spend history.
+        var batchIds = batches.Select(b => b.Id).ToList();
+        var usageRecords = await _context.AiUsageRecords
+            .Where(u => u.ReviewBatchId != null && batchIds.Contains(u.ReviewBatchId.Value))
+            .ToListAsync(cancellationToken);
+        foreach (var record in usageRecords)
+        {
+            record.ReviewBatchId = null;
+        }
+
+        _context.ReviewBatches.RemoveRange(batches);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<ReviewBatch>> ListByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)
     {
         return await _context.ReviewBatches

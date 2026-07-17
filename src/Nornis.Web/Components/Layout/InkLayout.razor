@@ -1,0 +1,13 @@
+@inherits LayoutComponentBase
+
+@* Chromeless layout for the full-screen ink canvas: no nav rail, no page padding —
+   the canvas owns the whole viewport (OneNote-style). *@
+
+<MudThemeProvider Theme="NornisTheme.Theme" IsDarkMode="false" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="nornis-ink-shell">
+    @Body
+</div>

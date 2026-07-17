@@ -183,7 +183,26 @@
                 </MudPaper>
             }
 
-            @if (PageImages.Count > 0)
+            @if (InkDocument is not null)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="d-flex align-center mb-2">
+                        <div class="nornis-detail-section-title">Original ink</div>
+                        <MudSpacer />
+                        @if (CanEdit)
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Draw"
+                                       Href="@($"/capture/ink/{_source.Id}")">
+                                Open canvas
+                            </MudButton>
+                        }
+                    </div>
+                    <InkViewer @key="_source.Id" Url="@(InkDocument.Url ?? string.Empty)" />
+                </MudPaper>
+            }
+
+            @if (PageImages.Count > 0 && InkDocument is null)
             {
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                     <div class="nornis-detail-section-title">Original pages</div>
@@ -215,6 +234,11 @@
 
     private IReadOnlyList<SourceAttachmentDto> PageImages =>
         _attachments.Where(a => a.Kind == "PageImage" && a.Url is not null).ToList();
+
+    // Ink-canvas sources show the ink itself as the original (the rendered page tiles
+    // are just transcription intermediates, so they hide when ink exists).
+    private SourceAttachmentDto? InkDocument =>
+        _attachments.FirstOrDefault(a => a.Kind == "InkDocument" && a.Url is not null);
 
     // Inline edit form. Mirrors the Capture page's option lists so the two stay in sync.
     private readonly string[] _sourceTypes =
@@ -413,7 +437,7 @@
             Title: _editTitle.Trim(),
             Body: string.IsNullOrWhiteSpace(body) ? null : body,
             Uri: string.IsNullOrWhiteSpace(_editUri) ? null : _editUri,
-            OccurredAt: _editOccurredAt.HasValue ? new DateTimeOffset(_editOccurredAt.Value, TimeSpan.Zero) : null,
+            OccurredAt: _editOccurredAt.HasValue ? new DateTimeOffset(DateTime.SpecifyKind(_editOccurredAt.Value, DateTimeKind.Utc), TimeSpan.Zero) : null,
             Type: _editType,
             Visibility: _editVisibility,
             CampaignId: _editCampaignId,

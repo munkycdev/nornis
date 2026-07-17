@@ -1,6 +1,7 @@
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
+using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -32,7 +33,9 @@ public class SourceVisibilityListEnforcementTests
         var sourceRepo = new InMemorySourceRepository();
         var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
-        var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient);
+        var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient,
+            new InMemoryReviewBatchRepository(), new InMemorySourceAttachmentRepository(),
+            new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
 
         // Seed all sources in the repository
         foreach (var source in scenario.Sources)

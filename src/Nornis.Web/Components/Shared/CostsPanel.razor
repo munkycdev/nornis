@@ -163,10 +163,10 @@ else
 
     private string EmptyText => HasRange ? "No usage in this period." : "No usage yet.";
 
-    private DateTimeOffset? FromOffset => _from is { } d ? new DateTimeOffset(d.Date, TimeSpan.Zero) : null;
+    private DateTimeOffset? FromOffset => _from is { } d ? new DateTimeOffset(DateTime.SpecifyKind(d.Date, DateTimeKind.Utc), TimeSpan.Zero) : null;
 
     // The picked "to" day is inclusive, so extend it to the last tick of that day.
-    private DateTimeOffset? ToOffset => _to is { } d ? new DateTimeOffset(d.Date.AddDays(1).AddTicks(-1), TimeSpan.Zero) : null;
+    private DateTimeOffset? ToOffset => _to is { } d ? new DateTimeOffset(DateTime.SpecifyKind(d.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc), TimeSpan.Zero) : null;
 
     protected override async Task OnInitializedAsync()
     {

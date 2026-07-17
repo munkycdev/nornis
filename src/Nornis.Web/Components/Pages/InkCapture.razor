@@ -1,0 +1,311 @@
+@page "/capture/ink"
+@page "/capture/ink/{SourceId:guid}"
+@layout InkLayout
+@implements IAsyncDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>Ink — Nornis</PageTitle>
+
+<div class="nornis-ink-bar">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small"
+                   OnClick="ExitAsync" aria-label="Back to sources" />
+    <MudTextField T="string" @bind-Value="_title" Immediate="true" Variant="Variant.Text"
+                  Placeholder="Session notes title" Class="nornis-ink-title" MaxLength="200" />
+    <MudToggleGroup T="string" Value="_tool" ValueChanged="SetToolAsync" SelectionMode="SelectionMode.SingleSelection"
+                    Color="Color.Secondary" Size="Size.Small">
+        <MudToggleItem Value="@("pen")"><MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" /></MudToggleItem>
+        <MudToggleItem Value="@("eraser")"><MudIcon Icon="@Icons.Material.Outlined.Backspace" Size="Size.Small" /></MudToggleItem>
+    </MudToggleGroup>
+    <MudIconButton Icon="@Icons.Material.Filled.Undo" Size="Size.Small"
+                   OnClick="UndoAsync" aria-label="Undo" />
+    <MudSpacer />
+    <span class="nornis-ink-status">@_status</span>
+    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Small"
+               StartIcon="@Icons.Material.Filled.AutoAwesome"
+               OnClick="ProcessAsync" Disabled="@(_busy || _sourceId is null)">
+        Process
+    </MudButton>
+</div>
+
+<div id="@_canvasId" class="nornis-ink-canvas"></div>
+
+@code {
+    [Parameter] public Guid? SourceId { get; set; }
+
+    private readonly string _canvasId = $"nornis-ink-{Guid.NewGuid():N}";
+    private DotNetObjectReference<InkCapture>? _selfRef;
+    private Guid? _sourceId;
+    private string _title = $"Session notes — {DateTime.Today:d MMM yyyy}";
+    private string _tool = "pen";
+    private string _status = "";
+    private bool _busy;
+    private bool _initialized;
+
+    // The single ink attachment's upload ticket, cached across autosaves and refreshed
+    // when a PUT fails (the SAS expires after 15 minutes).
+    private Guid? _inkAttachmentId;
+    private string? _inkUploadUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Worlds.EnsureLoadedAsync();
+        _sourceId = SourceId;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // WorldState may still be loading on the first render — keep trying on
+        // subsequent renders until the canvas is up.
+        if (_initialized || Worlds.Current is null)
+        {
+            return;
+        }
+
+        _selfRef = DotNetObjectReference.Create(this);
+
+        if (_sourceId is not null)
+        {
+            // Resume: load the source title and its ink document (straight from blob).
+            var source = await Api.GetSourceAsync(Worlds.Current.Id, _sourceId.Value);
+            if (source.IsSuccess)
+            {
+                _title = source.Value!.Title;
+                StateHasChanged();
+            }
+
+            var attachments = await Api.GetSourceAttachmentsAsync(Worlds.Current.Id, _sourceId.Value);
+            var ink = attachments.IsSuccess
+                ? attachments.Value!.FirstOrDefault(a => a.Kind == "InkDocument" && a.Url is not null)
+                : null;
+
+            if (ink is not null)
+            {
+                await JS.InvokeAsync<bool>("nornisInk.initFromUrl", _canvasId, ink.Url, _selfRef, false);
+                _initialized = true;
+                return;
+            }
+        }
+
+        await JS.InvokeAsync<bool>("nornisInk.init", _canvasId, null, _selfRef, false);
+        _initialized = true;
+    }
+
+    private async Task SetToolAsync(string tool)
+    {
+        _tool = tool;
+        await JS.InvokeVoidAsync("nornisInk.setTool", _canvasId, tool);
+    }
+
+    private async Task UndoAsync() => await JS.InvokeVoidAsync("nornisInk.undo", _canvasId);
+
+    // ------------------------------------------------------------------ autosave --
+
+    [JSInvokable]
+    public async Task OnInkChanged()
+    {
+        if (!_initialized || _busy)
+        {
+            return;
+        }
+        await SaveInkAsync();
+    }
+
+    /// <summary>Persists the current strokes to the source's single ink blob. Creates the
+    /// Draft source on first save so an empty canvas never creates anything. The ink JSON
+    /// itself never crosses the circuit — JS PUTs it straight to the blob SAS URL.</summary>
+    private async Task<bool> SaveInkAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return false;
+        }
+
+        var inkSize = await JS.InvokeAsync<long>("nornisInk.inkSize", _canvasId);
+        if (inkSize == 0)
+        {
+            return false;
+        }
+
+        _status = "Saving…";
+        StateHasChanged();
+
+        if (_sourceId is null && !await CreateDraftSourceAsync())
+        {
+            return false;
+        }
+
+        // Mint (or reuse) the write ticket for the single ink attachment.
+        if (_inkUploadUrl is null && !await RequestInkTicketAsync(inkSize))
+        {
+            return false;
+        }
+
+        var put = await JS.InvokeAsync<bool>("nornisInk.saveInk", _canvasId, _inkUploadUrl);
+        if (!put)
+        {
+            // Most likely an expired SAS: refresh the ticket once and retry.
+            _inkUploadUrl = null;
+            if (!await RequestInkTicketAsync(inkSize)
+                || !await JS.InvokeAsync<bool>("nornisInk.saveInk", _canvasId, _inkUploadUrl))
+            {
+                _status = "Save failed";
+                StateHasChanged();
+                return false;
+            }
+        }
+
+        var confirmed = await Api.ConfirmSourceAttachmentUploadAsync(Worlds.Current.Id, _sourceId!.Value, _inkAttachmentId!.Value);
+        _status = confirmed.IsSuccess ? $"Saved {DateTime.Now:HH:mm}" : "Save failed";
+        StateHasChanged();
+        return confirmed.IsSuccess;
+    }
+
+    private async Task<bool> CreateDraftSourceAsync()
+    {
+        var created = await Api.CreateSourceAsync(Worlds.Current!.Id, new CreateSourceRequest(
+            string.IsNullOrWhiteSpace(_title) ? $"Session notes — {DateTime.Today:d MMM yyyy}" : _title.Trim(),
+            "HandwrittenNotes",
+            "PartyVisible",
+            Body: null,
+            Uri: null,
+            OccurredAt: new DateTimeOffset(DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc), TimeSpan.Zero),
+            CampaignId: null));
+
+        if (!created.IsSuccess)
+        {
+            _status = "Save failed";
+            StateHasChanged();
+            return false;
+        }
+
+        _sourceId = created.Value!.Id;
+        // Put the id in the URL so a refresh (or the browser dying) resumes this canvas.
+        Nav.NavigateTo($"/capture/ink/{_sourceId}", replace: true);
+        return true;
+    }
+
+    private async Task<bool> RequestInkTicketAsync(long approximateSize)
+    {
+        var ticket = await Api.RequestSourceAttachmentUploadAsync(Worlds.Current!.Id, _sourceId!.Value,
+            new RequestSourceAttachmentUploadRequest("ink.json", "application/json", Math.Max(1, approximateSize), "InkDocument"));
+        if (!ticket.IsSuccess)
+        {
+            _status = "Save failed";
+            StateHasChanged();
+            return false;
+        }
+        _inkAttachmentId = ticket.Value!.Attachment.Id;
+        _inkUploadUrl = ticket.Value.UploadUrl;
+        return true;
+    }
+
+    // ------------------------------------------------------------------- process --
+
+    private async Task ProcessAsync()
+    {
+        if (Worlds.Current is null || _sourceId is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        _status = "Rendering…";
+        StateHasChanged();
+
+        try
+        {
+            // Final ink save first: the ink is the source of truth.
+            if (!await SaveInkAsync())
+            {
+                return;
+            }
+
+            // Title may have changed since the draft was created.
+            if (!string.IsNullOrWhiteSpace(_title))
+            {
+                await Api.UpdateSourceAsync(Worlds.Current.Id, _sourceId.Value,
+                    new UpdateSourceRequest(Title: _title.Trim()));
+            }
+
+            // Tiles render and stay in JS (only the count crosses the circuit); each is
+            // PUT straight from the browser to its blob SAS URL.
+            var tileCount = await JS.InvokeAsync<int>("nornisInk.renderTileCount", _canvasId, 1536, 2048);
+            if (tileCount == 0)
+            {
+                _status = "Nothing written yet";
+                return;
+            }
+
+            // Re-processing replaces the previous render: clear old page images first.
+            var existing = await Api.GetSourceAttachmentsAsync(Worlds.Current.Id, _sourceId.Value);
+            if (existing.IsSuccess)
+            {
+                foreach (var old in existing.Value!.Where(a => a.Kind == "PageImage"))
+                {
+                    await Api.DeleteSourceAttachmentAsync(Worlds.Current.Id, _sourceId.Value, old.Id);
+                }
+            }
+
+            for (var i = 0; i < tileCount; i++)
+            {
+                _status = $"Uploading page {i + 1}/{tileCount}…";
+                StateHasChanged();
+
+                var ticket = await Api.RequestSourceAttachmentUploadAsync(Worlds.Current.Id, _sourceId.Value,
+                    new RequestSourceAttachmentUploadRequest($"tile-{i + 1}.png", "image/png", 1, "PageImage", Ord: i));
+                if (!ticket.IsSuccess
+                    || !await JS.InvokeAsync<bool>("nornisInk.putTile", _canvasId, i, ticket.Value!.UploadUrl)
+                    || !(await Api.ConfirmSourceAttachmentUploadAsync(Worlds.Current.Id, _sourceId.Value, ticket.Value.Attachment.Id)).IsSuccess)
+                {
+                    _status = $"Page {i + 1} upload failed";
+                    Snackbar.Add("Processing stopped — a rendered page failed to upload. Try again.", Severity.Error);
+                    return;
+                }
+            }
+
+            await JS.InvokeVoidAsync("nornisInk.clearTiles", _canvasId);
+
+            var ready = await Api.MarkSourceReadyAsync(Worlds.Current.Id, _sourceId.Value);
+            if (!ready.IsSuccess)
+            {
+                _status = "Queue failed";
+                Snackbar.Add(ready.Error!.Message, Severity.Error);
+                return;
+            }
+
+            Snackbar.Add("Ink queued — Nornis is transcribing and extracting it now.", Severity.Success);
+            Nav.NavigateTo($"/sources/{_sourceId}");
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ExitAsync()
+    {
+        if (_initialized && await JS.InvokeAsync<bool>("nornisInk.hasInk", _canvasId))
+        {
+            await SaveInkAsync();
+        }
+        Nav.NavigateTo(_sourceId is null ? "/sources" : $"/sources/{_sourceId}");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("nornisInk.destroy", _canvasId);
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit gone — nothing to clean up client-side.
+        }
+        _selfRef?.Dispose();
+    }
+}

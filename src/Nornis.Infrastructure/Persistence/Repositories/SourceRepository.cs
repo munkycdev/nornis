@@ -114,6 +114,16 @@ public class SourceRepository : ISourceRepository
             throw new InvalidOperationException($"Source with id '{id}' not found.");
         }
 
+        // The cost ledger outlives the source it references (its FK is NoAction by
+        // design) — detach the link instead of losing the spend history.
+        var usageRecords = await _context.AiUsageRecords
+            .Where(u => u.SourceId == id)
+            .ToListAsync(cancellationToken);
+        foreach (var record in usageRecords)
+        {
+            record.SourceId = null;
+        }
+
         _context.Sources.Remove(source);
         await _context.SaveChangesAsync(cancellationToken);
     }

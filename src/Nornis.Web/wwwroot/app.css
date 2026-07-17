@@ -1631,6 +1631,57 @@ a.nornis-cite:hover {
     color: var(--mud-palette-text-secondary);
 }
 
+/* ------------------------------------------------------------ Ink canvas (/ink) -- */
+
+.nornis-ink-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh; /* iOS Safari: track the dynamic viewport */
+    overflow: hidden;
+    background-color: #fdfbf7;
+}
+
+.nornis-ink-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--mud-palette-divider);
+    background-color: var(--mud-palette-surface);
+    flex-shrink: 0;
+}
+
+.nornis-ink-title {
+    max-width: 320px;
+}
+
+.nornis-ink-title .mud-input {
+    font-family: var(--nornis-serif);
+    font-weight: 600;
+}
+
+.nornis-ink-status {
+    font-size: 0.78rem;
+    color: var(--mud-palette-text-secondary);
+    white-space: nowrap;
+}
+
+.nornis-ink-canvas {
+    flex: 1;
+    min-height: 0;
+    overscroll-behavior: none;
+}
+
+/* Read-only ink viewer embedded on source detail. */
+.nornis-ink-viewer {
+    height: 420px;
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #fdfbf7;
+}
+
 /* ---------------------------------------------------- Handwritten page images -- */
 
 .nornis-page-grid {

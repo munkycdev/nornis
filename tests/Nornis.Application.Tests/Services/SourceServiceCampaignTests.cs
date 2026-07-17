@@ -1,4 +1,5 @@
 using Nornis.Application.Models;
+using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -27,7 +28,9 @@ public class SourceServiceCampaignTests
     {
         _sourceRepository = new InMemorySourceRepository();
         _campaignRepository = new InMemoryCampaignRepository();
-        _sut = new SourceService(_sourceRepository, new InMemoryWorldMemberRepository(), _campaignRepository, new FakeExtractionQueueClient());
+        _sut = new SourceService(_sourceRepository, new InMemoryWorldMemberRepository(), _campaignRepository, new FakeExtractionQueueClient(),
+            new InMemoryReviewBatchRepository(), new InMemorySourceAttachmentRepository(),
+            new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
 
         _campaign = new Campaign
         {

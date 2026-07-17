@@ -1,4 +1,5 @@
 using Nornis.Application.Models;
+using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -29,7 +30,9 @@ public class SourceServiceMarkReadyOrderingTests
         _sourceRepository = new InMemorySourceRepository();
         _queueClient = new FakeExtractionQueueClient();
         _sut = new SourceService(_sourceRepository, new InMemoryWorldMemberRepository(),
-            new InMemoryCampaignRepository(), _queueClient);
+            new InMemoryCampaignRepository(), _queueClient,
+            new InMemoryReviewBatchRepository(), new InMemorySourceAttachmentRepository(),
+            new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
     }
 
     private Source SeedDraftSource()

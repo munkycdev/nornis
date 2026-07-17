@@ -1,6 +1,8 @@
+using Microsoft.Extensions.Logging;
 using Nornis.Application.Errors;
 using Nornis.Application.Messaging;
 using Nornis.Application.Models;
+using Nornis.Application.Storage;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
@@ -13,6 +15,10 @@ public class SourceService : ISourceService
     private readonly IWorldMemberRepository _worldMemberRepository;
     private readonly ICampaignRepository _campaignRepository;
     private readonly IExtractionQueueClient _extractionQueueClient;
+    private readonly IReviewBatchRepository _reviewBatchRepository;
+    private readonly ISourceAttachmentRepository _sourceAttachmentRepository;
+    private readonly IBlobStorageService _blobStorage;
+    private readonly ILogger<SourceService> _logger;
 
     private static readonly Dictionary<SourceProcessingStatus, HashSet<SourceProcessingStatus>> ValidTransitions = new()
     {
@@ -28,12 +34,20 @@ public class SourceService : ISourceService
         ISourceRepository sourceRepository,
         IWorldMemberRepository worldMemberRepository,
         ICampaignRepository campaignRepository,
-        IExtractionQueueClient extractionQueueClient)
+        IExtractionQueueClient extractionQueueClient,
+        IReviewBatchRepository reviewBatchRepository,
+        ISourceAttachmentRepository sourceAttachmentRepository,
+        IBlobStorageService blobStorage,
+        ILogger<SourceService> logger)
     {
         _sourceRepository = sourceRepository;
         _worldMemberRepository = worldMemberRepository;
         _campaignRepository = campaignRepository;
         _extractionQueueClient = extractionQueueClient;
+        _reviewBatchRepository = reviewBatchRepository;
+        _sourceAttachmentRepository = sourceAttachmentRepository;
+        _blobStorage = blobStorage;
+        _logger = logger;
     }
 
     public async Task<AppResult<Source>> CreateAsync(CreateSourceCommand command, CancellationToken ct)
@@ -258,6 +272,24 @@ public class SourceService : ISourceService
             return AppResult.Fail(new AppError(409, "invalid_status",
                 $"Source cannot be deleted while in {source.ProcessingStatus} status."));
         }
+
+        // Attachment blobs first, failures swallowed (Library convention): an orphaned
+        // blob beats an orphaned row pointing at nothing. Rows cascade with the source.
+        foreach (var attachment in await _sourceAttachmentRepository.ListBySourceAsync(sourceId, ct))
+        {
+            try
+            {
+                await _blobStorage.DeleteBlobAsync(attachment.BlobPath, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Blob delete failed for attachment {AttachmentId}; deleting the source anyway", attachment.Id);
+            }
+        }
+
+        // Review batches don't cascade from the source (SQL Server cascade-path limits) —
+        // clear them explicitly. Pending proposals go with them; accepted knowledge stays.
+        await _reviewBatchRepository.DeleteBySourceAsync(sourceId, ct);
 
         await _sourceRepository.DeleteAsync(sourceId, ct);
 

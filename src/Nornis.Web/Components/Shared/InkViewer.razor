@@ -1,0 +1,41 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* Read-only render of an ink document: fetches the stroke JSON straight from its
+   short-lived blob SAS URL (never through the circuit) and draws it. Finger/wheel
+   scrolling works; drawing is disabled. *@
+
+<div id="@_elementId" class="nornis-ink-viewer"></div>
+
+@code {
+    /// <summary>Short-lived read SAS URL of the ink.json blob.</summary>
+    [Parameter, EditorRequired] public string Url { get; set; } = string.Empty;
+
+    private readonly string _elementId = $"nornis-inkview-{Guid.NewGuid():N}";
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !string.IsNullOrEmpty(Url))
+        {
+            await JS.InvokeAsync<bool>("nornisInk.initFromUrl", _elementId, Url, null, true);
+            _initialized = true;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_initialized)
+        {
+            return;
+        }
+        try
+        {
+            await JS.InvokeVoidAsync("nornisInk.destroy", _elementId);
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit gone — nothing to clean up client-side.
+        }
+    }
+}

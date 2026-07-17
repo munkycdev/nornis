@@ -3,7 +3,6 @@
 ## List of unprocessed features
 
 * Capture
-  * Add the ability to hand-write notes
   * Perhaps have a tabbed interface instead of displaying all of the source options
 * General
   * Access-token refresh — the 24h token/cookie expiry currently ends in 401s/re-login; add `offline_access` + refresh in the bearer handler.
