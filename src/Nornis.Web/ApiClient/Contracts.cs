@@ -374,6 +374,8 @@ public record SourceActivity(
     public int InFlight => Ready + Queued + Processing;
 }
 
+public record UserSummaryDto(Guid Id, string Username);
+
 public record BackfillQueueResult(
     int QueuedCount,
     int AlreadySweptCount,

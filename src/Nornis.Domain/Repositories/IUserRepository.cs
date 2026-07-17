@@ -10,5 +10,8 @@ public interface IUserRepository
 
     Task<User?> GetByAuth0SubjectIdAsync(string auth0SubjectId, CancellationToken cancellationToken = default);
 
+    /// <summary>All users, ordered by username — feeds the add-member picker.</summary>
+    Task<IReadOnlyList<User>> ListAsync(CancellationToken cancellationToken = default);
+
     Task<User> UpdateAsync(User user, CancellationToken cancellationToken = default);
 }

@@ -74,6 +74,10 @@ public class NornisApiClient
     public Task<ApiResult<WorldMember>> AddMemberAsync(Guid worldId, AddMemberRequest request, CancellationToken ct = default) =>
         PostAsync<AddMemberRequest, WorldMember>($"/api/worlds/{worldId}/members", request, ct);
 
+    /// <summary>User directory (id + username) for the add-member picker.</summary>
+    public Task<ApiResult<IReadOnlyList<UserSummaryDto>>> GetUsersAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<UserSummaryDto>>("/api/users", ct);
+
     public Task<ApiResult<WorldMember>> UpdateMemberRoleAsync(Guid worldId, Guid userId, string role, CancellationToken ct = default) =>
         PutAsync<UpdateMemberRoleRequest, WorldMember>($"/api/worlds/{worldId}/members/{userId}", new UpdateMemberRoleRequest(role), ct);
 

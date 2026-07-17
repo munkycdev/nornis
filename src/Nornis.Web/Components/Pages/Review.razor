@@ -52,17 +52,24 @@ else
 {
     @if (PendingIds().Count > 0)
     {
-        <div class="d-flex gap-2 mb-4">
+        <div class="d-flex gap-2 mb-4 align-center">
             <MudButton Variant="Variant.Filled" Color="Color.Secondary"
                        StartIcon="@Icons.Material.Filled.DoneAll"
                        OnClick="AcceptAllAsync" Disabled="@_batchActing">
-                Accept all
+                @(_batchActing && _batchAccepting ? "Accepting…" : "Accept all")
             </MudButton>
             <MudButton Variant="Variant.Text" Color="Color.Error"
                        StartIcon="@Icons.Material.Filled.ClearAll"
                        OnClick="RejectAllAsync" Disabled="@_batchActing">
-                Reject all
+                @(_batchActing && !_batchAccepting ? "Rejecting…" : "Reject all")
             </MudButton>
+            @if (_batchActing)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Secondary" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    @(_batchAccepting ? "Applying" : "Discarding") @_batchTotal proposals…
+                </MudText>
+            }
         </div>
     }
 
@@ -146,6 +153,8 @@ else
     private IReadOnlyList<ReviewProposal> _proposals = [];
     private readonly HashSet<Guid> _acting = [];
     private bool _batchActing;
+    private bool _batchAccepting;
+    private int _batchTotal;
 
     protected override async Task OnInitializedAsync()
     {
@@ -278,6 +287,8 @@ else
         }
 
         _batchActing = true;
+        _batchAccepting = accept;
+        _batchTotal = ids.Count;
         foreach (var id in ids)
         {
             _acting.Add(id);

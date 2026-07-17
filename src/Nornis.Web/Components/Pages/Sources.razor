@@ -47,6 +47,7 @@ else if (_error is not null)
 }
 else if (_sources.Count == 0)
 {
+    @* No status chips here: an empty world has nothing to filter. *@
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
         <MudIcon Icon="@Icons.Material.Outlined.Layers" Size="Size.Large" Class="nornis-comingsoon-icon" />
         <MudText Typo="Typo.h5" Class="nornis-serif">No sources yet</MudText>
@@ -61,8 +62,27 @@ else if (_sources.Count == 0)
 }
 else
 {
+    <div class="nornis-filter-row mb-3">
+        <MudChip T="string"
+                 Variant="@(_statusFilter is null ? Variant.Filled : Variant.Outlined)"
+                 Color="@(_statusFilter is null ? Color.Secondary : Color.Default)"
+                 OnClick="() => _statusFilter = null">All</MudChip>
+        @foreach (var status in StatusFilters)
+        {
+            var s = status;
+            <MudChip T="string" Size="Size.Small"
+                     Variant="@(_statusFilter == s ? Variant.Filled : Variant.Outlined)"
+                     Color="@(_statusFilter == s ? StatusColor(s) : Color.Default)"
+                     OnClick="() => _statusFilter = s">@s</MudChip>
+        }
+    </div>
+
+    @if (FilteredSources.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">No sources are @_statusFilter.</MudText>
+    }
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-        @foreach (var source in _sources)
+        @foreach (var source in FilteredSources)
         {
             <a href="@($"/sources/{source.Id}")" class="nornis-list-row nornis-list-link">
                 <div class="nornis-list-thumb">
@@ -91,6 +111,14 @@ else
     private IReadOnlyList<SourceListItem> _sources = [];
     private IReadOnlyList<CampaignDto> _campaigns = [];
     private string _campaignFilter = string.Empty;
+    private string? _statusFilter;
+
+    private static readonly string[] StatusFilters = ["Draft", "Ready", "Queued", "Processing", "Processed", "Failed"];
+
+    private IReadOnlyList<SourceListItem> FilteredSources =>
+        _statusFilter is null
+            ? _sources
+            : _sources.Where(s => s.ProcessingStatus == _statusFilter).ToList();
 
     // Extraction runs out-of-process; poll while any source is mid-pipeline so the
     // list moves Queued -> Processing -> Processed without a manual refresh.

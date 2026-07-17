@@ -27,6 +27,12 @@ public class InMemoryUserRepository : IUserRepository
         return Task.FromResult(user);
     }
 
+    public Task<IReadOnlyList<User>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        var users = _users.OrderBy(u => u.Username).ToList();
+        return Task.FromResult<IReadOnlyList<User>>(users.AsReadOnly());
+    }
+
     public Task<User> UpdateAsync(User user, CancellationToken cancellationToken = default)
     {
         var index = _users.FindIndex(u => u.Id == user.Id);

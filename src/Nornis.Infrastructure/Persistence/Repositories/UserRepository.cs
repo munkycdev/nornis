@@ -34,6 +34,14 @@ public class UserRepository : IUserRepository
             .FirstOrDefaultAsync(u => u.Auth0SubjectId == auth0SubjectId, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<User>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        return await _context.Users
+            .AsNoTracking()
+            .OrderBy(u => u.Username)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<User> UpdateAsync(User user, CancellationToken cancellationToken = default)
     {
         _context.Users.Update(user);

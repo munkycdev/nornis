@@ -117,6 +117,12 @@ html, body {
     padding: 8px 0 4px 0;
 }
 
+.nornis-brand-link {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+}
+
 .nornis-graph-wrap {
     position: relative;
 }

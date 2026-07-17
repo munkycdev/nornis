@@ -207,8 +207,15 @@
                 @if (_isGm)
                 {
                     <div class="nornis-add-member mt-3">
-                        <MudTextField @bind-Value="_newUserId" Label="Add member by user ID" Placeholder="00000000-0000-0000-0000-000000000000"
-                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" />
+                        <MudSelect T="Guid?" @bind-Value="_newUserId" Label="Add member" Dense="true"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1"
+                                   Placeholder="@(AddableUsers.Count == 0 ? "Everyone's already here" : "Pick a user")"
+                                   Disabled="@(AddableUsers.Count == 0)">
+                            @foreach (var user in AddableUsers)
+                            {
+                                <MudSelectItem T="Guid?" Value="@((Guid?)user.Id)">@user.Username</MudSelectItem>
+                            }
+                        </MudSelect>
                         <MudSelect T="string" @bind-Value="_newRole" Dense="true" Variant="Variant.Outlined" Class="nornis-role-select">
                             @foreach (var role in _roles)
                             {
@@ -216,7 +223,7 @@
                             }
                         </MudSelect>
                         <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
-                                   OnClick="AddMemberAsync" Disabled="_addingMember">
+                                   OnClick="AddMemberAsync" Disabled="@(_addingMember || _newUserId is null)">
                             Add
                         </MudButton>
                     </div>
@@ -252,10 +259,15 @@
     private readonly HashSet<Guid> _busyMembers = [];
 
     // Add member
-    private string _newUserId = string.Empty;
+    private Guid? _newUserId;
     private string _newRole = "Player";
     private bool _addingMember;
     private string? _addError;
+    private IReadOnlyList<UserSummaryDto> _allUsers = [];
+
+    /// <summary>Users not already in this world, for the add-member picker.</summary>
+    private IReadOnlyList<UserSummaryDto> AddableUsers =>
+        _allUsers.Where(u => _members.All(m => m.UserId != u.Id)).ToList();
 
     // Campaigns
     private readonly string[] _campaignStatuses = ["Active", "Completed", "Archived"];
@@ -287,6 +299,12 @@
         SyncFromWorld();
         await LoadMembersAsync();
         await LoadCampaignsAndCharactersAsync();
+
+        if (_isGm)
+        {
+            var users = await Api.GetUsersAsync();
+            _allUsers = users.IsSuccess ? users.Value! : [];
+        }
     }
 
     private void OnWorldChanged() => InvokeAsync(async () =>
@@ -584,9 +602,8 @@
     {
         _addError = null;
 
-        if (!Guid.TryParse(_newUserId, out var userId))
+        if (_newUserId is not { } userId)
         {
-            _addError = "Enter a valid user ID (GUID).";
             return;
         }
 
@@ -597,7 +614,7 @@
         if (result.IsSuccess)
         {
             _members = _members.Append(result.Value!).ToList();
-            _newUserId = string.Empty;
+            _newUserId = null;
             Snackbar.Add("Member added.", Severity.Success);
         }
         else
