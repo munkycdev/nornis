@@ -6,5 +6,14 @@ public enum SourceAttachmentKind
     PageImage,
 
     /// <summary>The ink-canvas stroke document (JSON) — the true source for in-app handwriting.</summary>
-    InkDocument
+    InkDocument,
+
+    /// <summary>An image attached to an Image source — vision-read for lore at extraction.</summary>
+    ImageFile,
+
+    /// <summary>A file attached to an Upload source (PDF / text / markdown / image).</summary>
+    Document,
+
+    /// <summary>The single map image on a Map source — the input to map extraction.</summary>
+    MapImage
 }

@@ -1,0 +1,34 @@
+@using System.Globalization
+
+@* Map image with percentage-positioned pins: the pins scale with the image at any
+   viewport width, no JS measurement needed. Click a pin to open its artifact. *@
+
+<div class="nornis-map-viewer">
+    <img src="@ImageUrl" alt="Map" />
+    @foreach (var pin in Placemarks)
+    {
+        <a href="@($"{ArtifactLinkBase}/{pin.ArtifactId}")"
+           class="nornis-map-pin"
+           style="left:@(Pct(pin.X))%; top:@(Pct(pin.Y))%;"
+           data-nornis-tip="@(TipFor(pin))">
+            <MudIcon Icon="@Icons.Material.Filled.Place" Color="Color.Secondary" Size="Size.Small" />
+        </a>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ImageUrl { get; set; } = string.Empty;
+
+    [Parameter] public IReadOnlyList<MapPlacemarkDto> Placemarks { get; set; } = [];
+
+    /// <summary>Route prefix for pin clicks; the public /w/{slug} pages could override.</summary>
+    [Parameter] public string ArtifactLinkBase { get; set; } = "/artifacts";
+
+    // Invariant culture matters: a comma decimal separator breaks the inline CSS.
+    private static string Pct(decimal v) => (v * 100m).ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string TipFor(MapPlacemarkDto pin) =>
+        pin.Label is not null && !string.Equals(pin.Label, pin.ArtifactName, StringComparison.OrdinalIgnoreCase)
+            ? $"{pin.ArtifactName}\nLabeled \"{pin.Label}\" on the map"
+            : pin.ArtifactName;
+}

@@ -138,9 +138,13 @@ public class SourceExtractionOptOutTests
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
             new InMemorySourceAttachmentRepository(),
+            new InMemoryMapPlacemarkRepository(),
             new FakeBlobStorageService(),
+            new FakePdfTextExtractor(),
             new FakeAiExtractionClient(),
             new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            new FakeMapExtractionClient(),
             new FakeAiBudgetGuard(),
             new FakeUnitOfWork(),
             Options.Create(new ExtractionOptions
@@ -171,7 +175,7 @@ public class SourceExtractionOptOutTests
             _sourceRepo, _batchRepo, new InMemoryReviewProposalRepository(),
             new InMemorySourceReferenceRepository(), new InMemoryArtifactRepository(),
             new InMemoryArtifactFactRepository(), new InMemoryArtifactRelationshipRepository(),
-            new InMemoryCharacterRepository(), _queueClient, new FakeUnitOfWork(),
+            new InMemoryCharacterRepository(), new InMemoryMapPlacemarkRepository(), new InMemorySourceAttachmentRepository(), _queueClient, new FakeUnitOfWork(),
             NullLogger<SourceReprocessService>.Instance);
 
         var result = await reprocessService.ReprocessAsync(new ReprocessSourceCommand(

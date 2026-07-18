@@ -237,6 +237,33 @@ public class SourcesController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>The source's map image and its pins, filtered to what the caller may see.</summary>
+    [HttpGet("{sourceId:guid}/map")]
+    public async Task<IActionResult> GetMap(
+        Guid worldId,
+        Guid sourceId,
+        [FromServices] IMapViewService mapViewService,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await mapViewService.GetMapAsync(sourceId, worldId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var map = result.Value!;
+        return Ok(new MapViewResponse(
+            ToAttachmentResponse(map.Attachment),
+            map.ImageUrl,
+            map.Placemarks
+                .Select(p => new MapPlacemarkResponse(p.Id, p.ArtifactId, p.ArtifactName, p.X, p.Y, p.Label, p.Confidence))
+                .ToList()));
+    }
+
     [HttpGet("{sourceId:guid}/reprocess-preview")]
     public async Task<IActionResult> GetReprocessPreview(
         Guid worldId,
@@ -260,7 +287,8 @@ public class SourcesController : ControllerBase
             preview.ArtifactNamesToKeep,
             preview.FactsToDelete,
             preview.RelationshipsToDelete,
-            preview.PendingProposalsToDiscard));
+            preview.PendingProposalsToDiscard,
+            preview.MapPinsToDelete));
     }
 
     [HttpPost("{sourceId:guid}/reprocess")]
@@ -450,7 +478,8 @@ public class SourcesController : ControllerBase
             ProcessingStatus: source.ProcessingStatus.ToString(),
             CampaignId: source.CampaignId,
             CampaignName: source.Campaign?.Name,
-            ExtractionEnabled: source.ExtractionEnabled);
+            ExtractionEnabled: source.ExtractionEnabled,
+            DerivedText: source.DerivedText);
     }
 
     internal static SourceListItemResponse ToSourceListItemResponse(Source source)

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
@@ -72,6 +72,19 @@ public class SourceRepository : ISourceRepository
         }
 
         source.Body = body;
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+    public async Task UpdateDerivedTextAsync(Guid id, string? derivedText, CancellationToken cancellationToken = default)
+    {
+        var source = await _context.Sources
+            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+
+        if (source is null)
+        {
+            throw new InvalidOperationException($"Source with id '{id}' not found.");
+        }
+
+        source.DerivedText = derivedText;
         await _context.SaveChangesAsync(cancellationToken);
     }
 

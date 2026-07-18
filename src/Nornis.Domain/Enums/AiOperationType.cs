@@ -10,5 +10,7 @@ public enum AiOperationType
     StorylineRetrospective,
     Embedding,
     RelationshipBackfill,
-    HandwritingTranscription
+    HandwritingTranscription,
+    ImageReading,
+    MapExtraction
 }

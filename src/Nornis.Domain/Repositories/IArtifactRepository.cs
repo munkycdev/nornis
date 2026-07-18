@@ -29,6 +29,16 @@ public interface IArtifactRepository
     Task<IReadOnlyList<Artifact>> ListByExactNameAsync(Guid worldId, string name, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// All non-archived artifacts of one type visible to the reader — e.g. the world's
+    /// Locations as matching context for map extraction.
+    /// </summary>
+    Task<IReadOnlyList<Artifact>> ListByTypeAsync(
+        Guid worldId,
+        ArtifactType type,
+        VisibilityFilter filter,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Recent artifacts for AI context/retrieval, limited to what the reader may see.
     /// Excludes Archived artifacts — they are merge leftovers and must not re-enter
     /// extraction or ask context.

@@ -203,6 +203,31 @@
                 </MudPaper>
             }
 
+            @if (!string.IsNullOrWhiteSpace(_source.DerivedText))
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="nornis-detail-section-title">Extracted from files</div>
+                    <NotesEditor @key="@($"{_source.Id}-derived")" ReadOnly="true"
+                                 InitialHtml="@Nornis.Web.Services.MarkdownRenderer.ToHtml(_source.DerivedText).Value" />
+                </MudPaper>
+            }
+
+            @if (_source.Type == "Map" && _mapView is not null)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="nornis-detail-section-title">Map</div>
+                    @if (_mapView.Placemarks.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                            @(_source.ProcessingStatus == "Processed"
+                                ? "No places have been pinned yet — accept map proposals in the review queue to place pins."
+                                : "Pins appear once the map is processed and its place proposals are accepted.")
+                        </MudText>
+                    }
+                    <MapViewer @key="_source.Id" ImageUrl="@_mapView.ImageUrl" Placemarks="_mapView.Placemarks" />
+                </MudPaper>
+            }
+
             @if (InkDocument is not null)
             {
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
@@ -237,6 +262,39 @@
                     </div>
                 </MudPaper>
             }
+
+            @if (UploadedImages.Count > 0)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="nornis-detail-section-title">Images</div>
+                    <div class="nornis-page-grid">
+                        @foreach (var image in UploadedImages)
+                        {
+                            <a href="@image.Url" target="_blank" rel="noopener" class="nornis-page-thumb"
+                               title="@image.FileName">
+                                <img src="@image.Url" alt="@image.FileName" loading="lazy" />
+                            </a>
+                        }
+                    </div>
+                </MudPaper>
+            }
+
+            @if (Documents.Count > 0)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="nornis-detail-section-title">Files</div>
+                    <MudList T="string" Dense="true">
+                        @foreach (var doc in Documents)
+                        {
+                            <MudListItem T="string" Href="@doc.Url" Target="_blank"
+                                         Icon="@FileIcon(doc.ContentType)">
+                                @doc.FileName
+                                <span class="nornis-list-meta ml-2">@FormatSize(doc.SizeBytes)</span>
+                            </MudListItem>
+                        }
+                    </MudList>
+                </MudPaper>
+            }
         }
     }
 </div>
@@ -252,6 +310,8 @@
     private Guid _loadedId;
     private IReadOnlyList<SourceAttachmentDto> _attachments = [];
 
+    private MapViewDto? _mapView;
+
     private IReadOnlyList<SourceAttachmentDto> PageImages =>
         _attachments.Where(a => a.Kind == "PageImage" && a.Url is not null).ToList();
 
@@ -259,6 +319,15 @@
     // are just transcription intermediates, so they hide when ink exists).
     private SourceAttachmentDto? InkDocument =>
         _attachments.FirstOrDefault(a => a.Kind == "InkDocument" && a.Url is not null);
+
+    // Uploaded images (Image sources) render as a thumbnail grid, like handwritten pages.
+    private IReadOnlyList<SourceAttachmentDto> UploadedImages =>
+        _attachments.Where(a => a.Kind == "ImageFile" && a.Url is not null).ToList();
+
+    // Uploaded documents (Upload sources) render as a download list — PDFs and text files
+    // have no thumbnail, and images among them still list as files here.
+    private IReadOnlyList<SourceAttachmentDto> Documents =>
+        _attachments.Where(a => a.Kind == "Document" && a.Url is not null).ToList();
 
     // Inline edit form. Types come from the shared capture list; a source already
     // carrying a legacy type (JournalEntry, Transcript) keeps it selectable so an
@@ -371,13 +440,19 @@
         {
             _source = result.Value!;
 
-            // Blob-backed page images (handwritten sources). URLs are short-lived SAS
-            // links minted per load.
+            // Blob-backed attachments (handwritten pages, uploaded images/files, maps).
+            // URLs are short-lived SAS links minted per load.
             _attachments = [];
-            if (_source.Type == "HandwrittenNotes")
+            _mapView = null;
+            if (_source.Type is "HandwrittenNotes" or "Image" or "Upload" or "Map")
             {
                 var attachments = await Api.GetSourceAttachmentsAsync(Worlds.Current.Id, SourceId);
                 _attachments = attachments.IsSuccess ? attachments.Value! : [];
+            }
+            if (_source.Type == "Map")
+            {
+                var map = await Api.GetSourceMapAsync(Worlds.Current.Id, SourceId);
+                _mapView = map.IsSuccess ? map.Value : null;
             }
         }
         else if (result.Error!.Code == "not_found")
@@ -601,12 +676,17 @@
         {
             sb.Append($"<li><b>{preview.RelationshipsToDelete}</b> relationship(s)</li>");
         }
+        if (preview.MapPinsToDelete > 0)
+        {
+            sb.Append($"<li><b>{preview.MapPinsToDelete}</b> map pin(s)</li>");
+        }
         if (preview.PendingProposalsToDiscard > 0)
         {
             sb.Append($"<li><b>{preview.PendingProposalsToDiscard}</b> unreviewed proposal(s) will be discarded</li>");
         }
         if (preview.ArtifactNamesToDelete.Count == 0 && preview.FactsToDelete == 0
-            && preview.RelationshipsToDelete == 0 && preview.PendingProposalsToDiscard == 0)
+            && preview.RelationshipsToDelete == 0 && preview.MapPinsToDelete == 0
+            && preview.PendingProposalsToDiscard == 0)
         {
             sb.Append("<li>Nothing — no accepted knowledge traces back only to this note.</li>");
         }
@@ -663,6 +743,21 @@
         _ => Color.Default,
     };
 
+    private static string FileIcon(string contentType) =>
+        contentType switch
+        {
+            "application/pdf" => Icons.Material.Outlined.PictureAsPdf,
+            _ when contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) => Icons.Material.Outlined.Image,
+            _ when contentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase) => Icons.Material.Outlined.Description,
+            _ => Icons.Material.Outlined.InsertDriveFile,
+        };
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} MB",
+        >= 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes} B",
+    };
 
     public void Dispose()
     {

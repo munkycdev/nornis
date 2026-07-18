@@ -45,21 +45,30 @@ else
                     </MudSelect>
                 </div>
 
-                @if (_type == "HandwrittenNotes")
+                @if (FilePlanForType is { } plan)
                 {
-                    @* Page images go straight to blob via the SAS handshake; the worker
-                       vision-transcribes them into the body, then extraction runs. *@
-                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mb-3"
-                               StartIcon="@Icons.Material.Filled.Draw" Href="/capture/ink">
-                        Open ink canvas
-                    </MudButton>
+                    @* Files go straight to blob via the SAS handshake; the worker derives
+                       text (transcription / vision read / PDF text) before extraction. *@
+                    @if (_type == "HandwrittenNotes")
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mb-3"
+                                   StartIcon="@Icons.Material.Filled.Draw" Href="/capture/ink">
+                            Open ink canvas
+                        </MudButton>
+                    }
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-                        Write directly in Nornis with the canvas above — or add photos / page
-                        exports of notes written elsewhere, in reading order. Either way, Nornis
-                        transcribes the handwriting and pulls artifacts from the transcription.
+                        @plan.Hint
                     </MudText>
-                    <InputFile id="@_pagesInputId" OnChange="OnPagesSelected" multiple
-                               class="nornis-upload-input mb-2" accept=".png,.jpg,.jpeg,.webp" />
+                    @if (plan.Multiple)
+                    {
+                        <InputFile id="@_pagesInputId" OnChange="OnPagesSelected" multiple
+                                   class="nornis-upload-input mb-2" accept="@plan.Accept" />
+                    }
+                    else
+                    {
+                        <InputFile id="@_pagesInputId" OnChange="OnPagesSelected"
+                                   class="nornis-upload-input mb-2" accept="@plan.Accept" />
+                    }
                     @if (_pageFiles.Count > 0)
                     {
                         <div class="mb-3">
@@ -67,9 +76,9 @@ else
                             {
                                 @* Local copies: MudText's child content renders after the
                                    loop finishes, so referencing i directly is off-by-N. *@
-                                var pageNumber = i + 1;
+                                var fileNumber = i + 1;
                                 var page = _pageFiles[i];
-                                <MudText Typo="Typo.body2">@($"Page {pageNumber}: {page.Name} ({FormatSize(page.Size)})")</MudText>
+                                <MudText Typo="Typo.body2">@($"File {fileNumber}: {page.Name} ({FormatSize(page.Size)})")</MudText>
                             }
                         </div>
                     }
@@ -77,15 +86,17 @@ else
                     {
                         <MudProgressLinear Value="@_uploadProgress" Color="Color.Primary" Class="mb-2" />
                         <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-                            Uploading page @(_uploadingIndex + 1) of @_pageFiles.Count…
+                            Uploading file @(_uploadingIndex + 1) of @_pageFiles.Count…
                         </MudText>
                     }
                 }
-                else
+                @if (_type != "HandwrittenNotes")
                 {
                     <div class="mb-3">
                         <NotesEditor @ref="_editor"
-                                     Placeholder="Paste session notes, a journal entry, a transcript… Type # for a heading, - for a list, **bold**." />
+                                     Placeholder="@(FilePlanForType is null
+                                         ? "Paste session notes, a journal entry, a transcript… Type # for a heading, - for a list, **bold**."
+                                         : "Optional notes to go with the file(s) — context, captions, what to look for.")" />
                     </div>
                 }
 
@@ -195,9 +206,27 @@ else
         }
     }
 
-    // --------------------------------------------------- Handwritten page uploads --
+    // ----------------------------------------------------------- File attachments --
 
     private sealed record PendingPage(string Name, long Size, string Type);
+
+    /// <summary>Per-type file behavior: attachment kind, multiplicity, accepted extensions.</summary>
+    private sealed record FilePlan(string Kind, bool Multiple, string Accept, string Hint);
+
+    private FilePlan? FilePlanForType => _type switch
+    {
+        "HandwrittenNotes" => new("PageImage", true, ".png,.jpg,.jpeg,.webp",
+            "Write directly in Nornis with the canvas above — or add photos / page exports of notes "
+            + "written elsewhere, in reading order. Either way, Nornis transcribes the handwriting "
+            + "and pulls artifacts from the transcription."),
+        "Image" => new("ImageFile", true, ".png,.jpg,.jpeg,.webp,.gif",
+            "Nornis reads the image(s) for lore — people, places, things — and combines that with any notes you type."),
+        "Upload" => new("Document", true, ".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.gif",
+            "PDF text is extracted, text files are read, images are vision-read — then combined with your notes."),
+        "Map" => new("MapImage", false, ".png,.jpg,.jpeg,.webp,.gif",
+            "Nornis reads place names and positions off the map and proposes Location artifacts with pins."),
+        _ => null,
+    };
 
     private readonly string _pagesInputId = $"nornis-pages-{Guid.NewGuid():N}";
     private List<PendingPage> _pageFiles = [];
@@ -207,7 +236,8 @@ else
 
     private void OnPagesSelected(InputFileChangeEventArgs e)
     {
-        _pageFiles = e.GetMultipleFiles(50)
+        var max = FilePlanForType is { Multiple: false } ? 1 : 50;
+        _pageFiles = e.GetMultipleFiles(max)
             .Select(f => new PendingPage(f.Name, f.Size, f.ContentType))
             .ToList();
     }
@@ -219,9 +249,9 @@ else
         InvokeAsync(StateHasChanged);
     }
 
-    /// <summary>Uploads each selected page via the SAS handshake. Returns null on success,
-    /// or the error message for the page that failed.</summary>
-    private async Task<string?> UploadPagesAsync(Guid worldId, Guid sourceId)
+    /// <summary>Uploads each selected file via the SAS handshake under the given
+    /// attachment kind. Returns null on success, or the failing file's error message.</summary>
+    private async Task<string?> UploadFilesAsync(Guid worldId, Guid sourceId, string kind)
     {
         _selfRef ??= DotNetObjectReference.Create(this);
 
@@ -233,7 +263,7 @@ else
 
             var page = _pageFiles[i];
             var ticket = await Api.RequestSourceAttachmentUploadAsync(worldId, sourceId,
-                new RequestSourceAttachmentUploadRequest(page.Name, page.Type, page.Size, "PageImage", Ord: i));
+                new RequestSourceAttachmentUploadRequest(page.Name, page.Type, page.Size, kind, Ord: i));
             if (!ticket.IsSuccess)
             {
                 return ticket.Error!.Message;
@@ -243,7 +273,7 @@ else
                 _pagesInputId, i, ticket.Value!.UploadUrl, ticket.Value.Attachment.ContentType, _selfRef);
             if (!sent)
             {
-                return $"Page {i + 1} never reached storage. Try again.";
+                return $"File {i + 1} never reached storage. Try again.";
             }
 
             var confirmed = await Api.ConfirmSourceAttachmentUploadAsync(worldId, sourceId, ticket.Value.Attachment.Id);
@@ -272,9 +302,15 @@ else
         }
 
         var isHandwritten = _type == "HandwrittenNotes";
-        if (isHandwritten && _pageFiles.Count == 0)
+        var filePlan = FilePlanForType;
+        if (filePlan is not null && _pageFiles.Count == 0)
         {
-            _error = "Add at least one page image of your handwritten notes.";
+            _error = _type switch
+            {
+                "HandwrittenNotes" => "Add at least one page image of your handwritten notes.",
+                "Map" => "Add the map image.",
+                _ => "Add at least one file — or switch the type to Session Note for text-only capture.",
+            };
             return;
         }
 
@@ -304,13 +340,13 @@ else
             return;
         }
 
-        if (isHandwritten)
+        if (filePlan is not null && _pageFiles.Count > 0)
         {
-            var uploadError = await UploadPagesAsync(Worlds.Current.Id, created.Value!.Id);
+            var uploadError = await UploadFilesAsync(Worlds.Current.Id, created.Value!.Id, filePlan.Kind);
             if (uploadError is not null)
             {
                 _busy = false;
-                _error = $"Source saved as a draft, but a page upload failed: {uploadError}";
+                _error = $"Source saved as a draft, but a file upload failed: {uploadError}";
                 return;
             }
         }

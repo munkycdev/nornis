@@ -39,6 +39,14 @@ public class Source
     /// </summary>
     public bool ExtractionEnabled { get; set; } = true;
 
+    /// <summary>
+    /// Machine-derived text from attachments — PDF text, file contents, vision reads.
+    /// Persisted before extraction so a redelivered message never re-buys it; cleared
+    /// when attachments change. Kept separate from <see cref="Body"/> so the user's
+    /// typed notes stay theirs.
+    /// </summary>
+    public string? DerivedText { get; set; }
+
     // Navigation properties
     public World World { get; set; } = null!;
 

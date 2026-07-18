@@ -8,5 +8,8 @@ public enum ReviewChangeType
     AddFact,
     UpdateFact,
     AddRelationship,
-    UpdateRelationship
+    UpdateRelationship,
+
+    /// <summary>Pin an artifact onto a map image at a normalized position.</summary>
+    AddPlacemark
 }

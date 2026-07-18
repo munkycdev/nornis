@@ -405,6 +405,7 @@ else
         changeType.StartsWith("Create") ? Color.Success :
         changeType.StartsWith("Update") || changeType.StartsWith("Edit") ? Color.Info :
         changeType.StartsWith("Merge") ? Color.Warning :
+        changeType == "AddPlacemark" ? Color.Tertiary :
         Color.Default;
 
     private static string Humanize(string pascal) =>

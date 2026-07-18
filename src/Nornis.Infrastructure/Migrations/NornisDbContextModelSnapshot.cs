@@ -562,6 +562,55 @@ namespace Nornis.Infrastructure.Migrations
                     b.ToTable("LibraryDocuments", (string)null);
                 });
 
+            modelBuilder.Entity("Nornis.Domain.Entities.MapPlacemark", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ArtifactId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("Confidence")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("decimal(5,4)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("SourceAttachmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("WorldId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("X")
+                        .HasPrecision(9, 8)
+                        .HasColumnType("decimal(9,8)");
+
+                    b.Property<decimal>("Y")
+                        .HasPrecision(9, 8)
+                        .HasColumnType("decimal(9,8)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArtifactId");
+
+                    b.HasIndex("WorldId");
+
+                    b.HasIndex("SourceAttachmentId", "ArtifactId")
+                        .IsUnique();
+
+                    b.ToTable("MapPlacemarks", (string)null);
+                });
+
             modelBuilder.Entity("Nornis.Domain.Entities.ReviewBatch", b =>
                 {
                     b.Property<Guid>("Id")
@@ -674,6 +723,9 @@ namespace Nornis.Infrastructure.Migrations
 
                     b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DerivedText")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("ExtractionEnabled")
                         .ValueGeneratedOnAdd()
@@ -1172,6 +1224,17 @@ namespace Nornis.Infrastructure.Migrations
                     b.Navigation("UploadedByUser");
 
                     b.Navigation("World");
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.MapPlacemark", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.SourceAttachment", "Attachment")
+                        .WithMany()
+                        .HasForeignKey("SourceAttachmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Attachment");
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.ReviewBatch", b =>

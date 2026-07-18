@@ -65,6 +65,14 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.CompletedTask;
     }
 
+    public Task UpdateDerivedTextAsync(Guid id, string? derivedText, CancellationToken cancellationToken = default)
+    {
+        var source = _sources.FirstOrDefault(s => s.Id == id)
+            ?? throw new InvalidOperationException($"Source with id '{id}' not found.");
+        source.DerivedText = derivedText;
+        return Task.CompletedTask;
+    }
+
     public Task<Source> UpdateAsync(Source source, CancellationToken cancellationToken = default)
     {
         var index = _sources.FindIndex(s => s.Id == source.Id);

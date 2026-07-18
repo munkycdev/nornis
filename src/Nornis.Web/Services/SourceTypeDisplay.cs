@@ -17,6 +17,7 @@ public static class SourceTypeDisplay
         ("FanFiction", "Fan Fiction"),
         ("WebLink", "Web Link"),
         ("Image", "Image"),
+        ("Map", "Map"),
         ("Upload", "Upload"),
         ("SessionAudio", "Session Audio"),
     ];
@@ -30,6 +31,7 @@ public static class SourceTypeDisplay
         ["FanFiction"] = "Fan Fiction",
         ["WebLink"] = "Web Link",
         ["Image"] = "Image",
+        ["Map"] = "Map",
         ["Upload"] = "Upload",
         ["SessionAudio"] = "Session Audio",
         // Legacy types — retired from capture, still displayed on existing sources.

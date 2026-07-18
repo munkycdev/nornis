@@ -8,7 +8,18 @@ public record CreateArtifactPayload(
     string Type,
     string? Summary,
     string? Visibility,
-    decimal? Confidence);
+    decimal? Confidence,
+    MapPlacemarkBlock? MapPlacemark = null);
+
+/// <summary>
+/// Optional pin block on CreateArtifact — present for map-extracted locations. The
+/// applicator creates the artifact and its placemark in one accept.
+/// </summary>
+public record MapPlacemarkBlock(
+    Guid AttachmentId,
+    decimal X,
+    decimal Y,
+    string? Label);
 
 /// <summary>
 /// Deserialization target for UpdateArtifact ProposedValueJson validation.

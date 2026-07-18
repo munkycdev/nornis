@@ -207,4 +207,105 @@ public class SourceAttachmentServiceTests
         Assert.That(result.IsSuccess, Is.True, "blob delete failures are swallowed — the row still goes");
         Assert.That(_attachmentRepository.Attachments, Is.Empty);
     }
+
+    #region New attachment kinds (Image / Upload / Map)
+
+    private Source SeedTypedSource(SourceType type, SourceProcessingStatus status = SourceProcessingStatus.Draft)
+    {
+        var source = new Source
+        {
+            Id = Guid.NewGuid(), WorldId = WorldId, Type = type, Title = "Source",
+            Visibility = VisibilityScope.PartyVisible, ProcessingStatus = status,
+            CreatedAt = DateTimeOffset.UtcNow, CreatedByUserId = OwnerId
+        };
+        _sourceRepository.Seed(source);
+        return source;
+    }
+
+    private RequestSourceAttachmentUploadCommand Cmd(Guid sourceId, SourceAttachmentKind kind,
+        string fileName, string contentType, long size = 5000) =>
+        new(WorldId, sourceId, OwnerId, WorldRole.GM, fileName, contentType, size, kind, 0);
+
+    [Test]
+    public async Task Document_AcceptsPdf()
+    {
+        var source = SeedTypedSource(SourceType.Upload);
+
+        var result = await _sut.RequestUploadAsync(
+            Cmd(source.Id, SourceAttachmentKind.Document, "handout.pdf", "application/pdf"), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.Attachment.ContentType, Is.EqualTo("application/pdf"));
+    }
+
+    [Test]
+    public async Task Document_AcceptsTextAndMarkdown()
+    {
+        var source = SeedTypedSource(SourceType.Upload);
+
+        var txt = await _sut.RequestUploadAsync(
+            Cmd(source.Id, SourceAttachmentKind.Document, "notes.txt", "text/plain"), CancellationToken.None);
+        var md = await _sut.RequestUploadAsync(
+            Cmd(source.Id, SourceAttachmentKind.Document, "lore.md", "text/markdown"), CancellationToken.None);
+
+        Assert.That(txt.IsSuccess, Is.True);
+        Assert.That(md.IsSuccess, Is.True);
+    }
+
+    [Test]
+    public async Task ImageFile_RejectsPdf()
+    {
+        var source = SeedTypedSource(SourceType.Image);
+
+        var result = await _sut.RequestUploadAsync(
+            Cmd(source.Id, SourceAttachmentKind.ImageFile, "doc.pdf", "application/pdf"), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("unsupported_file_type"));
+    }
+
+    [Test]
+    public async Task MapImage_OnNonMapSource_Rejected()
+    {
+        var source = SeedTypedSource(SourceType.Image);
+
+        var result = await _sut.RequestUploadAsync(
+            Cmd(source.Id, SourceAttachmentKind.MapImage, "map.png", "image/png"), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("invalid_kind"));
+    }
+
+    [Test]
+    public async Task MapImage_SecondUpload_Rejected()
+    {
+        var source = SeedTypedSource(SourceType.Map);
+
+        var first = await _sut.RequestUploadAsync(
+            Cmd(source.Id, SourceAttachmentKind.MapImage, "map.png", "image/png"), CancellationToken.None);
+        var second = await _sut.RequestUploadAsync(
+            Cmd(source.Id, SourceAttachmentKind.MapImage, "map2.png", "image/png"), CancellationToken.None);
+
+        Assert.That(first.IsSuccess, Is.True);
+        Assert.That(second.IsSuccess, Is.False);
+        Assert.That(second.Error!.Code, Is.EqualTo("duplicate_map_image"));
+    }
+
+    [Test]
+    public async Task Confirm_ImageFile_ClearsDerivedText()
+    {
+        var source = SeedTypedSource(SourceType.Image);
+        source.DerivedText = "stale derived text";
+
+        var ticket = await _sut.RequestUploadAsync(
+            Cmd(source.Id, SourceAttachmentKind.ImageFile, "art.png", "image/png"), CancellationToken.None);
+        _blobStorage.Blobs[ticket.Value!.Attachment.BlobPath] = (new byte[10], "image/png");
+
+        await _sut.ConfirmUploadAsync(ticket.Value.Attachment.Id, source.Id, WorldId, OwnerId, WorldRole.GM, CancellationToken.None);
+
+        var stored = (await _sourceRepository.GetByIdAsync(source.Id, CancellationToken.None))!;
+        Assert.That(stored.DerivedText, Is.Null, "a changed derivation input invalidates the derived text");
+    }
+
+    #endregion
 }

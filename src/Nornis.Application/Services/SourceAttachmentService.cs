@@ -34,6 +34,29 @@ public class SourceAttachmentService : ISourceAttachmentService
             [".gif"] = "image/gif",
         }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Document attachments additionally accept PDF and plain text/markdown.</summary>
+    private static readonly FrozenDictionary<string, string> AllowedDocumentExtensions =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [".png"] = "image/png",
+            [".jpg"] = "image/jpeg",
+            [".jpeg"] = "image/jpeg",
+            [".webp"] = "image/webp",
+            [".gif"] = "image/gif",
+            [".pdf"] = "application/pdf",
+            [".txt"] = "text/plain",
+            [".md"] = "text/markdown",
+            [".markdown"] = "text/markdown",
+        }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+
+    private static FrozenDictionary<string, string> AllowedExtensionsFor(SourceAttachmentKind kind) =>
+        kind == SourceAttachmentKind.Document ? AllowedDocumentExtensions : AllowedImageExtensions;
+
+    /// <summary>Kinds whose content feeds derived text or map extraction — changing them
+    /// invalidates whatever the worker previously derived.</summary>
+    private static readonly SourceAttachmentKind[] DerivationKinds =
+        [SourceAttachmentKind.ImageFile, SourceAttachmentKind.Document, SourceAttachmentKind.MapImage];
+
     private static readonly SourceProcessingStatus[] MutableStatuses =
         [SourceProcessingStatus.Draft, SourceProcessingStatus.Ready, SourceProcessingStatus.Failed];
 
@@ -73,11 +96,12 @@ public class SourceAttachmentService : ISourceAttachmentService
         }
         else
         {
+            var allowed = AllowedExtensionsFor(command.Kind);
             var extension = Path.GetExtension(command.FileName ?? string.Empty);
-            if (string.IsNullOrEmpty(extension) || !AllowedImageExtensions.TryGetValue(extension, out var expected))
+            if (string.IsNullOrEmpty(extension) || !allowed.TryGetValue(extension, out var expected))
             {
                 return AppResult<SourceAttachmentUploadTicket>.Fail(new AppError(400, "unsupported_file_type",
-                    $"Unsupported file type '{extension}'. Allowed: {string.Join(", ", AllowedImageExtensions.Keys)}."));
+                    $"Unsupported file type '{extension}'. Allowed: {string.Join(", ", allowed.Keys)}."));
             }
 
             fileName = command.FileName!;
@@ -87,6 +111,25 @@ public class SourceAttachmentService : ISourceAttachmentService
             {
                 // Same policy as the Library: warn, don't reject — browsers report odd MIME types.
                 _logger.LogWarning("Source attachment MIME mismatch: {ContentType} for {Extension}", command.ContentType, extension);
+            }
+        }
+
+        if (command.Kind == SourceAttachmentKind.MapImage)
+        {
+            // One map per source, and only on Map sources — the extractor and the viewer
+            // both assume a single map image.
+            if (gate.Value!.Type != SourceType.Map)
+            {
+                return AppResult<SourceAttachmentUploadTicket>.Fail(new AppError(400, "invalid_kind",
+                    "Map images can only be attached to Map sources."));
+            }
+
+            var hasMap = (await _attachmentRepository.ListBySourceAsync(command.SourceId, ct))
+                .Any(a => a.Kind == SourceAttachmentKind.MapImage);
+            if (hasMap)
+            {
+                return AppResult<SourceAttachmentUploadTicket>.Fail(new AppError(409, "duplicate_map_image",
+                    "This source already has a map image. Delete it before uploading another."));
             }
         }
 
@@ -171,6 +214,12 @@ public class SourceAttachmentService : ISourceAttachmentService
         attachment.UpdatedAt = DateTimeOffset.UtcNow;
         attachment = await _attachmentRepository.UpdateAsync(attachment, ct);
 
+        // A changed derivation input invalidates whatever the worker derived before.
+        if (DerivationKinds.Contains(attachment.Kind) && gate.Value!.DerivedText is not null)
+        {
+            await _sourceRepository.UpdateDerivedTextAsync(sourceId, null, ct);
+        }
+
         return AppResult<SourceAttachment>.Success(attachment);
     }
 
@@ -227,6 +276,12 @@ public class SourceAttachmentService : ISourceAttachmentService
         }
 
         await _attachmentRepository.DeleteAsync(attachment.Id, ct);
+
+        if (DerivationKinds.Contains(attachment.Kind) && gate.Value!.DerivedText is not null)
+        {
+            await _sourceRepository.UpdateDerivedTextAsync(sourceId, null, ct);
+        }
+
         return AppResult<bool>.Success(true);
     }
 

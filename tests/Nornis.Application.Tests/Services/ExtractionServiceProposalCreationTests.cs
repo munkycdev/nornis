@@ -73,9 +73,13 @@ public class ExtractionServiceProposalCreationTests
             _factRepo,
             new InMemoryArtifactRelationshipRepository(),
             new InMemorySourceAttachmentRepository(),
+            new InMemoryMapPlacemarkRepository(),
             new FakeBlobStorageService(),
+            new FakePdfTextExtractor(),
             _aiClient,
             new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            new FakeMapExtractionClient(),
             new FakeAiBudgetGuard(), _unitOfWork,
             options,
             NullLogger<ExtractionService>.Instance);

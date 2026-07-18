@@ -27,6 +27,8 @@ public class SourceReprocessService : ISourceReprocessService
     private readonly IArtifactFactRepository _artifactFactRepository;
     private readonly IArtifactRelationshipRepository _artifactRelationshipRepository;
     private readonly ICharacterRepository _characterRepository;
+    private readonly IMapPlacemarkRepository _mapPlacemarkRepository;
+    private readonly ISourceAttachmentRepository _sourceAttachmentRepository;
     private readonly IExtractionQueueClient _extractionQueueClient;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<SourceReprocessService> _logger;
@@ -40,6 +42,8 @@ public class SourceReprocessService : ISourceReprocessService
         IArtifactFactRepository artifactFactRepository,
         IArtifactRelationshipRepository artifactRelationshipRepository,
         ICharacterRepository characterRepository,
+        IMapPlacemarkRepository mapPlacemarkRepository,
+        ISourceAttachmentRepository sourceAttachmentRepository,
         IExtractionQueueClient extractionQueueClient,
         IUnitOfWork unitOfWork,
         ILogger<SourceReprocessService> logger)
@@ -52,6 +56,8 @@ public class SourceReprocessService : ISourceReprocessService
         _artifactFactRepository = artifactFactRepository;
         _artifactRelationshipRepository = artifactRelationshipRepository;
         _characterRepository = characterRepository;
+        _mapPlacemarkRepository = mapPlacemarkRepository;
+        _sourceAttachmentRepository = sourceAttachmentRepository;
         _extractionQueueClient = extractionQueueClient;
         _unitOfWork = unitOfWork;
         _logger = logger;
@@ -71,7 +77,8 @@ public class SourceReprocessService : ISourceReprocessService
             ArtifactNamesToKeep: plan.ArtifactsToKeep.Select(a => a.Name).ToList(),
             FactsToDelete: plan.FactIdsToDelete.Count,
             RelationshipsToDelete: plan.RelationshipIdsToDelete.Count,
-            PendingProposalsToDiscard: plan.PendingProposalCount));
+            PendingProposalsToDiscard: plan.PendingProposalCount,
+            MapPinsToDelete: plan.MapPinsToDelete));
     }
 
     public async Task<AppResult<Source>> ReprocessAsync(ReprocessSourceCommand command, CancellationToken ct)
@@ -122,8 +129,15 @@ public class SourceReprocessService : ISourceReprocessService
 
             foreach (var artifact in plan.ArtifactsToDelete)
             {
+                // Pins on ANY map that point at an artifact we're hard-deleting must go —
+                // ArtifactId is a loose reference with no cascade behind it.
+                await _mapPlacemarkRepository.DeleteByArtifactAsync(artifact.Id, ct);
                 await _artifactRepository.DeleteAsync(artifact.Id, ct);
             }
+
+            // Pins minted from THIS source's map are its own derived knowledge — re-extraction
+            // re-proposes them (kept artifacts get matched by id/name and re-pinned).
+            await _mapPlacemarkRepository.DeleteBySourceAsync(command.SourceId, ct);
 
             // The old body's provenance trail no longer applies — including references to
             // kept entities, whose quotes cite text that may no longer exist.
@@ -223,7 +237,8 @@ public class SourceReprocessService : ISourceReprocessService
         IReadOnlyList<Guid> RelationshipIdsToDelete,
         IReadOnlyList<Artifact> ArtifactsToDelete,
         IReadOnlyList<Artifact> ArtifactsToKeep,
-        int PendingProposalCount);
+        int PendingProposalCount,
+        int MapPinsToDelete);
 
     private async Task<CascadePlan> ComputeCascadePlanAsync(Guid sourceId, Guid worldId, CancellationToken ct)
     {
@@ -313,6 +328,25 @@ public class SourceReprocessService : ISourceReprocessService
                 artifactsToKeep.Add(artifact);
         }
 
-        return new CascadePlan(factIdsToDelete, relationshipIdsToDelete, artifactsToDelete, artifactsToKeep, pendingCount);
+        // Pins that will be removed: those on this source's own map(s), plus those on any
+        // map pointing at an artifact we're deleting. Union by id so the two don't
+        // double-count when a deleted artifact is pinned on this source's map.
+        var pinIdsToDelete = new HashSet<Guid>();
+        var mapAttachments = (await _sourceAttachmentRepository.ListBySourceAsync(sourceId, ct))
+            .Where(a => a.Kind == SourceAttachmentKind.MapImage);
+        foreach (var map in mapAttachments)
+        {
+            foreach (var pin in await _mapPlacemarkRepository.ListByAttachmentAsync(map.Id, ct))
+                pinIdsToDelete.Add(pin.Id);
+        }
+        foreach (var artifact in artifactsToDelete)
+        {
+            foreach (var pin in await _mapPlacemarkRepository.ListByArtifactAsync(artifact.Id, ct))
+                pinIdsToDelete.Add(pin.Id);
+        }
+
+        return new CascadePlan(
+            factIdsToDelete, relationshipIdsToDelete, artifactsToDelete, artifactsToKeep,
+            pendingCount, pinIdsToDelete.Count);
     }
 }

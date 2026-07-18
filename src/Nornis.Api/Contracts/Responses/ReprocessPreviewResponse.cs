@@ -6,4 +6,5 @@ public record ReprocessPreviewResponse(
     IReadOnlyList<string> ArtifactNamesToKeep,
     int FactsToDelete,
     int RelationshipsToDelete,
-    int PendingProposalsToDiscard);
+    int PendingProposalsToDiscard,
+    int MapPinsToDelete);

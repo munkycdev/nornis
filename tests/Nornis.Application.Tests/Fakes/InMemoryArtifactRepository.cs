@@ -82,6 +82,22 @@ public class InMemoryArtifactRepository : IArtifactRepository
         return Task.FromResult<IReadOnlyList<Artifact>>(results.AsReadOnly());
     }
 
+    public Task<IReadOnlyList<Artifact>> ListByTypeAsync(
+        Guid worldId,
+        ArtifactType type,
+        VisibilityFilter filter,
+        CancellationToken cancellationToken = default)
+    {
+        var results = _artifacts
+            .Where(a => a.WorldId == worldId &&
+                        a.Type == type &&
+                        a.Status != ArtifactStatus.Archived &&
+                        filter.CanSee(a.Visibility, a.CreatedByUserId))
+            .OrderBy(a => a.Name)
+            .ToList();
+        return Task.FromResult<IReadOnlyList<Artifact>>(results.AsReadOnly());
+    }
+
     public Task<IReadOnlyList<Artifact>> ListRecentByWorldAsync(
         Guid worldId,
         VisibilityFilter filter,

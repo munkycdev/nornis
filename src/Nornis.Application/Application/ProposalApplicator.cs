@@ -22,19 +22,25 @@ public class ProposalApplicator : IProposalApplicator
     private readonly IArtifactRelationshipRepository _artifactRelationshipRepository;
     private readonly ISourceReferenceRepository _sourceReferenceRepository;
     private readonly ISourceRepository _sourceRepository;
+    private readonly ISourceAttachmentRepository _sourceAttachmentRepository;
+    private readonly IMapPlacemarkRepository _mapPlacemarkRepository;
 
     public ProposalApplicator(
         IArtifactRepository artifactRepository,
         IArtifactFactRepository artifactFactRepository,
         IArtifactRelationshipRepository artifactRelationshipRepository,
         ISourceReferenceRepository sourceReferenceRepository,
-        ISourceRepository sourceRepository)
+        ISourceRepository sourceRepository,
+        ISourceAttachmentRepository sourceAttachmentRepository,
+        IMapPlacemarkRepository mapPlacemarkRepository)
     {
         _artifactRepository = artifactRepository;
         _artifactFactRepository = artifactFactRepository;
         _artifactRelationshipRepository = artifactRelationshipRepository;
         _sourceReferenceRepository = sourceReferenceRepository;
         _sourceRepository = sourceRepository;
+        _sourceAttachmentRepository = sourceAttachmentRepository;
+        _mapPlacemarkRepository = mapPlacemarkRepository;
     }
 
     public async Task<AppResult<ApplyResult>> ApplyAsync(
@@ -49,6 +55,7 @@ public class ProposalApplicator : IProposalApplicator
             ReviewChangeType.UpdateFact => await ApplyUpdateFact(proposal, batch, ct),
             ReviewChangeType.AddRelationship => await ApplyAddRelationship(proposal, batch, ct),
             ReviewChangeType.UpdateRelationship => await ApplyUpdateRelationship(proposal, batch, ct),
+            ReviewChangeType.AddPlacemark => await ApplyAddPlacemark(proposal, batch, ct),
             _ => AppResult<ApplyResult>.Fail(new AppError(400, "unknown_change_type", $"Unknown change type: {proposal.ChangeType}"))
         };
     }
@@ -88,12 +95,114 @@ public class ProposalApplicator : IProposalApplicator
 
         await _artifactRepository.CreateAsync(artifact, ct);
 
+        // Map-extracted locations carry a pin block: one accept creates the artifact
+        // AND its placemark. A bad block fails the apply — the accept transaction rolls
+        // the artifact back rather than leaving a pinless half-accept.
+        if (payload.MapPlacemark is { } pin)
+        {
+            var pinError = await CreatePlacemarkAsync(batch, artifact.Id, pin.AttachmentId, pin.X, pin.Y, pin.Label, payload.Confidence, ct);
+            if (pinError is not null)
+                return AppResult<ApplyResult>.Fail(pinError);
+        }
+
         // Update proposal TargetId to the newly created artifact
         proposal.TargetId = artifact.Id;
 
         await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, artifact.Id, proposal.Id, ct);
 
         return AppResult<ApplyResult>.Success(new ApplyResult(artifact.Id, SourceReferenceTargetType.Artifact));
+    }
+
+    private async Task<AppResult<ApplyResult>> ApplyAddPlacemark(
+        ReviewProposal proposal, ReviewBatch batch, CancellationToken ct)
+    {
+        var payload = Deserialize<AddPlacemarkPayload>(proposal.ProposedValueJson);
+        if (payload is null)
+            return AppResult<ApplyResult>.Fail(new AppError(400, "invalid_payload", "Failed to deserialize AddPlacemark payload."));
+
+        // Resolve the artifact: TargetId, payload id, or name (ambiguity surfaces to the
+        // reviewer exactly like name-referenced facts).
+        Artifact? artifact;
+        var artifactId = proposal.TargetId ?? payload.ArtifactId;
+        if (artifactId is not null && artifactId != Guid.Empty)
+        {
+            artifact = await _artifactRepository.GetByIdAsync(artifactId.Value, ct);
+            if (artifact is null || artifact.WorldId != batch.WorldId)
+                return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target artifact not found."));
+        }
+        else if (!string.IsNullOrWhiteSpace(payload.ArtifactName))
+        {
+            var resolution = await ResolveArtifactByNameAsync(batch.WorldId, payload.ArtifactName, ct);
+            if (!resolution.IsSuccess)
+                return AppResult<ApplyResult>.Fail(resolution.Error!);
+            artifact = resolution.Value!;
+        }
+        else
+        {
+            return AppResult<ApplyResult>.Fail(new AppError(400, "invalid_payload",
+                "AddPlacemark requires an ArtifactId or ArtifactName."));
+        }
+
+        var pinError = await CreatePlacemarkAsync(batch, artifact.Id, payload.AttachmentId, payload.X, payload.Y, payload.Label, payload.Confidence, ct);
+        if (pinError is not null)
+            return AppResult<ApplyResult>.Fail(pinError);
+
+        proposal.TargetId ??= artifact.Id;
+
+        // The pin's provenance rides the Artifact target — no dedicated reference type.
+        await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, artifact.Id, proposal.Id, ct);
+
+        return AppResult<ApplyResult>.Success(new ApplyResult(artifact.Id, SourceReferenceTargetType.Artifact));
+    }
+
+    /// <summary>
+    /// Creates or updates the pin for (attachment, artifact) after verifying the
+    /// attachment really is this batch's source's stored map image. Returns null on
+    /// success or the AppError to fail the apply with.
+    /// </summary>
+    private async Task<AppError?> CreatePlacemarkAsync(
+        ReviewBatch batch, Guid artifactId, Guid attachmentId,
+        decimal x, decimal y, string? label, decimal? confidence, CancellationToken ct)
+    {
+        var attachment = await _sourceAttachmentRepository.GetByIdAsync(attachmentId, ct);
+        if (attachment is null
+            || attachment.SourceId != batch.SourceId
+            || attachment.Kind != SourceAttachmentKind.MapImage
+            || attachment.Status != SourceAttachmentStatus.Stored)
+        {
+            return new AppError(400, "invalid_payload",
+                "The placemark's attachment is not this source's stored map image.");
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var existing = await _mapPlacemarkRepository.GetByAttachmentAndArtifactAsync(attachmentId, artifactId, ct);
+        if (existing is not null)
+        {
+            // One pin per (map, artifact): re-accepts update in place.
+            existing.X = x;
+            existing.Y = y;
+            existing.Label = label;
+            existing.Confidence = confidence;
+            existing.UpdatedAt = now;
+            await _mapPlacemarkRepository.UpdateAsync(existing, ct);
+            return null;
+        }
+
+        await _mapPlacemarkRepository.CreateAsync(new MapPlacemark
+        {
+            Id = Guid.NewGuid(),
+            WorldId = batch.WorldId,
+            SourceAttachmentId = attachmentId,
+            ArtifactId = artifactId,
+            X = x,
+            Y = y,
+            Label = label,
+            Confidence = confidence,
+            CreatedAt = now,
+            UpdatedAt = now
+        }, ct);
+
+        return null;
     }
 
     private async Task<AppResult<ApplyResult>> ApplyUpdateArtifact(
@@ -211,6 +320,23 @@ public class ProposalApplicator : IProposalApplicator
             }
 
             await _artifactRelationshipRepository.UpdateAsync(relationship, ct);
+        }
+
+        // Reassign map pins to the merge target; when the target already has a pin on
+        // the same map (unique key), the target's pin wins and the source's is dropped.
+        foreach (var placemark in await _mapPlacemarkRepository.ListByArtifactAsync(payload.SourceArtifactId, ct))
+        {
+            var collision = await _mapPlacemarkRepository.GetByAttachmentAndArtifactAsync(
+                placemark.SourceAttachmentId, targetArtifact.Id, ct);
+            if (collision is not null)
+            {
+                await _mapPlacemarkRepository.DeleteAsync(placemark.Id, ct);
+                continue;
+            }
+
+            placemark.ArtifactId = targetArtifact.Id;
+            placemark.UpdatedAt = DateTimeOffset.UtcNow;
+            await _mapPlacemarkRepository.UpdateAsync(placemark, ct);
         }
 
         // Archive the source artifact

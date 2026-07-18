@@ -25,9 +25,13 @@ public class ExtractionService : IExtractionService
     private readonly IArtifactFactRepository _artifactFactRepository;
     private readonly IArtifactRelationshipRepository _artifactRelationshipRepository;
     private readonly ISourceAttachmentRepository _sourceAttachmentRepository;
+    private readonly IMapPlacemarkRepository _mapPlacemarkRepository;
     private readonly IBlobStorageService _blobStorage;
+    private readonly IPdfTextExtractor _pdfTextExtractor;
     private readonly IAiExtractionClient _aiExtractionClient;
     private readonly IHandwritingTranscriptionClient _transcriptionClient;
+    private readonly IImageReadingClient _imageReadingClient;
+    private readonly IMapExtractionClient _mapExtractionClient;
     private readonly IAiBudgetGuard _budgetGuard;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ExtractionOptions _options;
@@ -36,7 +40,8 @@ public class ExtractionService : IExtractionService
     private static readonly string[] ValidChangeTypes =
     [
         "CreateArtifact", "UpdateArtifact", "MergeArtifact",
-        "AddFact", "UpdateFact", "AddRelationship", "UpdateRelationship"
+        "AddFact", "UpdateFact", "AddRelationship", "UpdateRelationship",
+        "AddPlacemark"
     ];
 
     private static readonly string[] ValidTargetTypes =
@@ -55,17 +60,25 @@ public class ExtractionService : IExtractionService
         IArtifactFactRepository artifactFactRepository,
         IArtifactRelationshipRepository artifactRelationshipRepository,
         ISourceAttachmentRepository sourceAttachmentRepository,
+        IMapPlacemarkRepository mapPlacemarkRepository,
         IBlobStorageService blobStorage,
+        IPdfTextExtractor pdfTextExtractor,
         IAiExtractionClient aiExtractionClient,
         IHandwritingTranscriptionClient transcriptionClient,
+        IImageReadingClient imageReadingClient,
+        IMapExtractionClient mapExtractionClient,
         IAiBudgetGuard budgetGuard,
         IUnitOfWork unitOfWork,
         IOptions<ExtractionOptions> options,
         ILogger<ExtractionService> logger)
     {
         _sourceAttachmentRepository = sourceAttachmentRepository;
+        _mapPlacemarkRepository = mapPlacemarkRepository;
         _blobStorage = blobStorage;
+        _pdfTextExtractor = pdfTextExtractor;
         _transcriptionClient = transcriptionClient;
+        _imageReadingClient = imageReadingClient;
+        _mapExtractionClient = mapExtractionClient;
         _budgetGuard = budgetGuard;
         _sourceRepository = sourceRepository;
         _campaignRepository = campaignRepository;
@@ -175,12 +188,38 @@ public class ExtractionService : IExtractionService
             }
         }
 
+        // 4c. Map sources take their own extraction path: place names + positions from
+        // the map image become artifact/placemark proposals. Typed notes ride along as
+        // naming context; they are not separately extracted.
+        if (source.Type == SourceType.Map)
+        {
+            return await ProcessMapExtractionAsync(source, worldId, ct);
+        }
+
+        // 4d. Image/Upload sources derive text from their files (PDF text, file
+        // contents, vision reads) exactly once. The derived text is persisted before
+        // extraction so a redelivered message never re-buys the vision call.
+        if (source.Type is SourceType.Image or SourceType.Upload && source.DerivedText is null)
+        {
+            var derivationOutcome = await DeriveAttachmentTextAsync(source, worldId, ct);
+            if (derivationOutcome is not null)
+            {
+                return derivationOutcome;
+            }
+        }
+
         // Imported notes carry frontmatter and wikilink markup from the previous
         // system; normalize before the empty-body check so a frontmatter-only note
         // short-circuits. The entity is detached — the stored body stays raw.
         if (source.Type == SourceType.ImportedNote && source.Body is not null)
         {
             source.Body = ImportedNoteNormalizer.Normalize(source.Body);
+        }
+
+        // Compose typed notes + derived text in memory only: Body stays the user's.
+        if (!string.IsNullOrWhiteSpace(source.DerivedText))
+        {
+            source.Body = ComposeEffectiveBody(source.Body, source.DerivedText);
         }
 
         // 5. Empty body short-circuit
@@ -343,6 +382,501 @@ public class ExtractionService : IExtractionService
             TotalTokens = response?.TotalTokens ?? 0,
             EstimatedCostUsd = costUsd,
             DurationMs = response?.DurationMs ?? 0,
+            Succeeded = succeeded,
+            ErrorCode = errorCode,
+            CreatedAt = DateTimeOffset.UtcNow
+        }, ct);
+    }
+
+    /// <summary>
+    /// Map extraction: reads place names + normalized positions off the map image and
+    /// turns them into review proposals — CreateArtifact (with an embedded placemark
+    /// block) for new places, AddPlacemark for places matching existing Locations.
+    /// </summary>
+    private async Task<ExtractionOutcome> ProcessMapExtractionAsync(Source source, Guid worldId, CancellationToken ct)
+    {
+        var mapAttachment = (await _sourceAttachmentRepository.ListBySourceAsync(source.Id, ct))
+            .FirstOrDefault(a => a.Kind == SourceAttachmentKind.MapImage && a.Status == SourceAttachmentStatus.Stored);
+
+        if (mapAttachment is null)
+        {
+            // A map source without a map image has nothing to extract — file it with an
+            // empty completed batch, mirroring blank handwriting pages.
+            _logger.LogInformation("Map source has no stored map image. SourceId={SourceId}", source.Id);
+            return await HandleEmptyBodyAsync(source, worldId, ct);
+        }
+
+        var budgetError = await _budgetGuard.CheckAsync(worldId, ct);
+        if (budgetError is not null)
+        {
+            _logger.LogWarning(
+                "Map extraction blocked by AI budget. SourceId={SourceId}, WorldId={WorldId}", source.Id, worldId);
+            await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+            return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
+        }
+
+        byte[] imageBytes;
+        try
+        {
+            await using var stream = await _blobStorage.OpenReadAsync(mapAttachment.BlobPath, ct);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer, ct);
+            imageBytes = buffer.ToArray();
+        }
+        catch (FileNotFoundException)
+        {
+            _logger.LogError(
+                "Map image blob missing. SourceId={SourceId}, BlobPath={BlobPath}", source.Id, mapAttachment.BlobPath);
+            await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+            return ExtractionOutcome.NonTransient(ErrorCategories.ValidationFailure,
+                "The map image is missing from storage.");
+        }
+
+        // Existing Locations the source's readers may see — the model matches against
+        // these instead of proposing duplicates.
+        var existingLocations = await _artifactRepository.ListByTypeAsync(
+            worldId, ArtifactType.Location,
+            VisibilityFilter.ForSourceContext(source.Visibility, source.CreatedByUserId), ct);
+
+        var request = new MapExtractionRequest
+        {
+            ImageBytes = imageBytes,
+            MediaType = mapAttachment.ContentType,
+            SourceTitle = source.Title,
+            SourceBody = source.Body,
+            ExistingLocations = existingLocations.Select(a => new MapLocationContext(a.Id, a.Name)).ToList(),
+            Model = _options.AiModel,
+            TimeoutSeconds = _options.AiTimeoutSeconds
+        };
+
+        var maxAttempts = 1 + _options.MaxParseRetryAttempts;
+        string? lastError = null;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                var response = await _mapExtractionClient.ExtractAsync(request, ct);
+
+                var proposals = await BuildMapProposalsAsync(source, mapAttachment, existingLocations, response, ct);
+
+                var synthesized = new AiExtractionResponse
+                {
+                    Proposals = proposals,
+                    InputTokens = response.InputTokens,
+                    OutputTokens = response.OutputTokens,
+                    TotalTokens = response.TotalTokens,
+                    DurationMs = response.DurationMs,
+                    Model = response.Model
+                };
+
+                return await HandleSuccessfulResponseAsync(source, worldId, synthesized, ct, AiOperationType.MapExtraction);
+            }
+            catch (AiExtractionParseException ex)
+            {
+                lastError = ex.Message;
+                _logger.LogWarning(ex,
+                    "Map extraction parse failed on attempt {Attempt}/{MaxAttempts}. SourceId={SourceId}",
+                    attempt, maxAttempts, source.Id);
+            }
+            catch (AiExtractionTimeoutException ex)
+            {
+                await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.Timeout, ct);
+                return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
+            }
+            catch (TimeoutException ex)
+            {
+                await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.Timeout, ct);
+                return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
+            }
+            catch (HttpRequestException ex) when (IsPermanentHttpFailure(ex))
+            {
+                _logger.LogError(ex, "Permanent map extraction failure. SourceId={SourceId}", source.Id);
+                await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.AiCallFailure, ct);
+                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+                return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "Transient map extraction failure. SourceId={SourceId}", source.Id);
+                await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.TransientError, ct);
+                return await TransientOutcomeAsync(source, ErrorCategories.TransientError, ex.Message, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Non-transient map extraction failure. SourceId={SourceId}", source.Id);
+                await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.AiCallFailure, ct);
+                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+                return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
+            }
+        }
+
+        _logger.LogError("Map extraction parse retries exhausted. SourceId={SourceId}, Error={Error}", source.Id, lastError);
+        await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.ParseFailure, ct);
+        await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+        return ExtractionOutcome.NonTransient(ErrorCategories.ParseFailure,
+            $"Map extraction failed after {_options.MaxParseRetryAttempts} retries: {lastError}");
+    }
+
+    /// <summary>Turns extracted places into review proposals: hallucination-filtered,
+    /// range-clamped, deduped, capped, and matched against existing Locations.</summary>
+    private async Task<IReadOnlyList<ExtractionProposal>> BuildMapProposalsAsync(
+        Source source, SourceAttachment mapAttachment, IReadOnlyList<Artifact> existingLocations,
+        MapExtractionResponse response, CancellationToken ct)
+    {
+        const int maxPlaces = 100;
+
+        var byId = existingLocations.ToDictionary(a => a.Id);
+        var byName = existingLocations
+            .GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        var proposals = new List<ExtractionProposal>();
+        var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var place in response.Places)
+        {
+            if (proposals.Count >= maxPlaces)
+            {
+                _logger.LogWarning(
+                    "Map extraction returned more than {Max} places; extras dropped. SourceId={SourceId}",
+                    maxPlaces, source.Id);
+                break;
+            }
+
+            var name = place.Name?.Trim() ?? string.Empty;
+            if (name.Length is 0 or > 200 || !seenNames.Add(name))
+            {
+                continue;
+            }
+
+            // A hallucinated position is worse than a missing pin.
+            if (place.X is < 0m or > 1m || place.Y is < 0m or > 1m)
+            {
+                continue;
+            }
+
+            var confidence = place.Confidence is >= 0m and <= 1m ? place.Confidence : null;
+
+            // Match: model-supplied id (must exist in the offered context — anything else
+            // is a hallucination), else unique exact name.
+            Artifact? matched = null;
+            var ambiguous = false;
+            if (place.ExistingArtifactId is { } id && byId.TryGetValue(id, out var byIdMatch))
+            {
+                matched = byIdMatch;
+            }
+            else if (byName.TryGetValue(name, out var candidates))
+            {
+                if (candidates.Count == 1)
+                {
+                    matched = candidates[0];
+                }
+                else
+                {
+                    ambiguous = true;
+                }
+            }
+
+            if (matched is not null)
+            {
+                // Already pinned on this map: nothing to propose (re-extraction hygiene).
+                if (await _mapPlacemarkRepository.GetByAttachmentAndArtifactAsync(mapAttachment.Id, matched.Id, ct) is not null)
+                {
+                    continue;
+                }
+
+                proposals.Add(new ExtractionProposal
+                {
+                    ChangeType = "AddPlacemark",
+                    TargetType = "Artifact",
+                    TargetId = matched.Id,
+                    ProposedValue = new Dictionary<string, object?>
+                    {
+                        ["artifactId"] = matched.Id,
+                        ["attachmentId"] = mapAttachment.Id,
+                        ["x"] = place.X,
+                        ["y"] = place.Y,
+                        ["label"] = name,
+                        ["confidence"] = confidence
+                    },
+                    Rationale = $"'{name}' on the map matches the existing location '{matched.Name}'.",
+                    Confidence = confidence,
+                    Quote = name
+                });
+            }
+            else if (ambiguous)
+            {
+                // Several artifacts share the name — the applicator surfaces the
+                // ambiguity to the reviewer, same as name-referenced facts.
+                proposals.Add(new ExtractionProposal
+                {
+                    ChangeType = "AddPlacemark",
+                    TargetType = "Artifact",
+                    TargetId = null,
+                    ProposedValue = new Dictionary<string, object?>
+                    {
+                        ["artifactName"] = name,
+                        ["attachmentId"] = mapAttachment.Id,
+                        ["x"] = place.X,
+                        ["y"] = place.Y,
+                        ["label"] = name,
+                        ["confidence"] = confidence
+                    },
+                    Rationale = $"'{name}' on the map matches more than one existing location by name.",
+                    Confidence = confidence,
+                    Quote = name
+                });
+            }
+            else
+            {
+                proposals.Add(new ExtractionProposal
+                {
+                    ChangeType = "CreateArtifact",
+                    TargetType = "Artifact",
+                    ProposedValue = new Dictionary<string, object?>
+                    {
+                        ["name"] = name,
+                        ["type"] = "Location",
+                        ["summary"] = KindToSummary(place.Kind),
+                        ["mapPlacemark"] = new Dictionary<string, object?>
+                        {
+                            ["attachmentId"] = mapAttachment.Id,
+                            ["x"] = place.X,
+                            ["y"] = place.Y,
+                            ["label"] = name
+                        }
+                    },
+                    Rationale = $"Labeled on the map \"{source.Title}\".",
+                    Confidence = confidence,
+                    Quote = name
+                });
+            }
+        }
+
+        return proposals;
+    }
+
+    private static string? KindToSummary(string? kind) => kind switch
+    {
+        null or "" or "other" => null,
+        "body_of_water" => "A body of water marked on the map.",
+        _ => $"A {kind.Replace('_', ' ')} marked on the map."
+    };
+
+    /// <summary>Matches SourceService.ValidateBody — the composed prompt body honors the
+    /// same ceiling the typed body does.</summary>
+    private const int MaxComposedBodyChars = 100_000;
+
+    private static string ComposeEffectiveBody(string? body, string derivedText)
+    {
+        var composed = string.IsNullOrWhiteSpace(body)
+            ? derivedText
+            : $"{body}\n\n{derivedText}";
+
+        return composed.Length <= MaxComposedBodyChars
+            ? composed
+            : composed[..MaxComposedBodyChars];
+    }
+
+    /// <summary>
+    /// Derives text from an Image/Upload source's attachments: PDF text via PdfPig,
+    /// text files read verbatim, and one batched vision read over the images. Returns
+    /// null to continue the pipeline (derived text persisted, or nothing to derive),
+    /// or a terminal outcome on failure.
+    /// </summary>
+    private async Task<ExtractionOutcome?> DeriveAttachmentTextAsync(Source source, Guid worldId, CancellationToken ct)
+    {
+        var files = (await _sourceAttachmentRepository.ListBySourceAsync(source.Id, ct))
+            .Where(a => a.Kind is SourceAttachmentKind.ImageFile or SourceAttachmentKind.Document)
+            .Where(a => a.Status == SourceAttachmentStatus.Stored)
+            .OrderBy(a => a.Ord)
+            .ToList();
+
+        if (files.Count == 0)
+        {
+            return null; // nothing to derive — typed body (or the empty-body path) decides
+        }
+
+        var sections = new List<(int Ord, string Text)>();
+        var images = new List<ImageToRead>();
+        var firstImageOrd = int.MaxValue;
+
+        foreach (var file in files)
+        {
+            try
+            {
+                if (string.Equals(file.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    await using var stream = await _blobStorage.OpenReadAsync(file.BlobPath, ct);
+                    IReadOnlyList<PdfPageText> pdfPages;
+                    try
+                    {
+                        pdfPages = await _pdfTextExtractor.ExtractPagesAsync(stream, ct);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex,
+                            "PDF text extraction failed. SourceId={SourceId}, File={FileName}", source.Id, file.FileName);
+                        await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+                        return ExtractionOutcome.NonTransient(ErrorCategories.ValidationFailure,
+                            $"Could not extract text from '{file.FileName}' — is it a digital (non-scanned) PDF?");
+                    }
+
+                    var text = string.Join("\n\n", pdfPages.Select(p => p.Text)).Trim();
+                    if (text.Length > 0)
+                    {
+                        sections.Add((file.Ord, $"### Extracted from {file.FileName}\n\n{text}"));
+                    }
+                }
+                else if (file.ContentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase))
+                {
+                    await using var stream = await _blobStorage.OpenReadAsync(file.BlobPath, ct);
+                    using var reader = new StreamReader(stream);
+                    var text = (await reader.ReadToEndAsync(ct)).Trim();
+                    if (text.Length > 0)
+                    {
+                        sections.Add((file.Ord, $"### Extracted from {file.FileName}\n\n{text}"));
+                    }
+                }
+                else if (file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                {
+                    await using var stream = await _blobStorage.OpenReadAsync(file.BlobPath, ct);
+                    using var buffer = new MemoryStream();
+                    await stream.CopyToAsync(buffer, ct);
+                    images.Add(new ImageToRead(buffer.ToArray(), file.ContentType, file.FileName));
+                    firstImageOrd = Math.Min(firstImageOrd, file.Ord);
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                _logger.LogError(
+                    "Attachment blob missing. SourceId={SourceId}, BlobPath={BlobPath}", source.Id, file.BlobPath);
+                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+                return ExtractionOutcome.NonTransient(ErrorCategories.ValidationFailure,
+                    $"File '{file.FileName}' is missing from storage.");
+            }
+        }
+
+        if (images.Count > 0)
+        {
+            // Vision is an AI spend of its own; gate it like extraction.
+            var budgetError = await _budgetGuard.CheckAsync(worldId, ct);
+            if (budgetError is not null)
+            {
+                _logger.LogWarning(
+                    "Image reading blocked by AI budget. SourceId={SourceId}, WorldId={WorldId}", source.Id, worldId);
+                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+                return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
+            }
+
+            ImageReadingResponse response;
+            try
+            {
+                response = await _imageReadingClient.ReadAsync(new ImageReadingRequest
+                {
+                    Images = images,
+                    Model = _options.AiModel,
+                    TimeoutSeconds = _options.AiTimeoutSeconds
+                }, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (TimeoutException ex)
+            {
+                await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading, null, false, ErrorCategories.Timeout, ct);
+                return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
+            }
+            catch (HttpRequestException ex) when (IsPermanentHttpFailure(ex))
+            {
+                _logger.LogError(ex, "Permanent image reading failure. SourceId={SourceId}", source.Id);
+                await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading, null, false, ErrorCategories.AiCallFailure, ct);
+                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+                return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "Transient image reading failure. SourceId={SourceId}", source.Id);
+                await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading, null, false, ErrorCategories.TransientError, ct);
+                return await TransientOutcomeAsync(source, ErrorCategories.TransientError, ex.Message, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected image reading failure. SourceId={SourceId}", source.Id);
+                await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading, null, false, ErrorCategories.AiCallFailure, ct);
+                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
+                return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
+            }
+
+            await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading,
+                (response.Model, response.InputTokens, response.OutputTokens, response.TotalTokens, response.DurationMs),
+                true, null, ct);
+
+            if (!string.IsNullOrWhiteSpace(response.Markdown))
+            {
+                // The client already emits "## {filename}" sections per image.
+                sections.Add((firstImageOrd, response.Markdown.Trim()));
+            }
+        }
+
+        var derived = string.Join("\n\n", sections.OrderBy(s => s.Ord).Select(s => s.Text)).Trim();
+        if (derived.Length == 0)
+        {
+            return null; // blank files — the empty-body path (or the typed body) takes it
+        }
+
+        // Keep the composed prompt within the body ceiling; typed notes win the budget.
+        var available = MaxComposedBodyChars - (source.Body?.Length ?? 0) - 2;
+        const string truncationMarker = "\n\n[Extracted content truncated]";
+        if (available <= truncationMarker.Length)
+        {
+            derived = "[Extracted content omitted — the typed body already fills the source]";
+        }
+        else if (derived.Length > available)
+        {
+            derived = derived[..(available - truncationMarker.Length)] + truncationMarker;
+        }
+
+        // Persist before extracting: extraction may fail and retry, and the derivation
+        // (especially the vision read) must not be re-bought on redelivery.
+        await _sourceRepository.UpdateDerivedTextAsync(source.Id, derived, ct);
+        source.DerivedText = derived;
+
+        _logger.LogInformation(
+            "Attachment text derived. SourceId={SourceId}, Files={Files}, Chars={Chars}",
+            source.Id, files.Count, derived.Length);
+
+        return null;
+    }
+
+    private async Task TrackVisionUsageAsync(
+        Source source, Guid worldId, AiOperationType operationType,
+        (string Model, int InputTokens, int OutputTokens, int TotalTokens, int DurationMs)? usage,
+        bool succeeded, string? errorCode, CancellationToken ct)
+    {
+        var costUsd = usage is null || !_options.ModelPricing.TryGetValue(usage.Value.Model, out var pricing)
+            ? 0m
+            : usage.Value.InputTokens * pricing.InputPerMillionTokensUsd / 1_000_000m
+              + usage.Value.OutputTokens * pricing.OutputPerMillionTokensUsd / 1_000_000m;
+
+        await _aiUsageRecordRepository.CreateAsync(new AiUsageRecord
+        {
+            Id = Guid.NewGuid(),
+            WorldId = worldId,
+            SourceId = source.Id,
+            OperationType = operationType,
+            Model = usage?.Model ?? _options.AiModel,
+            InputTokens = usage?.InputTokens ?? 0,
+            OutputTokens = usage?.OutputTokens ?? 0,
+            TotalTokens = usage?.TotalTokens ?? 0,
+            EstimatedCostUsd = costUsd,
+            DurationMs = usage?.DurationMs ?? 0,
             Succeeded = succeeded,
             ErrorCode = errorCode,
             CreatedAt = DateTimeOffset.UtcNow
@@ -581,7 +1115,8 @@ public class ExtractionService : IExtractionService
     }
 
     private async Task<ExtractionOutcome> HandleSuccessfulResponseAsync(
-        Source source, Guid worldId, AiExtractionResponse response, CancellationToken ct)
+        Source source, Guid worldId, AiExtractionResponse response, CancellationToken ct,
+        AiOperationType operationType = AiOperationType.SourceExtraction)
     {
         var now = DateTimeOffset.UtcNow;
 
@@ -600,7 +1135,7 @@ public class ExtractionService : IExtractionService
 
             await _reviewBatchRepository.CreateAsync(emptyBatch, ct);
             await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Processed, ct);
-            await TrackUsageAsync(source, worldId, response, true, null, ct, emptyBatch.Id);
+            await TrackUsageAsync(source, worldId, response, true, null, ct, emptyBatch.Id, operationType);
 
             return ExtractionOutcome.Succeeded(emptyBatch.Id, 0);
         }
@@ -615,7 +1150,7 @@ public class ExtractionService : IExtractionService
         {
             _logger.LogError(ex,
                 "Failed to persist proposals atomically. SourceId={SourceId}", source.Id);
-            await TrackUsageAsync(source, worldId, response, false, ErrorCategories.ValidationFailure, ct);
+            await TrackUsageAsync(source, worldId, response, false, ErrorCategories.ValidationFailure, ct, operationType: operationType);
             await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
             return ExtractionOutcome.NonTransient(ErrorCategories.ValidationFailure,
                 "Failed to persist proposals: " + ex.Message);
@@ -625,7 +1160,7 @@ public class ExtractionService : IExtractionService
         await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Processed, ct);
 
         // Track usage OUTSIDE the proposal transaction (persists even on rollback)
-        await TrackUsageAsync(source, worldId, response, true, null, ct, batchId);
+        await TrackUsageAsync(source, worldId, response, true, null, ct, batchId, operationType);
 
         return ExtractionOutcome.Succeeded(batchId, response.Proposals.Count);
     }
@@ -695,7 +1230,8 @@ public class ExtractionService : IExtractionService
 
     private async Task TrackUsageAsync(
         Source source, Guid worldId, AiExtractionResponse? response,
-        bool succeeded, string? errorCode, CancellationToken ct, Guid? reviewBatchId = null)
+        bool succeeded, string? errorCode, CancellationToken ct, Guid? reviewBatchId = null,
+        AiOperationType operationType = AiOperationType.SourceExtraction)
     {
         var costUsd = CalculateCost(response);
 
@@ -704,7 +1240,7 @@ public class ExtractionService : IExtractionService
             Id = Guid.NewGuid(),
             WorldId = worldId,
             SourceId = source.Id,
-            OperationType = AiOperationType.SourceExtraction,
+            OperationType = operationType,
             Model = response?.Model ?? _options.AiModel,
             InputTokens = response?.InputTokens ?? 0,
             OutputTokens = response?.OutputTokens ?? 0,

@@ -72,9 +72,13 @@ public class ExtractionServiceTests
             _artifactFactRepository,
             new InMemoryArtifactRelationshipRepository(),
             new InMemorySourceAttachmentRepository(),
+            new InMemoryMapPlacemarkRepository(),
             new FakeBlobStorageService(),
+            new FakePdfTextExtractor(),
             _aiClient,
             new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            new FakeMapExtractionClient(),
             _budgetGuard, _unitOfWork,
             Options.Create(_options),
             NullLogger<ExtractionService>.Instance);

@@ -176,6 +176,10 @@ public class NornisApiClient
     public Task<ApiResult<ReprocessPreviewDto>> GetReprocessPreviewAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         GetAsync<ReprocessPreviewDto>($"/api/worlds/{worldId}/sources/{sourceId}/reprocess-preview", ct);
 
+    /// <summary>The source's map image + visible pins. 404 (no_map) when no map is stored.</summary>
+    public Task<ApiResult<MapViewDto>> GetSourceMapAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
+        GetAsync<MapViewDto>($"/api/worlds/{worldId}/sources/{sourceId}/map", ct);
+
     /// <summary>Applies edits, deletes knowledge derived solely from this source, and requeues extraction.</summary>
     public Task<ApiResult<SourceDetailDto>> ReprocessSourceAsync(Guid worldId, Guid sourceId, ReprocessSourceRequest request, CancellationToken ct = default) =>
         PostAsync<ReprocessSourceRequest, SourceDetailDto>($"/api/worlds/{worldId}/sources/{sourceId}/reprocess", request, ct);

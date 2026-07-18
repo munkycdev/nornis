@@ -26,7 +26,7 @@ public class EnumDefinitionTests
         AssertEnumHasExactValues<SourceType>(
             "SessionNote", "JournalEntry", "Transcript", "Upload",
             "Image", "HandwrittenNotes", "WebLink", "GMNote", "ImportedNote",
-            "SessionAudio", "FanFiction");
+            "SessionAudio", "FanFiction", "Map");
     }
 
     [Test]
@@ -81,7 +81,7 @@ public class EnumDefinitionTests
     {
         AssertEnumHasExactValues<ReviewChangeType>(
             "CreateArtifact", "UpdateArtifact", "MergeArtifact",
-            "AddFact", "UpdateFact", "AddRelationship", "UpdateRelationship");
+            "AddFact", "UpdateFact", "AddRelationship", "UpdateRelationship", "AddPlacemark");
     }
 
     [Test]
@@ -108,7 +108,7 @@ public class EnumDefinitionTests
     public void AiOperationType_HasExpectedValues()
     {
         AssertEnumHasExactValues<AiOperationType>(
-            "SourceExtraction", "ArtifactSummary", "AskLoremaster", "SourceExtractionRepair", "ContinuityAudit", "StorylineRetrospective", "Embedding", "RelationshipBackfill", "HandwritingTranscription");
+            "SourceExtraction", "ArtifactSummary", "AskLoremaster", "SourceExtractionRepair", "ContinuityAudit", "StorylineRetrospective", "Embedding", "RelationshipBackfill", "HandwritingTranscription", "ImageReading", "MapExtraction");
     }
 
     [Test]
@@ -126,7 +126,7 @@ public class EnumDefinitionTests
     [Test]
     public void SourceType_HasNoUnexpectedValues()
     {
-        Assert.That(Enum.GetNames<SourceType>(), Has.Length.EqualTo(11));
+        Assert.That(Enum.GetNames<SourceType>(), Has.Length.EqualTo(12));
     }
 
     [Test]
@@ -174,7 +174,7 @@ public class EnumDefinitionTests
     [Test]
     public void ReviewChangeType_HasNoUnexpectedValues()
     {
-        Assert.That(Enum.GetNames<ReviewChangeType>(), Has.Length.EqualTo(7));
+        Assert.That(Enum.GetNames<ReviewChangeType>(), Has.Length.EqualTo(8));
     }
 
     [Test]
@@ -198,7 +198,7 @@ public class EnumDefinitionTests
     [Test]
     public void AiOperationType_HasNoUnexpectedValues()
     {
-        Assert.That(Enum.GetNames<AiOperationType>(), Has.Length.EqualTo(9));
+        Assert.That(Enum.GetNames<AiOperationType>(), Has.Length.EqualTo(11));
     }
 
     [Test]

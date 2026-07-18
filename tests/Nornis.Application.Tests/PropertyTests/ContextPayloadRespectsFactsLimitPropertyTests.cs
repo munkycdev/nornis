@@ -134,9 +134,13 @@ public class ContextPayloadRespectsFactsLimitPropertyTests
                     artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),
                     new InMemorySourceAttachmentRepository(),
+                    new InMemoryMapPlacemarkRepository(),
                     new FakeBlobStorageService(),
+                    new FakePdfTextExtractor(),
                     fakeAiClient,
                     new FakeHandwritingTranscriptionClient(),
+                    new FakeImageReadingClient(),
+                    new FakeMapExtractionClient(),
                     new FakeAiBudgetGuard(), unitOfWork,
                     options,
                     logger);

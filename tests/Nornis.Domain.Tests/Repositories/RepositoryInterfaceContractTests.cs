@@ -26,6 +26,7 @@ public class RepositoryInterfaceContractTests
         typeof(ILibraryDocumentRepository),
         typeof(ILibraryChunkRepository),
         typeof(ISourceAttachmentRepository),
+        typeof(IMapPlacemarkRepository),
         typeof(IUnitOfWork),
         typeof(ITransactionScope),
     ];

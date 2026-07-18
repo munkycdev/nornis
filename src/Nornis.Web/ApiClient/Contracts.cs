@@ -93,7 +93,8 @@ public record SourceDetailDto(
     string ProcessingStatus,
     Guid? CampaignId = null,
     string? CampaignName = null,
-    bool ExtractionEnabled = true);
+    bool ExtractionEnabled = true,
+    string? DerivedText = null);
 
 public record CreateSourceRequest(
     string Title,
@@ -126,13 +127,29 @@ public record ReprocessSourceRequest(
     string? Uri = null,
     DateTimeOffset? OccurredAt = null);
 
+// Mirrors Nornis.Api MapViewResponse.
+public record MapPlacemarkDto(
+    Guid Id,
+    Guid ArtifactId,
+    string ArtifactName,
+    decimal X,
+    decimal Y,
+    string? Label,
+    decimal? Confidence);
+
+public record MapViewDto(
+    SourceAttachmentDto Attachment,
+    string ImageUrl,
+    IReadOnlyList<MapPlacemarkDto> Placemarks);
+
 // Mirrors Nornis.Api ReprocessPreviewResponse.
 public record ReprocessPreviewDto(
     IReadOnlyList<string> ArtifactNamesToDelete,
     IReadOnlyList<string> ArtifactNamesToKeep,
     int FactsToDelete,
     int RelationshipsToDelete,
-    int PendingProposalsToDiscard);
+    int PendingProposalsToDiscard,
+    int MapPinsToDelete = 0);
 
 public record CampaignDto(
     Guid Id,

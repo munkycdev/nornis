@@ -39,6 +39,7 @@ public sealed class ProposalValidator : IProposalValidator
             ReviewChangeType.UpdateFact => ValidateUpdateFact(json),
             ReviewChangeType.AddRelationship => ValidateAddRelationship(json),
             ReviewChangeType.UpdateRelationship => ValidateUpdateRelationship(json),
+            ReviewChangeType.AddPlacemark => ValidateAddPlacemark(json),
             _ => AppResult.Fail(new AppError(400, "unknown_change_type",
                 $"Unknown ChangeType '{changeType}'."))
         };
@@ -85,6 +86,68 @@ public sealed class ProposalValidator : IProposalValidator
         {
             return AppResult.Fail(new AppError(400, "invalid_payload",
                 $"CreateArtifact: Type '{payload.Type}' is not a valid ArtifactType."));
+        }
+
+        if (payload.MapPlacemark is { } pin)
+        {
+            if (pin.AttachmentId == Guid.Empty)
+            {
+                return AppResult.Fail(new AppError(400, "invalid_payload",
+                    "CreateArtifact: MapPlacemark.AttachmentId is required."));
+            }
+
+            if (pin.X is < 0m or > 1m || pin.Y is < 0m or > 1m)
+            {
+                return AppResult.Fail(new AppError(400, "invalid_payload",
+                    "CreateArtifact: MapPlacemark coordinates must be within 0..1."));
+            }
+        }
+
+        return AppResult.Success();
+    }
+
+    private static AppResult ValidateAddPlacemark(string json)
+    {
+        AddPlacemarkPayload? payload;
+        try
+        {
+            payload = JsonSerializer.Deserialize<AddPlacemarkPayload>(json, JsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            return AppResult.Fail(new AppError(400, "invalid_payload",
+                $"Failed to deserialize AddPlacemark payload: {ex.Message}"));
+        }
+
+        if (payload is null)
+        {
+            return AppResult.Fail(new AppError(400, "invalid_payload",
+                "AddPlacemark payload deserialized to null."));
+        }
+
+        if (payload.AttachmentId == Guid.Empty)
+        {
+            return AppResult.Fail(new AppError(400, "invalid_payload",
+                "AddPlacemark: AttachmentId is required."));
+        }
+
+        if ((payload.ArtifactId is null || payload.ArtifactId == Guid.Empty)
+            && string.IsNullOrWhiteSpace(payload.ArtifactName))
+        {
+            return AppResult.Fail(new AppError(400, "invalid_payload",
+                "AddPlacemark: ArtifactId or ArtifactName is required."));
+        }
+
+        if (payload.X is < 0m or > 1m || payload.Y is < 0m or > 1m)
+        {
+            return AppResult.Fail(new AppError(400, "invalid_payload",
+                "AddPlacemark: coordinates must be within 0..1."));
+        }
+
+        if (payload.Label is { Length: > 200 })
+        {
+            return AppResult.Fail(new AppError(400, "invalid_payload",
+                "AddPlacemark: Label must not exceed 200 characters."));
         }
 
         return AppResult.Success();

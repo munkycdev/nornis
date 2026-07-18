@@ -87,7 +87,7 @@ public class ReviewServicePropertyTests4
             artifactFactRepo,
             artifactRelationshipRepo,
             sourceRefRepo,
-            sourceRepo);
+            sourceRepo, new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository());
 
         var service = new ReviewService(
             proposalRepo,

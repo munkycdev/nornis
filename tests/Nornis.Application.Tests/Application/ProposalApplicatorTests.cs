@@ -38,7 +38,7 @@ public class ProposalApplicatorTests
             _factRepo,
             _relationshipRepo,
             _sourceRefRepo,
-            _sourceRepo);
+            _sourceRepo, new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository());
 
         _worldId = Guid.NewGuid();
         _sourceId = Guid.NewGuid();

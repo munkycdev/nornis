@@ -58,6 +58,8 @@ public class SourceReprocessServiceTests
             _factRepository,
             _relationshipRepository,
             _characterRepository,
+            new InMemoryMapPlacemarkRepository(),
+            new InMemorySourceAttachmentRepository(),
             _queueClient,
             _unitOfWork,
             NullLogger<SourceReprocessService>.Instance);

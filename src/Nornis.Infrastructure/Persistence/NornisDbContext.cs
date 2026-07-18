@@ -31,6 +31,7 @@ public class NornisDbContext : DbContext
     public DbSet<ContinuityFinding> ContinuityFindings => Set<ContinuityFinding>();
     public DbSet<LibraryDocument> LibraryDocuments => Set<LibraryDocument>();
     public DbSet<LibraryChunk> LibraryChunks => Set<LibraryChunk>();
+    public DbSet<MapPlacemark> MapPlacemarks => Set<MapPlacemark>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

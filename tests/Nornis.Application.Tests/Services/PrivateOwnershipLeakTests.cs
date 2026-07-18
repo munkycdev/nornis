@@ -255,7 +255,7 @@ public class PrivateOwnershipLeakTests
         };
 
         var applicator = new ProposalApplicator(
-            _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo, _sourceRepo);
+            _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo, _sourceRepo, new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository());
 
         // CreateArtifact
         var createProposal = MakeProposal(batch.Id, ReviewChangeType.CreateArtifact, null,

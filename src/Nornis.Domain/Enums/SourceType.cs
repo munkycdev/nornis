@@ -17,5 +17,8 @@ public enum SourceType
     GMNote,
     ImportedNote,
     SessionAudio,
-    FanFiction
+    FanFiction,
+
+    /// <summary>A map image; extraction reads place names and positions into placemarks.</summary>
+    Map
 }

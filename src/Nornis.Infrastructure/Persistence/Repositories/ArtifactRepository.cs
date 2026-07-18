@@ -92,6 +92,26 @@ public class ArtifactRepository : IArtifactRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Artifact>> ListByTypeAsync(
+        Guid worldId,
+        ArtifactType type,
+        VisibilityFilter filter,
+        CancellationToken cancellationToken = default)
+    {
+        var scopes = filter.Scopes;
+        var owner = filter.PrivateOwnerUserId;
+
+        return await _context.Artifacts
+            .AsNoTracking()
+            .Where(a => a.WorldId == worldId
+                && a.Type == type
+                && a.Status != ArtifactStatus.Archived
+                && scopes.Contains(a.Visibility)
+                && (a.Visibility != VisibilityScope.Private || owner == null || a.CreatedByUserId == owner))
+            .OrderBy(a => a.Name)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Artifact>> ListRecentByWorldAsync(
         Guid worldId,
         VisibilityFilter filter,

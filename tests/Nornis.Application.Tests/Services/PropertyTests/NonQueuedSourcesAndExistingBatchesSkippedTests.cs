@@ -69,9 +69,13 @@ public class NonQueuedSourcesAndExistingBatchesSkippedTests
             factRepo,
             new InMemoryArtifactRelationshipRepository(),
             new InMemorySourceAttachmentRepository(),
+            new InMemoryMapPlacemarkRepository(),
             new FakeBlobStorageService(),
+            new FakePdfTextExtractor(),
             aiClient,
             new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            new FakeMapExtractionClient(),
             new FakeAiBudgetGuard(), unitOfWork,
             options,
             NullLogger<ExtractionService>.Instance);

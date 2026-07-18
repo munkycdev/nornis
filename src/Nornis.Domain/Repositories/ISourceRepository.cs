@@ -14,6 +14,11 @@ public interface ISourceRepository
     /// <summary>Scoped Body write — used by the worker to persist a vision transcription.</summary>
     Task UpdateBodyAsync(Guid id, string body, CancellationToken cancellationToken = default);
 
+    /// <summary>Scoped DerivedText write — the worker persists derived attachment text
+    /// before extracting (so redelivery never re-buys it); the attachment service clears
+    /// it (null) when derivation inputs change.</summary>
+    Task UpdateDerivedTextAsync(Guid id, string? derivedText, CancellationToken cancellationToken = default);
+
     Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default);
 
     Task<Source> UpdateAsync(Source source, CancellationToken cancellationToken = default);

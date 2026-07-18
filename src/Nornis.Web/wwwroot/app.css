@@ -2483,6 +2483,33 @@ a.nornis-cite:hover {
     display: block;
 }
 
+/* ------------------------------------------------------------- Map viewer --- */
+
+.nornis-map-viewer {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    line-height: 0;
+}
+
+.nornis-map-viewer img {
+    display: block;
+    width: 100%;
+    border-radius: 8px;
+}
+
+.nornis-map-pin {
+    position: absolute;
+    /* Anchor the pin's point at the coordinate. */
+    transform: translate(-50%, -100%);
+    filter: drop-shadow(0 1px 2px rgba(14, 46, 74, 0.45));
+    transition: transform 120ms ease;
+}
+
+.nornis-map-pin:hover {
+    transform: translate(-50%, -100%) scale(1.35);
+}
+
 /* --------------------------------------------------------------- Library --- */
 
 .nornis-upload-input {

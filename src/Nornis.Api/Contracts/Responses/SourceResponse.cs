@@ -14,4 +14,5 @@ public record SourceResponse(
     string ProcessingStatus,
     Guid? CampaignId = null,
     string? CampaignName = null,
-    bool ExtractionEnabled = true);
+    bool ExtractionEnabled = true,
+    string? DerivedText = null);

@@ -96,7 +96,7 @@ public class ReviewServicePropertyTests
             artifactFactRepo,
             artifactRelationshipRepo,
             sourceRefRepo,
-            sourceRepo);
+            sourceRepo, new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository());
 
         // Seed data
         sourceRepo.Seed(ctx.Source);

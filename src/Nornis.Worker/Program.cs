@@ -60,6 +60,7 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<IArtifactRepository, ArtifactRepository>();
         services.AddScoped<IArtifactFactRepository, ArtifactFactRepository>();
         services.AddScoped<IArtifactRelationshipRepository, ArtifactRelationshipRepository>();
+        services.AddScoped<IMapPlacemarkRepository, MapPlacemarkRepository>();
 
         // Azure OpenAI client
         services.AddSingleton<ChatClient>(sp =>
@@ -77,6 +78,10 @@ var builder = Host.CreateDefaultBuilder(args)
 
         // Handwriting transcription (vision) — shares the extraction ChatClient
         services.AddScoped<IHandwritingTranscriptionClient, AzureOpenAiHandwritingTranscriptionClient>();
+
+        // Image lore-reading and map extraction (vision) — same ChatClient
+        services.AddScoped<IImageReadingClient, AzureOpenAiImageReadingClient>();
+        services.AddScoped<IMapExtractionClient, AzureOpenAiMapExtractionClient>();
 
         // Daily AI budget guard (checked before every extraction AI call)
         services.Configure<AiBudgetOptions>(configuration.GetSection(AiBudgetOptions.SectionName));

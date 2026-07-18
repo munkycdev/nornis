@@ -78,6 +78,7 @@ builder.Services.AddScoped<IAiUsageRecordRepository, AiUsageRecordRepository>();
 builder.Services.AddScoped<IHealthAssessmentRepository, HealthAssessmentRepository>();
 builder.Services.AddScoped<ILibraryDocumentRepository, LibraryDocumentRepository>();
 builder.Services.AddScoped<ILibraryChunkRepository, LibraryChunkRepository>();
+builder.Services.AddScoped<IMapPlacemarkRepository, MapPlacemarkRepository>();
 builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
 // Application service registrations
@@ -87,6 +88,7 @@ builder.Services.AddScoped<ICampaignService, CampaignService>();
 builder.Services.AddScoped<ICharacterService, CharacterService>();
 builder.Services.AddScoped<ISourceService, SourceService>();
 builder.Services.AddScoped<ISourceReprocessService, SourceReprocessService>();
+builder.Services.AddScoped<IMapViewService, MapViewService>();
 builder.Services.AddScoped<ISourceAttachmentService, SourceAttachmentService>();
 builder.Services.AddScoped<IArtifactService, ArtifactService>();
 builder.Services.AddScoped<IArtifactMergeService, ArtifactMergeService>();

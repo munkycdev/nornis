@@ -555,4 +555,72 @@ public class ProposalValidatorTests
     }
 
     #endregion
+
+    #region AddPlacemark
+
+    private static string PlacemarkJson(Guid? artifactId = null, string? artifactName = null,
+        Guid? attachmentId = null, decimal x = 0.5m, decimal y = 0.5m, string? label = "Ironhold") =>
+        JsonSerializer.Serialize(new
+        {
+            artifactId,
+            artifactName,
+            attachmentId = attachmentId ?? Guid.NewGuid(),
+            x, y, label
+        });
+
+    [Test]
+    public void AddPlacemark_Valid_ById_Succeeds()
+    {
+        var result = _validator.ValidateProposedValue(
+            PlacemarkJson(artifactId: Guid.NewGuid()), ReviewChangeType.AddPlacemark);
+
+        Assert.That(result.IsSuccess, Is.True);
+    }
+
+    [Test]
+    public void AddPlacemark_Valid_ByName_Succeeds()
+    {
+        var result = _validator.ValidateProposedValue(
+            PlacemarkJson(artifactName: "Ironhold"), ReviewChangeType.AddPlacemark);
+
+        Assert.That(result.IsSuccess, Is.True);
+    }
+
+    [Test]
+    public void AddPlacemark_MissingAttachment_Fails()
+    {
+        var result = _validator.ValidateProposedValue(
+            PlacemarkJson(artifactId: Guid.NewGuid(), attachmentId: Guid.Empty), ReviewChangeType.AddPlacemark);
+
+        Assert.That(result.IsSuccess, Is.False);
+    }
+
+    [Test]
+    public void AddPlacemark_NoArtifactReference_Fails()
+    {
+        var result = _validator.ValidateProposedValue(
+            PlacemarkJson(), ReviewChangeType.AddPlacemark);
+
+        Assert.That(result.IsSuccess, Is.False);
+    }
+
+    [Test]
+    public void AddPlacemark_OutOfRangeCoordinate_Fails()
+    {
+        var result = _validator.ValidateProposedValue(
+            PlacemarkJson(artifactId: Guid.NewGuid(), x: 1.5m), ReviewChangeType.AddPlacemark);
+
+        Assert.That(result.IsSuccess, Is.False);
+    }
+
+    [Test]
+    public void AddPlacemark_LabelTooLong_Fails()
+    {
+        var result = _validator.ValidateProposedValue(
+            PlacemarkJson(artifactId: Guid.NewGuid(), label: new string('x', 201)), ReviewChangeType.AddPlacemark);
+
+        Assert.That(result.IsSuccess, Is.False);
+    }
+
+    #endregion
 }
