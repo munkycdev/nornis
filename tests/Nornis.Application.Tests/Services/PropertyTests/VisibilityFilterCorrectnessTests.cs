@@ -6,6 +6,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Infrastructure.Knowledge;
 using NUnit.Framework;
 
@@ -63,12 +64,13 @@ public class VisibilityFilterCorrectnessTests
             scenario.RequestingRole,
             CancellationToken.None);
 
-        // Determine allowed scopes for the role
-        var allowedScopes = GetExpectedAllowedScopes(scenario.RequestingRole);
+        // The ownership-aware policy is the expected model: GM sees everything; Player
+        // sees PartyVisible plus their OWN Private; Observer sees PartyVisible only.
+        var filter = VisibilityFilter.ForRole(scenario.RequestingRole, scenario.RequestingUserId);
 
-        // Assert — Artifacts: only those with allowed visibility should be returned
+        // Assert — Artifacts: exactly those the policy admits
         var expectedArtifactIds = scenario.Artifacts
-            .Where(a => allowedScopes.Contains(a.Visibility))
+            .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
             .Select(a => a.Id)
             .ToHashSet();
 
@@ -77,11 +79,10 @@ public class VisibilityFilterCorrectnessTests
         if (!returnedArtifactIds.SetEquals(expectedArtifactIds))
             return false;
 
-        // Assert — Facts: only those with allowed visibility should be returned
-        // Facts are loaded for retrieved artifacts, so only consider facts for returned artifacts
+        // Assert — Facts: only policy-admitted facts on returned artifacts
         var expectedFactIds = scenario.Facts
             .Where(f => expectedArtifactIds.Contains(f.ArtifactId) &&
-                        allowedScopes.Contains(f.Visibility))
+                        filter.CanSee(f.Visibility, f.CreatedByUserId))
             .Select(f => f.Id)
             .ToHashSet();
 
@@ -90,47 +91,49 @@ public class VisibilityFilterCorrectnessTests
         if (!returnedFactIds.SetEquals(expectedFactIds))
             return false;
 
-        // Assert — Relationships: only those with allowed visibility should be returned
+        // Assert — Relationships: only policy-admitted relationships touching returned artifacts
         var returnedRelationshipIds = result.Relationships.Select(r => r.Id).ToHashSet();
 
         var expectedRelationshipIds = scenario.Relationships
             .Where(r => (expectedArtifactIds.Contains(r.ArtifactAId) ||
                          expectedArtifactIds.Contains(r.ArtifactBId)) &&
-                        allowedScopes.Contains(r.Visibility))
+                        filter.CanSee(r.Visibility, r.CreatedByUserId))
             .Select(r => r.Id)
             .ToHashSet();
 
         if (!returnedRelationshipIds.SetEquals(expectedRelationshipIds))
             return false;
 
-        // Assert — No Private items owned by a different user appear (critical requirement 3.4)
-        // Private artifacts owned by others should NOT be in the results
-        var otherUsersPrivateArtifactIds = scenario.Artifacts
-            .Where(a => a.Visibility == VisibilityScope.Private)
-            .Select(a => a.Id)
-            .ToHashSet();
+        // Assert (independent of the policy object) — a non-GM must never receive a
+        // Private item owned by a different user or with no owner. This is the leak the
+        // ownership work exists to prevent; assert it directly rather than through CanSee.
+        if (scenario.RequestingRole != WorldRole.GM)
+        {
+            bool ForeignPrivate(VisibilityScope v, Guid? owner) =>
+                v == VisibilityScope.Private && owner != scenario.RequestingUserId;
 
-        // Since Artifact entity has no CreatedByUserId, Private filtering at the artifact level
-        // is handled by allowed scopes. For GM and Player, Private is in allowedScopes meaning
-        // the repository returns all Private artifacts. The important Private filtering is on
-        // facts (which have no owner field either) and relationships. The key invariant is that
-        // the allowedScopes mechanism correctly excludes Private for Observer.
-        // For the Observer role, no Private items should appear.
+            var hasForeignPrivateArtifact = result.Artifacts.Any(a =>
+                scenario.Artifacts.Any(sa => sa.Id == a.Id && ForeignPrivate(sa.Visibility, sa.CreatedByUserId)));
+            if (hasForeignPrivateArtifact)
+                return false;
+
+            var hasForeignPrivateFact = result.Facts.Any(f =>
+                scenario.Facts.Any(sf => sf.Id == f.Id && ForeignPrivate(sf.Visibility, sf.CreatedByUserId)));
+            if (hasForeignPrivateFact)
+                return false;
+
+            var hasForeignPrivateRelationship = result.Relationships.Any(r =>
+                scenario.Relationships.Any(sr => sr.Id == r.Id && ForeignPrivate(sr.Visibility, sr.CreatedByUserId)));
+            if (hasForeignPrivateRelationship)
+                return false;
+        }
+
+        // Observers additionally see no Private at all, own or otherwise.
         if (scenario.RequestingRole == WorldRole.Observer)
         {
             var hasPrivateArtifact = result.Artifacts.Any(a =>
                 scenario.Artifacts.Any(sa => sa.Id == a.Id && sa.Visibility == VisibilityScope.Private));
             if (hasPrivateArtifact)
-                return false;
-
-            var hasPrivateFact = result.Facts.Any(f =>
-                scenario.Facts.Any(sf => sf.Id == f.Id && sf.Visibility == VisibilityScope.Private));
-            if (hasPrivateFact)
-                return false;
-
-            var hasPrivateRelationship = result.Relationships.Any(r =>
-                scenario.Relationships.Any(sr => sr.Id == r.Id && sr.Visibility == VisibilityScope.Private));
-            if (hasPrivateRelationship)
                 return false;
         }
 
@@ -156,15 +159,6 @@ public class VisibilityFilterCorrectnessTests
 
         return true;
     }
-
-    private static IReadOnlyList<VisibilityScope> GetExpectedAllowedScopes(WorldRole role) =>
-        role switch
-        {
-            WorldRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
-            WorldRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
-            WorldRole.Observer => [VisibilityScope.PartyVisible],
-            _ => [VisibilityScope.PartyVisible]
-        };
 }
 
 /// <summary>
@@ -225,15 +219,18 @@ public class VisibilityFilterArbitraries
         var gen =
             from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from requestingUserId in ArbMap.Default.GeneratorFor<Guid>()
+            from otherUserId in ArbMap.Default.GeneratorFor<Guid>()
             from requestingRole in roleGen
             from artifactCount in Gen.Choose(2, 6)
             from nameIndices in Gen.Elements(Enumerable.Range(0, ArtifactNames.Length).ToArray())
                 .ArrayOf(artifactCount)
             let distinctNames = nameIndices.Distinct().Select(i => ArtifactNames[i]).Take(artifactCount).ToArray()
             where distinctNames.Length >= 2
-            from artifacts in GenArtifacts(worldId, distinctNames, artifactTypeGen, visibilityGen)
-            from facts in GenFacts(artifacts, visibilityGen, truthStateGen)
-            from relationships in GenRelationships(worldId, artifacts, visibilityGen, truthStateGen)
+            // Small owner pool {requester, other user, unowned} keeps shrinking effective.
+            let ownerGen = Gen.Elements<Guid?>(requestingUserId, otherUserId, null)
+            from artifacts in GenArtifacts(worldId, distinctNames, artifactTypeGen, visibilityGen, ownerGen)
+            from facts in GenFacts(artifacts, visibilityGen, truthStateGen, ownerGen)
+            from relationships in GenRelationships(worldId, artifacts, visibilityGen, truthStateGen, ownerGen)
             select new VisibilityFilterScenario(
                 worldId, requestingUserId, requestingRole,
                 artifacts, facts, relationships);
@@ -245,23 +242,26 @@ public class VisibilityFilterArbitraries
         Guid worldId,
         string[] names,
         Gen<ArtifactType> typeGen,
-        Gen<VisibilityScope> visibilityGen)
+        Gen<VisibilityScope> visibilityGen,
+        Gen<Guid?> ownerGen)
     {
-        // Generate a list of (type, visibility) pairs then map to artifacts with fixed names
-        var pairGen =
+        // Generate a list of (type, visibility, owner) triples then map to artifacts with fixed names
+        var tripleGen =
             from artifactType in typeGen
             from visibility in visibilityGen
-            select (artifactType, visibility);
+            from owner in ownerGen
+            select (artifactType, visibility, owner);
 
-        return pairGen.ArrayOf(names.Length).Select(pairs =>
-            pairs.Zip(names, (p, name) => new Artifact
+        return tripleGen.ArrayOf(names.Length).Select(triples =>
+            triples.Zip(names, (t, name) => new Artifact
             {
                 Id = Guid.NewGuid(),
                 WorldId = worldId,
-                Type = p.artifactType,
+                Type = t.artifactType,
                 Name = name,
                 Summary = $"Summary of {name}",
-                Visibility = p.visibility,
+                Visibility = t.visibility,
+                CreatedByUserId = t.owner,
                 Confidence = 0.8m,
                 Status = ArtifactStatus.Active,
                 CreatedAt = DateTimeOffset.UtcNow.AddDays(-10),
@@ -273,18 +273,20 @@ public class VisibilityFilterArbitraries
     private static Gen<List<ArtifactFact>> GenFacts(
         List<Artifact> artifacts,
         Gen<VisibilityScope> visibilityGen,
-        Gen<TruthState> truthStateGen)
+        Gen<TruthState> truthStateGen,
+        Gen<Guid?> ownerGen)
     {
-        // Generate 2 facts per artifact with random visibility (simple flat approach)
+        // Generate 2 facts per artifact with random visibility and owner
         var factsPerArtifact = 2;
         var totalFacts = artifacts.Count * factsPerArtifact;
 
         var singleFactGen =
             from visibility in visibilityGen
             from truthState in truthStateGen
-            select (visibility, truthState);
+            from owner in ownerGen
+            select (visibility, truthState, owner);
 
-        return singleFactGen.ArrayOf(totalFacts).Select(pairs =>
+        return singleFactGen.ArrayOf(totalFacts).Select(triples =>
         {
             var facts = new List<ArtifactFact>();
             for (var i = 0; i < artifacts.Count; i++)
@@ -299,8 +301,9 @@ public class VisibilityFilterArbitraries
                         Predicate = $"predicate_{j}",
                         Value = $"value_{j}",
                         Confidence = 0.9m,
-                        TruthState = pairs[idx].truthState,
-                        Visibility = pairs[idx].visibility,
+                        TruthState = triples[idx].truthState,
+                        Visibility = triples[idx].visibility,
+                        CreatedByUserId = triples[idx].owner,
                         CreatedAt = DateTimeOffset.UtcNow.AddDays(-5),
                         UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1),
                         RowVersion = []
@@ -315,7 +318,8 @@ public class VisibilityFilterArbitraries
         Guid worldId,
         List<Artifact> artifacts,
         Gen<VisibilityScope> visibilityGen,
-        Gen<TruthState> truthStateGen)
+        Gen<TruthState> truthStateGen,
+        Gen<Guid?> ownerGen)
     {
         if (artifacts.Count < 2)
             return Gen.Constant(new List<ArtifactRelationship>());
@@ -328,6 +332,7 @@ public class VisibilityFilterArbitraries
             from relType in Gen.Elements(RelationshipTypes)
             from visibility in visibilityGen
             from truthState in truthStateGen
+            from owner in ownerGen
             select new ArtifactRelationship
             {
                 Id = Guid.NewGuid(),
@@ -339,6 +344,7 @@ public class VisibilityFilterArbitraries
                 Confidence = 0.85m,
                 TruthState = truthState,
                 Visibility = visibility,
+                CreatedByUserId = owner,
                 CreatedAt = DateTimeOffset.UtcNow.AddDays(-3),
                 UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1),
                 RowVersion = []

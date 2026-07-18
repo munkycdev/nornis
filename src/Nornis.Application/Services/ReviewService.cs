@@ -4,6 +4,7 @@ using Nornis.Application.Models;
 using Nornis.Application.Validation;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -102,10 +103,13 @@ public class ReviewService : IReviewService
 
         if (proposals.Any(p => p.ChangeType == ReviewChangeType.UpdateFact && p.TargetId is not null))
         {
-            // Name resolution for the review UI — all scopes, same as the relationship load below.
+            // Name resolution for the review UI — unrestricted on purpose: a reviewer only
+            // ever receives proposals from sources they may see, and their targets came from
+            // that source's own (already-scoped) extraction context. If review ever surfaces
+            // proposals across users' sources, this must become a per-user VisibilityFilter.
             var facts = await _artifactFactRepository.ListByArtifactIdsAsync(
                 artifactNames.Keys.ToList(),
-                [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
+                VisibilityFilter.All,
                 int.MaxValue, ct);
             factsById = facts.ToDictionary(f => f.Id);
         }
@@ -114,7 +118,7 @@ public class ReviewService : IReviewService
         {
             var relationships = await _artifactRelationshipRepository.ListByArtifactIdsAsync(
                 artifactNames.Keys.ToList(),
-                [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private], ct);
+                VisibilityFilter.All, ct);
             relationshipsById = relationships.ToDictionary(r => r.Id);
         }
 

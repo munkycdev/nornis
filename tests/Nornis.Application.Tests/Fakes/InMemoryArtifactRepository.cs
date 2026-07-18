@@ -1,5 +1,6 @@
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Tests.Fakes;
@@ -51,6 +52,12 @@ public class InMemoryArtifactRepository : IArtifactRepository
         return Task.FromResult(artifact);
     }
 
+    public Task DeleteAsync(Guid artifactId, CancellationToken cancellationToken = default)
+    {
+        _artifacts.RemoveAll(a => a.Id == artifactId);
+        return Task.CompletedTask;
+    }
+
     public Task<IReadOnlyList<Artifact>> SearchByNameAsync(
         Guid worldId,
         string searchTerm,
@@ -77,14 +84,14 @@ public class InMemoryArtifactRepository : IArtifactRepository
 
     public Task<IReadOnlyList<Artifact>> ListRecentByWorldAsync(
         Guid worldId,
-        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        VisibilityFilter filter,
         int maxCount,
         CancellationToken cancellationToken = default)
     {
         var results = _artifacts
             .Where(a => a.WorldId == worldId &&
                         a.Status != ArtifactStatus.Archived &&
-                        allowedVisibilities.Contains(a.Visibility))
+                        filter.CanSee(a.Visibility, a.CreatedByUserId))
             .OrderByDescending(a => a.UpdatedAt)
             .Take(maxCount)
             .ToList();
@@ -94,13 +101,13 @@ public class InMemoryArtifactRepository : IArtifactRepository
     public Task<IReadOnlyList<Artifact>> ListByNamesInTextAsync(
         Guid worldId,
         string text,
-        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        VisibilityFilter filter,
         CancellationToken cancellationToken = default)
     {
         var results = _artifacts
             .Where(a => a.WorldId == worldId &&
                         a.Status != ArtifactStatus.Archived &&
-                        allowedVisibilities.Contains(a.Visibility) &&
+                        filter.CanSee(a.Visibility, a.CreatedByUserId) &&
                         ContainsWholeWord(text, a.Name))
             .ToList();
         return Task.FromResult<IReadOnlyList<Artifact>>(results.AsReadOnly());

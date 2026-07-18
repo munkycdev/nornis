@@ -44,5 +44,10 @@ public class ArtifactFactConfiguration : IEntityTypeConfiguration<ArtifactFact>
             .WithMany(a => a.ArtifactFacts)
             .HasForeignKey(af => af.ArtifactId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(af => af.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(af => af.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

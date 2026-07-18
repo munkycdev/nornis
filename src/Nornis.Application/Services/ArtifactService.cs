@@ -2,6 +2,7 @@ using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -44,12 +45,12 @@ public class ArtifactService : IArtifactService
 
     public async Task<AppResult<IReadOnlyList<Artifact>>> ListAsync(ArtifactListQuery query, CancellationToken ct)
     {
-        var allowedScopes = GetAllowedScopes(query.ActingUserRole);
+        var filter = VisibilityFilter.ForRole(query.ActingUserRole, query.ActingUserId);
 
         var artifacts = await _artifactRepository.ListByWorldAsync(query.WorldId, query.Type, null, ct);
 
         var visible = artifacts
-            .Where(a => allowedScopes.Contains(a.Visibility))
+            .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
             .Where(a => query.Status is null || a.Status == query.Status)
             .OrderByDescending(a => a.UpdatedAt)
             .ToList();
@@ -57,12 +58,12 @@ public class ArtifactService : IArtifactService
         return AppResult<IReadOnlyList<Artifact>>.Success(visible);
     }
 
-    public async Task<AppResult<ArtifactGraph>> GetGraphAsync(Guid worldId, WorldRole role, CancellationToken ct)
+    public async Task<AppResult<ArtifactGraph>> GetGraphAsync(Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct)
     {
-        var allowedScopes = GetAllowedScopes(role);
+        var filter = VisibilityFilter.ForRole(role, requestingUserId);
 
         var artifacts = (await _artifactRepository.ListByWorldAsync(worldId, null, null, ct))
-            .Where(a => allowedScopes.Contains(a.Visibility))
+            .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
             .ToList();
 
         var nodes = artifacts
@@ -71,7 +72,7 @@ public class ArtifactService : IArtifactService
 
         var visibleIds = artifacts.Select(a => a.Id).ToHashSet();
 
-        var edges = (await _relationshipRepository.ListByArtifactIdsAsync(visibleIds.ToList(), allowedScopes, ct))
+        var edges = (await _relationshipRepository.ListByArtifactIdsAsync(visibleIds.ToList(), filter, ct))
             .Where(r => visibleIds.Contains(r.ArtifactAId) && visibleIds.Contains(r.ArtifactBId))
             .DistinctBy(r => r.Id)
             .Select(r => new ArtifactGraphEdge(r.Id, r.ArtifactAId, r.ArtifactBId, r.Type))
@@ -87,7 +88,7 @@ public class ArtifactService : IArtifactService
         WorldRole role,
         CancellationToken ct)
     {
-        var allowedScopes = GetAllowedScopes(role);
+        var filter = VisibilityFilter.ForRole(role, requestingUserId);
 
         var artifact = await _artifactRepository.GetByIdAsync(artifactId, ct);
 
@@ -95,25 +96,25 @@ public class ArtifactService : IArtifactService
         // leak the existence of resources the caller may not see.
         if (artifact is null
             || artifact.WorldId != worldId
-            || !allowedScopes.Contains(artifact.Visibility))
+            || !filter.CanSee(artifact.Visibility, artifact.CreatedByUserId))
         {
             return AppResult<ArtifactDetail>.Fail(new AppError(404, "not_found", "Artifact not found."));
         }
 
         var facts = (await _factRepository.ListByArtifactAsync(artifactId, ct))
-            .Where(f => allowedScopes.Contains(f.Visibility))
+            .Where(f => filter.CanSee(f.Visibility, f.CreatedByUserId))
             .OrderBy(f => f.CreatedAt)
             .ToList();
 
         var relationships = (await _relationshipRepository.ListByArtifactAsync(artifactId, ct))
-            .Where(r => allowedScopes.Contains(r.Visibility))
+            .Where(r => filter.CanSee(r.Visibility, r.CreatedByUserId))
             .OrderBy(r => r.CreatedAt)
             .ToList();
 
         // Resolve the counterpart artifact for each relationship, keeping only those the
         // caller may see and that belong to the same world.
         var connectedArtifacts = await ResolveConnectedArtifactsAsync(
-            artifactId, worldId, relationships, allowedScopes, ct);
+            artifactId, worldId, relationships, filter, ct);
 
         // Source references may cite the artifact itself, any of its facts, or any of its
         // relationships. Target ids are distinct GUIDs, so a single id-based lookup is safe.
@@ -200,7 +201,7 @@ public class ArtifactService : IArtifactService
             .ToList();
         var partOfEdges = (await _relationshipRepository.ListByArtifactIdsAsync(
                 storylineIds,
-                [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private], ct))
+                VisibilityFilter.All, ct))
             .Where(r => r.Type == PartOfRelationshipType)
             .ToDictionary(r => r.ArtifactAId, r => r.ArtifactBId);
 
@@ -223,10 +224,18 @@ public class ArtifactService : IArtifactService
                 ? VisibilityScope.Private
                 : VisibilityScope.PartyVisible;
 
+        // Owner for Private links: inherit the private endpoint's owner rather than the
+        // acting GM — otherwise the player who owns the private storyline could never see
+        // their own timeline nesting. Non-Private links carry the acting user.
+        var createdByUserId = visibility == VisibilityScope.Private
+            ? (child.Visibility == VisibilityScope.Private ? child.CreatedByUserId : parent.CreatedByUserId)
+            : command.ActingUserId;
+
         if (existing is not null)
         {
             existing.ArtifactBId = parentId;
             existing.Visibility = visibility;
+            existing.CreatedByUserId ??= createdByUserId;
             existing.UpdatedAt = DateTimeOffset.UtcNow;
             await _relationshipRepository.UpdateAsync(existing, ct);
         }
@@ -241,6 +250,7 @@ public class ArtifactService : IArtifactService
                 Type = PartOfRelationshipType,
                 TruthState = TruthState.Confirmed,
                 Visibility = visibility,
+                CreatedByUserId = createdByUserId,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
             }, ct);
@@ -272,12 +282,12 @@ public class ArtifactService : IArtifactService
     public async Task<AppResult<StorylineTimeline>> GetStorylineTimelineAsync(
         Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct)
     {
-        var allowedScopes = GetAllowedScopes(role);
+        var filter = VisibilityFilter.ForRole(role, requestingUserId);
 
         // Every visible artifact — storylines become lanes; the rest resolve relationship
         // counterpart names. Archived storylines are merge leftovers and stay out.
         var allArtifacts = (await _artifactRepository.ListByWorldAsync(worldId, null, null, ct))
-            .Where(a => allowedScopes.Contains(a.Visibility))
+            .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
             .ToDictionary(a => a.Id);
 
         var storylines = allArtifacts.Values
@@ -294,11 +304,11 @@ public class ArtifactService : IArtifactService
 
         // Hidden truth states are GM knowledge regardless of visibility scope — same gate
         // Ask and Canon apply, so the timeline can't surface them to players either.
-        var facts = (await _factRepository.ListByArtifactIdsAsync(storylineIds, allowedScopes, int.MaxValue, ct))
+        var facts = (await _factRepository.ListByArtifactIdsAsync(storylineIds, filter, int.MaxValue, ct))
             .Where(f => role == WorldRole.GM || f.TruthState != TruthState.Hidden)
             .ToList();
 
-        var relationships = (await _relationshipRepository.ListByArtifactIdsAsync(storylineIds, allowedScopes, ct))
+        var relationships = (await _relationshipRepository.ListByArtifactIdsAsync(storylineIds, filter, ct))
             .DistinctBy(r => r.Id)
             .ToList();
 
@@ -505,7 +515,7 @@ public class ArtifactService : IArtifactService
         Guid artifactId,
         Guid worldId,
         IReadOnlyList<ArtifactRelationship> relationships,
-        IReadOnlyList<VisibilityScope> allowedScopes,
+        VisibilityFilter filter,
         CancellationToken ct)
     {
         var otherIds = relationships
@@ -519,7 +529,7 @@ public class ArtifactService : IArtifactService
             var other = await _artifactRepository.GetByIdAsync(otherId, ct);
             if (other is not null
                 && other.WorldId == worldId
-                && allowedScopes.Contains(other.Visibility))
+                && filter.CanSee(other.Visibility, other.CreatedByUserId))
             {
                 connected.Add(other);
             }
@@ -527,18 +537,4 @@ public class ArtifactService : IArtifactService
 
         return connected;
     }
-
-    /// <summary>
-    /// Maps a world role to the visibility scopes it may read. Artifacts, facts, and
-    /// relationships carry no per-record creator, so Private content is visible to any GM or
-    /// Player in the world. This mirrors the retrieval scoping used by the Loremaster.
-    /// </summary>
-    private static IReadOnlyList<VisibilityScope> GetAllowedScopes(WorldRole role) =>
-        role switch
-        {
-            WorldRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
-            WorldRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
-            WorldRole.Observer => [VisibilityScope.PartyVisible],
-            _ => [VisibilityScope.PartyVisible]
-        };
 }

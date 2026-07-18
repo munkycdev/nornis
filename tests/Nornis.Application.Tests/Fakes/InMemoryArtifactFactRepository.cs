@@ -1,5 +1,6 @@
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Tests.Fakes;
@@ -42,15 +43,21 @@ public class InMemoryArtifactFactRepository : IArtifactFactRepository
         return Task.FromResult(fact);
     }
 
+    public Task DeleteAsync(Guid factId, CancellationToken cancellationToken = default)
+    {
+        _facts.RemoveAll(f => f.Id == factId);
+        return Task.CompletedTask;
+    }
+
     public Task<IReadOnlyList<ArtifactFact>> ListByArtifactIdsAsync(
         IReadOnlyList<Guid> artifactIds,
-        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        VisibilityFilter filter,
         int maxPerArtifact,
         CancellationToken cancellationToken = default)
     {
         var results = _facts
             .Where(f => artifactIds.Contains(f.ArtifactId))
-            .Where(f => allowedVisibilities.Contains(f.Visibility))
+            .Where(f => filter.CanSee(f.Visibility, f.CreatedByUserId))
             .GroupBy(f => f.ArtifactId)
             .SelectMany(g => g.OrderByDescending(f => f.UpdatedAt).Take(maxPerArtifact))
             .ToList();

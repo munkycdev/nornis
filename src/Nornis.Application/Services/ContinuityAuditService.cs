@@ -8,6 +8,7 @@ using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -42,9 +43,6 @@ public class ContinuityAuditService : IContinuityAuditService
     /// </summary>
     public const int MaxFactsPerArtifactInAudit = 25;
     public const int MaxQuotesInAudit = 100;
-
-    private static readonly IReadOnlyList<VisibilityScope> AllScopes =
-        [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private];
 
     public const string SystemPrompt = """
         You are the Continuity Auditor for Nornis, a tabletop RPG world memory system. You read a
@@ -134,10 +132,10 @@ public class ContinuityAuditService : IContinuityAuditService
         var artifactIds = artifacts.Select(a => a.Id).ToList();
 
         var facts = artifactIds.Count > 0
-            ? await _factRepository.ListByArtifactIdsAsync(artifactIds, AllScopes, MaxFactsPerArtifactInAudit, ct)
+            ? await _factRepository.ListByArtifactIdsAsync(artifactIds, VisibilityFilter.All, MaxFactsPerArtifactInAudit, ct)
             : [];
         var relationships = artifactIds.Count > 0
-            ? await _relationshipRepository.ListByArtifactIdsAsync(artifactIds, AllScopes, ct)
+            ? await _relationshipRepository.ListByArtifactIdsAsync(artifactIds, VisibilityFilter.All, ct)
             : [];
 
         var targetIds = new List<Guid>(artifactIds);

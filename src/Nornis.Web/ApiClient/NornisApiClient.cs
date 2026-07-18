@@ -172,6 +172,14 @@ public class NornisApiClient
     public Task<ApiResult<bool>> DeleteSourceAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}/sources/{sourceId}", ct);
 
+    /// <summary>What reprocessing this source would delete, for the confirmation dialog.</summary>
+    public Task<ApiResult<ReprocessPreviewDto>> GetReprocessPreviewAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
+        GetAsync<ReprocessPreviewDto>($"/api/worlds/{worldId}/sources/{sourceId}/reprocess-preview", ct);
+
+    /// <summary>Applies edits, deletes knowledge derived solely from this source, and requeues extraction.</summary>
+    public Task<ApiResult<SourceDetailDto>> ReprocessSourceAsync(Guid worldId, Guid sourceId, ReprocessSourceRequest request, CancellationToken ct = default) =>
+        PostAsync<ReprocessSourceRequest, SourceDetailDto>($"/api/worlds/{worldId}/sources/{sourceId}/reprocess", request, ct);
+
     // ------------------------------------------------------------------ Public --
     // Anonymous read-only endpoints (/w/{slug} pages). Requests go out tokenless on
     // anonymous circuits — BearerTokenHandler no-ops without a token.

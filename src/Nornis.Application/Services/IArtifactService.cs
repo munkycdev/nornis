@@ -20,7 +20,7 @@ public interface IArtifactService
     /// not visible to the requesting role.
     /// </summary>
     /// <summary>Caller-visible artifacts and relationships as a renderable graph.</summary>
-    Task<AppResult<ArtifactGraph>> GetGraphAsync(Guid worldId, WorldRole role, CancellationToken ct);
+    Task<AppResult<ArtifactGraph>> GetGraphAsync(Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct);
 
     Task<AppResult<ArtifactDetail>> GetDetailAsync(
         Guid artifactId,

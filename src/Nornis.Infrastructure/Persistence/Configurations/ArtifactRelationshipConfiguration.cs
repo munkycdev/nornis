@@ -57,5 +57,10 @@ public class ArtifactRelationshipConfiguration : IEntityTypeConfiguration<Artifa
             .WithMany()
             .HasForeignKey(ar => ar.ArtifactBId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(ar => ar.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(ar => ar.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

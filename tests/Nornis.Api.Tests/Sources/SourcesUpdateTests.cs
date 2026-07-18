@@ -288,9 +288,10 @@ public class SourcesUpdateTests
     }
 
     [Test]
-    public async Task UpdateSource_WhenProcessed_Returns409()
+    public async Task UpdateSource_WhenProcessed_MetadataEditIsAllowed()
     {
-        // Arrange
+        // Processed sources accept metadata edits (source-reprocess feature); only body
+        // and visibility changes are blocked — covered by SourceReprocessEndpointTests.
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
             _scenario.World.Id,
@@ -298,14 +299,17 @@ public class SourcesUpdateTests
             title: "Processed Source — Captain Voss Testimony",
             processingStatus: SourceProcessingStatus.Processed);
 
-        var updateRequest = new UpdateSourceRequest(Title: "Attempted Edit After Processed");
+        var updateRequest = new UpdateSourceRequest(Title: "Edited After Processed");
 
         // Act
         var response = await _scenario.GmClient.PutAsJsonAsync(
             $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}", updateRequest);
 
         // Assert
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var updated = await response.Content.ReadFromJsonAsync<SourceResponse>();
+        Assert.That(updated!.Title, Is.EqualTo("Edited After Processed"));
+        Assert.That(updated.ProcessingStatus, Is.EqualTo("Processed"), "metadata edits do not requeue");
     }
 
     #endregion

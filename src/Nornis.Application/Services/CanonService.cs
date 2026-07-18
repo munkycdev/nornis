@@ -2,6 +2,7 @@ using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -24,14 +25,14 @@ public class CanonService : ICanonService
 
     public async Task<AppResult<IReadOnlyList<CanonEntry>>> GetCanonAsync(CanonQuery query, CancellationToken ct)
     {
-        var allowedScopes = GetAllowedScopes(query.ActingUserRole);
+        var filter = VisibilityFilter.ForRole(query.ActingUserRole, query.ActingUserId);
         var isGm = query.ActingUserRole == WorldRole.GM;
 
         // Only artifacts the caller may see contribute to canon. Facts and relationships have
         // no world FK, so world-wide retrieval goes through the visible artifact ids.
         var artifacts = await _artifactRepository.ListByWorldAsync(query.WorldId, null, null, ct);
         var artifactsById = artifacts
-            .Where(a => allowedScopes.Contains(a.Visibility))
+            .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
             .ToDictionary(a => a.Id);
 
         if (artifactsById.Count == 0)
@@ -41,14 +42,14 @@ public class CanonService : ICanonService
 
         var visibleIds = artifactsById.Keys.ToList();
 
-        var facts = await _factRepository.ListByArtifactIdsAsync(visibleIds, allowedScopes, int.MaxValue, ct);
-        var relationships = await _relationshipRepository.ListByArtifactIdsAsync(visibleIds, allowedScopes, ct);
+        var facts = await _factRepository.ListByArtifactIdsAsync(visibleIds, filter, int.MaxValue, ct);
+        var relationships = await _relationshipRepository.ListByArtifactIdsAsync(visibleIds, filter, ct);
 
         var entries = new List<CanonEntry>();
 
         foreach (var fact in facts)
         {
-            if (!allowedScopes.Contains(fact.Visibility))
+            if (!filter.CanSee(fact.Visibility, fact.CreatedByUserId))
                 continue;
             if (!artifactsById.TryGetValue(fact.ArtifactId, out var artifact))
                 continue;
@@ -115,13 +116,4 @@ public class CanonService : ICanonService
             return false;
         return true;
     }
-
-    private static IReadOnlyList<VisibilityScope> GetAllowedScopes(WorldRole role) =>
-        role switch
-        {
-            WorldRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
-            WorldRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
-            WorldRole.Observer => [VisibilityScope.PartyVisible],
-            _ => [VisibilityScope.PartyVisible]
-        };
 }

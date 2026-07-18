@@ -115,6 +115,22 @@ public record UpdateSourceRequest(
     Guid? CampaignId = null,
     bool ClearCampaign = false);
 
+// Mirrors Nornis.Api ReprocessSourceRequest: edits applied atomically with the
+// reprocess; null fields keep current values.
+public record ReprocessSourceRequest(
+    string? Title = null,
+    string? Body = null,
+    string? Uri = null,
+    DateTimeOffset? OccurredAt = null);
+
+// Mirrors Nornis.Api ReprocessPreviewResponse.
+public record ReprocessPreviewDto(
+    IReadOnlyList<string> ArtifactNamesToDelete,
+    IReadOnlyList<string> ArtifactNamesToKeep,
+    int FactsToDelete,
+    int RelationshipsToDelete,
+    int PendingProposalsToDiscard);
+
 public record CampaignDto(
     Guid Id,
     Guid WorldId,

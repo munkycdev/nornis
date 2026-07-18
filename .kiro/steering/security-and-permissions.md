@@ -118,9 +118,15 @@ PartyVisible
 
 Rules:
 
-- `Private`: only creating user unless explicitly shared in future.
+- `Private`: the creating user and world GMs (matching the Source model — GMs see all
+  world content, and the review flow requires it). Knowledge entities (artifacts, facts,
+  relationships) carry `CreatedByUserId` for this; a Private record with no recorded
+  creator is GM-only (fail closed).
 - `GMOnly`: world GMs only.
 - `PartyVisible`: all world members.
+
+All visibility decisions go through `VisibilityFilter` (Nornis.Domain.Models) — do not
+hand-roll role→scope mappings in services or repositories.
 
 ## AI Visibility Rules
 

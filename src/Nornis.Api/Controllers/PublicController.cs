@@ -75,7 +75,7 @@ public class PublicController : ControllerBase
             return PublicNotFound();
         }
 
-        var result = await _artifactService.GetGraphAsync(world.Id, PublicRole, ct);
+        var result = await _artifactService.GetGraphAsync(world.Id, Guid.Empty, PublicRole, ct);
         return result.IsSuccess ? Ok(ArtifactsController.ToGraphResponse(result.Value!)) : PublicNotFound();
     }
 

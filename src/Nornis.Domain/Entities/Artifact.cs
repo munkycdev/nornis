@@ -24,10 +24,18 @@ public class Artifact
 
     public DateTimeOffset UpdatedAt { get; set; }
 
+    /// <summary>
+    /// The user whose source created this artifact (owner for Private visibility).
+    /// Null for unattributable legacy rows — Private + null owner is GM-only.
+    /// </summary>
+    public Guid? CreatedByUserId { get; set; }
+
     public byte[] RowVersion { get; set; } = [];
 
     // Navigation properties
     public World World { get; set; } = null!;
+
+    public User? CreatedByUser { get; set; }
 
     public ICollection<ArtifactFact> ArtifactFacts { get; set; } = [];
 }

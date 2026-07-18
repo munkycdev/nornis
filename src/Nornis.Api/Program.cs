@@ -86,6 +86,7 @@ builder.Services.AddScoped<IWorldMemberService, WorldMemberService>();
 builder.Services.AddScoped<ICampaignService, CampaignService>();
 builder.Services.AddScoped<ICharacterService, CharacterService>();
 builder.Services.AddScoped<ISourceService, SourceService>();
+builder.Services.AddScoped<ISourceReprocessService, SourceReprocessService>();
 builder.Services.AddScoped<ISourceAttachmentService, SourceAttachmentService>();
 builder.Services.AddScoped<IArtifactService, ArtifactService>();
 builder.Services.AddScoped<IArtifactMergeService, ArtifactMergeService>();

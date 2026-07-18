@@ -1,6 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Persistence.Repositories;
@@ -43,19 +44,39 @@ public class ArtifactFactRepository : IArtifactFactRepository
         return fact;
     }
 
+    public async Task DeleteAsync(Guid factId, CancellationToken cancellationToken = default)
+    {
+        var fact = await _context.ArtifactFacts
+            .FirstOrDefaultAsync(f => f.Id == factId, cancellationToken);
+
+        if (fact is null)
+        {
+            return;
+        }
+
+        _context.ArtifactFacts.Remove(fact);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<ArtifactFact>> ListByArtifactIdsAsync(
         IReadOnlyList<Guid> artifactIds,
-        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        VisibilityFilter filter,
         int maxPerArtifact,
         CancellationToken cancellationToken = default)
     {
         if (artifactIds.Count == 0)
             return [];
 
+        // Hoisted locals translate to SQL parameters. The visibility predicate applies
+        // before the per-artifact cap so invisible facts never consume cap slots.
+        var scopes = filter.Scopes;
+        var owner = filter.PrivateOwnerUserId;
+
         var facts = await _context.ArtifactFacts
             .AsNoTracking()
             .Where(f => artifactIds.Contains(f.ArtifactId))
-            .Where(f => allowedVisibilities.Contains(f.Visibility))
+            .Where(f => scopes.Contains(f.Visibility)
+                && (f.Visibility != VisibilityScope.Private || owner == null || f.CreatedByUserId == owner))
             .OrderByDescending(f => f.UpdatedAt)
             .ToListAsync(cancellationToken);
 

@@ -80,6 +80,8 @@ public class ProposalApplicator : IProposalApplicator
             Visibility = visibility,
             Confidence = payload.Confidence,
             Status = ArtifactStatus.Active,
+            // Owner = the source's author: Private knowledge stays with whoever wrote it.
+            CreatedByUserId = source.CreatedByUserId,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -267,6 +269,7 @@ public class ProposalApplicator : IProposalApplicator
             Confidence = payload.Confidence,
             TruthState = truthState,
             Visibility = visibility,
+            CreatedByUserId = source.CreatedByUserId,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -369,6 +372,7 @@ public class ProposalApplicator : IProposalApplicator
             Confidence = payload.Confidence,
             TruthState = truthState,
             Visibility = visibility,
+            CreatedByUserId = source.CreatedByUserId,
             CreatedAt = now,
             UpdatedAt = now
         };

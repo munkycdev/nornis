@@ -155,13 +155,30 @@ public class SourceService : ISourceService
             return AppResult<Source>.Fail(new AppError(403, "forbidden", "Only the source creator or a GM can update this source."));
         }
 
-        // Processing status guards: updates blocked when Queued/Processing/Processed
-        if (source.ProcessingStatus is SourceProcessingStatus.Queued
-            or SourceProcessingStatus.Processing
-            or SourceProcessingStatus.Processed)
+        // Processing status guards: in-flight sources are fully locked. Processed sources
+        // allow metadata edits (title, campaign, date, uri, type) — but body changes must
+        // go through reprocessing (the extracted knowledge derives from the body), and
+        // visibility changes are blocked because derived artifacts are not rescoped.
+        if (source.ProcessingStatus is SourceProcessingStatus.Queued or SourceProcessingStatus.Processing)
         {
             return AppResult<Source>.Fail(new AppError(409, "invalid_status",
                 $"Source cannot be modified while in {source.ProcessingStatus} status."));
+        }
+
+        if (source.ProcessingStatus == SourceProcessingStatus.Processed)
+        {
+            // Value comparison, not presence: clients resend unchanged fields.
+            if (command.Body is not null && command.Body != source.Body)
+            {
+                return AppResult<Source>.Fail(new AppError(409, "body_requires_reprocess",
+                    "This source has been processed. Editing its body requires reprocessing, which deletes knowledge derived solely from it."));
+            }
+
+            if (command.Visibility is not null && command.Visibility != source.Visibility)
+            {
+                return AppResult<Source>.Fail(new AppError(409, "invalid_status",
+                    "Visibility cannot be changed after processing: knowledge derived from this source keeps its original scope."));
+            }
         }
 
         // Validate optional Title if provided
@@ -397,7 +414,8 @@ public class SourceService : ISourceService
         return ValidTransitions.TryGetValue(current, out var validTargets) && validTargets.Contains(target);
     }
 
-    private static AppError? ValidateTitle(string? title)
+    // Shared with SourceReprocessService — one definition of the field rules.
+    internal static AppError? ValidateTitle(string? title)
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -412,7 +430,7 @@ public class SourceService : ISourceService
         return null;
     }
 
-    private static AppError? ValidateBody(string? body)
+    internal static AppError? ValidateBody(string? body)
     {
         if (body is not null && body.Length > 100_000)
         {
@@ -422,7 +440,7 @@ public class SourceService : ISourceService
         return null;
     }
 
-    private static AppError? ValidateUri(string? uri)
+    internal static AppError? ValidateUri(string? uri)
     {
         if (uri is not null && uri.Length > 2_048)
         {

@@ -1,6 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Persistence.Repositories;
@@ -26,6 +27,23 @@ public class ArtifactRepository : IArtifactRepository
         return await _context.Artifacts
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+    }
+
+    public async Task DeleteAsync(Guid artifactId, CancellationToken cancellationToken = default)
+    {
+        // Tracked-load delete: the InMemory provider used in tests lacks ExecuteDelete.
+        // Facts cascade at the database level; the caller guarantees no relationships
+        // or character links remain (see IArtifactRepository).
+        var artifact = await _context.Artifacts
+            .FirstOrDefaultAsync(a => a.Id == artifactId, cancellationToken);
+
+        if (artifact is null)
+        {
+            return;
+        }
+
+        _context.Artifacts.Remove(artifact);
+        await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<Artifact>> ListByWorldAsync(Guid worldId, ArtifactType? type = null, VisibilityScope? visibility = null, CancellationToken cancellationToken = default)
@@ -76,15 +94,20 @@ public class ArtifactRepository : IArtifactRepository
 
     public async Task<IReadOnlyList<Artifact>> ListRecentByWorldAsync(
         Guid worldId,
-        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        VisibilityFilter filter,
         int maxCount,
         CancellationToken cancellationToken = default)
     {
+        // Hoisted locals translate to SQL parameters.
+        var scopes = filter.Scopes;
+        var owner = filter.PrivateOwnerUserId;
+
         return await _context.Artifacts
             .AsNoTracking()
             .Where(a => a.WorldId == worldId
                 && a.Status != ArtifactStatus.Archived
-                && allowedVisibilities.Contains(a.Visibility))
+                && scopes.Contains(a.Visibility)
+                && (a.Visibility != VisibilityScope.Private || owner == null || a.CreatedByUserId == owner))
             .OrderByDescending(a => a.UpdatedAt)
             .Take(maxCount)
             .ToListAsync(cancellationToken);
@@ -93,14 +116,18 @@ public class ArtifactRepository : IArtifactRepository
     public async Task<IReadOnlyList<Artifact>> ListByNamesInTextAsync(
         Guid worldId,
         string text,
-        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        VisibilityFilter filter,
         CancellationToken cancellationToken = default)
     {
+        var scopes = filter.Scopes;
+        var owner = filter.PrivateOwnerUserId;
+
         var candidates = await _context.Artifacts
             .AsNoTracking()
             .Where(a => a.WorldId == worldId
                 && a.Status != ArtifactStatus.Archived
-                && allowedVisibilities.Contains(a.Visibility))
+                && scopes.Contains(a.Visibility)
+                && (a.Visibility != VisibilityScope.Private || owner == null || a.CreatedByUserId == owner))
             .ToListAsync(cancellationToken);
 
         return candidates

@@ -92,7 +92,9 @@
                             <MudSelectItem Value="@type">@Humanize(type)</MudSelectItem>
                         }
                     </MudSelect>
-                    <MudSelect @bind-Value="_editVisibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1">
+                    <MudSelect @bind-Value="_editVisibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1"
+                               Disabled="IsProcessed"
+                               HelperText="@(IsProcessed ? "Locked after processing — derived knowledge keeps its scope." : null)">
                         @foreach (var vis in _visibilities)
                         {
                             <MudSelectItem Value="@vis">@vis</MudSelectItem>
@@ -126,6 +128,15 @@
                 @if (_editError is not null)
                 {
                     <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_editError</MudAlert>
+                }
+
+                @if (IsProcessed)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                        This note has already been processed. Changing its text will delete the knowledge
+                        extracted solely from it and process the note again — you'll see exactly what gets
+                        removed before anything happens.
+                    </MudAlert>
                 }
 
                 <div class="d-flex gap-2">
@@ -262,8 +273,11 @@
     private Guid? _editCampaignId;
     private IReadOnlyList<CampaignDto> _campaigns = [];
 
-    // Edits are rejected server-side once the source is Queued/Processing/Processed.
-    private bool CanEdit => _source?.ProcessingStatus is "Draft" or "Ready" or "Failed";
+    // In-flight sources are locked server-side. Processed sources are editable, but a
+    // body change goes through the reprocess flow (confirm → cascade delete → requeue).
+    private bool CanEdit => _source?.ProcessingStatus is "Draft" or "Ready" or "Failed" or "Processed";
+
+    private bool IsProcessed => _source?.ProcessingStatus == "Processed";
 
     // Deletes are rejected server-side while Queued/Processing.
     private bool CanDelete => _source is not null && _source.ProcessingStatus is not ("Queued" or "Processing");
@@ -432,31 +446,153 @@
 
         // The body lives in the TipTap editor; pull it as markdown once at save.
         var body = _bodyEditor is null ? _editBody : await _bodyEditor.GetMarkdownAsync();
+        var normalizedBody = string.IsNullOrWhiteSpace(body) ? null : body;
 
-        var request = new UpdateSourceRequest(
-            Title: _editTitle.Trim(),
-            Body: string.IsNullOrWhiteSpace(body) ? null : body,
-            Uri: string.IsNullOrWhiteSpace(_editUri) ? null : _editUri,
-            OccurredAt: _editOccurredAt.HasValue ? new DateTimeOffset(DateTime.SpecifyKind(_editOccurredAt.Value, DateTimeKind.Utc), TimeSpan.Zero) : null,
-            Type: _editType,
-            Visibility: _editVisibility,
-            CampaignId: _editCampaignId,
-            ClearCampaign: _editCampaignId is null && _source.CampaignId is not null);
+        var occurredAt = _editOccurredAt.HasValue
+            ? new DateTimeOffset(DateTime.SpecifyKind(_editOccurredAt.Value, DateTimeKind.Utc), TimeSpan.Zero)
+            : (DateTimeOffset?)null;
 
-        var result = await Api.UpdateSourceAsync(Worlds.Current.Id, _source.Id, request);
+        ApiResult<SourceDetailDto> result;
+        var reprocessed = false;
+
+        // TipTap's markdown round-trip is not byte-stable, so compare trimmed text —
+        // an untouched body must not trigger the reprocess flow.
+        var bodyChanged = (normalizedBody ?? string.Empty).Trim() != (_source.Body ?? string.Empty).Trim();
+
+        if (IsProcessed && bodyChanged)
+        {
+            result = await ReprocessWithConfirmationAsync(normalizedBody, occurredAt);
+            if (result.Error?.Code == "canceled")
+            {
+                _saving = false;
+                StateHasChanged();
+                return; // user backed out of the confirmation — stay in the editor
+            }
+            reprocessed = result.IsSuccess;
+        }
+        else if (IsProcessed)
+        {
+            // Metadata-only: never send body or visibility for a processed source.
+            result = await Api.UpdateSourceAsync(Worlds.Current.Id, _source.Id, new UpdateSourceRequest(
+                Title: _editTitle.Trim(),
+                Uri: string.IsNullOrWhiteSpace(_editUri) ? null : _editUri,
+                OccurredAt: occurredAt,
+                Type: _editType,
+                CampaignId: _editCampaignId,
+                ClearCampaign: _editCampaignId is null && _source.CampaignId is not null));
+        }
+        else
+        {
+            result = await Api.UpdateSourceAsync(Worlds.Current.Id, _source.Id, new UpdateSourceRequest(
+                Title: _editTitle.Trim(),
+                Body: normalizedBody,
+                Uri: string.IsNullOrWhiteSpace(_editUri) ? null : _editUri,
+                OccurredAt: occurredAt,
+                Type: _editType,
+                Visibility: _editVisibility,
+                CampaignId: _editCampaignId,
+                ClearCampaign: _editCampaignId is null && _source.CampaignId is not null));
+        }
 
         _saving = false;
         if (result.IsSuccess)
         {
             _source = result.Value!;
             _editing = false;
-            Snackbar.Add("Source updated.", Severity.Success);
+            Snackbar.Add(reprocessed
+                ? "Note updated — old knowledge removed, reprocessing queued."
+                : "Source updated.", Severity.Success);
         }
         else
         {
             _editError = result.Error!.Message;
         }
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// The reprocess path: fetch the cascade preview, confirm with the user, apply any
+    /// metadata changes while the source is still editable, then reprocess. Returns a
+    /// synthetic "canceled" error when the user backs out.
+    /// </summary>
+    private async Task<ApiResult<SourceDetailDto>> ReprocessWithConfirmationAsync(
+        string? body, DateTimeOffset? occurredAt)
+    {
+        var preview = await Api.GetReprocessPreviewAsync(Worlds.Current!.Id, _source!.Id);
+        if (!preview.IsSuccess)
+        {
+            return ApiResult<SourceDetailDto>.Fail(preview.Error!);
+        }
+
+        var confirmed = await DialogService.ShowMessageBox(
+            "Reprocess this note?",
+            BuildReprocessSummary(preview.Value!),
+            yesText: "Delete & Reprocess", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return ApiResult<SourceDetailDto>.Fail(new ApiError("canceled", "Canceled."));
+        }
+
+        // Type/campaign changes ride the regular update while the source is still
+        // Processed — after the reprocess it is Queued and locked.
+        if (_editType != _source.Type || _editCampaignId != _source.CampaignId)
+        {
+            var metadata = await Api.UpdateSourceAsync(Worlds.Current.Id, _source.Id, new UpdateSourceRequest(
+                Type: _editType,
+                CampaignId: _editCampaignId,
+                ClearCampaign: _editCampaignId is null && _source.CampaignId is not null));
+            if (!metadata.IsSuccess)
+            {
+                return metadata;
+            }
+        }
+
+        return await Api.ReprocessSourceAsync(Worlds.Current.Id, _source.Id, new ReprocessSourceRequest(
+            Title: _editTitle.Trim(),
+            Body: body,
+            Uri: string.IsNullOrWhiteSpace(_editUri) ? null : _editUri,
+            OccurredAt: occurredAt));
+    }
+
+    private static MarkupString BuildReprocessSummary(ReprocessPreviewDto preview)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append("Saving this text change permanently deletes what was learned solely from this note:");
+        sb.Append("<ul style=\"margin: 0.75em 0; padding-left: 1.4em;\">");
+
+        if (preview.ArtifactNamesToDelete.Count > 0)
+        {
+            var names = string.Join(", ", preview.ArtifactNamesToDelete.Take(8).Select(System.Net.WebUtility.HtmlEncode));
+            var more = preview.ArtifactNamesToDelete.Count > 8 ? $" and {preview.ArtifactNamesToDelete.Count - 8} more" : "";
+            sb.Append($"<li><b>{preview.ArtifactNamesToDelete.Count}</b> artifact(s): {names}{more}</li>");
+        }
+        if (preview.FactsToDelete > 0)
+        {
+            sb.Append($"<li><b>{preview.FactsToDelete}</b> fact(s)</li>");
+        }
+        if (preview.RelationshipsToDelete > 0)
+        {
+            sb.Append($"<li><b>{preview.RelationshipsToDelete}</b> relationship(s)</li>");
+        }
+        if (preview.PendingProposalsToDiscard > 0)
+        {
+            sb.Append($"<li><b>{preview.PendingProposalsToDiscard}</b> unreviewed proposal(s) will be discarded</li>");
+        }
+        if (preview.ArtifactNamesToDelete.Count == 0 && preview.FactsToDelete == 0
+            && preview.RelationshipsToDelete == 0 && preview.PendingProposalsToDiscard == 0)
+        {
+            sb.Append("<li>Nothing — no accepted knowledge traces back only to this note.</li>");
+        }
+        sb.Append("</ul>");
+
+        if (preview.ArtifactNamesToKeep.Count > 0)
+        {
+            var kept = string.Join(", ", preview.ArtifactNamesToKeep.Take(8).Select(System.Net.WebUtility.HtmlEncode));
+            sb.Append($"<p style=\"margin: 0.5em 0;\">Kept (other sources build on them): {kept}.</p>");
+        }
+
+        sb.Append("<p style=\"margin: 0.5em 0 0;\">The note is then processed again and new proposals will appear in the review queue.</p>");
+        return new MarkupString(sb.ToString());
     }
 
     private async Task DeleteAsync()

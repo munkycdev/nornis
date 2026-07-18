@@ -26,6 +26,20 @@ public class InMemorySourceReferenceRepository : ISourceReferenceRepository
         return Task.FromResult<IReadOnlyList<SourceReference>>(references.AsReadOnly());
     }
 
+    public Task<IReadOnlyList<SourceReference>> ListBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default)
+    {
+        var references = _references
+            .Where(r => r.SourceId == sourceId)
+            .ToList();
+        return Task.FromResult<IReadOnlyList<SourceReference>>(references.AsReadOnly());
+    }
+
+    public Task DeleteBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default)
+    {
+        _references.RemoveAll(r => r.SourceId == sourceId);
+        return Task.CompletedTask;
+    }
+
     public Task<IReadOnlyList<SourceReference>> ListByTargetIdsAsync(IReadOnlyList<Guid> targetIds, CancellationToken cancellationToken = default)
     {
         if (targetIds.Count == 0)

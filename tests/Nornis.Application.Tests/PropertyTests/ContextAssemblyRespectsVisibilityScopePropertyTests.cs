@@ -19,12 +19,12 @@ namespace Nornis.Application.Tests.PropertyTests;
 /// Property 9: Context Assembly Respects Visibility Scope
 ///
 /// For any source with a given VisibilityScope, the artifacts included in the context
-/// SHALL only contain artifacts whose visibility is permitted for that scope:
-/// Private sources include only Private artifacts (of the same creator);
+/// SHALL only contain artifacts the source's readers may see (VisibilityFilter.ForSourceContext):
+/// Private sources include only Private artifacts OWNED BY THE SOURCE'S CREATOR;
 /// GMOnly sources include GMOnly and PartyVisible artifacts;
 /// PartyVisible sources include only PartyVisible artifacts.
 ///
-/// **Validates: Requirements 4.5**
+/// **Validates: Requirements 4.5, amended by the Private ownership policy**
 /// </summary>
 [TestFixture]
 [Category("Feature: async-source-extraction, Property 9: Context Assembly Respects Visibility Scope")]
@@ -38,7 +38,7 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
             ExtractionGenerators.SourceVisibilityScenario.ToArbitrary(),
             scenario =>
             {
-                var (sourceVisibility, allowedScopes) = scenario;
+                var (sourceVisibility, _) = scenario;
 
                 // Arrange
                 var worldId = Guid.NewGuid();
@@ -57,8 +57,11 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                     ProcessingStatus = SourceProcessingStatus.Queued
                 };
 
-                // Create artifacts for each visibility scope
-                var privateArtifact = CreateArtifact(worldId, "Captain Voss", VisibilityScope.Private);
+                // Create artifacts for each visibility scope. The Private one belongs to
+                // the source's creator; a second Private artifact owned by someone else
+                // must never appear in context regardless of source visibility.
+                var privateArtifact = CreateArtifact(worldId, "Captain Voss", VisibilityScope.Private, creatorUserId);
+                var foreignPrivateArtifact = CreateArtifact(worldId, "Black Harbor Rival", VisibilityScope.Private, Guid.NewGuid());
                 var gmOnlyArtifact = CreateArtifact(worldId, "Black Harbor", VisibilityScope.GMOnly);
                 var partyVisibleArtifact = CreateArtifact(worldId, "Iron Gate", VisibilityScope.PartyVisible);
 
@@ -112,7 +115,7 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
 
                 // Seed data
                 sourceRepo.Seed(source);
-                artifactRepo.Seed(privateArtifact, gmOnlyArtifact, partyVisibleArtifact);
+                artifactRepo.Seed(privateArtifact, foreignPrivateArtifact, gmOnlyArtifact, partyVisibleArtifact);
 
                 // Configure AI to return a valid response
                 fakeAiClient.SetupSuccess(new AiExtractionResponse
@@ -143,25 +146,25 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                 service.ProcessExtractionAsync(source.Id, source.WorldId, CancellationToken.None)
                     .GetAwaiter().GetResult();
 
-                // Assert: the AI request's ExistingArtifacts only contains permitted visibility artifacts
+                // Assert: the AI request's ExistingArtifacts only contains artifacts the
+                // source's readers may see — the same policy the service applies.
                 var request = fakeAiClient.Requests.Single();
                 var contextArtifactNames = request.ExistingArtifacts.Select(a => a.Name).ToList();
 
-                // Determine which artifacts should and should not appear
+                var filter = Nornis.Domain.Models.VisibilityFilter.ForSourceContext(sourceVisibility, creatorUserId);
+
                 var allArtifacts = new[]
                 {
-                    (privateArtifact.Name, privateArtifact.Visibility),
-                    (gmOnlyArtifact.Name, gmOnlyArtifact.Visibility),
-                    (partyVisibleArtifact.Name, partyVisibleArtifact.Visibility)
+                    privateArtifact, foreignPrivateArtifact, gmOnlyArtifact, partyVisibleArtifact
                 };
 
                 var expectedNames = allArtifacts
-                    .Where(a => allowedScopes.Contains(a.Visibility))
+                    .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
                     .Select(a => a.Name)
                     .ToHashSet();
 
                 var forbiddenNames = allArtifacts
-                    .Where(a => !allowedScopes.Contains(a.Visibility))
+                    .Where(a => !filter.CanSee(a.Visibility, a.CreatedByUserId))
                     .Select(a => a.Name)
                     .ToHashSet();
 
@@ -190,15 +193,8 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
             {
                 var (sourceVisibility, artifactCount) = tuple;
 
-                var allowedScopes = sourceVisibility switch
-                {
-                    VisibilityScope.Private => new[] { VisibilityScope.Private },
-                    VisibilityScope.GMOnly => new[] { VisibilityScope.GMOnly, VisibilityScope.PartyVisible },
-                    VisibilityScope.PartyVisible => new[] { VisibilityScope.PartyVisible },
-                    _ => new[] { VisibilityScope.PartyVisible }
-                };
-
                 var worldId = Guid.NewGuid();
+                var creatorUserId = Guid.NewGuid();
 
                 // Create a source with a body that contains some artifact names
                 var source = new Source
@@ -209,16 +205,26 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                     Title = "Random Session",
                     Body = "We explored the area and found interesting things.",
                     CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
-                    CreatedByUserId = Guid.NewGuid(),
+                    CreatedByUserId = creatorUserId,
                     Visibility = sourceVisibility,
                     ProcessingStatus = SourceProcessingStatus.Queued
                 };
 
-                // Generate artifacts with mixed visibilities
+                // The policy the service must apply for this source's readers.
+                var filter = Nornis.Domain.Models.VisibilityFilter.ForSourceContext(sourceVisibility, creatorUserId);
+
+                // Generate artifacts with mixed visibilities and mixed owners: alternating
+                // between the source's creator, another user, and unowned (legacy) rows.
                 var artifacts = Enumerable.Range(0, artifactCount).Select(i =>
                 {
                     var vis = (VisibilityScope)(i % 3); // Cycles through Private(0), GMOnly(1), PartyVisible(2)
-                    return CreateArtifact(worldId, $"Artifact-{i}", vis);
+                    Guid? owner = (i % 3) switch
+                    {
+                        0 when i % 2 == 0 => creatorUserId,
+                        0 => Guid.NewGuid(),
+                        _ => null
+                    };
+                    return CreateArtifact(worldId, $"Artifact-{i}", vis, owner);
                 }).ToArray();
 
                 var sourceRepo = new InMemorySourceRepository();
@@ -306,21 +312,21 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                 var request = fakeAiClient.Requests.Single();
                 var contextArtifactNames = request.ExistingArtifacts.Select(a => a.Name).ToHashSet();
 
-                // Check that no artifact with a forbidden visibility leaked into context
+                // Check that no artifact the source's readers may not see leaked into context
                 var forbiddenArtifacts = artifacts
-                    .Where(a => !allowedScopes.Contains(a.Visibility))
+                    .Where(a => !filter.CanSee(a.Visibility, a.CreatedByUserId))
                     .Select(a => a.Name)
                     .ToList();
 
                 var noForbiddenLeaked = !contextArtifactNames.Any(n => forbiddenArtifacts.Contains(n));
 
-                // Check that all artifacts in context have a permitted visibility
+                // Check that all artifacts in context pass the ownership-aware policy
                 var contextArtifactsFromSource = artifacts
                     .Where(a => contextArtifactNames.Contains(a.Name))
                     .ToList();
 
                 var allContextHavePermittedVisibility = contextArtifactsFromSource
-                    .All(a => allowedScopes.Contains(a.Visibility));
+                    .All(a => filter.CanSee(a.Visibility, a.CreatedByUserId));
 
                 return noForbiddenLeaked
                     .Label($"No forbidden-visibility artifacts should appear in context for {sourceVisibility} source")
@@ -329,7 +335,7 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
             });
     }
 
-    private static Artifact CreateArtifact(Guid worldId, string name, VisibilityScope visibility) => new()
+    private static Artifact CreateArtifact(Guid worldId, string name, VisibilityScope visibility, Guid? createdByUserId = null) => new()
     {
         Id = Guid.NewGuid(),
         WorldId = worldId,
@@ -337,6 +343,7 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
         Name = name,
         Summary = $"Summary of {name}",
         Visibility = visibility,
+        CreatedByUserId = createdByUserId,
         Confidence = 0.8m,
         Status = ArtifactStatus.Active,
         CreatedAt = DateTimeOffset.UtcNow.AddDays(-10),

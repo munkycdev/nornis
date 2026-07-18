@@ -6,6 +6,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Infrastructure.Knowledge;
 using NUnit.Framework;
 
@@ -113,9 +114,10 @@ public class KeywordBasedArtifactRetrievalTests
         var retriever = new KeywordKnowledgeRetriever(
             artifactRepo, factRepo, relationshipRepo, sourceRefRepo, options);
 
-        // Determine if visibility should allow access
-        var allowedScopes = KeywordKnowledgeRetriever.GetAllowedScopes(scenario.Role);
-        var shouldBeVisible = allowedScopes.Contains(scenario.ArtifactVisibility);
+        // Determine if visibility should allow access. The seeded artifact has no owner
+        // (CreatedByUserId null), so Private is GM-only under the ownership policy.
+        var filter = VisibilityFilter.ForRole(scenario.Role, userId);
+        var shouldBeVisible = filter.CanSee(scenario.ArtifactVisibility, artifact.CreatedByUserId);
 
         // Act
         var context = await retriever.RetrieveAsync(
@@ -202,8 +204,8 @@ public class KeywordBasedArtifactRetrievalTests
         // The named artifact should appear (if visible), while the unrelated artifact
         // may or may not appear (via recent retrieval). The key assertion is that
         // the named artifact IS present when visible.
-        var allowedScopes = KeywordKnowledgeRetriever.GetAllowedScopes(scenario.Role);
-        var namedVisible = allowedScopes.Contains(VisibilityScope.PartyVisible);
+        var filter = VisibilityFilter.ForRole(scenario.Role, userId);
+        var namedVisible = filter.CanSee(VisibilityScope.PartyVisible, namedArtifact.CreatedByUserId);
 
         if (namedVisible)
         {

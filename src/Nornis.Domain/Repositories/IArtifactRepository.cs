@@ -1,5 +1,6 @@
-﻿using Nornis.Domain.Entities;
+using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 
 namespace Nornis.Domain.Repositories;
 
@@ -13,6 +14,12 @@ public interface IArtifactRepository
 
     Task<Artifact> UpdateAsync(Artifact artifact, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Hard-deletes an artifact. Facts cascade at the database level; callers must ensure
+    /// no relationships remain (their FK is Restrict) and clear character links first.
+    /// </summary>
+    Task DeleteAsync(Guid artifactId, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<Artifact>> SearchByNameAsync(Guid worldId, string searchTerm, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -22,23 +29,24 @@ public interface IArtifactRepository
     Task<IReadOnlyList<Artifact>> ListByExactNameAsync(Guid worldId, string name, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Recent artifacts for AI context/retrieval. Excludes Archived artifacts —
-    /// they are merge leftovers and must not re-enter extraction or ask context.
+    /// Recent artifacts for AI context/retrieval, limited to what the reader may see.
+    /// Excludes Archived artifacts — they are merge leftovers and must not re-enter
+    /// extraction or ask context.
     /// </summary>
     Task<IReadOnlyList<Artifact>> ListRecentByWorldAsync(
         Guid worldId,
-        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        VisibilityFilter filter,
         int maxCount,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Artifacts whose names appear in the given text, for AI context/retrieval.
-    /// Excludes Archived artifacts — they are merge leftovers and must not
-    /// re-enter extraction or ask context.
+    /// Artifacts whose names appear in the given text, for AI context/retrieval,
+    /// limited to what the reader may see. Excludes Archived artifacts — they are
+    /// merge leftovers and must not re-enter extraction or ask context.
     /// </summary>
     Task<IReadOnlyList<Artifact>> ListByNamesInTextAsync(
         Guid worldId,
         string text,
-        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        VisibilityFilter filter,
         CancellationToken cancellationToken = default);
 }

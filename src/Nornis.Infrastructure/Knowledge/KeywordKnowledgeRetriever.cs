@@ -3,6 +3,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Knowledge;
@@ -36,23 +37,19 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
         WorldRole role,
         CancellationToken ct)
     {
-        var allowedScopes = GetAllowedScopes(role);
+        // Owner-aware filter: a Player's Private scope covers only their own rows.
+        var filter = VisibilityFilter.ForRole(role, userId);
 
         // 1. Name-matched artifacts
         var nameMatched = await _artifactRepository.ListByNamesInTextAsync(
-            worldId, question, allowedScopes, ct);
+            worldId, question, filter, ct);
 
         // 2. Recent artifacts
         var recent = await _artifactRepository.ListRecentByWorldAsync(
-            worldId, allowedScopes, _options.MaxRetrievalCount, ct);
+            worldId, filter, _options.MaxRetrievalCount, ct);
 
         // 3. Merge and deduplicate (name-matched first, then recent), cap at MaxRetrievalCount
         var artifacts = MergeAndDeduplicate(nameMatched, recent, _options.MaxRetrievalCount);
-
-        // Filter Private artifacts: only include those owned by the requesting user
-        // Note: Artifact entity doesn't have a CreatedByUserId, so Private artifacts
-        // returned by the repository are already filtered by visibility scope at query level.
-        // The repository methods accept allowedVisibilities which handles visibility filtering.
 
         if (artifacts.Count == 0)
         {
@@ -71,16 +68,16 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
         // the visibility scope on the fact itself (parity with CanonService).
         var isGm = role == WorldRole.GM;
         var allFacts = await _artifactFactRepository.ListByArtifactIdsAsync(
-            artifactIds, allowedScopes, _options.MaxFactsPerArtifact, ct);
+            artifactIds, filter, _options.MaxFactsPerArtifact, ct);
 
         var filteredFacts = allFacts
-            .Where(f => IsVisibleToUser(f.Visibility, allowedScopes))
+            .Where(f => filter.CanSee(f.Visibility, f.CreatedByUserId))
             .Where(f => isGm || f.TruthState != TruthState.Hidden)
             .ToList();
 
         // 5. Load relationships filtered by visibility, with the same Hidden gate
         var relationships = (await _artifactRelationshipRepository.ListByArtifactIdsAsync(
-                artifactIds, allowedScopes, ct))
+                artifactIds, filter, ct))
             .Where(r => isGm || r.TruthState != TruthState.Hidden)
             .ToList();
 
@@ -102,18 +99,6 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
             SourceReferences = sourceReferences.Select(MapSourceReference).ToList()
         };
     }
-
-    internal static IReadOnlyList<VisibilityScope> GetAllowedScopes(WorldRole role) =>
-        role switch
-        {
-            WorldRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
-            WorldRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
-            WorldRole.Observer => [VisibilityScope.PartyVisible],
-            _ => [VisibilityScope.PartyVisible]
-        };
-
-    private static bool IsVisibleToUser(VisibilityScope visibility, IReadOnlyList<VisibilityScope> allowedScopes) =>
-        allowedScopes.Contains(visibility);
 
     private static IReadOnlyList<Artifact> MergeAndDeduplicate(
         IReadOnlyList<Artifact> nameMatched,

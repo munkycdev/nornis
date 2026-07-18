@@ -99,12 +99,14 @@ public class ExtractionServiceContextAssemblyTests
     private Artifact CreateArtifact(
         string name,
         VisibilityScope visibility = VisibilityScope.PartyVisible,
-        DateTimeOffset? updatedAt = null)
+        DateTimeOffset? updatedAt = null,
+        Guid? createdByUserId = null)
     {
         return new Artifact
         {
             Id = Guid.NewGuid(),
             WorldId = WorldId,
+            CreatedByUserId = createdByUserId,
             Type = ArtifactType.Character,
             Name = name,
             Summary = $"{name} summary",
@@ -246,13 +248,16 @@ public class ExtractionServiceContextAssemblyTests
         _sourceRepository.Seed(source);
 
         var privateArtifact = CreateArtifact("Captain Voss", VisibilityScope.Private,
-            updatedAt: DateTimeOffset.UtcNow.AddMinutes(-1));
+            updatedAt: DateTimeOffset.UtcNow.AddMinutes(-1), createdByUserId: source.CreatedByUserId);
+        // Another user's Private artifact must not enter this source's AI context.
+        var otherUsersPrivate = CreateArtifact("Rival Journal", VisibilityScope.Private,
+            updatedAt: DateTimeOffset.UtcNow.AddMinutes(-1), createdByUserId: Guid.NewGuid());
         var gmArtifact = CreateArtifact("GM Secret", VisibilityScope.GMOnly,
             updatedAt: DateTimeOffset.UtcNow.AddMinutes(-2));
         var partyArtifact = CreateArtifact("Party Knowledge", VisibilityScope.PartyVisible,
             updatedAt: DateTimeOffset.UtcNow.AddMinutes(-3));
 
-        _artifactRepository.Seed(privateArtifact, gmArtifact, partyArtifact);
+        _artifactRepository.Seed(privateArtifact, otherUsersPrivate, gmArtifact, partyArtifact);
         ConfigureSuccessfulAiResponse();
 
         // Act

@@ -14,11 +14,16 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// <summary>
 /// Property 7: Processing Status Guards on Update
 ///
-/// For any source with ProcessingStatus of Queued, Processing, or Processed,
+/// For any source with ProcessingStatus of Queued or Processing (in-flight),
 /// any update request (regardless of whether the actor is the creator or a GM)
-/// should be rejected with an error indicating the source cannot be modified in its current processing state.
+/// should be rejected with an error indicating the source cannot be modified in its
+/// current processing state.
 ///
-/// **Validates: Requirements 3.3**
+/// Processed sources allow metadata edits, but body and visibility changes are
+/// rejected — a body change must go through the reprocess flow instead
+/// (see SourceReprocessService).
+///
+/// **Validates: Requirements 3.3, amended by source-reprocess**
 /// </summary>
 [TestFixture]
 [Category("Feature: world-sources, Property 7: Processing Status Guards on Update")]
@@ -115,8 +120,89 @@ public class SourceProcessingStatusGuardsOnUpdateTests
 }
 
 /// <summary>
+/// Processed sources: metadata edits pass, body/visibility changes are rejected with a
+/// pointer to the reprocess flow.
+/// </summary>
+[TestFixture]
+[Category("Feature: source-reprocess")]
+public class SourceProcessedUpdateGuardTests
+{
+    private InMemorySourceRepository _sourceRepo = null!;
+    private SourceService _service = null!;
+    private Source _source = null!;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _sourceRepo = new InMemorySourceRepository();
+        _service = new SourceService(_sourceRepo, new InMemoryWorldMemberRepository(),
+            new InMemoryCampaignRepository(), new FakeExtractionQueueClient(),
+            new InMemoryReviewBatchRepository(), new InMemorySourceAttachmentRepository(),
+            new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
+
+        _source = new Source
+        {
+            Id = Guid.NewGuid(),
+            WorldId = Guid.NewGuid(),
+            Type = SourceType.SessionNote,
+            Title = "Session 4",
+            Body = "Captain Voss denied knowing about the missing caravan",
+            Visibility = VisibilityScope.PartyVisible,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedByUserId = Guid.NewGuid()
+        };
+        _sourceRepo.Seed(_source);
+    }
+
+    private UpdateSourceCommand Command(string? title = null, string? body = null, VisibilityScope? visibility = null) =>
+        new(_source.Id, _source.WorldId, _source.CreatedByUserId, WorldRole.Player,
+            Title: title, Body: body, Visibility: visibility);
+
+    [Test]
+    public async Task Processed_MetadataOnlyEdit_Succeeds()
+    {
+        var result = await _service.UpdateAsync(Command(title: "Session 4 (renamed)"), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.Title, Is.EqualTo("Session 4 (renamed)"));
+        Assert.That(result.Value.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Processed));
+    }
+
+    [Test]
+    public async Task Processed_BodyChange_IsRejectedWithReprocessPointer()
+    {
+        var result = await _service.UpdateAsync(Command(body: "a different body"), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("body_requires_reprocess"));
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(409));
+    }
+
+    [Test]
+    public async Task Processed_UnchangedBodyResent_Succeeds()
+    {
+        // Clients resend the whole form; an identical body must not trip the guard.
+        var result = await _service.UpdateAsync(
+            Command(title: "Renamed", body: _source.Body), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+    }
+
+    [Test]
+    public async Task Processed_VisibilityChange_IsRejected()
+    {
+        var result = await _service.UpdateAsync(
+            Command(visibility: VisibilityScope.GMOnly), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(409));
+    }
+}
+
+/// <summary>
 /// Input model for processing status guard on update scenarios.
-/// Represents a source in a blocked processing state (Queued, Processing, or Processed).
+/// Represents a source in a blocked processing state (Queued or Processing).
 /// </summary>
 public record ProcessingStatusUpdateScenario(Source ExistingSource);
 
@@ -154,11 +240,11 @@ public class ProcessingStatusGuardUpdateArbitraries
             VisibilityScope.GMOnly,
             VisibilityScope.PartyVisible);
 
-        // Only statuses that should block updates
+        // Only statuses that block ALL updates. Processed sources allow metadata
+        // edits and are covered by the Processed-specific tests below.
         var blockedStatusGen = Gen.Elements(
             SourceProcessingStatus.Queued,
-            SourceProcessingStatus.Processing,
-            SourceProcessingStatus.Processed);
+            SourceProcessingStatus.Processing);
 
         var gen =
             from worldId in ArbMap.Default.GeneratorFor<Guid>()

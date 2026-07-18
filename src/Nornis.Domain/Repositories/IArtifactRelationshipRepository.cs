@@ -1,5 +1,6 @@
-﻿using Nornis.Domain.Entities;
+using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 
 namespace Nornis.Domain.Repositories;
 
@@ -13,7 +14,7 @@ public interface IArtifactRelationshipRepository
 
     Task<IReadOnlyList<ArtifactRelationship>> ListByArtifactIdsAsync(
         IReadOnlyList<Guid> artifactIds,
-        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        VisibilityFilter filter,
         CancellationToken cancellationToken = default);
 
     Task<ArtifactRelationship> UpdateAsync(ArtifactRelationship relationship, CancellationToken cancellationToken = default);

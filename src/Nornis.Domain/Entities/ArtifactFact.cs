@@ -22,8 +22,16 @@ public class ArtifactFact
 
     public DateTimeOffset UpdatedAt { get; set; }
 
+    /// <summary>
+    /// The user whose source created this fact (owner for Private visibility).
+    /// Null for unattributable legacy rows — Private + null owner is GM-only.
+    /// </summary>
+    public Guid? CreatedByUserId { get; set; }
+
     public byte[] RowVersion { get; set; } = [];
 
     // Navigation properties
     public Artifact Artifact { get; set; } = null!;
+
+    public User? CreatedByUser { get; set; }
 }

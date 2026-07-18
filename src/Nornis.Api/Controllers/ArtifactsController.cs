@@ -192,9 +192,10 @@ public class ArtifactsController : ControllerBase
     [HttpGet("graph")]
     public async Task<IActionResult> GetGraph(Guid worldId, CancellationToken ct)
     {
+        var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        var result = await _artifactService.GetGraphAsync(worldId, member.Role, ct);
+        var result = await _artifactService.GetGraphAsync(worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {

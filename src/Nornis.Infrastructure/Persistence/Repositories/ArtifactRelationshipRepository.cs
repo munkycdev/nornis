@@ -1,6 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Persistence.Repositories;
@@ -38,17 +39,22 @@ public class ArtifactRelationshipRepository : IArtifactRelationshipRepository
 
     public async Task<IReadOnlyList<ArtifactRelationship>> ListByArtifactIdsAsync(
         IReadOnlyList<Guid> artifactIds,
-        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        VisibilityFilter filter,
         CancellationToken cancellationToken = default)
     {
         if (artifactIds.Count == 0)
             return [];
 
+        // Hoisted locals translate to SQL parameters.
+        var scopes = filter.Scopes;
+        var owner = filter.PrivateOwnerUserId;
+
         return await _context.ArtifactRelationships
             .AsNoTracking()
             .Where(ar =>
                 (artifactIds.Contains(ar.ArtifactAId) || artifactIds.Contains(ar.ArtifactBId))
-                && allowedVisibilities.Contains(ar.Visibility))
+                && scopes.Contains(ar.Visibility)
+                && (ar.Visibility != VisibilityScope.Private || owner == null || ar.CreatedByUserId == owner))
             .ToListAsync(cancellationToken);
     }
 

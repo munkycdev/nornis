@@ -1,5 +1,6 @@
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Tests.Fakes;
@@ -36,7 +37,7 @@ public class InMemoryArtifactRelationshipRepository : IArtifactRelationshipRepos
 
     public Task<IReadOnlyList<ArtifactRelationship>> ListByArtifactIdsAsync(
         IReadOnlyList<Guid> artifactIds,
-        IReadOnlyList<VisibilityScope> allowedVisibilities,
+        VisibilityFilter filter,
         CancellationToken cancellationToken = default)
     {
         if (artifactIds.Count == 0)
@@ -45,7 +46,7 @@ public class InMemoryArtifactRelationshipRepository : IArtifactRelationshipRepos
         var results = _relationships
             .Where(r =>
                 (artifactIds.Contains(r.ArtifactAId) || artifactIds.Contains(r.ArtifactBId))
-                && allowedVisibilities.Contains(r.Visibility))
+                && filter.CanSee(r.Visibility, r.CreatedByUserId))
             .ToList();
         return Task.FromResult<IReadOnlyList<ArtifactRelationship>>(results.AsReadOnly());
     }

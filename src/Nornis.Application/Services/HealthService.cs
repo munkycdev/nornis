@@ -1,6 +1,7 @@
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -11,9 +12,6 @@ public class HealthService : IHealthService
     private readonly IArtifactFactRepository _factRepository;
     private readonly IArtifactRelationshipRepository _relationshipRepository;
     private readonly ISourceReferenceRepository _sourceReferenceRepository;
-
-    private static readonly IReadOnlyList<VisibilityScope> AllScopes =
-        [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private];
 
     private const int RecencyWindowDays = 30;
 
@@ -41,8 +39,8 @@ public class HealthService : IHealthService
 
         var artifactIds = artifacts.Select(a => a.Id).ToList();
 
-        var facts = await _factRepository.ListByArtifactIdsAsync(artifactIds, AllScopes, int.MaxValue, ct);
-        var relationships = await _relationshipRepository.ListByArtifactIdsAsync(artifactIds, AllScopes, ct);
+        var facts = await _factRepository.ListByArtifactIdsAsync(artifactIds, VisibilityFilter.All, int.MaxValue, ct);
+        var relationships = await _relationshipRepository.ListByArtifactIdsAsync(artifactIds, VisibilityFilter.All, ct);
 
         var statementCount = facts.Count + relationships.Count;
 

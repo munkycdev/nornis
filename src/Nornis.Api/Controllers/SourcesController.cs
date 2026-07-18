@@ -235,6 +235,63 @@ public class SourcesController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("{sourceId:guid}/reprocess-preview")]
+    public async Task<IActionResult> GetReprocessPreview(
+        Guid worldId,
+        Guid sourceId,
+        [FromServices] ISourceReprocessService reprocessService,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await reprocessService.PreviewAsync(sourceId, worldId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var preview = result.Value!;
+        return Ok(new ReprocessPreviewResponse(
+            preview.ArtifactNamesToDelete,
+            preview.ArtifactNamesToKeep,
+            preview.FactsToDelete,
+            preview.RelationshipsToDelete,
+            preview.PendingProposalsToDiscard));
+    }
+
+    [HttpPost("{sourceId:guid}/reprocess")]
+    public async Task<IActionResult> Reprocess(
+        Guid worldId,
+        Guid sourceId,
+        [FromBody] ReprocessSourceRequest request,
+        [FromServices] ISourceReprocessService reprocessService,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var command = new ReprocessSourceCommand(
+            SourceId: sourceId,
+            WorldId: worldId,
+            ActingUserId: user.Id,
+            ActingUserRole: member.Role,
+            Title: request.Title,
+            Body: request.Body,
+            Uri: request.Uri,
+            OccurredAt: request.OccurredAt);
+
+        var result = await reprocessService.ReprocessAsync(command, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return Ok(ToSourceResponse(result.Value!));
+    }
+
     [HttpPost("{sourceId:guid}/ready")]
     public async Task<IActionResult> MarkReady(Guid worldId, Guid sourceId, CancellationToken ct)
     {

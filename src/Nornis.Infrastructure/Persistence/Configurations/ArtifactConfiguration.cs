@@ -47,5 +47,12 @@ public class ArtifactConfiguration : IEntityTypeConfiguration<Artifact>
             .WithMany()
             .HasForeignKey(a => a.WorldId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Restrict, not cascade: the artifact already cascades from World, and users
+        // must not take knowledge rows with them (mirrors Source.CreatedByUser).
+        builder.HasOne(a => a.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(a => a.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

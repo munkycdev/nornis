@@ -8,6 +8,7 @@ using Nornis.Application.Models;
 using Nornis.Application.Storage;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -357,15 +358,15 @@ public class ExtractionService : IExtractionService
     private async Task<IReadOnlyList<ArtifactContext>> AssembleContextAsync(
         Source source, Guid worldId, CancellationToken ct)
     {
-        var allowedVisibilities = GetAllowedContextScopes(source.Visibility);
+        var filter = VisibilityFilter.ForSourceContext(source.Visibility, source.CreatedByUserId);
 
         // Load name-matched artifacts
         var nameMatched = await _artifactRepository.ListByNamesInTextAsync(
-            worldId, source.Body!, allowedVisibilities, ct);
+            worldId, source.Body!, filter, ct);
 
         // Load recent artifacts
         var recent = await _artifactRepository.ListRecentByWorldAsync(
-            worldId, allowedVisibilities, _options.MaxArtifactContextCount, ct);
+            worldId, filter, _options.MaxArtifactContextCount, ct);
 
         // Merge: name-matched first, then recent, deduplicate by Id
         var seen = new HashSet<Guid>();
@@ -405,7 +406,7 @@ public class ExtractionService : IExtractionService
         var artifactIds = merged.Select(a => a.Id).ToList();
         var includeHiddenTruths = source.Visibility == VisibilityScope.GMOnly;
         var facts = (await _artifactFactRepository.ListByArtifactIdsAsync(
-                artifactIds, allowedVisibilities, _options.MaxFactsPerArtifact, ct))
+                artifactIds, filter, _options.MaxFactsPerArtifact, ct))
             .Where(f => includeHiddenTruths || f.TruthState != TruthState.Hidden)
             .ToList();
 
@@ -421,7 +422,7 @@ public class ExtractionService : IExtractionService
         var parentNameByChild = new Dictionary<Guid, string>();
         if (storylineIds.Count > 0)
         {
-            var partOfLinks = (await _artifactRelationshipRepository.ListByArtifactIdsAsync(storylineIds, allowedVisibilities, ct))
+            var partOfLinks = (await _artifactRelationshipRepository.ListByArtifactIdsAsync(storylineIds, filter, ct))
                 .Where(r => r.Type == ArtifactService.PartOfRelationshipType && storylineIds.Contains(r.ArtifactAId))
                 .DistinctBy(r => r.ArtifactAId)
                 .ToList();
@@ -866,14 +867,6 @@ public class ExtractionService : IExtractionService
         };
     }
 
-    private static IReadOnlyList<VisibilityScope> GetAllowedContextScopes(VisibilityScope sourceVisibility) =>
-        sourceVisibility switch
-        {
-            VisibilityScope.Private => [VisibilityScope.Private],
-            VisibilityScope.GMOnly => [VisibilityScope.GMOnly, VisibilityScope.PartyVisible],
-            VisibilityScope.PartyVisible => [VisibilityScope.PartyVisible],
-            _ => [VisibilityScope.PartyVisible]
-        };
 
     private static ReviewChangeType ParseChangeType(string changeType) =>
         Enum.Parse<ReviewChangeType>(changeType);

@@ -69,7 +69,7 @@ public class ArtifactServiceTests
         _artifactRepo.Seed(
             MakeArtifact("Captain Voss", VisibilityScope.PartyVisible),
             MakeArtifact("Hidden Ledger", VisibilityScope.GMOnly),
-            MakeArtifact("Party Private Note", VisibilityScope.Private));
+            MakeArtifact("Party Private Note", VisibilityScope.Private, createdByUserId: _tavrinUserId));
 
         var query = new ArtifactListQuery(_worldId, _tavrinUserId, WorldRole.Player);
 
@@ -381,13 +381,15 @@ public class ArtifactServiceTests
         VisibilityScope visibility,
         ArtifactType type = ArtifactType.Character,
         ArtifactStatus status = ArtifactStatus.Active,
-        Guid? worldId = null)
+        Guid? worldId = null,
+        Guid? createdByUserId = null)
     {
         var now = DateTimeOffset.UtcNow;
         return new Artifact
         {
             Id = Guid.NewGuid(),
             WorldId = worldId ?? _worldId,
+            CreatedByUserId = createdByUserId,
             Type = type,
             Name = name,
             Summary = null,

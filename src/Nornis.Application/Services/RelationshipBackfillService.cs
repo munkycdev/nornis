@@ -7,6 +7,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -203,15 +204,15 @@ public class RelationshipBackfillService : IRelationshipBackfillService
     {
         // Same visibility rule as extraction: a PartyVisible source must never see (or
         // link) GM-only material.
-        var allowed = GetAllowedContextScopes(source.Visibility).ToHashSet();
+        var filter = VisibilityFilter.ForSourceContext(source.Visibility, source.CreatedByUserId);
 
         var storylines = (await _artifactRepository.ListByWorldAsync(worldId, ArtifactType.Storyline, null, ct))
-            .Where(a => allowed.Contains(a.Visibility))
+            .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
             .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         var events = (await _artifactRepository.ListByWorldAsync(worldId, ArtifactType.Event, null, ct))
-            .Where(a => allowed.Contains(a.Visibility))
+            .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
             .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -220,7 +221,7 @@ public class RelationshipBackfillService : IRelationshipBackfillService
 
         var existing = candidateIds.Count == 0
             ? []
-            : (await _relationshipRepository.ListByArtifactIdsAsync(candidateIds, allowed.ToList(), ct))
+            : (await _relationshipRepository.ListByArtifactIdsAsync(candidateIds, filter, ct))
                 .Where(r => idSet.Contains(r.ArtifactAId) && idSet.Contains(r.ArtifactBId))
                 .ToList();
 
@@ -529,14 +530,6 @@ public class RelationshipBackfillService : IRelationshipBackfillService
              + response.OutputTokens * pricing.OutputPerMillionTokensUsd / 1_000_000m;
     }
 
-    private static IReadOnlyList<VisibilityScope> GetAllowedContextScopes(VisibilityScope sourceVisibility) =>
-        sourceVisibility switch
-        {
-            VisibilityScope.Private => [VisibilityScope.Private],
-            VisibilityScope.GMOnly => [VisibilityScope.GMOnly, VisibilityScope.PartyVisible],
-            VisibilityScope.PartyVisible => [VisibilityScope.PartyVisible],
-            _ => [VisibilityScope.PartyVisible]
-        };
 
     private static bool IsPermanentHttpFailure(HttpRequestException ex) =>
         ex.StatusCode is { } status

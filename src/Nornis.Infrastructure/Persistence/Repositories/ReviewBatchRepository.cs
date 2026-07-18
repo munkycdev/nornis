@@ -43,6 +43,14 @@ public class ReviewBatchRepository : IReviewBatchRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ReviewBatch>> ListBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default)
+    {
+        return await _context.ReviewBatches
+            .AsNoTracking()
+            .Where(rb => rb.SourceId == sourceId)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> ExistsForSourceAsync(Guid sourceId, string kind, CancellationToken cancellationToken = default)
     {
         return await _context.ReviewBatches

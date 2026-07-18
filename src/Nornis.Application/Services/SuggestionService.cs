@@ -1,6 +1,7 @@
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -48,18 +49,18 @@ public class SuggestionService : ISuggestionService
         WorldRole role,
         CancellationToken ct)
     {
-        var allowedScopes = GetAllowedScopes(role);
+        var filter = VisibilityFilter.ForRole(role, userId);
         var seed = DaySeed(worldId);
 
         var recent = await _artifactRepository.ListRecentByWorldAsync(
-            worldId, allowedScopes, RecentArtifactWindow, ct);
+            worldId, filter, RecentArtifactWindow, ct);
 
         // One candidate pool per category, in selection priority order.
         var pools = new List<(string Category, List<string> Candidates)>
         {
             ("storyline", StorylineCandidates(recent)),
             ("character", CharacterCandidates(recent)),
-            ("rumor", await RumorCandidatesAsync(recent, role, allowedScopes, ct)),
+            ("rumor", await RumorCandidatesAsync(recent, role, filter, ct)),
             ("world", WorldCandidates(recent)),
             ("recap", await RecapCandidatesAsync(worldId, userId, role, ct)),
         };
@@ -139,18 +140,18 @@ public class SuggestionService : ISuggestionService
     private async Task<List<string>> RumorCandidatesAsync(
         IReadOnlyList<Artifact> recent,
         WorldRole role,
-        IReadOnlyList<VisibilityScope> allowedScopes,
+        VisibilityFilter filter,
         CancellationToken ct)
     {
         if (recent.Count == 0)
             return [];
 
         var facts = await _artifactFactRepository.ListByArtifactIdsAsync(
-            recent.Select(a => a.Id).ToList(), allowedScopes, MaxFactsPerArtifact, ct);
+            recent.Select(a => a.Id).ToList(), filter, MaxFactsPerArtifact, ct);
 
         var isGm = role == WorldRole.GM;
         var hasUnconfirmed = facts.Any(f =>
-            allowedScopes.Contains(f.Visibility) &&
+            filter.CanSee(f.Visibility, f.CreatedByUserId) &&
             (isGm || f.TruthState != TruthState.Hidden) &&
             f.TruthState is TruthState.Rumor or TruthState.Disputed);
 
@@ -182,14 +183,6 @@ public class SuggestionService : ISuggestionService
             _ => source.Visibility == VisibilityScope.PartyVisible
         };
 
-    private static IReadOnlyList<VisibilityScope> GetAllowedScopes(WorldRole role) =>
-        role switch
-        {
-            WorldRole.GM => [VisibilityScope.PartyVisible, VisibilityScope.GMOnly, VisibilityScope.Private],
-            WorldRole.Player => [VisibilityScope.PartyVisible, VisibilityScope.Private],
-            WorldRole.Observer => [VisibilityScope.PartyVisible],
-            _ => [VisibilityScope.PartyVisible]
-        };
 
     /// <summary>
     /// Stable FNV-1a hash of the world id and the current UTC date, so suggestions

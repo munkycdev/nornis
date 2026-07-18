@@ -11,6 +11,9 @@ public interface IReviewBatchRepository
 
     Task<ReviewBatch?> GetBySourceIdAsync(Guid sourceId, CancellationToken cancellationToken = default);
 
+    /// <summary>All batches for a source, extraction and backfill kinds alike.</summary>
+    Task<IReadOnlyList<ReviewBatch>> ListBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default);
+
     /// <summary>Whether a batch of the given kind exists for the source (sweep idempotency).</summary>
     Task<bool> ExistsForSourceAsync(Guid sourceId, string kind, CancellationToken cancellationToken = default);
 

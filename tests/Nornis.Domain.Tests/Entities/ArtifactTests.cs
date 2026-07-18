@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using NUnit.Framework;
@@ -119,6 +119,6 @@ public class ArtifactTests
     public void Artifact_Has_Expected_Property_Count()
     {
         var properties = _type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        Assert.That(properties, Has.Length.EqualTo(13));
+        Assert.That(properties, Has.Length.EqualTo(15));
     }
 }
