@@ -160,4 +160,92 @@
     }
 
     window.nornisTimeline = { init, destroy };
+
+    // ------------------------------------------------------------- fast tooltips --
+    // Custom tooltip for [data-nornis-tip] elements (SVG or HTML). Native <title>
+    // tooltips carry a fixed ~1s browser delay and can't be styled; this shows after
+    // a short delay (instantly when moving between tipped elements, like native
+    // menus), follows the pointer, and renders multi-line content. Delegated on the
+    // document and self-initializing, so Blazor re-renders never detach it.
+    const TIP_DELAY_MS = 120;
+    const TIP_WARM_MS = 400; // moving between tips within this window skips the delay
+
+    let tipEl = null;
+    let tipTimer = 0;
+    let tipTarget = null;
+    let lastHiddenAt = 0;
+
+    function ensureTipEl() {
+        if (!tipEl) {
+            tipEl = document.createElement('div');
+            tipEl.className = 'nornis-tip-bubble';
+            tipEl.setAttribute('role', 'tooltip');
+            document.body.appendChild(tipEl);
+        }
+        return tipEl;
+    }
+
+    function positionTip(x, y) {
+        const el = ensureTipEl();
+        const pad = 12;
+        const rect = el.getBoundingClientRect();
+        let left = x + pad;
+        let top = y + pad + 4;
+        if (left + rect.width > window.innerWidth - 8) {
+            left = x - rect.width - pad;
+        }
+        if (top + rect.height > window.innerHeight - 8) {
+            top = y - rect.height - pad;
+        }
+        el.style.left = Math.max(8, left) + 'px';
+        el.style.top = Math.max(8, top) + 'px';
+    }
+
+    function showTip(target, x, y) {
+        const text = target.getAttribute('data-nornis-tip');
+        if (!text) return;
+        const el = ensureTipEl();
+        el.textContent = text;
+        el.classList.add('nornis-tip-visible');
+        positionTip(x, y);
+    }
+
+    function hideTip() {
+        clearTimeout(tipTimer);
+        tipTimer = 0;
+        if (tipTarget) {
+            lastHiddenAt = performance.now();
+        }
+        tipTarget = null;
+        if (tipEl) {
+            tipEl.classList.remove('nornis-tip-visible');
+        }
+    }
+
+    document.addEventListener('pointerover', e => {
+        const target = e.target.closest?.('[data-nornis-tip]');
+        if (!target || target === tipTarget) return;
+
+        hideTip();
+        tipTarget = target;
+        const { clientX, clientY } = e;
+        const warm = performance.now() - lastHiddenAt < TIP_WARM_MS;
+        tipTimer = setTimeout(() => showTip(target, clientX, clientY), warm ? 0 : TIP_DELAY_MS);
+    });
+
+    document.addEventListener('pointerout', e => {
+        if (tipTarget && !tipTarget.contains(e.relatedTarget)) {
+            hideTip();
+        }
+    });
+
+    document.addEventListener('pointermove', e => {
+        if (tipTarget && tipEl?.classList.contains('nornis-tip-visible')) {
+            positionTip(e.clientX, e.clientY);
+        }
+    });
+
+    // Clicks navigate and scrolls shift the layout under the pointer — drop the tip.
+    document.addEventListener('pointerdown', hideTip, true);
+    document.addEventListener('scroll', hideTip, true);
 })();

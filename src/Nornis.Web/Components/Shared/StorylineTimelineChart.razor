@@ -54,9 +54,8 @@ else
                 @foreach (var session in Data.Sessions.Where(s => s.StorylineCount >= 2))
                 {
                     var sx = X(session.OccurredAt);
-                    <line x1="@sx" y1="@PlotTop" x2="@sx" y2="@LaneBottom" stroke="rgba(63,96,121,0.16)" stroke-width="3">
-                        <title>@SessionTitle(session)</title>
-                    </line>
+                    <line x1="@sx" y1="@PlotTop" x2="@sx" y2="@LaneBottom" stroke="rgba(63,96,121,0.16)" stroke-width="3"
+                          data-nornis-tip="@SessionTitle(session)" />
                 }
 
                 @* Axis baseline + session ticks *@
@@ -65,25 +64,22 @@ else
                 {
                     var sx = X(session.OccurredAt);
                     <line x1="@sx" y1="@LaneBottom" x2="@sx" y2="@(LaneBottom + 8)"
-                          stroke="@(session.StorylineCount >= 2 ? "#3F6079" : "rgba(42,59,76,0.45)")" stroke-width="2">
-                        <title>@SessionTitle(session)</title>
-                    </line>
+                          stroke="@(session.StorylineCount >= 2 ? "#3F6079" : "rgba(42,59,76,0.45)")" stroke-width="2"
+                          data-nornis-tip="@SessionTitle(session)" />
                 }
 
                 @* Fork and merge connectors (drawn beneath the lane dots) *@
                 @foreach (var connector in Connectors)
                 {
-                    <path d="@connector.Path" fill="none" stroke="@connector.Color" stroke-width="1.5" opacity="0.7">
-                        <title>@connector.Title</title>
-                    </path>
+                    <path d="@connector.Path" fill="none" stroke="@connector.Color" stroke-width="1.5" opacity="0.7"
+                          data-nornis-tip="@connector.Title" />
                 }
 
                 @* Non-hierarchy storyline links stay dashed *@
                 @foreach (var link in DrawableLinks)
                 {
-                    <path d="@link.Path" fill="none" stroke="#9AA5B1" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.8">
-                        <title>@link.Title</title>
-                    </path>
+                    <path d="@link.Path" fill="none" stroke="#9AA5B1" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.8"
+                          data-nornis-tip="@link.Title" />
                 }
 
                 @* Lane tracks and dots *@
@@ -98,19 +94,22 @@ else
                     @if (last > first)
                     {
                         <line x1="@first" y1="@y" x2="@last" y2="@y" stroke="@color" stroke-width="2" opacity="0.45" />
+                        @* Invisible wide hit target: the 2px track is too thin to hover reliably. *@
+                        <line x1="@first" y1="@y" x2="@last" y2="@y" stroke="transparent" stroke-width="12"
+                              data-nornis-tip="@LaneTitle(lane)" />
                     }
 
                     @foreach (var point in lane.Points)
                     {
                         var px = X(point.OccurredAt);
                         var r = 4 + Math.Min(point.Developments.Count - 1, 3);
-                        <g style="cursor:pointer" @onclick="@(() => Nav.NavigateTo($"{SourceLinkBase}/{point.SourceId}"))">
+                        <g style="cursor:pointer" data-nornis-tip="@PointTitle(lane, point)"
+                           @onclick="@(() => Nav.NavigateTo($"{SourceLinkBase}/{point.SourceId}"))">
                             @if (point.Developments.Any(d => d.IsOpenQuestion))
                             {
                                 <circle cx="@px" cy="@y" r="@(r + 4)" fill="none" stroke="@color" stroke-width="1.5" opacity="0.55" />
                             }
                             <circle cx="@px" cy="@y" r="@r" fill="@color" stroke="#FDFBF7" stroke-width="2" />
-                            <title>@PointTitle(lane, point)</title>
                         </g>
                     }
                 }
@@ -130,7 +129,7 @@ else
                     var lane = row.Lane;
                     <div class="nornis-timeline-label @(CanEdit ? "nornis-timeline-draggable" : "")"
                          style="top:@(row.Top)px; height:@(row.Height)px; width:@(GutterWidth - 8)px; padding-left:@(8 + row.Depth * 16)px"
-                         title="@lane.Name (@lane.Status)@(CanEdit ? " — drag onto another storyline's row to nest it" : "")"
+                         data-nornis-tip="@(LaneTitle(lane) + (CanEdit ? "\nDrag onto another storyline's row to nest it" : ""))"
                          data-storyline-id="@(CanEdit ? lane.StorylineId.ToString() : null)"
                          @onclick="@(() => Nav.NavigateTo($"{ArtifactLinkBase}/{lane.StorylineId}"))">
                         <span class="nornis-graph-dot" style="background:@StatusColor(lane.Status)"></span>
@@ -338,6 +337,8 @@ else
     // Razor reserves the <text> tag, so SVG text elements are emitted as raw markup.
     private static MarkupString SvgText(int x, int y, int fontSize, string fill, string content) =>
         new($"<text x=\"{x}\" y=\"{y}\" font-size=\"{fontSize}\" fill=\"{fill}\">{System.Net.WebUtility.HtmlEncode(content)}</text>");
+
+    private static string LaneTitle(TimelineLaneDto lane) => $"{lane.Name} ({lane.Status})";
 
     private static string SessionTitle(TimelineSessionDto s) =>
         $"{s.Title} — {s.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}"

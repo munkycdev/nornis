@@ -2465,6 +2465,28 @@ a.nornis-cite:hover {
     color: #2A3B4C;
 }
 
+/* Fast custom tooltip for [data-nornis-tip] elements (see nornis-timeline.js). */
+.nornis-tip-bubble {
+    position: fixed;
+    z-index: 10000;
+    pointer-events: none;
+    display: none;
+    max-width: 340px;
+    white-space: pre-line;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: #FDFBF7;
+    border: 1px solid rgba(63, 96, 121, 0.45);
+    box-shadow: 0 4px 14px rgba(14, 46, 74, 0.18);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: #2A3B4C;
+}
+
+.nornis-tip-bubble.nornis-tip-visible {
+    display: block;
+}
+
 /* --------------------------------------------------------------- Library --- */
 
 .nornis-upload-input {

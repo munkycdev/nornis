@@ -2,8 +2,6 @@
 
 ## List of unprocessed features
 
-* Timeline
-  * When mousing over a tree, give the name of the associated storyline in a tooltip. When hovering over a session, indicate the name and relevant detail about why it's marked with the storyline in the tooltip.
 ---
 
 ## Open questions on storylines
