@@ -128,6 +128,7 @@ public class SourceProcessingStatusGuardsOnUpdateTests
 public class SourceProcessedUpdateGuardTests
 {
     private InMemorySourceRepository _sourceRepo = null!;
+    private InMemoryReviewBatchRepository _batchRepo = null!;
     private SourceService _service = null!;
     private Source _source = null!;
 
@@ -135,9 +136,10 @@ public class SourceProcessedUpdateGuardTests
     public void SetUp()
     {
         _sourceRepo = new InMemorySourceRepository();
+        _batchRepo = new InMemoryReviewBatchRepository();
         _service = new SourceService(_sourceRepo, new InMemoryWorldMemberRepository(),
             new InMemoryCampaignRepository(), new FakeExtractionQueueClient(),
-            new InMemoryReviewBatchRepository(), new InMemorySourceAttachmentRepository(),
+            _batchRepo, new InMemorySourceAttachmentRepository(),
             new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
 
         _source = new Source
@@ -154,6 +156,17 @@ public class SourceProcessedUpdateGuardTests
         };
         _sourceRepo.Seed(_source);
     }
+
+    /// <summary>The body/visibility locks only apply to sources that were extracted.</summary>
+    private void MarkExtracted() =>
+        _batchRepo.CreateAsync(new ReviewBatch
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _source.WorldId,
+            SourceId = _source.Id,
+            Status = ReviewBatchStatus.Completed,
+            CreatedAt = DateTimeOffset.UtcNow
+        }).GetAwaiter().GetResult();
 
     private UpdateSourceCommand Command(string? title = null, string? body = null, VisibilityScope? visibility = null) =>
         new(_source.Id, _source.WorldId, _source.CreatedByUserId, WorldRole.Player,
@@ -172,11 +185,24 @@ public class SourceProcessedUpdateGuardTests
     [Test]
     public async Task Processed_BodyChange_IsRejectedWithReprocessPointer()
     {
+        MarkExtracted();
+
         var result = await _service.UpdateAsync(Command(body: "a different body"), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("body_requires_reprocess"));
         Assert.That(result.Error!.StatusCode, Is.EqualTo(409));
+    }
+
+    [Test]
+    public async Task Processed_StoredWithoutExtraction_BodyChangeSucceeds()
+    {
+        // No extraction batch: the source was stored, not extracted — no derived
+        // knowledge exists, so its body stays freely editable.
+        var result = await _service.UpdateAsync(Command(body: "a different body"), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.Body, Is.EqualTo("a different body"));
     }
 
     [Test]
@@ -192,6 +218,8 @@ public class SourceProcessedUpdateGuardTests
     [Test]
     public async Task Processed_VisibilityChange_IsRejected()
     {
+        MarkExtracted();
+
         var result = await _service.UpdateAsync(
             Command(visibility: VisibilityScope.GMOnly), CancellationToken.None);
 

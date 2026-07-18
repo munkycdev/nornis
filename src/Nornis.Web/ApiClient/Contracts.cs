@@ -92,7 +92,8 @@ public record SourceDetailDto(
     string Visibility,
     string ProcessingStatus,
     Guid? CampaignId = null,
-    string? CampaignName = null);
+    string? CampaignName = null,
+    bool ExtractionEnabled = true);
 
 public record CreateSourceRequest(
     string Title,
@@ -101,7 +102,8 @@ public record CreateSourceRequest(
     string? Body,
     string? Uri,
     DateTimeOffset? OccurredAt,
-    Guid? CampaignId = null);
+    Guid? CampaignId = null,
+    bool ExtractionEnabled = true);
 
 // Mirrors Nornis.Api UpdateSourceRequest: every field is optional and only non-null
 // fields are applied server-side (partial update).
@@ -113,7 +115,8 @@ public record UpdateSourceRequest(
     string? Type = null,
     string? Visibility = null,
     Guid? CampaignId = null,
-    bool ClearCampaign = false);
+    bool ClearCampaign = false,
+    bool? ExtractionEnabled = null);
 
 // Mirrors Nornis.Api ReprocessSourceRequest: edits applied atomically with the
 // reprocess; null fields keep current values.

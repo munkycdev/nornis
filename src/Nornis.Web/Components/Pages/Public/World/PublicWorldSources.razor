@@ -31,7 +31,7 @@
                         </div>
                         <div class="nornis-list-body">
                             <div class="nornis-list-title">@source.Title</div>
-                            <div class="nornis-list-sub">@Humanize(source.Type) · @((source.OccurredAt ?? source.CreatedAt).LocalDateTime.ToString("d MMM yyyy"))</div>
+                            <div class="nornis-list-sub">@SourceTypeDisplay.Label(source.Type) · @((source.OccurredAt ?? source.CreatedAt).LocalDateTime.ToString("d MMM yyyy"))</div>
                         </div>
                         @if (source.CampaignName is not null)
                         {
@@ -61,6 +61,4 @@
         _sources = result.IsSuccess ? result.Value : [];
     }
 
-    private static string Humanize(string pascal) =>
-        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 }

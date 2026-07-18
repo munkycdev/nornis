@@ -32,6 +32,13 @@ public class Source
 
     public SourceProcessingStatus ProcessingStatus { get; set; }
 
+    /// <summary>
+    /// Whether processing this source runs AI extraction. When false the source is
+    /// stored as part of the record without generating proposals — reference documents,
+    /// flavor writing, and other material that shouldn't touch canon.
+    /// </summary>
+    public bool ExtractionEnabled { get; set; } = true;
+
     // Navigation properties
     public World World { get; set; } = null!;
 

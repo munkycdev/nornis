@@ -102,7 +102,22 @@ public class ExtractionService : IExtractionService
             return ExtractionOutcome.NonTransient(ErrorCategories.SourceNotFound, "Source not found.");
         }
 
-        // 2. Idempotency: check the ReviewBatch first — its presence proves extraction
+        // 2. Extraction opt-out: a queued message for a source stored without extraction
+        //    (flag toggled after enqueue) must not extract. File it instead of leaving it
+        //    claimed by the pipeline.
+        if (!source.ExtractionEnabled)
+        {
+            if (source.ProcessingStatus is SourceProcessingStatus.Queued or SourceProcessingStatus.Processing)
+            {
+                await _sourceRepository.UpdateProcessingStatusAsync(sourceId, SourceProcessingStatus.Processed, ct);
+            }
+
+            _logger.LogInformation(
+                "Source is stored without extraction; skipping. SourceId={SourceId}", sourceId);
+            return ExtractionOutcome.SkippedIdempotent("Source is stored without extraction.");
+        }
+
+        // 3. Idempotency: check the ReviewBatch first — its presence proves extraction
         //    completed even when a crash landed before the final status write.
         var existingBatch = await _reviewBatchRepository.GetBySourceIdAsync(sourceId, ct);
 

@@ -8,4 +8,5 @@ public record UpdateSourceRequest(
     string? Type = null,
     string? Visibility = null,
     Guid? CampaignId = null,
-    bool ClearCampaign = false);
+    bool ClearCampaign = false,
+    bool? ExtractionEnabled = null);

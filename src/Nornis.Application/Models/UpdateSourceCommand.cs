@@ -14,4 +14,5 @@ public record UpdateSourceCommand(
     SourceType? Type = null,
     VisibilityScope? Visibility = null,
     Guid? CampaignId = null,
-    bool ClearCampaign = false);
+    bool ClearCampaign = false,
+    bool? ExtractionEnabled = null);

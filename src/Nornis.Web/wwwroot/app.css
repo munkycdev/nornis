@@ -562,11 +562,9 @@ html, body {
 }
 
 .nornis-hero-mark {
-    font-family: var(--nornis-serif);
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--mud-palette-primary);
-    line-height: 1;
+    height: 34px;
+    width: auto;
+    display: block;
 }
 
 .nornis-hero-title {
@@ -1546,11 +1544,9 @@ a.nornis-cite:hover {
 }
 
 .nornis-public-brand-mark {
-    font-family: var(--nornis-serif);
-    font-size: 1.7rem;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--mud-palette-primary);
+    height: 29px;
+    width: auto;
+    display: block;
 }
 
 .nornis-public-brand-name {

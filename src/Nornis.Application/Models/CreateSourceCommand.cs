@@ -12,4 +12,5 @@ public record CreateSourceCommand(
     string? Body = null,
     string? Uri = null,
     DateTimeOffset? OccurredAt = null,
-    Guid? CampaignId = null);
+    Guid? CampaignId = null,
+    bool ExtractionEnabled = true);

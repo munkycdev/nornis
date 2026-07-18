@@ -96,6 +96,12 @@ public class RelationshipBackfillService : IRelationshipBackfillService
                 $"Source is in {source.ProcessingStatus} status; only Processed sources are swept.");
         }
 
+        // Sources stored without extraction opted out of the AI pipeline entirely.
+        if (!source.ExtractionEnabled)
+        {
+            return ExtractionOutcome.SkippedIdempotent("Source is stored without extraction.");
+        }
+
         if (source.Type == SourceType.ImportedNote && source.Body is not null)
         {
             source.Body = ImportedNoteNormalizer.Normalize(source.Body);

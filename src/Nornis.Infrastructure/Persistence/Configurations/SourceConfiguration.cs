@@ -34,6 +34,11 @@ public class SourceConfiguration : IEntityTypeConfiguration<Source>
             .IsRequired()
             .HasConversion<string>();
 
+        // Default true so existing rows (and raw inserts) keep extracting.
+        builder.Property(s => s.ExtractionEnabled)
+            .IsRequired()
+            .HasDefaultValue(true);
+
         builder.Property(s => s.OccurredAt)
             .HasColumnType("datetimeoffset");
 

@@ -54,7 +54,8 @@ public class SourcesController : ControllerBase
             Body: request.Body,
             Uri: request.Uri,
             OccurredAt: request.OccurredAt,
-            CampaignId: request.CampaignId);
+            CampaignId: request.CampaignId,
+            ExtractionEnabled: request.ExtractionEnabled);
 
         var result = await _sourceService.CreateAsync(command, ct);
 
@@ -204,7 +205,8 @@ public class SourcesController : ControllerBase
             Type: sourceType,
             Visibility: visibility,
             CampaignId: request.CampaignId,
-            ClearCampaign: request.ClearCampaign);
+            ClearCampaign: request.ClearCampaign,
+            ExtractionEnabled: request.ExtractionEnabled);
 
         var result = await _sourceService.UpdateAsync(command, ct);
 
@@ -447,7 +449,8 @@ public class SourcesController : ControllerBase
             Visibility: source.Visibility.ToString(),
             ProcessingStatus: source.ProcessingStatus.ToString(),
             CampaignId: source.CampaignId,
-            CampaignName: source.Campaign?.Name);
+            CampaignName: source.Campaign?.Name,
+            ExtractionEnabled: source.ExtractionEnabled);
     }
 
     internal static SourceListItemResponse ToSourceListItemResponse(Source source)

@@ -32,9 +32,9 @@ else
 
                 <div class="d-flex gap-3 mb-3">
                     <MudSelect @bind-Value="_type" Label="Type" Variant="Variant.Outlined" Class="flex-grow-1">
-                        @foreach (var type in _sourceTypes)
+                        @foreach (var (value, label) in SourceTypeDisplay.CaptureOptions)
                         {
-                            <MudSelectItem Value="@type">@Humanize(type)</MudSelectItem>
+                            <MudSelectItem Value="@value">@label</MudSelectItem>
                         }
                     </MudSelect>
                     <MudSelect @bind-Value="_visibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1">
@@ -113,6 +113,14 @@ else
                     </MudSelect>
                 }
 
+                <MudCheckBox T="bool" @bind-Value="_extractionEnabled" Color="Color.Secondary" Dense="true" Class="mb-1"
+                             Label="Extract knowledge from this source" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3 d-block">
+                    @(_extractionEnabled
+                        ? "Nornis will read it and propose artifacts, facts, and relationships for review."
+                        : "Stored in the record as-is — no proposals, no changes to canon.")
+                </MudText>
+
                 @if (_error is not null)
                 {
                     <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_error</MudAlert>
@@ -127,10 +135,10 @@ else
                     </MudButton>
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Secondary"
-                               StartIcon="@Icons.Material.Filled.AutoAwesome"
+                               StartIcon="@(_extractionEnabled ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Inventory2)"
                                OnClick="() => SaveAsync(process: true)"
                                Disabled="_busy">
-                        Save &amp; process
+                        @(_extractionEnabled ? "Save & process" : "Save to record")
                     </MudButton>
                 </div>
             </MudPaper>
@@ -143,11 +151,6 @@ else
 }
 
 @code {
-    private readonly string[] _sourceTypes =
-    [
-        "SessionNote", "JournalEntry", "Transcript", "GMNote", "WebLink",
-        "Image", "HandwrittenNotes", "Upload", "ImportedNote",
-    ];
 
     private readonly string[] _visibilities = ["PartyVisible", "GMOnly", "Private"];
 
@@ -164,12 +167,13 @@ else
     private DateTime? _occurredAt = DateTime.Today;
     private Guid? _campaignId;
     private IReadOnlyList<CampaignDto> _campaigns = [];
+    private bool _extractionEnabled = true;
     private bool _busy;
     private string? _error;
 
     protected override async Task OnInitializedAsync()
     {
-        if (!string.IsNullOrWhiteSpace(Type) && _sourceTypes.Contains(Type))
+        if (!string.IsNullOrWhiteSpace(Type) && SourceTypeDisplay.IsCaptureOption(Type))
         {
             _type = Type;
         }
@@ -288,7 +292,8 @@ else
             // SpecifyKind: picker dates are Kind.Local, and DateTimeOffset's ctor throws
             // when the kind's implied offset disagrees with the one supplied.
             _occurredAt.HasValue ? new DateTimeOffset(DateTime.SpecifyKind(_occurredAt.Value, DateTimeKind.Utc), TimeSpan.Zero) : null,
-            _campaignId);
+            _campaignId,
+            _extractionEnabled);
 
         var created = await Api.CreateSourceAsync(Worlds.Current.Id, request);
 
@@ -322,12 +327,12 @@ else
         }
 
         _busy = false;
-        Snackbar.Add(process ? "Source saved and queued for processing." : "Draft saved.", Severity.Success);
+        Snackbar.Add(
+            !process ? "Draft saved."
+            : _extractionEnabled ? "Source saved and queued for processing."
+            : "Source stored in the record — no extraction.", Severity.Success);
         Nav.NavigateTo("/sources");
     }
-
-    private static string Humanize(string pascal) =>
-        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 
     private static string FormatSize(long bytes) => bytes switch
     {

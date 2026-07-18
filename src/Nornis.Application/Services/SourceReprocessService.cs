@@ -143,8 +143,12 @@ public class SourceReprocessService : ISourceReprocessService
                 source.OccurredAt = command.OccurredAt;
 
             // Commit Queued BEFORE enqueueing (same invariant as MarkReadyAsync): the
-            // worker skips any message whose source is not Queued.
-            source.ProcessingStatus = SourceProcessingStatus.Queued;
+            // worker skips any message whose source is not Queued. A source stored
+            // without extraction skips the queue entirely — the cascade removed its old
+            // derived knowledge and the edited source is simply filed again.
+            source.ProcessingStatus = source.ExtractionEnabled
+                ? SourceProcessingStatus.Queued
+                : SourceProcessingStatus.Processed;
             source = await _sourceRepository.UpdateAsync(source, ct);
 
             await transaction.CommitAsync(ct);
@@ -165,20 +169,23 @@ public class SourceReprocessService : ISourceReprocessService
             command.SourceId, plan.ArtifactsToDelete.Count, plan.ArtifactsToKeep.Count,
             plan.FactIdsToDelete.Count, plan.RelationshipIdsToDelete.Count);
 
-        try
+        if (source.ExtractionEnabled)
         {
-            await _extractionQueueClient.SendExtractionMessageAsync(source.Id, source.WorldId, ct);
-        }
-        catch (Exception ex)
-        {
-            // The cascade is committed; only the requeue failed. Failed gives the user
-            // the existing retry path (Failed → Ready → Queued via mark-ready).
-            _logger.LogError(ex,
-                "Failed to enqueue reprocess extraction. SourceId={SourceId}", source.Id);
-            source.ProcessingStatus = SourceProcessingStatus.Failed;
-            source = await _sourceRepository.UpdateAsync(source, ct);
-            return AppResult<Source>.Fail(new AppError(502, "enqueue_failed",
-                "The edits were saved and old knowledge was removed, but queueing extraction failed. Retry processing from the source page."));
+            try
+            {
+                await _extractionQueueClient.SendExtractionMessageAsync(source.Id, source.WorldId, ct);
+            }
+            catch (Exception ex)
+            {
+                // The cascade is committed; only the requeue failed. Failed gives the user
+                // the existing retry path (Failed → Ready → Queued via mark-ready).
+                _logger.LogError(ex,
+                    "Failed to enqueue reprocess extraction. SourceId={SourceId}", source.Id);
+                source.ProcessingStatus = SourceProcessingStatus.Failed;
+                source = await _sourceRepository.UpdateAsync(source, ct);
+                return AppResult<Source>.Fail(new AppError(502, "enqueue_failed",
+                    "The edits were saved and old knowledge was removed, but queueing extraction failed. Retry processing from the source page."));
+            }
         }
 
         return AppResult<Source>.Success(source);

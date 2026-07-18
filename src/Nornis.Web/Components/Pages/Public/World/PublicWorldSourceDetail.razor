@@ -24,7 +24,7 @@
                 <div class="flex-grow-1">
                     <MudText Typo="Typo.h4" Class="nornis-serif">@_source.Title</MudText>
                     <div class="nornis-detail-chips">
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@Humanize(_source.Type)</MudChip>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@SourceTypeDisplay.Label(_source.Type)</MudChip>
                         @if (_source.OccurredAt is not null)
                         {
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_source.OccurredAt.Value.LocalDateTime.ToString("d MMM yyyy")</MudChip>
@@ -75,6 +75,4 @@
         _loading = false;
     }
 
-    private static string Humanize(string pascal) =>
-        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 }

@@ -89,13 +89,13 @@ public class SourcesMarkReadyTests
     #region Invalid Status Transitions — Non-Draft Returns 409
 
     [Test]
-    [TestCase(SourceProcessingStatus.Ready)]
     [TestCase(SourceProcessingStatus.Queued)]
     [TestCase(SourceProcessingStatus.Processing)]
     [TestCase(SourceProcessingStatus.Processed)]
-    public async Task MarkReady_FromNonDraftStatus_Returns409(SourceProcessingStatus currentStatus)
+    public async Task MarkReady_FromInFlightOrTerminalStatus_Returns409(SourceProcessingStatus currentStatus)
     {
-        // Arrange — Create a source already in a non-Draft state
+        // Arrange — Create a source already in a non-markable state. (Ready is markable:
+        // it retries a source stranded by an enqueue failure.)
         var source = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
             _scenario.World.Id,
@@ -110,6 +110,24 @@ public class SourcesMarkReadyTests
 
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+    }
+
+    [Test]
+    public async Task MarkReady_FromReady_RetriesQueueing()
+    {
+        // A source stranded at Ready (enqueue failed) can be re-marked to retry.
+        var source = await SourceTestHelpers.CreateTestSourceAsync(
+            _factory,
+            _scenario.World.Id,
+            _scenario.GmUserId,
+            title: "Stranded at Ready — Black Harbor Clue",
+            processingStatus: SourceProcessingStatus.Ready);
+
+        var response = await _scenario.GmClient.PostAsync(MarkReadyUrl(source.Id), null);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var updated = await response.Content.ReadFromJsonAsync<SourceResponse>();
+        Assert.That(updated!.ProcessingStatus, Is.EqualTo("Queued"));
     }
 
     #endregion

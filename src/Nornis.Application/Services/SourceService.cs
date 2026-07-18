@@ -23,7 +23,8 @@ public class SourceService : ISourceService
     private static readonly Dictionary<SourceProcessingStatus, HashSet<SourceProcessingStatus>> ValidTransitions = new()
     {
         [SourceProcessingStatus.Draft] = new() { SourceProcessingStatus.Ready },
-        [SourceProcessingStatus.Ready] = new() { SourceProcessingStatus.Queued },
+        // Ready → Ready lets mark-ready retry a source stranded at Ready (enqueue failure).
+        [SourceProcessingStatus.Ready] = new() { SourceProcessingStatus.Queued, SourceProcessingStatus.Ready },
         [SourceProcessingStatus.Queued] = new() { SourceProcessingStatus.Processing },
         [SourceProcessingStatus.Processing] = new() { SourceProcessingStatus.Processed, SourceProcessingStatus.Failed },
         [SourceProcessingStatus.Processed] = new(),
@@ -108,7 +109,8 @@ public class SourceService : ISourceService
             CreatedAt = now,
             CreatedByUserId = command.CreatingUserId,
             Visibility = command.Visibility,
-            ProcessingStatus = SourceProcessingStatus.Draft
+            ProcessingStatus = SourceProcessingStatus.Draft,
+            ExtractionEnabled = command.ExtractionEnabled
         };
 
         source = await _sourceRepository.CreateAsync(source, ct);
@@ -168,16 +170,26 @@ public class SourceService : ISourceService
         if (source.ProcessingStatus == SourceProcessingStatus.Processed)
         {
             // Value comparison, not presence: clients resend unchanged fields.
-            if (command.Body is not null && command.Body != source.Body)
-            {
-                return AppResult<Source>.Fail(new AppError(409, "body_requires_reprocess",
-                    "This source has been processed. Editing its body requires reprocessing, which deletes knowledge derived solely from it."));
-            }
+            var bodyChanged = command.Body is not null && command.Body != source.Body;
+            var visibilityChanged = command.Visibility is not null && command.Visibility != source.Visibility;
 
-            if (command.Visibility is not null && command.Visibility != source.Visibility)
+            if (bodyChanged || visibilityChanged)
             {
-                return AppResult<Source>.Fail(new AppError(409, "invalid_status",
-                    "Visibility cannot be changed after processing: knowledge derived from this source keeps its original scope."));
+                // Only extraction locks these fields: a source stored without extraction
+                // has no derived knowledge to invalidate and stays freely editable.
+                var extracted = await _reviewBatchRepository.GetBySourceIdAsync(source.Id, ct) is not null;
+
+                if (extracted && bodyChanged)
+                {
+                    return AppResult<Source>.Fail(new AppError(409, "body_requires_reprocess",
+                        "This source has been processed. Editing its body requires reprocessing, which deletes knowledge derived solely from it."));
+                }
+
+                if (extracted && visibilityChanged)
+                {
+                    return AppResult<Source>.Fail(new AppError(409, "invalid_status",
+                        "Visibility cannot be changed after processing: knowledge derived from this source keeps its original scope."));
+                }
             }
         }
 
@@ -255,6 +267,20 @@ public class SourceService : ISourceService
         {
             source.CampaignId = null;
             source.Campaign = null;
+        }
+
+        if (command.ExtractionEnabled is { } extractionEnabled && extractionEnabled != source.ExtractionEnabled)
+        {
+            source.ExtractionEnabled = extractionEnabled;
+
+            // Re-enabling extraction on a stored (never-extracted) Processed source drops
+            // it back to Ready so the Process action becomes available again.
+            if (extractionEnabled
+                && source.ProcessingStatus == SourceProcessingStatus.Processed
+                && await _reviewBatchRepository.GetBySourceIdAsync(source.Id, ct) is null)
+            {
+                source.ProcessingStatus = SourceProcessingStatus.Ready;
+            }
         }
 
         source = await _sourceRepository.UpdateAsync(source, ct);
@@ -356,11 +382,20 @@ public class SourceService : ISourceService
             return AppResult<Source>.Fail(new AppError(403, "forbidden", "Only the source creator or a GM can mark this source as ready."));
         }
 
-        // State machine: only Draft can transition to Ready
+        // State machine: only Draft, Ready (retry), and Failed can be marked ready
         if (!IsValidTransition(source.ProcessingStatus, SourceProcessingStatus.Ready))
         {
             return AppResult<Source>.Fail(new AppError(409, "invalid_transition",
                 $"Cannot transition from {source.ProcessingStatus} to Ready."));
+        }
+
+        // Stored without extraction: "processing" just files the source in the record —
+        // straight to Processed, no queue, no batch, no proposals.
+        if (!source.ExtractionEnabled)
+        {
+            source.ProcessingStatus = SourceProcessingStatus.Processed;
+            source = await _sourceRepository.UpdateAsync(source, ct);
+            return AppResult<Source>.Success(source);
         }
 
         // Transition Draft → Ready

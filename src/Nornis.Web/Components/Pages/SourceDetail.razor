@@ -1,4 +1,4 @@
-﻿@page "/sources/{SourceId:guid}"
+@page "/sources/{SourceId:guid}"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -42,9 +42,14 @@
             <div class="flex-grow-1">
                 <MudText Typo="Typo.h4" Class="nornis-serif">@_source.Title</MudText>
                 <div class="nornis-detail-chips">
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@Humanize(_source.Type)</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@SourceTypeDisplay.Label(_source.Type)</MudChip>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_source.ProcessingStatus)">@_source.ProcessingStatus</MudChip>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@_source.Visibility</MudChip>
+                    @if (!_source.ExtractionEnabled)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default"
+                                 Icon="@Icons.Material.Outlined.Inventory2">No extraction</MudChip>
+                    }
                     @if (_source.CampaignName is not null)
                     {
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary">@_source.CampaignName</MudChip>
@@ -54,11 +59,12 @@
             @if (!_editing)
             {
                 <div class="nornis-detail-actions">
-                    @if (_source.ProcessingStatus is "Draft" or "Failed")
+                    @if (_source.ProcessingStatus is "Draft" or "Ready" or "Failed")
                     {
-                        <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.AutoAwesome"
+                        <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                                   StartIcon="@(_source.ExtractionEnabled ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Inventory2)"
                                    OnClick="ProcessAsync" Disabled="_processing">
-                            Process
+                            @(_source.ExtractionEnabled ? "Process" : "Store")
                         </MudButton>
                     }
                     @if (CanEdit)
@@ -87,9 +93,9 @@
 
                 <div class="d-flex gap-3 mb-3">
                     <MudSelect @bind-Value="_editType" Label="Type" Variant="Variant.Outlined" Class="flex-grow-1">
-                        @foreach (var type in _sourceTypes)
+                        @foreach (var (value, label) in EditTypeOptions)
                         {
-                            <MudSelectItem Value="@type">@Humanize(type)</MudSelectItem>
+                            <MudSelectItem Value="@value">@label</MudSelectItem>
                         }
                     </MudSelect>
                     <MudSelect @bind-Value="_editVisibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1"
@@ -125,12 +131,15 @@
                     </MudSelect>
                 }
 
+                <MudCheckBox T="bool" @bind-Value="_editExtractionEnabled" Color="Color.Secondary" Dense="true" Class="mb-3"
+                             Label="Extract knowledge from this source" />
+
                 @if (_editError is not null)
                 {
                     <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_editError</MudAlert>
                 }
 
-                @if (IsProcessed)
+                @if (IsProcessed && _source.ExtractionEnabled)
                 {
                     <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
                         This note has already been processed. Changing its text will delete the knowledge
@@ -251,12 +260,14 @@
     private SourceAttachmentDto? InkDocument =>
         _attachments.FirstOrDefault(a => a.Kind == "InkDocument" && a.Url is not null);
 
-    // Inline edit form. Mirrors the Capture page's option lists so the two stay in sync.
-    private readonly string[] _sourceTypes =
-    [
-        "SessionNote", "JournalEntry", "Transcript", "GMNote", "WebLink",
-        "Image", "HandwrittenNotes", "Upload", "ImportedNote",
-    ];
+    // Inline edit form. Types come from the shared capture list; a source already
+    // carrying a legacy type (JournalEntry, Transcript) keeps it selectable so an
+    // unrelated edit doesn't silently change the type.
+    private IEnumerable<(string Value, string Label)> EditTypeOptions =>
+        _source is not null && !SourceTypeDisplay.IsCaptureOption(_source.Type)
+            ? SourceTypeDisplay.CaptureOptions.Prepend((_source.Type, SourceTypeDisplay.Label(_source.Type)))
+            : SourceTypeDisplay.CaptureOptions;
+
     private readonly string[] _visibilities = ["PartyVisible", "GMOnly", "Private"];
 
     private bool _editing;
@@ -271,6 +282,7 @@
     private string? _editUri;
     private DateTime? _editOccurredAt;
     private Guid? _editCampaignId;
+    private bool _editExtractionEnabled = true;
     private IReadOnlyList<CampaignDto> _campaigns = [];
 
     // In-flight sources are locked server-side. Processed sources are editable, but a
@@ -395,7 +407,9 @@
         if (result.IsSuccess)
         {
             _source = result.Value!;
-            Snackbar.Add("Source queued for processing.", Severity.Success);
+            Snackbar.Add(_source.ProcessingStatus == "Processed"
+                ? "Source stored in the record — no extraction."
+                : "Source queued for processing.", Severity.Success);
         }
         else
         {
@@ -418,6 +432,7 @@
         _editUri = _source.Uri;
         _editOccurredAt = _source.OccurredAt?.LocalDateTime;
         _editCampaignId = _source.CampaignId;
+        _editExtractionEnabled = _source.ExtractionEnabled;
         _editError = null;
         _editing = true;
     }
@@ -459,27 +474,32 @@
         // an untouched body must not trigger the reprocess flow.
         var bodyChanged = (normalizedBody ?? string.Empty).Trim() != (_source.Body ?? string.Empty).Trim();
 
-        if (IsProcessed && bodyChanged)
+        if (IsProcessed)
         {
-            result = await ReprocessWithConfirmationAsync(normalizedBody, occurredAt);
-            if (result.Error?.Code == "canceled")
-            {
-                _saving = false;
-                StateHasChanged();
-                return; // user backed out of the confirmation — stay in the editor
-            }
-            reprocessed = result.IsSuccess;
-        }
-        else if (IsProcessed)
-        {
-            // Metadata-only: never send body or visibility for a processed source.
+            // Try a plain update first: sources stored without extraction accept body
+            // edits directly, and the server signals with body_requires_reprocess when
+            // extracted knowledge makes the reprocess flow necessary.
             result = await Api.UpdateSourceAsync(Worlds.Current.Id, _source.Id, new UpdateSourceRequest(
                 Title: _editTitle.Trim(),
+                Body: bodyChanged ? normalizedBody : null,
                 Uri: string.IsNullOrWhiteSpace(_editUri) ? null : _editUri,
                 OccurredAt: occurredAt,
                 Type: _editType,
                 CampaignId: _editCampaignId,
-                ClearCampaign: _editCampaignId is null && _source.CampaignId is not null));
+                ClearCampaign: _editCampaignId is null && _source.CampaignId is not null,
+                ExtractionEnabled: _editExtractionEnabled));
+
+            if (result.Error?.Code == "body_requires_reprocess")
+            {
+                result = await ReprocessWithConfirmationAsync(normalizedBody, occurredAt);
+                if (result.Error?.Code == "canceled")
+                {
+                    _saving = false;
+                    StateHasChanged();
+                    return; // user backed out of the confirmation — stay in the editor
+                }
+                reprocessed = result.IsSuccess;
+            }
         }
         else
         {
@@ -491,7 +511,8 @@
                 Type: _editType,
                 Visibility: _editVisibility,
                 CampaignId: _editCampaignId,
-                ClearCampaign: _editCampaignId is null && _source.CampaignId is not null));
+                ClearCampaign: _editCampaignId is null && _source.CampaignId is not null,
+                ExtractionEnabled: _editExtractionEnabled));
         }
 
         _saving = false;
@@ -500,7 +521,9 @@
             _source = result.Value!;
             _editing = false;
             Snackbar.Add(reprocessed
-                ? "Note updated — old knowledge removed, reprocessing queued."
+                ? (_editExtractionEnabled
+                    ? "Note updated — old knowledge removed, reprocessing queued."
+                    : "Note updated — old knowledge removed, stored without extraction.")
                 : "Source updated.", Severity.Success);
         }
         else
@@ -533,14 +556,18 @@
             return ApiResult<SourceDetailDto>.Fail(new ApiError("canceled", "Canceled."));
         }
 
-        // Type/campaign changes ride the regular update while the source is still
-        // Processed — after the reprocess it is Queued and locked.
-        if (_editType != _source.Type || _editCampaignId != _source.CampaignId)
+        // Type/campaign/extraction changes ride the regular update while the source is
+        // still Processed — after the reprocess it is Queued (or re-filed) and locked.
+        // The extraction flag must land first: the reprocess reads it to decide whether
+        // to requeue or just store the edited source.
+        if (_editType != _source.Type || _editCampaignId != _source.CampaignId
+            || _editExtractionEnabled != _source.ExtractionEnabled)
         {
             var metadata = await Api.UpdateSourceAsync(Worlds.Current.Id, _source.Id, new UpdateSourceRequest(
                 Type: _editType,
                 CampaignId: _editCampaignId,
-                ClearCampaign: _editCampaignId is null && _source.CampaignId is not null));
+                ClearCampaign: _editCampaignId is null && _source.CampaignId is not null,
+                ExtractionEnabled: _editExtractionEnabled));
             if (!metadata.IsSuccess)
             {
                 return metadata;
@@ -636,8 +663,6 @@
         _ => Color.Default,
     };
 
-    private static string Humanize(string pascal) =>
-        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 
     public void Dispose()
     {

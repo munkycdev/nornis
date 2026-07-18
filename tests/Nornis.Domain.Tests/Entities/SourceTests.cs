@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using NUnit.Framework;
@@ -127,6 +127,6 @@ public class SourceTests
     public void Source_Has_Expected_Property_Count()
     {
         var properties = _type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        Assert.That(properties, Has.Length.EqualTo(16));
+        Assert.That(properties, Has.Length.EqualTo(17));
     }
 }

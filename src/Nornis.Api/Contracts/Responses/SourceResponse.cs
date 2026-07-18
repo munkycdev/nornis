@@ -13,4 +13,5 @@ public record SourceResponse(
     string Visibility,
     string ProcessingStatus,
     Guid? CampaignId = null,
-    string? CampaignName = null);
+    string? CampaignName = null,
+    bool ExtractionEnabled = true);

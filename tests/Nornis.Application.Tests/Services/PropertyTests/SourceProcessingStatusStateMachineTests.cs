@@ -15,13 +15,13 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// Property 9: Processing Status State Machine
 ///
 /// For any pair of (currentStatus, targetStatus) from the SourceProcessingStatus enum, a status transition
-/// should succeed if and only if the pair matches one of the valid transitions: Draft→Ready, Ready→Queued,
+/// should succeed if and only if the pair matches one of the valid transitions: Draft→Ready, Ready→Queued, Ready→Ready (mark-ready retry),
 /// Queued→Processing, Processing→Processed, Processing→Failed, Failed→Ready. All other transitions should
 /// be rejected.
 ///
 /// The SourceService exposes the state machine publicly via MarkReadyAsync (which enforces Draft→Ready).
 /// Since MarkReadyAsync is the only public transition method, this test validates:
-/// - MarkReadyAsync succeeds only from Draft status (valid transition)
+/// - MarkReadyAsync succeeds from Draft (and Ready as a retry; Failed re-entry is covered by the map)
 /// - MarkReadyAsync from any non-Draft status returns "invalid_transition" error
 ///
 /// **Validates: Requirements 8.1, 8.2, 8.3, 8.4**
@@ -36,7 +36,7 @@ public class SourceProcessingStatusStateMachineTests
     private static readonly Dictionary<SourceProcessingStatus, HashSet<SourceProcessingStatus>> ValidTransitions = new()
     {
         [SourceProcessingStatus.Draft] = new() { SourceProcessingStatus.Ready },
-        [SourceProcessingStatus.Ready] = new() { SourceProcessingStatus.Queued },
+        [SourceProcessingStatus.Ready] = new() { SourceProcessingStatus.Queued, SourceProcessingStatus.Ready },
         [SourceProcessingStatus.Queued] = new() { SourceProcessingStatus.Processing },
         [SourceProcessingStatus.Processing] = new() { SourceProcessingStatus.Processed, SourceProcessingStatus.Failed },
         [SourceProcessingStatus.Processed] = new(),
@@ -133,11 +133,12 @@ public class SourceProcessingStatusStateMachineTests
             && validTargets.Contains(pair.TargetStatus);
 
         // The valid transitions are:
-        // Draft→Ready, Ready→Queued, Queued→Processing, Processing→Processed, Processing→Failed, Failed→Ready
+        // Draft→Ready, Ready→Queued, Ready→Ready (retry), Queued→Processing, Processing→Processed, Processing→Failed, Failed→Ready
         var expectedValidPairs = new HashSet<(SourceProcessingStatus, SourceProcessingStatus)>
         {
             (SourceProcessingStatus.Draft, SourceProcessingStatus.Ready),
             (SourceProcessingStatus.Ready, SourceProcessingStatus.Queued),
+            (SourceProcessingStatus.Ready, SourceProcessingStatus.Ready),
             (SourceProcessingStatus.Queued, SourceProcessingStatus.Processing),
             (SourceProcessingStatus.Processing, SourceProcessingStatus.Processed),
             (SourceProcessingStatus.Processing, SourceProcessingStatus.Failed),

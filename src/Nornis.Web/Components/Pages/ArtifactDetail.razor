@@ -544,7 +544,7 @@
         var isGm = Worlds.Current.MyRole == "GM";
         var request = new CreateSourceRequest(
             Title: $"Note on {_detail.Name} — {DateTime.Now:yyyy-MM-dd}",
-            Type: isGm ? "GMNote" : "JournalEntry",
+            Type: isGm ? "GMNote" : "SessionNote",
             Visibility: _quickAddVisibility,
             Body: $"Regarding {_detail.Name}: {_quickAddText.Trim()}",
             Uri: null,
