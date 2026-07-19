@@ -41,24 +41,38 @@ public class ReferencePassageRetriever : IReferencePassageRetriever
         _logger = logger;
     }
 
-    public async Task<IReadOnlyList<KnowledgePassage>> RetrieveAsync(
+    public Task<IReadOnlyList<KnowledgePassage>> RetrieveAsync(
         string question,
         Guid worldId,
         Guid userId,
         WorldRole role,
         CancellationToken ct)
-    {
-        var allowedScopes = LibraryService.GetAllowedScopes(role);
+        => RetrieveCoreAsync(question, worldId, LibraryService.GetAllowedScopes(role), userId, ct);
 
-        if (!await _documentRepository.AnyIndexedAsync(worldId, allowedScopes, ct))
+    public Task<IReadOnlyList<KnowledgePassage>> RetrieveForScopesAsync(
+        string query,
+        Guid worldId,
+        IReadOnlyList<VisibilityScope> allowedScopes,
+        Guid? attributedUserId,
+        CancellationToken ct)
+        => RetrieveCoreAsync(query, worldId, allowedScopes, attributedUserId, ct);
+
+    private async Task<IReadOnlyList<KnowledgePassage>> RetrieveCoreAsync(
+        string query,
+        Guid worldId,
+        IReadOnlyList<VisibilityScope> allowedScopes,
+        Guid? attributedUserId,
+        CancellationToken ct)
+    {
+        if (allowedScopes.Count == 0 || !await _documentRepository.AnyIndexedAsync(worldId, allowedScopes, ct))
         {
             return [];
         }
 
         try
         {
-            var embedding = await _embeddingClient.EmbedAsync([question], ct);
-            await TrackUsageAsync(worldId, userId, embedding.InputTokens, ct);
+            var embedding = await _embeddingClient.EmbedAsync([query], ct);
+            await TrackUsageAsync(worldId, attributedUserId, embedding.InputTokens, ct);
 
             var hits = await _chunkRepository.SearchAsync(
                 worldId, embedding.Embeddings[0], allowedScopes, _options.RetrievalTopK, ct);
@@ -77,7 +91,7 @@ public class ReferencePassageRetriever : IReferencePassageRetriever
         }
         catch (Exception ex)
         {
-            // Reference passages enrich an answer; their failure must never sink the ask.
+            // Reference passages enrich the result; their failure must never sink the primary op.
             _logger.LogError(ex, "Reference passage retrieval failed for world {WorldId}", worldId);
             return [];
         }
@@ -124,7 +138,7 @@ public class ReferencePassageRetriever : IReferencePassageRetriever
             .ToList();
     }
 
-    private async Task TrackUsageAsync(Guid worldId, Guid userId, int inputTokens, CancellationToken ct)
+    private async Task TrackUsageAsync(Guid worldId, Guid? userId, int inputTokens, CancellationToken ct)
     {
         try
         {

@@ -21,4 +21,16 @@ public interface IReferencePassageRetriever
         Guid userId,
         Domain.Enums.WorldRole role,
         CancellationToken ct);
+
+    /// <summary>
+    /// Retrieves passages for a caller identified by visibility scopes rather than a world
+    /// role — used by extraction, which grounds against a source's <see cref="Domain.Enums.VisibilityScope"/>
+    /// rather than a user. <paramref name="attributedUserId"/> attributes the embedding cost.
+    /// </summary>
+    Task<IReadOnlyList<KnowledgePassage>> RetrieveForScopesAsync(
+        string query,
+        Guid worldId,
+        IReadOnlyList<Domain.Enums.VisibilityScope> allowedScopes,
+        Guid? attributedUserId,
+        CancellationToken ct);
 }

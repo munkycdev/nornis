@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
+using Nornis.Application.Knowledge;
 using Nornis.Infrastructure.Ai;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -600,6 +601,54 @@ public class AzureOpenAiExtractionClientTests
 
         Assert.That(prompt, Does.Contain("Private"));
         Assert.That(prompt, Does.Contain("MUST include \"visibility\": \"Private\""));
+    }
+
+    [Test]
+    public void BuildUserMessage_WithReferencePassages_IncludesPublishedReferenceSection()
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "We questioned Captain Voss.",
+            SourceTitle = "Session 5 Notes",
+            SourceType = "SessionNote",
+            SourceVisibility = "PartyVisible",
+            ReferencePassages =
+            [
+                new KnowledgePassage
+                {
+                    ChunkId = Guid.NewGuid(),
+                    DocumentId = Guid.NewGuid(),
+                    DocumentTitle = "Player's Handbook",
+                    Page = 42,
+                    Text = "A ranger is a warden of the wilds.",
+                    ReferenceId = "passage:x"
+                }
+            ]
+        };
+
+        var message = AzureOpenAiExtractionClient.BuildUserMessage(request);
+
+        Assert.That(message, Does.Contain("## Published Reference"));
+        Assert.That(message, Does.Contain("Player's Handbook"));
+        Assert.That(message, Does.Contain("p. 42"));
+        Assert.That(message, Does.Contain("A ranger is a warden of the wilds."));
+    }
+
+    [Test]
+    public void BuildUserMessage_NoReferencePassages_OmitsPublishedReferenceSection()
+    {
+        var message = AzureOpenAiExtractionClient.BuildUserMessage(DefaultRequest);
+
+        Assert.That(message, Does.Not.Contain("Published Reference"));
+    }
+
+    [Test]
+    public void BuildSystemPrompt_IncludesPublishedReferenceMaterialClause()
+    {
+        var prompt = AzureOpenAiExtractionClient.BuildSystemPrompt(DefaultRequest);
+
+        Assert.That(prompt, Does.Contain("Published Reference Material"));
+        Assert.That(prompt, Does.Contain("NOT world canon"));
     }
 
     [Test]

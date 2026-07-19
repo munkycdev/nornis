@@ -10,10 +10,23 @@ public class FakeReferencePassageRetriever : IReferencePassageRetriever
 
     public string? LastQuestion { get; private set; }
 
+    public IReadOnlyList<VisibilityScope>? LastAllowedScopes { get; private set; }
+
+    public Guid? LastAttributedUserId { get; private set; }
+
     public Task<IReadOnlyList<KnowledgePassage>> RetrieveAsync(
         string question, Guid worldId, Guid userId, WorldRole role, CancellationToken ct)
     {
         LastQuestion = question;
+        return Task.FromResult<IReadOnlyList<KnowledgePassage>>(Passages.ToList());
+    }
+
+    public Task<IReadOnlyList<KnowledgePassage>> RetrieveForScopesAsync(
+        string query, Guid worldId, IReadOnlyList<VisibilityScope> allowedScopes, Guid? attributedUserId, CancellationToken ct)
+    {
+        LastQuestion = query;
+        LastAllowedScopes = allowedScopes;
+        LastAttributedUserId = attributedUserId;
         return Task.FromResult<IReadOnlyList<KnowledgePassage>>(Passages.ToList());
     }
 }

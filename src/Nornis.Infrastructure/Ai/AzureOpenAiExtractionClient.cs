@@ -284,6 +284,13 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             MergeArtifact when the existing list itself plainly contains the same entity twice.
             Do not re-propose facts the artifact already has.
 
+            ## Published Reference Material
+            The user message may include a "Published Reference" section with excerpts from the
+            world's rulebooks and modules. It is background for getting names, spellings, and entity
+            types right and for understanding terms the source uses — it is NOT world canon and NOT a
+            record of events. Never create a proposal whose only support is this reference material;
+            every proposal must be grounded in the Source Content.
+
             ## Visibility Rules
             The source has visibility scope: {{request.SourceVisibility}}.
             Every proposal's proposedValue MUST include "visibility": "{{request.SourceVisibility}}".
@@ -333,6 +340,18 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
         parts.Add("");
         parts.Add("## Source Content");
         parts.Add(request.SourceBody);
+
+        if (request.ReferencePassages.Count > 0)
+        {
+            parts.Add("");
+            parts.Add("## Published Reference (rulebooks and modules — not world canon)");
+            parts.Add("Background from the world's reference shelf. Use it to get names, spellings, and entity types right, and to understand terms the source uses. Do NOT create a proposal whose only support is this reference material — every proposal must be grounded in the Source Content above.");
+            foreach (var passage in request.ReferencePassages)
+            {
+                parts.Add($"- From \"{passage.DocumentTitle}\", p. {passage.Page}:");
+                parts.Add($"  {passage.Text.ReplaceLineEndings("\n  ")}");
+            }
+        }
 
         if (request.ExistingArtifacts.Count > 0)
         {
