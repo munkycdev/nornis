@@ -289,6 +289,42 @@ public class RevealService : IRevealService
             batch.Id, artifactsToReveal.Count, factsToReveal.Count, relationshipsToReveal.Count, corrections.Count, []));
     }
 
+    public async Task<AppResult<RevealSourceResult>> RevealSourceAsync(
+        Guid worldId, Guid sourceId, Guid actingUserId, WorldRole role, CancellationToken ct)
+    {
+        if (role != WorldRole.GM)
+        {
+            return AppResult<RevealSourceResult>.Fail(new AppError(403, "insufficient_role", "Only GMs can reveal a source."));
+        }
+
+        var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
+        if (source is null || source.WorldId != worldId)
+        {
+            return AppResult<RevealSourceResult>.Fail(new AppError(404, "not_found", "Source not found."));
+        }
+
+        if (source.Visibility == VisibilityScope.PartyVisible)
+        {
+            return AppResult<RevealSourceResult>.Success(new RevealSourceResult(source.Id, source.Title, true));
+        }
+
+        if (source.Visibility == VisibilityScope.Private)
+        {
+            return AppResult<RevealSourceResult>.Fail(new AppError(400, "cannot_reveal_private",
+                "Cannot reveal a Private source; reveal promotes GM-only material to the party."));
+        }
+
+        // GMOnly -> PartyVisible via the scoped write, deliberately bypassing SourceService's
+        // post-extraction visibility lock — reveal is the sanctioned way to surface it.
+        await _sourceRepository.UpdateVisibilityAsync(sourceId, VisibilityScope.PartyVisible, ct);
+
+        _logger.LogInformation(
+            "Source revealed to the party. WorldId={WorldId}, SourceId={SourceId}, User={UserId}",
+            worldId, sourceId, actingUserId);
+
+        return AppResult<RevealSourceResult>.Success(new RevealSourceResult(source.Id, source.Title, false));
+    }
+
     /// <summary>
     /// Creates a Pending <c>Update*</c> proposal, applies it through the real applicator (which
     /// flips visibility / truth state and stamps party-visible provenance), and accept-stamps it.

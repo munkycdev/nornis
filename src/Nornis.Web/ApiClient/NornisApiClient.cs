@@ -163,6 +163,10 @@ public class NornisApiClient
     public Task<ApiResult<SourceDetailDto>> MarkSourceReadyAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         PostAsync<object?, SourceDetailDto>($"/api/worlds/{worldId}/sources/{sourceId}/ready", null, ct);
 
+    /// <summary>GM-only: reveals a GM-only source (and its attachments, e.g. a map image) to the party.</summary>
+    public Task<ApiResult<SourceDetailDto>> RevealSourceAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
+        PostAsync<object?, SourceDetailDto>($"/api/worlds/{worldId}/sources/{sourceId}/reveal", null, ct);
+
     // Source attachments (handwritten page images, ink documents) — SAS upload handshake.
 
     public Task<ApiResult<SourceAttachmentUploadTicketDto>> RequestSourceAttachmentUploadAsync(

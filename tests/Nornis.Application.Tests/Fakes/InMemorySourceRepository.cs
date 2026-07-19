@@ -57,6 +57,16 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.CompletedTask;
     }
 
+    public Task UpdateVisibilityAsync(Guid id, VisibilityScope visibility, CancellationToken cancellationToken = default)
+    {
+        var source = _sources.FirstOrDefault(s => s.Id == id);
+        if (source is not null)
+        {
+            source.Visibility = visibility;
+        }
+        return Task.CompletedTask;
+    }
+
     public Task UpdateBodyAsync(Guid id, string body, CancellationToken cancellationToken = default)
     {
         var source = _sources.FirstOrDefault(s => s.Id == id)
