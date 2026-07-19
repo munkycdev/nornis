@@ -1,6 +1,10 @@
-﻿# Future Features
+# Future Features
 
 ## List of unprocessed features
+
+* The map timeline should be available on the public site
+* Order the git tree timeline by campaign order then storyline start order, then story line close
+* Everywhere a list of artifacts appears, I'd like a tooltip with the artifact summary on m
 
 ---
 
