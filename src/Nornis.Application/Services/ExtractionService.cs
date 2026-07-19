@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
+using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Storage;
 using Nornis.Domain.Entities;
@@ -36,6 +37,10 @@ public class ExtractionService : IExtractionService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ExtractionOptions _options;
     private readonly ILogger<ExtractionService> _logger;
+
+    // Optional so the many existing ExtractionService constructions keep compiling; the
+    // Worker registers the real retriever. Null means "no library grounding".
+    private readonly IReferencePassageRetriever? _passageRetriever;
 
     private static readonly string[] ValidChangeTypes =
     [
@@ -70,8 +75,10 @@ public class ExtractionService : IExtractionService
         IAiBudgetGuard budgetGuard,
         IUnitOfWork unitOfWork,
         IOptions<ExtractionOptions> options,
-        ILogger<ExtractionService> logger)
+        ILogger<ExtractionService> logger,
+        IReferencePassageRetriever? passageRetriever = null)
     {
+        _passageRetriever = passageRetriever;
         _sourceAttachmentRepository = sourceAttachmentRepository;
         _mapPlacemarkRepository = mapPlacemarkRepository;
         _blobStorage = blobStorage;
@@ -1016,7 +1023,11 @@ public class ExtractionService : IExtractionService
             campaign = await _campaignRepository.GetByIdAsync(source.CampaignId.Value, ct);
         }
 
-        var request = BuildExtractionRequest(source, campaign, context);
+        // Ground extraction in the world's published reference shelf (party-visible docs,
+        // plus GM-only shelves for a GM-only source). Retrieved once, before the retry loop.
+        var referencePassages = await RetrieveReferencePassagesAsync(source, worldId, ct);
+
+        var request = BuildExtractionRequest(source, campaign, context, referencePassages);
         var maxAttempts = 1 + _options.MaxParseRetryAttempts; // initial + retries
 
         AiExtractionResponse? lastResponse = null;
@@ -1403,7 +1414,9 @@ public class ExtractionService : IExtractionService
         }
     }
 
-    private static ExtractionRequest BuildExtractionRequest(Source source, Campaign? campaign, IReadOnlyList<ArtifactContext> context)
+    private static ExtractionRequest BuildExtractionRequest(
+        Source source, Campaign? campaign, IReadOnlyList<ArtifactContext> context,
+        IReadOnlyList<KnowledgePassage> referencePassages)
     {
         return new ExtractionRequest
         {
@@ -1414,8 +1427,46 @@ public class ExtractionService : IExtractionService
             OccurredAt = source.OccurredAt,
             CampaignName = campaign?.Name,
             CampaignStatus = campaign?.Status.ToString(),
-            ExistingArtifacts = context
+            ExistingArtifacts = context,
+            ReferencePassages = referencePassages
         };
+    }
+
+    /// <summary>
+    /// Retrieves published-reference passages from the world's Library to ground extraction.
+    /// A party-visible source reads only party-visible shelves; a GM-only source may also read
+    /// GM-only shelves. Returns nothing when no retriever is wired or the world has no indexed
+    /// documents in scope — and never throws (the retriever swallows its own failures).
+    /// </summary>
+    private async Task<IReadOnlyList<KnowledgePassage>> RetrieveReferencePassagesAsync(
+        Source source, Guid worldId, CancellationToken ct)
+    {
+        if (_passageRetriever is null)
+        {
+            return [];
+        }
+
+        var allowedScopes = source.Visibility == VisibilityScope.GMOnly
+            ? new[] { VisibilityScope.PartyVisible, VisibilityScope.GMOnly }
+            : new[] { VisibilityScope.PartyVisible };
+
+        var query = BuildRetrievalQuery(source);
+        return await _passageRetriever.RetrieveForScopesAsync(
+            query, worldId, allowedScopes, source.CreatedByUserId, ct);
+    }
+
+    /// <summary>The retrieval query: the title plus the head of the body, bounded so a long
+    /// source doesn't blow the embedding model's token limit.</summary>
+    private static string BuildRetrievalQuery(Source source)
+    {
+        const int maxQueryChars = 4000;
+        var body = source.Body ?? string.Empty;
+        if (body.Length > maxQueryChars)
+        {
+            body = body[..maxQueryChars];
+        }
+
+        return string.IsNullOrWhiteSpace(source.Title) ? body : $"{source.Title}\n{body}";
     }
 
 

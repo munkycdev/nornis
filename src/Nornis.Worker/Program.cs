@@ -135,6 +135,10 @@ var builder = Host.CreateDefaultBuilder(args)
         });
         services.AddScoped<IEmbeddingClient, AzureOpenAiEmbeddingClient>();
 
+        // Reference-passage retrieval grounds extraction in the world's published library.
+        services.AddScoped<Nornis.Application.Knowledge.IReferencePassageRetriever,
+            Nornis.Infrastructure.Knowledge.ReferencePassageRetriever>();
+
         // Second queue processor (keyed): same Service Bus namespace, library-indexing queue.
         services.AddKeyedSingleton<ServiceBusExtractionProcessor>(LibraryIndexingWorker.ProcessorKey, (sp, _) =>
         {

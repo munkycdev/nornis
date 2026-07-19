@@ -116,4 +116,43 @@ public class ReferencePassageRetrieverTests
 
         Assert.That(passages.Select(p => p.ChunkId), Is.EqualTo(new[] { hit.ChunkId }));
     }
+
+    [Test]
+    public async Task RetrieveForScopes_EmptyScopes_ReturnsEmptyWithoutEmbedding()
+    {
+        SeedIndexedDocument();
+
+        var passages = await _sut.RetrieveForScopesAsync("q", WorldId, [], Guid.NewGuid(), CancellationToken.None);
+
+        Assert.That(passages, Is.Empty);
+        Assert.That(_embeddings.Batches, Is.Empty);
+    }
+
+    [Test]
+    public async Task RetrieveForScopes_ScopeExcludesTheOnlyDocument_SkipsEmbedding()
+    {
+        SeedIndexedDocument(); // seeded doc is GMOnly
+
+        var passages = await _sut.RetrieveForScopesAsync(
+            "q", WorldId, new[] { VisibilityScope.PartyVisible }, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.That(passages, Is.Empty);
+        Assert.That(_embeddings.Batches, Is.Empty, "a party-visible caller pays nothing when only GM-only docs exist");
+    }
+
+    [Test]
+    public async Task RetrieveForScopes_ScopeIncludesDocument_ReturnsPassages()
+    {
+        SeedIndexedDocument(); // GMOnly
+        _options.NeighborRadius = 0;
+        var hit = Chunk(5, "A ranger is a warden of the wilds.");
+        _chunks.AllChunks.Add(hit);
+        _chunks.SearchHits.Add(hit);
+
+        var passages = await _sut.RetrieveForScopesAsync(
+            "ranger", WorldId,
+            new[] { VisibilityScope.PartyVisible, VisibilityScope.GMOnly }, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.That(passages.Select(p => p.ChunkId), Is.EqualTo(new[] { hit.ChunkId }));
+    }
 }
