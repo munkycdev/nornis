@@ -264,6 +264,12 @@ public class NornisApiClient
         GetAsync<IReadOnlyList<ArtifactListItem>>(
             $"/api/worlds/{worldId}/artifacts{Query(("type", type), ("status", status))}", ct);
 
+    /// <summary>Global artifact search, most relevant first. Backs the top-bar search bar.</summary>
+    public Task<ApiResult<IReadOnlyList<ArtifactListItem>>> SearchArtifactsAsync(
+        Guid worldId, string term, int limit = 10, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<ArtifactListItem>>(
+            $"/api/worlds/{worldId}/artifacts/search{Query(("q", term), ("limit", limit.ToString()))}", ct);
+
     public Task<ApiResult<ArtifactDetailDto>> GetArtifactAsync(Guid worldId, Guid artifactId, CancellationToken ct = default) =>
         GetAsync<ArtifactDetailDto>($"/api/worlds/{worldId}/artifacts/{artifactId}", ct);
 

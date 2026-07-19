@@ -72,6 +72,38 @@ html, body {
     padding-left: 8px;
 }
 
+/* Search result rows in the top-bar dropdown. */
+.nornis-search-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.nornis-search-item-body {
+    min-width: 0;
+}
+
+.nornis-search-item-title {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--mud-palette-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nornis-search-item-sub {
+    font-size: 0.74rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-search-empty {
+    padding: 8px 4px;
+    font-size: 0.82rem;
+    color: var(--mud-palette-text-secondary);
+}
+
 .nornis-kbd {
     border: 1px solid var(--mud-palette-lines-default);
     border-radius: 6px;
@@ -862,6 +894,46 @@ html, body {
     letter-spacing: 0.04em;
     color: var(--mud-palette-text-secondary);
     margin-bottom: 4px;
+}
+
+/* The decision controls must stay out of the way of the line item they belong to: they
+   never grow, never wrap mid-group, and the storyline name yields to them by truncating. */
+.nornis-wrapup-row {
+    gap: 10px;
+}
+
+.nornis-wrapup-row .nornis-list-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nornis-wrapup-actions {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+/* Needs the .mud-button-group-root qualifier to match the specificity of MudBlazor's own
+   size-small rule; app.css loads after MudBlazor, so an equal-weight selector wins. */
+.nornis-wrapup-actions.mud-button-group-root .mud-button-root {
+    min-width: 0;
+    padding: 2px 8px;
+    font-size: 0.72rem;
+    line-height: 1.7;
+    text-transform: none;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+
+/* Narrow columns can't fit name and buttons side by side — stack instead of squeezing. */
+@media (max-width: 700px) {
+    .nornis-wrapup-row {
+        flex-wrap: wrap;
+    }
+
+    .nornis-wrapup-row .nornis-list-body {
+        flex: 1 0 100%;
+    }
 }
 
 /* AI-assessed continuity health card. */

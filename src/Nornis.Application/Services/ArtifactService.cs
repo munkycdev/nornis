@@ -63,6 +63,34 @@ public class ArtifactService : IArtifactService
         return AppResult<IReadOnlyList<Artifact>>.Success(visible);
     }
 
+    public async Task<AppResult<IReadOnlyList<Artifact>>> SearchAsync(ArtifactSearchQuery query, CancellationToken ct)
+    {
+        var term = query.Term?.Trim() ?? string.Empty;
+        if (term.Length == 0)
+        {
+            return AppResult<IReadOnlyList<Artifact>>.Success([]);
+        }
+
+        var filter = VisibilityFilter.ForRole(query.ActingUserRole, query.ActingUserId);
+        var artifacts = await _artifactRepository.ListByWorldAsync(query.WorldId, null, null, ct);
+
+        // Ties break toward the shorter name (the more specific match of the two) and then
+        // the more recently touched artifact.
+        var ranked = artifacts
+            .Where(a => a.Status != ArtifactStatus.Archived)
+            .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
+            .Select(a => new { Artifact = a, Score = ArtifactRelevance.Score(a.Name, a.Summary, term) })
+            .Where(x => x.Score > ArtifactRelevance.NoMatch)
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.Artifact.Name.Length)
+            .ThenByDescending(x => x.Artifact.UpdatedAt)
+            .Take(Math.Clamp(query.Limit, 1, 50))
+            .Select(x => x.Artifact)
+            .ToList();
+
+        return AppResult<IReadOnlyList<Artifact>>.Success(ranked);
+    }
+
     public async Task<AppResult<ArtifactGraph>> GetGraphAsync(Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct)
     {
         var filter = VisibilityFilter.ForRole(role, requestingUserId);

@@ -1,4 +1,6 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject WorldState Worlds
 
 <MudThemeProvider Theme="NornisTheme.Theme" IsDarkMode="false" />
 <MudPopoverProvider />
@@ -17,10 +19,16 @@
     </MudDrawer>
 
     <MudMainContent Class="nornis-main">
-        @if (!_navOpen)
+        @* Rendered only when it has something in it — search needs a world, and the menu
+           button only appears once the drawer has closed itself. *@
+        @if (!_navOpen || Worlds.Current is not null)
         {
             <header class="nornis-topbar">
-                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" OnClick="ToggleNav" aria-label="Show navigation" />
+                @if (!_navOpen)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" OnClick="ToggleNav" aria-label="Show navigation" />
+                }
+                <GlobalSearch />
             </header>
         }
 
@@ -42,4 +50,11 @@
     private bool _navOpen = true;
 
     private void ToggleNav() => _navOpen = !_navOpen;
+
+    protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
+
+    // The top bar comes and goes with the world selection, so it has to re-render on change.
+    private void OnWorldChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

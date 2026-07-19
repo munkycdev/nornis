@@ -14,6 +14,13 @@ public interface IArtifactService
     Task<AppResult<IReadOnlyList<Artifact>>> ListAsync(ArtifactListQuery query, CancellationToken ct);
 
     /// <summary>
+    /// Global search across a world's artifacts, most relevant first. Matches on name and
+    /// summary, scoped to what the requesting role may see, and excludes Archived artifacts
+    /// (they are merge leftovers). Returns an empty list for a blank term.
+    /// </summary>
+    Task<AppResult<IReadOnlyList<Artifact>>> SearchAsync(ArtifactSearchQuery query, CancellationToken ct);
+
+    /// <summary>
     /// Retrieves the full detail for a single artifact — facts, relationships, connected
     /// artifacts, and source references — all scoped to what the requesting role may see.
     /// Returns not-found if the artifact does not exist, belongs to another world, or is

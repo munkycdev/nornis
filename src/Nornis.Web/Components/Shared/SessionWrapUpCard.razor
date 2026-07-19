@@ -27,14 +27,14 @@
                 <div class="nornis-wrapup-heading">Gone quiet</div>
                 @foreach (var q in _view.GoneQuiet)
                 {
-                    <div class="nornis-list-row">
+                    <div class="nornis-list-row nornis-wrapup-row">
                         <div class="nornis-list-body">
                             <div class="nornis-list-title">@q.Name</div>
                             <div class="nornis-list-sub">
                                 @q.SessionsSinceLastDevelopment session@(q.SessionsSinceLastDevelopment == 1 ? "" : "s") quiet@(q.OpenQuestionCount > 0 ? $" · {q.OpenQuestionCount} open" : "")
                             </div>
                         </div>
-                        <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined">
+                        <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined" Class="nornis-wrapup-actions">
                             <MudButton Color='@(ClosureIs(q.StorylineId, "Dormant") ? Color.Warning : Color.Default)'
                                        OnClick='() => SetClosure(q.StorylineId, "Dormant")'>Dormant</MudButton>
                             <MudButton Color='@(ClosureIs(q.StorylineId, "Resolved") ? Color.Success : Color.Default)'
@@ -52,12 +52,12 @@
                 <div class="nornis-wrapup-heading">Could nest</div>
                 @foreach (var n in _view.CouldNest)
                 {
-                    <div class="nornis-list-row">
+                    <div class="nornis-list-row nornis-wrapup-row">
                         <div class="nornis-list-body">
                             <div class="nornis-list-title">@n.ChildName → @n.ParentName</div>
                             <div class="nornis-list-sub">@n.Rationale</div>
                         </div>
-                        <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined">
+                        <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined" Class="nornis-wrapup-actions">
                             <MudButton Color="@(_accept.Contains(n.ProposalId) ? Color.Success : Color.Default)"
                                        OnClick="() => Accept(n.ProposalId)">Nest</MudButton>
                             <MudButton Color="@(_reject.Contains(n.ProposalId) ? Color.Error : Color.Default)"
@@ -74,13 +74,13 @@
                 <div class="nornis-wrapup-heading">New arcs — assign a parent?</div>
                 @foreach (var arc in _view.UnparentedArcs)
                 {
-                    <div class="nornis-list-row">
+                    <div class="nornis-list-row nornis-wrapup-row">
                         <div class="nornis-list-body">
                             <div class="nornis-list-title">@arc.Name</div>
                         </div>
                         <MudSelect T="Guid?" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
                                    Value="@GetParent(arc.StorylineId)" ValueChanged="v => SetParent(arc.StorylineId, v)"
-                                   Placeholder="No parent" Style="min-width: 160px;">
+                                   Placeholder="No parent" Class="nornis-wrapup-actions" Style="min-width: 160px;">
                             <MudSelectItem T="Guid?" Value="@((Guid?)null)">No parent</MudSelectItem>
                             @foreach (var opt in _view.ParentOptions.Where(o => o.StorylineId != arc.StorylineId))
                             {

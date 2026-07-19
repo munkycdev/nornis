@@ -1,0 +1,101 @@
+﻿@implements IDisposable
+@inject NornisApiClient Api
+@inject WorldState Worlds
+@inject NavigationManager Nav
+
+@* Global artifact search, mounted in the top bar so it is reachable from every page.
+   Needs a world to search, so it stays hidden until one is selected. *@
+@if (Worlds.Current is not null)
+{
+    <MudAutocomplete T="ArtifactListItem"
+                     @ref="_autocomplete"
+                     Value="_selected"
+                     ValueChanged="OnSelected"
+                     SearchFunc="SearchAsync"
+                     ToStringFunc="@(a => a?.Name ?? string.Empty)"
+                     Placeholder="Search the codex…"
+                     Variant="Variant.Outlined"
+                     Margin="Margin.Dense"
+                     Adornment="Adornment.Start"
+                     AdornmentIcon="@Icons.Material.Filled.Search"
+                     AdornmentColor="Color.Tertiary"
+                     MinCharacters="2"
+                     DebounceInterval="200"
+                     MaxItems="10"
+                     Clearable="true"
+                     CoerceText="false"
+                     ResetValueOnEmptyText="true"
+                     Class="nornis-search"
+                     aria-label="Search artifacts">
+        <ItemTemplate Context="item">
+            <div class="nornis-search-item">
+                <MudIcon Icon="@ArtifactTypeDisplay.Icon(item.Type)" Size="Size.Small" Color="Color.Tertiary" />
+                <div class="nornis-search-item-body">
+                    <div class="nornis-search-item-title">@item.Name</div>
+                    <div class="nornis-search-item-sub">@item.Type</div>
+                </div>
+            </div>
+        </ItemTemplate>
+        <NoItemsTemplate>
+            <div class="nornis-search-empty">Nothing in the codex matches.</div>
+        </NoItemsTemplate>
+    </MudAutocomplete>
+}
+
+@code {
+    private ArtifactListItem? _selected;
+    private MudAutocomplete<ArtifactListItem>? _autocomplete;
+    private bool _clearPending;
+
+    protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
+
+    // The control is world-scoped; re-render so it appears/disappears with the selection.
+    private void OnWorldChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task<IEnumerable<ArtifactListItem>> SearchAsync(string? term, CancellationToken ct)
+    {
+        if (Worlds.Current is null || string.IsNullOrWhiteSpace(term))
+        {
+            return [];
+        }
+
+        var result = await Api.SearchArtifactsAsync(Worlds.Current.Id, term, limit: 10, ct);
+
+        // A failed lookup shows as "no matches" rather than an error — this sits in the
+        // chrome of every page and must never interrupt what the user came to do.
+        return result.Value ?? [];
+    }
+
+    private void OnSelected(ArtifactListItem? item)
+    {
+        _selected = null;
+
+        if (item is null)
+        {
+            return;
+        }
+
+        // Mouse and keyboard selection leave different text behind, and MudAutocomplete
+        // rewrites the box after this handler returns — so the clear has to wait for the
+        // next render to win. Re-entry is harmless: the null it raises returns above.
+        _clearPending = true;
+        Nav.NavigateTo($"/artifacts/{item.Id}");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_clearPending)
+        {
+            return;
+        }
+
+        _clearPending = false;
+
+        if (_autocomplete is not null)
+        {
+            await _autocomplete.ClearAsync();
+        }
+    }
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}

@@ -71,7 +71,7 @@
                         <div class="nornis-tree-group">
                             <div class="nornis-tree-header" @onclick="() => Toggle(typeKey)">
                                 <MudIcon Icon="@(IsCollapsed(typeKey) ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ExpandMore)" Size="Size.Small" />
-                                <MudIcon Icon="@TypeIcon(typeKey)" Size="Size.Small" Class="ml-1 mr-2" />
+                                <MudIcon Icon="@ArtifactTypeDisplay.Icon(typeKey)" Size="Size.Small" Class="ml-1 mr-2" />
                                 <span class="nornis-tree-title">@typeKey</span>
                                 <span class="nornis-list-meta ml-2">@typeGroup.Count()</span>
                             </div>
@@ -105,7 +105,7 @@
                     {
                         <a href="@($"/w/{Slug}/artifacts/{a.Id}")" class="nornis-card nornis-artifact-card">
                             <div class="nornis-artifact-card-head">
-                                <div class="nornis-list-thumb"><MudIcon Icon="@TypeIcon(a.Type)" Size="Size.Small" /></div>
+                                <div class="nornis-list-thumb"><MudIcon Icon="@ArtifactTypeDisplay.Icon(a.Type)" Size="Size.Small" /></div>
                                 <div class="nornis-artifact-card-title">@a.Name</div>
                             </div>
                             @if (!string.IsNullOrWhiteSpace(a.Summary))
@@ -225,16 +225,4 @@
         _graphData = null;
         _graphSelected = null;
     }
-
-    private static string TypeIcon(string type) => type switch
-    {
-        "Character" => Icons.Material.Outlined.Person,
-        "Location" => Icons.Material.Outlined.Place,
-        "Item" => Icons.Material.Outlined.Diamond,
-        "Faction" => Icons.Material.Outlined.Groups,
-        "Event" => Icons.Material.Outlined.Event,
-        "Storyline" => Icons.Material.Outlined.Hub,
-        "Concept" => Icons.Material.Outlined.Lightbulb,
-        _ => Icons.Material.Outlined.Description,
-    };
 }

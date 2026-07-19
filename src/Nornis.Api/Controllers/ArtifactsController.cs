@@ -104,6 +104,37 @@ public class ArtifactsController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Global search across the world's artifacts, most relevant first. Backs the
+    /// always-present search bar, so a blank term is a no-op rather than an error.
+    /// </summary>
+    [HttpGet("search")]
+    public async Task<IActionResult> Search(
+        Guid worldId,
+        [FromQuery] string? q,
+        [FromQuery] int? limit,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var query = new ArtifactSearchQuery(
+            WorldId: worldId,
+            ActingUserId: user.Id,
+            ActingUserRole: member.Role,
+            Term: q ?? string.Empty,
+            Limit: limit ?? 10);
+
+        var result = await _artifactService.SearchAsync(query, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return Ok(result.Value!.Select(ToListItemResponse).ToList());
+    }
+
     /// <summary>GM-only: renames an artifact.</summary>
     [HttpPut("{artifactId:guid}/name")]
     public async Task<IActionResult> Rename(
