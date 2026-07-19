@@ -1,0 +1,403 @@
+@using System.Globalization
+@implements IAsyncDisposable
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+@* The Journey: a world map with the party's trail across the sessions that visited its
+   pinned locations. Pins are percentage-positioned over the image (like MapViewer); the
+   trail is an SVG overlay in the same 0..100 space. Everything is a projection of one
+   stop index — dragging the playhead (nornis-journey.js), clicking a session tick, or the
+   arrow keys move it. *@
+
+<div class="nornis-journey">
+    <div class="nornis-journey-stage">
+        <div class="nornis-journey-map">
+            <img src="@Data.ImageUrl" alt="World map" />
+
+            <svg class="nornis-journey-trail-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                @if (_routePoints is not null)
+                {
+                    <polyline class="nornis-journey-route" points="@_routePoints" vector-effect="non-scaling-stroke" />
+                }
+                @if (_trailPoints is not null)
+                {
+                    <polyline class="nornis-journey-trail" points="@_trailPoints" vector-effect="non-scaling-stroke" />
+                }
+            </svg>
+
+            @foreach (var loc in Data.Locations)
+            {
+                <button type="button" class="nornis-journey-pin @PinClass(loc.ArtifactId)"
+                        style="left:@Css(loc.X * 100m)%; top:@Css(loc.Y * 100m)%"
+                        data-nornis-tip="@PinTip(loc)"
+                        @onclick="() => OnPinClick(loc.ArtifactId)">
+                    <span class="nornis-journey-pin-dot"></span>
+                    <span class="nornis-journey-pin-label">@(string.IsNullOrWhiteSpace(loc.Label) ? loc.Name : loc.Label)</span>
+                </button>
+            }
+        </div>
+
+        <aside class="nornis-journey-ledger">
+            @if (CurrentStop is { } stop)
+            {
+                <div class="nornis-journey-ledger-eye">Session @(_stopIndex + 1) <span>of @Data.Stops.Count</span></div>
+                <a class="nornis-journey-ledger-title nornis-serif" href="@($"{SourceLinkBase}/{stop.SourceId}")">@stop.Title</a>
+                <div class="nornis-journey-ledger-meta">
+                    <b>@stop.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)</b>
+                    @if (VisitedNames(stop) is { Length: > 0 } names)
+                    {
+                        <span> · @names</span>
+                    }
+                </div>
+
+                @if (stop.Highlights.Count == 0)
+                {
+                    <div class="nornis-journey-ledger-empty">No canon changed in this session.</div>
+                }
+                else
+                {
+                    <ul class="nornis-journey-hl">
+                        @foreach (var h in stop.Highlights)
+                        {
+                            <li>
+                                <a href="@($"{ArtifactLinkBase}/{h.ArtifactId}")">
+                                    <span class="nornis-journey-chip type-@h.Type.ToLowerInvariant()">@h.Type</span>
+                                    <span class="nornis-journey-hl-name">@h.Name</span>
+                                    @if (HighlightNote(h) is { } note)
+                                    {
+                                        <span class="nornis-journey-hl-note">— @note</span>
+                                    }
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                }
+            }
+            else
+            {
+                <div class="nornis-journey-ledger-eye">The trail</div>
+                <div class="nornis-journey-ledger-empty">
+                    These places are on the map, but no dated session has visited them yet.
+                    Give a session an "occurred at" date to place it on the trail.
+                </div>
+            }
+        </aside>
+    </div>
+
+    @if (Data.Stops.Count > 0)
+    {
+        <div class="nornis-journey-scrub">
+            <div class="nornis-journey-scrub-head">
+                <span class="nornis-journey-scrub-label">The party's course · @RangeLabel</span>
+                <span class="nornis-journey-scrub-hint">drag the playhead, click a session, or use ← →</span>
+            </div>
+
+            <div id="@_railId" class="nornis-journey-rail">
+                <div class="nornis-journey-rail-track"></div>
+                <div class="nornis-journey-rail-fill" style="width:@Css(CurrentPct)%"></div>
+
+                @foreach (var month in MonthTicks)
+                {
+                    <span class="nornis-journey-month" style="left:@Css(Pct(month))%">
+                        @month.ToString(month.Month == 1 ? "MMM yy" : "MMM", CultureInfo.InvariantCulture)
+                    </span>
+                }
+
+                @for (var i = 0; i < Data.Stops.Count; i++)
+                {
+                    var idx = i;
+                    var node = Data.Stops[idx];
+                    <button type="button" class="nornis-journey-node @NodeClass(idx)"
+                            style="left:@Css(Pct(node.OccurredAt))%"
+                            data-nornis-tip="@StopTip(node, idx)"
+                            @onclick="() => SetStop(idx)"></button>
+                }
+
+                <div class="nornis-journey-playhead" style="left:@Css(CurrentPct)%">
+                    <div class="nornis-journey-playhead-line"></div>
+                    <div class="nornis-journey-handle" tabindex="0" role="slider"
+                         aria-label="Session playhead"
+                         aria-valuemin="1" aria-valuemax="@Data.Stops.Count" aria-valuenow="@(_stopIndex + 1)"
+                         aria-valuetext="@(CurrentStop?.Title)"
+                         @onkeydown="OnHandleKey"></div>
+                </div>
+            </div>
+
+            <div class="nornis-journey-foot">
+                <span class="nornis-journey-leg"><span class="nornis-journey-swatch reached"></span> traveled</span>
+                <span class="nornis-journey-leg"><span class="nornis-journey-swatch current"></span> current stop</span>
+                <span class="nornis-journey-leg"><span class="nornis-journey-swatch future"></span> not yet reached</span>
+                @if (Data.UndatedSessionCount > 0)
+                {
+                    <span class="nornis-journey-note">
+                        @Data.UndatedSessionCount undated session@(Data.UndatedSessionCount == 1 ? "" : "s") not placed on the trail
+                    </span>
+                }
+            </div>
+        </div>
+    }
+    else if (Data.UndatedSessionCount > 0)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
+            @Data.UndatedSessionCount session@(Data.UndatedSessionCount == 1 ? " has" : "s have") no "occurred at" date and cannot be placed on the trail.
+        </MudText>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public JourneyDto Data { get; set; } = default!;
+
+    /// <summary>Route prefixes for links; the public pages could override these.</summary>
+    [Parameter] public string ArtifactLinkBase { get; set; } = "/artifacts";
+    [Parameter] public string SourceLinkBase { get; set; } = "/sources";
+
+    private readonly string _railId = $"nornis-journey-{Guid.NewGuid():N}";
+    private DotNetObjectReference<JourneyMap>? _selfRef;
+    private bool _jsInitialized;
+
+    private int _stopIndex;
+
+    // Precomputed once from Data: the earliest stop each location was first visited, and the
+    // canonical route order (by first visit). Locations no session visited are absent here.
+    private Dictionary<Guid, int> _firstReachedStop = new();
+    private List<JourneyLocationDto> _routeOrder = [];
+
+    private string? _routePoints;
+    private string? _trailPoints;
+
+    private JourneyStopDto? CurrentStop => Data.Stops.Count > 0 ? Data.Stops[_stopIndex] : null;
+
+    protected override void OnParametersSet()
+    {
+        // Map each location to the earliest stop that visited it.
+        _firstReachedStop = new Dictionary<Guid, int>();
+        for (var i = 0; i < Data.Stops.Count; i++)
+        {
+            foreach (var locId in Data.Stops[i].VisitedLocationIds)
+            {
+                if (!_firstReachedStop.ContainsKey(locId))
+                {
+                    _firstReachedStop[locId] = i;
+                }
+            }
+        }
+
+        var byId = Data.Locations.ToDictionary(l => l.ArtifactId);
+        _routeOrder = _firstReachedStop
+            .OrderBy(kv => kv.Value)
+            .Where(kv => byId.ContainsKey(kv.Key))
+            .Select(kv => byId[kv.Key])
+            .ToList();
+
+        _routePoints = _routeOrder.Count >= 2 ? PointsFor(_routeOrder) : null;
+
+        if (_stopIndex > Data.Stops.Count - 1)
+        {
+            _stopIndex = Math.Max(0, Data.Stops.Count - 1);
+        }
+        RecomputeTrail();
+    }
+
+    private void RecomputeTrail()
+    {
+        var reached = _routeOrder.Where(l => _firstReachedStop[l.ArtifactId] <= _stopIndex).ToList();
+        _trailPoints = reached.Count >= 2 ? PointsFor(reached) : null;
+    }
+
+    private static string PointsFor(IEnumerable<JourneyLocationDto> locs) =>
+        string.Join(" ", locs.Select(l => $"{Css(l.X * 100m)},{Css(l.Y * 100m)}"));
+
+    private void SetStop(int index)
+    {
+        var clamped = Math.Clamp(index, 0, Math.Max(0, Data.Stops.Count - 1));
+        if (clamped == _stopIndex)
+        {
+            return;
+        }
+        _stopIndex = clamped;
+        RecomputeTrail();
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public Task OnScrubFraction(double fraction)
+    {
+        if (Data.Stops.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        // Snap the drag position to the nearest dated stop.
+        var targetPct = Math.Clamp(fraction, 0, 1) * 100.0;
+        var nearest = 0;
+        var bestGap = double.MaxValue;
+        for (var i = 0; i < Data.Stops.Count; i++)
+        {
+            var gap = Math.Abs(Pct(Data.Stops[i].OccurredAt) - targetPct);
+            if (gap < bestGap)
+            {
+                bestGap = gap;
+                nearest = i;
+            }
+        }
+        return InvokeAsync(() => SetStop(nearest));
+    }
+
+    private void OnHandleKey(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "ArrowRight" or "ArrowUp": SetStop(_stopIndex + 1); break;
+            case "ArrowLeft" or "ArrowDown": SetStop(_stopIndex - 1); break;
+            case "Home": SetStop(0); break;
+            case "End": SetStop(Data.Stops.Count - 1); break;
+        }
+    }
+
+    private void OnPinClick(Guid artifactId)
+    {
+        // Jump the scrubber to where this place was first reached; unvisited pins open the artifact.
+        if (_firstReachedStop.TryGetValue(artifactId, out var stop))
+        {
+            SetStop(stop);
+        }
+        else
+        {
+            Nav.NavigateTo($"{ArtifactLinkBase}/{artifactId}");
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_jsInitialized && Data.Stops.Count > 0)
+        {
+            _jsInitialized = true;
+            _selfRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("nornisJourney.init", _railId, _selfRef);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_jsInitialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("nornisJourney.destroy", _railId);
+            }
+            catch (JSDisconnectedException)
+            {
+                // Circuit already gone — the browser cleaned up with the page.
+            }
+        }
+        _selfRef?.Dispose();
+    }
+
+    // ------------------------------------------------------------- pin state --
+
+    private string PinClass(Guid artifactId)
+    {
+        if (!_firstReachedStop.TryGetValue(artifactId, out var first))
+        {
+            return "is-future"; // pinned but never visited on this trail
+        }
+        if (CurrentStop?.VisitedLocationIds.Contains(artifactId) == true)
+        {
+            return artifactId == HeadLocationId ? "is-current is-head" : "is-current";
+        }
+        return first <= _stopIndex ? "is-reached" : "is-future";
+    }
+
+    private Guid? HeadLocationId =>
+        _routeOrder
+            .Where(l => _firstReachedStop[l.ArtifactId] <= _stopIndex)
+            .Select(l => (Guid?)l.ArtifactId)
+            .LastOrDefault();
+
+    private string PinTip(JourneyLocationDto loc)
+    {
+        if (_firstReachedStop.TryGetValue(loc.ArtifactId, out var first))
+        {
+            return $"{loc.Name}\nFirst visited: {Data.Stops[first].Title}";
+        }
+        return $"{loc.Name}\nNot visited on this trail yet";
+    }
+
+    // ------------------------------------------------------------- ledger --
+
+    private string? VisitedNames(JourneyStopDto stop)
+    {
+        var byId = Data.Locations.ToDictionary(l => l.ArtifactId, l => l.Name);
+        var names = stop.VisitedLocationIds
+            .Where(byId.ContainsKey)
+            .Select(id => byId[id])
+            .ToList();
+        return names.Count > 0 ? string.Join(" · ", names) : null;
+    }
+
+    private static string? HighlightNote(JourneyHighlightDto h) =>
+        h.FirstSeen ? (h.Type == "Location" ? "first visit" : "new") : null;
+
+    // ------------------------------------------------------------- axis --
+
+    private DateTimeOffset MinDate
+    {
+        get
+        {
+            var first = Data.Stops[0].OccurredAt;
+            var pad = PadSpan;
+            return first - pad;
+        }
+    }
+
+    private DateTimeOffset MaxDate => Data.Stops[^1].OccurredAt + PadSpan;
+
+    // A little breathing room at each end so the first/last ticks aren't on the edge.
+    private TimeSpan PadSpan
+    {
+        get
+        {
+            var span = Data.Stops[^1].OccurredAt - Data.Stops[0].OccurredAt;
+            var days = Math.Max(3, span.TotalDays * 0.06);
+            return TimeSpan.FromDays(days);
+        }
+    }
+
+    private double Pct(DateTimeOffset date)
+    {
+        var total = (MaxDate - MinDate).TotalDays;
+        if (total <= 0)
+        {
+            return 50;
+        }
+        return Math.Clamp((date - MinDate).TotalDays / total * 100.0, 0, 100);
+    }
+
+    private double CurrentPct => CurrentStop is { } s ? Pct(s.OccurredAt) : 0;
+
+    private IEnumerable<DateTimeOffset> MonthTicks
+    {
+        get
+        {
+            var tick = new DateTimeOffset(MinDate.Year, MinDate.Month, 1, 0, 0, 0, MinDate.Offset).AddMonths(1);
+            while (tick <= MaxDate)
+            {
+                yield return tick;
+                tick = tick.AddMonths(1);
+            }
+        }
+    }
+
+    private string RangeLabel =>
+        $"{Data.Stops[0].OccurredAt.ToString("MMM yyyy", CultureInfo.InvariantCulture)} – {Data.Stops[^1].OccurredAt.ToString("MMM yyyy", CultureInfo.InvariantCulture)}";
+
+    private string NodeClass(int idx) =>
+        idx == _stopIndex ? "is-current" : idx < _stopIndex ? "is-reached" : "";
+
+    private string StopTip(JourneyStopDto stop, int idx) =>
+        $"Session {idx + 1} — {stop.Title}\n{stop.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}";
+
+    // Invariant culture matters: a comma decimal separator breaks inline CSS and SVG points.
+    private static string Css(decimal v) => v.ToString("0.####", CultureInfo.InvariantCulture);
+    private static string Css(double v) => v.ToString("0.####", CultureInfo.InvariantCulture);
+}

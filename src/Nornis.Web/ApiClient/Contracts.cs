@@ -170,6 +170,25 @@ public record MapViewDto(
     string ImageUrl,
     IReadOnlyList<MapPlacemarkDto> Placemarks);
 
+// Mirrors Nornis.Api JourneyResponse.
+public record JourneyLocationDto(Guid ArtifactId, string Name, decimal X, decimal Y, string? Label);
+
+public record JourneyHighlightDto(Guid ArtifactId, string Name, string Type, bool FirstSeen);
+
+public record JourneyStopDto(
+    Guid SourceId,
+    string Title,
+    DateTimeOffset OccurredAt,
+    IReadOnlyList<Guid> VisitedLocationIds,
+    IReadOnlyList<JourneyHighlightDto> Highlights);
+
+public record JourneyDto(
+    Guid MapAttachmentId,
+    string ImageUrl,
+    IReadOnlyList<JourneyLocationDto> Locations,
+    IReadOnlyList<JourneyStopDto> Stops,
+    int UndatedSessionCount);
+
 // Mirrors Nornis.Api ReprocessPreviewResponse.
 public record ReprocessPreviewDto(
     IReadOnlyList<string> ArtifactNamesToDelete,

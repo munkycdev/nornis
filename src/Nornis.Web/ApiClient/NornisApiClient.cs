@@ -359,6 +359,13 @@ public class NornisApiClient
     public Task<ApiResult<StorylineTimelineDto>> GetStorylineTimelineAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<StorylineTimelineDto>($"/api/worlds/{worldId}/storylines/timeline", ct);
 
+    /// <summary>
+    /// The world's journey over one map: its pins and the dated sessions that visited them, in
+    /// order. Omit <paramref name="mapSourceId"/> to auto-pick the richest map.
+    /// </summary>
+    public Task<ApiResult<JourneyDto>> GetJourneyAsync(Guid worldId, Guid? mapSourceId = null, CancellationToken ct = default) =>
+        GetAsync<JourneyDto>($"/api/worlds/{worldId}/journey{Query(("mapSourceId", mapSourceId?.ToString()))}", ct);
+
     /// <summary>GM-only: the session wrap-up view — what advanced, went quiet, could nest.</summary>
     public Task<ApiResult<WrapUpDto>> GetWrapUpAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<WrapUpDto>($"/api/worlds/{worldId}/storylines/wrap-up", ct);
