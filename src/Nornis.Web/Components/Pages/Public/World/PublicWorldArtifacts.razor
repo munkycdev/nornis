@@ -25,7 +25,7 @@
                                  OnClick="() => _type = t">@t</MudChip>
                     }
                 </div>
-                <MudTextField T="string" @bind-Value="_search" Immediate="true" Placeholder="Search the codex…"
+                <MudTextField T="string" @bind-Value="_search" Immediate="true" Placeholder="Search titles…"
                               Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                               Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 260px" />
                 <MudToggleGroup T="string" Value="_view" ValueChanged="OnViewChangedAsync" SelectionMode="SelectionMode.SingleSelection"
@@ -140,8 +140,7 @@
         (_artifacts ?? [])
             .Where(a => _type is null || a.Type == _type)
             .Where(a => string.IsNullOrWhiteSpace(_search)
-                || a.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
-                || (a.Summary?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false))
+                || a.Name.Contains(_search, StringComparison.OrdinalIgnoreCase))
             .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 

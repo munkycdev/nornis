@@ -50,7 +50,7 @@ else
     </div>
     <div class="d-flex gap-3 align-center mb-4">
         <MudTextField T="string" @bind-Value="_search" Immediate="true" Clearable="true"
-                      Placeholder="Search the codex…" Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Placeholder="Search titles…" Variant="Variant.Outlined" Margin="Margin.Dense"
                       Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="flex-grow-1" />
         <MudToggleGroup T="string" @bind-Value="_sort" SelectionMode="SelectionMode.SingleSelection"
                         Color="Color.Secondary" Size="Size.Small">
@@ -196,8 +196,7 @@ else
                 (_selectedTypes.Count == 0 || _selectedTypes.Contains(a.Type))
                 && (_selectedStatuses.Count == 0 || _selectedStatuses.Contains(a.Status))
                 && (string.IsNullOrWhiteSpace(_search)
-                    || a.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
-                    || (a.Summary?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)));
+                    || a.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)));
 
             return _sort == "title"
                 ? filtered.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
