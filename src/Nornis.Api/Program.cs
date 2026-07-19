@@ -92,6 +92,7 @@ builder.Services.AddScoped<ICharacterService, CharacterService>();
 builder.Services.AddScoped<ISourceService, SourceService>();
 builder.Services.AddScoped<ISourceReprocessService, SourceReprocessService>();
 builder.Services.AddScoped<IMapViewService, MapViewService>();
+builder.Services.AddScoped<IJourneyMapService, JourneyMapService>();
 builder.Services.AddScoped<ISourceAttachmentService, SourceAttachmentService>();
 builder.Services.AddScoped<IArtifactService, ArtifactService>();
 builder.Services.AddScoped<IArtifactMergeService, ArtifactMergeService>();

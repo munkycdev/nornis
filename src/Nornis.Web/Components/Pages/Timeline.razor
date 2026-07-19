@@ -53,10 +53,37 @@ else
                         Color="Color.Secondary" Size="Size.Small">
             <MudToggleItem Value="@("cards")"><MudIcon Icon="@Icons.Material.Outlined.GridView" Size="Size.Small" /></MudToggleItem>
             <MudToggleItem Value="@("timeline")"><MudIcon Icon="@Icons.Material.Outlined.Timeline" Size="Size.Small" /></MudToggleItem>
+            <MudToggleItem Value="@("journey")"><MudIcon Icon="@Icons.Material.Outlined.Map" Size="Size.Small" /></MudToggleItem>
         </MudToggleGroup>
     </div>
 
-    @if (_view == "timeline")
+    @if (_view == "journey")
+    {
+        @if (_journeyNoMap)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+                <MudIcon Icon="@Icons.Material.Outlined.Map" Size="Size.Large" Class="nornis-comingsoon-icon" />
+                <MudText Typo="Typo.h5" Class="nornis-serif">No map to chart yet</MudText>
+                <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+                    Upload a map source and pin a few locations, and Nornis will chart how the party
+                    has moved through the world.
+                </MudText>
+            </MudPaper>
+        }
+        else if (_journeyError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_journeyError</MudAlert>
+        }
+        else if (_journey is null)
+        {
+            <LoadingRows Rows="3" />
+        }
+        else
+        {
+            <JourneyMap Data="_journey" />
+        }
+    }
+    else if (_view == "timeline")
     {
         @if (_timelineError is not null)
         {
@@ -135,12 +162,23 @@ else
     private Guid _timelineWorldId;
     private string? _timelineError;
 
+    // Journey data (map + scrubber), lazily loaded and cached per world. "No map" is a valid
+    // loaded state (the world has no pinned map yet), distinct from a genuine error.
+    private JourneyDto? _journey;
+    private Guid _journeyWorldId;
+    private string? _journeyError;
+    private bool _journeyNoMap;
+
     private async Task OnViewChangedAsync(string view)
     {
         _view = view;
         if (view == "timeline" && (_timeline is null || _timelineWorldId != Worlds.Current?.Id))
         {
             await LoadTimelineAsync();
+        }
+        else if (view == "journey" && _journeyWorldId != Worlds.Current?.Id)
+        {
+            await LoadJourneyAsync();
         }
     }
 
@@ -192,6 +230,36 @@ else
         else
         {
             _timelineError = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    private async Task LoadJourneyAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _journey = null;
+        _journeyError = null;
+        _journeyNoMap = false;
+        StateHasChanged();
+
+        var result = await Api.GetJourneyAsync(Worlds.Current.Id);
+        if (result.IsSuccess)
+        {
+            _journey = result.Value!;
+            _journeyWorldId = Worlds.Current.Id;
+        }
+        else if (result.Error!.Code == "no_map")
+        {
+            _journeyNoMap = true;
+            _journeyWorldId = Worlds.Current.Id;
+        }
+        else
+        {
+            _journeyError = result.Error!.Message;
         }
         StateHasChanged();
     }
@@ -271,6 +339,10 @@ else
         if (_view == "timeline" && _timelineWorldId != Worlds.Current.Id)
         {
             await LoadTimelineAsync();
+        }
+        else if (_view == "journey" && _journeyWorldId != Worlds.Current.Id)
+        {
+            await LoadJourneyAsync();
         }
     }
 
