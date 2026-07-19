@@ -26,7 +26,7 @@ public class EnumDefinitionTests
         AssertEnumHasExactValues<SourceType>(
             "SessionNote", "JournalEntry", "Transcript", "Upload",
             "Image", "HandwrittenNotes", "WebLink", "GMNote", "ImportedNote",
-            "SessionAudio", "FanFiction", "Map");
+            "SessionAudio", "FanFiction", "Map", "Reveal");
     }
 
     [Test]
@@ -126,7 +126,7 @@ public class EnumDefinitionTests
     [Test]
     public void SourceType_HasNoUnexpectedValues()
     {
-        Assert.That(Enum.GetNames<SourceType>(), Has.Length.EqualTo(12));
+        Assert.That(Enum.GetNames<SourceType>(), Has.Length.EqualTo(13));
     }
 
     [Test]

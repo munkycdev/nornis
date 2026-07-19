@@ -296,6 +296,39 @@ public record ArtifactDetailDto(
     IReadOnlyList<SourceReferenceDto> SourceReferences,
     IReadOnlyList<string>? PlayedBy = null);
 
+public record RevealBody(
+    IReadOnlyList<Guid> ArtifactIds,
+    IReadOnlyList<Guid> FactIds,
+    IReadOnlyList<Guid> RelationshipIds,
+    IReadOnlyList<RevealCorrectionBody> Corrections,
+    string? Note);
+
+public record RevealCorrectionBody(Guid FactId, string TruthState);
+
+public record RevealResponseDto(
+    Guid? BatchId,
+    int RevealedArtifacts,
+    int RevealedFacts,
+    int RevealedRelationships,
+    int Corrections);
+
+public record RevealNotClosedDto(
+    string Code,
+    string Message,
+    IReadOnlyList<Guid> MissingArtifactIds);
+
+/// <summary>Unified client-side reveal outcome: <c>Applied</c> true = promotion done;
+/// <c>Applied</c> false = the set was not reference-closed and <c>MissingArtifactIds</c> must be
+/// added before it can be applied.</summary>
+public record RevealOutcome(
+    bool Applied,
+    Guid? BatchId,
+    int RevealedArtifacts,
+    int RevealedFacts,
+    int RevealedRelationships,
+    int Corrections,
+    IReadOnlyList<Guid> MissingArtifactIds);
+
 public record CanonEntry(
     string Kind,
     Guid Id,
@@ -457,6 +490,58 @@ public record RetrospectiveResult(
     int AssessedCount,
     int ProposedCount,
     Guid? ReviewBatchId);
+
+// ----------------------------------------------------------- Session wrap-up --
+
+public record WrapUpDto(
+    bool HasWork,
+    ContinuitySessionRefDto? LatestSession,
+    IReadOnlyList<WrapUpAdvancedDto> Advanced,
+    IReadOnlyList<QuietStorylineDto> GoneQuiet,
+    IReadOnlyList<WrapUpNestSuggestionDto> CouldNest,
+    IReadOnlyList<WrapUpUnparentedDto> UnparentedArcs,
+    IReadOnlyList<WrapUpParentOptionDto> ParentOptions);
+
+public record ContinuitySessionRefDto(Guid SourceId, string Title, DateTimeOffset OccurredAt);
+
+public record WrapUpAdvancedDto(
+    Guid StorylineId, string Name, string Status, int RecentDevelopmentCount, DateTimeOffset LastDevelopmentAt);
+
+public record QuietStorylineDto(
+    Guid StorylineId,
+    string Name,
+    string Status,
+    DateTimeOffset? LastDevelopmentAt,
+    int SessionsSinceLastDevelopment,
+    int OpenQuestionCount,
+    Guid? ParentStorylineId);
+
+public record WrapUpNestSuggestionDto(
+    Guid ProposalId,
+    Guid ChildStorylineId,
+    string ChildName,
+    Guid ParentStorylineId,
+    string ParentName,
+    string? Rationale,
+    decimal? Confidence);
+
+public record WrapUpUnparentedDto(
+    Guid StorylineId, string Name, string Status, DateTimeOffset FirstDevelopmentAt);
+
+public record WrapUpParentOptionDto(Guid StorylineId, string Name, string Status);
+
+public record WrapUpApplyResult(int Closed, int Nested, int Rejected, int Parented, Guid? BatchId);
+
+/// <summary>POST body for applying wrap-up decisions. All lists optional; empty is a no-op.</summary>
+public record WrapUpDecisionsBody(
+    IReadOnlyList<WrapUpClosureBody>? Closures,
+    IReadOnlyList<Guid>? AcceptProposalIds,
+    IReadOnlyList<Guid>? RejectProposalIds,
+    IReadOnlyList<WrapUpParentBody>? Parents);
+
+public record WrapUpClosureBody(Guid StorylineId, string Status);
+
+public record WrapUpParentBody(Guid ChildStorylineId, Guid ParentStorylineId);
 
 public record StorylineTimelineDto(
     IReadOnlyList<TimelineSessionDto> Sessions,

@@ -96,10 +96,14 @@ builder.Services.AddScoped<ISourceAttachmentService, SourceAttachmentService>();
 builder.Services.AddScoped<IArtifactService, ArtifactService>();
 builder.Services.AddScoped<IArtifactMergeService, ArtifactMergeService>();
 builder.Services.AddScoped<IArtifactRemovalService, ArtifactRemovalService>();
+builder.Services.AddScoped<IRevealService, RevealService>();
 builder.Services.AddScoped<ICanonService, CanonService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<IContinuityAuditService, ContinuityAuditService>();
 builder.Services.AddScoped<IStorylineRetrospectiveService, StorylineRetrospectiveService>();
+builder.Services.AddScoped<StorylineDevelopmentReader>();
+builder.Services.AddScoped<IStorylineContinuityService, StorylineContinuityService>();
+builder.Services.AddScoped<IStorylineWrapUpService, StorylineWrapUpService>();
 builder.Services.AddScoped<IRelationshipBackfillQueueService, RelationshipBackfillQueueService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddSingleton<IProposalValidator, ProposalValidator>();
@@ -117,6 +121,7 @@ builder.Services.AddScoped<IKnowledgeRetriever, KeywordKnowledgeRetriever>();
 // Continuity audit (AI-assessed health): options + hourly auto-trigger. The audit AI client
 // reuses the Loremaster's Azure OpenAI ChatClient and configuration (registered below).
 builder.Services.Configure<ContinuityAuditOptions>(builder.Configuration.GetSection("ContinuityAudit"));
+builder.Services.Configure<ContinuityOptions>(builder.Configuration.GetSection(ContinuityOptions.SectionName));
 builder.Services.AddHostedService<ContinuityAuditBackgroundService>();
 
 var loremasterEndpoint = builder.Configuration["Loremaster:AiEndpoint"];

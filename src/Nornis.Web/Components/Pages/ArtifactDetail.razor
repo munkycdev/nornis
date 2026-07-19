@@ -312,6 +312,23 @@
             </MudPaper>
         }
 
+        @if (Worlds.Current?.MyRole == "GM" && HasGmOnlyContent)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">Reveal to the party</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                    Promote the GM-only parts of @_detail.Name to the party — they'll appear in the
+                    players' record with provenance. Pick exactly what to disclose; whatever you leave
+                    hidden stays yours. This can't be undone.
+                </MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.Visibility"
+                           OnClick="RevealAsync">
+                    Reveal to the party…
+                </MudButton>
+            </MudPaper>
+        }
+
         @if (Worlds.Current?.MyRole != "Observer")
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
@@ -469,6 +486,39 @@
 
         Snackbar.Add($"Removed \"{p.ArtifactName}\" from canon.", Severity.Info);
         Nav.NavigateTo("/artifacts");
+    }
+
+    // Reveal to the party (GM): promotes chosen GM-only parts of this artifact to PartyVisible.
+    private bool HasGmOnlyContent =>
+        _detail is not null
+        && (_detail.Visibility == "GMOnly"
+            || _detail.Facts.Any(f => f.Visibility == "GMOnly")
+            || _detail.Relationships.Any(r => r.Visibility == "GMOnly"));
+
+    private async Task RevealAsync()
+    {
+        if (Worlds.Current is null || _detail is null)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters<RevealDialog>
+        {
+            { d => d.Detail, _detail },
+        };
+
+        var dialog = await DialogService.ShowAsync<RevealDialog>("Reveal to the party", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is RevealOutcome outcome)
+        {
+            var parts = new List<string>();
+            if (outcome.RevealedArtifacts > 0) parts.Add($"{outcome.RevealedArtifacts} artifact{(outcome.RevealedArtifacts == 1 ? "" : "s")}");
+            if (outcome.RevealedFacts > 0) parts.Add($"{outcome.RevealedFacts} fact{(outcome.RevealedFacts == 1 ? "" : "s")}");
+            if (outcome.RevealedRelationships > 0) parts.Add($"{outcome.RevealedRelationships} relationship{(outcome.RevealedRelationships == 1 ? "" : "s")}");
+            Snackbar.Add(parts.Count > 0 ? $"Revealed {string.Join(", ", parts)} to the party." : "Nothing to reveal.", Severity.Success);
+            await LoadAsync();
+        }
     }
 
     private static readonly string[] AllStatuses = ["Active", "Dormant", "Resolved", "Archived"];

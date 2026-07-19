@@ -282,125 +282,27 @@ public class ArtifactService : IArtifactService
     public async Task<AppResult<StorylineTimeline>> GetStorylineTimelineAsync(
         Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct)
     {
-        var filter = VisibilityFilter.ForRole(role, requestingUserId);
+        var reader = new StorylineDevelopmentReader(
+            _artifactRepository, _factRepository, _relationshipRepository,
+            _sourceReferenceRepository, _sourceRepository);
+        var data = await reader.ReadAsync(worldId, requestingUserId, role, ct);
 
-        // Every visible artifact — storylines become lanes; the rest resolve relationship
-        // counterpart names. Archived storylines are merge leftovers and stay out.
-        var allArtifacts = (await _artifactRepository.ListByWorldAsync(worldId, null, null, ct))
-            .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
-            .ToDictionary(a => a.Id);
-
-        var storylines = allArtifacts.Values
-            .Where(a => a.Type == ArtifactType.Storyline && a.Status != ArtifactStatus.Archived)
-            .ToList();
-
+        var storylines = data.Storylines;
         if (storylines.Count == 0)
         {
             return AppResult<StorylineTimeline>.Success(new StorylineTimeline([], [], []));
         }
 
-        var storylineIds = storylines.Select(s => s.Id).ToList();
-        var storylineIdSet = storylineIds.ToHashSet();
+        var storylineIdSet = storylines.Select(s => s.Id).ToHashSet();
+        var parentByChild = data.ParentByChild;
+        var sources = data.Sources;
+        var developments = data.Developments;
 
-        // Hidden truth states are GM knowledge regardless of visibility scope — same gate
-        // Ask and Canon apply, so the timeline can't surface them to players either.
-        var facts = (await _factRepository.ListByArtifactIdsAsync(storylineIds, filter, int.MaxValue, ct))
-            .Where(f => role == WorldRole.GM || f.TruthState != TruthState.Hidden)
-            .ToList();
-
-        var relationships = (await _relationshipRepository.ListByArtifactIdsAsync(storylineIds, filter, ct))
-            .DistinctBy(r => r.Id)
-            .ToList();
-
-        // PartOf is structural — it becomes the lane's parent rather than a generic link.
-        var parentByChild = relationships
-            .Where(r => r.Type == PartOfRelationshipType
-                && storylineIdSet.Contains(r.ArtifactAId) && storylineIdSet.Contains(r.ArtifactBId))
-            .GroupBy(r => r.ArtifactAId)
-            .ToDictionary(g => g.Key, g => g.First().ArtifactBId);
-
-        var links = relationships
+        var links = data.Relationships
             .Where(r => r.Type != PartOfRelationshipType
                 && storylineIdSet.Contains(r.ArtifactAId) && storylineIdSet.Contains(r.ArtifactBId))
             .Select(r => new TimelineLink(r.ArtifactAId, r.ArtifactBId, r.Type))
             .ToList();
-
-        // Sessions the caller may see, dated. Undated sources (lore documents) carry no
-        // position on a real-world axis and are skipped.
-        var sources = (await _sourceRepository.ListByWorldAsync(worldId, null, ct))
-            .Where(s => s.OccurredAt is not null && CanSeeSource(s, requestingUserId, role))
-            .ToDictionary(s => s.Id);
-
-        var targetIds = storylineIds
-            .Concat(facts.Select(f => f.Id))
-            .Concat(relationships.Select(r => r.Id))
-            .ToList();
-        var references = await _sourceReferenceRepository.ListByTargetIdsAsync(targetIds, ct);
-
-        var factsById = facts.ToDictionary(f => f.Id);
-        var relationshipsById = relationships.ToDictionary(r => r.Id);
-        var quotesByTarget = references
-            .GroupBy(r => (r.TargetId, r.SourceId))
-            .ToDictionary(g => g.Key, g => g.First().Quote);
-
-        // (storyline, source) → developments. A reference attributes its target to the
-        // owning storyline: facts to their artifact, relationships to their storyline
-        // endpoint(s), artifact-level citations to the storyline itself.
-        var developments = new Dictionary<(Guid StorylineId, Guid SourceId), List<TimelineDevelopment>>();
-
-        void Add(Guid storylineId, Guid sourceId, TimelineDevelopment development)
-        {
-            if (!sources.ContainsKey(sourceId))
-            {
-                return;
-            }
-
-            var key = (storylineId, sourceId);
-            if (!developments.TryGetValue(key, out var list))
-            {
-                developments[key] = list = [];
-            }
-            if (!list.Any(d => d.Kind == development.Kind && d.Text == development.Text))
-            {
-                list.Add(development);
-            }
-        }
-
-        foreach (var reference in references)
-        {
-            var quote = quotesByTarget.GetValueOrDefault((reference.TargetId, reference.SourceId));
-
-            if (factsById.TryGetValue(reference.TargetId, out var fact))
-            {
-                var isOpenQuestion = string.Equals(fact.Predicate, "open question", StringComparison.OrdinalIgnoreCase)
-                    && fact.TruthState != TruthState.False;
-                // Open questions read as bare questions — the UI prefixes them, so the
-                // predicate would just repeat itself.
-                var text = isOpenQuestion ? fact.Value : $"{fact.Predicate}: {fact.Value}";
-                Add(fact.ArtifactId, reference.SourceId,
-                    new TimelineDevelopment("Fact", text, quote, isOpenQuestion));
-            }
-            else if (relationshipsById.TryGetValue(reference.TargetId, out var relationship))
-            {
-                foreach (var endpoint in new[] { relationship.ArtifactAId, relationship.ArtifactBId })
-                {
-                    if (!storylineIdSet.Contains(endpoint))
-                    {
-                        continue;
-                    }
-
-                    var otherId = endpoint == relationship.ArtifactAId ? relationship.ArtifactBId : relationship.ArtifactAId;
-                    var otherName = allArtifacts.TryGetValue(otherId, out var other) ? other.Name : "another artifact";
-                    Add(endpoint, reference.SourceId,
-                        new TimelineDevelopment("Relationship", $"{relationship.Type} — {otherName}", quote, false));
-                }
-            }
-            else if (storylineIdSet.Contains(reference.TargetId))
-            {
-                Add(reference.TargetId, reference.SourceId,
-                    new TimelineDevelopment("Mention", "Storyline cited in this session", quote, false));
-            }
-        }
 
         var lanes = storylines
             .Select(s =>
