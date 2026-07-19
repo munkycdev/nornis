@@ -322,6 +322,34 @@ public class SourcesController : ControllerBase
         return Ok(ToSourceResponse(result.Value!));
     }
 
+    /// <summary>GM-only: reveals a GM-only source (and its attachments, e.g. a map image) to the
+    /// party — the sanctioned exception to the post-extraction visibility lock.</summary>
+    [HttpPost("{sourceId:guid}/reveal")]
+    public async Task<IActionResult> Reveal(
+        Guid worldId,
+        Guid sourceId,
+        [FromServices] IRevealService revealService,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await revealService.RevealSourceAsync(worldId, sourceId, user.Id, member.Role, ct);
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        // Return the now-party-visible source so the client refreshes its state.
+        var refreshed = await _sourceService.GetByIdAsync(sourceId, worldId, user.Id, member.Role, ct);
+        if (!refreshed.IsSuccess)
+        {
+            return MapError(refreshed.Error!);
+        }
+
+        return Ok(ToSourceResponse(refreshed.Value!));
+    }
+
     [HttpPost("{sourceId:guid}/ready")]
     public async Task<IActionResult> MarkReady(Guid worldId, Guid sourceId, CancellationToken ct)
     {

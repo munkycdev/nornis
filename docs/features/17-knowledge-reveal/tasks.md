@@ -4,9 +4,9 @@ Ordered so the mechanism lands and is provable before any UI, and Phase 1 (canon
 ships independently of Phase 2 (source reveal). Tests accompany each service/endpoint per
 repo rules; authorization/visibility and proposal application are the priority coverage.
 
-**Status:** Phase 1 (A–D) built; full suite green (Application 1069, Api 329, Domain 563,
-Web 33, Infrastructure 160, Worker 27, Shared 1). Reveal-specific: 23 Application (8 closure +
-15 service) + 5 API. Phase 2 (E) not started. Phase 1 = requirements 1–5, 7; Phase 2 = req 6.
+**Status:** Phases 1 (A–D) and 2 (E) built; full suite green (Application 1076, Api 333,
+Domain 565, Web 33, Infrastructure 160, Worker 27, Shared 1). Reveal-specific: 30 Application
+(8 closure + 22 service) + 9 API. Phase 1 = requirements 1–5, 7; Phase 2 = req 6.
 
 ## Phase A — Reveal source type (Phase 1 foundation)
 
@@ -56,18 +56,25 @@ Web 33, Infrastructure 160, Worker 27, Shared 1). Reveal-specific: 23 Applicatio
 
 ## Phase E — Source reveal (Requirement 6, Phase 2)
 
-- [ ] E1. `RaiseVisibilityAsync` on the source repository/service — the sole sanctioned path
-  that lifts a processed `GMOnly` source to `PartyVisible`; the `SourceService` 409 stays for
-  ordinary edits.
-- [ ] E2. `RevealService.RevealSourceAsync` (GM gate + provenance/audit note); confirm map
-  attachment gating against `MapViewService` so the image surfaces to players once the source
-  is revealed.
-- [ ] E3. `POST /api/worlds/{worldId}/sources/{sourceId}/reveal`; GM-gated.
-- [ ] E4. Tests: 409 still blocks ordinary edits; reveal path raises a processed GMOnly source;
-  player can load the previously GM-only map source; derived GMOnly locations stay hidden until
-  separately revealed (composition with Phase 1).
-- [ ] E5. UI: "Reveal to party" on a GM-only source / map view; composes with the Phase 1
-  location reveal for the full map worked example.
+- [x] E1. `ISourceRepository.UpdateVisibilityAsync` — a scoped column write (mirrors
+  `UpdateProcessingStatusAsync`) lifting a source's visibility without a whole-entity update.
+  Named for the operation, not the policy; the GMOnly→PartyVisible-only rule lives in the
+  service. The `SourceService.UpdateAsync` 409 is untouched, so it still locks ordinary edits.
+- [x] E2. `RevealService.RevealSourceAsync`: GM gate; Private→400; already-PartyVisible no-op;
+  GMOnly→PartyVisible via the scoped write (bypassing the 409); logs the audit line. **Attachment
+  gating confirmed:** `SourceAttachment` has no own visibility and `MapViewService` gates the
+  whole map on `CanSeeSource(source)`, so revealing the source surfaces the image; pins still
+  gate on their artifacts (Req 6.3). No synthetic source — a source is not a canon proposal target.
+- [x] E3. `POST /api/worlds/{worldId}/sources/{sourceId}/reveal` on `SourcesController`; GM-gated;
+  returns the now-party-visible source.
+- [x] E4. Tests — service (7): gate, GMOnly→PartyVisible, no-op, Private 400, cross-world/unknown
+  404. Endpoint (4): the **map round-trip** (GM reveals a GM-only map → player loads it, GM-only
+  pin stays hidden), GM-only text source → visible to player after reveal, player 403, no-op.
+  The "409 still blocks ordinary edits" property holds by construction — `SourceService.UpdateAsync`
+  is untouched (existing `SourcesUpdateTests` cover it).
+- [x] E5. UI: GM-only "Reveal to party" button on `SourceDetail` (shown when the source is GMOnly),
+  with a confirm dialog; refreshes the source on success. Web builds clean. Live-app verification
+  behind Auth0 not run (same limitation as Phase 1 D3); backend proven by the E4 round-trip.
 
 ## Deferred (explicitly not this feature)
 

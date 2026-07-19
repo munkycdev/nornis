@@ -287,6 +287,78 @@ public class RevealServiceTests
         Assert.That(uow.Transactions.Single().RolledBack, Is.True);
     }
 
+    // ---- source reveal (phase 2) ----
+
+    [TestCase(WorldRole.Player)]
+    [TestCase(WorldRole.Observer)]
+    public async Task RevealSourceAsync_NonGm_Returns403_AndChangesNothing(WorldRole role)
+    {
+        var source = SeedSource(VisibilityScope.GMOnly);
+
+        var result = await _sut.RevealSourceAsync(WorldId, source.Id, GmUserId, role, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+        Assert.That(CurrentSource(source.Id).Visibility, Is.EqualTo(VisibilityScope.GMOnly));
+    }
+
+    [Test]
+    public async Task RevealSourceAsync_GmOnlySource_BecomesPartyVisible()
+    {
+        var source = SeedSource(VisibilityScope.GMOnly);
+
+        var result = await _sut.RevealSourceAsync(WorldId, source.Id, GmUserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.WasAlreadyVisible, Is.False);
+        Assert.That(CurrentSource(source.Id).Visibility, Is.EqualTo(VisibilityScope.PartyVisible));
+    }
+
+    [Test]
+    public async Task RevealSourceAsync_AlreadyPartyVisible_IsNoOp()
+    {
+        var source = SeedSource(VisibilityScope.PartyVisible);
+
+        var result = await _sut.RevealSourceAsync(WorldId, source.Id, GmUserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.WasAlreadyVisible, Is.True);
+        Assert.That(CurrentSource(source.Id).Visibility, Is.EqualTo(VisibilityScope.PartyVisible));
+    }
+
+    [Test]
+    public async Task RevealSourceAsync_PrivateSource_Returns400()
+    {
+        var source = SeedSource(VisibilityScope.Private);
+
+        var result = await _sut.RevealSourceAsync(WorldId, source.Id, GmUserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
+        Assert.That(result.Error.Code, Is.EqualTo("cannot_reveal_private"));
+        Assert.That(CurrentSource(source.Id).Visibility, Is.EqualTo(VisibilityScope.Private));
+    }
+
+    [Test]
+    public async Task RevealSourceAsync_SourceInAnotherWorld_Returns404()
+    {
+        var foreign = SeedSource(VisibilityScope.GMOnly, worldId: Guid.NewGuid());
+
+        var result = await _sut.RevealSourceAsync(WorldId, foreign.Id, GmUserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
+    [Test]
+    public async Task RevealSourceAsync_UnknownSource_Returns404()
+    {
+        var result = await _sut.RevealSourceAsync(WorldId, Guid.NewGuid(), GmUserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
     // ---- helpers ----
 
     private RevealCommand Command(
@@ -360,9 +432,27 @@ public class RevealServiceTests
         return relationship;
     }
 
+    private Source SeedSource(VisibilityScope visibility, Guid? worldId = null)
+    {
+        var source = new Source
+        {
+            Id = Guid.NewGuid(),
+            WorldId = worldId ?? WorldId,
+            Type = SourceType.Map,
+            Title = "The GM's master map",
+            Visibility = visibility,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedByUserId = GmUserId
+        };
+        _sourceRepo.Seed(source);
+        return source;
+    }
+
     private Artifact Current(Guid id) => _artifactRepo.Artifacts.Single(a => a.Id == id);
     private ArtifactFact CurrentFact(Guid id) => _factRepo.Facts.Single(f => f.Id == id);
     private ArtifactRelationship CurrentRelationship(Guid id) => _relationshipRepo.Relationships.Single(r => r.Id == id);
+    private Source CurrentSource(Guid id) => _sourceRepo.Sources.Single(s => s.Id == id);
 
     private sealed class FailingApplicator : IProposalApplicator
     {

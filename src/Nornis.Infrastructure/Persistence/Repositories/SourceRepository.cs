@@ -59,6 +59,22 @@ public class SourceRepository : ISourceRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task UpdateVisibilityAsync(Guid id, VisibilityScope visibility, CancellationToken cancellationToken = default)
+    {
+        // Scoped column write (same tracked-load pattern as UpdateProcessingStatusAsync): the
+        // reveal path lifts a GM-only source to PartyVisible without a whole-entity update.
+        var source = await _context.Sources
+            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+
+        if (source is null)
+        {
+            throw new InvalidOperationException($"Source with id '{id}' not found.");
+        }
+
+        source.Visibility = visibility;
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task UpdateBodyAsync(Guid id, string body, CancellationToken cancellationToken = default)
     {
         // Scoped column write (same tracked-load pattern as UpdateProcessingStatusAsync):

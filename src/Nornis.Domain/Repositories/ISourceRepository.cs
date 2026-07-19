@@ -21,6 +21,11 @@ public interface ISourceRepository
 
     Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default);
 
+    /// <summary>Scoped Visibility write — the sanctioned reveal path lifts a GM-only source to
+    /// PartyVisible without routing through the general update, which locks visibility after
+    /// extraction.</summary>
+    Task UpdateVisibilityAsync(Guid id, VisibilityScope visibility, CancellationToken cancellationToken = default);
+
     Task<Source> UpdateAsync(Source source, CancellationToken cancellationToken = default);
 
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);

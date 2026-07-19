@@ -43,3 +43,7 @@ public record RevealResult(
 
     public int TotalRevealed => RevealedArtifacts + RevealedFacts + RevealedRelationships;
 }
+
+/// <summary>Outcome of revealing a source: it is now party-visible (or already was). Attachments
+/// such as a map image ride the source's visibility, so revealing the source surfaces them.</summary>
+public record RevealSourceResult(Guid SourceId, string Title, bool WasAlreadyVisible);

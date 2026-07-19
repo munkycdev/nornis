@@ -67,6 +67,14 @@
                             @(_source.ExtractionEnabled ? "Process" : "Store")
                         </MudButton>
                     }
+                    @if (Worlds.Current?.MyRole == "GM" && _source.Visibility == "GMOnly")
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                                   StartIcon="@Icons.Material.Filled.Visibility"
+                                   OnClick="RevealSourceAsync" Disabled="_revealing">
+                            Reveal to party
+                        </MudButton>
+                    }
                     @if (CanEdit)
                     {
                         <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit"
@@ -485,6 +493,42 @@
             Snackbar.Add(_source.ProcessingStatus == "Processed"
                 ? "Source stored in the record — no extraction."
                 : "Source queued for processing.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    // Reveal to party (GM): lifts a GM-only source (and its attachments, e.g. a map image)
+    // to PartyVisible. Knowledge extracted from it keeps its own scope.
+    private bool _revealing;
+
+    private async Task RevealSourceAsync()
+    {
+        if (Worlds.Current is null || _source is null)
+        {
+            return;
+        }
+
+        var confirmed = await DialogService.ShowMessageBox(
+            "Reveal to the party?",
+            $"Make \"{_source.Title}\" — and anything attached to it, like a map image — visible to the whole party. Knowledge extracted from it keeps its current scope. This can't be undone.",
+            yesText: "Reveal", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _revealing = true;
+        var result = await Api.RevealSourceAsync(Worlds.Current.Id, _source.Id);
+        _revealing = false;
+
+        if (result.IsSuccess)
+        {
+            _source = result.Value!;
+            Snackbar.Add("Revealed to the party.", Severity.Success);
         }
         else
         {
