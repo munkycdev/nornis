@@ -17,13 +17,6 @@ else
     <div class="nornis-dashboard">
         <div class="nornis-dashboard-main">
 
-            @* Only renders when there is work to do, so it sits above the fold on the days
-               it matters and costs nothing on the rest. *@
-            @if (_showAiAssessment)
-            {
-                <SessionWrapUpCard WorldId="Worlds.Current.Id" />
-            }
-
             <MudPaper Elevation="0" Class="nornis-card nornis-hero">
                 <img src="images/mini-logo.png" alt="" class="nornis-hero-mark" />
                 <div class="nornis-hero-title">Ask the Loremaster</div>
@@ -87,6 +80,13 @@ else
                     All inputs are private to your world
                 </div>
             </MudPaper>
+
+            @* Follows capture: logging the session is what surfaces the wrap-up's work in the
+               first place. Renders nothing when there is nothing to decide. *@
+            @if (_showAiAssessment)
+            {
+                <SessionWrapUpCard WorldId="Worlds.Current.Id" />
+            }
 
             @if (_loading)
             {

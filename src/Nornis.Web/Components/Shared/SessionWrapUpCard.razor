@@ -3,7 +3,11 @@
 @inject IJSRuntime JS
 
 @* GM-only session wrap-up. Renders nothing unless there is work to do, so it stays out of
-   the way on quiet days and appears at the natural cadence after a session lands. *@
+   the way on quiet days and appears at the natural cadence after a session lands.
+
+   Every decision here saves the moment it is made and the row leaves the list. The card can
+   run to thousands of pixels on a busy world, so anything staged behind a footer button is
+   feedback the GM never sees — acting in place is the only signal that reads at that height. *@
 @if (_view is { HasWork: true })
 {
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
@@ -35,11 +39,12 @@
                             </div>
                         </div>
                         <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined" Class="nornis-wrapup-actions">
-                            <MudButton Color='@(ClosureIs(q.StorylineId, "Dormant") ? Color.Warning : Color.Default)'
-                                       OnClick='() => SetClosure(q.StorylineId, "Dormant")'>Dormant</MudButton>
-                            <MudButton Color='@(ClosureIs(q.StorylineId, "Resolved") ? Color.Success : Color.Default)'
-                                       OnClick='() => SetClosure(q.StorylineId, "Resolved")'>Resolved</MudButton>
-                            <MudButton OnClick="() => DismissQuietAsync(q.StorylineId)">Still active</MudButton>
+                            <MudButton Disabled="@IsBusy(q.StorylineId)"
+                                       OnClick='() => CloseQuietAsync(q, "Dormant")'>Dormant</MudButton>
+                            <MudButton Disabled="@IsBusy(q.StorylineId)"
+                                       OnClick='() => CloseQuietAsync(q, "Resolved")'>Resolved</MudButton>
+                            <MudButton Disabled="@IsBusy(q.StorylineId)"
+                                       OnClick="() => DismissQuietAsync(q)">Still active</MudButton>
                         </MudButtonGroup>
                     </div>
                 }
@@ -58,10 +63,10 @@
                             <div class="nornis-list-sub">@n.Rationale</div>
                         </div>
                         <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined" Class="nornis-wrapup-actions">
-                            <MudButton Color="@(_accept.Contains(n.ProposalId) ? Color.Success : Color.Default)"
-                                       OnClick="() => Accept(n.ProposalId)">Nest</MudButton>
-                            <MudButton Color="@(_reject.Contains(n.ProposalId) ? Color.Error : Color.Default)"
-                                       OnClick="() => Reject(n.ProposalId)">Skip</MudButton>
+                            <MudButton Disabled="@IsBusy(n.ProposalId)"
+                                       OnClick="() => ResolveNestAsync(n, accept: true)">Nest</MudButton>
+                            <MudButton Disabled="@IsBusy(n.ProposalId)"
+                                       OnClick="() => ResolveNestAsync(n, accept: false)">Skip</MudButton>
                         </MudButtonGroup>
                     </div>
                 }
@@ -79,7 +84,8 @@
                             <div class="nornis-list-title">@arc.Name</div>
                         </div>
                         <MudSelect T="Guid?" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
-                                   Value="@GetParent(arc.StorylineId)" ValueChanged="v => SetParent(arc.StorylineId, v)"
+                                   Value="@((Guid?)null)" ValueChanged="v => AssignParentAsync(arc, v)"
+                                   Disabled="@IsBusy(arc.StorylineId)"
                                    Placeholder="No parent" Class="nornis-wrapup-actions" Style="min-width: 160px;">
                             <MudSelectItem T="Guid?" Value="@((Guid?)null)">No parent</MudSelectItem>
                             @foreach (var opt in _view.ParentOptions.Where(o => o.StorylineId != arc.StorylineId))
@@ -99,13 +105,8 @@
             </MudText>
         }
 
-        <div class="nornis-card-foot d-flex justify-space-between align-center">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@PendingSummary()</MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                       StartIcon="@Icons.Material.Filled.Check"
-                       Disabled="_applying || !HasPending" OnClick="ApplyAsync">
-                @(_applying ? "Applying…" : "Apply")
-            </MudButton>
+        <div class="nornis-card-foot">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Each choice saves as you make it.</MudText>
         </div>
     </MudPaper>
 }
@@ -115,16 +116,12 @@
 
     private WrapUpDto? _view;
     private Guid _loadedWorldId;
-    private bool _applying;
 
-    // Pending decisions, collected client-side until Apply.
-    private readonly Dictionary<Guid, string> _closures = new();   // storylineId → "Dormant"|"Resolved"
-    private readonly HashSet<Guid> _accept = new();                // nest proposal ids
-    private readonly HashSet<Guid> _reject = new();
-    private readonly Dictionary<Guid, Guid> _parents = new();      // childId → parentId
+    // Rows with a request in flight, keyed by storyline or proposal id. Guards against a
+    // double-click firing the same irreversible accept/reject twice.
+    private readonly HashSet<Guid> _busy = new();
 
-    private bool HasPending =>
-        _closures.Count > 0 || _accept.Count > 0 || _reject.Count > 0 || _parents.Count > 0;
+    private bool IsBusy(Guid id) => _busy.Contains(id);
 
     protected override async Task OnParametersSetAsync()
     {
@@ -137,10 +134,7 @@
 
     private async Task LoadAsync()
     {
-        _closures.Clear();
-        _accept.Clear();
-        _reject.Clear();
-        _parents.Clear();
+        _busy.Clear();
 
         if (WorldId == Guid.Empty)
         {
@@ -164,6 +158,126 @@
             : result.Value;
         StateHasChanged();
     }
+
+    // ------------------------------------------------------------------ Decisions --
+
+    // Closures go straight at the artifact's status rather than through the wrap-up endpoint:
+    // that endpoint mints a synthetic GMNote source + review batch per call, which is sized for
+    // one batched apply, not for one write per click. The cost is that nothing records *why* the
+    // storyline closed — so the snackbar carries an Undo, which the status route can honour
+    // (the wrap-up endpoint deliberately refuses to reopen anything).
+    private async Task CloseQuietAsync(QuietStorylineDto q, string status)
+    {
+        if (!_busy.Add(q.StorylineId))
+        {
+            return;
+        }
+
+        var result = await Api.SetArtifactStatusAsync(WorldId, q.StorylineId, status);
+        _busy.Remove(q.StorylineId);
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error?.Message ?? $"Could not mark “{q.Name}” {status.ToLowerInvariant()}.", Severity.Error);
+            StateHasChanged();
+            return;
+        }
+
+        DropQuiet(q.StorylineId);
+        Snackbar.Add($"“{q.Name}” marked {status.ToLowerInvariant()}.", Severity.Success, config =>
+        {
+            config.Action = "Undo";
+            config.ActionColor = Color.Inherit;
+            config.VisibleStateDuration = 10000;
+            config.Onclick = _ => UndoCloseAsync(q);
+        });
+    }
+
+    // Restores the status the row was showing before it was closed, then reloads so the card
+    // reflects the server rather than a locally patched view.
+    private async Task UndoCloseAsync(QuietStorylineDto q)
+    {
+        var result = await Api.SetArtifactStatusAsync(WorldId, q.StorylineId, q.Status);
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error?.Message ?? $"Could not restore “{q.Name}”.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add($"“{q.Name}” restored to {q.Status.ToLowerInvariant()}.", Severity.Info);
+        _loadedWorldId = Guid.Empty;
+        await LoadAsync();
+    }
+
+    // Accept/reject route through the wrap-up endpoint, which delegates to the review service.
+    // With no closures in the payload it writes no synthetic source or batch, so one call per
+    // decision costs nothing extra.
+    private async Task ResolveNestAsync(WrapUpNestSuggestionDto n, bool accept)
+    {
+        if (!_busy.Add(n.ProposalId))
+        {
+            return;
+        }
+
+        var body = new WrapUpDecisionsBody(
+            null,
+            accept ? [n.ProposalId] : [],
+            accept ? [] : [n.ProposalId],
+            null);
+
+        var result = await Api.ApplyWrapUpAsync(WorldId, body);
+        _busy.Remove(n.ProposalId);
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error?.Message ?? "Could not apply that change.", Severity.Error);
+            StateHasChanged();
+            return;
+        }
+
+        if (_view is not null)
+        {
+            _view = _view with { CouldNest = _view.CouldNest.Where(x => x.ProposalId != n.ProposalId).ToList() };
+            RecomputeHasWork();
+        }
+
+        Snackbar.Add(accept
+            ? $"“{n.ChildName}” nested under “{n.ParentName}”."
+            : $"Skipped nesting “{n.ChildName}”.", Severity.Success);
+        StateHasChanged();
+    }
+
+    private async Task AssignParentAsync(WrapUpUnparentedDto arc, Guid? parentId)
+    {
+        if (parentId is not { } parent || !_busy.Add(arc.StorylineId))
+        {
+            return; // "No parent" is the resting state, so selecting it is a no-op.
+        }
+
+        var body = new WrapUpDecisionsBody(null, [], [], [new WrapUpParentBody(arc.StorylineId, parent)]);
+
+        var result = await Api.ApplyWrapUpAsync(WorldId, body);
+        _busy.Remove(arc.StorylineId);
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error?.Message ?? $"Could not assign a parent to “{arc.Name}”.", Severity.Error);
+            StateHasChanged();
+            return;
+        }
+
+        var parentName = _view?.ParentOptions.FirstOrDefault(o => o.StorylineId == parent)?.Name ?? "its parent";
+        if (_view is not null)
+        {
+            _view = _view with { UnparentedArcs = _view.UnparentedArcs.Where(x => x.StorylineId != arc.StorylineId).ToList() };
+            RecomputeHasWork();
+        }
+
+        Snackbar.Add($"“{arc.Name}” nested under “{parentName}”.", Severity.Success);
+        StateHasChanged();
+    }
+
+    // ---------------------------------------------------------------------- Snooze --
 
     // Client-persisted snooze: a quiet storyline the GM marked "still active" stays hidden
     // until a newer session arrives (the latest-session id is part of the key).
@@ -211,106 +325,49 @@
         return set;
     }
 
-    private async Task DismissQuietAsync(Guid storylineId)
+    private async Task DismissQuietAsync(QuietStorylineDto q)
     {
-        // Persist against the current latest session so it re-surfaces after a newer one.
-        var latest = _view?.LatestSession?.SourceId ?? Guid.Empty;
-        var raw = await JS.InvokeAsync<string?>("localStorage.getItem", SnoozeStorageKey) ?? string.Empty;
-        var entries = raw.Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
-        entries.Add(SnoozeKeyFor(storylineId, latest));
-        await JS.InvokeVoidAsync("localStorage.setItem", SnoozeStorageKey, string.Join(',', entries));
-
-        _closures.Remove(storylineId);
-        if (_view is not null)
-        {
-            var kept = _view.GoneQuiet.Where(q => q.StorylineId != storylineId).ToList();
-            _view = _view with { GoneQuiet = kept };
-            _view = _view with { HasWork = _view.GoneQuiet.Count > 0 || _view.CouldNest.Count > 0 || _view.UnparentedArcs.Count > 0 };
-        }
-        StateHasChanged();
-    }
-
-    private bool ClosureIs(Guid storylineId, string status) =>
-        _closures.TryGetValue(storylineId, out var s) && s == status;
-
-    private void SetClosure(Guid storylineId, string status)
-    {
-        if (ClosureIs(storylineId, status))
-        {
-            _closures.Remove(storylineId); // toggle off
-        }
-        else
-        {
-            _closures[storylineId] = status;
-        }
-    }
-
-    private void Accept(Guid proposalId)
-    {
-        _reject.Remove(proposalId);
-        if (!_accept.Add(proposalId)) _accept.Remove(proposalId);
-    }
-
-    private void Reject(Guid proposalId)
-    {
-        _accept.Remove(proposalId);
-        if (!_reject.Add(proposalId)) _reject.Remove(proposalId);
-    }
-
-    private Guid? GetParent(Guid childId) => _parents.TryGetValue(childId, out var p) ? p : null;
-
-    private void SetParent(Guid childId, Guid? parentId)
-    {
-        if (parentId is { } p)
-        {
-            _parents[childId] = p;
-        }
-        else
-        {
-            _parents.Remove(childId);
-        }
-    }
-
-    private string PendingSummary()
-    {
-        var parts = new List<string>();
-        if (_closures.Count > 0) parts.Add($"{_closures.Count} to close");
-        if (_accept.Count > 0) parts.Add($"{_accept.Count} to nest");
-        if (_reject.Count > 0) parts.Add($"{_reject.Count} to skip");
-        if (_parents.Count > 0) parts.Add($"{_parents.Count} to parent");
-        return parts.Count == 0 ? "No changes selected" : string.Join(" · ", parts);
-    }
-
-    private async Task ApplyAsync()
-    {
-        if (_applying || !HasPending)
+        if (!_busy.Add(q.StorylineId))
         {
             return;
         }
 
-        _applying = true;
+        // Persist against the current latest session so it re-surfaces after a newer one.
+        var latest = _view?.LatestSession?.SourceId ?? Guid.Empty;
+        var raw = await JS.InvokeAsync<string?>("localStorage.getItem", SnoozeStorageKey) ?? string.Empty;
+        var entries = raw.Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+        entries.Add(SnoozeKeyFor(q.StorylineId, latest));
+        await JS.InvokeVoidAsync("localStorage.setItem", SnoozeStorageKey, string.Join(',', entries));
+
+        _busy.Remove(q.StorylineId);
+        DropQuiet(q.StorylineId);
+        Snackbar.Add($"“{q.Name}” kept active until your next session.", Severity.Info);
+    }
+
+    // ---------------------------------------------------------------------- Shared --
+
+    private void DropQuiet(Guid storylineId)
+    {
+        if (_view is null)
+        {
+            return;
+        }
+
+        _view = _view with { GoneQuiet = _view.GoneQuiet.Where(x => x.StorylineId != storylineId).ToList() };
+        RecomputeHasWork();
         StateHasChanged();
+    }
 
-        var body = new WrapUpDecisionsBody(
-            _closures.Select(kv => new WrapUpClosureBody(kv.Key, kv.Value)).ToList(),
-            _accept.ToList(),
-            _reject.ToList(),
-            _parents.Select(kv => new WrapUpParentBody(kv.Key, kv.Value)).ToList());
-
-        var result = await Api.ApplyWrapUpAsync(WorldId, body);
-        _applying = false;
-
-        if (result.IsSuccess)
+    private void RecomputeHasWork()
+    {
+        if (_view is null)
         {
-            var v = result.Value!;
-            Snackbar.Add($"Wrap-up applied: {v.Closed} closed, {v.Nested} nested, {v.Parented} parented.", Severity.Success);
-            _loadedWorldId = Guid.Empty; // force a fresh reload
-            await LoadAsync();
+            return;
         }
-        else
+
+        _view = _view with
         {
-            Snackbar.Add(result.Error?.Message ?? "Wrap-up failed.", Severity.Error);
-            StateHasChanged();
-        }
+            HasWork = _view.GoneQuiet.Count > 0 || _view.CouldNest.Count > 0 || _view.UnparentedArcs.Count > 0
+        };
     }
 }
