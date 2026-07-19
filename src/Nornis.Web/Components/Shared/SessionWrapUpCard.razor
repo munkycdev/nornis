@@ -155,7 +155,13 @@
             return;
         }
 
-        _view = await ApplySnoozeAsync(result.Value);
+        // The snooze lives in localStorage, reachable only once the component is interactive.
+        // During static prerender (RendererInfo.IsInteractive == false) a JS interop call throws
+        // ("JavaScript interop calls cannot be issued at this time") and 500s the page — so skip it
+        // and show the unfiltered view; the interactive render re-runs LoadAsync and applies snooze.
+        _view = RendererInfo.IsInteractive
+            ? await ApplySnoozeAsync(result.Value)
+            : result.Value;
         StateHasChanged();
     }
 
