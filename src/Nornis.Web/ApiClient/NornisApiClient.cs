@@ -84,6 +84,26 @@ public class NornisApiClient
     public Task<ApiResult<bool>> RemoveMemberAsync(Guid worldId, Guid userId, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}/members/{userId}", ct);
 
+    // -------------------------------------------------------------------- Invites --
+
+    /// <summary>Lists a world's invite links (GM-only).</summary>
+    public Task<ApiResult<IReadOnlyList<WorldInvite>>> GetWorldInvitesAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<WorldInvite>>($"/api/worlds/{worldId}/invites", ct);
+
+    public Task<ApiResult<WorldInvite>> CreateWorldInviteAsync(Guid worldId, CreateInviteRequest request, CancellationToken ct = default) =>
+        PostAsync<CreateInviteRequest, WorldInvite>($"/api/worlds/{worldId}/invites", request, ct);
+
+    public Task<ApiResult<bool>> RevokeWorldInviteAsync(Guid worldId, Guid inviteId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/invites/{inviteId}", ct);
+
+    /// <summary>Describes an invite for the landing page. Not world-scoped — the caller may not be a member yet.</summary>
+    public Task<ApiResult<InvitePreview>> PreviewInviteAsync(string code, CancellationToken ct = default) =>
+        GetAsync<InvitePreview>($"/api/invites/{code}", ct);
+
+    /// <summary>Redeems an invite, joining the caller to the world.</summary>
+    public Task<ApiResult<AcceptInviteResult>> AcceptInviteAsync(string code, CancellationToken ct = default) =>
+        PostAsync<object?, AcceptInviteResult>($"/api/invites/{code}/accept", null, ct);
+
     // ------------------------------------------------------------------ Campaigns --
 
     public Task<ApiResult<IReadOnlyList<CampaignDto>>> GetCampaignsAsync(Guid worldId, CancellationToken ct = default) =>

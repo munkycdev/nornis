@@ -1,0 +1,120 @@
+@page "/invite/{Code}"
+@inject NornisApiClient Api
+@inject WorldState Worlds
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+@* Invite redemption landing page. Inherits [Authorize] from Pages/_Imports, so an anonymous
+   visitor is bounced through Auth0 (logging in, or signing up with Discord) and returns here
+   authenticated. Then we preview the invite and let them deliberately accept it — a forwarded
+   link never joins anyone by itself. *@
+
+<PageTitle>Join a world — Nornis</PageTitle>
+
+<div class="nornis-invite-page">
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad" Style="max-width: 520px; margin: 3rem auto;">
+        <div class="d-flex justify-center mb-4">
+            <img src="images/mini-logo.png" alt="" style="height: 48px;" />
+        </div>
+
+        @if (_loading)
+        {
+            <LoadingRows Rows="2" Height="40px" />
+        }
+        else if (_preview is null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-3">@(_error ?? "This invite link is not valid.")</MudAlert>
+            <MudButton Variant="Variant.Text" Href="/">Back to Nornis</MudButton>
+        }
+        else if (_preview.Status == "Active")
+        {
+            <MudText Typo="Typo.h5" Align="Align.Center" Class="mb-2">You're invited</MudText>
+            <MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary" Class="mb-4">
+                Join <strong>@_preview.WorldName</strong> as <strong>@RoleLabel(_preview.Role)</strong>.
+            </MudText>
+
+            @if (_error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_error</MudAlert>
+            }
+
+            <div class="d-flex justify-center gap-3">
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.Login"
+                           OnClick="AcceptAsync" Disabled="_joining">
+                    Join @_preview.WorldName
+                </MudButton>
+                <MudButton Variant="Variant.Text" Href="/" Disabled="_joining">Not now</MudButton>
+            </div>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-3">@StatusMessage(_preview.Status)</MudAlert>
+            <div class="d-flex justify-center">
+                <MudButton Variant="Variant.Text" Href="/">Back to Nornis</MudButton>
+            </div>
+        }
+    </MudPaper>
+</div>
+
+@code {
+    [Parameter] public string Code { get; set; } = string.Empty;
+
+    private bool _loading = true;
+    private bool _joining;
+    private InvitePreview? _preview;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.PreviewInviteAsync(Code);
+        _loading = false;
+
+        if (result.IsSuccess)
+        {
+            _preview = result.Value;
+        }
+        else
+        {
+            _error = result.Error!.Message;
+        }
+    }
+
+    private async Task AcceptAsync()
+    {
+        _joining = true;
+        _error = null;
+
+        var result = await Api.AcceptInviteAsync(Code);
+
+        if (!result.IsSuccess)
+        {
+            _joining = false;
+            _error = result.Error!.Message;
+            return;
+        }
+
+        var joined = result.Value!;
+        // Pull the newly-joined world into the sidebar and make it current.
+        await Worlds.ReloadAsync();
+        Worlds.Select(joined.WorldId);
+
+        Snackbar.Add(
+            joined.AlreadyMember
+                ? $"You're already a member of {joined.WorldName}."
+                : $"Welcome to {joined.WorldName}!",
+            Severity.Success);
+
+        Nav.NavigateTo("/");
+    }
+
+    private static string RoleLabel(string role) => role == "Observer" ? "Fly on the wall" : role;
+
+    private static string StatusMessage(string status) => status switch
+    {
+        "Revoked" => "This invite has been revoked by a GM.",
+        "Expired" => "This invite link has expired.",
+        "Exhausted" => "This invite has reached its maximum number of uses.",
+        _ => "This invite can no longer be used."
+    };
+}

@@ -208,6 +208,12 @@ public class EnumDefinitionTests
     }
 
     [Test]
+    public void InviteStatus_HasNoUnexpectedValues()
+    {
+        Assert.That(Enum.GetNames<InviteStatus>(), Has.Length.EqualTo(4));
+    }
+
+    [Test]
     public void AllEnums_AreInExpectedNamespace()
     {
         var enumTypes = typeof(WorldRole).Assembly
@@ -217,8 +223,9 @@ public class EnumDefinitionTests
 
         // 15 original + ContinuityFindingCategory/Severity/Status (AI-assessed Continuity
         // Health) + CampaignStatus (worlds-and-campaigns) + LibraryDocumentKind/Status
-        // (Library) + SourceAttachmentKind/Status (handwritten notes).
-        Assert.That(enumTypes, Has.Count.EqualTo(23),
-            "Expected exactly 23 enums in Nornis.Domain.Enums namespace.");
+        // (Library) + SourceAttachmentKind/Status (handwritten notes) + InviteStatus
+        // (world invitations).
+        Assert.That(enumTypes, Has.Count.EqualTo(24),
+            "Expected exactly 24 enums in Nornis.Domain.Enums namespace.");
     }
 }
