@@ -72,14 +72,6 @@ public class ArtifactRepository : IArtifactRepository
         return artifact;
     }
 
-    public async Task<IReadOnlyList<Artifact>> SearchByNameAsync(Guid worldId, string searchTerm, CancellationToken cancellationToken = default)
-    {
-        return await _context.Artifacts
-            .AsNoTracking()
-            .Where(a => a.WorldId == worldId && EF.Functions.Like(a.Name, $"%{searchTerm}%"))
-            .ToListAsync(cancellationToken);
-    }
-
     public async Task<IReadOnlyList<Artifact>> ListByExactNameAsync(Guid worldId, string name, CancellationToken cancellationToken = default)
     {
         // Default SQL Server collation is case-insensitive; ToLower makes the intent
