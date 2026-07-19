@@ -63,4 +63,19 @@ public class SourceReferenceRepository : ISourceReferenceRepository
         _context.SourceReferences.RemoveRange(references);
         await _context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task DeleteByTargetAsync(SourceReferenceTargetType targetType, Guid targetId, CancellationToken cancellationToken = default)
+    {
+        var references = await _context.SourceReferences
+            .Where(sr => sr.TargetType == targetType && sr.TargetId == targetId)
+            .ToListAsync(cancellationToken);
+
+        if (references.Count == 0)
+        {
+            return;
+        }
+
+        _context.SourceReferences.RemoveRange(references);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
 }

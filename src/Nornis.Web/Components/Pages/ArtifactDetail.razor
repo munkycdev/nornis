@@ -292,6 +292,24 @@
                     <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_mergeError</MudAlert>
                 }
             </MudPaper>
+
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">Remove from canon</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                    Was @_detail.Name never real, or extracted by mistake? Remove it and the knowledge
+                    attached to it — its facts, the relationships touching it, and any map pins. Other
+                    artifacts are untouched. This can't be undone.
+                </MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                           StartIcon="@Icons.Material.Filled.DeleteForever"
+                           OnClick="RemoveFromCanonAsync" Disabled="_removeBusy">
+                    Remove from canon
+                </MudButton>
+                @if (_removeError is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_removeError</MudAlert>
+                }
+            </MudPaper>
         }
 
         @if (Worlds.Current?.MyRole != "Observer")
@@ -393,6 +411,64 @@
 
         Snackbar.Add($"Merged into {_mergeTarget.Name}.", Severity.Success);
         Nav.NavigateTo($"/artifacts/{result.Value!.TargetArtifactId}");
+    }
+
+    // Remove from canon (GM): deletes this artifact and the knowledge attached to it.
+    private bool _removeBusy;
+    private string? _removeError;
+
+    private async Task RemoveFromCanonAsync()
+    {
+        if (Worlds.Current is null || _detail is null)
+        {
+            return;
+        }
+
+        _removeBusy = true;
+        _removeError = null;
+        StateHasChanged();
+
+        var preview = await Api.GetArtifactRemovalPreviewAsync(Worlds.Current.Id, _detail.Id);
+        if (!preview.IsSuccess)
+        {
+            _removeBusy = false;
+            _removeError = preview.Error!.Message;
+            StateHasChanged();
+            return;
+        }
+
+        var p = preview.Value!;
+        var parts = new List<string>();
+        if (p.FactCount > 0) parts.Add($"{p.FactCount} fact{(p.FactCount == 1 ? "" : "s")}");
+        if (p.Relationships.Count > 0) parts.Add($"{p.Relationships.Count} relationship{(p.Relationships.Count == 1 ? "" : "s")}");
+        if (p.MapPinCount > 0) parts.Add($"{p.MapPinCount} map pin{(p.MapPinCount == 1 ? "" : "s")}");
+        if (p.CharacterLinksToClear > 0) parts.Add($"{p.CharacterLinksToClear} character link{(p.CharacterLinksToClear == 1 ? "" : "s")} cleared");
+        var detail = parts.Count > 0 ? $"This also removes {string.Join(", ", parts)}. " : "";
+
+        var confirmed = await DialogService.ShowMessageBox(
+            "Remove from canon?",
+            $"Permanently remove \"{p.ArtifactName}\" from the Codex. {detail}Other artifacts are not affected. This cannot be undone.",
+            yesText: "Remove", cancelText: "Cancel");
+
+        if (confirmed != true)
+        {
+            _removeBusy = false;
+            StateHasChanged();
+            return;
+        }
+
+        var result = await Api.RemoveArtifactAsync(Worlds.Current.Id, _detail.Id);
+        _removeBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            _removeError = result.Error!.Message;
+            StateHasChanged();
+            return;
+        }
+
+        Snackbar.Add($"Removed \"{p.ArtifactName}\" from canon.", Severity.Info);
+        Nav.NavigateTo("/artifacts");
     }
 
     private static readonly string[] AllStatuses = ["Active", "Dormant", "Resolved", "Archived"];
