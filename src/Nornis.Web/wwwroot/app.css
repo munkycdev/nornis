@@ -850,6 +850,20 @@ html, body {
     text-align: center;
 }
 
+/* Session wrap-up card sections. */
+.nornis-wrapup-section {
+    margin-top: 12px;
+}
+
+.nornis-wrapup-heading {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--mud-palette-text-secondary);
+    margin-bottom: 4px;
+}
+
 /* AI-assessed continuity health card. */
 .nornis-ai-summary {
     display: flex;

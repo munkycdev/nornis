@@ -78,4 +78,86 @@ public class StorylinesControllerTests
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }
+
+    [Test]
+    public async Task Continuity_NonGm_ReturnsForbidden()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+
+        var response = await scenario.PlayerClient.GetAsync($"/api/worlds/{scenario.World.Id}/storylines/continuity");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
+    public async Task Continuity_Gm_EmptyWorld_ReturnsZeroActive()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+
+        var response = await scenario.GmClient.GetAsync($"/api/worlds/{scenario.World.Id}/storylines/continuity");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var report = await response.Content.ReadFromJsonAsync<StorylineContinuityResponse>();
+        Assert.That(report, Is.Not.Null);
+        Assert.That(report!.ActiveCount, Is.EqualTo(0));
+        Assert.That(report.Quiet, Is.Empty);
+    }
+
+    [Test]
+    public async Task WrapUp_NonGm_ReturnsForbidden()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+
+        var response = await scenario.PlayerClient.GetAsync($"/api/worlds/{scenario.World.Id}/storylines/wrap-up");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
+    public async Task WrapUp_Gm_EmptyWorld_HasNoWork()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+
+        var response = await scenario.GmClient.GetAsync($"/api/worlds/{scenario.World.Id}/storylines/wrap-up");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var view = await response.Content.ReadFromJsonAsync<WrapUpResponse>();
+        Assert.That(view!.HasWork, Is.False);
+    }
+
+    [Test]
+    public async Task WrapUp_Gm_ClosureRoundTripsToResolvedStatus()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var arc = await KnowledgeTestHelpers.CreateTestArtifactAsync(
+            _factory, scenario.World.Id, "Finished Arc", type: ArtifactType.Storyline, status: ArtifactStatus.Active);
+
+        var apply = await scenario.GmClient.PostAsJsonAsync(
+            $"/api/worlds/{scenario.World.Id}/storylines/wrap-up",
+            new { closures = new[] { new { storylineId = arc.Id, status = "Resolved" } } });
+
+        Assert.That(apply.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var result = await apply.Content.ReadFromJsonAsync<WrapUpApplyResponse>();
+        Assert.That(result!.Closed, Is.EqualTo(1));
+        Assert.That(result.BatchId, Is.Not.Null);
+
+        // The storyline is now Resolved — the closure applied, not just proposed.
+        var resolved = await scenario.GmClient.GetFromJsonAsync<List<ArtifactListItemResponse>>(
+            $"/api/worlds/{scenario.World.Id}/storylines?status=Resolved");
+        Assert.That(resolved!.Select(s => s.Id), Does.Contain(arc.Id));
+    }
+
+    [Test]
+    public async Task WrapUp_Gm_InvalidClosureStatus_ReturnsBadRequest()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var arc = await KnowledgeTestHelpers.CreateTestArtifactAsync(
+            _factory, scenario.World.Id, "Arc", type: ArtifactType.Storyline);
+
+        var response = await scenario.GmClient.PostAsJsonAsync(
+            $"/api/worlds/{scenario.World.Id}/storylines/wrap-up",
+            new { closures = new[] { new { storylineId = arc.Id, status = "Active" } } });
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+    }
 }

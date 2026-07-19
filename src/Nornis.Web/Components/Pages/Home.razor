@@ -162,6 +162,11 @@ else
         <div class="nornis-rail">
             @if (_showAiAssessment)
             {
+                <SessionWrapUpCard WorldId="Worlds.Current.Id" />
+            }
+
+            @if (_showAiAssessment)
+            {
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                     <div class="nornis-card-header">
                         <span class="nornis-card-title">Continuity Health</span>

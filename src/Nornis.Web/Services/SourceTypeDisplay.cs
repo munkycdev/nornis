@@ -37,6 +37,8 @@ public static class SourceTypeDisplay
         // Legacy types — retired from capture, still displayed on existing sources.
         ["JournalEntry"] = "Journal Entry",
         ["Transcript"] = "Transcript",
+        // System-generated — never captured, shown on the sources ledger as provenance.
+        ["Reveal"] = "Reveal",
     };
 
     public static string Label(string type) =>

@@ -1,0 +1,170 @@
+@inject NornisApiClient Api
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Pick exactly what to disclose to the party. Anything you leave unchecked stays GM-only.
+        </MudText>
+
+        @if (!AnythingGmOnly)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">Nothing here is GM-only.</MudAlert>
+        }
+        else
+        {
+            @if (ArtifactIsGmOnly)
+            {
+                <MudCheckBox T="bool" @bind-Value="_revealArtifact" Dense="true"
+                             Label="@($"This artifact — {Detail.Name}")" />
+            }
+
+            @if (GmOnlyFacts.Count > 0)
+            {
+                <div class="nornis-detail-section-title mt-2">Facts</div>
+                @foreach (var f in GmOnlyFacts)
+                {
+                    <MudCheckBox T="bool" Dense="true"
+                                 Value="_facts.Contains(f.Id)"
+                                 ValueChanged="(bool v) => ToggleFact(f.Id, v)"
+                                 Label="@($"{f.Predicate}: {f.Value}")" />
+                }
+            }
+
+            @if (GmOnlyRelationships.Count > 0)
+            {
+                <div class="nornis-detail-section-title mt-2">Relationships</div>
+                @foreach (var r in GmOnlyRelationships)
+                {
+                    <MudCheckBox T="bool" Dense="true"
+                                 Value="_relationships.Contains(r.Id)"
+                                 ValueChanged="(bool v) => ToggleRelationship(r.Id, v)"
+                                 Label="@($"{r.Type} → {OtherName(r)}")" />
+                }
+            }
+
+            <MudTextField @bind-Value="_note" Label="Note (optional)" Lines="2"
+                          Variant="Variant.Outlined" Class="mt-3"
+                          Placeholder="e.g. The party bought a map from Silas." />
+
+            @if (_missing.Count > 0)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3">
+                    Revealing this also requires revealing @string.Join(", ", _missing.Select(NameFor)).
+                    <MudButton Variant="Variant.Text" Color="Color.Warning" Size="Size.Small"
+                               OnClick="IncludeMissingAndReveal" Class="ml-2">Include and reveal</MudButton>
+                </MudAlert>
+            }
+
+            @if (_error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="Submit"
+                   Disabled="@(_busy || !HasSelection)">
+            Reveal to the party
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public ArtifactDetailDto Detail { get; set; } = default!;
+
+    private bool _revealArtifact;
+    private readonly HashSet<Guid> _facts = [];
+    private readonly HashSet<Guid> _relationships = [];
+    private readonly HashSet<Guid> _includedDeps = [];
+    private string _note = string.Empty;
+    private IReadOnlyList<Guid> _missing = [];
+    private bool _busy;
+    private string? _error;
+
+    private bool ArtifactIsGmOnly => Detail.Visibility == "GMOnly";
+
+    private IReadOnlyList<ArtifactFactDto> GmOnlyFacts =>
+        Detail.Facts.Where(f => f.Visibility == "GMOnly").ToList();
+
+    private IReadOnlyList<ArtifactRelationshipDto> GmOnlyRelationships =>
+        Detail.Relationships.Where(r => r.Visibility == "GMOnly").ToList();
+
+    private bool AnythingGmOnly => ArtifactIsGmOnly || GmOnlyFacts.Count > 0 || GmOnlyRelationships.Count > 0;
+
+    private bool HasSelection => (_revealArtifact && ArtifactIsGmOnly) || _facts.Count > 0 || _relationships.Count > 0;
+
+    private void ToggleFact(Guid id, bool on)
+    {
+        if (on) _facts.Add(id); else _facts.Remove(id);
+    }
+
+    private void ToggleRelationship(Guid id, bool on)
+    {
+        if (on) _relationships.Add(id); else _relationships.Remove(id);
+    }
+
+    private async Task Submit()
+    {
+        _busy = true;
+        _error = null;
+        _missing = [];
+
+        var artifactIds = new List<Guid>(_includedDeps);
+        if (_revealArtifact && ArtifactIsGmOnly)
+        {
+            artifactIds.Add(Detail.Id);
+        }
+
+        var body = new RevealBody(
+            artifactIds.Distinct().ToList(),
+            _facts.ToList(),
+            _relationships.ToList(),
+            [],
+            string.IsNullOrWhiteSpace(_note) ? null : _note.Trim());
+
+        var result = await Api.RevealAsync(Detail.WorldId, body);
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        var outcome = result.Value!;
+        if (!outcome.Applied)
+        {
+            _missing = outcome.MissingArtifactIds;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(outcome));
+    }
+
+    private async Task IncludeMissingAndReveal()
+    {
+        foreach (var id in _missing)
+        {
+            _includedDeps.Add(id);
+        }
+        _missing = [];
+        await Submit();
+    }
+
+    private string NameFor(Guid id) =>
+        id == Detail.Id
+            ? Detail.Name
+            : Detail.ConnectedArtifacts.FirstOrDefault(c => c.Id == id)?.Name ?? id.ToString();
+
+    private string OtherName(ArtifactRelationshipDto r)
+    {
+        var otherId = r.ArtifactAId == Detail.Id ? r.ArtifactBId : r.ArtifactAId;
+        return Detail.ConnectedArtifacts.FirstOrDefault(c => c.Id == otherId)?.Name
+               ?? (string.IsNullOrWhiteSpace(r.Description) ? "…" : r.Description!);
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

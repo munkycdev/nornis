@@ -20,5 +20,13 @@ public enum SourceType
     FanFiction,
 
     /// <summary>A map image; extraction reads place names and positions into placemarks.</summary>
-    Map
+    Map,
+
+    /// <summary>
+    /// A synthetic, party-visible provenance record minted when a GM reveals GM-only
+    /// knowledge to the party. Never captured by a user, never extracted — it exists so a
+    /// revealed artifact/fact/relationship carries player-visible provenance ("learned via
+    /// the reveal") instead of pointing at the GM's private source.
+    /// </summary>
+    Reveal
 }

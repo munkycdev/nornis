@@ -302,6 +302,42 @@ public class NornisApiClient
 
     private sealed record SetArtifactStatusBody(string Status);
 
+    /// <summary>GM-only: promotes GM-only artifacts/facts/relationships to the party. A 422
+    /// (the set is not reference-closed) is surfaced as <see cref="RevealOutcome.Applied"/> =
+    /// false carrying the artifacts that must also be revealed — not as an error — so the UI can
+    /// offer to include them and retry.</summary>
+    public async Task<ApiResult<RevealOutcome>> RevealAsync(Guid worldId, RevealBody body, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync($"/api/worlds/{worldId}/reveal", body, ct);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var applied = await response.Content.ReadFromJsonAsync<RevealResponseDto>(ct);
+                return applied is null
+                    ? ApiResult<RevealOutcome>.Fail(new ApiError("empty_response", "The API returned an empty response."))
+                    : ApiResult<RevealOutcome>.Ok(new RevealOutcome(
+                        true, applied.BatchId, applied.RevealedArtifacts, applied.RevealedFacts,
+                        applied.RevealedRelationships, applied.Corrections, []));
+            }
+
+            if (response.StatusCode == HttpStatusCode.UnprocessableEntity)
+            {
+                var notClosed = await response.Content.ReadFromJsonAsync<RevealNotClosedDto>(ct);
+                return ApiResult<RevealOutcome>.Ok(new RevealOutcome(
+                    false, null, 0, 0, 0, 0, notClosed?.MissingArtifactIds ?? []));
+            }
+
+            var failed = await ReadResultAsync<RevealOutcome>(response, ct);
+            return ApiResult<RevealOutcome>.Fail(failed.Error!);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<RevealOutcome>.Fail(Unreachable(ex));
+        }
+    }
+
     /// <summary>GM-only: assess Active storylines and propose closures as review proposals.</summary>
     public Task<ApiResult<RetrospectiveResult>> RunStorylineRetrospectiveAsync(Guid worldId, CancellationToken ct = default) =>
         PostAsync<object?, RetrospectiveResult>($"/api/worlds/{worldId}/storylines/retrospective", null, ct);
@@ -318,6 +354,14 @@ public class NornisApiClient
     /// <summary>Session-dated storyline lanes for the timeline view.</summary>
     public Task<ApiResult<StorylineTimelineDto>> GetStorylineTimelineAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<StorylineTimelineDto>($"/api/worlds/{worldId}/storylines/timeline", ct);
+
+    /// <summary>GM-only: the session wrap-up view — what advanced, went quiet, could nest.</summary>
+    public Task<ApiResult<WrapUpDto>> GetWrapUpAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<WrapUpDto>($"/api/worlds/{worldId}/storylines/wrap-up", ct);
+
+    /// <summary>GM-only: apply the wrap-up decisions in one call.</summary>
+    public Task<ApiResult<WrapUpApplyResult>> ApplyWrapUpAsync(Guid worldId, WrapUpDecisionsBody body, CancellationToken ct = default) =>
+        PostAsync<WrapUpDecisionsBody, WrapUpApplyResult>($"/api/worlds/{worldId}/storylines/wrap-up", body, ct);
 
     public Task<ApiResult<IReadOnlyList<CanonEntry>>> GetCanonAsync(
         Guid worldId, string? truthState = null, CancellationToken ct = default) =>
