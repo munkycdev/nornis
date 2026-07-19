@@ -92,6 +92,37 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
     }
 
     [FsCheck.NUnit.Property(Arbitrary = [typeof(EntityGenerators.DomainArbitraries)], MaxTest = 100)]
+    public void WorldInvite_RoundTrip_AllPropertiesMatch(WorldInvite generated)
+    {
+        var user = CreateUser();
+        var world = CreateWorld(user.Id);
+
+        // Unique Id + Code per iteration — the DB is shared across FsCheck runs and Code is unique-indexed.
+        generated.Id = Guid.NewGuid();
+        generated.Code = Guid.NewGuid().ToString("N");
+        generated.WorldId = world.Id;
+        generated.CreatedByUserId = user.Id;
+        generated.RowVersion = [];
+
+        Context.WorldInvites.Add(generated);
+        Context.SaveChanges();
+
+        using var readContext = CreateNewContext();
+        var retrieved = readContext.WorldInvites.AsNoTracking().First(i => i.Id == generated.Id);
+
+        Assert.That(retrieved.Id, Is.EqualTo(generated.Id));
+        Assert.That(retrieved.WorldId, Is.EqualTo(generated.WorldId));
+        Assert.That(retrieved.Code, Is.EqualTo(generated.Code));
+        Assert.That(retrieved.Role, Is.EqualTo(generated.Role));
+        Assert.That(retrieved.CreatedByUserId, Is.EqualTo(generated.CreatedByUserId));
+        Assert.That(retrieved.CreatedAt, Is.EqualTo(generated.CreatedAt));
+        Assert.That(retrieved.ExpiresAt, Is.EqualTo(generated.ExpiresAt));
+        Assert.That(retrieved.MaxUses, Is.EqualTo(generated.MaxUses));
+        Assert.That(retrieved.UseCount, Is.EqualTo(generated.UseCount));
+        Assert.That(retrieved.RevokedAt, Is.EqualTo(generated.RevokedAt));
+    }
+
+    [FsCheck.NUnit.Property(Arbitrary = [typeof(EntityGenerators.DomainArbitraries)], MaxTest = 100)]
     public void Source_RoundTrip_AllPropertiesMatch(Source generated)
     {
         var user = CreateUser();

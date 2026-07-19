@@ -11,6 +11,7 @@ public class RepositoryInterfaceContractTests
     [
         typeof(IWorldRepository),
         typeof(IWorldMemberRepository),
+        typeof(IWorldInviteRepository),
         typeof(IUserRepository),
         typeof(ISourceRepository),
         typeof(IArtifactRepository),
@@ -35,6 +36,7 @@ public class RepositoryInterfaceContractTests
     {
         [typeof(IWorldRepository)] = ["CreateAsync", "GetByIdAsync", "UpdateAsync", "ListByUserAsync", "GetByIdsAsync"],
         [typeof(IWorldMemberRepository)] = ["CreateAsync", "GetByWorldAndUserAsync", "ListByWorldAsync", "RemoveAsync", "ListByUserAsync"],
+        [typeof(IWorldInviteRepository)] = ["CreateAsync", "GetByCodeAsync", "GetByIdAsync", "ListByWorldAsync", "UpdateAsync"],
         [typeof(IUserRepository)] = ["CreateAsync", "GetByIdAsync", "GetByAuth0SubjectIdAsync", "ListAsync", "UpdateAsync"],
         [typeof(ISourceRepository)] = ["CreateAsync", "GetByIdAsync", "ListByWorldAsync", "UpdateProcessingStatusAsync"],
         [typeof(IArtifactRepository)] = ["CreateAsync", "GetByIdAsync", "ListByWorldAsync", "UpdateAsync", "SearchByNameAsync"],

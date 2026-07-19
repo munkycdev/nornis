@@ -43,6 +43,34 @@ public record AddMemberRequest(
 public record UpdateMemberRoleRequest(
     string Role);
 
+public record WorldInvite(
+    Guid Id,
+    Guid WorldId,
+    string Code,
+    string Role,
+    string Status,
+    int UseCount,
+    int? MaxUses,
+    DateTimeOffset? ExpiresAt,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? RevokedAt);
+
+public record CreateInviteRequest(
+    string Role,
+    DateTimeOffset? ExpiresAt = null,
+    int? MaxUses = null);
+
+public record InvitePreview(
+    Guid WorldId,
+    string WorldName,
+    string Role,
+    string Status);
+
+public record AcceptInviteResult(
+    Guid WorldId,
+    string WorldName,
+    bool AlreadyMember);
+
 public record SourceListItem(
     Guid Id,
     Guid WorldId,

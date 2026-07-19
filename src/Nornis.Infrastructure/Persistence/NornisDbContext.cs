@@ -14,6 +14,7 @@ public class NornisDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<World> Worlds => Set<World>();
     public DbSet<WorldMember> WorldMembers => Set<WorldMember>();
+    public DbSet<WorldInvite> WorldInvites => Set<WorldInvite>();
     public DbSet<Campaign> Campaigns => Set<Campaign>();
     public DbSet<Character> Characters => Set<Character>();
     public DbSet<CampaignCharacter> CampaignCharacters => Set<CampaignCharacter>();

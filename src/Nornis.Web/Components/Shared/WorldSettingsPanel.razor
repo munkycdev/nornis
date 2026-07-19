@@ -4,6 +4,7 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
 @* World configuration, campaigns, characters, and members. Formerly the /settings page;
    now a tab on the GM-only Admin page. *@
@@ -234,6 +235,81 @@
                 }
             }
         </MudPaper>
+
+        @if (_isGm)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">Invite links</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Share a link and anyone who opens it can sign in (or create an account) and join this
+                    world with the role you choose. Set an expiry or a use limit, and revoke a link any time.
+                </MudText>
+
+                @if (_loadingInvites)
+                {
+                    <LoadingRows Rows="2" Height="48px" />
+                }
+                else if (_invitesError is not null)
+                {
+                    <MudAlert Severity="Severity.Error">@_invitesError</MudAlert>
+                }
+                else
+                {
+                    @if (ActiveInvites.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">No invite links yet.</MudText>
+                    }
+                    @foreach (var invite in ActiveInvites)
+                    {
+                        <div class="nornis-member-row">
+                            <div class="nornis-list-body">
+                                <div class="nornis-list-title">@InviteUrl(invite)</div>
+                                <div class="nornis-list-sub">
+                                    Uses: @invite.UseCount@(invite.MaxUses is { } max ? $" / {max}" : " / ∞")
+                                    · @(invite.ExpiresAt is { } exp ? $"Expires {exp.LocalDateTime:MMM d, yyyy}" : "No expiry")
+                                    @if (invite.Status != "Active")
+                                    {
+                                        <span> · @invite.Status</span>
+                                    }
+                                </div>
+                            </div>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
+                                     Color="@(invite.Status == "Active" ? Color.Success : Color.Default)">@RoleLabel(invite.Role)</MudChip>
+                            <MudTooltip Text="Copy invite link">
+                                <MudIconButton Icon="@Icons.Material.Outlined.ContentCopy" Size="Size.Small"
+                                               OnClick="() => CopyInviteLinkAsync(invite)" aria-label="Copy invite link"
+                                               Disabled='@(invite.Status != "Active")' />
+                            </MudTooltip>
+                            <MudIconButton Icon="@Icons.Material.Filled.LinkOff" Color="Color.Error" Size="Size.Small"
+                                           OnClick="() => RevokeInviteAsync(invite)" Disabled="@_busyInvites.Contains(invite.Id)"
+                                           aria-label="Revoke invite" />
+                        </div>
+                    }
+
+                    <div class="nornis-add-member mt-3">
+                        <MudSelect T="string" @bind-Value="_inviteRole" Label="Role" Dense="true"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="nornis-role-select">
+                            @foreach (var role in _roles)
+                            {
+                                <MudSelectItem Value="@role">@RoleLabel(role)</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudDatePicker @bind-Date="_inviteExpiry" Label="Expiry (optional)" MinDate="DateTime.Today"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" Clearable="true" />
+                        <MudNumericField T="int?" @bind-Value="_inviteMaxUses" Label="Max uses" Min="1" Step="1"
+                                         Placeholder="∞" Variant="Variant.Outlined" Margin="Margin.Dense" Class="nornis-role-select" />
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AddLink"
+                                   OnClick="CreateInviteAsync" Disabled="_creatingInvite">
+                            Create
+                        </MudButton>
+                    </div>
+                    @if (_createInviteError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_createInviteError</MudAlert>
+                    }
+                }
+            </MudPaper>
+        }
     }
 </div>
 
@@ -269,6 +345,21 @@
     private IReadOnlyList<UserSummaryDto> AddableUsers =>
         _allUsers.Where(u => _members.All(m => m.UserId != u.Id)).ToList();
 
+    // Invite links (GM-only)
+    private bool _loadingInvites;
+    private string? _invitesError;
+    private IReadOnlyList<WorldInvite> _invites = [];
+    private readonly HashSet<Guid> _busyInvites = [];
+    private string _inviteRole = "Player";
+    private DateTime? _inviteExpiry;
+    private int? _inviteMaxUses;
+    private bool _creatingInvite;
+    private string? _createInviteError;
+
+    /// <summary>Non-revoked invites shown to the GM; revoked ones stay in the DB for audit but are hidden here.</summary>
+    private IReadOnlyList<WorldInvite> ActiveInvites =>
+        _invites.Where(i => i.RevokedAt is null).ToList();
+
     // Campaigns
     private readonly string[] _campaignStatuses = ["Active", "Completed", "Archived"];
     private bool _loadingCampaigns;
@@ -299,6 +390,7 @@
         SyncFromWorld();
         await LoadMembersAsync();
         await LoadCampaignsAndCharactersAsync();
+        await LoadInvitesAsync();
 
         if (_isGm)
         {
@@ -312,6 +404,7 @@
         SyncFromWorld();
         await LoadMembersAsync();
         await LoadCampaignsAndCharactersAsync();
+        await LoadInvitesAsync();
     });
 
     private async Task LoadCampaignsAndCharactersAsync()
@@ -620,6 +713,102 @@
         else
         {
             _addError = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    private async Task LoadInvitesAsync()
+    {
+        if (Worlds.Current is null || !_isGm)
+        {
+            _invites = [];
+            return;
+        }
+
+        _loadingInvites = true;
+        _invitesError = null;
+        StateHasChanged();
+
+        var result = await Api.GetWorldInvitesAsync(Worlds.Current.Id);
+
+        _loadingInvites = false;
+        if (result.IsSuccess)
+        {
+            _invites = result.Value!;
+        }
+        else
+        {
+            _invitesError = result.Error!.Message;
+            _invites = [];
+        }
+        StateHasChanged();
+    }
+
+    private string InviteUrl(WorldInvite invite) => $"{Nav.BaseUri}invite/{invite.Code}";
+
+    private async Task CopyInviteLinkAsync(WorldInvite invite)
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", InviteUrl(invite));
+        Snackbar.Add("Invite link copied.", Severity.Info);
+    }
+
+    private async Task CreateInviteAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _createInviteError = null;
+        _creatingInvite = true;
+
+        // MudDatePicker yields a local midnight DateTime?; treat the picked day as "valid through
+        // end of that day" and normalize to a UTC DateTimeOffset for the API.
+        DateTimeOffset? expiresAt = _inviteExpiry is { } day
+            ? new DateTimeOffset(DateTime.SpecifyKind(day.Date, DateTimeKind.Utc), TimeSpan.Zero).AddDays(1).AddSeconds(-1)
+            : null;
+
+        var result = await Api.CreateWorldInviteAsync(Worlds.Current.Id,
+            new CreateInviteRequest(_inviteRole, expiresAt, _inviteMaxUses));
+
+        _creatingInvite = false;
+        if (result.IsSuccess)
+        {
+            _invites = _invites.Prepend(result.Value!).ToList();
+            _inviteExpiry = null;
+            _inviteMaxUses = null;
+            Snackbar.Add("Invite link created.", Severity.Success);
+        }
+        else
+        {
+            _createInviteError = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    private async Task RevokeInviteAsync(WorldInvite invite)
+    {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Revoke invite?",
+            "This link will stop working immediately. Anyone who already joined stays a member.",
+            yesText: "Revoke", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _busyInvites.Add(invite.Id);
+        var result = await Api.RevokeWorldInviteAsync(Worlds.Current!.Id, invite.Id);
+        _busyInvites.Remove(invite.Id);
+
+        if (result.IsSuccess)
+        {
+            _invites = _invites.Where(i => i.Id != invite.Id).ToList();
+            Snackbar.Add("Invite revoked.", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
         }
         StateHasChanged();
     }

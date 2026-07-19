@@ -156,6 +156,33 @@ public static class EntityGenerators
             JoinedAt = joinedAt
         };
 
+    public static Gen<WorldInvite> WorldInviteGen() =>
+        from id in GuidGen()
+        from worldId in GuidGen()
+        from role in EnumGen<WorldRole>()
+        from createdByUserId in GuidGen()
+        from createdAt in DateTimeOffsetGen()
+        from expiresAt in NullableDateTimeOffsetGen()
+        from maxUses in Gen.Frequency(
+            (1, Gen.Constant<int?>(null)),
+            (3, Gen.Choose(1, 20).Select(i => (int?)i)))
+        from useCount in Gen.Choose(0, 5)
+        from revokedAt in NullableDateTimeOffsetGen()
+        select new WorldInvite
+        {
+            Id = id,
+            WorldId = worldId,
+            Code = Guid.NewGuid().ToString("N"),
+            Role = role,
+            CreatedByUserId = createdByUserId,
+            CreatedAt = createdAt,
+            ExpiresAt = expiresAt,
+            MaxUses = maxUses,
+            UseCount = useCount,
+            RevokedAt = revokedAt,
+            RowVersion = []
+        };
+
     public static Gen<Source> SourceGen() =>
         from id in GuidGen()
         from worldId in GuidGen()
@@ -392,6 +419,9 @@ public static class EntityGenerators
 
         public static Arbitrary<WorldMember> WorldMembers() =>
             WorldMemberGen().ToArbitrary();
+
+        public static Arbitrary<WorldInvite> WorldInvites() =>
+            WorldInviteGen().ToArbitrary();
 
         public static Arbitrary<Source> Sources() =>
             SourceGen().ToArbitrary();

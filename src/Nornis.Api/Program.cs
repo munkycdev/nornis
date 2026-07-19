@@ -64,6 +64,7 @@ builder.Services.AddDbContext<NornisDbContext>(options =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IWorldRepository, WorldRepository>();
 builder.Services.AddScoped<IWorldMemberRepository, WorldMemberRepository>();
+builder.Services.AddScoped<IWorldInviteRepository, WorldInviteRepository>();
 builder.Services.AddScoped<ICampaignRepository, CampaignRepository>();
 builder.Services.AddScoped<ICharacterRepository, CharacterRepository>();
 builder.Services.AddScoped<ISourceRepository, SourceRepository>();
@@ -84,6 +85,8 @@ builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 // Application service registrations
 builder.Services.AddScoped<IWorldService, WorldService>();
 builder.Services.AddScoped<IWorldMemberService, WorldMemberService>();
+builder.Services.AddScoped<IWorldInviteService, WorldInviteService>();
+builder.Services.AddSingleton<IInviteCodeGenerator, InviteCodeGenerator>();
 builder.Services.AddScoped<ICampaignService, CampaignService>();
 builder.Services.AddScoped<ICharacterService, CharacterService>();
 builder.Services.AddScoped<ISourceService, SourceService>();
