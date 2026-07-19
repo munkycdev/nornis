@@ -4,6 +4,7 @@ using Nornis.Application.Tests.Fakes;
 using Nornis.Application.Validation;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Application;
@@ -88,7 +89,7 @@ public class ProposalApplicatorTests
             CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-10)
         });
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var artifactRef = _sourceRefRepo.References
@@ -104,7 +105,7 @@ public class ProposalApplicatorTests
             "Captain Voss", "Character", null, "PartyVisible", null);
         var proposal = MakeProposal(ReviewChangeType.CreateArtifact, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var artifactRef = _sourceRefRepo.References
@@ -123,7 +124,7 @@ public class ProposalApplicatorTests
             "Captain Voss", "Character", "A harbor captain", "PartyVisible", 0.85m);
         var proposal = MakeProposal(ReviewChangeType.CreateArtifact, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var artifact = _artifactRepo.Artifacts.Single();
@@ -146,7 +147,7 @@ public class ProposalApplicatorTests
 
         Assert.That(proposal.TargetId, Is.Null);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var createdArtifact = _artifactRepo.Artifacts.Single();
@@ -182,7 +183,7 @@ public class ProposalApplicatorTests
         var proposal = MakeProposal(ReviewChangeType.UpdateArtifact, payload, existingArtifact.Id);
 
         var beforeApply = DateTimeOffset.UtcNow;
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var updated = _artifactRepo.Artifacts.Single();
@@ -201,7 +202,7 @@ public class ProposalApplicatorTests
         var payload = new UpdateArtifactPayload("New Name", null, null, null, null);
         var proposal = MakeProposal(ReviewChangeType.UpdateArtifact, payload, nonExistentId);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("target_not_found"));
@@ -299,7 +300,7 @@ public class ProposalApplicatorTests
             sourceArtifact.Id, "Captain Voss (merged)", "Combined summary", "GMOnly", 0.95m);
         var proposal = MakeProposal(ReviewChangeType.MergeArtifact, payload, targetArtifact.Id);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
 
@@ -354,7 +355,7 @@ public class ProposalApplicatorTests
             "location", "Black Harbor", 0.8m, "Likely", "PartyVisible");
         var proposal = MakeProposal(ReviewChangeType.AddFact, payload, artifact.Id);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var fact = _factRepo.Facts.Single();
@@ -374,7 +375,7 @@ public class ProposalApplicatorTests
         var payload = new AddFactPayload("location", "Black Harbor", null, null, null);
         var proposal = MakeProposal(ReviewChangeType.AddFact, payload, nonExistentId);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("target_not_found"));
@@ -418,7 +419,7 @@ public class ProposalApplicatorTests
         var proposal = MakeProposal(ReviewChangeType.UpdateFact, payload, existingFact.Id);
 
         var beforeApply = DateTimeOffset.UtcNow;
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var updated = _factRepo.Facts.Single();
@@ -437,7 +438,7 @@ public class ProposalApplicatorTests
         var payload = new UpdateFactPayload("new value", null, null, null);
         var proposal = MakeProposal(ReviewChangeType.UpdateFact, payload, nonExistentId);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("target_not_found"));
@@ -477,7 +478,7 @@ public class ProposalApplicatorTests
             "Captain Voss is located in Black Harbor", 0.85m, "Likely", "PartyVisible");
         var proposal = MakeProposal(ReviewChangeType.AddRelationship, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var rel = _relationshipRepo.Relationships.Single();
@@ -511,7 +512,7 @@ public class ProposalApplicatorTests
             Guid.NewGuid(), artifactB.Id, "LocatedIn", null, null, null, null);
         var proposal = MakeProposal(ReviewChangeType.AddRelationship, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("artifact_a_not_found"));
@@ -536,7 +537,7 @@ public class ProposalApplicatorTests
             artifactA.Id, Guid.NewGuid(), "LocatedIn", null, null, null, null);
         var proposal = MakeProposal(ReviewChangeType.AddRelationship, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("artifact_b_not_found"));
@@ -572,7 +573,7 @@ public class ProposalApplicatorTests
             ReviewChangeType.UpdateRelationship, payload, existingRelationship.Id);
 
         var beforeApply = DateTimeOffset.UtcNow;
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var updated = _relationshipRepo.Relationships.Single();
@@ -592,7 +593,7 @@ public class ProposalApplicatorTests
         var proposal = MakeProposal(
             ReviewChangeType.UpdateRelationship, payload, nonExistentId);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("target_not_found"));
@@ -609,7 +610,7 @@ public class ProposalApplicatorTests
             "Silver Key", "Item", "A mysterious key", null, 0.9m);
         var proposal = MakeProposal(ReviewChangeType.CreateArtifact, payload);
 
-        await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         var refs = _sourceRefRepo.References;
         Assert.That(refs, Has.Count.EqualTo(1));
@@ -636,7 +637,7 @@ public class ProposalApplicatorTests
         var payload = new AddFactPayload("rank", "Captain", null, null, null);
         var proposal = MakeProposal(ReviewChangeType.AddFact, payload, artifact.Id);
 
-        await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         var refs = _sourceRefRepo.References;
         Assert.That(refs, Has.Count.EqualTo(1));
@@ -674,7 +675,7 @@ public class ProposalApplicatorTests
             artifactA.Id, artifactB.Id, "LocatedIn", null, null, null, null);
         var proposal = MakeProposal(ReviewChangeType.AddRelationship, payload);
 
-        await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         var refs = _sourceRefRepo.References;
         Assert.That(refs, Has.Count.EqualTo(1));
@@ -701,7 +702,7 @@ public class ProposalApplicatorTests
         var payload = new UpdateArtifactPayload("Captain Voss Updated", null, null, null, null);
         var proposal = MakeProposal(ReviewChangeType.UpdateArtifact, payload, artifact.Id);
 
-        await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         var refs = _sourceRefRepo.References;
         Assert.That(refs, Has.Count.EqualTo(1));
@@ -745,7 +746,7 @@ public class ProposalApplicatorTests
             "Hidden NPC", "Character", "Secret character", null, 0.9m);
         var proposal = MakeProposal(ReviewChangeType.CreateArtifact, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, gmBatch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, gmBatch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var artifact = _artifactRepo.Artifacts.Single();
@@ -759,7 +760,7 @@ public class ProposalApplicatorTests
             "Captain Voss", "Character", null, "Private", 0.8m);
         var proposal = MakeProposal(ReviewChangeType.CreateArtifact, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var artifact = _artifactRepo.Artifacts.Single();
@@ -799,7 +800,7 @@ public class ProposalApplicatorTests
             ArtifactName: "Captain Voss");
         var proposal = MakeProposal(ReviewChangeType.AddFact, payload); // no TargetId
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var fact = _factRepo.Facts.Single();
@@ -817,7 +818,7 @@ public class ProposalApplicatorTests
             "rank", "Captain", null, null, null, ArtifactName: "captain voss");
         var proposal = MakeProposal(ReviewChangeType.AddFact, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(_factRepo.Facts.Single().ArtifactId, Is.EqualTo(artifact.Id));
@@ -830,7 +831,7 @@ public class ProposalApplicatorTests
             "rank", "Captain", null, null, null, ArtifactName: "Captain Voss");
         var proposal = MakeProposal(ReviewChangeType.AddFact, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("artifact_name_not_found"));
@@ -847,7 +848,7 @@ public class ProposalApplicatorTests
             "rank", "Captain", null, null, null, ArtifactName: "Captain Voss");
         var proposal = MakeProposal(ReviewChangeType.AddFact, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("artifact_name_ambiguous"));
@@ -873,7 +874,7 @@ public class ProposalApplicatorTests
             "rank", "Captain", null, null, null, ArtifactName: "Captain Voss");
         var proposal = MakeProposal(ReviewChangeType.AddFact, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("artifact_name_not_found"));
@@ -885,7 +886,7 @@ public class ProposalApplicatorTests
         var payload = new AddFactPayload("rank", "Captain", null, null, null);
         var proposal = MakeProposal(ReviewChangeType.AddFact, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("missing_target_id"));
@@ -902,7 +903,7 @@ public class ProposalApplicatorTests
             ArtifactAName: "Captain Voss", ArtifactBName: "Black Harbor");
         var proposal = MakeProposal(ReviewChangeType.AddRelationship, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var rel = _relationshipRepo.Relationships.Single();
@@ -921,7 +922,7 @@ public class ProposalApplicatorTests
             ArtifactBName: "The Missing Caravan");
         var proposal = MakeProposal(ReviewChangeType.AddRelationship, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var rel = _relationshipRepo.Relationships.Single();
@@ -939,7 +940,7 @@ public class ProposalApplicatorTests
             ArtifactAName: "Captain Voss", ArtifactBName: "Nowhere Keep");
         var proposal = MakeProposal(ReviewChangeType.AddRelationship, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("artifact_name_not_found"));
@@ -956,7 +957,7 @@ public class ProposalApplicatorTests
             ArtifactBName: "Captain Voss");
         var proposal = MakeProposal(ReviewChangeType.AddRelationship, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("self_relationship"));

@@ -61,11 +61,14 @@ public class InMemoryArtifactRepository : IArtifactRepository
     public Task<IReadOnlyList<Artifact>> ListByExactNameAsync(
         Guid worldId,
         string name,
+        VisibilityFilter filter,
         CancellationToken cancellationToken = default)
     {
         var results = _artifacts
             .Where(a => a.WorldId == worldId &&
-                        string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase))
+                        string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase) &&
+                        a.Status != ArtifactStatus.Archived &&
+                        filter.CanSee(a.Visibility, a.CreatedByUserId))
             .ToList();
         return Task.FromResult<IReadOnlyList<Artifact>>(results.AsReadOnly());
     }

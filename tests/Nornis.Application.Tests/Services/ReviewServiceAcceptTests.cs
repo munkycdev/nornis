@@ -145,6 +145,46 @@ public class ReviewServiceAcceptTests
 
     #endregion
 
+    #region Acting filter handed to the applicator
+
+    // A Player may accept proposals on their own source (the test directly above), and the
+    // payload is Player-editable. So the filter the applicator resolves names through has to
+    // be the Player's, not an unrestricted one.
+
+    [Test]
+    public async Task AcceptProposal_PlayerAccepting_PassesThePlayersOwnFilterToTheApplicator()
+    {
+        var proposal = MakePendingProposal();
+        await _proposalRepo.CreateAsync(proposal);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _playerUserId, WorldRole.Player);
+
+        await _service.AcceptProposalAsync(command, CancellationToken.None);
+
+        var filter = _applicator.LastActingFilter;
+        Assert.That(filter, Is.Not.Null);
+        Assert.That(filter!.Scopes, Does.Not.Contain(VisibilityScope.GMOnly),
+            "a Player's name resolution must not reach GM-only artifacts");
+        Assert.That(filter.PrivateOwnerUserId, Is.EqualTo(_playerUserId),
+            "Private artifacts must be gated to the accepting Player's own rows");
+    }
+
+    [Test]
+    public async Task AcceptProposal_GmAccepting_PassesAnUnrestrictedFilterToTheApplicator()
+    {
+        var proposal = MakePendingProposal();
+        await _proposalRepo.CreateAsync(proposal);
+        var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
+
+        await _service.AcceptProposalAsync(command, CancellationToken.None);
+
+        var filter = _applicator.LastActingFilter;
+        Assert.That(filter, Is.Not.Null);
+        Assert.That(filter!.Scopes, Does.Contain(VisibilityScope.GMOnly));
+        Assert.That(filter.PrivateOwnerUserId, Is.Null, "a GM reads Private rows unrestricted");
+    }
+
+    #endregion
+
     #region Edited → Accepted
 
     [Test]

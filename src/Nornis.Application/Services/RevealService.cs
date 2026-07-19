@@ -5,6 +5,7 @@ using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -349,7 +350,8 @@ public class RevealService : IRevealService
         };
         await _reviewProposalRepository.CreateAsync(proposal, ct);
 
-        var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, ct);
+        // GM-gated by the callers of this helper, so resolution is unrestricted.
+        var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, VisibilityFilter.All, ct);
         if (!applyResult.IsSuccess)
         {
             return applyResult.Error;

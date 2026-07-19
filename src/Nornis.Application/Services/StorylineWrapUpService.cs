@@ -9,6 +9,7 @@ using Nornis.Application.Models;
 using Nornis.Application.Validation;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -366,7 +367,8 @@ public class StorylineWrapUpService : IStorylineWrapUpService
                 };
                 await _reviewProposalRepository.CreateAsync(proposal, ct);
 
-                var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, ct);
+                // GM-gated above (role != GM is rejected), so resolution is unrestricted.
+                var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, VisibilityFilter.All, ct);
                 if (!applyResult.IsSuccess)
                 {
                     await transaction.RollbackAsync(ct);

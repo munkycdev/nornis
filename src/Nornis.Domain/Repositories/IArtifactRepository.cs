@@ -21,10 +21,14 @@ public interface IArtifactRepository
     Task DeleteAsync(Guid artifactId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Exact (case-insensitive) name match within a world. Returns all matches so
-    /// callers can detect ambiguous names.
+    /// Exact (case-insensitive) name match within a world, restricted to non-archived
+    /// artifacts the reader may see. Returns all visible matches so callers can detect
+    /// ambiguous names. The filter is required rather than optional: an unfiltered
+    /// name lookup is an existence oracle over the world's whole artifact table, so
+    /// callers must state the reader whose eyes they are resolving through
+    /// (<see cref="VisibilityFilter.All"/> for GM-gated internal work).
     /// </summary>
-    Task<IReadOnlyList<Artifact>> ListByExactNameAsync(Guid worldId, string name, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Artifact>> ListByExactNameAsync(Guid worldId, string name, VisibilityFilter filter, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// All non-archived artifacts of one type visible to the reader — e.g. the world's

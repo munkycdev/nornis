@@ -4,6 +4,7 @@ using Nornis.Application.Tests.Fakes;
 using Nornis.Application.Validation;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Application;
@@ -102,7 +103,7 @@ public class ProposalApplicatorPlacemarkTests
             mapPlacemark = new { attachmentId = _mapAttachment.Id, x = 0.4m, y = 0.6m, label = "Ironhold" }
         });
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var artifact = _artifactRepo.Artifacts.Single(a => a.Name == "Ironhold");
@@ -130,7 +131,7 @@ public class ProposalApplicatorPlacemarkTests
             mapPlacemark = new { attachmentId = foreignAttachment.Id, x = 0.4m, y = 0.6m, label = "Ironhold" }
         });
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
@@ -145,7 +146,7 @@ public class ProposalApplicatorPlacemarkTests
             artifactId = ironhold.Id, attachmentId = _mapAttachment.Id, x = 0.3m, y = 0.7m, label = "Ironhold"
         });
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(_placemarkRepo.Placemarks.Single().ArtifactId, Is.EqualTo(ironhold.Id));
@@ -160,7 +161,7 @@ public class ProposalApplicatorPlacemarkTests
             artifactName = "Ironhold", attachmentId = _mapAttachment.Id, x = 0.3m, y = 0.7m, label = "Ironhold"
         });
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(_placemarkRepo.Placemarks.Single().ArtifactId, Is.EqualTo(ironhold.Id));
@@ -176,7 +177,7 @@ public class ProposalApplicatorPlacemarkTests
             artifactName = "Duplicate", attachmentId = _mapAttachment.Id, x = 0.3m, y = 0.7m, label = "Duplicate"
         });
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(409));
@@ -198,7 +199,7 @@ public class ProposalApplicatorPlacemarkTests
             artifactId = ironhold.Id, attachmentId = _mapAttachment.Id, x = 0.8m, y = 0.9m, label = "Ironhold"
         });
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var pin = _placemarkRepo.Placemarks.Single();
@@ -221,7 +222,7 @@ public class ProposalApplicatorPlacemarkTests
         var proposal = Proposal(ReviewChangeType.MergeArtifact, target.Id,
             new MergeArtifactPayload(duplicate.Id, null, null, null, null));
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(_placemarkRepo.Placemarks.Single().ArtifactId, Is.EqualTo(target.Id));
@@ -247,7 +248,7 @@ public class ProposalApplicatorPlacemarkTests
         var proposal = Proposal(ReviewChangeType.MergeArtifact, target.Id,
             new MergeArtifactPayload(duplicate.Id, null, null, null, null));
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(_placemarkRepo.Placemarks, Has.Count.EqualTo(1), "no duplicate pin on the same map");

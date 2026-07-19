@@ -49,9 +49,14 @@ public class ArtifactService : IArtifactService
 
         var artifacts = await _artifactRepository.ListByWorldAsync(query.WorldId, query.Type, null, ct);
 
+        // No status filter means "the live world", not "everything ever": Archived rows are
+        // merge leftovers and closed storylines, and this list is served anonymously on the
+        // public world page. Callers that genuinely want them ask for Status=Archived.
         var visible = artifacts
             .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
-            .Where(a => query.Status is null || a.Status == query.Status)
+            .Where(a => query.Status is null
+                ? a.Status != ArtifactStatus.Archived
+                : a.Status == query.Status)
             .OrderByDescending(a => a.UpdatedAt)
             .ToList();
 
@@ -62,7 +67,10 @@ public class ArtifactService : IArtifactService
     {
         var filter = VisibilityFilter.ForRole(role, requestingUserId);
 
+        // Archived artifacts are merge leftovers — they carry no live edges worth drawing,
+        // and this graph is served anonymously on the public world page.
         var artifacts = (await _artifactRepository.ListByWorldAsync(worldId, null, null, ct))
+            .Where(a => a.Status != ArtifactStatus.Archived)
             .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
             .ToList();
 

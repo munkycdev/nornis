@@ -3,6 +3,7 @@ using Nornis.Application.Errors;
 using Nornis.Application.Validation;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Application;
@@ -44,18 +45,18 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     public async Task<AppResult<ApplyResult>> ApplyAsync(
-        ReviewProposal proposal, ReviewBatch batch, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, VisibilityFilter actingFilter, CancellationToken ct)
     {
         return proposal.ChangeType switch
         {
             ReviewChangeType.CreateArtifact => await ApplyCreateArtifact(proposal, batch, ct),
             ReviewChangeType.UpdateArtifact => await ApplyUpdateArtifact(proposal, batch, ct),
             ReviewChangeType.MergeArtifact => await ApplyMergeArtifact(proposal, batch, ct),
-            ReviewChangeType.AddFact => await ApplyAddFact(proposal, batch, ct),
+            ReviewChangeType.AddFact => await ApplyAddFact(proposal, batch, actingFilter, ct),
             ReviewChangeType.UpdateFact => await ApplyUpdateFact(proposal, batch, ct),
-            ReviewChangeType.AddRelationship => await ApplyAddRelationship(proposal, batch, ct),
+            ReviewChangeType.AddRelationship => await ApplyAddRelationship(proposal, batch, actingFilter, ct),
             ReviewChangeType.UpdateRelationship => await ApplyUpdateRelationship(proposal, batch, ct),
-            ReviewChangeType.AddPlacemark => await ApplyAddPlacemark(proposal, batch, ct),
+            ReviewChangeType.AddPlacemark => await ApplyAddPlacemark(proposal, batch, actingFilter, ct),
             _ => AppResult<ApplyResult>.Fail(new AppError(400, "unknown_change_type", $"Unknown change type: {proposal.ChangeType}"))
         };
     }
@@ -114,7 +115,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<ApplyResult>> ApplyAddPlacemark(
-        ReviewProposal proposal, ReviewBatch batch, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, VisibilityFilter actingFilter, CancellationToken ct)
     {
         var payload = Deserialize<AddPlacemarkPayload>(proposal.ProposedValueJson);
         if (payload is null)
@@ -132,7 +133,7 @@ public class ProposalApplicator : IProposalApplicator
         }
         else if (!string.IsNullOrWhiteSpace(payload.ArtifactName))
         {
-            var resolution = await ResolveArtifactByNameAsync(batch.WorldId, payload.ArtifactName, ct);
+            var resolution = await ResolveArtifactByNameAsync(batch.WorldId, payload.ArtifactName, actingFilter, ct);
             if (!resolution.IsSuccess)
                 return AppResult<ApplyResult>.Fail(resolution.Error!);
             artifact = resolution.Value!;
@@ -350,7 +351,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<ApplyResult>> ApplyAddFact(
-        ReviewProposal proposal, ReviewBatch batch, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, VisibilityFilter actingFilter, CancellationToken ct)
     {
         var payload = Deserialize<AddFactPayload>(proposal.ProposedValueJson);
         if (payload is null)
@@ -367,7 +368,7 @@ public class ProposalApplicator : IProposalApplicator
         }
         else if (!string.IsNullOrWhiteSpace(payload.ArtifactName))
         {
-            var resolution = await ResolveArtifactByNameAsync(batch.WorldId, payload.ArtifactName, ct);
+            var resolution = await ResolveArtifactByNameAsync(batch.WorldId, payload.ArtifactName, actingFilter, ct);
             if (!resolution.IsSuccess)
                 return AppResult<ApplyResult>.Fail(resolution.Error!);
             artifact = resolution.Value!;
@@ -454,7 +455,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<ApplyResult>> ApplyAddRelationship(
-        ReviewProposal proposal, ReviewBatch batch, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, VisibilityFilter actingFilter, CancellationToken ct)
     {
         var payload = Deserialize<AddRelationshipPayload>(proposal.ProposedValueJson);
         if (payload is null)
@@ -463,12 +464,12 @@ public class ProposalApplicator : IProposalApplicator
         // Resolve both endpoints: by id, or by name for artifacts created earlier in the
         // same batch (their GUIDs did not exist at extraction time).
         var endpointA = await ResolveRelationshipEndpointAsync(
-            batch.WorldId, payload.ArtifactAId, payload.ArtifactAName, "ArtifactA", ct);
+            batch.WorldId, payload.ArtifactAId, payload.ArtifactAName, "ArtifactA", actingFilter, ct);
         if (!endpointA.IsSuccess)
             return AppResult<ApplyResult>.Fail(endpointA.Error!);
 
         var endpointB = await ResolveRelationshipEndpointAsync(
-            batch.WorldId, payload.ArtifactBId, payload.ArtifactBName, "ArtifactB", ct);
+            batch.WorldId, payload.ArtifactBId, payload.ArtifactBName, "ArtifactB", actingFilter, ct);
         if (!endpointB.IsSuccess)
             return AppResult<ApplyResult>.Fail(endpointB.Error!);
 
@@ -556,14 +557,26 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     /// <summary>
-    /// Resolves an artifact by exact name within the world. Fails when the name matches
-    /// nothing (the referenced CreateArtifact proposal was rejected or not yet accepted) or
-    /// more than one artifact (ambiguous — the reviewer must edit the proposal to use an id).
+    /// Resolves an artifact by exact name within the world, seeing only what the accepting
+    /// reviewer may see. Fails when the name matches nothing (the referenced CreateArtifact
+    /// proposal was rejected or not yet accepted, or the name belongs to an artifact hidden
+    /// from this reviewer) or more than one artifact (ambiguous — the reviewer must edit the
+    /// proposal to use an id).
+    ///
+    /// The reviewer's own name is not enough to make this safe: a Player may review proposals
+    /// on their own sources, and the proposal payload is Player-editable, so an unfiltered
+    /// lookup here would both bind their facts to artifacts they cannot see and act as a
+    /// name-probe over the world's whole artifact table.
+    ///
+    /// It matters that <paramref name="actingFilter"/> is applied inside the query rather than
+    /// to the result: the not-found / ambiguous split is then computed over the visible set
+    /// alone, so it distinguishes only between states the reviewer could already establish by
+    /// listing their own artifacts. That keeps both messages actionable without leaking.
     /// </summary>
     private async Task<AppResult<Artifact>> ResolveArtifactByNameAsync(
-        Guid worldId, string name, CancellationToken ct)
+        Guid worldId, string name, VisibilityFilter actingFilter, CancellationToken ct)
     {
-        var matches = await _artifactRepository.ListByExactNameAsync(worldId, name.Trim(), ct);
+        var matches = await _artifactRepository.ListByExactNameAsync(worldId, name.Trim(), actingFilter, ct);
 
         return matches.Count switch
         {
@@ -576,7 +589,8 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<Artifact>> ResolveRelationshipEndpointAsync(
-        Guid worldId, Guid? artifactId, string? artifactName, string endpointLabel, CancellationToken ct)
+        Guid worldId, Guid? artifactId, string? artifactName, string endpointLabel,
+        VisibilityFilter actingFilter, CancellationToken ct)
     {
         if (artifactId is not null && artifactId != Guid.Empty)
         {
@@ -591,7 +605,7 @@ public class ProposalApplicator : IProposalApplicator
         }
 
         if (!string.IsNullOrWhiteSpace(artifactName))
-            return await ResolveArtifactByNameAsync(worldId, artifactName, ct);
+            return await ResolveArtifactByNameAsync(worldId, artifactName, actingFilter, ct);
 
         return AppResult<Artifact>.Fail(new AppError(400, "invalid_payload",
             $"AddRelationship: {endpointLabel}Id or {endpointLabel}Name is required."));

@@ -268,7 +268,12 @@ public class ReviewService : IReviewService
         await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
         try
         {
-            var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, ct);
+            // Name-referenced payloads resolve through the accepter's own eyes: a Player
+            // reviewing their own source must not bind a fact to a GM-only or other-user
+            // Private artifact.
+            var actingFilter = VisibilityFilter.ForRole(command.ActingUserRole, command.ActingUserId);
+
+            var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, actingFilter, ct);
             if (!applyResult.IsSuccess)
             {
                 await transaction.RollbackAsync(ct);
@@ -514,7 +519,9 @@ public class ReviewService : IReviewService
             await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
             try
             {
-                var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, ct);
+                var actingFilter = VisibilityFilter.ForRole(command.ActingUserRole, command.ActingUserId);
+
+                var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, actingFilter, ct);
                 if (!applyResult.IsSuccess)
                 {
                     await transaction.RollbackAsync(ct);

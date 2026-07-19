@@ -6,6 +6,7 @@ using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services;
@@ -456,7 +457,7 @@ public class RevealServiceTests
 
     private sealed class FailingApplicator : IProposalApplicator
     {
-        public Task<AppResult<ApplyResult>> ApplyAsync(ReviewProposal proposal, ReviewBatch batch, CancellationToken ct) =>
+        public Task<AppResult<ApplyResult>> ApplyAsync(ReviewProposal proposal, ReviewBatch batch, VisibilityFilter actingFilter, CancellationToken ct) =>
             Task.FromResult(AppResult<ApplyResult>.Fail(new AppError(500, "boom", "Simulated apply failure.")));
     }
 }

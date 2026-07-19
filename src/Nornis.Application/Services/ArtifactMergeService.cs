@@ -3,6 +3,7 @@ using Nornis.Application.Application;
 using Nornis.Application.Errors;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -112,7 +113,8 @@ public class ArtifactMergeService : IArtifactMergeService
             };
             await _reviewProposalRepository.CreateAsync(proposal, ct);
 
-            var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, ct);
+            // GM-gated above (role != GM is rejected), so resolution is unrestricted.
+            var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, VisibilityFilter.All, ct);
             if (!applyResult.IsSuccess)
             {
                 await transaction.RollbackAsync(ct);

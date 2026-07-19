@@ -166,6 +166,77 @@ public class ArtifactServiceTests
 
     #endregion
 
+    #region Archived policy — both surfaces are served anonymously
+
+    // PublicController serves ListAsync and GetGraphAsync to unauthenticated callers with an
+    // Observer-equivalent role. Archived rows are merge leftovers, so "no status filter" must
+    // mean the live world rather than everything ever recorded.
+
+    [Test]
+    public async Task ListAsync_NoStatusFilter_ExcludesArchived()
+    {
+        _artifactRepo.Seed(
+            MakeArtifact("Captain Voss", VisibilityScope.PartyVisible),
+            MakeArtifact("Captain Voss (duplicate)", VisibilityScope.PartyVisible,
+                status: ArtifactStatus.Archived));
+
+        var query = new ArtifactListQuery(_worldId, Guid.Empty, WorldRole.Observer);
+
+        var result = await _service.ListAsync(query, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(new[] { "Captain Voss" }),
+            "a merge leftover must not be published to the anonymous public world page");
+    }
+
+    [Test]
+    public async Task ListAsync_ExplicitArchivedStatus_StillReturnsArchived()
+    {
+        _artifactRepo.Seed(
+            MakeArtifact("Captain Voss", VisibilityScope.PartyVisible),
+            MakeArtifact("Captain Voss (duplicate)", VisibilityScope.PartyVisible,
+                status: ArtifactStatus.Archived));
+
+        var query = new ArtifactListQuery(_worldId, _keldaUserId, WorldRole.GM,
+            Status: ArtifactStatus.Archived);
+
+        var result = await _service.ListAsync(query, CancellationToken.None);
+
+        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(new[] { "Captain Voss (duplicate)" }),
+            "excluding Archived by default must not remove the ability to ask for them");
+    }
+
+    [Test]
+    public async Task GetGraphAsync_ExcludesArchivedNodes()
+    {
+        _artifactRepo.Seed(
+            MakeArtifact("Captain Voss", VisibilityScope.PartyVisible),
+            MakeArtifact("Captain Voss (duplicate)", VisibilityScope.PartyVisible,
+                status: ArtifactStatus.Archived));
+
+        var result = await _service.GetGraphAsync(
+            _worldId, Guid.Empty, WorldRole.Observer, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.Nodes.Select(n => n.Name), Is.EqualTo(new[] { "Captain Voss" }));
+    }
+
+    [Test]
+    public async Task GetGraphAsync_StillHidesGmOnlyFromObserver()
+    {
+        _artifactRepo.Seed(
+            MakeArtifact("Captain Voss", VisibilityScope.PartyVisible),
+            MakeArtifact("Hidden Ledger", VisibilityScope.GMOnly));
+
+        var result = await _service.GetGraphAsync(
+            _worldId, Guid.Empty, WorldRole.Observer, CancellationToken.None);
+
+        Assert.That(result.Value!.Nodes.Select(n => n.Name), Is.EqualTo(new[] { "Captain Voss" }),
+            "the archived filter must not have displaced the visibility filter");
+    }
+
+    #endregion
+
     #region GetDetailAsync — not found / visibility
 
     [Test]

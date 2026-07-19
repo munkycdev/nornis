@@ -72,15 +72,23 @@ public class ArtifactRepository : IArtifactRepository
         return artifact;
     }
 
-    public async Task<IReadOnlyList<Artifact>> ListByExactNameAsync(Guid worldId, string name, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Artifact>> ListByExactNameAsync(Guid worldId, string name, VisibilityFilter filter, CancellationToken cancellationToken = default)
     {
         // Default SQL Server collation is case-insensitive; ToLower makes the intent
         // explicit and keeps the in-memory test provider behaviour identical.
         var normalized = name.ToLowerInvariant();
 
+        // Hoisted locals translate to SQL parameters.
+        var scopes = filter.Scopes;
+        var owner = filter.PrivateOwnerUserId;
+
         return await _context.Artifacts
             .AsNoTracking()
-            .Where(a => a.WorldId == worldId && a.Name.ToLower() == normalized)
+            .Where(a => a.WorldId == worldId
+                && a.Name.ToLower() == normalized
+                && a.Status != ArtifactStatus.Archived
+                && scopes.Contains(a.Visibility)
+                && (a.Visibility != VisibilityScope.Private || owner == null || a.CreatedByUserId == owner))
             .ToListAsync(cancellationToken);
     }
 
