@@ -20,8 +20,6 @@ public interface IArtifactRepository
     /// </summary>
     Task DeleteAsync(Guid artifactId, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<Artifact>> SearchByNameAsync(Guid worldId, string searchTerm, CancellationToken cancellationToken = default);
-
     /// <summary>
     /// Exact (case-insensitive) name match within a world. Returns all matches so
     /// callers can detect ambiguous names.

@@ -58,18 +58,6 @@ public class InMemoryArtifactRepository : IArtifactRepository
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<Artifact>> SearchByNameAsync(
-        Guid worldId,
-        string searchTerm,
-        CancellationToken cancellationToken = default)
-    {
-        var results = _artifacts
-            .Where(a => a.WorldId == worldId &&
-                        a.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        return Task.FromResult<IReadOnlyList<Artifact>>(results.AsReadOnly());
-    }
-
     public Task<IReadOnlyList<Artifact>> ListByExactNameAsync(
         Guid worldId,
         string name,
