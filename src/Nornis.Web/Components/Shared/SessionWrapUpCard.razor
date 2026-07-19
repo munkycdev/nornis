@@ -33,7 +33,7 @@
                 {
                     <div class="nornis-list-row nornis-wrapup-row">
                         <div class="nornis-list-body">
-                            <div class="nornis-list-title">@q.Name</div>
+                            <div class="nornis-list-title">@StorylineName(q.StorylineId, q.Name)</div>
                             <div class="nornis-list-sub">
                                 @q.SessionsSinceLastDevelopment session@(q.SessionsSinceLastDevelopment == 1 ? "" : "s") quiet@(q.OpenQuestionCount > 0 ? $" · {q.OpenQuestionCount} open" : "")
                             </div>
@@ -59,7 +59,7 @@
                 {
                     <div class="nornis-list-row nornis-wrapup-row">
                         <div class="nornis-list-body">
-                            <div class="nornis-list-title">@n.ChildName → @n.ParentName</div>
+                            <div class="nornis-list-title">@StorylineName(n.ChildStorylineId, n.ChildName) → @StorylineName(n.ParentStorylineId, n.ParentName)</div>
                             <div class="nornis-list-sub">@n.Rationale</div>
                         </div>
                         <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined" Class="nornis-wrapup-actions">
@@ -81,7 +81,7 @@
                 {
                     <div class="nornis-list-row nornis-wrapup-row">
                         <div class="nornis-list-body">
-                            <div class="nornis-list-title">@arc.Name</div>
+                            <div class="nornis-list-title">@StorylineName(arc.StorylineId, arc.Name)</div>
                         </div>
                         <MudSelect T="Guid?" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
                                    Value="@((Guid?)null)" ValueChanged="v => AssignParentAsync(arc, v)"
@@ -123,6 +123,108 @@
 
     private bool IsBusy(Guid id) => _busy.Contains(id);
 
+    // Storyline detail behind the hover summary, fetched on demand and cached for the life of the
+    // card. A name alone is not enough to judge a storyline that has been quiet for fifty sessions,
+    // but the card can carry dozens of rows, so loading every summary up front would be wasteful.
+    // A null entry means the fetch failed — cached so a bad row does not refetch on every hover.
+    private readonly Dictionary<Guid, ArtifactDetailDto?> _summaries = new();
+    private readonly HashSet<Guid> _loadingSummaries = new();
+    private Guid _hoverId;
+
+    private async Task PeekAsync(Guid storylineId)
+    {
+        _hoverId = storylineId;
+
+        if (_summaries.ContainsKey(storylineId) || _loadingSummaries.Contains(storylineId))
+        {
+            return;
+        }
+
+        // Sweeping the pointer down forty rows should not fire forty requests, so only fetch once
+        // the pointer has settled on this row.
+        await Task.Delay(250);
+        if (_hoverId != storylineId || _summaries.ContainsKey(storylineId))
+        {
+            return;
+        }
+
+        _loadingSummaries.Add(storylineId);
+        StateHasChanged();
+
+        var result = await Api.GetArtifactAsync(WorldId, storylineId);
+
+        _loadingSummaries.Remove(storylineId);
+        _summaries[storylineId] = result.IsSuccess ? result.Value : null;
+        StateHasChanged();
+    }
+
+    private static IEnumerable<string> FactsOf(ArtifactDetailDto detail, string predicate) =>
+        detail.Facts
+            .Where(f => string.Equals(f.Predicate, predicate, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(f => f.UpdatedAt)
+            .Select(f => f.Value);
+
+    private RenderFragment StorylineName(Guid storylineId, string name) =>
+        @<MudTooltip Placement="Placement.Top" TooltipContent="@SummaryTip(storylineId, name)">
+            <span class="nornis-wrapup-peek" @onpointerenter="() => PeekAsync(storylineId)">@name</span>
+        </MudTooltip>;
+
+    private RenderFragment SummaryTip(Guid storylineId, string name) =>
+        @<div class="nornis-wrapup-tip">
+            @{
+                var loading = _loadingSummaries.Contains(storylineId);
+                var loaded = _summaries.TryGetValue(storylineId, out var detail);
+            }
+            <div class="nornis-wrapup-tip-title">@name</div>
+
+            @if (loading || !loaded)
+            {
+                <div class="nornis-wrapup-tip-muted">Loading…</div>
+            }
+            else if (detail is null)
+            {
+                <div class="nornis-wrapup-tip-muted">Couldn’t load this storyline.</div>
+            }
+            else
+            {
+                var goal = FactsOf(detail, "goal").FirstOrDefault();
+                var questions = FactsOf(detail, "open question").ToList();
+                var development = FactsOf(detail, "development").FirstOrDefault();
+                var bare = string.IsNullOrWhiteSpace(detail.Summary) && goal is null && questions.Count == 0 && development is null;
+
+                @if (!string.IsNullOrWhiteSpace(detail.Summary))
+                {
+                    <div class="nornis-wrapup-tip-summary">@detail.Summary</div>
+                }
+                @if (goal is not null)
+                {
+                    <div class="nornis-wrapup-tip-line"><span class="nornis-wrapup-tip-label">Goal</span> @goal</div>
+                }
+                @if (development is not null)
+                {
+                    <div class="nornis-wrapup-tip-line"><span class="nornis-wrapup-tip-label">Last</span> @development</div>
+                }
+                @if (questions.Count > 0)
+                {
+                    <div class="nornis-wrapup-tip-label">Open question@(questions.Count == 1 ? "" : "s")</div>
+                    <ul class="nornis-wrapup-tip-list">
+                        @foreach (var q in questions.Take(3))
+                        {
+                            <li>@q</li>
+                        }
+                    </ul>
+                    @if (questions.Count > 3)
+                    {
+                        <div class="nornis-wrapup-tip-muted">+@(questions.Count - 3) more</div>
+                    }
+                }
+                @if (bare)
+                {
+                    <div class="nornis-wrapup-tip-muted">Nothing recorded for this storyline yet.</div>
+                }
+            }
+        </div>;
+
     protected override async Task OnParametersSetAsync()
     {
         if (WorldId != _loadedWorldId)
@@ -135,6 +237,8 @@
     private async Task LoadAsync()
     {
         _busy.Clear();
+        _summaries.Clear();
+        _loadingSummaries.Clear();
 
         if (WorldId == Guid.Empty)
         {
