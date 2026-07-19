@@ -18,11 +18,16 @@ public class ArtifactsController : ControllerBase
 {
     private readonly IArtifactService _artifactService;
     private readonly IArtifactMergeService _mergeService;
+    private readonly IArtifactRemovalService _removalService;
 
-    public ArtifactsController(IArtifactService artifactService, IArtifactMergeService mergeService)
+    public ArtifactsController(
+        IArtifactService artifactService,
+        IArtifactMergeService mergeService,
+        IArtifactRemovalService removalService)
     {
         _artifactService = artifactService;
         _mergeService = mergeService;
+        _removalService = removalService;
     }
 
     /// <summary>
@@ -226,6 +231,48 @@ public class ArtifactsController : ControllerBase
         }
 
         return Ok(ToDetailResponse(result.Value!));
+    }
+
+    /// <summary>GM-only: summarizes what removing this artifact from canon would delete.</summary>
+    [HttpGet("{artifactId:guid}/removal-preview")]
+    public async Task<IActionResult> RemovalPreview(Guid worldId, Guid artifactId, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _removalService.PreviewAsync(worldId, artifactId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var preview = result.Value!;
+        return Ok(new ArtifactRemovalPreviewResponse(
+            preview.ArtifactName,
+            preview.ArtifactType,
+            preview.FactCount,
+            preview.Relationships,
+            preview.MapPinCount,
+            preview.CharacterLinksToClear));
+    }
+
+    /// <summary>GM-only: removes an artifact from canon, tearing down the knowledge attached to it.</summary>
+    [HttpDelete("{artifactId:guid}")]
+    public async Task<IActionResult> Remove(Guid worldId, Guid artifactId, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var command = new RemoveArtifactCommand(worldId, artifactId, user.Id, member.Role);
+        var result = await _removalService.RemoveAsync(command, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return NoContent();
     }
 
     internal static ArtifactListItemResponse ToListItemResponse(Artifact artifact)

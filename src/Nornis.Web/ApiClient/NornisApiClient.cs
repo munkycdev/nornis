@@ -263,6 +263,14 @@ public class NornisApiClient
     public Task<ApiResult<ArtifactDetailDto>> GetArtifactAsync(Guid worldId, Guid artifactId, CancellationToken ct = default) =>
         GetAsync<ArtifactDetailDto>($"/api/worlds/{worldId}/artifacts/{artifactId}", ct);
 
+    /// <summary>GM-only: what removing this artifact from canon would delete.</summary>
+    public Task<ApiResult<ArtifactRemovalPreview>> GetArtifactRemovalPreviewAsync(Guid worldId, Guid artifactId, CancellationToken ct = default) =>
+        GetAsync<ArtifactRemovalPreview>($"/api/worlds/{worldId}/artifacts/{artifactId}/removal-preview", ct);
+
+    /// <summary>GM-only: removes an artifact from canon and the knowledge attached to it.</summary>
+    public Task<ApiResult<bool>> RemoveArtifactAsync(Guid worldId, Guid artifactId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/artifacts/{artifactId}", ct);
+
     public Task<ApiResult<ArtifactGraphDto>> GetArtifactGraphAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<ArtifactGraphDto>($"/api/worlds/{worldId}/artifacts/graph", ct);
 

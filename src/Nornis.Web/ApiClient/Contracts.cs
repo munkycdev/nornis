@@ -419,6 +419,14 @@ public record ContinuityFinding(
 
 public record MergeResult(Guid TargetArtifactId);
 
+public record ArtifactRemovalPreview(
+    string ArtifactName,
+    string ArtifactType,
+    int FactCount,
+    IReadOnlyList<string> Relationships,
+    int MapPinCount,
+    int CharacterLinksToClear);
+
 public record ArtifactGraphDto(
     IReadOnlyList<GraphNode> Nodes,
     IReadOnlyList<GraphEdge> Edges);
