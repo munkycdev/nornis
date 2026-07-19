@@ -90,12 +90,11 @@ window.nornisGraph = (function () {
                 ctx.fillStyle = color;
                 ctx.fill();
             })
-            // PartOf is structural (storyline hierarchy) — gold and heavier, with an
-            // arrow pointing child → parent, so nesting reads at a glance.
-            .linkColor(l => l.type === "PartOf" ? "#C9B44B" : "#C6CFD8")
-            .linkWidth(l => l.type === "PartOf" ? 2.5 : 1)
-            .linkDirectionalArrowLength(l => l.type === "PartOf" ? 4 : 0)
-            .linkDirectionalArrowRelPos(0.85)
+            // All relationships, including the structural PartOf storyline hierarchy, render
+            // as standard thin grey lines; hover shows the type. (PartOf once drew as a
+            // heavier gold arrow — kept uniform now by request.)
+            .linkColor("#C6CFD8")
+            .linkWidth(1)
             .linkLabel(l => l.type)
             .d3VelocityDecay(0.25)
             .cooldownTime(8000)
