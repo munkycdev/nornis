@@ -22,6 +22,20 @@
     </div>
 }
 
+@* Appears when a node is clicked: the relationship types on the highlighted edges, color-coded. *@
+@if (_relationshipLegend.Count > 0)
+{
+    <div class="nornis-graph-legend mt-1">
+        <span class="nornis-list-meta">@(_highlightFrom is null ? "Relationships:" : $"From {_highlightFrom}:")</span>
+        @foreach (var item in _relationshipLegend)
+        {
+            <span class="nornis-graph-legend-item">
+                <span class="nornis-graph-dot" style="background:@item.Color"></span>@item.Type
+            </span>
+        }
+    </div>
+}
+
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<GraphNode> Nodes { get; set; } = [];
     [Parameter, EditorRequired] public IReadOnlyList<GraphEdge> Edges { get; set; } = [];
@@ -51,6 +65,12 @@
     private readonly string _elementId = $"nornis-graph-{Guid.NewGuid():N}";
     private DotNetObjectReference<ArtifactGraph>? _selfRef;
     private bool _pendingRender;
+
+    /// <summary>Relationship types on the edges lit up by the last node click, with their colors.</summary>
+    private IReadOnlyList<RelationshipColor> _relationshipLegend = [];
+    private string? _highlightFrom;
+
+    public record RelationshipColor(string Type, string Color);
 
     private IReadOnlyList<GraphNode>? _renderedNodes;
     private IReadOnlyList<GraphEdge>? _renderedEdges;
@@ -87,6 +107,10 @@
         _renderedFocus = FocusId;
         _renderedDepth = Depth;
 
+        // A fresh render recreates the JS graph with no selection, so drop any stale legend.
+        _relationshipLegend = [];
+        _highlightFrom = null;
+
         _selfRef ??= DotNetObjectReference.Create(this);
 
         // Depth 0 means "everything" — the JS BFS would trim to just the focus node,
@@ -104,6 +128,19 @@
     [JSInvokable]
     public Task OnNodeSelected(string id, string name, string type, string status) =>
         NodeSelected.InvokeAsync(new GraphNode(Guid.Parse(id), name, type, status));
+
+    /// <summary>
+    /// Called by nornis-graph.js after a node click resolves the highlighted edges, so the
+    /// component can show which relationship types each color maps to. Empty clears it.
+    /// </summary>
+    [JSInvokable]
+    public Task OnLinksHighlighted(string? fromName, RelationshipColor[] items) =>
+        InvokeAsync(() =>
+        {
+            _highlightFrom = fromName;
+            _relationshipLegend = items;
+            StateHasChanged();
+        });
 
     public async ValueTask DisposeAsync()
     {
