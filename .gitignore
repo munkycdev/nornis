@@ -51,6 +51,9 @@ ScaffoldingReadMe.txt
 # Rider
 .idea/
 
+# Obsidian vault config (per-user workspace state, not shared)
+.obsidian/
+
 # OS files
 Thumbs.db
 ehthumbs.db
