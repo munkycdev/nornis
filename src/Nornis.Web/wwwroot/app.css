@@ -2122,6 +2122,11 @@ a.nornis-cite:hover {
     color: var(--mud-palette-secondary);
 }
 
+.nornis-landing-more {
+    text-align: center;
+    margin-top: 26px;
+}
+
 .nornis-landing-final {
     text-align: center;
     padding: 72px 0 32px 0;
@@ -2264,6 +2269,166 @@ a.nornis-cite:hover {
 
     .nornis-public-footer-links {
         margin-left: 0;
+    }
+}
+
+/* ---------------------------------------------------------- Features page -- */
+
+/* Denser than the landing cards: this page has many more of them, so it holds
+   two columns at tablet width instead of collapsing straight to one. */
+
+.nornis-features-section {
+    padding: 44px 0;
+    border-top: 1px solid var(--mud-palette-divider);
+}
+
+.nornis-features-section:first-of-type {
+    border-top: none;
+}
+
+.nornis-features-head {
+    max-width: 680px;
+    margin: 0 auto 30px auto;
+    text-align: center;
+}
+
+.nornis-features-head h2 {
+    font-family: var(--nornis-serif);
+    font-size: 1.9rem;
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+    margin: 6px 0 10px 0;
+}
+
+.nornis-features-head p {
+    font-size: 1rem;
+    line-height: 1.65;
+    color: var(--mud-palette-text-secondary);
+    margin: 0;
+}
+
+.nornis-features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.nornis-features-item {
+    background-color: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 16px;
+    box-shadow: var(--nornis-card-shadow);
+    padding: 22px 24px;
+}
+
+.nornis-features-item h3 {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-family: var(--nornis-serif);
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-features-item h3 .mud-icon-root {
+    color: var(--mud-palette-secondary);
+}
+
+.nornis-features-item p {
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--mud-palette-text-secondary);
+    margin: 0;
+}
+
+/* Marks a capability only a GM has. */
+.nornis-features-gm {
+    flex-shrink: 0;
+    padding: 2px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--mud-palette-divider);
+    background-color: var(--mud-palette-background);
+    font-family: var(--mud-typography-default-family);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* Who sees what. */
+.nornis-features-roles {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 16px;
+    box-shadow: var(--nornis-card-shadow);
+    overflow: hidden;
+}
+
+.nornis-features-roles th,
+.nornis-features-roles td {
+    padding: 12px 18px;
+    text-align: left;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    border-bottom: 1px solid var(--mud-palette-divider);
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-features-roles tr:last-child th,
+.nornis-features-roles tr:last-child td {
+    border-bottom: none;
+}
+
+.nornis-features-roles th {
+    font-family: var(--nornis-serif);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+    white-space: nowrap;
+}
+
+.nornis-features-roles thead th {
+    background-color: var(--mud-palette-background);
+}
+
+/* The honest-limits list — deliberately plain, no card chrome. */
+.nornis-features-limits {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.nornis-features-limits ul {
+    padding-left: 22px;
+    margin: 0;
+}
+
+.nornis-features-limits li {
+    font-size: 0.96rem;
+    line-height: 1.65;
+    color: var(--mud-palette-text-secondary);
+    margin: 8px 0;
+}
+
+@media (max-width: 1000px) {
+    .nornis-features-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .nornis-features-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* The role table would otherwise force the page to scroll sideways. */
+    .nornis-features-roles-scroll {
+        overflow-x: auto;
     }
 }
 

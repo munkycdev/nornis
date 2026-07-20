@@ -77,7 +77,8 @@ Roles are **GM**, **Player**, and **Observer** — and they see genuinely differ
 player and a GM asking the Loremaster the same question get different answers, because
 retrieval respects visibility.
 
-Per-feature design docs are in [`docs/features/`](docs/features), numbered in build order.
+A fuller tour lives on the in-app **Features** page at `/features`. Per-feature design docs
+are in [`docs/features/`](docs/features), numbered in build order.
 
 ---
 
