@@ -39,10 +39,7 @@
                         @(_document.PageCount is { } p ? $" · {p} pages" : "")
                     </MudText>
                 </div>
-                @if (_document.Visibility == "GMOnly")
-                {
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">GM only</MudChip>
-                }
+                <LibraryVisibilityChip Document="_document" OnChanged="LoadAsync" />
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_document.Status)">
                     @(_document.Status == "Indexed" ? $"Indexed · {_document.ChunkCount} passages" : _document.Status)
                 </MudChip>

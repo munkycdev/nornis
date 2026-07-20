@@ -210,6 +210,47 @@ public class LibraryService : ILibraryService
             new LibraryDownload(url, document.FileName, document.ContentType, document.SizeBytes));
     }
 
+    /// <summary>
+    /// GM-only: moves a document between the party shelf and the GM's. Chunks carry no scope
+    /// of their own — retrieval filters on the parent document — so the Loremaster starts (or
+    /// stops) quoting the book on the next question, with no reindex.
+    /// </summary>
+    public async Task<AppResult<LibraryDocument>> SetVisibilityAsync(
+        Guid documentId, Guid worldId, WorldRole role, VisibilityScope visibility, CancellationToken ct)
+    {
+        if (role != WorldRole.GM)
+        {
+            return AppResult<LibraryDocument>.Fail(new AppError(403, "insufficient_role",
+                "Only GMs can change a library document's visibility."));
+        }
+
+        if (visibility is not (VisibilityScope.PartyVisible or VisibilityScope.GMOnly))
+        {
+            return AppResult<LibraryDocument>.Fail(new AppError(400, "invalid_visibility",
+                "Library documents are either PartyVisible or GMOnly."));
+        }
+
+        var result = await GetByIdAsync(documentId, worldId, role, ct);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+
+        var document = result.Value!;
+        // No-op early: bumping UpdatedAt for nothing would also reset the stale-Indexing
+        // clock that keeps an abandoned document deletable.
+        if (document.Visibility == visibility)
+        {
+            return AppResult<LibraryDocument>.Success(document);
+        }
+
+        document.Visibility = visibility;
+        document.UpdatedAt = DateTimeOffset.UtcNow;
+        document = await _documentRepository.UpdateAsync(document, ct);
+
+        return AppResult<LibraryDocument>.Success(document);
+    }
+
     public async Task<AppResult<bool>> DeleteAsync(Guid documentId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)
     {
         var result = await GetByIdAsync(documentId, worldId, role, ct);

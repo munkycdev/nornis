@@ -62,10 +62,7 @@ else
                         @doc.Kind · @FormatSize(doc.SizeBytes)@(doc.PageCount is { } p ? $" · {p} pages" : "")
                     </div>
                 </div>
-                @if (doc.Visibility == "GMOnly")
-                {
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">GM only</MudChip>
-                }
+                <LibraryVisibilityChip Document="doc" OnChanged="LoadAsync" />
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(doc.Status)">
                     @StatusLabel(doc)
                 </MudChip>
