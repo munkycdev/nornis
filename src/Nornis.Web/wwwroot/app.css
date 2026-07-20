@@ -271,6 +271,20 @@ html, body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* "spans N campaigns" badge on a lane whose arc threads more than one campaign. */
+.nornis-timeline-span {
+    flex: 0 0 auto;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: rgba(42, 59, 76, 0.6);
+    background: rgba(63, 96, 121, 0.1);
+    border-radius: 999px;
+    padding: 1px 6px;
 }
 
 .nornis-timeline-droptarget {

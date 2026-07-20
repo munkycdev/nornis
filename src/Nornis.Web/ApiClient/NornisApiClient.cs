@@ -316,6 +316,13 @@ public class NornisApiClient
 
     private sealed record SetStorylineParentBody(Guid? ParentArtifactId);
 
+    /// <summary>GM-only: replaces the set of campaigns a storyline is declared to belong to (empty clears).</summary>
+    public Task<ApiResult<bool>> SetStorylineCampaignsAsync(Guid worldId, Guid artifactId, IReadOnlyList<Guid> campaignIds, CancellationToken ct = default) =>
+        PutAsync<SetStorylineCampaignsBody, bool>($"/api/worlds/{worldId}/artifacts/{artifactId}/campaigns",
+            new SetStorylineCampaignsBody(campaignIds), ct);
+
+    private sealed record SetStorylineCampaignsBody(IReadOnlyList<Guid> CampaignIds);
+
     /// <summary>GM-only: sets an artifact's lifecycle status.</summary>
     public Task<ApiResult<ArtifactListItem>> SetArtifactStatusAsync(Guid worldId, Guid artifactId, string status, CancellationToken ct = default) =>
         PutAsync<SetArtifactStatusBody, ArtifactListItem>($"/api/worlds/{worldId}/artifacts/{artifactId}/status",

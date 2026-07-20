@@ -37,7 +37,8 @@ public class ArtifactServiceTests
         _characterRepo = new InMemoryCharacterRepository();
         _memberRepo = new InMemoryWorldMemberRepository();
         _service = new ArtifactService(_artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo,
-            new InMemorySourceRepository(), _characterRepo, _memberRepo);
+            new InMemorySourceRepository(), _characterRepo, _memberRepo,
+            new InMemoryStorylineCampaignRepository(), new InMemoryCampaignRepository());
 
         _worldId = Guid.NewGuid();
         _otherWorldId = Guid.NewGuid();

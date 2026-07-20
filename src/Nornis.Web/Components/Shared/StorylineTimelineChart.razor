@@ -113,6 +113,21 @@ else
                             <circle cx="@px" cy="@y" r="@r" fill="@color" stroke="#FDFBF7" stroke-width="2" />
                         </g>
                     }
+
+                    @* Campaign crossings: a small diamond above the lane wherever the arc moves
+                       from one campaign into another — the dual of a convergence band. *@
+                    @if ((lane.Campaigns?.Count ?? 0) >= 2)
+                    {
+                        @for (var i = 1; i < lane.Points.Count; i++)
+                        {
+                            var cur = lane.Points[i];
+                            if (cur.CampaignId is { } cid && cur.CampaignId != lane.Points[i - 1].CampaignId)
+                            {
+                                <path d="@DiamondAbove(X(cur.OccurredAt), y)" fill="@color" stroke="#FDFBF7"
+                                      stroke-width="1" opacity="0.9" data-nornis-tip="@($"Enters {CampaignNameFor(lane, cid)}")" />
+                            }
+                        }
+                    }
                 }
             </svg>
 
@@ -135,6 +150,10 @@ else
                          @onclick="@(() => Nav.NavigateTo($"{ArtifactLinkBase}/{lane.StorylineId}"))">
                         <span class="nornis-graph-dot" style="background:@StatusColor(lane.Status)"></span>
                         <span class="nornis-timeline-label-text">@lane.Name</span>
+                        @if ((lane.Campaigns?.Count ?? 0) >= 2)
+                        {
+                            <span class="nornis-timeline-span" data-nornis-tip="@SpanTitle(lane)">@lane.Campaigns!.Count</span>
+                        }
                     </div>
                 }
             }
@@ -372,6 +391,24 @@ else
         new($"<text x=\"{x}\" y=\"{y}\" font-size=\"{fontSize}\" fill=\"{fill}\">{System.Net.WebUtility.HtmlEncode(content)}</text>");
 
     private static string LaneTitle(TimelineLaneDto lane) => $"{lane.Name} ({lane.Status})";
+
+    private static string CampaignNameFor(TimelineLaneDto lane, Guid campaignId) =>
+        (lane.Campaigns ?? []).FirstOrDefault(c => c.CampaignId == campaignId)?.Name ?? "another campaign";
+
+    // A small diamond centred above the lane, marking a campaign crossing.
+    private static string DiamondAbove(int x, int y)
+    {
+        var top = y - 10;
+        const int s = 4;
+        return $"M {x} {top - s} L {x + s} {top} L {x} {top + s} L {x - s} {top} Z";
+    }
+
+    private static string SpanTitle(TimelineLaneDto lane)
+    {
+        var lines = (lane.Campaigns ?? []).Select(c =>
+            "• " + c.Name + (c.Declared ? (c.Derived ? " (declared)" : " (declared, no sessions yet)") : ""));
+        return "Spans campaigns:\n" + string.Join("\n", lines);
+    }
 
     private static string SessionTitle(TimelineSessionDto s) =>
         $"{s.Title} — {s.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}"

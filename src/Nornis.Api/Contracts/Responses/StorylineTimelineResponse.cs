@@ -17,13 +17,22 @@ public record TimelineLaneResponse(
     string Status,
     IReadOnlyList<TimelinePointResponse> Points,
     Guid? ParentStorylineId,
+    IReadOnlyList<TimelineLaneCampaignResponse> Campaigns,
     string? CampaignName,
     DateTimeOffset? CampaignStartedAt);
+
+public record TimelineLaneCampaignResponse(
+    Guid CampaignId,
+    string Name,
+    DateTimeOffset? StartedAt,
+    bool Declared,
+    bool Derived);
 
 public record TimelinePointResponse(
     Guid SourceId,
     DateTimeOffset OccurredAt,
-    IReadOnlyList<TimelineDevelopmentResponse> Developments);
+    IReadOnlyList<TimelineDevelopmentResponse> Developments,
+    Guid? CampaignId);
 
 public record TimelineDevelopmentResponse(
     string Kind,

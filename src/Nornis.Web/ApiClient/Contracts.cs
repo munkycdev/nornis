@@ -314,7 +314,11 @@ public record ArtifactDetailDto(
     IReadOnlyList<ArtifactRelationshipDto> Relationships,
     IReadOnlyList<ConnectedArtifact> ConnectedArtifacts,
     IReadOnlyList<SourceReferenceDto> SourceReferences,
-    IReadOnlyList<string>? PlayedBy = null);
+    IReadOnlyList<string>? PlayedBy = null,
+    IReadOnlyList<DeclaredCampaignDto>? DeclaredCampaigns = null);
+
+/// <summary>A campaign a storyline is declared to belong to (id + name only).</summary>
+public record DeclaredCampaignDto(Guid Id, string Name);
 
 public record RevealBody(
     IReadOnlyList<Guid> ArtifactIds,
@@ -581,12 +585,22 @@ public record TimelineLaneDto(
     IReadOnlyList<TimelinePointDto> Points,
     Guid? ParentStorylineId = null,
     string? CampaignName = null,
-    DateTimeOffset? CampaignStartedAt = null);
+    DateTimeOffset? CampaignStartedAt = null,
+    IReadOnlyList<TimelineLaneCampaignDto>? Campaigns = null);
+
+/// <summary>A campaign a storyline lane spans — declared by the GM, derived from sessions, or both.</summary>
+public record TimelineLaneCampaignDto(
+    Guid CampaignId,
+    string Name,
+    DateTimeOffset? StartedAt,
+    bool Declared,
+    bool Derived);
 
 public record TimelinePointDto(
     Guid SourceId,
     DateTimeOffset OccurredAt,
-    IReadOnlyList<TimelineDevelopmentDto> Developments);
+    IReadOnlyList<TimelineDevelopmentDto> Developments,
+    Guid? CampaignId = null);
 
 public record TimelineDevelopmentDto(
     string Kind,

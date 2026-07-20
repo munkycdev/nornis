@@ -2,8 +2,6 @@
 
 ## List of unprocessed features
 
-- Some storylines span multiple campaigns. We need to find a way to accommodate that
-* Capture Session Audio type should accept a wav, mp3, or other audio file. It should transcribe the content and create a source transcript
 * The map timeline isn't working right, I need to figure out why
 * Add DataDog observability
 

@@ -225,6 +225,42 @@
             </MudPaper>
         }
 
+        @if (_detail.Type == "Storyline" && Worlds.Current?.MyRole == "GM")
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">Campaigns</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Declare which campaigns this storyline runs through. A storyline can span several —
+                    the Timeline threads it through each, alongside the campaigns its sessions already touch.
+                </MudText>
+                @if (_campaigns.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">This world has no campaigns yet.</MudText>
+                }
+                else
+                {
+                    <div class="nornis-add-member">
+                        <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_selectedCampaignIds"
+                                   Label="Campaigns" Dense="true" Variant="Variant.Outlined" Class="flex-grow-1"
+                                   MultiSelectionTextFunc="@(_ => SelectedCampaignsText())">
+                            @foreach (var c in _campaigns)
+                            {
+                                <MudSelectItem T="Guid" Value="@c.Id">@c.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                   OnClick="SaveCampaignsAsync" Disabled="_campaignsBusy || !CampaignsChanged">
+                            Save
+                        </MudButton>
+                    </div>
+                    @if (_campaignsError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_campaignsError</MudAlert>
+                    }
+                }
+            </MudPaper>
+        }
+
         @if (_detail.Relationships.Count > 0 && _graph is not null)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
@@ -628,6 +664,67 @@
         }
     }
 
+    // Declared-campaigns editor (storylines, GM). The world's campaigns to pick from, and the
+    // selected set seeded from this storyline's own declarations each time it loads.
+    private IReadOnlyList<CampaignDto> _campaigns = [];
+    private IEnumerable<Guid> _selectedCampaignIds = [];
+    private bool _campaignsBusy;
+    private string? _campaignsError;
+
+    private bool CampaignsChanged =>
+        _detail is not null
+        && !_selectedCampaignIds.ToHashSet().SetEquals((_detail.DeclaredCampaigns ?? []).Select(c => c.Id));
+
+    private string CampaignNameById(Guid id) => _campaigns.FirstOrDefault(c => c.Id == id)?.Name ?? "Unknown";
+
+    private string SelectedCampaignsText() => string.Join(", ", _selectedCampaignIds.Select(CampaignNameById));
+
+    private async Task LoadCampaignsEditorAsync()
+    {
+        if (Worlds.Current is null || _detail is null
+            || _detail.Type != "Storyline" || Worlds.Current.MyRole != "GM")
+        {
+            _campaigns = [];
+            return;
+        }
+
+        _selectedCampaignIds = (_detail.DeclaredCampaigns ?? []).Select(c => c.Id).ToHashSet();
+
+        var result = await Api.GetCampaignsAsync(Worlds.Current.Id);
+        _campaigns = result.IsSuccess ? result.Value! : [];
+        StateHasChanged();
+    }
+
+    private async Task SaveCampaignsAsync()
+    {
+        if (Worlds.Current is null || _detail is null)
+        {
+            return;
+        }
+
+        _campaignsBusy = true;
+        _campaignsError = null;
+        StateHasChanged();
+
+        var ids = _selectedCampaignIds.ToList();
+        var result = await Api.SetStorylineCampaignsAsync(Worlds.Current.Id, _detail.Id, ids);
+
+        _campaignsBusy = false;
+        if (result.IsSuccess)
+        {
+            _detail = _detail with
+            {
+                DeclaredCampaigns = ids.Select(id => new DeclaredCampaignDto(id, CampaignNameById(id))).ToList()
+            };
+            Snackbar.Add("Campaigns updated.", Severity.Success);
+        }
+        else
+        {
+            _campaignsError = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
     private async Task RenameAsync()
     {
         if (Worlds.Current is null || _detail is null)
@@ -748,6 +845,7 @@
         StateHasChanged();
 
         await LoadConnectionsGraphAsync();
+        await LoadCampaignsEditorAsync();
     }
 
     // Whole-world graph for the Connections neighborhood; the BFS trim to FocusId/depth

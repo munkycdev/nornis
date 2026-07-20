@@ -16,6 +16,8 @@ public class ArtifactService : IArtifactService
     private readonly ISourceRepository _sourceRepository;
     private readonly ICharacterRepository _characterRepository;
     private readonly IWorldMemberRepository _worldMemberRepository;
+    private readonly IStorylineCampaignRepository _storylineCampaignRepository;
+    private readonly ICampaignRepository _campaignRepository;
 
     public ArtifactService(
         IArtifactRepository artifactRepository,
@@ -24,7 +26,9 @@ public class ArtifactService : IArtifactService
         ISourceReferenceRepository sourceReferenceRepository,
         ISourceRepository sourceRepository,
         ICharacterRepository characterRepository,
-        IWorldMemberRepository worldMemberRepository)
+        IWorldMemberRepository worldMemberRepository,
+        IStorylineCampaignRepository storylineCampaignRepository,
+        ICampaignRepository campaignRepository)
     {
         _artifactRepository = artifactRepository;
         _factRepository = factRepository;
@@ -33,6 +37,8 @@ public class ArtifactService : IArtifactService
         _sourceRepository = sourceRepository;
         _characterRepository = characterRepository;
         _worldMemberRepository = worldMemberRepository;
+        _storylineCampaignRepository = storylineCampaignRepository;
+        _campaignRepository = campaignRepository;
     }
 
     private static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch
@@ -174,6 +180,8 @@ public class ArtifactService : IArtifactService
 
         var playedBy = await ResolvePlayedByAsync(artifact, ct);
 
+        var declaredCampaigns = await ResolveDeclaredCampaignsAsync(artifact, ct);
+
         var detail = new ArtifactDetail(
             Artifact: artifact,
             Facts: facts,
@@ -181,7 +189,8 @@ public class ArtifactService : IArtifactService
             ConnectedArtifacts: connectedArtifacts,
             SourceReferences: sourceReferences,
             SourceTitles: sourceTitles,
-            PlayedBy: playedBy);
+            PlayedBy: playedBy,
+            DeclaredCampaigns: declaredCampaigns);
 
         return AppResult<ArtifactDetail>.Success(detail);
     }
@@ -310,6 +319,41 @@ public class ArtifactService : IArtifactService
         return AppResult.Success();
     }
 
+    public async Task<AppResult> SetStorylineCampaignsAsync(SetStorylineCampaignsCommand command, CancellationToken ct)
+    {
+        if (command.ActingUserRole != WorldRole.GM)
+        {
+            return AppResult.Fail(new AppError(403, "insufficient_role", "Only GMs can change a storyline's campaigns."));
+        }
+
+        var storyline = await _artifactRepository.GetByIdAsync(command.ArtifactId, ct);
+        if (storyline is null || storyline.WorldId != command.WorldId || storyline.Type != ArtifactType.Storyline)
+        {
+            return AppResult.Fail(new AppError(404, "not_found", "Storyline not found."));
+        }
+
+        // Every declared campaign must exist in the storyline's world — same guard the
+        // character-assignment path applies to its campaign.
+        var distinctIds = command.CampaignIds.Distinct().ToList();
+        if (distinctIds.Count > 0)
+        {
+            var worldCampaignIds = (await _campaignRepository.ListByWorldAsync(command.WorldId, ct))
+                .Select(c => c.Id)
+                .ToHashSet();
+
+            if (distinctIds.Any(id => !worldCampaignIds.Contains(id)))
+            {
+                return AppResult.Fail(new AppError(400, "invalid_campaign",
+                    "One or more campaigns do not exist in this world."));
+            }
+        }
+
+        await _storylineCampaignRepository.ReplaceForStorylineAsync(
+            storyline.Id, distinctIds, command.ActingUserId, ct);
+
+        return AppResult.Success();
+    }
+
     public async Task<AppResult<Artifact>> SetStatusAsync(SetArtifactStatusCommand command, CancellationToken ct)
     {
         if (command.ActingUserRole != WorldRole.GM)
@@ -355,6 +399,16 @@ public class ArtifactService : IArtifactService
             .Select(r => new TimelineLink(r.ArtifactAId, r.ArtifactBId, r.Type))
             .ToList();
 
+        // GM-declared campaign memberships for these storylines, and every campaign in the
+        // world by id so a campaign that was declared but never played still resolves to a
+        // name and a start date.
+        var declaredByStoryline = (await _storylineCampaignRepository.ListByArtifactIdsAsync(
+                storylines.Select(s => s.Id).ToList(), ct))
+            .GroupBy(sc => sc.ArtifactId)
+            .ToDictionary(g => g.Key, g => g.Select(sc => sc.CampaignId).ToHashSet());
+        var campaignsById = (await _campaignRepository.ListByWorldAsync(worldId, ct))
+            .ToDictionary(c => c.Id);
+
         var lanes = storylines
             .Select(s =>
             {
@@ -363,20 +417,45 @@ public class ArtifactService : IArtifactService
                     .Select(kv => new TimelinePoint(
                         kv.Key.SourceId,
                         sources[kv.Key.SourceId].OccurredAt!.Value,
-                        kv.Value))
+                        kv.Value,
+                        sources[kv.Key.SourceId].CampaignId))
                     .OrderBy(p => p.OccurredAt)
                     .ToList();
 
-                // The lane's campaign is whichever campaign most of its sessions declare.
-                // Voting on the campaign itself (not just its name) keeps the name and the
-                // declared start the client orders bands by from drifting apart.
-                var campaign = points
-                    .Select(p => sources[p.SourceId].Campaign)
-                    .OfType<Campaign>()
-                    .Where(c => !string.IsNullOrEmpty(c.Name))
-                    .GroupBy(c => c.Id)
-                    .OrderByDescending(g => g.Count())
-                    .FirstOrDefault()?.First();
+                // A storyline spans every campaign a GM declared for it, unioned with every
+                // campaign its dated sessions fall in — it is no longer voted down to one.
+                // Orphaned ids (a campaign since deleted) simply drop out.
+                var declaredIds = declaredByStoryline.TryGetValue(s.Id, out var declared) ? declared : new HashSet<Guid>();
+                var derivedIds = points.Select(p => p.CampaignId).OfType<Guid>().ToHashSet();
+
+                // Fallback ordering key when a campaign carries no declared start: the earliest
+                // session this lane spent in it.
+                DateTimeOffset EffectiveStart(Guid campaignId) =>
+                    (campaignsById.TryGetValue(campaignId, out var c) ? c.StartedAt : null)
+                        ?? points.Where(p => p.CampaignId == campaignId)
+                            .Select(p => (DateTimeOffset?)p.OccurredAt).FirstOrDefault()
+                        ?? DateTimeOffset.MaxValue;
+
+                var campaigns = declaredIds.Union(derivedIds)
+                    .Where(campaignsById.ContainsKey)
+                    .Select(id => new TimelineLaneCampaign(
+                        id,
+                        campaignsById[id].Name,
+                        campaignsById[id].StartedAt,
+                        Declared: declaredIds.Contains(id),
+                        Derived: derivedIds.Contains(id)))
+                    .OrderBy(c => EffectiveStart(c.CampaignId))
+                    .ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                // The anchor is the band the row is drawn in: the earliest-opening campaign the
+                // lane spans, a GM declaration breaking a tie. Never a vote, so a cross-campaign
+                // arc lands in a stable, explainable band — where it first belongs in time.
+                var anchor = campaigns
+                    .OrderBy(c => EffectiveStart(c.CampaignId))
+                    .ThenByDescending(c => c.Declared)
+                    .ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault();
 
                 return new TimelineLane(
                     s.Id,
@@ -384,8 +463,9 @@ public class ArtifactService : IArtifactService
                     s.Status.ToString(),
                     points,
                     parentByChild.TryGetValue(s.Id, out var parentId) ? parentId : null,
-                    campaign?.Name,
-                    campaign?.StartedAt);
+                    campaigns,
+                    anchor?.Name,
+                    anchor?.StartedAt);
             })
             // Undated lanes last, then by when the arc opened, then by when it closed —
             // the same key order the chart lays rows out in.
@@ -437,6 +517,30 @@ public class ArtifactService : IArtifactService
                 ? m.DisplayName!
                 : $"User {m.UserId.ToString()[..8]}")
             .Distinct()
+            .ToList();
+    }
+
+    /// <summary>
+    /// The campaigns a GM has declared this storyline to belong to, resolved to full campaign
+    /// records and ordered by name. Non-storyline artifacts never carry declarations.
+    /// </summary>
+    private async Task<IReadOnlyList<Campaign>> ResolveDeclaredCampaignsAsync(Artifact artifact, CancellationToken ct)
+    {
+        if (artifact.Type != ArtifactType.Storyline)
+        {
+            return [];
+        }
+
+        var links = await _storylineCampaignRepository.ListByArtifactIdAsync(artifact.Id, ct);
+        if (links.Count == 0)
+        {
+            return [];
+        }
+
+        var declaredIds = links.Select(l => l.CampaignId).ToHashSet();
+        return (await _campaignRepository.ListByWorldAsync(artifact.WorldId, ct))
+            .Where(c => declaredIds.Contains(c.Id))
+            .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 

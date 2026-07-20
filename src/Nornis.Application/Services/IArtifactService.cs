@@ -54,6 +54,13 @@ public interface IArtifactService
     /// </summary>
     Task<AppResult> SetStorylineParentAsync(SetStorylineParentCommand command, CancellationToken ct);
 
+    /// <summary>
+    /// GM-only: replaces the set of campaigns a storyline is declared to belong to. Rejects
+    /// non-storyline artifacts and campaigns outside the world. This declared membership is
+    /// unioned with the campaigns derived from the storyline's sessions on the timeline.
+    /// </summary>
+    Task<AppResult> SetStorylineCampaignsAsync(SetStorylineCampaignsCommand command, CancellationToken ct);
+
     /// <summary>GM-only: sets an artifact's lifecycle status directly.</summary>
     Task<AppResult<Artifact>> SetStatusAsync(SetArtifactStatusCommand command, CancellationToken ct);
 }

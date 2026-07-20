@@ -55,6 +55,10 @@ public class CampaignRepository : ICampaignRepository
             .Where(cc => cc.CampaignId == campaignId)
             .ExecuteDeleteAsync(cancellationToken);
 
+        await _context.StorylineCampaigns
+            .Where(sc => sc.CampaignId == campaignId)
+            .ExecuteDeleteAsync(cancellationToken);
+
         await _context.Campaigns
             .Where(c => c.Id == campaignId)
             .ExecuteDeleteAsync(cancellationToken);
