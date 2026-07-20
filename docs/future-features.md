@@ -2,7 +2,6 @@
 
 ## List of unprocessed features
 
-* On the Codex graph view, could we add a border to each dot indicating its status?
 * On the Session Wrap-Up card, when selecting a parent, make the dropdown an autocomplete search entry instead of a dumb dropdown
 * I'd like to be able to change the visibility of Library entries
 * Some storylines span multiple campaigns. We need to find a way to accommodate that

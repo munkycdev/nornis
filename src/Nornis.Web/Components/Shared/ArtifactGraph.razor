@@ -20,6 +20,15 @@
             </span>
         }
     </div>
+    <div class="nornis-graph-legend mt-1">
+        <span class="nornis-list-meta">Status:</span>
+        @foreach (var (status, color, border) in StatusLegend)
+        {
+            <span class="nornis-graph-legend-item">
+                <span class="nornis-graph-ring" style="border-color:@color;border-style:@border"></span>@status
+            </span>
+        }
+    </div>
 }
 
 @* Appears when a node is clicked: the relationship types on the highlighted edges, color-coded. *@
@@ -60,6 +69,13 @@
         ("Character", "#C98A4B"), ("Location", "#4B8AC9"), ("Item", "#8A6FC9"),
         ("Faction", "#C94B6E"), ("Event", "#4BC98A"), ("Storyline", "#C9B44B"),
         ("Concept", "#6EC9C0"), ("Document", "#9AA5B1"),
+    ];
+
+    /// <summary>Status ring around each node — mirrors statusStyles in nornis-graph.js.</summary>
+    public static readonly (string Status, string Color, string BorderStyle)[] StatusLegend =
+    [
+        ("Active", "#4E9A6B", "solid"), ("Dormant", "#C08A2E", "dashed"),
+        ("Resolved", "#3F6079", "solid"), ("Archived", "#8A9299", "dotted"),
     ];
 
     private readonly string _elementId = $"nornis-graph-{Guid.NewGuid():N}";

@@ -313,6 +313,16 @@ html, body {
     display: inline-block;
 }
 
+/* Legend swatch for the status border drawn around each node; color and style set inline. */
+.nornis-graph-ring {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border-width: 2px;
+    box-sizing: border-box;
+    display: inline-block;
+}
+
 .nornis-tree-group {
     margin-bottom: 4px;
 }

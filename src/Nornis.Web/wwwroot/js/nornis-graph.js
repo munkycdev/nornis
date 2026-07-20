@@ -16,6 +16,18 @@ window.nornisGraph = (function () {
         Document: "#9AA5B1"
     };
 
+    // Border drawn around each dot to carry its status. Color is the primary signal, but the
+    // ring is also solid where the artifact still stands in the record (Active, Resolved) and
+    // broken where it has faded out (Dormant, Archived), so status reads without color alone.
+    // Colors match StatusColors in StorylineTimelineChart.razor.
+    const statusStyles = {
+        Active: { color: "#4E9A6B", dash: [] },
+        Dormant: { color: "#C08A2E", dash: [3, 2] },
+        Resolved: { color: "#3F6079", dash: [] },
+        Archived: { color: "#8A9299", dash: [1, 2] }
+    };
+    const UNKNOWN_STATUS = { color: "#9AA5B1", dash: [] };
+
     // Distinct, readable hues for coding highlighted edges by relationship type. Assigned
     // in sorted order of the types present so the mapping is stable within a graph.
     const relationshipPalette = [
@@ -152,8 +164,20 @@ window.nornisGraph = (function () {
                 ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
                 ctx.fillStyle = color;
                 ctx.fill();
+
+                // The dot's own border is its status.
+                const status = statusStyles[node.status] ?? UNKNOWN_STATUS;
+                ctx.setLineDash(status.dash);
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = status.color;
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Focus/selection moves out to its own ring so it doesn't overwrite the status one.
                 if (isFocus) {
-                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, r + 3, 0, 2 * Math.PI);
+                    ctx.lineWidth = 1.5;
                     ctx.strokeStyle = "#2A3B4C";
                     ctx.stroke();
                 }
@@ -165,7 +189,7 @@ window.nornisGraph = (function () {
                     ctx.textAlign = "center";
                     ctx.textBaseline = "top";
                     ctx.fillStyle = "#2A3B4C";
-                    ctx.fillText(node.name, node.x, node.y + r + 2);
+                    ctx.fillText(node.name, node.x, node.y + r + (isFocus ? 5 : 2));
                 }
                 ctx.globalAlpha = 1;
             })
