@@ -2,9 +2,15 @@
 
 ## List of unprocessed features
 
-* The map timeline should be available on the public site
-* Order the git tree timeline by campaign order then storyline start order, then story line close
-* Everywhere a list of artifacts appears, I'd like a tooltip with the artifact summary on m
+* Trying to assign a parent to "Door beneath Karvosti investigation" results in a 500.  I also get an error when dragging a storyline into another one
+* On the Session Wrap-Up card, when selecting a parent, make the dropdown an autocomplete search entry instead of a dumb dropdown
+* On the Codex graph view, could we add a border to each dot indicating its status?
+* I'd like to be able to change the visibility of Library entries
+* Some storylines span multiple campaigns. We need to find a way to accommodate that
+* Capture Session Audio type should accept a wav, mp3, or other audio file. It should transcribe the content and create a source transcript
+* Create a features page
+* Create a README.md
+* Add DataDog observability
 
 ---
 

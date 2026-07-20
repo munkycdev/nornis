@@ -17,7 +17,8 @@ public record TimelineLaneResponse(
     string Status,
     IReadOnlyList<TimelinePointResponse> Points,
     Guid? ParentStorylineId,
-    string? CampaignName);
+    string? CampaignName,
+    DateTimeOffset? CampaignStartedAt);
 
 public record TimelinePointResponse(
     Guid SourceId,
