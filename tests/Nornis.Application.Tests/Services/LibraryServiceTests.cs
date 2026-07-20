@@ -259,6 +259,94 @@ public class LibraryServiceTests
         Assert.That(_queue.Sent, Has.Count.EqualTo(1));
     }
 
+    [Test]
+    public async Task SetVisibility_GmOnlyToPartyVisible_MovesToPartyShelf()
+    {
+        var doc = Doc(VisibilityScope.GMOnly, LibraryDocumentStatus.Indexed, "Forbidden Depths");
+        _documents.Seed(doc);
+
+        var result = await _sut.SetVisibilityAsync(
+            doc.Id, WorldId, WorldRole.GM, VisibilityScope.PartyVisible, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.Visibility, Is.EqualTo(VisibilityScope.PartyVisible));
+
+        // The point of the flip: the party shelf now carries it.
+        var asPlayer = await _sut.ListAsync(WorldId, WorldRole.Player, CancellationToken.None);
+        Assert.That(asPlayer.Value!.Select(d => d.Title), Is.EquivalentTo(new[] { "Forbidden Depths" }));
+    }
+
+    [Test]
+    public async Task SetVisibility_PartyVisibleToGmOnly_HidesItAgain()
+    {
+        var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexed, "Black Harbor gazetteer");
+        _documents.Seed(doc);
+
+        var result = await _sut.SetVisibilityAsync(
+            doc.Id, WorldId, WorldRole.GM, VisibilityScope.GMOnly, CancellationToken.None);
+
+        Assert.That(result.Value!.Visibility, Is.EqualTo(VisibilityScope.GMOnly));
+
+        var asPlayer = await _sut.ListAsync(WorldId, WorldRole.Player, CancellationToken.None);
+        Assert.That(asPlayer.Value!, Is.Empty);
+    }
+
+    [TestCase(WorldRole.Player)]
+    [TestCase(WorldRole.Observer)]
+    public async Task SetVisibility_NonGm_Returns403(WorldRole role)
+    {
+        var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexed, "Party book", uploadedBy: PlayerId);
+        _documents.Seed(doc);
+
+        var result = await _sut.SetVisibilityAsync(
+            doc.Id, WorldId, role, VisibilityScope.GMOnly, CancellationToken.None);
+
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+        Assert.That(_documents.Documents.Single().Visibility, Is.EqualTo(VisibilityScope.PartyVisible),
+            "even the uploader must not pull a book off the party shelf");
+    }
+
+    [Test]
+    public async Task SetVisibility_Private_Returns400()
+    {
+        var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexed, "Party book");
+        _documents.Seed(doc);
+
+        var result = await _sut.SetVisibilityAsync(
+            doc.Id, WorldId, WorldRole.GM, VisibilityScope.Private, CancellationToken.None);
+
+        Assert.That(result.Error!.Code, Is.EqualTo("invalid_visibility"));
+    }
+
+    [Test]
+    public async Task SetVisibility_UnknownDocument_Returns404()
+    {
+        var result = await _sut.SetVisibilityAsync(
+            Guid.NewGuid(), WorldId, WorldRole.GM, VisibilityScope.GMOnly, CancellationToken.None);
+
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
+    [Test]
+    public async Task SetVisibility_AlreadyOnThatShelf_LeavesTheStaleIndexingClockAlone()
+    {
+        // A no-op that bumped UpdatedAt would keep resetting the 30-minute window that
+        // makes an abandoned Indexing row deletable again.
+        var doc = Doc(VisibilityScope.GMOnly, LibraryDocumentStatus.Indexing, "Wedged book");
+        var untouched = DateTimeOffset.UtcNow.AddMinutes(-(LibraryService.StaleIndexingMinutes + 5));
+        doc.UpdatedAt = untouched;
+        _documents.Seed(doc);
+
+        var result = await _sut.SetVisibilityAsync(
+            doc.Id, WorldId, WorldRole.GM, VisibilityScope.GMOnly, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.UpdatedAt, Is.EqualTo(untouched));
+
+        var delete = await _sut.DeleteAsync(doc.Id, WorldId, GmId, WorldRole.GM, CancellationToken.None);
+        Assert.That(delete.IsSuccess, Is.True, "the stale row must still be deletable");
+    }
+
     private static LibraryDocument Doc(
         VisibilityScope visibility,
         LibraryDocumentStatus status,

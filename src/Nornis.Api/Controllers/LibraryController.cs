@@ -103,6 +103,25 @@ public class LibraryController : ControllerBase
             : MapError(result.Error!);
     }
 
+    /// <summary>GM-only: moves a document between the party shelf and the GM's.</summary>
+    [HttpPut("{documentId:guid}/visibility")]
+    public async Task<IActionResult> SetVisibility(
+        Guid worldId,
+        Guid documentId,
+        [FromBody] SetLibraryVisibilityRequest request,
+        CancellationToken ct)
+    {
+        var member = HttpContext.GetWorldMember();
+
+        if (!Enum.TryParse<VisibilityScope>(request.Visibility, ignoreCase: true, out var visibility))
+        {
+            return BadRequest(new ErrorResponse("invalid_visibility", $"'{request.Visibility}' is not a valid visibility scope."));
+        }
+
+        var result = await _libraryService.SetVisibilityAsync(documentId, worldId, member.Role, visibility, ct);
+        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : MapError(result.Error!);
+    }
+
     [HttpDelete("{documentId:guid}")]
     public async Task<IActionResult> Delete(Guid worldId, Guid documentId, CancellationToken ct)
     {

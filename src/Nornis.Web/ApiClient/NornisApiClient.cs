@@ -255,6 +255,13 @@ public class NornisApiClient
     public Task<ApiResult<LibraryDownloadDto>> GetLibraryDownloadAsync(Guid worldId, Guid documentId, CancellationToken ct = default) =>
         GetAsync<LibraryDownloadDto>($"/api/worlds/{worldId}/library/{documentId}/download", ct);
 
+    public Task<ApiResult<LibraryDocumentDto>> SetLibraryVisibilityAsync(
+        Guid worldId, Guid documentId, string visibility, CancellationToken ct = default) =>
+        PutAsync<SetLibraryVisibilityBody, LibraryDocumentDto>(
+            $"/api/worlds/{worldId}/library/{documentId}/visibility", new SetLibraryVisibilityBody(visibility), ct);
+
+    private sealed record SetLibraryVisibilityBody(string Visibility);
+
     public Task<ApiResult<bool>> DeleteLibraryDocumentAsync(Guid worldId, Guid documentId, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}/library/{documentId}", ct);
 

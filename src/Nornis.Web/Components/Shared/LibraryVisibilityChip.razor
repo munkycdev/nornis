@@ -1,0 +1,65 @@
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+
+@* Which shelf a library document sits on. A GM can move it between the two; everyone
+   else only ever sees party-visible documents, so the badge is read-only for them. *@
+
+@if (Worlds.Current?.MyRole == "GM")
+{
+    <MudMenu Dense="true">
+        <ActivatorContent>
+            <MudTooltip Text="Change who can see this">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@ChipColor"
+                         Icon="@Icons.Material.Filled.ArrowDropDown" Disabled="_saving">@Label</MudChip>
+            </MudTooltip>
+        </ActivatorContent>
+        <ChildContent>
+            <MudMenuItem OnClick="@(() => SetAsync("PartyVisible"))">Party visible</MudMenuItem>
+            <MudMenuItem OnClick="@(() => SetAsync("GMOnly"))">GM only</MudMenuItem>
+        </ChildContent>
+    </MudMenu>
+}
+else if (IsGmOnly)
+{
+    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">GM only</MudChip>
+}
+
+@code {
+    [Parameter, EditorRequired] public LibraryDocumentDto Document { get; set; } = null!;
+
+    /// <summary>Raised after a successful change so the page can reload its copy.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private bool _saving;
+
+    private bool IsGmOnly => Document.Visibility == "GMOnly";
+
+    private string Label => IsGmOnly ? "GM only" : "Party visible";
+
+    private Color ChipColor => IsGmOnly ? Color.Warning : Color.Default;
+
+    private async Task SetAsync(string visibility)
+    {
+        if (Worlds.Current is null || _saving || Document.Visibility == visibility)
+        {
+            return;
+        }
+
+        _saving = true;
+        var result = await Api.SetLibraryVisibilityAsync(Worlds.Current.Id, Document.Id, visibility);
+        _saving = false;
+
+        if (result.IsSuccess)
+        {
+            Snackbar.Add(visibility == "GMOnly"
+                ? $"\"{Document.Title}\" is now GM only — the Loremaster will stop quoting it to players."
+                : $"\"{Document.Title}\" is now visible to the party.", Severity.Success);
+            await OnChanged.InvokeAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+}

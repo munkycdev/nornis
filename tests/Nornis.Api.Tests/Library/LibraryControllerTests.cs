@@ -141,6 +141,62 @@ public class LibraryControllerTests
     }
 
     [Test]
+    public async Task SetVisibility_GmRevealingGmOnlyBook_PutsItOnThePlayersShelf()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var ticket = await RequestUploadAsync(scenario.GmClient, scenario.World.Id,
+            UploadRequest(title: "Forbidden Depths", visibility: "GMOnly"));
+        SimulateBrowserPut(ticket);
+        await scenario.GmClient.PostAsync($"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}/confirm", null);
+
+        var before = await scenario.PlayerClient.GetFromJsonAsync<List<LibraryDocumentResponse>>(
+            $"/api/worlds/{scenario.World.Id}/library");
+        Assert.That(before, Is.Empty);
+
+        var response = await scenario.GmClient.PutAsJsonAsync(
+            $"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}/visibility",
+            new SetLibraryVisibilityRequest("PartyVisible"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var updated = await response.Content.ReadFromJsonAsync<LibraryDocumentResponse>();
+        Assert.That(updated!.Visibility, Is.EqualTo("PartyVisible"));
+
+        var after = await scenario.PlayerClient.GetFromJsonAsync<List<LibraryDocumentResponse>>(
+            $"/api/worlds/{scenario.World.Id}/library");
+        Assert.That(after!.Select(d => d.Title), Is.EquivalentTo(new[] { "Forbidden Depths" }));
+    }
+
+    [Test]
+    public async Task SetVisibility_AsPlayer_Returns403()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var ticket = await RequestUploadAsync(scenario.GmClient, scenario.World.Id, UploadRequest(visibility: "PartyVisible"));
+        SimulateBrowserPut(ticket);
+        await scenario.GmClient.PostAsync($"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}/confirm", null);
+
+        var response = await scenario.PlayerClient.PutAsJsonAsync(
+            $"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}/visibility",
+            new SetLibraryVisibilityRequest("GMOnly"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
+    public async Task SetVisibility_UnparseableScope_Returns400()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var ticket = await RequestUploadAsync(scenario.GmClient, scenario.World.Id, UploadRequest());
+        SimulateBrowserPut(ticket);
+        await scenario.GmClient.PostAsync($"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}/confirm", null);
+
+        var response = await scenario.GmClient.PutAsJsonAsync(
+            $"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}/visibility",
+            new SetLibraryVisibilityRequest("Everyone"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+    }
+
+    [Test]
     public async Task Delete_PlayerDeletingGmUpload_Returns403()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
