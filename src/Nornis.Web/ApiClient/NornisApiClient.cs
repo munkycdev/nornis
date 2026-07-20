@@ -227,6 +227,10 @@ public class NornisApiClient
     public Task<ApiResult<StorylineTimelineDto>> GetPublicTimelineAsync(string slug, CancellationToken ct = default) =>
         GetAsync<StorylineTimelineDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/timeline", ct);
 
+    /// <summary>The public journey: the world's auto-picked map and the party-visible trail over it.</summary>
+    public Task<ApiResult<JourneyDto>> GetPublicJourneyAsync(string slug, CancellationToken ct = default) =>
+        GetAsync<JourneyDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/journey", ct);
+
     public Task<ApiResult<IReadOnlyList<SourceListItem>>> GetPublicSourcesAsync(string slug, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<SourceListItem>>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/sources", ct);
 

@@ -17,13 +17,20 @@ public record TimelineSession(
     DateTimeOffset OccurredAt,
     int StorylineCount);
 
+/// <summary>
+/// One storyline's arc. <paramref name="CampaignStartedAt"/> is the declared start of the
+/// lane's campaign, not of the lane itself — the timeline orders campaign bands by it so
+/// bands sit in the order the campaigns actually ran, rather than in the order their
+/// storylines happen to pick up. Null when the campaign has no declared start.
+/// </summary>
 public record TimelineLane(
     Guid StorylineId,
     string Name,
     string Status,
     IReadOnlyList<TimelinePoint> Points,
     Guid? ParentStorylineId,
-    string? CampaignName);
+    string? CampaignName,
+    DateTimeOffset? CampaignStartedAt = null);
 
 /// <summary>One session's worth of developments on one storyline.</summary>
 public record TimelinePoint(

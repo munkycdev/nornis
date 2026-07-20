@@ -6,8 +6,9 @@
 @* Branching storyline timeline on a real-world calendar, drawn like a git tree.
    Lanes are storylines grouped into campaign bands and ordered as families: children
    indent beneath their PartOf parent, fork connectors drop where a child arc begins,
-   and Resolved children merge back into their parent where they end. Labels are an
-   HTML layer over the SVG; drag-to-nest is pointer-based via nornis-timeline.js —
+   and Resolved children merge back into their parent where they end. Rows read top-down
+   in campaign order, then by when each storyline opened, then by when it closed. Labels
+   are an HTML layer over the SVG; drag-to-nest is pointer-based via nornis-timeline.js —
    grab a label and release anywhere on the target storyline's row. *@
 
 @if (Rows.Count == 0)
@@ -172,6 +173,13 @@ else
     private const int PadDays = 10;
     private const double MinPxPerDay = 2.2;
     private const int MinPlotWidth = 720;
+    private const string NoCampaign = "No campaign";
+
+    // Lane sort keys: when the arc opened, and when it last moved. Both index Points
+    // directly — every caller runs over the Points.Count > 0 set Rows filters to.
+    private static DateTimeOffset Opened(TimelineLaneDto lane) => lane.Points[0].OccurredAt;
+
+    private static DateTimeOffset Closed(TimelineLaneDto lane) => lane.Points[^1].OccurredAt;
 
     private static readonly (string Status, string Color)[] StatusColors =
     [
@@ -241,21 +249,46 @@ else
             var visibleIds = visible.Select(l => l.StorylineId).ToHashSet();
 
             // Children attach only when their parent is also visible; otherwise they
-            // stand as roots so the filter never hides a lane entirely.
+            // stand as roots so the filter never hides a lane entirely. Siblings — and
+            // roots — order by when their arc opened, then by when it closed, so two
+            // storylines picked up in the same session read shortest-arc-first.
             var childrenByParent = visible
                 .Where(l => l.ParentStorylineId is { } p && visibleIds.Contains(p))
                 .GroupBy(l => l.ParentStorylineId!.Value)
-                .ToDictionary(g => g.Key, g => g.OrderBy(l => l.Points[0].OccurredAt).ToList());
+                .ToDictionary(g => g.Key, g => g.OrderBy(Opened).ThenBy(Closed).ToList());
             var roots = visible
                 .Where(l => l.ParentStorylineId is not { } p || !visibleIds.Contains(p))
-                .OrderBy(l => l.Points[0].OccurredAt)
+                .OrderBy(Opened).ThenBy(Closed)
                 .ToList();
 
-            // Families live in the band of their root's campaign; bands order by the
-            // earliest family they contain.
+            IEnumerable<TimelineLaneDto> Family(TimelineLaneDto lane)
+            {
+                yield return lane;
+                if (childrenByParent.TryGetValue(lane.StorylineId, out var children))
+                {
+                    foreach (var descendant in children.SelectMany(Family))
+                    {
+                        yield return descendant;
+                    }
+                }
+            }
+
+            // Families live in the band of their root's campaign, and bands run in the
+            // order the campaigns did — by the GM's declared start date, falling back to
+            // the band's earliest activity when a campaign was never dated. A child can
+            // open before its root, so the fallback spans whole families, not just roots.
             var bands = roots
-                .GroupBy(r => r.CampaignName ?? "No campaign")
-                .OrderBy(g => g.Min(r => r.Points[0].OccurredAt))
+                .GroupBy(r => r.CampaignName ?? NoCampaign)
+                .Select(g =>
+                {
+                    var declared = g.Select(r => r.CampaignStartedAt).OfType<DateTimeOffset>().ToList();
+                    return (
+                        Name: g.Key,
+                        Roots: (IEnumerable<TimelineLaneDto>)g,
+                        Start: declared.Count > 0 ? declared.Min() : g.SelectMany(Family).Min(Opened));
+                })
+                .OrderBy(b => b.Start)
+                .ThenBy(b => b.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             var rows = new List<Row>();
@@ -276,12 +309,12 @@ else
 
             foreach (var band in bands)
             {
-                if (bands.Count > 1 || band.Key != "No campaign")
+                if (bands.Count > 1 || band.Name != NoCampaign)
                 {
-                    rows.Add(new Row(band.Key, null, 0, top, BandHeight));
+                    rows.Add(new Row(band.Name, null, 0, top, BandHeight));
                     top += BandHeight;
                 }
-                foreach (var root in band)
+                foreach (var root in band.Roots)
                 {
                     AddFamily(root, 0);
                 }

@@ -244,6 +244,73 @@ public class ArtifactServiceTimelineTests
     }
 
     [Test]
+    public async Task Timeline_LaneCarriesItsCampaignStartDate_SoBandsCanOrderByIt()
+    {
+        var startedAt = new DateTimeOffset(2025, 3, 1, 0, 0, 0, TimeSpan.Zero);
+        var storyline = SeedArtifact("Arc");
+        var campaign = new Campaign
+        {
+            Id = Guid.NewGuid(), WorldId = _worldId, Name = "The Throne of Thorns", StartedAt = startedAt
+        };
+        // The arc only picks up months after the campaign opened — the band must still
+        // sort by the campaign's own start, so the lane has to carry it.
+        var session = SeedSession("Session", new DateTimeOffset(2025, 9, 4, 0, 0, 0, TimeSpan.Zero));
+        session.CampaignId = campaign.Id;
+        session.Campaign = campaign;
+
+        var fact = SeedFact(storyline, "development", "Something happened");
+        SeedReference(fact.Id, SourceReferenceTargetType.ArtifactFact, session);
+
+        var result = await _service.GetStorylineTimelineAsync(_worldId, _gmUserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.Value!.Lanes.Single().CampaignStartedAt, Is.EqualTo(startedAt));
+    }
+
+    [Test]
+    public async Task Timeline_UndatedCampaignLeavesStartNull()
+    {
+        var storyline = SeedArtifact("Arc");
+        var campaign = new Campaign { Id = Guid.NewGuid(), WorldId = _worldId, Name = "Unnamed run" };
+        var session = SeedSession("Session", DateTimeOffset.UtcNow.AddDays(-3));
+        session.CampaignId = campaign.Id;
+        session.Campaign = campaign;
+
+        var fact = SeedFact(storyline, "development", "Something happened");
+        SeedReference(fact.Id, SourceReferenceTargetType.ArtifactFact, session);
+
+        var result = await _service.GetStorylineTimelineAsync(_worldId, _gmUserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.Value!.Lanes.Single().CampaignStartedAt, Is.Null);
+    }
+
+    [Test]
+    public async Task Timeline_LanesOpeningTogetherOrderByWhenTheyClose()
+    {
+        var opening = new DateTimeOffset(2025, 1, 10, 0, 0, 0, TimeSpan.Zero);
+        // Seeded longest-first so a stable sort on the opening date alone would leave
+        // them in the wrong order — only the close tie-break can flip them.
+        var longArc = SeedArtifact("Long arc");
+        var shortArc = SeedArtifact("Short arc");
+
+        var first = SeedSession("Session 1", opening);
+        var middle = SeedSession("Session 2", new DateTimeOffset(2025, 2, 14, 0, 0, 0, TimeSpan.Zero));
+        var last = SeedSession("Session 3", new DateTimeOffset(2025, 5, 30, 0, 0, 0, TimeSpan.Zero));
+
+        // Both arcs open in the same session; the short one stops moving first.
+        foreach (var (arc, second) in new[] { (shortArc, middle), (longArc, last) })
+        {
+            var openingFact = SeedFact(arc, "development", $"{arc.Name} opens");
+            SeedReference(openingFact.Id, SourceReferenceTargetType.ArtifactFact, first);
+            var closingFact = SeedFact(arc, "development", $"{arc.Name} closes");
+            SeedReference(closingFact.Id, SourceReferenceTargetType.ArtifactFact, second);
+        }
+
+        var result = await _service.GetStorylineTimelineAsync(_worldId, _gmUserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.Value!.Lanes.Select(l => l.Name), Is.EqualTo(new[] { "Short arc", "Long arc" }));
+    }
+
+    [Test]
     public async Task Timeline_StorylineToStorylineRelationshipsBecomeLinks()
     {
         var arcA = SeedArtifact("Arc A");

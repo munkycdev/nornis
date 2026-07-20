@@ -580,7 +580,8 @@ public record TimelineLaneDto(
     string Status,
     IReadOnlyList<TimelinePointDto> Points,
     Guid? ParentStorylineId = null,
-    string? CampaignName = null);
+    string? CampaignName = null,
+    DateTimeOffset? CampaignStartedAt = null);
 
 public record TimelinePointDto(
     Guid SourceId,

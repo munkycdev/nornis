@@ -29,15 +29,18 @@ public class PublicController : ControllerBase
     private readonly IWorldRepository _worldRepository;
     private readonly IArtifactService _artifactService;
     private readonly ISourceService _sourceService;
+    private readonly IJourneyMapService _journeyService;
 
     public PublicController(
         IWorldRepository worldRepository,
         IArtifactService artifactService,
-        ISourceService sourceService)
+        ISourceService sourceService,
+        IJourneyMapService journeyService)
     {
         _worldRepository = worldRepository;
         _artifactService = artifactService;
         _sourceService = sourceService;
+        _journeyService = journeyService;
     }
 
     [HttpGet("")]
@@ -103,6 +106,33 @@ public class PublicController : ControllerBase
 
         var result = await _artifactService.GetStorylineTimelineAsync(world.Id, AnonymousUserId, PublicRole, ct);
         return result.IsSuccess ? Ok(StorylinesController.ToTimelineResponse(result.Value!)) : PublicNotFound();
+    }
+
+    /// <summary>
+    /// The journey over the world's richest party-visible map. No map picker on the public
+    /// side — anonymous readers get the auto-picked map the members' view defaults to.
+    /// </summary>
+    [HttpGet("journey")]
+    public async Task<IActionResult> GetJourney(string slug, CancellationToken ct)
+    {
+        var world = await ResolveAsync(slug, ct);
+        if (world is null)
+        {
+            return PublicNotFound();
+        }
+
+        var result = await _journeyService.GetJourneyAsync(world.Id, null, AnonymousUserId, PublicRole, ct);
+        if (result.IsSuccess)
+        {
+            return Ok(JourneyController.ToResponse(result.Value!));
+        }
+
+        // "No party-visible map with pins" is the page's empty state, not a miss, so it
+        // keeps its own code. It is not an existence oracle either — the world endpoint
+        // already answers 200-vs-404 for the same slug.
+        return result.Error!.Code == "no_map"
+            ? NotFound(new ErrorResponse(result.Error.Code, result.Error.Message))
+            : PublicNotFound();
     }
 
     [HttpGet("sources")]

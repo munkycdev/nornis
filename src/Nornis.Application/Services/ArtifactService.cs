@@ -353,12 +353,15 @@ public class ArtifactService : IArtifactService
                     .ToList();
 
                 // The lane's campaign is whichever campaign most of its sessions declare.
-                var campaignName = points
-                    .Select(p => sources[p.SourceId].Campaign?.Name)
-                    .Where(n => !string.IsNullOrEmpty(n))
-                    .GroupBy(n => n)
+                // Voting on the campaign itself (not just its name) keeps the name and the
+                // declared start the client orders bands by from drifting apart.
+                var campaign = points
+                    .Select(p => sources[p.SourceId].Campaign)
+                    .OfType<Campaign>()
+                    .Where(c => !string.IsNullOrEmpty(c.Name))
+                    .GroupBy(c => c.Id)
                     .OrderByDescending(g => g.Count())
-                    .FirstOrDefault()?.Key;
+                    .FirstOrDefault()?.First();
 
                 return new TimelineLane(
                     s.Id,
@@ -366,10 +369,14 @@ public class ArtifactService : IArtifactService
                     s.Status.ToString(),
                     points,
                     parentByChild.TryGetValue(s.Id, out var parentId) ? parentId : null,
-                    campaignName);
+                    campaign?.Name,
+                    campaign?.StartedAt);
             })
+            // Undated lanes last, then by when the arc opened, then by when it closed —
+            // the same key order the chart lays rows out in.
             .OrderBy(l => l.Points.Count == 0)
             .ThenBy(l => l.Points.FirstOrDefault()?.OccurredAt ?? DateTimeOffset.MaxValue)
+            .ThenBy(l => l.Points.LastOrDefault()?.OccurredAt ?? DateTimeOffset.MaxValue)
             .ToList();
 
         var sessions = developments.Keys
