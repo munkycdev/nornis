@@ -67,6 +67,7 @@ builder.Services.AddScoped<IWorldMemberRepository, WorldMemberRepository>();
 builder.Services.AddScoped<IWorldInviteRepository, WorldInviteRepository>();
 builder.Services.AddScoped<ICampaignRepository, CampaignRepository>();
 builder.Services.AddScoped<ICharacterRepository, CharacterRepository>();
+builder.Services.AddScoped<IStorylineCampaignRepository, StorylineCampaignRepository>();
 builder.Services.AddScoped<ISourceRepository, SourceRepository>();
 builder.Services.AddScoped<ISourceAttachmentRepository, SourceAttachmentRepository>();
 builder.Services.AddScoped<IReviewProposalRepository, ReviewProposalRepository>();

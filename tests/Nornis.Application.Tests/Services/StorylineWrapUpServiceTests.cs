@@ -44,7 +44,8 @@ public class StorylineWrapUpServiceTests
         _applicator = new FakeProposalApplicator();
         _reviewService = new FakeReviewService();
         _artifactService = new ArtifactService(_artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo,
-            _sourceRepo, new InMemoryCharacterRepository(), new InMemoryWorldMemberRepository());
+            _sourceRepo, new InMemoryCharacterRepository(), new InMemoryWorldMemberRepository(),
+            new InMemoryStorylineCampaignRepository(), new InMemoryCampaignRepository());
 
         _worldId = Guid.NewGuid();
         _gmUserId = Guid.NewGuid();

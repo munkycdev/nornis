@@ -15,4 +15,10 @@ public record ArtifactDetailResponse(
     IReadOnlyList<ArtifactRelationshipResponse> Relationships,
     IReadOnlyList<ConnectedArtifactResponse> ConnectedArtifacts,
     IReadOnlyList<SourceReferenceResponse> SourceReferences,
-    IReadOnlyList<string> PlayedBy);
+    IReadOnlyList<string> PlayedBy,
+    IReadOnlyList<DeclaredCampaignResponse> DeclaredCampaigns);
+
+/// <summary>A campaign a storyline has been declared to belong to.</summary>
+public record DeclaredCampaignResponse(
+    Guid Id,
+    string Name);

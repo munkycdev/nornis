@@ -24,7 +24,8 @@ public class ArtifactServiceHierarchyTests
         _relationshipRepo = new InMemoryArtifactRelationshipRepository();
         _service = new ArtifactService(_artifactRepo, new InMemoryArtifactFactRepository(), _relationshipRepo,
             new InMemorySourceReferenceRepository(), new InMemorySourceRepository(),
-            new InMemoryCharacterRepository(), new InMemoryWorldMemberRepository());
+            new InMemoryCharacterRepository(), new InMemoryWorldMemberRepository(),
+            new InMemoryStorylineCampaignRepository(), new InMemoryCampaignRepository());
 
         _worldId = Guid.NewGuid();
         _gmUserId = Guid.NewGuid();
