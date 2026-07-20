@@ -176,7 +176,9 @@
                         <span class="nornis-fact-predicate">@r.Type</span>
                         @if (other is not null)
                         {
-                            <a href="@($"/artifacts/{other.Id}")" class="nornis-link">@other.Name</a>
+                            <ArtifactTip Name="@other.Name" Summary="@other.Summary">
+                                <a href="@($"/artifacts/{other.Id}")" class="nornis-link">@other.Name</a>
+                            </ArtifactTip>
                         }
                         else
                         {

@@ -927,7 +927,10 @@ html, body {
 
 /* Hover summary on a wrap-up row. The tooltip wrapper is inline-flex, so it has to inherit the
    row's truncation or a long storyline name pushes the decision buttons off the row. */
-.nornis-wrapup-row .nornis-list-title .mud-tooltip-root {
+/* Titles that truncate have to clip their tooltip wrapper too: the wrapper is inline-block, so
+   left alone it sizes to the full name and pushes past the row instead of ellipsing. */
+.nornis-wrapup-row .nornis-list-title .mud-tooltip-root,
+.nornis-search-item-title .mud-tooltip-root {
     max-width: 100%;
     overflow: hidden;
 }
@@ -940,27 +943,35 @@ html, body {
     cursor: help;
 }
 
-.nornis-wrapup-tip {
+/* Shared by ArtifactTip (summary on hover, anywhere artifacts are listed) and the richer
+   wrap-up tip, which adds goal/last/open-question lines below the same title and summary. */
+.nornis-tip {
     max-width: 340px;
     text-align: left;
     white-space: normal;
     line-height: 1.45;
 }
 
-.nornis-wrapup-tip-title {
+.nornis-tip-title {
     font-weight: 600;
     margin-bottom: 4px;
 }
 
-.nornis-wrapup-tip-summary {
+.nornis-tip-summary {
     margin-bottom: 6px;
 }
 
-.nornis-wrapup-tip-line {
+/* A plain artifact tip ends at the summary — the gap is only there to separate the lines
+   the wrap-up tip adds underneath. */
+.nornis-tip-summary:last-child {
+    margin-bottom: 0;
+}
+
+.nornis-tip-line {
     margin-bottom: 4px;
 }
 
-.nornis-wrapup-tip-label {
+.nornis-tip-label {
     font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -969,12 +980,12 @@ html, body {
     margin-right: 4px;
 }
 
-.nornis-wrapup-tip-list {
+.nornis-tip-list {
     margin: 2px 0 0;
     padding-left: 16px;
 }
 
-.nornis-wrapup-tip-muted {
+.nornis-tip-muted {
     opacity: 0.7;
     font-style: italic;
 }

@@ -286,7 +286,8 @@ public record ArtifactRelationshipDto(
 public record ConnectedArtifact(
     Guid Id,
     string Name,
-    string Type);
+    string Type,
+    string? Summary = null);
 
 public record SourceReferenceDto(
     Guid Id,

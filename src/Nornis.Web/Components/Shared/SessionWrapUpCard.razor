@@ -170,20 +170,20 @@
         </MudTooltip>;
 
     private RenderFragment SummaryTip(Guid storylineId, string name) =>
-        @<div class="nornis-wrapup-tip">
+        @<div class="nornis-tip">
             @{
                 var loading = _loadingSummaries.Contains(storylineId);
                 var loaded = _summaries.TryGetValue(storylineId, out var detail);
             }
-            <div class="nornis-wrapup-tip-title">@name</div>
+            <div class="nornis-tip-title">@name</div>
 
             @if (loading || !loaded)
             {
-                <div class="nornis-wrapup-tip-muted">Loading…</div>
+                <div class="nornis-tip-muted">Loading…</div>
             }
             else if (detail is null)
             {
-                <div class="nornis-wrapup-tip-muted">Couldn’t load this storyline.</div>
+                <div class="nornis-tip-muted">Couldn’t load this storyline.</div>
             }
             else
             {
@@ -194,20 +194,20 @@
 
                 @if (!string.IsNullOrWhiteSpace(detail.Summary))
                 {
-                    <div class="nornis-wrapup-tip-summary">@detail.Summary</div>
+                    <div class="nornis-tip-summary">@detail.Summary</div>
                 }
                 @if (goal is not null)
                 {
-                    <div class="nornis-wrapup-tip-line"><span class="nornis-wrapup-tip-label">Goal</span> @goal</div>
+                    <div class="nornis-tip-line"><span class="nornis-tip-label">Goal</span> @goal</div>
                 }
                 @if (development is not null)
                 {
-                    <div class="nornis-wrapup-tip-line"><span class="nornis-wrapup-tip-label">Last</span> @development</div>
+                    <div class="nornis-tip-line"><span class="nornis-tip-label">Last</span> @development</div>
                 }
                 @if (questions.Count > 0)
                 {
-                    <div class="nornis-wrapup-tip-label">Open question@(questions.Count == 1 ? "" : "s")</div>
-                    <ul class="nornis-wrapup-tip-list">
+                    <div class="nornis-tip-label">Open question@(questions.Count == 1 ? "" : "s")</div>
+                    <ul class="nornis-tip-list">
                         @foreach (var q in questions.Take(3))
                         {
                             <li>@q</li>
@@ -215,12 +215,12 @@
                     </ul>
                     @if (questions.Count > 3)
                     {
-                        <div class="nornis-wrapup-tip-muted">+@(questions.Count - 3) more</div>
+                        <div class="nornis-tip-muted">+@(questions.Count - 3) more</div>
                     }
                 }
                 @if (bare)
                 {
-                    <div class="nornis-wrapup-tip-muted">Nothing recorded for this storyline yet.</div>
+                    <div class="nornis-tip-muted">Nothing recorded for this storyline yet.</div>
                 }
             }
         </div>;
