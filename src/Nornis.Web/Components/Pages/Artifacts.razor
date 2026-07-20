@@ -136,7 +136,9 @@ else
                             {
                                 @foreach (var a in statusGroup.OrderBy(x => x.Name))
                                 {
-                                    <a href="@($"/artifacts/{a.Id}")" class="nornis-tree-leaf nornis-link">@a.Name</a>
+                                    <a href="@($"/artifacts/{a.Id}")" class="nornis-tree-leaf nornis-link">
+                                        <ArtifactTip Name="@a.Name" Summary="@a.Summary" />
+                                    </a>
                                 }
                             }
                         }
@@ -153,7 +155,9 @@ else
                 <a href="@($"/artifacts/{a.Id}")" class="nornis-card nornis-artifact-card">
                     <div class="nornis-artifact-card-head">
                         <div class="nornis-list-thumb"><MudIcon Icon="@ArtifactTypeDisplay.Icon(a.Type)" Size="Size.Small" /></div>
-                        <div class="nornis-artifact-card-title">@a.Name</div>
+                        <div class="nornis-artifact-card-title">
+                            <ArtifactTip Name="@a.Name" Summary="@a.Summary" />
+                        </div>
                     </div>
                     @if (!string.IsNullOrWhiteSpace(a.Summary))
                     {

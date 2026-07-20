@@ -96,6 +96,42 @@ public class PublicControllerTests
         Assert.That(visibleDetail.StatusCode, Is.EqualTo(HttpStatusCode.OK));
     }
 
+    // Connected artifacts carry a Summary so the public connections list can show it on hover.
+    // That makes this list a disclosure surface: a GM-only neighbour must not leak through it,
+    // summary or otherwise, even though the artifact being viewed is public.
+    [Test]
+    public async Task PublicArtifactDetail_Connections_CarrySummaries_ButExcludeGmOnlyNeighbours()
+    {
+        var scenario = await SetupPublicWorldAsync();
+        var voss = await KnowledgeTestHelpers.CreateTestArtifactAsync(
+            _factory, scenario.World.Id, "Captain Voss", visibility: VisibilityScope.PartyVisible);
+        var harbor = await KnowledgeTestHelpers.CreateTestArtifactAsync(
+            _factory, scenario.World.Id, "Black Harbor", type: ArtifactType.Location,
+            visibility: VisibilityScope.PartyVisible,
+            summary: "A smuggler's port under permanent fog.");
+        var ledger = await KnowledgeTestHelpers.CreateTestArtifactAsync(
+            _factory, scenario.World.Id, "Hidden Ledger", visibility: VisibilityScope.GMOnly,
+            summary: "Names every bribed harbourmaster.");
+
+        await KnowledgeTestHelpers.CreateTestRelationshipAsync(
+            _factory, scenario.World.Id, voss.Id, harbor.Id, "LocatedIn");
+        await KnowledgeTestHelpers.CreateTestRelationshipAsync(
+            _factory, scenario.World.Id, voss.Id, ledger.Id, "Owns");
+
+        var detail = await _anonymous.GetFromJsonAsync<ArtifactDetailResponse>(
+            $"/api/public/worlds/black-harbor/artifacts/{voss.Id}");
+
+        Assert.That(
+            detail!.ConnectedArtifacts.Single(c => c.Id == harbor.Id).Summary,
+            Is.EqualTo("A smuggler's port under permanent fog."));
+        Assert.That(detail.ConnectedArtifacts.Select(c => c.Id), Does.Not.Contain(ledger.Id));
+
+        var body = await _anonymous.GetStringAsync(
+            $"/api/public/worlds/black-harbor/artifacts/{voss.Id}");
+        Assert.That(body, Does.Not.Contain("bribed harbourmaster"),
+            "a GM-only neighbour's summary must never reach an anonymous reader");
+    }
+
     [Test]
     public async Task PublicArtifactGraph_ExcludesGmOnlyNodes()
     {

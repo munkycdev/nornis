@@ -109,7 +109,9 @@ else
                             <a href="@($"/artifacts/{item.Id}")" class="nornis-list-row nornis-list-link">
                                 <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /></div>
                                 <div class="nornis-list-body">
-                                    <div class="nornis-list-title">@item.Name</div>
+                                    <div class="nornis-list-title">
+                                        <ArtifactTip Name="@item.Name" Summary="@item.Summary" />
+                                    </div>
                                     <div class="nornis-list-sub">@item.Status</div>
                                 </div>
                                 @if (item.Status == "Dormant")
@@ -155,7 +157,9 @@ else
                             <a href="@($"/artifacts/{item.Id}")" class="nornis-list-row nornis-list-link">
                                 <div class="nornis-list-thumb"><MudIcon Icon="@ArtifactTypeDisplay.Icon(item.Type)" Size="Size.Small" /></div>
                                 <div class="nornis-list-body">
-                                    <div class="nornis-list-title">@item.Name</div>
+                                    <div class="nornis-list-title">
+                                        <ArtifactTip Name="@item.Name" Summary="@item.Summary" />
+                                    </div>
                                     <div class="nornis-list-sub">@item.Type · updated @Ago(item.UpdatedAt)</div>
                                 </div>
                                 <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Color="Color.Tertiary" />

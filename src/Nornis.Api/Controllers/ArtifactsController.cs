@@ -375,7 +375,8 @@ public class ArtifactsController : ControllerBase
         return new ConnectedArtifactResponse(
             Id: artifact.Id,
             Name: artifact.Name,
-            Type: artifact.Type.ToString());
+            Type: artifact.Type.ToString(),
+            Summary: artifact.Summary);
     }
 
     private static SourceReferenceResponse ToSourceReferenceResponse(

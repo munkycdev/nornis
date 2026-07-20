@@ -173,7 +173,8 @@ public class ArtifactsControllerTests
         var voss = await KnowledgeTestHelpers.CreateTestArtifactAsync(
             _factory, scenario.World.Id, "Captain Voss");
         var harbor = await KnowledgeTestHelpers.CreateTestArtifactAsync(
-            _factory, scenario.World.Id, "Black Harbor", type: ArtifactType.Location);
+            _factory, scenario.World.Id, "Black Harbor", type: ArtifactType.Location,
+            summary: "A smuggler's port under permanent fog.");
 
         var fact = await KnowledgeTestHelpers.CreateTestFactAsync(
             _factory, voss.Id, "denied", "knowing about the caravan", TruthState.Rumor);
@@ -196,6 +197,12 @@ public class ArtifactsControllerTests
         Assert.That(detail.Relationships.Select(r => r.Id), Is.EqualTo(new[] { rel.Id }));
         Assert.That(detail.ConnectedArtifacts.Select(c => c.Name), Does.Contain("Black Harbor"));
         Assert.That(detail.SourceReferences.Select(s => s.TargetId), Does.Contain(fact.Id));
+
+        // Summary rides along so relationship lists can show it on hover without refetching
+        // each connected artifact one by one.
+        Assert.That(
+            detail.ConnectedArtifacts.Single(c => c.Name == "Black Harbor").Summary,
+            Is.EqualTo("A smuggler's port under permanent fog."));
     }
 
     [Test]

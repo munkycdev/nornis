@@ -63,7 +63,9 @@
                             <div class="nornis-list-row">
                                 <div class="nornis-list-body">
                                     <div class="nornis-list-title">
-                                        <a href="@($"/w/{Slug}/artifacts/{other.Id}")" class="nornis-link">@other.Name</a>
+                                        <ArtifactTip Name="@other.Name" Summary="@other.Summary">
+                                            <a href="@($"/w/{Slug}/artifacts/{other.Id}")" class="nornis-link">@other.Name</a>
+                                        </ArtifactTip>
                                     </div>
                                     <div class="nornis-list-sub">@Humanize(rel.Type)@(rel.Description is null ? "" : $" — {rel.Description}")</div>
                                 </div>

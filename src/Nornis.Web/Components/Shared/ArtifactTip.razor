@@ -1,0 +1,45 @@
+@* Hover summary for an artifact reference. A list gives a name and a type chip at most, which is
+   not enough to tell two similarly-named NPCs apart — the summary answers "which one is this?"
+   without a trip to the detail page and back.
+
+   Wrap the name text rather than the whole row. MudTooltip renders a wrapper element, and an
+   inline one inside an existing title is the only placement that cannot disturb a flex or grid
+   row — wrapping a card would make the wrapper the grid item and collapse the card's height.
+
+   An artifact with no summary keeps the wrapper and disables the tooltip, so every row in a list
+   has the same shape whether or not that artifact has been summarised yet. *@
+<MudTooltip Placement="@Placement"
+            Disabled="@(string.IsNullOrWhiteSpace(Summary))"
+            TooltipContent="@Tip">
+    @if (ChildContent is not null)
+    {
+        @ChildContent
+    }
+    else
+    {
+        @Name
+    }
+</MudTooltip>
+
+@code {
+    /// <summary>Artifact name, shown as the tooltip's heading.</summary>
+    [Parameter] public string? Name { get; set; }
+
+    /// <summary>The artifact's summary. Blank or missing disables the tooltip entirely.</summary>
+    [Parameter] public string? Summary { get; set; }
+
+    [Parameter] public Placement Placement { get; set; } = Placement.Top;
+
+    /// <summary>What the tooltip hangs off. Defaults to the name as plain text; supply this only
+    /// when the name is already wrapped in something, such as a link.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private RenderFragment Tip =>
+        @<div class="nornis-tip">
+            @if (!string.IsNullOrWhiteSpace(Name))
+            {
+                <div class="nornis-tip-title">@Name</div>
+            }
+            <div class="nornis-tip-summary">@Summary</div>
+        </div>;
+}

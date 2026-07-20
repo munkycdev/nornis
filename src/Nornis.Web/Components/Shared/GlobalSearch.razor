@@ -31,7 +31,9 @@
             <div class="nornis-search-item">
                 <MudIcon Icon="@ArtifactTypeDisplay.Icon(item.Type)" Size="Size.Small" Color="Color.Tertiary" />
                 <div class="nornis-search-item-body">
-                    <div class="nornis-search-item-title">@item.Name</div>
+                    <div class="nornis-search-item-title">
+                        <ArtifactTip Name="@item.Name" Summary="@item.Summary" Placement="Placement.Left" />
+                    </div>
                     <div class="nornis-search-item-sub">@item.Type</div>
                 </div>
             </div>

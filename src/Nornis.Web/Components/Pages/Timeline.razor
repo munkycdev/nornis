@@ -126,7 +126,9 @@ else
                 <a href="@($"/artifacts/{s.Id}")" class="nornis-card nornis-artifact-card">
                     <div class="nornis-artifact-card-head">
                         <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /></div>
-                        <div class="nornis-artifact-card-title">@s.Name</div>
+                        <div class="nornis-artifact-card-title">
+                            <ArtifactTip Name="@s.Name" Summary="@s.Summary" />
+                        </div>
                     </div>
                     @if (!string.IsNullOrWhiteSpace(s.Summary))
                     {
