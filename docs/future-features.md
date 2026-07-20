@@ -2,12 +2,12 @@
 
 ## List of unprocessed features
 
-* Trying to assign a parent to "Door beneath Karvosti investigation" results in a 500.  I also get an error when dragging a storyline into another one
 * On the Session Wrap-Up card, when selecting a parent, make the dropdown an autocomplete search entry instead of a dumb dropdown
 * On the Codex graph view, could we add a border to each dot indicating its status?
 * I'd like to be able to change the visibility of Library entries
 * Some storylines span multiple campaigns. We need to find a way to accommodate that
 * Capture Session Audio type should accept a wav, mp3, or other audio file. It should transcribe the content and create a source transcript
+* The map timeline isn't working right, I need to figure out why
 * Create a features page
 * Create a README.md
 * Add DataDog observability

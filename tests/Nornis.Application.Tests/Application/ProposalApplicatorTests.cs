@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Nornis.Application.Application;
+using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Application.Validation;
 using Nornis.Domain.Entities;
@@ -491,6 +492,76 @@ public class ProposalApplicatorTests
         Assert.That(rel.TruthState, Is.EqualTo(TruthState.Likely));
         Assert.That(rel.Visibility, Is.EqualTo(VisibilityScope.PartyVisible));
         Assert.That(result.Value!.TargetType, Is.EqualTo(SourceReferenceTargetType.ArtifactRelationship));
+    }
+
+    private Artifact SeedStoryline(string name)
+    {
+        var storyline = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = ArtifactType.Storyline,
+            Name = name,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _artifactRepo.Seed(storyline);
+        return storyline;
+    }
+
+    private ReviewProposal PartOfProposal(Artifact child, Artifact parent) =>
+        MakeProposal(ReviewChangeType.AddRelationship, new AddRelationshipPayload(
+            child.Id, parent.Id, ArtifactService.PartOfRelationshipType,
+            $"{child.Name} is part of {parent.Name}", 0.8m, "Likely", "PartyVisible"));
+
+    [Test]
+    public async Task AddRelationship_PartOf_MovesTheChildRatherThanAddingASecondParent()
+    {
+        var child = SeedStoryline("Sub-arc");
+        var oldParent = SeedStoryline("Old parent");
+        var newParent = SeedStoryline("New parent");
+
+        await _applicator.ApplyAsync(PartOfProposal(child, oldParent), _batch, VisibilityFilter.All, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(PartOfProposal(child, newParent), _batch, VisibilityFilter.All, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        var partOf = _relationshipRepo.Relationships
+            .Where(r => r.Type == ArtifactService.PartOfRelationshipType && r.ArtifactAId == child.Id)
+            .ToList();
+        Assert.That(partOf, Has.Count.EqualTo(1));
+        Assert.That(partOf[0].ArtifactBId, Is.EqualTo(newParent.Id));
+    }
+
+    [Test]
+    public async Task AddRelationship_PartOf_ReapplyingTheSameParentIsIdempotent()
+    {
+        var child = SeedStoryline("Sub-arc");
+        var parent = SeedStoryline("Main arc");
+
+        await _applicator.ApplyAsync(PartOfProposal(child, parent), _batch, VisibilityFilter.All, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(PartOfProposal(child, parent), _batch, VisibilityFilter.All, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_relationshipRepo.Relationships
+            .Count(r => r.Type == ArtifactService.PartOfRelationshipType && r.ArtifactAId == child.Id), Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task AddRelationship_NonPartOfTypesStayAdditive()
+    {
+        var a = SeedStoryline("Sub-arc");
+        var b = SeedStoryline("Main arc");
+        var c = SeedStoryline("Other arc");
+
+        await _applicator.ApplyAsync(MakeProposal(ReviewChangeType.AddRelationship,
+            new AddRelationshipPayload(a.Id, b.Id, "Advances", null, 0.8m, "Likely", "PartyVisible")),
+            _batch, VisibilityFilter.All, CancellationToken.None);
+        await _applicator.ApplyAsync(MakeProposal(ReviewChangeType.AddRelationship,
+            new AddRelationshipPayload(a.Id, c.Id, "Advances", null, 0.8m, "Likely", "PartyVisible")),
+            _batch, VisibilityFilter.All, CancellationToken.None);
+
+        Assert.That(_relationshipRepo.Relationships.Count(r => r.Type == "Advances"), Is.EqualTo(2));
     }
 
     [Test]

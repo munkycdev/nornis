@@ -205,16 +205,21 @@ public class ArtifactService : IArtifactService
             return AppResult.Fail(new AppError(404, "not_found", "Storyline not found."));
         }
 
-        // The child's current PartOf link, if any. A storyline holds at most one.
+        // A storyline should hold at most one PartOf link, but nothing enforces it: the index
+        // on ArtifactAId is non-unique, and the extraction and backfill paths can each write
+        // one. Read them all, treat the first as authoritative, and shed the rest so an edited
+        // storyline converges on a single parent.
         var childRelationships = await _relationshipRepository.ListByArtifactAsync(child.Id, ct);
-        var existing = childRelationships.FirstOrDefault(r =>
-            r.Type == PartOfRelationshipType && r.ArtifactAId == child.Id);
+        var existingLinks = childRelationships
+            .Where(r => r.Type == PartOfRelationshipType && r.ArtifactAId == child.Id)
+            .ToList();
+        var existing = existingLinks.FirstOrDefault();
 
         if (command.ParentArtifactId is not { } parentId)
         {
-            if (existing is not null)
+            foreach (var link in existingLinks)
             {
-                await _relationshipRepository.DeleteAsync(existing.Id, ct);
+                await _relationshipRepository.DeleteAsync(link.Id, ct);
             }
             return AppResult.Success();
         }
@@ -239,6 +244,9 @@ public class ArtifactService : IArtifactService
                 storylineIds,
                 VisibilityFilter.All, ct))
             .Where(r => r.Type == PartOfRelationshipType)
+            // Duplicate parents anywhere in the world would otherwise throw on the key, which
+            // failed every assignment in the world rather than just the affected storyline.
+            .DistinctBy(r => r.ArtifactAId)
             .ToDictionary(r => r.ArtifactAId, r => r.ArtifactBId);
 
         var cursor = (Guid?)parentId;
@@ -266,6 +274,13 @@ public class ArtifactService : IArtifactService
         var createdByUserId = visibility == VisibilityScope.Private
             ? (child.Visibility == VisibilityScope.Private ? child.CreatedByUserId : parent.CreatedByUserId)
             : command.ActingUserId;
+
+        // Validation has passed, so it is safe to mutate: drop any surplus parent links the
+        // child accumulated before rewriting the authoritative one.
+        foreach (var duplicate in existingLinks.Skip(1))
+        {
+            await _relationshipRepository.DeleteAsync(duplicate.Id, ct);
+        }
 
         if (existing is not null)
         {

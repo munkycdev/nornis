@@ -43,6 +43,13 @@ public class ArtifactRelationshipConfiguration : IEntityTypeConfiguration<Artifa
 
         builder.HasIndex(ar => ar.ArtifactBId);
 
+        // A storyline sits under exactly one parent. This was previously only a convention,
+        // so duplicate PartOf rows accumulated and broke every parent assignment in the world.
+        // The filter scopes uniqueness to PartOf: all other relationship types stay additive.
+        builder.HasIndex(ar => ar.ArtifactAId, "IX_ArtifactRelationships_SinglePartOfParent")
+            .IsUnique()
+            .HasFilter("[Type] = 'PartOf'");
+
         builder.HasOne(ar => ar.World)
             .WithMany()
             .HasForeignKey(ar => ar.WorldId)

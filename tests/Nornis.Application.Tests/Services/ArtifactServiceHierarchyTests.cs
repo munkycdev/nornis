@@ -109,6 +109,76 @@ public class ArtifactServiceHierarchyTests
         Assert.That(result.Error.StatusCode, Is.EqualTo(409));
     }
 
+    // Nothing in the schema stops a storyline from collecting more than one PartOf row —
+    // the index on ArtifactAId is non-unique, and the AI backfill/extraction paths can each
+    // write one. The GM-facing parent editor has to survive that data and converge it.
+    private ArtifactRelationship SeedPartOf(Artifact child, Artifact parent)
+    {
+        var relationship = new ArtifactRelationship
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            ArtifactAId = child.Id,
+            ArtifactBId = parent.Id,
+            Type = ArtifactService.PartOfRelationshipType,
+            TruthState = TruthState.Confirmed,
+            Visibility = VisibilityScope.PartyVisible,
+            CreatedByUserId = _gmUserId,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _relationshipRepo.Seed(relationship);
+        return relationship;
+    }
+
+    [Test]
+    public async Task SetParent_SucceedsWhenAnUnrelatedStorylineHasDuplicateParentRows()
+    {
+        // The duplicate sits on a storyline nobody is editing — it still poisoned the
+        // world-wide cycle guard, so every parent assignment in the world threw.
+        var strayChild = SeedStoryline("Stray arc");
+        SeedPartOf(strayChild, SeedStoryline("First parent"));
+        SeedPartOf(strayChild, SeedStoryline("Second parent"));
+
+        var child = SeedStoryline("Sub-arc");
+        var parent = SeedStoryline("Main arc");
+
+        var result = await _service.SetStorylineParentAsync(Command(child.Id, parent.Id), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+    }
+
+    [Test]
+    public async Task SetParent_CollapsesDuplicateParentRowsOnTheEditedChild()
+    {
+        var child = SeedStoryline("Sub-arc");
+        SeedPartOf(child, SeedStoryline("First parent"));
+        SeedPartOf(child, SeedStoryline("Second parent"));
+        var intended = SeedStoryline("Intended parent");
+
+        var result = await _service.SetStorylineParentAsync(Command(child.Id, intended.Id), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        var partOf = _relationshipRepo.Relationships
+            .Where(r => r.Type == ArtifactService.PartOfRelationshipType && r.ArtifactAId == child.Id)
+            .ToList();
+        Assert.That(partOf, Has.Count.EqualTo(1));
+        Assert.That(partOf[0].ArtifactBId, Is.EqualTo(intended.Id));
+    }
+
+    [Test]
+    public async Task SetParent_NullClearsEveryDuplicateParentRow()
+    {
+        var child = SeedStoryline("Sub-arc");
+        SeedPartOf(child, SeedStoryline("First parent"));
+        SeedPartOf(child, SeedStoryline("Second parent"));
+
+        var result = await _service.SetStorylineParentAsync(Command(child.Id, null), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_relationshipRepo.Relationships.Where(r => r.Type == ArtifactService.PartOfRelationshipType), Is.Empty);
+    }
+
     [Test]
     public async Task SetParent_RejectsSelf()
     {

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Nornis.Application.Errors;
+using Nornis.Application.Services;
 using Nornis.Application.Validation;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -487,6 +488,37 @@ public class ProposalApplicator : IProposalApplicator
         var now = DateTimeOffset.UtcNow;
         var visibility = ResolveVisibility(payload.Visibility, source);
         var truthState = ResolveTruthState(payload.TruthState);
+
+        // PartOf is structural, not additive: a storyline sits under exactly one parent. An
+        // approved proposal therefore *moves* the child rather than giving it a second parent,
+        // which is what silently accumulated duplicate rows and broke the parent editor.
+        if (string.Equals(payload.Type, ArtifactService.PartOfRelationshipType, StringComparison.Ordinal))
+        {
+            var existingLinks = (await _artifactRelationshipRepository.ListByArtifactAsync(artifactA.Id, ct))
+                .Where(r => r.Type == ArtifactService.PartOfRelationshipType && r.ArtifactAId == artifactA.Id)
+                .ToList();
+
+            // Surplus rows from before the invariant was enforced; the first one is rewritten.
+            foreach (var surplus in existingLinks.Skip(1))
+            {
+                await _artifactRelationshipRepository.DeleteAsync(surplus.Id, ct);
+            }
+
+            if (existingLinks.FirstOrDefault() is { } current)
+            {
+                current.ArtifactBId = artifactB.Id;
+                current.Description = payload.Description ?? current.Description;
+                current.Confidence = payload.Confidence ?? current.Confidence;
+                current.TruthState = truthState;
+                current.Visibility = visibility;
+                current.UpdatedAt = now;
+                await _artifactRelationshipRepository.UpdateAsync(current, ct);
+
+                await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactRelationship, current.Id, proposal.Id, ct);
+
+                return AppResult<ApplyResult>.Success(new ApplyResult(current.Id, SourceReferenceTargetType.ArtifactRelationship));
+            }
+        }
 
         var relationship = new ArtifactRelationship
         {
