@@ -1,0 +1,511 @@
+@page "/features"
+@layout PublicLayout
+
+<PageTitle>Features — Nornis</PageTitle>
+
+<section class="nornis-landing-hero">
+    <div class="nornis-eyebrow">Features</div>
+    <h1 class="nornis-landing-title">Everything Nornis<br />remembers for you.</h1>
+    <p class="nornis-landing-sub">
+        Nornis reads the raw material of your game and proposes structured knowledge — people,
+        places, factions, storylines, and the facts that connect them. You decide what becomes
+        canon. Here is the whole of what it does.
+    </p>
+</section>
+
+@* ---------------------------------------------------------------- Capture -- *@
+<section class="nornis-features-section">
+    <div class="nornis-features-head">
+        <div class="nornis-eyebrow">Capture</div>
+        <h2>Get it out of your head</h2>
+        <p>
+            However you took the note, Nornis will take it. Raw and unpolished is fine — that's
+            the point.
+        </p>
+    </div>
+    <div class="nornis-features-grid">
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Create" Size="Size.Small" /> Session &amp; prep notes</h3>
+            <p>
+                Write or paste into a rich editor. Tag which campaign the events happened in and
+                when, set who can see it, and send it for extraction — or keep it as a draft.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Gesture" Size="Size.Small" /> Handwriting</h3>
+            <p>
+                Photograph or scan pages of handwritten notes and Nornis transcribes them, then
+                extracts knowledge from the transcription. Up to 50 pages, in reading order.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Draw" Size="Size.Small" /> Ink canvas</h3>
+            <p>
+                Write by hand directly in Nornis on a full-screen canvas with pen, eraser, and
+                undo. Every stroke autosaves and survives a refresh; one button sends the pages
+                on for transcription.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Small" /> Images</h3>
+            <p>
+                Attach images and Nornis reads them for lore — the people, places, and things in
+                the picture — and merges what it sees with whatever you typed alongside.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.UploadFile" Size="Size.Small" /> Documents</h3>
+            <p>
+                Upload PDFs, text, and markdown. The text is pulled out, combined with your own
+                notes, and read as one source. Files stay downloadable from the source page.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Map" Size="Size.Small" /> Maps</h3>
+            <p>
+                Upload a map image and Nornis reads the place names and their positions off it,
+                proposing locations already pinned. The finished map browses with live pins.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.AddComment" Size="Size.Small" /> Add from anywhere</h3>
+            <p>
+                On any entry in the codex, type what you just learned. It becomes a real,
+                traceable source and flows through the normal review — no silent edits.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Inventory2" Size="Size.Small" /> Store without extracting</h3>
+            <p>
+                Some material is reference, not canon. Turn extraction off and the source is kept
+                as part of the record without proposing a single change.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Inbox" Size="Size.Small" /> The sources ledger</h3>
+            <p>
+                Every source you're allowed to see, filterable by campaign and status, with
+                processing state advancing live. Re-run extraction any time — with a preview of
+                exactly what that would replace.
+            </p>
+        </div>
+    </div>
+</section>
+
+@* ----------------------------------------------------------------- Record -- *@
+<section class="nornis-features-section">
+    <div class="nornis-features-head">
+        <div class="nornis-eyebrow">The record</div>
+        <h2>AI proposes. Your table decides.</h2>
+        <p>
+            Nothing enters accepted canon without a person saying yes — and everything that does
+            keeps a link back to the sentence that produced it.
+        </p>
+    </div>
+    <div class="nornis-features-grid">
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Size="Size.Small" /> Extraction</h3>
+            <p>
+                Each source is read in the background and turned into proposals: entries to
+                create or update, facts with truth states, relationships, storyline nesting, open
+                questions, and map pins.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.FactCheck" Size="Size.Small" /> The review queue</h3>
+            <p>
+                Every proposal shows what it would change, how confident it is, which source it
+                came from, and why. Accept it, edit the values first, or reject it — one at a
+                time or all at once, in dependency-safe order.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Small" /> The codex</h3>
+            <p>
+                Everything your world knows — characters, locations, items, factions, events,
+                storylines, concepts, documents. Browse as cards, as a collapsible tree, or as a
+                live force-directed graph.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Article" Size="Size.Small" /> Facts with texture</h3>
+            <p>
+                Not everything known is equally true. Each fact carries its state — confirmed,
+                likely, rumor, disputed, false, or hidden — so a half-remembered tavern claim
+                never reads like established history.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /> Connections</h3>
+            <p>
+                Typed, described relationships between entries, with a mini-graph on every page
+                you can widen from direct links to two hops out.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Source" Size="Size.Small" /> Provenance</h3>
+            <p>
+                Every entry lists the sources behind it, each with the quoted excerpt that
+                supports it, linking straight back to the original note.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Search" Size="Size.Small" /> Search</h3>
+            <p>
+                Type-ahead search across the codex from the top bar of any page, with summaries
+                on hover so you can tell two similar names apart before you click.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3>
+                <MudIcon Icon="@Icons.Material.Outlined.Merge" Size="Size.Small" /> Merge duplicates
+                <span class="nornis-features-gm">GM</span>
+            </h3>
+            <p>
+                Imports produce name variants. Pick which one survives and the facts and
+                relationships move across while the duplicate is archived — recorded as a
+                reviewed change, not a quiet deletion.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3>
+                <MudIcon Icon="@Icons.Material.Outlined.Tune" Size="Size.Small" /> Curate
+                <span class="nornis-features-gm">GM</span>
+            </h3>
+            <p>
+                Rename entries, move them between active, dormant, resolved, and archived, or
+                remove them from canon — always with a preview of what goes with them.
+            </p>
+        </div>
+    </div>
+</section>
+
+@* -------------------------------------------------------------- The table -- *@
+<section class="nornis-features-section">
+    <div class="nornis-features-head">
+        <div class="nornis-eyebrow">At the table</div>
+        <h2>The part you use mid-session</h2>
+        <p>
+            Answers in seconds, without remembering which note you wrote it in.
+        </p>
+    </div>
+    <div class="nornis-features-grid">
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.QuestionAnswer" Size="Size.Small" /> Ask the Loremaster</h3>
+            <p>
+                Ask your world anything in plain language. Answers come only from your accepted
+                record and your indexed library, every claim cited, with a confidence rating —
+                and it tells you plainly when it doesn't know.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Shield" Size="Size.Small" /> Answers that respect the table</h3>
+            <p>
+                A player and a GM asking the same question get different answers, because what
+                the Loremaster can retrieve depends on who is asking. Secrets stay secret.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Dashboard" Size="Size.Small" /> The dashboard</h3>
+            <p>
+                Active storylines, recent canon changes, what's waiting in review, and four
+                questions worth asking — generated from the actual state of your world, not a
+                static list.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Timeline" Size="Size.Small" /> Timeline</h3>
+            <p>
+                Storylines laid out over your real session calendar: what developed when, what's
+                still open, what has gone quiet. Drag one arc onto another to nest it.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Route" Size="Size.Small" /> Journey map</h3>
+            <p>
+                The party's trail across the map, session by session. Drag the playhead and walk
+                the route, surfacing what each stop meant as you go.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.HelpOutline" Size="Size.Small" /> Open questions</h3>
+            <p>
+                Unresolved tensions the record has noticed — kept visible on the entries and
+                storylines they belong to, so a dangling thread doesn't quietly disappear.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3>
+                <MudIcon Icon="@Icons.Material.Outlined.PlaylistAddCheck" Size="Size.Small" /> Session wrap-up
+                <span class="nornis-features-gm">GM</span>
+            </h3>
+            <p>
+                After a session lands, a card appears — and only when there's something to do.
+                What advanced, what's gone quiet, what could nest, and which new arcs need a
+                home. Each decision saves as you make it.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3>
+                <MudIcon Icon="@Icons.Material.Outlined.MonitorHeart" Size="Size.Small" /> Continuity health
+                <span class="nornis-features-gm">GM</span>
+            </h3>
+            <p>
+                A read on how coherent your record is — contradictions, dangling threads, stale
+                storylines, timeline conflicts — each finding with a severity, a suggested
+                action, and a jump to the entry. The page shows its own arithmetic.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3>
+                <MudIcon Icon="@Icons.Material.Outlined.History" Size="Size.Small" /> Retrospective
+                <span class="nornis-features-gm">GM</span>
+            </h3>
+            <p>
+                Ask Nornis to read your active storylines against the record and propose closing
+                the ones that clearly finished. The results arrive as ordinary proposals.
+            </p>
+        </div>
+    </div>
+</section>
+
+@* --------------------------------------------------------------- Secrets -- *@
+<section class="nornis-features-section">
+    <div class="nornis-features-head">
+        <div class="nornis-eyebrow">Secrets</div>
+        <h2>GM truth and player truth, kept apart</h2>
+        <p>
+            The hardest part of running a long game is remembering who knows what. Nornis tracks
+            it for you.
+        </p>
+    </div>
+    <div class="nornis-features-grid">
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.VisibilityOff" Size="Size.Small" /> Scope on everything</h3>
+            <p>
+                Every source, entry, fact, and connection is private, GM-only, or party-visible.
+                Extraction never leaks GM-only material into party-visible knowledge, and the
+                Loremaster won't quote what a player hasn't earned.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3>
+                <MudIcon Icon="@Icons.Material.Outlined.Visibility" Size="Size.Small" /> Reveal to the party
+                <span class="nornis-features-gm">GM</span>
+            </h3>
+            <p>
+                When the fiction gives a secret away, tick exactly what the party now learns and
+                leave the rest hidden. Nornis checks the reveal leaves nothing dangling and tells
+                you what else has to come with it.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3>
+                <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" /> Hand over the document
+                <span class="nornis-features-gm">GM</span>
+            </h3>
+            <p>
+                Give the party the actual artifact — the map they bought, the letter they found —
+                attachments and all. Revealing the map is a separate decision from revealing
+                every place marked on it.
+            </p>
+        </div>
+    </div>
+</section>
+
+@* --------------------------------------------------------------- Library -- *@
+<section class="nornis-features-section">
+    <div class="nornis-features-head">
+        <div class="nornis-eyebrow">Library</div>
+        <h2>Your books, on the same shelf</h2>
+        <p>
+            Reference material lives beside your world's memory without ever becoming part of it.
+        </p>
+    </div>
+    <div class="nornis-features-grid">
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.LibraryBooks" Size="Size.Small" /> Sourcebooks &amp; handouts</h3>
+            <p>
+                Upload the books, maps, and handouts your table actually uses. They're stored as
+                reference — never extracted into canon.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.FormatQuote" Size="Size.Small" /> Quoted with page numbers</h3>
+            <p>
+                PDFs are indexed into passages, so "what happens at level 8?" comes back answered
+                and cited to the page it came from.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3>
+                <MudIcon Icon="@Icons.Material.Outlined.SwapHoriz" Size="Size.Small" /> Two shelves
+                <span class="nornis-features-gm">GM</span>
+            </h3>
+            <p>
+                Keep the adventure module to yourself and the player's guide on the party shelf —
+                and move a book between them whenever the campaign moves on.
+            </p>
+        </div>
+    </div>
+</section>
+
+@* ------------------------------------------------------------ Your table -- *@
+<section class="nornis-features-section">
+    <div class="nornis-features-head">
+        <div class="nornis-eyebrow">Your table</div>
+        <h2>Worlds that outlast campaigns</h2>
+        <p>
+            Knowledge belongs to the world. Campaigns record when it happened and who was there.
+        </p>
+    </div>
+    <div class="nornis-features-grid">
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Small" /> Worlds &amp; campaigns</h3>
+            <p>
+                One setting, many runs of play. The same NPCs and canon carry across the original
+                campaign, the sequel years later, and the side game with a different party.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3><MudIcon Icon="@Icons.Material.Outlined.Groups" Size="Size.Small" /> Characters</h3>
+            <p>
+                Add your characters, link them to their entry in the codex, and claim one that's
+                already there. Play several at once, or across several campaigns.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3>
+                <MudIcon Icon="@Icons.Material.Outlined.PersonAdd" Size="Size.Small" /> Invite links
+                <span class="nornis-features-gm">GM</span>
+            </h3>
+            <p>
+                Mint a link for a specific role, with an optional expiry and use limit. Revoke it
+                whenever you like.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3>
+                <MudIcon Icon="@Icons.Material.Outlined.Share" Size="Size.Small" /> Share it publicly
+                <span class="nornis-features-gm">GM</span>
+            </h3>
+            <p>
+                Give your world a public address and switch it on. Visitors get a read-only view
+                of party-visible material only — the codex, the timeline, and session notes.
+                Nothing hidden ever appears.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3>
+                <MudIcon Icon="@Icons.Material.Outlined.Payments" Size="Size.Small" /> Cost visibility
+                <span class="nornis-features-gm">GM</span>
+            </h3>
+            <p>
+                Every AI call is metered by operation, model, and person, against a daily budget
+                you set per world. No black boxes at your table.
+            </p>
+        </div>
+        <div class="nornis-features-item">
+            <h3>
+                <MudIcon Icon="@Icons.Material.Outlined.Settings" Size="Size.Small" /> Run the world
+                <span class="nornis-features-gm">GM</span>
+            </h3>
+            <p>
+                Manage members and roles, edit campaigns and who played in them, and watch the
+                processing queue — resubmitting anything that failed.
+            </p>
+        </div>
+    </div>
+</section>
+
+@* ----------------------------------------------------------------- Roles -- *@
+<section class="nornis-features-section">
+    <div class="nornis-features-head">
+        <div class="nornis-eyebrow">Roles</div>
+        <h2>Who sees what</h2>
+        <p>
+            Three roles, and they see genuinely different worlds.
+        </p>
+    </div>
+    <div class="nornis-features-roles-scroll">
+        <table class="nornis-features-roles">
+            <thead>
+                <tr>
+                    <th scope="col">Role</th>
+                    <th scope="col">Can do</th>
+                    <th scope="col">Cannot</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th scope="row">GM</th>
+                    <td>
+                        Everything: capture, review every proposal, keep hidden canon, reveal it,
+                        merge and curate entries, invite members, share the world, and run the
+                        continuity tools.
+                    </td>
+                    <td>Un-reveal something. Reveals are one-way, on purpose.</td>
+                </tr>
+                <tr>
+                    <th scope="row">Player</th>
+                    <td>
+                        Capture sources, read party-visible material, review the proposals their
+                        own sources produced, ask the Loremaster, and manage their characters.
+                    </td>
+                    <td>See GM-only material, or author it.</td>
+                </tr>
+                <tr>
+                    <th scope="row">Observer</th>
+                    <td>Read party-visible material. A fly on the wall.</td>
+                    <td>Capture, review, or change anything at all.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@* ---------------------------------------------------------------- Limits -- *@
+<section class="nornis-features-section">
+    <div class="nornis-features-head">
+        <div class="nornis-eyebrow">Honest limits</div>
+        <h2>What Nornis doesn't do</h2>
+        <p>
+            A tool that tells you what it can't do is easier to trust than one that doesn't.
+        </p>
+    </div>
+    <div class="nornis-features-limits">
+        <ul>
+            <li>
+                <strong>It doesn't listen to your session.</strong> There's no audio recording or
+                transcription — paste a transcript you already have and Nornis will read that.
+            </li>
+            <li>
+                <strong>It doesn't read the web for you.</strong> A link is stored beside your
+                notes; Nornis doesn't fetch the page behind it.
+            </li>
+            <li>
+                <strong>It doesn't un-reveal.</strong> Once the party knows, the record says they
+                know. Reveals are deliberate and one-way.
+            </li>
+            <li>
+                <strong>It doesn't reveal to one player.</strong> Reveals go to the whole party.
+            </li>
+            <li>
+                <strong>It doesn't change canon on its own.</strong> Ever. Every change waits for
+                a person.
+            </li>
+            <li>
+                <strong>It isn't a virtual tabletop.</strong> No maps to fight on, no dice, no
+                rules engine. Nornis is the memory beside the table, not the table.
+            </li>
+        </ul>
+    </div>
+</section>
+
+<section class="nornis-landing-final">
+    <h2 class="nornis-landing-h2">Many sources feed one enduring epic.</h2>
+    <p class="nornis-landing-sub">Start capturing tonight's session — Nornis will remember the rest.</p>
+    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Large" Href="/">
+        Start your record
+    </MudButton>
+</section>
