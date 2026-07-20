@@ -8,30 +8,48 @@
     <h1>What's new</h1>
 
     <section class="nornis-changelog-entry">
-        <h2>July 2026</h2>
+        <h2>July 16–20, 2026</h2>
         <ul>
-            <li>Library: keep the sourcebooks, maps, and handouts your table actually uses as reference — indexed PDFs answer through the Loremaster with page citations, and nothing in the Library ever becomes canon.</li>
-            <li>Reveal to the party: when the fiction gives a secret away, a GM ticks exactly what the party now learns — Nornis checks the reveal leaves nothing dangling and names what has to come with it. One-way, on purpose.</li>
-            <li>Session Wrap-Up: after a session lands, a card surfaces what advanced, what's gone quiet, what could nest, and which new arcs need a home — each choice saved the moment you make it.</li>
+            <li>Public world sharing: give a world a public address and switch it on — anyone gets a read-only view of party-visible material only (the codex, the timeline, and session notes), as an anonymous observer. Nothing private or GM-only ever appears, and you can switch it off again at any time.</li>
+            <li>Library: keep the sourcebooks, maps, and handouts your table actually references — immutable, indexed PDFs that answer through the Loremaster with page citations, and never become canon.</li>
             <li>Journey map: the party's trail across the map, session by session — drag the playhead to walk the route and surface what each stop meant.</li>
-            <li>Public world sharing: give a world a public address and switch it on — visitors get a read-only view of party-visible material only: the codex, the timeline, and session notes. Nothing hidden ever appears.</li>
-            <li>Ask suggestions are now drawn from your world's live state — active storylines, recent characters, unconfirmed rumors — instead of canned examples.</li>
-            <li>The Loremaster understands follow-up questions in a conversation ("what is <em>he</em> suspected of?") and grounds them in earlier exchanges.</li>
-            <li>Sharper truth-state handling in answers: rumors are attributed, disputed accounts show both sides, and GM-only knowledge is flagged as such.</li>
-            <li>Cost dashboard gained a date-range filter for the by-operation, by-model, and by-user breakdowns.</li>
-            <li>Confirmation prompts before destructive actions, clickable dashboard rows, capture shortcuts that pre-select the source type, and a full mobile pass.</li>
-            <li>A public features page now lays out everything Nornis does, section by section.</li>
-            <li>Canon, Costs, and Settings are no longer standalone pages — the accepted facts now live behind the codex, Ask, and Continuity Health, and Costs and Settings moved into the GM-only Admin page.</li>
+            <li>Session Wrap-Up: after a session lands, a card surfaces what advanced, what's gone quiet, what could nest, and which new arcs need a home — each choice saved the moment you make it.</li>
+            <li>Reveal to the party: when the fiction gives a secret away, a GM ticks exactly what the party now learns, and Nornis checks the reveal leaves nothing dangling. One-way, on purpose.</li>
+            <li>Handwritten and photo notes: snap an image, get a vision transcription, and run it through extraction — on an infinite ink canvas.</li>
+            <li>More ways in: file uploads, a Map source type with placemark pins, and world invitation links that let people join with a role, expiry, and use limit you set.</li>
+            <li>Editable session notes with reprocessing and per-item Private visibility, global artifact search, a public features page, and the artifact collection is now the "Codex." Upgraded to .NET 10 under the hood.</li>
+        </ul>
+    </section>
+
+    <section class="nornis-changelog-entry">
+        <h2>July 9–15, 2026</h2>
+        <ul>
+            <li>Sign in with Auth0 — real accounts, with sessions that outlive the access token.</li>
+            <li>Timeline: storylines as a branching, git-style tree on a real-world calendar, with a nesting (PartOf) hierarchy and close-outs for arcs that finish.</li>
+            <li>The artifact web became an interactive, force-directed graph you can explore and search.</li>
+            <li>A GM-only Admin page gathers Settings, Costs, and the processing queue in one place.</li>
+            <li>Self-service Profiles: set your display name per world and claim your character.</li>
+            <li>Capture gained a TipTap WYSIWYG editor; artifacts gained multi-select filters, sort, rename, and a quick-add box that feeds new information straight through extraction.</li>
+            <li>Manual artifact merge to fold duplicates together, plus an AI retrospective that proposes closures for finished storylines.</li>
+        </ul>
+    </section>
+
+    <section class="nornis-changelog-entry">
+        <h2>July 2–8, 2026</h2>
+        <ul>
+            <li>The app takes shape: the web shell and dashboard, plus the Sources, Capture, Artifacts, Storylines, Canon, Costs, and Settings screens, all wired to the API.</li>
+            <li>Ask the Loremaster launched — grounded answers with citations, confidence, and caveats, powered by Azure OpenAI; suggestions drawn from your world's live state.</li>
+            <li>Review queue with accept / edit / reject on every AI-proposed change, including "accept all" applied in dependency order.</li>
+            <li>Continuity Health: a read on your record's consistency, completeness, groundedness, and recency.</li>
+            <li>Worlds became the root concept (renamed from campaigns), holding campaigns and characters within them.</li>
+            <li>Went live on Azure (Container Apps + GitHub Actions), with a public landing page and a per-world daily AI budget.</li>
         </ul>
     </section>
 
     <section class="nornis-changelog-entry">
         <h2>June 2026</h2>
         <ul>
-            <li>Ask the Loremaster launched: grounded answers with citations, confidence, and caveats.</li>
-            <li>Continuity Health: a heuristic read on your record's consistency, completeness, groundedness, and recency.</li>
-            <li>Review queue with accept / edit / reject on every AI-proposed change.</li>
-            <li>Storylines, Canon, Sources, Artifacts, Costs, and Settings screens.</li>
+            <li>Project begins: the domain model and data layer — worlds, sources, and the artifacts, facts, and storylines derived from them.</li>
         </ul>
     </section>
 </article>
