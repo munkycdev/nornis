@@ -1,11 +1,22 @@
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using MudBlazor.Services;
 using Nornis.Web.ApiClient;
 using Nornis.Web.Authentication;
 using Nornis.Web.Components;
+using OpenTelemetry.Resources;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Observability: Azure Monitor via OpenTelemetry — active only when the deployment
+// provides a connection string; local runs and tests emit nothing.
+if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+{
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(resource => resource.AddService("nornis-web"))
+        .UseAzureMonitor();
+}
 
 // Blazor Web App with interactive server rendering (per architecture decision).
 builder.Services.AddRazorComponents()

@@ -12,14 +12,25 @@ using Nornis.Infrastructure.Messaging;
 using Nornis.Infrastructure.Persistence;
 using Nornis.Infrastructure.Persistence.Repositories;
 using Nornis.Infrastructure.Storage;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Nornis.Worker;
 using Nornis.Worker.Configuration;
 using OpenAI.Chat;
+using OpenTelemetry.Resources;
 
 var builder = Host.CreateDefaultBuilder(args)
     .ConfigureServices((context, services) =>
     {
         var configuration = context.Configuration;
+
+        // Observability: Azure Monitor via OpenTelemetry — active only when the
+        // deployment provides a connection string; local runs and tests emit nothing.
+        if (!string.IsNullOrWhiteSpace(configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+        {
+            services.AddOpenTelemetry()
+                .ConfigureResource(resource => resource.AddService("nornis-worker"))
+                .UseAzureMonitor();
+        }
 
         // Bind and validate configuration sections
         services.Configure<ExtractionOptions>(configuration.GetSection("Extraction"));

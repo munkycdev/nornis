@@ -1,4 +1,5 @@
 ﻿using Azure.Messaging.ServiceBus;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.EntityFrameworkCore;
 using Nornis.Api.Authentication;
 using Nornis.Api.BackgroundServices;
@@ -20,8 +21,20 @@ using Nornis.Infrastructure.Messaging;
 using Nornis.Infrastructure.Persistence;
 using Nornis.Infrastructure.Persistence.Repositories;
 using Nornis.Infrastructure.Storage;
+using OpenTelemetry.Resources;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Observability: Azure Monitor via OpenTelemetry. Active only when the deployment
+// provides a connection string, so local runs and tests emit nothing. Collects
+// requests, dependencies (SQL, HTTP, Azure SDKs incl. Service Bus/Blob/OpenAI),
+// ILogger logs, and runtime metrics under one cloud role per app.
+if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+{
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(resource => resource.AddService("nornis-api"))
+        .UseAzureMonitor();
+}
 
 // Authentication and authorization (Auth0 JWT with FallbackPolicy = RequireAuthenticatedUser)
 if (builder.Environment.IsDevelopment() && builder.Configuration["Auth0:Domain"] == "your-tenant.auth0.com")

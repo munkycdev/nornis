@@ -2,9 +2,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Azure.Monitor.OpenTelemetry.AspNetCore needs the shared framework even in a
+         worker; its ASP.NET Core instrumentation simply stays idle here. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.5.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.2" />
   </ItemGroup>
 
   <ItemGroup>
