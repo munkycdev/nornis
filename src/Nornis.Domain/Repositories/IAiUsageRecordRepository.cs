@@ -23,6 +23,18 @@ public interface IAiUsageRecordRepository
         DateTimeOffset? toDate,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Sum of estimated cost (USD) for anonymous public "Ask the Loremaster" calls against a
+    /// world since <paramref name="fromInclusive"/>. Public Ask records are the only
+    /// <see cref="AiOperationType.AskLoremaster"/> rows with no <c>UserId</c> — members always
+    /// carry one — so that pair is an exact meter for the public monthly cap. Returns 0 when
+    /// there are no matching rows.
+    /// </summary>
+    Task<decimal> SumPublicAskCostAsync(
+        Guid worldId,
+        DateTimeOffset fromInclusive,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByOperationTypeAsync(
         Guid worldId,
         Guid? userId,

@@ -71,6 +71,21 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
         });
     }
 
+    public Task<decimal> SumPublicAskCostAsync(
+        Guid worldId,
+        DateTimeOffset fromInclusive,
+        CancellationToken cancellationToken = default)
+    {
+        var sum = _records
+            .Where(r => r.WorldId == worldId
+                     && r.OperationType == AiOperationType.AskLoremaster
+                     && r.UserId == null
+                     && r.CreatedAt >= fromInclusive)
+            .Sum(r => r.EstimatedCostUsd);
+
+        return Task.FromResult(sum);
+    }
+
     public Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByOperationTypeAsync(
         Guid worldId,
         Guid? userId,

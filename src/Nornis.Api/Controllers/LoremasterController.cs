@@ -61,7 +61,7 @@ public class LoremasterController : ControllerBase
         return Ok(ToAnswerResponse(answer));
     }
 
-    private static AskAnswerResponse ToAnswerResponse(LoremasterAnswer answer)
+    public static AskAnswerResponse ToAnswerResponse(LoremasterAnswer answer)
     {
         return new AskAnswerResponse(
             Answer: answer.AnswerText,

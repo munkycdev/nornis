@@ -1,5 +1,6 @@
 @page "/w/{Slug}"
 @layout PublicLayout
+@using System.Text.RegularExpressions
 @inject NornisApiClient Api
 
 <PageTitle>World — Nornis</PageTitle>
@@ -7,6 +8,88 @@
 <PublicWorldFrame Slug="@Slug" Active="home">
     <ChildContent Context="world">
         <PageTitle>@world.Name — Nornis</PageTitle>
+
+        @* Ask the Loremaster — shown only when the GM has funded a monthly public budget.
+           Single-shot (no thread) and Library-free; the API enforces the spend cap. *@
+        @if (world.AskEnabled)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-lm mb-4">
+                <div class="nornis-card-header">
+                    <span class="nornis-card-title">
+                        <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />
+                        Ask the Loremaster
+                    </span>
+                </div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                    Ask this world a question in plain language. Answers are drawn only from what the
+                    party knows — cited, and honest when the record runs out.
+                </MudText>
+
+                <div class="nornis-lm-composer mb-2">
+                    <MudTextField T="string" @bind-Value="_question" Immediate="true"
+                                  Placeholder="Who is the watch captain of Black Harbor?"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  OnKeyUp="OnKeyUp" Disabled="_asking" Class="flex-grow-1" />
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowForward" Variant="Variant.Filled"
+                                   Color="Color.Primary" Size="Size.Small" OnClick="AskAsync"
+                                   Disabled="_asking" aria-label="Ask" />
+                </div>
+
+                @if (_askError is not null)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2"
+                              ShowCloseIcon="true" CloseIconClicked="() => _askError = null">@_askError</MudAlert>
+                }
+
+                @if (_asking)
+                {
+                    <div class="nornis-lm-answer nornis-lm-thinking">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Secondary" />
+                        <span>Consulting the Loremaster…</span>
+                    </div>
+                }
+                else if (_answer is not null)
+                {
+                    <div class="nornis-lm-answer">
+                        <div class="nornis-lm-answer-head">
+                            <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@ConfidenceColor(_answer.Confidence)">
+                                @_answer.Confidence
+                            </MudChip>
+                        </div>
+                        <div class="nornis-lm-answer-text">@CleanAnswer(_answer.Answer)</div>
+                        @foreach (var caveat in _answer.Caveats)
+                        {
+                            <div class="nornis-lm-caveat">
+                                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" Color="Color.Tertiary" />
+                                <span>@caveat</span>
+                            </div>
+                        }
+                        @if (_answer.Citations.Count > 0)
+                        {
+                            <div class="nornis-lm-cites">
+                                @foreach (var c in _answer.Citations)
+                                {
+                                    @if (c.ArtifactId is not null)
+                                    {
+                                        <a href="@($"/w/{Slug}/artifacts/{c.ArtifactId}")" class="nornis-cite">@c.DisplayName</a>
+                                    }
+                                    else if (c.SourceId is not null)
+                                    {
+                                        <a href="@($"/w/{Slug}/sources/{c.SourceId}")" class="nornis-cite">@c.DisplayName</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="nornis-cite">@c.DisplayName</span>
+                                    }
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </MudPaper>
+        }
+
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
             @if (!string.IsNullOrWhiteSpace(world.Description))
             {
@@ -43,4 +126,70 @@
 
 @code {
     [Parameter] public string Slug { get; set; } = string.Empty;
+
+    private string _question = string.Empty;
+    private bool _asking;
+    private AskAnswer? _answer;
+    private string? _askError;
+    private string? _loadedSlug;
+
+    protected override void OnParametersSet()
+    {
+        // Reset the ask state when navigating between worlds so one world's answer never
+        // lingers on another's page.
+        if (Slug != _loadedSlug)
+        {
+            _loadedSlug = Slug;
+            _question = string.Empty;
+            _answer = null;
+            _askError = null;
+            _asking = false;
+        }
+    }
+
+    private async Task OnKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await AskAsync();
+        }
+    }
+
+    private async Task AskAsync()
+    {
+        var q = _question?.Trim();
+        if (string.IsNullOrWhiteSpace(q) || _asking)
+        {
+            return;
+        }
+
+        _asking = true;
+        _askError = null;
+        _answer = null;
+        StateHasChanged();
+
+        var result = await Api.AskPublicAsync(Slug, q);
+
+        _asking = false;
+        if (result.IsSuccess)
+        {
+            _answer = result.Value!;
+        }
+        else
+        {
+            _askError = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    private static string CleanAnswer(string text) =>
+        Regex.Replace(text, @"\s*\[ref:[^\]]+\]", "").Trim();
+
+    private static Color ConfidenceColor(string confidence) => confidence switch
+    {
+        "High" => Color.Success,
+        "Medium" => Color.Info,
+        "Low" => Color.Warning,
+        _ => Color.Default,
+    };
 }

@@ -9,4 +9,6 @@ public record UpdateWorldCommand(
     decimal? DailyAiBudgetUsd = null,
     bool ClearDailyAiBudget = false,
     string? PublicSlug = null,
-    bool? PublicAccessEnabled = null);
+    bool? PublicAccessEnabled = null,
+    decimal? PublicAskMonthlyBudgetUsd = null,
+    bool ClearPublicAskBudget = false);

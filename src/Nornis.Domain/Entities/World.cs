@@ -29,6 +29,15 @@ public class World
     /// <summary>Gate for anonymous read-only access to party-visible knowledge. Default off.</summary>
     public bool PublicAccessEnabled { get; set; }
 
+    /// <summary>
+    /// GM-configured monthly spend cap (USD) for anonymous "Ask the Loremaster" on the public
+    /// site. This value is also the on/off switch: null or ≤ 0 means public Ask is disabled
+    /// (the safe default). A positive value enables it, capped at that much AI spend per
+    /// calendar month. Independent of <see cref="DailyAiBudgetUsd"/>, which still applies as a
+    /// backstop; public Ask is allowed only when both budgets have room.
+    /// </summary>
+    public decimal? PublicAskMonthlyBudgetUsd { get; set; }
+
     public byte[] RowVersion { get; set; } = [];
 
     // Navigation properties

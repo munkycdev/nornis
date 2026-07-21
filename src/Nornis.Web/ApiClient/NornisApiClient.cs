@@ -251,6 +251,12 @@ public class NornisApiClient
     public Task<ApiResult<SourceDetailDto>> GetPublicSourceAsync(string slug, Guid sourceId, CancellationToken ct = default) =>
         GetAsync<SourceDetailDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/sources/{sourceId}", ct);
 
+    /// <summary>Anonymous single-shot Ask the Loremaster against a public world. The API gates it
+    /// on the GM's monthly spend cap; failures (disabled, budget spent) come back as the error.</summary>
+    public Task<ApiResult<AskAnswer>> AskPublicAsync(string slug, string question, CancellationToken ct = default) =>
+        PostAsync<PublicAskRequest, AskAnswer>(
+            $"/api/public/worlds/{Uri.EscapeDataString(slug)}/ask", new PublicAskRequest(question), ct);
+
     // ------------------------------------------------------------------ Library --
 
     public Task<ApiResult<LibraryUploadTicketDto>> RequestLibraryUploadAsync(

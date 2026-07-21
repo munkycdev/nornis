@@ -84,6 +84,23 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
         return result ?? CostSummary.Empty;
     }
 
+    public async Task<decimal> SumPublicAskCostAsync(
+        Guid worldId,
+        DateTimeOffset fromInclusive,
+        CancellationToken cancellationToken = default)
+    {
+        // Public asks are the only AskLoremaster rows with no user (members always carry one),
+        // so this pair meters anonymous spend without a dedicated flag. Cast to decimal? so an
+        // empty set sums to null → 0 rather than throwing.
+        return await _context.AiUsageRecords
+            .AsNoTracking()
+            .Where(r => r.WorldId == worldId
+                     && r.OperationType == AiOperationType.AskLoremaster
+                     && r.UserId == null
+                     && r.CreatedAt >= fromInclusive)
+            .SumAsync(r => (decimal?)r.EstimatedCostUsd, cancellationToken) ?? 0m;
+    }
+
     public async Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByOperationTypeAsync(
         Guid worldId,
         Guid? userId,

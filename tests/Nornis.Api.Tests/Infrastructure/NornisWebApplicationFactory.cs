@@ -87,6 +87,18 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
             }
             services.AddScoped<Nornis.Application.Knowledge.IReferencePassageRetriever, FakeReferencePassageRetriever>();
 
+            // The DI stub for ILoremasterAiClient likewise throws at resolution when Azure
+            // OpenAI is unconfigured. PublicController now depends on ILoremasterService (the
+            // public Ask endpoint), so — like every Loremaster endpoint — it needs a benign
+            // fake to activate. LoremasterAskTestFactory swaps in a configurable one on top.
+            var loremasterAiDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(Nornis.Application.Ai.ILoremasterAiClient));
+            if (loremasterAiDescriptor is not null)
+            {
+                services.Remove(loremasterAiDescriptor);
+            }
+            services.AddScoped<Nornis.Application.Ai.ILoremasterAiClient, FakeLoremasterAiClient>();
+
             // Blob storage is a throwing DI stub when unconfigured — replace with an
             // in-memory fake so Library endpoints are testable.
             var blobDescriptor = services.SingleOrDefault(

@@ -56,6 +56,11 @@
                     }
                 </div>
 
+                <MudNumericField T="decimal?" @bind-Value="_publicAskMonthlyBudget" Label="Public Ask budget (USD / month)"
+                                 Placeholder="off" Min="0.01m" Max="1000m" Step="1m"
+                                 HelperText="Let anonymous visitors Ask the Loremaster on the public page, capped at this AI spend per calendar month. Leave empty to keep public questions off. Requires public access above."
+                                 Variant="Variant.Outlined" Class="mb-3" />
+
                 @if (_worldError is not null)
                 {
                     <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_worldError</MudAlert>
@@ -325,6 +330,7 @@
     private decimal? _dailyAiBudget;
     private string? _publicSlug;
     private bool _publicAccessEnabled;
+    private decimal? _publicAskMonthlyBudget;
     private bool _savingWorld;
     private string? _worldError;
 
@@ -563,6 +569,7 @@
             _dailyAiBudget = c.DailyAiBudgetUsd;
             _publicSlug = c.PublicSlug;
             _publicAccessEnabled = c.PublicAccessEnabled;
+            _publicAskMonthlyBudget = c.PublicAskMonthlyBudgetUsd;
             _loadedWorldId = c.Id;
         }
     }
@@ -601,7 +608,9 @@
                 DailyAiBudgetUsd: _dailyAiBudget,
                 ClearDailyAiBudget: _dailyAiBudget is null,
                 PublicSlug: string.IsNullOrWhiteSpace(_publicSlug) ? null : _publicSlug.Trim(),
-                PublicAccessEnabled: _publicAccessEnabled));
+                PublicAccessEnabled: _publicAccessEnabled,
+                PublicAskMonthlyBudgetUsd: _publicAskMonthlyBudget,
+                ClearPublicAskBudget: _publicAskMonthlyBudget is null));
 
         _savingWorld = false;
         if (!result.IsSuccess)

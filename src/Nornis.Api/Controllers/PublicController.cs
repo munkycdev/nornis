@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
+using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
@@ -30,17 +32,23 @@ public class PublicController : ControllerBase
     private readonly IArtifactService _artifactService;
     private readonly ISourceService _sourceService;
     private readonly IJourneyMapService _journeyService;
+    private readonly ILoremasterService _loremasterService;
+    private readonly IAiBudgetGuard _budgetGuard;
 
     public PublicController(
         IWorldRepository worldRepository,
         IArtifactService artifactService,
         ISourceService sourceService,
-        IJourneyMapService journeyService)
+        IJourneyMapService journeyService,
+        ILoremasterService loremasterService,
+        IAiBudgetGuard budgetGuard)
     {
         _worldRepository = worldRepository;
         _artifactService = artifactService;
         _sourceService = sourceService;
         _journeyService = journeyService;
+        _loremasterService = loremasterService;
+        _budgetGuard = budgetGuard;
     }
 
     [HttpGet("")]
@@ -49,7 +57,45 @@ public class PublicController : ControllerBase
         var world = await ResolveAsync(slug, ct);
         return world is null
             ? PublicNotFound()
-            : Ok(new PublicWorldResponse(world.PublicSlug!, world.Name, world.Description, world.GameSystem));
+            : Ok(new PublicWorldResponse(
+                world.PublicSlug!, world.Name, world.Description, world.GameSystem,
+                AskEnabled: world.PublicAskMonthlyBudgetUsd is > 0m));
+    }
+
+    /// <summary>
+    /// Anonymous "Ask the Loremaster", scoped to party-visible knowledge (Observer) and gated by
+    /// the GM's monthly public spend cap. Single-shot (no conversation) and Library-free by design.
+    /// A stricter per-IP limiter rides on top of the controller's <c>public</c> policy; the monthly
+    /// cap is the hard money ceiling. Disabled worlds answer 404 like any unavailable resource.
+    /// </summary>
+    [HttpPost("ask")]
+    [EnableRateLimiting("public-ask")]
+    public async Task<IActionResult> Ask(string slug, [FromBody] PublicAskRequest request, CancellationToken ct)
+    {
+        var world = await ResolveAsync(slug, ct);
+        if (world is null)
+        {
+            return PublicNotFound();
+        }
+
+        var gate = await _budgetGuard.CheckPublicAskAsync(world.Id, ct);
+        if (gate is not null)
+        {
+            return MapAskError(gate);
+        }
+
+        var command = new AskLoremasterCommand(
+            WorldId: world.Id,
+            Question: request.Question,
+            UserId: null,
+            UserRole: PublicRole,
+            ConversationContext: null,
+            IncludeLibrary: false);
+
+        var result = await _loremasterService.AskAsync(command, ct);
+        return result.IsSuccess
+            ? Ok(LoremasterController.ToAnswerResponse(result.Value!))
+            : MapAskError(result.Error!);
     }
 
     [HttpGet("artifacts")]
@@ -179,4 +225,15 @@ public class PublicController : ControllerBase
 
     private NotFoundObjectResult PublicNotFound() =>
         NotFound(new ErrorResponse("not_found", "This world is not publicly accessible."));
+
+    // Ask failures surface their real code/message (budget spent, disabled, model unavailable)
+    // rather than the generic public 404 — the asker needs to know why nothing came back.
+    private IActionResult MapAskError(AppError error) => error.StatusCode switch
+    {
+        400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
+        404 => NotFound(new ErrorResponse(error.Code, error.Message)),
+        429 => StatusCode(429, new ErrorResponse(error.Code, error.Message)),
+        503 => StatusCode(503, new ErrorResponse(error.Code, error.Message)),
+        _ => StatusCode(500, new ErrorResponse("internal_error", "Something went wrong. Please try again.")),
+    };
 }

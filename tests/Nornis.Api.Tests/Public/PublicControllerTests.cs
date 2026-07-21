@@ -226,17 +226,21 @@ public class PublicControllerTests
     }
 
     [Test]
-    public async Task PublicNamespace_HasNoLibraryOrAskRoutes()
+    public async Task PublicNamespace_HasNoLibrary_AndAskOffByDefault()
     {
         await SetupPublicWorldAsync();
 
         var library = await _anonymous.GetAsync("/api/public/worlds/black-harbor/library");
         var ask = await _anonymous.PostAsJsonAsync("/api/public/worlds/black-harbor/ask", new { question = "hi" });
 
-        // No such endpoints exist; unmatched routes hit the fallback policy first (401)
-        // rather than 404 — either way, nothing anonymous is served.
+        // Library stays off the public site entirely — no such route (fallback 401, or 404).
         Assert.That(library.StatusCode, Is.AnyOf(HttpStatusCode.NotFound, HttpStatusCode.Unauthorized));
-        Assert.That(ask.StatusCode, Is.AnyOf(HttpStatusCode.NotFound, HttpStatusCode.Unauthorized));
+
+        // Ask is a real public route now, but off until the GM funds a monthly budget. With
+        // none set, it declines with a specific 404 rather than running the model.
+        Assert.That(ask.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        var askError = await ask.Content.ReadFromJsonAsync<ErrorResponse>();
+        Assert.That(askError!.Code, Is.EqualTo("public_ask_unavailable"));
     }
 
     [Test]

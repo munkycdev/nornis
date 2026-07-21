@@ -126,10 +126,14 @@ public partial class LoremasterService : ILoremasterService
                 ? command.Question
                 : $"{command.ConversationContext}\n{command.Question}";
 
+            // Anonymous public asks carry no user; the empty-guid Observer sentinel scopes
+            // retrieval to party-visible knowledge exactly as the public browse endpoints do.
+            var retrievalUserId = command.UserId ?? Guid.Empty;
+
             context = await _knowledgeRetriever.RetrieveAsync(
                 retrievalText,
                 command.WorldId,
-                command.UserId,
+                retrievalUserId,
                 command.UserRole,
                 ct);
 
@@ -137,18 +141,22 @@ public partial class LoremasterService : ILoremasterService
             // (returns [] on any failure) and skips embedding when no docs are indexed.
             // Follow-ups name their subject in earlier exchanges, so the conversation
             // context participates in the embedding just as it does in name matching.
-            var passages = await _passageRetriever.RetrieveAsync(
-                retrievalText, command.WorldId, command.UserId, command.UserRole, ct);
-            if (passages.Count > 0)
+            // Public asks opt out entirely — indexed sourcebooks stay off the public site.
+            if (command.IncludeLibrary)
             {
-                context = new KnowledgeContext
+                var passages = await _passageRetriever.RetrieveAsync(
+                    retrievalText, command.WorldId, retrievalUserId, command.UserRole, ct);
+                if (passages.Count > 0)
                 {
-                    Artifacts = context.Artifacts,
-                    Facts = context.Facts,
-                    Relationships = context.Relationships,
-                    SourceReferences = context.SourceReferences,
-                    Passages = passages,
-                };
+                    context = new KnowledgeContext
+                    {
+                        Artifacts = context.Artifacts,
+                        Facts = context.Facts,
+                        Relationships = context.Relationships,
+                        SourceReferences = context.SourceReferences,
+                        Passages = passages,
+                    };
+                }
             }
         }
         catch (Exception)

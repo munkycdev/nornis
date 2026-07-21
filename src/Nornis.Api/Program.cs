@@ -213,6 +213,19 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
             }));
+
+    // Anonymous "Ask the Loremaster" is a paid model call, so it gets a much tighter per-IP
+    // ceiling on top of the "public" policy. The monthly spend cap is the real money backstop;
+    // this just blunts bursts and cheap abuse.
+    options.AddPolicy("public-ask", httpContext =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
 });
 
 var app = builder.Build();

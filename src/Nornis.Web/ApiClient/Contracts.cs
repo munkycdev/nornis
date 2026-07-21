@@ -12,7 +12,8 @@ public record WorldSummary(
     string MyRole,
     decimal? DailyAiBudgetUsd = null,
     string? PublicSlug = null,
-    bool PublicAccessEnabled = false);
+    bool PublicAccessEnabled = false,
+    decimal? PublicAskMonthlyBudgetUsd = null);
 
 public record CreateWorldRequest(
     string Name,
@@ -26,7 +27,9 @@ public record UpdateWorldRequest(
     decimal? DailyAiBudgetUsd = null,
     bool ClearDailyAiBudget = false,
     string? PublicSlug = null,
-    bool? PublicAccessEnabled = null);
+    bool? PublicAccessEnabled = null,
+    decimal? PublicAskMonthlyBudgetUsd = null,
+    bool ClearPublicAskBudget = false);
 
 public record WorldMember(
     Guid Id,
@@ -645,12 +648,17 @@ public record LibraryUploadTicketDto(LibraryDocumentDto Document, string UploadU
 
 public record LibraryDownloadDto(string DownloadUrl, string FileName, string ContentType, long SizeBytes);
 
-/// <summary>Public face of a world — the anonymous /w/{slug} pages' card.</summary>
+/// <summary>Public face of a world — the anonymous /w/{slug} pages' card. <see cref="AskEnabled"/>
+/// tells the site whether to offer anonymous "Ask the Loremaster".</summary>
 public record PublicWorldDto(
     string Slug,
     string Name,
     string? Description,
-    string? GameSystem);
+    string? GameSystem,
+    bool AskEnabled = false);
+
+/// <summary>A single-shot anonymous ask against a public world.</summary>
+public record PublicAskRequest(string Question);
 
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);

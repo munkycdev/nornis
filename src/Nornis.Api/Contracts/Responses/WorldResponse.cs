@@ -11,4 +11,5 @@ public record WorldResponse(
     string? MyRole = null,
     decimal? DailyAiBudgetUsd = null,
     string? PublicSlug = null,
-    bool PublicAccessEnabled = false);
+    bool PublicAccessEnabled = false,
+    decimal? PublicAskMonthlyBudgetUsd = null);

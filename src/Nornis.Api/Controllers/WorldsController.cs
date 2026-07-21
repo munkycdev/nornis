@@ -68,7 +68,9 @@ public class WorldsController : ControllerBase
             GameSystem: c.World.GameSystem,
             MyRole: c.Role.ToString(),
             PublicSlug: c.World.PublicSlug,
-            PublicAccessEnabled: c.World.PublicAccessEnabled)).ToList();
+            PublicAccessEnabled: c.World.PublicAccessEnabled,
+            DailyAiBudgetUsd: c.World.DailyAiBudgetUsd,
+            PublicAskMonthlyBudgetUsd: c.World.PublicAskMonthlyBudgetUsd)).ToList();
 
         return Ok(response);
     }
@@ -117,7 +119,9 @@ public class WorldsController : ControllerBase
             DailyAiBudgetUsd: request.DailyAiBudgetUsd,
             ClearDailyAiBudget: request.ClearDailyAiBudget,
             PublicSlug: request.PublicSlug,
-            PublicAccessEnabled: request.PublicAccessEnabled);
+            PublicAccessEnabled: request.PublicAccessEnabled,
+            PublicAskMonthlyBudgetUsd: request.PublicAskMonthlyBudgetUsd,
+            ClearPublicAskBudget: request.ClearPublicAskBudget);
 
         var result = await _worldService.UpdateAsync(command, ct);
 
@@ -145,7 +149,8 @@ public class WorldsController : ControllerBase
             MyRole: role.ToString(),
             DailyAiBudgetUsd: world.DailyAiBudgetUsd,
             PublicSlug: world.PublicSlug,
-            PublicAccessEnabled: world.PublicAccessEnabled);
+            PublicAccessEnabled: world.PublicAccessEnabled,
+            PublicAskMonthlyBudgetUsd: world.PublicAskMonthlyBudgetUsd);
     }
 
     private IActionResult MapError(AppError error)

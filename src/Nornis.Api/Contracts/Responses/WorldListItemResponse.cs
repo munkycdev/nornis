@@ -7,4 +7,6 @@ public record WorldListItemResponse(
     string? GameSystem,
     string MyRole,
     string? PublicSlug = null,
-    bool PublicAccessEnabled = false);
+    bool PublicAccessEnabled = false,
+    decimal? DailyAiBudgetUsd = null,
+    decimal? PublicAskMonthlyBudgetUsd = null);
