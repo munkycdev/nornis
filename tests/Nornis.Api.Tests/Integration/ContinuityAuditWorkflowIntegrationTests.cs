@@ -129,6 +129,174 @@ public class ContinuityAuditWorkflowIntegrationTests
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }
 
+    [Test]
+    public async Task GetAssessment_AfterEditingCitedFact_MarksFindingStaleAndSuspendsPenalty()
+    {
+        var factId = await GetVossFactIdAsync();
+        _factory.FakeAuditAiClient.SetupFindings(new AuditFinding
+        {
+            Category = "Contradiction",
+            Severity = "High",
+            Summary = "Voss's stated location conflicts with the harbor records.",
+            SuggestedAction = "Reconcile the two location facts.",
+            Evidence = [$"fact:{factId}"],
+            ArtifactRef = $"artifact:{_scenario.Voss.Id}"
+        });
+
+        var assessResponse = await _scenario.GmClient.PostAsync($"{HealthUrl}/assess", content: null);
+        var assessed = await assessResponse.Content.ReadFromJsonAsync<ContinuityAssessmentResponse>();
+        var finding = assessed!.Findings[0];
+        Assert.That(finding.IsStale, Is.False);
+        Assert.That(finding.EvidenceItems, Has.Count.EqualTo(1));
+        Assert.That(finding.EvidenceItems[0].Kind, Is.EqualTo("Fact"));
+        Assert.That(finding.EvidenceItems[0].ArtifactId, Is.EqualTo(_scenario.Voss.Id));
+        Assert.That(finding.EvidenceItems[0].Label, Does.Contain("Captain Voss"));
+
+        // The GM edits the cited fact after the audit ran.
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+            var fact = db.ArtifactFacts.Single(f => f.Id == factId);
+            fact.Value = "Aboard the Grey Gull";
+            fact.UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(5);
+            await db.SaveChangesAsync();
+        }
+
+        var afterResponse = await _scenario.GmClient.GetAsync($"{HealthUrl}/assessment");
+        var after = await afterResponse.Content.ReadFromJsonAsync<ContinuityAssessmentResponse>();
+
+        // The finding is stale, its evidence item is flagged, and its penalty is suspended.
+        Assert.That(after!.Findings[0].IsStale, Is.True);
+        Assert.That(after.Findings[0].Status, Is.EqualTo("Open"));
+        Assert.That(after.Findings[0].EvidenceItems[0].ChangedSinceAudit, Is.True);
+        Assert.That(after.EffectiveScore, Is.EqualTo(assessed.EffectiveScore + 12));
+    }
+
+    [Test]
+    public async Task GetAssessment_AfterDeletingCitedFact_MarksEvidenceMissing()
+    {
+        var factId = await GetVossFactIdAsync();
+        _factory.FakeAuditAiClient.SetupFindings(new AuditFinding
+        {
+            Category = "DanglingThread",
+            Severity = "Medium",
+            Summary = "The harbor location is never followed up.",
+            SuggestedAction = null,
+            Evidence = [$"fact:{factId}"],
+            ArtifactRef = null
+        });
+
+        _ = await _scenario.GmClient.PostAsync($"{HealthUrl}/assess", content: null);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+            db.ArtifactFacts.Remove(db.ArtifactFacts.Single(f => f.Id == factId));
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _scenario.GmClient.GetAsync($"{HealthUrl}/assessment");
+        var payload = await response.Content.ReadFromJsonAsync<ContinuityAssessmentResponse>();
+
+        Assert.That(payload!.Findings[0].IsStale, Is.True);
+        Assert.That(payload.Findings[0].EvidenceItems[0].Missing, Is.True);
+        Assert.That(payload.Findings[0].EvidenceItems[0].ArtifactId, Is.Null);
+    }
+
+    [Test]
+    public async Task DraftFix_RoundTrip_CreatesPendingProposalsInReviewQueue()
+    {
+        var factId = await GetVossFactIdAsync();
+        _factory.FakeAuditAiClient.SetupFindings(new AuditFinding
+        {
+            Category = "Contradiction",
+            Severity = "High",
+            Summary = "Voss's stated location conflicts with the harbor records.",
+            SuggestedAction = "Reconcile the two location facts.",
+            Evidence = [$"fact:{factId}"],
+            ArtifactRef = $"artifact:{_scenario.Voss.Id}"
+        });
+
+        var assessResponse = await _scenario.GmClient.PostAsync($"{HealthUrl}/assess", content: null);
+        var assessed = await assessResponse.Content.ReadFromJsonAsync<ContinuityAssessmentResponse>();
+        var findingId = assessed!.Findings[0].Id;
+
+        _factory.FakeFixAiClient.SetupProposals(
+            new ContinuityFixProposal
+            {
+                ChangeType = "UpdateFact",
+                TargetRef = $"[ref:fact:{factId}]",
+                Rationale = "Retire the harbor location — the record supports the ship sighting.",
+                TruthState = "False"
+            },
+            new ContinuityFixProposal
+            {
+                ChangeType = "UpdateFact",
+                TargetRef = $"fact:{Guid.NewGuid()}",
+                Rationale = "Ungrounded target — must be dropped.",
+                Value = "anything"
+            });
+
+        var draftResponse = await _scenario.GmClient.PostAsync(
+            $"{HealthUrl}/findings/{findingId}/draft-fix", content: null);
+        Assert.That(draftResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var draft = await draftResponse.Content.ReadFromJsonAsync<DraftFixResponse>();
+        Assert.That(draft!.ProposalCount, Is.EqualTo(1));
+        Assert.That(draft.BatchId, Is.Not.Null);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+
+        var batch = db.ReviewBatches.Single(b => b.Id == draft.BatchId);
+        Assert.That(batch.Kind, Is.EqualTo("ContinuityFix"));
+        Assert.That(batch.Status, Is.EqualTo(ReviewBatchStatus.Pending));
+
+        var proposals = db.ReviewProposals.Where(p => p.ReviewBatchId == batch.Id).ToList();
+        Assert.That(proposals, Has.Count.EqualTo(1));
+        Assert.That(proposals[0].ChangeType, Is.EqualTo(ReviewChangeType.UpdateFact));
+        Assert.That(proposals[0].TargetId, Is.EqualTo(factId));
+        Assert.That(proposals[0].Status, Is.EqualTo(ReviewProposalStatus.Pending));
+        Assert.That(proposals[0].ProposedValueJson, Does.Contain("\"truthState\":\"False\""));
+
+        var source = db.Sources.Single(s => s.Id == draft.SourceId);
+        Assert.That(source.Type, Is.EqualTo(SourceType.GMNote));
+        Assert.That(source.Visibility, Is.EqualTo(VisibilityScope.GMOnly));
+
+        var usage = db.AiUsageRecords
+            .Where(r => r.WorldId == _scenario.World.Id
+                        && r.OperationType == AiOperationType.ContinuityFix)
+            .ToList();
+        Assert.That(usage, Has.Count.EqualTo(1));
+        Assert.That(usage[0].Succeeded, Is.True);
+    }
+
+    [Test]
+    public async Task DraftFix_NonGm_Returns403()
+    {
+        var response = await _scenario.PlayerClient.PostAsync(
+            $"{HealthUrl}/findings/{Guid.NewGuid()}/draft-fix", content: null);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+        Assert.That(_factory.FakeFixAiClient.CallCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task DraftFix_UnknownFinding_Returns404()
+    {
+        var response = await _scenario.GmClient.PostAsync(
+            $"{HealthUrl}/findings/{Guid.NewGuid()}/draft-fix", content: null);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
+
+    private async Task<Guid> GetVossFactIdAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        return await Task.FromResult(db.ArtifactFacts.Single(f => f.ArtifactId == _scenario.Voss.Id).Id);
+    }
+
     private static async Task<ContinuityAuditScenario> SetupScenarioAsync(ContinuityAuditTestFactory factory)
     {
         var gmUserId = await SourceTestHelpers.ProvisionUserAndGetIdAsync(
@@ -186,10 +354,11 @@ public class ContinuityAuditWorkflowIntegrationTests
     }
 }
 
-/// <summary>Factory that swaps the audit AI client for a fake and prices the fake's model.</summary>
+/// <summary>Factory that swaps the audit and fix AI clients for fakes and prices their model.</summary>
 public class ContinuityAuditTestFactory : NornisWebApplicationFactory
 {
     public FakeAuditAiClient FakeAuditAiClient { get; } = new();
+    public FakeContinuityFixAiClient FakeFixAiClient { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -213,6 +382,14 @@ public class ContinuityAuditTestFactory : NornisWebApplicationFactory
             }
 
             services.AddSingleton<IAuditAiClient>(FakeAuditAiClient);
+
+            var fixDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IContinuityFixAiClient));
+            if (fixDescriptor is not null)
+            {
+                services.Remove(fixDescriptor);
+            }
+
+            services.AddSingleton<IContinuityFixAiClient>(FakeFixAiClient);
         });
     }
 }

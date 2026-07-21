@@ -19,10 +19,12 @@ namespace Nornis.Api.Controllers;
 public class HealthController : ControllerBase
 {
     private readonly IContinuityAuditService _auditService;
+    private readonly IContinuityFixService _fixService;
 
-    public HealthController(IContinuityAuditService auditService)
+    public HealthController(IContinuityAuditService auditService, IContinuityFixService fixService)
     {
         _auditService = auditService;
+        _fixService = fixService;
     }
 
     /// <summary>Runs a fresh AI continuity assessment. GM-only; takes ~10-30s.</summary>
@@ -83,6 +85,30 @@ public class HealthController : ControllerBase
         return Ok(ToResponse(result.Value!));
     }
 
+    /// <summary>
+    /// Drafts review-queue proposals that address an open finding across every evidence leg it
+    /// cites. GM-only; nothing changes canon until the proposals are accepted in the queue.
+    /// </summary>
+    [HttpPost("findings/{findingId:guid}/draft-fix")]
+    public async Task<IActionResult> DraftFix(Guid worldId, Guid findingId, CancellationToken ct)
+    {
+        if (RequireGm() is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        var user = HttpContext.GetNornisUser();
+        var result = await _fixService.DraftFixAsync(worldId, findingId, user.Id, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var draft = result.Value!;
+        return Ok(new DraftFixResponse(draft.BatchId, draft.SourceId, draft.ProposalCount));
+    }
+
     private IActionResult? RequireGm()
     {
         var member = HttpContext.GetWorldMember();
@@ -98,7 +124,11 @@ public class HealthController : ControllerBase
             a.Findings.Select(ToResponse).ToList());
 
     private static ContinuityFindingResponse ToResponse(ContinuityFindingView f) =>
-        new(f.Id, f.Category, f.Severity, f.Summary, f.SuggestedAction, f.Evidence, f.ArtifactId, f.Status);
+        new(f.Id, f.Category, f.Severity, f.Summary, f.SuggestedAction, f.Evidence,
+            f.EvidenceItems.Select(ToResponse).ToList(), f.ArtifactId, f.Status, f.IsStale);
+
+    private static ContinuityEvidenceItemResponse ToResponse(ContinuityEvidenceItemView e) =>
+        new(e.RefId, e.Kind, e.Label, e.ArtifactId, e.ChangedSinceAudit, e.Missing);
 
     private IActionResult MapError(AppError error)
     {

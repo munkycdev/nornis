@@ -103,6 +103,7 @@ builder.Services.AddScoped<IRevealService, RevealService>();
 builder.Services.AddScoped<ICanonService, CanonService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<IContinuityAuditService, ContinuityAuditService>();
+builder.Services.AddScoped<IContinuityFixService, ContinuityFixService>();
 builder.Services.AddScoped<IStorylineRetrospectiveService, StorylineRetrospectiveService>();
 builder.Services.AddScoped<StorylineDevelopmentReader>();
 builder.Services.AddScoped<IStorylineContinuityService, StorylineContinuityService>();
@@ -138,6 +139,7 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
     builder.Services.AddSingleton(openAiClient.GetChatClient(loremasterModel ?? "gpt-4o"));
     builder.Services.AddScoped<ILoremasterAiClient, AzureOpenAiLoremasterClient>();
     builder.Services.AddScoped<IAuditAiClient, AzureOpenAiAuditClient>();
+    builder.Services.AddScoped<IContinuityFixAiClient, AzureOpenAiContinuityFixClient>();
     builder.Services.AddScoped<IRetrospectiveAiClient, AzureOpenAiRetrospectiveClient>();
 
     // Library passage retrieval reuses the same account with the embedding deployment.
@@ -154,6 +156,9 @@ else
     builder.Services.AddScoped<IAuditAiClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable AI-assessed Continuity Health."));
+    builder.Services.AddScoped<IContinuityFixAiClient>(sp =>
+        throw new InvalidOperationException(
+            "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable continuity fix drafting."));
     builder.Services.AddScoped<IRetrospectiveAiClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable storyline retrospectives."));

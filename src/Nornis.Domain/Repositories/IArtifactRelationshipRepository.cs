@@ -20,4 +20,13 @@ public interface IArtifactRelationshipRepository
     Task<ArtifactRelationship> UpdateAsync(ArtifactRelationship relationship, CancellationToken cancellationToken = default);
 
     Task DeleteAsync(Guid relationshipId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Relationships by their own ids, unfiltered (mirrors <see cref="GetByIdAsync"/>) — for
+    /// GM-gated internal work such as resolving continuity-finding evidence refs. Missing ids
+    /// are silently absent from the result.
+    /// </summary>
+    Task<IReadOnlyList<ArtifactRelationship>> ListByIdsAsync(
+        IReadOnlyList<Guid> ids,
+        CancellationToken cancellationToken = default);
 }

@@ -54,7 +54,10 @@ public class HealthAssessmentRepository : IHealthAssessmentRepository
     public async Task<ContinuityFinding?> GetFindingByIdAsync(
         Guid findingId, CancellationToken cancellationToken = default)
     {
+        // The parent assessment rides along so callers can scope the finding to a world
+        // and date staleness against the assessment's CreatedAt.
         return await _context.ContinuityFindings
+            .Include(f => f.HealthAssessment)
             .FirstOrDefaultAsync(f => f.Id == findingId, cancellationToken);
     }
 

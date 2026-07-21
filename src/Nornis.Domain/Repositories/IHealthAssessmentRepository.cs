@@ -26,7 +26,10 @@ public interface IHealthAssessmentRepository
         Guid worldId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Loads a single finding by id (no assessment navigation), or null.</summary>
+    /// <summary>
+    /// Loads a single finding by id with its parent <see cref="HealthAssessment"/> attached
+    /// (for world scoping and staleness dating), or null.
+    /// </summary>
     Task<ContinuityFinding?> GetFindingByIdAsync(
         Guid findingId,
         CancellationToken cancellationToken = default);

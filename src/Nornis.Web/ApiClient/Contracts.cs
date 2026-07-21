@@ -457,8 +457,8 @@ public record AskAnswer(
 
 /// <summary>
 /// AI-assessed continuity health. <see cref="Score"/> is the blended snapshot at assessment time;
-/// <see cref="EffectiveScore"/> reflects only the findings still Open. When the world has never
-/// been assessed, <see cref="HasData"/> is false.
+/// <see cref="EffectiveScore"/> reflects only the findings still Open and not stale. When the
+/// world has never been assessed, <see cref="HasData"/> is false.
 /// </summary>
 public record ContinuityAssessment(
     bool HasData,
@@ -477,8 +477,31 @@ public record ContinuityFinding(
     string Summary,
     string? SuggestedAction,
     IReadOnlyList<string> Evidence,
+    IReadOnlyList<ContinuityEvidenceItem> EvidenceItems,
     Guid? ArtifactId,
-    string Status);
+    string Status,
+    bool IsStale);
+
+/// <summary>
+/// A cited evidence ref resolved for display. Changed items were edited after the assessment
+/// ran (the finding is stale); missing ones no longer exist in the record.
+/// </summary>
+public record ContinuityEvidenceItem(
+    string RefId,
+    string Kind,
+    string Label,
+    Guid? ArtifactId,
+    bool ChangedSinceAudit,
+    bool Missing);
+
+/// <summary>
+/// Result of drafting a fix for a finding: 0 proposals means the fixer had nothing concrete
+/// to propose and no review batch was created.
+/// </summary>
+public record DraftFixResult(
+    Guid? BatchId,
+    Guid? SourceId,
+    int ProposalCount);
 
 public record MergeResult(Guid TargetArtifactId);
 

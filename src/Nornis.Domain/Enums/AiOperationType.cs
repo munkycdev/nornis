@@ -12,5 +12,6 @@ public enum AiOperationType
     RelationshipBackfill,
     HandwritingTranscription,
     ImageReading,
-    MapExtraction
+    MapExtraction,
+    ContinuityFix
 }

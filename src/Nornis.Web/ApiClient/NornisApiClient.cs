@@ -445,6 +445,9 @@ public class NornisApiClient
     public Task<ApiResult<ContinuityFinding>> DismissFindingAsync(Guid worldId, Guid findingId, CancellationToken ct = default) =>
         PostAsync<object?, ContinuityFinding>($"/api/worlds/{worldId}/health/findings/{findingId}/dismiss", null, ct);
 
+    public Task<ApiResult<DraftFixResult>> DraftFindingFixAsync(Guid worldId, Guid findingId, CancellationToken ct = default) =>
+        PostAsync<object?, DraftFixResult>($"/api/worlds/{worldId}/health/findings/{findingId}/draft-fix", null, ct);
+
     // ----------------------------------------------------------------------- Costs --
 
     public Task<ApiResult<TimePeriodSummary>> GetCostSummaryAsync(Guid worldId, CancellationToken ct = default) =>

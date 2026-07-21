@@ -61,4 +61,13 @@ public interface IArtifactRepository
         string text,
         VisibilityFilter filter,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Artifacts by their own ids, unfiltered (mirrors <see cref="GetByIdAsync"/>) — for
+    /// GM-gated internal work such as resolving continuity-finding evidence refs. Missing ids
+    /// are silently absent from the result.
+    /// </summary>
+    Task<IReadOnlyList<Artifact>> ListByIdsAsync(
+        IReadOnlyList<Guid> ids,
+        CancellationToken cancellationToken = default);
 }

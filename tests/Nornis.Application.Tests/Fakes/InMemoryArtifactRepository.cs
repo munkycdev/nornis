@@ -27,6 +27,13 @@ public class InMemoryArtifactRepository : IArtifactRepository
         return Task.FromResult(artifact);
     }
 
+    public Task<IReadOnlyList<Artifact>> ListByIdsAsync(
+        IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var results = _artifacts.Where(a => ids.Contains(a.Id)).ToList();
+        return Task.FromResult<IReadOnlyList<Artifact>>(results.AsReadOnly());
+    }
+
     public Task<IReadOnlyList<Artifact>> ListByWorldAsync(
         Guid worldId,
         ArtifactType? type = null,

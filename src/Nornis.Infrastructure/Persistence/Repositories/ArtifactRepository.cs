@@ -29,6 +29,18 @@ public class ArtifactRepository : IArtifactRepository
             .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Artifact>> ListByIdsAsync(
+        IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        if (ids.Count == 0)
+            return [];
+
+        return await _context.Artifacts
+            .AsNoTracking()
+            .Where(a => ids.Contains(a.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task DeleteAsync(Guid artifactId, CancellationToken cancellationToken = default)
     {
         // Tracked-load delete: the InMemory provider used in tests lacks ExecuteDelete.

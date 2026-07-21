@@ -256,6 +256,133 @@ public class ContinuityAuditServiceTests
     }
 
     [Test]
+    public async Task DismissFinding_WrongWorld_Returns404()
+    {
+        _ai.SetupFindings(Finding(evidence: [ArtifactRef]));
+        var run = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var findingId = run.Value!.Findings[0].Id;
+
+        var result = await _service.DismissFindingAsync(Guid.NewGuid(), findingId, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+        Assert.That(_assessmentRepo.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Open));
+    }
+
+    [Test]
+    public async Task RunAssessment_ResolvesEvidenceItemsWithLabelsAndNavigation()
+    {
+        _ai.SetupFindings(Finding(evidence: [FactRef, ArtifactRef]));
+
+        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+
+        var finding = result.Value!.Findings[0];
+        Assert.That(finding.IsStale, Is.False);
+        Assert.That(finding.EvidenceItems, Has.Count.EqualTo(2));
+
+        var factItem = finding.EvidenceItems[0];
+        Assert.That(factItem.Kind, Is.EqualTo("Fact"));
+        Assert.That(factItem.Label, Is.EqualTo("Captain Voss — location: Black Harbor"));
+        Assert.That(factItem.ArtifactId, Is.EqualTo(_voss.Id));
+        Assert.That(factItem.ChangedSinceAudit, Is.False);
+        Assert.That(factItem.Missing, Is.False);
+
+        var artifactItem = finding.EvidenceItems[1];
+        Assert.That(artifactItem.Kind, Is.EqualTo("Artifact"));
+        Assert.That(artifactItem.Label, Is.EqualTo("Captain Voss"));
+        Assert.That(artifactItem.ArtifactId, Is.EqualTo(_voss.Id));
+    }
+
+    [Test]
+    public async Task GetLatest_CitedFactEditedAfterAudit_MarksFindingStaleAndSuspendsPenalty()
+    {
+        _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
+        var run = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var effectiveBefore = run.Value!.EffectiveScore;
+
+        _vossFact.Value = "Aboard the Grey Gull";
+        _vossFact.UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(5);
+
+        var latest = await _service.GetLatestAsync(_worldId, CancellationToken.None);
+
+        var finding = latest.Value!.Findings[0];
+        Assert.That(finding.Status, Is.EqualTo(ContinuityFindingStatus.Open.ToString()));
+        Assert.That(finding.IsStale, Is.True);
+        Assert.That(finding.EvidenceItems[0].ChangedSinceAudit, Is.True);
+        // The stale High finding's 12-point penalty is suspended until a re-run verifies it.
+        Assert.That(latest.Value.EffectiveScore, Is.EqualTo(effectiveBefore + 12));
+    }
+
+    [Test]
+    public async Task GetLatest_CitedFactDeletedAfterAudit_MarksEvidenceMissingAndFindingStale()
+    {
+        _ai.SetupFindings(Finding(evidence: [FactRef]));
+        await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+
+        await _factRepo.DeleteAsync(_vossFact.Id);
+
+        var latest = await _service.GetLatestAsync(_worldId, CancellationToken.None);
+
+        var finding = latest.Value!.Findings[0];
+        Assert.That(finding.IsStale, Is.True);
+        Assert.That(finding.EvidenceItems[0].Missing, Is.True);
+        Assert.That(finding.EvidenceItems[0].ArtifactId, Is.Null);
+        Assert.That(finding.EvidenceItems[0].Label, Is.EqualTo("No longer in the record"));
+    }
+
+    [Test]
+    public async Task GetLatest_UntouchedEvidence_StaysCountedAndUnchanged()
+    {
+        _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
+        var run = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+
+        var latest = await _service.GetLatestAsync(_worldId, CancellationToken.None);
+
+        Assert.That(latest.Value!.Findings[0].IsStale, Is.False);
+        Assert.That(latest.Value.EffectiveScore, Is.EqualTo(run.Value!.EffectiveScore));
+    }
+
+    [Test]
+    public async Task GetLatest_RelationshipEvidence_ResolvesEndpointNames()
+    {
+        var guild = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = ArtifactType.Faction,
+            Name = "Harbor Guild",
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _artifactRepo.Seed(guild);
+        var rel = new ArtifactRelationship
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            ArtifactAId = _voss.Id,
+            ArtifactBId = guild.Id,
+            Type = "MemberOf",
+            TruthState = TruthState.Confirmed,
+            Visibility = VisibilityScope.PartyVisible,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _relationshipRepo.Seed(rel);
+
+        _ai.SetupFindings(Finding(evidence: [$"rel:{rel.Id}"]));
+        await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+
+        var latest = await _service.GetLatestAsync(_worldId, CancellationToken.None);
+
+        var item = latest.Value!.Findings[0].EvidenceItems[0];
+        Assert.That(item.Kind, Is.EqualTo("Relationship"));
+        Assert.That(item.Label, Is.EqualTo("Captain Voss ↔ Harbor Guild — MemberOf"));
+        Assert.That(item.ArtifactId, Is.EqualTo(_voss.Id));
+    }
+
+    [Test]
     public async Task GetLatest_NoAssessment_ReturnsHasDataFalse()
     {
         var result = await _service.GetLatestAsync(_worldId, CancellationToken.None);

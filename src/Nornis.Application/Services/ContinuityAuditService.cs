@@ -147,6 +147,7 @@ public class ContinuityAuditService : IContinuityAuditService
         var sources = await _sourceRepository.ListByWorldAsync(worldId, null, ct);
 
         var recordText = FormatWorldRecord(artifacts, facts, relationships, sourceRefs, sources);
+        var recordLookup = BuildRecordLookup(artifacts, facts, relationships);
 
         // 3. Call the AI. Track usage on success and failure alike (parity with LoremasterService).
         var request = new AuditAiRequest
@@ -194,9 +195,9 @@ public class ContinuityAuditService : IContinuityAuditService
 
         await _assessmentRepository.CreateAsync(assessment, findings, ct);
 
-        // At creation every finding is Open, so effective == snapshot.
+        // At creation every finding is Open and nothing is stale, so effective == snapshot.
         return AppResult<ContinuityAssessment>.Success(
-            ToAssessment(assessment, findings, heuristic));
+            ToAssessment(assessment, findings, heuristic, recordLookup));
     }
 
     public async Task<AppResult<ContinuityAssessment>> GetLatestAsync(Guid worldId, CancellationToken ct)
@@ -209,19 +210,22 @@ public class ContinuityAuditService : IContinuityAuditService
         }
 
         // Effective score uses the current heuristic (always fresh/free) minus penalties for the
-        // findings that are still Open — dismissing a finding raises the effective score.
+        // findings that are still Open and still grounded — dismissing a finding, or editing the
+        // evidence it cites (which makes it stale), raises the effective score.
         var heuristicResult = await _healthService.GetHealthAsync(worldId, ct);
         var heuristic = heuristicResult.IsSuccess ? heuristicResult.Value!.OverallScore : 0;
 
+        var recordLookup = await LoadRecordLookupAsync(assessment.Findings, ct);
+
         return AppResult<ContinuityAssessment>.Success(
-            ToAssessment(assessment, assessment.Findings, heuristic));
+            ToAssessment(assessment, assessment.Findings, heuristic, recordLookup));
     }
 
     public async Task<AppResult<ContinuityFindingView>> DismissFindingAsync(
         Guid worldId, Guid findingId, CancellationToken ct)
     {
         var finding = await _assessmentRepository.GetFindingByIdAsync(findingId, ct);
-        if (finding is null)
+        if (finding is null || finding.HealthAssessment.WorldId != worldId)
         {
             return AppResult<ContinuityFindingView>.Fail(
                 new AppError(404, "not_found", "Finding not found."));
@@ -233,7 +237,10 @@ public class ContinuityAuditService : IContinuityAuditService
             finding = await _assessmentRepository.UpdateFindingAsync(finding, ct);
         }
 
-        return AppResult<ContinuityFindingView>.Success(ToFindingView(finding));
+        var recordLookup = await LoadRecordLookupAsync([finding], ct);
+
+        return AppResult<ContinuityFindingView>.Success(
+            ToFindingView(finding, finding.HealthAssessment.CreatedAt, recordLookup));
     }
 
     // ---------------------------------------------------------------- Scoring (deterministic) --
@@ -356,15 +363,146 @@ public class ContinuityAuditService : IContinuityAuditService
         return null;
     }
 
+    // ------------------------------------------------------------------ Evidence resolution --
+
+    /// <summary>
+    /// The world items evidence refs resolve against, keyed by id. Built in-memory during a run
+    /// (the record is already loaded) and loaded by cited ids everywhere else.
+    /// </summary>
+    internal sealed record RecordLookup(
+        IReadOnlyDictionary<Guid, Artifact> Artifacts,
+        IReadOnlyDictionary<Guid, ArtifactFact> Facts,
+        IReadOnlyDictionary<Guid, ArtifactRelationship> Relationships);
+
+    internal static RecordLookup BuildRecordLookup(
+        IReadOnlyList<Artifact> artifacts,
+        IReadOnlyList<ArtifactFact> facts,
+        IReadOnlyList<ArtifactRelationship> relationships) => new(
+        artifacts.ToDictionary(a => a.Id),
+        facts.ToDictionary(f => f.Id),
+        relationships.ToDictionary(r => r.Id));
+
+    /// <summary>
+    /// Loads just the items the given findings cite (plus the artifacts that own or anchor
+    /// them, for labels and navigation) — a handful of by-id lookups, not a record re-read.
+    /// </summary>
+    private async Task<RecordLookup> LoadRecordLookupAsync(
+        IEnumerable<ContinuityFinding> findings, CancellationToken ct)
+    {
+        var artifactIds = new HashSet<Guid>();
+        var factIds = new HashSet<Guid>();
+        var relIds = new HashSet<Guid>();
+
+        foreach (var finding in findings)
+        {
+            foreach (var refId in DeserializeEvidence(finding.EvidenceJson))
+            {
+                if (!TryParseRef(refId, out var kind, out var id))
+                    continue;
+                switch (kind)
+                {
+                    case "artifact": artifactIds.Add(id); break;
+                    case "fact": factIds.Add(id); break;
+                    case "rel": relIds.Add(id); break;
+                }
+            }
+        }
+
+        var facts = await _factRepository.ListByIdsAsync([.. factIds], ct);
+        var relationships = await _relationshipRepository.ListByIdsAsync([.. relIds], ct);
+
+        // Owning/endpoint artifacts ride along so fact and relationship labels can be named.
+        foreach (var f in facts)
+            artifactIds.Add(f.ArtifactId);
+        foreach (var r in relationships)
+        {
+            artifactIds.Add(r.ArtifactAId);
+            artifactIds.Add(r.ArtifactBId);
+        }
+
+        var artifacts = await _artifactRepository.ListByIdsAsync([.. artifactIds], ct);
+
+        return BuildRecordLookup(artifacts, facts, relationships);
+    }
+
+    /// <summary>Splits a normalized "kind:guid" evidence ref into its parts.</summary>
+    internal static bool TryParseRef(string refId, out string kind, out Guid id)
+    {
+        kind = string.Empty;
+        id = Guid.Empty;
+
+        var separator = refId.IndexOf(':');
+        if (separator <= 0)
+            return false;
+        if (!Guid.TryParse(refId[(separator + 1)..], out id))
+            return false;
+
+        kind = refId[..separator].ToLowerInvariant();
+        return true;
+    }
+
+    internal static ContinuityEvidenceItemView BuildEvidenceItem(
+        string refId, DateTimeOffset assessedAt, RecordLookup lookup)
+    {
+        if (!TryParseRef(refId, out var kind, out var id))
+            return new ContinuityEvidenceItemView(refId, "Item", "Unrecognized reference", null, false, true);
+
+        switch (kind)
+        {
+            case "artifact" when lookup.Artifacts.TryGetValue(id, out var artifact):
+                return new ContinuityEvidenceItemView(
+                    refId, "Artifact", artifact.Name, artifact.Id,
+                    artifact.UpdatedAt > assessedAt, false);
+
+            case "artifact":
+                return new ContinuityEvidenceItemView(
+                    refId, "Artifact", "No longer in the record", null, false, true);
+
+            case "fact" when lookup.Facts.TryGetValue(id, out var fact):
+                var owner = lookup.Artifacts.GetValueOrDefault(fact.ArtifactId);
+                return new ContinuityEvidenceItemView(
+                    refId, "Fact",
+                    $"{owner?.Name ?? "Unknown artifact"} — {fact.Predicate}: {Truncate(fact.Value, 80)}",
+                    fact.ArtifactId, fact.UpdatedAt > assessedAt, false);
+
+            case "fact":
+                return new ContinuityEvidenceItemView(
+                    refId, "Fact", "No longer in the record", null, false, true);
+
+            case "rel" when lookup.Relationships.TryGetValue(id, out var rel):
+                var a = lookup.Artifacts.GetValueOrDefault(rel.ArtifactAId)?.Name ?? "Unknown artifact";
+                var b = lookup.Artifacts.GetValueOrDefault(rel.ArtifactBId)?.Name ?? "Unknown artifact";
+                return new ContinuityEvidenceItemView(
+                    refId, "Relationship", $"{a} ↔ {b} — {rel.Type}", rel.ArtifactAId,
+                    rel.UpdatedAt > assessedAt, false);
+
+            case "rel":
+                return new ContinuityEvidenceItemView(
+                    refId, "Relationship", "No longer in the record", null, false, true);
+
+            default:
+                return new ContinuityEvidenceItemView(refId, "Item", "Unrecognized reference", null, false, true);
+        }
+    }
+
+    private static string Truncate(string value, int max) =>
+        value.Length <= max ? value : value[..max].TrimEnd() + "…";
+
     // ---------------------------------------------------------------------------- Mapping --
 
-    private ContinuityAssessment ToAssessment(
-        HealthAssessment assessment, IEnumerable<ContinuityFinding> findings, int heuristic)
+    private static ContinuityAssessment ToAssessment(
+        HealthAssessment assessment, IEnumerable<ContinuityFinding> findings, int heuristic,
+        RecordLookup lookup)
     {
         var list = findings.ToList();
-        var openSeverities = list
-            .Where(f => f.Status == ContinuityFindingStatus.Open)
-            .Select(f => f.Severity);
+        var views = list.Select(f => ToFindingView(f, assessment.CreatedAt, lookup)).ToList();
+
+        // Stale findings stop counting: their cited evidence changed after the audit ran, so
+        // the claim is unverified until the next run. The GM acted on exactly the items the
+        // finding named — the score should respond the way a dismissal does.
+        var countedSeverities = list.Zip(views)
+            .Where(p => p.First.Status == ContinuityFindingStatus.Open && !p.Second.IsStale)
+            .Select(p => p.First.Severity);
 
         return new ContinuityAssessment(
             HasData: true,
@@ -372,20 +510,31 @@ public class ContinuityAuditService : IContinuityAuditService
             CreatedAt: assessment.CreatedAt,
             Model: assessment.Model,
             Score: assessment.Score,
-            EffectiveScore: BlendScore(heuristic, openSeverities),
+            EffectiveScore: BlendScore(heuristic, countedSeverities),
             HeuristicScore: heuristic,
-            Findings: list.Select(ToFindingView).ToList());
+            Findings: views);
     }
 
-    private static ContinuityFindingView ToFindingView(ContinuityFinding f) => new(
-        f.Id,
-        f.Category.ToString(),
-        f.Severity.ToString(),
-        f.Summary,
-        f.SuggestedAction,
-        DeserializeEvidence(f.EvidenceJson),
-        f.ArtifactId,
-        f.Status.ToString());
+    private static ContinuityFindingView ToFindingView(
+        ContinuityFinding f, DateTimeOffset assessedAt, RecordLookup lookup)
+    {
+        var evidence = DeserializeEvidence(f.EvidenceJson);
+        var items = evidence
+            .Select(refId => BuildEvidenceItem(refId, assessedAt, lookup))
+            .ToList();
+
+        return new ContinuityFindingView(
+            f.Id,
+            f.Category.ToString(),
+            f.Severity.ToString(),
+            f.Summary,
+            f.SuggestedAction,
+            evidence,
+            items,
+            f.ArtifactId,
+            f.Status.ToString(),
+            IsStale: items.Any(i => i.ChangedSinceAudit || i.Missing));
+    }
 
     private static IReadOnlyList<string> DeserializeEvidence(string json)
     {

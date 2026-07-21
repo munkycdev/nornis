@@ -52,7 +52,13 @@ public class InMemoryHealthAssessmentRepository : IHealthAssessmentRepository
     public Task<ContinuityFinding?> GetFindingByIdAsync(
         Guid findingId, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(_findings.FirstOrDefault(f => f.Id == findingId));
+        var finding = _findings.FirstOrDefault(f => f.Id == findingId);
+        if (finding is not null)
+        {
+            // Mirrors the EF repository, which includes the parent assessment.
+            finding.HealthAssessment = _assessments.First(a => a.Id == finding.HealthAssessmentId);
+        }
+        return Task.FromResult(finding);
     }
 
     public Task<ContinuityFinding> UpdateFindingAsync(

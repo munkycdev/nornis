@@ -27,4 +27,13 @@ public interface IArtifactFactRepository
         VisibilityFilter filter,
         int maxPerArtifact,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Facts by their own ids, unfiltered (mirrors <see cref="GetByIdAsync"/>) — for GM-gated
+    /// internal work such as resolving continuity-finding evidence refs. Missing ids are
+    /// silently absent from the result.
+    /// </summary>
+    Task<IReadOnlyList<ArtifactFact>> ListByIdsAsync(
+        IReadOnlyList<Guid> ids,
+        CancellationToken cancellationToken = default);
 }

@@ -85,4 +85,16 @@ public class ArtifactFactRepository : IArtifactFactRepository
             .SelectMany(g => g.Take(maxPerArtifact))
             .ToList();
     }
+
+    public async Task<IReadOnlyList<ArtifactFact>> ListByIdsAsync(
+        IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        if (ids.Count == 0)
+            return [];
+
+        return await _context.ArtifactFacts
+            .AsNoTracking()
+            .Where(f => ids.Contains(f.Id))
+            .ToListAsync(cancellationToken);
+    }
 }

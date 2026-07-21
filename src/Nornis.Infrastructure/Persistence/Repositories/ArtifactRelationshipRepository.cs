@@ -37,6 +37,18 @@ public class ArtifactRelationshipRepository : IArtifactRelationshipRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ArtifactRelationship>> ListByIdsAsync(
+        IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        if (ids.Count == 0)
+            return [];
+
+        return await _context.ArtifactRelationships
+            .AsNoTracking()
+            .Where(ar => ids.Contains(ar.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<ArtifactRelationship>> ListByArtifactIdsAsync(
         IReadOnlyList<Guid> artifactIds,
         VisibilityFilter filter,

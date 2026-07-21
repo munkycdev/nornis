@@ -66,4 +66,11 @@ public class InMemoryArtifactRelationshipRepository : IArtifactRelationshipRepos
         }
         return Task.FromResult(relationship);
     }
+
+    public Task<IReadOnlyList<ArtifactRelationship>> ListByIdsAsync(
+        IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var results = _relationships.Where(r => ids.Contains(r.Id)).ToList();
+        return Task.FromResult<IReadOnlyList<ArtifactRelationship>>(results.AsReadOnly());
+    }
 }

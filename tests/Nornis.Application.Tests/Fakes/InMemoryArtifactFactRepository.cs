@@ -63,4 +63,11 @@ public class InMemoryArtifactFactRepository : IArtifactFactRepository
             .ToList();
         return Task.FromResult<IReadOnlyList<ArtifactFact>>(results.AsReadOnly());
     }
+
+    public Task<IReadOnlyList<ArtifactFact>> ListByIdsAsync(
+        IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var results = _facts.Where(f => ids.Contains(f.Id)).ToList();
+        return Task.FromResult<IReadOnlyList<ArtifactFact>>(results.AsReadOnly());
+    }
 }
