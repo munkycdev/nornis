@@ -30,6 +30,7 @@ else
             <a href="@($"/w/{Slug}")" class="@TabClass("home")">Overview</a>
             <a href="@($"/w/{Slug}/artifacts")" class="@TabClass("artifacts")">Codex</a>
             <a href="@($"/w/{Slug}/timeline")" class="@TabClass("timeline")">Timeline</a>
+            <a href="@($"/w/{Slug}/locations")" class="@TabClass("locations")">Locations</a>
             <a href="@($"/w/{Slug}/sources")" class="@TabClass("sources")">Sessions</a>
         </nav>
     </div>
@@ -40,7 +41,7 @@ else
 @code {
     [Parameter, EditorRequired] public string Slug { get; set; } = string.Empty;
 
-    /// <summary>Which tab renders as active: home | artifacts | timeline | sources.</summary>
+    /// <summary>Which tab renders as active: home | artifacts | timeline | locations | sources.</summary>
     [Parameter, EditorRequired] public string Active { get; set; } = "home";
 
     [Parameter, EditorRequired] public RenderFragment<PublicWorldDto> ChildContent { get; set; } = null!;

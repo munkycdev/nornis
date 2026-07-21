@@ -1,0 +1,196 @@
+@page "/w/{Slug}/locations"
+@layout PublicLayout
+@using System.Globalization
+@inject NornisApiClient Api
+
+<PageTitle>Locations — Nornis</PageTitle>
+
+@* The anonymous mirror of the members' Locations page: the place-first view over the world
+   map. Click a pin and the panel becomes a tree of the dated sessions that visited that place,
+   each opening to the artifacts it touched. Reuses the public /journey read model verbatim —
+   the same one the public Timeline's journey view already reads — with links pointed at the
+   /w/{slug} routes. Read-only, Observer-scoped (party-visible only), rate-limited. *@
+
+<PublicWorldFrame Slug="@Slug" Active="locations">
+    <ChildContent Context="world">
+        @if (_noMap)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+                <MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Large" Class="nornis-comingsoon-icon" />
+                <MudText Typo="Typo.h5" Class="nornis-serif">No places charted yet</MudText>
+                <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+                    Once a map is pinned to this world, every place the party has been will open
+                    here to show the sessions that visited it.
+                </MudText>
+            </MudPaper>
+        }
+        else if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_journey is null)
+        {
+            <LoadingRows Rows="3" />
+        }
+        else
+        {
+            <div class="nornis-journey-stage">
+                <div class="nornis-journey-map">
+                    <img src="@_journey.ImageUrl" alt="World map" />
+
+                    @foreach (var loc in _journey.Locations)
+                    {
+                        <button type="button"
+                                class="nornis-journey-pin @(loc.ArtifactId == _selectedPinId ? "is-selected" : "")"
+                                style="left:@Css(loc.X * 100m)%; top:@Css(loc.Y * 100m)%"
+                                @onclick="() => OnPinClick(loc.ArtifactId)">
+                            <span class="nornis-journey-pin-dot"></span>
+                            <span class="nornis-journey-pin-label">@PinName(loc)</span>
+                        </button>
+                    }
+                </div>
+
+                <aside class="nornis-journey-ledger">
+                    @if (SelectedLocation is { } place)
+                    {
+                        <div class="nornis-journey-ledger-eye">
+                            Place
+                            <button type="button" class="nornis-journey-close" @onclick="ClearSelection"
+                                    aria-label="Clear selection" title="Clear selection">&times;</button>
+                        </div>
+                        <div class="nornis-journey-ledger-title nornis-serif">@place.Name</div>
+
+                        @if (SelectedSessions.Count == 0)
+                        {
+                            <div class="nornis-journey-ledger-empty">No dated session has visited @place.Name yet.</div>
+                        }
+                        else
+                        {
+                            <div class="nornis-journey-ledger-meta">
+                                <b>@SelectedSessions.Count</b> dated session@(SelectedSessions.Count == 1 ? "" : "s") visited this place
+                            </div>
+                            <ul class="nornis-journey-tree">
+                                @foreach (var session in SelectedSessions)
+                                {
+                                    <li class="nornis-journey-tree-note">
+                                        <button type="button" class="nornis-journey-tree-head"
+                                                @onclick="() => ToggleNote(session.SourceId)">
+                                            <span class="nornis-journey-tree-caret @(IsExpanded(session.SourceId) ? "is-open" : "")">&#9656;</span>
+                                            <span class="nornis-journey-tree-title">@session.Title</span>
+                                            <span class="nornis-journey-tree-date">@session.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)</span>
+                                        </button>
+
+                                        @if (IsExpanded(session.SourceId))
+                                        {
+                                            @if (session.Highlights.Count == 0)
+                                            {
+                                                <div class="nornis-journey-tree-empty">No artifacts recorded for this session.</div>
+                                            }
+                                            else
+                                            {
+                                                <ul class="nornis-journey-tree-arts">
+                                                    @foreach (var h in session.Highlights)
+                                                    {
+                                                        <li><JourneyArtifactRow Highlight="h" LinkBase="@($"/w/{Slug}/artifacts")" ShowNote="false" /></li>
+                                                    }
+                                                </ul>
+                                            }
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    }
+                    else
+                    {
+                        <div class="nornis-journey-ledger-eye">Places</div>
+                        <div class="nornis-journey-ledger-title nornis-serif">
+                            @_journey.Locations.Count place@(_journey.Locations.Count == 1 ? "" : "s") on this map
+                        </div>
+                        <div class="nornis-journey-ledger-empty">
+                            Select a place on the map to trace its history — the dated sessions that visited
+                            it, each opening to what they touched.
+                        </div>
+                    }
+                </aside>
+            </div>
+        }
+    </ChildContent>
+</PublicWorldFrame>
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    private JourneyDto? _journey;
+    private bool _noMap;
+    private string? _error;
+    private string? _loadedSlug;
+
+    private Guid? _selectedPinId;
+    private readonly HashSet<Guid> _collapsedNotes = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Slug == _loadedSlug)
+        {
+            return;
+        }
+
+        // Reset per-slug view state so navigating between worlds never shows a stale selection.
+        _loadedSlug = Slug;
+        _journey = null;
+        _noMap = false;
+        _error = null;
+        _selectedPinId = null;
+        _collapsedNotes.Clear();
+
+        var result = await Api.GetPublicJourneyAsync(Slug);
+        if (result.IsSuccess)
+        {
+            _journey = result.Value!;
+        }
+        else if (result.Error!.Code == "no_map")
+        {
+            _noMap = true;
+        }
+        else
+        {
+            _error = result.Error!.Message;
+        }
+    }
+
+    private JourneyLocationDto? SelectedLocation =>
+        _selectedPinId is { } id ? _journey?.Locations.FirstOrDefault(l => l.ArtifactId == id) : null;
+
+    /// <summary>The selected place's visiting sessions, oldest first (empty when nothing is selected).</summary>
+    private IReadOnlyList<JourneyStopDto> SelectedSessions =>
+        SelectedLocation is { } place ? SessionsForPin(place.ArtifactId) : [];
+
+    /// <summary>The dated sessions that visited a place, oldest first (Stops arrive OccurredAt-ordered).</summary>
+    private IReadOnlyList<JourneyStopDto> SessionsForPin(Guid pinId) =>
+        _journey!.Stops.Where(s => s.VisitedLocationIds.Contains(pinId)).ToList();
+
+    private void OnPinClick(Guid artifactId)
+    {
+        // Toggle: clicking the open place closes it. A fresh place opens with its sessions expanded.
+        _selectedPinId = _selectedPinId == artifactId ? null : artifactId;
+        _collapsedNotes.Clear();
+    }
+
+    private void ClearSelection() => _selectedPinId = null;
+
+    private bool IsExpanded(Guid sourceId) => !_collapsedNotes.Contains(sourceId);
+
+    private void ToggleNote(Guid sourceId)
+    {
+        if (!_collapsedNotes.Add(sourceId))
+        {
+            _collapsedNotes.Remove(sourceId);
+        }
+    }
+
+    private static string PinName(JourneyLocationDto loc) =>
+        string.IsNullOrWhiteSpace(loc.Label) ? loc.Name : loc.Label;
+
+    private static string Css(decimal value) => value.ToString(CultureInfo.InvariantCulture);
+}
