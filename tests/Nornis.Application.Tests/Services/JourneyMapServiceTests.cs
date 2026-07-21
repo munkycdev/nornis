@@ -71,12 +71,12 @@ public class JourneyMapServiceTests
 
     private Artifact SeedArtifact(string name, ArtifactType type = ArtifactType.Location,
         VisibilityScope visibility = VisibilityScope.PartyVisible, Guid? owner = null,
-        ArtifactStatus status = ArtifactStatus.Active)
+        ArtifactStatus status = ArtifactStatus.Active, string? summary = null)
     {
         var a = new Artifact
         {
             Id = Guid.NewGuid(), WorldId = WorldId, Type = type, Name = name,
-            Visibility = visibility, CreatedByUserId = owner, Status = status,
+            Visibility = visibility, CreatedByUserId = owner, Status = status, Summary = summary,
             CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
         };
         _artifacts.Seed(a);
@@ -90,11 +90,12 @@ public class JourneyMapServiceTests
     });
 
     private Source SeedSession(DateTimeOffset? occurredAt,
-        VisibilityScope visibility = VisibilityScope.PartyVisible, Guid? owner = null, string title = "Session")
+        VisibilityScope visibility = VisibilityScope.PartyVisible, Guid? owner = null,
+        string title = "Session", SourceType type = SourceType.SessionNote)
     {
         var source = new Source
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = SourceType.SessionNote, Title = title,
+            Id = Guid.NewGuid(), WorldId = WorldId, Type = type, Title = title,
             Visibility = visibility, ProcessingStatus = SourceProcessingStatus.Processed,
             CreatedByUserId = owner ?? GmId, CreatedAt = DateTimeOffset.UtcNow, OccurredAt = occurredAt
         };
@@ -284,5 +285,65 @@ public class JourneyMapServiceTests
         var types = result.Value!.Stops[0].Highlights.Select(h => h.Type).ToList();
         Assert.That(types, Does.Contain("Location"));
         Assert.That(types, Does.Contain("Event"));
+    }
+
+    [Test]
+    public async Task ImportedNote_IsIncludedOnTheTimeline()
+    {
+        var (_, map) = SeedMap();
+        var loc = SeedArtifact("Black Harbor");
+        SeedPin(map.Id, loc.Id);
+        var note = SeedSession(Feb, type: SourceType.ImportedNote, title: "Imported lore");
+        SeedTouch(note.Id, loc.Id);
+
+        var result = await Run(mapSourceId: null, GmId, WorldRole.GM);
+
+        Assert.That(result.Value!.Stops, Has.Count.EqualTo(1));
+        Assert.That(result.Value.Stops[0].Title, Is.EqualTo("Imported lore"));
+        Assert.That(result.Value.Stops[0].VisitedLocationIds, Is.EqualTo(new[] { loc.Id }));
+    }
+
+    [Test]
+    public async Task NonSessionSource_ThatVisitedAPin_IsNotAStop()
+    {
+        // A GM note can reference a pinned place, but the timeline is sessions and imported notes
+        // only — it must not surface a GM aside (or an upload, web link, reveal, …) as a stop.
+        var (_, map) = SeedMap();
+        var loc = SeedArtifact("Black Harbor");
+        SeedPin(map.Id, loc.Id);
+        var gmNote = SeedSession(Jan, type: SourceType.GMNote);
+        SeedTouch(gmNote.Id, loc.Id);
+
+        var result = await Run(mapSourceId: null, GmId, WorldRole.GM);
+
+        Assert.That(result.Value!.Stops, Is.Empty);
+    }
+
+    [Test]
+    public async Task DatedSession_ThatVisitedNoPinnedPlace_IsStillAStopWithNoVisits()
+    {
+        var (_, map) = SeedMap();
+        SeedPin(map.Id, SeedArtifact("Black Harbor").Id); // a pin so the map can anchor a journey
+        var stayIn = SeedSession(Jan); // references nothing on the map
+
+        var result = await Run(mapSourceId: null, GmId, WorldRole.GM);
+
+        Assert.That(result.Value!.Stops, Has.Count.EqualTo(1));
+        Assert.That(result.Value.Stops[0].SourceId, Is.EqualTo(stayIn.Id));
+        Assert.That(result.Value.Stops[0].VisitedLocationIds, Is.Empty);
+    }
+
+    [Test]
+    public async Task Highlight_CarriesTheArtifactSummary()
+    {
+        var (_, map) = SeedMap();
+        var loc = SeedArtifact("Black Harbor", summary: "A fog-wrapped port on the northern reach.");
+        SeedPin(map.Id, loc.Id);
+        SeedTouch(SeedSession(Jan).Id, loc.Id);
+
+        var result = await Run(mapSourceId: null, GmId, WorldRole.GM);
+
+        var highlight = result.Value!.Stops[0].Highlights.Single(h => h.ArtifactId == loc.Id);
+        Assert.That(highlight.Summary, Is.EqualTo("A fog-wrapped port on the northern reach."));
     }
 }

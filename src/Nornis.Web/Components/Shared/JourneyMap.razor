@@ -1,29 +1,19 @@
 @using System.Globalization
 @implements IAsyncDisposable
-@inject NavigationManager Nav
 @inject IJSRuntime JS
 
-@* The Journey: a world map with the party's trail across the sessions that visited its
-   pinned locations. Pins are percentage-positioned over the image (like MapViewer); the
-   trail is an SVG overlay in the same 0..100 space. Everything is a projection of one
-   stop index — dragging the playhead (nornis-journey.js), clicking a session tick, or the
-   arrow keys move it. *@
+@* The Journey: a world map above, a timeline of the party's sessions and imported notes pinned
+   to the bottom of the viewport. Two ways in, both projections of this one read model:
+     • pick a session on the timeline → the map lights up the places that session visited, and the
+       panel on the right lists that session's artifacts alone (never the ones before it);
+     • click a place on the map → the panel becomes a tree of the dated notes that visited it, each
+       expanding to its artifacts.
+   Artifact rows carry the same hover summary tooltip (ArtifactTip) used everywhere else. *@
 
 <div class="nornis-journey">
     <div class="nornis-journey-stage">
         <div class="nornis-journey-map">
             <img src="@Data.ImageUrl" alt="World map" />
-
-            <svg class="nornis-journey-trail-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                @if (_routePoints is not null)
-                {
-                    <polyline class="nornis-journey-route" points="@_routePoints" vector-effect="non-scaling-stroke" />
-                }
-                @if (_trailPoints is not null)
-                {
-                    <polyline class="nornis-journey-trail" points="@_trailPoints" vector-effect="non-scaling-stroke" />
-                }
-            </svg>
 
             @foreach (var loc in Data.Locations)
             {
@@ -32,15 +22,67 @@
                         data-nornis-tip="@PinTip(loc)"
                         @onclick="() => OnPinClick(loc.ArtifactId)">
                     <span class="nornis-journey-pin-dot"></span>
-                    <span class="nornis-journey-pin-label">@(string.IsNullOrWhiteSpace(loc.Label) ? loc.Name : loc.Label)</span>
+                    <span class="nornis-journey-pin-label">@PinName(loc)</span>
                 </button>
             }
         </div>
 
         <aside class="nornis-journey-ledger">
-            @if (CurrentStop is { } stop)
+            @if (SelectedLocation is { } city)
             {
-                <div class="nornis-journey-ledger-eye">Session @(_stopIndex + 1) <span>of @Data.Stops.Count</span></div>
+                @* ---- place mode: a tree of the dated notes that visited this place ---- *@
+                <div class="nornis-journey-ledger-eye">
+                    Place
+                    <button type="button" class="nornis-journey-close" @onclick="ClearLocation"
+                            aria-label="Back to the timeline" title="Back to the timeline">&times;</button>
+                </div>
+                <div class="nornis-journey-ledger-title nornis-serif">@city.Name</div>
+
+                @if (SelectedNotes.Count == 0)
+                {
+                    <div class="nornis-journey-ledger-empty">No dated note has visited @city.Name yet.</div>
+                }
+                else
+                {
+                    <div class="nornis-journey-ledger-meta">
+                        <b>@SelectedNotes.Count</b> dated note@(SelectedNotes.Count == 1 ? "" : "s") visited this place
+                    </div>
+                    <ul class="nornis-journey-tree">
+                        @foreach (var note in SelectedNotes)
+                        {
+                            <li class="nornis-journey-tree-note">
+                                <button type="button" class="nornis-journey-tree-head"
+                                        @onclick="() => ToggleNote(note.SourceId)">
+                                    <span class="nornis-journey-tree-caret @(IsExpanded(note.SourceId) ? "is-open" : "")">&#9656;</span>
+                                    <span class="nornis-journey-tree-title">@note.Title</span>
+                                    <span class="nornis-journey-tree-date">@note.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)</span>
+                                </button>
+
+                                @if (IsExpanded(note.SourceId))
+                                {
+                                    @if (note.Highlights.Count == 0)
+                                    {
+                                        <div class="nornis-journey-tree-empty">No artifacts recorded for this note.</div>
+                                    }
+                                    else
+                                    {
+                                        <ul class="nornis-journey-tree-arts">
+                                            @foreach (var h in note.Highlights)
+                                            {
+                                                <li><JourneyArtifactRow Highlight="h" LinkBase="@ArtifactLinkBase" ShowNote="false" /></li>
+                                            }
+                                        </ul>
+                                    }
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            }
+            else if (CurrentStop is { } stop)
+            {
+                @* ---- session mode: this stop's artifacts alone ---- *@
+                <div class="nornis-journey-ledger-eye">@(_stopIndex + 1) <span>of @Data.Stops.Count</span></div>
                 <a class="nornis-journey-ledger-title nornis-serif" href="@($"{SourceLinkBase}/{stop.SourceId}")">@stop.Title</a>
                 <div class="nornis-journey-ledger-meta">
                     <b>@stop.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)</b>
@@ -52,33 +94,24 @@
 
                 @if (stop.Highlights.Count == 0)
                 {
-                    <div class="nornis-journey-ledger-empty">No canon changed in this session.</div>
+                    <div class="nornis-journey-ledger-empty">No artifacts were recorded for this entry.</div>
                 }
                 else
                 {
                     <ul class="nornis-journey-hl">
                         @foreach (var h in stop.Highlights)
                         {
-                            <li>
-                                <a href="@($"{ArtifactLinkBase}/{h.ArtifactId}")">
-                                    <span class="nornis-journey-chip type-@h.Type.ToLowerInvariant()">@h.Type</span>
-                                    <span class="nornis-journey-hl-name">@h.Name</span>
-                                    @if (HighlightNote(h) is { } note)
-                                    {
-                                        <span class="nornis-journey-hl-note">— @note</span>
-                                    }
-                                </a>
-                            </li>
+                            <li><JourneyArtifactRow Highlight="h" LinkBase="@ArtifactLinkBase" ShowNote="true" /></li>
                         }
                     </ul>
                 }
             }
             else
             {
-                <div class="nornis-journey-ledger-eye">The trail</div>
+                <div class="nornis-journey-ledger-eye">The timeline</div>
                 <div class="nornis-journey-ledger-empty">
-                    These places are on the map, but no dated session has visited them yet.
-                    Give a session an "occurred at" date to place it on the trail.
+                    No dated session or imported note yet. Give one an "occurred at" date to place it
+                    on the timeline.
                 </div>
             }
         </aside>
@@ -88,13 +121,12 @@
     {
         <div class="nornis-journey-scrub">
             <div class="nornis-journey-scrub-head">
-                <span class="nornis-journey-scrub-label">The party's course · @RangeLabel</span>
-                <span class="nornis-journey-scrub-hint">drag the playhead, click a session, or use ← →</span>
+                <span class="nornis-journey-scrub-label">Sessions &amp; imported notes · @RangeLabel</span>
+                <span class="nornis-journey-scrub-hint">click an entry, drag the marker, or use ← →</span>
             </div>
 
             <div id="@_railId" class="nornis-journey-rail">
                 <div class="nornis-journey-rail-track"></div>
-                <div class="nornis-journey-rail-fill" style="width:@Css(CurrentPct)%"></div>
 
                 @foreach (var month in MonthTicks)
                 {
@@ -113,24 +145,32 @@
                             @onclick="() => SetStop(idx)"></button>
                 }
 
-                <div class="nornis-journey-playhead" style="left:@Css(CurrentPct)%">
-                    <div class="nornis-journey-playhead-line"></div>
-                    <div class="nornis-journey-handle" tabindex="0" role="slider"
-                         aria-label="Session playhead"
-                         aria-valuemin="1" aria-valuemax="@Data.Stops.Count" aria-valuenow="@(_stopIndex + 1)"
-                         aria-valuetext="@(CurrentStop?.Title)"
-                         @onkeydown="OnHandleKey"></div>
-                </div>
+                @if (_selectedLocationId is null)
+                {
+                    <div class="nornis-journey-playhead" style="left:@Css(CurrentPct)%">
+                        <div class="nornis-journey-playhead-line"></div>
+                        <div class="nornis-journey-handle" tabindex="0" role="slider"
+                             aria-label="Timeline marker"
+                             aria-valuemin="1" aria-valuemax="@Data.Stops.Count" aria-valuenow="@(_stopIndex + 1)"
+                             aria-valuetext="@(CurrentStop?.Title)"
+                             @onkeydown="OnHandleKey"></div>
+                    </div>
+                }
             </div>
 
             <div class="nornis-journey-foot">
-                <span class="nornis-journey-leg"><span class="nornis-journey-swatch reached"></span> traveled</span>
-                <span class="nornis-journey-leg"><span class="nornis-journey-swatch current"></span> current stop</span>
-                <span class="nornis-journey-leg"><span class="nornis-journey-swatch future"></span> not yet reached</span>
+                @if (SelectedLocation is { } place)
+                {
+                    <span class="nornis-journey-legend">Highlighted entries visited <b>@place.Name</b> — pick one to leave this place.</span>
+                }
+                else
+                {
+                    <span class="nornis-journey-legend">Showing entry <b>@(_stopIndex + 1)</b> of @Data.Stops.Count.</span>
+                }
                 @if (Data.UndatedSessionCount > 0)
                 {
                     <span class="nornis-journey-note">
-                        @Data.UndatedSessionCount undated session@(Data.UndatedSessionCount == 1 ? "" : "s") not placed on the trail
+                        @Data.UndatedSessionCount undated @(Data.UndatedSessionCount == 1 ? "entry is" : "entries are") not placed on the timeline
                     </span>
                 }
             </div>
@@ -139,7 +179,7 @@
     else if (Data.UndatedSessionCount > 0)
     {
         <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
-            @Data.UndatedSessionCount session@(Data.UndatedSessionCount == 1 ? " has" : "s have") no "occurred at" date and cannot be placed on the trail.
+            @Data.UndatedSessionCount @(Data.UndatedSessionCount == 1 ? "entry has" : "entries have") no "occurred at" date and cannot be placed on the timeline.
         </MudText>
     }
 </div>
@@ -155,68 +195,50 @@
     private DotNetObjectReference<JourneyMap>? _selfRef;
     private bool _jsInitialized;
 
+    // The two mutually-exclusive selections. _stopIndex is the timeline entry in focus; a non-null
+    // _selectedLocationId switches the right panel to that place's tree of notes.
     private int _stopIndex;
-
-    // Precomputed once from Data: the earliest stop each location was first visited, and the
-    // canonical route order (by first visit). Locations no session visited are absent here.
-    private Dictionary<Guid, int> _firstReachedStop = new();
-    private List<JourneyLocationDto> _routeOrder = [];
-
-    private string? _routePoints;
-    private string? _trailPoints;
+    private bool _stopInitialized;
+    private Guid? _selectedLocationId;
+    private readonly HashSet<Guid> _collapsedNotes = new();
 
     private JourneyStopDto? CurrentStop => Data.Stops.Count > 0 ? Data.Stops[_stopIndex] : null;
 
+    private JourneyLocationDto? SelectedLocation =>
+        _selectedLocationId is { } id ? Data.Locations.FirstOrDefault(l => l.ArtifactId == id) : null;
+
     protected override void OnParametersSet()
     {
-        // Map each location to the earliest stop that visited it.
-        _firstReachedStop = new Dictionary<Guid, int>();
-        for (var i = 0; i < Data.Stops.Count; i++)
-        {
-            foreach (var locId in Data.Stops[i].VisitedLocationIds)
-            {
-                if (!_firstReachedStop.ContainsKey(locId))
-                {
-                    _firstReachedStop[locId] = i;
-                }
-            }
-        }
-
-        var byId = Data.Locations.ToDictionary(l => l.ArtifactId);
-        _routeOrder = _firstReachedStop
-            .OrderBy(kv => kv.Value)
-            .Where(kv => byId.ContainsKey(kv.Key))
-            .Select(kv => byId[kv.Key])
-            .ToList();
-
-        _routePoints = _routeOrder.Count >= 2 ? PointsFor(_routeOrder) : null;
-
         if (_stopIndex > Data.Stops.Count - 1)
         {
             _stopIndex = Math.Max(0, Data.Stops.Count - 1);
         }
-        RecomputeTrail();
+        // Open on the most recent entry — "where the party is now" — but only once, so a data
+        // refresh doesn't yank the user's current selection.
+        if (!_stopInitialized && Data.Stops.Count > 0)
+        {
+            _stopIndex = Data.Stops.Count - 1;
+            _stopInitialized = true;
+        }
+        // A place that is no longer a visible pin (data changed under us) drops its selection.
+        if (_selectedLocationId is { } sel && Data.Locations.All(l => l.ArtifactId != sel))
+        {
+            _selectedLocationId = null;
+        }
     }
 
-    private void RecomputeTrail()
-    {
-        var reached = _routeOrder.Where(l => _firstReachedStop[l.ArtifactId] <= _stopIndex).ToList();
-        _trailPoints = reached.Count >= 2 ? PointsFor(reached) : null;
-    }
-
-    private static string PointsFor(IEnumerable<JourneyLocationDto> locs) =>
-        string.Join(" ", locs.Select(l => $"{Css(l.X * 100m)},{Css(l.Y * 100m)}"));
+    // ------------------------------------------------------------- timeline --
 
     private void SetStop(int index)
     {
         var clamped = Math.Clamp(index, 0, Math.Max(0, Data.Stops.Count - 1));
-        if (clamped == _stopIndex)
-        {
-            return;
-        }
+        var changed = clamped != _stopIndex || _selectedLocationId is not null;
         _stopIndex = clamped;
-        RecomputeTrail();
-        StateHasChanged();
+        _selectedLocationId = null; // choosing an entry leaves place mode
+        if (changed)
+        {
+            StateHasChanged();
+        }
     }
 
     [JSInvokable]
@@ -254,18 +276,92 @@
         }
     }
 
+    // ------------------------------------------------------------- place mode --
+
     private void OnPinClick(Guid artifactId)
     {
-        // Jump the scrubber to where this place was first reached; unvisited pins open the artifact.
-        if (_firstReachedStop.TryGetValue(artifactId, out var stop))
+        // Toggle: clicking the open place closes it back to the timeline.
+        if (_selectedLocationId == artifactId)
         {
-            SetStop(stop);
+            _selectedLocationId = null;
         }
         else
         {
-            Nav.NavigateTo($"{ArtifactLinkBase}/{artifactId}");
+            _selectedLocationId = artifactId;
+            _collapsedNotes.Clear(); // a fresh place opens with every note expanded
+        }
+        StateHasChanged();
+    }
+
+    private void ClearLocation()
+    {
+        _selectedLocationId = null;
+        StateHasChanged();
+    }
+
+    /// <summary>The dated notes that visited a place, oldest first — the place's own story.</summary>
+    private IReadOnlyList<JourneyStopDto> NotesForLocation(Guid locationId) =>
+        Data.Stops.Where(s => s.VisitedLocationIds.Contains(locationId)).ToList();
+
+    /// <summary>The notes for the place currently open in the panel (empty when none is).</summary>
+    private IReadOnlyList<JourneyStopDto> SelectedNotes =>
+        SelectedLocation is { } c ? NotesForLocation(c.ArtifactId) : [];
+
+    private bool IsExpanded(Guid sourceId) => !_collapsedNotes.Contains(sourceId);
+
+    private void ToggleNote(Guid sourceId)
+    {
+        if (!_collapsedNotes.Add(sourceId))
+        {
+            _collapsedNotes.Remove(sourceId);
         }
     }
+
+    // ------------------------------------------------------------- pins & nodes --
+
+    private string PinClass(Guid artifactId)
+    {
+        if (_selectedLocationId == artifactId)
+        {
+            return "is-selected";
+        }
+        if (_selectedLocationId is null && CurrentStop?.VisitedLocationIds.Contains(artifactId) == true)
+        {
+            return "is-visited";
+        }
+        return string.Empty;
+    }
+
+    private string NodeClass(int idx)
+    {
+        if (_selectedLocationId is { } locId)
+        {
+            return Data.Stops[idx].VisitedLocationIds.Contains(locId) ? "is-visited" : string.Empty;
+        }
+        return idx == _stopIndex ? "is-current" : string.Empty;
+    }
+
+    private static string PinName(JourneyLocationDto loc) =>
+        string.IsNullOrWhiteSpace(loc.Label) ? loc.Name : loc.Label;
+
+    private string PinTip(JourneyLocationDto loc) => $"{loc.Name}\nClick for the notes that visited it";
+
+    private string StopTip(JourneyStopDto stop, int idx) =>
+        $"{idx + 1}. {stop.Title}\n{stop.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}";
+
+    // ------------------------------------------------------------- ledger bits --
+
+    private string? VisitedNames(JourneyStopDto stop)
+    {
+        var byId = Data.Locations.ToDictionary(l => l.ArtifactId, l => l.Name);
+        var names = stop.VisitedLocationIds
+            .Where(byId.ContainsKey)
+            .Select(id => byId[id])
+            .ToList();
+        return names.Count > 0 ? string.Join(" · ", names) : null;
+    }
+
+    // ------------------------------------------------------------- JS lifecycle --
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -293,62 +389,9 @@
         _selfRef?.Dispose();
     }
 
-    // ------------------------------------------------------------- pin state --
-
-    private string PinClass(Guid artifactId)
-    {
-        if (!_firstReachedStop.TryGetValue(artifactId, out var first))
-        {
-            return "is-future"; // pinned but never visited on this trail
-        }
-        if (CurrentStop?.VisitedLocationIds.Contains(artifactId) == true)
-        {
-            return artifactId == HeadLocationId ? "is-current is-head" : "is-current";
-        }
-        return first <= _stopIndex ? "is-reached" : "is-future";
-    }
-
-    private Guid? HeadLocationId =>
-        _routeOrder
-            .Where(l => _firstReachedStop[l.ArtifactId] <= _stopIndex)
-            .Select(l => (Guid?)l.ArtifactId)
-            .LastOrDefault();
-
-    private string PinTip(JourneyLocationDto loc)
-    {
-        if (_firstReachedStop.TryGetValue(loc.ArtifactId, out var first))
-        {
-            return $"{loc.Name}\nFirst visited: {Data.Stops[first].Title}";
-        }
-        return $"{loc.Name}\nNot visited on this trail yet";
-    }
-
-    // ------------------------------------------------------------- ledger --
-
-    private string? VisitedNames(JourneyStopDto stop)
-    {
-        var byId = Data.Locations.ToDictionary(l => l.ArtifactId, l => l.Name);
-        var names = stop.VisitedLocationIds
-            .Where(byId.ContainsKey)
-            .Select(id => byId[id])
-            .ToList();
-        return names.Count > 0 ? string.Join(" · ", names) : null;
-    }
-
-    private static string? HighlightNote(JourneyHighlightDto h) =>
-        h.FirstSeen ? (h.Type == "Location" ? "first visit" : "new") : null;
-
     // ------------------------------------------------------------- axis --
 
-    private DateTimeOffset MinDate
-    {
-        get
-        {
-            var first = Data.Stops[0].OccurredAt;
-            var pad = PadSpan;
-            return first - pad;
-        }
-    }
+    private DateTimeOffset MinDate => Data.Stops[0].OccurredAt - PadSpan;
 
     private DateTimeOffset MaxDate => Data.Stops[^1].OccurredAt + PadSpan;
 
@@ -391,13 +434,7 @@
     private string RangeLabel =>
         $"{Data.Stops[0].OccurredAt.ToString("MMM yyyy", CultureInfo.InvariantCulture)} – {Data.Stops[^1].OccurredAt.ToString("MMM yyyy", CultureInfo.InvariantCulture)}";
 
-    private string NodeClass(int idx) =>
-        idx == _stopIndex ? "is-current" : idx < _stopIndex ? "is-reached" : "";
-
-    private string StopTip(JourneyStopDto stop, int idx) =>
-        $"Session {idx + 1} — {stop.Title}\n{stop.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}";
-
-    // Invariant culture matters: a comma decimal separator breaks inline CSS and SVG points.
+    // Invariant culture matters: a comma decimal separator breaks inline CSS.
     private static string Css(decimal v) => v.ToString("0.####", CultureInfo.InvariantCulture);
     private static string Css(double v) => v.ToString("0.####", CultureInfo.InvariantCulture);
 }

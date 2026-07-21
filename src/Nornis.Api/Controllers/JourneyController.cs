@@ -56,7 +56,7 @@ public class JourneyController : ControllerBase
                 .Select(s => new JourneyStopResponse(
                     s.SourceId, s.Title, s.OccurredAt, s.VisitedLocationIds,
                     s.Highlights
-                        .Select(h => new JourneyHighlightResponse(h.ArtifactId, h.Name, h.Type, h.FirstSeen))
+                        .Select(h => new JourneyHighlightResponse(h.ArtifactId, h.Name, h.Type, h.FirstSeen, h.Summary))
                         .ToList()))
                 .ToList(),
             journey.UndatedSessionCount);

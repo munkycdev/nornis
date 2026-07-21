@@ -173,7 +173,7 @@ public record MapViewDto(
 // Mirrors Nornis.Api JourneyResponse.
 public record JourneyLocationDto(Guid ArtifactId, string Name, decimal X, decimal Y, string? Label);
 
-public record JourneyHighlightDto(Guid ArtifactId, string Name, string Type, bool FirstSeen);
+public record JourneyHighlightDto(Guid ArtifactId, string Name, string Type, bool FirstSeen, string? Summary);
 
 public record JourneyStopDto(
     Guid SourceId,
