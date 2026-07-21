@@ -9,7 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
-    <link rel="stylesheet" href="app.css" />
+    @* cache-buster — stale app.css after a deploy pairs old layout rules with new markup *@
+    <link rel="stylesheet" href="app.css?v=@(Nornis.Web.AppVersion.Display)" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <title>Nornis</title>
     <HeadOutlet @rendermode="InteractiveServer" />
