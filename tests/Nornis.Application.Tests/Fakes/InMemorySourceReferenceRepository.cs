@@ -46,6 +46,12 @@ public class InMemorySourceReferenceRepository : ISourceReferenceRepository
         return Task.CompletedTask;
     }
 
+    public Task DeleteBySourceAndTargetAsync(Guid sourceId, SourceReferenceTargetType targetType, Guid targetId, CancellationToken cancellationToken = default)
+    {
+        _references.RemoveAll(r => r.SourceId == sourceId && r.TargetType == targetType && r.TargetId == targetId);
+        return Task.CompletedTask;
+    }
+
     public Task<IReadOnlyList<SourceReference>> ListByTargetIdsAsync(IReadOnlyList<Guid> targetIds, CancellationToken cancellationToken = default)
     {
         if (targetIds.Count == 0)

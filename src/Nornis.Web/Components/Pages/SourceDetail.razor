@@ -196,6 +196,58 @@
                 }
             </MudPaper>
 
+            @if (_source.Type is "SessionNote" or "ImportedNote")
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="nornis-detail-section-title">Locations</div>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                        The places this session took place. Linking one also marks it visited on the
+                        Journey and Locations maps.
+                    </MudText>
+
+                    @if (_locations.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            <em>@(CanEdit ? "No locations linked yet — search below to add one." : "No locations linked.")</em>
+                        </MudText>
+                    }
+                    else
+                    {
+                        <div class="nornis-detail-chips">
+                            @foreach (var loc in _locations)
+                            {
+                                <ArtifactTip Name="@loc.Name" Summary="@loc.Summary">
+                                    @if (CanEdit)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary"
+                                                 Icon="@Icons.Material.Outlined.Place"
+                                                 OnClose="() => RemoveLocationAsync(loc)">@loc.Name</MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary"
+                                                 Icon="@Icons.Material.Outlined.Place">@loc.Name</MudChip>
+                                    }
+                                </ArtifactTip>
+                            }
+                        </div>
+                    }
+
+                    @if (CanEdit)
+                    {
+                        <div class="nornis-add-member mt-2">
+                            <MudAutocomplete T="ArtifactListItem" @ref="_locationPicker" Value="_locationToAdd"
+                                             ValueChanged="OnLocationPickedAsync" SearchFunc="SearchLocationsAsync"
+                                             ToStringFunc="@(a => a?.Name ?? string.Empty)"
+                                             Label="Add a location…" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                                             MinCharacters="2" DebounceInterval="200" MaxItems="10"
+                                             Clearable="true" CoerceText="false" ResetValueOnEmptyText="true"
+                                             Class="flex-grow-1" />
+                        </div>
+                    }
+                </MudPaper>
+            }
+
             @if (!string.IsNullOrWhiteSpace(_source.Body))
             {
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
@@ -362,6 +414,13 @@
     private bool _editExtractionEnabled = true;
     private IReadOnlyList<CampaignDto> _campaigns = [];
 
+    // Location links (Phase 2): the places this session took place at, editable in place. Each link
+    // is an ordinary source→artifact reference, so it also feeds the Journey and Locations maps.
+    private IReadOnlyList<LinkedLocationDto> _locations = [];
+    private ArtifactListItem? _locationToAdd;
+    private MudAutocomplete<ArtifactListItem>? _locationPicker;
+    private bool _clearLocationPending;
+
     // In-flight sources are locked server-side. Processed sources are editable, but a
     // body change goes through the reprocess flow (confirm → cascade delete → requeue).
     private bool CanEdit => _source?.ProcessingStatus is "Draft" or "Ready" or "Failed" or "Processed";
@@ -462,6 +521,13 @@
                 var map = await Api.GetSourceMapAsync(Worlds.Current.Id, SourceId);
                 _mapView = map.IsSuccess ? map.Value : null;
             }
+
+            _locations = [];
+            if (_source.Type is "SessionNote" or "ImportedNote")
+            {
+                var locations = await Api.GetSourceLocationsAsync(Worlds.Current.Id, SourceId);
+                _locations = locations.IsSuccess ? locations.Value! : [];
+            }
         }
         else if (result.Error!.Code == "not_found")
         {
@@ -474,6 +540,76 @@
             _source = null;
         }
         StateHasChanged();
+    }
+
+    // Location search is filtered to Locations the caller can see and hasn't already linked.
+    private async Task<IEnumerable<ArtifactListItem>> SearchLocationsAsync(string? value, CancellationToken ct)
+    {
+        if (Worlds.Current is null || string.IsNullOrWhiteSpace(value))
+        {
+            return [];
+        }
+
+        var result = await Api.SearchArtifactsAsync(Worlds.Current.Id, value, limit: 10, ct);
+        var linked = _locations.Select(l => l.ArtifactId).ToHashSet();
+        return (result.Value ?? [])
+            .Where(a => a.Type == "Location" && !linked.Contains(a.Id));
+    }
+
+    private async Task OnLocationPickedAsync(ArtifactListItem? picked)
+    {
+        _locationToAdd = null;
+        // MudAutocomplete rewrites the box after this handler; defer the clear to the next render.
+        _clearLocationPending = true;
+
+        if (picked is null || _source is null || Worlds.Current is null)
+        {
+            return;
+        }
+
+        var result = await Api.LinkSourceLocationAsync(Worlds.Current.Id, _source.Id, picked.Id);
+        if (result.IsSuccess)
+        {
+            _locations = result.Value!;
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private async Task RemoveLocationAsync(LinkedLocationDto location)
+    {
+        if (_source is null || Worlds.Current is null)
+        {
+            return;
+        }
+
+        var result = await Api.UnlinkSourceLocationAsync(Worlds.Current.Id, _source.Id, location.ArtifactId);
+        if (result.IsSuccess)
+        {
+            _locations = _locations.Where(l => l.ArtifactId != location.ArtifactId).ToList();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_clearLocationPending)
+        {
+            return;
+        }
+
+        _clearLocationPending = false;
+        if (_locationPicker is not null)
+        {
+            await _locationPicker.ClearAsync();
+        }
     }
 
     private async Task ProcessAsync()

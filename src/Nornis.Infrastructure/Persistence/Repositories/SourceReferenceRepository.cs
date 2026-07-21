@@ -78,4 +78,20 @@ public class SourceReferenceRepository : ISourceReferenceRepository
         _context.SourceReferences.RemoveRange(references);
         await _context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task DeleteBySourceAndTargetAsync(Guid sourceId, SourceReferenceTargetType targetType, Guid targetId, CancellationToken cancellationToken = default)
+    {
+        // Tracked-load delete: the InMemory provider used in tests lacks ExecuteDelete.
+        var references = await _context.SourceReferences
+            .Where(sr => sr.SourceId == sourceId && sr.TargetType == targetType && sr.TargetId == targetId)
+            .ToListAsync(cancellationToken);
+
+        if (references.Count == 0)
+        {
+            return;
+        }
+
+        _context.SourceReferences.RemoveRange(references);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
 }

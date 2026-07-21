@@ -124,6 +124,9 @@ public record SourceDetailDto(
     bool ExtractionEnabled = true,
     string? DerivedText = null);
 
+// Mirrors Nornis.Api LinkedLocationResponse: one Location a session is linked to.
+public record LinkedLocationDto(Guid ArtifactId, string Name, string? Summary);
+
 public record CreateSourceRequest(
     string Title,
     string Type,

@@ -204,6 +204,20 @@ public class NornisApiClient
     public Task<ApiResult<MapViewDto>> GetSourceMapAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         GetAsync<MapViewDto>($"/api/worlds/{worldId}/sources/{sourceId}/map", ct);
 
+    /// <summary>The Location artifacts this session is linked to, visible to the caller.</summary>
+    public Task<ApiResult<IReadOnlyList<LinkedLocationDto>>> GetSourceLocationsAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<LinkedLocationDto>>($"/api/worlds/{worldId}/sources/{sourceId}/locations", ct);
+
+    /// <summary>Links a session to a Location artifact (idempotent); returns the updated set.</summary>
+    public Task<ApiResult<IReadOnlyList<LinkedLocationDto>>> LinkSourceLocationAsync(Guid worldId, Guid sourceId, Guid artifactId, CancellationToken ct = default) =>
+        PostAsync<LinkLocationBody, IReadOnlyList<LinkedLocationDto>>($"/api/worlds/{worldId}/sources/{sourceId}/locations", new LinkLocationBody(artifactId), ct);
+
+    /// <summary>Removes a session's link to a Location (any link — extractor- or user-authored).</summary>
+    public Task<ApiResult<bool>> UnlinkSourceLocationAsync(Guid worldId, Guid sourceId, Guid artifactId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/sources/{sourceId}/locations/{artifactId}", ct);
+
+    private sealed record LinkLocationBody(Guid ArtifactId);
+
     /// <summary>Applies edits, deletes knowledge derived solely from this source, and requeues extraction.</summary>
     public Task<ApiResult<SourceDetailDto>> ReprocessSourceAsync(Guid worldId, Guid sourceId, ReprocessSourceRequest request, CancellationToken ct = default) =>
         PostAsync<ReprocessSourceRequest, SourceDetailDto>($"/api/worlds/{worldId}/sources/{sourceId}/reprocess", request, ct);

@@ -21,4 +21,8 @@ public interface ISourceReferenceRepository
     /// <summary>Deletes every reference pointing at one target entity. Used when an
     /// artifact/fact/relationship is removed from canon so its provenance rows don't dangle.</summary>
     Task DeleteByTargetAsync(SourceReferenceTargetType targetType, Guid targetId, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes the reference(s) from one source to one target — a single unlink, e.g. a
+    /// user removing a session's manual link to a Location. A no-op when no such reference exists.</summary>
+    Task DeleteBySourceAndTargetAsync(Guid sourceId, SourceReferenceTargetType targetType, Guid targetId, CancellationToken cancellationToken = default);
 }
