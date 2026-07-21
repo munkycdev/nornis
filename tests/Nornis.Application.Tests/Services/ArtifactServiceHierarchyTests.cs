@@ -11,6 +11,7 @@ namespace Nornis.Application.Tests.Services;
 public class ArtifactServiceHierarchyTests
 {
     private InMemoryArtifactRepository _artifactRepo = null!;
+    private InMemoryArtifactFactRepository _factRepo = null!;
     private InMemoryArtifactRelationshipRepository _relationshipRepo = null!;
     private ArtifactService _service = null!;
 
@@ -21,8 +22,9 @@ public class ArtifactServiceHierarchyTests
     public void SetUp()
     {
         _artifactRepo = new InMemoryArtifactRepository();
+        _factRepo = new InMemoryArtifactFactRepository();
         _relationshipRepo = new InMemoryArtifactRelationshipRepository();
-        _service = new ArtifactService(_artifactRepo, new InMemoryArtifactFactRepository(), _relationshipRepo,
+        _service = new ArtifactService(_artifactRepo, _factRepo, _relationshipRepo,
             new InMemorySourceReferenceRepository(), new InMemorySourceRepository(),
             new InMemoryCharacterRepository(), new InMemoryWorldMemberRepository(),
             new InMemoryStorylineCampaignRepository(), new InMemoryCampaignRepository());
@@ -30,6 +32,26 @@ public class ArtifactServiceHierarchyTests
         _worldId = Guid.NewGuid();
         _gmUserId = Guid.NewGuid();
     }
+
+    private ArtifactFact SeedFact(Artifact artifact, TruthState truth, string predicate = "knows")
+    {
+        var fact = new ArtifactFact
+        {
+            Id = Guid.NewGuid(),
+            ArtifactId = artifact.Id,
+            Predicate = predicate,
+            Value = "something",
+            TruthState = truth,
+            Visibility = VisibilityScope.PartyVisible,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _factRepo.Seed(fact);
+        return fact;
+    }
+
+    private TruthState Truth(ArtifactFact fact) =>
+        _factRepo.Facts.Single(f => f.Id == fact.Id).TruthState;
 
     private Artifact SeedStoryline(string name, VisibilityScope visibility = VisibilityScope.PartyVisible, ArtifactType type = ArtifactType.Storyline)
     {
@@ -261,5 +283,79 @@ public class ArtifactServiceHierarchyTests
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
+    private async Task ResolveAsync(Artifact storyline) =>
+        await _service.SetStatusAsync(
+            new SetArtifactStatusCommand(storyline.Id, _worldId, _gmUserId, WorldRole.GM, ArtifactStatus.Resolved),
+            CancellationToken.None);
+
+    [Test]
+    public async Task SetStatus_ResolvingStoryline_SettlesProvisionalFactsToConfirmed()
+    {
+        var arc = SeedStoryline("Arc");
+        var likely = SeedFact(arc, TruthState.Likely);
+        var rumor = SeedFact(arc, TruthState.Rumor);
+        var disputed = SeedFact(arc, TruthState.Disputed);
+
+        await ResolveAsync(arc);
+
+        Assert.That(Truth(likely), Is.EqualTo(TruthState.Confirmed));
+        Assert.That(Truth(rumor), Is.EqualTo(TruthState.Confirmed));
+        Assert.That(Truth(disputed), Is.EqualTo(TruthState.Confirmed));
+    }
+
+    [Test]
+    public async Task SetStatus_ResolvingStoryline_LeavesDeliberateAndQuestionFactsUntouched()
+    {
+        var arc = SeedStoryline("Arc");
+        var confirmed = SeedFact(arc, TruthState.Confirmed);
+        var falseFact = SeedFact(arc, TruthState.False);
+        var hidden = SeedFact(arc, TruthState.Hidden);
+        var openQuestion = SeedFact(arc, TruthState.Likely, predicate: "open question");
+
+        await ResolveAsync(arc);
+
+        Assert.That(Truth(confirmed), Is.EqualTo(TruthState.Confirmed));
+        Assert.That(Truth(falseFact), Is.EqualTo(TruthState.False));
+        Assert.That(Truth(hidden), Is.EqualTo(TruthState.Hidden));
+        // An open question is answered elsewhere, not confirmed by the arc closing.
+        Assert.That(Truth(openQuestion), Is.EqualTo(TruthState.Likely));
+    }
+
+    [Test]
+    public async Task SetStatus_NonResolvedStatus_DoesNotSettleFacts()
+    {
+        var arc = SeedStoryline("Arc");
+        var likely = SeedFact(arc, TruthState.Likely);
+
+        await _service.SetStatusAsync(
+            new SetArtifactStatusCommand(arc.Id, _worldId, _gmUserId, WorldRole.GM, ArtifactStatus.Dormant),
+            CancellationToken.None);
+
+        Assert.That(Truth(likely), Is.EqualTo(TruthState.Likely));
+    }
+
+    [Test]
+    public async Task SetStatus_ResolvingNonStoryline_DoesNotSettleFacts()
+    {
+        var location = SeedStoryline("Black Harbor", type: ArtifactType.Location);
+        var likely = SeedFact(location, TruthState.Likely);
+
+        await ResolveAsync(location);
+
+        Assert.That(Truth(likely), Is.EqualTo(TruthState.Likely));
+    }
+
+    [Test]
+    public async Task SetStatus_ResolvingStoryline_LeavesAnotherStorylinesFactsUntouched()
+    {
+        var arc = SeedStoryline("Arc");
+        var other = SeedStoryline("Other arc");
+        var otherFact = SeedFact(other, TruthState.Likely);
+
+        await ResolveAsync(arc);
+
+        Assert.That(Truth(otherFact), Is.EqualTo(TruthState.Likely));
     }
 }

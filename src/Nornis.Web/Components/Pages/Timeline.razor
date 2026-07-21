@@ -97,7 +97,8 @@ else
         {
             <StorylineTimelineChart Data="_timeline" StatusFilter="@_status"
                                     CanEdit="@(Worlds.Current.MyRole == "GM")"
-                                    ReparentRequested="OnReparentRequestedAsync" />
+                                    ReparentRequested="OnReparentRequestedAsync"
+                                    UnnestRequested="OnUnnestRequestedAsync" />
         }
     }
     else if (_loading)
@@ -204,6 +205,34 @@ else
         if (result.IsSuccess)
         {
             Snackbar.Add($"\"{drop.Child.Name}\" is now part of \"{drop.Parent.Name}\".", Severity.Success);
+            await LoadTimelineAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private async Task OnUnnestRequestedAsync(TimelineLaneDto child)
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        var confirmed = await DialogService.ShowMessageBox(
+            "Move to top level?",
+            $"Detach \"{child.Name}\" from its parent storyline? It becomes a top-level arc.",
+            yesText: "Detach", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var result = await Api.SetStorylineParentAsync(Worlds.Current.Id, child.StorylineId, null);
+        if (result.IsSuccess)
+        {
+            Snackbar.Add($"\"{child.Name}\" is now a top-level storyline.", Severity.Success);
             await LoadTimelineAsync();
         }
         else

@@ -209,6 +209,54 @@ public class ProposalApplicatorTests
         Assert.That(result.Error!.Code, Is.EqualTo("target_not_found"));
     }
 
+    [Test]
+    public async Task UpdateArtifact_ResolvingStoryline_SettlesProvisionalFacts()
+    {
+        // A wrap-up/retrospective closure resolves a storyline through this path — its
+        // provisional facts must settle to Confirmed just as the artifact-page action does.
+        var storyline = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = ArtifactType.Storyline,
+            Name = "Missing Caravan",
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
+            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1)
+        };
+        _artifactRepo.Seed(storyline);
+
+        var provisional = SeedFact(storyline.Id, TruthState.Likely);
+        var deliberate = SeedFact(storyline.Id, TruthState.False);
+
+        var payload = new UpdateArtifactPayload(null, null, null, null, "Resolved");
+        var proposal = MakeProposal(ReviewChangeType.UpdateArtifact, payload, storyline.Id);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_factRepo.Facts.Single(f => f.Id == provisional.Id).TruthState, Is.EqualTo(TruthState.Confirmed));
+        Assert.That(_factRepo.Facts.Single(f => f.Id == deliberate.Id).TruthState, Is.EqualTo(TruthState.False));
+    }
+
+    private ArtifactFact SeedFact(Guid artifactId, TruthState truth)
+    {
+        var fact = new ArtifactFact
+        {
+            Id = Guid.NewGuid(),
+            ArtifactId = artifactId,
+            Predicate = "knows",
+            Value = "something",
+            TruthState = truth,
+            Visibility = VisibilityScope.PartyVisible,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _factRepo.Seed(fact);
+        return fact;
+    }
+
     #endregion
 
     #region MergeArtifact

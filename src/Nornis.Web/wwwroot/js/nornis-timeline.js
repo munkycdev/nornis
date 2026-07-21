@@ -20,10 +20,20 @@
         const state = { elementId, dotnetRef, drag: null, onPointerDown: null, onMove: null, onUp: null, onKey: null };
 
         const getRoot = () => document.getElementById(elementId);
+        const getUnnest = () => document.getElementById(elementId + '-unnest');
         const labels = () => {
             const root = getRoot();
             return root ? [...root.querySelectorAll('.nornis-timeline-label[data-storyline-id]')] : [];
         };
+
+        // The un-nest zone is only a live target while it's active (revealed for a drag of a
+        // storyline that has a parent). Hit-test by geometry, not DOM events — it's pointer-none.
+        function overUnnest(x, y) {
+            const zone = getUnnest();
+            if (!zone || !zone.classList.contains('nornis-timeline-unnest-active')) return false;
+            const r = zone.getBoundingClientRect();
+            return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+        }
 
         // A drop lands on the storyline whose row band contains the pointer's Y,
         // anywhere within the chart horizontally — the row is the target, not the label.
@@ -43,6 +53,7 @@
 
         function clearHighlight() {
             labels().forEach(el => el.classList.remove('nornis-timeline-droptarget'));
+            getUnnest()?.classList.remove('nornis-timeline-unnest-over');
         }
 
         function cleanupDrag() {
@@ -50,6 +61,7 @@
             document.removeEventListener('pointerup', state.onUp);
             document.removeEventListener('keydown', state.onKey, true);
             clearHighlight();
+            getUnnest()?.classList.remove('nornis-timeline-unnest-active');
             document.body.style.cursor = '';
             if (state.drag?.ghost) {
                 state.drag.ghost.remove();
@@ -79,6 +91,10 @@
 
                 drag.started = true;
                 document.body.style.cursor = 'grabbing';
+                // Only a nested storyline can be un-nested, so reveal the zone only then.
+                if (drag.hasParent) {
+                    getUnnest()?.classList.add('nornis-timeline-unnest-active');
+                }
                 drag.ghost = document.createElement('div');
                 drag.ghost.className = 'nornis-timeline-ghost';
                 drag.ghost.textContent = drag.name;
@@ -89,9 +105,15 @@
             drag.ghost.style.top = (e.clientY + 8) + 'px';
 
             clearHighlight();
-            const target = findTarget(e.clientX, e.clientY, drag.sourceId);
-            if (target) {
-                target.classList.add('nornis-timeline-droptarget');
+            // The un-nest zone wins over a row when the pointer is over it, so a drag that
+            // crosses rows on its way up to the bar doesn't flicker between the two intents.
+            if (drag.hasParent && overUnnest(e.clientX, e.clientY)) {
+                getUnnest()?.classList.add('nornis-timeline-unnest-over');
+            } else {
+                const target = findTarget(e.clientX, e.clientY, drag.sourceId);
+                if (target) {
+                    target.classList.add('nornis-timeline-droptarget');
+                }
             }
         };
 
@@ -100,12 +122,15 @@
             if (!drag) return;
 
             const started = drag.started;
-            const target = started ? findTarget(e.clientX, e.clientY, drag.sourceId) : null;
+            const unnest = started && drag.hasParent && overUnnest(e.clientX, e.clientY);
+            const target = started && !unnest ? findTarget(e.clientX, e.clientY, drag.sourceId) : null;
             cleanupDrag();
 
             if (started) {
                 swallowNextClick();
-                if (target) {
+                if (unnest) {
+                    state.dotnetRef.invokeMethodAsync('OnJsUnnest', drag.sourceId);
+                } else if (target) {
                     state.dotnetRef.invokeMethodAsync('OnJsReparent', drag.sourceId, target.dataset.storylineId);
                 }
             }
@@ -131,6 +156,7 @@
             state.drag = {
                 sourceId: label.dataset.storylineId,
                 name: (label.textContent || '').trim(),
+                hasParent: label.dataset.hasParent === 'true',
                 startX: e.clientX,
                 startY: e.clientY,
                 started: false,
@@ -155,6 +181,8 @@
         if (state.drag?.ghost) {
             state.drag.ghost.remove();
         }
+        document.getElementById(elementId + '-unnest')
+            ?.classList.remove('nornis-timeline-unnest-active', 'nornis-timeline-unnest-over');
         document.body.style.cursor = '';
         instances.delete(elementId);
     }

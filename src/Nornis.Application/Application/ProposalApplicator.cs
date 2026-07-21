@@ -240,12 +240,23 @@ public class ProposalApplicator : IProposalApplicator
         if (payload.Confidence is not null)
             artifact.Confidence = payload.Confidence;
 
+        var resolvedNow = false;
         if (payload.Status is not null && Enum.TryParse<ArtifactStatus>(payload.Status, ignoreCase: true, out var status))
+        {
             artifact.Status = status;
+            resolvedNow = status == ArtifactStatus.Resolved;
+        }
 
         artifact.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _artifactRepository.UpdateAsync(artifact, ct);
+
+        // A storyline resolved by accepting a wrap-up/retrospective closure settles its
+        // provisional facts to Confirmed, exactly as the artifact-page action does.
+        if (resolvedNow && artifact.Type == ArtifactType.Storyline)
+        {
+            await StorylineResolution.SettleFactsAsync(_artifactFactRepository, artifact.Id, artifact.UpdatedAt, ct);
+        }
 
         await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, artifact.Id, proposal.Id, ct);
 

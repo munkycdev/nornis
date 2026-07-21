@@ -371,6 +371,13 @@ public class ArtifactService : IArtifactService
         artifact.UpdatedAt = DateTimeOffset.UtcNow;
         artifact = await _artifactRepository.UpdateAsync(artifact, ct);
 
+        // Resolving a storyline settles the claims it established: its provisional facts are
+        // promoted to Confirmed (see StorylineResolution).
+        if (artifact.Type == ArtifactType.Storyline && command.Status == ArtifactStatus.Resolved)
+        {
+            await StorylineResolution.SettleFactsAsync(_factRepository, artifact.Id, artifact.UpdatedAt, ct);
+        }
+
         return AppResult<Artifact>.Success(artifact);
     }
 

@@ -34,9 +34,19 @@ else
         <span class="nornis-list-meta">band = session touching several storylines</span>
         @if (CanEdit)
         {
-            <span class="nornis-list-meta">drag a storyline label onto another row to nest it</span>
+            <span class="nornis-list-meta">drag a storyline onto another row to nest it, or up to the bar to un-nest</span>
         }
     </div>
+
+    @if (CanEdit)
+    {
+        @* Un-nest target: a fixed pill revealed by nornis-timeline.js only while dragging a
+           nested storyline. Releasing over it detaches the storyline to the top level. *@
+        <div id="@($"{_elementId}-unnest")" class="nornis-timeline-unnest" aria-hidden="true">
+            <MudIcon Icon="@Icons.Material.Outlined.FormatIndentDecrease" Size="Size.Small" />
+            <span>Drop here to move to the top level</span>
+        </div>
+    }
 
     <div class="nornis-timeline-scroll">
         <div id="@_elementId" class="nornis-timeline-wrap" style="width:@(TotalWidth)px; height:@(TotalHeight)px">
@@ -145,8 +155,9 @@ else
                     var lane = row.Lane;
                     <div class="nornis-timeline-label @(CanEdit ? "nornis-timeline-draggable" : "")"
                          style="top:@(row.Top)px; height:@(row.Height)px; width:@(GutterWidth - 8)px; padding-left:@(8 + row.Depth * 16)px"
-                         data-nornis-tip="@(LaneTitle(lane) + (CanEdit ? "\nDrag onto another storyline's row to nest it" : ""))"
+                         data-nornis-tip="@(LaneTitle(lane) + DragHint(lane))"
                          data-storyline-id="@(CanEdit ? lane.StorylineId.ToString() : null)"
+                         data-has-parent="@(CanEdit && lane.ParentStorylineId is not null ? "true" : null)"
                          @onclick="@(() => Nav.NavigateTo($"{ArtifactLinkBase}/{lane.StorylineId}"))">
                         <span class="nornis-graph-dot" style="background:@StatusColor(lane.Status)"></span>
                         <span class="nornis-timeline-label-text">@lane.Name</span>
@@ -183,6 +194,9 @@ else
 
     /// <summary>Raised when a lane is dropped onto another: (child, new parent).</summary>
     [Parameter] public EventCallback<(TimelineLaneDto Child, TimelineLaneDto Parent)> ReparentRequested { get; set; }
+
+    /// <summary>Raised when a nested lane is dropped on the un-nest zone: the child to detach.</summary>
+    [Parameter] public EventCallback<TimelineLaneDto> UnnestRequested { get; set; }
 
     private const int GutterWidth = 230;
     private const int RowHeight = 36;
@@ -234,6 +248,23 @@ else
         if (childLane is not null && parentLane is not null)
         {
             await InvokeAsync(() => ReparentRequested.InvokeAsync((childLane, parentLane)));
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnJsUnnest(string childId)
+    {
+        if (!CanEdit || !Guid.TryParse(childId, out var child))
+        {
+            return;
+        }
+
+        // Only a lane that actually has a parent can be un-nested — the zone is hidden otherwise,
+        // but guard here too so a stale drag can never clear an already top-level storyline.
+        var childLane = Data.Lanes.FirstOrDefault(l => l.StorylineId == child);
+        if (childLane is { ParentStorylineId: not null })
+        {
+            await InvokeAsync(() => UnnestRequested.InvokeAsync(childLane));
         }
     }
 
@@ -391,6 +422,14 @@ else
         new($"<text x=\"{x}\" y=\"{y}\" font-size=\"{fontSize}\" fill=\"{fill}\">{System.Net.WebUtility.HtmlEncode(content)}</text>");
 
     private static string LaneTitle(TimelineLaneDto lane) => $"{lane.Name} ({lane.Status})";
+
+    // Drag affordance appended to a lane's tooltip. A nested lane can re-nest or un-nest; a
+    // root can only nest. Empty when editing is off.
+    private string DragHint(TimelineLaneDto lane) =>
+        !CanEdit ? ""
+            : lane.ParentStorylineId is not null
+                ? "\nDrag onto another storyline to re-nest, or up to the bar to un-nest"
+                : "\nDrag onto another storyline's row to nest it";
 
     private static string CampaignNameFor(TimelineLaneDto lane, Guid campaignId) =>
         (lane.Campaigns ?? []).FirstOrDefault(c => c.CampaignId == campaignId)?.Name ?? "another campaign";

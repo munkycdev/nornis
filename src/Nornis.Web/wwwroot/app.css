@@ -293,6 +293,40 @@ html, body {
     background: rgba(63, 96, 121, 0.10);
 }
 
+/* Un-nest drop zone: a fixed pill revealed by nornis-timeline.js only while dragging a nested
+   storyline. Releasing over it detaches the storyline to the top level. Pointer-none so it never
+   intercepts the drag's pointer events — the script hit-tests it by geometry. */
+.nornis-timeline-unnest {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10001;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    border-radius: 999px;
+    background: #FDFBF7;
+    border: 2px dashed rgba(63, 96, 121, 0.5);
+    box-shadow: 0 6px 20px rgba(14, 46, 74, 0.16);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #2A3B4C;
+    pointer-events: none;
+}
+
+.nornis-timeline-unnest-active {
+    display: inline-flex;
+}
+
+.nornis-timeline-unnest-over {
+    border-style: solid;
+    border-color: #3F6079;
+    background: rgba(63, 96, 121, 0.14);
+    color: #1F3546;
+}
+
 .nornis-graph-card {
     position: absolute;
     top: 12px;

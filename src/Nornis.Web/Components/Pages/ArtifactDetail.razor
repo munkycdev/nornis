@@ -8,7 +8,7 @@
 
 <PageTitle>@(_detail?.Name ?? "Artifact") — Nornis</PageTitle>
 
-<div class="nornis-narrow">
+<div class="nornis-detail-page">
     <MudButton Href="/artifacts" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2">
         Codex
     </MudButton>
@@ -571,8 +571,17 @@
         var result = await Api.SetArtifactStatusAsync(Worlds.Current.Id, _detail.Id, status);
         if (result.IsSuccess)
         {
-            _detail = _detail with { Status = result.Value!.Status, UpdatedAt = result.Value.UpdatedAt };
-            Snackbar.Add($"Status set to {result.Value.Status}.", Severity.Success);
+            Snackbar.Add($"Status set to {result.Value!.Status}.", Severity.Success);
+
+            // Resolving a storyline settles its provisional facts to Confirmed server-side —
+            // reload so those truth states show, rather than patching only the status chip.
+            if (_detail.Type == "Storyline" && result.Value.Status == "Resolved")
+            {
+                await LoadAsync();
+                return;
+            }
+
+            _detail = _detail with { Status = result.Value.Status, UpdatedAt = result.Value.UpdatedAt };
         }
         else
         {
