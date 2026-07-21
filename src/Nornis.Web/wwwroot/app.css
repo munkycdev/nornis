@@ -200,10 +200,27 @@ html, body {
 /* Footer with public-page links on authenticated pages. */
 .nornis-footer {
     display: flex;
-    justify-content: center;
-    gap: 20px;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
     padding: 20px 24px 28px;
     font-size: 0.75rem;
+}
+
+.nornis-footer-links {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.nornis-footer-made {
+    color: rgba(42, 59, 76, 0.5);
+}
+
+.nornis-footer-version {
+    color: rgba(42, 59, 76, 0.38);
+    font-variant-numeric: tabular-nums;
 }
 
 .nornis-footer a {

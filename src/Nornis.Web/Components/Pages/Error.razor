@@ -3,6 +3,10 @@
 @attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
 <PageTitle>Error — Nornis</PageTitle>
 
-<ComingSoon Title="Something went wrong"
-            Icon="@Icons.Material.Filled.ErrorOutline"
-            Description="An unexpected error occurred. Please try again — if it keeps happening, the record will remember, even if the request didn't." />
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+    <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Class="nornis-comingsoon-icon" />
+    <MudText Typo="Typo.h4" Class="nornis-serif">Something went wrong</MudText>
+    <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+        An unexpected error occurred. Please try again — if it keeps happening, the record will remember, even if the request didn't.
+    </MudText>
+</MudPaper>
