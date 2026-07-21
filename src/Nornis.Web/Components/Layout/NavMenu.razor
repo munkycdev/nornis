@@ -7,7 +7,7 @@
 <MudMenu AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter" Class="nornis-world-menu">
     <ActivatorContent>
         <div class="nornis-world">
-            <MudIcon Icon="@Icons.Material.Outlined.Terrain" Color="Color.Secondary" />
+            <MudIcon Icon="@Icons.Material.Outlined.Terrain" Class="nornis-world-icon" />
             <div class="flex-grow-1">
                 <div class="nornis-world-name">@(Worlds.Current?.Name ?? "No world")</div>
                 <div class="nornis-world-label">@(Worlds.Current is null ? "Select or create" : "World")</div>
@@ -30,9 +30,9 @@
 
 <MudNavMenu>
     <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.ChatBubbleOutline">Ask</MudNavLink>
-    <MudNavLink Href="/capture" Icon="@Icons.Material.Outlined.Create">Capture</MudNavLink>
-    <MudNavLink Href="/artifacts" Icon="@Icons.Material.Outlined.Category">Codex</MudNavLink>
-    <MudNavLink Href="/timeline" Icon="@Icons.Material.Outlined.Timeline">Timeline</MudNavLink>
+    <MudNavLink Href="/capture" Icon="@Icons.Material.Outlined.EditNote">Capture</MudNavLink>
+    <MudNavLink Href="/artifacts" Icon="@Icons.Material.Outlined.Hub">Codex</MudNavLink>
+    <MudNavLink Href="/timeline" Icon="@Icons.Material.Outlined.Route">Timeline</MudNavLink>
     <MudNavLink Href="/locations" Icon="@Icons.Material.Outlined.Place">Locations</MudNavLink>
     <MudNavLink Href="/review" Icon="@Icons.Material.Outlined.FactCheck">
         Review
@@ -55,7 +55,7 @@
     <MudNavLink Href="/library" Icon="@Icons.Material.Outlined.MenuBook">Library</MudNavLink>
     @if (Worlds.Current?.MyRole == "GM")
     {
-        <MudNavLink Href="/admin" Icon="@Icons.Material.Outlined.AdminPanelSettings">Admin</MudNavLink>
+        <MudNavLink Href="/admin" Icon="@Icons.Material.Outlined.Tune">Admin</MudNavLink>
     }
 </MudNavMenu>
 
@@ -72,7 +72,7 @@
             @if (Worlds.Continuity is { HasData: true } a)
             {
                 <span class="nornis-memory-pct">@a.EffectiveScore%</span>
-                <span class="nornis-memory-state">AI assessed</span>
+                <span class="nornis-memory-state nornis-memory-state-ok">AI assessed</span>
             }
             else
             {

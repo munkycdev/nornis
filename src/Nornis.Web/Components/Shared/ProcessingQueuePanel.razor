@@ -43,7 +43,7 @@ else
             Safe to re-run: already-swept sources are skipped.
         </MudText>
         <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                   StartIcon="@Icons.Material.Outlined.Timeline"
+                   StartIcon="@Icons.Material.Outlined.Route"
                    OnClick="RunBackfillAsync" Disabled="_backfillBusy">
             @(_backfillBusy ? "Queuing…" : "Backfill storyline links")
         </MudButton>

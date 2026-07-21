@@ -12,7 +12,9 @@
     /* Translucent overlays used on the dark sidebar (derived, not brand colors). */
     --nornis-onnavy-raised: rgba(255, 255, 255, 0.06);
     --nornis-onnavy-border: rgba(255, 255, 255, 0.10);
-    --nornis-onnavy-muted: rgba(183, 193, 206, 0.75);
+    --nornis-onnavy-muted: rgba(183, 193, 206, 0.85);
+    /* Success reads too dark on navy at small sizes; lightened variant for on-navy text. */
+    --nornis-onnavy-success: #6FB98A;
 
     --nornis-card-shadow: 0 1px 2px rgba(14, 46, 74, 0.05), 0 8px 24px rgba(14, 46, 74, 0.05);
     --nornis-topo: radial-gradient(120% 100% at 50% 0%, rgba(196, 161, 90, 0.05) 0%, rgba(196, 161, 90, 0) 55%);
@@ -520,7 +522,13 @@ html, body {
 }
 
 .nornis-sidebar .mud-nav-link .mud-nav-link-icon {
-    color: var(--mud-palette-drawer-text);
+    color: var(--mud-palette-drawer-icon);
+}
+
+/* World selector icon sits above the nav; matching the icon tone (not gold)
+   keeps it from outranking the active nav item's gold accent. */
+.nornis-world-icon {
+    color: var(--mud-palette-drawer-icon);
 }
 
 .nornis-sidebar .mud-nav-link:hover {
@@ -577,7 +585,11 @@ html, body {
 
 .nornis-memory-state {
     font-size: 0.72rem;
-    color: var(--mud-palette-success);
+    color: var(--nornis-onnavy-muted);
+}
+
+.nornis-memory-state-ok {
+    color: var(--nornis-onnavy-success);
 }
 
 .nornis-collapse {

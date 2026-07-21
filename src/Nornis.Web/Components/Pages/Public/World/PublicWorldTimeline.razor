@@ -20,7 +20,7 @@
                                 SelectionMode="SelectionMode.SingleSelection"
                                 Color="Color.Secondary" Size="Size.Small">
                     <MudToggleItem Value="@("timeline")">
-                        <MudIcon Icon="@Icons.Material.Outlined.Timeline" Size="Size.Small" />
+                        <MudIcon Icon="@Icons.Material.Outlined.Route" Size="Size.Small" />
                     </MudToggleItem>
                     <MudToggleItem Value="@("journey")">
                         <MudIcon Icon="@Icons.Material.Outlined.Map" Size="Size.Small" />
@@ -58,7 +58,7 @@
             else if (_timeline.Lanes.Count == 0)
             {
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
-                    <MudIcon Icon="@Icons.Material.Outlined.Timeline" Size="Size.Large" Class="nornis-comingsoon-icon" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Route" Size="Size.Large" Class="nornis-comingsoon-icon" />
                     <MudText Typo="Typo.h5" Class="nornis-serif">No storylines yet</MudText>
                     <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
                         As the chronicle grows, the stories in motion appear here.

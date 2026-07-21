@@ -26,12 +26,13 @@ public static class NornisTheme
             BackgroundGray = "#EFEADF",
             Surface = "#FFFDF9",          // cream cards
 
-            // Navigation (deep navy sidebar with light text + gold icons)
+            // Navigation (deep navy sidebar; icons one step brighter than labels,
+            // gold reserved for the active item and badges so it stays an accent)
             AppbarBackground = "#FFFDF9",
             AppbarText = "#0E2E4A",
             DrawerBackground = "#0E2E4A",
             DrawerText = "#B7C1CE",
-            DrawerIcon = "#C4A15A",
+            DrawerIcon = "#D7DEE6",
 
             // Text
             TextPrimary = "#16293B",
