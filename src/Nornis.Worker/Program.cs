@@ -15,7 +15,9 @@ using Nornis.Infrastructure.Storage;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Nornis.Worker;
 using Nornis.Worker.Configuration;
+using Nornis.Infrastructure.Telemetry;
 using OpenAI.Chat;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 
 var builder = Host.CreateDefaultBuilder(args)
@@ -29,7 +31,8 @@ var builder = Host.CreateDefaultBuilder(args)
         {
             services.AddOpenTelemetry()
                 .ConfigureResource(resource => resource.AddService("nornis-worker"))
-                .UseAzureMonitor();
+                .UseAzureMonitor()
+                .WithMetrics(metrics => metrics.AddMeter(AiUsageMetrics.MeterName));
         }
 
         // Bind and validate configuration sections

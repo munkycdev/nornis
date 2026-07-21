@@ -3,6 +3,7 @@ using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
+using Nornis.Infrastructure.Telemetry;
 
 namespace Nornis.Infrastructure.Persistence.Repositories;
 
@@ -19,6 +20,11 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
     {
         _context.AiUsageRecords.Add(record);
         await _context.SaveChangesAsync(cancellationToken);
+
+        // Every AI operation funnels through here (success and failure alike), making this
+        // the one choke point where token telemetry covers all operation types.
+        AiUsageMetrics.Record(record);
+
         return record;
     }
 
