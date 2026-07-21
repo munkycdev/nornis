@@ -1838,8 +1838,21 @@ a.nornis-cite:hover {
 }
 
 .nornis-public-footer-copy {
+    flex-basis: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 20px;
+    flex-wrap: wrap;
+    padding-top: 16px;
+    border-top: 1px solid var(--mud-palette-divider);
     font-size: 0.82rem;
     color: var(--mud-palette-text-secondary);
+}
+
+.nornis-public-footer-version {
+    color: var(--mud-palette-text-disabled);
+    font-variant-numeric: tabular-nums;
 }
 
 /* ------------------------------------------------------------ Ink canvas (/ink) -- */

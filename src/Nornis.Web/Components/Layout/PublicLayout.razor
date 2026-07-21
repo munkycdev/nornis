@@ -10,8 +10,8 @@
             <span class="nornis-public-brand-name">NORNIS</span>
         </a>
         <nav class="nornis-public-links" aria-label="Public pages">
-            <a href="/features">Features</a>
             <a href="/about">About</a>
+            <a href="/features">Features</a>
             <a href="/changelog">Change Log</a>
         </nav>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/" Class="nornis-public-signin">
@@ -32,13 +32,16 @@
             </div>
         </div>
         <nav class="nornis-public-footer-links" aria-label="Legal and info">
-            <a href="/features">Features</a>
             <a href="/about">About</a>
+            <a href="/features">Features</a>
             <a href="/changelog">Change Log</a>
             <a href="/privacy">Privacy Policy</a>
             <a href="/terms">Terms of Service</a>
             <a href="/licenses">Licenses</a>
         </nav>
-        <div class="nornis-public-footer-copy">© @DateTime.UtcNow.Year Nornis</div>
+        <div class="nornis-public-footer-copy">
+            <span class="nornis-public-footer-made">Made with ❤️ by 👨 and 🤖 for people who love 🎲</span>
+            <span class="nornis-public-footer-version">© @DateTime.UtcNow.Year Nornis · v@(Nornis.Web.AppVersion.Display)</span>
+        </div>
     </footer>
 </div>

@@ -60,6 +60,7 @@ jobs:
               --tag "$ACR.azurecr.io/nornis-$svc:main-latest" \
               --build-arg IMAGE_SOURCE="${{ github.server_url }}/${{ github.repository }}" \
               --build-arg IMAGE_REVISION="${{ github.sha }}" \
+              --build-arg BUILD_NUMBER="${{ github.run_number }}" \
               --cache-from type=gha \
               --cache-to type=gha,mode=max \
               --push \

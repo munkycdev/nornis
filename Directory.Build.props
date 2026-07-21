@@ -5,4 +5,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+
+  <!-- Semantic version MAJOR.MINOR.BUILD. MAJOR and MINOR are bumped here by hand; BUILD is the
+       CI build number, passed in via /p:BuildNumber=<n> (GitHub Actions run number) and left at
+       0 for local dev builds. Surfaced in the app via Nornis.Web.AppVersion. -->
+  <PropertyGroup>
+    <MajorVersion>1</MajorVersion>
+    <MinorVersion>0</MinorVersion>
+    <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>
+    <Version>$(MajorVersion).$(MinorVersion).$(BuildNumber)</Version>
+    <AssemblyVersion>$(MajorVersion).$(MinorVersion).$(BuildNumber).0</AssemblyVersion>
+    <FileVersion>$(AssemblyVersion)</FileVersion>
+  </PropertyGroup>
 </Project>

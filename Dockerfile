@@ -4,6 +4,9 @@
 # compiled the whole solution from scratch.
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# CI passes the build number (GitHub Actions run number); it becomes the BUILD component of
+# the app version (MAJOR.MINOR.BUILD). Defaults to 0 for a plain local `docker build`.
+ARG BUILD_NUMBER=0
 WORKDIR /src
 
 # Project files first so restore caches independently of source changes
@@ -26,9 +29,9 @@ COPY . .
 # leaves the framework scripts (_framework/blazor.web.js) out of the publish output
 # entirely. The earlier restore layer still pre-warms the NuGet cache, so this re-restore
 # is cheap.
-RUN dotnet publish "src/Nornis.Api/Nornis.Api.csproj" -c Release -o /app/api \
- && dotnet publish "src/Nornis.Web/Nornis.Web.csproj" -c Release -o /app/web \
- && dotnet publish "src/Nornis.Worker/Nornis.Worker.csproj" -c Release -o /app/worker
+RUN dotnet publish "src/Nornis.Api/Nornis.Api.csproj" -c Release -o /app/api /p:BuildNumber=$BUILD_NUMBER \
+ && dotnet publish "src/Nornis.Web/Nornis.Web.csproj" -c Release -o /app/web /p:BuildNumber=$BUILD_NUMBER \
+ && dotnet publish "src/Nornis.Worker/Nornis.Worker.csproj" -c Release -o /app/worker /p:BuildNumber=$BUILD_NUMBER
 
 # ----------------------------------------------------------------------- api --
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS api
