@@ -76,6 +76,23 @@ public class HealthServiceTests
     }
 
     [Test]
+    public async Task GetHealth_RetiredFalseStatements_LeaveTheLiveRecordEntirely()
+    {
+        var voss = MakeArtifact("Captain Voss", summary: "Harbourmaster.");
+        _artifactRepo.Seed(voss);
+        // A resolved contradiction: the losing fact was retired via TruthState.False.
+        _factRepo.Seed(
+            MakeFact(voss.Id, TruthState.Confirmed),
+            MakeFact(voss.Id, TruthState.False));
+
+        var result = await _service.GetHealthAsync(_worldId, CancellationToken.None);
+
+        // Retiring the loser must repair consistency, not depress it forever.
+        Assert.That(result.Value!.Consistency, Is.EqualTo(100));
+        Assert.That(result.Value.StatementCount, Is.EqualTo(1));
+    }
+
+    [Test]
     public async Task GetHealth_Groundedness_ReflectsSourceReferences()
     {
         var voss = MakeArtifact("Captain Voss", summary: "Harbourmaster.");

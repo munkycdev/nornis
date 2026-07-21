@@ -240,14 +240,17 @@ public class ContinuityFixService : IContinuityFixService
         var artifacts = await _artifactRepository.ListByIdsAsync([.. artifactIds], ct);
         var involvedIds = artifacts.Select(a => a.Id).ToList();
 
-        // Full context for the involved artifacts, then union the cited items back in — a
-        // cited fact must never fall out of the prompt to the per-artifact cap.
+        // Full LIVE context for the involved artifacts (retired False items stay out, as in the
+        // audit), then union the cited items back in — a cited item must never fall out of the
+        // prompt to the per-artifact cap or to having been retired since the audit ran.
         var facts = (await _factRepository.ListByArtifactIdsAsync(
                 involvedIds, VisibilityFilter.All, ContinuityAuditService.MaxFactsPerArtifactInAudit, ct))
+            .Where(f => f.TruthState != TruthState.False)
             .UnionBy(citedFacts, f => f.Id)
             .ToList();
         var relationships = (await _relationshipRepository.ListByArtifactIdsAsync(
                 involvedIds, VisibilityFilter.All, ct))
+            .Where(r => r.TruthState != TruthState.False)
             .UnionBy(citedRels, r => r.Id)
             .ToList();
 

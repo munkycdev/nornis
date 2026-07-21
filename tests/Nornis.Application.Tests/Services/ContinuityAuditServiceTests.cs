@@ -343,6 +343,83 @@ public class ContinuityAuditServiceTests
     }
 
     [Test]
+    public async Task RunAssessment_RetiredFalseFacts_StayOutOfPromptAndGrounding()
+    {
+        // A resolved contradiction: the losing fact was retired via TruthState.False.
+        var retired = new ArtifactFact
+        {
+            Id = Guid.NewGuid(),
+            ArtifactId = _voss.Id,
+            Predicate = "location",
+            Value = "The Sunken Quarter",
+            TruthState = TruthState.False,
+            Visibility = VisibilityScope.PartyVisible,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _factRepo.Seed(retired);
+
+        _ai.SetupFindings(
+            Finding(evidence: [$"fact:{retired.Id}"]),   // grounded only in retired material -> dropped
+            Finding(evidence: [FactRef]));               // grounded in live material -> kept
+
+        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.That(_ai.LastRequest!.UserMessage, Does.Not.Contain("The Sunken Quarter"));
+        Assert.That(result.Value!.Findings, Has.Count.EqualTo(1));
+        Assert.That(result.Value.Findings[0].Evidence, Is.EqualTo(new[] { FactRef }));
+    }
+
+    [Test]
+    public async Task RunAssessment_RedetectedDismissedFinding_ArrivesDismissedAndUnpenalized()
+    {
+        var finding = Finding(severity: "High", evidence: [FactRef]);
+        _ai.SetupFindings(finding);
+        var first = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        await _service.DismissFindingAsync(_worldId, first.Value!.Findings[0].Id, CancellationToken.None);
+        var effectiveAfterDismiss = (await _service.GetLatestAsync(_worldId, CancellationToken.None))
+            .Value!.EffectiveScore;
+
+        // The model re-detects the same issue on the next run.
+        _ai.SetupFindings(finding);
+        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.That(second.Value!.Findings, Has.Count.EqualTo(1));
+        Assert.That(second.Value.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Dismissed.ToString()));
+        Assert.That(second.Value.EffectiveScore, Is.EqualTo(effectiveAfterDismiss));
+        Assert.That(second.Value.Score, Is.EqualTo(second.Value.HeuristicScore),
+            "the snapshot score must not re-penalize a carried-forward dismissal");
+    }
+
+    [Test]
+    public async Task RunAssessment_RedetectionWithNewEvidence_StaysOpen()
+    {
+        _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
+        var first = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        await _service.DismissFindingAsync(_worldId, first.Value!.Findings[0].Id, CancellationToken.None);
+
+        // Same category, but the re-detection cites material beyond what was dismissed.
+        _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef, ArtifactRef]));
+        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.That(second.Value!.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Open.ToString()));
+    }
+
+    [Test]
+    public async Task RunAssessment_RedetectionOfOpenFinding_StaysOpen()
+    {
+        // Open (un-dismissed) findings do not carry forward — only GM adjudications do.
+        var finding = Finding(severity: "High", evidence: [FactRef]);
+        _ai.SetupFindings(finding);
+        await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+
+        _ai.SetupFindings(finding);
+        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.That(second.Value!.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Open.ToString()));
+    }
+
+    [Test]
     public async Task GetLatest_RelationshipEvidence_ResolvesEndpointNames()
     {
         var guild = new Artifact

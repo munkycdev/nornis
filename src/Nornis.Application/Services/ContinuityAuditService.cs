@@ -64,6 +64,10 @@ public class ContinuityAuditService : IContinuityAuditService
 
         ## Grounding rules — non-negotiable
         - Assess ONLY the record provided below. Do not invent problems, entities, or connections.
+        - The record shows only LIVE material: facts and relationships that were retired (marked
+          False) have already been adjudicated and removed. Do not re-derive a resolved conflict
+          from source quotes or old summary phrasing when its losing side no longer appears
+          among the facts.
         - Every finding MUST cite one or more evidence ids, copied EXACTLY from the record (the
           bracketed [ref:...] ids). A finding you cannot ground in real ids is not allowed.
         - Set artifactRef to the primary artifact ref id a GM should open to act on the finding,
@@ -131,11 +135,18 @@ public class ContinuityAuditService : IContinuityAuditService
             .ToList();
         var artifactIds = artifacts.Select(a => a.Id).ToList();
 
+        // Retired (False) facts and relationships stay out of the prompt for the same reason
+        // archived artifacts do: they are adjudicated history, and showing them makes the
+        // auditor re-report every contradiction whose losing side was already retired.
         var facts = artifactIds.Count > 0
-            ? await _factRepository.ListByArtifactIdsAsync(artifactIds, VisibilityFilter.All, MaxFactsPerArtifactInAudit, ct)
+            ? (await _factRepository.ListByArtifactIdsAsync(artifactIds, VisibilityFilter.All, MaxFactsPerArtifactInAudit, ct))
+                .Where(f => f.TruthState != TruthState.False)
+                .ToList()
             : [];
         var relationships = artifactIds.Count > 0
-            ? await _relationshipRepository.ListByArtifactIdsAsync(artifactIds, VisibilityFilter.All, ct)
+            ? (await _relationshipRepository.ListByArtifactIdsAsync(artifactIds, VisibilityFilter.All, ct))
+                .Where(r => r.TruthState != TruthState.False)
+                .ToList()
             : [];
 
         var targetIds = new List<Guid>(artifactIds);
@@ -177,8 +188,13 @@ public class ContinuityAuditService : IContinuityAuditService
 
         await TrackUsageAsync(worldId, userId, response, true, null, ct);
 
-        // 4. Validate + persist.
+        // 4. Validate, carry adjudications forward, persist. A dismissal is a GM decision about
+        // an issue, not about one assessment run — when the model re-detects a finding the GM
+        // already dismissed, it arrives dismissed instead of re-opening the argument.
         var findings = BuildValidatedFindings(response.Findings, artifacts, facts, relationships);
+
+        var previous = await _assessmentRepository.GetLatestWithFindingsAsync(worldId, ct);
+        CarryForwardDismissals(findings, previous?.Findings ?? []);
 
         var assessment = new HealthAssessment
         {
@@ -186,7 +202,9 @@ public class ContinuityAuditService : IContinuityAuditService
             WorldId = worldId,
             CreatedAt = DateTimeOffset.UtcNow,
             Model = response.Model,
-            Score = BlendScore(heuristic, findings.Select(f => f.Severity)),
+            Score = BlendScore(heuristic, findings
+                .Where(f => f.Status == ContinuityFindingStatus.Open)
+                .Select(f => f.Severity)),
         };
         foreach (var f in findings)
         {
@@ -195,7 +213,7 @@ public class ContinuityAuditService : IContinuityAuditService
 
         await _assessmentRepository.CreateAsync(assessment, findings, ct);
 
-        // At creation every finding is Open and nothing is stale, so effective == snapshot.
+        // At creation nothing is stale, so effective == snapshot.
         return AppResult<ContinuityAssessment>.Success(
             ToAssessment(assessment, findings, heuristic, recordLookup));
     }
@@ -261,6 +279,34 @@ public class ContinuityAuditService : IContinuityAuditService
     /// <summary>Blended score: heuristic minus capped penalty, floored at 0.</summary>
     public static int BlendScore(int heuristic, IEnumerable<ContinuityFindingSeverity> openSeverities) =>
         Math.Max(0, heuristic - TotalPenalty(openSeverities));
+
+    /// <summary>
+    /// Marks new findings Dismissed when the previous assessment holds a dismissed finding of
+    /// the same category whose evidence covers the new finding's (new evidence ⊆ dismissed
+    /// evidence). A re-detection citing anything beyond what was dismissed is new information
+    /// and stays Open.
+    /// </summary>
+    internal static void CarryForwardDismissals(
+        IReadOnlyList<ContinuityFinding> findings,
+        IEnumerable<ContinuityFinding> previousFindings)
+    {
+        var dismissed = previousFindings
+            .Where(f => f.Status == ContinuityFindingStatus.Dismissed)
+            .Select(f => (f.Category, Evidence: DeserializeEvidence(f.EvidenceJson).ToHashSet(StringComparer.Ordinal)))
+            .Where(d => d.Evidence.Count > 0)
+            .ToList();
+        if (dismissed.Count == 0)
+            return;
+
+        foreach (var finding in findings)
+        {
+            var evidence = DeserializeEvidence(finding.EvidenceJson);
+            if (dismissed.Any(d => d.Category == finding.Category && evidence.All(d.Evidence.Contains)))
+            {
+                finding.Status = ContinuityFindingStatus.Dismissed;
+            }
+        }
+    }
 
     // -------------------------------------------------------------------------- Validation --
 

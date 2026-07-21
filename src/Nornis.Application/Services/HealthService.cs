@@ -39,8 +39,15 @@ public class HealthService : IHealthService
 
         var artifactIds = artifacts.Select(a => a.Id).ToList();
 
-        var facts = await _factRepository.ListByArtifactIdsAsync(artifactIds, VisibilityFilter.All, int.MaxValue, ct);
-        var relationships = await _relationshipRepository.ListByArtifactIdsAsync(artifactIds, VisibilityFilter.All, ct);
+        // Retired (False) statements are adjudicated history, not part of the live record —
+        // otherwise resolving a contradiction by retiring the losing fact would permanently
+        // depress the score it was meant to repair.
+        var facts = (await _factRepository.ListByArtifactIdsAsync(artifactIds, VisibilityFilter.All, int.MaxValue, ct))
+            .Where(f => f.TruthState != TruthState.False)
+            .ToList();
+        var relationships = (await _relationshipRepository.ListByArtifactIdsAsync(artifactIds, VisibilityFilter.All, ct))
+            .Where(r => r.TruthState != TruthState.False)
+            .ToList();
 
         var statementCount = facts.Count + relationships.Count;
 
@@ -51,10 +58,11 @@ public class HealthService : IHealthService
         var sourceRefs = await _sourceReferenceRepository.ListByTargetIdsAsync(targetIds, ct);
         var sourcedIds = sourceRefs.Select(s => s.TargetId).ToHashSet();
 
-        // Consistency — freedom from contradiction (Disputed / False lower it).
+        // Consistency — freedom from contradiction. Disputed statements are live, unresolved
+        // disagreements and lower it; False ones were filtered above as retired.
         var contradictions =
-            facts.Count(f => f.TruthState is TruthState.Disputed or TruthState.False) +
-            relationships.Count(r => r.TruthState is TruthState.Disputed or TruthState.False);
+            facts.Count(f => f.TruthState is TruthState.Disputed) +
+            relationships.Count(r => r.TruthState is TruthState.Disputed);
         var consistency = statementCount == 0 ? 100 : Percent(statementCount - contradictions, statementCount);
 
         // Completeness — artifacts fleshed out with a summary and at least one fact or relationship.

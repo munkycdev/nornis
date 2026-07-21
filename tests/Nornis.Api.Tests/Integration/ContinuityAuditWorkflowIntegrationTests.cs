@@ -272,6 +272,82 @@ public class ContinuityAuditWorkflowIntegrationTests
     }
 
     [Test]
+    public async Task RetiredFactAfterAcceptedFix_DoesNotFeedTheNextAudit()
+    {
+        // The full loop that motivated the fix workflow: audit -> draft fix -> accept ->
+        // re-run. The retired fact must not re-enter the auditor's prompt or grounding.
+        var factId = await GetVossFactIdAsync();
+        _factory.FakeAuditAiClient.SetupFindings(new AuditFinding
+        {
+            Category = "Contradiction",
+            Severity = "High",
+            Summary = "Voss's stated location conflicts with the harbor records.",
+            SuggestedAction = "Reconcile the two location facts.",
+            Evidence = [$"fact:{factId}"],
+            ArtifactRef = $"artifact:{_scenario.Voss.Id}"
+        });
+        var assessResponse = await _scenario.GmClient.PostAsync($"{HealthUrl}/assess", content: null);
+        var assessed = await assessResponse.Content.ReadFromJsonAsync<ContinuityAssessmentResponse>();
+
+        _factory.FakeFixAiClient.SetupProposals(new ContinuityFixProposal
+        {
+            ChangeType = "UpdateFact",
+            TargetRef = $"fact:{factId}",
+            Rationale = "Retire the harbor location.",
+            TruthState = "False"
+        });
+        var draftResponse = await _scenario.GmClient.PostAsync(
+            $"{HealthUrl}/findings/{assessed!.Findings[0].Id}/draft-fix", content: null);
+        var draft = await draftResponse.Content.ReadFromJsonAsync<DraftFixResponse>();
+
+        Guid proposalId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+            proposalId = db.ReviewProposals.Single(p => p.ReviewBatchId == draft!.BatchId).Id;
+        }
+        var acceptResponse = await _scenario.GmClient.PostAsync(
+            $"/api/worlds/{_scenario.World.Id}/reviews/proposals/{proposalId}/accept", content: null);
+        Assert.That(acceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        // Re-run: the model would only re-report the contradiction if it could still see and
+        // cite the retired fact — its finding must now be dropped as ungrounded.
+        var rerunResponse = await _scenario.GmClient.PostAsync($"{HealthUrl}/assess", content: null);
+        var rerun = await rerunResponse.Content.ReadFromJsonAsync<ContinuityAssessmentResponse>();
+
+        Assert.That(rerun!.Findings, Is.Empty);
+    }
+
+    [Test]
+    public async Task DismissedFinding_StaysDismissedAcrossReruns()
+    {
+        var finding = new AuditFinding
+        {
+            Category = "DanglingThread",
+            Severity = "Medium",
+            Summary = "The harbor location is never followed up.",
+            SuggestedAction = null,
+            Evidence = [$"artifact:{_scenario.Voss.Id}"],
+            ArtifactRef = $"artifact:{_scenario.Voss.Id}"
+        };
+        _factory.FakeAuditAiClient.SetupFindings(finding);
+        var assessResponse = await _scenario.GmClient.PostAsync($"{HealthUrl}/assess", content: null);
+        var assessed = await assessResponse.Content.ReadFromJsonAsync<ContinuityAssessmentResponse>();
+
+        _ = await _scenario.GmClient.PostAsync(
+            $"{HealthUrl}/findings/{assessed!.Findings[0].Id}/dismiss", content: null);
+
+        // The model re-detects the identical issue on the next run.
+        _factory.FakeAuditAiClient.SetupFindings(finding);
+        var rerunResponse = await _scenario.GmClient.PostAsync($"{HealthUrl}/assess", content: null);
+        var rerun = await rerunResponse.Content.ReadFromJsonAsync<ContinuityAssessmentResponse>();
+
+        Assert.That(rerun!.Findings, Has.Count.EqualTo(1));
+        Assert.That(rerun.Findings[0].Status, Is.EqualTo("Dismissed"));
+        Assert.That(rerun.EffectiveScore, Is.EqualTo(rerun.HeuristicScore));
+    }
+
+    [Test]
     public async Task DraftFix_NonGm_Returns403()
     {
         var response = await _scenario.PlayerClient.PostAsync(
