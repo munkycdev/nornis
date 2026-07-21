@@ -2,7 +2,7 @@ namespace Nornis.Api.Contracts.Responses;
 
 public record JourneyLocationResponse(Guid ArtifactId, string Name, decimal X, decimal Y, string? Label);
 
-public record JourneyHighlightResponse(Guid ArtifactId, string Name, string Type, bool FirstSeen);
+public record JourneyHighlightResponse(Guid ArtifactId, string Name, string Type, bool FirstSeen, string? Summary);
 
 public record JourneyStopResponse(
     Guid SourceId,

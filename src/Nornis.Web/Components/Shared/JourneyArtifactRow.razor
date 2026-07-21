@@ -1,0 +1,27 @@
+@* One artifact line in the Journey panels: a type chip plus the artifact name under the same
+   hover-summary tooltip (ArtifactTip) used across the rest of the site. Shared by the session
+   ledger and the place tree so both read identically. *@
+<a class="nornis-journey-art" href="@($"{LinkBase}/{Highlight.ArtifactId}")">
+    <span class="nornis-journey-chip type-@Highlight.Type.ToLowerInvariant()">@Highlight.Type</span>
+    <ArtifactTip Name="@Highlight.Name" Summary="@Highlight.Summary">
+        <span class="nornis-journey-hl-name">@Highlight.Name</span>
+    </ArtifactTip>
+    @if (ShowNote && Note is { } note)
+    {
+        <span class="nornis-journey-hl-note">— @note</span>
+    }
+</a>
+
+@code {
+    [Parameter, EditorRequired] public JourneyHighlightDto Highlight { get; set; } = default!;
+
+    /// <summary>Route prefix for the artifact link (public pages can override it).</summary>
+    [Parameter] public string LinkBase { get; set; } = "/artifacts";
+
+    /// <summary>Show the "first visit / new" tag — only meaningful against the timeline order,
+    /// so the place tree turns it off.</summary>
+    [Parameter] public bool ShowNote { get; set; }
+
+    private string? Note =>
+        Highlight.FirstSeen ? (Highlight.Type == "Location" ? "first visit" : "new") : null;
+}
