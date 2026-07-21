@@ -21,6 +21,8 @@ using Nornis.Infrastructure.Messaging;
 using Nornis.Infrastructure.Persistence;
 using Nornis.Infrastructure.Persistence.Repositories;
 using Nornis.Infrastructure.Storage;
+using Nornis.Infrastructure.Telemetry;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,7 +35,8 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNEC
 {
     builder.Services.AddOpenTelemetry()
         .ConfigureResource(resource => resource.AddService("nornis-api"))
-        .UseAzureMonitor();
+        .UseAzureMonitor()
+        .WithMetrics(metrics => metrics.AddMeter(AiUsageMetrics.MeterName));
 }
 
 // Authentication and authorization (Auth0 JWT with FallbackPolicy = RequireAuthenticatedUser)
