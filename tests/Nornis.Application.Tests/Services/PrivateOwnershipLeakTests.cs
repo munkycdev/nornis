@@ -88,7 +88,7 @@ public class PrivateOwnershipLeakTests
         new InMemoryStorylineCampaignRepository(), new InMemoryCampaignRepository());
 
     private KeywordKnowledgeRetriever CreateRetriever() => new(
-        _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo,
+        _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo, _sourceRepo,
         Options.Create(new LoremasterOptions { MaxRetrievalCount = 30, MaxFactsPerArtifact = 15 }));
 
     // ------------------------------------------------------------------ Ask/retrieval --

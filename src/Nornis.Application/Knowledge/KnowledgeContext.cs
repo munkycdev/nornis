@@ -10,4 +10,8 @@ public class KnowledgeContext
     /// <summary>Published-reference passages from the Library (attached by the Loremaster
     /// after keyword retrieval — kept separate from world canon).</summary>
     public IReadOnlyList<KnowledgePassage> Passages { get; init; } = [];
+
+    /// <summary>The world's most recent play sessions, newest first — the authoritative
+    /// ground for time-anchored questions ("what happened last session?").</summary>
+    public IReadOnlyList<KnowledgeSession> Sessions { get; init; } = [];
 }

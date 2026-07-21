@@ -71,7 +71,8 @@ public class HiddenTruthStateGateTests
         });
 
         _retriever = new KeywordKnowledgeRetriever(
-            _artifactRepo, _factRepo, _relationshipRepo, new InMemorySourceReferenceRepository(), options);
+            _artifactRepo, _factRepo, _relationshipRepo, new InMemorySourceReferenceRepository(),
+            new InMemorySourceRepository(), options);
     }
 
     [TestCase(WorldRole.Player)]

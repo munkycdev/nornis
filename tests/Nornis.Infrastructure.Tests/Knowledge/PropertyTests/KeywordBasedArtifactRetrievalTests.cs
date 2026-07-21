@@ -112,7 +112,7 @@ public class KeywordBasedArtifactRetrievalTests
         });
 
         var retriever = new KeywordKnowledgeRetriever(
-            artifactRepo, factRepo, relationshipRepo, sourceRefRepo, options);
+            artifactRepo, factRepo, relationshipRepo, sourceRefRepo, new InMemorySourceRepository(), options);
 
         // Determine if visibility should allow access. The seeded artifact has no owner
         // (CreatedByUserId null), so Private is GM-only under the ownership policy.
@@ -191,7 +191,7 @@ public class KeywordBasedArtifactRetrievalTests
         });
 
         var retriever = new KeywordKnowledgeRetriever(
-            artifactRepo, factRepo, relationshipRepo, sourceRefRepo, options);
+            artifactRepo, factRepo, relationshipRepo, sourceRefRepo, new InMemorySourceRepository(), options);
 
         // Act: The question contains the named artifact, NOT the unrelated one.
         // The unrelated one might appear via "recent" retrieval, but should NOT be name-matched.

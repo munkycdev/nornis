@@ -14,6 +14,7 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
     private readonly IArtifactFactRepository _artifactFactRepository;
     private readonly IArtifactRelationshipRepository _artifactRelationshipRepository;
     private readonly ISourceReferenceRepository _sourceReferenceRepository;
+    private readonly ISourceRepository _sourceRepository;
     private readonly LoremasterOptions _options;
 
     public KeywordKnowledgeRetriever(
@@ -21,12 +22,14 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
         IArtifactFactRepository artifactFactRepository,
         IArtifactRelationshipRepository artifactRelationshipRepository,
         ISourceReferenceRepository sourceReferenceRepository,
+        ISourceRepository sourceRepository,
         IOptions<LoremasterOptions> options)
     {
         _artifactRepository = artifactRepository;
         _artifactFactRepository = artifactFactRepository;
         _artifactRelationshipRepository = artifactRelationshipRepository;
         _sourceReferenceRepository = sourceReferenceRepository;
+        _sourceRepository = sourceRepository;
         _options = options.Value;
     }
 
@@ -51,6 +54,12 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
         // 3. Merge and deduplicate (name-matched first, then recent), cap at MaxRetrievalCount
         var artifacts = MergeAndDeduplicate(nameMatched, recent, _options.MaxRetrievalCount);
 
+        // Recent sessions ground time-anchored questions ("what happened last session?").
+        // Fetched regardless of artifact hits — a young world may have session notes
+        // before it has any extracted canon.
+        var sessions = await _sourceRepository.ListRecentSessionsAsync(
+            worldId, filter, _options.RecentSessionCount, ct);
+
         if (artifacts.Count == 0)
         {
             return new KnowledgeContext
@@ -58,7 +67,8 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
                 Artifacts = [],
                 Facts = [],
                 Relationships = [],
-                SourceReferences = []
+                SourceReferences = [],
+                Sessions = sessions.Select(MapSession).ToList()
             };
         }
 
@@ -96,7 +106,8 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
             Artifacts = artifacts.Select(MapArtifact).ToList(),
             Facts = filteredFacts.Select(MapFact).ToList(),
             Relationships = relationships.Select(MapRelationship).ToList(),
-            SourceReferences = sourceReferences.Select(MapSourceReference).ToList()
+            SourceReferences = sourceReferences.Select(MapSourceReference).ToList(),
+            Sessions = sessions.Select(MapSession).ToList()
         };
     }
 
@@ -168,6 +179,20 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
         SourceId = sourceRef.SourceId,
         TargetId = sourceRef.TargetId,
         Quote = sourceRef.Quote,
-        ReferenceId = $"src:{sourceRef.Id}"
+        ReferenceId = $"src:{sourceRef.Id}",
+        // Navigation may be unloaded in older call paths; provenance stamps are best-effort.
+        SourceTitle = sourceRef.Source?.Title,
+        SourceDate = sourceRef.Source is null ? null : sourceRef.Source.OccurredAt ?? sourceRef.Source.CreatedAt
+    };
+
+    private static KnowledgeSession MapSession(Source session) => new()
+    {
+        Id = session.Id,
+        Title = session.Title,
+        Date = session.OccurredAt ?? session.CreatedAt,
+        // The typed body is the session record; machine-derived text (audio
+        // transcription, attachment reads) stands in when nothing was typed.
+        Text = string.IsNullOrWhiteSpace(session.Body) ? session.DerivedText : session.Body,
+        ReferenceId = $"session:{session.Id}"
     };
 }

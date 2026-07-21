@@ -36,6 +36,7 @@ public class SourceReferenceRepository : ISourceReferenceRepository
 
         return await _context.SourceReferences
             .AsNoTracking()
+            .Include(sr => sr.Source)
             .Where(sr => targetIds.Contains(sr.TargetId))
             .ToListAsync(cancellationToken);
     }

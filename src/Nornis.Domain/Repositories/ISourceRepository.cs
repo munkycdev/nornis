@@ -1,5 +1,6 @@
 ﻿using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 
 namespace Nornis.Domain.Repositories;
 
@@ -10,6 +11,10 @@ public interface ISourceRepository
     Task<Source?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default);
+
+    /// <summary>The world's most recent play sessions (session-recording source types),
+    /// visibility-filtered, ordered by when they happened (OccurredAt ?? CreatedAt) descending.</summary>
+    Task<IReadOnlyList<Source>> ListRecentSessionsAsync(Guid worldId, VisibilityFilter filter, int maxCount, CancellationToken cancellationToken = default);
 
     /// <summary>Scoped Body write — used by the worker to persist a vision transcription.</summary>
     Task UpdateBodyAsync(Guid id, string body, CancellationToken cancellationToken = default);

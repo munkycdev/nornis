@@ -46,6 +46,7 @@ public class ArchivedArtifactExclusionTests
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
             new InMemorySourceReferenceRepository(),
+            new InMemorySourceRepository(),
             options);
     }
 

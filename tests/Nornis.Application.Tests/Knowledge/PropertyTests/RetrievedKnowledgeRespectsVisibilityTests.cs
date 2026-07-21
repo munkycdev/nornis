@@ -55,7 +55,7 @@ public class RetrievedKnowledgeRespectsVisibilityTests
         relationshipRepo.Seed(scenario.Relationships.ToArray());
 
         var retriever = new KeywordKnowledgeRetriever(
-            artifactRepo, factRepo, relationshipRepo, sourceRefRepo, options);
+            artifactRepo, factRepo, relationshipRepo, sourceRefRepo, new InMemorySourceRepository(), options);
 
         // Determine allowed visibility scopes for the role
         var allowedScopes = GetAllowedScopes(scenario.Role);

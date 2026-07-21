@@ -51,7 +51,7 @@ public class VisibilityFilterCorrectnessTests
         });
 
         var retriever = new KeywordKnowledgeRetriever(
-            artifactRepo, factRepo, relationshipRepo, sourceRefRepo, options);
+            artifactRepo, factRepo, relationshipRepo, sourceRefRepo, new InMemorySourceRepository(), options);
 
         // Build a question string that contains all artifact names so they get name-matched
         var question = string.Join(" ", scenario.Artifacts.Select(a => a.Name));

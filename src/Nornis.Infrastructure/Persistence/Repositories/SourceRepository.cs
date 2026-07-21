@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Persistence.Repositories;
@@ -44,6 +45,35 @@ public class SourceRepository : ISourceRepository
 
         return await query.ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Source>> ListRecentSessionsAsync(
+        Guid worldId,
+        VisibilityFilter filter,
+        int maxCount,
+        CancellationToken cancellationToken = default)
+    {
+        // Hoisted locals translate to SQL parameters.
+        var scopes = filter.Scopes;
+        var owner = filter.PrivateOwnerUserId;
+
+        return await _context.Sources
+            .AsNoTracking()
+            .Where(s => s.WorldId == worldId
+                && (SessionTypes.Contains(s.Type)
+                    || (s.Type == SourceType.ImportedNote && s.OccurredAt != null))
+                && scopes.Contains(s.Visibility)
+                && (s.Visibility != VisibilityScope.Private || owner == null || s.CreatedByUserId == owner))
+            .OrderByDescending(s => s.OccurredAt ?? s.CreatedAt)
+            .Take(maxCount)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>Source types that record a play session (SessionNote plus the legacy
+    /// transcript forms) — what "last session" means to the Loremaster. ImportedNote
+    /// counts only when dated: the bulk importer stamps OccurredAt on session folders
+    /// but not on wiki/character/lore notes.</summary>
+    private static readonly SourceType[] SessionTypes =
+        [SourceType.SessionNote, SourceType.Transcript, SourceType.SessionAudio];
 
     public async Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default)
     {

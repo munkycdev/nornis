@@ -49,6 +49,7 @@ public class RetrievalCountCapTests
             factRepo,
             relationshipRepo,
             sourceRefRepo,
+            new InMemorySourceRepository(),
             options);
 
         // Act

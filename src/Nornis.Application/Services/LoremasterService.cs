@@ -69,6 +69,17 @@ public partial class LoremasterService : ILoremasterService
         - Hidden: this is GM-only truth included in your context only when the asker may see it.
           When you use it, note that it is not party knowledge ("Known to the GM's record...").
 
+        ## Temporality
+        - The context begins with today's date, and may include a "Recent Sessions" section
+          listing the world's latest play sessions, newest first, each with the date it was played.
+        - Answer time-anchored questions ("what happened last session?", "most recently",
+          "lately", "where did we leave off?") from the Recent Sessions section alone. If that
+          section is absent or empty, say the record does not establish what happened most
+          recently — do not substitute older material and present it as recent.
+        - Facts and quotes may carry a "recorded in" stamp naming their source and its date.
+          Use those dates to judge how current a piece of knowledge is; when records conflict,
+          prefer the newer one and name the older account.
+
         ## Storylines
         - Artifacts of type Storyline are narrative arcs: mysteries, quests, investigations, threats.
         - Pay attention to their status — Active, Dormant, Resolved, or Archived — and say it when
@@ -155,6 +166,7 @@ public partial class LoremasterService : ILoremasterService
                         Relationships = context.Relationships,
                         SourceReferences = context.SourceReferences,
                         Passages = passages,
+                        Sessions = context.Sessions,
                     };
                 }
             }
@@ -271,7 +283,7 @@ public partial class LoremasterService : ILoremasterService
     /// </summary>
     internal static ConfidenceLevel DetermineConfidence(KnowledgeContext context)
     {
-        if (context.Artifacts.Count == 0)
+        if (context.Artifacts.Count == 0 && context.Sessions.Count == 0)
             return ConfidenceLevel.Low;
 
         var confirmedFactCount = context.Facts
@@ -287,6 +299,10 @@ public partial class LoremasterService : ILoremasterService
         if (confirmedFactCount >= 1 || totalFactCount >= 2)
             return ConfidenceLevel.Medium;
 
+        // Session records are first-hand text even when no structured facts came along.
+        if (context.Sessions.Any(s => !string.IsNullOrWhiteSpace(s.Text)))
+            return ConfidenceLevel.Medium;
+
         return ConfidenceLevel.Low;
     }
 
@@ -297,7 +313,7 @@ public partial class LoremasterService : ILoremasterService
     {
         var caveats = new List<string>();
 
-        if (context.Artifacts.Count == 0)
+        if (context.Artifacts.Count == 0 && context.Sessions.Count == 0)
             caveats.Add("Limited information available");
 
         if (context.Facts.Any(f => f.TruthState == TruthState.Rumor))
@@ -375,6 +391,10 @@ public partial class LoremasterService : ILoremasterService
     {
         var userMessage = new StringBuilder();
 
+        // Anchor "now" so the model can reason about session dates and recency.
+        userMessage.AppendLine($"Today's date: {DateTimeOffset.UtcNow:yyyy-MM-dd}");
+        userMessage.AppendLine();
+
         var formattedContext = FormatKnowledgeContext(context);
         if (!string.IsNullOrWhiteSpace(formattedContext))
         {
@@ -414,7 +434,8 @@ public partial class LoremasterService : ILoremasterService
                       || context.Facts.Count > 0
                       || context.Relationships.Count > 0
                       || context.SourceReferences.Count > 0
-                      || context.Passages.Count > 0;
+                      || context.Passages.Count > 0
+                      || context.Sessions.Count > 0;
 
         if (!hasContent)
             return string.Empty;
@@ -424,6 +445,31 @@ public partial class LoremasterService : ILoremasterService
         var factsByArtifact = context.Facts
             .GroupBy(f => f.ArtifactId)
             .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Newest "recorded in" stamp per target — a fact mentioned in several sources is
+        // dated by its latest mention.
+        var provenanceByTarget = context.SourceReferences
+            .Where(sr => sr.SourceTitle is not null && sr.SourceDate is not null)
+            .GroupBy(sr => sr.TargetId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(sr => sr.SourceDate).First());
+
+        if (context.Sessions.Count > 0)
+        {
+            sb.AppendLine("### Recent Sessions (most recent first)");
+            var first = true;
+            foreach (var session in context.Sessions)
+            {
+                var marker = first ? " — this is the most recent session" : "";
+                sb.AppendLine($"- \"{session.Title}\" — played {session.Date:yyyy-MM-dd}{marker} [ref:{session.ReferenceId}]");
+                sb.AppendLine(string.IsNullOrWhiteSpace(session.Text)
+                    ? "  (no written record for this session)"
+                    : $"  {session.Text.ReplaceLineEndings("\n  ")}");
+                first = false;
+            }
+            sb.AppendLine();
+        }
 
         if (context.Artifacts.Count > 0)
         {
@@ -439,7 +485,7 @@ public partial class LoremasterService : ILoremasterService
                 {
                     foreach (var fact in artifactFacts)
                     {
-                        sb.AppendLine($"  - {fact.Predicate}: {fact.Value}{TruthStateLabel(fact.TruthState)} [ref:{fact.ReferenceId}]");
+                        sb.AppendLine($"  - {fact.Predicate}: {fact.Value}{TruthStateLabel(fact.TruthState)}{ProvenanceStamp(fact.Id, provenanceByTarget)} [ref:{fact.ReferenceId}]");
                     }
                 }
             }
@@ -453,7 +499,7 @@ public partial class LoremasterService : ILoremasterService
             sb.AppendLine("### Additional Facts");
             foreach (var fact in orphanFacts)
             {
-                sb.AppendLine($"- {fact.Predicate}: {fact.Value}{TruthStateLabel(fact.TruthState)} [ref:{fact.ReferenceId}]");
+                sb.AppendLine($"- {fact.Predicate}: {fact.Value}{TruthStateLabel(fact.TruthState)}{ProvenanceStamp(fact.Id, provenanceByTarget)} [ref:{fact.ReferenceId}]");
             }
             sb.AppendLine();
         }
@@ -466,7 +512,7 @@ public partial class LoremasterService : ILoremasterService
                 var a = artifactNames.GetValueOrDefault(rel.ArtifactAId, "Unknown artifact");
                 var b = artifactNames.GetValueOrDefault(rel.ArtifactBId, "Unknown artifact");
                 var description = rel.Description is not null ? $" — {rel.Description}" : "";
-                sb.AppendLine($"- {a} <-> {b}: {rel.Type}{description}{TruthStateLabel(rel.TruthState)} [ref:{rel.ReferenceId}]");
+                sb.AppendLine($"- {a} <-> {b}: {rel.Type}{description}{TruthStateLabel(rel.TruthState)}{ProvenanceStamp(rel.Id, provenanceByTarget)} [ref:{rel.ReferenceId}]");
             }
             sb.AppendLine();
         }
@@ -477,7 +523,10 @@ public partial class LoremasterService : ILoremasterService
             foreach (var src in context.SourceReferences)
             {
                 var quote = src.Quote ?? "(no quote)";
-                sb.AppendLine($"- \"{quote}\" [ref:{src.ReferenceId}]");
+                var origin = src.SourceTitle is not null && src.SourceDate is not null
+                    ? $" (from \"{src.SourceTitle}\", {src.SourceDate:yyyy-MM-dd})"
+                    : "";
+                sb.AppendLine($"- \"{quote}\"{origin} [ref:{src.ReferenceId}]");
             }
             sb.AppendLine();
         }
@@ -495,6 +544,13 @@ public partial class LoremasterService : ILoremasterService
 
         return sb.ToString();
     }
+
+    private static string ProvenanceStamp(
+        Guid targetId,
+        IReadOnlyDictionary<Guid, KnowledgeSourceReference> provenanceByTarget) =>
+        provenanceByTarget.TryGetValue(targetId, out var sr)
+            ? $" (recorded in \"{sr.SourceTitle}\", {sr.SourceDate:yyyy-MM-dd})"
+            : "";
 
     private static string TruthStateLabel(TruthState truthState) => truthState switch
     {
@@ -528,6 +584,7 @@ public partial class LoremasterService : ILoremasterService
         var relationshipLookup = context.Relationships.ToDictionary(r => r.ReferenceId, StringComparer.Ordinal);
         var sourceLookup = context.SourceReferences.ToDictionary(s => s.ReferenceId, StringComparer.Ordinal);
         var passageLookup = context.Passages.ToDictionary(p => p.ReferenceId, StringComparer.Ordinal);
+        var sessionLookup = context.Sessions.ToDictionary(s => s.ReferenceId, StringComparer.Ordinal);
 
         foreach (Match match in matches)
         {
@@ -537,7 +594,7 @@ public partial class LoremasterService : ILoremasterService
             if (!seen.Add(referenceId))
                 continue;
 
-            var citation = ResolveCitation(referenceId, artifactLookup, factLookup, relationshipLookup, sourceLookup, passageLookup);
+            var citation = ResolveCitation(referenceId, artifactLookup, factLookup, relationshipLookup, sourceLookup, passageLookup, sessionLookup);
             if (citation is not null)
                 citations.Add(citation);
         }
@@ -551,7 +608,8 @@ public partial class LoremasterService : ILoremasterService
         Dictionary<string, KnowledgeFact> facts,
         Dictionary<string, KnowledgeRelationship> relationships,
         Dictionary<string, KnowledgeSourceReference> sources,
-        Dictionary<string, KnowledgePassage> passages)
+        Dictionary<string, KnowledgePassage> passages,
+        Dictionary<string, KnowledgeSession> sessions)
     {
         if (artifacts.TryGetValue(referenceId, out var artifact))
         {
@@ -605,6 +663,19 @@ public partial class LoremasterService : ILoremasterService
                 Type = CitationType.Passage,
                 DisplayName = $"{passage.DocumentTitle}, p. {passage.Page}",
                 DocumentId = passage.DocumentId
+            };
+        }
+
+        // Sessions ARE sources, so a session citation reuses the Source citation type —
+        // the client already knows how to link a SourceId.
+        if (sessions.TryGetValue(referenceId, out var session))
+        {
+            return new Citation
+            {
+                ReferenceId = referenceId,
+                Type = CitationType.Source,
+                DisplayName = session.Title,
+                SourceId = session.Id
             };
         }
 
