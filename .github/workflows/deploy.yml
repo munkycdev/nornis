@@ -67,12 +67,14 @@ jobs:
               .
           done
 
+  # EF migrations are applied manually, before pushing a commit that needs them:
+  #   dotnet ef database update --project src/Nornis.Infrastructure \
+  #     --startup-project src/Nornis.Api --connection "<prod connection string>"
+  # They must stay additive — the old revision keeps serving until the rollout below.
   deploy:
     runs-on: ubuntu-latest
     needs: [test, build]
     steps:
-      - uses: actions/checkout@v4
-
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
@@ -80,33 +82,18 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Migrations run before the new images go live. They must stay additive —
-      # the old revision keeps serving until the containerapp update below.
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-      - name: Apply EF migrations
-        # The connection string must reach the shell as an env var, not inline
-        # ${{ }} substitution — the password contains characters bash re-expands.
-        env:
-          SQL_CONNECTION_STRING: ${{ secrets.SQL_CONNECTION_STRING }}
-        run: |
-          dotnet tool install --global dotnet-ef --version 10.*
-          dotnet restore Nornis.sln
-          dotnet ef database update \
-            --project src/Nornis.Infrastructure \
-            --startup-project src/Nornis.Api \
-            --connection "$SQL_CONNECTION_STRING"
-
       - name: Deploy container apps
         run: |
+          pids=()
           for svc in api web worker; do
             az containerapp update \
               --name "ca-nornis-$svc" \
               --resource-group "$RESOURCE_GROUP" \
               --image "$ACR.azurecr.io/nornis-$svc:${{ github.sha }}" \
-              -o none
+              -o none &
+            pids+=($!)
           done
+          for pid in "${pids[@]}"; do wait "$pid"; done
 
       - name: Report endpoints
         run: |
