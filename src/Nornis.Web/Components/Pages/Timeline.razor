@@ -212,7 +212,7 @@ else
         if (result.IsSuccess)
         {
             Snackbar.Add($"\"{drop.Child.Name}\" is now part of \"{drop.Parent.Name}\".", Severity.Success);
-            await LoadTimelineAsync();
+            ApplyParentLocally(drop.Child.StorylineId, drop.Parent.StorylineId);
         }
         else
         {
@@ -240,12 +240,31 @@ else
         if (result.IsSuccess)
         {
             Snackbar.Add($"\"{child.Name}\" is now a top-level storyline.", Severity.Success);
-            await LoadTimelineAsync();
+            ApplyParentLocally(child.StorylineId, null);
         }
         else
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
+    }
+
+    // A successful nest/un-nest only moves ParentStorylineId; the chart derives rows,
+    // connectors, and bands from its Data. Rewriting the lane in place re-renders the
+    // chart without unmounting it — no loading skeleton, no lost scroll position.
+    private void ApplyParentLocally(Guid childId, Guid? parentId)
+    {
+        if (_timeline is null)
+        {
+            return;
+        }
+
+        _timeline = _timeline with
+        {
+            Lanes = _timeline.Lanes
+                .Select(l => l.StorylineId == childId ? l with { ParentStorylineId = parentId } : l)
+                .ToList(),
+        };
+        StateHasChanged();
     }
 
     private async Task LoadTimelineAsync()
