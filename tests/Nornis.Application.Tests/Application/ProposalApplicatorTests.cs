@@ -613,6 +613,48 @@ public class ProposalApplicatorTests
     }
 
     [Test]
+    public async Task AddRelationship_SameEdgeTwice_ReinforcesInsteadOfDuplicating()
+    {
+        var a = SeedStoryline("Sub-arc");
+        var b = SeedStoryline("Main arc");
+
+        var first = await _applicator.ApplyAsync(MakeProposal(ReviewChangeType.AddRelationship,
+            new AddRelationshipPayload(a.Id, b.Id, "Advances", "first mention", 0.6m, "Likely", "PartyVisible")),
+            _batch, VisibilityFilter.All, CancellationToken.None);
+        var second = await _applicator.ApplyAsync(MakeProposal(ReviewChangeType.AddRelationship,
+            new AddRelationshipPayload(a.Id, b.Id, "Advances", "second mention", 0.9m, "Confirmed", "PartyVisible")),
+            _batch, VisibilityFilter.All, CancellationToken.None);
+
+        Assert.That(second.IsSuccess, Is.True);
+        Assert.That(second.Value!.EntityId, Is.EqualTo(first.Value!.EntityId),
+            "re-proposing the same edge must resolve to the existing relationship");
+
+        var rel = _relationshipRepo.Relationships.Single(r => r.Type == "Advances");
+        Assert.That(rel.Description, Is.EqualTo("second mention"));
+        Assert.That(rel.Confidence, Is.EqualTo(0.9m));
+        Assert.That(rel.TruthState, Is.EqualTo(TruthState.Confirmed));
+    }
+
+    [Test]
+    public async Task AddRelationship_ReversedDirectionOrOtherType_CreatesSeparateRows()
+    {
+        var a = SeedStoryline("Sub-arc");
+        var b = SeedStoryline("Main arc");
+
+        await _applicator.ApplyAsync(MakeProposal(ReviewChangeType.AddRelationship,
+            new AddRelationshipPayload(a.Id, b.Id, "Advances", null, 0.8m, "Likely", "PartyVisible")),
+            _batch, VisibilityFilter.All, CancellationToken.None);
+        await _applicator.ApplyAsync(MakeProposal(ReviewChangeType.AddRelationship,
+            new AddRelationshipPayload(b.Id, a.Id, "Advances", null, 0.8m, "Likely", "PartyVisible")),
+            _batch, VisibilityFilter.All, CancellationToken.None);
+        await _applicator.ApplyAsync(MakeProposal(ReviewChangeType.AddRelationship,
+            new AddRelationshipPayload(a.Id, b.Id, "Involves", null, 0.8m, "Likely", "PartyVisible")),
+            _batch, VisibilityFilter.All, CancellationToken.None);
+
+        Assert.That(_relationshipRepo.Relationships, Has.Count.EqualTo(3));
+    }
+
+    [Test]
     public async Task AddRelationship_ArtifactANotFound_ReturnsValidationError()
     {
         var artifactB = new Artifact

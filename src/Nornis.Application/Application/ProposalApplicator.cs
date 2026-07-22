@@ -531,6 +531,28 @@ public class ProposalApplicator : IProposalApplicator
             }
         }
 
+        // Re-proposing an edge that already exists (same direction, same type) reinforces
+        // it instead of duplicating the row: the new source cites the existing relationship.
+        // Sessions routinely re-state established connections, and each acceptance used to
+        // add another identical row.
+        var duplicate = (await _artifactRelationshipRepository.ListByArtifactAsync(artifactA.Id, ct))
+            .FirstOrDefault(r => r.ArtifactAId == artifactA.Id
+                && r.ArtifactBId == artifactB.Id
+                && string.Equals(r.Type, payload.Type, StringComparison.Ordinal));
+        if (duplicate is not null)
+        {
+            duplicate.Description = payload.Description ?? duplicate.Description;
+            duplicate.Confidence = payload.Confidence ?? duplicate.Confidence;
+            duplicate.TruthState = truthState;
+            duplicate.Visibility = visibility;
+            duplicate.UpdatedAt = now;
+            await _artifactRelationshipRepository.UpdateAsync(duplicate, ct);
+
+            await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactRelationship, duplicate.Id, proposal.Id, ct);
+
+            return AppResult<ApplyResult>.Success(new ApplyResult(duplicate.Id, SourceReferenceTargetType.ArtifactRelationship));
+        }
+
         var relationship = new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
