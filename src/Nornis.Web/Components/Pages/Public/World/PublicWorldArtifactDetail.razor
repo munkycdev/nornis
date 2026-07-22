@@ -28,11 +28,27 @@
                 }
             </MudPaper>
 
-            @if (_detail.Facts.Count > 0)
+            @if (OpenQuestions.Count > 0)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="nornis-detail-section-title">Open questions</div>
+                    <div class="nornis-open-questions">
+                        @foreach (var q in OpenQuestions)
+                        {
+                            <div class="nornis-open-question">
+                                <MudIcon Icon="@Icons.Material.Outlined.HelpOutline" Size="Size.Small" Color="Color.Secondary" />
+                                <span>@q.Value</span>
+                            </div>
+                        }
+                    </div>
+                </MudPaper>
+            }
+
+            @if (RegularFacts.Count > 0)
             {
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                     <div class="nornis-detail-section-title">What's known</div>
-                    @foreach (var fact in _detail.Facts)
+                    @foreach (var fact in RegularFacts)
                     {
                         <div class="nornis-list-row">
                             <div class="nornis-list-body">
@@ -74,6 +90,33 @@
                     }
                 </MudPaper>
             }
+
+            @if (_detail.SourceReferences.Count > 0)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="nornis-detail-section-title">Source references</div>
+                    @foreach (var s in _detail.SourceReferences)
+                    {
+                        <div class="nornis-source-ref">
+                            <MudIcon Icon="@Icons.Material.Outlined.FormatQuote" Size="Size.Small" Color="Color.Tertiary" />
+                            <div>
+                                @if (!string.IsNullOrWhiteSpace(s.Quote))
+                                {
+                                    <span class="nornis-source-quote">“@s.Quote”</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(s.Notes))
+                                {
+                                    <span class="nornis-list-sub">@s.Notes</span>
+                                }
+                                @if (s.SourceTitle is not null)
+                                {
+                                    <a href="@($"/w/{Slug}/sources/{s.SourceId}")" class="nornis-link nornis-list-sub">@s.SourceTitle</a>
+                                }
+                            </div>
+                        </div>
+                    }
+                </MudPaper>
+            }
         }
     </ChildContent>
 </PublicWorldFrame>
@@ -98,6 +141,25 @@
         _detail = result.IsSuccess ? result.Value : null;
         _loading = false;
     }
+
+    // Convention over schema (mirrors ArtifactDetail): unresolved tensions live as facts
+    // with the exact predicate "open question"; answering one flips its truth to False.
+    private const string OpenQuestionPredicate = "open question";
+
+    private IReadOnlyList<ArtifactFactDto> OpenQuestions =>
+        _detail is null
+            ? []
+            : _detail.Facts
+                .Where(f => string.Equals(f.Predicate, OpenQuestionPredicate, StringComparison.OrdinalIgnoreCase)
+                            && f.TruthState != "False")
+                .ToList();
+
+    private IReadOnlyList<ArtifactFactDto> RegularFacts =>
+        _detail is null
+            ? []
+            : _detail.Facts
+                .Where(f => !string.Equals(f.Predicate, OpenQuestionPredicate, StringComparison.OrdinalIgnoreCase))
+                .ToList();
 
     private ConnectedArtifact? OtherEnd(ArtifactRelationshipDto rel)
     {

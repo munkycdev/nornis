@@ -378,16 +378,9 @@
 
     private static string Truncate(string q) => q.Length <= 48 ? q : q[..47].TrimEnd() + "…";
 
-    private static string CleanAnswer(string text) =>
-        System.Text.RegularExpressions.Regex.Replace(text, @"\s*\[ref:[^\]]+\]", "").Trim();
+    private static string CleanAnswer(string text) => Nornis.Web.Services.LoremasterDisplay.CleanAnswer(text);
 
-    private static Color ConfidenceColor(string confidence) => confidence switch
-    {
-        "High" => Color.Success,
-        "Medium" => Color.Info,
-        "Low" => Color.Warning,
-        _ => Color.Default,
-    };
+    private static Color ConfidenceColor(string confidence) => Nornis.Web.Services.LoremasterDisplay.ConfidenceColor(confidence);
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

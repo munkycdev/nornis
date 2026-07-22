@@ -15,7 +15,24 @@
         }
         else
         {
-            <div class="d-flex justify-end mb-4">
+            <div class="d-flex gap-3 align-center mb-4 flex-wrap">
+                <div class="nornis-filter-row flex-grow-1">
+                    <MudChip T="string"
+                             Variant="@(_selectedStatuses.Count == 0 ? Variant.Filled : Variant.Outlined)"
+                             Color="@(_selectedStatuses.Count == 0 ? Color.Secondary : Color.Default)"
+                             OnClick="() => _selectedStatuses.Clear()">
+                        All
+                    </MudChip>
+                    @foreach (var status in Statuses)
+                    {
+                        <MudChip T="string"
+                                 Variant="@(_selectedStatuses.Contains(status) ? Variant.Filled : Variant.Outlined)"
+                                 Color="@(_selectedStatuses.Contains(status) ? Color.Secondary : Color.Default)"
+                                 OnClick="() => ToggleStatus(status)">
+                            @status
+                        </MudChip>
+                    }
+                </div>
                 <MudToggleGroup T="string" Value="_view" ValueChanged="OnViewChangedAsync"
                                 SelectionMode="SelectionMode.SingleSelection"
                                 Color="Color.Secondary" Size="Size.Small">
@@ -68,6 +85,7 @@
             else
             {
                 <StorylineTimelineChart Data="_timeline" CanEdit="false"
+                                        StatusFilter="_selectedStatuses"
                                         SourceLinkBase="@($"/w/{Slug}/sources")"
                                         ArtifactLinkBase="@($"/w/{Slug}/artifacts")" />
             }
@@ -79,6 +97,19 @@
     [Parameter] public string Slug { get; set; } = string.Empty;
 
     private string _view = "timeline";
+
+    // Same status vocabulary and default filter as the members' Timeline page; the
+    // public timeline only ever contains party-visible lanes, so filtering is client-side.
+    private static readonly string[] Statuses = ["Active", "Dormant", "Resolved", "Archived"];
+    private readonly HashSet<string> _selectedStatuses = ["Active", "Dormant"];
+
+    private void ToggleStatus(string status)
+    {
+        if (!_selectedStatuses.Remove(status))
+        {
+            _selectedStatuses.Add(status);
+        }
+    }
 
     private StorylineTimelineDto? _timeline;
     private string? _loadedSlug;

@@ -50,6 +50,30 @@
                     <a href="@_source.Uri" target="_blank" rel="noopener noreferrer" class="nornis-link">@_source.Uri</a>
                 </MudPaper>
             }
+
+            @if (_locations.Count > 0)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="nornis-detail-section-title">Locations</div>
+                    <div class="nornis-detail-chips">
+                        @foreach (var loc in _locations)
+                        {
+                            <ArtifactTip Name="@loc.Name" Summary="@loc.Summary">
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary"
+                                         Icon="@Icons.Material.Outlined.Place"
+                                         Href="@($"/w/{Slug}/artifacts/{loc.ArtifactId}")">@loc.Name</MudChip>
+                            </ArtifactTip>
+                        }
+                    </div>
+                </MudPaper>
+            }
+
+            @if (_source.ProcessingStatus == "Processed" && _source.ExtractionEnabled)
+            {
+                <SourceKnowledgePanel Knowledge="_knowledge"
+                                      CanRemoveFacts="false"
+                                      ArtifactLinkBase="@($"/w/{Slug}/artifacts")" />
+            }
         }
     </ChildContent>
 </PublicWorldFrame>
@@ -60,6 +84,8 @@
 
     private bool _loading = true;
     private SourceDetailDto? _source;
+    private SourceKnowledgeDto? _knowledge;
+    private IReadOnlyList<LinkedLocationDto> _locations = [];
     private (string Slug, Guid Id)? _loadedKey;
 
     protected override async Task OnParametersSetAsync()
@@ -70,9 +96,24 @@
         }
         _loadedKey = (Slug, SourceId);
         _loading = true;
+        _knowledge = null;
+        _locations = [];
         var result = await Api.GetPublicSourceAsync(Slug, SourceId);
         _source = result.IsSuccess ? result.Value : null;
         _loading = false;
+
+        if (_source is not null)
+        {
+            StateHasChanged();
+            var locations = await Api.GetPublicSourceLocationsAsync(Slug, SourceId);
+            _locations = locations.IsSuccess ? locations.Value! : [];
+
+            if (_source.ProcessingStatus == "Processed" && _source.ExtractionEnabled)
+            {
+                var knowledge = await Api.GetPublicSourceKnowledgeAsync(Slug, SourceId);
+                _knowledge = knowledge.IsSuccess ? knowledge.Value : new SourceKnowledgeDto([], [], []);
+            }
+        }
     }
 
 }

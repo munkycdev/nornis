@@ -259,6 +259,14 @@ public class NornisApiClient
     public Task<ApiResult<SourceDetailDto>> GetPublicSourceAsync(string slug, Guid sourceId, CancellationToken ct = default) =>
         GetAsync<SourceDetailDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/sources/{sourceId}", ct);
 
+    /// <summary>What a public session contributed to the record (party-visible only).</summary>
+    public Task<ApiResult<SourceKnowledgeDto>> GetPublicSourceKnowledgeAsync(string slug, Guid sourceId, CancellationToken ct = default) =>
+        GetAsync<SourceKnowledgeDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/sources/{sourceId}/knowledge", ct);
+
+    /// <summary>The Location artifacts a public session is linked to.</summary>
+    public Task<ApiResult<IReadOnlyList<LinkedLocationDto>>> GetPublicSourceLocationsAsync(string slug, Guid sourceId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<LinkedLocationDto>>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/sources/{sourceId}/locations", ct);
+
     /// <summary>Anonymous single-shot Ask the Loremaster against a public world. The API gates it
     /// on the GM's monthly spend cap; failures (disabled, budget spent) come back as the error.</summary>
     public Task<ApiResult<AskAnswer>> AskPublicAsync(string slug, string question, CancellationToken ct = default) =>

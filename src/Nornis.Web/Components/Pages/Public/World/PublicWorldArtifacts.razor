@@ -28,6 +28,11 @@
                 <MudTextField T="string" @bind-Value="_search" Immediate="true" Placeholder="Search titles…"
                               Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                               Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 260px" />
+                <MudToggleGroup T="string" @bind-Value="_sort" SelectionMode="SelectionMode.SingleSelection"
+                                Color="Color.Secondary" Size="Size.Small">
+                    <MudToggleItem Value="@("name")"><MudIcon Icon="@Icons.Material.Outlined.SortByAlpha" Size="Size.Small" /></MudToggleItem>
+                    <MudToggleItem Value="@("recent")"><MudIcon Icon="@Icons.Material.Outlined.Schedule" Size="Size.Small" /></MudToggleItem>
+                </MudToggleGroup>
                 <MudToggleGroup T="string" Value="_view" ValueChanged="OnViewChangedAsync" SelectionMode="SelectionMode.SingleSelection"
                                 Color="Color.Secondary" Size="Size.Small">
                     <MudToggleItem Value="@("cards")"><MudIcon Icon="@Icons.Material.Outlined.GridView" Size="Size.Small" /></MudToggleItem>
@@ -118,6 +123,8 @@
                             }
                             <div class="nornis-artifact-card-foot">
                                 <MudChip T="string" Size="Size.Small" Variant="Variant.Text">@a.Type</MudChip>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(a.Status)">@a.Status</MudChip>
+                                <span class="nornis-list-meta ml-auto">advanced @Ago(a.UpdatedAt)</span>
                             </div>
                         </a>
                     }
@@ -140,13 +147,31 @@
     private readonly HashSet<string> _collapsed = [];
     private string? _loadedSlug;
 
-    private IReadOnlyList<ArtifactListItem> Filtered =>
-        (_artifacts ?? [])
-            .Where(a => _type is null || a.Type == _type)
-            .Where(a => string.IsNullOrWhiteSpace(_search)
-                || a.Name.Contains(_search, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+    private string _sort = "name";
+
+    private IReadOnlyList<ArtifactListItem> Filtered
+    {
+        get
+        {
+            var filtered = (_artifacts ?? [])
+                .Where(a => _type is null || a.Type == _type)
+                .Where(a => string.IsNullOrWhiteSpace(_search)
+                    || a.Name.Contains(_search, StringComparison.OrdinalIgnoreCase));
+            return (_sort == "recent"
+                    ? filtered.OrderByDescending(a => a.UpdatedAt)
+                    : filtered.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase))
+                .ToList();
+        }
+    }
+
+    private static string Ago(DateTimeOffset t)
+    {
+        var d = DateTimeOffset.UtcNow - t.ToUniversalTime();
+        if (d.TotalMinutes < 60) return $"{Math.Max(1, (int)d.TotalMinutes)}m ago";
+        if (d.TotalHours < 24) return $"{(int)d.TotalHours}h ago";
+        if (d.TotalDays < 2) return "Yesterday";
+        return $"{(int)d.TotalDays}d ago";
+    }
 
     // ---------------------------------------------------------------- Graph view --
 

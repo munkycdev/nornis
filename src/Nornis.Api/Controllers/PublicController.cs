@@ -212,6 +212,61 @@ public class PublicController : ControllerBase
         return result.IsSuccess ? Ok(SourcesController.ToSourceResponse(result.Value!)) : PublicNotFound();
     }
 
+    /// <summary>What a public session contributed to the record — Observer-scoped like every read.</summary>
+    [HttpGet("sources/{sourceId:guid}/knowledge")]
+    public async Task<IActionResult> GetSourceKnowledge(
+        string slug,
+        Guid sourceId,
+        [FromServices] ISourceKnowledgeService knowledgeService,
+        CancellationToken ct)
+    {
+        var world = await ResolveAsync(slug, ct);
+        if (world is null)
+        {
+            return PublicNotFound();
+        }
+
+        var result = await knowledgeService.GetForSourceAsync(world.Id, sourceId, AnonymousUserId, PublicRole, ct);
+        if (!result.IsSuccess)
+        {
+            return PublicNotFound();
+        }
+
+        var knowledge = result.Value!;
+        return Ok(new SourceKnowledgeResponse(
+            knowledge.Artifacts
+                .Select(a => new SourceKnowledgeArtifactResponse(a.ArtifactId, a.Name, a.Type, a.Quote))
+                .ToList(),
+            knowledge.Facts
+                .Select(f => new SourceKnowledgeFactResponse(
+                    f.FactId, f.ArtifactId, f.ArtifactName, f.Predicate, f.Value, f.TruthState, f.Visibility, f.Quote))
+                .ToList(),
+            knowledge.Relationships
+                .Select(r => new SourceKnowledgeRelationshipResponse(
+                    r.RelationshipId, r.ArtifactAId, r.ArtifactAName, r.Type, r.ArtifactBId, r.ArtifactBName, r.Quote))
+                .ToList()));
+    }
+
+    /// <summary>The Location artifacts a public session is linked to.</summary>
+    [HttpGet("sources/{sourceId:guid}/locations")]
+    public async Task<IActionResult> GetSourceLocations(
+        string slug,
+        Guid sourceId,
+        [FromServices] ISourceLocationService locationService,
+        CancellationToken ct)
+    {
+        var world = await ResolveAsync(slug, ct);
+        if (world is null)
+        {
+            return PublicNotFound();
+        }
+
+        var result = await locationService.ListLocationsAsync(sourceId, world.Id, AnonymousUserId, PublicRole, ct);
+        return result.IsSuccess
+            ? Ok(result.Value!.Select(l => new LinkedLocationResponse(l.ArtifactId, l.Name, l.Summary)).ToList())
+            : PublicNotFound();
+    }
+
     private async Task<World?> ResolveAsync(string slug, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(slug) || slug.Length > 60)

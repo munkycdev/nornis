@@ -182,14 +182,7 @@
         StateHasChanged();
     }
 
-    private static string CleanAnswer(string text) =>
-        Regex.Replace(text, @"\s*\[ref:[^\]]+\]", "").Trim();
+    private static string CleanAnswer(string text) => Nornis.Web.Services.LoremasterDisplay.CleanAnswer(text);
 
-    private static Color ConfidenceColor(string confidence) => confidence switch
-    {
-        "High" => Color.Success,
-        "Medium" => Color.Info,
-        "Low" => Color.Warning,
-        _ => Color.Default,
-    };
+    private static Color ConfidenceColor(string confidence) => Nornis.Web.Services.LoremasterDisplay.ConfidenceColor(confidence);
 }
