@@ -11,6 +11,7 @@ public record UpdateSourceCommand(
     string? Body = null,
     string? Uri = null,
     DateTimeOffset? OccurredAt = null,
+    bool ClearOccurredAt = false,
     SourceType? Type = null,
     VisibilityScope? Visibility = null,
     Guid? CampaignId = null,

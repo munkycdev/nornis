@@ -15,4 +15,5 @@ public record ReprocessSourceCommand(
     string? Title = null,
     string? Body = null,
     string? Uri = null,
-    DateTimeOffset? OccurredAt = null);
+    DateTimeOffset? OccurredAt = null,
+    bool ClearOccurredAt = false);

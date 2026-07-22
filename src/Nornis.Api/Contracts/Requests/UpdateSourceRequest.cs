@@ -5,6 +5,7 @@ public record UpdateSourceRequest(
     string? Body = null,
     string? Uri = null,
     DateTimeOffset? OccurredAt = null,
+    bool ClearOccurredAt = false,
     string? Type = null,
     string? Visibility = null,
     Guid? CampaignId = null,

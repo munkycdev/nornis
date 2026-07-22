@@ -233,6 +233,10 @@ public class SourceService : ISourceService
         {
             source.OccurredAt = command.OccurredAt;
         }
+        else if (command.ClearOccurredAt)
+        {
+            source.OccurredAt = null;
+        }
 
         if (command.Type is not null)
         {

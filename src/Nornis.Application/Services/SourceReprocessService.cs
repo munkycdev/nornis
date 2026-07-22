@@ -155,6 +155,8 @@ public class SourceReprocessService : ISourceReprocessService
                 source.Uri = command.Uri;
             if (command.OccurredAt is not null)
                 source.OccurredAt = command.OccurredAt;
+            else if (command.ClearOccurredAt)
+                source.OccurredAt = null;
 
             // Commit Queued BEFORE enqueueing (same invariant as MarkReadyAsync): the
             // worker skips any message whose source is not Queued. A source stored

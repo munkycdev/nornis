@@ -5,4 +5,5 @@ public record ReprocessSourceRequest(
     string? Title = null,
     string? Body = null,
     string? Uri = null,
-    DateTimeOffset? OccurredAt = null);
+    DateTimeOffset? OccurredAt = null,
+    bool ClearOccurredAt = false);

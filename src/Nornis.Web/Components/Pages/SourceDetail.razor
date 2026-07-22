@@ -125,7 +125,7 @@
                               Variant="Variant.Outlined" Class="mb-3" />
 
                 <MudDatePicker @bind-Date="_editOccurredAt" Label="When it happened (optional)"
-                               Variant="Variant.Outlined" Class="mb-3" />
+                               Variant="Variant.Outlined" Clearable="true" Class="mb-3" />
 
                 @if (_campaigns.Count > 0)
                 {
@@ -721,6 +721,9 @@
         var occurredAt = _editOccurredAt.HasValue
             ? new DateTimeOffset(DateTime.SpecifyKind(_editOccurredAt.Value, DateTimeKind.Utc), TimeSpan.Zero)
             : (DateTimeOffset?)null;
+        // Null OccurredAt means "no change" to the partial update, so clearing the
+        // picker on a dated source has to be said explicitly.
+        var clearOccurredAt = occurredAt is null && _source.OccurredAt is not null;
 
         ApiResult<SourceDetailDto> result;
         var reprocessed = false;
@@ -739,6 +742,7 @@
                 Body: bodyChanged ? normalizedBody : null,
                 Uri: string.IsNullOrWhiteSpace(_editUri) ? null : _editUri,
                 OccurredAt: occurredAt,
+                ClearOccurredAt: clearOccurredAt,
                 Type: _editType,
                 CampaignId: _editCampaignId,
                 ClearCampaign: _editCampaignId is null && _source.CampaignId is not null,
@@ -746,7 +750,7 @@
 
             if (result.Error?.Code == "body_requires_reprocess")
             {
-                result = await ReprocessWithConfirmationAsync(normalizedBody, occurredAt);
+                result = await ReprocessWithConfirmationAsync(normalizedBody, occurredAt, clearOccurredAt);
                 if (result.Error?.Code == "canceled")
                 {
                     _saving = false;
@@ -763,6 +767,7 @@
                 Body: normalizedBody,
                 Uri: string.IsNullOrWhiteSpace(_editUri) ? null : _editUri,
                 OccurredAt: occurredAt,
+                ClearOccurredAt: clearOccurredAt,
                 Type: _editType,
                 Visibility: _editVisibility,
                 CampaignId: _editCampaignId,
@@ -794,7 +799,7 @@
     /// synthetic "canceled" error when the user backs out.
     /// </summary>
     private async Task<ApiResult<SourceDetailDto>> ReprocessWithConfirmationAsync(
-        string? body, DateTimeOffset? occurredAt)
+        string? body, DateTimeOffset? occurredAt, bool clearOccurredAt)
     {
         var preview = await Api.GetReprocessPreviewAsync(Worlds.Current!.Id, _source!.Id);
         if (!preview.IsSuccess)
@@ -833,7 +838,8 @@
             Title: _editTitle.Trim(),
             Body: body,
             Uri: string.IsNullOrWhiteSpace(_editUri) ? null : _editUri,
-            OccurredAt: occurredAt));
+            OccurredAt: occurredAt,
+            ClearOccurredAt: clearOccurredAt));
     }
 
     private static MarkupString BuildReprocessSummary(ReprocessPreviewDto preview)

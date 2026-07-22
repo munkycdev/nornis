@@ -202,6 +202,7 @@ public class SourcesController : ControllerBase
             Body: request.Body,
             Uri: request.Uri,
             OccurredAt: request.OccurredAt,
+            ClearOccurredAt: request.ClearOccurredAt,
             Type: sourceType,
             Visibility: visibility,
             CampaignId: request.CampaignId,
@@ -310,7 +311,8 @@ public class SourcesController : ControllerBase
             Title: request.Title,
             Body: request.Body,
             Uri: request.Uri,
-            OccurredAt: request.OccurredAt);
+            OccurredAt: request.OccurredAt,
+            ClearOccurredAt: request.ClearOccurredAt);
 
         var result = await reprocessService.ReprocessAsync(command, ct);
 

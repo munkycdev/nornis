@@ -147,6 +147,7 @@ public record UpdateSourceRequest(
     string? Body = null,
     string? Uri = null,
     DateTimeOffset? OccurredAt = null,
+    bool ClearOccurredAt = false,
     string? Type = null,
     string? Visibility = null,
     Guid? CampaignId = null,
@@ -159,7 +160,8 @@ public record ReprocessSourceRequest(
     string? Title = null,
     string? Body = null,
     string? Uri = null,
-    DateTimeOffset? OccurredAt = null);
+    DateTimeOffset? OccurredAt = null,
+    bool ClearOccurredAt = false);
 
 // Mirrors Nornis.Api MapViewResponse.
 public record MapPlacemarkDto(
