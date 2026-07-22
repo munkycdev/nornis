@@ -1,8 +1,10 @@
 ﻿@page "/timeline"
 @page "/storylines"
+@using Microsoft.AspNetCore.WebUtilities
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
+@inject NavigationManager Nav
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
@@ -34,17 +36,17 @@ else
     <div class="d-flex gap-3 align-center mb-4 flex-wrap">
         <div class="nornis-filter-row flex-grow-1">
             <MudChip T="string"
-                     Variant="@(_status is null ? Variant.Filled : Variant.Outlined)"
-                     Color="@(_status is null ? Color.Secondary : Color.Default)"
-                     OnClick="() => SetStatusAsync(null)">
+                     Variant="@(_selectedStatuses.Count == 0 ? Variant.Filled : Variant.Outlined)"
+                     Color="@(_selectedStatuses.Count == 0 ? Color.Secondary : Color.Default)"
+                     OnClick="ClearStatuses">
                 All
             </MudChip>
             @foreach (var status in _statuses)
             {
                 <MudChip T="string"
-                         Variant="@(_status == status ? Variant.Filled : Variant.Outlined)"
-                         Color="@(_status == status ? Color.Secondary : Color.Default)"
-                         OnClick="() => SetStatusAsync(status)">
+                         Variant="@(_selectedStatuses.Contains(status) ? Variant.Filled : Variant.Outlined)"
+                         Color="@(_selectedStatuses.Contains(status) ? Color.Secondary : Color.Default)"
+                         OnClick="() => ToggleStatus(status)">
                     @status
                 </MudChip>
             }
@@ -95,7 +97,7 @@ else
         }
         else
         {
-            <StorylineTimelineChart Data="_timeline" StatusFilter="@_status"
+            <StorylineTimelineChart Data="_timeline" StatusFilter="_selectedStatuses"
                                     CanEdit="@(Worlds.Current.MyRole == "GM")"
                                     ReparentRequested="OnReparentRequestedAsync"
                                     UnnestRequested="OnUnnestRequestedAsync" />
@@ -109,11 +111,11 @@ else
     {
         <MudAlert Severity="Severity.Error">@_error</MudAlert>
     }
-    else if (_storylines.Count == 0)
+    else if (!FilteredStorylines.Any())
     {
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
             <MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Large" Class="nornis-comingsoon-icon" />
-            <MudText Typo="Typo.h5" Class="nornis-serif">No storylines@(_status is null ? "" : $" that are {_status}") yet</MudText>
+            <MudText Typo="Typo.h5" Class="nornis-serif">No storylines@(_selectedStatuses.Count == 0 ? "" : $" that are {string.Join(" or ", _statuses.Where(_selectedStatuses.Contains))}") yet</MudText>
             <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
                 As your sources advance mysteries, quests, and rivalries, Nornis tracks them here.
             </MudText>
@@ -122,7 +124,7 @@ else
     else
     {
         <div class="nornis-artifact-grid">
-            @foreach (var s in _storylines)
+            @foreach (var s in FilteredStorylines)
             {
                 <a href="@($"/artifacts/{s.Id}")" class="nornis-card nornis-artifact-card">
                     <div class="nornis-artifact-card-head">
@@ -151,10 +153,11 @@ else
 
 @code {
     private readonly string[] _statuses = ["Active", "Dormant", "Resolved", "Archived"];
+    private static readonly string[] DefaultStatuses = ["Active", "Dormant"];
 
     private bool _loading;
     private string? _error;
-    private string? _status;
+    private readonly HashSet<string> _selectedStatuses = [.. DefaultStatuses];
     private string _view = "timeline";
     private bool _retroBusy;
     private IReadOnlyList<ArtifactListItem> _storylines = [];
@@ -172,9 +175,13 @@ else
     private string? _journeyError;
     private bool _journeyNoMap;
 
+    private IEnumerable<ArtifactListItem> FilteredStorylines =>
+        _selectedStatuses.Count == 0 ? _storylines : _storylines.Where(s => _selectedStatuses.Contains(s.Status));
+
     private async Task OnViewChangedAsync(string view)
     {
         _view = view;
+        SyncUrl();
         if (view == "timeline" && (_timeline is null || _timelineWorldId != Worlds.Current?.Id))
         {
             await LoadTimelineAsync();
@@ -325,6 +332,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        RestoreFromQuery();
         Worlds.Changed += OnWorldChanged;
         await Worlds.EnsureLoadedAsync();
         await LoadAsync();
@@ -332,10 +340,64 @@ else
 
     private void OnWorldChanged() => InvokeAsync(LoadAsync);
 
-    private async Task SetStatusAsync(string? status)
+    private void ToggleStatus(string status)
     {
-        _status = status;
-        await LoadAsync();
+        if (!_selectedStatuses.Remove(status))
+        {
+            _selectedStatuses.Add(status);
+        }
+        SyncUrl();
+    }
+
+    private void ClearStatuses()
+    {
+        _selectedStatuses.Clear();
+        SyncUrl();
+    }
+
+    // View and status filter round-trip through the query string so browser history
+    // (back from an artifact, refresh, shared links) restores the same visualization.
+    // The default filter (Active + Dormant) keeps the bare URL clean; "all" is explicit.
+    private void RestoreFromQuery()
+    {
+        var query = QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
+        if (query.TryGetValue("view", out var view) && (view == "cards" || view == "timeline" || view == "journey"))
+        {
+            _view = view!;
+        }
+        if (query.TryGetValue("status", out var status))
+        {
+            _selectedStatuses.Clear();
+            if (!string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var s in status.ToString().Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    var match = _statuses.FirstOrDefault(x => x.Equals(s, StringComparison.OrdinalIgnoreCase));
+                    if (match is not null)
+                    {
+                        _selectedStatuses.Add(match);
+                    }
+                }
+            }
+        }
+    }
+
+    private void SyncUrl()
+    {
+        var status = _selectedStatuses.Count == 0
+            ? "all"
+            : _selectedStatuses.SetEquals(DefaultStatuses)
+                ? null
+                : string.Join(',', _statuses.Where(_selectedStatuses.Contains));
+        var uri = Nav.GetUriWithQueryParameters(new Dictionary<string, object?>
+        {
+            ["view"] = _view == "timeline" ? null : _view,
+            ["status"] = status,
+        });
+        if (uri != Nav.Uri)
+        {
+            Nav.NavigateTo(uri, replace: true);
+        }
     }
 
     private async Task LoadAsync()
@@ -352,7 +414,7 @@ else
         _error = null;
         StateHasChanged();
 
-        var result = await Api.GetStorylinesAsync(Worlds.Current.Id, _status);
+        var result = await Api.GetStorylinesAsync(Worlds.Current.Id);
 
         _loading = false;
         if (result.IsSuccess)

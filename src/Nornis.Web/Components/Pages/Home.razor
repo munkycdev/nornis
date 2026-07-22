@@ -182,11 +182,11 @@ else
                         </MudTooltip>
                     </div>
 
-                    @if (_assessmentLoading)
+                    @if (Worlds.ContinuityLoading)
                     {
                         <LoadingRows Rows="3" />
                     }
-                    else if (_assessment is { HasData: true } a)
+                    else if (Worlds.Continuity is { HasData: true } a)
                     {
                         <div class="nornis-ai-summary">
                             <div class="nornis-ring">
@@ -225,9 +225,9 @@ else
                         }
                     }
 
-                    @if (_assessmentError is not null)
+                    @if ((_assessmentError ?? Worlds.ContinuityError?.Message) is { } assessmentError)
                     {
-                        <MudText Typo="Typo.body2" Color="Color.Error">@_assessmentError</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Error">@assessmentError</MudText>
                     }
                 </MudPaper>
             }
@@ -293,9 +293,8 @@ else
     private IReadOnlyList<CanonEntry> _canonRelationships = [];
     private IReadOnlyList<ReviewProposal> _proposals = [];
 
-    // AI-assessed continuity health (GM-only). Loaded lazily alongside the dashboard.
-    private ContinuityAssessment? _assessment;
-    private bool _assessmentLoading;
+    // AI-assessed continuity health (GM-only). Read from WorldState — one shared fetch feeds
+    // this card and the sidebar ring. Only "Run assessment" errors are page-local.
     private bool _running;
     private string? _assessmentError;
 
@@ -419,34 +418,8 @@ else
         _loading = false;
         StateHasChanged();
 
-        await LoadAssessmentAsync(id);
-    }
-
-    // Loads the latest AI assessment. GM-only endpoint, so skip entirely for other roles.
-    private async Task LoadAssessmentAsync(Guid id)
-    {
-        if (!_showAiAssessment)
-        {
-            _assessment = null;
-            return;
-        }
-
-        _assessmentLoading = true;
-        _assessmentError = null;
-        StateHasChanged();
-
-        var result = await Api.GetContinuityAssessmentAsync(id);
-        if (result.IsSuccess)
-        {
-            _assessment = result.Value;
-        }
-        else
-        {
-            _assessmentError = result.Error?.Message;
-        }
-
-        _assessmentLoading = false;
-        StateHasChanged();
+        // Shared per-world fetch in WorldState (no-op if the sidebar already loaded it).
+        await Worlds.EnsureContinuityLoadedAsync();
     }
 
     // Kicks off a fresh assessment. This call runs the LLM and can take ~10-30s.
@@ -465,8 +438,7 @@ else
         var result = await Api.RunContinuityAssessmentAsync(worldId);
         if (result.IsSuccess)
         {
-            _assessment = result.Value;
-            // The sidebar ring reads its own copy from WorldState; the run can take ~30s,
+            // The card and sidebar ring both read WorldState; the run can take ~30s,
             // so only push if the user hasn't switched worlds meanwhile.
             if (Worlds.Current?.Id == worldId)
             {

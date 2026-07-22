@@ -47,7 +47,7 @@
     {
         <MudAlert Severity="Severity.Error">@_error</MudAlert>
     }
-    else if (_assessment is not { HasData: true })
+    else if (Assessment is not { HasData: true } assessment)
     {
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
             <MudIcon Icon="@Icons.Material.Outlined.MonitorHeart" Size="Size.Large" Class="nornis-comingsoon-icon" />
@@ -63,18 +63,18 @@
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
             <div class="d-flex align-center gap-4 flex-wrap">
                 <div class="nornis-ring">
-                    <MudProgressCircular Value="@_assessment.EffectiveScore" Min="0" Max="100"
-                                         Color="@HealthColor(_assessment.EffectiveScore)" Size="Size.Large" StrokeWidth="4" />
-                    <span class="nornis-ring-value">@_assessment.EffectiveScore</span>
+                    <MudProgressCircular Value="@assessment.EffectiveScore" Min="0" Max="100"
+                                         Color="@HealthColor(assessment.EffectiveScore)" Size="Size.Large" StrokeWidth="4" />
+                    <span class="nornis-ring-value">@assessment.EffectiveScore</span>
                 </div>
                 <div class="flex-grow-1">
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-wm-formula">
-                        Heuristic <b>@_assessment.HeuristicScore</b>
+                        Heuristic <b>@assessment.HeuristicScore</b>
                         − findings penalty <b>@TotalPenalty</b>@(PenaltyCapped ? " (capped at 40)" : "")
-                        = effective <b>@_assessment.EffectiveScore</b>
+                        = effective <b>@assessment.EffectiveScore</b>
                     </MudText>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        AI audit ran @Ago(_assessment.CreatedAt!.Value) with @_assessment.Model ·
+                        AI audit ran @Ago(assessment.CreatedAt!.Value) with @assessment.Model ·
                         the heuristic is recomputed live, so the effective score stays current between audits
                     </MudText>
                 </div>
@@ -130,11 +130,11 @@
         </MudPaper>
 
         @* The findings themselves *@
-        @if (_assessment is { HasData: true } && _assessment.Findings.Count > 0)
+        @if (assessment.Findings.Count > 0)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">Findings</div>
-                @foreach (var finding in _assessment.Findings.OrderBy(f => f.Status != "Open").ThenBy(f => SeverityRank(f.Severity)))
+                @foreach (var finding in assessment.Findings.OrderBy(f => f.Status != "Open").ThenBy(f => SeverityRank(f.Severity)))
                 {
                     <div class="nornis-list-row @(finding.Status != "Open" ? "nornis-wm-dismissed" : "")">
                         <div class="nornis-list-body">
@@ -220,14 +220,17 @@
     private bool _running;
     private Guid? _draftingFindingId;
     private string? _error;
-    private ContinuityAssessment? _assessment;
+
+    // The assessment lives in WorldState — one shared fetch feeds this page, the Home
+    // card, and the sidebar ring. Updates flow back through Worlds.SetContinuity.
+    private ContinuityAssessment? Assessment => Worlds.Continuity;
 
     // Mirrors ContinuityAuditService.PenaltyFor / TotalPenalty (High 12, Medium 6, Low 2, cap 40).
     private static readonly (string Severity, int Penalty)[] SeverityPenalties =
         [("High", 12), ("Medium", 6), ("Low", 2)];
 
     private IReadOnlyList<ContinuityFinding> OpenFindings =>
-        _assessment is { HasData: true } a ? a.Findings.Where(f => f.Status == "Open").ToList() : [];
+        Assessment is { HasData: true } a ? a.Findings.Where(f => f.Status == "Open").ToList() : [];
 
     // Stale findings (evidence edited/removed after the audit) stop counting toward the
     // penalty until a re-run verifies the fix — mirrors ContinuityAuditService.ToAssessment.
@@ -257,7 +260,6 @@
     {
         if (Worlds.Current is null || Worlds.Current.MyRole != "GM")
         {
-            _assessment = null;
             StateHasChanged();
             return;
         }
@@ -266,17 +268,11 @@
         _error = null;
         StateHasChanged();
 
-        var assessment = await Api.GetContinuityAssessmentAsync(Worlds.Current.Id);
+        // Shared per-world fetch in WorldState — no request if the sidebar already loaded it.
+        await Worlds.EnsureContinuityLoadedAsync();
 
         _loading = false;
-        if (assessment.IsSuccess)
-        {
-            _assessment = assessment.Value;
-        }
-        else
-        {
-            _error = assessment.Error!.Message;
-        }
+        _error = Worlds.ContinuityError?.Message;
         StateHasChanged();
     }
 
@@ -295,21 +291,19 @@
 
         if (result.IsSuccess)
         {
-            _assessment = result.Value!;
-            Worlds.SetContinuity(_assessment);
+            Worlds.SetContinuity(result.Value!);
             Snackbar.Add($"Assessment complete — {OpenFindings.Count} open finding(s).", Severity.Success);
-            await LoadAsync();
         }
         else
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
-            StateHasChanged();
         }
+        StateHasChanged();
     }
 
     private async Task DismissAsync(ContinuityFinding finding)
     {
-        if (Worlds.Current is null || _assessment is null)
+        if (Worlds.Current is null || Assessment is not { } assessment)
         {
             return;
         }
@@ -317,14 +311,13 @@
         var result = await Api.DismissFindingAsync(Worlds.Current.Id, finding.Id);
         if (result.IsSuccess)
         {
-            _assessment = _assessment with
+            Worlds.SetContinuity(assessment with
             {
-                Findings = _assessment.Findings.Select(f => f.Id == finding.Id ? result.Value! : f).ToList(),
-                EffectiveScore = Math.Max(0, _assessment.HeuristicScore - Math.Min(40,
-                    _assessment.Findings.Where(f => f.Id != finding.Id && f.Status == "Open" && !f.IsStale)
+                Findings = assessment.Findings.Select(f => f.Id == finding.Id ? result.Value! : f).ToList(),
+                EffectiveScore = Math.Max(0, assessment.HeuristicScore - Math.Min(40,
+                    assessment.Findings.Where(f => f.Id != finding.Id && f.Status == "Open" && !f.IsStale)
                         .Sum(f => SeverityPenalties.FirstOrDefault(s => s.Severity == f.Severity).Penalty)))
-            };
-            Worlds.SetContinuity(_assessment);
+            });
             Snackbar.Add("Finding dismissed — its penalty points are back.", Severity.Info);
         }
         else

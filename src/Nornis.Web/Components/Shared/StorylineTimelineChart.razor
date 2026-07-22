@@ -182,8 +182,8 @@ else
 @code {
     [Parameter, EditorRequired] public StorylineTimelineDto Data { get; set; } = new([], [], []);
 
-    /// <summary>Statuses to include; null shows everything.</summary>
-    [Parameter] public string? StatusFilter { get; set; }
+    /// <summary>Statuses to include; null or empty shows everything.</summary>
+    [Parameter] public IReadOnlyCollection<string>? StatusFilter { get; set; }
 
     /// <summary>Enables drag-to-nest on lane labels (GM only).</summary>
     [Parameter] public bool CanEdit { get; set; }
@@ -294,7 +294,7 @@ else
         {
             var visible = Data.Lanes
                 .Where(l => l.Points.Count > 0)
-                .Where(l => StatusFilter is null || l.Status == StatusFilter)
+                .Where(l => StatusFilter is not { Count: > 0 } || StatusFilter.Contains(l.Status))
                 .ToList();
             var visibleIds = visible.Select(l => l.StorylineId).ToHashSet();
 
@@ -375,7 +375,7 @@ else
     }
 
     private int UndatedCount =>
-        Data.Lanes.Count(l => l.Points.Count == 0 && (StatusFilter is null || l.Status == StatusFilter));
+        Data.Lanes.Count(l => l.Points.Count == 0 && (StatusFilter is not { Count: > 0 } || StatusFilter.Contains(l.Status)));
 
     private DateTimeOffset MinDate =>
         (Data.Sessions.Count > 0 ? Data.Sessions[0].OccurredAt : DateTimeOffset.UtcNow).AddDays(-PadDays);

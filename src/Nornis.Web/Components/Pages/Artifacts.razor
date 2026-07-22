@@ -1,7 +1,9 @@
 ﻿@page "/artifacts"
+@using Microsoft.AspNetCore.WebUtilities
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
+@inject NavigationManager Nav
 
 <PageTitle>Codex — Nornis</PageTitle>
 
@@ -18,7 +20,7 @@ else
         <MudChip T="string"
                  Variant="@(_selectedTypes.Count == 0 ? Variant.Filled : Variant.Outlined)"
                  Color="@(_selectedTypes.Count == 0 ? Color.Secondary : Color.Default)"
-                 OnClick="() => _selectedTypes.Clear()">
+                 OnClick="ClearTypes">
             All
         </MudChip>
         @foreach (var type in _types)
@@ -26,7 +28,7 @@ else
             <MudChip T="string"
                      Variant="@(_selectedTypes.Contains(type) ? Variant.Filled : Variant.Outlined)"
                      Color="@(_selectedTypes.Contains(type) ? Color.Secondary : Color.Default)"
-                     OnClick="() => ToggleFilter(_selectedTypes, type)">
+                     OnClick="() => ToggleType(type)">
                 @type
             </MudChip>
         }
@@ -35,7 +37,7 @@ else
         <MudChip T="string" Size="Size.Small"
                  Variant="@(_selectedStatuses.Count == 0 ? Variant.Filled : Variant.Outlined)"
                  Color="@(_selectedStatuses.Count == 0 ? Color.Secondary : Color.Default)"
-                 OnClick="() => _selectedStatuses.Clear()">
+                 OnClick="ClearStatuses">
             All
         </MudChip>
         @foreach (var status in _statuses)
@@ -43,16 +45,16 @@ else
             <MudChip T="string" Size="Size.Small"
                      Variant="@(_selectedStatuses.Contains(status) ? Variant.Filled : Variant.Outlined)"
                      Color="@(_selectedStatuses.Contains(status) ? StatusColor(status) : Color.Default)"
-                     OnClick="() => ToggleFilter(_selectedStatuses, status)">
+                     OnClick="() => ToggleStatus(status)">
                 @status
             </MudChip>
         }
     </div>
     <div class="d-flex gap-3 align-center mb-4">
-        <MudTextField T="string" @bind-Value="_search" Immediate="true" Clearable="true"
+        <MudTextField T="string" Value="_search" ValueChanged="OnSearchChanged" Immediate="true" Clearable="true"
                       Placeholder="Search titles…" Variant="Variant.Outlined" Margin="Margin.Dense"
                       Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="flex-grow-1" />
-        <MudToggleGroup T="string" @bind-Value="_sort" SelectionMode="SelectionMode.SingleSelection"
+        <MudToggleGroup T="string" Value="_sort" ValueChanged="OnSortChanged" SelectionMode="SelectionMode.SingleSelection"
                         Color="Color.Secondary" Size="Size.Small">
             <MudToggleItem Value="@("recency")">Recency</MudToggleItem>
             <MudToggleItem Value="@("title")">Title</MudToggleItem>
@@ -216,6 +218,99 @@ else
         }
     }
 
+    private void ToggleType(string type)
+    {
+        ToggleFilter(_selectedTypes, type);
+        SyncUrl();
+    }
+
+    private void ClearTypes()
+    {
+        _selectedTypes.Clear();
+        SyncUrl();
+    }
+
+    private void ToggleStatus(string status)
+    {
+        ToggleFilter(_selectedStatuses, status);
+        SyncUrl();
+    }
+
+    private void ClearStatuses()
+    {
+        _selectedStatuses.Clear();
+        SyncUrl();
+    }
+
+    private void OnSearchChanged(string value)
+    {
+        _search = value ?? string.Empty;
+        SyncUrl();
+    }
+
+    private void OnSortChanged(string value)
+    {
+        _sort = value;
+        SyncUrl();
+    }
+
+    // View, filters, search, and sort round-trip through the query string so browser
+    // history (back from an artifact, refresh, shared links) restores the same view.
+    private void RestoreFromQuery()
+    {
+        var query = QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
+        if (query.TryGetValue("view", out var view) && (view == "cards" || view == "tree" || view == "graph"))
+        {
+            _view = view!;
+        }
+        RestoreSet(query, "type", _types, _selectedTypes);
+        RestoreSet(query, "status", _statuses, _selectedStatuses);
+        if (query.TryGetValue("q", out var q))
+        {
+            _search = q.ToString();
+        }
+        if (query.TryGetValue("sort", out var sort) && (sort == "recency" || sort == "title"))
+        {
+            _sort = sort!;
+        }
+    }
+
+    private static void RestoreSet(
+        Dictionary<string, Microsoft.Extensions.Primitives.StringValues> query,
+        string key, string[] known, HashSet<string> target)
+    {
+        if (!query.TryGetValue(key, out var value))
+        {
+            return;
+        }
+
+        target.Clear();
+        foreach (var s in value.ToString().Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var match = known.FirstOrDefault(x => x.Equals(s, StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+            {
+                target.Add(match);
+            }
+        }
+    }
+
+    private void SyncUrl()
+    {
+        var uri = Nav.GetUriWithQueryParameters(new Dictionary<string, object?>
+        {
+            ["view"] = _view == "cards" ? null : _view,
+            ["type"] = _selectedTypes.Count == 0 ? null : string.Join(',', _types.Where(_selectedTypes.Contains)),
+            ["status"] = _selectedStatuses.Count == 0 ? null : string.Join(',', _statuses.Where(_selectedStatuses.Contains)),
+            ["q"] = string.IsNullOrWhiteSpace(_search) ? null : _search,
+            ["sort"] = _sort == "recency" ? null : _sort,
+        });
+        if (uri != Nav.Uri)
+        {
+            Nav.NavigateTo(uri, replace: true);
+        }
+    }
+
     // ---------------------------------------------------------------- Graph view --
 
     private ArtifactGraphDto? _graphData;
@@ -252,6 +347,7 @@ else
     private async Task OnViewChangedAsync(string view)
     {
         _view = view;
+        SyncUrl();
         if (view == "graph" && _graphData is null)
         {
             await LoadGraphAsync();
@@ -301,6 +397,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        RestoreFromQuery();
         Worlds.Changed += OnWorldChanged;
         await Worlds.EnsureLoadedAsync();
         await LoadAsync();

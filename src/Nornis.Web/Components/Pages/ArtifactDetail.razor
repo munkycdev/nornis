@@ -4,13 +4,14 @@
 @inject NornisApiClient Api
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 @inject IDialogService DialogService
 
 <PageTitle>@(_detail?.Name ?? "Artifact") — Nornis</PageTitle>
 
 <div class="nornis-detail-page">
-    <MudButton Href="/artifacts" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2">
-        Codex
+    <MudButton OnClick="GoBackAsync" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2">
+        Back
     </MudButton>
 
     @if (Worlds.Current is null)
@@ -319,6 +320,8 @@
                                      ToStringFunc="@(a => a?.Name)"
                                      Label="Merge into…" Variant="Variant.Outlined" Dense="true"
                                      Class="flex-grow-1" Clearable="true" />
+                    <MudCheckBox T="bool" Value="_mergeSameTypeOnly" ValueChanged="OnMergeSameTypeOnlyChanged"
+                                 Label="Same type only" Dense="true" />
                     <MudButton Variant="Variant.Outlined" Color="Color.Warning"
                                StartIcon="@Icons.Material.Filled.CallMerge"
                                OnClick="MergeAsync" Disabled="@(_mergeBusy || _mergeTarget is null)">
@@ -410,10 +413,24 @@
     private ArtifactDetailDto? _detail;
     private Guid _loadedId;
 
+    // Browser history back, so arriving from the Timeline (or graph, or another
+    // artifact) returns there instead of always landing on the Codex list.
+    private async Task GoBackAsync() => await JS.InvokeVoidAsync("nornisNav.back", "/artifacts");
+
     // Merge duplicate (GM): folds this artifact into a chosen target.
     private ArtifactListItem? _mergeTarget;
     private bool _mergeBusy;
+    private bool _mergeSameTypeOnly = true;
     private string? _mergeError;
+
+    private void OnMergeSameTypeOnlyChanged(bool value)
+    {
+        _mergeSameTypeOnly = value;
+        if (value && _mergeTarget is not null && _detail is not null && _mergeTarget.Type != _detail.Type)
+        {
+            _mergeTarget = null;
+        }
+    }
 
     private async Task<IEnumerable<ArtifactListItem>> SearchMergeTargetsAsync(string value, CancellationToken ct)
     {
@@ -430,6 +447,7 @@
 
         return result.Value!
             .Where(a => a.Id != ArtifactId)
+            .Where(a => !_mergeSameTypeOnly || _detail is null || a.Type == _detail.Type)
             .Where(a => string.IsNullOrWhiteSpace(value) || a.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
             .OrderBy(a => a.Name)
             .Take(15);
