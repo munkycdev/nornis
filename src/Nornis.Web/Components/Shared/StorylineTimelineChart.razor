@@ -174,10 +174,16 @@ else
         </div>
     </div>
 
-    @if (UndatedCount > 0)
+    @if (UndatedLanes.Count > 0)
     {
         <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
-            @UndatedCount storyline@(UndatedCount == 1 ? " has" : "s have") no dated activity yet and @(UndatedCount == 1 ? "is" : "are") not shown.
+            No dated activity yet (not shown):
+            @for (var i = 0; i < UndatedLanes.Count; i++)
+            {
+                var lane = UndatedLanes[i];
+                @(i > 0 ? ", " : " ")<a href="@($"{ArtifactLinkBase}/{lane.StorylineId}")" class="nornis-link">@lane.Name</a>
+            }
+            — these storylines are only referenced by undated sources. Give a source a date to place them.
         </MudText>
     }
 }
@@ -377,8 +383,11 @@ else
         }
     }
 
-    private int UndatedCount =>
-        Data.Lanes.Count(l => l.Points.Count == 0 && (StatusFilter is not { Count: > 0 } || StatusFilter.Contains(l.Status)));
+    private IReadOnlyList<TimelineLaneDto> UndatedLanes =>
+        Data.Lanes
+            .Where(l => l.Points.Count == 0 && (StatusFilter is not { Count: > 0 } || StatusFilter.Contains(l.Status)))
+            .OrderBy(l => l.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     private DateTimeOffset MinDate =>
         (Data.Sessions.Count > 0 ? Data.Sessions[0].OccurredAt : DateTimeOffset.UtcNow).AddDays(-PadDays);
