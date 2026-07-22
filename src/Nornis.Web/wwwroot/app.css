@@ -254,12 +254,29 @@ html, body {
     position: relative;
 }
 
+/* The SVG sits behind the pinned gutter; the gutter is the wrap's flow child. */
+.nornis-timeline-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* Pinned storyline list: sticks to the scroll container's left edge while the
+   plot scrolls beneath. Width must match GutterWidth in StorylineTimelineChart. */
+.nornis-timeline-gutter {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: #FDFBF7;
+    border-right: 1px solid rgba(42, 59, 76, 0.08);
+}
+
 .nornis-timeline-band {
     position: absolute;
     left: 0;
+    z-index: 3;
     display: flex;
     align-items: center;
-    padding-left: 8px;
     font-size: 0.7rem;
     font-weight: 700;
     letter-spacing: 0.12em;
@@ -267,6 +284,11 @@ html, body {
     color: rgba(42, 59, 76, 0.55);
     border-top: 1px solid rgba(42, 59, 76, 0.12);
     pointer-events: none;
+}
+
+.nornis-timeline-band-name {
+    position: sticky;
+    left: 8px;
 }
 
 .nornis-timeline-label {

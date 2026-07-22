@@ -9,7 +9,8 @@
    and Resolved children merge back into their parent where they end. Rows read top-down
    in campaign order, then by when each storyline opened, then by when it closed. Labels
    are an HTML layer over the SVG; drag-to-nest is pointer-based via nornis-timeline.js —
-   grab a label and release anywhere on the target storyline's row. *@
+   grab a label and release anywhere on the target storyline's row. Lane labels live in a
+   sticky gutter that pins to the left edge while the plot scrolls beneath it. *@
 
 @if (Rows.Count == 0)
 {
@@ -50,7 +51,7 @@ else
 
     <div class="nornis-timeline-scroll">
         <div id="@_elementId" class="nornis-timeline-wrap" style="width:@(TotalWidth)px; height:@(TotalHeight)px">
-            <svg width="@TotalWidth" height="@TotalHeight" role="img" aria-label="Storyline timeline">
+            <svg class="nornis-timeline-svg" width="@TotalWidth" height="@TotalHeight" role="img" aria-label="Storyline timeline">
 
                 @* Month gridlines + calendar labels along the bottom *@
                 @foreach (var month in MonthTicks)
@@ -141,18 +142,20 @@ else
                 }
             </svg>
 
-            @* HTML label layer: band headers and draggable lane labels over the gutter *@
-            @foreach (var row in Rows)
+            @* Band headers span the full plot for their separator line; the name itself
+               sticks to the left edge so it stays readable while scrolling. *@
+            @foreach (var row in Rows.Where(r => r.Lane is null))
             {
-                @if (row.Lane is null)
+                <div class="nornis-timeline-band" style="top:@(row.Top)px; height:@(row.Height)px; width:@(TotalWidth)px">
+                    <span class="nornis-timeline-band-name">@row.BandName</span>
+                </div>
+            }
+
+            @* Pinned gutter: the storyline list stays put while the plot scrolls under it *@
+            <div class="nornis-timeline-gutter" style="width:@(GutterWidth)px; height:@(TotalHeight)px">
+                @foreach (var row in Rows.Where(r => r.Lane is not null))
                 {
-                    <div class="nornis-timeline-band" style="top:@(row.Top)px; height:@(row.Height)px; width:@(TotalWidth)px">
-                        @row.BandName
-                    </div>
-                }
-                else
-                {
-                    var lane = row.Lane;
+                    var lane = row.Lane!;
                     <div class="nornis-timeline-label @(CanEdit ? "nornis-timeline-draggable" : "")"
                          style="top:@(row.Top)px; height:@(row.Height)px; width:@(GutterWidth - 8)px; padding-left:@(8 + row.Depth * 16)px"
                          data-nornis-tip="@(LaneTitle(lane) + DragHint(lane))"
@@ -167,7 +170,7 @@ else
                         }
                     </div>
                 }
-            }
+            </div>
         </div>
     </div>
 
