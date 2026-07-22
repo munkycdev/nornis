@@ -265,6 +265,39 @@ public class SourcesController : ControllerBase
                 .ToList()));
     }
 
+    /// <summary>What this source's extraction contributed to the record, reader-visible only.</summary>
+    [HttpGet("{sourceId:guid}/knowledge")]
+    public async Task<IActionResult> GetKnowledge(
+        Guid worldId,
+        Guid sourceId,
+        [FromServices] ISourceKnowledgeService knowledgeService,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await knowledgeService.GetForSourceAsync(worldId, sourceId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var knowledge = result.Value!;
+        return Ok(new SourceKnowledgeResponse(
+            knowledge.Artifacts
+                .Select(a => new SourceKnowledgeArtifactResponse(a.ArtifactId, a.Name, a.Type, a.Quote))
+                .ToList(),
+            knowledge.Facts
+                .Select(f => new SourceKnowledgeFactResponse(
+                    f.FactId, f.ArtifactId, f.ArtifactName, f.Predicate, f.Value, f.TruthState, f.Visibility, f.Quote))
+                .ToList(),
+            knowledge.Relationships
+                .Select(r => new SourceKnowledgeRelationshipResponse(
+                    r.RelationshipId, r.ArtifactAId, r.ArtifactAName, r.Type, r.ArtifactBId, r.ArtifactBName, r.Quote))
+                .ToList()));
+    }
+
     [HttpGet("{sourceId:guid}/reprocess-preview")]
     public async Task<IActionResult> GetReprocessPreview(
         Guid worldId,

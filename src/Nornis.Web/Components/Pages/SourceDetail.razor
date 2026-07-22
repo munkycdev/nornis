@@ -272,6 +272,14 @@
                 </MudPaper>
             }
 
+            @if (_source.ProcessingStatus == "Processed" && _source.ExtractionEnabled)
+            {
+                <SourceKnowledgePanel Knowledge="_knowledge"
+                                      CanRemoveFacts="@(Worlds.Current?.MyRole == "GM")"
+                                      Busy="_removingFact"
+                                      RemoveFactRequested="OnRemoveFactAsync" />
+            }
+
             @if (_source.Type == "Map" && _mapView is not null)
             {
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
@@ -528,6 +536,8 @@
                 var locations = await Api.GetSourceLocationsAsync(Worlds.Current.Id, SourceId);
                 _locations = locations.IsSuccess ? locations.Value! : [];
             }
+
+            await LoadKnowledgeAsync();
         }
         else if (result.Error!.Code == "not_found")
         {
@@ -538,6 +548,47 @@
         {
             _error = result.Error!.Message;
             _source = null;
+        }
+        StateHasChanged();
+    }
+
+    private SourceKnowledgeDto? _knowledge;
+    private bool _removingFact;
+
+    private async Task LoadKnowledgeAsync()
+    {
+        _knowledge = null;
+        if (Worlds.Current is null || _source is null
+            || _source.ProcessingStatus != "Processed" || !_source.ExtractionEnabled)
+        {
+            return;
+        }
+
+        var knowledge = await Api.GetSourceKnowledgeAsync(Worlds.Current.Id, SourceId);
+        _knowledge = knowledge.IsSuccess ? knowledge.Value : new SourceKnowledgeDto([], [], []);
+    }
+
+    private async Task OnRemoveFactAsync((SourceKnowledgeFactDto Fact, string Note) removal)
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _removingFact = true;
+        StateHasChanged();
+
+        var result = await Api.RemoveFactAsync(Worlds.Current.Id, removal.Fact.FactId, removal.Note);
+
+        _removingFact = false;
+        if (result.IsSuccess)
+        {
+            Snackbar.Add($"Fact removed from \"{removal.Fact.ArtifactName}\" — your note is on the record.", Severity.Success);
+            await LoadKnowledgeAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
         }
         StateHasChanged();
     }

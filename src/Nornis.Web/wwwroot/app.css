@@ -1383,6 +1383,15 @@ html, body {
     margin-bottom: 12px;
 }
 
+/* Inline GM note box under a fact row when removing an incorrect fact. */
+.nornis-fact-remove-box {
+    margin: 4px 0 12px 12px;
+    padding: 10px 12px;
+    border-left: 2px solid var(--mud-palette-error);
+    background: rgba(163, 67, 67, 0.05);
+    border-radius: 0 8px 8px 0;
+}
+
 .nornis-fact-row {
     display: flex;
     align-items: center;

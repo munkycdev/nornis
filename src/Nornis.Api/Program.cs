@@ -115,6 +115,8 @@ builder.Services.AddScoped<ISourceAttachmentService, SourceAttachmentService>();
 builder.Services.AddScoped<IArtifactService, ArtifactService>();
 builder.Services.AddScoped<IArtifactMergeService, ArtifactMergeService>();
 builder.Services.AddScoped<IArtifactRemovalService, ArtifactRemovalService>();
+builder.Services.AddScoped<ISourceKnowledgeService, SourceKnowledgeService>();
+builder.Services.AddScoped<IFactRemovalService, FactRemovalService>();
 builder.Services.AddScoped<IRevealService, RevealService>();
 builder.Services.AddScoped<ICanonService, CanonService>();
 builder.Services.AddScoped<IHealthService, HealthService>();

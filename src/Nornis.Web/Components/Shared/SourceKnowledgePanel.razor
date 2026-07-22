@@ -1,0 +1,161 @@
+@* What a source's extraction contributed to the record: artifacts touched, facts, and
+   relationships, each with its quote where the extraction recorded one. Shared between
+   the authenticated source page and the public source page — the host fetches the data
+   (each side has its own endpoint) and this panel only presents it. When fact removal
+   is enabled (GM), each fact row can expand an inline note box; the note is required
+   and becomes the GM-note record of the correction. *@
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+    <div class="nornis-detail-section-title">Extracted knowledge</div>
+
+    @if (Knowledge is null)
+    {
+        <LoadingRows Rows="2" />
+    }
+    else if (Knowledge.Artifacts.Count == 0 && Knowledge.Facts.Count == 0 && Knowledge.Relationships.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            <em>Nothing in the record derives from this source@(ProcessedHint ? "" : " yet — it hasn't been processed").</em>
+        </MudText>
+    }
+    else
+    {
+        @if (Knowledge.Artifacts.Count > 0)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-1">Artifacts</MudText>
+            <div class="nornis-detail-chips mb-3">
+                @foreach (var artifact in Knowledge.Artifacts)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary"
+                             Href="@($"{ArtifactLinkBase}/{artifact.ArtifactId}")">
+                        @artifact.Name
+                    </MudChip>
+                }
+            </div>
+        }
+
+        @if (Knowledge.Facts.Count > 0)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-1">Facts</MudText>
+            <div class="mb-3">
+                @foreach (var fact in Knowledge.Facts)
+                {
+                    <div class="nornis-list-row">
+                        <div class="nornis-list-body">
+                            <div class="nornis-list-title">
+                                <a href="@($"{ArtifactLinkBase}/{fact.ArtifactId}")" class="nornis-link">@fact.ArtifactName</a>
+                                — @fact.Predicate
+                            </div>
+                            <div class="nornis-list-sub">@fact.Value</div>
+                            @if (!string.IsNullOrWhiteSpace(fact.Quote))
+                            {
+                                <div class="nornis-list-meta">“@fact.Quote”</div>
+                            }
+                        </div>
+                        @if (fact.TruthState is "Rumor" or "Disputed" or "False")
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                     Color="@(fact.TruthState == "Rumor" ? Color.Warning : Color.Error)">
+                                @fact.TruthState
+                            </MudChip>
+                        }
+                        @if (CanRemoveFacts)
+                        {
+                            <MudTooltip Text="Remove this fact — it's incorrect">
+                                <MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Size="Size.Small"
+                                               OnClick="() => ToggleRemove(fact.FactId)"
+                                               Disabled="Busy"
+                                               aria-label="Remove fact" />
+                            </MudTooltip>
+                        }
+                    </div>
+                    @if (CanRemoveFacts && _removingFactId == fact.FactId)
+                    {
+                        <div class="nornis-fact-remove-box">
+                            <MudTextField T="string" @bind-Value="_removalNote" Lines="2" Immediate="true"
+                                          Label="Why is this fact wrong?" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          HelperText="Required. Saved as a GM note so the correction stays on the record." />
+                            <div class="d-flex gap-2 mt-1">
+                                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error"
+                                           Disabled="@(Busy || string.IsNullOrWhiteSpace(_removalNote))"
+                                           OnClick="() => ConfirmRemoveAsync(fact)">
+                                    Remove fact
+                                </MudButton>
+                                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default"
+                                           Disabled="Busy" OnClick="() => ToggleRemove(fact.FactId)">
+                                    Cancel
+                                </MudButton>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        }
+
+        @if (Knowledge.Relationships.Count > 0)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-1">Relationships</MudText>
+            @foreach (var rel in Knowledge.Relationships)
+            {
+                <div class="nornis-list-row">
+                    <div class="nornis-list-body">
+                        <div class="nornis-list-title">
+                            <a href="@($"{ArtifactLinkBase}/{rel.ArtifactAId}")" class="nornis-link">@rel.ArtifactAName</a>
+                            <span class="nornis-list-meta">@Humanize(rel.Type)</span>
+                            <a href="@($"{ArtifactLinkBase}/{rel.ArtifactBId}")" class="nornis-link">@rel.ArtifactBName</a>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(rel.Quote))
+                        {
+                            <div class="nornis-list-meta">“@rel.Quote”</div>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    }
+</MudPaper>
+
+@code {
+    /// <summary>Null renders the loading state; the host owns fetching.</summary>
+    [Parameter] public SourceKnowledgeDto? Knowledge { get; set; }
+
+    /// <summary>Shows the per-fact removal affordance (GM on the authenticated site only).</summary>
+    [Parameter] public bool CanRemoveFacts { get; set; }
+
+    /// <summary>Disables removal controls while the host is applying a removal.</summary>
+    [Parameter] public bool Busy { get; set; }
+
+    /// <summary>Raised with the fact and the GM's (non-empty) note.</summary>
+    [Parameter] public EventCallback<(SourceKnowledgeFactDto Fact, string Note)> RemoveFactRequested { get; set; }
+
+    /// <summary>Route prefix for artifact links; the public /w/{slug} pages override it.</summary>
+    [Parameter] public string ArtifactLinkBase { get; set; } = "/artifacts";
+
+    /// <summary>True when the source has been processed — tunes the empty-state wording.</summary>
+    [Parameter] public bool ProcessedHint { get; set; } = true;
+
+    private Guid? _removingFactId;
+    private string _removalNote = string.Empty;
+
+    private void ToggleRemove(Guid factId)
+    {
+        _removingFactId = _removingFactId == factId ? null : factId;
+        _removalNote = string.Empty;
+    }
+
+    private async Task ConfirmRemoveAsync(SourceKnowledgeFactDto fact)
+    {
+        var note = _removalNote.Trim();
+        if (note.Length == 0)
+        {
+            return;
+        }
+
+        await RemoveFactRequested.InvokeAsync((fact, note));
+        _removingFactId = null;
+        _removalNote = string.Empty;
+    }
+
+    private static string Humanize(string pascal) =>
+        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+}

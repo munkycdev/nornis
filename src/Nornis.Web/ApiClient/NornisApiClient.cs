@@ -200,6 +200,14 @@ public class NornisApiClient
     public Task<ApiResult<ReprocessPreviewDto>> GetReprocessPreviewAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         GetAsync<ReprocessPreviewDto>($"/api/worlds/{worldId}/sources/{sourceId}/reprocess-preview", ct);
 
+    /// <summary>What this source's extraction contributed to the record, reader-visible only.</summary>
+    public Task<ApiResult<SourceKnowledgeDto>> GetSourceKnowledgeAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
+        GetAsync<SourceKnowledgeDto>($"/api/worlds/{worldId}/sources/{sourceId}/knowledge", ct);
+
+    /// <summary>GM-only: removes an incorrect fact from canon; the note becomes a GM-note record.</summary>
+    public Task<ApiResult<bool>> RemoveFactAsync(Guid worldId, Guid factId, string note, CancellationToken ct = default) =>
+        PostNoContentAsync($"/api/worlds/{worldId}/facts/{factId}/removal", new RemoveFactRequest(note), ct);
+
     /// <summary>The source's map image + visible pins. 404 (no_map) when no map is stored.</summary>
     public Task<ApiResult<MapViewDto>> GetSourceMapAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         GetAsync<MapViewDto>($"/api/worlds/{worldId}/sources/{sourceId}/map", ct);
@@ -542,6 +550,25 @@ public class NornisApiClient
         catch (Exception ex)
         {
             return ApiResult<TValue>.Fail(Unreachable(ex));
+        }
+    }
+
+    private async Task<ApiResult<bool>> PostNoContentAsync<TBody>(string uri, TBody body, CancellationToken ct)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(uri, body, ct);
+            if (response.IsSuccessStatusCode)
+            {
+                return ApiResult<bool>.Ok(true);
+            }
+
+            var failed = await ReadResultAsync<bool>(response, ct);
+            return ApiResult<bool>.Fail(failed.Error!);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<bool>.Fail(Unreachable(ex));
         }
     }
 

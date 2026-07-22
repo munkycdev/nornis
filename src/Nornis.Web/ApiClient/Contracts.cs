@@ -154,6 +154,41 @@ public record UpdateSourceRequest(
     bool ClearCampaign = false,
     bool? ExtractionEnabled = null);
 
+// Mirrors Nornis.Api SourceKnowledgeResponse: what a source's extraction contributed
+// to the record, limited to what the reader may see.
+public record SourceKnowledgeDto(
+    IReadOnlyList<SourceKnowledgeArtifactDto> Artifacts,
+    IReadOnlyList<SourceKnowledgeFactDto> Facts,
+    IReadOnlyList<SourceKnowledgeRelationshipDto> Relationships);
+
+public record SourceKnowledgeArtifactDto(
+    Guid ArtifactId,
+    string Name,
+    string Type,
+    string? Quote);
+
+public record SourceKnowledgeFactDto(
+    Guid FactId,
+    Guid ArtifactId,
+    string ArtifactName,
+    string Predicate,
+    string Value,
+    string TruthState,
+    string Visibility,
+    string? Quote);
+
+public record SourceKnowledgeRelationshipDto(
+    Guid RelationshipId,
+    Guid ArtifactAId,
+    string ArtifactAName,
+    string Type,
+    Guid ArtifactBId,
+    string ArtifactBName,
+    string? Quote);
+
+// Mirrors Nornis.Api RemoveFactRequest.
+public record RemoveFactRequest(string Note);
+
 // Mirrors Nornis.Api ReprocessSourceRequest: edits applied atomically with the
 // reprocess; null fields keep current values.
 public record ReprocessSourceRequest(
