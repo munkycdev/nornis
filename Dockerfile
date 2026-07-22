@@ -58,7 +58,9 @@ COPY --from=build /app/web .
 ENTRYPOINT ["dotnet", "Nornis.Web.dll"]
 
 # -------------------------------------------------------------------- worker --
-FROM mcr.microsoft.com/dotnet/runtime:10.0 AS worker
+# aspnet (not runtime): the worker references Microsoft.AspNetCore.App for
+# Azure.Monitor.OpenTelemetry.AspNetCore — see Nornis.Worker.csproj.
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS worker
 ARG IMAGE_SOURCE=""
 ARG IMAGE_REVISION=""
 LABEL org.opencontainers.image.source="${IMAGE_SOURCE}"
