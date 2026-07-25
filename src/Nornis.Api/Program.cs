@@ -102,6 +102,7 @@ builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
 // Application service registrations
 builder.Services.AddScoped<IWorldService, WorldService>();
+builder.Services.AddScoped<IWorldDeletionService, WorldDeletionService>();
 builder.Services.AddScoped<IWorldMemberService, WorldMemberService>();
 builder.Services.AddScoped<IWorldInviteService, WorldInviteService>();
 builder.Services.AddSingleton<IInviteCodeGenerator, InviteCodeGenerator>();

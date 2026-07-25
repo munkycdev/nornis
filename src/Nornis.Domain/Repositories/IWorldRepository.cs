@@ -16,4 +16,11 @@ public interface IWorldRepository
     Task<IReadOnlyList<World>> ListByUserAsync(Guid userId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<World>> GetByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Permanently deletes a world and every row that belongs to it — members, invites,
+    /// campaigns, characters, sources, knowledge, reviews, library, health, replays, and
+    /// the world's AI usage ledger. Irreversible; blob cleanup is the caller's job.
+    /// </summary>
+    Task DeleteAsync(Guid worldId, CancellationToken cancellationToken = default);
 }

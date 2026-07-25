@@ -57,6 +57,11 @@ public class NornisApiClient
     public Task<ApiResult<WorldSummary>> UpdateWorldAsync(Guid worldId, UpdateWorldRequest request, CancellationToken ct = default) =>
         PutAsync<UpdateWorldRequest, WorldSummary>($"/api/worlds/{worldId}", request, ct);
 
+    /// <summary>Permanently deletes a world and everything in it. GM-only; the server
+    /// re-verifies that <paramref name="confirmName"/> matches the world's exact name.</summary>
+    public Task<ApiResult<bool>> DeleteWorldAsync(Guid worldId, string confirmName, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}{Query(("confirmName", confirmName))}", ct);
+
     // -------------------------------------------------------------------- Members --
 
     public Task<ApiResult<IReadOnlyList<WorldMember>>> GetMembersAsync(Guid worldId, CancellationToken ct = default) =>

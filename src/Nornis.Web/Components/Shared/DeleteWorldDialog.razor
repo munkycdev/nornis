@@ -1,0 +1,75 @@
+@inject NornisApiClient Api
+
+@* Type-to-confirm guard for the unrecoverable world wipe. The Delete button stays
+   disabled until the typed name matches exactly; the API re-verifies server-side. *@
+
+<MudDialog>
+    <DialogContent>
+        <MudAlert Severity="Severity.Error" Dense="true" Class="mb-4">
+            This permanently deletes <b>@WorldName</b> and everything in it — sessions, codex,
+            timeline, campaigns, characters, library files, members, and invite links.
+            There is no archive and no way to get it back.
+        </MudAlert>
+        <MudText Typo="Typo.body2" Class="mb-2">
+            Type <b>@WorldName</b> to confirm.
+        </MudText>
+        <MudTextField @bind-Value="_typedName"
+                      Label="World name"
+                      Immediate="true"
+                      MaxLength="200"
+                      Variant="Variant.Outlined"
+                      Disabled="_busy" />
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Disabled="_busy">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error"
+                   StartIcon="@Icons.Material.Filled.DeleteForever"
+                   OnClick="DeleteAsync" Disabled="@(!NameMatches || _busy)">
+            Delete this world forever
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private MudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid WorldId { get; set; }
+    [Parameter] public string WorldName { get; set; } = string.Empty;
+
+    private string _typedName = string.Empty;
+    private bool _busy;
+    private string? _error;
+
+    // Case-sensitive on purpose — this gate protects an unrecoverable action.
+    private bool NameMatches => string.Equals(_typedName.Trim(), WorldName, StringComparison.Ordinal);
+
+    private async Task DeleteAsync()
+    {
+        if (!NameMatches)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        var result = await Api.DeleteWorldAsync(WorldId, _typedName.Trim());
+
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -76,4 +76,10 @@ public class InMemoryWorldRepository : IWorldRepository
         var worlds = _worlds.Where(c => ids.Contains(c.Id)).ToList();
         return Task.FromResult<IReadOnlyList<World>>(worlds.AsReadOnly());
     }
+
+    public Task DeleteAsync(Guid worldId, CancellationToken cancellationToken = default)
+    {
+        _worlds.RemoveAll(c => c.Id == worldId);
+        return Task.CompletedTask;
+    }
 }

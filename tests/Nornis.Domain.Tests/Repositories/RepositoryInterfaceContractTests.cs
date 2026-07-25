@@ -36,7 +36,7 @@ public class RepositoryInterfaceContractTests
 
     private static readonly Dictionary<Type, string[]> ExpectedMethods = new()
     {
-        [typeof(IWorldRepository)] = ["CreateAsync", "GetByIdAsync", "UpdateAsync", "ListByUserAsync", "GetByIdsAsync"],
+        [typeof(IWorldRepository)] = ["CreateAsync", "GetByIdAsync", "UpdateAsync", "ListByUserAsync", "GetByIdsAsync", "DeleteAsync"],
         [typeof(IWorldMemberRepository)] = ["CreateAsync", "GetByWorldAndUserAsync", "ListByWorldAsync", "RemoveAsync", "ListByUserAsync"],
         [typeof(IWorldInviteRepository)] = ["CreateAsync", "GetByCodeAsync", "GetByIdAsync", "ListByWorldAsync", "UpdateAsync"],
         [typeof(IUserRepository)] = ["CreateAsync", "GetByIdAsync", "GetByAuth0SubjectIdAsync", "ListAsync", "UpdateAsync"],

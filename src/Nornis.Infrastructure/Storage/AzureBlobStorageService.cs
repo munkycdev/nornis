@@ -98,6 +98,15 @@ public sealed class AzureBlobStorageService : IBlobStorageService
         await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
     }
 
+    public async Task DeleteByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
+    {
+        var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
+        await foreach (var blob in containerClient.GetBlobsAsync(prefix: prefix, cancellationToken: cancellationToken))
+        {
+            await containerClient.DeleteBlobIfExistsAsync(blob.Name, cancellationToken: cancellationToken);
+        }
+    }
+
     private BlobClient GetBlobClient(string blobPath) =>
         _blobServiceClient.GetBlobContainerClient(_containerName).GetBlobClient(blobPath);
 

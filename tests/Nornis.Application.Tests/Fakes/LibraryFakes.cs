@@ -129,6 +129,22 @@ public class FakeBlobStorageService : IBlobStorageService
         Blobs.Remove(blobPath);
         return Task.CompletedTask;
     }
+
+    public List<string> DeletedPrefixes { get; } = [];
+
+    public Task DeleteByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
+    {
+        if (FailDeletes)
+        {
+            throw new IOException("Simulated blob delete failure");
+        }
+        DeletedPrefixes.Add(prefix);
+        foreach (var path in Blobs.Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal)).ToList())
+        {
+            Blobs.Remove(path);
+        }
+        return Task.CompletedTask;
+    }
 }
 
 public class FakePdfTextExtractor : IPdfTextExtractor

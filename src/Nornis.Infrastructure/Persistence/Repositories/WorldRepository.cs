@@ -57,4 +57,87 @@ public class WorldRepository : IWorldRepository
             .Where(c => ids.Contains(c.Id))
             .ToListAsync(cancellationToken);
     }
+
+    public async Task DeleteAsync(Guid worldId, CancellationToken cancellationToken = default)
+    {
+        // ExecuteDelete needs a relational provider; the API integration tests run on
+        // InMemory, which gets tracked RemoveRange + a single SaveChanges instead.
+        if (_context.Database.IsRelational())
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            await DeleteWorldGraphAsync(worldId, relational: true, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        else
+        {
+            await DeleteWorldGraphAsync(worldId, relational: false, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Deletes every row belonging to a world, children before parents. Several FKs are
+    /// deliberately Restrict/NoAction (SQL Server's multiple-cascade-path restriction), so
+    /// the order below matters; nothing here relies on database cascades.
+    /// </summary>
+    private async Task DeleteWorldGraphAsync(Guid worldId, bool relational, CancellationToken ct)
+    {
+        async Task DeleteAsync<T>(IQueryable<T> query) where T : class
+        {
+            if (relational)
+            {
+                await query.ExecuteDeleteAsync(ct);
+            }
+            else
+            {
+                _context.RemoveRange(await query.ToListAsync(ct));
+            }
+        }
+
+        // The usage ledger's Source/ReviewBatch FKs are NoAction, so it goes first. A world
+        // wipe removes its spend history too — this is the one place that ledger rows die.
+        await DeleteAsync(_context.AiUsageRecords.Where(a => a.WorldId == worldId));
+
+        // Review pipeline (proposals hang off batches; batches Restrict their source).
+        await DeleteAsync(_context.ReviewProposals
+            .Where(p => _context.ReviewBatches.Any(b => b.Id == p.ReviewBatchId && b.WorldId == worldId)));
+        await DeleteAsync(_context.ReviewBatches.Where(b => b.WorldId == worldId));
+
+        // Source satellites, then the map pins that sit on source attachments.
+        await DeleteAsync(_context.MapPlacemarks.Where(p => p.WorldId == worldId));
+        await DeleteAsync(_context.SourceReferences
+            .Where(r => _context.Sources.Any(s => s.Id == r.SourceId && s.WorldId == worldId)));
+        await DeleteAsync(_context.SourceExtractions
+            .Where(e => _context.Sources.Any(s => s.Id == e.SourceId && s.WorldId == worldId)));
+        await DeleteAsync(_context.SourceAttachments.Where(a => a.WorldId == worldId));
+
+        // Continuity health.
+        await DeleteAsync(_context.ContinuityFindings
+            .Where(f => _context.HealthAssessments.Any(h => h.Id == f.HealthAssessmentId && h.WorldId == worldId)));
+        await DeleteAsync(_context.HealthAssessments.Where(h => h.WorldId == worldId));
+
+        // Library.
+        await DeleteAsync(_context.LibraryChunks.Where(c => c.WorldId == worldId));
+        await DeleteAsync(_context.LibraryDocuments.Where(d => d.WorldId == worldId));
+
+        // Knowledge graph. Relationships Restrict their artifacts; characters hold a
+        // NoAction FK to their artifact, so they go before Artifacts.
+        await DeleteAsync(_context.ArtifactFacts
+            .Where(f => _context.Artifacts.Any(a => a.Id == f.ArtifactId && a.WorldId == worldId)));
+        await DeleteAsync(_context.ArtifactRelationships.Where(r => r.WorldId == worldId));
+        await DeleteAsync(_context.CampaignCharacters
+            .Where(cc => _context.Campaigns.Any(c => c.Id == cc.CampaignId && c.WorldId == worldId)));
+        await DeleteAsync(_context.StorylineCampaigns
+            .Where(sc => _context.Campaigns.Any(c => c.Id == sc.CampaignId && c.WorldId == worldId)));
+        await DeleteAsync(_context.Characters.Where(c => c.WorldId == worldId));
+        await DeleteAsync(_context.Artifacts.Where(a => a.WorldId == worldId));
+
+        // Sources before Campaigns (Source.CampaignId is Restrict), then the shell.
+        await DeleteAsync(_context.ExtractionReplays.Where(r => r.WorldId == worldId));
+        await DeleteAsync(_context.Sources.Where(s => s.WorldId == worldId));
+        await DeleteAsync(_context.Campaigns.Where(c => c.WorldId == worldId));
+        await DeleteAsync(_context.WorldInvites.Where(i => i.WorldId == worldId));
+        await DeleteAsync(_context.WorldMembers.Where(m => m.WorldId == worldId));
+        await DeleteAsync(_context.Worlds.Where(w => w.Id == worldId));
+    }
 }

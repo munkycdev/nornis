@@ -136,6 +136,40 @@ public class WorldsController : ControllerBase
         return Ok(response);
     }
 
+    // IWorldDeletionService is action-injected (not a constructor dependency) because it
+    // needs blob storage, whose DI stub throws when unconfigured — that must only be able
+    // to fail the delete endpoint, never the rest of the worlds surface.
+    [HttpDelete("{worldId:guid}")]
+    [ServiceFilter(typeof(WorldMemberActionFilter))]
+    public async Task<IActionResult> Delete(
+        Guid worldId,
+        [FromQuery] string? confirmName,
+        [FromServices] IWorldDeletionService deletionService,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        if (member.Role != WorldRole.GM)
+        {
+            return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can delete a world."));
+        }
+
+        var command = new DeleteWorldCommand(
+            WorldId: worldId,
+            ActingUserId: user.Id,
+            ConfirmationName: confirmName);
+
+        var result = await deletionService.DeleteAsync(command, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return NoContent();
+    }
+
     private static WorldResponse ToWorldResponse(World world, WorldRole role)
     {
         return new WorldResponse(

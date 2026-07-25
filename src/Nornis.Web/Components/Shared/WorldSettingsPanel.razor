@@ -314,6 +314,20 @@
                     }
                 }
             </MudPaper>
+
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4" Style="border: 1px solid var(--mud-palette-error);">
+                <div class="nornis-detail-section-title" style="color: var(--mud-palette-error);">Danger zone</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Deleting this world permanently erases everything in it — sessions, codex, timeline,
+                    campaigns, characters, library files, members, and invite links. There is no archive
+                    and no way to recover it.
+                </MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                           StartIcon="@Icons.Material.Filled.DeleteForever"
+                           OnClick="DeleteWorldAsync">
+                    Delete this world…
+                </MudButton>
+            </MudPaper>
         }
     }
 </div>
@@ -820,6 +834,30 @@
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
         StateHasChanged();
+    }
+
+    private async Task DeleteWorldAsync()
+    {
+        if (Worlds.Current is not { } world)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters<DeleteWorldDialog>
+        {
+            { d => d.WorldId, world.Id },
+            { d => d.WorldName, world.Name },
+        };
+
+        var dialog = await DialogService.ShowAsync<DeleteWorldDialog>("Delete world?", parameters);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            Snackbar.Add($"\"{world.Name}\" was permanently deleted.", Severity.Info);
+            await Worlds.ReloadAsync();
+            Nav.NavigateTo("/");
+        }
     }
 
     private static string DisplayName(WorldMember m) =>

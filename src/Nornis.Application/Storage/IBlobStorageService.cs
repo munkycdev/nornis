@@ -29,4 +29,10 @@ public interface IBlobStorageService
     Task<Stream> OpenReadAsync(string blobPath, CancellationToken cancellationToken = default);
 
     Task DeleteBlobAsync(string blobPath, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes every blob under a path prefix (e.g. <c>worlds/{worldId}/</c>) — used when a
+    /// world is wiped, so orphans are removed along with the tracked files.
+    /// </summary>
+    Task DeleteByPrefixAsync(string prefix, CancellationToken cancellationToken = default);
 }
