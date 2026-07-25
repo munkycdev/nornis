@@ -197,10 +197,10 @@ Steps and their detectors (all detectors are existing read models — no new wri
 |---|---|---|---|
 | **Chapter 1 — Playing in a world** (runs in player view; step 1 turns it on) ||||
 | 1.1 | See it as a player | — | `ViewingAsPlayer` turned on once |
-| 1.2 | Meet the cast | `/artifacts` | Any artifact detail viewed (client event) |
-| 1.3 | Walk the journey | `/timeline` | Journey/timeline page visited |
-| 1.4 | Stand somewhere | `/locations` | A pin selected once |
-| 1.5 | Ask the Loremaster | `/` | An Ask question answered in this world |
+| 1.2 | Meet the cast | `/artifacts` | Codex visited (client-reported route visit) |
+| 1.3 | Walk the journey | `/timeline` | Timeline visited (client-reported route visit) |
+| 1.4 | Stand somewhere | `/locations` | Locations visited (client-reported route visit) |
+| 1.5 | Ask the Loremaster | `/` | An `AskLoremaster` AI-usage record by this user in this world |
 | **Chapter 2 — Running a campaign** ||||
 | 2.1 | Back to GM view | — | `ViewingAsPlayer` turned off |
 | 2.2 | Add Session 6 | `/capture` | A new source exists post-creation |
@@ -212,9 +212,13 @@ Steps and their detectors (all detectors are existing read models — no new wri
 Two detector notes: the page-visit steps (1.2–1.4) are client-reported (a `StepKey` POST on
 route visit) because there is no server state to detect — acceptable self-report for
 low-stakes steps; the state-backed steps (1.5, 2.2–2.5) are detected by querying existing
-services and are the ones that must never false-positive. Session 6's paste text is served
-in-app within step 2.2's description (copy button), sourced from the template package so
-content and instructions version together.
+repositories and are the ones that must never false-positive. The 2.2 detector relies on an
+import invariant: every template row is written with `CreatedAt == world.CreatedAt`, so any
+source strictly newer is the user's own. Session 6's paste text is served in-app within
+step 2.2's description (copy button), read from the template package zip entry
+**`tutorial/session-6.md`** — template authoring must include that entry (the import
+ignores it) so content and instructions version together. The "created with tutorial"
+choice is stored as `World.TutorialEnabled`.
 
 The 2.2→2.3→2.4 chain is the product's centerpiece and the one real AI spend per demo
 (one source extraction, on the world's default budget). Step 2.5 leans on

@@ -69,6 +69,7 @@ public class UserTests
     public void User_Has_Expected_Property_Count()
     {
         var properties = _type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        Assert.That(properties, Has.Length.EqualTo(7));
+        // 8th–9th properties: OnboardingPromptSeenAt and TutorialDismissedAt (feature 20).
+        Assert.That(properties, Has.Length.EqualTo(9));
     }
 }

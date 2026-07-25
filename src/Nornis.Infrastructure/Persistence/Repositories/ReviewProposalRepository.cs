@@ -45,6 +45,14 @@ public class ReviewProposalRepository : IReviewProposalRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<bool> AnyDecidedByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)
+    {
+        return await _context.ReviewProposals
+            .AsNoTracking()
+            .Where(rp => _context.ReviewBatches.Any(rb => rb.Id == rp.ReviewBatchId && rb.WorldId == worldId))
+            .AnyAsync(rp => rp.Status != ReviewProposalStatus.Pending && rp.ReviewedByUserId != null, cancellationToken);
+    }
+
     public async Task<ReviewProposal> UpdateAsync(ReviewProposal proposal, CancellationToken cancellationToken = default)
     {
         _context.ReviewProposals.Update(proposal);

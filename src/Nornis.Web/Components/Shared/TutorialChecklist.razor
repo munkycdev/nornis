@@ -1,0 +1,292 @@
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject NavigationManager Nav
+@inject IDialogService DialogService
+@inject IJSRuntime JS
+
+@* The demo-world tutorial checklist (feature 20 phase C). Two chapters — playing, then
+   running — completed in any order, detected from real state wherever the server has
+   state to look at. Fully cancellable: Dismiss removes it permanently for this user. *@
+
+@if (Visible)
+{
+    <div class="nornis-tutorial @(_collapsed ? "nornis-tutorial-collapsed" : null)">
+        <div class="nornis-tutorial-head" @onclick="ToggleCollapsed">
+            <MudIcon Icon="@(AllDone ? Icons.Material.Filled.Celebration : Icons.Material.Outlined.School)"
+                     Size="Size.Small" />
+            <span class="nornis-tutorial-title">
+                @(AllDone ? "Tutorial complete!" : $"Getting started · {DoneCount} of {_steps.Count}")
+            </span>
+            <MudIconButton Icon="@(_collapsed ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                           Size="Size.Small" aria-label="Collapse tutorial" />
+            <span @onclick:stopPropagation="true">
+                <MudTooltip Text="Dismiss the tutorial for good">
+                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                   OnClick="DismissAsync"
+                                   aria-label="Dismiss tutorial" />
+                </MudTooltip>
+            </span>
+        </div>
+
+        @if (!_collapsed)
+        {
+            <div class="nornis-tutorial-body">
+                @foreach (var chapter in new[] { 1, 2 })
+                {
+                    <div class="nornis-tutorial-chapter">
+                        @(chapter == 1 ? "Playing in a world" : "Running a campaign")
+                    </div>
+                    @foreach (var step in _steps.Where(s => s.Chapter == chapter))
+                    {
+                        var meta = StepMeta[step.Key];
+                        <div class="nornis-tutorial-step @(step.CompletedAt is not null ? "nornis-tutorial-step-done" : null)">
+                            <MudIcon Icon="@(step.CompletedAt is not null ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.Circle)"
+                                     Size="Size.Small" />
+                            <div class="flex-grow-1">
+                                @if (meta.Href is not null && step.CompletedAt is null)
+                                {
+                                    <a href="@meta.Href" class="nornis-tutorial-step-title">@meta.Title</a>
+                                }
+                                else
+                                {
+                                    <span class="nornis-tutorial-step-title">@meta.Title</span>
+                                }
+                                @if (step.CompletedAt is null && meta.Hint is not null)
+                                {
+                                    <div class="nornis-tutorial-step-hint">@meta.Hint</div>
+                                }
+                                @if (step.Key == "add-session-six" && step.CompletedAt is null)
+                                {
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Secondary"
+                                               StartIcon="@Icons.Material.Filled.ContentCopy"
+                                               OnClick="CopySessionSixAsync" Disabled="_copyBusy"
+                                               Class="pa-0">
+                                        @(_copied ? "Copied!" : "Copy the Session 6 notes")
+                                    </MudButton>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private sealed record Meta(string Title, string? Href, string? Hint);
+
+    private static readonly Dictionary<string, Meta> StepMeta = new()
+    {
+        ["see-as-player"] = new("See it as a player", null, "Click the GM chip in the sidebar to view as a player."),
+        ["meet-the-cast"] = new("Meet the cast", "/artifacts", "Browse the codex Nornis built from the notes."),
+        ["walk-the-journey"] = new("Walk the journey", "/timeline", "Follow the party session by session."),
+        ["stand-somewhere"] = new("Stand somewhere", "/locations", "Pick a place on the map and see its history."),
+        ["ask-the-loremaster"] = new("Ask the Loremaster", "/", "Ask anything the party would know."),
+        ["back-to-gm"] = new("Return to GM view", null, "Flip the sidebar chip back — notice what appears."),
+        ["add-session-six"] = new("Add the Session 6 notes", "/capture", "Paste the next session and let Nornis read it."),
+        ["watch-extraction"] = new("Watch Nornis think", "/sources", "The new session processes into proposals."),
+        ["vet-extraction"] = new("Vet the extraction", "/review", "Accept or correct at least one proposal."),
+        ["reveal-secret"] = new("Reveal the Castellan's design", "/artifacts", "Promote a GM secret to the party."),
+        ["see-what-they-see"] = new("See what they see", null, "View as player again — the secret is there now."),
+    };
+
+    private IReadOnlyList<TutorialStepDto> _steps = [];
+    private bool _available;
+    private bool _dismissed;
+    private bool _collapsed;
+    private bool _copyBusy;
+    private bool _copied;
+    private Guid? _loadedWorldId;
+    private bool _lastViewingAsPlayer;
+    private readonly CancellationTokenSource _cts = new();
+
+    private bool Visible => _available && !_dismissed
+        && Worlds.Current is { IsDemo: true, TutorialEnabled: true };
+
+    private int DoneCount => _steps.Count(s => s.CompletedAt is not null);
+    private bool AllDone => _steps.Count > 0 && DoneCount == _steps.Count;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldsChanged;
+        Nav.LocationChanged += OnLocationChanged;
+        _lastViewingAsPlayer = Worlds.ViewingAsPlayer;
+
+        var onboarding = await Api.GetOnboardingAsync(_cts.Token);
+        _dismissed = onboarding is { IsSuccess: true, Value.TutorialDismissed: true };
+
+        await RefreshAsync();
+        _ = PollAsync();
+    }
+
+    private async Task PollAsync()
+    {
+        try
+        {
+            // Extraction and review happen in other tabs/pages; a light poll keeps the
+            // state-detected steps moving without any page hooks.
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+            while (await timer.WaitForNextTickAsync(_cts.Token))
+            {
+                if (Visible && !AllDone)
+                {
+                    await RefreshAsync();
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Component disposed.
+        }
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (_dismissed || Worlds.Current is not { IsDemo: true, TutorialEnabled: true } world)
+        {
+            _available = false;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        var result = await Api.GetTutorialAsync(world.Id, _cts.Token);
+        _available = result.IsSuccess;
+        if (result.IsSuccess)
+        {
+            _steps = result.Value!.Steps;
+            _loadedWorldId = world.Id;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnWorldsChanged() => InvokeAsync(async () =>
+    {
+        var viewingAsPlayer = Worlds.ViewingAsPlayer;
+        if (viewingAsPlayer != _lastViewingAsPlayer)
+        {
+            _lastViewingAsPlayer = viewingAsPlayer;
+            await ReportViewToggleAsync(viewingAsPlayer);
+        }
+
+        if (Worlds.Current?.Id != _loadedWorldId)
+        {
+            await RefreshAsync();
+        }
+
+        StateHasChanged();
+    });
+
+    private async Task ReportViewToggleAsync(bool viewingAsPlayer)
+    {
+        if (!Visible || Worlds.Current is not { } world)
+        {
+            return;
+        }
+
+        if (viewingAsPlayer)
+        {
+            await ReportAsync(world.Id, "see-as-player");
+            if (Completed("reveal-secret"))
+            {
+                await ReportAsync(world.Id, "see-what-they-see");
+            }
+        }
+        else if (Completed("see-as-player"))
+        {
+            await ReportAsync(world.Id, "back-to-gm");
+        }
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        if (!Visible || Worlds.Current is not { } world)
+        {
+            return;
+        }
+
+        var path = new Uri(e.Location).AbsolutePath;
+        var stepKey = path switch
+        {
+            var p when p.StartsWith("/artifacts", StringComparison.OrdinalIgnoreCase) => "meet-the-cast",
+            var p when p.StartsWith("/timeline", StringComparison.OrdinalIgnoreCase) => "walk-the-journey",
+            var p when p.StartsWith("/locations", StringComparison.OrdinalIgnoreCase) => "stand-somewhere",
+            _ => null,
+        };
+
+        if (stepKey is not null && !Completed(stepKey))
+        {
+            _ = InvokeAsync(() => ReportAsync(world.Id, stepKey));
+        }
+    }
+
+    private bool Completed(string key) =>
+        _steps.FirstOrDefault(s => s.Key == key)?.CompletedAt is not null;
+
+    private async Task ReportAsync(Guid worldId, string stepKey)
+    {
+        if (Completed(stepKey))
+        {
+            return;
+        }
+
+        var result = await Api.ReportTutorialStepAsync(worldId, stepKey, _cts.Token);
+        if (result.IsSuccess)
+        {
+            _steps = result.Value!.Steps;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task CopySessionSixAsync()
+    {
+        if (Worlds.Current is not { } world)
+        {
+            return;
+        }
+
+        _copyBusy = true;
+        var result = await Api.GetTutorialSessionSixAsync(world.Id, _cts.Token);
+        _copyBusy = false;
+
+        if (result.IsSuccess)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("navigator.clipboard.writeText", result.Value!.Body);
+                _copied = true;
+            }
+            catch
+            {
+                // Clipboard can be denied; the capture page hint still guides the user.
+            }
+        }
+    }
+
+    private void ToggleCollapsed() => _collapsed = !_collapsed;
+
+    private async Task DismissAsync()
+    {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Dismiss the tutorial?",
+            "It goes away for good — it won't come back on this or any other world.",
+            yesText: "Dismiss", cancelText: "Keep it");
+
+        if (confirmed == true)
+        {
+            _dismissed = true;
+            await Api.DismissTutorialAsync(_cts.Token);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+        Worlds.Changed -= OnWorldsChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+}

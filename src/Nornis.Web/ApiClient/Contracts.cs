@@ -746,6 +746,16 @@ public record PublicWorldDto(
 /// <summary>A single-shot anonymous ask against a public world.</summary>
 public record PublicAskRequest(string Question);
 
+// -------------------------------------------------- Onboarding + tutorial (feature 20) --
+
+public record OnboardingStateDto(bool PromptSeen, bool TutorialDismissed);
+
+public record TutorialStepDto(string Key, int Chapter, bool ClientReported, DateTimeOffset? CompletedAt);
+
+public record TutorialChecklistDto(IReadOnlyList<TutorialStepDto> Steps);
+
+public record TutorialSessionSixDto(string Body);
+
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);
 

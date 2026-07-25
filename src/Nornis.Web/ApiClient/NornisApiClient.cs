@@ -66,6 +66,27 @@ public class NornisApiClient
 
     private sealed record CreateDemoWorldBody(bool Tutorial);
 
+    // ------------------------------------------------------ Onboarding + tutorial --
+
+    public Task<ApiResult<OnboardingStateDto>> GetOnboardingAsync(CancellationToken ct = default) =>
+        GetAsync<OnboardingStateDto>("/api/onboarding", ct);
+
+    public Task<ApiResult<bool>> MarkOnboardingPromptSeenAsync(CancellationToken ct = default) =>
+        PostNoContentAsync<object?>("/api/onboarding/prompt-seen", null, ct);
+
+    /// <summary>Permanently dismisses all tutorial UI for the current user.</summary>
+    public Task<ApiResult<bool>> DismissTutorialAsync(CancellationToken ct = default) =>
+        PostNoContentAsync<object?>("/api/onboarding/dismiss-tutorial", null, ct);
+
+    public Task<ApiResult<TutorialChecklistDto>> GetTutorialAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<TutorialChecklistDto>($"/api/worlds/{worldId}/tutorial", ct);
+
+    public Task<ApiResult<TutorialChecklistDto>> ReportTutorialStepAsync(Guid worldId, string stepKey, CancellationToken ct = default) =>
+        PostAsync<object?, TutorialChecklistDto>($"/api/worlds/{worldId}/tutorial/steps/{stepKey}", null, ct);
+
+    public Task<ApiResult<TutorialSessionSixDto>> GetTutorialSessionSixAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<TutorialSessionSixDto>($"/api/worlds/{worldId}/tutorial/session-six", ct);
+
     public Task<ApiResult<WorldSummary>> UpdateWorldAsync(Guid worldId, UpdateWorldRequest request, CancellationToken ct = default) =>
         PutAsync<UpdateWorldRequest, WorldSummary>($"/api/worlds/{worldId}", request, ct);
 

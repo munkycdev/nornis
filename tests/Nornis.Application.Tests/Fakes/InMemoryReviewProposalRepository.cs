@@ -48,6 +48,14 @@ public class InMemoryReviewProposalRepository : IReviewProposalRepository
         return Task.FromResult<IReadOnlyList<ReviewProposal>>(proposals.AsReadOnly());
     }
 
+    public Task<bool> AnyDecidedByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)
+    {
+        // Like ListPendingByWorldAsync: the fake carries no world info on proposals, so
+        // "any decided at all" stands in. Tests scope their data per fake instance.
+        var any = _proposals.Any(p => p.Status != ReviewProposalStatus.Pending && p.ReviewedByUserId != null);
+        return Task.FromResult(any);
+    }
+
     public Task<ReviewProposal> UpdateAsync(ReviewProposal proposal, CancellationToken cancellationToken = default)
     {
         var index = _proposals.FindIndex(p => p.Id == proposal.Id);

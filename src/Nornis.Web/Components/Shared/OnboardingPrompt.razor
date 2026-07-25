@@ -1,0 +1,114 @@
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject IDialogService DialogService
+
+@* First-login onboarding prompt (feature 20 phase C). Shown once per user, ever: the
+   server records it as seen the first time it renders, and dismissal is local-immediate.
+   Invite-aware — a user who already has a world came here to join their friend's game,
+   so that leads and the demo world is the side offer. *@
+
+@if (_visible)
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-onboarding mb-4">
+        @if (Worlds.Worlds.Count > 0)
+        {
+            <div class="nornis-onboarding-title">You've joined @(Worlds.Current?.Name ?? Worlds.Worlds[0].Name)</div>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                Your party's world is ready — everything your GM has shared is in the codex,
+                the timeline, and the map. Want to learn the ropes first? The demo world is a
+                ready-made campaign with a guided tour, all yours to poke at.
+            </MudText>
+            <div class="d-flex gap-3 flex-wrap">
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="Close">
+                    Jump in
+                </MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CreateDemoAsync" Disabled="_busy">
+                    Try the demo world
+                </MudButton>
+                <MudButton Variant="Variant.Text" OnClick="Close" Disabled="_busy">Not now</MudButton>
+            </div>
+        }
+        else
+        {
+            <div class="nornis-onboarding-title">New here? Start with the demo world</div>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                A ready-made campaign — sessions, characters, a map — with a guided tour of how
+                Nornis remembers a world. You can also start from a blank world if you'd rather
+                bring your own campaign.
+            </MudText>
+            <div class="d-flex gap-3 flex-wrap">
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="CreateDemoAsync" Disabled="_busy">
+                    Create the demo world
+                </MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CreateBlankAsync" Disabled="_busy">
+                    Start blank
+                </MudButton>
+                <MudButton Variant="Variant.Text" OnClick="Close" Disabled="_busy">Not now</MudButton>
+            </div>
+        }
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
+        }
+    </MudPaper>
+}
+
+@code {
+    private bool _visible;
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldsChanged;
+        await Worlds.EnsureLoadedAsync();
+
+        var state = await Api.GetOnboardingAsync();
+        if (state is { IsSuccess: true, Value.PromptSeen: false })
+        {
+            _visible = true;
+            // Shown once is the contract; recording it must not block the render.
+            _ = Api.MarkOnboardingPromptSeenAsync();
+        }
+    }
+
+    private async Task CreateDemoAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        var result = await Api.CreateDemoWorldAsync(tutorial: true);
+
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        _visible = false;
+        await Worlds.ReloadAsync();
+        Worlds.Select(result.Value!.Id);
+    }
+
+    private async Task CreateBlankAsync()
+    {
+        var dialog = await DialogService.ShowAsync<CreateWorldDialog>("New world");
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is WorldSummary created)
+        {
+            _visible = false;
+            await Worlds.ReloadAsync();
+            Worlds.Select(created.Id);
+        }
+    }
+
+    private void Close() => _visible = false;
+
+    private void OnWorldsChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Worlds.Changed -= OnWorldsChanged;
+}

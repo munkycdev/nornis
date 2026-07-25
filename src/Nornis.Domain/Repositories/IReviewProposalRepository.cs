@@ -12,6 +12,10 @@ public interface IReviewProposalRepository
 
     Task<IReadOnlyList<ReviewProposal>> ListPendingByWorldAsync(Guid worldId, CancellationToken cancellationToken = default);
 
+    /// <summary>Whether any proposal in the world has been decided (accepted or rejected)
+    /// by a person. Tutorial detector for "vet the extraction".</summary>
+    Task<bool> AnyDecidedByWorldAsync(Guid worldId, CancellationToken cancellationToken = default);
+
     Task<ReviewProposal> UpdateAsync(ReviewProposal proposal, CancellationToken cancellationToken = default);
 
     Task<(IReadOnlyList<ReviewProposal> Proposals, bool HasMore)> ListReviewQueueAsync(

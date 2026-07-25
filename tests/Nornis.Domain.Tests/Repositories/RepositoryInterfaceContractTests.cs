@@ -11,6 +11,7 @@ public class RepositoryInterfaceContractTests
     [
         typeof(IWorldRepository),
         typeof(IWorldImportWriter),
+        typeof(ITutorialProgressRepository),
         typeof(IWorldMemberRepository),
         typeof(IWorldInviteRepository),
         typeof(IUserRepository),
@@ -59,6 +60,7 @@ public class RepositoryInterfaceContractTests
         [typeof(ISourceAttachmentRepository)] = ["CreateAsync", "GetByIdAsync", "ListBySourceAsync", "UpdateAsync", "DeleteAsync"],
         [typeof(IExtractionReplayRepository)] = ["CreateAsync", "GetActiveByWorldAsync", "UpdateAsync"],
         [typeof(IWorldExportReader)] = ["ReadAsync"],
+        [typeof(ITutorialProgressRepository)] = ["ListAsync", "AddRangeAsync"],
         [typeof(IUnitOfWork)] = ["BeginTransactionAsync"],
         [typeof(ITransactionScope)] = ["CommitAsync", "RollbackAsync"],
     };

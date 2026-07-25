@@ -124,7 +124,7 @@ public class EntityStructureTests
     }
 
     [Test]
-    public void Domain_Assembly_Contains_Exactly_23_Entity_Classes()
+    public void Domain_Assembly_Contains_Expected_Entity_Classes()
     {
         var entityTypes = typeof(User).Assembly
             .GetTypes()
@@ -136,7 +136,8 @@ public class EntityStructureTests
         // + SourceAttachment (handwritten notes) + LibraryDocument/LibraryChunk (Library)
         // + MapPlacemark (map sources) + WorldInvite (world invitations)
         // + StorylineCampaign (cross-campaign storylines)
-        // + ExtractionReplay (timeline re-extraction walk).
-        Assert.That(entityTypes, Has.Count.EqualTo(24));
+        // + ExtractionReplay (timeline re-extraction walk)
+        // + TutorialProgress (demo-world tutorial, feature 20).
+        Assert.That(entityTypes, Has.Count.EqualTo(25));
     }
 }

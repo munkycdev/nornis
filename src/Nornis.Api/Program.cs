@@ -113,6 +113,10 @@ builder.Services.Configure<DemoWorldOptions>(builder.Configuration.GetSection(De
 builder.Services.AddScoped<IWorldImportWriter, WorldImportWriter>();
 builder.Services.AddSingleton<IDemoWorldTemplateProvider, FileDemoWorldTemplateProvider>();
 builder.Services.AddScoped<IDemoWorldService, DemoWorldService>();
+
+// Onboarding + tutorial (feature 20 phase C).
+builder.Services.AddScoped<ITutorialProgressRepository, TutorialProgressRepository>();
+builder.Services.AddScoped<ITutorialService, TutorialService>();
 builder.Services.AddScoped<IWorldMemberService, WorldMemberService>();
 builder.Services.AddScoped<IWorldInviteService, WorldInviteService>();
 builder.Services.AddSingleton<IInviteCodeGenerator, InviteCodeGenerator>();
