@@ -170,6 +170,51 @@ public class WorldsController : ControllerBase
         return NoContent();
     }
 
+    // IWorldExportService is action-injected for the same reason as deletion: it depends
+    // on blob storage, whose DI stub throws when unconfigured.
+    [HttpPost("{worldId:guid}/export")]
+    [ServiceFilter(typeof(WorldMemberActionFilter))]
+    public async Task<IActionResult> Export(
+        Guid worldId,
+        [FromBody] ExportWorldRequest request,
+        [FromServices] IWorldExportService exportService,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        if (member.Role != WorldRole.GM)
+        {
+            return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can export a world."));
+        }
+
+        var categories = new List<WorldExportCategory>();
+        foreach (var name in request.Categories ?? [])
+        {
+            if (!Enum.TryParse<WorldExportCategory>(name, ignoreCase: true, out var category))
+            {
+                return BadRequest(new ErrorResponse("invalid_category", $"'{name}' is not an exportable data type."));
+            }
+
+            categories.Add(category);
+        }
+
+        var command = new ExportWorldCommand(
+            WorldId: worldId,
+            ActingUserId: user.Id,
+            Categories: categories);
+
+        var result = await exportService.ExportAsync(command, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var export = result.Value!;
+        return Ok(new ExportWorldResponse(export.DownloadUrl, export.FileName, export.SizeBytes));
+    }
+
     private static WorldResponse ToWorldResponse(World world, WorldRole role)
     {
         return new WorldResponse(

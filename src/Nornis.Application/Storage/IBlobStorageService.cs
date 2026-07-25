@@ -28,6 +28,12 @@ public interface IBlobStorageService
     /// <summary>Server-side read stream (worker indexing). Throws FileNotFoundException when missing.</summary>
     Task<Stream> OpenReadAsync(string blobPath, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Server-side upload, overwriting any existing blob — for server-generated files
+    /// (export zips). User files never take this path; they go browser → SAS URL.
+    /// </summary>
+    Task UploadAsync(string blobPath, Stream content, string contentType, CancellationToken cancellationToken = default);
+
     Task DeleteBlobAsync(string blobPath, CancellationToken cancellationToken = default);
 
     /// <summary>

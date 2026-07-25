@@ -119,6 +119,13 @@ public class FakeBlobStorageService : IBlobStorageService
             ? Task.FromResult<Stream>(new MemoryStream(blob.Content))
             : throw new FileNotFoundException($"Blob not found: {blobPath}");
 
+    public async Task UploadAsync(string blobPath, Stream content, string contentType, CancellationToken cancellationToken = default)
+    {
+        using var buffer = new MemoryStream();
+        await content.CopyToAsync(buffer, cancellationToken);
+        Blobs[blobPath] = (buffer.ToArray(), contentType);
+    }
+
     public Task DeleteBlobAsync(string blobPath, CancellationToken cancellationToken = default)
     {
         if (FailDeletes)

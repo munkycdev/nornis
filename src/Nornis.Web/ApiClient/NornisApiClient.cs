@@ -62,6 +62,11 @@ public class NornisApiClient
     public Task<ApiResult<bool>> DeleteWorldAsync(Guid worldId, string confirmName, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}{Query(("confirmName", confirmName))}", ct);
 
+    /// <summary>GM-only: packages the selected data types into a single zip and returns a
+    /// short-lived download URL for it. Category names are <c>WorldExportCategory</c> values.</summary>
+    public Task<ApiResult<WorldExportDto>> ExportWorldAsync(Guid worldId, IReadOnlyList<string> categories, CancellationToken ct = default) =>
+        PostAsync<ExportWorldRequest, WorldExportDto>($"/api/worlds/{worldId}/export", new ExportWorldRequest(categories), ct);
+
     // -------------------------------------------------------------------- Members --
 
     public Task<ApiResult<IReadOnlyList<WorldMember>>> GetMembersAsync(Guid worldId, CancellationToken ct = default) =>

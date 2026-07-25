@@ -1,0 +1,113 @@
+@inject NornisApiClient Api
+@inject IJSRuntime JS
+
+@* Checkbox picker for a world export. The server packages the selected data types into
+   a zip and hands back a short-lived SAS URL, which opens in a new tab to download —
+   no bytes cross the SignalR circuit (same pattern as library downloads). *@
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+            Pick what to include. Everything is packaged into a single zip — JSON files for the
+            record, plus the original note attachments and library files.
+        </MudText>
+        <div class="d-flex gap-1 mb-1">
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="SelectAll" Disabled="_busy">Select all</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="SelectNone" Disabled="_busy">Select none</MudButton>
+        </div>
+        @foreach (var option in _options)
+        {
+            <div>
+                <MudCheckBox T="bool" @bind-Value="option.Selected" Dense="true" Disabled="_busy"
+                             Label="@option.Label" Color="Color.Secondary" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block ml-9" Style="margin-top: -6px;">
+                    @option.Description
+                </MudText>
+            </div>
+        }
+        @if (_busy)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="mt-3" />
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Packaging the export…</MudText>
+        }
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Disabled="_busy">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                   StartIcon="@Icons.Material.Filled.Download"
+                   OnClick="ExportAsync" Disabled="@(!AnySelected || _busy)">
+            Export
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private MudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid WorldId { get; set; }
+
+    // Keys are WorldExportCategory names; the server re-validates them.
+    private sealed class ExportOption(string key, string label, string description)
+    {
+        public string Key { get; } = key;
+        public string Label { get; } = label;
+        public string Description { get; } = description;
+        public bool Selected { get; set; } = true;
+    }
+
+    private readonly List<ExportOption> _options =
+    [
+        new("Sources", "Sessions & notes", "Every session note and document, with what the AI extracted from them."),
+        new("Attachments", "Note attachments", "Scanned pages, ink notes, and map images as original files."),
+        new("Codex", "Codex", "The knowledge graph — artifacts, their facts, and relationships."),
+        new("MapPins", "Map pins", "Placemarks linking map images to codex locations."),
+        new("Campaigns", "Campaigns", "Campaigns and which characters played in them."),
+        new("Characters", "Characters", "Player characters and their descriptions."),
+        new("Members", "Members", "Who belongs to this world and their roles."),
+        new("Library", "Library", "Reference-shelf documents as original files."),
+        new("Reviews", "Review history", "Extraction proposals and their accept/reject decisions."),
+        new("Health", "Continuity health", "AI continuity assessments and their findings."),
+        new("AiUsage", "AI usage", "The world's AI spend ledger."),
+    ];
+
+    private bool _busy;
+    private string? _error;
+
+    private bool AnySelected => _options.Any(o => o.Selected);
+
+    private void SelectAll() => _options.ForEach(o => o.Selected = true);
+
+    private void SelectNone() => _options.ForEach(o => o.Selected = false);
+
+    private async Task ExportAsync()
+    {
+        var selected = _options.Where(o => o.Selected).Select(o => o.Key).ToList();
+        if (selected.Count == 0)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        var result = await Api.ExportWorldAsync(WorldId, selected);
+
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        await JS.InvokeVoidAsync("nornisUpload.open", result.Value!.DownloadUrl);
+        MudDialog.Close(DialogResult.Ok(result.Value.FileName));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

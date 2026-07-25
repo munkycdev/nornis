@@ -224,8 +224,9 @@ public class EnumDefinitionTests
         // 15 original + ContinuityFindingCategory/Severity/Status (AI-assessed Continuity
         // Health) + CampaignStatus (worlds-and-campaigns) + LibraryDocumentKind/Status
         // (Library) + SourceAttachmentKind/Status (handwritten notes) + InviteStatus
-        // (world invitations) + ExtractionReplayStatus (timeline re-extraction walk).
-        Assert.That(enumTypes, Has.Count.EqualTo(25),
-            "Expected exactly 25 enums in Nornis.Domain.Enums namespace.");
+        // (world invitations) + ExtractionReplayStatus (timeline re-extraction walk)
+        // + WorldExportCategory (world export).
+        Assert.That(enumTypes, Has.Count.EqualTo(26),
+            "Expected exactly 26 enums in Nornis.Domain.Enums namespace.");
     }
 }

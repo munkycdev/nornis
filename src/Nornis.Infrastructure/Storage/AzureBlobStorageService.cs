@@ -92,6 +92,15 @@ public sealed class AzureBlobStorageService : IBlobStorageService
         return await blobClient.OpenReadAsync(cancellationToken: cancellationToken);
     }
 
+    public async Task UploadAsync(string blobPath, Stream content, string contentType, CancellationToken cancellationToken = default)
+    {
+        var blobClient = GetBlobClient(blobPath);
+        await blobClient.UploadAsync(
+            content,
+            new BlobUploadOptions { HttpHeaders = new BlobHttpHeaders { ContentType = contentType } },
+            cancellationToken);
+    }
+
     public async Task DeleteBlobAsync(string blobPath, CancellationToken cancellationToken = default)
     {
         var blobClient = GetBlobClient(blobPath);

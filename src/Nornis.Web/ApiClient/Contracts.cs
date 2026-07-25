@@ -727,6 +727,11 @@ public record LibraryUploadTicketDto(LibraryDocumentDto Document, string UploadU
 
 public record LibraryDownloadDto(string DownloadUrl, string FileName, string ContentType, long SizeBytes);
 
+public record ExportWorldRequest(IReadOnlyList<string> Categories);
+
+/// <summary>A finished world export: a short-lived SAS download URL for the zip.</summary>
+public record WorldExportDto(string DownloadUrl, string FileName, long SizeBytes);
+
 /// <summary>Public face of a world — the anonymous /w/{slug} pages' card. <see cref="AskEnabled"/>
 /// tells the site whether to offer anonymous "Ask the Loremaster".</summary>
 public record PublicWorldDto(

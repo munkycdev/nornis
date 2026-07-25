@@ -98,11 +98,13 @@ builder.Services.AddScoped<ILibraryDocumentRepository, LibraryDocumentRepository
 builder.Services.AddScoped<ILibraryChunkRepository, LibraryChunkRepository>();
 builder.Services.AddScoped<IMapPlacemarkRepository, MapPlacemarkRepository>();
 builder.Services.AddScoped<IExtractionReplayRepository, ExtractionReplayRepository>();
+builder.Services.AddScoped<IWorldExportReader, WorldExportReader>();
 builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
 // Application service registrations
 builder.Services.AddScoped<IWorldService, WorldService>();
 builder.Services.AddScoped<IWorldDeletionService, WorldDeletionService>();
+builder.Services.AddScoped<IWorldExportService, WorldExportService>();
 builder.Services.AddScoped<IWorldMemberService, WorldMemberService>();
 builder.Services.AddScoped<IWorldInviteService, WorldInviteService>();
 builder.Services.AddSingleton<IInviteCodeGenerator, InviteCodeGenerator>();

@@ -30,6 +30,7 @@ public class RepositoryInterfaceContractTests
         typeof(ISourceAttachmentRepository),
         typeof(IMapPlacemarkRepository),
         typeof(IExtractionReplayRepository),
+        typeof(IWorldExportReader),
         typeof(IUnitOfWork),
         typeof(ITransactionScope),
     ];
@@ -56,6 +57,7 @@ public class RepositoryInterfaceContractTests
         [typeof(ILibraryChunkRepository)] = ["ReplaceForDocumentAsync", "DeleteForDocumentAsync", "SearchAsync"],
         [typeof(ISourceAttachmentRepository)] = ["CreateAsync", "GetByIdAsync", "ListBySourceAsync", "UpdateAsync", "DeleteAsync"],
         [typeof(IExtractionReplayRepository)] = ["CreateAsync", "GetActiveByWorldAsync", "UpdateAsync"],
+        [typeof(IWorldExportReader)] = ["ReadAsync"],
         [typeof(IUnitOfWork)] = ["BeginTransactionAsync"],
         [typeof(ITransactionScope)] = ["CommitAsync", "RollbackAsync"],
     };
