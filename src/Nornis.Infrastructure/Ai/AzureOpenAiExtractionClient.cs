@@ -171,6 +171,23 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
               """
             : string.Empty;
 
+        var locationContextSection = request.RecentLocations is null
+            ? string.Empty
+            : """
+
+              ## Location Context
+              The user message includes a "Location Context" section: where the party was as of
+              the most recent prior note that recorded a location. It is an inference carried
+              forward from earlier material, not something this source states. Use it to resolve
+              ambiguous or unnamed place references — "the tavern", "back at the gate", "the
+              city" — to the right Location artifact, and to place events when the source never
+              names where they happened. When the source itself names or clearly implies a
+              location, the source always wins over this carried-forward context. Never propose
+              CreateArtifact, AddFact, or AddRelationship whose only support is the Location
+              Context, and when a proposal leans on it, rate confidence lower and say so in the
+              rationale ("location inferred from prior note").
+              """;
+
         // $$""" so the JSON-schema braces below stay literal; interpolations use {{...}}.
         return $$"""
             You are the extraction engine for Nornis, a tabletop RPG world memory system. You read
@@ -267,7 +284,7 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             beside it in the Existing World Artifacts list — setting its truthState to "False"
             (the question is no longer open) alongside whatever new facts record the answer. Do
             not re-propose an open question that already exists.
-            {{importedNotesSection}}
+            {{importedNotesSection}}{{locationContextSection}}
             ## Naming Conventions
             - Fact predicates: short lowercase noun phrases — "location", "current owner",
               "occupation", "goal", "denied knowledge of". Reuse an existing predicate from the
@@ -335,6 +352,19 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
         {
             var status = string.IsNullOrWhiteSpace(request.CampaignStatus) ? "" : $" ({request.CampaignStatus})";
             parts.Add($"- Campaign: {request.CampaignName}{status} — this source describes events from this campaign within the world.");
+        }
+
+        if (request.RecentLocations is { } recent)
+        {
+            parts.Add("");
+            parts.Add("## Location Context (inferred from prior notes — not stated in this source)");
+            var when = recent.OccurredAt.HasValue ? $" ({recent.OccurredAt.Value:yyyy-MM-dd})" : string.Empty;
+            parts.Add($"As of \"{recent.SourceTitle}\"{when}, the party was at:");
+            foreach (var location in recent.Locations)
+            {
+                var summary = string.IsNullOrWhiteSpace(location.Summary) ? string.Empty : $" — {location.Summary}";
+                parts.Add($"- {location.Name} (Id: {location.Id}){summary}");
+            }
         }
 
         parts.Add("");

@@ -68,6 +68,38 @@ public class SourceRepository : ISourceRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Source>> ListTimelineBeforeAsync(
+        Guid worldId,
+        Guid? campaignId,
+        DateTimeOffset pivotOccurred,
+        DateTimeOffset pivotCreated,
+        VisibilityFilter filter,
+        int maxCount,
+        CancellationToken cancellationToken = default)
+    {
+        // Hoisted locals translate to SQL parameters.
+        var scopes = filter.Scopes;
+        var owner = filter.PrivateOwnerUserId;
+
+        // Undated imported notes participate by CreatedAt — for a bulk import that is
+        // upload order, the best available approximation of story order. The strict
+        // tuple comparison (effective date, then CreatedAt) also excludes the pivot
+        // source itself.
+        return await _context.Sources
+            .AsNoTracking()
+            .Where(s => s.WorldId == worldId
+                && (SessionTypes.Contains(s.Type) || s.Type == SourceType.ImportedNote)
+                && (campaignId == null || s.CampaignId == null || s.CampaignId == campaignId)
+                && ((s.OccurredAt ?? s.CreatedAt) < pivotOccurred
+                    || ((s.OccurredAt ?? s.CreatedAt) == pivotOccurred && s.CreatedAt < pivotCreated))
+                && scopes.Contains(s.Visibility)
+                && (s.Visibility != VisibilityScope.Private || owner == null || s.CreatedByUserId == owner))
+            .OrderByDescending(s => s.OccurredAt ?? s.CreatedAt)
+            .ThenByDescending(s => s.CreatedAt)
+            .Take(maxCount)
+            .ToListAsync(cancellationToken);
+    }
+
     /// <summary>Source types that record a play session (SessionNote plus the legacy
     /// transcript forms) — what "last session" means to the Loremaster. ImportedNote
     /// counts only when dated: the bulk importer stamps OccurredAt on session folders

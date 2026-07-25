@@ -643,6 +643,79 @@ public class AzureOpenAiExtractionClientTests
     }
 
     [Test]
+    public void BuildUserMessage_WithRecentLocations_IncludesLocationContextSection()
+    {
+        var harborId = Guid.NewGuid();
+        var request = new ExtractionRequest
+        {
+            SourceBody = "We went back to the tavern.",
+            SourceTitle = "Session 5 Notes",
+            SourceType = "SessionNote",
+            SourceVisibility = "PartyVisible",
+            RecentLocations = new RecentLocationContext
+            {
+                SourceTitle = "Session 4 Notes",
+                OccurredAt = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.Zero),
+                Locations =
+                [
+                    new PriorLocation { Id = harborId, Name = "Black Harbor", Summary = "A smuggler port." },
+                    new PriorLocation { Id = Guid.NewGuid(), Name = "The Iron Gate" }
+                ]
+            }
+        };
+
+        var message = AzureOpenAiExtractionClient.BuildUserMessage(request);
+
+        Assert.That(message, Does.Contain("## Location Context"));
+        Assert.That(message, Does.Contain("Session 4 Notes"));
+        Assert.That(message, Does.Contain("(2026-07-10)"));
+        Assert.That(message, Does.Contain($"- Black Harbor (Id: {harborId}) — A smuggler port."));
+        Assert.That(message, Does.Contain("- The Iron Gate (Id: "));
+        // The hint precedes the source so the model reads it as framing, not content.
+        Assert.That(message.IndexOf("## Location Context", StringComparison.Ordinal),
+            Is.LessThan(message.IndexOf("## Source Content", StringComparison.Ordinal)));
+    }
+
+    [Test]
+    public void BuildUserMessage_NoRecentLocations_OmitsLocationContextSection()
+    {
+        var message = AzureOpenAiExtractionClient.BuildUserMessage(DefaultRequest);
+
+        Assert.That(message, Does.Not.Contain("Location Context"));
+    }
+
+    [Test]
+    public void BuildSystemPrompt_WithRecentLocations_TeachesCarriedForwardRules()
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "We went back to the tavern.",
+            SourceTitle = "Session 5 Notes",
+            SourceType = "SessionNote",
+            SourceVisibility = "PartyVisible",
+            RecentLocations = new RecentLocationContext
+            {
+                SourceTitle = "Session 4 Notes",
+                Locations = [new PriorLocation { Id = Guid.NewGuid(), Name = "Black Harbor" }]
+            }
+        };
+
+        var prompt = AzureOpenAiExtractionClient.BuildSystemPrompt(request);
+
+        Assert.That(prompt, Does.Contain("## Location Context"));
+        Assert.That(prompt, Does.Contain("the source always wins"));
+        Assert.That(prompt, Does.Contain("whose only support is the Location"));
+    }
+
+    [Test]
+    public void BuildSystemPrompt_NoRecentLocations_OmitsLocationContextSection()
+    {
+        var prompt = AzureOpenAiExtractionClient.BuildSystemPrompt(DefaultRequest);
+
+        Assert.That(prompt, Does.Not.Contain("## Location Context"));
+    }
+
+    [Test]
     public void BuildSystemPrompt_IncludesPublishedReferenceMaterialClause()
     {
         var prompt = AzureOpenAiExtractionClient.BuildSystemPrompt(DefaultRequest);

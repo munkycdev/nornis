@@ -65,6 +65,35 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.FromResult<IReadOnlyList<Source>>(result.AsReadOnly());
     }
 
+    public Task<IReadOnlyList<Source>> ListTimelineBeforeAsync(
+        Guid worldId,
+        Guid? campaignId,
+        DateTimeOffset pivotOccurred,
+        DateTimeOffset pivotCreated,
+        VisibilityFilter filter,
+        int maxCount,
+        CancellationToken cancellationToken = default)
+    {
+        // Mirrors SourceRepository: timeline types strictly before the pivot tuple
+        // (effective date, then CreatedAt), campaign-scoped when set, nearest first.
+        SourceType[] timelineTypes =
+            [SourceType.SessionNote, SourceType.Transcript, SourceType.SessionAudio, SourceType.ImportedNote];
+
+        var result = _sources
+            .Where(s => s.WorldId == worldId
+                && timelineTypes.Contains(s.Type)
+                && (campaignId is null || s.CampaignId is null || s.CampaignId == campaignId)
+                && ((s.OccurredAt ?? s.CreatedAt) < pivotOccurred
+                    || ((s.OccurredAt ?? s.CreatedAt) == pivotOccurred && s.CreatedAt < pivotCreated))
+                && filter.CanSee(s.Visibility, s.CreatedByUserId))
+            .OrderByDescending(s => s.OccurredAt ?? s.CreatedAt)
+            .ThenByDescending(s => s.CreatedAt)
+            .Take(maxCount)
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<Source>>(result.AsReadOnly());
+    }
+
     public Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default)
     {
         var source = _sources.FirstOrDefault(s => s.Id == id);

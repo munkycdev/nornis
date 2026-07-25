@@ -1,5 +1,6 @@
 ﻿using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nornis.Infrastructure.Persistence;
 
 namespace Nornis.Infrastructure.Tests.Persistence;
@@ -18,12 +19,27 @@ public class TestNornisDbContext : NornisDbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        // SQLite can't compare or order DateTimeOffset columns (stored as TEXT), so any
+        // query with a date predicate fails to translate. Store them as UTC ticks instead —
+        // ordering and comparison then work like production SQL Server's datetimeoffset.
+        // Offsets don't survive the round-trip (values read back as UTC), which no test
+        // relies on.
+        var dateTimeOffsetToTicks = new ValueConverter<DateTimeOffset, long>(
+            v => v.UtcTicks,
+            v => new DateTimeOffset(v, TimeSpan.Zero));
+
         // SQLite doesn't understand nvarchar(max). Remove explicit column types
         // that are SQL Server-specific.
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             foreach (var property in entityType.GetProperties())
             {
+                if (property.ClrType == typeof(DateTimeOffset)
+                    || property.ClrType == typeof(DateTimeOffset?))
+                {
+                    property.SetValueConverter(dateTimeOffsetToTicks);
+                }
+
                 var columnType = property.GetColumnType();
                 if (columnType is not null &&
                     columnType.Contains("nvarchar(max)", StringComparison.OrdinalIgnoreCase))

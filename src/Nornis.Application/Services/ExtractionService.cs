@@ -1028,7 +1028,11 @@ public class ExtractionService : IExtractionService
         // plus GM-only shelves for a GM-only source). Retrieved once, before the retry loop.
         var referencePassages = await RetrieveReferencePassagesAsync(source, worldId, ct);
 
-        var request = BuildExtractionRequest(source, campaign, context, referencePassages);
+        // Where the party last was, so "the tavern" and "back at the keep" resolve to the
+        // right place even when this note never names it.
+        var recentLocations = await AssembleRecentLocationContextAsync(source, worldId, ct);
+
+        var request = BuildExtractionRequest(source, campaign, context, referencePassages, recentLocations);
         var maxAttempts = 1 + _options.MaxParseRetryAttempts; // initial + retries
 
         AiExtractionResponse? lastResponse = null;
@@ -1417,7 +1421,7 @@ public class ExtractionService : IExtractionService
 
     private static ExtractionRequest BuildExtractionRequest(
         Source source, Campaign? campaign, IReadOnlyList<ArtifactContext> context,
-        IReadOnlyList<KnowledgePassage> referencePassages)
+        IReadOnlyList<KnowledgePassage> referencePassages, RecentLocationContext? recentLocations)
     {
         return new ExtractionRequest
         {
@@ -1429,8 +1433,69 @@ public class ExtractionService : IExtractionService
             CampaignName = campaign?.Name,
             CampaignStatus = campaign?.Status.ToString(),
             ExistingArtifacts = context,
-            ReferencePassages = referencePassages
+            ReferencePassages = referencePassages,
+            RecentLocations = recentLocations
         };
+    }
+
+    /// <summary>
+    /// The party's last known location, per the record: walks the timeline sources preceding
+    /// this source's own moment (nearest first) and returns the first that carries accepted
+    /// Location references — extractor-authored and accepted, or hand-linked on the session
+    /// page. Pivoting on the source's OccurredAt rather than "now" keeps backfilled imports
+    /// and re-extractions anchored to their place in the story; using only accepted references
+    /// keeps unreviewed guesses from compounding. Null when no prior source in scope
+    /// establishes a location.
+    /// </summary>
+    private async Task<RecentLocationContext?> AssembleRecentLocationContextAsync(
+        Source source, Guid worldId, CancellationToken ct)
+    {
+        if (_options.LocationContextLookbackSources <= 0)
+        {
+            return null;
+        }
+
+        var filter = VisibilityFilter.ForSourceContext(source.Visibility, source.CreatedByUserId);
+        var priors = await _sourceRepository.ListTimelineBeforeAsync(
+            worldId, source.CampaignId, source.OccurredAt ?? source.CreatedAt, source.CreatedAt,
+            filter, _options.LocationContextLookbackSources, ct);
+
+        foreach (var prior in priors)
+        {
+            var references = await _sourceReferenceRepository.ListBySourceAsync(prior.Id, ct);
+            var artifactIds = references
+                .Where(r => r.TargetType == SourceReferenceTargetType.Artifact)
+                .Select(r => r.TargetId)
+                .Distinct()
+                .ToList();
+            if (artifactIds.Count == 0)
+            {
+                continue;
+            }
+
+            // Same gate as SourceLocationService: a place, still in canon, and visible to
+            // this source's readers — GM-only whereabouts never leak into party context.
+            var locations = (await _artifactRepository.ListByIdsAsync(artifactIds, ct))
+                .Where(a => a.WorldId == worldId
+                    && a.Type == ArtifactType.Location
+                    && a.Status != ArtifactStatus.Archived
+                    && filter.CanSee(a.Visibility, a.CreatedByUserId))
+                .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(a => new PriorLocation { Id = a.Id, Name = a.Name, Summary = a.Summary })
+                .ToList();
+
+            if (locations.Count > 0)
+            {
+                return new RecentLocationContext
+                {
+                    SourceTitle = prior.Title,
+                    OccurredAt = prior.OccurredAt,
+                    Locations = locations
+                };
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

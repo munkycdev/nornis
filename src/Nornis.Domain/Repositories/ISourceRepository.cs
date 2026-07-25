@@ -16,6 +16,21 @@ public interface ISourceRepository
     /// visibility-filtered, ordered by when they happened (OccurredAt ?? CreatedAt) descending.</summary>
     Task<IReadOnlyList<Source>> ListRecentSessionsAsync(Guid worldId, VisibilityFilter filter, int maxCount, CancellationToken cancellationToken = default);
 
+    /// <summary>The timeline sources (session-recording types plus imported notes) that sit
+    /// strictly before a pivot moment on the play timeline, nearest first. The pivot is the
+    /// moment of the source being anchored — its OccurredAt ?? CreatedAt plus its CreatedAt as
+    /// tiebreak — so a backfilled import looks back from its place in the story, never from
+    /// "now". When <paramref name="campaignId"/> is set, sources from other campaigns are
+    /// excluded (campaign-less sources still match: single-campaign worlds tag inconsistently).</summary>
+    Task<IReadOnlyList<Source>> ListTimelineBeforeAsync(
+        Guid worldId,
+        Guid? campaignId,
+        DateTimeOffset pivotOccurred,
+        DateTimeOffset pivotCreated,
+        VisibilityFilter filter,
+        int maxCount,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Scoped Body write — used by the worker to persist a vision transcription.</summary>
     Task UpdateBodyAsync(Guid id, string body, CancellationToken cancellationToken = default);
 
