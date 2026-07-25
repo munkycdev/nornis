@@ -292,7 +292,14 @@
                                 : "Pins appear once the map is processed and its place proposals are accepted.")
                         </MudText>
                     }
-                    <MapViewer @key="_source.Id" ImageUrl="@_mapView.ImageUrl" Placemarks="_mapView.Placemarks" />
+                    else if (CanEditMapPins)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2 d-block">
+                            Extraction's positions are approximate — drag a pin to correct it.
+                        </MudText>
+                    }
+                    <MapViewer @key="_source.Id" ImageUrl="@_mapView.ImageUrl" Placemarks="_mapView.Placemarks"
+                               CanEdit="CanEditMapPins" OnPinMoved="PersistPinMoveAsync" />
                 </MudPaper>
             }
 
@@ -432,6 +439,39 @@
     // In-flight sources are locked server-side. Processed sources are editable, but a
     // body change goes through the reprocess flow (confirm → cascade delete → requeue).
     private bool CanEdit => _source?.ProcessingStatus is "Draft" or "Ready" or "Failed" or "Processed";
+
+    // The API also allows the source creator; the client doesn't know its own user id,
+    // so the drag affordance shows for GMs only (map sources are GM uploads in practice).
+    private bool CanEditMapPins => Worlds.Current?.MyRole == "GM";
+
+    /// <summary>Persists a dragged pin's new position; false snaps the pin back in the viewer.</summary>
+    private async Task<bool> PersistPinMoveAsync(Guid placemarkId, decimal x, decimal y)
+    {
+        if (Worlds.Current is null || _source is null)
+        {
+            return false;
+        }
+
+        var result = await Api.MovePlacemarkAsync(Worlds.Current.Id, _source.Id, placemarkId, x, y);
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error?.Message ?? "Could not move the pin.", Severity.Error);
+            return false;
+        }
+
+        var moved = result.Value!;
+        if (_mapView is not null)
+        {
+            _mapView = _mapView with
+            {
+                Placemarks = _mapView.Placemarks
+                    .Select(p => p.Id == moved.Id ? p with { X = moved.X, Y = moved.Y } : p)
+                    .ToList()
+            };
+            await InvokeAsync(StateHasChanged);
+        }
+        return true;
+    }
 
     private bool IsProcessed => _source?.ProcessingStatus == "Processed";
 

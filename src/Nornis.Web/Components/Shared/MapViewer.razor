@@ -1,14 +1,20 @@
 @using System.Globalization
+@implements IAsyncDisposable
+@inject IJSRuntime JS
 
 @* Map image with percentage-positioned pins: the pins scale with the image at any
-   viewport width, no JS measurement needed. Click a pin to open its artifact. *@
+   viewport width, no JS measurement needed. Click a pin to open its artifact.
+   With CanEdit, pins can also be dragged to correct extraction's approximate
+   positions — the drop persists through OnPinMoved and snaps back on failure. *@
 
-<div class="nornis-map-viewer">
+<div id="@_viewerId" class="nornis-map-viewer @(CanEdit ? "is-editable" : "")">
     <img src="@ImageUrl" alt="Map" />
     @foreach (var pin in Placemarks)
     {
-        <a href="@($"{ArtifactLinkBase}/{pin.ArtifactId}")"
+        <a @key="pin.Id"
+           href="@($"{ArtifactLinkBase}/{pin.ArtifactId}")"
            class="nornis-map-pin"
+           data-placemark-id="@pin.Id"
            style="left:@(Pct(pin.X))%; top:@(Pct(pin.Y))%;"
            data-nornis-tip="@(TipFor(pin))">
             <MudIcon Icon="@Icons.Material.Filled.Place" Color="Color.Secondary" Size="Size.Small" />
@@ -23,6 +29,54 @@
 
     /// <summary>Route prefix for pin clicks; the public /w/{slug} pages could override.</summary>
     [Parameter] public string ArtifactLinkBase { get; set; } = "/artifacts";
+
+    /// <summary>Enables drag-to-adjust on the pins. Pair with <see cref="OnPinMoved"/>.</summary>
+    [Parameter] public bool CanEdit { get; set; }
+
+    /// <summary>Persists a dropped pin's new normalized position; return false to snap it back.</summary>
+    [Parameter] public Func<Guid, decimal, decimal, Task<bool>>? OnPinMoved { get; set; }
+
+    private readonly string _viewerId = $"nornis-map-{Guid.NewGuid():N}";
+    private DotNetObjectReference<MapViewer>? _selfRef;
+    private bool _jsInitialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_jsInitialized && CanEdit)
+        {
+            _jsInitialized = true;
+            _selfRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("nornisMapEdit.init", _viewerId, _selfRef);
+        }
+    }
+
+    [JSInvokable]
+    public async Task<bool> OnPinDragged(Guid placemarkId, double x, double y)
+    {
+        if (OnPinMoved is null)
+        {
+            return false;
+        }
+        var nx = decimal.Round(Math.Clamp((decimal)x, 0m, 1m), 4);
+        var ny = decimal.Round(Math.Clamp((decimal)y, 0m, 1m), 4);
+        return await OnPinMoved(placemarkId, nx, ny);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_jsInitialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("nornisMapEdit.destroy", _viewerId);
+            }
+            catch (JSDisconnectedException)
+            {
+                // Circuit already gone — the browser cleaned up with the page.
+            }
+        }
+        _selfRef?.Dispose();
+    }
 
     // Invariant culture matters: a comma decimal separator breaks the inline CSS.
     private static string Pct(decimal v) => (v * 100m).ToString("0.##", CultureInfo.InvariantCulture);

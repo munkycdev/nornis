@@ -453,7 +453,8 @@ public class ExtractionService : IExtractionService
             SourceBody = source.Body,
             ExistingLocations = existingLocations.Select(a => new MapLocationContext(a.Id, a.Name)).ToList(),
             Model = _options.AiModel,
-            TimeoutSeconds = _options.AiTimeoutSeconds
+            TimeoutSeconds = _options.AiTimeoutSeconds,
+            RefinePositions = _options.MapRefinePositions
         };
 
         var maxAttempts = 1 + _options.MaxParseRetryAttempts;

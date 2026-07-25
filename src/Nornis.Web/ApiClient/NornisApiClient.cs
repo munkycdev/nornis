@@ -212,6 +212,14 @@ public class NornisApiClient
     public Task<ApiResult<MapViewDto>> GetSourceMapAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         GetAsync<MapViewDto>($"/api/worlds/{worldId}/sources/{sourceId}/map", ct);
 
+    /// <summary>Moves a map pin to a new normalized position. Source creator or GM only.</summary>
+    public Task<ApiResult<MapPlacemarkDto>> MovePlacemarkAsync(
+        Guid worldId, Guid sourceId, Guid placemarkId, decimal x, decimal y, CancellationToken ct = default) =>
+        PatchAsync<MovePlacemarkBody, MapPlacemarkDto>(
+            $"/api/worlds/{worldId}/sources/{sourceId}/map/placemarks/{placemarkId}", new MovePlacemarkBody(x, y), ct);
+
+    private sealed record MovePlacemarkBody(decimal X, decimal Y);
+
     /// <summary>The Location artifacts this session is linked to, visible to the caller.</summary>
     public Task<ApiResult<IReadOnlyList<LinkedLocationDto>>> GetSourceLocationsAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<LinkedLocationDto>>($"/api/worlds/{worldId}/sources/{sourceId}/locations", ct);
@@ -553,6 +561,19 @@ public class NornisApiClient
         try
         {
             var response = await _httpClient.PutAsJsonAsync(uri, body, ct);
+            return await ReadResultAsync<TValue>(response, ct);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<TValue>.Fail(Unreachable(ex));
+        }
+    }
+
+    private async Task<ApiResult<TValue>> PatchAsync<TBody, TValue>(string uri, TBody body, CancellationToken ct)
+    {
+        try
+        {
+            var response = await _httpClient.PatchAsJsonAsync(uri, body, ct);
             return await ReadResultAsync<TValue>(response, ct);
         }
         catch (Exception ex)

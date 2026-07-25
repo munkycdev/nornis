@@ -2950,6 +2950,16 @@ a.nornis-cite:hover {
     transform: translate(-50%, -100%) scale(1.35);
 }
 
+/* Editable map (source detail, GM): pins are draggable position corrections. */
+.nornis-map-viewer.is-editable .nornis-map-pin {
+    cursor: grab;
+    touch-action: none; /* pointer-drag on touch must not scroll the page */
+}
+
+.nornis-map-viewer.is-editable .nornis-map-pin:active {
+    cursor: grabbing;
+}
+
 /* --------------------------------------------------------------- Journey --- */
 
 .nornis-journey {
@@ -2991,7 +3001,10 @@ a.nornis-cite:hover {
 
 .nornis-journey-pin {
     position: absolute;
-    transform: translate(-50%, -50%);
+    /* Anchor the DOT's center at the coordinate — the button also holds the label below,
+       so centering the whole button would lift the dot off the point. The dot renders
+       17px tall (13px + 2px border each side): its center sits 8.5px below the button top. */
+    transform: translate(-50%, -8.5px);
     background: transparent;
     border: 0;
     padding: 0;

@@ -17,4 +17,12 @@ public interface IMapViewService
     /// the caller may see. 404 when the source is invisible or has no stored map.
     /// </summary>
     Task<AppResult<MapView>> GetMapAsync(Guid sourceId, Guid worldId, Guid userId, WorldRole role, CancellationToken ct);
+
+    /// <summary>
+    /// Moves a pin to a new normalized position — the manual correction for extraction's
+    /// imprecise coordinates. Source creator or GM only; x/y must be within 0..1.
+    /// </summary>
+    Task<AppResult<MapPlacemarkView>> MovePlacemarkAsync(
+        Guid sourceId, Guid worldId, Guid placemarkId, decimal x, decimal y,
+        Guid userId, WorldRole role, CancellationToken ct);
 }

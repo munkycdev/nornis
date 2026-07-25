@@ -65,19 +65,35 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
 
             var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);
 
-            stopwatch.Stop();
-
             var chatCompletion = response.Value;
             var content = chatCompletion.Content.Count > 0 ? chatCompletion.Content[0].Text : string.Empty;
             var places = ParsePlaces(content);
             var usage = chatCompletion.Usage;
+            var inputTokens = usage.InputTokenCount;
+            var outputTokens = usage.OutputTokenCount;
+            var totalTokens = usage.TotalTokenCount;
+
+            // Whole-map positions land within a few percent of the truth — good enough to
+            // find each place, too sloppy to pin it. The refinement pass re-reads positions
+            // per cropped tile, where places are large in frame. Best-effort: any tile that
+            // fails keeps its first-pass positions.
+            if (request.RefinePositions && places.Count > 0)
+            {
+                var refined = await RefinePlacesAsync(request, places, ct);
+                places = refined.Places;
+                inputTokens += refined.InputTokens;
+                outputTokens += refined.OutputTokens;
+                totalTokens += refined.TotalTokens;
+            }
+
+            stopwatch.Stop();
 
             return new MapExtractionResponse
             {
                 Places = places,
-                InputTokens = usage.InputTokenCount,
-                OutputTokens = usage.OutputTokenCount,
-                TotalTokens = usage.TotalTokenCount,
+                InputTokens = inputTokens,
+                OutputTokens = outputTokens,
+                TotalTokens = totalTokens,
                 DurationMs = (int)stopwatch.ElapsedMilliseconds,
                 Model = request.Model
             };
@@ -101,6 +117,217 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
             stopwatch.Stop();
             throw;
         }
+    }
+
+    private sealed record RefinementResult(
+        IReadOnlyList<MapPlace> Places, int InputTokens, int OutputTokens, int TotalTokens);
+
+    /// <summary>
+    /// The refinement pass: one call per occupied tile of a 3×3 grid (each grown by a
+    /// margin), asking only for exact positions of the places whose first-pass position
+    /// fell in that tile. Refined positions are mapped back to full-image coordinates;
+    /// a place the model can't find in its crop keeps its first-pass position.
+    /// </summary>
+    private async Task<RefinementResult> RefinePlacesAsync(
+        MapExtractionRequest request, IReadOnlyList<MapPlace> places, CancellationToken ct)
+    {
+        IReadOnlyList<MapRefinement.Tile> tiles;
+        Dictionary<int, byte[]> crops;
+        try
+        {
+            // Positions outside 0..1 can't be assigned a tile — they are dropped later by
+            // the proposal builder anyway, so refinement just leaves them alone.
+            var croppable = places.Where(p => p.X is >= 0m and <= 1m && p.Y is >= 0m and <= 1m).ToList();
+            tiles = MapRefinement.PlanTiles(croppable);
+            crops = MapRefinement.CropTiles(request.ImageBytes, tiles);
+
+            var refinedByPlace = new Dictionary<int, (decimal X, decimal Y)>();
+            var inputTokens = 0;
+            var outputTokens = 0;
+            var totalTokens = 0;
+
+            foreach (var tile in tiles)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (!crops.TryGetValue(tile.Index, out var cropBytes))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var (positions, usage) = await RefineTileAsync(request, croppable, tile, cropBytes, ct);
+                    foreach (var (placeIndex, position) in positions)
+                    {
+                        refinedByPlace[placeIndex] = position;
+                    }
+                    inputTokens += usage.InputTokens;
+                    outputTokens += usage.OutputTokens;
+                    totalTokens += usage.TotalTokens;
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Map refinement tile {Tile} failed; keeping first-pass positions for its places.", tile.Index);
+                }
+            }
+
+            var refinedPlaces = places
+                .Select(p =>
+                {
+                    var croppableIndex = croppable.FindIndex(c => ReferenceEquals(c, p));
+                    return croppableIndex >= 0 && refinedByPlace.TryGetValue(croppableIndex, out var pos)
+                        ? p with { X = pos.X, Y = pos.Y }
+                        : p;
+                })
+                .ToList();
+
+            return new RefinementResult(refinedPlaces, inputTokens, outputTokens, totalTokens);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // An undecodable image or other setup failure — first-pass positions stand.
+            _logger.LogWarning(ex, "Map refinement skipped: {Reason}", ex.Message);
+            return new RefinementResult(places, 0, 0, 0);
+        }
+    }
+
+    private sealed record TileUsage(int InputTokens, int OutputTokens, int TotalTokens);
+
+    private async Task<(List<(int PlaceIndex, (decimal X, decimal Y) Position)> Positions, TileUsage Usage)> RefineTileAsync(
+        MapExtractionRequest request, IReadOnlyList<MapPlace> croppable,
+        MapRefinement.Tile tile, byte[] cropBytes, CancellationToken ct)
+    {
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(request.TimeoutSeconds));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+
+        var lines = tile.PlaceIndices.Select(i =>
+        {
+            var place = croppable[i];
+            var (hintX, hintY) = MapRefinement.ToCrop(tile, place.X, place.Y);
+            return $"- {place.Name} (roughly at x≈{hintX:0.00}, y≈{hintY:0.00} in this crop)";
+        });
+
+        var userText =
+            "This image is a cropped region of a larger fantasy/TTRPG map. Locate these places, " +
+            "all believed to lie within this crop:\n" + string.Join("\n", lines);
+
+        var parts = new List<ChatMessageContentPart>
+        {
+            ChatMessageContentPart.CreateTextPart(userText),
+            ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(cropBytes), "image/png")
+        };
+
+        var messages = new List<ChatMessage>
+        {
+            new SystemChatMessage(BuildRefinementSystemPrompt()),
+            new UserChatMessage(parts)
+        };
+
+        var completionOptions = new ChatCompletionOptions
+        {
+            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
+                jsonSchemaFormatName: "map_place_positions",
+                jsonSchema: BinaryData.FromString(GetRefinementOutputSchema()),
+                jsonSchemaIsStrict: true)
+        };
+
+        var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);
+        var completion = response.Value;
+        var content = completion.Content.Count > 0 ? completion.Content[0].Text : string.Empty;
+
+        RefinedPlacesDocument? document;
+        try
+        {
+            document = JsonSerializer.Deserialize<RefinedPlacesDocument>(content, JsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            throw new AiExtractionParseException("Map refinement returned malformed JSON.", ex);
+        }
+
+        var positions = new List<(int, (decimal, decimal))>();
+        foreach (var refined in document?.Places ?? [])
+        {
+            if (refined.Name is null || !refined.Found
+                || refined.X is < 0m or > 1m || refined.Y is < 0m or > 1m)
+            {
+                continue;
+            }
+
+            // Match tile-scoped, by the name we asked for; first unclaimed index wins.
+            var placeIndex = tile.PlaceIndices.FirstOrDefault(
+                i => string.Equals(croppable[i].Name, refined.Name.Trim(), StringComparison.OrdinalIgnoreCase)
+                     && positions.All(existing => existing.Item1 != i),
+                defaultValue: -1);
+            if (placeIndex < 0)
+            {
+                continue;
+            }
+
+            positions.Add((placeIndex, MapRefinement.ToFullImage(tile, refined.X, refined.Y)));
+        }
+
+        var usage = completion.Usage;
+        return (positions, new TileUsage(usage.InputTokenCount, usage.OutputTokenCount, usage.TotalTokenCount));
+    }
+
+    private sealed record RefinedPlace(string? Name, bool Found, decimal X, decimal Y);
+
+    private sealed record RefinedPlacesDocument(List<RefinedPlace>? Places);
+
+    internal static string BuildRefinementSystemPrompt()
+    {
+        return """
+            You pinpoint the exact positions of known place names on a cropped region of a
+            fantasy/TTRPG map for Nornis, a world memory system. A rough position within the
+            crop is provided for each place; correct it precisely.
+
+            For each requested place:
+            - name: echo the requested name exactly.
+            - found: whether the place's label or marker is actually visible in this crop.
+            - x, y: the precise position normalized to THIS crop: x from 0 (left edge) to 1
+              (right edge), y from 0 (top) to 1 (bottom). Point at the settlement dot or icon
+              when one exists, else the center of the label text. When found is false,
+              return the provided rough position unchanged.
+
+            Return exactly one entry per requested place — no extras.
+            """;
+    }
+
+    internal static string GetRefinementOutputSchema()
+    {
+        return """
+            {
+              "type": "object",
+              "properties": {
+                "places": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": { "type": "string" },
+                      "found": { "type": "boolean" },
+                      "x": { "type": "number" },
+                      "y": { "type": "number" }
+                    },
+                    "required": ["name", "found", "x", "y"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["places"],
+              "additionalProperties": false
+            }
+            """;
     }
 
     private static string BuildUserContext(MapExtractionRequest request)

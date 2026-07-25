@@ -265,6 +265,31 @@ public class SourcesController : ControllerBase
                 .ToList()));
     }
 
+    /// <summary>Moves a map pin to a new normalized position. Source creator or GM only.</summary>
+    [HttpPatch("{sourceId:guid}/map/placemarks/{placemarkId:guid}")]
+    public async Task<IActionResult> MovePlacemark(
+        Guid worldId,
+        Guid sourceId,
+        Guid placemarkId,
+        [FromBody] MovePlacemarkRequest request,
+        [FromServices] IMapViewService mapViewService,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await mapViewService.MovePlacemarkAsync(
+            sourceId, worldId, placemarkId, request.X, request.Y, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var pin = result.Value!;
+        return Ok(new MapPlacemarkResponse(pin.Id, pin.ArtifactId, pin.ArtifactName, pin.X, pin.Y, pin.Label, pin.Confidence));
+    }
+
     /// <summary>What this source's extraction contributed to the record, reader-visible only.</summary>
     [HttpGet("{sourceId:guid}/knowledge")]
     public async Task<IActionResult> GetKnowledge(

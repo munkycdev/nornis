@@ -133,4 +133,115 @@ public class MapViewServiceTests
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
     }
+
+    // ------------------------------------------------------------ move pin --
+
+    private MapPlacemark SeedMovablePin(out Artifact artifact)
+    {
+        artifact = SeedLocation("Thistle Hold", VisibilityScope.PartyVisible);
+        var pin = new MapPlacemark
+        {
+            Id = Guid.NewGuid(), WorldId = WorldId, SourceAttachmentId = _map.Id, ArtifactId = artifact.Id,
+            X = 0.5m, Y = 0.5m, Label = "Thistle Hold", Confidence = 0.9m,
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _placemarkRepo.Seed(pin);
+        return pin;
+    }
+
+    [Test]
+    public async Task MovePlacemark_Creator_UpdatesPosition()
+    {
+        var pin = SeedMovablePin(out _);
+
+        var result = await _sut.MovePlacemarkAsync(
+            _source.Id, WorldId, pin.Id, 0.25m, 0.75m, OwnerId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.X, Is.EqualTo(0.25m));
+        Assert.That(result.Value.Y, Is.EqualTo(0.75m));
+        Assert.That(result.Value.ArtifactName, Is.EqualTo("Thistle Hold"));
+        var stored = _placemarkRepo.Placemarks.Single(p => p.Id == pin.Id);
+        Assert.That(stored.X, Is.EqualTo(0.25m));
+        Assert.That(stored.Y, Is.EqualTo(0.75m));
+    }
+
+    [Test]
+    public async Task MovePlacemark_Gm_CanMoveAnyonesPin()
+    {
+        var pin = SeedMovablePin(out _);
+
+        var result = await _sut.MovePlacemarkAsync(
+            _source.Id, WorldId, pin.Id, 0.1m, 0.2m, OtherPlayerId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+    }
+
+    [Test]
+    public async Task MovePlacemark_OtherPlayer_Forbidden()
+    {
+        var pin = SeedMovablePin(out _);
+
+        var result = await _sut.MovePlacemarkAsync(
+            _source.Id, WorldId, pin.Id, 0.1m, 0.2m, OtherPlayerId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("forbidden"));
+    }
+
+    [Test]
+    public async Task MovePlacemark_Observer_Forbidden()
+    {
+        var pin = SeedMovablePin(out _);
+
+        var result = await _sut.MovePlacemarkAsync(
+            _source.Id, WorldId, pin.Id, 0.1m, 0.2m, OwnerId, WorldRole.Observer, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("insufficient_role"));
+    }
+
+    [TestCase(-0.01, 0.5)]
+    [TestCase(1.01, 0.5)]
+    [TestCase(0.5, -0.01)]
+    [TestCase(0.5, 1.01)]
+    public async Task MovePlacemark_OutOfRange_Rejected(double x, double y)
+    {
+        var pin = SeedMovablePin(out _);
+
+        var result = await _sut.MovePlacemarkAsync(
+            _source.Id, WorldId, pin.Id, (decimal)x, (decimal)y, OwnerId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("invalid_position"));
+    }
+
+    [Test]
+    public async Task MovePlacemark_UnknownPin_404()
+    {
+        var result = await _sut.MovePlacemarkAsync(
+            _source.Id, WorldId, Guid.NewGuid(), 0.5m, 0.5m, OwnerId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
+    [Test]
+    public async Task MovePlacemark_PinOnArtifactHiddenFromMover_404()
+    {
+        // The creator is a Player; a GMOnly artifact's pin never rendered for them.
+        var hidden = SeedLocation("GM Secret", VisibilityScope.GMOnly);
+        var pin = new MapPlacemark
+        {
+            Id = Guid.NewGuid(), WorldId = WorldId, SourceAttachmentId = _map.Id, ArtifactId = hidden.Id,
+            X = 0.5m, Y = 0.5m, CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _placemarkRepo.Seed(pin);
+
+        var result = await _sut.MovePlacemarkAsync(
+            _source.Id, WorldId, pin.Id, 0.1m, 0.2m, OwnerId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
 }

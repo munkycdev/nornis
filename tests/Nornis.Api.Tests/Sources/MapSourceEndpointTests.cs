@@ -57,7 +57,7 @@ public class MapSourceEndpointTests
         return (source, map);
     }
 
-    private async Task SeedPinnedLocationAsync(Guid mapAttachmentId, string name, VisibilityScope visibility, Guid? owner = null)
+    private async Task<Guid> SeedPinnedLocationAsync(Guid mapAttachmentId, string name, VisibilityScope visibility, Guid? owner = null)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
@@ -69,12 +69,14 @@ public class MapSourceEndpointTests
             CreatedAt = now, UpdatedAt = now
         };
         db.Artifacts.Add(artifact);
-        db.MapPlacemarks.Add(new MapPlacemark
+        var placemark = new MapPlacemark
         {
             Id = Guid.NewGuid(), WorldId = _scenario.World.Id, SourceAttachmentId = mapAttachmentId,
             ArtifactId = artifact.Id, X = 0.5m, Y = 0.5m, Label = name, CreatedAt = now, UpdatedAt = now
-        });
+        };
+        db.MapPlacemarks.Add(placemark);
         await db.SaveChangesAsync();
+        return placemark.Id;
     }
 
     [Test]
@@ -154,6 +156,54 @@ public class MapSourceEndpointTests
             new RequestSourceAttachmentUploadRequest("handout.pdf", "application/pdf", 5000, "Document"));
 
         Assert.That(ticketResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK), await ticketResponse.Content.ReadAsStringAsync());
+    }
+
+    [Test]
+    public async Task MovePlacemark_Gm_UpdatesPositionAndPersists()
+    {
+        var (source, map) = await SeedMapSourceAsync();
+        var pinId = await SeedPinnedLocationAsync(map.Id, "Ironhold", VisibilityScope.PartyVisible);
+
+        var response = await _scenario.GmClient.PatchAsJsonAsync(
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}/map/placemarks/{pinId}",
+            new MovePlacemarkRequest(0.25m, 0.75m));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
+        var moved = await response.Content.ReadFromJsonAsync<MapPlacemarkResponse>();
+        Assert.That(moved!.X, Is.EqualTo(0.25m));
+        Assert.That(moved.Y, Is.EqualTo(0.75m));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        var stored = db.MapPlacemarks.Single(p => p.Id == pinId);
+        Assert.That(stored.X, Is.EqualTo(0.25m));
+        Assert.That(stored.Y, Is.EqualTo(0.75m));
+    }
+
+    [Test]
+    public async Task MovePlacemark_PlayerWhoIsNotCreator_403()
+    {
+        var (source, map) = await SeedMapSourceAsync(); // created by the GM
+        var pinId = await SeedPinnedLocationAsync(map.Id, "Ironhold", VisibilityScope.PartyVisible);
+
+        var response = await _scenario.PlayerClient.PatchAsJsonAsync(
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}/map/placemarks/{pinId}",
+            new MovePlacemarkRequest(0.25m, 0.75m));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
+    public async Task MovePlacemark_OutOfRange_400()
+    {
+        var (source, map) = await SeedMapSourceAsync();
+        var pinId = await SeedPinnedLocationAsync(map.Id, "Ironhold", VisibilityScope.PartyVisible);
+
+        var response = await _scenario.GmClient.PatchAsJsonAsync(
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}/map/placemarks/{pinId}",
+            new MovePlacemarkRequest(1.5m, 0.5m));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
     }
 
     [Test]

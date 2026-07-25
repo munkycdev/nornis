@@ -29,6 +29,10 @@ public class MapExtractionRequest
     public required string Model { get; init; }
 
     public required int TimeoutSeconds { get; init; }
+
+    /// <summary>Run the per-tile position refinement pass after the whole-map read.
+    /// Costs a handful of extra vision calls; positions land far closer to the mark.</summary>
+    public bool RefinePositions { get; init; } = true;
 }
 
 /// <summary>One labeled place read off the map; X/Y normalized 0..1 from top-left.</summary>
