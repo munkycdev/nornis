@@ -18,4 +18,10 @@
     <ProjectReference Include="..\Nornis.Shared\Nornis.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The demo-world template package (feature 20): rides every publish so
+         DemoWorlds:TemplatePath resolves against the deployed base directory. -->
+    <Content Include="DemoTemplate\vespergale-reach.zip" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
