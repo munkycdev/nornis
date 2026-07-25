@@ -299,7 +299,7 @@ else
     private string? _assessmentError;
 
     private bool _showAiAssessment =>
-        string.Equals(Worlds.Current?.MyRole, "GM", StringComparison.OrdinalIgnoreCase);
+        string.Equals(Worlds.EffectiveRole, "GM", StringComparison.OrdinalIgnoreCase);
 
     // Shown until the data-driven suggestions load (or if that call fails).
     private static readonly string[] DefaultSuggestions =

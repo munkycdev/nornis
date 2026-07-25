@@ -553,6 +553,63 @@ html, body {
     color: var(--mud-palette-drawer-icon);
 }
 
+/* View-as-player: the role chip is quiet at rest, and the whole world card tints while
+   the mode is active so a GM can never mistake the filtered view for missing data. */
+.nornis-role-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--nornis-onnavy-muted);
+    background: none;
+    border: 1px solid var(--nornis-onnavy-border);
+    border-radius: 10px;
+    padding: 0 7px;
+    line-height: 1.5;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.nornis-role-chip:hover {
+    color: #FFFDF9;
+    border-color: var(--nornis-onnavy-muted);
+}
+
+.nornis-role-chip-static {
+    cursor: default;
+}
+
+.nornis-role-chip-static:hover {
+    color: var(--nornis-onnavy-muted);
+    border-color: var(--nornis-onnavy-border);
+}
+
+.nornis-role-chip-icon {
+    font-size: 0.8rem !important;
+    width: 0.8rem !important;
+    height: 0.8rem !important;
+}
+
+.nornis-role-chip-active {
+    color: #A8C8EE;
+    border-color: rgba(120, 170, 230, 0.55);
+    background-color: rgba(90, 140, 200, 0.16);
+    text-transform: none;
+    letter-spacing: 0.02em;
+}
+
+.nornis-role-chip-active:hover {
+    color: #FFFDF9;
+    border-color: #A8C8EE;
+}
+
+.nornis-world-viewas {
+    background-color: rgba(90, 140, 200, 0.14);
+    border-color: rgba(120, 170, 230, 0.55);
+}
+
 .nornis-sidebar .mud-nav-link:hover {
     background-color: var(--nornis-onnavy-raised);
 }

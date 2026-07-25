@@ -16,7 +16,7 @@
             Indexed PDFs answer through the Loremaster with page citations.
         </MudText>
     </div>
-    @if (Worlds.Current is not null && Worlds.Current.MyRole != "Observer")
+    @if (Worlds.Current is not null && Worlds.EffectiveRole != "Observer")
     {
         <MudButton Variant="Variant.Filled" Color="Color.Secondary"
                    StartIcon="@Icons.Material.Outlined.UploadFile"
@@ -198,7 +198,7 @@ else
 
     // Mirrors the server rule (uploader or GM); the server still enforces it.
     private bool CanManage(LibraryDocumentDto doc) =>
-        Worlds.Current?.MyRole == "GM" || doc.UploadedByUserId == _myUserId;
+        Worlds.EffectiveRole == "GM" || doc.UploadedByUserId == _myUserId;
 
     private static string StatusLabel(LibraryDocumentDto doc) => doc.Status switch
     {

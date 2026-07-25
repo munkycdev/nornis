@@ -5,7 +5,7 @@
 @* Which shelf a library document sits on. A GM can move it between the two; everyone
    else only ever sees party-visible documents, so the badge is read-only for them. *@
 
-@if (Worlds.Current?.MyRole == "GM")
+@if (Worlds.EffectiveRole == "GM")
 {
     <MudMenu Dense="true">
         <ActivatorContent>

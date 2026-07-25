@@ -30,7 +30,7 @@ public class WorldMemberFilter : IEndpointFilter
             return Results.Forbid();
         }
 
-        httpContext.Items["WorldMember"] = member;
+        httpContext.Items["WorldMember"] = httpContext.ApplyViewAs(member);
         return await next(context);
     }
 }

@@ -10,6 +10,7 @@ namespace Nornis.Web.State;
 public class WorldState
 {
     private readonly NornisApiClient _api;
+    private readonly ViewAsState _viewAs;
     private bool _loaded;
     private Task? _loadingTask;
 
@@ -18,13 +19,45 @@ public class WorldState
     private Guid? _continuityWorldId;
     private Task? _continuityTask;
 
-    public WorldState(NornisApiClient api)
+    public WorldState(NornisApiClient api, ViewAsState viewAs)
     {
         _api = api;
+        _viewAs = viewAs;
     }
 
     public IReadOnlyList<WorldSummary> Worlds { get; private set; } = [];
     public WorldSummary? Current { get; private set; }
+
+    /// <summary>True while the GM is previewing the world as a player sees it.</summary>
+    public bool ViewingAsPlayer => _viewAs.ViewingAsPlayer;
+
+    /// <summary>
+    /// The role every UI gate should read instead of <c>Current.MyRole</c>: the real role,
+    /// downgraded to Player while view-as-player is active. The API applies the same
+    /// downgrade server-side, so data and chrome stay consistent.
+    /// </summary>
+    public string? EffectiveRole => ViewingAsPlayer ? "Player" : Current?.MyRole;
+
+    /// <summary>
+    /// Enters or leaves player view. Only meaningful for GMs (the UI offers it to no one
+    /// else). Leaving re-ensures the GM-only continuity assessment, which is skipped while
+    /// the view is active.
+    /// </summary>
+    public void SetViewingAsPlayer(bool active)
+    {
+        if (_viewAs.ViewingAsPlayer == active)
+        {
+            return;
+        }
+
+        _viewAs.ViewingAsPlayer = active;
+        Changed?.Invoke();
+
+        if (!active && Continuity is null)
+        {
+            _ = LoadContinuityAsync();
+        }
+    }
 
     /// <summary>
     /// AI continuity assessment for <see cref="Current"/>, loaded on selection. Null for
@@ -86,6 +119,8 @@ public class WorldState
         if (match is not null && match.Id != Current?.Id)
         {
             Current = match;
+            // Player view is a per-world peek; switching worlds returns to the real role.
+            _viewAs.ViewingAsPlayer = false;
             Continuity = null;
             ContinuityError = null;
             Changed?.Invoke();
@@ -131,8 +166,9 @@ public class WorldState
 
     private async Task LoadContinuityCoreAsync(CancellationToken ct)
     {
-        // The endpoint is GM-only — skip the guaranteed 403 for other roles.
-        if (Current is null || !string.Equals(Current.MyRole, "GM", StringComparison.OrdinalIgnoreCase))
+        // The endpoint is GM-only — skip the guaranteed 403 for other roles, including a
+        // GM currently viewing as player (the view-as header would make the server refuse).
+        if (Current is null || !string.Equals(EffectiveRole, "GM", StringComparison.OrdinalIgnoreCase))
         {
             Continuity = null;
             ContinuityError = null;

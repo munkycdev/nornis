@@ -6,11 +6,44 @@
 
 <MudMenu AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter" Class="nornis-world-menu">
     <ActivatorContent>
-        <div class="nornis-world">
+        <div class="nornis-world @(Worlds.ViewingAsPlayer ? "nornis-world-viewas" : null)">
             <MudIcon Icon="@Icons.Material.Outlined.Terrain" Class="nornis-world-icon" />
             <div class="flex-grow-1">
                 <div class="nornis-world-name">@(Worlds.Current?.Name ?? "No world")</div>
-                <div class="nornis-world-label">@(Worlds.Current is null ? "Select or create" : "World")</div>
+                @if (Worlds.Current is null)
+                {
+                    <div class="nornis-world-label">Select or create</div>
+                }
+                else if (Worlds.ViewingAsPlayer)
+                {
+                    <div class="nornis-world-label">
+                        <button type="button" class="nornis-role-chip nornis-role-chip-active"
+                                title="Return to GM view"
+                                @onclick="ExitPlayerView" @onclick:stopPropagation="true">
+                            <MudIcon Icon="@Icons.Material.Outlined.Visibility" Class="nornis-role-chip-icon" />
+                            Viewing as player · back to GM
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="nornis-world-label d-flex align-center gap-1">
+                        World ·
+                        @if (Worlds.Current.MyRole == "GM")
+                        {
+                            <button type="button" class="nornis-role-chip"
+                                    title="See this world as your players do"
+                                    @onclick="EnterPlayerView" @onclick:stopPropagation="true">
+                                GM
+                                <MudIcon Icon="@Icons.Material.Outlined.Visibility" Class="nornis-role-chip-icon" />
+                            </button>
+                        }
+                        else
+                        {
+                            <span class="nornis-role-chip nornis-role-chip-static">@Worlds.Current.MyRole</span>
+                        }
+                    </div>
+                }
             </div>
             <MudIcon Icon="@Icons.Material.Filled.KeyboardArrowDown" Size="Size.Small" />
         </div>
@@ -25,6 +58,11 @@
             <MudDivider />
         }
         <MudMenuItem Icon="@Icons.Material.Filled.Add" OnClick="CreateWorld">New world</MudMenuItem>
+        @if (Worlds.Current?.MyRole == "GM" && !Worlds.ViewingAsPlayer)
+        {
+            <MudDivider />
+            <MudMenuItem Icon="@Icons.Material.Outlined.Visibility" OnClick="EnterPlayerView">View as player</MudMenuItem>
+        }
     </ChildContent>
 </MudMenu>
 
@@ -53,13 +91,13 @@
         }
     </MudNavLink>
     <MudNavLink Href="/library" Icon="@Icons.Material.Outlined.MenuBook">Library</MudNavLink>
-    @if (Worlds.Current?.MyRole == "GM")
+    @if (Worlds.EffectiveRole == "GM")
     {
         <MudNavLink Href="/admin" Icon="@Icons.Material.Outlined.Tune">Admin</MudNavLink>
     }
 </MudNavMenu>
 
-@if (Worlds.Current?.MyRole == "GM")
+@if (Worlds.EffectiveRole == "GM")
 {
 <div class="nornis-memory">
     <div class="nornis-memory-title">World Memory</div>
@@ -233,6 +271,10 @@ else
         >= 50 => Color.Warning,
         _ => Color.Error,
     };
+
+    private void EnterPlayerView() => Worlds.SetViewingAsPlayer(true);
+
+    private void ExitPlayerView() => Worlds.SetViewingAsPlayer(false);
 
     private async Task CreateWorld()
     {

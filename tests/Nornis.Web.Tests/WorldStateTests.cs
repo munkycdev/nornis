@@ -10,10 +10,15 @@ namespace Nornis.Web.Tests;
 public class WorldStateTests
 {
     private static WorldState CreateState() =>
-        new(new NornisApiClient(new HttpClient { BaseAddress = new Uri("http://localhost") }));
+        CreateState(new StubApiHandler());
 
-    private static WorldState CreateState(StubApiHandler handler) =>
-        new(new NornisApiClient(new HttpClient(handler) { BaseAddress = new Uri("http://localhost") }));
+    private static WorldState CreateState(StubApiHandler handler)
+    {
+        var viewAs = new ViewAsState();
+        var client = new NornisApiClient(
+            new HttpClient(handler) { BaseAddress = new Uri("http://localhost") }, viewAs);
+        return new WorldState(client, viewAs);
+    }
 
     [Test]
     public void SetContinuity_ReplacesAssessment_AndRaisesChanged()
@@ -121,13 +126,86 @@ public class WorldStateTests
         Assert.That(state.ContinuityError, Is.Not.Null);
     }
 
-    /// <summary>Serves a one-world list and a canned assessment, counting requests per endpoint.</summary>
+    [Test]
+    public async Task SetViewingAsPlayer_TogglesEffectiveRole_AndRaisesChanged()
+    {
+        var state = CreateState();
+        await state.EnsureLoadedAsync();
+        Assert.That(state.EffectiveRole, Is.EqualTo("GM"));
+
+        var changedCount = 0;
+        state.Changed += () => changedCount++;
+
+        state.SetViewingAsPlayer(true);
+
+        Assert.That(state.ViewingAsPlayer, Is.True);
+        Assert.That(state.EffectiveRole, Is.EqualTo("Player"));
+        Assert.That(changedCount, Is.EqualTo(1));
+
+        // Idempotent: setting the same value again must not re-notify.
+        state.SetViewingAsPlayer(true);
+        Assert.That(changedCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task ViewingAsPlayer_StampsViewAsHeaderOnApiRequests()
+    {
+        var handler = new StubApiHandler();
+        var state = CreateState(handler);
+
+        await state.EnsureLoadedAsync();
+        Assert.That(handler.LastWorldsRequestHadViewAs, Is.False);
+
+        state.SetViewingAsPlayer(true);
+        await state.ReloadAsync();
+
+        Assert.That(handler.LastWorldsRequestHadViewAs, Is.True);
+    }
+
+    [Test]
+    public async Task ViewingAsPlayer_SkipsGmOnlyContinuityFetch_AndRestoresOnExit()
+    {
+        var handler = new StubApiHandler();
+        var state = CreateState(handler);
+        await state.EnsureLoadedAsync();
+        Assert.That(handler.AssessmentRequests, Is.EqualTo(1));
+
+        // While viewing as player the GM-only endpoint would 403 — a forced load must skip it.
+        state.SetViewingAsPlayer(true);
+        await state.LoadContinuityAsync();
+        Assert.That(handler.AssessmentRequests, Is.EqualTo(1));
+        Assert.That(state.Continuity, Is.Null);
+
+        // Leaving the view refetches what the skip cleared.
+        state.SetViewingAsPlayer(false);
+        await state.EnsureContinuityLoadedAsync();
+        Assert.That(handler.AssessmentRequests, Is.EqualTo(2));
+        Assert.That(state.Continuity, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task Select_DifferentWorld_ExitsPlayerView()
+    {
+        var handler = new StubApiHandler();
+        var state = CreateState(handler);
+        await state.EnsureLoadedAsync();
+
+        state.SetViewingAsPlayer(true);
+        state.Select(handler.SecondWorldId);
+
+        Assert.That(state.ViewingAsPlayer, Is.False);
+        Assert.That(state.EffectiveRole, Is.EqualTo("GM"));
+    }
+
+    /// <summary>Serves a two-world list and a canned assessment, counting requests per endpoint.</summary>
     private sealed class StubApiHandler : HttpMessageHandler
     {
         public Guid WorldId { get; } = Guid.NewGuid();
+        public Guid SecondWorldId { get; } = Guid.NewGuid();
         public string MyRole { get; init; } = "GM";
         public HttpStatusCode AssessmentStatus { get; init; } = HttpStatusCode.OK;
         public int AssessmentRequests { get; private set; }
+        public bool? LastWorldsRequestHadViewAs { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
@@ -135,8 +213,12 @@ public class WorldStateTests
 
             if (path == "/api/worlds")
             {
+                LastWorldsRequestHadViewAs = request.Headers.Contains("X-Nornis-View-As");
                 return Task.FromResult(Json(
-                    $$"""[{"id":"{{WorldId}}","name":"W","description":null,"gameSystem":null,"myRole":"{{MyRole}}"}]"""));
+                    $$"""
+                    [{"id":"{{WorldId}}","name":"W","description":null,"gameSystem":null,"myRole":"{{MyRole}}"},
+                     {"id":"{{SecondWorldId}}","name":"W2","description":null,"gameSystem":null,"myRole":"{{MyRole}}"}]
+                    """));
             }
 
             if (path == $"/api/worlds/{WorldId}/health/assessment")

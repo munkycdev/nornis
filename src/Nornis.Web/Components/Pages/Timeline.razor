@@ -15,7 +15,7 @@
         <MudText Typo="Typo.h4" Class="nornis-serif">Timeline</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">The stories in motion.</MudText>
     </div>
-    @if (Worlds.Current?.MyRole == "GM")
+    @if (Worlds.EffectiveRole == "GM")
     {
         <MudTooltip Text="AI reads each Active storyline against the record and proposes closing the finished ones — you review every proposal.">
             <MudButton Variant="Variant.Outlined" Color="Color.Primary"
@@ -98,7 +98,7 @@ else
         else
         {
             <StorylineTimelineChart Data="_timeline" StatusFilter="_selectedStatuses"
-                                    CanEdit="@(Worlds.Current.MyRole == "GM")"
+                                    CanEdit="@(Worlds.EffectiveRole == "GM")"
                                     ReparentRequested="OnReparentRequestedAsync"
                                     UnnestRequested="OnUnnestRequestedAsync" />
         }

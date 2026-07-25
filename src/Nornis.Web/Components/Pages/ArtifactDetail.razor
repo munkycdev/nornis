@@ -43,7 +43,7 @@
             <div>
                 <div class="d-flex align-center gap-1">
                     <MudText Typo="Typo.h4" Class="nornis-serif">@_detail.Name</MudText>
-                    @if (Worlds.Current?.MyRole == "GM")
+                    @if (Worlds.EffectiveRole == "GM")
                     {
                         <MudTooltip Text="Rename">
                             <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small"
@@ -53,7 +53,7 @@
                 </div>
                 <div class="nornis-detail-chips">
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_detail.Type</MudChip>
-                    @if (Worlds.Current?.MyRole == "GM")
+                    @if (Worlds.EffectiveRole == "GM")
                     {
                         <MudMenu Dense="true">
                             <ActivatorContent>
@@ -90,7 +90,7 @@
             </div>
         </div>
 
-        @if (Worlds.Current?.MyRole == "GM" && ArtifactFindings.Count > 0)
+        @if (Worlds.EffectiveRole == "GM" && ArtifactFindings.Count > 0)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">
@@ -191,7 +191,7 @@
             }
         </MudPaper>
 
-        @if (_detail.Type == "Storyline" && Worlds.Current?.MyRole == "GM")
+        @if (_detail.Type == "Storyline" && Worlds.EffectiveRole == "GM")
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">Part of</div>
@@ -226,7 +226,7 @@
             </MudPaper>
         }
 
-        @if (_detail.Type == "Storyline" && Worlds.Current?.MyRole == "GM")
+        @if (_detail.Type == "Storyline" && Worlds.EffectiveRole == "GM")
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">Campaigns</div>
@@ -306,7 +306,7 @@
             </MudPaper>
         }
 
-        @if (Worlds.Current?.MyRole == "GM")
+        @if (Worlds.EffectiveRole == "GM")
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">Merge duplicate</div>
@@ -353,7 +353,7 @@
             </MudPaper>
         }
 
-        @if (Worlds.Current?.MyRole == "GM" && HasGmOnlyContent)
+        @if (Worlds.EffectiveRole == "GM" && HasGmOnlyContent)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">Reveal to the party</div>
@@ -370,7 +370,7 @@
             </MudPaper>
         }
 
-        @if (Worlds.Current?.MyRole != "Observer")
+        @if (Worlds.EffectiveRole != "Observer")
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">Add to the record</div>
@@ -709,7 +709,7 @@
     private async Task LoadCampaignsEditorAsync()
     {
         if (Worlds.Current is null || _detail is null
-            || _detail.Type != "Storyline" || Worlds.Current.MyRole != "GM")
+            || _detail.Type != "Storyline" || Worlds.EffectiveRole != "GM")
         {
             _campaigns = [];
             return;
@@ -793,7 +793,7 @@
         _quickAddBusy = true;
         _quickAddError = null;
 
-        var isGm = Worlds.Current.MyRole == "GM";
+        var isGm = Worlds.EffectiveRole == "GM";
         var request = new CreateSourceRequest(
             Title: $"Note on {_detail.Name} — {DateTime.Now:yyyy-MM-dd}",
             Type: isGm ? "GMNote" : "SessionNote",

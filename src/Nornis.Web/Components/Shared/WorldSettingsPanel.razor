@@ -348,7 +348,7 @@
 @code {
     private readonly string[] _roles = ["GM", "Player", "Observer"];
 
-    private bool _isGm => Worlds.Current?.MyRole == "GM";
+    private bool _isGm => Worlds.EffectiveRole == "GM";
 
     // World settings form
     private string _name = string.Empty;

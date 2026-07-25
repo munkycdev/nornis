@@ -10,11 +10,16 @@ namespace Nornis.Web.ApiClient;
 /// </summary>
 public class NornisApiClient
 {
-    private readonly HttpClient _httpClient;
+    /// <summary>Mirrors <c>HttpContextExtensions.ViewAsHeaderName</c> in the API.</summary>
+    private const string ViewAsHeaderName = "X-Nornis-View-As";
 
-    public NornisApiClient(HttpClient httpClient)
+    private readonly HttpClient _httpClient;
+    private readonly State.ViewAsState _viewAs;
+
+    public NornisApiClient(HttpClient httpClient, State.ViewAsState viewAs)
     {
         _httpClient = httpClient;
+        _viewAs = viewAs;
     }
 
     /// <summary>Base address the client is configured to call (for display/diagnostics).</summary>
@@ -408,7 +413,8 @@ public class NornisApiClient
     {
         try
         {
-            var response = await _httpClient.PostAsJsonAsync($"/api/worlds/{worldId}/reveal", body, ct);
+            var response = await SendCoreAsync(
+                HttpMethod.Post, $"/api/worlds/{worldId}/reveal", JsonContent.Create(body), ct);
 
             if (response.IsSuccessStatusCode)
             {
@@ -556,11 +562,29 @@ public class NornisApiClient
 
     // -------------------------------------------------------------------- Plumbing --
 
+    /// <summary>
+    /// Every world-scoped call goes through here so view-as-player is stamped uniformly:
+    /// while the GM previews as a player, the server must resolve their membership as
+    /// Player for reads and GM-gated calls alike (those fail closed with 403 — the UI
+    /// hides them in that mode).
+    /// </summary>
+    private Task<HttpResponseMessage> SendCoreAsync(
+        HttpMethod method, string uri, HttpContent? content, CancellationToken ct)
+    {
+        var request = new HttpRequestMessage(method, uri) { Content = content };
+        if (_viewAs.ViewingAsPlayer)
+        {
+            request.Headers.Add(ViewAsHeaderName, "Player");
+        }
+
+        return _httpClient.SendAsync(request, ct);
+    }
+
     private async Task<ApiResult<T>> GetAsync<T>(string uri, CancellationToken ct)
     {
         try
         {
-            var response = await _httpClient.GetAsync(uri, ct);
+            var response = await SendCoreAsync(HttpMethod.Get, uri, null, ct);
             return await ReadResultAsync<T>(response, ct);
         }
         catch (Exception ex)
@@ -573,7 +597,7 @@ public class NornisApiClient
     {
         try
         {
-            var response = await _httpClient.PostAsJsonAsync(uri, body, ct);
+            var response = await SendCoreAsync(HttpMethod.Post, uri, JsonContent.Create(body), ct);
             return await ReadResultAsync<TValue>(response, ct);
         }
         catch (Exception ex)
@@ -586,7 +610,7 @@ public class NornisApiClient
     {
         try
         {
-            var response = await _httpClient.PutAsJsonAsync(uri, body, ct);
+            var response = await SendCoreAsync(HttpMethod.Put, uri, JsonContent.Create(body), ct);
             return await ReadResultAsync<TValue>(response, ct);
         }
         catch (Exception ex)
@@ -599,7 +623,7 @@ public class NornisApiClient
     {
         try
         {
-            var response = await _httpClient.PatchAsJsonAsync(uri, body, ct);
+            var response = await SendCoreAsync(HttpMethod.Patch, uri, JsonContent.Create(body), ct);
             return await ReadResultAsync<TValue>(response, ct);
         }
         catch (Exception ex)
@@ -612,7 +636,7 @@ public class NornisApiClient
     {
         try
         {
-            var response = await _httpClient.PostAsJsonAsync(uri, body, ct);
+            var response = await SendCoreAsync(HttpMethod.Post, uri, JsonContent.Create(body), ct);
             if (response.IsSuccessStatusCode)
             {
                 return ApiResult<bool>.Ok(true);
@@ -631,7 +655,7 @@ public class NornisApiClient
     {
         try
         {
-            var response = await _httpClient.DeleteAsync(uri, ct);
+            var response = await SendCoreAsync(HttpMethod.Delete, uri, null, ct);
             if (response.IsSuccessStatusCode)
             {
                 return ApiResult<bool>.Ok(true);

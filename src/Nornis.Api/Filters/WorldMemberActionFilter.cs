@@ -45,7 +45,7 @@ public class WorldMemberActionFilter : IAsyncActionFilter
             return;
         }
 
-        httpContext.Items["WorldMember"] = member;
+        httpContext.Items["WorldMember"] = httpContext.ApplyViewAs(member);
         await next();
     }
 }

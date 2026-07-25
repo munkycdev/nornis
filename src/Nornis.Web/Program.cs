@@ -123,6 +123,7 @@ builder.Services.AddHttpClient<NornisApiClient>(client =>
 
 builder.Services.AddScoped<Nornis.Web.State.WorldState>();
 builder.Services.AddScoped<Nornis.Web.State.AskState>();
+builder.Services.AddScoped<Nornis.Web.State.ViewAsState>();
 
 var app = builder.Build();
 

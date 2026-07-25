@@ -107,7 +107,7 @@
                     }
                 }
 
-                @if (Worlds.Current.MyRole != "Observer")
+                @if (Worlds.EffectiveRole != "Observer")
                 {
                     <div class="nornis-add-member mt-3">
                         <MudTextField @bind-Value="_newCharacterName" Label="New character name" MaxLength="200"
@@ -125,7 +125,7 @@
             }
         </MudPaper>
 
-        @if (Worlds.Current.MyRole != "Observer")
+        @if (Worlds.EffectiveRole != "Observer")
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">Claim an existing character</div>
