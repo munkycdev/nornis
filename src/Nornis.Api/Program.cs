@@ -69,8 +69,10 @@ if (builder.Environment.IsDevelopment())
     });
 }
 
-// Health checks
-builder.Services.AddHealthChecks();
+// Health checks. The pending-migrations check makes /health (and the availability
+// alert watching it) catch a deploy whose manual EF migration step was missed.
+builder.Services.AddHealthChecks()
+    .AddCheck<PendingMigrationsHealthCheck>("pending-migrations");
 
 // DbContext registration (SQL Server)
 builder.Services.AddDbContext<NornisDbContext>(options =>
