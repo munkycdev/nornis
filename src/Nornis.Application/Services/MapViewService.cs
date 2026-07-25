@@ -55,11 +55,15 @@ public class MapViewService : IMapViewService
         var filter = VisibilityFilter.ForRole(role, userId);
         var placemarks = await _placemarkRepository.ListByAttachmentAsync(attachment.Id, ct);
 
+        // One batch fetch for every pinned artifact, not a roundtrip per pin.
+        var artifactsById = (await _artifactRepository.ListByIdsAsync(
+                placemarks.Select(p => p.ArtifactId).Distinct().ToList(), ct))
+            .ToDictionary(a => a.Id);
+
         var views = new List<MapPlacemarkView>(placemarks.Count);
         foreach (var placemark in placemarks)
         {
-            var artifact = await _artifactRepository.GetByIdAsync(placemark.ArtifactId, ct);
-            if (artifact is null
+            if (!artifactsById.TryGetValue(placemark.ArtifactId, out var artifact)
                 || artifact.WorldId != worldId
                 || artifact.Status == ArtifactStatus.Archived
                 || !filter.CanSee(artifact.Visibility, artifact.CreatedByUserId))

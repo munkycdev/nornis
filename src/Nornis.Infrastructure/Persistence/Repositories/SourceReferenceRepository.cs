@@ -49,6 +49,17 @@ public class SourceReferenceRepository : ISourceReferenceRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<SourceReference>> ListBySourceIdsAsync(IReadOnlyList<Guid> sourceIds, CancellationToken cancellationToken = default)
+    {
+        if (sourceIds.Count == 0)
+            return [];
+
+        return await _context.SourceReferences
+            .AsNoTracking()
+            .Where(sr => sourceIds.Contains(sr.SourceId))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task DeleteBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default)
     {
         // Tracked-load delete: the InMemory provider used in tests lacks ExecuteDelete.

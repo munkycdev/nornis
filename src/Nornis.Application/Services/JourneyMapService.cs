@@ -123,17 +123,27 @@ public class JourneyMapService : IJourneyMapService
         //    Property 5), and the caller-visible artifacts it introduced or advanced are its
         //    highlights. FirstSeen marks the earliest stop referencing an artifact (a location's
         //    "first visit"). A stop that touched no mapped place keeps an empty visit list.
+        //    Batched — one query for every stop's references and one for the deduped artifacts
+        //    they touch, not a roundtrip per stop per artifact.
+        var artifactIdsByStop = (await _sourceReferenceRepository.ListBySourceIdsAsync(
+                ordered.Select(s => s.Id).ToList(), ct))
+            .Where(r => r.TargetType == SourceReferenceTargetType.Artifact)
+            .GroupBy(r => r.SourceId)
+            .ToDictionary(
+                g => g.Key,
+                // one membership per artifact even if referenced twice (Property 5)
+                g => g.Select(r => r.TargetId).Distinct().ToList());
+
+        var artifactsById = (await _artifactRepository.ListByIdsAsync(
+                artifactIdsByStop.Values.SelectMany(ids => ids).Distinct().ToList(), ct))
+            .ToDictionary(a => a.Id);
+
         var earliestStopByArtifact = new Dictionary<Guid, int>();
         var visitsByStop = new List<List<Guid>>(ordered.Count);
         var artifactsByStop = new List<List<Artifact>>(ordered.Count);
         for (var i = 0; i < ordered.Count; i++)
         {
-            var sourceRefs = await _sourceReferenceRepository.ListBySourceAsync(ordered[i].Id, ct);
-            var artifactIds = sourceRefs
-                .Where(r => r.TargetType == SourceReferenceTargetType.Artifact)
-                .Select(r => r.TargetId)
-                .Distinct() // one membership per artifact even if referenced twice (Property 5)
-                .ToList();
+            var artifactIds = artifactIdsByStop.GetValueOrDefault(ordered[i].Id) ?? [];
 
             var visits = new List<Guid>();
             var visible = new List<Artifact>();
@@ -143,8 +153,7 @@ public class JourneyMapService : IJourneyMapService
                 {
                     visits.Add(artifactId);
                 }
-                var artifact = await _artifactRepository.GetByIdAsync(artifactId, ct);
-                if (artifact is null
+                if (!artifactsById.TryGetValue(artifactId, out var artifact)
                     || artifact.WorldId != worldId
                     || artifact.Status == ArtifactStatus.Archived
                     || !filter.CanSee(artifact.Visibility, artifact.CreatedByUserId))

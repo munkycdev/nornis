@@ -14,6 +14,10 @@ public interface ISourceReferenceRepository
     /// <summary>All references produced by a source — the provenance trail of its extraction.</summary>
     Task<IReadOnlyList<SourceReference>> ListBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default);
 
+    /// <summary>References produced by any of the given sources, in one query — the batch
+    /// sibling of <see cref="ListBySourceAsync"/> for read models that walk many sources.</summary>
+    Task<IReadOnlyList<SourceReference>> ListBySourceIdsAsync(IReadOnlyList<Guid> sourceIds, CancellationToken cancellationToken = default);
+
     /// <summary>Deletes all of a source's references. Used when a source is edited and
     /// reprocessed: the old body's quotes and derivation trail no longer apply.</summary>
     Task DeleteBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default);
