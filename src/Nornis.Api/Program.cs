@@ -107,6 +107,12 @@ builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 builder.Services.AddScoped<IWorldService, WorldService>();
 builder.Services.AddScoped<IWorldDeletionService, WorldDeletionService>();
 builder.Services.AddScoped<IWorldExportService, WorldExportService>();
+
+// Demo worlds (feature 20): template import + guardrails.
+builder.Services.Configure<DemoWorldOptions>(builder.Configuration.GetSection(DemoWorldOptions.SectionName));
+builder.Services.AddScoped<IWorldImportWriter, WorldImportWriter>();
+builder.Services.AddSingleton<IDemoWorldTemplateProvider, FileDemoWorldTemplateProvider>();
+builder.Services.AddScoped<IDemoWorldService, DemoWorldService>();
 builder.Services.AddScoped<IWorldMemberService, WorldMemberService>();
 builder.Services.AddScoped<IWorldInviteService, WorldInviteService>();
 builder.Services.AddSingleton<IInviteCodeGenerator, InviteCodeGenerator>();
@@ -167,6 +173,7 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
     builder.Services.AddScoped<IAuditAiClient, AzureOpenAiAuditClient>();
     builder.Services.AddScoped<IContinuityFixAiClient, AzureOpenAiContinuityFixClient>();
     builder.Services.AddScoped<IRetrospectiveAiClient, AzureOpenAiRetrospectiveClient>();
+    builder.Services.AddScoped<IWorldNameGenerator, AzureOpenAiWorldNameGenerator>();
 
     // Library passage retrieval reuses the same account with the embedding deployment.
     var embeddingDeployment = builder.Configuration["Library:EmbeddingDeployment"] ?? "nornis-embed";
@@ -191,6 +198,10 @@ else
     builder.Services.AddScoped<IEmbeddingClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable library passage retrieval."));
+
+    // Unlike the throwing stubs above, demo world naming degrades gracefully: no AI means
+    // fallback names, not a broken demo creation flow.
+    builder.Services.AddScoped<IWorldNameGenerator, NoOpWorldNameGenerator>();
 }
 
 // Azure Service Bus and extraction queue

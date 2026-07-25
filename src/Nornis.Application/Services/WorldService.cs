@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Options;
 using Nornis.Application.Authorization;
+using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
@@ -11,13 +13,16 @@ public class WorldService : IWorldService
 {
     private readonly IWorldRepository _worldRepository;
     private readonly IWorldMemberRepository _worldMemberRepository;
+    private readonly DemoWorldOptions _demoOptions;
 
     public WorldService(
         IWorldRepository worldRepository,
-        IWorldMemberRepository worldMemberRepository)
+        IWorldMemberRepository worldMemberRepository,
+        IOptions<DemoWorldOptions> demoOptions)
     {
         _worldRepository = worldRepository;
         _worldMemberRepository = worldMemberRepository;
+        _demoOptions = demoOptions.Value;
     }
 
     public async Task<AppResult<World>> CreateAsync(CreateWorldCommand command, CancellationToken ct)
@@ -169,6 +174,13 @@ public class WorldService : IWorldService
             {
                 return AppResult<World>.Fail(new AppError(400, "validation_error",
                     "Set a public URL slug before enabling public access."));
+            }
+
+            // Demo-world kill switch: no new public demo worlds while it is off.
+            if (command.PublicAccessEnabled.Value && world.IsDemo && !_demoOptions.PublicAccessEnabled)
+            {
+                return AppResult<World>.Fail(new AppError(403, "demo_public_disabled",
+                    "Public access is currently disabled for demo worlds."));
             }
 
             world.PublicAccessEnabled = command.PublicAccessEnabled.Value;

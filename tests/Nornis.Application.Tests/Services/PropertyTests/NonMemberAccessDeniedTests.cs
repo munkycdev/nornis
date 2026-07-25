@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using Nornis.Application.Configuration;
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
@@ -76,7 +78,7 @@ public class NonMemberAccessDeniedTests
         var memberRepo = new InMemoryWorldMemberRepository();
         var userRepo = new InMemoryUserRepository();
 
-        var worldService = new WorldService(worldRepo, memberRepo);
+        var worldService = new WorldService(worldRepo, memberRepo, Options.Create(new DemoWorldOptions()));
 
         // Act — non-member attempts to access a world that doesn't exist
         var result = worldService.GetByIdAsync(
@@ -150,7 +152,7 @@ public class NonMemberAccessDeniedTests
 
         // The non-member user is NOT added to the world
 
-        var worldService = new WorldService(worldRepo, memberRepo);
+        var worldService = new WorldService(worldRepo, memberRepo, Options.Create(new DemoWorldOptions()));
         var memberService = new WorldMemberService(memberRepo, userRepo);
 
         return (worldService, memberService);

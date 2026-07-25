@@ -12,4 +12,6 @@ public record WorldResponse(
     decimal? DailyAiBudgetUsd = null,
     string? PublicSlug = null,
     bool PublicAccessEnabled = false,
-    decimal? PublicAskMonthlyBudgetUsd = null);
+    decimal? PublicAskMonthlyBudgetUsd = null,
+    bool IsDemo = false,
+    bool TutorialEnabled = false);

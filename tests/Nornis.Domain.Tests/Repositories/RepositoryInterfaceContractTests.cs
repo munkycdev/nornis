@@ -10,6 +10,7 @@ public class RepositoryInterfaceContractTests
     private static readonly Type[] RepositoryInterfaces =
     [
         typeof(IWorldRepository),
+        typeof(IWorldImportWriter),
         typeof(IWorldMemberRepository),
         typeof(IWorldInviteRepository),
         typeof(IUserRepository),

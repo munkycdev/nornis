@@ -48,6 +48,31 @@ public class WorldsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { worldId = world.Id }, response);
     }
 
+    // IDemoWorldService is action-injected like export/deletion: it depends on blob
+    // storage, whose DI stub throws when unconfigured — that must only be able to fail
+    // this endpoint, never the rest of the worlds surface.
+    [HttpPost("demo")]
+    public async Task<IActionResult> CreateDemo(
+        [FromBody] CreateDemoWorldRequest request,
+        [FromServices] IDemoWorldService demoWorldService,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+
+        var result = await demoWorldService.CreateAsync(
+            new CreateDemoWorldCommand(user.Id, request.Tutorial), ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var world = result.Value!;
+        var response = ToWorldResponse(world, WorldRole.GM);
+
+        return CreatedAtAction(nameof(GetById), new { worldId = world.Id }, response);
+    }
+
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
     {
@@ -70,7 +95,9 @@ public class WorldsController : ControllerBase
             PublicSlug: c.World.PublicSlug,
             PublicAccessEnabled: c.World.PublicAccessEnabled,
             DailyAiBudgetUsd: c.World.DailyAiBudgetUsd,
-            PublicAskMonthlyBudgetUsd: c.World.PublicAskMonthlyBudgetUsd)).ToList();
+            PublicAskMonthlyBudgetUsd: c.World.PublicAskMonthlyBudgetUsd,
+            IsDemo: c.World.IsDemo,
+            TutorialEnabled: c.World.TutorialEnabled)).ToList();
 
         return Ok(response);
     }
@@ -229,7 +256,9 @@ public class WorldsController : ControllerBase
             DailyAiBudgetUsd: world.DailyAiBudgetUsd,
             PublicSlug: world.PublicSlug,
             PublicAccessEnabled: world.PublicAccessEnabled,
-            PublicAskMonthlyBudgetUsd: world.PublicAskMonthlyBudgetUsd);
+            PublicAskMonthlyBudgetUsd: world.PublicAskMonthlyBudgetUsd,
+            IsDemo: world.IsDemo,
+            TutorialEnabled: world.TutorialEnabled);
     }
 
     private IActionResult MapError(AppError error)
