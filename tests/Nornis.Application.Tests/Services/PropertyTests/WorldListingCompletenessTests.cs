@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using Nornis.Application.Configuration;
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
@@ -32,7 +34,7 @@ public class WorldListingCompletenessTests
         // Arrange
         var memberRepo = new InMemoryWorldMemberRepository();
         var worldRepo = new InMemoryWorldRepository(memberRepo);
-        var service = new WorldService(worldRepo, memberRepo);
+        var service = new WorldService(worldRepo, memberRepo, Options.Create(new DemoWorldOptions()));
 
         // Seed all worlds into the repository
         foreach (var world in scenario.AllWorlds)

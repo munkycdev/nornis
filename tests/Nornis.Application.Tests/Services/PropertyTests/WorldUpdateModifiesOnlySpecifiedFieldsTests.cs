@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using Nornis.Application.Configuration;
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
@@ -31,7 +33,7 @@ public class WorldUpdateModifiesOnlySpecifiedFieldsTests
         // Arrange: set up repos and create the world first
         var worldRepo = new InMemoryWorldRepository();
         var memberRepo = new InMemoryWorldMemberRepository();
-        var service = new WorldService(worldRepo, memberRepo);
+        var service = new WorldService(worldRepo, memberRepo, Options.Create(new DemoWorldOptions()));
 
         var createCommand = new CreateWorldCommand(
             input.OriginalName,

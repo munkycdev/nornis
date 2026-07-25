@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using Nornis.Application.Configuration;
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
@@ -165,7 +167,7 @@ public class WorldMemberServicePropertyTests
             JoinedAt = DateTimeOffset.UtcNow
         }, CancellationToken.None).GetAwaiter().GetResult();
 
-        var worldService = new WorldService(worldRepo, memberRepo);
+        var worldService = new WorldService(worldRepo, memberRepo, Options.Create(new DemoWorldOptions()));
         var memberService = new WorldMemberService(memberRepo, userRepo);
 
         return (worldService, memberService, userRepo, world);

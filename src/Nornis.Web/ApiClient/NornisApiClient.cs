@@ -54,6 +54,13 @@ public class NornisApiClient
     public Task<ApiResult<WorldSummary>> CreateWorldAsync(CreateWorldRequest request, CancellationToken ct = default) =>
         PostAsync<CreateWorldRequest, WorldSummary>("/api/worlds", request, ct);
 
+    /// <summary>Creates a ready-made demo world from the template, optionally with the
+    /// guided tutorial. The server generates the name and rate-limits per user.</summary>
+    public Task<ApiResult<WorldSummary>> CreateDemoWorldAsync(bool tutorial, CancellationToken ct = default) =>
+        PostAsync<CreateDemoWorldBody, WorldSummary>("/api/worlds/demo", new CreateDemoWorldBody(tutorial), ct);
+
+    private sealed record CreateDemoWorldBody(bool Tutorial);
+
     public Task<ApiResult<WorldSummary>> UpdateWorldAsync(Guid worldId, UpdateWorldRequest request, CancellationToken ct = default) =>
         PutAsync<UpdateWorldRequest, WorldSummary>($"/api/worlds/{worldId}", request, ct);
 

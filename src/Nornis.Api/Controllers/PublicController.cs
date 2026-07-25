@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
+using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
@@ -34,6 +36,7 @@ public class PublicController : ControllerBase
     private readonly IJourneyMapService _journeyService;
     private readonly ILoremasterService _loremasterService;
     private readonly IAiBudgetGuard _budgetGuard;
+    private readonly DemoWorldOptions _demoOptions;
 
     public PublicController(
         IWorldRepository worldRepository,
@@ -41,7 +44,8 @@ public class PublicController : ControllerBase
         ISourceService sourceService,
         IJourneyMapService journeyService,
         ILoremasterService loremasterService,
-        IAiBudgetGuard budgetGuard)
+        IAiBudgetGuard budgetGuard,
+        IOptions<DemoWorldOptions> demoOptions)
     {
         _worldRepository = worldRepository;
         _artifactService = artifactService;
@@ -49,6 +53,7 @@ public class PublicController : ControllerBase
         _journeyService = journeyService;
         _loremasterService = loremasterService;
         _budgetGuard = budgetGuard;
+        _demoOptions = demoOptions.Value;
     }
 
     [HttpGet("")]
@@ -275,7 +280,18 @@ public class PublicController : ControllerBase
         }
 
         var world = await _worldRepository.GetBySlugAsync(slug, ct);
-        return world is { PublicAccessEnabled: true } ? world : null;
+        if (world is not { PublicAccessEnabled: true })
+        {
+            return null;
+        }
+
+        // Demo-world kill switch: slugs are kept, so re-enabling restores the same links.
+        if (world.IsDemo && !_demoOptions.PublicAccessEnabled)
+        {
+            return null;
+        }
+
+        return world;
     }
 
     private NotFoundObjectResult PublicNotFound() =>

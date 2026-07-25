@@ -38,6 +38,19 @@ public class World
     /// </summary>
     public decimal? PublicAskMonthlyBudgetUsd { get; set; }
 
+    /// <summary>
+    /// True for worlds instantiated from the demo template. Demo worlds are excluded from
+    /// usage metrics and can be cut off from public access wholesale via the
+    /// DemoWorlds:PublicAccessEnabled kill switch.
+    /// </summary>
+    public bool IsDemo { get; set; }
+
+    /// <summary>
+    /// Whether this demo world was created with the guided tutorial. Only meaningful when
+    /// <see cref="IsDemo"/> is true; the tutorial UI (feature 20 phase C) keys off it.
+    /// </summary>
+    public bool TutorialEnabled { get; set; }
+
     public byte[] RowVersion { get; set; } = [];
 
     // Navigation properties

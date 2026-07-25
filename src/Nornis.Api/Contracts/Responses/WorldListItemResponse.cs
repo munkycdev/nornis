@@ -9,4 +9,6 @@ public record WorldListItemResponse(
     string? PublicSlug = null,
     bool PublicAccessEnabled = false,
     decimal? DailyAiBudgetUsd = null,
-    decimal? PublicAskMonthlyBudgetUsd = null);
+    decimal? PublicAskMonthlyBudgetUsd = null,
+    bool IsDemo = false,
+    bool TutorialEnabled = false);

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using Nornis.Application.Configuration;
 using NUnit.Framework;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
@@ -21,7 +23,7 @@ public class WorldServicePublicSlugTests
     {
         _worlds = new InMemoryWorldRepository();
         _members = new InMemoryWorldMemberRepository();
-        _sut = new WorldService(_worlds, _members);
+        _sut = new WorldService(_worlds, _members, Options.Create(new DemoWorldOptions()));
         _gmId = Guid.NewGuid();
 
         _world = new World

@@ -58,6 +58,13 @@ public class WorldRepository : IWorldRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<int> CountDemoWorldsCreatedSinceAsync(Guid userId, DateTimeOffset since, CancellationToken cancellationToken = default)
+    {
+        return await _context.Worlds
+            .AsNoTracking()
+            .CountAsync(c => c.IsDemo && c.CreatedByUserId == userId && c.CreatedAt >= since, cancellationToken);
+    }
+
     public async Task DeleteAsync(Guid worldId, CancellationToken cancellationToken = default)
     {
         // ExecuteDelete needs a relational provider; the API integration tests run on

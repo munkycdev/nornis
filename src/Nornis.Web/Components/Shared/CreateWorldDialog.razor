@@ -22,6 +22,19 @@
         {
             <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
         }
+
+        <MudDivider Class="my-4" />
+
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-1">
+            Or start with the demo world — a ready-made campaign to explore.
+        </MudText>
+        <div class="d-flex align-center justify-space-between">
+            <MudCheckBox @bind-Value="_withTutorial" Dense="true" Color="Color.Secondary"
+                         Label="Walk me through it" Disabled="_busy" />
+            <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="SubmitDemo" Disabled="_busy">
+                Create demo world
+            </MudButton>
+        </div>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel">Cancel</MudButton>
@@ -38,6 +51,7 @@
     private string _name = string.Empty;
     private string? _description;
     private string? _gameSystem;
+    private bool _withTutorial = true;
     private bool _busy;
     private string? _error;
 
@@ -53,6 +67,24 @@
         _error = null;
 
         var result = await Api.CreateWorldAsync(new CreateWorldRequest(_name.Trim(), _description, _gameSystem));
+
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(result.Value!));
+    }
+
+    private async Task SubmitDemo()
+    {
+        _busy = true;
+        _error = null;
+
+        var result = await Api.CreateDemoWorldAsync(_withTutorial);
 
         _busy = false;
 

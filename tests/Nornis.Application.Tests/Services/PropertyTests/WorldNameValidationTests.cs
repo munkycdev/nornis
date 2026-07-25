@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using Nornis.Application.Configuration;
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
@@ -32,7 +34,7 @@ public class WorldNameValidationTests
         // Arrange
         var worldRepo = new InMemoryWorldRepository();
         var memberRepo = new InMemoryWorldMemberRepository();
-        var service = new WorldService(worldRepo, memberRepo);
+        var service = new WorldService(worldRepo, memberRepo, Options.Create(new DemoWorldOptions()));
 
         var command = new CreateWorldCommand(
             input.InvalidName!,
@@ -60,7 +62,7 @@ public class WorldNameValidationTests
         // Arrange - first create a valid world as GM
         var worldRepo = new InMemoryWorldRepository();
         var memberRepo = new InMemoryWorldMemberRepository();
-        var service = new WorldService(worldRepo, memberRepo);
+        var service = new WorldService(worldRepo, memberRepo, Options.Create(new DemoWorldOptions()));
 
         var createCommand = new CreateWorldCommand(
             "Black Harbor Investigation",

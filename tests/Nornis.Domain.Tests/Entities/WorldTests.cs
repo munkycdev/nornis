@@ -94,7 +94,7 @@ public class WorldTests
     public void World_Has_Expected_Property_Count()
     {
         var properties = _type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        // 15th property: PublicAskMonthlyBudgetUsd (the public Ask monthly spend cap).
-        Assert.That(properties, Has.Length.EqualTo(15));
+        // 16th–17th properties: IsDemo and TutorialEnabled (feature 20 demo worlds).
+        Assert.That(properties, Has.Length.EqualTo(17));
     }
 }

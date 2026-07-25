@@ -17,6 +17,9 @@ public interface IWorldRepository
 
     Task<IReadOnlyList<World>> GetByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default);
 
+    /// <summary>Demo worlds this user created at or after <paramref name="since"/> (rate limiting).</summary>
+    Task<int> CountDemoWorldsCreatedSinceAsync(Guid userId, DateTimeOffset since, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Permanently deletes a world and every row that belongs to it — members, invites,
     /// campaigns, characters, sources, knowledge, reviews, library, health, replays, and

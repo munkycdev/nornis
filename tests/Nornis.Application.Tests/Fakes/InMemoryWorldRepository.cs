@@ -77,6 +77,12 @@ public class InMemoryWorldRepository : IWorldRepository
         return Task.FromResult<IReadOnlyList<World>>(worlds.AsReadOnly());
     }
 
+    public Task<int> CountDemoWorldsCreatedSinceAsync(Guid userId, DateTimeOffset since, CancellationToken cancellationToken = default)
+    {
+        var count = _worlds.Count(c => c.IsDemo && c.CreatedByUserId == userId && c.CreatedAt >= since);
+        return Task.FromResult(count);
+    }
+
     public Task DeleteAsync(Guid worldId, CancellationToken cancellationToken = default)
     {
         _worlds.RemoveAll(c => c.Id == worldId);
