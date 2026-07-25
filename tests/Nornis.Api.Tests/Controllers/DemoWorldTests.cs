@@ -111,8 +111,14 @@ public class DemoWorldTests
     [Test]
     public async Task CreateDemo_WithoutConfiguredTemplate_Returns503()
     {
-        // No DemoWorlds:TemplatePath setting at all.
-        var client = _factory.CreateAuthenticatedClient(sub: "auth0|no-template", email: "n@t.com");
+        // The real template now ships in appsettings + build output, so "unconfigured"
+        // must be forced explicitly rather than assumed.
+        var factory = _factory.WithWebHostBuilder(builder =>
+            builder.UseSetting("DemoWorlds:TemplatePath", ""));
+        var token = TestJwtIssuer.GenerateToken("auth0|no-template", "n@t.com", "NoTemplate");
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
         var response = await client.PostAsJsonAsync("/api/worlds/demo", new CreateDemoWorldRequest(Tutorial: true));
 
