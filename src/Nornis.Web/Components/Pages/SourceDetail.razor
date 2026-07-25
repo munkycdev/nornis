@@ -83,7 +83,7 @@
                             <MudMenuItem Icon="@Icons.Material.Outlined.Description" OnClick="ReRunExtractionAsync">
                                 Re-run extraction on this note
                             </MudMenuItem>
-                            @if (Worlds.Current?.MyRole == "GM" && IsTimelineType)
+                            @if (IsTimelineType)
                             {
                                 <MudMenuItem Icon="@Icons.Material.Outlined.Timeline" OnClick="ReplayFromHereAsync">
                                     Re-run from here, in timeline order…
@@ -473,9 +473,12 @@
     // body change goes through the reprocess flow (confirm → cascade delete → requeue).
     private bool CanEdit => _source?.ProcessingStatus is "Draft" or "Ready" or "Failed" or "Processed";
 
-    // Re-run: same states the reprocess endpoint accepts. The server additionally
-    // enforces creator-or-GM; the replay chain is GM-only and timeline-typed.
-    private bool CanReRun => _source is not null
+    // Re-run is a GM affordance: re-extraction spends AI budget and churns the world's
+    // record, so players don't get the button even for their own notes (their path is the
+    // ordinary edit flow, which reprocesses on a body change). Status gate mirrors what
+    // the reprocess endpoint accepts.
+    private bool CanReRun => Worlds.Current?.MyRole == "GM"
+        && _source is not null
         && _source.ExtractionEnabled
         && _source.ProcessingStatus is "Processed" or "Failed";
 
