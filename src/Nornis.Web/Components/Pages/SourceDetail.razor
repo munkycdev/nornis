@@ -75,6 +75,22 @@
                             Reveal to party
                         </MudButton>
                     }
+                    @if (CanReRun)
+                    {
+                        <MudMenu Label="Re-run" Variant="Variant.Outlined" Color="Color.Secondary"
+                                 StartIcon="@Icons.Material.Filled.Replay" EndIcon="@Icons.Material.Filled.KeyboardArrowDown"
+                                 Disabled="_rerunning">
+                            <MudMenuItem Icon="@Icons.Material.Outlined.Description" OnClick="ReRunExtractionAsync">
+                                Re-run extraction on this note
+                            </MudMenuItem>
+                            @if (Worlds.Current?.MyRole == "GM" && IsTimelineType)
+                            {
+                                <MudMenuItem Icon="@Icons.Material.Outlined.Timeline" OnClick="ReplayFromHereAsync">
+                                    Re-run from here, in timeline order…
+                                </MudMenuItem>
+                            }
+                        </MudMenu>
+                    }
                     @if (CanEdit)
                     {
                         <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit"
@@ -90,6 +106,23 @@
                 </div>
             }
         </div>
+
+        @if (_replay is not null && _replay.Status == "Active")
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-3" Icon="@Icons.Material.Outlined.Timeline">
+                <div class="d-flex align-center gap-3 flex-wrap">
+                    <span>
+                        Timeline replay in progress — currently on
+                        <MudLink Href="@($"/sources/{_replay.CurrentSourceId}")">@(_replay.CurrentSourceTitle ?? "a note")</MudLink>
+                        (@ReplayPhase(_replay.CurrentSourceProcessingStatus)), @_replay.RemainingCount more to go.
+                    </span>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default"
+                               OnClick="CancelReplayAsync" Disabled="_cancelingReplay">
+                        Stop replay
+                    </MudButton>
+                </div>
+            </MudAlert>
+        }
 
         @if (_editing)
         {
@@ -440,6 +473,26 @@
     // body change goes through the reprocess flow (confirm → cascade delete → requeue).
     private bool CanEdit => _source?.ProcessingStatus is "Draft" or "Ready" or "Failed" or "Processed";
 
+    // Re-run: same states the reprocess endpoint accepts. The server additionally
+    // enforces creator-or-GM; the replay chain is GM-only and timeline-typed.
+    private bool CanReRun => _source is not null
+        && _source.ExtractionEnabled
+        && _source.ProcessingStatus is "Processed" or "Failed";
+
+    private bool IsTimelineType => _source?.Type is "SessionNote" or "Transcript" or "SessionAudio" or "ImportedNote";
+
+    private ExtractionReplayDto? _replay;
+    private bool _rerunning;
+    private bool _cancelingReplay;
+
+    private static string ReplayPhase(string? processingStatus) => processingStatus switch
+    {
+        "Queued" or "Processing" => "extracting",
+        "Processed" => "awaiting review",
+        "Failed" => "extraction failed — retry it from its page, or stop the replay",
+        _ => "in progress"
+    };
+
     // The API also allows the source creator; the client doesn't know its own user id,
     // so the drag affordance shows for GMs only (map sources are GM uploads in practice).
     private bool CanEditMapPins => Worlds.Current?.MyRole == "GM";
@@ -507,15 +560,30 @@
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(4));
             while (await timer.WaitForNextTickAsync(_pollCts.Token))
             {
-                if (Worlds.Current is null || _source is null || !ActiveStatuses.Contains(_source.ProcessingStatus))
+                if (Worlds.Current is null || _source is null)
                     continue;
 
-                var result = await Api.GetSourceAsync(Worlds.Current.Id, SourceId, _pollCts.Token);
-                if (result.IsSuccess)
+                var sourceActive = ActiveStatuses.Contains(_source.ProcessingStatus);
+                var replayActive = _replay?.Status == "Active";
+                if (!sourceActive && !replayActive)
+                    continue;
+
+                if (sourceActive)
                 {
-                    _source = result.Value!;
-                    await InvokeAsync(StateHasChanged);
+                    var result = await Api.GetSourceAsync(Worlds.Current.Id, SourceId, _pollCts.Token);
+                    if (result.IsSuccess)
+                    {
+                        _source = result.Value!;
+                    }
                 }
+
+                // The replay banner moves as the worker and reviewers progress elsewhere.
+                if (replayActive)
+                {
+                    await RefreshReplayAsync(_pollCts.Token);
+                }
+
+                await InvokeAsync(StateHasChanged);
             }
         }
         catch (OperationCanceledException)
@@ -577,6 +645,7 @@
                 _locations = locations.IsSuccess ? locations.Value! : [];
             }
 
+            await RefreshReplayAsync(CancellationToken.None);
             await LoadKnowledgeAsync();
         }
         else if (result.Error!.Code == "not_found")
@@ -977,6 +1046,155 @@
 
         sb.Append("<p style=\"margin: 0.5em 0 0;\">The note is then processed again and new proposals will appear in the review queue.</p>");
         return new MarkupString(sb.ToString());
+    }
+
+    /// <summary>The GM's replay banner state. Quietly does nothing for non-GMs (403) or on
+    /// transient failures — the banner is a convenience, not a workflow gate.</summary>
+    private async Task RefreshReplayAsync(CancellationToken ct)
+    {
+        if (Worlds.Current is null || Worlds.Current.MyRole != "GM")
+        {
+            _replay = null;
+            return;
+        }
+
+        var result = await Api.GetExtractionReplayAsync(Worlds.Current.Id, ct);
+        if (result.IsSuccess)
+        {
+            _replay = result.Value!.Replay;
+        }
+    }
+
+    /// <summary>Re-run extraction on this note alone: same cascade preview and confirm as a
+    /// body edit, but with nothing changed — the note is re-read as it stands.</summary>
+    private async Task ReRunExtractionAsync()
+    {
+        if (Worlds.Current is null || _source is null)
+        {
+            return;
+        }
+
+        var preview = await Api.GetReprocessPreviewAsync(Worlds.Current.Id, _source.Id);
+        if (!preview.IsSuccess)
+        {
+            Snackbar.Add(preview.Error!.Message, Severity.Error);
+            return;
+        }
+
+        var confirmed = await DialogService.ShowMessageBox(
+            "Re-run extraction on this note?",
+            BuildReRunSummary(preview.Value!),
+            yesText: "Delete & Re-run", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _rerunning = true;
+        var result = await Api.ReprocessSourceAsync(Worlds.Current.Id, _source.Id, new ReprocessSourceRequest());
+        _rerunning = false;
+
+        if (result.IsSuccess)
+        {
+            _source = result.Value!;
+            Snackbar.Add("Old knowledge removed — extraction re-queued.", Severity.Success);
+            _ = PollWhileProcessingAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    /// <summary>Starts the review-paced timeline replay from this note forward.</summary>
+    private async Task ReplayFromHereAsync()
+    {
+        if (Worlds.Current is null || _source is null)
+        {
+            return;
+        }
+
+        var preview = await Api.GetExtractionReplayPreviewAsync(Worlds.Current.Id, _source.Id);
+        if (!preview.IsSuccess)
+        {
+            Snackbar.Add(preview.Error!.Message, Severity.Error);
+            return;
+        }
+
+        var total = preview.Value!.TotalSources;
+        var confirmed = await DialogService.ShowMessageBox(
+            "Re-run the timeline from here?",
+            new MarkupString(
+                $"<p style=\"margin: 0 0 0.75em;\"><b>{total}</b> note(s) — this one and every session or imported note after it — " +
+                "will be re-extracted <b>one at a time, in timeline order</b>.</p>" +
+                "<ul style=\"margin: 0.75em 0; padding-left: 1.4em;\">" +
+                "<li>Each note's previously derived knowledge is deleted and re-proposed, exactly as when editing a note.</li>" +
+                "<li>The replay <b>pauses for your review</b> between notes, so each note is read with its predecessors' " +
+                "accepted locations and storylines in context.</li>" +
+                "<li>Each note is an AI extraction call — expect roughly the same cost as when it was first processed.</li>" +
+                "</ul>" +
+                "<p style=\"margin: 0.5em 0 0;\">You can stop the replay at any time; accepted knowledge stays.</p>"),
+            yesText: $"Re-run {total} note(s)", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _rerunning = true;
+        var result = await Api.StartExtractionReplayAsync(Worlds.Current.Id, _source.Id);
+        _rerunning = false;
+
+        if (result.IsSuccess)
+        {
+            _replay = result.Value!;
+            Snackbar.Add("Timeline replay started — new proposals will appear in the review queue.", Severity.Success);
+            var reload = await Api.GetSourceAsync(Worlds.Current.Id, SourceId);
+            if (reload.IsSuccess)
+            {
+                _source = reload.Value!;
+            }
+            _ = PollWhileProcessingAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private async Task CancelReplayAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _cancelingReplay = true;
+        var result = await Api.CancelExtractionReplayAsync(Worlds.Current.Id);
+        _cancelingReplay = false;
+
+        if (result.IsSuccess)
+        {
+            _replay = null;
+            Snackbar.Add("Replay stopped. The note in flight finishes normally.", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    /// <summary>The re-run confirm: the same cascade facts as the edit flow, framed for an
+    /// unchanged note, with the cost called out.</summary>
+    private static MarkupString BuildReRunSummary(ReprocessPreviewDto preview)
+    {
+        var body = BuildReprocessSummary(preview).Value
+            .Replace("Saving this text change permanently deletes", "Re-running permanently deletes");
+        return new MarkupString(body +
+            "<p style=\"margin: 0.5em 0 0;\">This runs a fresh AI extraction — roughly the same cost as when the note was first processed. " +
+            "For best results, re-run notes oldest-first so each one sees its predecessors' accepted knowledge.</p>");
     }
 
     private async Task DeleteAsync()

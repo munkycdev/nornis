@@ -42,6 +42,11 @@ public class ExtractionService : IExtractionService
     // Worker registers the real retriever. Null means "no library grounding".
     private readonly IReferencePassageRetriever? _passageRetriever;
 
+    // Optional for the same reason. A zero-proposal extraction completes its batch with no
+    // review step, so the replay walk must be nudged from here; batches WITH proposals
+    // advance from the review pipeline instead. Null means "no replay to advance".
+    private readonly IExtractionReplayAdvancer? _replayAdvancer;
+
     private static readonly string[] ValidChangeTypes =
     [
         "CreateArtifact", "UpdateArtifact", "MergeArtifact",
@@ -76,9 +81,11 @@ public class ExtractionService : IExtractionService
         IUnitOfWork unitOfWork,
         IOptions<ExtractionOptions> options,
         ILogger<ExtractionService> logger,
-        IReferencePassageRetriever? passageRetriever = null)
+        IReferencePassageRetriever? passageRetriever = null,
+        IExtractionReplayAdvancer? replayAdvancer = null)
     {
         _passageRetriever = passageRetriever;
+        _replayAdvancer = replayAdvancer;
         _sourceAttachmentRepository = sourceAttachmentRepository;
         _mapPlacemarkRepository = mapPlacemarkRepository;
         _blobStorage = blobStorage;
@@ -908,8 +915,19 @@ public class ExtractionService : IExtractionService
 
         await _reviewBatchRepository.CreateAsync(batch, ct);
         await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Processed, ct);
+        await TryAdvanceReplayAsync(worldId, source.Id, ct);
 
         return ExtractionOutcome.Succeeded(batch.Id, 0);
+    }
+
+    /// <summary>An empty batch is born Completed — no review will ever touch it, so a
+    /// waiting replay is nudged from here. No-op when no advancer is wired.</summary>
+    private async Task TryAdvanceReplayAsync(Guid worldId, Guid sourceId, CancellationToken ct)
+    {
+        if (_replayAdvancer is not null)
+        {
+            await _replayAdvancer.TryAdvanceAsync(worldId, sourceId, ct);
+        }
     }
 
     private async Task<IReadOnlyList<ArtifactContext>> AssembleContextAsync(
@@ -1152,6 +1170,7 @@ public class ExtractionService : IExtractionService
             await _reviewBatchRepository.CreateAsync(emptyBatch, ct);
             await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Processed, ct);
             await TrackUsageAsync(source, worldId, response, true, null, ct, emptyBatch.Id, operationType);
+            await TryAdvanceReplayAsync(worldId, source.Id, ct);
 
             return ExtractionOutcome.Succeeded(emptyBatch.Id, 0);
         }

@@ -94,6 +94,47 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.FromResult<IReadOnlyList<Source>>(result.AsReadOnly());
     }
 
+    public Task<IReadOnlyList<Source>> ListExtractableTimelineAfterAsync(
+        Guid worldId,
+        DateTimeOffset pivotOccurred,
+        DateTimeOffset pivotCreated,
+        int maxCount,
+        CancellationToken cancellationToken = default)
+    {
+        var result = ExtractableTimelineAfter(worldId, pivotOccurred, pivotCreated)
+            .Take(maxCount)
+            .ToList();
+        return Task.FromResult<IReadOnlyList<Source>>(result.AsReadOnly());
+    }
+
+    public Task<int> CountExtractableTimelineAfterAsync(
+        Guid worldId,
+        DateTimeOffset pivotOccurred,
+        DateTimeOffset pivotCreated,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(ExtractableTimelineAfter(worldId, pivotOccurred, pivotCreated).Count());
+    }
+
+    // Mirrors SourceRepository: timeline types in a reprocessable state, strictly after
+    // the pivot tuple, earliest first.
+    private IEnumerable<Source> ExtractableTimelineAfter(
+        Guid worldId, DateTimeOffset pivotOccurred, DateTimeOffset pivotCreated)
+    {
+        SourceType[] timelineTypes =
+            [SourceType.SessionNote, SourceType.Transcript, SourceType.SessionAudio, SourceType.ImportedNote];
+
+        return _sources
+            .Where(s => s.WorldId == worldId
+                && timelineTypes.Contains(s.Type)
+                && s.ExtractionEnabled
+                && s.ProcessingStatus is SourceProcessingStatus.Processed or SourceProcessingStatus.Failed
+                && ((s.OccurredAt ?? s.CreatedAt) > pivotOccurred
+                    || ((s.OccurredAt ?? s.CreatedAt) == pivotOccurred && s.CreatedAt > pivotCreated)))
+            .OrderBy(s => s.OccurredAt ?? s.CreatedAt)
+            .ThenBy(s => s.CreatedAt);
+    }
+
     public Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default)
     {
         var source = _sources.FirstOrDefault(s => s.Id == id);

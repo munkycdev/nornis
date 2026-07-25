@@ -238,6 +238,22 @@ public class NornisApiClient
     public Task<ApiResult<SourceDetailDto>> ReprocessSourceAsync(Guid worldId, Guid sourceId, ReprocessSourceRequest request, CancellationToken ct = default) =>
         PostAsync<ReprocessSourceRequest, SourceDetailDto>($"/api/worlds/{worldId}/sources/{sourceId}/reprocess", request, ct);
 
+    /// <summary>GM-only: the world's active timeline replay; Replay is null when none is running.</summary>
+    public Task<ApiResult<ExtractionReplayStateDto>> GetExtractionReplayAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<ExtractionReplayStateDto>($"/api/worlds/{worldId}/replay", ct);
+
+    /// <summary>GM-only: how many notes a replay starting at this source would walk.</summary>
+    public Task<ApiResult<ExtractionReplayPreviewDto>> GetExtractionReplayPreviewAsync(Guid worldId, Guid startSourceId, CancellationToken ct = default) =>
+        GetAsync<ExtractionReplayPreviewDto>($"/api/worlds/{worldId}/replay/preview?startSourceId={startSourceId}", ct);
+
+    /// <summary>GM-only: starts a timeline replay from this source (one note at a time, review-paced).</summary>
+    public Task<ApiResult<ExtractionReplayDto>> StartExtractionReplayAsync(Guid worldId, Guid startSourceId, CancellationToken ct = default) =>
+        PostAsync<StartExtractionReplayRequest, ExtractionReplayDto>($"/api/worlds/{worldId}/replay", new StartExtractionReplayRequest(startSourceId), ct);
+
+    /// <summary>GM-only: cancels the active timeline replay; the in-flight note finishes normally.</summary>
+    public Task<ApiResult<bool>> CancelExtractionReplayAsync(Guid worldId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/replay", ct);
+
     // ------------------------------------------------------------------ Public --
     // Anonymous read-only endpoints (/w/{slug} pages). Requests go out tokenless on
     // anonymous circuits — BearerTokenHandler no-ops without a token.

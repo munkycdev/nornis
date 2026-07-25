@@ -241,6 +241,25 @@ public record ReprocessPreviewDto(
     int PendingProposalsToDiscard,
     int MapPinsToDelete = 0);
 
+// Mirrors Nornis.Api ExtractionReplayResponse: the world's timeline replay walk.
+public record ExtractionReplayDto(
+    Guid Id,
+    string Status,
+    Guid CurrentSourceId,
+    string? CurrentSourceTitle,
+    string? CurrentSourceProcessingStatus,
+    int RemainingCount,
+    DateTimeOffset CreatedAt);
+
+// Mirrors Nornis.Api ExtractionReplayStateResponse: Replay is null when none is running.
+public record ExtractionReplayStateDto(ExtractionReplayDto? Replay);
+
+// Mirrors Nornis.Api ExtractionReplayPreviewResponse.
+public record ExtractionReplayPreviewDto(int TotalSources);
+
+// Mirrors Nornis.Api StartExtractionReplayRequest.
+public record StartExtractionReplayRequest(Guid StartSourceId);
+
 public record CampaignDto(
     Guid Id,
     Guid WorldId,

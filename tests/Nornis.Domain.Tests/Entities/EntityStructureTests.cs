@@ -135,7 +135,8 @@ public class EntityStructureTests
         // Health) + Campaign/Character/CampaignCharacter (worlds-and-campaigns)
         // + SourceAttachment (handwritten notes) + LibraryDocument/LibraryChunk (Library)
         // + MapPlacemark (map sources) + WorldInvite (world invitations)
-        // + StorylineCampaign (cross-campaign storylines).
-        Assert.That(entityTypes, Has.Count.EqualTo(23));
+        // + StorylineCampaign (cross-campaign storylines)
+        // + ExtractionReplay (timeline re-extraction walk).
+        Assert.That(entityTypes, Has.Count.EqualTo(24));
     }
 }

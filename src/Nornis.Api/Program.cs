@@ -97,6 +97,7 @@ builder.Services.AddScoped<IHealthAssessmentRepository, HealthAssessmentReposito
 builder.Services.AddScoped<ILibraryDocumentRepository, LibraryDocumentRepository>();
 builder.Services.AddScoped<ILibraryChunkRepository, LibraryChunkRepository>();
 builder.Services.AddScoped<IMapPlacemarkRepository, MapPlacemarkRepository>();
+builder.Services.AddScoped<IExtractionReplayRepository, ExtractionReplayRepository>();
 builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
 // Application service registrations
@@ -108,6 +109,8 @@ builder.Services.AddScoped<ICampaignService, CampaignService>();
 builder.Services.AddScoped<ICharacterService, CharacterService>();
 builder.Services.AddScoped<ISourceService, SourceService>();
 builder.Services.AddScoped<ISourceReprocessService, SourceReprocessService>();
+builder.Services.AddScoped<IExtractionReplayService, ExtractionReplayService>();
+builder.Services.AddScoped<IExtractionReplayAdvancer>(sp => sp.GetRequiredService<IExtractionReplayService>());
 builder.Services.AddScoped<IMapViewService, MapViewService>();
 builder.Services.AddScoped<IJourneyMapService, JourneyMapService>();
 builder.Services.AddScoped<ISourceLocationService, SourceLocationService>();

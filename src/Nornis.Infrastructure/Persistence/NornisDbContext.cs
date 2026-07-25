@@ -34,6 +34,7 @@ public class NornisDbContext : DbContext
     public DbSet<LibraryDocument> LibraryDocuments => Set<LibraryDocument>();
     public DbSet<LibraryChunk> LibraryChunks => Set<LibraryChunk>();
     public DbSet<MapPlacemark> MapPlacemarks => Set<MapPlacemark>();
+    public DbSet<ExtractionReplay> ExtractionReplays => Set<ExtractionReplay>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -208,4 +208,69 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
 
         Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "S3", "S2" }));
     }
+
+    // ------------------------------------------------- Replay queue (After) --
+
+    [Test]
+    public async Task After_ReturnsOnlyStrictlyLaterEligibleSources_EarliestFirst()
+    {
+        var (world, user) = SeedWorldAndUser();
+        SeedSource(world.Id, user.Id, "Before", Day5, Day5);
+        SeedSource(world.Id, user.Id, "Later A", Day15, Day15);
+        SeedSource(world.Id, user.Id, "Later B", Day20, Day20);
+        var repo = new SourceRepository(Context);
+
+        var result = await repo.ListExtractableTimelineAfterAsync(world.Id, Day10, Day10, 10);
+
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Later A", "Later B" }));
+    }
+
+    [Test]
+    public async Task After_SameEffectiveDate_CreatedAtBreaksTheTie()
+    {
+        var (world, user) = SeedWorldAndUser();
+        SeedSource(world.Id, user.Id, "Uploaded before pivot", Day10, Day10);
+        SeedSource(world.Id, user.Id, "Uploaded after pivot", Day10, Day10.AddMinutes(30));
+        var repo = new SourceRepository(Context);
+
+        var result = await repo.ListExtractableTimelineAfterAsync(
+            world.Id, Day10, Day10.AddMinutes(10), 10);
+
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Uploaded after pivot" }));
+    }
+
+    [Test]
+    public async Task After_ExcludesIneligibleSources()
+    {
+        var (world, user) = SeedWorldAndUser();
+        var noExtraction = SeedSource(world.Id, user.Id, "No extraction", Day15, Day15);
+        noExtraction.ExtractionEnabled = false;
+        Context.SaveChanges();
+        SeedSource(world.Id, user.Id, "A map", Day15, Day15, SourceType.Map);
+        var draft = SeedSource(world.Id, user.Id, "Still a draft", Day15, Day15);
+        draft.ProcessingStatus = SourceProcessingStatus.Draft;
+        Context.SaveChanges();
+        SeedSource(world.Id, user.Id, "Failed but retryable", Day20, Day20)
+            .ProcessingStatus = SourceProcessingStatus.Failed;
+        Context.SaveChanges();
+        var repo = new SourceRepository(Context);
+
+        var result = await repo.ListExtractableTimelineAfterAsync(world.Id, Day10, Day10, 10);
+
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Failed but retryable" }));
+    }
+
+    [Test]
+    public async Task After_CountMatchesUnboundedList()
+    {
+        var (world, user) = SeedWorldAndUser();
+        SeedSource(world.Id, user.Id, "S1", Day10, Day10);
+        SeedSource(world.Id, user.Id, "S2", Day15, Day15);
+        SeedSource(world.Id, user.Id, "S3", Day20, Day20);
+        var repo = new SourceRepository(Context);
+
+        var count = await repo.CountExtractableTimelineAfterAsync(world.Id, Day5, Day5);
+
+        Assert.That(count, Is.EqualTo(3));
+    }
 }

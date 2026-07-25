@@ -22,6 +22,10 @@ public class ReviewService : IReviewService
     private readonly IProposalValidator _proposalValidator;
     private readonly IProposalApplicator _proposalApplicator;
 
+    // Optional so the many existing ReviewService constructions keep compiling; the hosts
+    // register the real advancer. Null means "no replay to advance".
+    private readonly IExtractionReplayAdvancer? _replayAdvancer;
+
     public ReviewService(
         IReviewProposalRepository reviewProposalRepository,
         IReviewBatchRepository reviewBatchRepository,
@@ -32,8 +36,10 @@ public class ReviewService : IReviewService
         ISourceReferenceRepository sourceReferenceRepository,
         IUnitOfWork unitOfWork,
         IProposalValidator proposalValidator,
-        IProposalApplicator proposalApplicator)
+        IProposalApplicator proposalApplicator,
+        IExtractionReplayAdvancer? replayAdvancer = null)
     {
+        _replayAdvancer = replayAdvancer;
         _reviewProposalRepository = reviewProposalRepository;
         _reviewBatchRepository = reviewBatchRepository;
         _sourceRepository = sourceRepository;
@@ -708,6 +714,14 @@ public class ReviewService : IReviewService
         {
             await _reviewBatchRepository.UpdateCompletedAsync(
                 batchId, DateTimeOffset.UtcNow, ct);
+
+            // The last proposal just resolved: if a timeline replay is waiting on this
+            // source, it may now advance. Only the extraction batch counts — named sweep
+            // batches (Kind != null) are not part of the replay walk. TryAdvance never throws.
+            if (_replayAdvancer is not null && batch.Kind is null)
+            {
+                await _replayAdvancer.TryAdvanceAsync(batch.WorldId, batch.SourceId, ct);
+            }
         }
     }
 }

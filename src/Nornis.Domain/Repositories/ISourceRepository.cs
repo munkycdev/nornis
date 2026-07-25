@@ -31,6 +31,26 @@ public interface ISourceRepository
         int maxCount,
         CancellationToken cancellationToken = default);
 
+    /// <summary>The replay queue: timeline sources eligible for re-extraction (timeline
+    /// types, extraction enabled, Processed or Failed) strictly after a pivot moment,
+    /// earliest first. World-wide and unfiltered by visibility — a replay is GM-driven and
+    /// walks the whole record. Same pivot tuple convention as
+    /// <see cref="ListTimelineBeforeAsync"/>.</summary>
+    Task<IReadOnlyList<Source>> ListExtractableTimelineAfterAsync(
+        Guid worldId,
+        DateTimeOffset pivotOccurred,
+        DateTimeOffset pivotCreated,
+        int maxCount,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>How many sources <see cref="ListExtractableTimelineAfterAsync"/> would return
+    /// unbounded — the replay's "remaining" count for progress display.</summary>
+    Task<int> CountExtractableTimelineAfterAsync(
+        Guid worldId,
+        DateTimeOffset pivotOccurred,
+        DateTimeOffset pivotCreated,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Scoped Body write — used by the worker to persist a vision transcription.</summary>
     Task UpdateBodyAsync(Guid id, string body, CancellationToken cancellationToken = default);
 

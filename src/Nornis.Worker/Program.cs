@@ -75,6 +75,8 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<IArtifactFactRepository, ArtifactFactRepository>();
         services.AddScoped<IArtifactRelationshipRepository, ArtifactRelationshipRepository>();
         services.AddScoped<IMapPlacemarkRepository, MapPlacemarkRepository>();
+        services.AddScoped<ICharacterRepository, CharacterRepository>();
+        services.AddScoped<IExtractionReplayRepository, ExtractionReplayRepository>();
 
         // Azure OpenAI client
         services.AddSingleton<ChatClient>(sp =>
@@ -103,6 +105,19 @@ var builder = Host.CreateDefaultBuilder(args)
 
         // Extraction service
         services.AddScoped<IExtractionService, ExtractionService>();
+
+        // Timeline replay: a zero-proposal extraction completes with no review step, so
+        // the worker itself must be able to advance the walk — which cascades and requeues
+        // the next source. That needs the reprocess service and a real queue sender.
+        services.AddSingleton(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
+            return new Azure.Messaging.ServiceBus.ServiceBusClient(options.ConnectionString);
+        });
+        services.AddSingleton<Nornis.Application.Messaging.IExtractionQueueClient, ServiceBusExtractionQueueClient>();
+        services.AddScoped<ISourceReprocessService, SourceReprocessService>();
+        services.AddScoped<IExtractionReplayService, ExtractionReplayService>();
+        services.AddScoped<IExtractionReplayAdvancer>(sp => sp.GetRequiredService<IExtractionReplayService>());
 
         // Relationship backfill sweep (same queue, ExtractionKind.RelationshipBackfill messages)
         services.AddScoped<IRelationshipBackfillAiClient, AzureOpenAiRelationshipBackfillClient>();
