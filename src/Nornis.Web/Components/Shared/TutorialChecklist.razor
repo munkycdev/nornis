@@ -18,8 +18,14 @@
             <span class="nornis-tutorial-title">
                 @(AllDone ? "Tutorial complete!" : $"Getting started · {DoneCount} of {_steps.Count}")
             </span>
-            <MudIconButton Icon="@(_collapsed ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                           Size="Size.Small" aria-label="Collapse tutorial" />
+            @* MudBlazor buttons swallow the click rather than letting the head's handler
+               see it, so the chevron needs its own toggle. The wrapper keeps the two from
+               firing in sequence and cancelling each other out. *@
+            <span @onclick:stopPropagation="true">
+                <MudIconButton Icon="@(_collapsed ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                               Size="Size.Small" OnClick="ToggleCollapsed"
+                               aria-label="@(_collapsed ? "Expand tutorial" : "Collapse tutorial")" />
+            </span>
             <span @onclick:stopPropagation="true">
                 <MudTooltip Text="Dismiss the tutorial for good">
                     <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
@@ -218,10 +224,19 @@
             _ => null,
         };
 
-        if (stepKey is not null && !Completed(stepKey))
+        _ = InvokeAsync(async () =>
         {
-            _ = InvokeAsync(() => ReportAsync(world.Id, stepKey));
-        }
+            if (stepKey is not null)
+            {
+                await ReportAsync(world.Id, stepKey);
+            }
+
+            // The state-detected steps only tick when the checklist is fetched, and
+            // reporting a step doesn't run the detectors. Refreshing on arrival means
+            // "Add the Session 6 notes" is checked by the time submitting from Capture
+            // lands on Sources, instead of waiting out the next poll.
+            await RefreshAsync();
+        });
     }
 
     private bool Completed(string key) =>
