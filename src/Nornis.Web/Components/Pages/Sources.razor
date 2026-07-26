@@ -5,16 +5,17 @@
 
 <PageTitle>Sources — Nornis</PageTitle>
 
-<div class="d-flex align-center justify-space-between mb-4">
+<div class="nornis-page-head">
     <div>
         <MudText Typo="Typo.h4" Class="nornis-serif">Sources</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">The layers beneath your epic.</MudText>
     </div>
-    <div class="d-flex gap-3 align-center">
+    <div class="nornis-page-head-actions">
         @if (_campaigns.Count > 0)
         {
+            @* Dense margin so the filter matches the button beside it rather than towering over it. *@
             <MudSelect T="string" Value="_campaignFilter" ValueChanged="OnCampaignFilterChanged"
-                       Dense="true" Variant="Variant.Outlined" Class="nornis-role-select">
+                       Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="nornis-role-select">
                 <MudSelectItem T="string" Value="@("")">All campaigns</MudSelectItem>
                 <MudSelectItem T="string" Value="@("none")">No campaign</MudSelectItem>
                 @foreach (var c in _campaigns)

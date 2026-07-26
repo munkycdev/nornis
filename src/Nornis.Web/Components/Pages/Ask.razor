@@ -11,12 +11,12 @@
 <PageTitle>Ask the Loremaster — Nornis</PageTitle>
 
 <div>
-    <div class="d-flex align-center justify-space-between mb-4">
+    <div class="nornis-page-head">
         <div>
             <MudText Typo="Typo.h4" Class="nornis-serif">Ask the Loremaster</MudText>
             <MudText Typo="Typo.body2" Color="Color.Secondary">Grounded in your world — with citations.</MudText>
         </div>
-        <div class="d-flex align-center gap-2">
+        <div class="nornis-page-head-actions gap-2">
             @if (_conversations.Count > 0)
             {
                 <MudMenu Icon="@Icons.Material.Filled.History" Color="Color.Default" AriaLabel="Conversation history" Dense="true">
@@ -155,9 +155,11 @@
                           OnKeyUp="OnKeyUp"
                           Disabled="_asking"
                           Class="flex-grow-1" />
+            @* Small keeps the send button inside the dense field's height, as on the public world page. *@
             <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
                            Variant="Variant.Filled"
                            Color="Color.Primary"
+                           Size="Size.Small"
                            OnClick="SendAsync"
                            Disabled="_asking"
                            aria-label="Ask" />

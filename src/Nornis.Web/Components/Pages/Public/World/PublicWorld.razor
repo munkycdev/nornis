@@ -13,7 +13,10 @@
            Single-shot (no thread) and Library-free; the API enforces the spend cap. *@
         @if (world.AskEnabled)
         {
-            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-lm mb-4">
+            @* Borrows the Loremaster's composer/answer styling but not .nornis-lm — that class
+               caps the card at the viewport height for the sticky Capture rail, and here the
+               answer would spill out of the clamped box over the cards below. *@
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4">
                 <div class="nornis-card-header">
                     <span class="nornis-card-title">
                         <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />

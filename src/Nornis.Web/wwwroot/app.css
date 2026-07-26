@@ -1011,6 +1011,41 @@ a.nornis-tutorial-step-title:hover {
     margin-bottom: 14px;
 }
 
+/* Standard page header: title block on the left, page actions on the right. Named
+   rather than assembled from utility classes so the phone rules have one place to
+   stack it — packed side by side, the actions push past a narrow viewport. */
+.nornis-page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.nornis-page-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* A dense outlined MudBlazor input is 40px tall plus 4px of margin either side, so a
+   filter sitting beside a 36.5px medium button visibly towers over it. Trim the control
+   to the button's height and let its flex box re-centre the value and the arrow. */
+.nornis-page-head-actions .mud-input-control-margin-dense {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.nornis-page-head-actions .mud-input.mud-input-outlined.mud-input-margin-dense {
+    height: 36.5px;
+    align-items: center;
+}
+
+.nornis-page-head-actions .mud-input.mud-input-outlined.mud-input-margin-dense .mud-input-slot {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
 .nornis-list-row {
     display: flex;
     align-items: center;
@@ -1054,20 +1089,29 @@ a.nornis-tutorial-step-title:hover {
     min-width: 0;
 }
 
+/* Titles and subtitles carry user-supplied names — uploaded filenames, artifact names —
+   which arrive as single unbreakable tokens often enough to widen a phone page. */
 .nornis-list-title {
     font-weight: 600;
     color: var(--mud-palette-text-primary);
     font-size: 0.9rem;
+    overflow-wrap: anywhere;
 }
 
 .nornis-list-sub {
     font-size: 0.78rem;
     color: var(--mud-palette-text-secondary);
+    overflow-wrap: anywhere;
 }
 
 .nornis-list-meta {
     font-size: 0.76rem;
     color: var(--mud-palette-text-secondary);
+}
+
+/* Inline metas are short stamps ("advanced 3h ago", "82% confidence") and read better
+   unbroken; the block-level ones carry prose — quotes, suggested actions — and must wrap. */
+span.nornis-list-meta {
     white-space: nowrap;
 }
 
@@ -1906,8 +1950,35 @@ a.nornis-cite:hover {
     /* Rows that pack controls horizontally need to stack rather than overflow. */
     .nornis-add-member,
     .nornis-member-row,
-    .nornis-proposal-actions {
+    .nornis-proposal-actions,
+    .nornis-page-head,
+    .nornis-page-head-actions {
         flex-wrap: wrap;
+    }
+
+    /* The title claims the full width so the actions drop to their own line under it
+       instead of squeezing it to nothing. */
+    .nornis-page-head {
+        align-items: flex-start;
+    }
+
+    .nornis-page-head > :first-child {
+        flex: 1 1 100%;
+    }
+
+    /* List rows carry a body plus action buttons that won't shrink; without wrapping the
+       buttons crush the body to a few pixels and shove the row past the viewport. */
+    .nornis-list-row {
+        flex-wrap: wrap;
+    }
+
+    .nornis-list-body {
+        flex: 1 1 55%;
+    }
+
+    /* Nothing is worth an off-screen line at this width. */
+    span.nornis-list-meta {
+        white-space: normal;
     }
 
     .nornis-role-select {
@@ -1919,6 +1990,14 @@ a.nornis-cite:hover {
 .nornis-suggestions-ask {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-top: 24px;
+}
+
+@media (max-width: 600px) {
+    /* One column: side by side these wrap to three cramped lines each on a phone.
+       Declared after the shared .nornis-suggestions rule so it isn't overridden by it. */
+    .nornis-suggestions-ask {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 /* ============================================================== Public site -- */
@@ -2176,6 +2255,21 @@ a.nornis-cite:hover {
 @media (max-width: 700px) {
     .nornis-public-sections {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    /* All five tabs on one line at the desktop scale run ~450px wide and drag the whole
+       page past the viewport. Tightened type and padding fit them across a 375px phone;
+       wrapping is the backstop for anything narrower. */
+    .nornis-public-tabs {
+        flex-wrap: wrap;
+        gap: 2px;
+    }
+
+    .nornis-public-tab {
+        padding: 8px 7px;
+        font-size: 0.75rem;
     }
 }
 
