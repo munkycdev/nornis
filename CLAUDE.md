@@ -12,20 +12,22 @@ Start with [README.md](README.md) for what Nornis is and how to build it, then
 - **If you are Fable 5:** do not write or edit source files yourself. Hand the work to
   the `implementer` subagent (Opus) with a self-contained spec — it cannot see this
   conversation, so state the goal, the files or areas involved, the constraints, and
-  what "done" means. When it reports back, pass its summary *and the list of files it
-  changed* to the `code-critic` subagent (Opus, read-only) for an independent review.
-  Relay the critic's findings, then decide with the user what to act on.
+  what "done" means. Review what comes back yourself, or route it to the `code-critic`
+  subagent (also Fable, read-only) when an independent read with no memory of the spec
+  would catch more. Decide with the user what to act on.
 
   Trivial mechanical edits — a typo, a version bump, a one-line copy change — do not
   need this. Delegate when the change involves judgment.
 
-- **If you are Opus or Sonnet:** implement directly. Delegating to a same-tier
-  subagent only costs a context round trip. Reach for `code-critic` on your own work
-  when the change is large or touches authorization, visibility, or migrations —
-  an independent reader with no memory of writing it catches what you cannot.
+- **If you are Opus or Sonnet:** implement directly. Reach for `code-critic` on your
+  own work when the change is large or touches authorization, visibility, or
+  migrations — it escalates to a stronger model *and* reads with no memory of having
+  written the code.
 
-The point of the Fable path is cost: cheap orchestration, expensive implementation,
-expensive review. Review must never be done by a weaker model than the one that wrote
+Fable is the most capable tier and the most expensive, and its turns run long. The
+point of the split is to spend it where judgment compounds — deciding what to build,
+and reviewing what came back — while the high-volume token work of actually writing
+the code happens on Opus. Never review with a model weaker than the one that wrote
 the code.
 
 ## Working conventions
