@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Nornis.Application.Application;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
@@ -230,8 +231,18 @@ public class ReviewService : IReviewService
         PropertyNameCaseInsensitive = true
     };
 
-    public async Task<AppResult<AcceptProposalResult>> AcceptProposalAsync(
-        AcceptProposalCommand command, CancellationToken ct)
+    public Task<AppResult<AcceptProposalResult>> AcceptProposalAsync(
+        AcceptProposalCommand command, CancellationToken ct) =>
+        AcceptProposalCoreAsync(command, allowCascade: true, ct);
+
+    /// <summary>
+    /// <paramref name="allowCascade"/>: when a name-referenced accept fails because its
+    /// artifact only exists as a sibling Create proposal, accept those prerequisites and
+    /// retry once — so accept order within a batch never matters to the reviewer. The
+    /// retry and the prerequisites themselves run with cascading off (no loops).
+    /// </summary>
+    private async Task<AppResult<AcceptProposalResult>> AcceptProposalCoreAsync(
+        AcceptProposalCommand command, bool allowCascade, CancellationToken ct)
     {
         var proposal = await _reviewProposalRepository.GetByIdAsync(command.ProposalId, ct);
         if (proposal is null)
@@ -283,6 +294,12 @@ public class ReviewService : IReviewService
             if (!applyResult.IsSuccess)
             {
                 await transaction.RollbackAsync(ct);
+
+                if (allowCascade && applyResult.Error!.Code == "artifact_name_not_found")
+                {
+                    return await AcceptWithPrerequisitesAsync(command, proposal, batch, ct);
+                }
+
                 return AppResult<AcceptProposalResult>.Fail(applyResult.Error!);
             }
 
@@ -306,6 +323,84 @@ public class ReviewService : IReviewService
 
         return AppResult<AcceptProposalResult>.Success(new AcceptProposalResult(
             proposal.Id, proposal.Status, proposal.ReviewedAt!.Value, proposal.ReviewedByUserId!.Value, proposal.TargetId));
+    }
+
+    /// <summary>
+    /// The failed proposal references artifacts by name that don't exist yet. If the same
+    /// batch holds undecided Create proposals for those names, accept them first, then
+    /// retry the original — turning "accept its Create proposal first" from an error the
+    /// reviewer must untangle into something the pipeline just does.
+    /// </summary>
+    private async Task<AppResult<AcceptProposalResult>> AcceptWithPrerequisitesAsync(
+        AcceptProposalCommand command, ReviewProposal proposal, ReviewBatch batch, CancellationToken ct)
+    {
+        var referenced = ExtractReferencedArtifactNames(proposal.ProposedValueJson);
+        var siblings = await _reviewProposalRepository.ListByReviewBatchAsync(batch.Id, ct);
+
+        var prerequisites = siblings
+            .Where(s => s.ChangeType == ReviewChangeType.CreateArtifact
+                && s.Status is ReviewProposalStatus.Pending or ReviewProposalStatus.Edited
+                && ExtractCreateName(s.ProposedValueJson) is { } name
+                && referenced.Contains(name))
+            .ToList();
+
+        if (prerequisites.Count == 0)
+        {
+            // Nothing in the batch can satisfy the reference; surface the original error.
+            return AppResult<AcceptProposalResult>.Fail(new AppError(404, "artifact_name_not_found",
+                "The proposal references an artifact that does not exist and is not proposed in this batch."));
+        }
+
+        foreach (var prerequisite in prerequisites)
+        {
+            var prereqResult = await AcceptProposalCoreAsync(
+                command with { ProposalId = prerequisite.Id }, allowCascade: false, ct);
+            if (!prereqResult.IsSuccess)
+            {
+                return AppResult<AcceptProposalResult>.Fail(prereqResult.Error!);
+            }
+        }
+
+        return await AcceptProposalCoreAsync(command, allowCascade: false, ct);
+    }
+
+    private static HashSet<string> ExtractReferencedArtifactNames(string proposedValueJson)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var doc = JsonDocument.Parse(proposedValueJson);
+            foreach (var key in (string[])["artifactName", "artifactAName", "artifactBName"])
+            {
+                if (doc.RootElement.TryGetProperty(key, out var el)
+                    && el.ValueKind == JsonValueKind.String
+                    && el.GetString() is { } s && !string.IsNullOrWhiteSpace(s))
+                {
+                    names.Add(s.Trim());
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Unparseable payloads already failed validation upstream.
+        }
+
+        return names;
+    }
+
+    private static string? ExtractCreateName(string proposedValueJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(proposedValueJson);
+            return doc.RootElement.TryGetProperty("name", out var el) && el.ValueKind == JsonValueKind.String
+                ? el.GetString()?.Trim()
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     public async Task<AppResult<RejectProposalResult>> RejectProposalAsync(

@@ -21,6 +21,7 @@ public static class TutorialSteps
     public const string MeetTheCast = "meet-the-cast";
     public const string WalkTheJourney = "walk-the-journey";
     public const string StandSomewhere = "stand-somewhere";
+    public const string VisitCapture = "visit-capture";
     public const string AskTheLoremaster = "ask-the-loremaster";
 
     // Chapter 2 — running a campaign.
@@ -39,6 +40,7 @@ public static class TutorialSteps
         new(MeetTheCast, 1, ClientReported: true),
         new(WalkTheJourney, 1, ClientReported: true),
         new(StandSomewhere, 1, ClientReported: true),
+        new(VisitCapture, 1, ClientReported: true),
         new(AskTheLoremaster, 1, ClientReported: false),
         new(BackToGm, 2, ClientReported: true),
         new(AddSessionSix, 2, ClientReported: false),

@@ -101,9 +101,9 @@ public class TutorialTests
 
         var checklist = await _client.GetFromJsonAsync<TutorialChecklistResponse>($"/api/worlds/{world.Id}/tutorial");
 
-        Assert.That(checklist!.Steps, Has.Count.EqualTo(11));
+        Assert.That(checklist!.Steps, Has.Count.EqualTo(12));
         Assert.That(checklist.Steps.All(s => s.CompletedAt is null), Is.True);
-        Assert.That(checklist.Steps.Count(s => s.Chapter == 1), Is.EqualTo(5));
+        Assert.That(checklist.Steps.Count(s => s.Chapter == 1), Is.EqualTo(6));
         Assert.That(checklist.Steps.Count(s => s.Chapter == 2), Is.EqualTo(6));
     }
 
@@ -173,6 +173,25 @@ public class TutorialTests
 
         Assert.That(checklist!.Steps.Single(s => s.Key == "vet-extraction").CompletedAt, Is.Not.Null);
         Assert.That(checklist.Steps.Single(s => s.Key == "reveal-secret").CompletedAt, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task Tutorial_SourceReveal_CompletesRevealSecret()
+    {
+        // Revealing a GM-only source is the reveal path a GM finds naturally (Sources →
+        // GM note → "Reveal to the party"); it must check the step off just like the
+        // artifact-level reveal. Field-reported 2026-07-26.
+        var world = await CreateDemoWorldAsync();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        var gmSource = db.Sources.First(s => s.WorldId == world.Id && s.Visibility == Nornis.Domain.Enums.VisibilityScope.GMOnly);
+
+        var reveal = await _client.PostAsync($"/api/worlds/{world.Id}/sources/{gmSource.Id}/reveal", null);
+        Assert.That(reveal.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var checklist = await _client.GetFromJsonAsync<TutorialChecklistResponse>($"/api/worlds/{world.Id}/tutorial");
+        Assert.That(checklist!.Steps.Single(s => s.Key == "reveal-secret").CompletedAt, Is.Not.Null);
     }
 
     [Test]
@@ -258,7 +277,11 @@ public class TutorialTests
             {"sources":[{"id":"{{SourceId}}","campaignId":null,"type":"SessionNote",
                "title":"Session 1","body":"Wrecks.","uri":null,
                "occurredAt":"2026-01-02T00:00:00Z","visibility":"PartyVisible",
-               "processingStatus":"Processed","extractionEnabled":true,"derivedText":null}],
+               "processingStatus":"Processed","extractionEnabled":true,"derivedText":null},
+              {"id":"{{Guid.NewGuid()}}","campaignId":null,"type":"GMNote",
+               "title":"GM prep - the secret","body":"Voss is the last Bellwarden.",
+               "uri":null,"occurredAt":null,"visibility":"GMOnly",
+               "processingStatus":"Processed","extractionEnabled":false,"derivedText":null}],
              "extractions":[],"references":[]}
             """);
 

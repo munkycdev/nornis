@@ -79,16 +79,17 @@
 
     private static readonly Dictionary<string, Meta> StepMeta = new()
     {
-        ["see-as-player"] = new("See it as a player", null, "Click the GM chip in the sidebar to view as a player."),
-        ["meet-the-cast"] = new("Meet the cast", "/artifacts", "Browse the codex Nornis built from the notes."),
-        ["walk-the-journey"] = new("Walk the journey", "/timeline", "Follow the party session by session."),
-        ["stand-somewhere"] = new("Stand somewhere", "/locations", "Pick a place on the map and see its history."),
-        ["ask-the-loremaster"] = new("Ask the Loremaster", "/", "Ask anything the party would know."),
-        ["back-to-gm"] = new("Return to GM view", null, "Flip the sidebar chip back — notice what appears."),
-        ["add-session-six"] = new("Add the Session 6 notes", "/capture", "Paste the next session and let Nornis read it."),
-        ["watch-extraction"] = new("Watch Nornis think", "/sources", "The new session processes into proposals."),
-        ["vet-extraction"] = new("Vet the extraction", "/review", "Accept or correct at least one proposal."),
-        ["reveal-secret"] = new("Reveal the Castellan's design", "/artifacts", "Promote a GM secret to the party."),
+        ["see-as-player"] = new("See it as a player", null, "Click the GM chip under the world name in the sidebar."),
+        ["meet-the-cast"] = new("Meet the cast", "/artifacts", "Click Codex in the sidebar and browse what Nornis built from the notes."),
+        ["walk-the-journey"] = new("Walk the journey", "/timeline", "Click Timeline in the sidebar and follow the party session by session."),
+        ["stand-somewhere"] = new("Stand somewhere", "/locations", "Click Locations in the sidebar and pick a place on the map."),
+        ["visit-capture"] = new("See where notes go in", "/capture", "Click Capture in the sidebar — this is where session notes enter the world."),
+        ["ask-the-loremaster"] = new("Ask the Loremaster", "/", "Click Ask in the sidebar, then ask anything the party would know."),
+        ["back-to-gm"] = new("Return to GM view", null, "Click \"back to GM\" on the sidebar chip — notice what appears."),
+        ["add-session-six"] = new("Add the Session 6 notes", "/capture", "Click Capture, paste the Session 6 notes as a new session, and mark it ready."),
+        ["watch-extraction"] = new("Watch Nornis think", "/sources", "Click Sources and watch the new session process."),
+        ["vet-extraction"] = new("Vet the extraction", "/review", "Click Review and accept or correct at least one proposal."),
+        ["reveal-secret"] = new("Reveal the Castellan's design", "/sources", "Click Sources, open a GM note, and choose Reveal to the party."),
         ["see-what-they-see"] = new("See what they see", null, "View as player again — the secret is there now."),
     };
 
@@ -213,6 +214,7 @@
             var p when p.StartsWith("/artifacts", StringComparison.OrdinalIgnoreCase) => "meet-the-cast",
             var p when p.StartsWith("/timeline", StringComparison.OrdinalIgnoreCase) => "walk-the-journey",
             var p when p.StartsWith("/locations", StringComparison.OrdinalIgnoreCase) => "stand-somewhere",
+            var p when p.StartsWith("/capture", StringComparison.OrdinalIgnoreCase) => "visit-capture",
             _ => null,
         };
 

@@ -12,7 +12,9 @@ namespace Nornis.Infrastructure.Ai;
 /// </summary>
 public class AzureOpenAiWorldNameGenerator : IWorldNameGenerator
 {
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(3);
+    // Generous enough for a cold Azure OpenAI call — both prod fallback names observed on
+    // 2026-07-25/26 were plausibly 3s timeouts. Import dominates creation time anyway.
+    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(8);
 
     private readonly ChatClient _chatClient;
     private readonly ILogger<AzureOpenAiWorldNameGenerator> _logger;

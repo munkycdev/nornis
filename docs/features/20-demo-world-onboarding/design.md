@@ -200,13 +200,14 @@ Steps and their detectors (all detectors are existing read models — no new wri
 | 1.2 | Meet the cast | `/artifacts` | Codex visited (client-reported route visit) |
 | 1.3 | Walk the journey | `/timeline` | Timeline visited (client-reported route visit) |
 | 1.4 | Stand somewhere | `/locations` | Locations visited (client-reported route visit) |
-| 1.5 | Ask the Loremaster | `/` | An `AskLoremaster` AI-usage record by this user in this world |
+| 1.5 | See where notes go in | `/capture` | Capture visited (client-reported route visit) |
+| 1.6 | Ask the Loremaster | `/` | An `AskLoremaster` AI-usage record by this user in this world |
 | **Chapter 2 — Running a campaign** ||||
 | 2.1 | Back to GM view | — | `ViewingAsPlayer` turned off |
 | 2.2 | Add Session 6 | `/capture` | A new source exists post-creation |
 | 2.3 | Watch it think | `/sources` | That source reaches `Processed` |
 | 2.4 | Vet the extraction | `/review` | ≥1 proposal decided by the user |
-| 2.5 | Reveal a secret | `/artifacts` | ≥1 reveal batch exists (feature 17) |
+| 2.5 | Reveal a secret | `/sources` | Either reveal path: a Kind="Reveal" batch (feature 17 canon reveal), or a source reveal — which leaves no other trace, so `RevealSourceAsync` records the step directly on demo worlds |
 | 2.6 | See what they see | — | `ViewingAsPlayer` on again after 2.5 |
 
 Two detector notes: the page-visit steps (1.2–1.4) are client-reported (a `StepKey` POST on
@@ -224,6 +225,11 @@ The 2.2→2.3→2.4 chain is the product's centerpiece and the one real AI spend
 (one source extraction, on the world's default budget). Step 2.5 leans on
 [RevealService](../17-knowledge-reveal/design.md): the template ships "The Castellan's
 design" and its `GMOnly` elements precisely so there is something satisfying to reveal.
+
+Step 2.4's field shakedown surfaced an accept-order trap (facts referencing a sibling
+Create proposal failed until the create was accepted), fixed generally in
+`ReviewService`: an accept that fails `artifact_name_not_found` now accepts matching
+sibling Create proposals and retries once, so accept order within a batch never matters.
 
 ## Testing
 

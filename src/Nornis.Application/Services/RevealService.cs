@@ -33,6 +33,11 @@ public class RevealService : IRevealService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<RevealService> _logger;
 
+    // Optional so existing constructions keep compiling; hosts register them. Used only to
+    // check off the demo tutorial's reveal step (feature 20) — reveals work without them.
+    private readonly IWorldRepository? _worldRepository;
+    private readonly ITutorialProgressRepository? _tutorialProgressRepository;
+
     public RevealService(
         IArtifactRepository artifactRepository,
         IArtifactFactRepository factRepository,
@@ -42,7 +47,9 @@ public class RevealService : IRevealService
         IReviewProposalRepository reviewProposalRepository,
         IProposalApplicator proposalApplicator,
         IUnitOfWork unitOfWork,
-        ILogger<RevealService> logger)
+        ILogger<RevealService> logger,
+        IWorldRepository? worldRepository = null,
+        ITutorialProgressRepository? tutorialProgressRepository = null)
     {
         _artifactRepository = artifactRepository;
         _factRepository = factRepository;
@@ -53,6 +60,8 @@ public class RevealService : IRevealService
         _proposalApplicator = proposalApplicator;
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _worldRepository = worldRepository;
+        _tutorialProgressRepository = tutorialProgressRepository;
     }
 
     public async Task<AppResult<RevealResult>> RevealAsync(RevealCommand command, CancellationToken ct)
@@ -323,7 +332,50 @@ public class RevealService : IRevealService
             "Source revealed to the party. WorldId={WorldId}, SourceId={SourceId}, User={UserId}",
             worldId, sourceId, actingUserId);
 
+        await RecordTutorialRevealAsync(worldId, actingUserId, ct);
+
         return AppResult<RevealSourceResult>.Success(new RevealSourceResult(source.Id, source.Title, false));
+    }
+
+    /// <summary>
+    /// Revealing a source is one of the two reveal paths the demo tutorial accepts (the
+    /// other, canon reveal, is detected from its Kind="Reveal" batch). Source reveal leaves
+    /// no other trace, so the step is recorded here directly. Never fails the reveal.
+    /// </summary>
+    private async Task RecordTutorialRevealAsync(Guid worldId, Guid actingUserId, CancellationToken ct)
+    {
+        if (_worldRepository is null || _tutorialProgressRepository is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var world = await _worldRepository.GetByIdAsync(worldId, ct);
+            if (world is not { IsDemo: true, TutorialEnabled: true })
+            {
+                return;
+            }
+
+            var existing = await _tutorialProgressRepository.ListAsync(actingUserId, worldId, ct);
+            if (existing.Any(p => p.StepKey == TutorialSteps.RevealSecret))
+            {
+                return;
+            }
+
+            await _tutorialProgressRepository.AddRangeAsync([new TutorialProgress
+            {
+                Id = Guid.NewGuid(),
+                UserId = actingUserId,
+                WorldId = worldId,
+                StepKey = TutorialSteps.RevealSecret,
+                CompletedAt = DateTimeOffset.UtcNow,
+            }], ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not record the tutorial reveal step for world {WorldId}", worldId);
+        }
     }
 
     /// <summary>
