@@ -11,4 +11,5 @@ public record WorldListItemResponse(
     decimal? DailyAiBudgetUsd = null,
     decimal? PublicAskMonthlyBudgetUsd = null,
     bool IsDemo = false,
-    bool TutorialEnabled = false);
+    bool TutorialEnabled = false,
+    bool IsTemplate = false);

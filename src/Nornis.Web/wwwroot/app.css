@@ -531,6 +531,16 @@ html, body {
     color: var(--nornis-onnavy-muted);
 }
 
+/* Group heading inside the world switcher menu (e.g. "Templates"). Quiet by design —
+   it labels worlds that stay reachable but shouldn't compete with everyday ones. */
+.nornis-menu-caption {
+    padding: 6px 16px 2px;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+}
+
 /* Navigation links. */
 .nornis-sidebar .mud-navmenu {
     flex: 1;

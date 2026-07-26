@@ -11,4 +11,5 @@ public record UpdateWorldCommand(
     string? PublicSlug = null,
     bool? PublicAccessEnabled = null,
     decimal? PublicAskMonthlyBudgetUsd = null,
-    bool ClearPublicAskBudget = false);
+    bool ClearPublicAskBudget = false,
+    bool? IsTemplate = null);

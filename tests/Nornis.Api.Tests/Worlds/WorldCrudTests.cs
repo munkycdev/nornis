@@ -282,6 +282,46 @@ public class WorldCrudTests
     }
 
     [Test]
+    public async Task UpdateWorld_IsTemplate_RoundTripsAndSurfacesInTheList()
+    {
+        // The template-master flag is the only way the GM files a world into the switcher's
+        // Templates group, so it has to survive the update path *and* reach the world list.
+        var client = _factory.CreateAuthenticatedClient(
+            sub: "auth0|gm-template",
+            email: "gm-template@blackharbor.com",
+            nickname: "Template GM");
+
+        var createResponse = await client.PostAsJsonAsync("/api/worlds",
+            new CreateWorldRequest(Name: "Vespergale Reach (template master)"));
+        var created = await createResponse.Content.ReadFromJsonAsync<WorldResponse>();
+        Assert.That(created!.IsTemplate, Is.False, "new worlds are not templates");
+
+        var response = await client.PutAsJsonAsync($"/api/worlds/{created.Id}",
+            new UpdateWorldRequest(IsTemplate: true));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var updated = await response.Content.ReadFromJsonAsync<WorldResponse>();
+        Assert.That(updated!.IsTemplate, Is.True);
+        Assert.That(updated.IsDemo, Is.False, "IsTemplate must not be confused with IsDemo");
+
+        // The list must carry the flag — that's what the switcher groups on. And it must
+        // still list the world: filtering it out server-side would strand it in the UI.
+        var listResponse = await client.GetAsync("/api/worlds");
+        var worlds = await listResponse.Content.ReadFromJsonAsync<List<WorldListItemResponse>>();
+        Assert.That(worlds!.Select(w => w.Id), Does.Contain(created.Id));
+        Assert.That(worlds!.Single(w => w.Id == created.Id).IsTemplate, Is.True);
+
+        // Omitting the field leaves the flag alone; sending false clears it.
+        var untouched = await client.PutAsJsonAsync($"/api/worlds/{created.Id}",
+            new UpdateWorldRequest(Description: "still the master"));
+        Assert.That((await untouched.Content.ReadFromJsonAsync<WorldResponse>())!.IsTemplate, Is.True);
+
+        var cleared = await client.PutAsJsonAsync($"/api/worlds/{created.Id}",
+            new UpdateWorldRequest(IsTemplate: false));
+        Assert.That((await cleared.Content.ReadFromJsonAsync<WorldResponse>())!.IsTemplate, Is.False);
+    }
+
+    [Test]
     public async Task UpdateWorld_ByNonGm_Returns403()
     {
         // Arrange - GM creates world

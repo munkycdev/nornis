@@ -15,7 +15,8 @@ public record WorldSummary(
     bool PublicAccessEnabled = false,
     decimal? PublicAskMonthlyBudgetUsd = null,
     bool IsDemo = false,
-    bool TutorialEnabled = false);
+    bool TutorialEnabled = false,
+    bool IsTemplate = false);
 
 public record CreateWorldRequest(
     string Name,
@@ -31,7 +32,8 @@ public record UpdateWorldRequest(
     string? PublicSlug = null,
     bool? PublicAccessEnabled = null,
     decimal? PublicAskMonthlyBudgetUsd = null,
-    bool ClearPublicAskBudget = false);
+    bool ClearPublicAskBudget = false,
+    bool? IsTemplate = null);
 
 public record WorldMember(
     Guid Id,

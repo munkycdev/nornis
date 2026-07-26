@@ -68,7 +68,9 @@ public class InMemoryWorldRepository : IWorldRepository
             worlds = _worlds.Where(c => c.CreatedByUserId == userId);
         }
 
-        return Task.FromResult<IReadOnlyList<World>>(worlds.ToList().AsReadOnly());
+        // Match the real repository: stable name ordering.
+        return Task.FromResult<IReadOnlyList<World>>(
+            worlds.OrderBy(c => c.Name, StringComparer.Ordinal).ToList().AsReadOnly());
     }
 
     public Task<IReadOnlyList<World>> GetByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)

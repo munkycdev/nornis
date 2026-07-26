@@ -91,10 +91,28 @@ public class WorldTests
     }
 
     [Test]
+    public void World_IsTemplate_And_IsDemo_Are_Independent_Flags()
+    {
+        // IsDemo means "instantiated FROM a template"; IsTemplate means "IS the master a
+        // template is exported from". Overloading either one would mislabel demo worlds.
+        var isTemplate = _type.GetProperty("IsTemplate");
+        Assert.That(isTemplate, Is.Not.Null);
+        Assert.That(isTemplate!.PropertyType, Is.EqualTo(typeof(bool)));
+
+        var world = new World();
+        Assert.That(world.IsTemplate, Is.False, "IsTemplate must default to false.");
+        Assert.That(world.IsDemo, Is.False);
+
+        world.IsTemplate = true;
+        Assert.That(world.IsDemo, Is.False, "Setting IsTemplate must not imply IsDemo.");
+    }
+
+    [Test]
     public void World_Has_Expected_Property_Count()
     {
         var properties = _type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
         // 16th–17th properties: IsDemo and TutorialEnabled (feature 20 demo worlds).
-        Assert.That(properties, Has.Length.EqualTo(17));
+        // 18th: IsTemplate — the template-master grouping flag, not to be confused with IsDemo.
+        Assert.That(properties, Has.Length.EqualTo(18));
     }
 }

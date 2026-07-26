@@ -14,4 +14,5 @@ public record WorldResponse(
     bool PublicAccessEnabled = false,
     decimal? PublicAskMonthlyBudgetUsd = null,
     bool IsDemo = false,
-    bool TutorialEnabled = false);
+    bool TutorialEnabled = false,
+    bool IsTemplate = false);

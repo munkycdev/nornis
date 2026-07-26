@@ -51,6 +51,15 @@ public class World
     /// </summary>
     public bool TutorialEnabled { get; set; }
 
+    /// <summary>
+    /// True for a hand-authored master world that exists to be exported as a template
+    /// package. Purely a UI grouping hint — the world switcher files these under a
+    /// "Templates" section so they stay reachable without cluttering the everyday list.
+    /// The opposite of <see cref="IsDemo"/>, which marks a world instantiated *from* a
+    /// template; nothing in the demo clone path reads this flag.
+    /// </summary>
+    public bool IsTemplate { get; set; }
+
     public byte[] RowVersion { get; set; } = [];
 
     // Navigation properties

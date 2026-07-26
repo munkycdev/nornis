@@ -97,7 +97,8 @@ public class WorldsController : ControllerBase
             DailyAiBudgetUsd: c.World.DailyAiBudgetUsd,
             PublicAskMonthlyBudgetUsd: c.World.PublicAskMonthlyBudgetUsd,
             IsDemo: c.World.IsDemo,
-            TutorialEnabled: c.World.TutorialEnabled)).ToList();
+            TutorialEnabled: c.World.TutorialEnabled,
+            IsTemplate: c.World.IsTemplate)).ToList();
 
         return Ok(response);
     }
@@ -148,7 +149,8 @@ public class WorldsController : ControllerBase
             PublicSlug: request.PublicSlug,
             PublicAccessEnabled: request.PublicAccessEnabled,
             PublicAskMonthlyBudgetUsd: request.PublicAskMonthlyBudgetUsd,
-            ClearPublicAskBudget: request.ClearPublicAskBudget);
+            ClearPublicAskBudget: request.ClearPublicAskBudget,
+            IsTemplate: request.IsTemplate);
 
         var result = await _worldService.UpdateAsync(command, ct);
 
@@ -258,7 +260,8 @@ public class WorldsController : ControllerBase
             PublicAccessEnabled: world.PublicAccessEnabled,
             PublicAskMonthlyBudgetUsd: world.PublicAskMonthlyBudgetUsd,
             IsDemo: world.IsDemo,
-            TutorialEnabled: world.TutorialEnabled);
+            TutorialEnabled: world.TutorialEnabled,
+            IsTemplate: world.IsTemplate);
     }
 
     private IActionResult MapError(AppError error)

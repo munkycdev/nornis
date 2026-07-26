@@ -49,9 +49,20 @@
         </div>
     </ActivatorContent>
     <ChildContent>
-        @foreach (var world in Worlds.Worlds)
+        @foreach (var world in EverydayWorlds)
         {
             <MudMenuItem OnClick="@(() => SelectWorldAsync(world.Id))">@world.Name</MudMenuItem>
+        }
+        @* Template masters are still selectable — exporting a template runs through the
+           normal world UI — but they are filed away so they don't crowd the real worlds. *@
+        @if (TemplateWorlds.Count > 0)
+        {
+            <MudDivider />
+            <div class="nornis-menu-caption">Templates</div>
+            @foreach (var world in TemplateWorlds)
+            {
+                <MudMenuItem OnClick="@(() => SelectWorldAsync(world.Id))">@world.Name</MudMenuItem>
+            }
         }
         @if (Worlds.Worlds.Count > 0)
         {
@@ -174,6 +185,14 @@ else
 @code {
     [Parameter]
     public EventCallback OnCollapse { get; set; }
+
+    /// <summary>Worlds the GM actually plays in — everything that isn't a template master.</summary>
+    private IReadOnlyList<WorldSummary> EverydayWorlds =>
+        Worlds.Worlds.Where(w => !w.IsTemplate).ToList();
+
+    /// <summary>Template masters, shown in their own subdued group. Empty for almost everyone.</summary>
+    private IReadOnlyList<WorldSummary> TemplateWorlds =>
+        Worlds.Worlds.Where(w => w.IsTemplate).ToList();
 
     protected override async Task OnInitializedAsync()
     {

@@ -32,6 +32,13 @@
                                  Placeholder="server default" Min="0.01m" Max="100m" Step="0.5m"
                                  HelperText="Cap on this world's AI spend per day (extraction, Loremaster, audits). Leave empty to use the server default."
                                  Variant="Variant.Outlined" Class="mb-3" />
+                <MudSwitch T="bool" @bind-Value="_isTemplate" Color="Color.Secondary"
+                           Label="Template master" Class="mb-1" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-3">
+                    Marks this world as a hand-authored master you export as a template. It moves
+                    into a separate "Templates" group at the bottom of the world switcher — still
+                    selectable, just out of the way of the worlds you actually play in.
+                </MudText>
 
                 <div class="nornis-detail-section-title mt-2">Public access</div>
                 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
@@ -358,6 +365,7 @@
     private string? _publicSlug;
     private bool _publicAccessEnabled;
     private decimal? _publicAskMonthlyBudget;
+    private bool _isTemplate;
     private bool _savingWorld;
     private string? _worldError;
 
@@ -597,6 +605,7 @@
             _publicSlug = c.PublicSlug;
             _publicAccessEnabled = c.PublicAccessEnabled;
             _publicAskMonthlyBudget = c.PublicAskMonthlyBudgetUsd;
+            _isTemplate = c.IsTemplate;
             _loadedWorldId = c.Id;
         }
     }
@@ -637,7 +646,8 @@
                 PublicSlug: string.IsNullOrWhiteSpace(_publicSlug) ? null : _publicSlug.Trim(),
                 PublicAccessEnabled: _publicAccessEnabled,
                 PublicAskMonthlyBudgetUsd: _publicAskMonthlyBudget,
-                ClearPublicAskBudget: _publicAskMonthlyBudget is null));
+                ClearPublicAskBudget: _publicAskMonthlyBudget is null,
+                IsTemplate: _isTemplate));
 
         _savingWorld = false;
         if (!result.IsSuccess)

@@ -44,9 +44,12 @@ public class WorldRepository : IWorldRepository
 
     public async Task<IReadOnlyList<World>> ListByUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        // Ordered by name so the world switcher is stable across requests; without it the
+        // list order is whatever SQL Server happens to return.
         return await _context.Worlds
             .AsNoTracking()
             .Where(c => _context.WorldMembers.Any(cm => cm.WorldId == c.Id && cm.UserId == userId))
+            .OrderBy(c => c.Name)
             .ToListAsync(cancellationToken);
     }
 

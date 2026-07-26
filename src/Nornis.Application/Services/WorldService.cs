@@ -186,6 +186,11 @@ public class WorldService : IWorldService
             world.PublicAccessEnabled = command.PublicAccessEnabled.Value;
         }
 
+        if (command.IsTemplate is not null)
+        {
+            world.IsTemplate = command.IsTemplate.Value;
+        }
+
         world.UpdatedAt = DateTimeOffset.UtcNow;
 
         world = await _worldRepository.UpdateAsync(world, ct);
