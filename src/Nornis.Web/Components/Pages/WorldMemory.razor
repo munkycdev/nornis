@@ -303,7 +303,7 @@
 
     private async Task DismissAsync(ContinuityFinding finding)
     {
-        if (Worlds.Current is null || Assessment is not { } assessment)
+        if (Worlds.Current is null)
         {
             return;
         }
@@ -311,13 +311,9 @@
         var result = await Api.DismissFindingAsync(Worlds.Current.Id, finding.Id);
         if (result.IsSuccess)
         {
-            Worlds.SetContinuity(assessment with
-            {
-                Findings = assessment.Findings.Select(f => f.Id == finding.Id ? result.Value! : f).ToList(),
-                EffectiveScore = Math.Max(0, assessment.HeuristicScore - Math.Min(40,
-                    assessment.Findings.Where(f => f.Id != finding.Id && f.Status == "Open" && !f.IsStale)
-                        .Sum(f => SeverityPenalties.FirstOrDefault(s => s.Severity == f.Severity).Penalty)))
-            });
+            // Refetch rather than patching the cached assessment: the server is the only
+            // place the effective score is computed, and ArtifactDetail already does this.
+            await Worlds.LoadContinuityAsync();
             Snackbar.Add("Finding dismissed — its penalty points are back.", Severity.Info);
         }
         else

@@ -19,6 +19,7 @@ public class ContinuityAuditServiceTests
     private InMemorySourceRepository _sourceRepo = null!;
     private FakeAuditAiClient _ai = null!;
     private InMemoryHealthAssessmentRepository _assessmentRepo = null!;
+    private InMemoryContinuityDismissalRepository _dismissalRepo = null!;
     private InMemoryAiUsageRecordRepository _usageRepo = null!;
     private ContinuityAuditService _service = null!;
     private FakeAiBudgetGuard _budgetGuard = null!;
@@ -38,6 +39,7 @@ public class ContinuityAuditServiceTests
         _ai = new FakeAuditAiClient();
         _budgetGuard = new FakeAiBudgetGuard();
         _assessmentRepo = new InMemoryHealthAssessmentRepository();
+        _dismissalRepo = new InMemoryContinuityDismissalRepository();
         _usageRepo = new InMemoryAiUsageRecordRepository();
 
         var health = new HealthService(_artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo);
@@ -54,7 +56,7 @@ public class ContinuityAuditServiceTests
         _service = new ContinuityAuditService(
             _budgetGuard,
             health, _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo, _sourceRepo,
-            _ai, _assessmentRepo, _usageRepo, options);
+            _ai, _assessmentRepo, _dismissalRepo, _usageRepo, options);
 
         _worldId = Guid.NewGuid();
 
@@ -392,17 +394,136 @@ public class ContinuityAuditServiceTests
     }
 
     [Test]
-    public async Task RunAssessment_RedetectionWithNewEvidence_StaysOpen()
+    public async Task RunAssessment_RedetectionWithExtraEvidence_ArrivesDismissed()
     {
+        // Was RunAssessment_RedetectionWithNewEvidence_StaysOpen, which asserted the old
+        // strict-subset rule. The audit is nondeterministic: a re-detection of a dismissed
+        // issue routinely cites one extra ref, and under the subset test it resurrected.
+        // The registry matches on a shared ref instead, so the dismissal holds.
         _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
         var first = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
         await _service.DismissFindingAsync(_worldId, first.Value!.Findings[0].Id, CancellationToken.None);
 
-        // Same category, but the re-detection cites material beyond what was dismissed.
         _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef, ArtifactRef]));
         var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
 
+        Assert.That(second.Value!.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Dismissed.ToString()));
+        Assert.That(second.Value.Score, Is.EqualTo(second.Value.HeuristicScore));
+    }
+
+    [Test]
+    public async Task RunAssessment_DismissalSurvivesMultipleGenerations()
+    {
+        // The old carry-forward only read the single previous assessment. Once a re-detection
+        // slipped through as Open (different evidence), the next run's "previous" held no
+        // Dismissed row and the adjudication was gone for good. The registry has no decay.
+        _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
+        var first = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        await _service.DismissFindingAsync(_worldId, first.Value!.Findings[0].Id, CancellationToken.None);
+
+        // Generation 2 re-detects with shifted evidence...
+        _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef, ArtifactRef]));
+        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+
+        // ...and generation 3 re-detects again, with the original evidence.
+        _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
+        var third = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.That(second.Value!.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Dismissed.ToString()));
+        Assert.That(third.Value!.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Dismissed.ToString()));
+        Assert.That(third.Value.EffectiveScore, Is.EqualTo(third.Value.HeuristicScore));
+    }
+
+    [Test]
+    public async Task RunAssessment_SameCategoryButNoSharedEvidence_StaysOpen()
+    {
+        var other = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = ArtifactType.Location,
+            Name = "Black Harbor",
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _artifactRepo.Seed(other);
+
+        _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
+        var first = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        await _service.DismissFindingAsync(_worldId, first.Value!.Findings[0].Id, CancellationToken.None);
+
+        // Same category, but an unrelated issue about a different item — a real new finding.
+        _ai.SetupFindings(Finding(severity: "High", evidence: [$"artifact:{other.Id}"]));
+        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+
         Assert.That(second.Value!.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Open.ToString()));
+    }
+
+    [Test]
+    public void ApplyDismissalRegistry_EmptyEvidenceOnBothSides_MatchesOnCategoryAlone()
+    {
+        // Validation drops ungrounded findings, so this pairing can't arise from a live run —
+        // it's the documented degenerate case of the matching rule.
+        var finding = new ContinuityFinding
+        {
+            Id = Guid.NewGuid(),
+            Category = ContinuityFindingCategory.DanglingThread,
+            Severity = ContinuityFindingSeverity.Medium,
+            Summary = "A promise nobody kept.",
+            EvidenceJson = "[]",
+            Status = ContinuityFindingStatus.Open
+        };
+
+        ContinuityAuditService.ApplyDismissalRegistry(
+            [finding],
+            [
+                new ContinuityDismissal
+                {
+                    Id = Guid.NewGuid(),
+                    WorldId = _worldId,
+                    Category = ContinuityFindingCategory.DanglingThread,
+                    EvidenceJson = "[]",
+                    DismissedAtUtc = DateTimeOffset.UtcNow
+                }
+            ]);
+
+        Assert.That(finding.Status, Is.EqualTo(ContinuityFindingStatus.Dismissed));
+    }
+
+    [Test]
+    public async Task DismissFinding_WritesRegistryRowForTheWorld()
+    {
+        _ai.SetupFindings(Finding(category: "SummaryDrift", severity: "Medium", evidence: [FactRef]));
+        var run = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+
+        await _service.DismissFindingAsync(_worldId, run.Value!.Findings[0].Id, CancellationToken.None);
+
+        Assert.That(_dismissalRepo.Dismissals, Has.Count.EqualTo(1));
+        var row = _dismissalRepo.Dismissals[0];
+        Assert.That(row.WorldId, Is.EqualTo(_worldId));
+        Assert.That(row.Category, Is.EqualTo(ContinuityFindingCategory.SummaryDrift));
+        Assert.That(row.EvidenceJson, Does.Contain(_vossFact.Id.ToString()));
+        Assert.That(row.DismissedAtUtc, Is.Not.EqualTo(default(DateTimeOffset)));
+    }
+
+    [Test]
+    public async Task RunAssessment_AnotherWorldsDismissal_DoesNotSuppressThisWorldsFinding()
+    {
+        _dismissalRepo.Seed(new ContinuityDismissal
+        {
+            Id = Guid.NewGuid(),
+            WorldId = Guid.NewGuid(),
+            Category = ContinuityFindingCategory.Contradiction,
+            EvidenceJson = $"[\"{FactRef}\"]",
+            DismissedAtUtc = DateTimeOffset.UtcNow
+        });
+
+        _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
+        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.That(result.Value!.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Open.ToString()));
     }
 
     [Test]

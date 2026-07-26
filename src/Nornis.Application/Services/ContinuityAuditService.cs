@@ -30,6 +30,7 @@ public class ContinuityAuditService : IContinuityAuditService
     private readonly ISourceRepository _sourceRepository;
     private readonly IAuditAiClient _aiClient;
     private readonly IHealthAssessmentRepository _assessmentRepository;
+    private readonly IContinuityDismissalRepository _dismissalRepository;
     private readonly IAiUsageRecordRepository _aiUsageRecordRepository;
     private readonly LoremasterOptions _options;
 
@@ -100,6 +101,7 @@ public class ContinuityAuditService : IContinuityAuditService
         ISourceRepository sourceRepository,
         IAuditAiClient aiClient,
         IHealthAssessmentRepository assessmentRepository,
+        IContinuityDismissalRepository dismissalRepository,
         IAiUsageRecordRepository aiUsageRecordRepository,
         IOptions<LoremasterOptions> options)
     {
@@ -112,6 +114,7 @@ public class ContinuityAuditService : IContinuityAuditService
         _sourceRepository = sourceRepository;
         _aiClient = aiClient;
         _assessmentRepository = assessmentRepository;
+        _dismissalRepository = dismissalRepository;
         _aiUsageRecordRepository = aiUsageRecordRepository;
         _options = options.Value;
     }
@@ -188,13 +191,14 @@ public class ContinuityAuditService : IContinuityAuditService
 
         await TrackUsageAsync(worldId, userId, response, true, null, ct);
 
-        // 4. Validate, carry adjudications forward, persist. A dismissal is a GM decision about
-        // an issue, not about one assessment run — when the model re-detects a finding the GM
-        // already dismissed, it arrives dismissed instead of re-opening the argument.
+        // 4. Validate, apply the world's dismissal registry, persist. A dismissal is a GM
+        // decision about an issue, not about one assessment run — when the model re-detects a
+        // finding the GM already dismissed, it arrives dismissed instead of re-opening the
+        // argument, however many runs later.
         var findings = BuildValidatedFindings(response.Findings, artifacts, facts, relationships);
 
-        var previous = await _assessmentRepository.GetLatestWithFindingsAsync(worldId, ct);
-        CarryForwardDismissals(findings, previous?.Findings ?? []);
+        var dismissals = await _dismissalRepository.ListByWorldAsync(worldId, ct);
+        ApplyDismissalRegistry(findings, dismissals);
 
         var assessment = new HealthAssessment
         {
@@ -253,6 +257,19 @@ public class ContinuityAuditService : IContinuityAuditService
         {
             finding.Status = ContinuityFindingStatus.Dismissed;
             finding = await _assessmentRepository.UpdateFindingAsync(finding, ct);
+
+            // The finding itself dies with this assessment snapshot; the registry row is what
+            // makes the adjudication survive every later run.
+            await _dismissalRepository.CreateAsync(
+                new ContinuityDismissal
+                {
+                    Id = Guid.NewGuid(),
+                    WorldId = worldId,
+                    Category = finding.Category,
+                    EvidenceJson = finding.EvidenceJson,
+                    DismissedAtUtc = DateTimeOffset.UtcNow
+                },
+                ct);
         }
 
         var recordLookup = await LoadRecordLookupAsync([finding], ct);
@@ -281,19 +298,23 @@ public class ContinuityAuditService : IContinuityAuditService
         Math.Max(0, heuristic - TotalPenalty(openSeverities));
 
     /// <summary>
-    /// Marks new findings Dismissed when the previous assessment holds a dismissed finding of
-    /// the same category whose evidence covers the new finding's (new evidence ⊆ dismissed
-    /// evidence). A re-detection citing anything beyond what was dismissed is new information
-    /// and stays Open.
+    /// Marks new findings Dismissed when the world's dismissal registry already holds a
+    /// matching adjudication: same category, and at least one shared evidence ref (or both
+    /// evidence sets empty).
+    /// <para>
+    /// The match is deliberately loose — intersection, not subset. The audit is
+    /// nondeterministic, so a re-detection of an issue the GM already dismissed routinely
+    /// cites one extra or one fewer ref; under a subset test it would arrive Open and the
+    /// dismissal would be lost. For a GM tool, over-suppressing a re-detected variant is the
+    /// cheaper mistake: the finding is still listed, just not re-argued and not re-penalized.
+    /// </para>
     /// </summary>
-    internal static void CarryForwardDismissals(
+    internal static void ApplyDismissalRegistry(
         IReadOnlyList<ContinuityFinding> findings,
-        IEnumerable<ContinuityFinding> previousFindings)
+        IEnumerable<ContinuityDismissal> registry)
     {
-        var dismissed = previousFindings
-            .Where(f => f.Status == ContinuityFindingStatus.Dismissed)
-            .Select(f => (f.Category, Evidence: DeserializeEvidence(f.EvidenceJson).ToHashSet(StringComparer.Ordinal)))
-            .Where(d => d.Evidence.Count > 0)
+        var dismissed = registry
+            .Select(d => (d.Category, Evidence: DeserializeEvidence(d.EvidenceJson).ToHashSet(StringComparer.Ordinal)))
             .ToList();
         if (dismissed.Count == 0)
             return;
@@ -301,7 +322,12 @@ public class ContinuityAuditService : IContinuityAuditService
         foreach (var finding in findings)
         {
             var evidence = DeserializeEvidence(finding.EvidenceJson);
-            if (dismissed.Any(d => d.Category == finding.Category && evidence.All(d.Evidence.Contains)))
+            var matched = dismissed.Any(d =>
+                d.Category == finding.Category
+                && ((d.Evidence.Count == 0 && evidence.Count == 0)
+                    || evidence.Any(d.Evidence.Contains)));
+
+            if (matched)
             {
                 finding.Status = ContinuityFindingStatus.Dismissed;
             }

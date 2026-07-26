@@ -31,6 +31,7 @@ public class NornisDbContext : DbContext
     public DbSet<AiUsageRecord> AiUsageRecords => Set<AiUsageRecord>();
     public DbSet<HealthAssessment> HealthAssessments => Set<HealthAssessment>();
     public DbSet<ContinuityFinding> ContinuityFindings => Set<ContinuityFinding>();
+    public DbSet<ContinuityDismissal> ContinuityDismissals => Set<ContinuityDismissal>();
     public DbSet<LibraryDocument> LibraryDocuments => Set<LibraryDocument>();
     public DbSet<LibraryChunk> LibraryChunks => Set<LibraryChunk>();
     public DbSet<MapPlacemark> MapPlacemarks => Set<MapPlacemark>();

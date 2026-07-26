@@ -122,6 +122,7 @@ public class WorldRepository : IWorldRepository
         await DeleteAsync(_context.ContinuityFindings
             .Where(f => _context.HealthAssessments.Any(h => h.Id == f.HealthAssessmentId && h.WorldId == worldId)));
         await DeleteAsync(_context.HealthAssessments.Where(h => h.WorldId == worldId));
+        await DeleteAsync(_context.ContinuityDismissals.Where(d => d.WorldId == worldId));
 
         // Library.
         await DeleteAsync(_context.LibraryChunks.Where(c => c.WorldId == worldId));

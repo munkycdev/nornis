@@ -22,7 +22,7 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
         Guid StorylineCampaignId, Guid FactId, Guid RelationshipId, Guid SourceId,
         Guid ExtractionId, Guid ReferenceId, Guid AttachmentId, Guid PlacemarkId,
         Guid BatchId, Guid ProposalId, Guid UsageId, Guid AssessmentId, Guid FindingId,
-        Guid DocumentId, Guid ChunkId, Guid ReplayId);
+        Guid DismissalId, Guid DocumentId, Guid ChunkId, Guid ReplayId);
 
     /// <summary>
     /// Seeds a world exercising every table and every awkward FK: a character linked to an
@@ -259,6 +259,14 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
             ArtifactId = artifact.Id,
             Status = ContinuityFindingStatus.Open,
         };
+        var dismissal = new ContinuityDismissal
+        {
+            Id = Guid.NewGuid(),
+            WorldId = world.Id,
+            Category = ContinuityFindingCategory.DanglingThread,
+            EvidenceJson = $"[\"artifact:{artifact.Id}\"]",
+            DismissedAtUtc = now,
+        };
         var document = new LibraryDocument
         {
             Id = Guid.NewGuid(),
@@ -301,7 +309,7 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
             user, world, member, invite, campaign, artifact, storyline, character,
             campaignCharacter, storylineCampaign, fact, relationship, source, extraction,
             reference, attachment, placemark, batch, proposal, usage, assessment, finding,
-            document, chunk, replay);
+            dismissal, document, chunk, replay);
         Context.SaveChanges();
         Context.ChangeTracker.Clear();
 
@@ -309,7 +317,8 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
             user.Id, world.Id, member.Id, invite.Id, campaign.Id, artifact.Id, storyline.Id,
             character.Id, campaignCharacter.Id, storylineCampaign.Id, fact.Id, relationship.Id,
             source.Id, extraction.Id, reference.Id, attachment.Id, placemark.Id, batch.Id,
-            proposal.Id, usage.Id, assessment.Id, finding.Id, document.Id, chunk.Id, replay.Id);
+            proposal.Id, usage.Id, assessment.Id, finding.Id, dismissal.Id, document.Id,
+            chunk.Id, replay.Id);
     }
 
     /// <summary>Counts how many of the graph's seeded rows still exist, table by table.</summary>
@@ -336,6 +345,7 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
         remaining += await Context.AiUsageRecords.CountAsync(x => x.Id == g.UsageId);
         remaining += await Context.HealthAssessments.CountAsync(x => x.Id == g.AssessmentId);
         remaining += await Context.ContinuityFindings.CountAsync(x => x.Id == g.FindingId);
+        remaining += await Context.ContinuityDismissals.CountAsync(x => x.Id == g.DismissalId);
         remaining += await Context.LibraryDocuments.CountAsync(x => x.Id == g.DocumentId);
         remaining += await Context.LibraryChunks.CountAsync(x => x.Id == g.ChunkId);
         remaining += await Context.ExtractionReplays.CountAsync(x => x.Id == g.ReplayId);
@@ -343,7 +353,7 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
     }
 
     /// <summary>The number of rows one seeded graph contributes (2 artifacts, 1 of everything else).</summary>
-    private const int SeededRowCount = 24;
+    private const int SeededRowCount = 25;
 
     [Test]
     public async Task DeleteAsync_RemovesEveryRowOfTheWorld_AndNothingElse()

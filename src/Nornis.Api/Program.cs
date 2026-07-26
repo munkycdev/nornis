@@ -96,6 +96,7 @@ builder.Services.AddScoped<IArtifactRelationshipRepository, ArtifactRelationship
 builder.Services.AddScoped<ISourceReferenceRepository, SourceReferenceRepository>();
 builder.Services.AddScoped<IAiUsageRecordRepository, AiUsageRecordRepository>();
 builder.Services.AddScoped<IHealthAssessmentRepository, HealthAssessmentRepository>();
+builder.Services.AddScoped<IContinuityDismissalRepository, ContinuityDismissalRepository>();
 builder.Services.AddScoped<ILibraryDocumentRepository, LibraryDocumentRepository>();
 builder.Services.AddScoped<ILibraryChunkRepository, LibraryChunkRepository>();
 builder.Services.AddScoped<IMapPlacemarkRepository, MapPlacemarkRepository>();

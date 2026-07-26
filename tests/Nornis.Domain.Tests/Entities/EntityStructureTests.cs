@@ -137,7 +137,8 @@ public class EntityStructureTests
         // + MapPlacemark (map sources) + WorldInvite (world invitations)
         // + StorylineCampaign (cross-campaign storylines)
         // + ExtractionReplay (timeline re-extraction walk)
-        // + TutorialProgress (demo-world tutorial, feature 20).
-        Assert.That(entityTypes, Has.Count.EqualTo(25));
+        // + TutorialProgress (demo-world tutorial, feature 20)
+        // + ContinuityDismissal (world-scoped dismissal registry).
+        Assert.That(entityTypes, Has.Count.EqualTo(26));
     }
 }
