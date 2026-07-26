@@ -19,6 +19,14 @@ public interface IMapViewService
     Task<AppResult<MapView>> GetMapAsync(Guid sourceId, Guid worldId, Guid userId, WorldRole role, CancellationToken ct);
 
     /// <summary>
+    /// Pins an existing Location artifact on this source's map at the centre (0.5, 0.5),
+    /// for the places extraction missed. The caller drags it into position afterwards.
+    /// Source creator or GM only; 409 when the artifact is already pinned on this map.
+    /// </summary>
+    Task<AppResult<MapPlacemarkView>> CreatePlacemarkAsync(
+        Guid sourceId, Guid worldId, Guid artifactId, Guid userId, WorldRole role, CancellationToken ct);
+
+    /// <summary>
     /// Moves a pin to a new normalized position — the manual correction for extraction's
     /// imprecise coordinates. Source creator or GM only; x/y must be within 0..1.
     /// </summary>

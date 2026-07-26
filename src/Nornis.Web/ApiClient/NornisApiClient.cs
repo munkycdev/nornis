@@ -255,6 +255,14 @@ public class NornisApiClient
     public Task<ApiResult<MapViewDto>> GetSourceMapAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         GetAsync<MapViewDto>($"/api/worlds/{worldId}/sources/{sourceId}/map", ct);
 
+    /// <summary>Pins a known Location on the source's map, at its centre. Source creator or GM only.</summary>
+    public Task<ApiResult<MapPlacemarkDto>> CreatePlacemarkAsync(
+        Guid worldId, Guid sourceId, Guid artifactId, CancellationToken ct = default) =>
+        PostAsync<CreatePlacemarkBody, MapPlacemarkDto>(
+            $"/api/worlds/{worldId}/sources/{sourceId}/map/placemarks", new CreatePlacemarkBody(artifactId), ct);
+
+    private sealed record CreatePlacemarkBody(Guid ArtifactId);
+
     /// <summary>Moves a map pin to a new normalized position. Source creator or GM only.</summary>
     public Task<ApiResult<MapPlacemarkDto>> MovePlacemarkAsync(
         Guid worldId, Guid sourceId, Guid placemarkId, decimal x, decimal y, CancellationToken ct = default) =>

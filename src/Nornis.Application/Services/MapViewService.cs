@@ -79,6 +79,71 @@ public class MapViewService : IMapViewService
         return AppResult<MapView>.Success(new MapView(attachment, imageUrl, views));
     }
 
+    /// <summary>Where a manually added pin lands: the centre of the map, to be dragged into place.</summary>
+    private const decimal CentreX = 0.5m;
+    private const decimal CentreY = 0.5m;
+
+    public async Task<AppResult<MapPlacemarkView>> CreatePlacemarkAsync(
+        Guid sourceId, Guid worldId, Guid artifactId, Guid userId, WorldRole role, CancellationToken ct)
+    {
+        if (role == WorldRole.Observer)
+        {
+            return AppResult<MapPlacemarkView>.Fail(new AppError(403, "insufficient_role",
+                "Observers cannot add map pins."));
+        }
+
+        var (mapError, attachment) = await FindEditableMapAsync(sourceId, worldId, userId, role, ct);
+        if (mapError is not null)
+        {
+            return AppResult<MapPlacemarkView>.Fail(mapError);
+        }
+
+        // A location the caller can't see may as well not exist — same 404 as a bad id,
+        // so the picker can never be used to probe for hidden artifacts.
+        var artifact = await _artifactRepository.GetByIdAsync(artifactId, ct);
+        var filter = VisibilityFilter.ForRole(role, userId);
+        if (artifact is null
+            || artifact.WorldId != worldId
+            || artifact.Status == ArtifactStatus.Archived
+            || !filter.CanSee(artifact.Visibility, artifact.CreatedByUserId))
+        {
+            return AppResult<MapPlacemarkView>.Fail(new AppError(404, "not_found", "Location not found."));
+        }
+
+        if (artifact.Type != ArtifactType.Location)
+        {
+            return AppResult<MapPlacemarkView>.Fail(new AppError(400, "invalid_artifact_type",
+                "Only Location artifacts can be pinned on a map."));
+        }
+
+        // One pin per (map, artifact) — the DB enforces it with a unique index too.
+        var existing = await _placemarkRepository.GetByAttachmentAndArtifactAsync(attachment!.Id, artifact.Id, ct);
+        if (existing is not null)
+        {
+            return AppResult<MapPlacemarkView>.Fail(new AppError(409, "already_pinned",
+                $"\"{artifact.Name}\" is already pinned on this map."));
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var created = await _placemarkRepository.CreateAsync(new MapPlacemark
+        {
+            Id = Guid.NewGuid(),
+            WorldId = worldId,
+            SourceAttachmentId = attachment.Id,
+            ArtifactId = artifact.Id,
+            X = CentreX,
+            Y = CentreY,
+            Label = artifact.Name,
+            // A human placed this pin, so there is no model confidence to record.
+            Confidence = null,
+            CreatedAt = now,
+            UpdatedAt = now
+        }, ct);
+
+        return AppResult<MapPlacemarkView>.Success(new MapPlacemarkView(
+            created.Id, artifact.Id, artifact.Name, created.X, created.Y, created.Label, created.Confidence));
+    }
+
     public async Task<AppResult<MapPlacemarkView>> MovePlacemarkAsync(
         Guid sourceId, Guid worldId, Guid placemarkId, decimal x, decimal y,
         Guid userId, WorldRole role, CancellationToken ct)
@@ -140,26 +205,13 @@ public class MapViewService : IMapViewService
     private async Task<(AppError? Error, MapPlacemark? Placemark, Artifact? Artifact)> FindEditablePlacemarkAsync(
         Guid sourceId, Guid worldId, Guid placemarkId, Guid userId, WorldRole role, CancellationToken ct)
     {
-        var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
-        if (source is null || source.WorldId != worldId || !CanSeeSource(source, userId, role))
+        var (mapError, attachment) = await FindEditableMapAsync(sourceId, worldId, userId, role, ct);
+        if (mapError is not null)
         {
-            return (new AppError(404, "not_found", "Source not found."), null, null);
+            return (mapError, null, null);
         }
 
-        if (source.CreatedByUserId != userId && role != WorldRole.GM)
-        {
-            return (new AppError(403, "forbidden",
-                "Only the source creator or a GM can edit this map's pins."), null, null);
-        }
-
-        var attachment = (await _attachmentRepository.ListBySourceAsync(sourceId, ct))
-            .FirstOrDefault(a => a.Kind == SourceAttachmentKind.MapImage && a.Status == SourceAttachmentStatus.Stored);
-        if (attachment is null)
-        {
-            return (new AppError(404, "no_map", "This source has no map image."), null, null);
-        }
-
-        var placemark = (await _placemarkRepository.ListByAttachmentAsync(attachment.Id, ct))
+        var placemark = (await _placemarkRepository.ListByAttachmentAsync(attachment!.Id, ct))
             .FirstOrDefault(p => p.Id == placemarkId);
         if (placemark is null)
         {
@@ -177,6 +229,35 @@ public class MapViewService : IMapViewService
         }
 
         return (null, placemark, artifact);
+    }
+
+    /// <summary>
+    /// The half of the gauntlet every pin edit shares, and all a create needs: a source
+    /// this caller can see, that they created or GM, carrying a stored map image.
+    /// </summary>
+    private async Task<(AppError? Error, SourceAttachment? Attachment)> FindEditableMapAsync(
+        Guid sourceId, Guid worldId, Guid userId, WorldRole role, CancellationToken ct)
+    {
+        var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
+        if (source is null || source.WorldId != worldId || !CanSeeSource(source, userId, role))
+        {
+            return (new AppError(404, "not_found", "Source not found."), null);
+        }
+
+        if (source.CreatedByUserId != userId && role != WorldRole.GM)
+        {
+            return (new AppError(403, "forbidden",
+                "Only the source creator or a GM can edit this map's pins."), null);
+        }
+
+        var attachment = (await _attachmentRepository.ListBySourceAsync(sourceId, ct))
+            .FirstOrDefault(a => a.Kind == SourceAttachmentKind.MapImage && a.Status == SourceAttachmentStatus.Stored);
+        if (attachment is null)
+        {
+            return (new AppError(404, "no_map", "This source has no map image."), null);
+        }
+
+        return (null, attachment);
     }
 
     private static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch

@@ -19,12 +19,12 @@
            style="left:@(Pct(pin.X))%; top:@(Pct(pin.Y))%;"
            data-nornis-tip="@(TipFor(pin))">
             <MudIcon Icon="@Icons.Material.Filled.Place" Color="Color.Secondary" Size="Size.Small" />
-            @if (CanEdit && OnPinRemoveRequested is not null)
+            @if (CanEdit && OnPinRemoveRequested.HasDelegate)
             {
                 <button type="button" class="nornis-map-pin-remove"
                         aria-label="@($"Remove the {pin.ArtifactName} pin from the map")"
                         title="Remove pin (keeps the location)"
-                        @onclick="@(() => OnPinRemoveRequested(pin))"
+                        @onclick="@(() => OnPinRemoveRequested.InvokeAsync(pin))"
                         @onclick:preventDefault="true" @onclick:stopPropagation="true">
                     &times;
                 </button>
@@ -48,8 +48,10 @@
     [Parameter] public Func<Guid, decimal, decimal, Task<bool>>? OnPinMoved { get; set; }
 
     /// <summary>The hover ✕ was clicked. The handler owns confirmation and persistence;
-    /// only the pin is removed, never the artifact it points at.</summary>
-    [Parameter] public Func<MapPlacemarkDto, Task>? OnPinRemoveRequested { get; set; }
+    /// only the pin is removed, never the artifact it points at. An EventCallback, not a
+    /// plain delegate: the parent owns the Placemarks list, so it — not just this
+    /// component — has to re-render once the pin is gone.</summary>
+    [Parameter] public EventCallback<MapPlacemarkDto> OnPinRemoveRequested { get; set; }
 
     private readonly string _viewerId = $"nornis-map-{Guid.NewGuid():N}";
     private DotNetObjectReference<MapViewer>? _selfRef;

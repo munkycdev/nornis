@@ -158,6 +158,104 @@ public class MapSourceEndpointTests
         Assert.That(ticketResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK), await ticketResponse.Content.ReadAsStringAsync());
     }
 
+    private async Task<Guid> SeedLocationAsync(string name, VisibilityScope visibility = VisibilityScope.PartyVisible,
+        ArtifactType type = ArtifactType.Location)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        var now = DateTimeOffset.UtcNow;
+        var artifact = new Artifact
+        {
+            Id = Guid.NewGuid(), WorldId = _scenario.World.Id, Type = type, Name = name,
+            Visibility = visibility, Status = ArtifactStatus.Active, CreatedAt = now, UpdatedAt = now
+        };
+        db.Artifacts.Add(artifact);
+        await db.SaveChangesAsync();
+        return artifact.Id;
+    }
+
+    [Test]
+    public async Task CreatePlacemark_Gm_PinsLocationAtCentreAndPersists()
+    {
+        var (source, map) = await SeedMapSourceAsync();
+        var artifactId = await SeedLocationAsync("Thistle Hold");
+
+        var response = await _scenario.GmClient.PostAsJsonAsync(
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}/map/placemarks",
+            new CreatePlacemarkRequest(artifactId));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
+        var pin = await response.Content.ReadFromJsonAsync<MapPlacemarkResponse>();
+        Assert.That(pin!.X, Is.EqualTo(0.5m));
+        Assert.That(pin.Y, Is.EqualTo(0.5m));
+        Assert.That(pin.ArtifactName, Is.EqualTo("Thistle Hold"));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        var stored = db.MapPlacemarks.Single(p => p.Id == pin.Id);
+        Assert.That(stored.SourceAttachmentId, Is.EqualTo(map.Id));
+        Assert.That(stored.ArtifactId, Is.EqualTo(artifactId));
+    }
+
+    [Test]
+    public async Task CreatePlacemark_AlreadyPinned_409()
+    {
+        var (source, map) = await SeedMapSourceAsync();
+        await SeedPinnedLocationAsync(map.Id, "Ironhold", VisibilityScope.PartyVisible);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        var artifactId = db.Artifacts.Single(a => a.Name == "Ironhold").Id;
+
+        var response = await _scenario.GmClient.PostAsJsonAsync(
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}/map/placemarks",
+            new CreatePlacemarkRequest(artifactId));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict), await response.Content.ReadAsStringAsync());
+    }
+
+    [Test]
+    public async Task CreatePlacemark_NonLocationArtifact_400()
+    {
+        var (source, _) = await SeedMapSourceAsync();
+        var artifactId = await SeedLocationAsync("Sera", type: ArtifactType.Character);
+
+        var response = await _scenario.GmClient.PostAsJsonAsync(
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}/map/placemarks",
+            new CreatePlacemarkRequest(artifactId));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest), await response.Content.ReadAsStringAsync());
+    }
+
+    [Test]
+    public async Task CreatePlacemark_PlayerWhoIsNotCreator_403()
+    {
+        var (source, _) = await SeedMapSourceAsync(); // created by the GM
+        var artifactId = await SeedLocationAsync("Thistle Hold");
+
+        var response = await _scenario.PlayerClient.PostAsJsonAsync(
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}/map/placemarks",
+            new CreatePlacemarkRequest(artifactId));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        Assert.That(db.MapPlacemarks.Any(), Is.False);
+    }
+
+    [Test]
+    public async Task CreatePlacemark_UnknownArtifact_404()
+    {
+        var (source, _) = await SeedMapSourceAsync();
+
+        var response = await _scenario.GmClient.PostAsJsonAsync(
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}/map/placemarks",
+            new CreatePlacemarkRequest(Guid.NewGuid()));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
+
     [Test]
     public async Task MovePlacemark_Gm_UpdatesPositionAndPersists()
     {

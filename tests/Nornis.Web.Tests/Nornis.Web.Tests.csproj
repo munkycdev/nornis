@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="bunit" Version="2.7.2" />
+    <!-- bUnit 2.7.2 pulls AngleSharp 1.4.0, which carries a moderate advisory
+         (GHSA-pgww-w46g-26qg) and NU1902 is an error here. Pin the patched line. -->
+    <PackageReference Include="AngleSharp" Version="1.5.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="NUnit" Version="4.2.2" />
     <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />

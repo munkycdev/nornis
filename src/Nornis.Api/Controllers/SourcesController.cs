@@ -265,6 +265,31 @@ public class SourcesController : ControllerBase
                 .ToList()));
     }
 
+    /// <summary>Pins an existing Location artifact on this source's map, at its centre.
+    /// Source creator or GM only; 409 when that location is already pinned here.</summary>
+    [HttpPost("{sourceId:guid}/map/placemarks")]
+    public async Task<IActionResult> CreatePlacemark(
+        Guid worldId,
+        Guid sourceId,
+        [FromBody] CreatePlacemarkRequest request,
+        [FromServices] IMapViewService mapViewService,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await mapViewService.CreatePlacemarkAsync(
+            sourceId, worldId, request.ArtifactId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        var pin = result.Value!;
+        return Ok(new MapPlacemarkResponse(pin.Id, pin.ArtifactId, pin.ArtifactName, pin.X, pin.Y, pin.Label, pin.Confidence));
+    }
+
     /// <summary>Moves a map pin to a new normalized position. Source creator or GM only.</summary>
     [HttpPatch("{sourceId:guid}/map/placemarks/{placemarkId:guid}")]
     public async Task<IActionResult> MovePlacemark(

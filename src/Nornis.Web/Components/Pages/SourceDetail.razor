@@ -321,7 +321,9 @@
                     {
                         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
                             @(_source.ProcessingStatus == "Processed"
-                                ? "No places have been pinned yet — accept map proposals in the review queue to place pins."
+                                ? CanEditMapPins
+                                    ? "No places have been pinned yet — accept map proposals in the review queue, or add a pin below for a location you already know."
+                                    : "No places have been pinned yet — accept map proposals in the review queue to place pins."
                                 : "Pins appear once the map is processed and its place proposals are accepted.")
                         </MudText>
                     }
@@ -331,6 +333,18 @@
                             Extraction's positions are approximate — drag a pin to correct it, or hover one
                             and click &times; to take it off the map (the location itself is kept).
                         </MudText>
+                    }
+                    @if (CanEditMapPins)
+                    {
+                        <div class="nornis-add-member mb-2">
+                            <MudAutocomplete T="ArtifactListItem" @ref="_pinPicker" Value="_locationToPin"
+                                             ValueChanged="OnPinLocationPickedAsync" SearchFunc="SearchPinnableLocationsAsync"
+                                             ToStringFunc="@(a => a?.Name ?? string.Empty)"
+                                             Label="Add pin…" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                                             MinCharacters="2" DebounceInterval="200" MaxItems="10"
+                                             Clearable="true" CoerceText="false" ResetValueOnEmptyText="true"
+                                             Class="flex-grow-1" />
+                        </div>
                     }
                     <MapViewer @key="_source.Id" ImageUrl="@_mapView.ImageUrl" Placemarks="_mapView.Placemarks"
                                CanEdit="CanEditMapPins" OnPinMoved="PersistPinMoveAsync"
@@ -471,6 +485,12 @@
     private MudAutocomplete<ArtifactListItem>? _locationPicker;
     private bool _clearLocationPending;
 
+    // Map pins: the manual counterpart to accepting a map proposal — pin a Location the
+    // extractor missed. Same picker dance as the location links above.
+    private ArtifactListItem? _locationToPin;
+    private MudAutocomplete<ArtifactListItem>? _pinPicker;
+    private bool _clearPinPending;
+
     // In-flight sources are locked server-side. Processed sources are editable, but a
     // body change goes through the reprocess flow (confirm → cascade delete → requeue).
     private bool CanEdit => _source?.ProcessingStatus is "Draft" or "Ready" or "Failed" or "Processed";
@@ -529,6 +549,50 @@
             await InvokeAsync(StateHasChanged);
         }
         return true;
+    }
+
+    // Pinnable locations: visible Locations that aren't already on this map.
+    private async Task<IEnumerable<ArtifactListItem>> SearchPinnableLocationsAsync(string? value, CancellationToken ct)
+    {
+        if (Worlds.Current is null || string.IsNullOrWhiteSpace(value))
+        {
+            return [];
+        }
+
+        var result = await Api.SearchArtifactsAsync(Worlds.Current.Id, value, limit: 10, ct);
+        var pinned = (_mapView?.Placemarks ?? []).Select(p => p.ArtifactId).ToHashSet();
+        return (result.Value ?? [])
+            .Where(a => a.Type == "Location" && !pinned.Contains(a.Id));
+    }
+
+    /// <summary>Drops a pin for a known location at the centre of the map, ready to be dragged.</summary>
+    private async Task OnPinLocationPickedAsync(ArtifactListItem? picked)
+    {
+        _locationToPin = null;
+        // MudAutocomplete rewrites the box after this handler; defer the clear to the next render.
+        _clearPinPending = true;
+
+        if (picked is null || _source is null || Worlds.Current is null)
+        {
+            return;
+        }
+
+        var result = await Api.CreatePlacemarkAsync(Worlds.Current.Id, _source.Id, picked.Id);
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error?.Message ?? "Could not add the pin.", Severity.Error);
+            StateHasChanged();
+            return;
+        }
+
+        var created = result.Value!;
+        if (_mapView is not null)
+        {
+            _mapView = _mapView with { Placemarks = [.. _mapView.Placemarks, created] };
+        }
+        Snackbar.Add($"\"{created.ArtifactName}\" is pinned at the centre of the map — drag it where it belongs.",
+            Severity.Success);
+        StateHasChanged();
     }
 
     /// <summary>Confirms and deletes a pin from the map; the Location artifact is untouched.</summary>
@@ -799,15 +863,22 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!_clearLocationPending)
+        if (_clearLocationPending)
         {
-            return;
+            _clearLocationPending = false;
+            if (_locationPicker is not null)
+            {
+                await _locationPicker.ClearAsync();
+            }
         }
 
-        _clearLocationPending = false;
-        if (_locationPicker is not null)
+        if (_clearPinPending)
         {
-            await _locationPicker.ClearAsync();
+            _clearPinPending = false;
+            if (_pinPicker is not null)
+            {
+                await _pinPicker.ClearAsync();
+            }
         }
     }
 

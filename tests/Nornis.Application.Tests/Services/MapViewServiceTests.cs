@@ -134,6 +134,150 @@ public class MapViewServiceTests
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
     }
 
+    // ------------------------------------------------------------- add pin --
+
+    [Test]
+    public async Task CreatePlacemark_Creator_PinsLocationAtCentre()
+    {
+        var location = SeedLocation("Thistle Hold", VisibilityScope.PartyVisible);
+
+        var result = await _sut.CreatePlacemarkAsync(
+            _source.Id, WorldId, location.Id, OwnerId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.X, Is.EqualTo(0.5m));
+        Assert.That(result.Value.Y, Is.EqualTo(0.5m));
+        Assert.That(result.Value.ArtifactName, Is.EqualTo("Thistle Hold"));
+        Assert.That(result.Value.Label, Is.EqualTo("Thistle Hold"));
+        Assert.That(result.Value.Confidence, Is.Null, "a human placed this pin — no model confidence");
+
+        var stored = _placemarkRepo.Placemarks.Single();
+        Assert.That(stored.SourceAttachmentId, Is.EqualTo(_map.Id));
+        Assert.That(stored.ArtifactId, Is.EqualTo(location.Id));
+        Assert.That(stored.WorldId, Is.EqualTo(WorldId));
+    }
+
+    [Test]
+    public async Task CreatePlacemark_Gm_CanPinOnAnyonesMap()
+    {
+        var location = SeedLocation("Thistle Hold", VisibilityScope.PartyVisible);
+
+        var result = await _sut.CreatePlacemarkAsync(
+            _source.Id, WorldId, location.Id, OtherPlayerId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+    }
+
+    [Test]
+    public async Task CreatePlacemark_OtherPlayer_Forbidden()
+    {
+        var location = SeedLocation("Thistle Hold", VisibilityScope.PartyVisible);
+
+        var result = await _sut.CreatePlacemarkAsync(
+            _source.Id, WorldId, location.Id, OtherPlayerId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("forbidden"));
+        Assert.That(_placemarkRepo.Placemarks, Is.Empty);
+    }
+
+    [Test]
+    public async Task CreatePlacemark_Observer_Forbidden()
+    {
+        var location = SeedLocation("Thistle Hold", VisibilityScope.PartyVisible);
+
+        var result = await _sut.CreatePlacemarkAsync(
+            _source.Id, WorldId, location.Id, OwnerId, WorldRole.Observer, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("insufficient_role"));
+    }
+
+    [Test]
+    public async Task CreatePlacemark_NonLocationArtifact_400()
+    {
+        var npc = new Artifact
+        {
+            Id = Guid.NewGuid(), WorldId = WorldId, Type = ArtifactType.Character, Name = "Sera",
+            Visibility = VisibilityScope.PartyVisible, Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _artifactRepo.Seed(npc);
+
+        var result = await _sut.CreatePlacemarkAsync(
+            _source.Id, WorldId, npc.Id, OwnerId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
+        Assert.That(result.Error.Code, Is.EqualTo("invalid_artifact_type"));
+        Assert.That(_placemarkRepo.Placemarks, Is.Empty);
+    }
+
+    [Test]
+    public async Task CreatePlacemark_AlreadyPinned_409()
+    {
+        var location = SeedLocation("Thistle Hold", VisibilityScope.PartyVisible);
+        SeedPin(location.Id);
+
+        var result = await _sut.CreatePlacemarkAsync(
+            _source.Id, WorldId, location.Id, OwnerId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(409));
+        Assert.That(result.Error.Code, Is.EqualTo("already_pinned"));
+        Assert.That(_placemarkRepo.Placemarks, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task CreatePlacemark_ArchivedLocation_404()
+    {
+        var archived = SeedLocation("Merged Away", VisibilityScope.PartyVisible, status: ArtifactStatus.Archived);
+
+        var result = await _sut.CreatePlacemarkAsync(
+            _source.Id, WorldId, archived.Id, OwnerId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
+    [Test]
+    public async Task CreatePlacemark_LocationHiddenFromCaller_404()
+    {
+        var hidden = SeedLocation("GM Secret", VisibilityScope.GMOnly);
+
+        var result = await _sut.CreatePlacemarkAsync(
+            _source.Id, WorldId, hidden.Id, OwnerId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+        Assert.That(_placemarkRepo.Placemarks, Is.Empty);
+    }
+
+    [Test]
+    public async Task CreatePlacemark_SourceWithNoStoredMap_404()
+    {
+        var location = SeedLocation("Thistle Hold", VisibilityScope.PartyVisible);
+        await _attachmentRepo.DeleteAsync(_map.Id);
+
+        var result = await _sut.CreatePlacemarkAsync(
+            _source.Id, WorldId, location.Id, OwnerId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("no_map"));
+    }
+
+    [Test]
+    public async Task CreatePlacemark_SourceInAnotherWorld_404()
+    {
+        var location = SeedLocation("Thistle Hold", VisibilityScope.PartyVisible);
+
+        var result = await _sut.CreatePlacemarkAsync(
+            _source.Id, Guid.NewGuid(), location.Id, OwnerId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
     // ------------------------------------------------------------ move pin --
 
     private MapPlacemark SeedMovablePin(out Artifact artifact)
