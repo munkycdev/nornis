@@ -263,6 +263,10 @@ public class NornisApiClient
 
     private sealed record MovePlacemarkBody(decimal X, decimal Y);
 
+    /// <summary>Removes a map pin; the pinned Location artifact is untouched. Source creator or GM only.</summary>
+    public Task<ApiResult<bool>> RemovePlacemarkAsync(Guid worldId, Guid sourceId, Guid placemarkId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/sources/{sourceId}/map/placemarks/{placemarkId}", ct);
+
     /// <summary>The Location artifacts this session is linked to, visible to the caller.</summary>
     public Task<ApiResult<IReadOnlyList<LinkedLocationDto>>> GetSourceLocationsAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<LinkedLocationDto>>($"/api/worlds/{worldId}/sources/{sourceId}/locations", ct);

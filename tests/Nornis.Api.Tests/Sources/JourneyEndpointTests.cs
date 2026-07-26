@@ -105,6 +105,11 @@ public class JourneyEndpointTests
         Assert.That(journey.Stops, Has.Count.EqualTo(1));
         Assert.That(journey.Stops[0].Title, Is.EqualTo("Arrival"));
         Assert.That(journey.Stops[0].VisitedLocationIds, Does.Contain(locationId));
+
+        // The journey links back to the map's owning source — the page where pins are edited.
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        Assert.That(journey.MapSourceId, Is.EqualTo(db.Sources.Single(s => s.Type == SourceType.Map).Id));
     }
 
     [Test]

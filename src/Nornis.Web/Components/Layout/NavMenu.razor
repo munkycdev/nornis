@@ -69,9 +69,6 @@
 <MudNavMenu>
     <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.ChatBubbleOutline">Ask</MudNavLink>
     <MudNavLink Href="/capture" Icon="@Icons.Material.Outlined.EditNote">Capture</MudNavLink>
-    <MudNavLink Href="/artifacts" Icon="@Icons.Material.Outlined.Hub">Codex</MudNavLink>
-    <MudNavLink Href="/timeline" Icon="@Icons.Material.Outlined.Route">Timeline</MudNavLink>
-    <MudNavLink Href="/locations" Icon="@Icons.Material.Outlined.Place">Locations</MudNavLink>
     <MudNavLink Href="/review" Icon="@Icons.Material.Outlined.FactCheck">
         Review
         @if (_activity is { PendingProposals: > 0 })
@@ -79,6 +76,10 @@
             <span class="nornis-nav-count">@(_activity.PendingProposalsCapped ? "200+" : _activity.PendingProposals.ToString())</span>
         }
     </MudNavLink>
+    <MudNavLink Href="/artifacts" Icon="@Icons.Material.Outlined.Hub">Codex</MudNavLink>
+    <MudNavLink Href="/timeline" Icon="@Icons.Material.Outlined.Route">Timeline</MudNavLink>
+    <MudNavLink Href="/locations" Icon="@Icons.Material.Outlined.Place">Locations</MudNavLink>
+    <MudNavLink Href="/library" Icon="@Icons.Material.Outlined.MenuBook">Library</MudNavLink>
     <MudNavLink Href="/sources" Icon="@Icons.Material.Outlined.Layers">
         Sources
         @if (_activity is { Failed: > 0 })
@@ -90,7 +91,6 @@
             <span class="nornis-nav-count" title="processing">@_activity.InFlight</span>
         }
     </MudNavLink>
-    <MudNavLink Href="/library" Icon="@Icons.Material.Outlined.MenuBook">Library</MudNavLink>
     @if (Worlds.EffectiveRole == "GM")
     {
         <MudNavLink Href="/admin" Icon="@Icons.Material.Outlined.Tune">Admin</MudNavLink>
@@ -114,7 +114,7 @@
             }
             else
             {
-                <span class="nornis-memory-pct">—</span>
+                <span class="nornis-memory-pct">N/A</span>
                 <span class="nornis-memory-state">Not yet assessed</span>
             }
         </div>
@@ -172,8 +172,6 @@ else
 @inject IJSRuntime JS
 
 @code {
-    private const string SelectedWorldKey = "nornis:world";
-
     [Parameter]
     public EventCallback OnCollapse { get; set; }
 
@@ -228,22 +226,10 @@ else
             return;
         }
 
-        // Restore the world the user last had selected (localStorage needs JS, so after render).
-        // Ensure the list is loaded first — OnAfterRender can fire before OnInitializedAsync's load.
-        await Worlds.EnsureLoadedAsync();
-        try
-        {
-            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", SelectedWorldKey);
-            if (Guid.TryParse(saved, out var id) && id != Worlds.Current?.Id
-                && Worlds.Worlds.Any(c => c.Id == id))
-            {
-                Worlds.Select(id);
-            }
-        }
-        catch
-        {
-            // Best-effort restore; ignore storage failures.
-        }
+        // Complete the boot: WorldState picks the saved world (localStorage needs JS, so
+        // after render). Until this flips Worlds.Ready, the layout shows a loading screen
+        // instead of any world's content.
+        await Worlds.EnsureSelectionRestoredAsync();
     }
 
     private async Task SelectWorldAsync(Guid worldId)
@@ -251,7 +237,7 @@ else
         Worlds.Select(worldId);
         try
         {
-            await JS.InvokeVoidAsync("localStorage.setItem", SelectedWorldKey, worldId.ToString());
+            await JS.InvokeVoidAsync("localStorage.setItem", WorldState.StorageKey, worldId.ToString());
         }
         catch
         {

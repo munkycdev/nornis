@@ -86,7 +86,7 @@ public class JourneyMapService : IJourneyMapService
         {
             // An explicitly-requested map may have no visible pins — return it statically.
             return AppResult<JourneyMap>.Success(
-                new JourneyMap(canvas.Attachment.Id, canvas.ImageUrl, locations, [], 0));
+                new JourneyMap(canvas.Attachment.Id, canvas.Attachment.SourceId, canvas.ImageUrl, locations, [], 0));
         }
 
         var pinnedSet = locations.Select(l => l.ArtifactId).ToHashSet();
@@ -187,7 +187,7 @@ public class JourneyMapService : IJourneyMapService
         }
 
         return AppResult<JourneyMap>.Success(
-            new JourneyMap(canvas.Attachment.Id, canvas.ImageUrl, locations, stops, undatedCount));
+            new JourneyMap(canvas.Attachment.Id, canvas.Attachment.SourceId, canvas.ImageUrl, locations, stops, undatedCount));
     }
 
     /// <summary>Deterministic canvas order: most visible pins, then most recent, then id.</summary>

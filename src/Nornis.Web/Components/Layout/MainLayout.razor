@@ -33,7 +33,18 @@
         }
 
         <div class="nornis-page">
-            @Body
+            @* Boot gate: nothing world-scoped renders until the saved world selection is
+               restored — otherwise pages flash the wrong world's content and re-fetch. *@
+            @if (Worlds.Ready)
+            {
+                @Body
+            }
+            else
+            {
+                <div class="nornis-boot" aria-busy="true" aria-label="Loading">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Secondary" Size="Size.Large" />
+                </div>
+            }
         </div>
 
         <TutorialChecklist />

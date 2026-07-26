@@ -12,12 +12,15 @@
 
         @foreach (var loc in Journey.Locations)
         {
+            @* No visible name: the map image already prints it — the pin sits on that
+               printed name, so a label would just double it. Hover/tip carries it instead. *@
             <button type="button"
                     class="nornis-journey-pin @(loc.ArtifactId == _selectedPinId ? "is-selected" : "")"
                     style="left:@Css(loc.X * 100m)%; top:@Css(loc.Y * 100m)%"
+                    data-nornis-tip="@PinName(loc)"
+                    aria-label="@PinName(loc)"
                     @onclick="() => OnPinClick(loc.ArtifactId)">
                 <span class="nornis-journey-pin-dot"></span>
-                <span class="nornis-journey-pin-label">@PinName(loc)</span>
             </button>
         }
     </div>

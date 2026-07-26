@@ -290,6 +290,29 @@ public class SourcesController : ControllerBase
         return Ok(new MapPlacemarkResponse(pin.Id, pin.ArtifactId, pin.ArtifactName, pin.X, pin.Y, pin.Label, pin.Confidence));
     }
 
+    /// <summary>Removes a map pin; the pinned Location artifact is untouched. Source creator or GM only.</summary>
+    [HttpDelete("{sourceId:guid}/map/placemarks/{placemarkId:guid}")]
+    public async Task<IActionResult> RemovePlacemark(
+        Guid worldId,
+        Guid sourceId,
+        Guid placemarkId,
+        [FromServices] IMapViewService mapViewService,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await mapViewService.RemovePlacemarkAsync(
+            sourceId, worldId, placemarkId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return NoContent();
+    }
+
     /// <summary>What this source's extraction contributed to the record, reader-visible only.</summary>
     [HttpGet("{sourceId:guid}/knowledge")]
     public async Task<IActionResult> GetKnowledge(

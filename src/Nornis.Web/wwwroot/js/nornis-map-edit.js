@@ -61,6 +61,8 @@
 
         state.onDown = e => {
             if (e.button !== 0) return;
+            // The hover ✕ removes the pin — pressing it must not start a drag.
+            if (e.target.closest('.nornis-map-pin-remove')) return;
             const pin = e.target.closest('.nornis-map-pin');
             if (!pin || !pin.dataset.placemarkId) return;
             const viewer = getViewer();

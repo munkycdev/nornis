@@ -148,6 +148,19 @@ public class JourneyMapServiceTests
     }
 
     [Test]
+    public async Task Journey_CarriesTheMapsOwningSourceId_ForLinkingBackToIt()
+    {
+        var (mapSource, map) = SeedMap();
+        SeedPin(map.Id, SeedArtifact("Black Harbor").Id);
+
+        var auto = await Run(mapSourceId: null, GmId, WorldRole.GM);
+        var explicit_ = await Run(mapSourceId: mapSource.Id, GmId, WorldRole.GM);
+
+        Assert.That(auto.Value!.MapSourceId, Is.EqualTo(mapSource.Id));
+        Assert.That(explicit_.Value!.MapSourceId, Is.EqualTo(mapSource.Id));
+    }
+
+    [Test]
     public async Task ExplicitMapSourceId_InvisibleToPlayer_Returns404()
     {
         var (gmMap, map) = SeedMap(visibility: VisibilityScope.GMOnly);

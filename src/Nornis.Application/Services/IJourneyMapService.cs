@@ -30,9 +30,12 @@ public sealed record JourneyStop(
 /// The world's journey over one map: the map image, its caller-visible location pins, and the
 /// caller-visible dated sessions and imported notes, in chronological order. Every frame the
 /// client renders is a projection of a stop index (or a selected pin) over this data.
+/// <paramref name="MapSourceId"/> is the map's owning source — the page where pins are
+/// edited — so map views can link back to it.
 /// </summary>
 public sealed record JourneyMap(
     Guid MapAttachmentId,
+    Guid MapSourceId,
     string ImageUrl,
     IReadOnlyList<JourneyLocation> Locations,
     IReadOnlyList<JourneyStop> Stops,

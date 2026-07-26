@@ -328,11 +328,13 @@
                     else if (CanEditMapPins)
                     {
                         <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2 d-block">
-                            Extraction's positions are approximate — drag a pin to correct it.
+                            Extraction's positions are approximate — drag a pin to correct it, or hover one
+                            and click &times; to take it off the map (the location itself is kept).
                         </MudText>
                     }
                     <MapViewer @key="_source.Id" ImageUrl="@_mapView.ImageUrl" Placemarks="_mapView.Placemarks"
-                               CanEdit="CanEditMapPins" OnPinMoved="PersistPinMoveAsync" />
+                               CanEdit="CanEditMapPins" OnPinMoved="PersistPinMoveAsync"
+                               OnPinRemoveRequested="RemovePinAsync" />
                 </MudPaper>
             }
 
@@ -527,6 +529,40 @@
             await InvokeAsync(StateHasChanged);
         }
         return true;
+    }
+
+    /// <summary>Confirms and deletes a pin from the map; the Location artifact is untouched.</summary>
+    private async Task RemovePinAsync(MapPlacemarkDto pin)
+    {
+        if (Worlds.Current is null || _source is null)
+        {
+            return;
+        }
+
+        var confirmed = await DialogService.ShowMessageBox(
+            "Remove this pin?",
+            $"Take \"{pin.ArtifactName}\" off this map. The location itself is kept — only the pin is removed.",
+            yesText: "Remove pin", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var result = await Api.RemovePlacemarkAsync(Worlds.Current.Id, _source.Id, pin.Id);
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error?.Message ?? "Could not remove the pin.", Severity.Error);
+            return;
+        }
+
+        if (_mapView is not null)
+        {
+            _mapView = _mapView with
+            {
+                Placemarks = _mapView.Placemarks.Where(p => p.Id != pin.Id).ToList()
+            };
+        }
+        Snackbar.Add($"Pin removed — \"{pin.ArtifactName}\" is still in your world.", Severity.Success);
     }
 
     private bool IsProcessed => _source?.ProcessingStatus == "Processed";

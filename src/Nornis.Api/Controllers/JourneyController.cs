@@ -48,6 +48,7 @@ public class JourneyController : ControllerBase
     internal static JourneyResponse ToResponse(JourneyMap journey) =>
         new(
             journey.MapAttachmentId,
+            journey.MapSourceId,
             journey.ImageUrl,
             journey.Locations
                 .Select(l => new JourneyLocationResponse(l.ArtifactId, l.Name, l.X, l.Y, l.Label))

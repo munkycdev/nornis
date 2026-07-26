@@ -5,7 +5,8 @@
 @* Map image with percentage-positioned pins: the pins scale with the image at any
    viewport width, no JS measurement needed. Click a pin to open its artifact.
    With CanEdit, pins can also be dragged to correct extraction's approximate
-   positions — the drop persists through OnPinMoved and snaps back on failure. *@
+   positions — the drop persists through OnPinMoved and snaps back on failure —
+   and a hover ✕ removes a pin from the map (the artifact itself is untouched). *@
 
 <div id="@_viewerId" class="nornis-map-viewer @(CanEdit ? "is-editable" : "")">
     <img src="@ImageUrl" alt="Map" />
@@ -18,6 +19,16 @@
            style="left:@(Pct(pin.X))%; top:@(Pct(pin.Y))%;"
            data-nornis-tip="@(TipFor(pin))">
             <MudIcon Icon="@Icons.Material.Filled.Place" Color="Color.Secondary" Size="Size.Small" />
+            @if (CanEdit && OnPinRemoveRequested is not null)
+            {
+                <button type="button" class="nornis-map-pin-remove"
+                        aria-label="@($"Remove the {pin.ArtifactName} pin from the map")"
+                        title="Remove pin (keeps the location)"
+                        @onclick="@(() => OnPinRemoveRequested(pin))"
+                        @onclick:preventDefault="true" @onclick:stopPropagation="true">
+                    &times;
+                </button>
+            }
         </a>
     }
 </div>
@@ -35,6 +46,10 @@
 
     /// <summary>Persists a dropped pin's new normalized position; return false to snap it back.</summary>
     [Parameter] public Func<Guid, decimal, decimal, Task<bool>>? OnPinMoved { get; set; }
+
+    /// <summary>The hover ✕ was clicked. The handler owns confirmation and persistence;
+    /// only the pin is removed, never the artifact it points at.</summary>
+    [Parameter] public Func<MapPlacemarkDto, Task>? OnPinRemoveRequested { get; set; }
 
     private readonly string _viewerId = $"nornis-map-{Guid.NewGuid():N}";
     private DotNetObjectReference<MapViewer>? _selfRef;

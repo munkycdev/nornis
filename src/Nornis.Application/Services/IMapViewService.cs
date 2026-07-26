@@ -25,4 +25,12 @@ public interface IMapViewService
     Task<AppResult<MapPlacemarkView>> MovePlacemarkAsync(
         Guid sourceId, Guid worldId, Guid placemarkId, decimal x, decimal y,
         Guid userId, WorldRole role, CancellationToken ct);
+
+    /// <summary>
+    /// Deletes a pin from the map. The pinned Location artifact is untouched — this is
+    /// for maps where extraction pinned a place that isn't on them. Source creator or GM only.
+    /// </summary>
+    Task<AppResult> RemovePlacemarkAsync(
+        Guid sourceId, Guid worldId, Guid placemarkId,
+        Guid userId, WorldRole role, CancellationToken ct);
 }

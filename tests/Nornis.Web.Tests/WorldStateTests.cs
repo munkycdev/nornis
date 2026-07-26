@@ -12,12 +12,12 @@ public class WorldStateTests
     private static WorldState CreateState() =>
         CreateState(new StubApiHandler());
 
-    private static WorldState CreateState(StubApiHandler handler)
+    private static WorldState CreateState(StubApiHandler handler, string? storedWorldId = null)
     {
         var viewAs = new ViewAsState();
         var client = new NornisApiClient(
             new HttpClient(handler) { BaseAddress = new Uri("http://localhost") }, viewAs);
-        return new WorldState(client, viewAs);
+        return new WorldState(client, viewAs, new FakeJsRuntime { StoredWorldId = storedWorldId });
     }
 
     [Test]
@@ -63,7 +63,7 @@ public class WorldStateTests
         var state = CreateState(handler);
 
         // Sidebar path: world load fetches continuity once.
-        await state.EnsureLoadedAsync();
+        await state.EnsureSelectionRestoredAsync();
         // Page paths: Home and World Memory both ensure — neither should refetch.
         await state.EnsureContinuityLoadedAsync();
         await state.EnsureContinuityLoadedAsync();
@@ -79,7 +79,7 @@ public class WorldStateTests
         var handler = new StubApiHandler { MyRole = "Player" };
         var state = CreateState(handler);
 
-        await state.EnsureLoadedAsync();
+        await state.EnsureSelectionRestoredAsync();
         await state.EnsureContinuityLoadedAsync();
 
         Assert.That(handler.AssessmentRequests, Is.EqualTo(0));
@@ -92,7 +92,7 @@ public class WorldStateTests
     {
         var handler = new StubApiHandler();
         var state = CreateState(handler);
-        await state.EnsureLoadedAsync();
+        await state.EnsureSelectionRestoredAsync();
 
         var fresher = state.Continuity! with { EffectiveScore = 99 };
         state.SetContinuity(fresher);
@@ -107,7 +107,7 @@ public class WorldStateTests
     {
         var handler = new StubApiHandler();
         var state = CreateState(handler);
-        await state.EnsureLoadedAsync();
+        await state.EnsureSelectionRestoredAsync();
 
         await state.LoadContinuityAsync();
 
@@ -120,7 +120,7 @@ public class WorldStateTests
         var handler = new StubApiHandler { AssessmentStatus = HttpStatusCode.InternalServerError };
         var state = CreateState(handler);
 
-        await state.EnsureLoadedAsync();
+        await state.EnsureSelectionRestoredAsync();
 
         Assert.That(state.Continuity, Is.Null);
         Assert.That(state.ContinuityError, Is.Not.Null);
@@ -130,7 +130,7 @@ public class WorldStateTests
     public async Task SetViewingAsPlayer_TogglesEffectiveRole_AndRaisesChanged()
     {
         var state = CreateState();
-        await state.EnsureLoadedAsync();
+        await state.EnsureSelectionRestoredAsync();
         Assert.That(state.EffectiveRole, Is.EqualTo("GM"));
 
         var changedCount = 0;
@@ -153,7 +153,7 @@ public class WorldStateTests
         var handler = new StubApiHandler();
         var state = CreateState(handler);
 
-        await state.EnsureLoadedAsync();
+        await state.EnsureSelectionRestoredAsync();
         Assert.That(handler.LastWorldsRequestHadViewAs, Is.False);
 
         state.SetViewingAsPlayer(true);
@@ -167,7 +167,7 @@ public class WorldStateTests
     {
         var handler = new StubApiHandler();
         var state = CreateState(handler);
-        await state.EnsureLoadedAsync();
+        await state.EnsureSelectionRestoredAsync();
         Assert.That(handler.AssessmentRequests, Is.EqualTo(1));
 
         // While viewing as player the GM-only endpoint would 403 — a forced load must skip it.
@@ -188,13 +188,78 @@ public class WorldStateTests
     {
         var handler = new StubApiHandler();
         var state = CreateState(handler);
-        await state.EnsureLoadedAsync();
+        await state.EnsureSelectionRestoredAsync();
 
         state.SetViewingAsPlayer(true);
         state.Select(handler.SecondWorldId);
 
         Assert.That(state.ViewingAsPlayer, Is.False);
         Assert.That(state.EffectiveRole, Is.EqualTo("GM"));
+    }
+
+    // ------------------------------------------------------- boot / restore --
+
+    [Test]
+    public async Task EnsureLoadedAsync_DoesNotSelectAWorld_BeforeTheRestore()
+    {
+        // An eager first-world pick here is exactly the startup flash: pages would render
+        // and fetch for it, then swap to the saved world once localStorage is read.
+        var state = CreateState(new StubApiHandler());
+
+        await state.EnsureLoadedAsync();
+
+        Assert.That(state.Worlds, Has.Count.EqualTo(2));
+        Assert.That(state.Current, Is.Null);
+        Assert.That(state.Ready, Is.False);
+    }
+
+    [Test]
+    public async Task EnsureSelectionRestoredAsync_PicksTheSavedWorld()
+    {
+        var handler = new StubApiHandler();
+        var state = CreateState(handler, storedWorldId: handler.SecondWorldId.ToString());
+
+        await state.EnsureSelectionRestoredAsync();
+
+        Assert.That(state.Ready, Is.True);
+        Assert.That(state.Current!.Id, Is.EqualTo(handler.SecondWorldId));
+    }
+
+    [Test]
+    public async Task EnsureSelectionRestoredAsync_FallsBackToFirst_WhenNothingSaved()
+    {
+        var handler = new StubApiHandler();
+        var state = CreateState(handler);
+
+        await state.EnsureSelectionRestoredAsync();
+
+        Assert.That(state.Ready, Is.True);
+        Assert.That(state.Current!.Id, Is.EqualTo(handler.WorldId));
+    }
+
+    [Test]
+    public async Task EnsureSelectionRestoredAsync_FallsBackToFirst_WhenSavedWorldIsGone()
+    {
+        var handler = new StubApiHandler();
+        var state = CreateState(handler, storedWorldId: Guid.NewGuid().ToString());
+
+        await state.EnsureSelectionRestoredAsync();
+
+        Assert.That(state.Current!.Id, Is.EqualTo(handler.WorldId));
+    }
+
+    [Test]
+    public async Task EnsureSelectionRestoredAsync_IsIdempotent()
+    {
+        var handler = new StubApiHandler();
+        var state = CreateState(handler, storedWorldId: handler.SecondWorldId.ToString());
+        await state.EnsureSelectionRestoredAsync();
+
+        // A second entry point (another layout render) must not refetch or reselect.
+        state.Select(handler.WorldId);
+        await state.EnsureSelectionRestoredAsync();
+
+        Assert.That(state.Current!.Id, Is.EqualTo(handler.WorldId));
     }
 
     /// <summary>Serves a two-world list and a canned assessment, counting requests per endpoint.</summary>
@@ -243,5 +308,17 @@ public class WorldStateTests
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json")
         };
+    }
+
+    /// <summary>Answers the localStorage.getItem call WorldState's restore makes.</summary>
+    private sealed class FakeJsRuntime : Microsoft.JSInterop.IJSRuntime
+    {
+        public string? StoredWorldId { get; init; }
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) =>
+            ValueTask.FromResult((TValue)(object?)StoredWorldId!);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) =>
+            ValueTask.FromResult((TValue)(object?)StoredWorldId!);
     }
 }

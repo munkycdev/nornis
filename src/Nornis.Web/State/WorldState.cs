@@ -1,3 +1,4 @@
+using Microsoft.JSInterop;
 using Nornis.Web.ApiClient;
 
 namespace Nornis.Web.State;
@@ -5,28 +6,44 @@ namespace Nornis.Web.State;
 /// <summary>
 /// Per-circuit state for the active world. Everything in Nornis is world-scoped, so
 /// components read the current world here and re-render on <see cref="Changed"/>. Loading is
-/// lazy and idempotent via <see cref="EnsureLoadedAsync"/>.
+/// lazy and idempotent via <see cref="EnsureLoadedAsync"/>; the initial selection is a second,
+/// separate step (<see cref="EnsureSelectionRestoredAsync"/>) because the saved world lives in
+/// localStorage, which needs JS interop — nothing world-scoped should render before it runs.
 /// </summary>
 public class WorldState
 {
+    /// <summary>localStorage key holding the last selected world id.</summary>
+    public const string StorageKey = "nornis:world";
+
     private readonly NornisApiClient _api;
     private readonly ViewAsState _viewAs;
+    private readonly IJSRuntime _js;
     private bool _loaded;
     private Task? _loadingTask;
+    private Task? _restoreTask;
 
     // One continuity fetch per world: the sidebar ring, Home card, and World Memory page
     // all share this task instead of each firing their own request.
     private Guid? _continuityWorldId;
     private Task? _continuityTask;
 
-    public WorldState(NornisApiClient api, ViewAsState viewAs)
+    public WorldState(NornisApiClient api, ViewAsState viewAs, IJSRuntime js)
     {
         _api = api;
         _viewAs = viewAs;
+        _js = js;
     }
 
     public IReadOnlyList<WorldSummary> Worlds { get; private set; } = [];
     public WorldSummary? Current { get; private set; }
+
+    /// <summary>
+    /// True once the initial world selection is resolved (saved world restored from
+    /// localStorage, or the fallback picked). The layout holds the page body behind a
+    /// loading screen until this flips — that's what prevents the startup flash of
+    /// content for a world the user didn't have selected.
+    /// </summary>
+    public bool Ready { get; private set; }
 
     /// <summary>True while the GM is previewing the world as a player sees it.</summary>
     public bool ViewingAsPlayer => _viewAs.ViewingAsPlayer;
@@ -77,8 +94,10 @@ public class WorldState
     public event Action? Changed;
 
     /// <summary>
-    /// Loads worlds once per circuit and selects the first as current. Concurrent callers
-    /// (multiple components initializing at once) share a single load rather than each firing one.
+    /// Loads the world list once per circuit. Concurrent callers (multiple components
+    /// initializing at once) share a single load rather than each firing one. Deliberately
+    /// selects nothing before <see cref="EnsureSelectionRestoredAsync"/> has run — an eager
+    /// "first world" pick here would render, then get swapped for the saved world (a flash).
     /// </summary>
     public Task EnsureLoadedAsync(CancellationToken ct = default)
     {
@@ -88,6 +107,41 @@ public class WorldState
         }
 
         return _loadingTask ??= ReloadAsync(ct);
+    }
+
+    /// <summary>
+    /// Completes the boot: loads the list, then selects the world saved in localStorage,
+    /// falling back to the first. Flips <see cref="Ready"/> and notifies before the
+    /// continuity fetch so the UI unblocks as soon as the selection is known. Idempotent —
+    /// every layout entry point may call it. Must run where JS interop is available
+    /// (OnAfterRender), never during prerender.
+    /// </summary>
+    public Task EnsureSelectionRestoredAsync() => _restoreTask ??= RestoreSelectionCoreAsync();
+
+    private async Task RestoreSelectionCoreAsync()
+    {
+        await EnsureLoadedAsync();
+
+        Guid? saved = null;
+        try
+        {
+            var raw = await _js.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+            if (Guid.TryParse(raw, out var id))
+            {
+                saved = id;
+            }
+        }
+        catch
+        {
+            // Best-effort — unreadable storage falls back to the first world.
+        }
+
+        Current = (saved is { } s ? Worlds.FirstOrDefault(w => w.Id == s) : null)
+            ?? Worlds.FirstOrDefault();
+        Ready = true;
+        Changed?.Invoke();
+
+        await EnsureContinuityLoadedAsync();
     }
 
     public async Task ReloadAsync(CancellationToken ct = default)
@@ -106,8 +160,11 @@ public class WorldState
 
         LoadError = null;
         Worlds = result.Value!;
-        // Keep the current selection if it still exists, otherwise fall back to the first.
-        Current = Worlds.FirstOrDefault(c => c.Id == Current?.Id) ?? Worlds.FirstOrDefault();
+        // Keep the current selection if it still exists, otherwise fall back to the first —
+        // but never auto-select before the initial restore has decided the saved world.
+        Current = Ready
+            ? Worlds.FirstOrDefault(c => c.Id == Current?.Id) ?? Worlds.FirstOrDefault()
+            : null;
         Changed?.Invoke();
 
         await EnsureContinuityLoadedAsync(ct);

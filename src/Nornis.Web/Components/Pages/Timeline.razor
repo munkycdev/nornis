@@ -82,6 +82,16 @@ else
         }
         else
         {
+            @if (Worlds.EffectiveRole == "GM")
+            {
+                <div class="d-flex justify-end mb-1">
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Outlined.EditLocationAlt"
+                               Href="@($"/sources/{_journey.MapSourceId}")">
+                        Adjust pins on the map source
+                    </MudButton>
+                </div>
+            }
             <JourneyMap Data="_journey" />
         }
     }

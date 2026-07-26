@@ -95,34 +95,77 @@ public class MapViewService : IMapViewService
                 "Pin positions are normalized: x and y must be between 0 and 1."));
         }
 
+        var (error, placemark, artifact) = await FindEditablePlacemarkAsync(
+            sourceId, worldId, placemarkId, userId, role, ct);
+        if (error is not null)
+        {
+            return AppResult<MapPlacemarkView>.Fail(error);
+        }
+
+        placemark!.X = x;
+        placemark.Y = y;
+        placemark.UpdatedAt = DateTimeOffset.UtcNow;
+        var updated = await _placemarkRepository.UpdateAsync(placemark, ct);
+
+        return AppResult<MapPlacemarkView>.Success(new MapPlacemarkView(
+            updated.Id, artifact!.Id, artifact.Name, updated.X, updated.Y, updated.Label, updated.Confidence));
+    }
+
+    public async Task<AppResult> RemovePlacemarkAsync(
+        Guid sourceId, Guid worldId, Guid placemarkId, Guid userId, WorldRole role, CancellationToken ct)
+    {
+        if (role == WorldRole.Observer)
+        {
+            return AppResult.Fail(new AppError(403, "insufficient_role",
+                "Observers cannot remove map pins."));
+        }
+
+        var (error, placemark, _) = await FindEditablePlacemarkAsync(
+            sourceId, worldId, placemarkId, userId, role, ct);
+        if (error is not null)
+        {
+            return AppResult.Fail(error);
+        }
+
+        await _placemarkRepository.DeleteAsync(placemark!.Id, ct);
+        return AppResult.Success();
+    }
+
+    /// <summary>
+    /// The shared move/remove gauntlet: visible source, creator-or-GM, stored map image,
+    /// pin on that map, and an artifact the caller may see. A pin whose artifact is gone
+    /// or hidden never rendered for this caller — editing it would be acting on something
+    /// unseen, so those 404 like a missing pin.
+    /// </summary>
+    private async Task<(AppError? Error, MapPlacemark? Placemark, Artifact? Artifact)> FindEditablePlacemarkAsync(
+        Guid sourceId, Guid worldId, Guid placemarkId, Guid userId, WorldRole role, CancellationToken ct)
+    {
         var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
         if (source is null || source.WorldId != worldId || !CanSeeSource(source, userId, role))
         {
-            return AppResult<MapPlacemarkView>.Fail(new AppError(404, "not_found", "Source not found."));
+            return (new AppError(404, "not_found", "Source not found."), null, null);
         }
 
         if (source.CreatedByUserId != userId && role != WorldRole.GM)
         {
-            return AppResult<MapPlacemarkView>.Fail(new AppError(403, "forbidden",
-                "Only the source creator or a GM can move this map's pins."));
+            return (new AppError(403, "forbidden",
+                "Only the source creator or a GM can edit this map's pins."), null, null);
         }
 
         var attachment = (await _attachmentRepository.ListBySourceAsync(sourceId, ct))
             .FirstOrDefault(a => a.Kind == SourceAttachmentKind.MapImage && a.Status == SourceAttachmentStatus.Stored);
         if (attachment is null)
         {
-            return AppResult<MapPlacemarkView>.Fail(new AppError(404, "no_map", "This source has no map image."));
+            return (new AppError(404, "no_map", "This source has no map image."), null, null);
         }
 
         var placemark = (await _placemarkRepository.ListByAttachmentAsync(attachment.Id, ct))
             .FirstOrDefault(p => p.Id == placemarkId);
         if (placemark is null)
         {
-            return AppResult<MapPlacemarkView>.Fail(new AppError(404, "not_found", "Pin not found on this map."));
+            return (new AppError(404, "not_found", "Pin not found on this map."), null, null);
         }
 
-        // A pin whose artifact is gone or hidden from the mover never rendered for them —
-        // moving it would be acting on something unseen.
         var artifact = await _artifactRepository.GetByIdAsync(placemark.ArtifactId, ct);
         var filter = VisibilityFilter.ForRole(role, userId);
         if (artifact is null
@@ -130,16 +173,10 @@ public class MapViewService : IMapViewService
             || artifact.Status == ArtifactStatus.Archived
             || !filter.CanSee(artifact.Visibility, artifact.CreatedByUserId))
         {
-            return AppResult<MapPlacemarkView>.Fail(new AppError(404, "not_found", "Pin not found on this map."));
+            return (new AppError(404, "not_found", "Pin not found on this map."), null, null);
         }
 
-        placemark.X = x;
-        placemark.Y = y;
-        placemark.UpdatedAt = DateTimeOffset.UtcNow;
-        var updated = await _placemarkRepository.UpdateAsync(placemark, ct);
-
-        return AppResult<MapPlacemarkView>.Success(new MapPlacemarkView(
-            updated.Id, artifact.Id, artifact.Name, updated.X, updated.Y, updated.Label, updated.Confidence));
+        return (null, placemark, artifact);
     }
 
     private static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch

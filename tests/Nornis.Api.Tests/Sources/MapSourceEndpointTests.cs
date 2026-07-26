@@ -207,6 +207,40 @@ public class MapSourceEndpointTests
     }
 
     [Test]
+    public async Task RemovePlacemark_Gm_DeletesPinButKeepsArtifact()
+    {
+        var (source, map) = await SeedMapSourceAsync();
+        var pinId = await SeedPinnedLocationAsync(map.Id, "Ironhold", VisibilityScope.PartyVisible);
+
+        var response = await _scenario.GmClient.DeleteAsync(
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}/map/placemarks/{pinId}");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NoContent), await response.Content.ReadAsStringAsync());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        Assert.That(db.MapPlacemarks.Any(p => p.Id == pinId), Is.False);
+        Assert.That(db.Artifacts.Any(a => a.Name == "Ironhold"), Is.True,
+            "removing a pin must never delete the Location artifact");
+    }
+
+    [Test]
+    public async Task RemovePlacemark_PlayerWhoIsNotCreator_403()
+    {
+        var (source, map) = await SeedMapSourceAsync(); // created by the GM
+        var pinId = await SeedPinnedLocationAsync(map.Id, "Ironhold", VisibilityScope.PartyVisible);
+
+        var response = await _scenario.PlayerClient.DeleteAsync(
+            $"/api/worlds/{_scenario.World.Id}/sources/{source.Id}/map/placemarks/{pinId}");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        Assert.That(db.MapPlacemarks.Any(p => p.Id == pinId), Is.True);
+    }
+
+    [Test]
     public async Task Attachment_MapImageOnNonMapSource_400()
     {
         var source = await SourceTestHelpers.CreateTestSourceAsync(

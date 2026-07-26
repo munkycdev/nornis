@@ -58,9 +58,15 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // WorldState may still be loading on the first render — keep trying on
-        // subsequent renders until the canvas is up.
-        if (_initialized || Worlds.Current is null)
+        if (_initialized)
+        {
+            return;
+        }
+
+        // This chromeless layout has no NavMenu, so the ink page completes the world
+        // restore itself (idempotent; localStorage needs JS, so after render).
+        await Worlds.EnsureSelectionRestoredAsync();
+        if (Worlds.Current is null)
         {
             return;
         }

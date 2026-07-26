@@ -244,4 +244,83 @@ public class MapViewServiceTests
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
     }
+
+    // ---------------------------------------------------------- remove pin --
+
+    [Test]
+    public async Task RemovePlacemark_Creator_DeletesPinButKeepsArtifact()
+    {
+        var pin = SeedMovablePin(out var artifact);
+
+        var result = await _sut.RemovePlacemarkAsync(
+            _source.Id, WorldId, pin.Id, OwnerId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_placemarkRepo.Placemarks, Is.Empty);
+        Assert.That(await _artifactRepo.GetByIdAsync(artifact.Id), Is.Not.Null,
+            "removing a pin must never touch the Location artifact");
+    }
+
+    [Test]
+    public async Task RemovePlacemark_Gm_CanRemoveAnyonesPin()
+    {
+        var pin = SeedMovablePin(out _);
+
+        var result = await _sut.RemovePlacemarkAsync(
+            _source.Id, WorldId, pin.Id, OtherPlayerId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_placemarkRepo.Placemarks, Is.Empty);
+    }
+
+    [Test]
+    public async Task RemovePlacemark_OtherPlayer_Forbidden()
+    {
+        var pin = SeedMovablePin(out _);
+
+        var result = await _sut.RemovePlacemarkAsync(
+            _source.Id, WorldId, pin.Id, OtherPlayerId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("forbidden"));
+        Assert.That(_placemarkRepo.Placemarks, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task RemovePlacemark_Observer_Forbidden()
+    {
+        var pin = SeedMovablePin(out _);
+
+        var result = await _sut.RemovePlacemarkAsync(
+            _source.Id, WorldId, pin.Id, OwnerId, WorldRole.Observer, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("insufficient_role"));
+    }
+
+    [Test]
+    public async Task RemovePlacemark_UnknownPin_404()
+    {
+        var result = await _sut.RemovePlacemarkAsync(
+            _source.Id, WorldId, Guid.NewGuid(), OwnerId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
+    [Test]
+    public async Task RemovePlacemark_PinOnArtifactHiddenFromRemover_404()
+    {
+        // The creator is a Player; a GMOnly artifact's pin never rendered for them.
+        var hidden = SeedLocation("GM Secret", VisibilityScope.GMOnly);
+        SeedPin(hidden.Id);
+        var pin = _placemarkRepo.Placemarks.Single();
+
+        var result = await _sut.RemovePlacemarkAsync(
+            _source.Id, WorldId, pin.Id, OwnerId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+        Assert.That(_placemarkRepo.Placemarks, Has.Count.EqualTo(1));
+    }
 }

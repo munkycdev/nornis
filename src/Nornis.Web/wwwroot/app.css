@@ -3068,6 +3068,14 @@ a.nornis-cite:hover {
 
 /* ------------------------------------------------------------- Map viewer --- */
 
+/* App boot: fills the page area until the saved world selection is restored. */
+.nornis-boot {
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .nornis-map-viewer {
     position: relative;
     display: inline-block;
@@ -3101,6 +3109,36 @@ a.nornis-cite:hover {
 
 .nornis-map-viewer.is-editable .nornis-map-pin:active {
     cursor: grabbing;
+}
+
+/* Hover ✕ on an editable pin: removes the pin only, never the location artifact. */
+.nornis-map-pin-remove {
+    position: absolute;
+    top: -7px;
+    right: -12px;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    background: #B33A3A;
+    color: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(14, 46, 74, 0.45);
+}
+
+.nornis-map-viewer.is-editable .nornis-map-pin:hover .nornis-map-pin-remove,
+.nornis-map-viewer.is-editable .nornis-map-pin:focus-within .nornis-map-pin-remove {
+    display: flex;
+}
+
+.nornis-map-pin-remove:hover {
+    background: #8F2727;
 }
 
 /* --------------------------------------------------------------- Journey --- */
@@ -3144,9 +3182,8 @@ a.nornis-cite:hover {
 
 .nornis-journey-pin {
     position: absolute;
-    /* Anchor the DOT's center at the coordinate — the button also holds the label below,
-       so centering the whole button would lift the dot off the point. The dot renders
-       17px tall (13px + 2px border each side): its center sits 8.5px below the button top. */
+    /* Anchor the DOT's center at the coordinate. The dot renders 17px tall
+       (13px + 2px border each side): its center sits 8.5px below the button top. */
     transform: translate(-50%, -8.5px);
     background: transparent;
     border: 0;
@@ -3168,25 +3205,15 @@ a.nornis-cite:hover {
     transition: transform 120ms ease, background 160ms ease;
 }
 
-.nornis-journey-pin-label {
-    font-family: var(--nornis-serif);
-    font-style: italic;
-    font-size: 13px;
-    color: #2A3B4C;
-    margin-top: 3px;
-    white-space: nowrap;
-    text-shadow: 0 0 3px #FDFBF7, 0 0 3px #FDFBF7, 0 0 2px #FDFBF7;
-}
-
 /* A visited place (the selected entry touched it) glows gold; the place currently open in the
-   panel is filled and enlarged. Everything else is a plain dark pin. */
+   panel is filled and enlarged. Everything else is a plain dark pin. No text label: the map
+   image already prints the place name the pin was extracted from. */
 .nornis-journey-pin.is-visited .nornis-journey-pin-dot { box-shadow: 0 0 0 3px #C4A15A, 0 1px 2px rgba(14, 46, 74, 0.45); }
 .nornis-journey-pin.is-selected .nornis-journey-pin-dot {
     background: #A9812F;
     transform: scale(1.2);
     box-shadow: 0 0 0 4px rgba(169, 129, 47, 0.32), 0 1px 2px rgba(14, 46, 74, 0.45);
 }
-.nornis-journey-pin.is-selected .nornis-journey-pin-label { color: #A9812F; font-weight: 600; }
 .nornis-journey-pin:hover .nornis-journey-pin-dot { transform: scale(1.25); }
 .nornis-journey-pin:focus-visible { outline: none; }
 .nornis-journey-pin:focus-visible .nornis-journey-pin-dot { box-shadow: 0 0 0 3px #A9812F, 0 0 0 5px rgba(196, 161, 90, 0.4); }

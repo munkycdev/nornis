@@ -229,6 +229,7 @@ public record JourneyStopDto(
 
 public record JourneyDto(
     Guid MapAttachmentId,
+    Guid MapSourceId,
     string ImageUrl,
     IReadOnlyList<JourneyLocationDto> Locations,
     IReadOnlyList<JourneyStopDto> Stops,
