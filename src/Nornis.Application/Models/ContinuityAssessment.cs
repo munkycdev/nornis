@@ -5,6 +5,11 @@ namespace Nornis.Application.Models;
 /// snapshot stored when the assessment ran; <see cref="EffectiveScore"/> is recomputed from the
 /// findings that are currently Open and not stale, so dismissing a finding — or editing the
 /// evidence it cites — raises the effective score.
+/// <para>
+/// <see cref="Findings"/> excludes dismissed ones entirely. They stay in the record and in the
+/// world's dismissal registry, but a GM who has adjudicated a finding should never be shown it
+/// again — not even greyed out.
+/// </para>
 /// </summary>
 public record ContinuityAssessment(
     bool HasData,

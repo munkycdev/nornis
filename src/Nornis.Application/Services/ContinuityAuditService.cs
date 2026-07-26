@@ -574,7 +574,18 @@ public class ContinuityAuditService : IContinuityAuditService
         // finding named — the score should respond the way a dismissal does.
         var countedSeverities = list.Zip(views)
             .Where(p => p.First.Status == ContinuityFindingStatus.Open && !p.Second.IsStale)
-            .Select(p => p.First.Severity);
+            .Select(p => p.First.Severity)
+            .ToList();
+
+        // Dismissing is a finished argument, not a muted one: the row stays in the record (and
+        // in the dismissal registry, which is what keeps re-detections quiet) but never renders
+        // again. A greyed-out row still reads as outstanding work every time the GM opens the
+        // page. Filtering here rather than per-page keeps every surface — World Memory, the
+        // artifact panel, the Home count — honest by construction.
+        var visible = list.Zip(views)
+            .Where(p => p.First.Status != ContinuityFindingStatus.Dismissed)
+            .Select(p => p.Second)
+            .ToList();
 
         return new ContinuityAssessment(
             HasData: true,
@@ -584,7 +595,7 @@ public class ContinuityAuditService : IContinuityAuditService
             Score: assessment.Score,
             EffectiveScore: BlendScore(heuristic, countedSeverities),
             HeuristicScore: heuristic,
-            Findings: views);
+            Findings: visible);
     }
 
     private static ContinuityFindingView ToFindingView(

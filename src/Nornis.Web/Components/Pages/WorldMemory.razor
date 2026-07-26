@@ -88,8 +88,9 @@
                 The auditor reads the whole record and names specific continuity risks; every finding
                 must cite real record items or it is dropped. The AI never grades the score — each
                 open finding subtracts a fixed penalty (High 12, Medium 6, Low 2, total capped at 40).
-                Dismissing a finding gives its points back, and a finding whose cited evidence you have
-                since edited stops counting until the next run verifies the fix.
+                Dismissing a finding gives its points back and drops it from this list for good —
+                later runs won't re-raise it. A finding whose cited evidence you have since edited
+                stops counting until the next run verifies the fix.
             </MudText>
 
             @foreach (var (severity, penalty) in SeverityPenalties)
@@ -134,18 +135,15 @@
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">Findings</div>
-                @foreach (var finding in assessment.Findings.OrderBy(f => f.Status != "Open").ThenBy(f => SeverityRank(f.Severity)))
+                @* Dismissed findings never arrive here — the API drops them once adjudicated. *@
+                @foreach (var finding in assessment.Findings.OrderBy(f => SeverityRank(f.Severity)))
                 {
-                    <div class="nornis-list-row @(finding.Status != "Open" ? "nornis-wm-dismissed" : "")">
+                    <div class="nornis-list-row">
                         <div class="nornis-list-body">
                             <div class="nornis-list-title">
                                 <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SeverityColor(finding.Severity)">@finding.Severity</MudChip>
                                 <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@Humanize(finding.Category)</MudChip>
-                                @if (finding.Status != "Open")
-                                {
-                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">Dismissed</MudChip>
-                                }
-                                else if (finding.IsStale)
+                                @if (finding.IsStale)
                                 {
                                     <MudTooltip Text="Cited evidence was edited or removed after the audit ran — the penalty is suspended until the next run verifies the fix">
                                         <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">Changed since audit</MudChip>

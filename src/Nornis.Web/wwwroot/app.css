@@ -195,10 +195,6 @@ html, body {
     font-weight: 600;
 }
 
-.nornis-wm-dismissed {
-    opacity: 0.55;
-}
-
 /* Footer with public-page links on authenticated pages. */
 .nornis-footer {
     display: flex;

@@ -91,6 +91,13 @@ public class ContinuityAuditServiceTests
     private string ArtifactRef => $"artifact:{_voss.Id}";
     private string FactRef => $"fact:{_vossFact.Id}";
 
+    /// <summary>
+    /// The findings an assessment persisted, dismissed ones included — the assessment view
+    /// deliberately hides those, so status assertions read the record instead.
+    /// </summary>
+    private IReadOnlyList<ContinuityFinding> FindingsFor(Guid assessmentId) =>
+        _assessmentRepo.Findings.Where(f => f.HealthAssessmentId == assessmentId).ToList();
+
     private AuditFinding Finding(
         string category = "Contradiction",
         string severity = "High",
@@ -246,6 +253,9 @@ public class ContinuityAuditServiceTests
         var latest = await _service.GetLatestAsync(_worldId, CancellationToken.None);
         // The High finding penalised the score by 12; dismissing it restores those points.
         Assert.That(latest.Value!.EffectiveScore, Is.EqualTo(effectiveBefore + 12));
+        // ...and the adjudicated finding drops out of the listing entirely.
+        Assert.That(latest.Value.Findings, Is.Empty);
+        Assert.That(_assessmentRepo.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Dismissed));
     }
 
     [Test]
@@ -373,7 +383,7 @@ public class ContinuityAuditServiceTests
     }
 
     [Test]
-    public async Task RunAssessment_RedetectedDismissedFinding_ArrivesDismissedAndUnpenalized()
+    public async Task RunAssessment_RedetectedDismissedFinding_IsRecordedDismissedAndNotListed()
     {
         var finding = Finding(severity: "High", evidence: [FactRef]);
         _ai.SetupFindings(finding);
@@ -386,15 +396,18 @@ public class ContinuityAuditServiceTests
         _ai.SetupFindings(finding);
         var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
 
-        Assert.That(second.Value!.Findings, Has.Count.EqualTo(1));
-        Assert.That(second.Value.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Dismissed.ToString()));
+        // Recorded as dismissed, and never shown again — not even as a greyed-out row.
+        Assert.That(FindingsFor(second.Value!.AssessmentId!.Value), Has.Count.EqualTo(1));
+        Assert.That(FindingsFor(second.Value.AssessmentId!.Value)[0].Status,
+            Is.EqualTo(ContinuityFindingStatus.Dismissed));
+        Assert.That(second.Value.Findings, Is.Empty);
         Assert.That(second.Value.EffectiveScore, Is.EqualTo(effectiveAfterDismiss));
         Assert.That(second.Value.Score, Is.EqualTo(second.Value.HeuristicScore),
             "the snapshot score must not re-penalize a carried-forward dismissal");
     }
 
     [Test]
-    public async Task RunAssessment_RedetectionWithExtraEvidence_ArrivesDismissed()
+    public async Task RunAssessment_RedetectionWithExtraEvidence_IsDismissed()
     {
         // Was RunAssessment_RedetectionWithNewEvidence_StaysOpen, which asserted the old
         // strict-subset rule. The audit is nondeterministic: a re-detection of a dismissed
@@ -407,7 +420,9 @@ public class ContinuityAuditServiceTests
         _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef, ArtifactRef]));
         var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
 
-        Assert.That(second.Value!.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Dismissed.ToString()));
+        Assert.That(FindingsFor(second.Value!.AssessmentId!.Value)[0].Status,
+            Is.EqualTo(ContinuityFindingStatus.Dismissed));
+        Assert.That(second.Value.Findings, Is.Empty);
         Assert.That(second.Value.Score, Is.EqualTo(second.Value.HeuristicScore));
     }
 
@@ -429,8 +444,11 @@ public class ContinuityAuditServiceTests
         _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
         var third = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
 
-        Assert.That(second.Value!.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Dismissed.ToString()));
-        Assert.That(third.Value!.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Dismissed.ToString()));
+        Assert.That(FindingsFor(second.Value!.AssessmentId!.Value)[0].Status,
+            Is.EqualTo(ContinuityFindingStatus.Dismissed));
+        Assert.That(FindingsFor(third.Value!.AssessmentId!.Value)[0].Status,
+            Is.EqualTo(ContinuityFindingStatus.Dismissed));
+        Assert.That(third.Value.Findings, Is.Empty);
         Assert.That(third.Value.EffectiveScore, Is.EqualTo(third.Value.HeuristicScore));
     }
 

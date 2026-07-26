@@ -4,7 +4,8 @@ namespace Nornis.Api.Contracts.Responses;
 /// The AI continuity assessment for a world. <c>Score</c> is the blended snapshot stored when
 /// the assessment ran; <c>EffectiveScore</c> is recomputed from findings that are currently
 /// Open and not stale. When the world has never been assessed, <c>HasData</c> is false and the
-/// scores/findings are empty.
+/// scores/findings are empty. Dismissed findings are never returned — the adjudication stands
+/// and the row is gone from every listing.
 /// </summary>
 public record ContinuityAssessmentResponse(
     bool HasData,

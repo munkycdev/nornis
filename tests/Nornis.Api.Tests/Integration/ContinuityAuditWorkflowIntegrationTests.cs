@@ -84,10 +84,10 @@ public class ContinuityAuditWorkflowIntegrationTests
             $"{HealthUrl}/findings/{finding.Id}/dismiss", content: null);
         Assert.That(dismissResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
-        // 4. Get again — the finding is dismissed and the effective score has recovered.
+        // 4. Get again — the finding is gone from the listing and the effective score has recovered.
         var afterResponse = await _scenario.GmClient.GetAsync($"{HealthUrl}/assessment");
         var after = await afterResponse.Content.ReadFromJsonAsync<ContinuityAssessmentResponse>();
-        Assert.That(after!.Findings[0].Status, Is.EqualTo("Dismissed"));
+        Assert.That(after!.Findings, Is.Empty);
         Assert.That(after.EffectiveScore, Is.EqualTo(effectiveBefore + 12));
 
         // A usage record was written for the audit call.
@@ -342,9 +342,17 @@ public class ContinuityAuditWorkflowIntegrationTests
         var rerunResponse = await _scenario.GmClient.PostAsync($"{HealthUrl}/assess", content: null);
         var rerun = await rerunResponse.Content.ReadFromJsonAsync<ContinuityAssessmentResponse>();
 
-        Assert.That(rerun!.Findings, Has.Count.EqualTo(1));
-        Assert.That(rerun.Findings[0].Status, Is.EqualTo("Dismissed"));
+        // The re-detection is recorded as dismissed and never reaches the GM again.
+        Assert.That(rerun!.Findings, Is.Empty);
         Assert.That(rerun.EffectiveScore, Is.EqualTo(rerun.HeuristicScore));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        var persisted = db.ContinuityFindings
+            .Where(f => f.HealthAssessmentId == rerun.AssessmentId)
+            .ToList();
+        Assert.That(persisted, Has.Count.EqualTo(1));
+        Assert.That(persisted[0].Status, Is.EqualTo(ContinuityFindingStatus.Dismissed));
     }
 
     [Test]
