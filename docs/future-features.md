@@ -460,9 +460,40 @@ per open tab.
 the 90-second idle cadence already removes most of what it would save. Left as its own item rather
 than bundled in here.
 
-- [ ] Suspend the nav poll on `document.visibilityState === "hidden"` and refresh once on
-      becoming visible. Dispose the listener with the component — `NavMenu` already has the
-      `IDisposable` plumbing.
+- [x] ~~Suspend the nav poll when the tab is hidden~~ — **DONE 2026-07-27, below.**
+
+### Suspending the nav poll in a background tab — DONE 2026-07-27
+
+`nornis-nav.js` gained a `visibilitychange` subscription; `NavMenu` stands the poll down while the
+tab is in the background and forces a refresh on the way back. A browser left open overnight is the
+normal case, not the exceptional one, and every one of those tabs was spending a request and a
+query every 90 seconds — enough to hold a scaled-to-zero container awake.
+
+The loop moved out of the component into `NavActivityCadence.RunAsync`, taking its wait as a
+delegate. That was not tidying: with the loop inside `NavMenu` the only way to observe a hidden
+tick spending nothing was to wait 90 real seconds, so the behaviour the whole change exists for had
+no test. `code-critic` made that point after the first cut — deleting the skip left every test
+green — along with two others:
+
+- **The cadence stayed parked.** Returning to the tab flipped the flag, but the loop was already
+  inside a wait sized for a hidden tab, and only read the new interval on the *next* iteration. A
+  user coming back to a running extraction would watch the badge crawl for up to 90 more seconds —
+  worse than the always-poll it replaced, in exactly the case the fast cadence exists for. The wait
+  is now cancellable and returning to the tab cuts it short.
+- **The component tests booted hidden.** bUnit's loose JS interop answers `isTabVisible()` with
+  `default(bool)`, so every test ran against a component that believed it was already backgrounded,
+  and "going to the background" was asserting a hidden→hidden no-op. The stub now says foreground
+  explicitly, and a separate test covers booting hidden.
+
+The JS itself was checked by running the real file under Node against a minimal DOM stub — bUnit
+stubs interop out entirely, so nothing in the .NET suite would notice if `watchVisibility` broke or
+the callback name drifted from the `[JSInvokable]`. That name match is the likeliest silent break
+and the check fails when it is changed.
+
+**Known uncovered:** the single `_pollWake?.Cancel()` line in `NavMenu` that wires the wake up.
+`RunAsync` handles a woken wait under test, and the JS side is verified, but the one line joining
+them is not — every seam has a last untested line and contorting the design to reach this one was
+not worth it.
 
 ## Phase 5 — Authorization-sensitive and correctness-sensitive — DONE 2026-07-27
 

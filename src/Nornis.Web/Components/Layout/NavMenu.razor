@@ -1,4 +1,4 @@
-﻿<a href="/" class="nornis-brand nornis-brand-link" aria-label="Nornis home">
+<a href="/" class="nornis-brand nornis-brand-link" aria-label="Nornis home">
     <img src="images/logo.png" alt="Nornis" class="nornis-brand-logo" />
     <div class="nornis-brand-name">NORNIS</div>
     <div class="nornis-brand-tagline">Your world, remembered.</div>
@@ -175,7 +175,7 @@ else
     Collapse
 </MudButton>
 
-@implements IDisposable
+@implements IAsyncDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject Nornis.Web.State.ActivitySignal Activity
@@ -236,17 +236,6 @@ else
     private SourceActivity? _activity;
     private readonly CancellationTokenSource _activityCts = new();
 
-    /// <summary>Poll cadence while something is actually moving.</summary>
-    private static readonly TimeSpan ActiveInterval = TimeSpan.FromSeconds(15);
-
-    /// <summary>
-    /// Cadence when the world is idle. Nothing changes these numbers without either this browser
-    /// acting — which raises <c>ActivitySignal</c> and refreshes immediately — or the worker
-    /// finishing something, which only happens when work was queued. So the fast poll buys
-    /// nothing on an idle world, and it used to run forever in every open tab.
-    /// </summary>
-    private static readonly TimeSpan IdleInterval = TimeSpan.FromSeconds(90);
-
     /// <summary>
     /// Whether something will change these numbers without the user doing anything.
     ///
@@ -265,26 +254,71 @@ else
     private bool HasWorkInFlight => _activity is not null
         && (_activity.Queued > 0 || _activity.Processing > 0 || _activity.Ready > 0);
 
-    private async Task PollActivityAsync()
+    /// <summary>
+    /// Whether this tab is in the foreground. Assumed true until the browser says otherwise, so a
+    /// failed interop leaves the old always-poll behaviour rather than a badge that never updates.
+    /// </summary>
+    private bool _tabVisible = true;
+
+    private DotNetObjectReference<NavMenu>? _selfRef;
+    private int? _visibilityToken;
+
+    /// <summary>
+    /// Called from <c>nornis-nav.js</c> on every <c>visibilitychange</c>.
+    ///
+    /// <para>Coming back to a tab is the one moment the badges are guaranteed to be stale — the
+    /// poll has been parked for however long the tab sat in the background — so this refreshes
+    /// immediately and skips the freshness window. Going away just stops the poll; there is
+    /// nothing to fetch for.</para>
+    /// </summary>
+    [JSInvokable]
+    public Task OnTabVisibilityChanged(bool visible) => InvokeAsync(async () =>
     {
+        var wasVisible = _tabVisible;
+        _tabVisible = visible;
+
+        if (NavActivityCadence.ShouldRefreshOnVisibilityChange(wasVisible, visible))
+        {
+            await RefreshActivityAsync(force: true);
+            StateHasChanged();
+
+            // The loop is sitting in a wait sized for a hidden tab. Cut it short so the next
+            // interval reflects being back in the foreground.
+            _pollWake?.Cancel();
+        }
+    });
+
+    private Task PollActivityAsync() => NavActivityCadence.RunAsync(
+        isTabVisible: () => _tabVisible,
+        hasWorkInFlight: () => HasWorkInFlight,
+        waitAsync: WaitForNextPollAsync,
+        fetchAsync: () => RefreshActivityAsync(),
+        ct: _activityCts.Token);
+
+    /// <summary>
+    /// Cancelled to cut a poll wait short when the tab comes back, so the loop can pick up the
+    /// fast cadence instead of finishing the ninety-second wait it started while hidden.
+    /// </summary>
+    private CancellationTokenSource? _pollWake;
+
+    private async Task<bool> WaitForNextPollAsync(TimeSpan interval, CancellationToken ct)
+    {
+        using var wake = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _pollWake = wake;
+
         try
         {
-            // Rebuilt each iteration so the cadence can follow the world's state. PeriodicTimer's
-            // Period is settable, but recreating keeps the intent obvious at the call site.
-            while (!_activityCts.IsCancellationRequested)
-            {
-                using var timer = new PeriodicTimer(HasWorkInFlight ? ActiveInterval : IdleInterval);
-                if (!await timer.WaitForNextTickAsync(_activityCts.Token))
-                {
-                    return;
-                }
-
-                await RefreshActivityAsync();
-            }
+            using var timer = new PeriodicTimer(interval);
+            return await timer.WaitForNextTickAsync(wake.Token);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            // Component disposed.
+            // Woken, not disposed.
+            return false;
+        }
+        finally
+        {
+            _pollWake = null;
         }
     }
 
@@ -398,6 +432,33 @@ else
         // after render). Until this flips Worlds.Ready, the layout shows a loading screen
         // instead of any world's content.
         await Worlds.EnsureSelectionRestoredAsync();
+
+        await StartWatchingTabVisibilityAsync();
+    }
+
+    /// <summary>
+    /// Subscribes to tab visibility so the activity poll can stand down in a background tab.
+    ///
+    /// <para>Best-effort throughout: every failure path leaves <see cref="_tabVisible"/> true,
+    /// which is the old behaviour of polling regardless. A badge that costs a request every 90
+    /// seconds is a much smaller problem than a badge that stops updating.</para>
+    /// </summary>
+    private async Task StartWatchingTabVisibilityAsync()
+    {
+        try
+        {
+            _selfRef = DotNetObjectReference.Create(this);
+            _visibilityToken = await JS.InvokeAsync<int>("nornisNav.watchVisibility", _selfRef);
+
+            // The listener only fires on a CHANGE, and a tab can already be in the background by
+            // the time the circuit is live — a restored session, or a ctrl-clicked link. Without
+            // this the poll would run at full rate in a tab nobody has ever looked at.
+            _tabVisible = await JS.InvokeAsync<bool>("nornisNav.isTabVisible");
+        }
+        catch
+        {
+            _tabVisible = true;
+        }
     }
 
     private async Task SelectWorldAsync(Guid worldId)
@@ -442,12 +503,37 @@ else
         }
     }
 
-    public void Dispose()
+    private bool _disposed;
+
+    public async ValueTask DisposeAsync()
     {
+        // Blazor disposes a component once, but tests drive this directly and Cancel() after
+        // Dispose() throws — which would skip the JS cleanup below.
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
         _activityCts.Cancel();
         _activityCts.Dispose();
         Activity.Changed -= OnActivitySignal;
         Nav.LocationChanged -= OnLocationChanged;
         Worlds.Changed -= OnWorldsChanged;
+
+        if (_visibilityToken is { } token)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("nornisNav.unwatchVisibility", token);
+            }
+            catch (JSDisconnectedException)
+            {
+                // Circuit already gone — the browser cleaned up with the page.
+            }
+        }
+
+        _selfRef?.Dispose();
     }
 }
