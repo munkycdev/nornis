@@ -65,7 +65,7 @@ public class InMemoryArtifactRepository : IArtifactRepository
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<Artifact>> ListByExactNameAsync(
+    public Task<IReadOnlyList<Artifact>> ListByEquivalentNameAsync(
         Guid worldId,
         string name,
         VisibilityFilter filter,
@@ -73,7 +73,7 @@ public class InMemoryArtifactRepository : IArtifactRepository
     {
         var results = _artifacts
             .Where(a => a.WorldId == worldId &&
-                        string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase) &&
+                        ArtifactNameKey.AreEquivalent(a.Name, name) &&
                         a.Status != ArtifactStatus.Archived &&
                         filter.CanSee(a.Visibility, a.CreatedByUserId))
             .ToList();

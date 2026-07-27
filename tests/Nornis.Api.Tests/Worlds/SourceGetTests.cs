@@ -106,7 +106,10 @@ public class SourceGetTests
             title: "Session 4 — Questioning Captain Voss",
             type: SourceType.SessionNote,
             visibility: VisibilityScope.PartyVisible,
-            body: "We questioned Captain Voss in Black Harbor.");
+            body: "We questioned Captain Voss in Black Harbor.",
+            // Submitted, not held: a draft is its author's alone whatever its scope says,
+            // and this test is about a Player reading PartyVisible material.
+            processingStatus: SourceProcessingStatus.Processed);
 
         // Act
         var response = await _scenario.PlayerClient.GetAsync(
@@ -119,7 +122,7 @@ public class SourceGetTests
         Assert.That(result!.Id, Is.EqualTo(source.Id));
         Assert.That(result.Title, Is.EqualTo("Session 4 — Questioning Captain Voss"));
         Assert.That(result.Visibility, Is.EqualTo("PartyVisible"));
-        Assert.That(result.ProcessingStatus, Is.EqualTo("Draft"));
+        Assert.That(result.ProcessingStatus, Is.EqualTo("Processed"));
     }
 
     /// <summary>
@@ -217,7 +220,10 @@ public class SourceGetTests
             title: "Session 3 — Arrival at Black Harbor",
             type: SourceType.SessionNote,
             visibility: VisibilityScope.PartyVisible,
-            body: "The party arrived at Black Harbor under cover of night.");
+            body: "The party arrived at Black Harbor under cover of night.",
+            // Submitted, not held: a draft is its author's alone whatever its scope says,
+            // and this test is about an Observer reading PartyVisible material.
+            processingStatus: SourceProcessingStatus.Processed);
 
         // Act
         var response = await _scenario.ObserverClient.GetAsync(

@@ -261,8 +261,13 @@ public class SourceReprocessService : ISourceReprocessService
             }
         }
 
+        // A CreateArtifact that apply-time dedup bound to an existing artifact did NOT create
+        // it — that artifact predates this source. Treating its TargetId as ours would let a
+        // reprocess hard-delete canon another source's notes were built on.
         var createdArtifactIds = acceptedProposals
-            .Where(p => p.ChangeType == ReviewChangeType.CreateArtifact && p.TargetId is not null)
+            .Where(p => p.ChangeType == ReviewChangeType.CreateArtifact
+                && p.TargetId is not null
+                && p.AppliedToExistingArtifact != true)
             .Select(p => p.TargetId!.Value)
             .ToHashSet();
 

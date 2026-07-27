@@ -101,6 +101,7 @@ builder.Services.AddScoped<ILibraryDocumentRepository, LibraryDocumentRepository
 builder.Services.AddScoped<ILibraryChunkRepository, LibraryChunkRepository>();
 builder.Services.AddScoped<IMapPlacemarkRepository, MapPlacemarkRepository>();
 builder.Services.AddScoped<IExtractionReplayRepository, ExtractionReplayRepository>();
+builder.Services.AddScoped<IImportSessionRepository, ImportSessionRepository>();
 builder.Services.AddScoped<IWorldExportReader, WorldExportReader>();
 builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
@@ -127,6 +128,7 @@ builder.Services.AddScoped<ISourceService, SourceService>();
 builder.Services.AddScoped<ISourceReprocessService, SourceReprocessService>();
 builder.Services.AddScoped<IExtractionReplayService, ExtractionReplayService>();
 builder.Services.AddScoped<IExtractionReplayAdvancer>(sp => sp.GetRequiredService<IExtractionReplayService>());
+builder.Services.AddScoped<IImportSessionService, ImportSessionService>();
 builder.Services.AddScoped<IMapViewService, MapViewService>();
 builder.Services.AddScoped<IJourneyMapService, JourneyMapService>();
 builder.Services.AddScoped<ISourceLocationService, SourceLocationService>();

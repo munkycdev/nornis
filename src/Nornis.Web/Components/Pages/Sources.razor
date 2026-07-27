@@ -24,6 +24,17 @@
                 }
             </MudSelect>
         }
+        @if (Worlds.EffectiveRole == "GM")
+        {
+            @* The backlog import is the GM's way in for a campaign that already happened. *@
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.LibraryBooks"
+                       Href="/import"
+                       Disabled="@(Worlds.Current is null)">
+                Import backlog
+            </MudButton>
+        }
         <MudButton Variant="Variant.Filled"
                    Color="Color.Secondary"
                    StartIcon="@Icons.Material.Filled.Add"

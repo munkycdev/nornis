@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
@@ -1223,6 +1224,7 @@ public class ExtractionService : IExtractionService
             {
                 var proposedValueJson = EnforceVisibility(proposal.ProposedValue, source.Visibility);
                 proposedValueJson = NormalizeIdFields(proposedValueJson, proposal.ChangeType);
+                proposedValueJson = NormalizePayloadFields(proposedValueJson);
 
                 var reviewProposal = new ReviewProposal
                 {
@@ -1399,6 +1401,121 @@ public class ExtractionService : IExtractionService
             // Malformed payloads are the validator's problem, not ours.
             return proposedValueJson;
         }
+    }
+
+    /// <summary>
+    /// Tidies the model's output into the shapes the payload schemas actually declare, before
+    /// it is stored — so a sloppy generation never becomes an unacceptable proposal.
+    ///
+    /// Two problems, both seen in real extractions:
+    ///
+    /// 1. Quoted numbers — <c>"confidence": "0.99"</c> — which used to fail deserialization and
+    ///    take the whole proposal down with it. Parsing is invariant-culture on purpose: the
+    ///    model emits JSON, not locale text, so "0,99" is not a European decimal — it is
+    ///    garbage, and it stays a string for the validator to reject. (The applicator and
+    ///    validator also tolerate quoted numbers, for payloads stored before this ran and for
+    ///    hand edits.)
+    ///
+    /// 2. Sloppy whitespace in the name fields used for matching — <c>"Salt  Factor"</c>. Names
+    ///    are collapsed with <see cref="ArtifactNameKey"/>, the same policy dedup and name
+    ///    resolution use, so a stray double space cannot make a proposal reference something
+    ///    canon does not appear to contain. Case is preserved: the collapse is about typos,
+    ///    not about renaming what the GM will see.
+    /// </summary>
+    internal static string NormalizePayloadFields(string proposedValueJson)
+    {
+        try
+        {
+            if (JsonNode.Parse(proposedValueJson) is not JsonObject obj)
+            {
+                return proposedValueJson;
+            }
+
+            var changed = NormalizeNumericFields(obj);
+            changed |= NormalizeNameFields(obj);
+
+            // CreateArtifact carries its pin inline; its coordinates are numeric too.
+            if (obj["mapPlacemark"] is JsonObject pin)
+            {
+                changed |= NormalizeNumericFields(pin);
+            }
+
+            return changed ? obj.ToJsonString() : proposedValueJson;
+        }
+        catch (Exception)
+        {
+            // Malformed payloads are the validator's problem, not ours.
+            return proposedValueJson;
+        }
+    }
+
+    /// <summary>Numeric fields across every payload schema, matched case-insensitively.</summary>
+    private static readonly string[] NumericPayloadFields = ["confidence", "x", "y"];
+
+    /// <summary>
+    /// The payload fields that are matched against artifact names — the proposed name on a
+    /// create/rename, and the by-name references a fact or relationship resolves through.
+    /// </summary>
+    private static readonly string[] NamePayloadFields =
+        ["name", "artifactName", "artifactAName", "artifactBName"];
+
+    private static bool NormalizeNameFields(JsonObject obj)
+    {
+        var changed = false;
+
+        foreach (var field in NamePayloadFields)
+        {
+            var key = FindKey(obj, field);
+            if (key is null || obj[key] is not JsonValue value || !value.TryGetValue<string>(out var raw))
+            {
+                continue;
+            }
+
+            var collapsed = ArtifactNameKey.Collapse(raw);
+            if (collapsed.Length == 0 || string.Equals(collapsed, raw, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            obj[key] = JsonValue.Create(collapsed);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// Property names arrive in whatever case the model chose, and the payload readers are
+    /// case-insensitive, so field lookup has to be too.
+    /// </summary>
+    private static string? FindKey(JsonObject obj, string field) =>
+        obj.Select(p => p.Key)
+            .FirstOrDefault(k => string.Equals(k, field, StringComparison.OrdinalIgnoreCase));
+
+    private static bool NormalizeNumericFields(JsonObject obj)
+    {
+        var changed = false;
+
+        foreach (var field in NumericPayloadFields)
+        {
+            var key = FindKey(obj, field);
+            if (key is null || obj[key] is not JsonValue value || !value.TryGetValue<string>(out var raw))
+            {
+                continue;
+            }
+
+            // Float, not Number: NumberStyles.Number allows thousands separators, which would
+            // read "0,99" as 99 rather than leaving it for the validator to reject.
+            if (!decimal.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+            {
+                continue;
+            }
+
+            obj[key] = JsonValue.Create(parsed);
+            changed = true;
+        }
+
+        return changed;
     }
 
     private static string EnforceVisibility(object proposedValue, VisibilityScope sourceVisibility)

@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Tests.Infrastructure;
 using Nornis.Domain.Enums;
+using Nornis.Infrastructure.Persistence;
 using NUnit.Framework;
 
 namespace Nornis.Api.Tests.Public;
@@ -36,6 +38,27 @@ public class PublicControllerTests
             new UpdateWorldRequest(PublicSlug: slug, PublicAccessEnabled: enabled));
         Assert.That(update.StatusCode, Is.EqualTo(HttpStatusCode.OK), await update.Content.ReadAsStringAsync());
         return scenario;
+    }
+
+    /// <summary>
+    /// Stands in for submitting the note and letting the worker finish with it. Sources
+    /// created through POST /sources land at Draft, and an unsubmitted draft is its author's
+    /// alone — it never reaches the public page, whatever its visibility scope says. These
+    /// tests are about what the public page does with SHARED material, so the note has to
+    /// have been shared first.
+    /// </summary>
+    private async Task MarkSubmittedAsync(params Guid[] sourceIds)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+
+        foreach (var sourceId in sourceIds)
+        {
+            context.Sources.Single(s => s.Id == sourceId).ProcessingStatus =
+                SourceProcessingStatus.Processed;
+        }
+
+        await context.SaveChangesAsync();
     }
 
     [Test]
@@ -165,6 +188,8 @@ public class PublicControllerTests
             new CreateSourceRequest("Voss's diary", "JournalEntry", "PartyVisible", Body: "Dear diary."));
         var journalId = (await journal.Content.ReadFromJsonAsync<SourceResponse>())!.Id;
 
+        await MarkSubmittedAsync(sessionId, importedId, journalId);
+
         var list = await _anonymous.GetFromJsonAsync<List<SourceListItemResponse>>(
             "/api/public/worlds/black-harbor/sources");
         var journalDetail = await _anonymous.GetAsync($"/api/public/worlds/black-harbor/sources/{journalId}");
@@ -188,6 +213,8 @@ public class PublicControllerTests
         var gmSource = await scenario.GmClient.PostAsJsonAsync($"/api/worlds/{scenario.World.Id}/sources",
             new CreateSourceRequest("GM prep", "GMNote", "GMOnly", Body: "The villain is the mayor."));
         var gmId = (await gmSource.Content.ReadFromJsonAsync<SourceResponse>())!.Id;
+
+        await MarkSubmittedAsync(partyId, gmId);
 
         var list = await _anonymous.GetFromJsonAsync<List<SourceListItemResponse>>(
             "/api/public/worlds/black-harbor/sources");

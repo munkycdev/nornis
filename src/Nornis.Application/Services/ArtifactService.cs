@@ -41,10 +41,20 @@ public class ArtifactService : IArtifactService
         _campaignRepository = campaignRepository;
     }
 
+    /// <summary>
+    /// Whether this reader may know the source exists — and therefore may be shown anything
+    /// drawn from it, its excerpts above all.
+    ///
+    /// The anonymous public world page reads as Observer with <see cref="Guid.Empty"/> for the
+    /// user id, so the Private arm must never treat an empty id as an ownership match: a row
+    /// with no real owner is unattributable, and unattributable Private content fails closed
+    /// exactly as it does in <see cref="VisibilityFilter"/>.
+    /// </summary>
     private static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch
     {
         VisibilityScope.PartyVisible => true,
-        VisibilityScope.Private => role == WorldRole.GM || source.CreatedByUserId == userId,
+        VisibilityScope.Private => role == WorldRole.GM
+            || (userId != Guid.Empty && source.CreatedByUserId == userId),
         VisibilityScope.GMOnly => role == WorldRole.GM,
         _ => false
     };
@@ -164,19 +174,34 @@ public class ArtifactService : IArtifactService
         targetIds.AddRange(facts.Select(f => f.Id));
         targetIds.AddRange(relationships.Select(r => r.Id));
 
-        var sourceReferences = await _sourceReferenceRepository.ListByTargetIdsAsync(targetIds, ct);
+        var allReferences = await _sourceReferenceRepository.ListByTargetIdsAsync(targetIds, ct);
 
-        // Resolve titles for the cited sources so the UI can link back to them —
-        // but only for sources the caller is allowed to see.
+        // Provenance is only ever shown for sources the caller may see. Withholding just the
+        // TITLE is not enough: the reference carries the source's verbatim extraction Quote,
+        // and a PartyVisible artifact can legitimately be cited by a GM-only or another
+        // player's Private note — via an accepted update, or via apply-time dedup binding a
+        // create to canon that already existed. A titleless quote is the whole leak, and it
+        // reached Players, Observers, and the anonymous public world page alike.
+        //
+        // A reference the caller cannot attribute tells them nothing anyway, so the entire row
+        // goes. Sources that no longer exist fail closed for the same reason.
         var sourceTitles = new Dictionary<Guid, string>();
-        foreach (var sourceId in sourceReferences.Select(r => r.SourceId).Distinct())
+        var visibleSourceIds = new HashSet<Guid>();
+        foreach (var sourceId in allReferences.Select(r => r.SourceId).Distinct())
         {
             var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
-            if (source is not null && CanSeeSource(source, requestingUserId, role))
+            if (source is null || !CanSeeSource(source, requestingUserId, role))
             {
-                sourceTitles[sourceId] = source.Title;
+                continue;
             }
+
+            visibleSourceIds.Add(sourceId);
+            sourceTitles[sourceId] = source.Title;
         }
+
+        var sourceReferences = allReferences
+            .Where(r => visibleSourceIds.Contains(r.SourceId))
+            .ToList();
 
         var playedBy = await ResolvePlayedByAsync(artifact, ct);
 

@@ -1,0 +1,506 @@
+@page "/import"
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>Import Backlog — Nornis</PageTitle>
+
+<div class="nornis-page-head">
+    <div>
+        <MudText Typo="Typo.h4" Class="nornis-serif">Import your campaign</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Paste in your back catalogue of notes, put them in order, then walk them oldest first —
+            each one read against the record the ones before it built.
+        </MudText>
+    </div>
+</div>
+
+@if (Worlds.Current is null)
+{
+    <NoWorld />
+}
+else if (Worlds.EffectiveRole != "GM")
+{
+    <MudAlert Severity="Severity.Info">Only the GM can run a campaign import.</MudAlert>
+}
+else if (_loading)
+{
+    <LoadingRows Rows="3" />
+}
+else
+{
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3">@_error</MudAlert>
+    }
+
+    @if (_session is null)
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+            <MudIcon Icon="@Icons.Material.Outlined.LibraryBooks" Size="Size.Large" Class="nornis-comingsoon-icon" />
+            <MudText Typo="Typo.h5" Class="nornis-serif">No import in progress</MudText>
+            <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+                Start one and add your notes oldest first. Nothing is read until you say go, and then
+                only one note at a time — so the second session is read knowing what the first established.
+            </MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="CreateAsync" Disabled="@_busy" Class="mt-4">
+                Start an import
+            </MudButton>
+        </MudPaper>
+    }
+    else if (_session.Status == "Draft")
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4">
+            <MudText Typo="Typo.h6" Class="nornis-serif mb-3">Add a note</MudText>
+            <MudTextField @bind-Value="_title" Label="Title" Required="true" Immediate="true"
+                          MaxLength="200" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_body" Label="What happened" Lines="8"
+                          Variant="Variant.Outlined" Class="mb-3" />
+            <MudDatePicker @bind-Date="_occurredAt" Label="Session date" Variant="Variant.Outlined"
+                           Clearable="true" Class="mb-3" />
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="AddNoteAsync" Disabled="@(_busy || string.IsNullOrWhiteSpace(_title))">
+                Add to backlog
+            </MudButton>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <div class="d-flex align-center justify-space-between mb-3">
+                <MudText Typo="Typo.h6" Class="nornis-serif">Backlog (@_session.Items.Count)</MudText>
+                @if (_session.Items.Count > 1)
+                {
+                    <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Sort"
+                               OnClick="SortByDateAsync" Disabled="@_busy">
+                        Sort by session date
+                    </MudButton>
+                }
+            </div>
+
+            @if (_session.Items.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Nothing here yet. Add your oldest session note first.
+                </MudText>
+            }
+            else
+            {
+                @foreach (var (item, index) in _session.Items.Select((x, i) => (x, i)))
+                {
+                    var position = index;
+                    <div class="nornis-list-row">
+                        <div class="nornis-list-thumb">
+                            <MudText Typo="Typo.caption">@(index + 1)</MudText>
+                        </div>
+                        <div class="nornis-list-body">
+                            <div class="nornis-list-title">@item.Title</div>
+                            <div class="nornis-list-sub">
+                                @(item.OccurredAt is { } occurred ? occurred.LocalDateTime.ToString("d MMM yyyy") : "No session date")
+                            </div>
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
+                                       Disabled="@(_busy || position == 0)"
+                                       OnClick="() => MoveAsync(position, -1)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
+                                       Disabled="@(_busy || position == _session.Items.Count - 1)"
+                                       OnClick="() => MoveAsync(position, 1)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                       Disabled="@_busy" OnClick="() => DeleteItemAsync(item.Id)" />
+                    </div>
+                }
+            }
+
+            <div class="d-flex gap-2 mt-4">
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.PlayArrow"
+                           OnClick="StartAsync" Disabled="@(_busy || _session.Items.Count == 0)">
+                    Start the import
+                </MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="AbandonAsync" Disabled="@_busy">
+                    Abandon
+                </MudButton>
+            </div>
+        </MudPaper>
+    }
+    else if (_session.Status == "InProgress")
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4">
+            <MudText Typo="Typo.h6" Class="nornis-serif">
+                @(_session.CurrentIndex is { } n
+                    ? $"Note {n} of {_session.Items.Count}"
+                    : $"All {_session.Items.Count} notes settled")
+            </MudText>
+            <MudProgressLinear Color="Color.Secondary" Value="@ProgressPercent" Class="my-3" />
+
+            @if (Current is { } current)
+            {
+                <MudText Typo="Typo.subtitle1" Class="mb-1">@current.Title</MudText>
+
+                @switch (current.State)
+                {
+                    case "Waiting":
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                            Ready when you are — this note has not been read yet.
+                        </MudText>
+                        <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                                   StartIcon="@Icons.Material.Filled.PlayArrow"
+                                   OnClick="() => AdvanceAsync(false)" Disabled="@_busy">
+                            Read this note
+                        </MudButton>
+                        break;
+
+                    case "Extracting":
+                        <div class="d-flex align-center gap-2 mb-3">
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Secondary" />
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Nornis is reading this note…
+                            </MudText>
+                        </div>
+                        @* An escape hatch even here: a worker that never answers must not
+                           leave the GM with a spinner and no way forward. *@
+                        <MudButton Variant="Variant.Text" Size="Size.Small"
+                                   OnClick="() => AdvanceAsync(true)" Disabled="@_busy">
+                            Skip this note
+                        </MudButton>
+                        break;
+
+                    case "Reviewing":
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                            @current.OpenProposalCount proposal@(current.OpenProposalCount == 1 ? "" : "s")
+                            waiting on your decision. Clear them and the next note can be read against them.
+                        </MudText>
+                        <div class="d-flex gap-2">
+                            <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                                       StartIcon="@Icons.Material.Filled.FactCheck" Href="/review">
+                                Open the review queue
+                            </MudButton>
+                            <MudButton Variant="Variant.Text" OnClick="() => AdvanceAsync(true)" Disabled="@_busy">
+                                Skip this note
+                            </MudButton>
+                        </div>
+                        break;
+
+                    case "Failed":
+                        <MudText Typo="Typo.body2" Color="Color.Error" Class="mb-3">
+                            Extraction failed for this note.
+                        </MudText>
+                        <div class="d-flex gap-2">
+                            <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                                       StartIcon="@Icons.Material.Filled.Refresh"
+                                       OnClick="RetryAsync" Disabled="@_busy">
+                                Retry
+                            </MudButton>
+                            <MudButton Variant="Variant.Text" OnClick="() => AdvanceAsync(true)" Disabled="@_busy">
+                                Skip this note
+                            </MudButton>
+                        </div>
+                        break;
+                }
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Every note has been read or skipped.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.Done"
+                           OnClick="() => AdvanceAsync(false)" Disabled="@_busy">
+                    Finish the import
+                </MudButton>
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            @foreach (var (item, index) in _session.Items.Select((x, i) => (x, i)))
+            {
+                <div class="nornis-list-row">
+                    <div class="nornis-list-thumb">
+                        <MudText Typo="Typo.caption">@(index + 1)</MudText>
+                    </div>
+                    <div class="nornis-list-body">
+                        <div class="nornis-list-title">@item.Title</div>
+                        <div class="nornis-list-sub">
+                            @(item.OccurredAt is { } occurred ? occurred.LocalDateTime.ToString("d MMM yyyy") : "No session date")
+                        </div>
+                    </div>
+                    @if (item.State == "Reviewing")
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">
+                            @item.OpenProposalCount open
+                        </MudChip>
+                    }
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StateColor(item.State)">
+                        @item.State
+                    </MudChip>
+                </div>
+            }
+
+            <div class="d-flex gap-2 mt-4">
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="AbandonAsync" Disabled="@_busy">
+                    Abandon the import
+                </MudButton>
+            </div>
+        </MudPaper>
+    }
+    else
+    {
+        @* Terminal: only reachable from the response that ended the session, because the
+           API only serves the non-terminal one. Reloading the page returns to the start. *@
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Large" Class="nornis-comingsoon-icon" />
+            <MudText Typo="Typo.h5" Class="nornis-serif">
+                @(_session.Status == "Completed" ? "Backlog imported" : "Import abandoned")
+            </MudText>
+            <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+                @ProcessedCount read, @SkippedCount skipped, of @_session.Items.Count notes.
+                @if (_session.Status == "Abandoned")
+                {
+                    <text>Nothing was deleted — notes not yet read are waiting as draft sources.</text>
+                }
+            </MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" Href="/sources" Class="mt-4">
+                Go to sources
+            </MudButton>
+        </MudPaper>
+    }
+}
+
+@code {
+    private ImportSessionDto? _session;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+
+    private string _title = string.Empty;
+    private string? _body;
+    private DateTime? _occurredAt;
+
+    private readonly CancellationTokenSource _cts = new();
+
+    private ImportSessionItemDto? Current =>
+        _session?.Items.FirstOrDefault(i => i.Id == _session.CurrentItemId);
+
+    private int ProcessedCount => _session?.Items.Count(i => i.State == "Done") ?? 0;
+
+    private int SkippedCount => _session?.Items.Count(i => i.State == "Skipped") ?? 0;
+
+    private int ProgressPercent =>
+        _session is null || _session.Items.Count == 0
+            ? 0
+            : (int)Math.Round(100.0 * _session.SettledCount / _session.Items.Count);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
+        await LoadAsync();
+        _ = PollAsync();
+    }
+
+    private void OnWorldChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task LoadAsync()
+    {
+        if (Worlds.Current is null || Worlds.EffectiveRole != "GM")
+        {
+            _session = null;
+            _loading = false;
+            return;
+        }
+
+        _loading = true;
+        var result = await Api.GetCurrentImportSessionAsync(Worlds.Current.Id, _cts.Token);
+        _loading = false;
+
+        // "No import in progress" is the empty state, not an error.
+        _session = result.IsSuccess ? result.Value : null;
+        _error = result.IsSuccess || result.Error!.Code is "not_found" ? null : result.Error!.Message;
+    }
+
+    /// <summary>Light poll so an extraction finishing moves the panel without a manual refresh.</summary>
+    private async Task PollAsync()
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(10));
+            while (await timer.WaitForNextTickAsync(_cts.Token))
+            {
+                if (_busy || _session is null || _session.Status != "InProgress")
+                {
+                    continue;
+                }
+
+                if (Current?.State is not ("Extracting" or "Reviewing"))
+                {
+                    continue;
+                }
+
+                await LoadAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Component disposed.
+        }
+    }
+
+    private async Task CreateAsync() =>
+        await ActAsync(worldId => Api.CreateImportSessionAsync(worldId, _cts.Token));
+
+    private async Task AddNoteAsync()
+    {
+        var title = _title.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return;
+        }
+
+        var occurred = _occurredAt is { } date
+            ? new DateTimeOffset(DateTime.SpecifyKind(date, DateTimeKind.Utc))
+            : (DateTimeOffset?)null;
+
+        var added = await ActAsync(worldId => Api.AddImportNoteAsync(
+            worldId, _session!.Id, new AddImportNoteRequest(title, _body, occurred), _cts.Token));
+
+        if (added)
+        {
+            _title = string.Empty;
+            _body = null;
+            _occurredAt = null;
+        }
+    }
+
+    private async Task MoveAsync(int index, int delta)
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        // Only not-yet-started notes can move, and the API wants all of their ids in order.
+        var movable = _session.Items.Where(i => i.State == "Waiting").Select(i => i.Id).ToList();
+        var item = _session.Items[index];
+        var from = movable.IndexOf(item.Id);
+        var to = from + delta;
+
+        if (from < 0 || to < 0 || to >= movable.Count)
+        {
+            return;
+        }
+
+        (movable[from], movable[to]) = (movable[to], movable[from]);
+
+        await ActAsync(worldId => Api.ReorderImportItemsAsync(worldId, _session.Id, movable, _cts.Token));
+    }
+
+    private async Task SortByDateAsync()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        // Stable: notes with no session date keep their relative place after the dated ones.
+        var movable = _session.Items
+            .Where(i => i.State == "Waiting")
+            .OrderBy(i => i.OccurredAt ?? DateTimeOffset.MaxValue)
+            .Select(i => i.Id)
+            .ToList();
+
+        await ActAsync(worldId => Api.ReorderImportItemsAsync(worldId, _session.Id, movable, _cts.Token));
+    }
+
+    private async Task DeleteItemAsync(Guid itemId) =>
+        await ActAsync(worldId => Api.DeleteImportItemAsync(worldId, _session!.Id, itemId, _cts.Token));
+
+    private async Task StartAsync() =>
+        await ActAsync(worldId => Api.StartImportSessionAsync(worldId, _session!.Id, _cts.Token));
+
+    /// <summary>Advances the walk, naming the note on screen so a stale view (another tab, a
+    /// retried click after an error) can never skip a note the GM never saw.</summary>
+    private async Task AdvanceAsync(bool skipCurrent)
+    {
+        var expected = _session?.CurrentItemId;
+        var moved = await ActAsync(worldId => Api.AdvanceImportSessionAsync(
+            worldId, _session!.Id, skipCurrent, expected, _cts.Token));
+
+        if (!moved)
+        {
+            // The refusal may have been "the walk moved on" — resync so the screen tells the truth.
+            await LoadAsync();
+        }
+    }
+
+    private async Task AbandonAsync() =>
+        await ActAsync(worldId => Api.AbandonImportSessionAsync(worldId, _session!.Id, _cts.Token));
+
+    /// <summary>Retry a failed note through the ordinary Failed → Ready path.</summary>
+    private async Task RetryAsync()
+    {
+        if (Worlds.Current is null || Current is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var result = await Api.MarkSourceReadyAsync(Worlds.Current.Id, Current.SourceId, _cts.Token);
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    /// <summary>Runs a session mutation and folds the returned session back into the page.</summary>
+    private async Task<bool> ActAsync(Func<Guid, Task<ApiResult<ImportSessionDto>>> call)
+    {
+        if (Worlds.Current is null)
+        {
+            return false;
+        }
+
+        _busy = true;
+        var result = await call(Worlds.Current.Id);
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+            return false;
+        }
+
+        _session = result.Value;
+        _error = null;
+        return true;
+    }
+
+    private static Color StateColor(string state) => state switch
+    {
+        "Done" => Color.Success,
+        "Failed" => Color.Error,
+        "Reviewing" => Color.Warning,
+        "Extracting" => Color.Info,
+        "Skipped" => Color.Dark,
+        _ => Color.Default
+    };
+
+    public void Dispose()
+    {
+        Worlds.Changed -= OnWorldChanged;
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

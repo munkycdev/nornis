@@ -123,9 +123,19 @@ public class ReviewProposalTests
     }
 
     [Test]
+    public void ReviewProposal_Has_AppliedToExistingArtifact_Property_Of_Type_NullableBool()
+    {
+        // Nullable, not bool: rows written before apply-time dedup existed carry no answer,
+        // and reprocess must read "unknown" as "not a match" rather than as a real false.
+        var property = _type.GetProperty("AppliedToExistingArtifact");
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(bool?)));
+    }
+
+    [Test]
     public void ReviewProposal_Has_Expected_Property_Count()
     {
         var properties = _type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        Assert.That(properties, Has.Length.EqualTo(14));
+        Assert.That(properties, Has.Length.EqualTo(15));
     }
 }

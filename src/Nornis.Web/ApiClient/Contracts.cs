@@ -463,7 +463,10 @@ public record ProposalActionResult(
     Guid ProposalId,
     string Status,
     string? ProposedValueJson,
-    Guid? CreatedEntityId);
+    Guid? CreatedEntityId,
+    // Accept only: the Create bound to an artifact already in canon rather than inserting
+    // one, so the feedback should say "matched", not "created".
+    bool MatchedExistingArtifact = false);
 
 public record BatchOperationResult(
     IReadOnlyList<Guid> Succeeded,
@@ -758,6 +761,43 @@ public record TutorialStepDto(string Key, int Chapter, bool ClientReported, Date
 public record TutorialChecklistDto(IReadOnlyList<TutorialStepDto> Steps);
 
 public record TutorialSessionSixDto(string Body);
+
+// -------------------------------------------------- Campaign backlog import (phase 2) --
+
+// Mirrors Nornis.Api ImportSessionResponse: the backlog and where the walk stands.
+public record ImportSessionDto(
+    Guid Id,
+    Guid WorldId,
+    string Status,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<ImportSessionItemDto> Items,
+    Guid? CurrentItemId,
+    int? CurrentIndex,
+    int SettledCount);
+
+// Mirrors Nornis.Api ImportSessionItemResponse. State is derived server-side from the
+// note's source: Waiting, Extracting, Reviewing, Failed, Done, Skipped.
+public record ImportSessionItemDto(
+    Guid Id,
+    Guid SourceId,
+    int Position,
+    bool Skipped,
+    string Title,
+    DateTimeOffset? OccurredAt,
+    string ProcessingStatus,
+    string State,
+    int OpenProposalCount);
+
+// Mirrors Nornis.Api AddImportNoteRequest.
+public record AddImportNoteRequest(string Title, string? Body = null, DateTimeOffset? OccurredAt = null);
+
+// Mirrors Nornis.Api ReorderImportItemsRequest.
+public record ReorderImportItemsRequest(IReadOnlyList<Guid> ItemIds);
+
+// Mirrors Nornis.Api AdvanceImportSessionRequest. ExpectedItemId is the item the screen was
+// showing as current; the API refuses the call if the walk has moved on since.
+public record AdvanceImportSessionRequest(bool SkipCurrent = false, Guid? ExpectedItemId = null);
 
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);

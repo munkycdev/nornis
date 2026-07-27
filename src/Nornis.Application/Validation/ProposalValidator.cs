@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Nornis.Application.Errors;
 using Nornis.Domain.Enums;
 
@@ -12,9 +13,13 @@ public sealed class ProposalValidator : IProposalValidator
 {
     private const int MaxJsonLength = 32_768;
 
+    // Quoted numbers ("confidence": "0.99") come out of the extractor now and then, and
+    // out of hand edits. Accept them here so a payload that will apply cleanly is not
+    // rejected at the gate; a non-numeric string still fails with the usual invalid_payload.
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        NumberHandling = JsonNumberHandling.AllowReadingFromString
     };
 
     public AppResult ValidateProposedValue(string json, ReviewChangeType changeType)

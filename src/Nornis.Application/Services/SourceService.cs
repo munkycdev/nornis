@@ -440,13 +440,45 @@ public class SourceService : ISourceService
         return null;
     }
 
-    private static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch
+    /// <summary>
+    /// Who may read this source's title and body. Two gates, and both must pass — the
+    /// draft gate can only ever narrow what visibility already allows, never widen it.
+    ///
+    /// A Draft source has not been submitted: nobody has vetted it, and it has produced no
+    /// canon. Its Visibility governs the knowledge it will yield once extracted, not who may
+    /// read it while it waits — so until it is marked ready it belongs to its author and the
+    /// GM alone. Capture's draft window is seconds, but the campaign backlog import parks a
+    /// whole backlog at Draft for as long as the GM takes to walk it, and this list is also
+    /// served to the anonymous public world page.
+    ///
+    /// The public page reads as Observer with <see cref="Guid.Empty"/>, so an ownership test
+    /// must never treat an empty id as a match: unattributable rows fail closed, exactly as
+    /// they do in <see cref="VisibilityFilter"/>.
+    /// </summary>
+    private static bool CanSeeSource(Source source, Guid userId, WorldRole role)
     {
-        VisibilityScope.PartyVisible => true,
-        VisibilityScope.Private => role == WorldRole.GM || source.CreatedByUserId == userId,
-        VisibilityScope.GMOnly => role == WorldRole.GM,
-        _ => false
-    };
+        var allowedByVisibility = source.Visibility switch
+        {
+            VisibilityScope.PartyVisible => true,
+            VisibilityScope.Private => role == WorldRole.GM
+                || (userId != Guid.Empty && source.CreatedByUserId == userId),
+            VisibilityScope.GMOnly => role == WorldRole.GM,
+            _ => false
+        };
+
+        if (!allowedByVisibility)
+        {
+            return false;
+        }
+
+        if (source.ProcessingStatus == SourceProcessingStatus.Draft)
+        {
+            return role == WorldRole.GM
+                || (userId != Guid.Empty && source.CreatedByUserId == userId);
+        }
+
+        return true;
+    }
 
     private static bool IsValidTransition(SourceProcessingStatus current, SourceProcessingStatus target)
     {

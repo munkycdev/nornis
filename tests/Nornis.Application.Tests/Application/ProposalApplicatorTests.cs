@@ -18,6 +18,7 @@ public class ProposalApplicatorTests
     private InMemoryArtifactRelationshipRepository _relationshipRepo = null!;
     private InMemorySourceReferenceRepository _sourceRefRepo = null!;
     private InMemorySourceRepository _sourceRepo = null!;
+    private InMemoryWorldMemberRepository _memberRepo = null!;
     private ProposalApplicator _applicator = null!;
 
     private Guid _worldId;
@@ -34,13 +35,15 @@ public class ProposalApplicatorTests
         _relationshipRepo = new InMemoryArtifactRelationshipRepository();
         _sourceRefRepo = new InMemorySourceReferenceRepository();
         _sourceRepo = new InMemorySourceRepository();
+        _memberRepo = new InMemoryWorldMemberRepository();
 
         _applicator = new ProposalApplicator(
             _artifactRepo,
             _factRepo,
             _relationshipRepo,
             _sourceRefRepo,
-            _sourceRepo, new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository());
+            _sourceRepo, new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
+            _memberRepo);
 
         _worldId = Guid.NewGuid();
         _sourceId = Guid.NewGuid();

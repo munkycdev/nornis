@@ -75,13 +75,30 @@ public class SourceVisibilityListEnforcementTests
         }
     }
 
-    private static bool IsVisibleTo(Source source, Guid userId, WorldRole role) => source.Visibility switch
+    // Mirrors SourceService.CanSeeSource: visibility decides first, then the draft gate
+    // narrows it. An unsubmitted draft belongs to its author and the GM alone — its
+    // Visibility describes the canon it will yield once extracted, not who may read it
+    // while it waits.
+    private static bool IsVisibleTo(Source source, Guid userId, WorldRole role)
     {
-        VisibilityScope.PartyVisible => true,
-        VisibilityScope.Private => role == WorldRole.GM || source.CreatedByUserId == userId,
-        VisibilityScope.GMOnly => role == WorldRole.GM,
-        _ => false
-    };
+        var allowedByVisibility = source.Visibility switch
+        {
+            VisibilityScope.PartyVisible => true,
+            VisibilityScope.Private => role == WorldRole.GM
+                || (userId != Guid.Empty && source.CreatedByUserId == userId),
+            VisibilityScope.GMOnly => role == WorldRole.GM,
+            _ => false
+        };
+
+        if (!allowedByVisibility)
+        {
+            return false;
+        }
+
+        return source.ProcessingStatus != SourceProcessingStatus.Draft
+            || role == WorldRole.GM
+            || (userId != Guid.Empty && source.CreatedByUserId == userId);
+    }
 }
 
 /// <summary>
@@ -134,12 +151,22 @@ public class VisibilityListArbitraries
             WorldRole.Player,
             WorldRole.Observer);
 
+        // Drafts are held back from everyone but their author and the GM, so the spread of
+        // processing statuses is part of what this property covers — not a fixed constant.
+        var processingStatusGen = Gen.Elements(
+            SourceProcessingStatus.Draft,
+            SourceProcessingStatus.Ready,
+            SourceProcessingStatus.Queued,
+            SourceProcessingStatus.Processing,
+            SourceProcessingStatus.Processed,
+            SourceProcessingStatus.Failed);
+
         var gen =
             from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from requestingUserId in ArbMap.Default.GeneratorFor<Guid>()
             from requestingRole in roleGen
             from sourceCount in Gen.Choose(2, 10)
-            from sources in GenSources(worldId, requestingUserId, sourceCount, validTitleGen, sourceTypeGen, visibilityGen)
+            from sources in GenSources(worldId, requestingUserId, sourceCount, validTitleGen, sourceTypeGen, visibilityGen, processingStatusGen)
             select new VisibilityListScenario(worldId, sources, requestingUserId, requestingRole);
 
         return gen.ToArbitrary();
@@ -151,12 +178,14 @@ public class VisibilityListArbitraries
         int count,
         Gen<string> titleGen,
         Gen<SourceType> sourceTypeGen,
-        Gen<VisibilityScope> visibilityGen)
+        Gen<VisibilityScope> visibilityGen,
+        Gen<SourceProcessingStatus> processingStatusGen)
     {
         var singleSourceGen =
             from title in titleGen
             from sourceType in sourceTypeGen
             from visibility in visibilityGen
+            from processingStatus in processingStatusGen
             from creatorIsRequestor in Gen.Elements(true, false)
             from otherCreatorId in ArbMap.Default.GeneratorFor<Guid>()
             from daysAgo in Gen.Choose(0, 365)
@@ -174,7 +203,7 @@ public class VisibilityListArbitraries
                 CreatedAt = DateTimeOffset.UtcNow.AddDays(-daysAgo).AddHours(-hoursOffset),
                 CreatedByUserId = creatorId,
                 Visibility = visibility,
-                ProcessingStatus = SourceProcessingStatus.Draft
+                ProcessingStatus = processingStatus
             };
 
         return singleSourceGen.ListOf(count).Select(l => l.ToList());

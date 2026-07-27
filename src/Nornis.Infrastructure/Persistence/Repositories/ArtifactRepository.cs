@@ -84,24 +84,36 @@ public class ArtifactRepository : IArtifactRepository
         return artifact;
     }
 
-    public async Task<IReadOnlyList<Artifact>> ListByExactNameAsync(Guid worldId, string name, VisibilityFilter filter, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Artifact>> ListByEquivalentNameAsync(Guid worldId, string name, VisibilityFilter filter, CancellationToken cancellationToken = default)
     {
-        // Default SQL Server collation is case-insensitive; ToLower makes the intent
-        // explicit and keeps the in-memory test provider behaviour identical.
-        var normalized = name.ToLowerInvariant();
-
         // Hoisted locals translate to SQL parameters.
         var scopes = filter.Scopes;
         var owner = filter.PrivateOwnerUserId;
 
-        return await _context.Artifacts
+        // World, status and visibility stay in SQL — the visibility predicate in particular
+        // must not move client-side, since ArtifactNameLookupVisibilityTests exists precisely
+        // to stop it drifting from VisibilityFilter.CanSee.
+        //
+        // The NAME predicate is applied in memory because SQL cannot collapse internal
+        // whitespace runs, and ArtifactNameKey is the single policy for what counts as the
+        // same name — the apply-time dedup uses it too, and the two must never disagree
+        // (a create that dedup-bound to "Salt Factor" while resolution refused to match
+        // "Salt  Factor" stranded every fact in the batch that referenced it, permanently).
+        // Filtering after the fetch also means ambiguity is counted over the full equivalence
+        // set rather than the exact-match subset, so a genuine duplicate is never hidden.
+        // A world's artifact count is campaign-scale, and the review queue already loads all
+        // of them per page.
+        var candidates = await _context.Artifacts
             .AsNoTracking()
             .Where(a => a.WorldId == worldId
-                && a.Name.ToLower() == normalized
                 && a.Status != ArtifactStatus.Archived
                 && scopes.Contains(a.Visibility)
                 && (a.Visibility != VisibilityScope.Private || owner == null || a.CreatedByUserId == owner))
             .ToListAsync(cancellationToken);
+
+        return candidates
+            .Where(a => ArtifactNameKey.AreEquivalent(a.Name, name))
+            .ToList();
     }
 
     public async Task<IReadOnlyList<Artifact>> ListByTypeAsync(

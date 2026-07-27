@@ -41,9 +41,9 @@ public class InMemoryReviewProposalRepository : IReviewProposalRepository
     public Task<IReadOnlyList<ReviewProposal>> ListPendingByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)
     {
         // For this fake, we don't have world info directly on proposals,
-        // so we return all pending proposals. Tests can filter as needed.
+        // so we return all open proposals. Tests can filter as needed.
         var proposals = _proposals
-            .Where(p => p.Status == ReviewProposalStatus.Pending)
+            .Where(p => p.Status is ReviewProposalStatus.Pending or ReviewProposalStatus.Edited)
             .ToList();
         return Task.FromResult<IReadOnlyList<ReviewProposal>>(proposals.AsReadOnly());
     }
@@ -54,6 +54,21 @@ public class InMemoryReviewProposalRepository : IReviewProposalRepository
         // "any decided at all" stands in. Tests scope their data per fake instance.
         var any = _proposals.Any(p => p.Status != ReviewProposalStatus.Pending && p.ReviewedByUserId != null);
         return Task.FromResult(any);
+    }
+
+    public Task<IReadOnlyDictionary<Guid, int>> CountOpenBySourcesAsync(
+        IReadOnlyList<Guid> sourceIds, CancellationToken cancellationToken = default)
+    {
+        var batches = _batchRepository?.Batches ?? [];
+
+        var counts = _proposals
+            .Where(p => p.Status is ReviewProposalStatus.Pending or ReviewProposalStatus.Edited)
+            .Join(batches, p => p.ReviewBatchId, b => b.Id, (p, b) => b.SourceId)
+            .Where(sourceIds.Contains)
+            .GroupBy(sourceId => sourceId)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        return Task.FromResult<IReadOnlyDictionary<Guid, int>>(counts);
     }
 
     public Task<ReviewProposal> UpdateAsync(ReviewProposal proposal, CancellationToken cancellationToken = default)
@@ -76,7 +91,7 @@ public class InMemoryReviewProposalRepository : IReviewProposalRepository
         var batches = _batchRepository?.Batches ?? [];
 
         var query = _proposals
-            .Where(p => p.Status == ReviewProposalStatus.Pending)
+            .Where(p => p.Status is ReviewProposalStatus.Pending or ReviewProposalStatus.Edited)
             .Join(
                 batches.Where(b => b.WorldId == worldId && allowedSourceIds.Contains(b.SourceId)),
                 p => p.ReviewBatchId,

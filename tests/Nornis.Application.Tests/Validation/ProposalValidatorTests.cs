@@ -623,4 +623,43 @@ public class ProposalValidatorTests
     }
 
     #endregion
+
+    #region Quoted numbers
+
+    // The extractor sometimes emits "confidence": "0.99". New payloads are normalized at the
+    // extraction boundary, but rows stored before that — and hand edits made in the review UI —
+    // must still get through the gate.
+
+    [Test]
+    public void CreateArtifact_QuotedConfidence_IsAccepted()
+    {
+        var result = _validator.ValidateProposedValue(
+            """{"name":"Captain Voss","type":"Character","confidence":"0.99"}""",
+            ReviewChangeType.CreateArtifact);
+
+        Assert.That(result.IsSuccess, Is.True);
+    }
+
+    [Test]
+    public void AddFact_QuotedConfidence_IsAccepted()
+    {
+        var result = _validator.ValidateProposedValue(
+            """{"predicate":"serves","value":"the harbor guard","artifactName":"Captain Voss","confidence":"0.5"}""",
+            ReviewChangeType.AddFact);
+
+        Assert.That(result.IsSuccess, Is.True);
+    }
+
+    [Test]
+    public void CreateArtifact_NonNumericConfidence_StillFailsWithTheExistingError()
+    {
+        var result = _validator.ValidateProposedValue(
+            """{"name":"Captain Voss","type":"Character","confidence":"high"}""",
+            ReviewChangeType.CreateArtifact);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("invalid_payload"));
+    }
+
+    #endregion
 }

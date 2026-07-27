@@ -138,7 +138,8 @@ public class EntityStructureTests
         // + StorylineCampaign (cross-campaign storylines)
         // + ExtractionReplay (timeline re-extraction walk)
         // + TutorialProgress (demo-world tutorial, feature 20)
-        // + ContinuityDismissal (world-scoped dismissal registry).
-        Assert.That(entityTypes, Has.Count.EqualTo(26));
+        // + ContinuityDismissal (world-scoped dismissal registry)
+        // + ImportSession/ImportSessionItem (campaign backlog import walk).
+        Assert.That(entityTypes, Has.Count.EqualTo(28));
     }
 }

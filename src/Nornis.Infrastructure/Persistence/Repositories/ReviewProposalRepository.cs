@@ -41,7 +41,11 @@ public class ReviewProposalRepository : IReviewProposalRepository
         return await _context.ReviewProposals
             .AsNoTracking()
             .Where(rp => _context.ReviewBatches.Any(rb => rb.Id == rp.ReviewBatchId && rb.WorldId == worldId))
-            .Where(rp => rp.Status == ReviewProposalStatus.Pending)
+            // Edited counts as open. An edited-but-undecided proposal still blocks batch
+            // completion, so hiding it from the queue stranded the batch with nothing on
+            // screen to act on.
+            .Where(rp => rp.Status == ReviewProposalStatus.Pending
+                || rp.Status == ReviewProposalStatus.Edited)
             .ToListAsync(cancellationToken);
     }
 
@@ -51,6 +55,33 @@ public class ReviewProposalRepository : IReviewProposalRepository
             .AsNoTracking()
             .Where(rp => _context.ReviewBatches.Any(rb => rb.Id == rp.ReviewBatchId && rb.WorldId == worldId))
             .AnyAsync(rp => rp.Status != ReviewProposalStatus.Pending && rp.ReviewedByUserId != null, cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, int>> CountOpenBySourcesAsync(
+        IReadOnlyList<Guid> sourceIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (sourceIds.Count == 0)
+        {
+            return new Dictionary<Guid, int>();
+        }
+
+        var counts = await _context.ReviewProposals
+            .AsNoTracking()
+            .Join(
+                _context.ReviewBatches,
+                rp => rp.ReviewBatchId,
+                rb => rb.Id,
+                (rp, rb) => new { Proposal = rp, Batch = rb })
+            .Where(x => sourceIds.Contains(x.Batch.SourceId))
+            // Same definition of "open" as the queue: an edit does not decide a proposal.
+            .Where(x => x.Proposal.Status == ReviewProposalStatus.Pending
+                || x.Proposal.Status == ReviewProposalStatus.Edited)
+            .GroupBy(x => x.Batch.SourceId)
+            .Select(g => new { SourceId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(c => c.SourceId, c => c.Count);
     }
 
     public async Task<ReviewProposal> UpdateAsync(ReviewProposal proposal, CancellationToken cancellationToken = default)
@@ -76,7 +107,9 @@ public class ReviewProposalRepository : IReviewProposalRepository
                 (rp, rb) => new { Proposal = rp, Batch = rb })
             .Where(x => x.Batch.WorldId == worldId)
             .Where(x => allowedSourceIds.Contains(x.Batch.SourceId))
-            .Where(x => x.Proposal.Status == ReviewProposalStatus.Pending);
+            // Edited is open, same as Pending — see ListPendingByWorldAsync.
+            .Where(x => x.Proposal.Status == ReviewProposalStatus.Pending
+                || x.Proposal.Status == ReviewProposalStatus.Edited);
 
         if (filterByBatchId.HasValue)
         {

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Nornis.Application.Errors;
 using Nornis.Application.Services;
 using Nornis.Application.Validation;
@@ -14,9 +15,14 @@ namespace Nornis.Application.Application;
 /// </summary>
 public class ProposalApplicator : IProposalApplicator
 {
+    // The extractor occasionally quotes a number ("confidence": "0.99"). The extraction
+    // boundary normalizes new payloads, but rows stored before that — and hand-edited
+    // ones — must still apply, so reading numbers from strings is allowed here too.
+    // Genuinely non-numeric strings ("high") still throw and fail the apply.
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        NumberHandling = JsonNumberHandling.AllowReadingFromString
     };
 
     private readonly IArtifactRepository _artifactRepository;
@@ -26,6 +32,7 @@ public class ProposalApplicator : IProposalApplicator
     private readonly ISourceRepository _sourceRepository;
     private readonly ISourceAttachmentRepository _sourceAttachmentRepository;
     private readonly IMapPlacemarkRepository _mapPlacemarkRepository;
+    private readonly IWorldMemberRepository _worldMemberRepository;
 
     public ProposalApplicator(
         IArtifactRepository artifactRepository,
@@ -34,7 +41,8 @@ public class ProposalApplicator : IProposalApplicator
         ISourceReferenceRepository sourceReferenceRepository,
         ISourceRepository sourceRepository,
         ISourceAttachmentRepository sourceAttachmentRepository,
-        IMapPlacemarkRepository mapPlacemarkRepository)
+        IMapPlacemarkRepository mapPlacemarkRepository,
+        IWorldMemberRepository worldMemberRepository)
     {
         _artifactRepository = artifactRepository;
         _artifactFactRepository = artifactFactRepository;
@@ -43,6 +51,7 @@ public class ProposalApplicator : IProposalApplicator
         _sourceRepository = sourceRepository;
         _sourceAttachmentRepository = sourceAttachmentRepository;
         _mapPlacemarkRepository = mapPlacemarkRepository;
+        _worldMemberRepository = worldMemberRepository;
     }
 
     public async Task<AppResult<ApplyResult>> ApplyAsync(
@@ -75,6 +84,32 @@ public class ProposalApplicator : IProposalApplicator
         var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
         if (source is null)
             return AppResult<ApplyResult>.Fail(new AppError(400, "source_not_found", "Source associated with batch not found."));
+
+        // Apply-time dedup backstop: sources readied together all extract against the same
+        // canon, so several batches can each propose the same artifact. Bind to what is
+        // already there rather than minting a twin the GM has to merge later.
+        var match = await FindMatchingArtifactAsync(batch.WorldId, artifactType, payload.Name, source, ct);
+        if (match is not null)
+        {
+            // The existing artifact is vetted canon: its summary, visibility and confidence
+            // are NOT overwritten by this fresh extraction. Only provenance is added.
+            if (payload.MapPlacemark is { } matchedPin)
+            {
+                var matchedPinError = await CreatePlacemarkAsync(
+                    batch, match.Id, matchedPin.AttachmentId, matchedPin.X, matchedPin.Y,
+                    matchedPin.Label, payload.Confidence, ct);
+                if (matchedPinError is not null)
+                    return AppResult<ApplyResult>.Fail(matchedPinError);
+            }
+
+            proposal.TargetId = match.Id;
+            proposal.AppliedToExistingArtifact = true;
+
+            await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, match.Id, proposal.Id, ct);
+
+            return AppResult<ApplyResult>.Success(
+                new ApplyResult(match.Id, SourceReferenceTargetType.Artifact, MatchedExistingArtifact: true));
+        }
 
         var now = DateTimeOffset.UtcNow;
         var visibility = ResolveVisibility(payload.Visibility, source);
@@ -109,10 +144,72 @@ public class ProposalApplicator : IProposalApplicator
 
         // Update proposal TargetId to the newly created artifact
         proposal.TargetId = artifact.Id;
+        proposal.AppliedToExistingArtifact = false;
 
         await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, artifact.Id, proposal.Id, ct);
 
         return AppResult<ApplyResult>.Success(new ApplyResult(artifact.Id, SourceReferenceTargetType.Artifact));
+    }
+
+    /// <summary>
+    /// The duplicate an incoming CreateArtifact should bind to, or null to insert normally.
+    ///
+    /// Candidates are Active artifacts of the same type in the same world whose name is
+    /// equivalent under <see cref="ArtifactNameKey"/>, restricted to what the SOURCE'S side
+    /// may see — never the accepting reviewer's. A GM accepting a player's source must not
+    /// silently bind it to a GM-hidden artifact: that both tells the player the hidden thing
+    /// exists (its name now resolves for them) and files their note as provenance for canon
+    /// they were never shown. When a same-name artifact falls outside that sight we
+    /// deliberately create the duplicate and leave it to manual merge.
+    /// </summary>
+    private async Task<Artifact?> FindMatchingArtifactAsync(
+        Guid worldId, ArtifactType type, string proposedName, Source source, CancellationToken ct)
+    {
+        if (ArtifactNameKey.Collapse(proposedName).Length == 0)
+            return null;
+
+        var authorFilter = await ResolveAuthorFilterAsync(worldId, source.CreatedByUserId, ct);
+
+        // Two gates, and a candidate must pass both.
+        //
+        // The author gate (above) is about the person. The source gate (here) is about the
+        // note: matching attaches a SourceReference carrying this source's verbatim extraction
+        // quote to the artifact, and artifact detail hands those quotes to everyone who can see
+        // the artifact. Binding a Private note to a PartyVisible artifact would therefore
+        // publish the note's own words to the whole world. So a match may never reach WIDER
+        // than the source's own audience — which is also exactly the canon the extractor was
+        // shown, so it can only ever bind to something it genuinely failed to spot.
+        var sourceFilter = VisibilityFilter.ForSourceContext(source.Visibility, source.CreatedByUserId);
+
+        var candidates = (await _artifactRepository.ListByTypeAsync(worldId, type, authorFilter, ct))
+            .Where(a => a.Status == ArtifactStatus.Active
+                && sourceFilter.CanSee(a.Visibility, a.CreatedByUserId)
+                && ArtifactNameKey.AreEquivalent(a.Name, proposedName))
+            .ToList();
+
+        if (candidates.Count == 0)
+            return null;
+
+        // Canon may already hold duplicates. Pick the same one every time: exact-case match
+        // wins, then the oldest (the original), then id as a last resort so the choice is
+        // total even for rows minted in the same tick.
+        return candidates
+            .OrderByDescending(a => ArtifactNameKey.AreExactCaseEquivalent(a.Name, proposedName))
+            .ThenBy(a => a.CreatedAt)
+            .ThenBy(a => a.Id)
+            .First();
+    }
+
+    /// <summary>
+    /// What the source's author may see in this world. A source whose author has since lost
+    /// their membership falls back to Player-level sight for that user id, which is the
+    /// narrowest filter that still lets them match their own Private artifacts.
+    /// </summary>
+    private async Task<VisibilityFilter> ResolveAuthorFilterAsync(
+        Guid worldId, Guid authorUserId, CancellationToken ct)
+    {
+        var member = await _worldMemberRepository.GetByWorldAndUserAsync(worldId, authorUserId, ct);
+        return VisibilityFilter.ForRole(member?.Role ?? WorldRole.Player, authorUserId);
     }
 
     private async Task<AppResult<ApplyResult>> ApplyAddPlacemark(
@@ -622,11 +719,18 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     /// <summary>
-    /// Resolves an artifact by exact name within the world, seeing only what the accepting
-    /// reviewer may see. Fails when the name matches nothing (the referenced CreateArtifact
-    /// proposal was rejected or not yet accepted, or the name belongs to an artifact hidden
-    /// from this reviewer) or more than one artifact (ambiguous — the reviewer must edit the
-    /// proposal to use an id).
+    /// Resolves an artifact by name within the world, seeing only what the accepting reviewer
+    /// may see. Fails when the name matches nothing (the referenced CreateArtifact proposal was
+    /// rejected or not yet accepted, or the name belongs to an artifact hidden from this
+    /// reviewer) or more than one artifact (ambiguous — the reviewer must edit the proposal to
+    /// use an id).
+    ///
+    /// "Matches" means <see cref="ArtifactNameKey"/> equivalence, the same policy apply-time
+    /// dedup binds on. The two must agree: while resolution was whitespace-exact and dedup was
+    /// not, a create proposing "Salt  Factor" would silently bind to canon's "Salt Factor" and
+    /// then every fact in the batch referencing "Salt  Factor" failed with
+    /// artifact_name_not_found — unrecoverably, since the create was already Accepted so
+    /// neither the retry pass nor the prerequisite cascade could do anything about it.
     ///
     /// The reviewer's own name is not enough to make this safe: a Player may review proposals
     /// on their own sources, and the proposal payload is Player-editable, so an unfiltered
@@ -641,7 +745,7 @@ public class ProposalApplicator : IProposalApplicator
     private async Task<AppResult<Artifact>> ResolveArtifactByNameAsync(
         Guid worldId, string name, VisibilityFilter actingFilter, CancellationToken ct)
     {
-        var matches = await _artifactRepository.ListByExactNameAsync(worldId, name.Trim(), actingFilter, ct);
+        var matches = await _artifactRepository.ListByEquivalentNameAsync(worldId, name, actingFilter, ct);
 
         return matches.Count switch
         {

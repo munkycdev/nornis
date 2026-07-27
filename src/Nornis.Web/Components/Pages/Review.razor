@@ -50,7 +50,7 @@ else if (_proposals.Count == 0)
 }
 else
 {
-    @if (PendingIds().Count > 0)
+    @if (OpenIds().Count > 0)
     {
         <div class="d-flex gap-2 mb-4 align-center">
             <MudButton Variant="Variant.Filled" Color="Color.Secondary"
@@ -89,7 +89,12 @@ else
                     {
                         <span class="nornis-list-meta">@($"{p.Confidence:P0}") confidence</span>
                     }
-                    @if (p.Status != "Pending")
+                    @if (p.Status == "Edited")
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info"
+                                 title="You changed this proposal. It still needs an accept or a reject.">Edited</MudChip>
+                    }
+                    else if (p.Status != "Pending")
                     {
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@p.Status</MudChip>
                     }
@@ -204,13 +209,48 @@ else
         if (result.IsSuccess)
         {
             _proposals = _proposals.Where(x => x.Id != p.Id).ToList();
-            Snackbar.Add("Proposal accepted.", Severity.Success);
+            Snackbar.Add(AcceptMessage(p, result.Value!), Severity.Success);
         }
         else
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// A Create that the server matched to an existing artifact added provenance without
+    /// creating anything. Saying "accepted" there reads as a new entry appearing, which is
+    /// exactly the confusion the dedup exists to prevent.
+    /// </summary>
+    private static string AcceptMessage(ReviewProposal p, ProposalActionResult result)
+    {
+        if (!result.MatchedExistingArtifact)
+        {
+            return "Proposal accepted.";
+        }
+
+        var name = PayloadName(p.ProposedValueJson);
+        return name is null
+            ? "Matched an artifact already in your record — no duplicate created."
+            : $"Matched existing '{name}' — no duplicate created.";
+    }
+
+    private static string? PayloadName(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("name", out var el)
+                && el.ValueKind == JsonValueKind.String
+                    ? el.GetString()
+                    : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private async Task RejectAsync(ReviewProposal p)
@@ -240,17 +280,25 @@ else
         StateHasChanged();
     }
 
-    private List<Guid> PendingIds() =>
-        _proposals.Where(p => p.Status == "Pending").Select(p => p.Id).ToList();
+    /// <summary>
+    /// Open = still awaiting a decision. An edit is not a decision: an Edited proposal is
+    /// as actionable as a Pending one and must be swept up by accept-all / reject-all too.
+    /// </summary>
+    private static bool IsOpen(ReviewProposal p) => p.Status is "Pending" or "Edited";
+
+    private List<Guid> OpenIds() =>
+        _proposals.Where(IsOpen).Select(p => p.Id).ToList();
 
     /// <summary>
-    /// Batch order matters: the server processes ids sequentially in request order, and facts or
-    /// relationships may reference artifacts created in the same batch by name — those creates
-    /// must be applied first or the references fail to resolve.
+    /// Batch order matters: the server processes ids sequentially, and facts or relationships
+    /// may reference artifacts created in the same batch by name. The server now sorts creates
+    /// first within each call, but the client still has to — a selection over 50 proposals is
+    /// split across several calls, and a create must not land in a later chunk than its
+    /// dependants.
     /// </summary>
-    private List<Guid> PendingIdsInDependencyOrder() =>
+    private List<Guid> OpenIdsInDependencyOrder() =>
         _proposals
-            .Where(p => p.Status == "Pending")
+            .Where(IsOpen)
             .OrderBy(p => p.ChangeType switch
             {
                 "CreateArtifact" => 0,
@@ -265,10 +313,10 @@ else
 
     private async Task RejectAllAsync()
     {
-        var pendingCount = PendingIds().Count;
+        var openCount = OpenIds().Count;
         var confirmed = await DialogService.ShowMessageBox(
             "Reject all proposals?",
-            $"This discards all {pendingCount} pending proposed changes. It can't be undone.",
+            $"This discards all {openCount} open proposed changes. It can't be undone.",
             yesText: "Reject all", cancelText: "Cancel");
         if (confirmed != true)
         {
@@ -280,7 +328,7 @@ else
 
     private async Task RunBatchAsync(bool accept)
     {
-        var ids = accept ? PendingIdsInDependencyOrder() : PendingIds();
+        var ids = accept ? OpenIdsInDependencyOrder() : OpenIds();
         if (ids.Count == 0 || Worlds.Current is null)
         {
             return;

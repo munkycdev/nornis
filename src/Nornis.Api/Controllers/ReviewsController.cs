@@ -82,7 +82,8 @@ public class ReviewsController : ControllerBase
             Status: acceptResult.Status.ToString(),
             ReviewedAt: acceptResult.ReviewedAt,
             ReviewedByUserId: acceptResult.ReviewedByUserId,
-            CreatedEntityId: acceptResult.CreatedEntityId);
+            CreatedEntityId: acceptResult.CreatedEntityId,
+            MatchedExistingArtifact: acceptResult.MatchedExistingArtifact);
 
         return Ok(response);
     }

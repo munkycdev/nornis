@@ -226,9 +226,12 @@ public class ReviewService : IReviewService
         }
     }
 
+    // Same numeric-string tolerance as the validator and applicator: a quoted confidence
+    // must not blank out the queue's target names.
     private static readonly System.Text.Json.JsonSerializerOptions PayloadJsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
     };
 
     public Task<AppResult<AcceptProposalResult>> AcceptProposalAsync(
@@ -266,7 +269,8 @@ public class ReviewService : IReviewService
         // Idempotent: already Accepted
         if (proposal.Status == ReviewProposalStatus.Accepted)
             return AppResult<AcceptProposalResult>.Success(new AcceptProposalResult(
-                proposal.Id, proposal.Status, proposal.ReviewedAt!.Value, proposal.ReviewedByUserId!.Value, proposal.TargetId));
+                proposal.Id, proposal.Status, proposal.ReviewedAt!.Value, proposal.ReviewedByUserId!.Value,
+                proposal.TargetId, proposal.AppliedToExistingArtifact == true));
 
         // Conflicting: Rejected → 409
         if (proposal.Status == ReviewProposalStatus.Rejected)
@@ -282,6 +286,7 @@ public class ReviewService : IReviewService
             return AppResult<AcceptProposalResult>.Fail(validationResult.Error!);
 
         // Begin transaction
+        var matchedExisting = false;
         await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
         try
         {
@@ -303,6 +308,8 @@ public class ReviewService : IReviewService
                 return AppResult<AcceptProposalResult>.Fail(applyResult.Error!);
             }
 
+            matchedExisting = applyResult.Value!.MatchedExistingArtifact;
+
             var now = DateTimeOffset.UtcNow;
             proposal.Status = ReviewProposalStatus.Accepted;
             proposal.ReviewedAt = now;
@@ -322,7 +329,8 @@ public class ReviewService : IReviewService
         await UpdateBatchLifecycleAsync(batch.Id, ct);
 
         return AppResult<AcceptProposalResult>.Success(new AcceptProposalResult(
-            proposal.Id, proposal.Status, proposal.ReviewedAt!.Value, proposal.ReviewedByUserId!.Value, proposal.TargetId));
+            proposal.Id, proposal.Status, proposal.ReviewedAt!.Value, proposal.ReviewedByUserId!.Value,
+            proposal.TargetId, matchedExisting));
     }
 
     /// <summary>
@@ -550,101 +558,30 @@ public class ReviewService : IReviewService
         var failed = new List<BatchFailureDetail>();
         var affectedBatchIds = new HashSet<Guid>();
 
-        foreach (var proposalId in uniqueIds)
+        foreach (var proposalId in await OrderCreatesFirstAsync(uniqueIds, ct))
         {
-            var proposal = await _reviewProposalRepository.GetByIdAsync(proposalId, ct);
-            if (proposal is null)
-            {
-                failed.Add(new BatchFailureDetail(proposalId, "not_found", "Proposal not found."));
-                continue;
-            }
+            var failure = await TryAcceptOneAsync(proposalId, command, succeeded, affectedBatchIds, ct);
+            if (failure is not null)
+                failed.Add(failure);
+        }
 
-            var batch = await _reviewBatchRepository.GetByIdAsync(proposal.ReviewBatchId, ct);
-            if (batch is null || batch.WorldId != command.WorldId)
-            {
-                failed.Add(new BatchFailureDetail(proposalId, "not_found", "Proposal not found."));
-                continue;
-            }
+        // Belt-and-braces: an odd intra-batch shape (a create that only became applicable
+        // once one of its siblings landed) can still leave a name unresolved after the
+        // ordered pass. Retry those exactly once — no more, or a genuinely unresolvable
+        // name would spin. Everything else keeps its original error.
+        var retryIds = failed
+            .Where(f => f.Code == "artifact_name_not_found")
+            .Select(f => f.ProposalId)
+            .ToList();
 
-            var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
-            if (source is null)
-            {
-                failed.Add(new BatchFailureDetail(proposalId, "not_found", "Proposal not found."));
-                continue;
-            }
+        foreach (var proposalId in retryIds)
+        {
+            var failure = await TryAcceptOneAsync(proposalId, command, succeeded, affectedBatchIds, ct);
 
-            if (!IsSourceVisibleToUser(source, command.ActingUserId, command.ActingUserRole))
-            {
-                failed.Add(new BatchFailureDetail(proposalId, "not_found", "Proposal not found."));
-                continue;
-            }
-
-            var authResult = CheckReviewAuthorization(command.ActingUserRole, command.ActingUserId, source);
-            if (!authResult.IsSuccess)
-            {
-                failed.Add(new BatchFailureDetail(proposalId, "forbidden", authResult.Error!.Message));
-                continue;
-            }
-
-            // Idempotent: already Accepted
-            if (proposal.Status == ReviewProposalStatus.Accepted)
-            {
-                succeeded.Add(proposalId);
-                affectedBatchIds.Add(batch.Id);
-                continue;
-            }
-
-            // Conflicting: Rejected → conflict
-            if (proposal.Status == ReviewProposalStatus.Rejected)
-            {
-                failed.Add(new BatchFailureDetail(proposalId, "conflict", "Cannot accept a proposal that has already been rejected."));
-                continue;
-            }
-
-            // Guard: only Pending or Edited
-            if (proposal.Status is not (ReviewProposalStatus.Pending or ReviewProposalStatus.Edited))
-            {
-                failed.Add(new BatchFailureDetail(proposalId, "conflict", "Only Pending or Edited proposals can be accepted."));
-                continue;
-            }
-
-            // Validate ProposedValueJson
-            var validationResult = _proposalValidator.ValidateProposedValue(proposal.ProposedValueJson, proposal.ChangeType);
-            if (!validationResult.IsSuccess)
-            {
-                failed.Add(new BatchFailureDetail(proposalId, validationResult.Error!.Code, validationResult.Error!.Message));
-                continue;
-            }
-
-            // Begin transaction per proposal
-            await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
-            try
-            {
-                var actingFilter = VisibilityFilter.ForRole(command.ActingUserRole, command.ActingUserId);
-
-                var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, actingFilter, ct);
-                if (!applyResult.IsSuccess)
-                {
-                    await transaction.RollbackAsync(ct);
-                    failed.Add(new BatchFailureDetail(proposalId, applyResult.Error!.Code, applyResult.Error!.Message));
-                    continue;
-                }
-
-                var now = DateTimeOffset.UtcNow;
-                proposal.Status = ReviewProposalStatus.Accepted;
-                proposal.ReviewedAt = now;
-                proposal.ReviewedByUserId = command.ActingUserId;
-                await _reviewProposalRepository.UpdateAsync(proposal, ct);
-
-                await transaction.CommitAsync(ct);
-                succeeded.Add(proposalId);
-                affectedBatchIds.Add(batch.Id);
-            }
-            catch
-            {
-                await transaction.RollbackAsync(ct);
-                failed.Add(new BatchFailureDetail(proposalId, "transaction_failed", $"Failed to accept proposal {proposalId}. The operation could not be completed."));
-            }
+            // Only a success changes anything: the proposal moves out of failed. A second
+            // failure keeps the detail already recorded.
+            if (failure is null)
+                failed.RemoveAll(f => f.ProposalId == proposalId);
         }
 
         // Batch lifecycle OUTSIDE individual transactions
@@ -654,6 +591,118 @@ public class ReviewService : IReviewService
         }
 
         return AppResult<BatchOperationResult>.Success(new BatchOperationResult(succeeded, failed));
+    }
+
+    /// <summary>
+    /// CreateArtifact proposals first, everything else after, each group in the caller's
+    /// order. Facts and relationships reference same-batch artifacts by name, and those
+    /// names only resolve once the create has been applied — so a selection listing the
+    /// fact before its create used to half-fail on nothing but ordering.
+    ///
+    /// Unlike single accept, this deliberately does NOT pull in creates the user did not
+    /// select: batch accept applies exactly the chosen set, and a fact whose prerequisite
+    /// is neither in canon nor in the selection fails with the same error as before.
+    /// </summary>
+    private async Task<IReadOnlyList<Guid>> OrderCreatesFirstAsync(
+        IReadOnlyList<Guid> proposalIds, CancellationToken ct)
+    {
+        var creates = new HashSet<Guid>();
+        foreach (var id in proposalIds)
+        {
+            var proposal = await _reviewProposalRepository.GetByIdAsync(id, ct);
+            if (proposal?.ChangeType == ReviewChangeType.CreateArtifact)
+                creates.Add(id);
+        }
+
+        // OrderBy is stable, so relative order inside each group is the caller's.
+        return proposalIds.OrderBy(id => creates.Contains(id) ? 0 : 1).ToList();
+    }
+
+    /// <summary>
+    /// One proposal's worth of batch accept. Returns null when it succeeded (having recorded
+    /// the id and its batch), or the failure detail to report. Re-reads the proposal, so it
+    /// is safe to call a second time for the retry pass: an already-Accepted proposal takes
+    /// the idempotent path instead of applying twice.
+    /// </summary>
+    private async Task<BatchFailureDetail?> TryAcceptOneAsync(
+        Guid proposalId,
+        BatchAcceptCommand command,
+        List<Guid> succeeded,
+        HashSet<Guid> affectedBatchIds,
+        CancellationToken ct)
+    {
+        var proposal = await _reviewProposalRepository.GetByIdAsync(proposalId, ct);
+        if (proposal is null)
+            return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
+
+        var batch = await _reviewBatchRepository.GetByIdAsync(proposal.ReviewBatchId, ct);
+        if (batch is null || batch.WorldId != command.WorldId)
+            return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
+
+        var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
+        if (source is null)
+            return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
+
+        if (!IsSourceVisibleToUser(source, command.ActingUserId, command.ActingUserRole))
+            return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
+
+        var authResult = CheckReviewAuthorization(command.ActingUserRole, command.ActingUserId, source);
+        if (!authResult.IsSuccess)
+            return new BatchFailureDetail(proposalId, "forbidden", authResult.Error!.Message);
+
+        // Idempotent: already Accepted
+        if (proposal.Status == ReviewProposalStatus.Accepted)
+        {
+            if (!succeeded.Contains(proposalId))
+                succeeded.Add(proposalId);
+            affectedBatchIds.Add(batch.Id);
+            return null;
+        }
+
+        // Conflicting: Rejected → conflict
+        if (proposal.Status == ReviewProposalStatus.Rejected)
+            return new BatchFailureDetail(proposalId, "conflict", "Cannot accept a proposal that has already been rejected.");
+
+        // Guard: only Pending or Edited
+        if (proposal.Status is not (ReviewProposalStatus.Pending or ReviewProposalStatus.Edited))
+            return new BatchFailureDetail(proposalId, "conflict", "Only Pending or Edited proposals can be accepted.");
+
+        // Validate ProposedValueJson
+        var validationResult = _proposalValidator.ValidateProposedValue(proposal.ProposedValueJson, proposal.ChangeType);
+        if (!validationResult.IsSuccess)
+            return new BatchFailureDetail(proposalId, validationResult.Error!.Code, validationResult.Error!.Message);
+
+        // Begin transaction per proposal
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
+        try
+        {
+            var actingFilter = VisibilityFilter.ForRole(command.ActingUserRole, command.ActingUserId);
+
+            var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, actingFilter, ct);
+            if (!applyResult.IsSuccess)
+            {
+                await transaction.RollbackAsync(ct);
+                return new BatchFailureDetail(proposalId, applyResult.Error!.Code, applyResult.Error!.Message);
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            proposal.Status = ReviewProposalStatus.Accepted;
+            proposal.ReviewedAt = now;
+            proposal.ReviewedByUserId = command.ActingUserId;
+            await _reviewProposalRepository.UpdateAsync(proposal, ct);
+
+            await transaction.CommitAsync(ct);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(ct);
+            return new BatchFailureDetail(proposalId, "transaction_failed", $"Failed to accept proposal {proposalId}. The operation could not be completed.");
+        }
+
+        if (!succeeded.Contains(proposalId))
+            succeeded.Add(proposalId);
+        affectedBatchIds.Add(batch.Id);
+        return null;
     }
 
     public async Task<AppResult<BatchOperationResult>> BatchRejectAsync(

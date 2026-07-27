@@ -43,10 +43,9 @@ public class SourceVisibilityEnforcementOnGetTests
 
         // Determine expected visibility using the same rules as the design
         var expectedCanSee = CanSee(
-            scenario.ExistingSource.Visibility,
+            scenario.ExistingSource,
             scenario.RequestingRole,
-            scenario.RequestingUserId,
-            scenario.ExistingSource.CreatedByUserId);
+            scenario.RequestingUserId);
 
         // Act
         var result = service.GetByIdAsync(
@@ -84,16 +83,31 @@ public class SourceVisibilityEnforcementOnGetTests
     }
 
     /// <summary>
-    /// Expected visibility decision function matching the design specification.
+    /// Expected visibility decision function matching the design specification: visibility
+    /// decides first, then the draft gate narrows it. An unsubmitted draft belongs to its
+    /// author and the GM alone — its Visibility describes the canon it will yield once
+    /// extracted, not who may read it while it waits.
     /// </summary>
-    private static bool CanSee(VisibilityScope visibility, WorldRole role, Guid requestingUserId, Guid creatorUserId) =>
-        visibility switch
+    private static bool CanSee(Source source, WorldRole role, Guid requestingUserId)
+    {
+        var allowedByVisibility = source.Visibility switch
         {
             VisibilityScope.PartyVisible => true,
-            VisibilityScope.Private => role == WorldRole.GM || requestingUserId == creatorUserId,
+            VisibilityScope.Private => role == WorldRole.GM
+                || (requestingUserId != Guid.Empty && requestingUserId == source.CreatedByUserId),
             VisibilityScope.GMOnly => role == WorldRole.GM,
             _ => false
         };
+
+        if (!allowedByVisibility)
+        {
+            return false;
+        }
+
+        return source.ProcessingStatus != SourceProcessingStatus.Draft
+            || role == WorldRole.GM
+            || (requestingUserId != Guid.Empty && requestingUserId == source.CreatedByUserId);
+    }
 }
 
 /// <summary>
@@ -147,6 +161,16 @@ public class VisibilityGetArbitraries
         // Boolean to determine if the requester is the creator
         var isCreatorGen = Gen.Elements(true, false);
 
+        // Drafts are held back from everyone but their author and the GM, so the spread of
+        // processing statuses is part of what this property covers — not a fixed constant.
+        var processingStatusGen = Gen.Elements(
+            SourceProcessingStatus.Draft,
+            SourceProcessingStatus.Ready,
+            SourceProcessingStatus.Queued,
+            SourceProcessingStatus.Processing,
+            SourceProcessingStatus.Processed,
+            SourceProcessingStatus.Failed);
+
         var gen =
             from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from creatorUserId in ArbMap.Default.GeneratorFor<Guid>()
@@ -156,6 +180,7 @@ public class VisibilityGetArbitraries
             let requestingUserId = isCreator ? creatorUserId : otherUserId
             from role in roleGen
             from visibility in visibilityGen
+            from processingStatus in processingStatusGen
             from title in validTitleGen
             from sourceType in sourceTypeGen
             from daysAgo in Gen.Choose(0, 365)
@@ -172,7 +197,7 @@ public class VisibilityGetArbitraries
                     CreatedAt = DateTimeOffset.UtcNow.AddDays(-daysAgo),
                     CreatedByUserId = creatorUserId,
                     Visibility = visibility,
-                    ProcessingStatus = SourceProcessingStatus.Draft
+                    ProcessingStatus = processingStatus
                 },
                 requestingUserId,
                 role);

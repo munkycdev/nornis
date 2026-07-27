@@ -23,6 +23,12 @@ public interface IProposalApplicator
         CancellationToken ct);
 }
 
+/// <param name="MatchedExistingArtifact">
+/// True when a CreateArtifact was applied by binding to an artifact that already existed
+/// instead of inserting one. Lets the review UI say "Matched existing 'X'" rather than
+/// claiming it created something.
+/// </param>
 public record ApplyResult(
     Guid EntityId,
-    SourceReferenceTargetType TargetType);
+    SourceReferenceTargetType TargetType,
+    bool MatchedExistingArtifact = false);

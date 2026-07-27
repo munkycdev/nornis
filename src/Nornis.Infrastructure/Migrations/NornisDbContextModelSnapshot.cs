@@ -527,6 +527,64 @@ namespace Nornis.Infrastructure.Migrations
                     b.ToTable("HealthAssessments", (string)null);
                 });
 
+            modelBuilder.Entity("Nornis.Domain.Entities.ImportSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("WorldId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorldId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ImportSessions_WorldId_NonTerminal")
+                        .HasFilter("[Status] IN ('Draft', 'InProgress')");
+
+                    b.ToTable("ImportSessions", (string)null);
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.ImportSessionItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ImportSessionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Skipped")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImportSessionId", "Position");
+
+                    b.ToTable("ImportSessionItems", (string)null);
+                });
+
             modelBuilder.Entity("Nornis.Domain.Entities.LibraryChunk", b =>
                 {
                     b.Property<Guid>("Id")
@@ -725,6 +783,9 @@ namespace Nornis.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool?>("AppliedToExistingArtifact")
+                        .HasColumnType("bit");
 
                     b.Property<string>("ChangeType")
                         .IsRequired()
@@ -1422,6 +1483,28 @@ namespace Nornis.Infrastructure.Migrations
                     b.Navigation("World");
                 });
 
+            modelBuilder.Entity("Nornis.Domain.Entities.ImportSession", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.World", "World")
+                        .WithMany()
+                        .HasForeignKey("WorldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("World");
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.ImportSessionItem", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.ImportSession", "ImportSession")
+                        .WithMany("Items")
+                        .HasForeignKey("ImportSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ImportSession");
+                });
+
             modelBuilder.Entity("Nornis.Domain.Entities.LibraryChunk", b =>
                 {
                     b.HasOne("Nornis.Domain.Entities.LibraryDocument", "Document")
@@ -1652,6 +1735,11 @@ namespace Nornis.Infrastructure.Migrations
             modelBuilder.Entity("Nornis.Domain.Entities.HealthAssessment", b =>
                 {
                     b.Navigation("Findings");
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.ImportSession", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.LibraryDocument", b =>

@@ -225,8 +225,9 @@ public class EnumDefinitionTests
         // Health) + CampaignStatus (worlds-and-campaigns) + LibraryDocumentKind/Status
         // (Library) + SourceAttachmentKind/Status (handwritten notes) + InviteStatus
         // (world invitations) + ExtractionReplayStatus (timeline re-extraction walk)
-        // + WorldExportCategory (world export).
-        Assert.That(enumTypes, Has.Count.EqualTo(26),
-            "Expected exactly 26 enums in Nornis.Domain.Enums namespace.");
+        // + WorldExportCategory (world export)
+        // + ImportSessionStatus/ImportItemState (campaign backlog import walk).
+        Assert.That(enumTypes, Has.Count.EqualTo(28),
+            "Expected exactly 28 enums in Nornis.Domain.Enums namespace.");
     }
 }

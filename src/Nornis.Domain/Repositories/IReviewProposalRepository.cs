@@ -10,14 +10,31 @@ public interface IReviewProposalRepository
 
     Task<IReadOnlyList<ReviewProposal>> ListByReviewBatchAsync(Guid reviewBatchId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The world's OPEN proposals — Pending and Edited alike. An edit does not decide a
+    /// proposal; it still needs an accept or a reject, and still holds its batch open.
+    /// </summary>
     Task<IReadOnlyList<ReviewProposal>> ListPendingByWorldAsync(Guid worldId, CancellationToken cancellationToken = default);
 
     /// <summary>Whether any proposal in the world has been decided (accepted or rejected)
     /// by a person. Tutorial detector for "vet the extraction".</summary>
     Task<bool> AnyDecidedByWorldAsync(Guid worldId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Open (Pending or Edited) proposal counts across all of each source's batches, keyed
+    /// by source id. Sources with nothing open are absent from the result. One round trip
+    /// for a whole backlog — the import walk asks this for every item on every poll.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, int>> CountOpenBySourcesAsync(
+        IReadOnlyList<Guid> sourceIds,
+        CancellationToken cancellationToken = default);
+
     Task<ReviewProposal> UpdateAsync(ReviewProposal proposal, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The review queue page: open proposals (Pending or Edited) from the given sources,
+    /// oldest batch first.
+    /// </summary>
     Task<(IReadOnlyList<ReviewProposal> Proposals, bool HasMore)> ListReviewQueueAsync(
         Guid worldId,
         IReadOnlyList<Guid> allowedSourceIds,

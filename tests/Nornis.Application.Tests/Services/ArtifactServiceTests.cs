@@ -14,6 +14,7 @@ public class ArtifactServiceTests
     private InMemoryArtifactFactRepository _factRepo = null!;
     private InMemoryArtifactRelationshipRepository _relationshipRepo = null!;
     private InMemorySourceReferenceRepository _sourceRefRepo = null!;
+    private InMemorySourceRepository _sourceRepo = null!;
     private InMemoryCharacterRepository _characterRepo = null!;
     private InMemoryWorldMemberRepository _memberRepo = null!;
     private ArtifactService _service = null!;
@@ -33,11 +34,12 @@ public class ArtifactServiceTests
         _factRepo = new InMemoryArtifactFactRepository();
         _relationshipRepo = new InMemoryArtifactRelationshipRepository();
         _sourceRefRepo = new InMemorySourceReferenceRepository();
+        _sourceRepo = new InMemorySourceRepository();
 
         _characterRepo = new InMemoryCharacterRepository();
         _memberRepo = new InMemoryWorldMemberRepository();
         _service = new ArtifactService(_artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo,
-            new InMemorySourceRepository(), _characterRepo, _memberRepo,
+            _sourceRepo, _characterRepo, _memberRepo,
             new InMemoryStorylineCampaignRepository(), new InMemoryCampaignRepository());
 
         _worldId = Guid.NewGuid();
@@ -349,7 +351,9 @@ public class ArtifactServiceTests
         var rel = MakeRelationship(voss.Id, harbor.Id, "LocatedIn", VisibilityScope.PartyVisible);
         _relationshipRepo.Seed(rel);
 
-        var sourceId = Guid.NewGuid();
+        // The source has to exist and be visible: references whose source the caller cannot
+        // attribute are dropped whole, because they carry that source's verbatim quote.
+        var sourceId = SeedPartyVisibleSource();
         _sourceRefRepo.CreateAsync(MakeSourceRef(sourceId, SourceReferenceTargetType.Artifact, voss.Id)).Wait();
         _sourceRefRepo.CreateAsync(MakeSourceRef(sourceId, SourceReferenceTargetType.ArtifactFact, fact.Id)).Wait();
         _sourceRefRepo.CreateAsync(MakeSourceRef(sourceId, SourceReferenceTargetType.ArtifactRelationship, rel.Id)).Wait();
@@ -365,6 +369,23 @@ public class ArtifactServiceTests
     #region Helpers
 
     #region GetDetailAsync — played by
+
+    private Guid SeedPartyVisibleSource()
+    {
+        var source = new Source
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = SourceType.SessionNote,
+            Title = "Session 12",
+            Visibility = VisibilityScope.PartyVisible,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedByUserId = _keldaUserId,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1)
+        };
+        _sourceRepo.Seed(source);
+        return source.Id;
+    }
 
     private async Task<WorldMember> SeedMember(string? displayName)
     {

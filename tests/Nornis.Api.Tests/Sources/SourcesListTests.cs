@@ -77,12 +77,15 @@ public class SourcesListTests
         // Arrange
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
+        // Submitted, not held: an unsubmitted draft is its author's alone whatever its
+        // scope says, and this test is about the visibility scopes themselves.
         var partyVisible = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
             scenario.World.Id,
             scenario.GmUserId,
             title: "Session 4 — Questioning Captain Voss",
-            visibility: VisibilityScope.PartyVisible);
+            visibility: VisibilityScope.PartyVisible,
+            processingStatus: SourceProcessingStatus.Processed);
 
         var playerPrivate = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
@@ -90,7 +93,8 @@ public class SourcesListTests
             scenario.PlayerUserId,
             title: "Tavrin's Journal — The Silver Key",
             type: SourceType.JournalEntry,
-            visibility: VisibilityScope.Private);
+            visibility: VisibilityScope.Private,
+            processingStatus: SourceProcessingStatus.Processed);
 
         // Another user's private source — player should NOT see this
         var otherPrivate = await SourceTestHelpers.CreateTestSourceAsync(
@@ -99,7 +103,8 @@ public class SourcesListTests
             scenario.GmUserId,
             title: "GM's Private Prep Notes",
             type: SourceType.GMNote,
-            visibility: VisibilityScope.Private);
+            visibility: VisibilityScope.Private,
+            processingStatus: SourceProcessingStatus.Processed);
 
         var gmOnly = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
@@ -107,7 +112,8 @@ public class SourcesListTests
             scenario.GmUserId,
             title: "GM Only — Black Harbor Secret",
             type: SourceType.GMNote,
-            visibility: VisibilityScope.GMOnly);
+            visibility: VisibilityScope.GMOnly,
+            processingStatus: SourceProcessingStatus.Processed);
 
         // Act
         var response = await scenario.PlayerClient.GetAsync(
@@ -133,12 +139,15 @@ public class SourcesListTests
         // Arrange
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
 
+        // Submitted, not held: an unsubmitted draft is its author's alone whatever its
+        // scope says, and this test is about the visibility scopes themselves.
         var partyVisible = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
             scenario.World.Id,
             scenario.GmUserId,
             title: "Session 4 — Questioning Captain Voss",
-            visibility: VisibilityScope.PartyVisible);
+            visibility: VisibilityScope.PartyVisible,
+            processingStatus: SourceProcessingStatus.Processed);
 
         var privateSource = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
@@ -146,7 +155,8 @@ public class SourcesListTests
             scenario.PlayerUserId,
             title: "Tavrin's Journal — The Silver Key",
             type: SourceType.JournalEntry,
-            visibility: VisibilityScope.Private);
+            visibility: VisibilityScope.Private,
+            processingStatus: SourceProcessingStatus.Processed);
 
         var gmOnly = await SourceTestHelpers.CreateTestSourceAsync(
             _factory,
@@ -154,7 +164,8 @@ public class SourcesListTests
             scenario.GmUserId,
             title: "GM Notes — Captain Voss's True Allegiance",
             type: SourceType.GMNote,
-            visibility: VisibilityScope.GMOnly);
+            visibility: VisibilityScope.GMOnly,
+            processingStatus: SourceProcessingStatus.Processed);
 
         // Act
         var response = await scenario.ObserverClient.GetAsync(

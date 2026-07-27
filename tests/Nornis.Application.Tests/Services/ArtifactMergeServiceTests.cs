@@ -42,7 +42,8 @@ public class ArtifactMergeServiceTests
             _factRepo,
             _relationshipRepo,
             new InMemorySourceReferenceRepository(),
-            _sourceRepo, new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository());
+            _sourceRepo, new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
+            new InMemoryWorldMemberRepository());
 
         _sut = new ArtifactMergeService(
             _artifactRepo,

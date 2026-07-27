@@ -54,7 +54,8 @@ public class ProposalApplicatorNameResolutionVisibilityTests
             _sourceRefRepo,
             _sourceRepo,
             new InMemorySourceAttachmentRepository(),
-            new InMemoryMapPlacemarkRepository());
+            new InMemoryMapPlacemarkRepository(),
+            new InMemoryWorldMemberRepository());
 
         _worldId = Guid.NewGuid();
         _sourceId = Guid.NewGuid();

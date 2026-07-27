@@ -153,7 +153,8 @@ public class SourceReprocessServiceTests
         return batch;
     }
 
-    private void SeedAcceptedProposal(Guid batchId, ReviewChangeType changeType, Guid? targetId)
+    private void SeedAcceptedProposal(
+        Guid batchId, ReviewChangeType changeType, Guid? targetId, bool? appliedToExisting = null)
     {
         _proposalRepository.CreateAsync(new ReviewProposal
         {
@@ -165,6 +166,7 @@ public class SourceReprocessServiceTests
             ProposedValueJson = "{}",
             Rationale = "test",
             Status = ReviewProposalStatus.Accepted,
+            AppliedToExistingArtifact = appliedToExisting,
             CreatedAt = DateTimeOffset.UtcNow
         }).GetAwaiter().GetResult();
     }
@@ -263,6 +265,48 @@ public class SourceReprocessServiceTests
         }).GetAwaiter().GetResult();
 
         return (source, orphan, shared, linked, referenced, createdFact, updatedFact, foreignFact, createdRelationship);
+    }
+
+    // ------------------------------------------------- apply-time dedup matches --
+
+    [Test]
+    public async Task Reprocess_CreateThatMatchedAnExistingArtifact_KeepsTheArtifact()
+    {
+        // The accepted Create bound to an artifact that predates this source. Its TargetId
+        // therefore does NOT mean "this source created it", and the cascade must not
+        // hard-delete canon that was only ever cited here.
+        var source = SeedSource();
+        var batch = SeedBatch(source.Id);
+        var preexisting = SeedArtifact("Black Harbor");
+
+        SeedAcceptedProposal(batch.Id, ReviewChangeType.CreateArtifact, preexisting.Id, appliedToExisting: true);
+        SeedReference(source.Id, SourceReferenceTargetType.Artifact, preexisting.Id);
+
+        var preview = await _sut.PreviewAsync(source.Id, WorldId, OwnerId, WorldRole.GM, CancellationToken.None);
+        Assert.That(preview.Value!.ArtifactNamesToDelete, Does.Not.Contain("Black Harbor"));
+
+        var result = await _sut.ReprocessAsync(Command(source.Id), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_artifactRepository.Artifacts.Select(a => a.Id), Contains.Item(preexisting.Id),
+            "a matched artifact predates the source and survives reprocess");
+    }
+
+    [Test]
+    public async Task Reprocess_CreateThatReallyInserted_StillDeletesTheOrphan()
+    {
+        // Control for the test above: the same shape with the flag false must still cascade.
+        var source = SeedSource();
+        var batch = SeedBatch(source.Id);
+        var created = SeedArtifact("Captain Voss");
+
+        SeedAcceptedProposal(batch.Id, ReviewChangeType.CreateArtifact, created.Id, appliedToExisting: false);
+        SeedReference(source.Id, SourceReferenceTargetType.Artifact, created.Id);
+
+        var result = await _sut.ReprocessAsync(Command(source.Id), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_artifactRepository.Artifacts.Select(a => a.Id), Does.Not.Contain(created.Id));
     }
 
     // ------------------------------------------------------------ authorization --

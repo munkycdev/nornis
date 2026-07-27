@@ -45,7 +45,8 @@ public class RevealServiceTests
 
         _applicator = new ProposalApplicator(
             _artifactRepo, _factRepo, _relationshipRepo, _referenceRepo,
-            _sourceRepo, new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository());
+            _sourceRepo, new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
+            new InMemoryWorldMemberRepository());
 
         _sut = BuildService(_applicator);
     }

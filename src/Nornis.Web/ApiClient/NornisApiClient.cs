@@ -309,6 +309,54 @@ public class NornisApiClient
     public Task<ApiResult<bool>> CancelExtractionReplayAsync(Guid worldId, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}/replay", ct);
 
+    // Campaign backlog import — GM-only; one non-terminal session per world.
+
+    /// <summary>GM-only: opens a new backlog import. 409 when one is already running.</summary>
+    public Task<ApiResult<ImportSessionDto>> CreateImportSessionAsync(Guid worldId, CancellationToken ct = default) =>
+        PostAsync<object?, ImportSessionDto>($"/api/worlds/{worldId}/import-sessions", null, ct);
+
+    /// <summary>GM-only: the world's import in progress. 404 when there is none.</summary>
+    public Task<ApiResult<ImportSessionDto>> GetCurrentImportSessionAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<ImportSessionDto>($"/api/worlds/{worldId}/import-sessions/current", ct);
+
+    /// <summary>GM-only: adds a note to the backlog, held as a draft source until its turn.</summary>
+    public Task<ApiResult<ImportSessionDto>> AddImportNoteAsync(
+        Guid worldId, Guid sessionId, AddImportNoteRequest request, CancellationToken ct = default) =>
+        PostAsync<AddImportNoteRequest, ImportSessionDto>(
+            $"/api/worlds/{worldId}/import-sessions/{sessionId}/items", request, ct);
+
+    /// <summary>GM-only: reorders the not-yet-started notes; pass every one of their ids.</summary>
+    public Task<ApiResult<ImportSessionDto>> ReorderImportItemsAsync(
+        Guid worldId, Guid sessionId, IReadOnlyList<Guid> itemIds, CancellationToken ct = default) =>
+        PutAsync<ReorderImportItemsRequest, ImportSessionDto>(
+            $"/api/worlds/{worldId}/import-sessions/{sessionId}/items/order",
+            new ReorderImportItemsRequest(itemIds), ct);
+
+    /// <summary>GM-only: removes a not-yet-started note from the backlog, and the source with it.</summary>
+    public Task<ApiResult<ImportSessionDto>> DeleteImportItemAsync(
+        Guid worldId, Guid sessionId, Guid itemId, CancellationToken ct = default) =>
+        DeleteAsync<ImportSessionDto>($"/api/worlds/{worldId}/import-sessions/{sessionId}/items/{itemId}", ct);
+
+    /// <summary>GM-only: begins the walk — the first note is sent for extraction.</summary>
+    public Task<ApiResult<ImportSessionDto>> StartImportSessionAsync(
+        Guid worldId, Guid sessionId, CancellationToken ct = default) =>
+        PostAsync<object?, ImportSessionDto>($"/api/worlds/{worldId}/import-sessions/{sessionId}/start", null, ct);
+
+    /// <summary>GM-only: moves to the next note, optionally skipping the current one.
+    /// <paramref name="expectedItemId"/> is the note the screen was showing — the API refuses
+    /// rather than acting on a note the user never saw.</summary>
+    public Task<ApiResult<ImportSessionDto>> AdvanceImportSessionAsync(
+        Guid worldId, Guid sessionId, bool skipCurrent = false, Guid? expectedItemId = null,
+        CancellationToken ct = default) =>
+        PostAsync<AdvanceImportSessionRequest, ImportSessionDto>(
+            $"/api/worlds/{worldId}/import-sessions/{sessionId}/advance",
+            new AdvanceImportSessionRequest(skipCurrent, expectedItemId), ct);
+
+    /// <summary>GM-only: stops the import. Nothing is deleted.</summary>
+    public Task<ApiResult<ImportSessionDto>> AbandonImportSessionAsync(
+        Guid worldId, Guid sessionId, CancellationToken ct = default) =>
+        PostAsync<object?, ImportSessionDto>($"/api/worlds/{worldId}/import-sessions/{sessionId}/abandon", null, ct);
+
     // ------------------------------------------------------------------ Public --
     // Anonymous read-only endpoints (/w/{slug} pages). Requests go out tokenless on
     // anonymous circuits — BearerTokenHandler no-ops without a token.
@@ -707,6 +755,20 @@ public class NornisApiClient
         catch (Exception ex)
         {
             return ApiResult<bool>.Fail(Unreachable(ex));
+        }
+    }
+
+    /// <summary>DELETE whose response body matters — the caller wants the updated resource back.</summary>
+    private async Task<ApiResult<T>> DeleteAsync<T>(string uri, CancellationToken ct)
+    {
+        try
+        {
+            var response = await SendCoreAsync(HttpMethod.Delete, uri, null, ct);
+            return await ReadResultAsync<T>(response, ct);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<T>.Fail(Unreachable(ex));
         }
     }
 
