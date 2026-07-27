@@ -83,12 +83,9 @@
                             <MudMenuItem Icon="@Icons.Material.Outlined.Description" OnClick="ReRunExtractionAsync">
                                 Re-run extraction on this note
                             </MudMenuItem>
-                            @if (IsTimelineType)
-                            {
-                                <MudMenuItem Icon="@Icons.Material.Outlined.Timeline" OnClick="ReplayFromHereAsync">
-                                    Re-run from here, in timeline order…
-                                </MudMenuItem>
-                            }
+                            <MudMenuItem Icon="@Icons.Material.Outlined.Timeline" OnClick="ReplayFromHereAsync">
+                                Re-run from here, in story order…
+                            </MudMenuItem>
                         </MudMenu>
                     }
                     @if (CanEdit)
@@ -503,8 +500,6 @@
         && _source is not null
         && _source.ExtractionEnabled
         && _source.ProcessingStatus is "Processed" or "Failed";
-
-    private bool IsTimelineType => _source?.Type is "SessionNote" or "Transcript" or "SessionAudio" or "ImportedNote";
 
     private ExtractionReplayDto? _replay;
     private bool _rerunning;

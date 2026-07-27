@@ -8,13 +8,19 @@ using Nornis.Domain.Repositories;
 namespace Nornis.Application.Services;
 
 /// <summary>
-/// Re-extracts the world's timeline one source at a time, in story order, pausing for
-/// human review between sources. Only the cursor source is ever in flight, so each note
-/// is extracted against the knowledge its predecessors' ACCEPTED proposals established —
+/// Re-extracts the world's sources one at a time, in story order, pausing for human
+/// review between them. Only the cursor source is ever in flight, so each note is
+/// extracted against the knowledge its predecessors' ACCEPTED proposals established —
 /// this is what makes carried-forward location and storyline context meaningful. The walk
 /// advances from <see cref="TryAdvanceAsync"/>, called by the review pipeline when a
 /// batch's last proposal resolves and by the extraction pipeline when a source yields
 /// nothing to review.
+///
+/// Every extractable source type is walked, not only the timeline ones: a world's canon
+/// lives in its GM notes, lore documents, uploads and maps too, and skipping them left
+/// those sources silently empty after a re-extraction that claimed to cover the world.
+/// ExtractionEnabled is what holds a source back; its type is not. Undated sources take
+/// their position from CreatedAt, which for a bulk import is upload order.
 /// </summary>
 public class ExtractionReplayService : IExtractionReplayService
 {
@@ -22,10 +28,6 @@ public class ExtractionReplayService : IExtractionReplayService
     private readonly ISourceRepository _sourceRepository;
     private readonly ISourceReprocessService _reprocessService;
     private readonly ILogger<ExtractionReplayService> _logger;
-
-    /// <summary>Timeline source types a replay walks — the same set the Journey reads.</summary>
-    private static readonly SourceType[] TimelineTypes =
-        [SourceType.SessionNote, SourceType.Transcript, SourceType.SessionAudio, SourceType.ImportedNote];
 
     public ExtractionReplayService(
         IExtractionReplayRepository replayRepository,
@@ -47,7 +49,7 @@ public class ExtractionReplayService : IExtractionReplayService
             return AppResult<int>.Fail(gate.Error!);
 
         var start = gate.Value!;
-        var after = await _sourceRepository.CountExtractableTimelineAfterAsync(
+        var after = await _sourceRepository.CountExtractableAfterAsync(
             worldId, start.OccurredAt ?? start.CreatedAt, start.CreatedAt, ct);
 
         return AppResult<int>.Success(1 + after);
@@ -169,7 +171,7 @@ public class ExtractionReplayService : IExtractionReplayService
         // the bound is a backstop against pathological churn, not an expected exit.
         for (var hops = 0; hops < 100; hops++)
         {
-            var next = (await _sourceRepository.ListExtractableTimelineAfterAsync(
+            var next = (await _sourceRepository.ListExtractableAfterAsync(
                 worldId, pivotOccurred, pivotCreated, maxCount: 1, ct)).FirstOrDefault();
 
             if (next is null)
@@ -213,8 +215,9 @@ public class ExtractionReplayService : IExtractionReplayService
             replay.Id);
     }
 
-    /// <summary>Shared start gate: GM only, source exists in this world, is a timeline
-    /// type with extraction enabled, and is in a reprocessable state.</summary>
+    /// <summary>Shared start gate: GM only, source exists in this world, has extraction
+    /// enabled, and is in a reprocessable state. Any source type may anchor a replay —
+    /// the walk re-extracts the whole world, not just its session notes.</summary>
     private async Task<AppResult<Source>> AuthorizeStartAsync(
         Guid worldId, Guid startSourceId, WorldRole actingUserRole, bool requireNoActiveReplay, CancellationToken ct)
     {
@@ -228,10 +231,6 @@ public class ExtractionReplayService : IExtractionReplayService
         var source = await _sourceRepository.GetByIdAsync(startSourceId, ct);
         if (source is null || source.WorldId != worldId)
             return AppResult<Source>.Fail(new AppError(404, "not_found", "Source not found."));
-
-        if (!TimelineTypes.Contains(source.Type))
-            return AppResult<Source>.Fail(new AppError(400, "not_replayable",
-                "A replay starts from a session or imported note on the timeline."));
 
         if (!source.ExtractionEnabled)
             return AppResult<Source>.Fail(new AppError(400, "not_replayable",
@@ -249,7 +248,7 @@ public class ExtractionReplayService : IExtractionReplayService
         var cursor = await _sourceRepository.GetByIdAsync(replay.CurrentSourceId, ct);
         var remaining = cursor is null
             ? 0
-            : await _sourceRepository.CountExtractableTimelineAfterAsync(
+            : await _sourceRepository.CountExtractableAfterAsync(
                 replay.WorldId, cursor.OccurredAt ?? cursor.CreatedAt, cursor.CreatedAt, ct);
 
         return new ExtractionReplayInfo(

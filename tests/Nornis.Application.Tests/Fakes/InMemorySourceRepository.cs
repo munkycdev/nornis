@@ -94,39 +94,35 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.FromResult<IReadOnlyList<Source>>(result.AsReadOnly());
     }
 
-    public Task<IReadOnlyList<Source>> ListExtractableTimelineAfterAsync(
+    public Task<IReadOnlyList<Source>> ListExtractableAfterAsync(
         Guid worldId,
         DateTimeOffset pivotOccurred,
         DateTimeOffset pivotCreated,
         int maxCount,
         CancellationToken cancellationToken = default)
     {
-        var result = ExtractableTimelineAfter(worldId, pivotOccurred, pivotCreated)
+        var result = ExtractableAfter(worldId, pivotOccurred, pivotCreated)
             .Take(maxCount)
             .ToList();
         return Task.FromResult<IReadOnlyList<Source>>(result.AsReadOnly());
     }
 
-    public Task<int> CountExtractableTimelineAfterAsync(
+    public Task<int> CountExtractableAfterAsync(
         Guid worldId,
         DateTimeOffset pivotOccurred,
         DateTimeOffset pivotCreated,
         CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(ExtractableTimelineAfter(worldId, pivotOccurred, pivotCreated).Count());
+        return Task.FromResult(ExtractableAfter(worldId, pivotOccurred, pivotCreated).Count());
     }
 
-    // Mirrors SourceRepository: timeline types in a reprocessable state, strictly after
-    // the pivot tuple, earliest first.
-    private IEnumerable<Source> ExtractableTimelineAfter(
+    // Mirrors SourceRepository: every extractable source in a reprocessable state, strictly
+    // after the pivot tuple, earliest first. No type filter — a replay walks the whole world.
+    private IEnumerable<Source> ExtractableAfter(
         Guid worldId, DateTimeOffset pivotOccurred, DateTimeOffset pivotCreated)
     {
-        SourceType[] timelineTypes =
-            [SourceType.SessionNote, SourceType.Transcript, SourceType.SessionAudio, SourceType.ImportedNote];
-
         return _sources
             .Where(s => s.WorldId == worldId
-                && timelineTypes.Contains(s.Type)
                 && s.ExtractionEnabled
                 && s.ProcessingStatus is SourceProcessingStatus.Processed or SourceProcessingStatus.Failed
                 && ((s.OccurredAt ?? s.CreatedAt) > pivotOccurred

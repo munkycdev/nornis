@@ -106,14 +106,55 @@ public class ExtractionReplayServiceTests
     }
 
     [Test]
-    public async Task Start_NonTimelineSource_Rejected()
+    public async Task Start_NonTimelineSource_IsAccepted()
     {
+        // A replay re-extracts the whole world. Restricting it to timeline types left GM
+        // notes, lore documents, uploads and maps silently empty after a re-extraction that
+        // looked like it had covered everything.
         var start = SeedSource("A GM note", Day5, type: SourceType.GMNote);
 
         var result = await _sut.StartAsync(WorldId, start.Id, GmId, WorldRole.GM, CancellationToken.None);
 
-        Assert.That(result.IsSuccess, Is.False);
-        Assert.That(result.Error!.Code, Is.EqualTo("not_replayable"));
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.That(_reprocess.Commands.Select(c => c.SourceId), Does.Contain(start.Id));
+    }
+
+    [Test]
+    public async Task Walk_CoversEveryExtractableType_InStoryOrder()
+    {
+        var start = SeedSource("Session 1", Day5);
+        var gmNote = SeedSource("GM prep", Day10, type: SourceType.GMNote);
+        var upload = SeedSource("Lore PDF", Day15, type: SourceType.Upload);
+        var map = SeedSource("Region map", Day20, type: SourceType.Map);
+
+        var count = await _sut.CountFromAsync(WorldId, start.Id, GmId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(count.IsSuccess, Is.True, count.Error?.Message);
+        Assert.That(count.Value, Is.EqualTo(4),
+            "the start source plus every extractable type after it");
+
+        await _sut.StartAsync(WorldId, start.Id, GmId, WorldRole.GM, CancellationToken.None);
+        await _sut.TryAdvanceAsync(WorldId, start.Id, CancellationToken.None);
+        await _sut.TryAdvanceAsync(WorldId, gmNote.Id, CancellationToken.None);
+        await _sut.TryAdvanceAsync(WorldId, upload.Id, CancellationToken.None);
+
+        Assert.That(_reprocess.Commands.Select(c => c.SourceId),
+            Is.EqualTo(new[] { start.Id, gmNote.Id, upload.Id, map.Id }),
+            "the walk visits every type in story order, not just the timeline ones");
+    }
+
+    [Test]
+    public async Task Walk_StillSkipsSourcesStoredWithoutExtraction()
+    {
+        var start = SeedSource("Session 1", Day5);
+        SeedSource("Reference sheet", Day10, type: SourceType.Upload, extractionEnabled: false);
+        var next = SeedSource("GM prep", Day15, type: SourceType.GMNote);
+
+        await _sut.StartAsync(WorldId, start.Id, GmId, WorldRole.GM, CancellationToken.None);
+        await _sut.TryAdvanceAsync(WorldId, start.Id, CancellationToken.None);
+
+        Assert.That(_reprocess.Commands.Select(c => c.SourceId), Is.EqualTo(new[] { start.Id, next.Id }),
+            "ExtractionEnabled is what holds a source back from a replay, not its type");
     }
 
     [Test]
@@ -247,7 +288,8 @@ public class ExtractionReplayServiceTests
     {
         var cursor = SeedSource("Session 1", Day5);
         SeedSource("Stored without extraction", Day10, extractionEnabled: false);
-        SeedSource("A map", Day10, type: SourceType.Map);
+        // Type is no longer an eligibility criterion, but an in-flight status still is.
+        SeedSource("Already queued", Day10, status: SourceProcessingStatus.Queued);
         var eligible = SeedSource("Session 2", Day15);
         ActiveReplay(cursor.Id);
 

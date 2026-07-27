@@ -100,38 +100,40 @@ public class SourceRepository : ISourceRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Source>> ListExtractableTimelineAfterAsync(
+    public async Task<IReadOnlyList<Source>> ListExtractableAfterAsync(
         Guid worldId,
         DateTimeOffset pivotOccurred,
         DateTimeOffset pivotCreated,
         int maxCount,
         CancellationToken cancellationToken = default)
     {
-        return await ExtractableTimelineAfter(worldId, pivotOccurred, pivotCreated)
+        return await ExtractableAfter(worldId, pivotOccurred, pivotCreated)
             .Take(maxCount)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<int> CountExtractableTimelineAfterAsync(
+    public async Task<int> CountExtractableAfterAsync(
         Guid worldId,
         DateTimeOffset pivotOccurred,
         DateTimeOffset pivotCreated,
         CancellationToken cancellationToken = default)
     {
-        return await ExtractableTimelineAfter(worldId, pivotOccurred, pivotCreated)
+        return await ExtractableAfter(worldId, pivotOccurred, pivotCreated)
             .CountAsync(cancellationToken);
     }
 
-    /// <summary>The replay queue predicate: timeline sources in a reprocessable state,
-    /// strictly after the pivot tuple, earliest first. Mirror of the lookback in
-    /// <see cref="ListTimelineBeforeAsync"/> with the direction flipped.</summary>
-    private IQueryable<Source> ExtractableTimelineAfter(
+    /// <summary>The replay queue predicate: every extractable source in a reprocessable
+    /// state, strictly after the pivot tuple, earliest first. Ordering mirrors the lookback
+    /// in <see cref="ListTimelineBeforeAsync"/> with the direction flipped, but the type
+    /// filter is deliberately absent — a replay re-extracts the whole world, and GM notes,
+    /// lore documents, uploads and maps carry knowledge too. ExtractionEnabled is the
+    /// switch for opting a source out; its type is not.</summary>
+    private IQueryable<Source> ExtractableAfter(
         Guid worldId, DateTimeOffset pivotOccurred, DateTimeOffset pivotCreated)
     {
         return _context.Sources
             .AsNoTracking()
             .Where(s => s.WorldId == worldId
-                && (SessionTypes.Contains(s.Type) || s.Type == SourceType.ImportedNote)
                 && s.ExtractionEnabled
                 && (s.ProcessingStatus == SourceProcessingStatus.Processed
                     || s.ProcessingStatus == SourceProcessingStatus.Failed)

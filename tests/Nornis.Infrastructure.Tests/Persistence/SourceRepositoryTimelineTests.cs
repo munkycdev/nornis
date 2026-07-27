@@ -220,7 +220,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
         SeedSource(world.Id, user.Id, "Later B", Day20, Day20);
         var repo = new SourceRepository(Context);
 
-        var result = await repo.ListExtractableTimelineAfterAsync(world.Id, Day10, Day10, 10);
+        var result = await repo.ListExtractableAfterAsync(world.Id, Day10, Day10, 10);
 
         Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Later A", "Later B" }));
     }
@@ -233,7 +233,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
         SeedSource(world.Id, user.Id, "Uploaded after pivot", Day10, Day10.AddMinutes(30));
         var repo = new SourceRepository(Context);
 
-        var result = await repo.ListExtractableTimelineAfterAsync(
+        var result = await repo.ListExtractableAfterAsync(
             world.Id, Day10, Day10.AddMinutes(10), 10);
 
         Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Uploaded after pivot" }));
@@ -246,7 +246,6 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
         var noExtraction = SeedSource(world.Id, user.Id, "No extraction", Day15, Day15);
         noExtraction.ExtractionEnabled = false;
         Context.SaveChanges();
-        SeedSource(world.Id, user.Id, "A map", Day15, Day15, SourceType.Map);
         var draft = SeedSource(world.Id, user.Id, "Still a draft", Day15, Day15);
         draft.ProcessingStatus = SourceProcessingStatus.Draft;
         Context.SaveChanges();
@@ -255,9 +254,45 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
         Context.SaveChanges();
         var repo = new SourceRepository(Context);
 
-        var result = await repo.ListExtractableTimelineAfterAsync(world.Id, Day10, Day10, 10);
+        var result = await repo.ListExtractableAfterAsync(world.Id, Day10, Day10, 10);
 
         Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Failed but retryable" }));
+    }
+
+    [Test]
+    public async Task After_IncludesEveryExtractableType_NotJustTimelineOnes()
+    {
+        // The replay re-extracts the whole world. While this predicate was timeline-only,
+        // GM notes, uploads and maps came back empty from a re-extraction that reported
+        // itself complete. Guards the SQL predicate against the in-memory fake drifting.
+        var (world, user) = SeedWorldAndUser();
+        SeedSource(world.Id, user.Id, "Session", Day15, Day15);
+        SeedSource(world.Id, user.Id, "GM prep", Day15, Day15.AddMinutes(1), SourceType.GMNote);
+        SeedSource(world.Id, user.Id, "Lore PDF", Day15, Day15.AddMinutes(2), SourceType.Upload);
+        SeedSource(world.Id, user.Id, "Region map", Day15, Day15.AddMinutes(3), SourceType.Map);
+        SeedSource(world.Id, user.Id, "Scanned page", Day15, Day15.AddMinutes(4), SourceType.HandwrittenNotes);
+        var repo = new SourceRepository(Context);
+
+        var result = await repo.ListExtractableAfterAsync(world.Id, Day10, Day10, 10);
+
+        Assert.That(result.Select(s => s.Title),
+            Is.EqualTo(new[] { "Session", "GM prep", "Lore PDF", "Region map", "Scanned page" }));
+    }
+
+    [Test]
+    public async Task After_UndatedSourcesTakeTheirPositionFromCreatedAt()
+    {
+        // 30 of the 34 GM notes in a real imported world carry no session date; without a
+        // CreatedAt fallback they would never enter the walk at all.
+        var (world, user) = SeedWorldAndUser();
+        var undated = SeedSource(world.Id, user.Id, "Undated GM note", Day15, Day15, SourceType.GMNote);
+        undated.OccurredAt = null;
+        Context.SaveChanges();
+        var repo = new SourceRepository(Context);
+
+        var result = await repo.ListExtractableAfterAsync(world.Id, Day10, Day10, 10);
+
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Undated GM note" }));
     }
 
     [Test]
@@ -269,7 +304,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
         SeedSource(world.Id, user.Id, "S3", Day20, Day20);
         var repo = new SourceRepository(Context);
 
-        var count = await repo.CountExtractableTimelineAfterAsync(world.Id, Day5, Day5);
+        var count = await repo.CountExtractableAfterAsync(world.Id, Day5, Day5);
 
         Assert.That(count, Is.EqualTo(3));
     }

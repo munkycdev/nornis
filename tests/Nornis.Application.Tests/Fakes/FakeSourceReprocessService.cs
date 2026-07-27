@@ -9,7 +9,7 @@ namespace Nornis.Application.Tests.Fakes;
 /// <summary>
 /// Records reprocess commands. On success it mimics the real cascade's observable
 /// contract for the replay: the source's status flips to Queued in the shared source
-/// repository (so it drops out of the extractable-timeline query), and the source is
+/// repository (so it drops out of the extractable-sources query), and the source is
 /// returned. Ids in <see cref="FailingSourceIds"/> fail with invalid_status instead.
 /// </summary>
 public class FakeSourceReprocessService : ISourceReprocessService
