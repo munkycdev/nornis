@@ -208,13 +208,15 @@ else
                     var position = index;
                     var itemId = item.Id;
                     var draggable = item.State == "Waiting" && !_busy;
+                    @* dragover carries preventDefault with no handler: it fires continuously as
+                       the cursor moves, and a .NET callback per event would re-render the whole
+                       backlog dozens of times a second. A Razor comment must stay OUT of the
+                       attribute list — inside a tag it is emitted as an attribute name and the
+                       browser kills the render batch with InvalidCharacterError. *@
                     <div class="nornis-list-row @DragClass(itemId)"
                          draggable="@(draggable ? "true" : "false")"
                          @ondragstart="() => OnDragStart(itemId)"
                          @ondragenter="() => OnDragEnter(itemId)"
-                         @* preventDefault alone, with no handler: dragover fires continuously
-                            while the cursor moves, and a .NET callback per event would re-render
-                            the whole backlog dozens of times a second. *@
                          @ondragover:preventDefault="true"
                          @ondrop="() => OnDropAsync(itemId)"
                          @ondragend="OnDragEnd">
