@@ -32,10 +32,33 @@ public class ContinuityAuditBackgroundService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var interval = TimeSpan.FromHours(Math.Max(0.0, _options.TickIntervalHours));
+        // Non-positive means disabled, not "as fast as possible". The previous
+        // Math.Max(0.0, ...) floor turned a configured 0 — which reads naturally as "off" —
+        // into a delay-free loop over every world in the database.
+        if (_options.TickIntervalHours <= 0)
+        {
+            _logger.LogInformation(
+                "Continuity audit auto-trigger disabled (ContinuityAudit:TickIntervalHours={Interval})",
+                _options.TickIntervalHours);
+            return;
+        }
+
+        var interval = TimeSpan.FromHours(_options.TickIntervalHours);
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            // Delay first. Ticking on startup means every deploy, restart and scale-out event
+            // fires a sweep, and during a rolling deploy the incoming revision would sweep while
+            // the outgoing one is still draining.
+            try
+            {
+                await Task.Delay(interval, stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+
             try
             {
                 await RunTickAsync(stoppingToken);
@@ -49,15 +72,6 @@ public class ContinuityAuditBackgroundService : BackgroundService
                 // A whole-tick failure (e.g. the candidate query) must not kill the loop.
                 _logger.LogError(ex, "Continuity audit tick failed");
             }
-
-            try
-            {
-                await Task.Delay(interval, stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
         }
     }
 
@@ -68,10 +82,12 @@ public class ContinuityAuditBackgroundService : BackgroundService
 
         var proposalRepo = sp.GetRequiredService<IReviewProposalRepository>();
         var assessmentRepo = sp.GetRequiredService<IHealthAssessmentRepository>();
+        var worldRepo = sp.GetRequiredService<IWorldRepository>();
         var auditService = sp.GetRequiredService<IContinuityAuditService>();
 
         var quietPeriod = TimeSpan.FromHours(_options.QuietPeriodHours);
         var minInterval = TimeSpan.FromHours(_options.MinIntervalHours);
+        var claimTimeout = TimeSpan.FromHours(_options.ClaimTimeoutHours);
 
         var worldIds = await proposalRepo.ListWorldIdsWithAcceptancesAsync(ct);
 
@@ -84,9 +100,22 @@ public class ContinuityAuditBackgroundService : BackgroundService
                 var latestAcceptance = await proposalRepo.GetLatestAcceptanceTimeAsync(worldId, ct);
                 var latestAssessment = await assessmentRepo.GetLatestCreatedAtAsync(worldId, ct);
 
+                var now = DateTimeOffset.UtcNow;
+
                 if (!ContinuityAuditEligibility.IsEligible(
-                        latestAcceptance, latestAssessment, DateTimeOffset.UtcNow, quietPeriod, minInterval))
+                        latestAcceptance, latestAssessment, now, quietPeriod, minInterval))
                 {
+                    continue;
+                }
+
+                // Eligibility is a read, so two hosts can reach this point for the same world.
+                // The claim is the arbiter: a conditional UPDATE that exactly one caller wins.
+                // Without it a rolling deploy — or any future increase to the API's max replica
+                // count — pays twice for the same assessment.
+                if (!await worldRepo.TryClaimContinuityAuditAsync(worldId, now, now - claimTimeout, ct))
+                {
+                    _logger.LogDebug(
+                        "Skipping continuity assessment for world {WorldId}; another host holds the claim", worldId);
                     continue;
                 }
 

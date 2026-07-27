@@ -21,6 +21,22 @@ public interface IWorldRepository
     Task<int> CountDemoWorldsCreatedSinceAsync(Guid userId, DateTimeOffset since, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Atomically claims the right to run this world's automatic continuity assessment, so that
+    /// concurrent API hosts cannot both spend a paid AI call on the same world. Returns true only
+    /// for the caller that won; every other caller gets false and must skip.
+    /// </summary>
+    /// <param name="claimedAt">Timestamp to stamp on a successful claim.</param>
+    /// <param name="staleBefore">
+    /// A claim at or before this instant counts as abandoned and may be taken over — this is what
+    /// stops a host that crashed mid-assessment from parking the world indefinitely.
+    /// </param>
+    Task<bool> TryClaimContinuityAuditAsync(
+        Guid worldId,
+        DateTimeOffset claimedAt,
+        DateTimeOffset staleBefore,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Permanently deletes a world and every row that belongs to it — members, invites,
     /// campaigns, characters, sources, knowledge, reviews, library, health, replays, and
     /// the world's AI usage ledger. Irreversible; blob cleanup is the caller's job.

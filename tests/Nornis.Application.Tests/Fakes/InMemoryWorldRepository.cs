@@ -85,6 +85,22 @@ public class InMemoryWorldRepository : IWorldRepository
         return Task.FromResult(count);
     }
 
+    public Task<bool> TryClaimContinuityAuditAsync(
+        Guid worldId,
+        DateTimeOffset claimedAt,
+        DateTimeOffset staleBefore,
+        CancellationToken cancellationToken = default)
+    {
+        var world = _worlds.FirstOrDefault(c => c.Id == worldId);
+        if (world is null || (world.ContinuityAuditClaimedAt is { } existing && existing > staleBefore))
+        {
+            return Task.FromResult(false);
+        }
+
+        world.ContinuityAuditClaimedAt = claimedAt;
+        return Task.FromResult(true);
+    }
+
     public Task DeleteAsync(Guid worldId, CancellationToken cancellationToken = default)
     {
         _worlds.RemoveAll(c => c.Id == worldId);

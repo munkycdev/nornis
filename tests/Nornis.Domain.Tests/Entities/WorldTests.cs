@@ -113,6 +113,9 @@ public class WorldTests
         var properties = _type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
         // 16th–17th properties: IsDemo and TutorialEnabled (feature 20 demo worlds).
         // 18th: IsTemplate — the template-master grouping flag, not to be confused with IsDemo.
-        Assert.That(properties, Has.Length.EqualTo(18));
+        // 19th: ContinuityAuditClaimedAt — infrastructure coordination, not world state. It
+        // exists so two API hosts cannot both pay for the same automatic assessment; nothing
+        // user-facing should read it.
+        Assert.That(properties, Has.Length.EqualTo(19));
     }
 }

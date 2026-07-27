@@ -7,8 +7,20 @@ namespace Nornis.Application.Configuration;
 /// </summary>
 public class ContinuityAuditOptions
 {
-    /// <summary>How often the background trigger evaluates worlds.</summary>
+    /// <summary>
+    /// How often the background trigger evaluates worlds. Zero or negative disables the trigger
+    /// entirely — the same convention <see cref="AiBudgetOptions"/> uses — so that the natural
+    /// reading of "0" is honoured instead of producing a delay-free loop.
+    /// </summary>
     public double TickIntervalHours { get; set; } = 1.0;
+
+    /// <summary>
+    /// How long a world's audit claim stays valid before another host may take it over. This
+    /// only matters when a host dies mid-assessment; on the happy path the claim is irrelevant
+    /// because <see cref="MinIntervalHours"/> already gates the next run. Keep it well below
+    /// <see cref="MinIntervalHours"/> so an interrupted run self-heals within the same day.
+    /// </summary>
+    public double ClaimTimeoutHours { get; set; } = 2.0;
 
     /// <summary>
     /// Minimum age of the latest accepted proposal before a run is warranted — a quiet period

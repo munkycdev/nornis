@@ -60,6 +60,18 @@ public class World
     /// </summary>
     public bool IsTemplate { get; set; }
 
+    /// <summary>
+    /// When a host last claimed the right to run this world's automatic continuity assessment.
+    /// The auto-trigger is a background loop in the API, so any moment two API replicas exist —
+    /// steadily, or briefly while a rolling deploy overlaps revisions — both can find the same
+    /// world eligible and both spend a paid AI call on it. Claiming is a conditional write:
+    /// exactly one host wins, and the loser skips.
+    ///
+    /// Null means never claimed. A claim older than the configured timeout is treated as
+    /// abandoned so a host that crashed mid-assessment does not park the world forever.
+    /// </summary>
+    public DateTimeOffset? ContinuityAuditClaimedAt { get; set; }
+
     public byte[] RowVersion { get; set; } = [];
 
     // Navigation properties

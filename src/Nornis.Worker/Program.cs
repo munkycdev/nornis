@@ -35,6 +35,15 @@ var builder = Host.CreateDefaultBuilder(args)
                 .WithMetrics(metrics => metrics.AddMeter(AiUsageMetrics.MeterName));
         }
 
+        // The worker hosts two independent queue processors. A fault in one — most plausibly a
+        // missing or renamed queue, which surfaces as MessagingEntityNotFound out of
+        // StartProcessingAsync — must not take the other down with it. The default
+        // BackgroundServiceExceptionBehavior.StopHost would stop the entire process, so a
+        // library-indexing misconfiguration would silently halt extraction too. Each worker
+        // already logs its own failures.
+        services.Configure<HostOptions>(options =>
+            options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
+
         // Bind and validate configuration sections
         services.Configure<ExtractionOptions>(configuration.GetSection("Extraction"));
         services.Configure<WorkerOptions>(configuration.GetSection("ServiceBus"));
@@ -153,15 +162,27 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddSingleton<IPdfTextExtractor, PdfPigTextExtractor>();
         services.AddScoped<ILibraryIndexingService, LibraryIndexingService>();
 
+        // Blob storage is required by library indexing but irrelevant to extraction, so a missing
+        // connection string must not be fatal at startup — that would let a library
+        // misconfiguration stop extraction, which is the worker's primary job. Register a
+        // factory that throws only if something actually resolves it, mirroring the API
+        // (src/Nornis.Api/Program.cs). Indexing then fails per-message with a clear error while
+        // extraction keeps running.
         var blobConnectionString = configuration["BlobStorage:ConnectionString"];
-        if (string.IsNullOrWhiteSpace(blobConnectionString))
-            throw new InvalidOperationException(
-                "Required configuration 'BlobStorage:ConnectionString' is missing. The worker cannot index library documents without blob storage.");
-        services.AddSingleton<IBlobStorageService>(sp =>
-            new AzureBlobStorageService(
-                blobConnectionString,
-                configuration["BlobStorage:ContainerName"] ?? AzureBlobStorageService.DefaultContainerName,
-                sp.GetRequiredService<ILogger<AzureBlobStorageService>>()));
+        if (!string.IsNullOrWhiteSpace(blobConnectionString))
+        {
+            services.AddSingleton<IBlobStorageService>(sp =>
+                new AzureBlobStorageService(
+                    blobConnectionString,
+                    configuration["BlobStorage:ContainerName"] ?? AzureBlobStorageService.DefaultContainerName,
+                    sp.GetRequiredService<ILogger<AzureBlobStorageService>>()));
+        }
+        else
+        {
+            services.AddSingleton<IBlobStorageService>(_ =>
+                throw new InvalidOperationException(
+                    "Blob storage is not configured. Set 'BlobStorage:ConnectionString' to enable library indexing."));
+        }
 
         // Embedding client shares the extraction endpoint/key with the nornis-embed deployment.
         services.AddSingleton<OpenAI.Embeddings.EmbeddingClient>(sp =>
@@ -188,7 +209,7 @@ var builder = Host.CreateDefaultBuilder(args)
                 ServiceBusLibraryIndexingQueueClient.QueueName,
                 options.MaxConcurrentCalls,
                 options.PrefetchCount,
-                options.MaxAutoLockRenewalDuration);
+                options.LibraryMaxAutoLockRenewalDuration);
         });
 
         // Hosted services

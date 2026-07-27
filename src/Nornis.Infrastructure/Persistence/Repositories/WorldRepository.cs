@@ -68,6 +68,40 @@ public class WorldRepository : IWorldRepository
             .CountAsync(c => c.IsDemo && c.CreatedByUserId == userId && c.CreatedAt >= since, cancellationToken);
     }
 
+    public async Task<bool> TryClaimContinuityAuditAsync(
+        Guid worldId,
+        DateTimeOffset claimedAt,
+        DateTimeOffset staleBefore,
+        CancellationToken cancellationToken = default)
+    {
+        // The predicate is the lock. A single UPDATE ... WHERE decides the winner inside the
+        // database, so two hosts racing on the same world produce one row affected and one zero
+        // — no read-then-write window for both to pass through.
+        if (_context.Database.IsRelational())
+        {
+            var affected = await _context.Worlds
+                .Where(w => w.Id == worldId
+                            && (w.ContinuityAuditClaimedAt == null || w.ContinuityAuditClaimedAt <= staleBefore))
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(w => w.ContinuityAuditClaimedAt, claimedAt),
+                    cancellationToken);
+
+            return affected == 1;
+        }
+
+        // InMemory (API integration tests) has no ExecuteUpdate. Single-threaded there, so a
+        // read-modify-write reproduces the observable contract without the atomicity.
+        var world = await _context.Worlds.FirstOrDefaultAsync(w => w.Id == worldId, cancellationToken);
+        if (world is null || (world.ContinuityAuditClaimedAt is { } existing && existing > staleBefore))
+        {
+            return false;
+        }
+
+        world.ContinuityAuditClaimedAt = claimedAt;
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task DeleteAsync(Guid worldId, CancellationToken cancellationToken = default)
     {
         // ExecuteDelete needs a relational provider; the API integration tests run on
