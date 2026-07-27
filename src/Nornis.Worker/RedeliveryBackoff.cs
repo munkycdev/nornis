@@ -67,6 +67,35 @@ public static class RedeliveryBackoff
     }
 
     /// <summary>
+    /// The wait itself, separated from Service Bus so it can be tested. This is the half with the
+    /// behaviour worth pinning: which delay is chosen, and that a cancelled token cuts the wait
+    /// short instead of holding a deploy open for it.
+    /// </summary>
+    public static async Task WaitAsync(
+        long deliveryCount,
+        CancellationToken cancellationToken,
+        Action<TimeSpan, long>? onDelaying = null)
+    {
+        var delay = DelayFor(deliveryCount);
+        onDelaying?.Invoke(delay, deliveryCount);
+
+        if (delay == TimeSpan.Zero)
+        {
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(delay, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down. Skip the remaining wait so the message is released promptly and the
+            // next replica can pick it up, rather than sitting locked until the lock expires.
+        }
+    }
+
+    /// <summary>
     /// Waits, then abandons — so the message becomes available again only after the backoff.
     ///
     /// The abandon deliberately uses <see cref="CancellationToken.None"/>. During a deploy the
@@ -77,18 +106,7 @@ public static class RedeliveryBackoff
         ProcessMessageEventArgs args,
         Action<TimeSpan, long>? onDelaying = null)
     {
-        var delay = DelayFor(args.Message.DeliveryCount);
-        onDelaying?.Invoke(delay, args.Message.DeliveryCount);
-
-        try
-        {
-            await Task.Delay(delay, args.CancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            // Shutting down. Skip the remaining wait and release the message immediately so the
-            // next replica can pick it up rather than waiting out the lock.
-        }
+        await WaitAsync(args.Message.DeliveryCount, args.CancellationToken, onDelaying);
 
         try
         {

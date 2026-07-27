@@ -536,10 +536,19 @@ the wait was pure idle worker time during an outage); a lost message lock on aba
 rather than escaping into the caller's catch, which would have triggered a second full backoff;
 and the doc comments that overstated what changed were corrected.
 
-- [ ] `DelayThenAbandonAsync` itself is still untested — the tests cover the delay arithmetic only,
-      and `TestableExtractionWorker` is a hand-copied duplicate of the handler that still calls
-      abandon directly, so the worker tests no longer exercise the production shape. Needs a seam
-      for injecting a zero delay.
+- [x] **The backoff is now tested, and the test double no longer lies.** The wait was split out as
+      `RedeliveryBackoff.WaitAsync` so it can be exercised without Service Bus: which delay is
+      chosen, that a cancelled token cuts the wait short rather than holding a deploy open, and
+      that cancellation interrupts a wait already in progress. `TestableExtractionWorker` — a
+      hand-copied mirror of the handler, because `ProcessMessageEventArgs` cannot be constructed
+      in a test — had fallen behind and was abandoning instantly while production backed off, so
+      two worker tests passed while asserting on a shape that no longer ran. It mirrors production
+      again, and carries a comment saying plainly that it drifts silently and the compiler will
+      not help.
+
+      Both new assertions were mutation-checked: removing the backoff from the double makes them
+      fail. Worth doing — the first mutation attempt did not actually match the code, reported
+      green, and would have left me believing a vacuous test was real.
 
 ## Phase 6 — remaining AI spend items
 

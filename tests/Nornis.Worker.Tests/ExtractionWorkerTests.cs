@@ -108,6 +108,34 @@ public class ExtractionWorkerTests
         // Assert
         Assert.That(context.WasAbandoned, Is.True);
         Assert.That(context.WasCompleted, Is.False);
+        Assert.That(context.BackoffApplied, Is.Not.Null,
+            "a transient failure must back off before releasing the message, not re-request instantly");
+    }
+
+    [Test]
+    public async Task ProcessMessage_TransientFailure_BacksOffBeforeReleasingTheMessage()
+    {
+        // The behaviour this asserts is the whole point of the backoff: answering a throttle with
+        // an immediate re-request is what extends the throttle window. An earlier version of this
+        // test double abandoned instantly while production backed off, and nothing caught it.
+        _extractionService
+            .ProcessExtractionAsync(SourceId, WorldId, Arg.Any<CancellationToken>())
+            .Returns(ExtractionOutcome.Transient("RateLimited", "429 from the deployment"));
+
+        // First delivery — the shortest real backoff.
+        var context = new FakeMessageContext(CreateValidMessageBody()) { DeliveryCount = 1 };
+
+        // Cancelled up front so the assertion is about which delay was chosen, not about
+        // spending five seconds proving the clock works.
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        await _worker.InvokeProcessMessageAsync(context, cts.Token);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(context.BackoffApplied, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(context.WasAbandoned, Is.True, "the message must still be released");
+        });
     }
 
     [Test]

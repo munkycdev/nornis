@@ -77,4 +77,67 @@ public class RedeliveryBackoffTests
         // sub-second delay that quietly defeats the whole mechanism.
         Assert.That(RedeliveryBackoff.DelayFor(deliveryCount), Is.EqualTo(TimeSpan.FromSeconds(5)));
     }
+
+    // ------------------------------------------------------------------ the wait itself
+
+    [Test]
+    public async Task Waiting_ReportsTheDelayItIsAboutToApply()
+    {
+        // The callback is what the workers log. A wrong value here means an operator reading the
+        // logs during an outage is told the wrong thing about how long the queue is paused.
+        TimeSpan? reported = null;
+        long? reportedAttempt = null;
+
+        await RedeliveryBackoff.WaitAsync(
+            RedeliveryBackoff.QueueMaxDeliveryCount, CancellationToken.None,
+            (delay, attempt) => { reported = delay; reportedAttempt = attempt; });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reported, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(reportedAttempt, Is.EqualTo(RedeliveryBackoff.QueueMaxDeliveryCount));
+        });
+    }
+
+    [Test]
+    public async Task FinalDelivery_ReturnsImmediately()
+    {
+        var started = DateTimeOffset.UtcNow;
+
+        await RedeliveryBackoff.WaitAsync(RedeliveryBackoff.QueueMaxDeliveryCount, CancellationToken.None);
+
+        Assert.That(DateTimeOffset.UtcNow - started, Is.LessThan(TimeSpan.FromSeconds(1)));
+    }
+
+    [Test]
+    public async Task CancellationCutsTheWaitShort_WithoutThrowing()
+    {
+        // A deploy drain must not be held open for the backoff, and the caller must still reach
+        // its abandon — so this swallows the cancellation rather than propagating it.
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        var started = DateTimeOffset.UtcNow;
+
+        Assert.DoesNotThrowAsync(async () =>
+            await RedeliveryBackoff.WaitAsync(deliveryCount: 1, cts.Token));
+
+        Assert.That(DateTimeOffset.UtcNow - started, Is.LessThan(TimeSpan.FromSeconds(1)),
+            "a cancelled token must not wait out the five-second first backoff");
+    }
+
+    [Test]
+    public async Task CancellationMidWait_StopsWaiting()
+    {
+        using var cts = new CancellationTokenSource();
+        var started = DateTimeOffset.UtcNow;
+
+        var waiting = RedeliveryBackoff.WaitAsync(deliveryCount: 1, cts.Token);
+        await Task.Delay(50);
+        await cts.CancelAsync();
+        await waiting;
+
+        Assert.That(DateTimeOffset.UtcNow - started, Is.LessThan(TimeSpan.FromSeconds(2)),
+            "cancellation must interrupt an in-progress wait, not merely prevent a new one");
+    }
 }

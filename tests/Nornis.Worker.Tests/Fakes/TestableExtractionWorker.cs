@@ -9,12 +9,17 @@ using Nornis.Worker.Tests.Fakes;
 namespace Nornis.Worker.Tests;
 
 /// <summary>
-/// A testable version of ExtractionWorker's message handling logic.
-/// Replicates the exact behavior of <see cref="ExtractionWorker.ProcessMessageAsync"/>
-/// but operates on <see cref="FakeMessageContext"/> instead of
-/// <see cref="Azure.Messaging.ServiceBus.ProcessMessageEventArgs"/>.
-/// This allows unit testing the message handling logic without
-/// requiring Azure Service Bus infrastructure.
+/// A testable version of ExtractionWorker's message handling logic, operating on
+/// <see cref="FakeMessageContext"/> instead of the sealed
+/// <see cref="Azure.Messaging.ServiceBus.ProcessMessageEventArgs"/>, which cannot be constructed
+/// in a test.
+///
+/// <para><b>This is a hand-maintained copy, and copies drift.</b> It had already fallen behind
+/// once: when the production handler gained a redelivery backoff, this kept abandoning
+/// immediately, so the tests below went on passing while asserting on a shape that no longer ran.
+/// Anything changed in <c>ExtractionWorker.ProcessMessageAsync</c> has to be mirrored here by
+/// hand, and the compiler will not tell you. Prefer testing extracted helpers — such as
+/// <see cref="RedeliveryBackoff"/> — over widening what this duplicates.</para>
 /// </summary>
 public sealed class TestableExtractionWorker
 {
@@ -33,11 +38,11 @@ public sealed class TestableExtractionWorker
     /// Invokes the same message handling logic as ExtractionWorker.ProcessMessageAsync
     /// but using a <see cref="FakeMessageContext"/> for testability.
     /// </summary>
-    public async Task InvokeProcessMessageAsync(FakeMessageContext context)
+    public async Task InvokeProcessMessageAsync(
+        FakeMessageContext context, CancellationToken cancellationToken = default)
     {
         var correlationId = Guid.NewGuid().ToString("N");
         var stopwatch = Stopwatch.StartNew();
-        var cancellationToken = CancellationToken.None;
 
         ExtractionMessage? message;
         try
@@ -129,6 +134,7 @@ public sealed class TestableExtractionWorker
                         stopwatch.ElapsedMilliseconds,
                         outcome.ErrorCategory,
                         outcome.ErrorMessage);
+                    await RedeliveryBackoff.WaitAsync(context.DeliveryCount, cancellationToken, (delay, _) => context.RecordBackoff(delay));
                     await context.AbandonMessageAsync(cancellationToken);
                     break;
             }
@@ -145,6 +151,7 @@ public sealed class TestableExtractionWorker
                 message.WorldId,
                 stopwatch.ElapsedMilliseconds);
 
+            await RedeliveryBackoff.WaitAsync(context.DeliveryCount, cancellationToken, (delay, _) => context.RecordBackoff(delay));
             await context.AbandonMessageAsync(cancellationToken);
         }
     }
