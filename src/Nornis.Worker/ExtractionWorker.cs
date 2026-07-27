@@ -172,7 +172,10 @@ public sealed class ExtractionWorker : BackgroundService
                         stopwatch.ElapsedMilliseconds,
                         outcome.ErrorCategory,
                         outcome.ErrorMessage);
-                    await args.AbandonMessageAsync(args.Message, cancellationToken: args.CancellationToken);
+                    await RedeliveryBackoff.DelayThenAbandonAsync(args, (delay, attempt) =>
+                        _logger.LogInformation(
+                            "Backing off {DelaySeconds}s before redelivery (attempt {Attempt}). CorrelationId={CorrelationId}, SourceId={SourceId}",
+                            delay.TotalSeconds, attempt, correlationId, message.SourceId));
                     break;
             }
         }
@@ -188,10 +191,14 @@ public sealed class ExtractionWorker : BackgroundService
                 message.WorldId,
                 stopwatch.ElapsedMilliseconds);
 
-            // Unexpected exceptions are treated as transient — abandon for redelivery.
-            // If the issue persists, Service Bus will move it to the dead-letter queue
-            // after max delivery count is exceeded.
-            await args.AbandonMessageAsync(args.Message, cancellationToken: args.CancellationToken);
+            // Unexpected exceptions are treated as transient — abandon for redelivery, after the
+            // same backoff. If the issue persists, Service Bus dead-letters the message once max
+            // delivery count is exceeded; the backoff makes that take minutes rather than
+            // milliseconds, which is the difference between riding out an outage and amplifying it.
+            await RedeliveryBackoff.DelayThenAbandonAsync(args, (delay, attempt) =>
+                _logger.LogInformation(
+                    "Backing off {DelaySeconds}s before redelivery (attempt {Attempt}). CorrelationId={CorrelationId}, SourceId={SourceId}",
+                    delay.TotalSeconds, attempt, correlationId, message.SourceId));
         }
     }
 

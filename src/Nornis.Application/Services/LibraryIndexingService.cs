@@ -132,7 +132,7 @@ public class LibraryIndexingService : ILibraryIndexingService
 
             return ExtractionOutcome.Succeeded(Guid.Empty, writes.Count);
         }
-        catch (Exception ex) when (IsTransient(ex))
+        catch (Exception ex) when (TransientFailureClassifier.IsTransient(ex))
         {
             _logger.LogWarning(ex, "Transient failure indexing {DocumentId}; message will be redelivered", document.Id);
             return ExtractionOutcome.Transient("transient", ex.Message);
@@ -204,12 +204,8 @@ public class LibraryIndexingService : ILibraryIndexingService
         }
     }
 
-    private static bool IsTransient(Exception ex) =>
-        ex.Message.Contains("429", StringComparison.Ordinal) ||
-        ex.Message.Contains("503", StringComparison.Ordinal) ||
-        ex.Message.Contains("service unavailable", StringComparison.OrdinalIgnoreCase) ||
-        ex.Message.Contains("rate limit", StringComparison.OrdinalIgnoreCase) ||
-        ex is TimeoutException;
+    // Retry classification lives in TransientFailureClassifier — shared with extraction, which
+    // previously disagreed with this method about whether a timeout was worth retrying.
 
     private static string Truncate(string value, int max) =>
         value.Length <= max ? value : value[..max];

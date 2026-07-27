@@ -1,3 +1,4 @@
+using System.Net;
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -100,6 +101,18 @@ public sealed class AzureBlobStorageService : IBlobStorageService
         catch (RequestFailedException ex) when (ex.Status == 404)
         {
             throw new FileNotFoundException($"Blob not found: {blobPath}");
+        }
+        catch (RequestFailedException ex)
+        {
+            // Everything else is translated so the application layer can tell a retryable storage
+            // failure from a permanent one without depending on the Azure SDK. Left untranslated,
+            // a 503 ServerBusy reaching library indexing was classified by matching the exception
+            // text — and a wrong answer there permanently fails a document the GM then has to
+            // reindex by hand.
+            throw new HttpRequestException(
+                $"Blob read failed for {blobPath}: HTTP {ex.Status}",
+                ex,
+                (HttpStatusCode)ex.Status);
         }
     }
 

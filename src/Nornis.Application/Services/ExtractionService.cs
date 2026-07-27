@@ -333,7 +333,7 @@ public class ExtractionService : IExtractionService
             await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.Timeout, ct);
             return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
         }
-        catch (HttpRequestException ex) when (IsPermanentHttpFailure(ex))
+        catch (HttpRequestException ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
         {
             _logger.LogError(ex, "Permanent transcription failure. SourceId={SourceId}", source.Id);
             await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.AiCallFailure, ct);
@@ -505,7 +505,7 @@ public class ExtractionService : IExtractionService
                 await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.Timeout, ct);
                 return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
             }
-            catch (HttpRequestException ex) when (IsPermanentHttpFailure(ex))
+            catch (HttpRequestException ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
             {
                 _logger.LogError(ex, "Permanent map extraction failure. SourceId={SourceId}", source.Id);
                 await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.AiCallFailure, ct);
@@ -809,7 +809,7 @@ public class ExtractionService : IExtractionService
                 await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading, null, false, ErrorCategories.Timeout, ct);
                 return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
             }
-            catch (HttpRequestException ex) when (IsPermanentHttpFailure(ex))
+            catch (HttpRequestException ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
             {
                 _logger.LogError(ex, "Permanent image reading failure. SourceId={SourceId}", source.Id);
                 await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading, null, false, ErrorCategories.AiCallFailure, ct);
@@ -1098,7 +1098,7 @@ public class ExtractionService : IExtractionService
                 await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.Timeout, ct);
                 return await TransientOutcomeAsync(source, ErrorCategories.Timeout, "AI call timed out.", ct);
             }
-            catch (HttpRequestException ex) when (IsPermanentHttpFailure(ex))
+            catch (HttpRequestException ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
             {
                 // 4xx (other than 408/429): the request itself is bad — a retry sends the same
                 // bytes and fails the same way. Fail the source so the problem surfaces.
@@ -1120,7 +1120,7 @@ public class ExtractionService : IExtractionService
             {
                 throw; // propagate cancellation
             }
-            catch (Exception ex) when (IsTransientException(ex))
+            catch (Exception ex) when (TransientFailureClassifier.IsTransient(ex))
             {
                 _logger.LogWarning(ex,
                     "Transient error during AI call. SourceId={SourceId}", source.Id);
@@ -1679,21 +1679,8 @@ public class ExtractionService : IExtractionService
     private static ReviewTargetType ParseTargetType(string targetType) =>
         Enum.Parse<ReviewTargetType>(targetType);
 
-    private static bool IsTransientException(Exception ex) =>
-        ex.Message.Contains("429", StringComparison.Ordinal) ||
-        ex.Message.Contains("503", StringComparison.Ordinal) ||
-        ex.Message.Contains("service unavailable", StringComparison.OrdinalIgnoreCase) ||
-        ex.Message.Contains("rate limit", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>
-    /// 4xx responses other than timeout (408) and throttling (429) mean the request itself is
-    /// rejected — retrying sends the same request and fails the same way.
-    /// </summary>
-    private static bool IsPermanentHttpFailure(HttpRequestException ex) =>
-        ex.StatusCode is { } code
-        && (int)code >= 400 && (int)code < 500
-        && code != System.Net.HttpStatusCode.RequestTimeout
-        && code != System.Net.HttpStatusCode.TooManyRequests;
+    // Retry classification lives in TransientFailureClassifier — one definition shared with
+    // library indexing, deciding on typed status codes rather than substrings of the message.
 
     /// <summary>
     /// A transient failure must put the source back to Queued: the message is abandoned for

@@ -502,7 +502,46 @@ a downstream failure and a repeated write on a warm cache.
       the single riskiest remaining change in the plan. Do it on its own, with tests for the
       intra-batch create ordering first.
 
-## Phase 6 — AI spend and worker behaviour
+## Phase 6 — worker reliability half — DONE 2026-07-27
+
+Phase 2 measured the AI *cost* items at $1–2/month, so these two were taken first: they are about
+the system not amplifying a failure. Clean build, 3,028 tests green, no migration. Reviewed before
+the push, which caught a silent regression (below).
+
+- [x] **One typed transient-failure classifier.** Extraction and library indexing each decided
+      retryability by substring-matching exception messages for `"429"`, `"503"`, `"rate limit"`,
+      and had already drifted — library treated a timeout as transient and extraction did not, so
+      the same outage retried one path and wrote off the other. A third copy of the
+      permanent-failure half was living in relationship backfill. Now one definition on typed
+      status codes, with no dependency on the Azure SDK from the application layer.
+- [x] **Backoff before redelivery.** Abandoning made a message available immediately, so a
+      throttle was answered with an instant re-request while each redelivery re-ran context
+      assembly, blob reads and a fresh model call. Now 5s → 10s → 20s → 40s by delivery count.
+      **Deliberately not the scheduled-re-enqueue design:** that resets `DeliveryCount`, losing the
+      queue's dead-letter backstop unless replaced by a hand-rolled attempt counter, and the
+      namespace is Basic tier where scheduling was not something to assume.
+- [x] Abandon now uses `CancellationToken.None` — during a deploy drain the processor's token is
+      already cancelled, so abandoning with it threw and left the message locked until expiry.
+
+**What the pre-push review caught.** My premise that "the infrastructure clients already translate
+SDK exceptions to `HttpRequestException`" was true for extraction and **false for the library
+path**: the blob service translated only 404, and the embedding client did not translate at all.
+So an Azure Storage 503 — previously transient because its text contains "503" — would have become
+permanent, failing a GM's library document with no retry. Both now translate at the boundary like
+their siblings. That is the exact direction of error the classifier's own doc comment warns about,
+introduced while writing it.
+
+Also from the review: the final delivery no longer waits (it dead-letters rather than retrying, so
+the wait was pure idle worker time during an outage); a lost message lock on abandon is tolerated
+rather than escaping into the caller's catch, which would have triggered a second full backoff;
+and the doc comments that overstated what changed were corrected.
+
+- [ ] `DelayThenAbandonAsync` itself is still untested — the tests cover the delay arithmetic only,
+      and `TestableExtractionWorker` is a hand-copied duplicate of the handler that still calls
+      abandon directly, so the worker tests no longer exercise the production shape. Needs a seam
+      for injecting a zero delay.
+
+## Phase 6 — remaining AI spend items
 
 - [ ] Invert the extraction user message so the stable world catalog leads and the volatile source
       body trails, and sort artifacts by Id so the prefix is byte-identical more often. Biggest single

@@ -89,7 +89,10 @@ public sealed class LibraryIndexingWorker : BackgroundService
                 _logger.LogWarning(
                     "Library indexing transient failure, abandoning for redelivery. DocumentId={DocumentId}, Error={Error}, DurationMs={DurationMs}",
                     message.DocumentId, outcome.ErrorMessage, stopwatch.ElapsedMilliseconds);
-                await args.AbandonMessageAsync(args.Message, cancellationToken: args.CancellationToken);
+                await RedeliveryBackoff.DelayThenAbandonAsync(args, (delay, attempt) =>
+                    _logger.LogInformation(
+                        "Backing off {DelaySeconds}s before redelivery (attempt {Attempt}). DocumentId={DocumentId}",
+                        delay.TotalSeconds, attempt, message.DocumentId));
                 return;
             }
 
@@ -103,7 +106,10 @@ public sealed class LibraryIndexingWorker : BackgroundService
             _logger.LogError(ex,
                 "Unexpected exception during library indexing. DocumentId={DocumentId}, DurationMs={DurationMs}",
                 message.DocumentId, stopwatch.ElapsedMilliseconds);
-            await args.AbandonMessageAsync(args.Message, cancellationToken: args.CancellationToken);
+            await RedeliveryBackoff.DelayThenAbandonAsync(args, (delay, attempt) =>
+                _logger.LogInformation(
+                    "Backing off {DelaySeconds}s before redelivery (attempt {Attempt}). DocumentId={DocumentId}",
+                    delay.TotalSeconds, attempt, message.DocumentId));
         }
     }
 

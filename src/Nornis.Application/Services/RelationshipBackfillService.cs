@@ -151,7 +151,7 @@ public class RelationshipBackfillService : IRelationshipBackfillService
             await TrackUsageAsync(source, worldId, null, false, Ai.ErrorCategories.Timeout, ct);
             return ExtractionOutcome.Transient(Ai.ErrorCategories.Timeout, ex.Message);
         }
-        catch (HttpRequestException ex) when (IsPermanentHttpFailure(ex))
+        catch (HttpRequestException ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
         {
             _logger.LogError(ex, "Permanent AI failure during relationship backfill. SourceId={SourceId}", sourceId);
             await TrackUsageAsync(source, worldId, null, false, Ai.ErrorCategories.AiCallFailure, ct);
@@ -536,12 +536,6 @@ public class RelationshipBackfillService : IRelationshipBackfillService
              + response.OutputTokens * pricing.OutputPerMillionTokensUsd / 1_000_000m;
     }
 
-
-    private static bool IsPermanentHttpFailure(HttpRequestException ex) =>
-        ex.StatusCode is { } status
-        && (int)status is >= 400 and < 500
-        && status != System.Net.HttpStatusCode.RequestTimeout
-        && status != System.Net.HttpStatusCode.TooManyRequests;
 
     private static string Truncate(string value, int maxLength) =>
         value.Length <= maxLength ? value : value[..maxLength];

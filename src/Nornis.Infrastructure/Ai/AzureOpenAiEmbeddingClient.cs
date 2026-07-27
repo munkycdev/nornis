@@ -1,3 +1,5 @@
+using System.ClientModel;
+using System.Net;
 using Nornis.Application.Ai;
 using OpenAI.Embeddings;
 
@@ -15,7 +17,23 @@ public sealed class AzureOpenAiEmbeddingClient : IEmbeddingClient
 
     public async Task<EmbeddingResult> EmbedAsync(IReadOnlyList<string> inputs, CancellationToken ct)
     {
-        var response = await _client.GenerateEmbeddingsAsync(inputs, cancellationToken: ct);
+        ClientResult<OpenAIEmbeddingCollection> response;
+        try
+        {
+            response = await _client.GenerateEmbeddingsAsync(inputs, cancellationToken: ct);
+        }
+        catch (ClientResultException ex)
+        {
+            // Translate at the boundary, exactly as the chat clients do. Without this the raw SDK
+            // exception reaches the application layer, which cannot read its status without
+            // depending on the SDK — so a genuine 429 was being classified by matching text, and
+            // a throttled embedding could permanently fail a library document instead of retrying.
+            throw new HttpRequestException(
+                $"Embedding call failed: HTTP {ex.Status}",
+                ex,
+                (HttpStatusCode)ex.Status);
+        }
+
         var collection = response.Value;
 
         var embeddings = collection
