@@ -15,8 +15,6 @@ namespace Nornis.Infrastructure.Ai;
 /// </summary>
 public class AzureOpenAiRetrospectiveClient : IRetrospectiveAiClient
 {
-    /// <summary>Ceiling for one chunk of storyline verdicts (chunk size is 40).</summary>
-    private const int MaxOutputTokens = 4_000;
 
     private readonly ChatClient _chatClient;
     private readonly ILogger<AzureOpenAiRetrospectiveClient> _logger;
@@ -47,10 +45,7 @@ public class AzureOpenAiRetrospectiveClient : IRetrospectiveAiClient
                 ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
                     jsonSchemaFormatName: "storyline_verdicts",
                     jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
-                    jsonSchemaIsStrict: true),
-                // Output is billed at six times input; without a ceiling a runaway generation
-                // bills to the deployment default or the timeout. See AzureOpenAiAuditClient.
-                MaxOutputTokenCount = MaxOutputTokens
+                    jsonSchemaIsStrict: true)
             };
 
             var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);

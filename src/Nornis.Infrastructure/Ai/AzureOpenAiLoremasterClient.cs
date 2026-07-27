@@ -11,9 +11,6 @@ namespace Nornis.Infrastructure.Ai;
 
 public class AzureOpenAiLoremasterClient : ILoremasterAiClient
 {
-    /// <summary>Ceiling for one Loremaster answer. The system prompt asks for a few short
-    /// paragraphs, so this is roughly an order of magnitude of headroom.</summary>
-    private const int MaxOutputTokens = 1_500;
 
     private readonly ChatClient _chatClient;
     private readonly LoremasterOptions _options;
@@ -44,18 +41,11 @@ public class AzureOpenAiLoremasterClient : ILoremasterAiClient
                 new UserChatMessage(request.UserMessage)
             };
 
-            // The system prompt asks for "a few short paragraphs at most", so this ceiling sits
-            // well above any well-behaved answer and exists only to bound a runaway one. Output
-            // is billed at six times the input rate.
-            var completionOptions = new ChatCompletionOptions
-            {
-                MaxOutputTokenCount = MaxOutputTokens
-            };
-
+            // No MaxOutputTokenCount — see AzureOpenAiExtractionClient: the current SDK serialises
+            // it as "max_tokens", which these deployments reject with HTTP 400.
             var response = await _chatClient.CompleteChatAsync(
                 messages,
-                completionOptions,
-                linkedCts.Token);
+                cancellationToken: linkedCts.Token);
 
             stopwatch.Stop();
 

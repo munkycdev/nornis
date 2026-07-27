@@ -15,8 +15,6 @@ namespace Nornis.Infrastructure.Ai;
 /// </summary>
 public class AzureOpenAiAuditClient : IAuditAiClient
 {
-    /// <summary>Ceiling for one assessment: 20 findings, each with a rationale and citations.</summary>
-    private const int MaxOutputTokens = 4_000;
 
     private readonly ChatClient _chatClient;
     private readonly ILogger<AzureOpenAiAuditClient> _logger;
@@ -47,12 +45,7 @@ public class AzureOpenAiAuditClient : IAuditAiClient
                 ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
                     jsonSchemaFormatName: "continuity_findings",
                     jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
-                    jsonSchemaIsStrict: true),
-                // Output is billed at six times the input rate and was the one direction with no
-                // ceiling: a degenerate or repetitive generation ran until the deployment default
-                // or the timeout, billed in full even when the response was then discarded.
-                // Sized for the capped 20 findings this call can return, with headroom.
-                MaxOutputTokenCount = MaxOutputTokens
+                    jsonSchemaIsStrict: true)
             };
 
             var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);

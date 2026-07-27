@@ -41,8 +41,15 @@ public class AzureOpenAiWorldNameGenerator : IWorldNameGenerator
                 new UserChatMessage("Name the world."),
             };
 
-            var options = new ChatCompletionOptions { MaxOutputTokenCount = 20, Temperature = 1.2f };
-            var response = await _chatClient.CompleteChatAsync(messages, options, linkedCts.Token);
+            // This call has been failing in production since at least 2026-07-26 and nobody
+            // noticed, because the catch below turns any failure into the static-name fallback.
+            // The cause was the same HTTP 400 that later took every other AI feature down: the
+            // SDK serialises MaxOutputTokenCount as "max_tokens", which these deployments reject
+            // (see AzureOpenAiExtractionClient). Temperature goes with it — this model family
+            // rejects a non-default value the same way, and it would simply be the next 400.
+            //
+            // Both were cosmetic here: the system prompt already asks for one to three words.
+            var response = await _chatClient.CompleteChatAsync(messages, options: null, linkedCts.Token);
 
             var name = response.Value.Content.Count > 0 ? response.Value.Content[0].Text?.Trim() : null;
             return string.IsNullOrWhiteSpace(name) ? null : name.Trim('"', '\'', '.');

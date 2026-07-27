@@ -13,9 +13,17 @@ namespace Nornis.Infrastructure.Ai;
 
 public class AzureOpenAiExtractionClient : IAiExtractionClient
 {
-    /// <summary>Ceiling for a full extraction response — up to 50 proposals with rationales
-    /// and quotes. Deliberately generous: see the note at the call site.</summary>
-    private const int MaxOutputTokens = 16_000;
+    // DO NOT set ChatCompletionOptions.MaxOutputTokenCount here (or in any sibling client).
+    // Azure.AI.OpenAI 2.1.0 — the current release — serialises it as "max_tokens", and the
+    // gpt-5.4 deployments reject that outright:
+    //
+    //     HTTP 400 (invalid_request_error: unsupported_parameter) Parameter: max_tokens
+    //     "'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."
+    //
+    // It fails the call before any tokens are spent, so there is no partial-response fallback:
+    // the feature is simply dead. Setting it took every AI feature down in production on
+    // 2026-07-27. Restore an output ceiling only once the SDK emits max_completion_tokens, and
+    // verify against a real deployment before shipping.
 
     private readonly ChatClient _chatClient;
     private readonly ExtractionOptions _options;
@@ -429,7 +437,9 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
         return string.Join("\n", parts);
     }
 
-    private ChatCompletionOptions BuildCompletionOptions()
+    /// <summary>Internal so a test can assert the request we are about to send is one these
+    /// deployments will accept — see the note at the top of this class.</summary>
+    internal static ChatCompletionOptions BuildCompletionOptions()
     {
         var schema = BinaryData.FromString(GetStructuredOutputSchema());
 
@@ -442,12 +452,7 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
                 // it as an open object ("additionalProperties": true) — which strict mode rejects
                 // with HTTP 400. Output shape is still guarded by ParseAndValidateResponse, the
                 // parse-retry loop, and ProposalValidator at accept time.
-                jsonSchemaIsStrict: false),
-            // The largest legitimate response in the system — up to 50 proposals, each with a
-            // rationale and a quote — so the ceiling is correspondingly generous. It exists to
-            // bound a degenerate generation, not to shape normal output: cutting a real response
-            // mid-JSON converts an expensive success into a parse retry, which costs more.
-            MaxOutputTokenCount = MaxOutputTokens
+                jsonSchemaIsStrict: false)
         };
     }
 

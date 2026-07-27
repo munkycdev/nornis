@@ -15,8 +15,6 @@ namespace Nornis.Infrastructure.Ai;
 /// </summary>
 public class AzureOpenAiContinuityFixClient : IContinuityFixAiClient
 {
-    /// <summary>Ceiling for one fix pass: a bounded set of proposals with rationales.</summary>
-    private const int MaxOutputTokens = 4_000;
 
     private readonly ChatClient _chatClient;
     private readonly ILogger<AzureOpenAiContinuityFixClient> _logger;
@@ -47,10 +45,7 @@ public class AzureOpenAiContinuityFixClient : IContinuityFixAiClient
                 ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
                     jsonSchemaFormatName: "continuity_fix_proposals",
                     jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
-                    jsonSchemaIsStrict: true),
-                // Output is billed at six times input; without a ceiling a runaway generation
-                // bills to the deployment default or the timeout. See AzureOpenAiAuditClient.
-                MaxOutputTokenCount = MaxOutputTokens
+                    jsonSchemaIsStrict: true)
             };
 
             var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);

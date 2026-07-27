@@ -121,10 +121,29 @@ in a browser: page renders, fingerprinted asset URLs resolve, zero console error
       enforced — sections are emitted in descending value and stop at the budget, so quotes and
       library passages are the first to go. Both parameters default to unlimited so the existing
       formatting tests stay meaningful.
-- [x] `MaxOutputTokenCount` on all eleven model call sites, sized per call (Ask 1,500; audit,
-      fix, backfill, retrospective, map 4,000; image reading 8,000; extraction and handwriting
-      16,000; map refinement 1,500). The two vision clients previously passed `options: null`
-      and had no ceiling at all.
+- [x] ~~`MaxOutputTokenCount` on all eleven model call sites~~ — **REVERTED 2026-07-27, this
+      change broke production.** `Azure.AI.OpenAI` 2.1.0 (still the latest release) serialises the
+      property as `max_tokens`, and the gpt-5.4 deployments reject it:
+      `HTTP 400 (invalid_request_error: unsupported_parameter) Parameter: max_tokens —
+      'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.`
+
+      It fails before any tokens are spent, so there is no degraded mode: every AI feature except
+      embeddings stopped working from the deploy until the revert. There is no SDK version that
+      emits the correct parameter, so an output ceiling is simply not expressible today.
+
+      The same 400 had been failing world-name generation silently since 2026-07-26 — that call
+      already set `MaxOutputTokenCount = 20` and swallows failures into a static-name fallback,
+      which is why it went unnoticed and why those fallbacks were misattributed to timeouts. Its
+      `Temperature = 1.2f` was removed at the same time; this model family rejects a non-default
+      value the same way, so it would have been the next 400.
+
+      Guarded by `UnsupportedChatParameterTests`, which fails if either parameter is re-added.
+      A source scan on purpose: the failure only reproduces against a live deployment, so no
+      ordinary unit test would catch the assignment.
+
+- [ ] Restore an output ceiling once the SDK emits `max_completion_tokens`. Output is still
+      billed at six times the input rate with no guardrail. Verify against a real deployment
+      before shipping — that is the step this incident skipped.
 - [x] `ServiceBusSender` cached per queue client via `Lazy<>` with `IAsyncDisposable`, replacing an
       AMQP link attach/detach on every enqueue.
 - [x] Pre-flight `ExistsAsync` removed from blob metadata and read paths — it issued its own Get
