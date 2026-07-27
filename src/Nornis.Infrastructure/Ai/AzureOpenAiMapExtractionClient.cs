@@ -16,6 +16,13 @@ namespace Nornis.Infrastructure.Ai;
 /// </summary>
 public class AzureOpenAiMapExtractionClient : IMapExtractionClient
 {
+    /// <summary>Ceiling for a whole-map read — a list of place names with coordinates.</summary>
+    private const int MaxOutputTokens = 4_000;
+
+    /// <summary>Ceiling for one refinement tile, which returns positions for a handful of
+    /// already-named places and so needs far less than the whole-map pass.</summary>
+    private const int MaxRefinementOutputTokens = 1_500;
+
     private readonly ChatClient _chatClient;
     private readonly ILogger<AzureOpenAiMapExtractionClient> _logger;
 
@@ -60,7 +67,9 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
                     jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
                     // Unlike text extraction there is no open proposedValue object here,
                     // so the schema is strict-mode compliant.
-                    jsonSchemaIsStrict: true)
+                    jsonSchemaIsStrict: true),
+                // Output is billed at six times input. See AzureOpenAiAuditClient.
+                MaxOutputTokenCount = MaxOutputTokens
             };
 
             var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);
@@ -237,7 +246,10 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
             ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
                 jsonSchemaFormatName: "map_place_positions",
                 jsonSchema: BinaryData.FromString(GetRefinementOutputSchema()),
-                jsonSchemaIsStrict: true)
+                jsonSchemaIsStrict: true),
+            // Up to nine of these fire per map, so the per-call ceiling matters more here than
+            // anywhere else.
+            MaxOutputTokenCount = MaxRefinementOutputTokens
         };
 
         var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);

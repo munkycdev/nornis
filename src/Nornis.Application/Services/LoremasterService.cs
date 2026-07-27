@@ -395,7 +395,8 @@ public partial class LoremasterService : ILoremasterService
         userMessage.AppendLine($"Today's date: {DateTimeOffset.UtcNow:yyyy-MM-dd}");
         userMessage.AppendLine();
 
-        var formattedContext = FormatKnowledgeContext(context);
+        var formattedContext = FormatKnowledgeContext(
+            context, _options.MaxSessionChars, _options.MaxContextTokens);
         if (!string.IsNullOrWhiteSpace(formattedContext))
         {
             userMessage.AppendLine("## World Knowledge Context");
@@ -425,10 +426,27 @@ public partial class LoremasterService : ILoremasterService
         };
     }
 
+    /// <summary>Rough chars-per-token used to price the context against the budget. Precision is
+    /// not the point — having any ceiling at all is.</summary>
+    private const int EstimatedCharsPerToken = 4;
+
     /// <summary>
     /// Formats the knowledge context block for inclusion in the AI prompt.
     /// </summary>
-    internal static string FormatKnowledgeContext(KnowledgeContext context)
+    /// <param name="maxSessionChars">
+    /// Per-session text cap. Defaults to unlimited so tests can assert raw formatting; the
+    /// service always passes the configured value.
+    /// </param>
+    /// <param name="maxContextTokens">
+    /// Ceiling on the whole block, in estimated tokens. Sections are emitted in descending
+    /// value — sessions, artifacts and their facts, orphan facts, relationships, source
+    /// quotes, library passages — and emission stops at the first section that would cross the
+    /// budget, so what gets dropped is the cheapest context to lose. Defaults to unlimited.
+    /// </param>
+    internal static string FormatKnowledgeContext(
+        KnowledgeContext context,
+        int maxSessionChars = int.MaxValue,
+        int maxContextTokens = int.MaxValue)
     {
         var hasContent = context.Artifacts.Count > 0
                       || context.Facts.Count > 0
@@ -441,6 +459,26 @@ public partial class LoremasterService : ILoremasterService
             return string.Empty;
 
         var sb = new StringBuilder();
+        var truncated = false;
+
+        // Checked before each section rather than mid-section, so the block never ends on half
+        // a fact. Returns true once the budget is spent; the caller stops appending.
+        bool BudgetSpent()
+        {
+            if (sb.Length / EstimatedCharsPerToken < maxContextTokens)
+            {
+                return false;
+            }
+
+            if (!truncated)
+            {
+                truncated = true;
+                sb.AppendLine("### [context truncated — the world knows more than fits in one question]");
+            }
+
+            return true;
+        }
+
         var artifactNames = context.Artifacts.ToDictionary(a => a.Id, a => a.Name);
         var factsByArtifact = context.Facts
             .GroupBy(f => f.ArtifactId)
@@ -465,13 +503,13 @@ public partial class LoremasterService : ILoremasterService
                 sb.AppendLine($"- \"{session.Title}\" — played {session.Date:yyyy-MM-dd}{marker} [ref:{session.ReferenceId}]");
                 sb.AppendLine(string.IsNullOrWhiteSpace(session.Text)
                     ? "  (no written record for this session)"
-                    : $"  {session.Text.ReplaceLineEndings("\n  ")}");
+                    : $"  {TruncateSessionText(session.Text, maxSessionChars).ReplaceLineEndings("\n  ")}");
                 first = false;
             }
             sb.AppendLine();
         }
 
-        if (context.Artifacts.Count > 0)
+        if (context.Artifacts.Count > 0 && !BudgetSpent())
         {
             sb.AppendLine("### Artifacts");
             foreach (var artifact in context.Artifacts)
@@ -494,7 +532,7 @@ public partial class LoremasterService : ILoremasterService
 
         // Facts whose artifact wasn't retrieved still carry signal; list them unattributed.
         var orphanFacts = context.Facts.Where(f => !artifactNames.ContainsKey(f.ArtifactId)).ToList();
-        if (orphanFacts.Count > 0)
+        if (orphanFacts.Count > 0 && !BudgetSpent())
         {
             sb.AppendLine("### Additional Facts");
             foreach (var fact in orphanFacts)
@@ -504,7 +542,7 @@ public partial class LoremasterService : ILoremasterService
             sb.AppendLine();
         }
 
-        if (context.Relationships.Count > 0)
+        if (context.Relationships.Count > 0 && !BudgetSpent())
         {
             sb.AppendLine("### Relationships");
             foreach (var rel in context.Relationships)
@@ -517,7 +555,7 @@ public partial class LoremasterService : ILoremasterService
             sb.AppendLine();
         }
 
-        if (context.SourceReferences.Count > 0)
+        if (context.SourceReferences.Count > 0 && !BudgetSpent())
         {
             sb.AppendLine("### Source References");
             foreach (var src in context.SourceReferences)
@@ -531,7 +569,7 @@ public partial class LoremasterService : ILoremasterService
             sb.AppendLine();
         }
 
-        if (context.Passages.Count > 0)
+        if (context.Passages.Count > 0 && !BudgetSpent())
         {
             sb.AppendLine("### Published Reference (rulebooks and modules — not world canon)");
             foreach (var passage in context.Passages)
@@ -543,6 +581,39 @@ public partial class LoremasterService : ILoremasterService
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Trims a session record to the configured budget, cutting at the last paragraph break (or
+    /// failing that, the last whitespace) before the limit so the model never receives half a
+    /// sentence. The marker matters as much as the cut: without it the model reads a truncated
+    /// note as a complete one and answers confidently about a session it only half saw.
+    /// </summary>
+    internal static string TruncateSessionText(string text, int maxChars)
+    {
+        if (maxChars == int.MaxValue || text.Length <= maxChars)
+        {
+            return text;
+        }
+
+        var window = text.AsSpan(0, maxChars);
+        var paragraph = window.LastIndexOf('\n');
+        var word = window.LastIndexOf(' ');
+
+        // A paragraph break in the back half is the cleanest cut. Otherwise take whichever
+        // boundary is latest — falling back to a word boundary unconditionally would sometimes
+        // pick an *earlier* cut than the paragraph break, throwing away text for nothing (a note
+        // whose first line is short and whose remainder has no spaces does exactly that).
+        var cut = paragraph >= maxChars / 2 ? paragraph : Math.Max(paragraph, word);
+
+        if (cut <= 0)
+        {
+            // No boundary at all — a single unbroken run. Cut at the limit rather than emitting
+            // the whole thing.
+            cut = maxChars;
+        }
+
+        return string.Concat(text.AsSpan(0, cut).TrimEnd(), "\n[session record truncated]");
     }
 
     private static string ProvenanceStamp(

@@ -205,6 +205,20 @@ else
         Activity.Changed += OnActivitySignal;
         Nav.LocationChanged += OnLocationChanged;
 
+        // Everything below is wasted during the static prerender pass. The authenticated shell
+        // renders nothing but a boot spinner then — MainLayout gates @Body on Worlds.Ready, which
+        // cannot become true without JS interop — and the circuit that follows starts a fresh DI
+        // scope, so this WorldState instance and its dedupe cache are discarded either way. Doing
+        // the work anyway meant every full page load fetched the world list twice and briefly ran
+        // two copies of the poll timer below.
+        //
+        // Prerendering itself is deliberately left on: the public /w/{slug} pages use
+        // PublicLayout, render real content, and want to be indexable and unfurlable.
+        if (!RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
         await Worlds.EnsureLoadedAsync();
         await RefreshActivityAsync();
         _ = PollActivityAsync();

@@ -13,6 +13,10 @@ namespace Nornis.Infrastructure.Ai;
 
 public class AzureOpenAiExtractionClient : IAiExtractionClient
 {
+    /// <summary>Ceiling for a full extraction response — up to 50 proposals with rationales
+    /// and quotes. Deliberately generous: see the note at the call site.</summary>
+    private const int MaxOutputTokens = 16_000;
+
     private readonly ChatClient _chatClient;
     private readonly ExtractionOptions _options;
     private readonly ILogger<AzureOpenAiExtractionClient> _logger;
@@ -433,7 +437,12 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
                 // it as an open object ("additionalProperties": true) — which strict mode rejects
                 // with HTTP 400. Output shape is still guarded by ParseAndValidateResponse, the
                 // parse-retry loop, and ProposalValidator at accept time.
-                jsonSchemaIsStrict: false)
+                jsonSchemaIsStrict: false),
+            // The largest legitimate response in the system — up to 50 proposals, each with a
+            // rationale and a quote — so the ceiling is correspondingly generous. It exists to
+            // bound a degenerate generation, not to shape normal output: cutting a real response
+            // mid-JSON converts an expensive success into a parse retry, which costs more.
+            MaxOutputTokenCount = MaxOutputTokens
         };
     }
 

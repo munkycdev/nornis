@@ -1,6 +1,7 @@
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
+@inject OnboardingState Onboarding
 @inject IDialogService DialogService
 
 @* First-login onboarding prompt (feature 20 phase C). Shown once per user, ever: the
@@ -64,12 +65,15 @@
         Worlds.Changed += OnWorldsChanged;
         await Worlds.EnsureLoadedAsync();
 
-        var state = await Api.GetOnboardingAsync();
+        // Shares TutorialChecklist's fetch — both components want the same DTO and only read
+        // different fields off it.
+        var state = await Onboarding.GetAsync();
         if (state is { IsSuccess: true, Value.PromptSeen: false })
         {
             _visible = true;
             // Shown once is the contract; recording it must not block the render.
             _ = Api.MarkOnboardingPromptSeenAsync();
+            Onboarding.Invalidate();
         }
     }
 

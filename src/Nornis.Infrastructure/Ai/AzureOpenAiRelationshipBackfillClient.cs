@@ -15,6 +15,9 @@ namespace Nornis.Infrastructure.Ai;
 /// </summary>
 public class AzureOpenAiRelationshipBackfillClient : IRelationshipBackfillAiClient
 {
+    /// <summary>Ceiling for one source's worth of proposed storyline/event links.</summary>
+    private const int MaxOutputTokens = 4_000;
+
     private readonly ChatClient _chatClient;
     private readonly ILogger<AzureOpenAiRelationshipBackfillClient> _logger;
 
@@ -44,7 +47,10 @@ public class AzureOpenAiRelationshipBackfillClient : IRelationshipBackfillAiClie
                 ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
                     jsonSchemaFormatName: "backfill_links",
                     jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
-                    jsonSchemaIsStrict: true)
+                    jsonSchemaIsStrict: true),
+                // Output is billed at six times input; without a ceiling a runaway generation
+                // bills to the deployment default or the timeout. See AzureOpenAiAuditClient.
+                MaxOutputTokenCount = MaxOutputTokens
             };
 
             var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);

@@ -30,6 +30,13 @@ public class AiUsageRecordConfiguration : IEntityTypeConfiguration<AiUsageRecord
         builder.Property(a => a.CreatedAt)
             .HasColumnType("datetimeoffset");
 
+        // The budget guard aggregates spend for a world over a date range before EVERY AI call,
+        // and the public-Ask cap does the same per anonymous question — so this is the hottest
+        // read on an append-only ledger that never shrinks. EF's FK index on WorldId alone stops
+        // being selective once a world has months of history, degenerating into a range scan of
+        // everything that world has ever spent. The composite turns each check into a seek.
+        builder.HasIndex(a => new { a.WorldId, a.CreatedAt });
+
         // Cost-ledger records outlive the world/user they reference: when a World or
         // User is deleted, null the FK rather than deleting the historical usage record.
         builder.HasOne<World>()

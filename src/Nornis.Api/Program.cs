@@ -1,5 +1,6 @@
 ﻿using Azure.Messaging.ServiceBus;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Nornis.Api.Authentication;
 using Nornis.Api.BackgroundServices;
@@ -35,7 +36,18 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNEC
 {
     builder.Services.AddOpenTelemetry()
         .ConfigureResource(resource => resource.AddService("nornis-api"))
-        .UseAzureMonitor()
+        .UseAzureMonitor(options =>
+        {
+            // Sampling is a cost control. App Insights bills per ingested GB, and the distro
+            // auto-instruments every request, every EF query, every blob call and every Service
+            // Bus receive — so one API request that runs eight queries writes ~10 records.
+            // Unsampled, a handful of idle browser tabs is enough to walk through the free grant.
+            // The distro's sampler keeps failed requests regardless of ratio, so incident
+            // debugging is largely unaffected; it is successful-request detail that thins out.
+            // NOTE: any KQL that counts raw rows must now weight by itemCount.
+            options.SamplingRatio = builder.Configuration.GetValue<float?>("Telemetry:SamplingRatio") ?? 0.10f;
+            options.EnableTraceBasedLogsSampler = true;
+        })
         .WithMetrics(metrics => metrics.AddMeter(AiUsageMetrics.MeterName));
 }
 
@@ -53,6 +65,22 @@ else
 
 // MVC controllers
 builder.Services.AddControllers();
+
+// Kestrel does not compress by default and Container Apps ingress does not compress
+// backend-to-backend traffic, so every JSON payload crossed the wire raw. These responses are
+// highly repetitive — long property names, enum strings, GUIDs — and typically compress 80-90%.
+// Both the Web host and the browser are on the other end of that wire, so this is the one
+// change with a multiplier on every other payload-size finding in the audit.
+//
+// EnableForHttps is the BREACH caveat: it is safe here because responses reflect no
+// attacker-controlled secret alongside one (no CSRF token or credential is serialised into a
+// JSON body), which is the condition that makes the attack work.
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
 
 // Swagger/OpenAPI (Development only)
 if (builder.Environment.IsDevelopment())
@@ -286,6 +314,10 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+
+// First in the pipeline: compression has to wrap the response stream before anything writes to
+// it, including the error handler and the health-check writer.
+app.UseResponseCompression();
 
 // Middleware pipeline order:
 // 1. Authentication (validates JWT)

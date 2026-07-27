@@ -15,6 +15,10 @@ namespace Nornis.Infrastructure.Ai;
 /// </summary>
 public class AzureOpenAiImageReadingClient : IImageReadingClient
 {
+    /// <summary>Ceiling for a markdown read of one batch of images. Like transcription, the
+    /// output is persisted as derived text, so the allowance is generous.</summary>
+    private const int MaxOutputTokens = 8_000;
+
     private readonly ChatClient _chatClient;
     private readonly ILogger<AzureOpenAiImageReadingClient> _logger;
 
@@ -51,7 +55,8 @@ public class AzureOpenAiImageReadingClient : IImageReadingClient
                 new UserChatMessage(parts)
             };
 
-            var response = await _chatClient.CompleteChatAsync(messages, options: null, linkedCts.Token);
+            var completionOptions = new ChatCompletionOptions { MaxOutputTokenCount = MaxOutputTokens };
+            var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);
 
             stopwatch.Stop();
 

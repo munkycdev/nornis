@@ -59,19 +59,24 @@ public sealed class AzureBlobStorageService : IBlobStorageService
         return Task.FromResult(GenerateSasUrl(blobPath, sasBuilder));
     }
 
+    /// <remarks>
+    /// No pre-flight <c>ExistsAsync</c>: it issues its own Get Blob Properties request, so the
+    /// pair cost two billed transactions to answer one question — and a 404 is billed too.
+    /// Catching the 404 from the call we already need is exactly equivalent and half the price.
+    /// The not-found case is distinguished from a real fault so that a 403 or a throttle no
+    /// longer masquerades as "the upload never arrived".
+    /// </remarks>
     public async Task<BlobMetadata?> GetBlobMetadataAsync(string blobPath, CancellationToken cancellationToken = default)
     {
         try
         {
-            var blobClient = GetBlobClient(blobPath);
-
-            if (!await blobClient.ExistsAsync(cancellationToken))
-            {
-                return null;
-            }
-
-            var properties = await blobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+            var properties = await GetBlobClient(blobPath)
+                .GetPropertiesAsync(cancellationToken: cancellationToken);
             return new BlobMetadata(properties.Value.ContentLength, properties.Value.ContentType);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            return null;
         }
         catch (RequestFailedException ex)
         {
@@ -80,16 +85,22 @@ public sealed class AzureBlobStorageService : IBlobStorageService
         }
     }
 
+    /// <remarks>
+    /// Same reasoning as <see cref="GetBlobMetadataAsync"/>. <c>OpenReadAsync</c> issues its
+    /// first range request eagerly, so a missing blob still surfaces here as a 404 rather than
+    /// deferring to the first <c>Read</c> — callers that catch <see cref="FileNotFoundException"/>
+    /// around the open keep working.
+    /// </remarks>
     public async Task<Stream> OpenReadAsync(string blobPath, CancellationToken cancellationToken = default)
     {
-        var blobClient = GetBlobClient(blobPath);
-
-        if (!await blobClient.ExistsAsync(cancellationToken))
+        try
+        {
+            return await GetBlobClient(blobPath).OpenReadAsync(cancellationToken: cancellationToken);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
         {
             throw new FileNotFoundException($"Blob not found: {blobPath}");
         }
-
-        return await blobClient.OpenReadAsync(cancellationToken: cancellationToken);
     }
 
     public async Task UploadAsync(string blobPath, Stream content, string contentType, CancellationToken cancellationToken = default)

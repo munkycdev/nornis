@@ -31,7 +31,19 @@ var builder = Host.CreateDefaultBuilder(args)
         {
             services.AddOpenTelemetry()
                 .ConfigureResource(resource => resource.AddService("nornis-worker"))
-                .UseAzureMonitor()
+                .UseAzureMonitor(options =>
+                {
+                    // Deliberately NOT sampled down like the API and Web hosts. Those are driven
+                    // by UI polling, so their telemetry volume scales with open browser tabs; the
+                    // worker's scales with queue depth, which is inherently bounded and low. Its
+                    // traces are also the most diagnostically valuable in the system — one record
+                    // per extraction, covering a paid AI call that can fail in expensive ways.
+                    // Throwing 90% of those away would save almost nothing and cost real
+                    // debuggability. The knob exists here so the decision can be revisited if
+                    // throughput ever climbs.
+                    options.SamplingRatio = configuration.GetValue<float?>("Telemetry:SamplingRatio") ?? 1.0f;
+                    options.EnableTraceBasedLogsSampler = true;
+                })
                 .WithMetrics(metrics => metrics.AddMeter(AiUsageMetrics.MeterName));
         }
 

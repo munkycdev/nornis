@@ -1,6 +1,7 @@
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
+@inject OnboardingState Onboarding
 @inject NavigationManager Nav
 @inject IDialogService DialogService
 @inject IJSRuntime JS
@@ -121,7 +122,15 @@
         Nav.LocationChanged += OnLocationChanged;
         _lastViewingAsPlayer = Worlds.ViewingAsPlayer;
 
-        var onboarding = await Api.GetOnboardingAsync(_cts.Token);
+        // This component sits in MainLayout, outside its boot gate, so it renders during the
+        // static prerender pass too — where the fetch and the poll timer below are both thrown
+        // away with the render tree. See the matching guard in NavMenu.
+        if (!RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        var onboarding = await Onboarding.GetAsync(_cts.Token);
         _dismissed = onboarding is { IsSuccess: true, Value.TutorialDismissed: true };
 
         await RefreshAsync();
@@ -295,6 +304,9 @@
         {
             _dismissed = true;
             await Api.DismissTutorialAsync(_cts.Token);
+            // The shared cache would otherwise keep reporting "not dismissed" for the rest of
+            // the circuit, so a sibling reading it later would resurrect the checklist.
+            Onboarding.Invalidate();
             await InvokeAsync(StateHasChanged);
         }
     }

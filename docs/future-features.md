@@ -65,7 +65,7 @@ which narrows the duplicate-assessment window to rolling deploys rather than ste
 
 **Still open, carried out of Phase 0:**
 
-- [ ] **Run `code-critic` over this change.** It touches a migration and a concurrency primitive,
+- [x] **Run `code-critic` over this change.** It touches a migration and a concurrency primitive,
       so the repo's own rule calls for an independent review. The attempt on 2026-07-27 failed —
       model usage credits exhausted — so this change has *not* had a second pair of eyes.
 - [ ] Apply the Auth0 settings the script still cannot reproduce (documented in its header). They
@@ -79,43 +79,76 @@ which narrows the duplicate-assessment window to rolling deploys rather than ste
       the environment name still affects error detail and host defaults. Left unchanged
       deliberately — it deserves its own decision, not a side effect of provisioning.
 
-## Phase 1 — Trivial multipliers (single PR)
+## Phase 1 — Trivial multipliers — DONE 2026-07-27 (11 of 12)
 
-All config or a handful of lines. Independent of each other and of everything below.
+`dotnet build Nornis.sln` clean (0 warnings), all 2,922 tests green, and the Web app smoke-tested
+in a browser: page renders, fingerprinted asset URLs resolve, zero console errors.
 
-- [ ] Enable response compression on both `Nornis.Api` and `Nornis.Web`, and set `AutomaticDecompression` on the typed client so it actually sends `Accept-Encoding`.
-      Repetitive JSON compresses 80–90%; this multiplies every other API finding.
-- [ ] Set `SamplingRatio = 0.10f` on all three `UseAzureMonitor()` calls. Currently unconfigured, so
-      every request, every EF query, every blob range GET and every Service Bus receive is an
-      ingested record. Update any KQL that counts raw rows to apply `itemCount`.
-- [ ] Replace `UseStaticFiles()` with `MapStaticAssets()` and switch the hand-rolled `?v=` cache
-      busters to `@Assets[...]`. ~1.03 MB of egress per cold page view. Convert every `<link>`/
-      `<script>` in `App.razor` together — `Assets[...]` throws for a path not in the manifest.
-- [ ] Turn off prerendering for the authenticated shell. It runs every page's data load twice, and
-      the prerendered output for authenticated pages is literally a loading spinner — `MainLayout`
-      already gates the body behind `Worlds.Ready`. Consider keeping prerender for the public
-      `/w/{slug}` routes, which render real content and want to be indexable.
-- [ ] Cache the onboarding DTO in a scoped state holder. `GET /api/onboarding` currently fires four
-      times on a full load of `/`. Invalidate on dismissal.
-- [ ] Add an index on `SourceReferences(TargetId, TargetType)`. Verified: the table's only index is
-      the FK on `SourceId`, so accepting a 50-proposal batch is 50 full scans of the
-      highest-cardinality table in the schema.
-- [ ] Add an index on `AiUsageRecords(WorldId, CreatedAt)`. `AiBudgetGuard` aggregates this table
-      before *every* AI call.
-- [ ] Cap per-session text in the Ask prompt and implement `MaxContextTokens`. Verified dead config:
-      referenced in exactly one place, its own declaration. There is currently no upper bound on the
-      cost of a single question — which is the guarantee the public Ask cap needs to be predictable.
-      Truncate on a paragraph boundary and mark the cut so the model knows the record continues.
-- [ ] Set a deliberate `MaxOutputTokenCount` at every call site. Output is $15/M — six times the
-      input rate — and is the only direction with no guardrail anywhere. Size each from observed p99
-      in `AiUsageRecords`; a truncated response surfaces as a parse failure rather than a silent
-      overcharge.
-- [ ] Cache the `ServiceBusSender` in both queue clients instead of creating and disposing one per
-      message. Implement `IAsyncDisposable` so the link closes at shutdown.
-- [ ] Drop the pre-flight `ExistsAsync` on blob reads and let the 404 surface. 100% transaction
-      overhead on upload-confirm; 200 avoidable HEADs per world export.
-- [ ] Change CI to `dotnet format --verify-no-changes`. Bare `dotnet format` rewrites the runner's
-      tree and always exits 0, so the step verifies nothing. Expect the first run to fail loudly.
+- [x] Response compression on `Nornis.Api` and `Nornis.Web`, plus `AutomaticDecompression` on the
+      typed client — without which the API's compression would have been dead weight on that leg,
+      since the default handler never sends `Accept-Encoding`.
+- [x] Telemetry sampling. **Deviation, deliberate:** API and Web are at 0.10, the worker is left at
+      1.0. The two web hosts' volume scales with open browser tabs; the worker's scales with queue
+      depth, which is bounded and low, and its traces are the most diagnostically valuable in the
+      system — one record per extraction, covering a paid AI call. Sampling it would have saved
+      almost nothing and cost real debuggability. All three read `Telemetry:SamplingRatio` so the
+      decision is revisitable without a code change.
+- [x] `MapStaticAssets()` with `@Assets[...]` throughout `App.razor`. All 15 asset paths verified
+      against the generated endpoint manifest before shipping, since an unknown key throws at
+      render time and would 500 every page. Build manifest confirms gzip variants (app.css
+      90,956 → 16,880 bytes).
+- [x] Prerender waste eliminated **without** disabling prerendering. Guarded the two loads that
+      fire during the throwaway pass (`NavMenu`, `TutorialChecklist`) on `RendererInfo.IsInteractive`
+      — already the house pattern, see `SessionWrapUpCard`. Turning prerender off wholesale would
+      have cost SEO and link-unfurling on the public `/w/{slug}` pages, which use `PublicLayout`
+      and render real content; the authenticated shell renders only a boot spinner, which is why
+      its prerender pass is pure waste.
+- [x] `OnboardingState` scoped cache shared by `TutorialChecklist` and `OnboardingPrompt`, with
+      invalidation on dismissal and on marking the prompt seen. Failures are deliberately not
+      cached — a transient error would otherwise hide the tutorial for the whole circuit.
+- [x] Index on `SourceReferences(TargetId)`. **Narrowed from the plan's `(TargetId, TargetType)`:**
+      `TargetType` is an enum stored as string with no declared length, so it is `nvarchar(max)`,
+      and including it forced EF to scaffold an `ALTER COLUMN` to `nvarchar(450)` — a blocking
+      table rewrite, and this repo requires additive migrations because they run against the live
+      database before the new images deploy. `TargetId` is a Guid identifying one fact,
+      relationship or proposal, so a seek returns a handful of rows and the type filter is free.
+- [x] Index on `AiUsageRecords(WorldId, CreatedAt)`. The scaffolded migration was hand-edited to
+      create the composite *before* dropping the now-redundant `WorldId` index; EF emits the drop
+      first, which would leave the budget guard's lookups unindexed for however long the composite
+      takes to build on a live table.
+- [x] Ask prompt is now bounded. `MaxSessionChars` (4,000) truncates each session record on a
+      paragraph or word boundary with an explicit marker, and `MaxContextTokens` is finally
+      enforced — sections are emitted in descending value and stop at the budget, so quotes and
+      library passages are the first to go. Both parameters default to unlimited so the existing
+      formatting tests stay meaningful.
+- [x] `MaxOutputTokenCount` on all eleven model call sites, sized per call (Ask 1,500; audit,
+      fix, backfill, retrospective, map 4,000; image reading 8,000; extraction and handwriting
+      16,000; map refinement 1,500). The two vision clients previously passed `options: null`
+      and had no ceiling at all.
+- [x] `ServiceBusSender` cached per queue client via `Lazy<>` with `IAsyncDisposable`, replacing an
+      AMQP link attach/detach on every enqueue.
+- [x] Pre-flight `ExistsAsync` removed from blob metadata and read paths — it issued its own Get
+      Blob Properties request, so the pair cost two billed transactions to answer one question.
+      A 404 is now distinguished from a real fault, so a 403 or a throttle no longer masquerades
+      as "the upload never arrived".
+
+**Not done — `dotnet format --verify-no-changes` in CI.** Attempted and reverted. The repo has
+never satisfied the analyzers: `--verify-no-changes` reports ~37,000 findings across 897 files
+(mostly IDE0161 file-scoped namespaces, plus CHARSET/BOM issues that even `dotnet format
+whitespace` trips on). Flipping the flag would fail every PR immediately. `ci.yml` now carries a
+comment stating plainly that the step is a no-op and why, instead of looking like a real check.
+
+- [ ] Land the formatting check as its own commit: run `dotnet format` across the tree, commit the
+      churn alone so it stays reviewable, then switch `ci.yml` to `--verify-no-changes
+      --no-restore`. Doing it inside a feature branch would bury the real diff — and with several
+      agents sharing this working directory, an 897-file reformat needs a quiet moment.
+
+**Worth knowing before measuring Phase 2:** the live apps run with
+`ASPNETCORE_ENVIRONMENT=Development` (see the Phase 0 open item). `MapStaticAssets` uses
+`Cache-Control: no-cache` in Development rather than the immutable fingerprinted caching it
+applies otherwise — confirmed locally. So the repeat-visit half of the static-asset win will not
+appear in production until that environment variable changes. Compression and the fingerprinting
+itself are unaffected.
 
 ## Phase 2 — Measure
 

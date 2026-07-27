@@ -1,6 +1,8 @@
+using System.Net;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.ResponseCompression;
 using MudBlazor.Services;
 using Nornis.Web.ApiClient;
 using Nornis.Web.Authentication;
@@ -15,7 +17,13 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNEC
 {
     builder.Services.AddOpenTelemetry()
         .ConfigureResource(resource => resource.AddService("nornis-web"))
-        .UseAzureMonitor();
+        .UseAzureMonitor(options =>
+        {
+            // See the note in Nornis.Api/Program.cs. The Web app additionally emits a record per
+            // static-file request, so it is the noisiest of the three.
+            options.SamplingRatio = builder.Configuration.GetValue<float?>("Telemetry:SamplingRatio") ?? 0.10f;
+            options.EnableTraceBasedLogsSampler = true;
+        });
 }
 
 // Blazor Web App with interactive server rendering (per architecture decision).
@@ -23,6 +31,16 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddMudServices();
+
+// Compresses the Blazor Server payloads and any dynamically-served content. Static assets are
+// handled separately by MapStaticAssets, which serves precompressed files built at publish time
+// rather than compressing per request.
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
 
 // Auth0 login is enabled when the deployment provides a ClientId; locally the app
 // runs anonymous against the API's dev-auth bypass.
@@ -119,10 +137,18 @@ builder.Services.AddTransient<BearerTokenHandler>();
 builder.Services.AddHttpClient<NornisApiClient>(client =>
 {
     client.BaseAddress = new Uri(apiBaseUrl);
-}).AddHttpMessageHandler<BearerTokenHandler>();
+})
+    // The default handler sets AutomaticDecompression to None, so this client never sent
+    // Accept-Encoding and the API's compression would have been dead weight on this leg.
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        AutomaticDecompression = DecompressionMethods.All,
+    })
+    .AddHttpMessageHandler<BearerTokenHandler>();
 
 builder.Services.AddScoped<Nornis.Web.State.WorldState>();
 builder.Services.AddScoped<Nornis.Web.State.ActivitySignal>();
+builder.Services.AddScoped<Nornis.Web.State.OnboardingState>();
 builder.Services.AddScoped<Nornis.Web.State.AskState>();
 builder.Services.AddScoped<Nornis.Web.State.ViewAsState>();
 
@@ -147,8 +173,14 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseResponseCompression();
+
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+
+// MapStaticAssets replaces UseStaticFiles: it serves the .br/.gz variants produced at publish
+// time, and emits fingerprinted URLs with immutable Cache-Control and ETags. That removes both
+// the per-request compression cost and the hand-rolled "?v=" cache busters in App.razor.
+app.MapStaticAssets();
 
 app.UseAuthentication();
 app.UseAuthorization();

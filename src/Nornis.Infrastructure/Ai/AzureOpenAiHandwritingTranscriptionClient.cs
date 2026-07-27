@@ -15,6 +15,12 @@ namespace Nornis.Infrastructure.Ai;
 /// </summary>
 public class AzureOpenAiHandwritingTranscriptionClient : IHandwritingTranscriptionClient
 {
+    /// <summary>Ceiling for a multi-page verbatim transcription — the longest legitimate output
+    /// in the system after extraction, so the allowance is large. It bounds a runaway
+    /// generation; it must never clip a real transcription, because the transcribed text is
+    /// persisted and becomes the source record.</summary>
+    private const int MaxOutputTokens = 16_000;
+
     private readonly ChatClient _chatClient;
     private readonly ILogger<AzureOpenAiHandwritingTranscriptionClient> _logger;
 
@@ -50,7 +56,8 @@ public class AzureOpenAiHandwritingTranscriptionClient : IHandwritingTranscripti
                 new UserChatMessage(parts)
             };
 
-            var response = await _chatClient.CompleteChatAsync(messages, options: null, linkedCts.Token);
+            var completionOptions = new ChatCompletionOptions { MaxOutputTokenCount = MaxOutputTokens };
+            var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);
 
             stopwatch.Stop();
 
