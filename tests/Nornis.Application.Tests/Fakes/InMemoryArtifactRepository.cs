@@ -80,21 +80,51 @@ public class InMemoryArtifactRepository : IArtifactRepository
         return Task.FromResult<IReadOnlyList<Artifact>>(results.AsReadOnly());
     }
 
+    /// <summary>How many times the by-type listing was actually queried. Read by the tests that
+    /// assert the applicator reads the dedup candidate set once per batch rather than per create.</summary>
+    public int ListByTypeCallCount { get; set; }
+
     public Task<IReadOnlyList<Artifact>> ListByTypeAsync(
         Guid worldId,
         ArtifactType type,
         VisibilityFilter filter,
         CancellationToken cancellationToken = default)
     {
+        ListByTypeCallCount++;
+
         var results = _artifacts
             .Where(a => a.WorldId == worldId &&
                         a.Type == type &&
                         a.Status != ArtifactStatus.Archived &&
                         filter.CanSee(a.Visibility, a.CreatedByUserId))
             .OrderBy(a => a.Name)
+            .Select(Detach)
             .ToList();
         return Task.FromResult<IReadOnlyList<Artifact>>(results.AsReadOnly());
     }
+
+    /// <summary>
+    /// The real query is <c>AsNoTracking</c>, so its results are detached snapshots: a later
+    /// update through the repository does not reach back and change them. Returning the stored
+    /// instances instead would let a caller that holds onto a listing see edits it could never
+    /// see in production — which is exactly the staleness any cache over this listing has to
+    /// handle, so a fake that hides it would make those tests pass for the wrong reason.
+    /// </summary>
+    private static Artifact Detach(Artifact a) => new()
+    {
+        Id = a.Id,
+        WorldId = a.WorldId,
+        Type = a.Type,
+        Name = a.Name,
+        Summary = a.Summary,
+        Visibility = a.Visibility,
+        Confidence = a.Confidence,
+        Status = a.Status,
+        CreatedAt = a.CreatedAt,
+        UpdatedAt = a.UpdatedAt,
+        CreatedByUserId = a.CreatedByUserId,
+        RowVersion = a.RowVersion
+    };
 
     public Task<IReadOnlyList<Artifact>> ListRecentByWorldAsync(
         Guid worldId,

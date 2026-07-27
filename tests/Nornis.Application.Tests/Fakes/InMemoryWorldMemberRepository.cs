@@ -16,8 +16,14 @@ public class InMemoryWorldMemberRepository : IWorldMemberRepository
         return Task.FromResult(member);
     }
 
+    /// <summary>Membership lookups performed. The applicator builds a visibility filter from one
+    /// of these, and used to do it once per proposal.</summary>
+    public int GetByWorldAndUserCallCount { get; private set; }
+
     public Task<WorldMember?> GetByWorldAndUserAsync(Guid worldId, Guid userId, CancellationToken cancellationToken = default)
     {
+        GetByWorldAndUserCallCount++;
+
         var member = _members.FirstOrDefault(m => m.WorldId == worldId && m.UserId == userId);
         return Task.FromResult(member);
     }

@@ -25,6 +25,20 @@ public class ProposalApplicator : IProposalApplicator
         NumberHandling = JsonNumberHandling.AllowReadingFromString
     };
 
+    /// <summary>
+    /// Candidate artifacts for the CreateArtifact dedup, keyed by (world, type). Accepting a
+    /// 50-proposal batch used to reload every artifact of the proposed type once per create, plus
+    /// a membership lookup each time to build the author's visibility filter.
+    ///
+    /// This applicator is registered scoped, so the cache lives exactly as long as one request.
+    /// It is NOT a general artifact cache — see <see cref="GetDedupCandidatesAsync"/> for what
+    /// keeps it honest.
+    /// </summary>
+    private readonly Dictionary<(Guid WorldId, ArtifactType Type), List<Artifact>> _dedupCandidates = new();
+
+    /// <summary>Author visibility filters, which cost a membership query each to build.</summary>
+    private readonly Dictionary<(Guid WorldId, Guid AuthorUserId), VisibilityFilter> _authorFilters = new();
+
     private readonly IArtifactRepository _artifactRepository;
     private readonly IArtifactFactRepository _artifactFactRepository;
     private readonly IArtifactRelationshipRepository _artifactRelationshipRepository;
@@ -142,6 +156,11 @@ public class ProposalApplicator : IProposalApplicator
 
         await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, artifact.Id, proposal.Id, ct);
 
+        // The next create in this request must be able to dedup against this one, or two proposals
+        // naming the same new artifact would both miss and both insert. Last, not right after the
+        // insert: everything above can still fail the apply and roll the artifact back.
+        RememberCreatedArtifact(artifact);
+
         return AppResult<ApplyResult>.Success(new ApplyResult(artifact.Id, SourceReferenceTargetType.Artifact));
     }
 
@@ -162,7 +181,7 @@ public class ProposalApplicator : IProposalApplicator
         if (ArtifactNameKey.Collapse(proposedName).Length == 0)
             return null;
 
-        var authorFilter = await ResolveAuthorFilterAsync(worldId, source.CreatedByUserId, ct);
+        var authorFilter = await GetAuthorFilterAsync(worldId, source.CreatedByUserId, ct);
 
         // Two gates, and a candidate must pass both.
         //
@@ -175,23 +194,158 @@ public class ProposalApplicator : IProposalApplicator
         // shown, so it can only ever bind to something it genuinely failed to spot.
         var sourceFilter = VisibilityFilter.ForSourceContext(source.Visibility, source.CreatedByUserId);
 
-        var candidates = (await _artifactRepository.ListByTypeAsync(worldId, type, authorFilter, ct))
+        var candidates = (await GetDedupCandidatesAsync(worldId, type, ct))
             .Where(a => a.Status == ArtifactStatus.Active
+                && authorFilter.CanSee(a.Visibility, a.CreatedByUserId)
                 && sourceFilter.CanSee(a.Visibility, a.CreatedByUserId)
                 && ArtifactNameKey.AreEquivalent(a.Name, proposedName))
-            .ToList();
-
-        if (candidates.Count == 0)
-            return null;
-
-        // Canon may already hold duplicates. Pick the same one every time: exact-case match
-        // wins, then the oldest (the original), then id as a last resort so the choice is
-        // total even for rows minted in the same tick.
-        return candidates
+            // Canon may already hold duplicates. Pick the same one every time: exact-case match
+            // wins, then the oldest (the original), then id as a last resort so the choice is
+            // total even for rows minted in the same tick.
             .OrderByDescending(a => ArtifactNameKey.AreExactCaseEquivalent(a.Name, proposedName))
             .ThenBy(a => a.CreatedAt)
             .ThenBy(a => a.Id)
-            .First();
+            .ToList();
+
+        // The set is a snapshot, so the winner is confirmed against the database before it is
+        // used. On a miss the next candidate gets its turn — canon can hold same-name duplicates,
+        // and one of them going stale is no reason to skip the rest.
+        foreach (var candidate in candidates)
+        {
+            if (await ConfirmMatchAsync(candidate, proposedName, authorFilter, sourceFilter, ct))
+                return candidate;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Every non-archived artifact of this type in this world, read once per (world, type) and
+    /// then kept current in memory for the life of the request.
+    ///
+    /// <para><b>Deliberately unfiltered.</b> The visibility gates run in memory in
+    /// <see cref="FindMatchingArtifactAsync"/> instead, over the same rows and by the same
+    /// <see cref="VisibilityFilter.CanSee"/> the SQL predicate uses — so the outcome is identical.
+    /// Reading per-author sets instead would be the narrower query but the wrong cache: one
+    /// request accepts proposals from several authors' sources, and an artifact created against
+    /// one author's set would leave every other author's set stale. That is the "Salt Factor"
+    /// failure — two proposals naming the same new artifact both miss the dedup and both insert,
+    /// stranding half the batch's facts on a duplicate. Keying on what the ROW is, rather than on
+    /// who is looking, makes that unrepresentable.</para>
+    ///
+    /// <para>Anything that could change whether a row still belongs here — a rename, a status
+    /// change, an archive on merge — drops the whole cache rather than trying to patch it.</para>
+    /// </summary>
+    private async Task<IReadOnlyList<Artifact>> GetDedupCandidatesAsync(
+        Guid worldId, ArtifactType type, CancellationToken ct)
+    {
+        if (_dedupCandidates.TryGetValue((worldId, type), out var cached))
+        {
+            return cached;
+        }
+
+        var loaded = (await _artifactRepository.ListByTypeAsync(worldId, type, VisibilityFilter.All, ct)).ToList();
+        _dedupCandidates[(worldId, type)] = loaded;
+        return loaded;
+    }
+
+    /// <summary>
+    /// Adds a just-created artifact to its cached candidate set, so the next create in the same
+    /// request can dedup against it. Called only once the create has fully succeeded — an artifact
+    /// whose apply failed after the insert is about to be rolled back and must never be offered.
+    /// </summary>
+    private void RememberCreatedArtifact(Artifact artifact)
+    {
+        if (!_dedupCandidates.TryGetValue((artifact.WorldId, artifact.Type), out var cached))
+        {
+            // Nothing cached for this (world, type) yet — the next lookup reads it fresh and
+            // will include this artifact anyway.
+            return;
+        }
+
+        if (artifact.Status == ArtifactStatus.Archived)
+        {
+            // Mirrors the one non-visibility clause of the SQL predicate. Visibility is not
+            // tested here: the set is unfiltered by design and the gates run at match time.
+            return;
+        }
+
+        cached.Add(artifact);
+    }
+
+    /// <summary>
+    /// Re-reads a chosen candidate and re-runs every gate against the fresh row. Only a candidate
+    /// that still holds up is allowed to become the match.
+    ///
+    /// <para><b>Why every match, not just the interesting ones.</b> The candidate set is a
+    /// snapshot, and two different things can make an entry wrong by the time it is chosen. A
+    /// create applied earlier in this request may have been rolled back — each proposal gets its
+    /// own transaction and the accept loop carries on afterwards on this same applicator. And
+    /// another request may have renamed, archived or narrowed the visibility of an artifact this
+    /// one read minutes ago. The code that this replaced re-listed before every create, so it saw
+    /// both; re-reading only the ids created here would fix the first and quietly keep the second.
+    /// One rule that covers both is easier to keep true than two with a carve-out.</para>
+    ///
+    /// <para>Getting it wrong is not a stale read, it is a wrong write: the proposal is reported
+    /// as "bound to existing", provenance commits against an artifact that is gone, renamed, or
+    /// hidden from the source's own audience, and every fact in the batch that named it then
+    /// fails to resolve with the create already Accepted and unable to be reopened.</para>
+    ///
+    /// <para>The cost is one primary-key lookup per successful dedup, against the full listing
+    /// per create that this change removed. It closes the window to the same width the old code
+    /// had — read then write, with no lock in between — rather than to zero.</para>
+    /// </summary>
+    private async Task<bool> ConfirmMatchAsync(
+        Artifact candidate, string proposedName,
+        VisibilityFilter authorFilter, VisibilityFilter sourceFilter, CancellationToken ct)
+    {
+        var fresh = await _artifactRepository.GetByIdAsync(candidate.Id, ct);
+
+        if (fresh is not null
+            && fresh.Status == ArtifactStatus.Active
+            && authorFilter.CanSee(fresh.Visibility, fresh.CreatedByUserId)
+            && sourceFilter.CanSee(fresh.Visibility, fresh.CreatedByUserId)
+            && ArtifactNameKey.AreEquivalent(fresh.Name, proposedName))
+        {
+            return true;
+        }
+
+        // Stale. Replace the snapshot's copy with what the database actually holds so the next
+        // proposal in this request is judged on the fresh row — or drop it entirely if it is gone
+        // or archived, which is the one state the set never holds.
+        foreach (var set in _dedupCandidates.Values)
+        {
+            set.RemoveAll(a => a.Id == candidate.Id);
+        }
+
+        if (fresh is not null
+            && fresh.Status != ArtifactStatus.Archived
+            && _dedupCandidates.TryGetValue((fresh.WorldId, fresh.Type), out var cached))
+        {
+            cached.Add(fresh);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Drops every cached candidate set. Called by the arms that rename, re-status or archive an
+    /// artifact: each of those can change whether a row still matches, and patching the cache per
+    /// mutation is exactly the kind of cleverness that reintroduces a duplicate-creation bug.
+    /// These arms are rare within a request, so refetching costs little.
+    /// </summary>
+    private void InvalidateDedupCandidates() => _dedupCandidates.Clear();
+
+    private async Task<VisibilityFilter> GetAuthorFilterAsync(Guid worldId, Guid authorUserId, CancellationToken ct)
+    {
+        if (_authorFilters.TryGetValue((worldId, authorUserId), out var cached))
+        {
+            return cached;
+        }
+
+        var filter = await ResolveAuthorFilterAsync(worldId, authorUserId, ct);
+        _authorFilters[(worldId, authorUserId)] = filter;
+        return filter;
     }
 
     /// <summary>
@@ -339,6 +493,10 @@ public class ProposalApplicator : IProposalApplicator
 
         await _artifactRepository.UpdateAsync(artifact, ct);
 
+        // Name, visibility and status are all inputs to the dedup query, and this arm can change
+        // any of them.
+        InvalidateDedupCandidates();
+
         // A storyline resolved by accepting a wrap-up/retrospective closure settles its
         // provisional facts to Confirmed, exactly as the artifact-page action does.
         if (resolvedNow && artifact.Type == ArtifactType.Storyline)
@@ -441,6 +599,10 @@ public class ProposalApplicator : IProposalApplicator
         sourceArtifact.Status = ArtifactStatus.Archived;
         sourceArtifact.UpdatedAt = DateTimeOffset.UtcNow;
         await _artifactRepository.UpdateAsync(sourceArtifact, ct);
+
+        // The archived source must stop matching, and the merge target's name or visibility may
+        // have moved too.
+        InvalidateDedupCandidates();
 
         await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, targetArtifact.Id, proposal.Id, ct);
 

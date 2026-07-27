@@ -496,11 +496,62 @@ a downstream failure and a repeated write on a warm cache.
       `CharacterService` re-queries for the member's `Id`, not its role, which is a genuine need.
       What remains is ~13 round trips on world-settings and member-management endpoints, which are
       rare. Not worth the authorization-surface churn at the scale Phase 2 measured.
-- [ ] The artifact-candidate-set hoist (`ListByEquivalentNameAsync` loading every world artifact
-      per apply). This is the one carrying the "Salt Factor" dedup bug if the set is not
-      invalidated after each create. It addresses a different cost from the hoists above, and is
-      the single riskiest remaining change in the plan. Do it on its own, with tests for the
-      intra-batch create ordering first.
+- [x] ~~The artifact-candidate-set hoist~~ — **DONE 2026-07-27, see below.** It was descoped here
+      as the single riskiest remaining change, to be done on its own with tests first. It was, and
+      the risk was not theoretical: two review passes found three ways it reintroduced the very bug
+      it was warned about.
+
+## The artifact-candidate-set hoist — DONE 2026-07-27
+
+Accepting a review batch ran, *per `CreateArtifact` proposal*, a full `ListByTypeAsync` (every
+non-archived artifact of that type in the world) plus a `GetByWorldAndUserAsync` to build the
+source author's visibility filter. A 50-proposal batch was ~100 queries. Both are now memoised on
+the applicator, which is `AddScoped` — one instance per request. Ten creates of one type: 1 listing
+and 1 membership query, down from 10 and 10.
+
+The plan's standing warning was *"the hoisted artifact set must be invalidated after each create or
+the 'Salt Factor' dedup bug returns"* — two proposals naming the same new artifact both miss the
+dedup and both insert, stranding half the batch's facts on a duplicate. That was the easy half.
+`code-critic` found two more routes to the same failure that the warning did not anticipate, and a
+third on the re-review:
+
+1. **Cross-author staleness.** The first cut keyed the cache by (world, author, type) — the two
+   things the query varies on — and appended a new artifact only to its own author's entry. But one
+   accept spans every source in the world, so consecutive proposals routinely have different
+   authors, and another author's entry warmed earlier in the request went stale. No rename or merge
+   anywhere near it. Fixed by keying on (world, type) and loading unfiltered, running both
+   visibility gates in memory instead: keying on what the row *is* rather than on who is looking
+   makes the failure unrepresentable.
+2. **Rolled-back creates became ghost matches.** Each proposal applies in its own transaction and
+   the accept loop carries on afterwards *on the same applicator*. A create that failed after its
+   insert — a bad map-pin block, a transient error committing — stayed in the cache forever. The
+   next proposal naming it would be reported "bound to existing", commit provenance against an id
+   no row carries, and leave every fact on that name unresolvable with the create already Accepted
+   and unable to be reopened.
+3. **Concurrent writes from other requests.** The fix for (2) re-read only ids created *this*
+   request, and I wrote a comment asserting that rows read from the database needed no re-check.
+   **That claim was wrong.** The old code re-listed before every create, so it saw other requests'
+   writes for free; a snapshot gives that up. Another GM archiving, renaming, or narrowing the
+   visibility of an artifact mid-accept would leave this request binding to it. The visibility case
+   is the quiet one: a player's note filed as provenance on canon that has since been hidden from
+   them.
+
+(2) and (3) are now one rule rather than two with a carve-out: the chosen match is re-read and
+re-gated against the fresh row before it is used, always. That costs one primary-key lookup per
+successful dedup — against the full listing per create that this change removed — and closes the
+window to the same width the old code had, read-then-write with no lock, rather than to zero.
+
+16 tests, each mutation-checked: neutering the fresh-row gates kills exactly the four concurrency
+tests, neutering the existence check kills exactly the rollback test, and all three of the tests
+written for the review findings fail against the version the review rejected. The test fake's
+`ListByTypeAsync` now returns detached copies, mirroring `AsNoTracking()` — without that, two of
+the invalidation tests passed vacuously, because the fake handed back the same object the
+applicator had cached and a rename appeared to reach into the cache by itself.
+
+**Known and accepted:** a single-proposal interactive accept now loads every artifact of that type
+in the world rather than the author-filtered subset, so in a world with a lot of GM-only content it
+carries more payload for the same one query. A projection to the columns dedup actually reads would
+remove it; not worth it at current scale.
 
 ## Phase 6 — worker reliability half — DONE 2026-07-27
 
