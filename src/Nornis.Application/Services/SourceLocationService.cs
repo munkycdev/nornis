@@ -136,19 +136,23 @@ public class SourceLocationService : ISourceLocationService
         var artifactIds = references
             .Where(r => r.TargetType == SourceReferenceTargetType.Artifact)
             .Select(r => r.TargetId)
-            .Distinct();
+            .Distinct()
+            .ToList();
+
+        // One query instead of one per referenced artifact. A session note routinely references
+        // 20-60 artifacts and yields a handful of locations, so this was ~50 round trips to
+        // produce ~4 rows. The predicate below is unchanged — only the fetch is batched.
+        var artifacts = await _artifactRepository.ListByIdsAsync(artifactIds, ct);
 
         var locations = new List<LinkedLocation>();
-        foreach (var artifactId in artifactIds)
+        foreach (var artifact in artifacts)
         {
-            var artifact = await _artifactRepository.GetByIdAsync(artifactId, ct);
-            if (artifact is null
-                || artifact.WorldId != worldId
+            if (artifact.WorldId != worldId
                 || artifact.Type != ArtifactType.Location
                 || artifact.Status == ArtifactStatus.Archived
                 || !filter.CanSee(artifact.Visibility, artifact.CreatedByUserId))
             {
-                continue; // not a place, gone, archived, or hidden from this caller
+                continue; // not a place, archived, or hidden from this caller
             }
             locations.Add(new LinkedLocation(artifact.Id, artifact.Name, artifact.Summary));
         }

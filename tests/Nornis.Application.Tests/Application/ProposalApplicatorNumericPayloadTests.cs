@@ -66,7 +66,7 @@ public class ProposalApplicatorNumericPayloadTests
         var proposal = MakeProposal(ReviewChangeType.CreateArtifact,
             """{"name":"Captain Voss","type":"Character","confidence":"0.99"}""");
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(_artifactRepo.Artifacts.Single().Confidence, Is.EqualTo(0.99m));
@@ -93,7 +93,7 @@ public class ProposalApplicatorNumericPayloadTests
             """{"predicate":"serves","value":"the harbor guard","confidence":"0.75"}""",
             targetId: artifact.Id);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(_factRepo.Facts.Single().Confidence, Is.EqualTo(0.75m));
@@ -105,7 +105,7 @@ public class ProposalApplicatorNumericPayloadTests
         var proposal = MakeProposal(ReviewChangeType.CreateArtifact,
             """{"name":"Captain Voss","type":"Character","confidence":"high"}""");
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, VisibilityFilter.All, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, VisibilityFilter.All, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("invalid_payload"));

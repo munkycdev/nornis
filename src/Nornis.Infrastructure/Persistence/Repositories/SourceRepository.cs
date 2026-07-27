@@ -31,6 +31,23 @@ public class SourceRepository : ISourceRepository
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<SourceAttribution>> ListAttributionByIdsAsync(
+        IReadOnlyList<Guid> ids,
+        CancellationToken cancellationToken = default)
+    {
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        // Projected, not Include'd: this deliberately never touches Body or DerivedText.
+        return await _context.Sources
+            .AsNoTracking()
+            .Where(s => ids.Contains(s.Id))
+            .Select(s => new SourceAttribution(s.Id, s.Title, s.Visibility, s.CreatedByUserId))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default)
     {
         var query = _context.Sources

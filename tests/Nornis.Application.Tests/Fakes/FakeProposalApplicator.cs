@@ -47,6 +47,7 @@ public class FakeProposalApplicator : IProposalApplicator
     public Task<AppResult<ApplyResult>> ApplyAsync(
         ReviewProposal proposal,
         ReviewBatch batch,
+        Source source,
         VisibilityFilter actingFilter,
         CancellationToken ct)
     {

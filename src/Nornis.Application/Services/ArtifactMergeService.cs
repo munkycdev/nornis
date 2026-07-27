@@ -114,7 +114,7 @@ public class ArtifactMergeService : IArtifactMergeService
             await _reviewProposalRepository.CreateAsync(proposal, ct);
 
             // GM-gated above (role != GM is rejected), so resolution is unrestricted.
-            var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, VisibilityFilter.All, ct);
+            var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, source, VisibilityFilter.All, ct);
             if (!applyResult.IsSuccess)
             {
                 await transaction.RollbackAsync(ct);

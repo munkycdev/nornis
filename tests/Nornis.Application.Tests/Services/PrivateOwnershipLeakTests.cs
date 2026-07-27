@@ -264,7 +264,7 @@ public class PrivateOwnershipLeakTests
         // CreateArtifact
         var createProposal = MakeProposal(batch.Id, ReviewChangeType.CreateArtifact, null,
             """{"name":"Voss Informant","type":"Character"}""");
-        var created = await applicator.ApplyAsync(createProposal, batch, VisibilityFilter.All, CancellationToken.None);
+        var created = await applicator.ApplyAsync(createProposal, batch, source, VisibilityFilter.All, CancellationToken.None);
         Assert.That(created.IsSuccess, Is.True);
         var newArtifact = _artifactRepo.Artifacts.Single(a => a.Name == "Voss Informant");
         Assert.That(newArtifact.CreatedByUserId, Is.EqualTo(PlayerA), "artifact carries the source author");
@@ -272,7 +272,7 @@ public class PrivateOwnershipLeakTests
         // AddFact (targeting the new artifact)
         var factProposal = MakeProposal(batch.Id, ReviewChangeType.AddFact, newArtifact.Id,
             """{"predicate":"works at","value":"the docks"}""");
-        var addedFact = await applicator.ApplyAsync(factProposal, batch, VisibilityFilter.All, CancellationToken.None);
+        var addedFact = await applicator.ApplyAsync(factProposal, batch, source, VisibilityFilter.All, CancellationToken.None);
         Assert.That(addedFact.IsSuccess, Is.True);
         var newFact = _factRepo.Facts.Single(f => f.Predicate == "works at");
         Assert.That(newFact.CreatedByUserId, Is.EqualTo(PlayerA), "fact carries the source author");
@@ -280,7 +280,7 @@ public class PrivateOwnershipLeakTests
         // AddRelationship
         var relProposal = MakeProposal(batch.Id, ReviewChangeType.AddRelationship, null,
             $$"""{"artifactAId":"{{newArtifact.Id}}","artifactBId":"{{_partyArtifact.Id}}","type":"WorksIn"}""");
-        var addedRel = await applicator.ApplyAsync(relProposal, batch, VisibilityFilter.All, CancellationToken.None);
+        var addedRel = await applicator.ApplyAsync(relProposal, batch, source, VisibilityFilter.All, CancellationToken.None);
         Assert.That(addedRel.IsSuccess, Is.True);
         var newRel = _relationshipRepo.Relationships.Single(r => r.Type == "WorksIn");
         Assert.That(newRel.CreatedByUserId, Is.EqualTo(PlayerA), "relationship carries the source author");

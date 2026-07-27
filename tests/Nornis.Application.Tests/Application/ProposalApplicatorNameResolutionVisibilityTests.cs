@@ -34,6 +34,7 @@ public class ProposalApplicatorNameResolutionVisibilityTests
     private Guid _playerId;
     private Guid _otherPlayerId;
     private ReviewBatch _batch = null!;
+    private Source _source = null!;
 
     /// <summary>What the Player accepting a proposal on their own source may see.</summary>
     private VisibilityFilter PlayerFilter => VisibilityFilter.ForRole(WorldRole.Player, _playerId);
@@ -63,7 +64,9 @@ public class ProposalApplicatorNameResolutionVisibilityTests
         _otherPlayerId = Guid.NewGuid();
 
         // The Player's own source — this is what gets them past CheckReviewAuthorization.
-        _sourceRepo.Seed(new Source
+        // Kept in a field because the applicator now takes it directly; the callers in
+        // production already hold it, so re-reading it per apply was pure round trips.
+        _source = new Source
         {
             Id = _sourceId,
             WorldId = _worldId,
@@ -74,7 +77,8 @@ public class ProposalApplicatorNameResolutionVisibilityTests
             ProcessingStatus = SourceProcessingStatus.Processed,
             CreatedByUserId = _playerId,
             CreatedAt = DateTimeOffset.UtcNow.AddHours(-1)
-        });
+        };
+        _sourceRepo.Seed(_source);
 
         _batch = new ReviewBatch
         {
@@ -142,7 +146,7 @@ public class ProposalApplicatorNameResolutionVisibilityTests
             ArtifactAName: "Captain Voss", ArtifactBName: "The Lich's True Name");
         var proposal = MakeProposal(ReviewChangeType.AddRelationship, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, PlayerFilter, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, PlayerFilter, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False,
             "a relationship endpoint is a name reference too — same gate applies");
@@ -159,7 +163,7 @@ public class ProposalApplicatorNameResolutionVisibilityTests
             null, "Hidden Vault", Guid.NewGuid(), 0.5m, 0.5m, "Vault", null);
         var proposal = MakeProposal(ReviewChangeType.AddPlacemark, payload);
 
-        var result = await _applicator.ApplyAsync(proposal, _batch, PlayerFilter, CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, PlayerFilter, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False,
             "a Player must not drop a map pin onto a GM-only location");
@@ -256,7 +260,7 @@ public class ProposalApplicatorNameResolutionVisibilityTests
             ArtifactName: artifactName);
         var proposal = MakeProposal(ReviewChangeType.AddFact, payload);
 
-        return await _applicator.ApplyAsync(proposal, _batch, actingFilter, CancellationToken.None);
+        return await _applicator.ApplyAsync(proposal, _batch, _source, actingFilter, CancellationToken.None);
     }
 
     private Artifact SeedArtifact(

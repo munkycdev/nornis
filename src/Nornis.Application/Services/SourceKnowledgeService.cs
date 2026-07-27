@@ -50,28 +50,50 @@ public class SourceKnowledgeService : ISourceKnowledgeService
         var facts = new List<SourceKnowledgeFact>();
         var relationships = new List<SourceKnowledgeRelationship>();
 
-        // Cache artifact lookups: facts and relationships resolve their owning artifacts too.
-        var artifactCache = new Dictionary<Guid, Artifact?>();
-        async Task<Artifact?> ArtifactAsync(Guid id)
-        {
-            if (!artifactCache.TryGetValue(id, out var artifact))
-            {
-                artifact = await _artifactRepository.GetByIdAsync(id, ct);
-                artifactCache[id] = artifact;
-            }
-            return artifact;
-        }
+        // An extraction batch for a full session routinely produces 50-200 accepted items, and
+        // this ran a point lookup per one. Load each kind once up front instead, in two passes:
+        // facts and relationships first, then every artifact anyone needs — the directly cited
+        // ones plus each fact's owner and both ends of each relationship.
+        var byType = references.ToLookup(r => r.TargetType);
 
+        var factsById = (await _artifactFactRepository.ListByIdsAsync(
+                byType[SourceReferenceTargetType.ArtifactFact].Select(r => r.TargetId).Distinct().ToList(), ct))
+            .ToDictionary(f => f.Id);
+
+        var relationshipsById = (await _artifactRelationshipRepository.ListByIdsAsync(
+                byType[SourceReferenceTargetType.ArtifactRelationship].Select(r => r.TargetId).Distinct().ToList(), ct))
+            .ToDictionary(r => r.Id);
+
+        var neededArtifactIds = byType[SourceReferenceTargetType.Artifact].Select(r => r.TargetId)
+            .Concat(factsById.Values.Select(f => f.ArtifactId))
+            .Concat(relationshipsById.Values.Select(r => r.ArtifactAId))
+            .Concat(relationshipsById.Values.Select(r => r.ArtifactBId))
+            .Distinct()
+            .ToList();
+
+        var artifactsById = (await _artifactRepository.ListByIdsAsync(neededArtifactIds, ct))
+            .ToDictionary(a => a.Id);
+
+        // Set-based dedup replaces the linear scans over the accumulating result lists, which
+        // were O(n²) across those same 50-200 items.
+        var seenArtifacts = new HashSet<Guid>();
+        var seenFacts = new HashSet<Guid>();
+        var seenRelationships = new HashSet<Guid>();
+
+        Artifact? ArtifactOrNull(Guid id) => artifactsById.GetValueOrDefault(id);
+
+        // Still driven by reference order, so the Quote shown for an item remains the one from
+        // its FIRST reference — the excerpts on this panel would otherwise silently change.
         foreach (var reference in references)
         {
             switch (reference.TargetType)
             {
                 case SourceReferenceTargetType.Artifact:
                 {
-                    var artifact = await ArtifactAsync(reference.TargetId);
+                    var artifact = ArtifactOrNull(reference.TargetId);
                     if (artifact is not null && artifact.WorldId == worldId
                         && Visible(filter, artifact.Visibility, artifact.CreatedByUserId)
-                        && artifacts.All(a => a.ArtifactId != artifact.Id))
+                        && seenArtifacts.Add(artifact.Id))
                     {
                         artifacts.Add(new SourceKnowledgeArtifact(
                             artifact.Id, artifact.Name, artifact.Type.ToString(), reference.Quote));
@@ -80,15 +102,16 @@ public class SourceKnowledgeService : ISourceKnowledgeService
                 }
                 case SourceReferenceTargetType.ArtifactFact:
                 {
-                    var fact = await _artifactFactRepository.GetByIdAsync(reference.TargetId, ct);
-                    if (fact is null || !Visible(filter, fact.Visibility, fact.CreatedByUserId)
-                        || facts.Any(f => f.FactId == fact.Id))
+                    if (!factsById.TryGetValue(reference.TargetId, out var fact)
+                        || !Visible(filter, fact.Visibility, fact.CreatedByUserId)
+                        || seenFacts.Contains(fact.Id))
                     {
                         break;
                     }
-                    var owner = await ArtifactAsync(fact.ArtifactId);
+                    var owner = ArtifactOrNull(fact.ArtifactId);
                     if (owner is not null && owner.WorldId == worldId)
                     {
+                        seenFacts.Add(fact.Id);
                         facts.Add(new SourceKnowledgeFact(
                             fact.Id, owner.Id, owner.Name, fact.Predicate, fact.Value,
                             fact.TruthState.ToString(), fact.Visibility.ToString(), reference.Quote));
@@ -97,17 +120,18 @@ public class SourceKnowledgeService : ISourceKnowledgeService
                 }
                 case SourceReferenceTargetType.ArtifactRelationship:
                 {
-                    var relationship = await _artifactRelationshipRepository.GetByIdAsync(reference.TargetId, ct);
-                    if (relationship is null || relationship.WorldId != worldId
+                    if (!relationshipsById.TryGetValue(reference.TargetId, out var relationship)
+                        || relationship.WorldId != worldId
                         || !Visible(filter, relationship.Visibility, relationship.CreatedByUserId)
-                        || relationships.Any(r => r.RelationshipId == relationship.Id))
+                        || seenRelationships.Contains(relationship.Id))
                     {
                         break;
                     }
-                    var a = await ArtifactAsync(relationship.ArtifactAId);
-                    var b = await ArtifactAsync(relationship.ArtifactBId);
+                    var a = ArtifactOrNull(relationship.ArtifactAId);
+                    var b = ArtifactOrNull(relationship.ArtifactBId);
                     if (a is not null && b is not null)
                     {
+                        seenRelationships.Add(relationship.Id);
                         relationships.Add(new SourceKnowledgeRelationship(
                             relationship.Id, a.Id, a.Name, relationship.Type, b.Id, b.Name, reference.Quote));
                     }

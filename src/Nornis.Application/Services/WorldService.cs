@@ -202,16 +202,20 @@ public class WorldService : IWorldService
     {
         var worlds = await _worldRepository.ListByUserAsync(userId, ct);
 
-        var result = new List<WorldWithRoleDto>();
+        // Two queries regardless of how many worlds the user belongs to. This used to issue one
+        // membership lookup per world, on an endpoint the app shell hits on essentially every
+        // page load — and because every repository read is AsNoTracking there is no identity map
+        // to absorb the repeats.
+        var rolesByWorld = (await _worldMemberRepository.ListByUserAsync(userId, ct))
+            .ToDictionary(m => m.WorldId, m => m.Role);
 
-        foreach (var world in worlds)
-        {
-            var member = await _worldMemberRepository.GetByWorldAndUserAsync(world.Id, userId, ct);
-            if (member is not null)
-            {
-                result.Add(new WorldWithRoleDto(world, member.Role));
-            }
-        }
+        // Membership is still required, not assumed: ListByUserAsync already filters to worlds
+        // this user belongs to, so a miss here should be impossible — but dropping the world on a
+        // miss preserves the previous behaviour exactly rather than inventing a default role.
+        var result = worlds
+            .Where(world => rolesByWorld.ContainsKey(world.Id))
+            .Select(world => new WorldWithRoleDto(world, rolesByWorld[world.Id]))
+            .ToList();
 
         return AppResult<IReadOnlyList<WorldWithRoleDto>>.Success(result);
     }

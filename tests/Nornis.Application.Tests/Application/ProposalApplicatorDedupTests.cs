@@ -88,7 +88,7 @@ public class ProposalApplicatorDedupTests
         var existing = SeedArtifact("Black Harbor", ArtifactType.Location, summary: "A vetted summary.");
 
         var proposal = MakeCreate("Black Harbor", "Location", summary: "A fresh, worse summary.");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(_artifactRepo.Artifacts, Has.Count.EqualTo(1), "no second artifact may be inserted");
@@ -115,7 +115,7 @@ public class ProposalApplicatorDedupTests
         var proposal = MakeCreate(
             "Black Harbor", "Location",
             summary: "A fresh, worse summary.", visibility: "Private", confidence: 0.3m);
-        await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         var after = _artifactRepo.Artifacts.Single();
         Assert.That(after.Summary, Is.EqualTo("A vetted summary."));
@@ -132,7 +132,7 @@ public class ProposalApplicatorDedupTests
         var existing = SeedArtifact("Black Harbor", ArtifactType.Location);
 
         var proposal = MakeCreate(proposedName, "Location");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.MatchedExistingArtifact, Is.True);
         Assert.That(result.Value.EntityId, Is.EqualTo(existing.Id));
@@ -145,7 +145,7 @@ public class ProposalApplicatorDedupTests
         SeedArtifact("Black Harbor", ArtifactType.Location);
 
         var proposal = MakeCreate("Black Harbor", "Faction");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.MatchedExistingArtifact, Is.False);
         Assert.That(_artifactRepo.Artifacts, Has.Count.EqualTo(2));
@@ -158,7 +158,7 @@ public class ProposalApplicatorDedupTests
         SeedArtifact("The Salt Factor", ArtifactType.Storyline);
 
         var proposal = MakeCreate("Salt Factor", "Storyline");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.MatchedExistingArtifact, Is.False,
             "article stripping is deliberately left to manual merge");
@@ -171,7 +171,7 @@ public class ProposalApplicatorDedupTests
         SeedArtifact("Black Harbor", ArtifactType.Location, status: ArtifactStatus.Archived);
 
         var proposal = MakeCreate("Black Harbor", "Location");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.MatchedExistingArtifact, Is.False);
         Assert.That(_artifactRepo.Artifacts, Has.Count.EqualTo(2));
@@ -187,7 +187,7 @@ public class ProposalApplicatorDedupTests
         SeedArtifact("Black Harbor", ArtifactType.Location, visibility: VisibilityScope.GMOnly);
 
         var proposal = MakeCreate("Black Harbor", "Location");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.MatchedExistingArtifact, Is.False);
         Assert.That(_artifactRepo.Artifacts, Has.Count.EqualTo(2));
@@ -202,7 +202,7 @@ public class ProposalApplicatorDedupTests
             visibility: VisibilityScope.Private, createdByUserId: Guid.NewGuid());
 
         var proposal = MakeCreate("Black Harbor", "Location");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.MatchedExistingArtifact, Is.False);
         Assert.That(_artifactRepo.Artifacts, Has.Count.EqualTo(2));
@@ -217,7 +217,7 @@ public class ProposalApplicatorDedupTests
             visibility: VisibilityScope.Private, createdByUserId: _authorId);
 
         var proposal = MakeCreate("Black Harbor", "Location");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.MatchedExistingArtifact, Is.True);
         Assert.That(result.Value.EntityId, Is.EqualTo(existing.Id));
@@ -231,7 +231,7 @@ public class ProposalApplicatorDedupTests
         var existing = SeedArtifact("Black Harbor", ArtifactType.Location, visibility: VisibilityScope.GMOnly);
 
         var proposal = MakeCreate("Black Harbor", "Location");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.MatchedExistingArtifact, Is.True);
         Assert.That(result.Value.EntityId, Is.EqualTo(existing.Id));
@@ -251,7 +251,7 @@ public class ProposalApplicatorDedupTests
         SeedArtifact("Black Harbor", ArtifactType.Location, visibility: VisibilityScope.PartyVisible);
 
         var proposal = MakeCreate("Black Harbor", "Location");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.MatchedExistingArtifact, Is.False);
         Assert.That(_artifactRepo.Artifacts, Has.Count.EqualTo(2));
@@ -266,7 +266,7 @@ public class ProposalApplicatorDedupTests
             visibility: VisibilityScope.Private, createdByUserId: _authorId);
 
         var proposal = MakeCreate("Black Harbor", "Location");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.MatchedExistingArtifact, Is.False,
             "a public note's provenance must not be filed against a private artifact");
@@ -283,7 +283,7 @@ public class ProposalApplicatorDedupTests
         SeedArtifact("Silverfang", ArtifactType.Character, visibility: VisibilityScope.GMOnly);
 
         var proposal = MakeCreate("Silverfang", "Character");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.MatchedExistingArtifact, Is.False);
         Assert.That(_artifactRepo.Artifacts, Has.Count.EqualTo(2));
@@ -305,7 +305,7 @@ public class ProposalApplicatorDedupTests
         var existing = SeedArtifact("Black Harbor", ArtifactType.Location, visibility: VisibilityScope.PartyVisible);
 
         var proposal = MakeCreate("Black Harbor", "Location");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.MatchedExistingArtifact, Is.True);
         Assert.That(result.Value.EntityId, Is.EqualTo(existing.Id));
@@ -320,7 +320,7 @@ public class ProposalApplicatorDedupTests
         SeedArtifact("Black Harbor", ArtifactType.Location, visibility: VisibilityScope.GMOnly);
 
         var proposal = MakeCreate("Black Harbor", "Location");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.MatchedExistingArtifact, Is.False);
         Assert.That(_artifactRepo.Artifacts, Has.Count.EqualTo(2));
@@ -337,9 +337,9 @@ public class ProposalApplicatorDedupTests
         var visible = SeedArtifact("Black Harbor", ArtifactType.Location, visibility: VisibilityScope.PartyVisible);
 
         var hidden = await _applicator.ApplyAsync(
-            MakeCreate("Ledger of Tides", "Item"), _batch, GmFilter(), CancellationToken.None);
+            MakeCreate("Ledger of Tides", "Item"), _batch, _source, GmFilter(), CancellationToken.None);
         var shown = await _applicator.ApplyAsync(
-            MakeCreate("Black Harbor", "Location"), _batch, GmFilter(), CancellationToken.None);
+            MakeCreate("Black Harbor", "Location"), _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(hidden.Value!.MatchedExistingArtifact, Is.False);
         Assert.That(shown.Value!.MatchedExistingArtifact, Is.True);
@@ -357,7 +357,7 @@ public class ProposalApplicatorDedupTests
             "Black Harbor", ArtifactType.Location, createdAt: DateTimeOffset.UtcNow.AddDays(-1));
 
         var result = await _applicator.ApplyAsync(
-            MakeCreate("Black Harbor", "Location"), _batch, GmFilter(), CancellationToken.None);
+            MakeCreate("Black Harbor", "Location"), _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.EntityId, Is.EqualTo(newerExactCase.Id),
             "exact-case match wins over the older row");
@@ -372,7 +372,7 @@ public class ProposalApplicatorDedupTests
         SeedArtifact("BLACK HARBOR", ArtifactType.Location, createdAt: DateTimeOffset.UtcNow.AddDays(-1));
 
         var result = await _applicator.ApplyAsync(
-            MakeCreate("Black  Harbor", "Location"), _batch, GmFilter(), CancellationToken.None);
+            MakeCreate("Black  Harbor", "Location"), _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.EntityId, Is.EqualTo(oldest.Id));
     }
@@ -381,7 +381,7 @@ public class ProposalApplicatorDedupTests
     public async Task NoDuplicate_StillCreatesAndFlagsFalse()
     {
         var proposal = MakeCreate("Captain Voss", "Character");
-        var result = await _applicator.ApplyAsync(proposal, _batch, GmFilter(), CancellationToken.None);
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, GmFilter(), CancellationToken.None);
 
         Assert.That(result.Value!.MatchedExistingArtifact, Is.False);
         Assert.That(proposal.AppliedToExistingArtifact, Is.False);

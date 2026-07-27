@@ -295,7 +295,7 @@ public class ReviewService : IReviewService
             // Private artifact.
             var actingFilter = VisibilityFilter.ForRole(command.ActingUserRole, command.ActingUserId);
 
-            var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, actingFilter, ct);
+            var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, source, actingFilter, ct);
             if (!applyResult.IsSuccess)
             {
                 await transaction.RollbackAsync(ct);
@@ -678,7 +678,7 @@ public class ReviewService : IReviewService
         {
             var actingFilter = VisibilityFilter.ForRole(command.ActingUserRole, command.ActingUserId);
 
-            var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, actingFilter, ct);
+            var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, source, actingFilter, ct);
             if (!applyResult.IsSuccess)
             {
                 await transaction.RollbackAsync(ct);

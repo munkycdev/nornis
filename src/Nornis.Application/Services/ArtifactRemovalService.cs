@@ -60,12 +60,23 @@ public class ArtifactRemovalService : IArtifactRemovalService
         var pins = await _mapPlacemarkRepository.ListByArtifactAsync(artifactId, ct);
         var characterLinks = await LinkedCharactersAsync(worldId, artifactId, ct);
 
+        // One query for every counterpart rather than one per relationship — a hub artifact with
+        // 30 edges was costing 30 round trips to populate a confirmation dialog.
+        var otherIds = relationships
+            .Select(r => r.ArtifactAId == artifactId ? r.ArtifactBId : r.ArtifactAId)
+            .Distinct()
+            .ToList();
+        var othersById = (await _artifactRepository.ListByIdsAsync(otherIds, ct))
+            .ToDictionary(a => a.Id);
+
         var relationshipDescriptions = new List<string>();
         foreach (var relationship in relationships)
         {
             var otherId = relationship.ArtifactAId == artifactId ? relationship.ArtifactBId : relationship.ArtifactAId;
-            var other = await _artifactRepository.GetByIdAsync(otherId, ct);
-            relationshipDescriptions.Add($"{relationship.Type}: {other?.Name ?? "(unknown)"}");
+            // "(unknown)" is preserved for an id that no longer resolves — the dialog should say
+            // something rather than omit an edge it is about to delete.
+            var name = othersById.TryGetValue(otherId, out var other) ? other.Name : "(unknown)";
+            relationshipDescriptions.Add($"{relationship.Type}: {name}");
         }
 
         return AppResult<ArtifactRemovalPreview>.Success(new ArtifactRemovalPreview(

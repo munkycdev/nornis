@@ -266,25 +266,56 @@ it extrapolated from a window that included this session's own load testing.)
       is scaled to zero with an empty queue — which is the correct, cheap state.
 - [x] `CachedInputTokens` column added — see above.
 
-## Phase 3 — The N+1 cluster
+## Phase 3 — The N+1 cluster — DONE 2026-07-27 (7 of 8)
 
-All the same shape: a point lookup per item where a batch method already exists on the interface.
-Mechanical, low risk, high volume. Good first slice for the `implementer` subagent.
+Clean build (0 warnings), all **2,928 tests green**. No migration.
 
-- [ ] `WorldService.ListForUserAsync` — a membership query per world on `GET /api/worlds`, which runs
-      on essentially every page load. `IWorldMemberRepository.ListByUserAsync` already exists.
-- [ ] `SourceLocationService.BuildLocationsAsync` — ~50 round trips to produce ~4 rows.
-- [ ] `ArtifactRemovalService.PreviewAsync` — 30 round trips for a confirmation dialog.
-- [ ] `ProposalApplicator` `PartOf` branch — the identical relationship query issued twice.
-- [ ] Thread the already-loaded `Source` into `ProposalApplicator.ApplyAsync` and delete the seven
-      per-arm re-fetches. Both callers already hold it.
-- [ ] `ArtifactService.GetDetailAsync` — one query per cited source *and* one per connected artifact,
-      on the most-visited authenticated page, also served anonymously.
-- [ ] `SourceKnowledgeService` — a point lookup per provenance row (50–200 per session) plus O(n²)
-      dedup scans. Preserve first-reference-wins ordering for the displayed quote.
-- [ ] Split `HealthService` into a pure scorer over already-loaded collections plus a thin loader, so
-      the continuity audit stops loading the whole world graph twice. Note the two paths apply
-      *different* filters — getting that wrong silently changes the published health score.
+- [x] `WorldService.ListForUserAsync` — two queries regardless of world count, via the existing
+      `IWorldMemberRepository.ListByUserAsync`. Membership is still required rather than assumed,
+      so a world with no membership row still drops out exactly as before.
+- [x] `SourceLocationService.BuildLocationsAsync` — one batched fetch; predicate untouched.
+- [x] `ArtifactRemovalService.PreviewAsync` — one fetch for all counterparts. `"(unknown)"` is
+      preserved for an id that no longer resolves; the dialog should still mention an edge it is
+      about to delete.
+- [x] `ProposalApplicator` `PartOf` branch — the relationship list is fetched once and reused by
+      both the parent-move branch and the duplicate-edge check below it. Safe because the branch
+      only falls through when it found nothing, so it cannot have mutated the list it reuses.
+- [x] `Source` threaded into `ProposalApplicator.ApplyAsync`; all seven per-arm re-fetches gone.
+      This turned out to be **five** call sites, not the two the audit found — `ArtifactMergeService`
+      and `StorylineWrapUpService` also apply proposals, and `RevealService` needed its private
+      helper widened. All five already had the source in hand.
+- [x] `ArtifactService.GetDetailAsync` — both loops batched. The cited-source loop now uses a new
+      `SourceAttribution` projection rather than whole rows: a source carries `Body` and
+      `DerivedText`, so reading a title off a dozen citations was pulling transcripts across the
+      wire on the most-visited authenticated page. `CanSeeSource` was refactored to one
+      implementation over the two fields it actually reads, so the entity and projection paths
+      cannot drift — this decides whether a Private note leaks.
+- [x] `SourceKnowledgeService` — three batched loads (facts, relationships, then every artifact
+      anyone needs) replacing a point lookup per provenance row, and `HashSet` dedup replacing the
+      linear scans. Iteration is still driven by reference order, so the displayed quote is still
+      the one from an item's *first* reference.
+
+**Deferred — the `HealthService` split.** This is the one item Phase 2's numbers argue against
+doing now, so it is left undone rather than done carelessly.
+
+The duplicate load happens only in `ContinuityAuditService.RunAssessmentAsync`, which runs at most
+once per world per day and is immediately followed by a 10–30 second paid model call. Against
+that: the two callers differ in three dimensions — health includes Archived artifacts and the
+audit excludes them; health loads facts at `int.MaxValue` and the audit caps at 25 per artifact;
+and the two pass different artifact-id sets when fetching relationships. Getting any of those
+wrong silently changes a published, user-visible health score.
+
+I did confirm the merge is *feasible*: `ArtifactFactRepository.ListByArtifactIdsAsync` applies its
+per-artifact cap in memory after materializing, ordered by `UpdatedAt` descending, so loading the
+superset once and narrowing in memory is exactly equivalent. The seam is real; it just is not
+worth spending a scoring regression on to save ~100 ms from a daily, already-20-second operation
+on a 613-artifact database.
+
+- [ ] Revisit when world count or artifact volume grows: extract a pure
+      `Score(artifacts, facts, relationships, sourcedIds)` from `HealthService`, load the superset
+      once in `RunAssessmentAsync`, score the unfiltered set for the heuristic, and narrow in
+      memory for the prompt. Cover the archived/cap/endpoint differences with tests *first* —
+      the score is published, so a silent shift is worse than the duplicate query.
 
 ## Phase 4 — The activity endpoint
 

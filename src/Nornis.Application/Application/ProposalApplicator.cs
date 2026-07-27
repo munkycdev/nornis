@@ -55,24 +55,24 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     public async Task<AppResult<ApplyResult>> ApplyAsync(
-        ReviewProposal proposal, ReviewBatch batch, VisibilityFilter actingFilter, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, Source source, VisibilityFilter actingFilter, CancellationToken ct)
     {
         return proposal.ChangeType switch
         {
-            ReviewChangeType.CreateArtifact => await ApplyCreateArtifact(proposal, batch, ct),
-            ReviewChangeType.UpdateArtifact => await ApplyUpdateArtifact(proposal, batch, ct),
-            ReviewChangeType.MergeArtifact => await ApplyMergeArtifact(proposal, batch, ct),
-            ReviewChangeType.AddFact => await ApplyAddFact(proposal, batch, actingFilter, ct),
-            ReviewChangeType.UpdateFact => await ApplyUpdateFact(proposal, batch, ct),
-            ReviewChangeType.AddRelationship => await ApplyAddRelationship(proposal, batch, actingFilter, ct),
-            ReviewChangeType.UpdateRelationship => await ApplyUpdateRelationship(proposal, batch, ct),
-            ReviewChangeType.AddPlacemark => await ApplyAddPlacemark(proposal, batch, actingFilter, ct),
+            ReviewChangeType.CreateArtifact => await ApplyCreateArtifact(proposal, batch, source, ct),
+            ReviewChangeType.UpdateArtifact => await ApplyUpdateArtifact(proposal, batch, source, ct),
+            ReviewChangeType.MergeArtifact => await ApplyMergeArtifact(proposal, batch, source, ct),
+            ReviewChangeType.AddFact => await ApplyAddFact(proposal, batch, source, actingFilter, ct),
+            ReviewChangeType.UpdateFact => await ApplyUpdateFact(proposal, batch, source, ct),
+            ReviewChangeType.AddRelationship => await ApplyAddRelationship(proposal, batch, source, actingFilter, ct),
+            ReviewChangeType.UpdateRelationship => await ApplyUpdateRelationship(proposal, batch, source, ct),
+            ReviewChangeType.AddPlacemark => await ApplyAddPlacemark(proposal, batch, source, actingFilter, ct),
             _ => AppResult<ApplyResult>.Fail(new AppError(400, "unknown_change_type", $"Unknown change type: {proposal.ChangeType}"))
         };
     }
 
     private async Task<AppResult<ApplyResult>> ApplyCreateArtifact(
-        ReviewProposal proposal, ReviewBatch batch, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, Source source, CancellationToken ct)
     {
         var payload = Deserialize<CreateArtifactPayload>(proposal.ProposedValueJson);
         if (payload is null)
@@ -81,9 +81,6 @@ public class ProposalApplicator : IProposalApplicator
         if (!Enum.TryParse<ArtifactType>(payload.Type, ignoreCase: true, out var artifactType))
             return AppResult<ApplyResult>.Fail(new AppError(400, "invalid_artifact_type", $"Invalid artifact type: {payload.Type}"));
 
-        var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
-        if (source is null)
-            return AppResult<ApplyResult>.Fail(new AppError(400, "source_not_found", "Source associated with batch not found."));
 
         // Apply-time dedup backstop: sources readied together all extract against the same
         // canon, so several batches can each propose the same artifact. Bind to what is
@@ -213,7 +210,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<ApplyResult>> ApplyAddPlacemark(
-        ReviewProposal proposal, ReviewBatch batch, VisibilityFilter actingFilter, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, Source source, VisibilityFilter actingFilter, CancellationToken ct)
     {
         var payload = Deserialize<AddPlacemarkPayload>(proposal.ProposedValueJson);
         if (payload is null)
@@ -305,7 +302,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<ApplyResult>> ApplyUpdateArtifact(
-        ReviewProposal proposal, ReviewBatch batch, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, Source source, CancellationToken ct)
     {
         if (proposal.TargetId is null)
             return AppResult<ApplyResult>.Fail(new AppError(400, "missing_target_id", "UpdateArtifact requires a TargetId."));
@@ -318,9 +315,6 @@ public class ProposalApplicator : IProposalApplicator
         if (artifact is null)
             return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target artifact not found."));
 
-        var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
-        if (source is null)
-            return AppResult<ApplyResult>.Fail(new AppError(400, "source_not_found", "Source associated with batch not found."));
 
         if (payload.Name is not null)
             artifact.Name = payload.Name;
@@ -361,7 +355,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<ApplyResult>> ApplyMergeArtifact(
-        ReviewProposal proposal, ReviewBatch batch, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, Source source, CancellationToken ct)
     {
         if (proposal.TargetId is null)
             return AppResult<ApplyResult>.Fail(new AppError(400, "missing_target_id", "MergeArtifact requires a TargetId."));
@@ -378,9 +372,6 @@ public class ProposalApplicator : IProposalApplicator
         if (sourceArtifact is null)
             return AppResult<ApplyResult>.Fail(new AppError(404, "source_artifact_not_found", "Source artifact for merge not found."));
 
-        var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
-        if (source is null)
-            return AppResult<ApplyResult>.Fail(new AppError(400, "source_not_found", "Source associated with batch not found."));
 
         // Update target artifact fields from payload
         if (payload.Name is not null)
@@ -460,7 +451,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<ApplyResult>> ApplyAddFact(
-        ReviewProposal proposal, ReviewBatch batch, VisibilityFilter actingFilter, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, Source source, VisibilityFilter actingFilter, CancellationToken ct)
     {
         var payload = Deserialize<AddFactPayload>(proposal.ProposedValueJson);
         if (payload is null)
@@ -488,9 +479,6 @@ public class ProposalApplicator : IProposalApplicator
                 "AddFact requires a TargetId or an artifactName referencing an Artifact."));
         }
 
-        var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
-        if (source is null)
-            return AppResult<ApplyResult>.Fail(new AppError(400, "source_not_found", "Source associated with batch not found."));
 
         var now = DateTimeOffset.UtcNow;
         var visibility = ResolveVisibility(payload.Visibility, source);
@@ -522,7 +510,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<ApplyResult>> ApplyUpdateFact(
-        ReviewProposal proposal, ReviewBatch batch, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, Source source, CancellationToken ct)
     {
         if (proposal.TargetId is null)
             return AppResult<ApplyResult>.Fail(new AppError(400, "missing_target_id", "UpdateFact requires a TargetId."));
@@ -535,9 +523,6 @@ public class ProposalApplicator : IProposalApplicator
         if (fact is null)
             return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target fact not found."));
 
-        var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
-        if (source is null)
-            return AppResult<ApplyResult>.Fail(new AppError(400, "source_not_found", "Source associated with batch not found."));
 
         if (payload.Value is not null)
             fact.Value = payload.Value;
@@ -564,7 +549,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<ApplyResult>> ApplyAddRelationship(
-        ReviewProposal proposal, ReviewBatch batch, VisibilityFilter actingFilter, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, Source source, VisibilityFilter actingFilter, CancellationToken ct)
     {
         var payload = Deserialize<AddRelationshipPayload>(proposal.ProposedValueJson);
         if (payload is null)
@@ -589,9 +574,6 @@ public class ProposalApplicator : IProposalApplicator
             return AppResult<ApplyResult>.Fail(new AppError(400, "self_relationship",
                 "A relationship must connect two different artifacts."));
 
-        var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
-        if (source is null)
-            return AppResult<ApplyResult>.Fail(new AppError(400, "source_not_found", "Source associated with batch not found."));
 
         var now = DateTimeOffset.UtcNow;
         var visibility = ResolveVisibility(payload.Visibility, source);
@@ -600,9 +582,14 @@ public class ProposalApplicator : IProposalApplicator
         // PartOf is structural, not additive: a storyline sits under exactly one parent. An
         // approved proposal therefore *moves* the child rather than giving it a second parent,
         // which is what silently accumulated duplicate rows and broke the parent editor.
+        // Both the PartOf branch and the duplicate-edge check below need this same list, and the
+        // PartOf branch falls through to it when the storyline has no parent yet — so fetching
+        // once covers both. Every accepted storyline-hierarchy edge used to pay for it twice.
+        var relationshipsForA = await _artifactRelationshipRepository.ListByArtifactAsync(artifactA.Id, ct);
+
         if (string.Equals(payload.Type, ArtifactService.PartOfRelationshipType, StringComparison.Ordinal))
         {
-            var existingLinks = (await _artifactRelationshipRepository.ListByArtifactAsync(artifactA.Id, ct))
+            var existingLinks = relationshipsForA
                 .Where(r => r.Type == ArtifactService.PartOfRelationshipType && r.ArtifactAId == artifactA.Id)
                 .ToList();
 
@@ -632,7 +619,7 @@ public class ProposalApplicator : IProposalApplicator
         // it instead of duplicating the row: the new source cites the existing relationship.
         // Sessions routinely re-state established connections, and each acceptance used to
         // add another identical row.
-        var duplicate = (await _artifactRelationshipRepository.ListByArtifactAsync(artifactA.Id, ct))
+        var duplicate = relationshipsForA
             .FirstOrDefault(r => r.ArtifactAId == artifactA.Id
                 && r.ArtifactBId == artifactB.Id
                 && string.Equals(r.Type, payload.Type, StringComparison.Ordinal));
@@ -674,7 +661,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<ApplyResult>> ApplyUpdateRelationship(
-        ReviewProposal proposal, ReviewBatch batch, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, Source source, CancellationToken ct)
     {
         if (proposal.TargetId is null)
             return AppResult<ApplyResult>.Fail(new AppError(400, "missing_target_id", "UpdateRelationship requires a TargetId."));
@@ -687,9 +674,6 @@ public class ProposalApplicator : IProposalApplicator
         if (relationship is null)
             return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target relationship not found."));
 
-        var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
-        if (source is null)
-            return AppResult<ApplyResult>.Fail(new AppError(400, "source_not_found", "Source associated with batch not found."));
 
         if (payload.Type is not null)
             relationship.Type = payload.Type;

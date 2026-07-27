@@ -50,14 +50,23 @@ public class ArtifactService : IArtifactService
     /// with no real owner is unattributable, and unattributable Private content fails closed
     /// exactly as it does in <see cref="VisibilityFilter"/>.
     /// </summary>
-    private static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch
-    {
-        VisibilityScope.PartyVisible => true,
-        VisibilityScope.Private => role == WorldRole.GM
-            || (userId != Guid.Empty && source.CreatedByUserId == userId),
-        VisibilityScope.GMOnly => role == WorldRole.GM,
-        _ => false
-    };
+    private static bool CanSeeSource(Source source, Guid userId, WorldRole role) =>
+        CanSeeSource(source.Visibility, source.CreatedByUserId, userId, role);
+
+    /// <summary>
+    /// The same predicate over the two fields it actually reads, so it can be applied to a
+    /// <see cref="SourceAttribution"/> projection as well as a full entity. One implementation —
+    /// this decides whether a Private note leaks, and two copies would eventually disagree.
+    /// </summary>
+    private static bool CanSeeSource(
+        VisibilityScope visibility, Guid createdByUserId, Guid userId, WorldRole role) => visibility switch
+        {
+            VisibilityScope.PartyVisible => true,
+            VisibilityScope.Private => role == WorldRole.GM
+                || (userId != Guid.Empty && createdByUserId == userId),
+            VisibilityScope.GMOnly => role == WorldRole.GM,
+            _ => false
+        };
 
     public async Task<AppResult<IReadOnlyList<Artifact>>> ListAsync(ArtifactListQuery query, CancellationToken ct)
     {
@@ -185,18 +194,27 @@ public class ArtifactService : IArtifactService
         //
         // A reference the caller cannot attribute tells them nothing anyway, so the entire row
         // goes. Sources that no longer exist fail closed for the same reason.
+        // One projected query for every cited source, rather than one full-row read each. This
+        // is the most-visited authenticated page and is also served anonymously, and a
+        // well-developed artifact is cited by a dozen or more sources — each of which used to
+        // arrive carrying its entire transcript so that a title could be read off it.
+        //
+        // Ids that no longer resolve are simply absent from the result, which preserves the
+        // fail-closed behaviour the loop had: an unattributable reference is dropped entirely.
+        var citedSourceIds = allReferences.Select(r => r.SourceId).Distinct().ToList();
+        var attributions = await _sourceRepository.ListAttributionByIdsAsync(citedSourceIds, ct);
+
         var sourceTitles = new Dictionary<Guid, string>();
         var visibleSourceIds = new HashSet<Guid>();
-        foreach (var sourceId in allReferences.Select(r => r.SourceId).Distinct())
+        foreach (var attribution in attributions)
         {
-            var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
-            if (source is null || !CanSeeSource(source, requestingUserId, role))
+            if (!CanSeeSource(attribution.Visibility, attribution.CreatedByUserId, requestingUserId, role))
             {
                 continue;
             }
 
-            visibleSourceIds.Add(sourceId);
-            sourceTitles[sourceId] = source.Title;
+            visibleSourceIds.Add(attribution.Id);
+            sourceTitles[attribution.Id] = attribution.Title;
         }
 
         var sourceReferences = allReferences
@@ -619,18 +637,13 @@ public class ArtifactService : IArtifactService
             .Distinct()
             .ToList();
 
-        var connected = new List<Artifact>();
-        foreach (var otherId in otherIds)
-        {
-            var other = await _artifactRepository.GetByIdAsync(otherId, ct);
-            if (other is not null
-                && other.WorldId == worldId
-                && filter.CanSee(other.Visibility, other.CreatedByUserId))
-            {
-                connected.Add(other);
-            }
-        }
+        // One query rather than one per neighbour. The predicates below are unchanged and were
+        // already in-memory, so only the fetch moves.
+        var others = await _artifactRepository.ListByIdsAsync(otherIds, ct);
 
-        return connected;
+        return others
+            .Where(other => other.WorldId == worldId
+                && filter.CanSee(other.Visibility, other.CreatedByUserId))
+            .ToList();
     }
 }

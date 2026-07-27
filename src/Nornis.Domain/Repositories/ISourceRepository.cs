@@ -12,6 +12,17 @@ public interface ISourceRepository
 
     Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Just enough of each source to decide visibility and show a title. Use this instead of
+    /// looping <see cref="GetByIdAsync"/> when displaying provenance: it is one round trip
+    /// rather than one per source, and it leaves <c>Body</c>/<c>DerivedText</c> in the database
+    /// instead of dragging every cited transcript across the wire to read a title.
+    /// Ids that no longer exist are simply absent from the result.
+    /// </summary>
+    Task<IReadOnlyList<SourceAttribution>> ListAttributionByIdsAsync(
+        IReadOnlyList<Guid> ids,
+        CancellationToken cancellationToken = default);
+
     /// <summary>The world's most recent play sessions (session-recording source types),
     /// visibility-filtered, ordered by when they happened (OccurredAt ?? CreatedAt) descending.</summary>
     Task<IReadOnlyList<Source>> ListRecentSessionsAsync(Guid worldId, VisibilityFilter filter, int maxCount, CancellationToken cancellationToken = default);

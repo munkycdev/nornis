@@ -458,7 +458,7 @@ public class RevealServiceTests
 
     private sealed class FailingApplicator : IProposalApplicator
     {
-        public Task<AppResult<ApplyResult>> ApplyAsync(ReviewProposal proposal, ReviewBatch batch, VisibilityFilter actingFilter, CancellationToken ct) =>
+        public Task<AppResult<ApplyResult>> ApplyAsync(ReviewProposal proposal, ReviewBatch batch, Source source, VisibilityFilter actingFilter, CancellationToken ct) =>
             Task.FromResult(AppResult<ApplyResult>.Fail(new AppError(500, "boom", "Simulated apply failure.")));
     }
 }

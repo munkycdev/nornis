@@ -244,7 +244,7 @@ public class RevealService : IRevealService
 
             foreach (var artifact in artifactsToReveal)
             {
-                if (await ApplyAsync(batch, ReviewChangeType.UpdateArtifact, ReviewTargetType.Artifact,
+                if (await ApplyAsync(batch, source, ReviewChangeType.UpdateArtifact, ReviewTargetType.Artifact,
                         artifact.Id, RevealVisibilityJson, "Revealed to the party.", command.ActingUserId, now, ct) is { } error)
                 {
                     await transaction.RollbackAsync(ct);
@@ -254,7 +254,7 @@ public class RevealService : IRevealService
 
             foreach (var fact in factsToReveal)
             {
-                if (await ApplyAsync(batch, ReviewChangeType.UpdateFact, ReviewTargetType.ArtifactFact,
+                if (await ApplyAsync(batch, source, ReviewChangeType.UpdateFact, ReviewTargetType.ArtifactFact,
                         fact.Id, RevealVisibilityJson, "Revealed to the party.", command.ActingUserId, now, ct) is { } error)
                 {
                     await transaction.RollbackAsync(ct);
@@ -264,7 +264,7 @@ public class RevealService : IRevealService
 
             foreach (var relationship in relationshipsToReveal)
             {
-                if (await ApplyAsync(batch, ReviewChangeType.UpdateRelationship, ReviewTargetType.ArtifactRelationship,
+                if (await ApplyAsync(batch, source, ReviewChangeType.UpdateRelationship, ReviewTargetType.ArtifactRelationship,
                         relationship.Id, RevealVisibilityJson, "Revealed to the party.", command.ActingUserId, now, ct) is { } error)
                 {
                     await transaction.RollbackAsync(ct);
@@ -275,7 +275,7 @@ public class RevealService : IRevealService
             foreach (var correction in corrections)
             {
                 var json = $$"""{"truthState":"{{correction.TruthState}}"}""";
-                if (await ApplyAsync(batch, ReviewChangeType.UpdateFact, ReviewTargetType.ArtifactFact,
+                if (await ApplyAsync(batch, source, ReviewChangeType.UpdateFact, ReviewTargetType.ArtifactFact,
                         correction.FactId, json, "Corrected on reveal.", command.ActingUserId, now, ct) is { } error)
                 {
                     await transaction.RollbackAsync(ct);
@@ -384,7 +384,7 @@ public class RevealService : IRevealService
     /// Returns the applicator's error to roll the reveal back, or null on success.
     /// </summary>
     private async Task<AppError?> ApplyAsync(
-        ReviewBatch batch, ReviewChangeType changeType, ReviewTargetType targetType,
+        ReviewBatch batch, Source source, ReviewChangeType changeType, ReviewTargetType targetType,
         Guid targetId, string proposedValueJson, string rationale, Guid actingUserId,
         DateTimeOffset now, CancellationToken ct)
     {
@@ -403,7 +403,7 @@ public class RevealService : IRevealService
         await _reviewProposalRepository.CreateAsync(proposal, ct);
 
         // GM-gated by the callers of this helper, so resolution is unrestricted.
-        var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, VisibilityFilter.All, ct);
+        var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, source, VisibilityFilter.All, ct);
         if (!applyResult.IsSuccess)
         {
             return applyResult.Error;

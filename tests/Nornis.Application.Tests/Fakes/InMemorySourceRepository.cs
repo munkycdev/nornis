@@ -35,6 +35,19 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.FromResult(source);
     }
 
+    public Task<IReadOnlyList<SourceAttribution>> ListAttributionByIdsAsync(
+        IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        // Mirrors the real projection, including that unknown ids are simply absent — callers
+        // rely on that to fail closed on a reference they cannot attribute.
+        var result = _sources
+            .Where(s => ids.Contains(s.Id))
+            .Select(s => new SourceAttribution(s.Id, s.Title, s.Visibility, s.CreatedByUserId))
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<SourceAttribution>>(result.AsReadOnly());
+    }
+
     public Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default)
     {
         var query = _sources.Where(s => s.WorldId == worldId);
