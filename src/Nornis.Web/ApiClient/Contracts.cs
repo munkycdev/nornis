@@ -787,10 +787,26 @@ public record ImportSessionItemDto(
     DateTimeOffset? OccurredAt,
     string ProcessingStatus,
     string State,
-    int OpenProposalCount);
+    int OpenProposalCount,
+    bool CreatedByImport = true,
+    int ExistingReferenceCount = 0);
+
+// Mirrors Nornis.Api ImportCandidateResponse — a source that could be staged into the run.
+public record ImportCandidateDto(
+    Guid SourceId,
+    string Title,
+    string Type,
+    DateTimeOffset StoryPosition,
+    bool IsDated,
+    string ProcessingStatus,
+    int ExistingReferenceCount,
+    bool AlreadyStaged);
 
 // Mirrors Nornis.Api AddImportNoteRequest.
 public record AddImportNoteRequest(string Title, string? Body = null, DateTimeOffset? OccurredAt = null);
+
+// Mirrors Nornis.Api AddExistingSourcesRequest.
+public record AddExistingSourcesRequest(IReadOnlyList<Guid> SourceIds);
 
 // Mirrors Nornis.Api ReorderImportItemsRequest.
 public record ReorderImportItemsRequest(IReadOnlyList<Guid> ItemIds);

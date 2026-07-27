@@ -332,10 +332,30 @@ public class NornisApiClient
             $"/api/worlds/{worldId}/import-sessions/{sessionId}/items/order",
             new ReorderImportItemsRequest(itemIds), ct);
 
-    /// <summary>GM-only: removes a not-yet-started note from the backlog, and the source with it.</summary>
-    public Task<ApiResult<ImportSessionDto>> DeleteImportItemAsync(
+    /// <summary>GM-only: sources in this world that could be staged, in story order.</summary>
+    public Task<ApiResult<List<ImportCandidateDto>>> ListImportCandidatesAsync(
+        Guid worldId, Guid sessionId, CancellationToken ct = default) =>
+        GetAsync<List<ImportCandidateDto>>(
+            $"/api/worlds/{worldId}/import-sessions/{sessionId}/candidates", ct);
+
+    /// <summary>GM-only: stages sources the world already holds, appended in story order.</summary>
+    public Task<ApiResult<ImportSessionDto>> AddExistingImportSourcesAsync(
+        Guid worldId, Guid sessionId, IReadOnlyList<Guid> sourceIds, CancellationToken ct = default) =>
+        PostAsync<AddExistingSourcesRequest, ImportSessionDto>(
+            $"/api/worlds/{worldId}/import-sessions/{sessionId}/items/existing",
+            new AddExistingSourcesRequest(sourceIds), ct);
+
+    /// <summary>GM-only: drops a note from the run. The source itself is left untouched.</summary>
+    public Task<ApiResult<ImportSessionDto>> RemoveImportItemAsync(
         Guid worldId, Guid sessionId, Guid itemId, CancellationToken ct = default) =>
         DeleteAsync<ImportSessionDto>($"/api/worlds/{worldId}/import-sessions/{sessionId}/items/{itemId}", ct);
+
+    /// <summary>GM-only: drops a note from the run AND deletes it. Only ever valid for a note
+    /// this import created — the server refuses it for a source that existed beforehand.</summary>
+    public Task<ApiResult<ImportSessionDto>> DeleteImportItemAsync(
+        Guid worldId, Guid sessionId, Guid itemId, CancellationToken ct = default) =>
+        DeleteAsync<ImportSessionDto>(
+            $"/api/worlds/{worldId}/import-sessions/{sessionId}/items/{itemId}?deleteNote=true", ct);
 
     /// <summary>GM-only: begins the walk — the first note is sent for extraction.</summary>
     public Task<ApiResult<ImportSessionDto>> StartImportSessionAsync(

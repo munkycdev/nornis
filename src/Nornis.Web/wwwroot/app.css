@@ -1064,6 +1064,16 @@ a.nornis-tutorial-step-title:hover {
     border-top: none;
 }
 
+/* A world's whole source list can run to hundreds of rows; the picker scrolls inside the
+   card rather than pushing the staged backlog and its Start button off the page. */
+.nornis-scroll-list {
+    max-height: 22rem;
+    overflow-y: auto;
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 6px;
+    padding: 0 12px;
+}
+
 .nornis-list-link {
     text-decoration: none;
     color: inherit;

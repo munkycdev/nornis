@@ -18,6 +18,15 @@ public interface ISourceReferenceRepository
     /// sibling of <see cref="ListBySourceAsync"/> for read models that walk many sources.</summary>
     Task<IReadOnlyList<SourceReference>> ListBySourceIdsAsync(IReadOnlyList<Guid> sourceIds, CancellationToken cancellationToken = default);
 
+    /// <summary>How many references each of the given sources has produced, keyed by source.
+    /// Sources with none are absent from the result.
+    ///
+    /// This is the honest answer to "has this source contributed anything to canon" —
+    /// ProcessingStatus is not, because a source whose knowledge was deleted still reads as
+    /// Processed. Counting rather than listing keeps a staging screen off a table that runs
+    /// to thousands of rows per world.</summary>
+    Task<IReadOnlyDictionary<Guid, int>> CountBySourcesAsync(IReadOnlyList<Guid> sourceIds, CancellationToken cancellationToken = default);
+
     /// <summary>Deletes all of a source's references. Used when a source is edited and
     /// reprocessed: the old body's quotes and derivation trail no longer apply.</summary>
     Task DeleteBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default);

@@ -70,13 +70,57 @@ public class ImportSessionsController : ControllerBase
         return Respond(result);
     }
 
-    [HttpDelete("{sessionId:guid}/items/{itemId:guid}")]
-    public async Task<IActionResult> DeleteItem(Guid worldId, Guid sessionId, Guid itemId, CancellationToken ct)
+    [HttpGet("{sessionId:guid}/candidates")]
+    public async Task<IActionResult> ListCandidates(Guid worldId, Guid sessionId, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        var result = await _importService.DeleteItemAsync(worldId, sessionId, itemId, user.Id, member.Role, ct);
+        var result = await _importService.ListCandidatesAsync(worldId, sessionId, user.Id, member.Role, ct);
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return Ok(result.Value!.Select(c => new ImportCandidateResponse(
+            c.SourceId,
+            c.Title,
+            c.Type.ToString(),
+            c.StoryPosition,
+            c.IsDated,
+            c.ProcessingStatus.ToString(),
+            c.ExistingReferenceCount,
+            c.AlreadyStaged)).ToList());
+    }
+
+    [HttpPost("{sessionId:guid}/items/existing")]
+    public async Task<IActionResult> AddExistingSources(
+        Guid worldId, Guid sessionId, [FromBody] AddExistingSourcesRequest request, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _importService.AddExistingSourcesAsync(
+            worldId, sessionId, request?.SourceIds ?? [], user.Id, member.Role, ct);
+        return Respond(result);
+    }
+
+    /// <summary>
+    /// Drops a note from the run. The source is left alone — excluding a note from an import
+    /// is a queue edit. Deleting the note itself is the opt-in below, and only ever applies to
+    /// a note this import created.
+    /// </summary>
+    [HttpDelete("{sessionId:guid}/items/{itemId:guid}")]
+    public async Task<IActionResult> RemoveItem(
+        Guid worldId, Guid sessionId, Guid itemId, [FromQuery] bool deleteNote, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = deleteNote
+            ? await _importService.DeleteItemAsync(worldId, sessionId, itemId, user.Id, member.Role, ct)
+            : await _importService.RemoveItemAsync(worldId, sessionId, itemId, user.Id, member.Role, ct);
+
         return Respond(result);
     }
 
@@ -138,7 +182,9 @@ public class ImportSessionsController : ControllerBase
                 i.OccurredAt,
                 i.ProcessingStatus.ToString(),
                 i.State.ToString(),
-                i.OpenProposalCount)).ToList(),
+                i.OpenProposalCount,
+                i.CreatedByImport,
+                i.ExistingReferenceCount)).ToList(),
             info.CurrentItemId,
             info.CurrentIndex,
             info.SettledCount);

@@ -26,6 +26,8 @@ public class ImportSessionServiceTests
     private InMemoryReviewBatchRepository _batches = null!;
     private InMemoryReviewProposalRepository _proposals = null!;
     private FakeExtractionQueueClient _queue = null!;
+    private InMemorySourceReferenceRepository _references = null!;
+    private FakeSourceReprocessService _reprocess = null!;
     private SourceService _sourceService = null!;
     private ImportSessionService _sut = null!;
 
@@ -48,8 +50,11 @@ public class ImportSessionServiceTests
             new FakeBlobStorageService(),
             NullLogger<SourceService>.Instance);
 
+        _references = new InMemorySourceReferenceRepository();
+        _reprocess = new FakeSourceReprocessService(_sources);
+
         _sut = new ImportSessionService(
-            _sessions, _sources, _proposals, _sourceService,
+            _sessions, _sources, _proposals, _references, _sourceService, _reprocess,
             NullLogger<ImportSessionService>.Instance);
     }
 
@@ -686,6 +691,268 @@ public class ImportSessionServiceTests
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+        });
+    }
+
+    // ------------------------------------------------- Staging existing sources --
+
+    /// <summary>A source the world already holds: extracted, reviewed, and sitting Processed.</summary>
+    private Source SeedExistingSource(
+        string title, DateTimeOffset? occurredAt = null, SourceType type = SourceType.GMNote,
+        bool extractionEnabled = true)
+    {
+        var source = new Source
+        {
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = type,
+            Title = title,
+            Body = $"Body of {title}",
+            Visibility = VisibilityScope.PartyVisible,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            ExtractionEnabled = extractionEnabled,
+            OccurredAt = occurredAt,
+            CreatedAt = occurredAt ?? DateTimeOffset.UtcNow,
+            CreatedByUserId = GmId
+        };
+        _sources.Seed(source);
+        return source;
+    }
+
+    private async Task<ImportSessionInfo> AddExistingAsync(Guid sessionId, params Guid[] sourceIds)
+    {
+        var result = await _sut.AddExistingSourcesAsync(
+            WorldId, sessionId, sourceIds, GmId, WorldRole.GM, CancellationToken.None);
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        return result.Value!;
+    }
+
+    [Test]
+    public async Task StagedExistingSources_AreWaiting_NotDoneBeforeTheWalkReachesThem()
+    {
+        // The trap this guards: an existing source enters the run already Processed with no
+        // open proposals. State derived from status alone would call it Done, and the walk
+        // would report the whole backlog finished without extracting anything.
+        var session = await NewSessionAsync();
+        var older = SeedExistingSource("Kastor prep", new DateTimeOffset(2024, 3, 1, 0, 0, 0, TimeSpan.Zero));
+        var newer = SeedExistingSource("Yndaros prep", new DateTimeOffset(2024, 5, 1, 0, 0, 0, TimeSpan.Zero));
+
+        var view = await AddExistingAsync(session.Id, newer.Id, older.Id);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(view.Items.Select(i => i.Title), Is.EqualTo(new[] { "Kastor prep", "Yndaros prep" }),
+                "staged sources are appended in story order, whatever order they were chosen in");
+            Assert.That(view.Items.Select(i => i.State),
+                Is.EqualTo(new[] { ImportItemState.Waiting, ImportItemState.Waiting }));
+            Assert.That(view.SettledCount, Is.EqualTo(0));
+            Assert.That(view.CurrentItemId, Is.EqualTo(view.Items[0].Id));
+        });
+    }
+
+    [Test]
+    public async Task StartingARunOfExistingSources_DispatchesThroughReprocess()
+    {
+        // Processed is terminal for mark-ready, so an existing source can only be re-extracted
+        // through the reprocess cascade.
+        var session = await NewSessionAsync();
+        var existing = SeedExistingSource("Kastor prep");
+        await AddExistingAsync(session.Id, existing.Id);
+
+        var started = await _sut.StartAsync(WorldId, session.Id, GmId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(started.IsSuccess, Is.True, started.Error?.Message);
+            Assert.That(_reprocess.Commands.Select(c => c.SourceId), Is.EqualTo(new[] { existing.Id }),
+                "the existing source went through reprocess, not mark-ready");
+            Assert.That(started.Value!.Items[0].State, Is.EqualTo(ImportItemState.Extracting));
+        });
+    }
+
+    [Test]
+    public async Task AWalkOfExistingSources_AdvancesOneNoteAtATime()
+    {
+        var session = await NewSessionAsync();
+        var first = SeedExistingSource("Arc 1 prep", new DateTimeOffset(2024, 3, 1, 0, 0, 0, TimeSpan.Zero));
+        var second = SeedExistingSource("Arc 2 prep", new DateTimeOffset(2024, 6, 1, 0, 0, 0, TimeSpan.Zero));
+        await AddExistingAsync(session.Id, first.Id, second.Id);
+
+        await _sut.StartAsync(WorldId, session.Id, GmId, WorldRole.GM, CancellationToken.None);
+        CompleteExtraction(first.Id, openProposals: 2);
+
+        // The first note still has proposals open, so the walk refuses to move on.
+        var tooSoon = await _sut.AdvanceAsync(
+            WorldId, session.Id, false, null, GmId, WorldRole.GM, CancellationToken.None);
+        Assert.That(tooSoon.IsSuccess, Is.False, "advance must wait for the note on screen");
+        Assert.That(tooSoon.Error!.Code, Is.EqualTo("item_not_ready"));
+
+        ResolveAllProposals(first.Id);
+        var advanced = await _sut.AdvanceAsync(
+            WorldId, session.Id, false, null, GmId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(advanced.IsSuccess, Is.True, advanced.Error?.Message);
+            Assert.That(_reprocess.Commands.Select(c => c.SourceId), Is.EqualTo(new[] { first.Id, second.Id }));
+            Assert.That(advanced.Value!.Items[0].State, Is.EqualTo(ImportItemState.Done));
+            Assert.That(advanced.Value!.Items[1].State, Is.EqualTo(ImportItemState.Extracting));
+        });
+    }
+
+    [Test]
+    public async Task RemovingAStagedSource_LeavesTheSourceAlone()
+    {
+        var session = await NewSessionAsync();
+        var existing = SeedExistingSource("Kastor prep");
+        var view = await AddExistingAsync(session.Id, existing.Id);
+
+        var removed = await _sut.RemoveItemAsync(
+            WorldId, session.Id, view.Items[0].Id, GmId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removed.IsSuccess, Is.True, removed.Error?.Message);
+            Assert.That(removed.Value!.Items, Is.Empty, "the note left the run");
+            Assert.That(_sources.Sources.Any(s => s.Id == existing.Id), Is.True,
+                "excluding a note from the run must never delete the GM's source");
+            Assert.That(_sources.Sources.First(s => s.Id == existing.Id).ProcessingStatus,
+                Is.EqualTo(SourceProcessingStatus.Processed), "nor change it");
+        });
+    }
+
+    [Test]
+    public async Task RemovingWorks_EvenOnceTheNoteHasBeenDispatched()
+    {
+        var session = await NewSessionAsync();
+        var existing = SeedExistingSource("Kastor prep");
+        var view = await AddExistingAsync(session.Id, existing.Id);
+        await _sut.StartAsync(WorldId, session.Id, GmId, WorldRole.GM, CancellationToken.None);
+
+        var removed = await _sut.RemoveItemAsync(
+            WorldId, session.Id, view.Items[0].Id, GmId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(removed.IsSuccess, Is.True, removed.Error?.Message);
+        Assert.That(_sources.Sources.Any(s => s.Id == existing.Id), Is.True);
+    }
+
+    [Test]
+    public async Task DeletingTheNote_IsRefusedForASourceTheImportDidNotCreate()
+    {
+        var session = await NewSessionAsync();
+        var existing = SeedExistingSource("Kastor prep");
+        var view = await AddExistingAsync(session.Id, existing.Id);
+
+        var deleted = await _sut.DeleteItemAsync(
+            WorldId, session.Id, view.Items[0].Id, GmId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(deleted.IsSuccess, Is.False);
+            Assert.That(deleted.Error!.Code, Is.EqualTo("not_import_owned"));
+            Assert.That(_sources.Sources.Any(s => s.Id == existing.Id), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task DeletingTheNote_StillWorksForOneTypedIntoTheImport()
+    {
+        var session = await NewSessionAsync();
+        var view = await AddNoteAsync(session.Id, "Mistyped note");
+        var sourceId = view.Items[0].SourceId;
+
+        var deleted = await _sut.DeleteItemAsync(
+            WorldId, session.Id, view.Items[0].Id, GmId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(deleted.IsSuccess, Is.True, deleted.Error?.Message);
+            Assert.That(deleted.Value!.Items, Is.Empty);
+            Assert.That(_sources.Sources.Any(s => s.Id == sourceId), Is.False,
+                "a note typed into the import has no life outside it");
+        });
+    }
+
+    [Test]
+    public async Task StagingIsIdempotent_AndRefusesSourcesStoredWithoutExtraction()
+    {
+        var session = await NewSessionAsync();
+        var existing = SeedExistingSource("Kastor prep");
+        var optedOut = SeedExistingSource("Reference sheet", extractionEnabled: false);
+
+        await AddExistingAsync(session.Id, existing.Id);
+        var again = await AddExistingAsync(session.Id, existing.Id);
+
+        Assert.That(again.Items, Has.Count.EqualTo(1), "staging the same source twice adds it once");
+
+        var refused = await _sut.AddExistingSourcesAsync(
+            WorldId, session.Id, [optedOut.Id], GmId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(refused.IsSuccess, Is.False);
+            Assert.That(refused.Error!.Code, Is.EqualTo("not_extractable"));
+        });
+    }
+
+    [Test]
+    public async Task Candidates_ReportCanonContribution_NotProcessingStatus()
+    {
+        // Both sources read Processed. Only the reference count distinguishes one that has
+        // contributed canon from one whose knowledge was wiped — which is the whole reason
+        // this signal exists rather than showing ProcessingStatus.
+        var session = await NewSessionAsync();
+        var contributed = SeedExistingSource("Has canon");
+        var wiped = SeedExistingSource("Wiped clean");
+
+        _references.Seed(new SourceReference
+        {
+            Id = Guid.NewGuid(),
+            SourceId = contributed.Id,
+            TargetType = SourceReferenceTargetType.Artifact,
+            TargetId = Guid.NewGuid(),
+            Quote = "A quote",
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+
+        var result = await _sut.ListCandidatesAsync(
+            WorldId, session.Id, GmId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        var byId = result.Value!.ToDictionary(c => c.SourceId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(byId[contributed.Id].ExistingReferenceCount, Is.EqualTo(1));
+            Assert.That(byId[wiped.Id].ExistingReferenceCount, Is.EqualTo(0));
+            Assert.That(byId[contributed.Id].ProcessingStatus,
+                Is.EqualTo(byId[wiped.Id].ProcessingStatus),
+                "status cannot tell these apart, which is why the count is what the UI shows");
+        });
+    }
+
+    [Test]
+    public async Task Candidates_ExcludeSourcesAlreadyStagedAndThoseStoredWithoutExtraction()
+    {
+        var session = await NewSessionAsync();
+        var staged = SeedExistingSource("Already in the run");
+        var free = SeedExistingSource("Not yet staged");
+        SeedExistingSource("Never extract me", extractionEnabled: false);
+
+        await AddExistingAsync(session.Id, staged.Id);
+
+        var result = await _sut.ListCandidatesAsync(
+            WorldId, session.Id, GmId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        var candidates = result.Value!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(candidates.Select(c => c.Title), Does.Not.Contain("Never extract me"),
+                "a source opted out of extraction is not stageable at all");
+            Assert.That(candidates.First(c => c.SourceId == staged.Id).AlreadyStaged, Is.True);
+            Assert.That(candidates.First(c => c.SourceId == free.Id).AlreadyStaged, Is.False);
         });
     }
 }

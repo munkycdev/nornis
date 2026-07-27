@@ -66,6 +66,106 @@ else
             </MudButton>
         </MudPaper>
 
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4">
+            <div class="d-flex align-center justify-space-between mb-3">
+                <div>
+                    <MudText Typo="Typo.h6" Class="nornis-serif">Add notes you already have</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Stage existing sources to re-extract them in an order you choose.
+                    </MudText>
+                </div>
+                <MudButton Variant="Variant.Text" Size="Size.Small"
+                           StartIcon="@(_showCandidates ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                           OnClick="ToggleCandidatesAsync" Disabled="@_busy">
+                    @(_showCandidates ? "Hide" : "Choose sources")
+                </MudButton>
+            </div>
+
+            @if (_showCandidates)
+            {
+                @if (_candidates is null)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="my-3" />
+                }
+                else if (_candidates.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        This world has no other sources with extraction enabled.
+                    </MudText>
+                }
+                else
+                {
+                    var selectable = _candidates.Where(c => !c.AlreadyStaged).ToList();
+
+                    <div class="d-flex gap-2 mb-2">
+                        <MudButton Variant="Variant.Text" Size="Size.Small" Disabled="@_busy"
+                                   OnClick="() => SelectCandidates(selectable.Select(c => c.SourceId))">
+                            Select all (@selectable.Count)
+                        </MudButton>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" Disabled="@_busy"
+                                   OnClick="() => SelectCandidates(selectable.Where(c => c.ExistingReferenceCount == 0).Select(c => c.SourceId))">
+                            Only never-extracted
+                        </MudButton>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" Disabled="@_busy"
+                                   OnClick="() => SelectCandidates([])">
+                            Clear
+                        </MudButton>
+                    </div>
+
+                    <div class="nornis-scroll-list">
+                        @foreach (var candidate in _candidates)
+                        {
+                            var id = candidate.SourceId;
+                            <div class="nornis-list-row">
+                                <MudCheckBox T="bool" Dense="true"
+                                             Value="@(_selected.Contains(id))"
+                                             Disabled="@(_busy || candidate.AlreadyStaged)"
+                                             ValueChanged="@((bool v) => ToggleCandidate(id, v))" />
+                                <div class="nornis-list-body">
+                                    <div class="nornis-list-title">@candidate.Title</div>
+                                    <div class="nornis-list-sub">
+                                        @candidate.Type
+                                        &middot;
+                                        @(candidate.IsDated
+                                            ? candidate.StoryPosition.LocalDateTime.ToString("d MMM yyyy")
+                                            : $"undated, filed {candidate.StoryPosition.LocalDateTime:d MMM yyyy}")
+                                        @* A source that has never been submitted may be someone's
+                                           unfinished note; say so rather than let it look extracted. *@
+                                        @if (candidate.ProcessingStatus != "Processed")
+                                        {
+                                            <span> &middot; @candidate.ProcessingStatus</span>
+                                        }
+                                    </div>
+                                </div>
+                                @if (candidate.AlreadyStaged)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text">In the run</MudChip>
+                                }
+                                else if (candidate.ExistingReferenceCount > 0)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Text">
+                                        @candidate.ExistingReferenceCount in canon
+                                    </MudChip>
+                                }
+                                else
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Text">
+                                        No knowledge yet
+                                    </MudChip>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mt-3"
+                               StartIcon="@Icons.Material.Filled.PlaylistAdd"
+                               OnClick="AddSelectedAsync" Disabled="@(_busy || _selected.Count == 0)">
+                        Add @_selected.Count to backlog
+                    </MudButton>
+                }
+            }
+        </MudPaper>
+
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
             <div class="d-flex align-center justify-space-between mb-3">
                 <MudText Typo="Typo.h6" Class="nornis-serif">Backlog (@_session.Items.Count)</MudText>
@@ -99,14 +199,33 @@ else
                                 @(item.OccurredAt is { } occurred ? occurred.LocalDateTime.ToString("d MMM yyyy") : "No session date")
                             </div>
                         </div>
+                        @if (item.ExistingReferenceCount > 0)
+                        {
+                            <MudTooltip Text="Re-running this note replaces the knowledge it already contributed.">
+                                <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Text">
+                                    @item.ExistingReferenceCount in canon
+                                </MudChip>
+                            </MudTooltip>
+                        }
                         <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
                                        Disabled="@(_busy || position == 0)"
                                        OnClick="() => MoveAsync(position, -1)" />
                         <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
                                        Disabled="@(_busy || position == _session.Items.Count - 1)"
                                        OnClick="() => MoveAsync(position, 1)" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
-                                       Disabled="@_busy" OnClick="() => DeleteItemAsync(item.Id)" />
+                        @* Removing only drops the note from this run. Deleting the note itself is
+                           offered solely for notes typed in here, which nothing else references. *@
+                        <MudTooltip Text="Remove from this run. The note itself is kept.">
+                            <MudIconButton Icon="@Icons.Material.Filled.RemoveCircleOutline" Size="Size.Small"
+                                           Disabled="@_busy" OnClick="() => RemoveItemAsync(item.Id)" />
+                        </MudTooltip>
+                        @if (item.CreatedByImport)
+                        {
+                            <MudTooltip Text="Delete this note entirely. It was added here and has no knowledge yet.">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                               Disabled="@_busy" OnClick="() => DeleteItemAsync(item.Id)" />
+                            </MudTooltip>
+                        }
                     </div>
                 }
             }
@@ -276,6 +395,10 @@ else
     private string? _body;
     private DateTime? _occurredAt;
 
+    private bool _showCandidates;
+    private List<ImportCandidateDto>? _candidates;
+    private readonly HashSet<Guid> _selected = [];
+
     private readonly CancellationTokenSource _cts = new();
 
     private ImportSessionItemDto? Current =>
@@ -379,6 +502,77 @@ else
         }
     }
 
+    private async Task ToggleCandidatesAsync()
+    {
+        _showCandidates = !_showCandidates;
+        if (_showCandidates)
+        {
+            await LoadCandidatesAsync();
+        }
+    }
+
+    private async Task LoadCandidatesAsync()
+    {
+        if (Worlds.Current is null || _session is null)
+        {
+            return;
+        }
+
+        _candidates = null;
+        var result = await Api.ListImportCandidatesAsync(Worlds.Current.Id, _session.Id, _cts.Token);
+        if (result.IsSuccess)
+        {
+            _candidates = result.Value;
+            // A source staged by another tab since this list was drawn cannot be chosen again.
+            _selected.RemoveWhere(id => _candidates!.Any(c => c.SourceId == id && c.AlreadyStaged));
+        }
+        else
+        {
+            _error = result.Error?.Message ?? "Could not load your sources.";
+        }
+
+        StateHasChanged();
+    }
+
+    private void ToggleCandidate(Guid sourceId, bool selected)
+    {
+        if (selected)
+        {
+            _selected.Add(sourceId);
+        }
+        else
+        {
+            _selected.Remove(sourceId);
+        }
+    }
+
+    private void SelectCandidates(IEnumerable<Guid> sourceIds)
+    {
+        _selected.Clear();
+        foreach (var id in sourceIds)
+        {
+            _selected.Add(id);
+        }
+    }
+
+    private async Task AddSelectedAsync()
+    {
+        if (_session is null || _selected.Count == 0)
+        {
+            return;
+        }
+
+        var chosen = _selected.ToList();
+        var added = await ActAsync(worldId => Api.AddExistingImportSourcesAsync(
+            worldId, _session.Id, chosen, _cts.Token));
+
+        if (added)
+        {
+            _selected.Clear();
+            await LoadCandidatesAsync();
+        }
+    }
+
     private async Task MoveAsync(int index, int delta)
     {
         if (_session is null)
@@ -419,6 +613,18 @@ else
         await ActAsync(worldId => Api.ReorderImportItemsAsync(worldId, _session.Id, movable, _cts.Token));
     }
 
+    /// <summary>Drops the note from this run only — the source is untouched.</summary>
+    private async Task RemoveItemAsync(Guid itemId)
+    {
+        var removed = await ActAsync(worldId => Api.RemoveImportItemAsync(worldId, _session!.Id, itemId, _cts.Token));
+        if (removed && _showCandidates)
+        {
+            // The freed source becomes selectable again.
+            await LoadCandidatesAsync();
+        }
+    }
+
+    /// <summary>Deletes the note itself. Only offered for notes typed into this import.</summary>
     private async Task DeleteItemAsync(Guid itemId) =>
         await ActAsync(worldId => Api.DeleteImportItemAsync(worldId, _session!.Id, itemId, _cts.Token));
 

@@ -64,8 +64,26 @@ public class InMemoryImportSessionRepository : IImportSessionRepository
         return Task.FromResult(item);
     }
 
+    public Task AddItemsAsync(IReadOnlyList<ImportSessionItem> items, CancellationToken cancellationToken = default)
+    {
+        _items.AddRange(items);
+        return Task.CompletedTask;
+    }
+
+    public Task SetItemDispatchedAsync(
+        Guid itemId, DateTimeOffset dispatchedAt, CancellationToken cancellationToken = default)
+    {
+        var item = _items.FirstOrDefault(i => i.Id == itemId);
+        if (item is not null)
+        {
+            item.DispatchedAt = dispatchedAt;
+        }
+        return Task.CompletedTask;
+    }
+
     public Task DeleteItemAsync(Guid itemId, CancellationToken cancellationToken = default)
     {
+        // Mirrors the EF repository: the item row goes, the source is untouched.
         _items.RemoveAll(i => i.Id == itemId);
         return Task.CompletedTask;
     }

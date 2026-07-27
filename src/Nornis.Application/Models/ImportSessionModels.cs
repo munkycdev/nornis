@@ -24,6 +24,12 @@ public record ImportSessionInfo(
     int? CurrentIndex,
     int SettledCount);
 
+/// <param name="CreatedByImport">The add-note form created this source, so removing the item
+/// may optionally delete the note with it. False for an existing source staged into the run,
+/// whose note must survive being dropped from the queue.</param>
+/// <param name="ExistingReferenceCount">How much canon this source has already contributed.
+/// The honest "already processed" signal: <paramref name="ProcessingStatus"/> still reads
+/// Processed for a source whose knowledge was deleted, so it cannot answer this.</param>
 public record ImportItemInfo(
     Guid Id,
     Guid SourceId,
@@ -33,7 +39,9 @@ public record ImportItemInfo(
     DateTimeOffset? OccurredAt,
     SourceProcessingStatus ProcessingStatus,
     ImportItemState State,
-    int OpenProposalCount);
+    int OpenProposalCount,
+    bool CreatedByImport,
+    int ExistingReferenceCount);
 
 public record AddImportNoteCommand(
     Guid WorldId,
@@ -43,3 +51,16 @@ public record AddImportNoteCommand(
     string Title,
     string? Body,
     DateTimeOffset? OccurredAt);
+
+/// <summary>A source in this world that could be staged into the run, with the two things a
+/// GM needs in order to choose: where it falls in story order, and whether re-running it
+/// would be re-extraction or a first extraction.</summary>
+public record ImportCandidateInfo(
+    Guid SourceId,
+    string Title,
+    SourceType Type,
+    DateTimeOffset StoryPosition,
+    bool IsDated,
+    SourceProcessingStatus ProcessingStatus,
+    int ExistingReferenceCount,
+    bool AlreadyStaged);

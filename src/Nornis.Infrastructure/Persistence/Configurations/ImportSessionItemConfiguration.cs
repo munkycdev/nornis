@@ -15,6 +15,11 @@ public class ImportSessionItemConfiguration : IEntityTypeConfiguration<ImportSes
         // Every read of a session walks its items in order.
         builder.HasIndex(i => new { i.ImportSessionId, i.Position });
 
+        // Rows written before staging existing sources existed were all created by the
+        // add-note form, so the safe default preserves their delete-with-item behaviour.
+        builder.Property(i => i.CreatedByImport)
+            .HasDefaultValue(true);
+
         builder.HasOne(i => i.ImportSession)
             .WithMany(s => s.Items)
             .HasForeignKey(i => i.ImportSessionId)

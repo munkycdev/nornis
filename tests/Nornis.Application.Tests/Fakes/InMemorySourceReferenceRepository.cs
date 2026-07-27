@@ -42,6 +42,17 @@ public class InMemorySourceReferenceRepository : ISourceReferenceRepository
         return Task.FromResult<IReadOnlyList<SourceReference>>(references.AsReadOnly());
     }
 
+    public Task<IReadOnlyDictionary<Guid, int>> CountBySourcesAsync(
+        IReadOnlyList<Guid> sourceIds, CancellationToken cancellationToken = default)
+    {
+        IReadOnlyDictionary<Guid, int> counts = _references
+            .Where(r => sourceIds.Contains(r.SourceId))
+            .GroupBy(r => r.SourceId)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        return Task.FromResult(counts);
+    }
+
     public Task DeleteBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default)
     {
         _references.RemoveAll(r => r.SourceId == sourceId);

@@ -209,15 +209,96 @@ public class ImportSessionsControllerTests
         var afterOrder = (await reordered.Content.ReadFromJsonAsync<ImportSessionResponse>())!;
         Assert.That(afterOrder.Items.Select(i => i.Title), Is.EqualTo(new[] { "Session 2", "Session 1" }));
 
-        var removedSourceId = afterOrder.Items[0].SourceId;
-        var deleted = await _gm.DeleteAsync($"{Base}/{session.Id}/items/{afterOrder.Items[0].Id}");
-        var afterDelete = (await deleted.Content.ReadFromJsonAsync<ImportSessionResponse>())!;
-        Assert.That(afterDelete.Items.Select(i => i.Title), Is.EqualTo(new[] { "Session 1" }));
+        // Plain DELETE excludes the note from the run and nothing more. This is the default
+        // because most removals are "not in this batch", not "destroy my note".
+        var excludedSourceId = afterOrder.Items[0].SourceId;
+        var removed = await _gm.DeleteAsync($"{Base}/{session.Id}/items/{afterOrder.Items[0].Id}");
+        var afterRemove = (await removed.Content.ReadFromJsonAsync<ImportSessionResponse>())!;
+        Assert.That(afterRemove.Items.Select(i => i.Title), Is.EqualTo(new[] { "Session 1" }));
 
-        using var scope = _factory.Services.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-        Assert.That(context.Sources.Any(s => s.Id == removedSourceId), Is.False,
-            "the note was created by the import and goes with the item");
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+            Assert.That(context.Sources.Any(s => s.Id == excludedSourceId), Is.True,
+                "excluding a note from the run must leave the note itself alone");
+        }
+
+        // Deleting the note is the explicit opt-in, and legal here only because the import
+        // created this note.
+        var deletedSourceId = afterRemove.Items[0].SourceId;
+        var deleted = await _gm.DeleteAsync(
+            $"{Base}/{session.Id}/items/{afterRemove.Items[0].Id}?deleteNote=true");
+        var afterDelete = (await deleted.Content.ReadFromJsonAsync<ImportSessionResponse>())!;
+        Assert.That(afterDelete.Items, Is.Empty);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+            Assert.That(context.Sources.Any(s => s.Id == deletedSourceId), Is.False,
+                "the note was created by the import and goes with the item when asked");
+        }
+    }
+
+    [Test]
+    public async Task StagedExistingSource_IsWalkedAndSurvivesRemoval()
+    {
+        var session = await CreateSessionAsync();
+
+        // A source the world already holds: extracted once, sitting Processed.
+        Guid existingId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+            var gmUserId = context.WorldMembers.First(m => m.WorldId == _worldId).UserId;
+            var source = new Source
+            {
+                Id = Guid.NewGuid(),
+                WorldId = _worldId,
+                Type = SourceType.GMNote,
+                Title = "Existing prep note",
+                Body = "The mayor is the villain.",
+                Visibility = VisibilityScope.PartyVisible,
+                ProcessingStatus = SourceProcessingStatus.Processed,
+                ExtractionEnabled = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+                CreatedByUserId = gmUserId
+            };
+            context.Sources.Add(source);
+            context.SaveChanges();
+            existingId = source.Id;
+        }
+
+        var candidates = await _gm.GetFromJsonAsync<List<ImportCandidateResponse>>(
+            $"{Base}/{session.Id}/candidates");
+        Assert.That(candidates!.Any(c => c.SourceId == existingId), Is.True,
+            "an existing extractable source is offered for staging");
+
+        var staged = await _gm.PostAsJsonAsync($"{Base}/{session.Id}/items/existing",
+            new AddExistingSourcesRequest([existingId]));
+        var afterStage = (await staged.Content.ReadFromJsonAsync<ImportSessionResponse>())!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(afterStage.Items, Has.Count.EqualTo(1));
+            Assert.That(afterStage.Items[0].CreatedByImport, Is.False);
+            Assert.That(afterStage.Items[0].State, Is.EqualTo("Waiting"),
+                "already Processed, but the walk has not reached it yet");
+        });
+
+        // Deleting the note is refused for a source the import did not create.
+        var refused = await _gm.DeleteAsync(
+            $"{Base}/{session.Id}/items/{afterStage.Items[0].Id}?deleteNote=true");
+        Assert.That(refused.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+
+        // Removing it from the run is fine, and the note survives.
+        var removed = await _gm.DeleteAsync($"{Base}/{session.Id}/items/{afterStage.Items[0].Id}");
+        Assert.That(removed.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+            Assert.That(context.Sources.Any(s => s.Id == existingId), Is.True);
+        }
     }
 
     [Test]

@@ -12,6 +12,10 @@ public record ImportSessionResponse(
     int? CurrentIndex,
     int SettledCount);
 
+/// <param name="CreatedByImport">This note was typed into the import, so it may be deleted
+/// along with its item. False for a source that existed beforehand.</param>
+/// <param name="ExistingReferenceCount">How much canon this source has already contributed —
+/// zero means re-running it is a first extraction, not a re-extraction.</param>
 public record ImportSessionItemResponse(
     Guid Id,
     Guid SourceId,
@@ -21,4 +25,17 @@ public record ImportSessionItemResponse(
     DateTimeOffset? OccurredAt,
     string ProcessingStatus,
     string State,
-    int OpenProposalCount);
+    int OpenProposalCount,
+    bool CreatedByImport,
+    int ExistingReferenceCount);
+
+/// <summary>A source that could be staged into the run.</summary>
+public record ImportCandidateResponse(
+    Guid SourceId,
+    string Title,
+    string Type,
+    DateTimeOffset StoryPosition,
+    bool IsDated,
+    string ProcessingStatus,
+    int ExistingReferenceCount,
+    bool AlreadyStaged);

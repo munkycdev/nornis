@@ -77,6 +77,31 @@ public class ImportSessionRepository : IImportSessionRepository
         return item;
     }
 
+    public async Task AddItemsAsync(
+        IReadOnlyList<ImportSessionItem> items, CancellationToken cancellationToken = default)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        _context.ImportSessionItems.AddRange(items);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task SetItemDispatchedAsync(
+        Guid itemId, DateTimeOffset dispatchedAt, CancellationToken cancellationToken = default)
+    {
+        var item = await _context.ImportSessionItems.FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);
+        if (item is null)
+        {
+            return;
+        }
+
+        item.DispatchedAt = dispatchedAt;
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task DeleteItemAsync(Guid itemId, CancellationToken cancellationToken = default)
     {
         var item = await _context.ImportSessionItems.FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);

@@ -2,6 +2,9 @@ namespace Nornis.Api.Contracts.Requests;
 
 public record AddImportNoteRequest(string Title, string? Body = null, DateTimeOffset? OccurredAt = null);
 
+/// <summary>Sources the world already holds, to be staged into the run in story order.</summary>
+public record AddExistingSourcesRequest(IReadOnlyList<Guid> SourceIds);
+
 /// <summary>The full ordered list of not-yet-started item ids — started notes keep their place.</summary>
 public record ReorderImportItemsRequest(IReadOnlyList<Guid> ItemIds);
 

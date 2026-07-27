@@ -13,18 +13,26 @@ namespace Nornis.Application.Services;
 /// extraction runs against canon a human has already approved instead of a dozen sources
 /// racing against the same stale snapshot and each proposing their own copy of everything.
 ///
-/// Held notes are ordinary Sources parked at <see cref="SourceProcessingStatus.Draft"/>;
-/// advancing routes through <see cref="ISourceService.MarkReadyAsync"/> so the
-/// commit-Queued-before-enqueue invariant is never re-implemented here. Item state is
-/// derived from the source on every read — the only thing this flow stores about an item
-/// is whether the GM skipped it.
+/// The run holds two kinds of note. A new one typed into the add-note form is an ordinary
+/// Source parked at <see cref="SourceProcessingStatus.Draft"/> and dispatched via
+/// <see cref="ISourceService.MarkReadyAsync"/>. An existing source staged into the run is
+/// already Processed — mark-ready cannot move it, since Processed is terminal — so it is
+/// dispatched via <see cref="ISourceReprocessService"/> instead. Either way the
+/// commit-Queued-before-enqueue invariant lives in those services, never here.
+///
+/// Item state is derived from the source on every read, with one exception that makes
+/// staging existing sources possible at all: an item is Waiting until the walk has actually
+/// dispatched it. Without that, a staged Processed source with no open proposals would read
+/// as Done before the walk ever reached it.
 /// </summary>
 public class ImportSessionService : IImportSessionService
 {
     private readonly IImportSessionRepository _sessionRepository;
     private readonly ISourceRepository _sourceRepository;
     private readonly IReviewProposalRepository _proposalRepository;
+    private readonly ISourceReferenceRepository _referenceRepository;
     private readonly ISourceService _sourceService;
+    private readonly ISourceReprocessService _reprocessService;
     private readonly ILogger<ImportSessionService> _logger;
 
     /// <summary>Backlog notes are imported notes: a timeline source type, so the replay,
@@ -35,13 +43,17 @@ public class ImportSessionService : IImportSessionService
         IImportSessionRepository sessionRepository,
         ISourceRepository sourceRepository,
         IReviewProposalRepository proposalRepository,
+        ISourceReferenceRepository referenceRepository,
         ISourceService sourceService,
+        ISourceReprocessService reprocessService,
         ILogger<ImportSessionService> logger)
     {
         _sessionRepository = sessionRepository;
         _sourceRepository = sourceRepository;
         _proposalRepository = proposalRepository;
+        _referenceRepository = referenceRepository;
         _sourceService = sourceService;
+        _reprocessService = reprocessService;
         _logger = logger;
     }
 
@@ -129,10 +141,158 @@ public class ImportSessionService : IImportSessionService
             ImportSessionId = session.Id,
             SourceId = created.Value!.Id,
             Position = nextPosition,
-            Skipped = false
+            Skipped = false,
+            CreatedByImport = true
         }, ct);
 
         await TouchAsync(session, ct);
+
+        return await ReloadAsync(session.Id, ct);
+    }
+
+    public async Task<AppResult<IReadOnlyList<ImportCandidateInfo>>> ListCandidatesAsync(
+        Guid worldId, Guid sessionId, Guid actingUserId, WorldRole actingUserRole, CancellationToken ct)
+    {
+        var gate = await LoadOpenAsync(worldId, sessionId, actingUserRole, ct);
+        if (!gate.IsSuccess)
+        {
+            return AppResult<IReadOnlyList<ImportCandidateInfo>>.Fail(gate.Error!);
+        }
+
+        var session = gate.Value!;
+        var staged = session.Items.Select(i => i.SourceId).ToHashSet();
+
+        // Sources stored without extraction are excluded outright: staging one would queue a
+        // note its owner asked never to be extracted.
+        var sources = (await _sourceRepository.ListByWorldAsync(worldId, cancellationToken: ct))
+            .Where(s => s.ExtractionEnabled)
+            .ToList();
+
+        var referenceCounts = await _referenceRepository.CountBySourcesAsync(
+            sources.Select(s => s.Id).ToList(), ct);
+
+        var candidates = sources
+            .Select(s => new ImportCandidateInfo(
+                s.Id,
+                s.Title,
+                s.Type,
+                s.OccurredAt ?? s.CreatedAt,
+                s.OccurredAt is not null,
+                s.ProcessingStatus,
+                referenceCounts.TryGetValue(s.Id, out var refs) ? refs : 0,
+                staged.Contains(s.Id)))
+            .OrderBy(c => c.StoryPosition)
+            .ThenBy(c => c.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return AppResult<IReadOnlyList<ImportCandidateInfo>>.Success(candidates);
+    }
+
+    public async Task<AppResult<ImportSessionInfo>> AddExistingSourcesAsync(
+        Guid worldId, Guid sessionId, IReadOnlyList<Guid> sourceIds,
+        Guid actingUserId, WorldRole actingUserRole, CancellationToken ct)
+    {
+        var gate = await LoadOpenAsync(worldId, sessionId, actingUserRole, ct);
+        if (!gate.IsSuccess)
+        {
+            return AppResult<ImportSessionInfo>.Fail(gate.Error!);
+        }
+
+        var session = gate.Value!;
+
+        if (sourceIds.Count == 0)
+        {
+            return AppResult<ImportSessionInfo>.Fail(new AppError(400, "validation_error",
+                "Choose at least one source to add."));
+        }
+
+        var staged = session.Items.Select(i => i.SourceId).ToHashSet();
+        var worldSources = (await _sourceRepository.ListByWorldAsync(worldId, cancellationToken: ct))
+            .ToDictionary(s => s.Id);
+
+        var toAdd = new List<Source>();
+        foreach (var sourceId in sourceIds.Distinct())
+        {
+            if (staged.Contains(sourceId))
+            {
+                // Already in the run — adding it twice would extract it twice.
+                continue;
+            }
+
+            if (!worldSources.TryGetValue(sourceId, out var source))
+            {
+                return AppResult<ImportSessionInfo>.Fail(new AppError(404, "not_found",
+                    "One of the chosen sources is not in this world."));
+            }
+
+            if (!source.ExtractionEnabled)
+            {
+                return AppResult<ImportSessionInfo>.Fail(new AppError(400, "not_extractable",
+                    $"“{source.Title}” is stored without extraction and cannot be imported."));
+            }
+
+            toAdd.Add(source);
+        }
+
+        if (toAdd.Count == 0)
+        {
+            // Every chosen source was already staged; the run is unchanged but this is not an
+            // error — the GM's intent is satisfied.
+            return await ReloadAsync(session.Id, ct);
+        }
+
+        // Story order by default, which the GM then rearranges by hand. Undated sources fall
+        // back to CreatedAt, the same convention the replay walk uses.
+        var nextPosition = session.Items.Count == 0 ? 0 : session.Items.Max(i => i.Position) + 1;
+        var items = toAdd
+            .OrderBy(s => s.OccurredAt ?? s.CreatedAt)
+            .ThenBy(s => s.CreatedAt)
+            .Select((s, index) => new ImportSessionItem
+            {
+                Id = Guid.NewGuid(),
+                ImportSessionId = session.Id,
+                SourceId = s.Id,
+                Position = nextPosition + index,
+                Skipped = false,
+                CreatedByImport = false
+            })
+            .ToList();
+
+        await _sessionRepository.AddItemsAsync(items, ct);
+        await TouchAsync(session, ct);
+
+        _logger.LogInformation(
+            "Staged existing sources into an import. SessionId={SessionId}, WorldId={WorldId}, Count={Count}",
+            session.Id, worldId, items.Count);
+
+        return await ReloadAsync(session.Id, ct);
+    }
+
+    public async Task<AppResult<ImportSessionInfo>> RemoveItemAsync(
+        Guid worldId, Guid sessionId, Guid itemId, Guid actingUserId, WorldRole actingUserRole, CancellationToken ct)
+    {
+        var gate = await LoadOpenAsync(worldId, sessionId, actingUserRole, ct);
+        if (!gate.IsSuccess)
+        {
+            return AppResult<ImportSessionInfo>.Fail(gate.Error!);
+        }
+
+        var session = gate.Value!;
+        var item = session.Items.FirstOrDefault(i => i.Id == itemId);
+        if (item is null)
+        {
+            return AppResult<ImportSessionInfo>.Fail(new AppError(404, "not_found", "Import item not found."));
+        }
+
+        // Dropping a note from the queue is a queue edit and nothing more: the source is not
+        // touched, whatever its status, and an item already dispatched can still be removed —
+        // it simply stops being part of this run's remaining walk.
+        await _sessionRepository.DeleteItemAsync(itemId, ct);
+        await TouchAsync(session, ct);
+
+        _logger.LogInformation(
+            "Import item removed from the run. SessionId={SessionId}, ItemId={ItemId}, SourceId={SourceId}",
+            session.Id, itemId, item.SourceId);
 
         return await ReloadAsync(session.Id, ct);
     }
@@ -190,11 +350,20 @@ public class ImportSessionService : IImportSessionService
             return AppResult<ImportSessionInfo>.Fail(new AppError(404, "not_found", "Import item not found."));
         }
 
+        // Deleting the note is only ever offered for a note this flow created. A staged
+        // existing source belongs to the GM's record, and dropping it from the run must
+        // never destroy it — that is what RemoveItemAsync is for.
+        if (!item.CreatedByImport)
+        {
+            return AppResult<ImportSessionInfo>.Fail(new AppError(409, "not_import_owned",
+                "This note already existed before the import. Remove it from the run instead — it will be left untouched."));
+        }
+
         var source = await _sourceRepository.GetByIdAsync(item.SourceId, ct);
         if (source is not null && source.ProcessingStatus != SourceProcessingStatus.Draft)
         {
             return AppResult<ImportSessionInfo>.Fail(new AppError(409, "item_started",
-                "This note has already been sent for extraction and can no longer be removed from the import."));
+                "This note has already been sent for extraction and can no longer be deleted from the import."));
         }
 
         // The source first: if it refuses to delete, the item stays and the walk is unchanged.
@@ -374,27 +543,44 @@ public class ImportSessionService : IImportSessionService
             return AppResult.Success();
         }
 
-        // Only a note that is not already in the worker's hands gets queued: never yet sent
-        // (Draft), stranded by a failed enqueue (Ready), or failed and retryable (Failed).
-        // Queued and Processing are left alone rather than double-queued.
-        if (next.ProcessingStatus is not (SourceProcessingStatus.Draft
-            or SourceProcessingStatus.Ready
-            or SourceProcessingStatus.Failed))
+        // Queued and Processing are already in the worker's hands — leave them rather than
+        // double-queueing. Everything else is dispatched, by whichever route its status allows.
+        if (next.ProcessingStatus is SourceProcessingStatus.Queued or SourceProcessingStatus.Processing)
         {
             return AppResult.Success();
         }
 
-        var ready = await _sourceService.MarkReadyAsync(
-            new MarkSourceReadyCommand(next.SourceId, worldId, actingUserId, actingUserRole), ct);
-
-        if (!ready.IsSuccess)
+        // Processed is a terminal status: mark-ready has no transition out of it, so an
+        // existing source staged into the run can only be re-extracted through the reprocess
+        // cascade. Draft (never sent), Ready (enqueue failed) and Failed (retryable) all still
+        // take the ordinary mark-ready path.
+        AppResult dispatched;
+        if (next.ProcessingStatus == SourceProcessingStatus.Processed)
         {
-            return AppResult.Fail(ready.Error!);
+            var reprocessed = await _reprocessService.ReprocessAsync(
+                new ReprocessSourceCommand(next.SourceId, worldId, actingUserId, actingUserRole), ct);
+            dispatched = reprocessed.IsSuccess ? AppResult.Success() : AppResult.Fail(reprocessed.Error!);
+        }
+        else
+        {
+            var ready = await _sourceService.MarkReadyAsync(
+                new MarkSourceReadyCommand(next.SourceId, worldId, actingUserId, actingUserRole), ct);
+            dispatched = ready.IsSuccess ? AppResult.Success() : AppResult.Fail(ready.Error!);
         }
 
+        if (!dispatched.IsSuccess)
+        {
+            return dispatched;
+        }
+
+        // Stamped only after a successful dispatch: an item whose dispatch failed must stay
+        // Waiting so the GM can retry it rather than watch a walk that believes it moved on.
+        await _sessionRepository.SetItemDispatchedAsync(next.Id, DateTimeOffset.UtcNow, ct);
+
         _logger.LogInformation(
-            "Import advanced to the next note. SessionId={SessionId}, ItemId={ItemId}, SourceId={SourceId}",
-            session.Id, next.Id, next.SourceId);
+            "Import advanced to the next note. SessionId={SessionId}, ItemId={ItemId}, SourceId={SourceId}, Route={Route}",
+            session.Id, next.Id, next.SourceId,
+            next.ProcessingStatus == SourceProcessingStatus.Processed ? "reprocess" : "mark-ready");
 
         return AppResult.Success();
     }
@@ -454,14 +640,16 @@ public class ImportSessionService : IImportSessionService
         var sources = (await _sourceRepository.ListByWorldAsync(session.WorldId, cancellationToken: ct))
             .ToDictionary(s => s.Id);
 
-        var openCounts = await _proposalRepository.CountOpenBySourcesAsync(
-            items.Select(i => i.SourceId).ToList(), ct);
+        var sourceIds = items.Select(i => i.SourceId).ToList();
+        var openCounts = await _proposalRepository.CountOpenBySourcesAsync(sourceIds, ct);
+        var referenceCounts = await _referenceRepository.CountBySourcesAsync(sourceIds, ct);
 
         var infos = new List<ImportItemInfo>(items.Count);
         foreach (var item in items)
         {
             sources.TryGetValue(item.SourceId, out var source);
             var openCount = openCounts.TryGetValue(item.SourceId, out var count) ? count : 0;
+            var referenceCount = referenceCounts.TryGetValue(item.SourceId, out var refs) ? refs : 0;
 
             infos.Add(new ImportItemInfo(
                 item.Id,
@@ -474,7 +662,9 @@ public class ImportSessionService : IImportSessionService
                 source?.OccurredAt,
                 source?.ProcessingStatus ?? SourceProcessingStatus.Processed,
                 DeriveState(item, source, openCount),
-                openCount));
+                openCount,
+                item.CreatedByImport,
+                referenceCount));
         }
 
         var current = infos.FirstOrDefault(
@@ -493,8 +683,9 @@ public class ImportSessionService : IImportSessionService
     }
 
     /// <summary>
-    /// The item's state, read entirely off its source. Skipped wins over everything; a source
-    /// that vanished counts as done so a deleted note cannot stall the walk.
+    /// The item's state. Skipped wins over everything; a source that vanished counts as done
+    /// so a deleted note cannot stall the walk; an item the walk has not dispatched yet is
+    /// Waiting whatever its source says; and only then does the source's status decide.
     /// </summary>
     private static ImportItemState DeriveState(ImportSessionItem item, Source? source, int openProposalCount)
     {
@@ -506,6 +697,14 @@ public class ImportSessionService : IImportSessionService
         if (source is null)
         {
             return ImportItemState.Done;
+        }
+
+        // Load-bearing for staged existing sources. They enter the run already Processed with
+        // no open proposals, which the status switch below would read as Done — the walk would
+        // declare the whole backlog finished without extracting a single note.
+        if (item.DispatchedAt is null)
+        {
+            return ImportItemState.Waiting;
         }
 
         return source.ProcessingStatus switch

@@ -30,6 +30,16 @@ public interface IImportSessionRepository
 
     Task<ImportSessionItem> AddItemAsync(ImportSessionItem item, CancellationToken cancellationToken = default);
 
+    /// <summary>Appends several items at once — staging a backlog of existing sources is one
+    /// action to the GM and should be one round trip.</summary>
+    Task AddItemsAsync(IReadOnlyList<ImportSessionItem> items, CancellationToken cancellationToken = default);
+
+    /// <summary>Stamps the moment the walk sent this item for extraction. Until this is set
+    /// the item reads as Waiting whatever its source's status says.</summary>
+    Task SetItemDispatchedAsync(Guid itemId, DateTimeOffset dispatchedAt, CancellationToken cancellationToken = default);
+
+    /// <summary>Removes the item row only. The source is never touched here — dropping a
+    /// note from the run is a queue edit, not a deletion.</summary>
     Task DeleteItemAsync(Guid itemId, CancellationToken cancellationToken = default);
 
     /// <summary>Scoped write of item positions — the reorder.</summary>

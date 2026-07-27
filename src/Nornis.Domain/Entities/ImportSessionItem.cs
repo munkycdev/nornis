@@ -1,10 +1,10 @@
 namespace Nornis.Domain.Entities;
 
 /// <summary>
-/// One note in an <see cref="ImportSession"/>'s backlog. Carries no status of its own: the
-/// item's state is read off its source (Draft = waiting, Queued/Processing = extracting,
-/// Processed with open proposals = reviewing, and so on). Only <see cref="Skipped"/> is a
-/// decision the walk records here, because nothing about the source expresses it.
+/// One note in an <see cref="ImportSession"/>'s backlog. The item's state is read off its
+/// source (Queued/Processing = extracting, Processed with open proposals = reviewing, and
+/// so on); what the item stores is only what the source cannot express — whether the GM
+/// skipped it, whether this flow created it, and whether the walk has sent it yet.
 /// </summary>
 public class ImportSessionItem
 {
@@ -24,6 +24,22 @@ public class ImportSessionItem
 
     /// <summary>Passed over by the GM: the walk moves on without waiting for this note.</summary>
     public bool Skipped { get; set; }
+
+    /// <summary>
+    /// True when the add-note form created this source, false when an existing source was
+    /// staged into the run. Only an import-created note may be deleted along with its item —
+    /// removing a staged existing source must never touch the GM's real note.
+    /// </summary>
+    public bool CreatedByImport { get; set; }
+
+    /// <summary>
+    /// When the walk sent this item for extraction, or null while it still waits.
+    ///
+    /// Load-bearing for staged existing sources: they arrive already Processed, and state
+    /// derived from status alone would call them Done before the walk ever reached them.
+    /// Until an item is dispatched it is Waiting, whatever its source says.
+    /// </summary>
+    public DateTimeOffset? DispatchedAt { get; set; }
 
     // Navigation properties
     public ImportSession ImportSession { get; set; } = null!;

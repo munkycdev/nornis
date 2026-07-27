@@ -60,6 +60,22 @@ public class SourceReferenceRepository : ISourceReferenceRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, int>> CountBySourcesAsync(
+        IReadOnlyList<Guid> sourceIds, CancellationToken cancellationToken = default)
+    {
+        if (sourceIds.Count == 0)
+            return new Dictionary<Guid, int>();
+
+        var counts = await _context.SourceReferences
+            .AsNoTracking()
+            .Where(sr => sourceIds.Contains(sr.SourceId))
+            .GroupBy(sr => sr.SourceId)
+            .Select(g => new { SourceId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(c => c.SourceId, c => c.Count);
+    }
+
     public async Task DeleteBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default)
     {
         // Tracked-load delete: the InMemory provider used in tests lacks ExecuteDelete.
