@@ -565,9 +565,19 @@ public class ReviewService : IReviewService
         var failed = new List<BatchFailureDetail>();
         var affectedBatchIds = new HashSet<Guid>();
 
+        // A batch accept is nearly always 50 proposals from ONE extraction, so the batch and its
+        // source were being re-read up to 50 times each. Both are immutable for the duration of
+        // this operation — nothing here writes to either — so they are read once and reused.
+        //
+        // The PROPOSAL is deliberately not memoised: TryAcceptOneAsync re-reads it so the retry
+        // pass below sees the updated Status and takes the idempotent path instead of applying a
+        // second time.
+        var batches = new Dictionary<Guid, ReviewBatch>();
+        var sources = new Dictionary<Guid, Source>();
+
         foreach (var proposalId in await OrderCreatesFirstAsync(uniqueIds, ct))
         {
-            var failure = await TryAcceptOneAsync(proposalId, command, succeeded, affectedBatchIds, ct);
+            var failure = await TryAcceptOneAsync(proposalId, command, succeeded, affectedBatchIds, batches, sources, ct);
             if (failure is not null)
                 failed.Add(failure);
         }
@@ -583,7 +593,7 @@ public class ReviewService : IReviewService
 
         foreach (var proposalId in retryIds)
         {
-            var failure = await TryAcceptOneAsync(proposalId, command, succeeded, affectedBatchIds, ct);
+            var failure = await TryAcceptOneAsync(proposalId, command, succeeded, affectedBatchIds, batches, sources, ct);
 
             // Only a success changes anything: the proposal moves out of failed. A second
             // failure keeps the detail already recorded.
@@ -613,13 +623,14 @@ public class ReviewService : IReviewService
     private async Task<IReadOnlyList<Guid>> OrderCreatesFirstAsync(
         IReadOnlyList<Guid> proposalIds, CancellationToken ct)
     {
-        var creates = new HashSet<Guid>();
-        foreach (var id in proposalIds)
-        {
-            var proposal = await _reviewProposalRepository.GetByIdAsync(id, ct);
-            if (proposal?.ChangeType == ReviewChangeType.CreateArtifact)
-                creates.Add(id);
-        }
+        // One query for the whole selection rather than one per id. This reads nothing but
+        // ChangeType and is used only for ordering — the accept path re-reads each proposal for
+        // itself, deliberately (see TryAcceptOneAsync), so nothing here can go stale in a way
+        // that matters.
+        var creates = (await _reviewProposalRepository.ListByIdsAsync(proposalIds, ct))
+            .Where(p => p.ChangeType == ReviewChangeType.CreateArtifact)
+            .Select(p => p.Id)
+            .ToHashSet();
 
         // OrderBy is stable, so relative order inside each group is the caller's.
         return proposalIds.OrderBy(id => creates.Contains(id) ? 0 : 1).ToList();
@@ -636,19 +647,43 @@ public class ReviewService : IReviewService
         BatchAcceptCommand command,
         List<Guid> succeeded,
         HashSet<Guid> affectedBatchIds,
+        Dictionary<Guid, ReviewBatch> batches,
+        Dictionary<Guid, Source> sources,
         CancellationToken ct)
     {
+        // Deliberately re-read, not memoised — the retry pass depends on seeing the updated
+        // Status so an already-accepted proposal takes the idempotent path.
         var proposal = await _reviewProposalRepository.GetByIdAsync(proposalId, ct);
         if (proposal is null)
             return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
 
-        var batch = await _reviewBatchRepository.GetByIdAsync(proposal.ReviewBatchId, ct);
-        if (batch is null || batch.WorldId != command.WorldId)
+        if (!batches.TryGetValue(proposal.ReviewBatchId, out var batch))
+        {
+            var loaded = await _reviewBatchRepository.GetByIdAsync(proposal.ReviewBatchId, ct);
+            if (loaded is null)
+                return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
+
+            // Only cache batches that passed the world check, so a mismatched one can never be
+            // served to a later proposal without being re-checked.
+            if (loaded.WorldId != command.WorldId)
+                return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
+
+            batches[proposal.ReviewBatchId] = loaded;
+            batch = loaded;
+        }
+
+        if (batch.WorldId != command.WorldId)
             return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
 
-        var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
-        if (source is null)
-            return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
+        if (!sources.TryGetValue(batch.SourceId, out var source))
+        {
+            var loaded = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
+            if (loaded is null)
+                return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
+
+            sources[batch.SourceId] = loaded;
+            source = loaded;
+        }
 
         if (!IsSourceVisibleToUser(source, command.ActingUserId, command.ActingUserRole))
             return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");

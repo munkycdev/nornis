@@ -66,6 +66,10 @@ else
 // MVC controllers
 builder.Services.AddControllers();
 
+// Backs the subject-to-user cache in UserProvisioningMiddleware, which otherwise queries the
+// user table on every authenticated request purely to turn a JWT subject into a Guid.
+builder.Services.AddMemoryCache();
+
 // Kestrel does not compress by default and Container Apps ingress does not compress
 // backend-to-backend traffic, so every JSON payload crossed the wire raw. These responses are
 // highly repetitive — long property names, enum strings, GUIDs — and typically compress 80-90%.

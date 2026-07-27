@@ -33,9 +33,13 @@ public interface IReviewProposalRepository
     Task<ReviewProposal> UpdateAsync(ReviewProposal proposal, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// The review queue page: open proposals (Pending or Edited) from the given sources,
-    /// oldest batch first.
+    /// Loads a known set of proposals in one query. Ids that no longer exist are absent from the
+    /// result rather than null entries, so a caller iterating the result naturally skips them.
     /// </summary>
+    Task<IReadOnlyList<ReviewProposal>> ListByIdsAsync(
+        IReadOnlyList<Guid> ids,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// How many open proposals this reviewer has waiting, counted in SQL, capped at
     /// <paramref name="limit"/> with a has-more flag — the same shape and the same scoping rules
@@ -53,6 +57,10 @@ public interface IReviewProposalRepository
         int limit,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The review queue page: open proposals (Pending or Edited) from the given sources, oldest
+    /// batch first, capped at <paramref name="limit"/> with a has-more probe.
+    /// </summary>
     Task<(IReadOnlyList<ReviewProposal> Proposals, bool HasMore)> ListReviewQueueAsync(
         Guid worldId,
         IReadOnlyList<Guid> allowedSourceIds,

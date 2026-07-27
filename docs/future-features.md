@@ -464,21 +464,43 @@ than bundled in here.
       becoming visible. Dispose the listener with the component — `NavMenu` already has the
       `IDisposable` plumbing.
 
-## Phase 5 — Authorization-sensitive and correctness-sensitive
+## Phase 5 — Authorization-sensitive and correctness-sensitive — DONE 2026-07-27
 
-Route both through `code-critic` — independent read, no memory of having written it.
+Reviewed by `code-critic` **before** the push this time, not after. It found a blocker; see below.
 
-- [ ] Cache the `sub → User` mapping in the provisioning middleware with a short, deliberate TTL, and
-      thread the already-resolved `WorldMember`/role into the ~20 services that re-query it. Keep the
-      role parameter non-nullable so a caller cannot forget it. **Behaviour change worth stating:**
-      the filter applies the GM "view as player" downgrade and the services' own lookup does not, so
-      moving to the filter's role extends view-as-player to those endpoints — which is the documented
-      intent, but is a change.
-- [ ] Hoist the reads out of batch accept: load proposals once via a new `ListByIdsAsync`, memoize
-      batch and source, and pass the loaded batch into `UpdateBatchLifecycleAsync`. Keep the
-      per-proposal transaction boundary and keep the re-read on the retry pass, which exists because
-      intra-batch state changes. **The hoisted artifact set must be invalidated after each create or
-      the "Salt Factor" dedup bug returns.**
+- [x] **`sub → User` cached** in `UserProvisioningMiddleware` (10-minute TTL). This runs on every
+      authenticated request and exists solely to turn a JWT subject into a Guid — verified that
+      `user.Id` is read 118 times across the API, no other field is read anywhere, and nothing
+      mutates the instance. Cached as an immutable snapshot with a fresh `User` rebuilt per
+      request, so no entity is ever shared between concurrent requests.
+- [x] **Batch-accept reads hoisted.** `OrderCreatesFirstAsync` went from one query per id to one
+      via a new `ListByIdsAsync`; batch and source are memoised across the batch. For a
+      50-proposal accept that is roughly 200 round trips down to ~53. The per-proposal proposal
+      re-read is deliberately kept — the retry pass depends on seeing updated `Status` to take
+      the idempotent path.
+
+**The blocker `code-critic` caught, pre-push:** the cache-hit path called `await _next(context)`
+*inside* the middleware's `try`, which put the entire application inside its catch clauses. On a
+warm cache — i.e. nearly all traffic — a controller's `DbUpdateException` would have been caught
+here, the user re-resolved, and the request re-executed from routing with every side effect run
+twice; and any downstream 500 would have surfaced as a 503 logged as a user-provisioning failure,
+filing real controller bugs under the wrong cause and misleading the new alert rule. `_next` is
+now invoked exactly once, outside the try, with a comment saying why. Two regression tests cover
+a downstream failure and a repeated write on a warm cache.
+
+**Descoped, with reasons:**
+
+- [ ] The ~13 membership re-queries. I expected to find an authorization hole here — the plan
+      suggested services bypass the "view as player" downgrade by re-querying. **That premise is
+      wrong:** the controllers already gate on the filter's role, so view-as *is* enforced, and
+      `CharacterService` re-queries for the member's `Id`, not its role, which is a genuine need.
+      What remains is ~13 round trips on world-settings and member-management endpoints, which are
+      rare. Not worth the authorization-surface churn at the scale Phase 2 measured.
+- [ ] The artifact-candidate-set hoist (`ListByEquivalentNameAsync` loading every world artifact
+      per apply). This is the one carrying the "Salt Factor" dedup bug if the set is not
+      invalidated after each create. It addresses a different cost from the hoists above, and is
+      the single riskiest remaining change in the plan. Do it on its own, with tests for the
+      intra-batch create ordering first.
 
 ## Phase 6 — AI spend and worker behaviour
 

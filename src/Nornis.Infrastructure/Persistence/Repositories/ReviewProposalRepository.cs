@@ -91,6 +91,21 @@ public class ReviewProposalRepository : IReviewProposalRepository
         return proposal;
     }
 
+    public async Task<IReadOnlyList<ReviewProposal>> ListByIdsAsync(
+        IReadOnlyList<Guid> ids,
+        CancellationToken cancellationToken = default)
+    {
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        return await _context.ReviewProposals
+            .AsNoTracking()
+            .Where(p => ids.Contains(p.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<(int Count, bool HasMore)> CountOpenForReviewerAsync(
         Guid worldId,
         Guid actingUserId,

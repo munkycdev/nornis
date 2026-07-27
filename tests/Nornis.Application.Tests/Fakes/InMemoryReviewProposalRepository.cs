@@ -94,6 +94,14 @@ public class InMemoryReviewProposalRepository : IReviewProposalRepository
         return Task.FromResult(proposal);
     }
 
+    public Task<IReadOnlyList<ReviewProposal>> ListByIdsAsync(
+        IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        // Absent ids are omitted, matching the real query — callers iterate the result.
+        var result = _proposals.Where(p => ids.Contains(p.Id)).ToList();
+        return Task.FromResult<IReadOnlyList<ReviewProposal>>(result.AsReadOnly());
+    }
+
     public Task<(int Count, bool HasMore)> CountOpenForReviewerAsync(
         Guid worldId,
         Guid actingUserId,
