@@ -122,6 +122,7 @@ builder.Services.AddHttpClient<NornisApiClient>(client =>
 }).AddHttpMessageHandler<BearerTokenHandler>();
 
 builder.Services.AddScoped<Nornis.Web.State.WorldState>();
+builder.Services.AddScoped<Nornis.Web.State.ActivitySignal>();
 builder.Services.AddScoped<Nornis.Web.State.AskState>();
 builder.Services.AddScoped<Nornis.Web.State.ViewAsState>();
 

@@ -15,11 +15,13 @@ public class NornisApiClient
 
     private readonly HttpClient _httpClient;
     private readonly State.ViewAsState _viewAs;
+    private readonly State.ActivitySignal _activity;
 
-    public NornisApiClient(HttpClient httpClient, State.ViewAsState viewAs)
+    public NornisApiClient(HttpClient httpClient, State.ViewAsState viewAs, State.ActivitySignal activity)
     {
         _httpClient = httpClient;
         _viewAs = viewAs;
+        _activity = activity;
     }
 
     /// <summary>Base address the client is configured to call (for display/diagnostics).</summary>
@@ -590,6 +592,26 @@ public class NornisApiClient
     public Task<ApiResult<ReviewQueue>> GetReviewQueueAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<ReviewQueue>($"/api/worlds/{worldId}/reviews/proposals", ct);
 
+    // -------------------------------------------------------------- Notifications --
+
+    /// <summary>The VAPID public key, and whether the server can send at all.</summary>
+    public Task<ApiResult<PushConfig>> GetPushConfigAsync(CancellationToken ct = default) =>
+        GetAsync<PushConfig>("/api/notifications/config", ct);
+
+    /// <summary>Browsers this user has enabled notifications on.</summary>
+    public Task<ApiResult<List<PushSubscriptionSummary>>> GetPushSubscriptionsAsync(CancellationToken ct = default) =>
+        GetAsync<List<PushSubscriptionSummary>>("/api/notifications/subscriptions", ct);
+
+    /// <summary>Registers this browser to receive notifications.</summary>
+    public Task<ApiResult<PushSubscriptionSummary>> SavePushSubscriptionAsync(
+        SavePushSubscriptionRequest request, CancellationToken ct = default) =>
+        PostAsync<SavePushSubscriptionRequest, PushSubscriptionSummary>(
+            "/api/notifications/subscriptions", request, ct);
+
+    /// <summary>Forgets a browser, by the endpoint it identifies itself with.</summary>
+    public Task<ApiResult<bool>> DeletePushSubscriptionAsync(string endpoint, CancellationToken ct = default) =>
+        DeleteAsync($"/api/notifications/subscriptions?endpoint={Uri.EscapeDataString(endpoint)}", ct);
+
     // ------------------------------------------------------------------------ Ask --
 
     public Task<ApiResult<AskAnswer>> AskLoremasterAsync(Guid worldId, string question, string? conversationContext = null, CancellationToken ct = default) =>
@@ -676,7 +698,7 @@ public class NornisApiClient
     /// Player for reads and GM-gated calls alike (those fail closed with 403 — the UI
     /// hides them in that mode).
     /// </summary>
-    private Task<HttpResponseMessage> SendCoreAsync(
+    private async Task<HttpResponseMessage> SendCoreAsync(
         HttpMethod method, string uri, HttpContent? content, CancellationToken ct)
     {
         var request = new HttpRequestMessage(method, uri) { Content = content };
@@ -685,7 +707,18 @@ public class NornisApiClient
             request.Headers.Add(ViewAsHeaderName, "Player");
         }
 
-        return _httpClient.SendAsync(request, ct);
+        var response = await _httpClient.SendAsync(request, ct);
+
+        // Every write goes through here, so this is the one place that cannot forget to say the
+        // sidebar's counts are stale. Announcing on any successful write rather than on a list
+        // of interesting endpoints is deliberate: the list would rot the first time someone adds
+        // an endpoint, and the cost of being wrong is one cheap GET that the nav de-duplicates.
+        if (method != HttpMethod.Get && response.IsSuccessStatusCode)
+        {
+            _activity.Notify();
+        }
+
+        return response;
     }
 
     private async Task<ApiResult<T>> GetAsync<T>(string uri, CancellationToken ct)

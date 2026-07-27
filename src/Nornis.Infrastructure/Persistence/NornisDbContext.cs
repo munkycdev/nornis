@@ -37,6 +37,8 @@ public class NornisDbContext : DbContext
     public DbSet<MapPlacemark> MapPlacemarks => Set<MapPlacemark>();
     public DbSet<ExtractionReplay> ExtractionReplays => Set<ExtractionReplay>();
     public DbSet<ImportSession> ImportSessions => Set<ImportSession>();
+
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
     public DbSet<ImportSessionItem> ImportSessionItems => Set<ImportSessionItem>();
     public DbSet<TutorialProgress> TutorialProgress => Set<TutorialProgress>();
 

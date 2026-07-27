@@ -102,6 +102,14 @@ builder.Services.AddScoped<ILibraryChunkRepository, LibraryChunkRepository>();
 builder.Services.AddScoped<IMapPlacemarkRepository, MapPlacemarkRepository>();
 builder.Services.AddScoped<IExtractionReplayRepository, ExtractionReplayRepository>();
 builder.Services.AddScoped<IImportSessionRepository, ImportSessionRepository>();
+builder.Services.AddScoped<IPushSubscriptionRepository, PushSubscriptionRepository>();
+
+// Notifications. The API only handles subscribe/unsubscribe and the occasional in-request
+// announcement; the worker does the sending for asynchronous work.
+builder.Services.Configure<Nornis.Infrastructure.Notifications.WebPushOptions>(
+    builder.Configuration.GetSection(Nornis.Infrastructure.Notifications.WebPushOptions.SectionName));
+builder.Services.AddScoped<Nornis.Application.Notifications.INotificationSender,
+    Nornis.Infrastructure.Notifications.WebPushNotificationSender>();
 builder.Services.AddScoped<IWorldExportReader, WorldExportReader>();
 builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 

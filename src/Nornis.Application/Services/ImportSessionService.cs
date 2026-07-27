@@ -68,7 +68,7 @@ public class ImportSessionService : IImportSessionService
         if (await _sessionRepository.GetNonTerminalByWorldAsync(worldId, ct) is not null)
         {
             return AppResult<ImportSessionInfo>.Fail(new AppError(409, "import_session_active",
-                "This world already has an import in progress. Finish or abandon it before starting another."));
+                "This world already has an extraction in progress. Finish or stop it before starting another."));
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -100,7 +100,7 @@ public class ImportSessionService : IImportSessionService
         if (session is null)
         {
             return AppResult<ImportSessionInfo>.Fail(
-                new AppError(404, "not_found", "This world has no import in progress."));
+                new AppError(404, "not_found", "This world has no extraction in progress."));
         }
 
         return AppResult<ImportSessionInfo>.Success(await BuildInfoAsync(session, ct));
@@ -228,7 +228,7 @@ public class ImportSessionService : IImportSessionService
             if (!source.ExtractionEnabled)
             {
                 return AppResult<ImportSessionInfo>.Fail(new AppError(400, "not_extractable",
-                    $"“{source.Title}” is stored without extraction and cannot be imported."));
+                    $"“{source.Title}” is stored without extraction and cannot be added."));
             }
 
             toAdd.Add(source);
@@ -356,14 +356,14 @@ public class ImportSessionService : IImportSessionService
         if (!item.CreatedByImport)
         {
             return AppResult<ImportSessionInfo>.Fail(new AppError(409, "not_import_owned",
-                "This note already existed before the import. Remove it from the run instead — it will be left untouched."));
+                "This note already existed before the extraction. Remove it from the run instead — it will be left untouched."));
         }
 
         var source = await _sourceRepository.GetByIdAsync(item.SourceId, ct);
         if (source is not null && source.ProcessingStatus != SourceProcessingStatus.Draft)
         {
             return AppResult<ImportSessionInfo>.Fail(new AppError(409, "item_started",
-                "This note has already been sent for extraction and can no longer be deleted from the import."));
+                "This note has already been sent for extraction and can no longer be deleted from the run."));
         }
 
         // The source first: if it refuses to delete, the item stays and the walk is unchanged.
@@ -396,13 +396,13 @@ public class ImportSessionService : IImportSessionService
         if (session.Status != ImportSessionStatus.Draft)
         {
             return AppResult<ImportSessionInfo>.Fail(new AppError(409, "invalid_status",
-                "This import has already started."));
+                "This extraction has already started."));
         }
 
         if (session.Items.Count == 0)
         {
             return AppResult<ImportSessionInfo>.Fail(new AppError(400, "no_items",
-                "Add at least one note before starting the import."));
+                "Add at least one note before starting."));
         }
 
         await _sessionRepository.UpdateAsync(session.Id, ImportSessionStatus.InProgress, DateTimeOffset.UtcNow, ct);
@@ -438,7 +438,7 @@ public class ImportSessionService : IImportSessionService
         if (session.Status != ImportSessionStatus.InProgress)
         {
             return AppResult<ImportSessionInfo>.Fail(new AppError(409, "invalid_status",
-                "Start the import before advancing it."));
+                "Start the extraction before advancing it."));
         }
 
         var view = await BuildInfoAsync(session, ct);
@@ -456,7 +456,7 @@ public class ImportSessionService : IImportSessionService
         if (expectedItemId is { } expected && expected != current.Id)
         {
             return AppResult<ImportSessionInfo>.Fail(new AppError(409, "item_moved",
-                "The import has moved on to a different note. Refresh to see where it stands."));
+                "The extraction has moved on to a different note. Refresh to see where it stands."));
         }
 
         if (skipCurrent)
@@ -625,7 +625,7 @@ public class ImportSessionService : IImportSessionService
         if (session.Status is not (ImportSessionStatus.Draft or ImportSessionStatus.InProgress))
         {
             return AppResult<ImportSession>.Fail(new AppError(409, "invalid_status",
-                $"This import is {session.Status} and can no longer be changed."));
+                $"This extraction is {session.Status} and can no longer be changed."));
         }
 
         return AppResult<ImportSession>.Success(session);
@@ -725,5 +725,5 @@ public class ImportSessionService : IImportSessionService
     }
 
     private static AppError GmOnly() =>
-        new(403, "insufficient_role", "Only the GM can run a campaign import.");
+        new(403, "insufficient_role", "Only the GM can extract a campaign.");
 }

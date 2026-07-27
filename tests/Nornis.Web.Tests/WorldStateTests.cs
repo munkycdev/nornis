@@ -16,7 +16,9 @@ public class WorldStateTests
     {
         var viewAs = new ViewAsState();
         var client = new NornisApiClient(
-            new HttpClient(handler) { BaseAddress = new Uri("http://localhost") }, viewAs);
+            new HttpClient(handler) { BaseAddress = new Uri("http://localhost") },
+            viewAs,
+            new ActivitySignal());
         return new WorldState(client, viewAs, new FakeJsRuntime { StoredWorldId = storedWorldId });
     }
 

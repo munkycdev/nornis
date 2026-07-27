@@ -1085,6 +1085,132 @@ a.nornis-tutorial-step-title:hover {
     cursor: grab;
 }
 
+/* The only thing telling a user the row can be dragged. Muted until hover so a long backlog
+   does not read as a column of icons, but present enough to invite the first attempt. */
+.nornis-drag-grip {
+    cursor: grab;
+    color: var(--mud-palette-text-disabled);
+    flex: 0 0 auto;
+}
+
+.nornis-list-row:hover .nornis-drag-grip {
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-drag-grip-spacer {
+    display: inline-block;
+    width: 20px;
+    flex: 0 0 auto;
+}
+
+/* The "why one at a time" note. Sits quietly under the progress bar — it has to be findable
+   at the moment the pacing starts to feel like friction, without shouting on every note. */
+.nornis-pacing-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-pacing-lead {
+    flex: 1 1 auto;
+}
+
+.nornis-pacing-toggle {
+    flex: 0 0 auto;
+}
+
+.nornis-pacing-detail {
+    margin-top: 8px;
+    padding: 12px 14px;
+    border-left: 2px solid var(--mud-palette-secondary);
+    background: var(--mud-palette-action-default-hover);
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-pacing-detail p {
+    margin: 0 0 10px;
+}
+
+.nornis-pacing-detail p:last-child {
+    margin-bottom: 0;
+}
+
+.nornis-pacing-aside {
+    opacity: 0.85;
+}
+
+/* Turning review off is the one destructive choice on this page, so it is warned in warning
+   colours and the consequence is spelled out in place rather than hidden behind a tooltip. */
+.nornis-auto-accept-warning {
+    margin-top: 8px;
+    padding: 12px 14px;
+    border-left: 2px solid var(--mud-palette-warning);
+    background: var(--mud-palette-warning-hover);
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-auto-accept-warning p {
+    margin: 0 0 10px;
+}
+
+.nornis-auto-accept-warning p:last-child {
+    margin-bottom: 0;
+}
+
+/* While it runs: visibly alive, and the stop control never scrolls away from the status. */
+.nornis-auto-running {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    margin: 4px 0 8px;
+    border-radius: 6px;
+    border: 1px solid var(--mud-palette-warning);
+    background: var(--mud-palette-warning-hover);
+}
+
+.nornis-auto-running-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.nornis-auto-running-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.nornis-auto-running-status {
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The fold-away summary for notes the walk has passed, and the rows themselves when shown:
+   present, but clearly behind the work that is left. */
+.nornis-settled-summary {
+    opacity: 0.85;
+}
+
+.nornis-row-settled {
+    opacity: 0.55;
+}
+
+/* The review queue embedded in the import walk. Set apart from the note's own panel so the
+   proposals read as a separate body of work rather than more of the header. */
+.nornis-inline-review {
+    margin-top: 4px;
+    padding-top: 16px;
+    border-top: 1px solid var(--mud-palette-divider);
+}
+
 /* A world's whole source list can run to hundreds of rows; the picker scrolls inside the
    card rather than pushing the staged backlog and its Start button off the page. */
 .nornis-scroll-list {

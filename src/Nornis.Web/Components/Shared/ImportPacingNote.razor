@@ -1,0 +1,45 @@
+@*
+    Why the import stops at every note. Without this the walk reads as needless friction —
+    extract, review, extract, review — and the natural reaction is to look for the button that
+    turns it off. The pacing IS the feature, so it has to say so where the waiting happens.
+
+    Collapsed by default: a reason you have already read becomes noise by note twelve.
+*@
+
+<div class="nornis-pacing-note">
+    <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Size="Size.Small" Color="Color.Secondary" />
+    <span class="nornis-pacing-lead">@Lead</span>
+    <MudButton Variant="Variant.Text" Size="Size.Small" Class="nornis-pacing-toggle"
+               OnClick="() => _open = !_open">
+        @(_open ? "Hide" : "Why?")
+    </MudButton>
+</div>
+
+@if (_open)
+{
+    <div class="nornis-pacing-detail">
+        <p>
+            Read all at once, every note would be read against the same empty record — and each
+            would introduce its own copy of the same people and places. Three notes mentioning
+            the same captain would propose three captains, and your review would be spent merging
+            duplicates instead of checking whether the facts are right.
+        </p>
+        <p>
+            Going one at a time, each note is read against the record your earlier decisions
+            built. The second note already knows who the first introduced, so it adds to them
+            rather than inventing them again — and what you accept along the way is what the
+            next note gets to build on.
+        </p>
+        <p class="nornis-pacing-aside">
+            You can skip a note at any point, and stop the import whenever you like. Notes you
+            have already reviewed keep everything they contributed.
+        </p>
+    </div>
+}
+
+@code {
+    /// <summary>The always-visible sentence. Differs before the walk starts and during it.</summary>
+    [Parameter] public string Lead { get; set; } = "Nornis reads one note at a time, on purpose.";
+
+    private bool _open;
+}

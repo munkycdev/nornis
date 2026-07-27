@@ -1,463 +1,59 @@
 @page "/review"
-@using System.Text.Json
 @implements IDisposable
 @inject WorldState Worlds
-@inject NornisApiClient Api
-@inject IDialogService DialogService
-@inject ISnackbar Snackbar
 
 <PageTitle>Review Queue — Nornis</PageTitle>
+
+@*
+    Page chrome only. The queue itself lives in ReviewQueuePanel so the campaign import can
+    host the same thing inline instead of sending the GM here and back for every note.
+*@
 
 <div class="nornis-page-head">
     <div>
         <MudText Typo="Typo.h4" Class="nornis-serif">Review Queue</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">Accept, edit, or reject proposed updates to your record.</MudText>
     </div>
-    @if (_proposals.Count > 0)
+    @if (_count > 0)
     {
-        <span class="nornis-count-badge">@_proposals.Count</span>
+        <span class="nornis-count-badge">@_count</span>
     }
 </div>
-
-@if (_hasMore)
-{
-    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
-        Showing the first 200 proposals — more are waiting after these.
-    </MudAlert>
-}
 
 @if (Worlds.Current is null)
 {
     <NoWorld />
 }
-else if (_loading)
-{
-    <LoadingRows Rows="3" />
-}
-else if (_error is not null)
-{
-    <MudAlert Severity="Severity.Error">@_error</MudAlert>
-}
-else if (_proposals.Count == 0)
-{
-    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
-        <MudIcon Icon="@Icons.Material.Outlined.FactCheck" Size="Size.Large" Class="nornis-comingsoon-icon" />
-        <MudText Typo="Typo.h5" Class="nornis-serif">Nothing to review</MudText>
-        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
-            When Nornis processes a source, its proposed updates will appear here for you to accept.
-        </MudText>
-    </MudPaper>
-}
 else
 {
-    @if (OpenIds().Count > 0)
-    {
-        <div class="d-flex gap-2 mb-4 align-center">
-            <MudButton Variant="Variant.Filled" Color="Color.Secondary"
-                       StartIcon="@Icons.Material.Filled.DoneAll"
-                       OnClick="AcceptAllAsync" Disabled="@_batchActing">
-                @(_batchActing && _batchAccepting ? "Accepting…" : "Accept all")
-            </MudButton>
-            <MudButton Variant="Variant.Text" Color="Color.Error"
-                       StartIcon="@Icons.Material.Filled.ClearAll"
-                       OnClick="RejectAllAsync" Disabled="@_batchActing">
-                @(_batchActing && !_batchAccepting ? "Rejecting…" : "Reject all")
-            </MudButton>
-            @if (_batchActing)
-            {
-                <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Secondary" />
-                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                    @(_batchAccepting ? "Applying" : "Discarding") @_batchTotal proposals…
-                </MudText>
-            }
-        </div>
-    }
-
-    <div class="nornis-proposals">
-        @foreach (var p in _proposals)
-        {
-            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-                <div class="nornis-proposal-head">
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ChangeColor(p.ChangeType)">
-                        @Humanize(p.ChangeType)
-                    </MudChip>
-                    @if (TargetLabel(p) is { } target)
-                    {
-                        <span class="nornis-proposal-target">@target</span>
-                    }
-                    @if (p.Confidence is not null)
-                    {
-                        <span class="nornis-list-meta">@($"{p.Confidence:P0}") confidence</span>
-                    }
-                    @if (p.Status == "Edited")
-                    {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info"
-                                 title="You changed this proposal. It still needs an accept or a reject.">Edited</MudChip>
-                    }
-                    else if (p.Status != "Pending")
-                    {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@p.Status</MudChip>
-                    }
-                    @if (!string.IsNullOrWhiteSpace(p.SourceTitle))
-                    {
-                        <span class="nornis-proposal-source" title="Source that produced this proposal">
-                            <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" />
-                            @p.SourceTitle
-                        </span>
-                    }
-                    @if (p.BatchKind == "RelationshipBackfill")
-                    {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Tertiary">Backfill</MudChip>
-                    }
-                </div>
-
-                <div class="nornis-proposal-fields">
-                    @foreach (var (key, value) in Fields(p.ProposedValueJson))
-                    {
-                        <div class="nornis-kv">
-                            <span class="nornis-kv-key">@key</span>
-                            <span class="nornis-kv-value">@value</span>
-                        </div>
-                    }
-                </div>
-
-                @if (!string.IsNullOrWhiteSpace(p.Rationale))
-                {
-                    <div class="nornis-proposal-rationale">
-                        <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Size="Size.Small" Color="Color.Secondary" />
-                        <span>@p.Rationale</span>
-                    </div>
-                }
-
-                <div class="nornis-proposal-actions">
-                    <MudButton Variant="Variant.Filled" Color="Color.Secondary"
-                               StartIcon="@Icons.Material.Filled.Check"
-                               OnClick="() => AcceptAsync(p)" Disabled="@_acting.Contains(p.Id)">
-                        Accept
-                    </MudButton>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.Edit"
-                               OnClick="() => EditAsync(p)" Disabled="@_acting.Contains(p.Id)">
-                        Edit
-                    </MudButton>
-                    <MudButton Variant="Variant.Text" Color="Color.Error"
-                               StartIcon="@Icons.Material.Filled.Close"
-                               OnClick="() => RejectAsync(p)" Disabled="@_acting.Contains(p.Id)">
-                        Reject
-                    </MudButton>
-                </div>
-            </MudPaper>
-        }
-    </div>
+    <ReviewQueuePanel @ref="_panel" OnQueueChanged="OnCountChanged" />
 }
 
 @code {
-    private bool _loading;
-    private bool _hasMore;
-    private string? _error;
-    private IReadOnlyList<ReviewProposal> _proposals = [];
-    private readonly HashSet<Guid> _acting = [];
-    private bool _batchActing;
-    private bool _batchAccepting;
-    private int _batchTotal;
+    private ReviewQueuePanel? _panel;
+    private int _count;
 
     protected override async Task OnInitializedAsync()
     {
         Worlds.Changed += OnWorldChanged;
         await Worlds.EnsureLoadedAsync();
-        await LoadAsync();
     }
 
-    private void OnWorldChanged() => InvokeAsync(LoadAsync);
-
-    private async Task LoadAsync()
-    {
-        if (Worlds.Current is null)
+    private void OnWorldChanged() =>
+        InvokeAsync(async () =>
         {
-            _proposals = [];
-            _error = null;
+            if (_panel is not null)
+            {
+                await _panel.RefreshAsync();
+            }
             StateHasChanged();
-            return;
-        }
+        });
 
-        _loading = true;
-        _error = null;
-        StateHasChanged();
-
-        var result = await Api.GetReviewQueueAsync(Worlds.Current.Id);
-
-        _loading = false;
-        if (result.IsSuccess)
-        {
-            _proposals = result.Value!.Proposals;
-            _hasMore = result.Value.HasMore;
-        }
-        else
-        {
-            _error = result.Error!.Message;
-            _proposals = [];
-        }
+    private void OnCountChanged(int count)
+    {
+        _count = count;
         StateHasChanged();
     }
-
-    private async Task AcceptAsync(ReviewProposal p)
-    {
-        _acting.Add(p.Id);
-        var result = await Api.AcceptProposalAsync(Worlds.Current!.Id, p.Id);
-        _acting.Remove(p.Id);
-
-        if (result.IsSuccess)
-        {
-            _proposals = _proposals.Where(x => x.Id != p.Id).ToList();
-            Snackbar.Add(AcceptMessage(p, result.Value!), Severity.Success);
-        }
-        else
-        {
-            Snackbar.Add(result.Error!.Message, Severity.Error);
-        }
-        StateHasChanged();
-    }
-
-    /// <summary>
-    /// A Create that the server matched to an existing artifact added provenance without
-    /// creating anything. Saying "accepted" there reads as a new entry appearing, which is
-    /// exactly the confusion the dedup exists to prevent.
-    /// </summary>
-    private static string AcceptMessage(ReviewProposal p, ProposalActionResult result)
-    {
-        if (!result.MatchedExistingArtifact)
-        {
-            return "Proposal accepted.";
-        }
-
-        var name = PayloadName(p.ProposedValueJson);
-        return name is null
-            ? "Matched an artifact already in your record — no duplicate created."
-            : $"Matched existing '{name}' — no duplicate created.";
-    }
-
-    private static string? PayloadName(string json)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.ValueKind == JsonValueKind.Object
-                && doc.RootElement.TryGetProperty("name", out var el)
-                && el.ValueKind == JsonValueKind.String
-                    ? el.GetString()
-                    : null;
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
-
-    private async Task RejectAsync(ReviewProposal p)
-    {
-        var confirmed = await DialogService.ShowMessageBox(
-            "Reject proposal?",
-            "This discards the proposed change. It can't be undone.",
-            yesText: "Reject", cancelText: "Cancel");
-        if (confirmed != true)
-        {
-            return;
-        }
-
-        _acting.Add(p.Id);
-        var result = await Api.RejectProposalAsync(Worlds.Current!.Id, p.Id);
-        _acting.Remove(p.Id);
-
-        if (result.IsSuccess)
-        {
-            _proposals = _proposals.Where(x => x.Id != p.Id).ToList();
-            Snackbar.Add("Proposal rejected.", Severity.Info);
-        }
-        else
-        {
-            Snackbar.Add(result.Error!.Message, Severity.Error);
-        }
-        StateHasChanged();
-    }
-
-    /// <summary>
-    /// Open = still awaiting a decision. An edit is not a decision: an Edited proposal is
-    /// as actionable as a Pending one and must be swept up by accept-all / reject-all too.
-    /// </summary>
-    private static bool IsOpen(ReviewProposal p) => p.Status is "Pending" or "Edited";
-
-    private List<Guid> OpenIds() =>
-        _proposals.Where(IsOpen).Select(p => p.Id).ToList();
-
-    /// <summary>
-    /// Batch order matters: the server processes ids sequentially, and facts or relationships
-    /// may reference artifacts created in the same batch by name. The server now sorts creates
-    /// first within each call, but the client still has to — a selection over 50 proposals is
-    /// split across several calls, and a create must not land in a later chunk than its
-    /// dependants.
-    /// </summary>
-    private List<Guid> OpenIdsInDependencyOrder() =>
-        _proposals
-            .Where(IsOpen)
-            .OrderBy(p => p.ChangeType switch
-            {
-                "CreateArtifact" => 0,
-                "MergeArtifact" => 1,
-                "UpdateArtifact" => 2,
-                _ => 3,
-            })
-            .Select(p => p.Id)
-            .ToList();
-
-    private Task AcceptAllAsync() => RunBatchAsync(accept: true);
-
-    private async Task RejectAllAsync()
-    {
-        var openCount = OpenIds().Count;
-        var confirmed = await DialogService.ShowMessageBox(
-            "Reject all proposals?",
-            $"This discards all {openCount} open proposed changes. It can't be undone.",
-            yesText: "Reject all", cancelText: "Cancel");
-        if (confirmed != true)
-        {
-            return;
-        }
-
-        await RunBatchAsync(accept: false);
-    }
-
-    private async Task RunBatchAsync(bool accept)
-    {
-        var ids = accept ? OpenIdsInDependencyOrder() : OpenIds();
-        if (ids.Count == 0 || Worlds.Current is null)
-        {
-            return;
-        }
-
-        _batchActing = true;
-        _batchAccepting = accept;
-        _batchTotal = ids.Count;
-        foreach (var id in ids)
-        {
-            _acting.Add(id);
-        }
-        StateHasChanged();
-
-        var worldId = Worlds.Current.Id;
-        var succeeded = 0;
-        var failed = 0;
-        string? firstError = null;
-
-        // The batch endpoints cap at 50 ids per call.
-        foreach (var chunk in ids.Chunk(50))
-        {
-            var result = accept
-                ? await Api.BatchAcceptProposalsAsync(worldId, chunk)
-                : await Api.BatchRejectProposalsAsync(worldId, chunk);
-
-            if (result.IsSuccess)
-            {
-                succeeded += result.Value!.Succeeded.Count;
-                failed += result.Value!.Failed.Count;
-            }
-            else
-            {
-                failed += chunk.Length;
-                firstError ??= result.Error!.Message;
-            }
-        }
-
-        _batchActing = false;
-        foreach (var id in ids)
-        {
-            _acting.Remove(id);
-        }
-
-        var verb = accept ? "accepted" : "rejected";
-        if (failed == 0)
-        {
-            Snackbar.Add($"{succeeded} proposal{(succeeded == 1 ? "" : "s")} {verb}.",
-                accept ? Severity.Success : Severity.Info);
-        }
-        else
-        {
-            var detail = firstError is null ? "" : $" {firstError}";
-            Snackbar.Add($"{succeeded} {verb}, {failed} failed.{detail}", Severity.Warning);
-        }
-
-        await LoadAsync();
-    }
-
-    private async Task EditAsync(ReviewProposal p)
-    {
-        var parameters = new DialogParameters
-        {
-            { nameof(EditProposalDialog.WorldId), Worlds.Current!.Id },
-            { nameof(EditProposalDialog.ProposalId), p.Id },
-            { nameof(EditProposalDialog.ProposedValueJson), p.ProposedValueJson },
-        };
-
-        var dialog = await DialogService.ShowAsync<EditProposalDialog>("Edit proposal", parameters);
-        var result = await dialog.Result;
-
-        if (result is not null && !result.Canceled && result.Data is ProposalActionResult updated)
-        {
-            _proposals = _proposals
-                .Select(x => x.Id == p.Id
-                    ? x with { ProposedValueJson = updated.ProposedValueJson ?? x.ProposedValueJson, Status = updated.Status }
-                    : x)
-                .ToList();
-            Snackbar.Add("Proposal updated.", Severity.Success);
-            StateHasChanged();
-        }
-    }
-
-    private static IEnumerable<(string Key, string Value)> Fields(string json)
-    {
-        var list = new List<(string, string)>();
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.ValueKind == JsonValueKind.Object)
-            {
-                foreach (var prop in doc.RootElement.EnumerateObject())
-                {
-                    var value = prop.Value.ValueKind switch
-                    {
-                        JsonValueKind.Null => "—",
-                        JsonValueKind.String => prop.Value.GetString() ?? "",
-                        _ => prop.Value.ToString(),
-                    };
-                    list.Add((Humanize(prop.Name), value));
-                }
-            }
-        }
-        catch (JsonException)
-        {
-            list.Add(("value", json));
-        }
-        return list;
-    }
-
-    /// <summary>
-    /// What the proposal acts on, as a name rather than a GUID. Merges show both sides.
-    /// </summary>
-    private static string? TargetLabel(ReviewProposal p)
-    {
-        if (p.ChangeType == "MergeArtifact" && p.TargetName is not null && p.MergeSourceName is not null)
-            return $"{p.MergeSourceName} → {p.TargetName}";
-        return p.TargetName;
-    }
-
-    private static Color ChangeColor(string changeType) =>
-        changeType.StartsWith("Create") ? Color.Success :
-        changeType.StartsWith("Update") || changeType.StartsWith("Edit") ? Color.Info :
-        changeType.StartsWith("Merge") ? Color.Warning :
-        changeType == "AddPlacemark" ? Color.Tertiary :
-        Color.Default;
-
-    private static string Humanize(string pascal) =>
-        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

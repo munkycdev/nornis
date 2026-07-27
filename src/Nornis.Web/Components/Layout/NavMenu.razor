@@ -178,6 +178,8 @@ else
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
+@inject Nornis.Web.State.ActivitySignal Activity
+@inject NavigationManager Nav
 @inject Nornis.Web.Authentication.AuthFeature Auth
 @inject IDialogService DialogService
 @inject IJSRuntime JS
@@ -197,10 +199,21 @@ else
     protected override async Task OnInitializedAsync()
     {
         Worlds.Changed += OnWorldsChanged;
+
+        // The two things that used to leave the badges stale: a change this browser made, and
+        // arriving on a page after making one somewhere else.
+        Activity.Changed += OnActivitySignal;
+        Nav.LocationChanged += OnLocationChanged;
+
         await Worlds.EnsureLoadedAsync();
         await RefreshActivityAsync();
         _ = PollActivityAsync();
     }
+
+    private void OnActivitySignal() => InvokeAsync(RefreshActivityAsync);
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) =>
+        InvokeAsync(RefreshActivityAsync);
 
     // Light poll so processing/review badges move without navigation.
     private SourceActivity? _activity;
@@ -230,13 +243,35 @@ else
             return;
         }
 
-        var result = await Api.GetSourceActivityAsync(Worlds.Current.Id, _activityCts.Token);
-        if (result.IsSuccess)
+        // A refresh can now be triggered from several places at once — a signal and a navigation
+        // often land together — and each is a round trip. One at a time is plenty; the loser
+        // drops out rather than queueing a duplicate fetch of the same numbers.
+        if (_activityRefreshing)
         {
-            _activity = result.Value;
-            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        _activityRefreshing = true;
+        try
+        {
+            var result = await Api.GetSourceActivityAsync(Worlds.Current.Id, _activityCts.Token);
+            if (result.IsSuccess)
+            {
+                _activity = result.Value;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Navigated away or disposed mid-flight.
+        }
+        finally
+        {
+            _activityRefreshing = false;
         }
     }
+
+    private bool _activityRefreshing;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -297,6 +332,8 @@ else
     {
         _activityCts.Cancel();
         _activityCts.Dispose();
+        Activity.Changed -= OnActivitySignal;
+        Nav.LocationChanged -= OnLocationChanged;
         Worlds.Changed -= OnWorldsChanged;
     }
 }
