@@ -189,8 +189,19 @@ else
                 @foreach (var (item, index) in _session.Items.Select((x, i) => (x, i)))
                 {
                     var position = index;
-                    <div class="nornis-list-row">
-                        <div class="nornis-list-thumb">
+                    var itemId = item.Id;
+                    var draggable = item.State == "Waiting" && !_busy;
+                    <div class="nornis-list-row @DragClass(itemId)"
+                         draggable="@(draggable ? "true" : "false")"
+                         @ondragstart="() => OnDragStart(itemId)"
+                         @ondragenter="() => OnDragEnter(itemId)"
+                         @* preventDefault alone, with no handler: dragover fires continuously
+                            while the cursor moves, and a .NET callback per event would re-render
+                            the whole backlog dozens of times a second. *@
+                         @ondragover:preventDefault="true"
+                         @ondrop="() => OnDropAsync(itemId)"
+                         @ondragend="OnDragEnd">
+                        <div class="nornis-list-thumb @(draggable ? "nornis-drag-handle" : null)">
                             <MudText Typo="Typo.caption">@(index + 1)</MudText>
                         </div>
                         <div class="nornis-list-body">
@@ -399,6 +410,11 @@ else
     private List<ImportCandidateDto>? _candidates;
     private readonly HashSet<Guid> _selected = [];
 
+    // Drag reorder: the row being carried, and the row it is currently over. Both are cleared
+    // on drop or dragend so an abandoned drag leaves no highlight behind.
+    private Guid? _dragItemId;
+    private Guid? _dragOverItemId;
+
     private readonly CancellationTokenSource _cts = new();
 
     private ImportSessionItemDto? Current =>
@@ -571,6 +587,66 @@ else
             _selected.Clear();
             await LoadCandidatesAsync();
         }
+    }
+
+    // ------------------------------------------------------------ drag reorder --
+
+    private string? DragClass(Guid itemId)
+    {
+        if (_dragItemId == itemId)
+        {
+            return "nornis-dragging";
+        }
+
+        // Only mark a drop target while a drag is actually in flight.
+        return _dragItemId is not null && _dragOverItemId == itemId ? "nornis-drag-over" : null;
+    }
+
+    private void OnDragStart(Guid itemId) => _dragItemId = itemId;
+
+    private void OnDragEnter(Guid itemId)
+    {
+        if (_dragItemId is not null && _dragItemId != itemId)
+        {
+            _dragOverItemId = itemId;
+        }
+    }
+
+    private void OnDragEnd()
+    {
+        _dragItemId = null;
+        _dragOverItemId = null;
+    }
+
+    /// <summary>
+    /// Drops the carried note onto the target's slot, sliding everything between them along.
+    /// Only not-yet-started notes take part, and the server is sent the whole ordered set —
+    /// the same contract the arrow buttons use.
+    /// </summary>
+    private async Task OnDropAsync(Guid targetItemId)
+    {
+        var dragged = _dragItemId;
+        OnDragEnd();
+
+        if (_session is null || dragged is null || dragged == targetItemId)
+        {
+            return;
+        }
+
+        var movable = _session.Items.Where(i => i.State == "Waiting").Select(i => i.Id).ToList();
+        var from = movable.IndexOf(dragged.Value);
+        var to = movable.IndexOf(targetItemId);
+
+        // A note that has already started is not a valid source or destination.
+        if (from < 0 || to < 0)
+        {
+            return;
+        }
+
+        movable.RemoveAt(from);
+        movable.Insert(to, dragged.Value);
+
+        await ActAsync(worldId => Api.ReorderImportItemsAsync(worldId, _session.Id, movable, _cts.Token));
     }
 
     private async Task MoveAsync(int index, int delta)

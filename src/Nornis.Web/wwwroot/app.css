@@ -1064,6 +1064,27 @@ a.nornis-tutorial-step-title:hover {
     border-top: none;
 }
 
+/* Drag-to-reorder in the import backlog. The row keeps its layout while dragging so the list
+   does not jump under the cursor; the drop target gets a leading rule rather than a fill, so
+   it reads as "this note lands here" instead of "this note is selected". */
+.nornis-list-row[draggable="true"] {
+    cursor: grab;
+}
+
+.nornis-list-row.nornis-dragging {
+    opacity: 0.45;
+    cursor: grabbing;
+}
+
+.nornis-list-row.nornis-drag-over {
+    box-shadow: inset 3px 0 0 0 var(--mud-palette-secondary);
+    background: var(--mud-palette-action-default-hover);
+}
+
+.nornis-drag-handle {
+    cursor: grab;
+}
+
 /* A world's whole source list can run to hundreds of rows; the picker scrolls inside the
    card rather than pushing the staged backlog and its Start button off the page. */
 .nornis-scroll-list {
