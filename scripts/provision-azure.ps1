@@ -127,11 +127,15 @@ $acrId = az acr show -n $Acr --query id -o tsv
 az role assignment create --assignee-object-id $identityPrincipal `
     --assignee-principal-type ServicePrincipal --role AcrPull --scope $acrId -o none
 
-# NOTE: ASPNETCORE_ENVIRONMENT=Development is still set on the live apps. Auth0 has since
-# landed, and the dev-auth bypass is additionally gated on the placeholder Auth0 domain
-# (see src/Nornis.Api/Program.cs), so it cannot actually engage in production — but the
-# environment name still affects error detail and other host defaults. Flipping it to
-# Production is a deliberate change to make on its own, not a side effect of provisioning.
+# ASPNETCORE_ENVIRONMENT=Production, matching the live apps (verified 2026-07-27). The script
+# used to set Development, which would have silently downgraded a running deployment on the next
+# provision: Swagger would reappear on the public API, HSTS and the custom error page would turn
+# off on the Web app, and MapStaticAssets would stop emitting immutable Cache-Control on
+# fingerprinted assets.
+#
+# The dev-auth bypass is gated on Development AND the placeholder Auth0 domain
+# (src/Nornis.Api/Program.cs), so it is doubly inert here — but do not rely on the second gate
+# alone by setting Development.
 Write-Host "== API app"
 $apiSecrets = @(
     "sql-conn=$sqlConn"
@@ -140,7 +144,7 @@ $apiSecrets = @(
     "blob-conn=$blobConn"
 )
 $apiEnv = @(
-    "ASPNETCORE_ENVIRONMENT=Development"
+    "ASPNETCORE_ENVIRONMENT=Production"
     "ConnectionStrings__DefaultConnection=secretref:sql-conn"
     "AzureServiceBus__ConnectionString=secretref:sb-send"
     "Loremaster__AiKey=secretref:lore-key"
@@ -165,7 +169,7 @@ $apiFqdn = az containerapp show -g $ResourceGroup -n ca-nornis-api --query prope
 
 Write-Host "== Web app (sticky sessions for the Blazor Server circuit)"
 $webEnv = @(
-    "ASPNETCORE_ENVIRONMENT=Development"
+    "ASPNETCORE_ENVIRONMENT=Production"
     "Api__BaseUrl=https://$apiFqdn"
 )
 az containerapp create --name ca-nornis-web --resource-group $ResourceGroup `
@@ -232,6 +236,35 @@ az containerapp update --name ca-nornis-worker --resource-group $ResourceGroup `
     --scale-rule-name library-queue-depth --scale-rule-type azure-servicebus `
     --scale-rule-metadata "queueName=$LibraryQueue" "messageCount=1" `
     --scale-rule-auth "connection=sb-manage" -o none
+
+# An AI call that the deployment rejects fails before spending a token, so nothing degrades —
+# the feature simply stops. On 2026-07-27 an unsupported `max_tokens` parameter took every AI
+# feature down, and the same rejection had been failing world-name generation silently for two
+# days because that caller swallows failures into a fallback. Nothing was watching.
+#
+# Azure OpenAI calls are NOT captured as dependencies by the OTel distro, so this keys on
+# exception and trace text rather than dependency success.
+if ($appInsightsConn) {
+    Write-Host "== Alert: AI call failures"
+    $agId = az monitor action-group show -g $ResourceGroup -n ag-nornis-alerts --query id -o tsv 2>$null
+    if ($agId) {
+        $aiFailureQuery = "union exceptions, traces | extend Text = strcat(tostring(outerMessage), ' ', tostring(innermostMessage), ' ', tostring(message)) | where Text has_any ('AI call failed', 'AI extraction call failed', 'unsupported_parameter', 'invalid_request_error', 'World name generation failed') | summarize Failures = todouble(count())"
+        az monitor scheduled-query create -g $ResourceGroup -n nornis-ai-call-failures `
+            --scopes (az monitor app-insights component show -g $ResourceGroup -a $AppInsights --query id -o tsv) `
+            --description "An AI call is being rejected or failing outright. Fires on any AI failure, including ones a caller swallows into a fallback." `
+            --condition 'max \"Failures\" from \"AiFailures\" > 0' `
+            --condition-query AiFailures=$aiFailureQuery `
+            --evaluation-frequency 15m --window-size 15m --severity 1 `
+            --action-groups $agId -o none
+    }
+    else {
+        Write-Warning "Action group 'ag-nornis-alerts' not found - skipping the AI failure alert."
+    }
+}
+
+# Other alert rules on appi-nornis (nornis-log-ingestion-spike, nornis-audit-prompt-size,
+# nornis-sb-deadletter, nornis-sql-dtu, nornis-availability) predate this script and are not
+# reproduced here.
 
 Write-Host ""
 Write-Host "Provisioned. Public hosts:"

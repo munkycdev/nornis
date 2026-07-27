@@ -74,10 +74,14 @@ which narrows the duplicate-assessment window to rolling deploys rather than ste
 - [ ] Decide on `WebPush:PublicKey` / `WebPush:PrivateKey`: present in the Api and Worker
       user-secrets stores, set on neither live app, so browser push notifications are inert in
       production. Either wire them up or remove the feature's config.
-- [ ] Consider whether `ASPNETCORE_ENVIRONMENT=Development` on the live apps is still wanted. The
-      dev-auth bypass cannot engage (it is additionally gated on the placeholder Auth0 domain), but
-      the environment name still affects error detail and host defaults. Left unchanged
-      deliberately — it deserves its own decision, not a side effect of provisioning.
+- [x] ~~Consider whether `ASPNETCORE_ENVIRONMENT=Development` on the live apps is still wanted.~~
+      **This premise was wrong.** Verified 2026-07-27: both `ca-nornis-api` and `ca-nornis-web`
+      already run `Production`, and the worker never set the variable at all. In Phase 0 I listed
+      the env var *names* and inferred the value from the stale provisioning script instead of
+      reading it — an assumption that then propagated into two later conclusions.
+      The script itself was the real defect and is now fixed: it would have downgraded a running
+      deployment to Development on the next provision, re-exposing Swagger on the public API and
+      turning off HSTS, the custom error page, and immutable asset caching.
 
 ## Phase 1 — Trivial multipliers — DONE 2026-07-27 (11 of 12)
 
@@ -162,12 +166,19 @@ comment stating plainly that the step is a no-op and why, instead of looking lik
       --no-restore`. Doing it inside a feature branch would bury the real diff — and with several
       agents sharing this working directory, an 897-file reformat needs a quiet moment.
 
-**Worth knowing before measuring Phase 2:** the live apps run with
-`ASPNETCORE_ENVIRONMENT=Development` (see the Phase 0 open item). `MapStaticAssets` uses
-`Cache-Control: no-cache` in Development rather than the immutable fingerprinted caching it
-applies otherwise — confirmed locally. So the repeat-visit half of the static-asset win will not
-appear in production until that environment variable changes. Compression and the fingerprinting
-itself are unaffected.
+**Correction (2026-07-27), previously recorded here as a caveat:** I wrote that the static-asset
+win was half-inert because the live apps ran `ASPNETCORE_ENVIRONMENT=Development`. Both parts of
+that were wrong. The apps run `Production`, and the `Cache-Control: no-cache` I measured was on
+`/app.css` — the *non-fingerprinted alias*, which is supposed to be uncacheable because its
+content changes under a fixed URL. The page loads the fingerprinted asset, and that one returns
+`max-age=31536000, immutable` with brotli, verified against production:
+
+```
+app.mxl21wfaft.css  cache-control: max-age=31536000, immutable  content-encoding: br  13,831 bytes
+/app.css            cache-control: no-cache
+```
+
+Phase 1's static-asset work is delivering in full — compression *and* immutable caching.
 
 ## Phase 2 — Measure — DONE 2026-07-27
 
@@ -234,9 +245,11 @@ than biting. Worth watching for answer-quality complaints on "what happened last
 - **Sampling is live and exact.** API dependencies report `avgItemCount = 10.0`, Web requests
   `9.9`. The lower figures on some streams (5.1, 6.4) are failed requests being retained at 100%,
   which is the behaviour we wanted.
-- **Immutable caching is *not* live** — `app.css` still returns `Cache-Control: no-cache`,
-  confirming the prediction: `MapStaticAssets` withholds immutable caching under
-  `ASPNETCORE_ENVIRONMENT=Development`, which is still set on all three apps.
+- **Immutable caching *is* live** — `app.mxl21wfaft.css` returns
+  `Cache-Control: max-age=31536000, immutable` with an ETag. (Recorded here originally as "not
+  live": I had measured the non-fingerprinted `/app.css` alias, which is deliberately
+  `no-cache`, and attributed it to an environment setting that was never actually Development.
+  See the correction under Phase 1.)
 
 ### What telemetry sampling was actually worth
 
@@ -269,8 +282,9 @@ it extrapolated from a window that included this session's own load testing.)
 3. **Defer the expensive AI work** (Phase 6 prompt reordering, continuity fingerprint) until
    either spend or world count grows. It is correct work with a real payoff curve; it just is not
    worth much at $13/month.
-4. **Flip `ASPNETCORE_ENVIRONMENT` to Production** — now a measurable item, not housekeeping. It
-   is the only thing standing between the fingerprinted assets and immutable caching.
+4. ~~**Flip `ASPNETCORE_ENVIRONMENT` to Production**~~ — nothing to do; it already is. See the
+   correction under Phase 1. The provisioning script was the only thing still saying otherwise,
+   and it has been fixed.
 
 ### Original checklist
 
@@ -284,6 +298,27 @@ it extrapolated from a window that included this session's own load testing.)
       `ca-nornis-worker`, so it does emit. It shows no records in short windows simply because it
       is scaled to zero with an empty queue — which is the correct, cheap state.
 - [x] `CachedInputTokens` column added — see above.
+
+## Monitoring — DONE 2026-07-27 (after the AI outage)
+
+The `max_tokens` incident was found because a user noticed an extraction had failed. Nothing was
+watching, and the same rejection had already been failing world-name generation for two days.
+Five alert rules existed on `appi-nornis`; none covered AI calls.
+
+- [x] `nornis-ai-call-failures` — severity 1, 15-minute window, fires on any AI failure at all
+      (threshold > 0). Validated before creating: the query returns 3 over the incident window and
+      0 over the fifteen minutes after the fix.
+- [x] Added to `provision-azure.ps1`, so unlike the other five rules it survives a re-provision.
+- [x] **Keys on exception and trace text, not dependency success** — Azure OpenAI calls turn out
+      not to be captured as dependencies by the OTel distro at all. Worth knowing: no
+      dependency-based alert would ever have caught this. The trace clause is what covers the
+      silent case, where a caller swallows the failure into a fallback.
+
+**Also surfaced while looking:** ~403 `401`s on `GET .../sources/activity` over three hours —
+a nav poll retrying against an expired token. Unrelated to this work and not yet diagnosed.
+
+- [ ] Investigate the activity-endpoint 401 storm. A circuit outliving its token would explain it;
+      the badge fails silently either way, which is its own small version of tonight's problem.
 
 ## Phase 3 — The N+1 cluster — DONE 2026-07-27 (7 of 8)
 
