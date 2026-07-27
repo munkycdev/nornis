@@ -16,6 +16,18 @@ public class AiUsageRecord
 
     public int InputTokens { get; set; }
 
+    /// <summary>
+    /// Portion of <see cref="InputTokens"/> the provider billed as a prompt-cache hit, when it
+    /// reports one. Null means this call path does not capture it — deliberately distinct from
+    /// zero, which means the provider reported no cache hit at all. Without that distinction
+    /// there is no way to tell "the prompt-cache change did not work" from "we cannot see
+    /// whether it worked", and the two call for opposite responses.
+    ///
+    /// Currently captured on the extraction path, which is the overwhelming majority of AI spend
+    /// and the one whose prompt carries a large world-stable prefix worth caching.
+    /// </summary>
+    public int? CachedInputTokens { get; set; }
+
     public int OutputTokens { get; set; }
 
     public int TotalTokens { get; set; }

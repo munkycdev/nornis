@@ -150,23 +150,121 @@ applies otherwise — confirmed locally. So the repeat-visit half of the static-
 appear in production until that environment variable changes. Compression and the fingerprinting
 itself are unaffected.
 
-## Phase 2 — Measure
+## Phase 2 — Measure — DONE 2026-07-27
 
-With sampling and compression in place, the numbers mean something. Do this before touching queries.
+> **Read this before starting Phase 3.** The measurements re-rank everything below them, and the
+> headline is uncomfortable: at current scale the remaining phases buy *latency and headroom*,
+> not money. The money findings were telemetry ingestion and egress, and both already shipped.
 
-- [ ] Run `AggregateByOperationTypeAsync` — it already holds real per-operation token counts, and
-      one query ranks every AI finding by actual spend.
-- [ ] `SELECT AVG(DATALENGTH(Body) + DATALENGTH(DerivedText)), COUNT(*) FROM Sources GROUP BY WorldId`
-      — sizes the activity-poll finding precisely, and says whether it is a $10/month or a
-      $200/month problem.
-- [ ] Read back the live Container App config (replica counts, memory, env vars, scale rules) and
-      the prod queue's `MaxDeliveryCount` and `LockDuration`. The retry-loop blast radius is 3× or
-      10× depending on the latter.
-- [ ] Confirm whether the worker is emitting telemetry at all — all OTel is gated on
-      `APPLICATIONINSIGHTS_CONNECTION_STRING`, which provisioning never sets. If it is silent, that
-      explains why none of this has been visible.
-- [ ] Add a `CachedInputTokens` column to `AiUsageRecord`. Without it the phase 5 prompt-cache
-      reordering cannot be measured.
+### Scale of the database
+
+| | |
+|---|---|
+| Worlds | 6 |
+| Sources | 124 |
+| Artifacts | 613 |
+| SourceReferences | 4,722 |
+| AiUsageRecords | 232 |
+| Total source text (`Body`+`DerivedText`) | 1,575 KB |
+
+Source text is overwhelmingly concentrated in one world:
+
+| World | Sources | Total | Avg | Max |
+|---|---|---|---|---|
+| Symbaroum | 89 | 1,482 KB | 16 KB | 185 KB |
+| The Veiled Vale | 11 | 32 KB | 2 KB | 5 KB |
+| Stormlight Archive | 7 | 29 KB | 4 KB | 6 KB |
+| Vespergale Reach | 10 | 26 KB | 2 KB | 4 KB |
+
+**What this does to the activity-poll finding (Phase 4).** It is real but local: on Symbaroum the
+endpoint drags ~1.48 MB twice per poll, four polls a minute, so one open tab costs on the order of
+**700 MB/hour of pure waste** — and nothing on any other world. It is a DTU and latency problem
+concentrated in the one world that matters, not a bill.
+
+### AI spend — $11.06 total, over 25 days (2026-07-02 → 07-27)
+
+| Operation | Calls | Avg in | Avg out | Max out | Cost |
+|---|---|---|---|---|---|
+| SourceExtraction | 110 | 16,634 | 3,109 | 6,547 | **$9.69** |
+| AskLoremaster | 19 | 13,795 | 315 | 839 | $0.69 |
+| ContinuityAudit | 10 | 18,561 | 936 | 2,237 | $0.54 |
+| MapExtraction | 2 | 8,728 | 2,049 | 3,011 | $0.11 |
+| ContinuityFix | 3 | 1,723 | 234 | 365 | $0.02 |
+| Embedding | 86 | 728 | — | — | $0.0013 |
+
+Four failures in 232 calls. **Extraction is 88% of all AI spend**, which is what makes the
+prompt-cache reordering the right remaining AI target — but the whole AI bill is **~$13/month**,
+so that work is worth perhaps $1–2/month today. Its value is that it scales with usage, not that
+it pays now. Embeddings are free in practice, exactly as the audit predicted.
+
+**Phase 1's output ceilings are correctly sized** — every observed maximum sits well under its
+cap (extraction 6,547 vs 16,000; Ask 839 vs 1,500; audit 2,237 vs 4,000; map 3,011 vs 4,000). No
+legitimate response is at risk of being clipped.
+
+**Phase 1's session cap will do real work.** Ask averaged 13,795 input tokens, and Symbaroum's
+16 KB average source explains almost all of it: three recent sessions at ~4,000 tokens each is
+~12,000 of that 13,795. `MaxSessionChars = 4,000` cuts each to ~1,000, so Ask input should fall
+roughly 65%, and the 8,000-token context ceiling then sits comfortably above normal usage rather
+than biting. Worth watching for answer-quality complaints on "what happened last session?" —
+4,000 characters keeps roughly the first quarter of a long Symbaroum note.
+
+### Phase 1 verified in production
+
+- **Compression is live.** `/welcome` 32,257 → **10,926 bytes** brotli (66%); `app.css`
+  90,956 → **13,831 bytes** (85%); the API compresses too.
+- **Sampling is live and exact.** API dependencies report `avgItemCount = 10.0`, Web requests
+  `9.9`. The lower figures on some streams (5.1, 6.4) are failed requests being retained at 100%,
+  which is the behaviour we wanted.
+- **Immutable caching is *not* live** — `app.css` still returns `Cache-Control: no-cache`,
+  confirming the prediction: `MapStaticAssets` withholds immutable caching under
+  `ASPNETCORE_ENVIRONMENT=Development`, which is still set on all three apps.
+
+### What telemetry sampling was actually worth
+
+Measured over a quiet 23-hour pre-deploy window: **163,187 ingested records**, with
+`sum(itemCount) == count()` confirming nothing was being sampled. That is ~170k records/day,
+roughly **6 GB/month** at typical record size — just over the 5 GB free grant, so about
+**$2–3/month** of overage today.
+
+The saving is therefore small right now and that is the honest number. What matters is the slope:
+that volume came from essentially one active user, and it scales with open tabs. At five
+concurrent users the same pattern is ~30 GB/month ≈ **$58/month**. Sampling turned a bill that
+grows with usage into one that does not. (An earlier estimate of ~$58/month *today* was wrong —
+it extrapolated from a window that included this session's own load testing.)
+
+### Cached-token visibility
+
+- [x] `AiUsageRecord.CachedInputTokens` added (nullable) plus migration
+      `20260727…_AddCachedInputTokens`, and populated on the extraction path — the 88% case, and
+      the one whose prompt carries a large world-stable prefix. Nullable on purpose: "this path
+      does not report cache hits" and "the provider reported none" call for opposite responses.
+      Confirmed the Azure OpenAI SDK exposes it as `usage.InputTokenDetails.CachedTokenCount`.
+
+### Re-ranking for Phase 3 and beyond
+
+1. **Do the cheap latency work** (Phase 3's N+1 cluster). 613 artifacts and 4,722 references make
+   these round-trip problems, not cost problems — but the fixes are trivial and the batch methods
+   already exist.
+2. **Phase 4 (activity endpoint) is still worth it**, scoped honestly: it is one world's problem
+   today, and it is about DTU and page latency rather than dollars.
+3. **Defer the expensive AI work** (Phase 6 prompt reordering, continuity fingerprint) until
+   either spend or world count grows. It is correct work with a real payoff curve; it just is not
+   worth much at $13/month.
+4. **Flip `ASPNETCORE_ENVIRONMENT` to Production** — now a measurable item, not housekeeping. It
+   is the only thing standing between the fingerprinted assets and immutable caching.
+
+### Original checklist
+
+- [x] Ran the per-operation aggregation — table above.
+- [x] Measured source payload per world — table above.
+- [x] Read back the live Container App config and queue properties (done in Phase 0). API is
+      `minReplicas: maxReplicas: 1`; worker is 0→1 at 0.25 vCPU / 0.5 GiB; both queues are
+      `MaxDeliveryCount 5`, `LockDuration PT1M`, `TTL P14D`. **So the retry-loop blast radius is
+      5×**, not the 3× (emulator) or 10× (Azure default) the audit had to guess between.
+- [x] Worker telemetry confirmed: `APPLICATIONINSIGHTS_CONNECTION_STRING` is set on
+      `ca-nornis-worker`, so it does emit. It shows no records in short windows simply because it
+      is scaled to zero with an empty queue — which is the correct, cheap state.
+- [x] `CachedInputTokens` column added — see above.
 
 ## Phase 3 — The N+1 cluster
 

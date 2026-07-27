@@ -1280,6 +1280,7 @@ public class ExtractionService : IExtractionService
             OperationType = operationType,
             Model = response?.Model ?? _options.AiModel,
             InputTokens = response?.InputTokens ?? 0,
+            CachedInputTokens = response?.CachedInputTokens,
             OutputTokens = response?.OutputTokens ?? 0,
             TotalTokens = response?.TotalTokens ?? 0,
             EstimatedCostUsd = costUsd,

@@ -134,6 +134,8 @@ public class AiUsageRecordTests
     public void AiUsageRecord_Has_Expected_Property_Count()
     {
         var properties = _type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        Assert.That(properties, Has.Length.EqualTo(15));
+        // 16th: CachedInputTokens — nullable on purpose, so "this path does not report cache
+        // hits" stays distinguishable from "the provider reported no cache hit".
+        Assert.That(properties, Has.Length.EqualTo(16));
     }
 }
