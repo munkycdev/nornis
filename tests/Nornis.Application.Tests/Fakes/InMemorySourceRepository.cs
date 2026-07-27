@@ -59,6 +59,7 @@ public class InMemorySourceRepository : ISourceRepository
 
         var result = query
             .OrderByDescending(s => s.CreatedAt)
+            .ThenByDescending(s => s.Id)
             .Select(s => new SourceListItem(
                 s.Id, s.WorldId, s.Type, s.Title, s.OccurredAt, s.CreatedAt,
                 s.CreatedByUserId, s.Visibility, s.ProcessingStatus, s.CampaignId, s.Campaign?.Name))

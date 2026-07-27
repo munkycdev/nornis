@@ -56,8 +56,12 @@ public class SourceRepository : ISourceRepository
 
         // Projected, not Include'd: the campaign name is pulled through the navigation without
         // materialising the campaign, and Body/DerivedText are never touched.
+        // Id breaks ties: the demo template stamps every source with the same CreatedAt, and SQL
+        // leaves order within a tied group unspecified — so without this the sources list could
+        // reshuffle between the four-second polls.
         return await query
             .OrderByDescending(s => s.CreatedAt)
+            .ThenByDescending(s => s.Id)
             .Select(s => new SourceListItem(
                 s.Id,
                 s.WorldId,

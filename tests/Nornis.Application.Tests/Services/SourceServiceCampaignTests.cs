@@ -147,16 +147,16 @@ public class SourceServiceCampaignTests
     }
 
     [Test]
-    public async Task ListByWorldAsync_FiltersByCampaign()
+    public async Task ListSummariesByWorldAsync_FiltersByCampaign()
     {
         await _sut.CreateAsync(CreateCommand(_campaign.Id), CancellationToken.None);
         await _sut.CreateAsync(CreateCommand(), CancellationToken.None);
 
-        var byCampaign = await _sut.ListByWorldAsync(WorldId, UserId, WorldRole.GM, CancellationToken.None,
+        var byCampaign = await _sut.ListSummariesByWorldAsync(WorldId, UserId, WorldRole.GM, CancellationToken.None,
             campaignId: _campaign.Id);
-        var unassigned = await _sut.ListByWorldAsync(WorldId, UserId, WorldRole.GM, CancellationToken.None,
+        var unassigned = await _sut.ListSummariesByWorldAsync(WorldId, UserId, WorldRole.GM, CancellationToken.None,
             unassignedOnly: true);
-        var all = await _sut.ListByWorldAsync(WorldId, UserId, WorldRole.GM, CancellationToken.None);
+        var all = await _sut.ListSummariesByWorldAsync(WorldId, UserId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(byCampaign.Value, Has.Count.EqualTo(1));
         Assert.That(byCampaign.Value![0].CampaignId, Is.EqualTo(_campaign.Id));

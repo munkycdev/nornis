@@ -54,7 +54,12 @@ public class CanonService : ICanonService
             ? await _relationshipRepository.ListByArtifactIdsAsync(visibleIds, filter, ct)
             : [];
 
-        var entries = new List<CanonEntry>();
+        // Kept separate so each kind can be capped on its own before they are merged. A single
+        // overall cap over a fact-heavy world would return no relationships at all.
+        var factEntries = new List<CanonEntry>();
+        var relationshipEntries = new List<CanonEntry>();
+
+        var entries = factEntries;
 
         foreach (var fact in facts)
         {
@@ -79,6 +84,8 @@ public class CanonService : ICanonService
                 Visibility: fact.Visibility,
                 UpdatedAt: fact.UpdatedAt));
         }
+
+        entries = relationshipEntries;
 
         foreach (var relationship in relationships)
         {
@@ -105,9 +112,24 @@ public class CanonService : ICanonService
                 UpdatedAt: relationship.UpdatedAt));
         }
 
-        // Ordered first, then capped — a limit applied earlier could drop a newer entry that the
-        // visibility or truth-state filters would have kept.
-        IEnumerable<CanonEntry> ordered = entries.OrderByDescending(e => e.UpdatedAt);
+        // Every cap below runs on entries that already passed visibility and truth-state
+        // filtering, so a cap can only ever drop a genuinely visible entry off the end — never
+        // consume a slot on one that should not have been there at all.
+        IEnumerable<CanonEntry> cappedFacts = factEntries.OrderByDescending(e => e.UpdatedAt);
+        if (query.FactLimit is > 0)
+        {
+            cappedFacts = cappedFacts.Take(query.FactLimit.Value);
+        }
+
+        IEnumerable<CanonEntry> cappedRelationships = relationshipEntries.OrderByDescending(e => e.UpdatedAt);
+        if (query.RelationshipLimit is > 0)
+        {
+            cappedRelationships = cappedRelationships.Take(query.RelationshipLimit.Value);
+        }
+
+        IEnumerable<CanonEntry> ordered = cappedFacts
+            .Concat(cappedRelationships)
+            .OrderByDescending(e => e.UpdatedAt);
 
         if (query.Limit is > 0)
         {

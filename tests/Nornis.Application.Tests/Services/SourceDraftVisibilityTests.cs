@@ -61,7 +61,7 @@ public class SourceDraftVisibilityTests
 
     private async Task<bool> CanList(Guid userId, WorldRole role, Guid sourceId)
     {
-        var result = await _sut.ListByWorldAsync(WorldId, userId, role, CancellationToken.None);
+        var result = await _sut.ListSummariesByWorldAsync(WorldId, userId, role, CancellationToken.None);
         return result.Value!.Any(s => s.Id == sourceId);
     }
 

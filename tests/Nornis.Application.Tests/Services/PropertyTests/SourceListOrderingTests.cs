@@ -43,7 +43,7 @@ public class SourceListOrderingTests
         }
 
         // Act — list as GM who can see everything
-        var result = service.ListByWorldAsync(
+        var result = service.ListSummariesByWorldAsync(
             input.WorldId,
             input.RequestingUserId,
             WorldRole.GM,
@@ -51,7 +51,7 @@ public class SourceListOrderingTests
 
         // Assert — operation should succeed
         Assert.That(result.IsSuccess, Is.True,
-            "ListByWorldAsync should succeed for a GM.");
+            "ListSummariesByWorldAsync should succeed for a GM.");
 
         var returnedSources = result.Value!;
 

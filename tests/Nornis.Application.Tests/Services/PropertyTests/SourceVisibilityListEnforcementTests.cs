@@ -50,7 +50,7 @@ public class SourceVisibilityListEnforcementTests
             .ToHashSet();
 
         // Act
-        var result = service.ListByWorldAsync(
+        var result = service.ListSummariesByWorldAsync(
             scenario.WorldId,
             scenario.RequestingUserId,
             scenario.RequestingRole,
@@ -58,7 +58,7 @@ public class SourceVisibilityListEnforcementTests
 
         // Assert — operation should succeed
         Assert.That(result.IsSuccess, Is.True,
-            "ListByWorldAsync should always succeed.");
+            "ListSummariesByWorldAsync should always succeed.");
 
         var returnedSources = result.Value!;
         var returnedIds = returnedSources.Select(s => s.Id).ToHashSet();

@@ -163,7 +163,11 @@ public class ContinuityAuditBackgroundServiceTests
         await service.StartAsync(CancellationToken.None);
         try
         {
-            var deadline = DateTime.UtcNow.AddSeconds(10);
+            // Generous on purpose. The tick itself is one second, but every fixture in this
+            // assembly builds its own ASP.NET host, so under a full-suite run the machine is busy
+            // enough that a ten-second budget flaked. The deadline exists to stop a hang, not to
+            // assert timing — the assertion is that a tick happened at all.
+            var deadline = DateTime.UtcNow.AddSeconds(60);
             while (Volatile.Read(ref _scopesCreated) == 0 && DateTime.UtcNow < deadline)
             {
                 await Task.Delay(50);

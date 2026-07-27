@@ -347,28 +347,10 @@ public class SourceService : ISourceService
         return AppResult.Success();
     }
 
-    public async Task<AppResult<IReadOnlyList<Source>>> ListByWorldAsync(Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct, Guid? campaignId = null, bool unassignedOnly = false)
-    {
-        var allSources = await _sourceRepository.ListByWorldAsync(worldId, cancellationToken: ct);
-
-        // Compiled once for the whole list rather than per element.
-        var filtered = allSources.Where(CanSeePredicate(requestingUserId, role));
-
-        if (campaignId is not null)
-        {
-            filtered = filtered.Where(s => s.CampaignId == campaignId);
-        }
-        else if (unassignedOnly)
-        {
-            filtered = filtered.Where(s => s.CampaignId is null);
-        }
-
-        var visibleSources = filtered
-            .OrderByDescending(s => s.CreatedAt)
-            .ToList();
-
-        return AppResult<IReadOnlyList<Source>>.Success(visibleSources);
-    }
+    // ListByWorldAsync (load every full row, filter in memory) was removed once both of its
+    // callers moved to ListSummariesByWorldAsync. It is deliberately not kept "just in case":
+    // it pulls Body and DerivedText for every source in the world, and leaving it available is
+    // how that cost comes back the next time someone needs a list.
 
     public async Task<AppResult<IReadOnlyList<SourceListItem>>> ListSummariesByWorldAsync(
         Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct,

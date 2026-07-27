@@ -394,15 +394,14 @@ else
 
         var storylinesTask = Api.GetStorylinesAsync(id);
         var artifactsTask = Api.GetArtifactsAsync(id);
-        // Two narrow asks instead of the world's whole canon. The dashboard renders three of each
-        // kind, and each request also stops the server loading the other kind at all. They join
-        // the same parallel fan-out below, so this costs no extra latency.
-        var canonFactsTask = Api.GetCanonAsync(id, kind: "Fact", limit: 3);
-        var canonRelationshipsTask = Api.GetCanonAsync(id, kind: "Relationship", limit: 3);
+        // One narrow ask, not two. The dashboard renders three of each kind, and asking per-kind
+        // in a single request keeps the payload small without paying for a second artifact load —
+        // that load dominates the endpoint's cost, so two requests were a net loss on the server
+        // even though the responses were tiny.
+        var canonTask = Api.GetCanonAsync(id, factLimit: 3, relationshipLimit: 3);
         var reviewTask = Api.GetReviewQueueAsync(id);
         var suggestionsTask = Api.GetAskSuggestionsAsync(id);
-        await Task.WhenAll(
-            storylinesTask, artifactsTask, canonFactsTask, canonRelationshipsTask, reviewTask, suggestionsTask);
+        await Task.WhenAll(storylinesTask, artifactsTask, canonTask, reviewTask, suggestionsTask);
 
         _storylines = (storylinesTask.Result.Value ?? []).Take(10).ToList();
 
@@ -416,8 +415,10 @@ else
             .Take(4)
             .ToList();
 
-        _canonFacts = canonFactsTask.Result.Value ?? [];
-        _canonRelationships = canonRelationshipsTask.Result.Value ?? [];
+        // Already capped per kind by the request, so no client-side Take is needed.
+        var canon = canonTask.Result.Value ?? [];
+        _canonFacts = canon.Where(c => c.Kind == "Fact").ToList();
+        _canonRelationships = canon.Where(c => c.Kind == "Relationship").ToList();
 
         _proposals = reviewTask.Result.Value?.Proposals ?? [];
 

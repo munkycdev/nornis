@@ -29,12 +29,26 @@ public class CanonController : ControllerBase
     /// <summary>Most entries returned when the caller does not ask for fewer.</summary>
     private const int DefaultLimit = 200;
 
+    /// <summary>
+    /// The world's canon, newest first.
+    ///
+    /// <para><b>This endpoint is capped.</b> Without <c>limit</c> it returns at most
+    /// <see cref="DefaultLimit"/> entries, and a larger <c>limit</c> is clamped to it. The
+    /// response carries no signal that truncation occurred, so a caller that needs the complete
+    /// canon must not assume this returns it.</para>
+    ///
+    /// <para>To get a few of each kind, make ONE request with <c>factLimit</c> and
+    /// <c>relationshipLimit</c>. Two requests with <c>kind</c> would reload the world's artifacts
+    /// twice — the artifact load dominates this endpoint's cost.</para>
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> Get(
         Guid worldId,
         [FromQuery] string? truthState,
         [FromQuery] string? kind,
         [FromQuery] int? limit,
+        [FromQuery] int? factLimit,
+        [FromQuery] int? relationshipLimit,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
@@ -53,16 +67,23 @@ public class CanonController : ControllerBase
         CanonEntryKind? kindFilter = null;
         if (kind is not null)
         {
-            if (!Enum.TryParse<CanonEntryKind>(kind, ignoreCase: true, out var parsedKind))
+            // IsDefined as well as TryParse: TryParse happily accepts "7" and yields an undefined
+            // enum value, which would match neither kind and return an empty canon that looks
+            // exactly like "this world has nothing yet".
+            if (!Enum.TryParse<CanonEntryKind>(kind, ignoreCase: true, out var parsedKind)
+                || !Enum.IsDefined(parsedKind))
             {
                 return BadRequest(new ErrorResponse("invalid_kind", $"'{kind}' is not a valid canon entry kind."));
             }
             kindFilter = parsedKind;
         }
 
-        if (limit is <= 0)
+        foreach (var (name, value) in new[] { ("limit", limit), ("factLimit", factLimit), ("relationshipLimit", relationshipLimit) })
         {
-            return BadRequest(new ErrorResponse("invalid_limit", "limit must be greater than zero."));
+            if (value is <= 0)
+            {
+                return BadRequest(new ErrorResponse("invalid_limit", $"{name} must be greater than zero."));
+            }
         }
 
         // Defaulted rather than unbounded: this used to return the world's entire canon to a
@@ -75,7 +96,9 @@ public class CanonController : ControllerBase
             ActingUserRole: member.Role,
             TruthState: truthStateFilter,
             Kind: kindFilter,
-            Limit: effectiveLimit);
+            Limit: effectiveLimit,
+            FactLimit: factLimit,
+            RelationshipLimit: relationshipLimit);
 
         var result = await _canonService.GetCanonAsync(query, ct);
 

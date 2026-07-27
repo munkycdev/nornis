@@ -554,7 +554,35 @@ directory leak that grows, not a live exposure, so it lost to the two items belo
       hide an entry a filter would have kept. `Home.razor` makes two narrow calls inside its
       existing parallel fan-out.
       **Behaviour change:** a caller omitting `?limit=` now gets at most 200 entries instead of
-      everything. `Home.razor` is the only consumer.
+      everything, with no signal in the response that truncation occurred. `Home.razor` is the
+      only in-tree consumer; the cap is documented on the endpoint so an out-of-tree one cannot
+      mistake a partial canon for a complete one.
+
+**Corrected after review — the first version made the dashboard slower.** `CanonService` loads
+every artifact in the world on each call, so having `Home` make two `kind`-narrowed calls turned
+one artifact load into two. The payload shrank and the database work grew; my claim that `kind`
+"saves a query" was true per-call and wrong in aggregate. It is now one call with `factLimit` and
+`relationshipLimit`, which caps each kind before merging — a single overall cap over a fact-heavy
+world returns no relationships at all, and there is a test pinning exactly that. `kind` remains
+for callers that genuinely want one kind.
+
+Also from that review:
+
+- [x] Ten tests added for `kind`/the limits, which had none. Two pin the invariants the code
+      comments assert: caps run after the visibility and truth-state filters, so a cap can never
+      spend a slot on an entry a filter should have removed. Both would have passed silently if
+      the logic were inverted.
+- [x] `?kind=7` now returns 400 rather than an empty canon indistinguishable from "no canon yet"
+      — `Enum.TryParse` accepts undefined numeric values, so `Enum.IsDefined` guards it.
+- [x] Deterministic ordering tiebreaker on the source list. The demo template stamps every source
+      with the same `CreatedAt`, and SQL leaves order within a tied group unspecified, so the list
+      could reshuffle between four-second polls.
+- [x] `SourceService.ListByWorldAsync` deleted rather than left dead. Both callers moved to the
+      projection, and the generative visibility and ordering property tests — 100 scenarios each,
+      the strongest coverage in the suite — were retargeted at the live path. They had been
+      guarding a method no endpoint called.
+- [x] Fixed a flaky test of my own from Phase 0: the continuity-audit tick had a ten-second
+      deadline that held in isolation and failed under full-suite load.
 
 Still open:
 
