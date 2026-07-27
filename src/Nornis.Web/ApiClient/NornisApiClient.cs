@@ -119,9 +119,15 @@ public class NornisApiClient
     public Task<ApiResult<WorldMember>> AddMemberAsync(Guid worldId, AddMemberRequest request, CancellationToken ct = default) =>
         PostAsync<AddMemberRequest, WorldMember>($"/api/worlds/{worldId}/members", request, ct);
 
-    /// <summary>User directory (id + username) for the add-member picker.</summary>
-    public Task<ApiResult<IReadOnlyList<UserSummaryDto>>> GetUsersAsync(CancellationToken ct = default) =>
-        GetAsync<IReadOnlyList<UserSummaryDto>>("/api/users", ct);
+    /// <summary>
+    /// Users who can still be added to this world, for the add-member picker. GM-only, capped
+    /// server-side — <paramref name="search"/> is how a GM reaches past the cap, not a convenience.
+    /// </summary>
+    public Task<ApiResult<IReadOnlyList<UserSummaryDto>>> GetAddableUsersAsync(
+        Guid worldId, string? search = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<UserSummaryDto>>(
+            $"/api/worlds/{worldId}/members/addable{(string.IsNullOrWhiteSpace(search) ? "" : $"?q={Uri.EscapeDataString(search)}")}",
+            ct);
 
     public Task<ApiResult<WorldMember>> UpdateMemberRoleAsync(Guid worldId, Guid userId, string role, CancellationToken ct = default) =>
         PutAsync<UpdateMemberRoleRequest, WorldMember>($"/api/worlds/{worldId}/members/{userId}", new UpdateMemberRoleRequest(role), ct);

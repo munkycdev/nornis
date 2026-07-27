@@ -178,4 +178,31 @@ public class WorldMemberService : IWorldMemberService
         var ordered = members.OrderBy(m => m.JoinedAt).ToList();
         return AppResult<IReadOnlyList<WorldMember>>.Success(ordered);
     }
+
+    /// <summary>Shortest search that is a search rather than a way to page the directory.</summary>
+    public const int MinAddableSearchLength = 2;
+
+    /// <summary>Ceiling on one page of candidates, so the response cannot track the user table.</summary>
+    public const int MaxAddableResults = 50;
+
+    public async Task<AppResult<IReadOnlyList<User>>> SearchAddableUsersAsync(
+        Guid worldId, Guid actingUserId, string? search, CancellationToken ct)
+    {
+        var actingMember = await _memberRepository.GetByWorldAndUserAsync(worldId, actingUserId, ct);
+        if (actingMember is null || actingMember.Role != WorldRole.GM)
+        {
+            return AppResult<IReadOnlyList<User>>.Fail(
+                new AppError(403, "insufficient_role", "Only a GM can search for users to add."));
+        }
+
+        var term = search?.Trim() ?? string.Empty;
+        if (term.Length < MinAddableSearchLength)
+        {
+            return AppResult<IReadOnlyList<User>>.Fail(new AppError(400, "search_too_short",
+                $"Enter at least {MinAddableSearchLength} characters of the username you want to add."));
+        }
+
+        var users = await _userRepository.ListAddableToWorldAsync(worldId, term, MaxAddableResults, ct);
+        return AppResult<IReadOnlyList<User>>.Success(users);
+    }
 }

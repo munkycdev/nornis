@@ -1,4 +1,4 @@
-﻿@implements IDisposable
+@implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject IDialogService DialogService
@@ -220,15 +220,15 @@
                 @if (_isGm)
                 {
                     <div class="nornis-add-member mt-3">
-                        <MudSelect T="Guid?" @bind-Value="_newUserId" Label="Add member" Dense="true"
-                                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1"
-                                   Placeholder="@(AddableUsers.Count == 0 ? "Everyone's already here" : "Pick a user")"
-                                   Disabled="@(AddableUsers.Count == 0)">
-                            @foreach (var user in AddableUsers)
-                            {
-                                <MudSelectItem T="Guid?" Value="@((Guid?)user.Id)">@user.Username</MudSelectItem>
-                            }
-                        </MudSelect>
+                        <MudAutocomplete T="UserSummaryDto" @bind-Value="_newUser"
+                                         SearchFunc="SearchAddableUsersAsync"
+                                         ToStringFunc="@(u => u?.Username ?? string.Empty)"
+                                         Label="Add member" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                                         Placeholder="Search by username"
+                                         HelperText="@_searchError"
+                                         MinCharacters="2" DebounceInterval="200" MaxItems="10"
+                                         Clearable="true" CoerceText="false" ResetValueOnEmptyText="true"
+                                         Class="flex-grow-1" />
                         <MudSelect T="string" @bind-Value="_newRole" Dense="true" Variant="Variant.Outlined" Class="nornis-role-select">
                             @foreach (var role in _roles)
                             {
@@ -236,7 +236,7 @@
                             }
                         </MudSelect>
                         <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
-                                   OnClick="AddMemberAsync" Disabled="@(_addingMember || _newUserId is null)">
+                                   OnClick="AddMemberAsync" Disabled="@(_addingMember || _newUser is null)">
                             Add
                         </MudButton>
                     </div>
@@ -376,15 +376,39 @@
     private readonly HashSet<Guid> _busyMembers = [];
 
     // Add member
-    private Guid? _newUserId;
+    private UserSummaryDto? _newUser;
+    private string? _searchError;
     private string _newRole = "Player";
     private bool _addingMember;
     private string? _addError;
-    private IReadOnlyList<UserSummaryDto> _allUsers = [];
 
-    /// <summary>Users not already in this world, for the add-member picker.</summary>
-    private IReadOnlyList<UserSummaryDto> AddableUsers =>
-        _allUsers.Where(u => _members.All(m => m.UserId != u.Id)).ToList();
+    /// <summary>
+    /// Candidates for the add-member picker. The server excludes existing members, requires a
+    /// search term and caps the result, so this searches rather than filtering a directory the
+    /// client downloaded — which is what stopped any authenticated caller from reading the whole
+    /// user table in one request.
+    /// </summary>
+    private async Task<IEnumerable<UserSummaryDto>> SearchAddableUsersAsync(string value, CancellationToken ct)
+    {
+        _searchError = null;
+
+        if (Worlds.Current is null)
+        {
+            return [];
+        }
+
+        var result = await Api.GetAddableUsersAsync(Worlds.Current.Id, value, ct);
+
+        if (!result.IsSuccess)
+        {
+            // Returning an empty list on failure reads as "nobody by that name", which is a
+            // different and much more misleading thing than "that did not work".
+            _searchError = result.Error!.Message;
+            return [];
+        }
+
+        return result.Value!;
+    }
 
     // Invite links (GM-only)
     private bool _loadingInvites;
@@ -432,16 +456,16 @@
         await LoadMembersAsync();
         await LoadCampaignsAndCharactersAsync();
         await LoadInvitesAsync();
-
-        if (_isGm)
-        {
-            var users = await Api.GetUsersAsync();
-            _allUsers = users.IsSuccess ? users.Value! : [];
-        }
     }
 
     private void OnWorldChanged() => InvokeAsync(async () =>
     {
+        // The panel stays mounted across a world switch, so a candidate picked for the previous
+        // world would otherwise still be sitting there — and Add would put them in this one.
+        _newUser = null;
+        _searchError = null;
+        _addError = null;
+
         SyncFromWorld();
         await LoadMembersAsync();
         await LoadCampaignsAndCharactersAsync();
@@ -741,19 +765,19 @@
     {
         _addError = null;
 
-        if (_newUserId is not { } userId)
+        if (_newUser is null)
         {
             return;
         }
 
         _addingMember = true;
-        var result = await Api.AddMemberAsync(Worlds.Current!.Id, new AddMemberRequest(userId, _newRole));
+        var result = await Api.AddMemberAsync(Worlds.Current!.Id, new AddMemberRequest(_newUser.Id, _newRole));
         _addingMember = false;
 
         if (result.IsSuccess)
         {
             _members = _members.Append(result.Value!).ToList();
-            _newUserId = null;
+            _newUser = null;
             Snackbar.Add("Member added.", Severity.Success);
         }
         else

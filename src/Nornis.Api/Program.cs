@@ -315,6 +315,26 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
             }));
+
+    // The one authenticated endpoint that reads across the user table rather than within a
+    // world. Its role check asks "are you a GM of this world", and anyone can become a GM of a
+    // world they just created — so the check bounds who can ask on YOUR world, not who can ask.
+    // What stops the directory being reassembled a search at a time is this limiter plus the
+    // required search term, not the role. Partitioned per user, not per IP: the caller is
+    // authenticated, and a shared NAT should not throttle a real GM adding members.
+    options.AddPolicy("user-search", httpContext =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                ?? "unknown",
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                // Comfortable for a GM typing into the picker — the client debounces — and far
+                // below what walking the alphabet would need.
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
 });
 
 var app = builder.Build();

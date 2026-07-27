@@ -34,11 +34,24 @@ public class UserRepository : IUserRepository
             .FirstOrDefaultAsync(u => u.Auth0SubjectId == auth0SubjectId, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<User>> ListAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<User>> ListAddableToWorldAsync(
+        Guid worldId, string? search, int limit, CancellationToken cancellationToken = default)
     {
-        return await _context.Users
+        var query = _context.Users
             .AsNoTracking()
+            .Where(u => !_context.WorldMembers.Any(m => m.WorldId == worldId && m.UserId == u.Id));
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            // Contains, not StartsWith: usernames here are Discord handles, and a GM adding
+            // someone usually recalls a fragment rather than the opening characters.
+            var term = search.Trim();
+            query = query.Where(u => u.Username.Contains(term));
+        }
+
+        return await query
             .OrderBy(u => u.Username)
+            .Take(limit)
             .ToListAsync(cancellationToken);
     }
 

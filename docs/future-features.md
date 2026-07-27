@@ -688,19 +688,58 @@ Still open:
 - [ ] Keyset paging on the unbounded list endpoints. Deferred as an API contract change needing
       every consumer audited; `/canon`'s 200-entry default cap addresses the unbounded-growth risk
       without it.
-- [ ] Require a search term and cap results on `GET /api/users`. Worth doing before the user table
-      is interesting, not urgent at two rows — and the tighter fix is to make it world-scoped and
-      GM-gated rather than merely capped, since only the add-member picker uses it.
+- [x] ~~Require a search term and cap results on `GET /api/users`~~ — **DONE 2026-07-27, below.**
 - [ ] Add keyset paging to the unbounded list endpoints, prioritising sources, artifacts, canon and
       users. Audit each consumer in the same change — `Home.razor` currently assumes it receives
       everything.
-- [ ] Require a search term and cap results on `GET /api/users`, which today returns every user in
-      the system to any authenticated caller.
 - [ ] Add output caching to the anonymous public GETs — the most exposed surface and the one whose
       data changes least often. Never on `Ask`. Tag-evict on the public-access and demo kill switches.
 - [ ] Compose the dashboard and source-detail fetches into single endpoints, built by calling the
       same application services so there is one authorization implementation. `Task.WhenAll` on
       `SourceDetail`'s serial waterfall is the cheap interim step.
+
+## The user directory — DONE 2026-07-27
+
+`GET /api/users` returned `{id, username}` for **every user in the system** to any authenticated
+caller. It had no role check at all: the API's fallback policy requires authentication and nothing
+more, so the only thing standing between a token and the whole directory was the browser choosing
+not to render the picker for non-GMs. Its sole consumer was the add-member picker, which downloaded
+the list whole and filtered out existing members client-side.
+
+It is now `GET /api/worlds/{worldId}/members/addable?q=`, which sits behind the same membership
+filter and GM check as adding the member itself, excludes existing members in SQL, requires a
+search term of at least two characters, caps at 50, and is rate limited. The old route is gone and
+`IUserRepository.ListAsync` was deleted outright, so there is no "every user" query left to call.
+The picker became a `MudAutocomplete` searching server-side.
+
+**The plan's own suggested fix was wrong, and review found the first one incomplete.**
+
+- The note above proposed making the endpoint *world-scoped*. That would have broken the feature:
+  the picker exists to list people who are **not** in the world. World-**gating** is the shape that
+  works — scope the *permission* to a world you GM, not the *results*.
+- The first cut gated on "GM of this world" and called it closed. `code-critic` pointed out that
+  the gate is self-issuable: anyone can `POST /api/worlds` and be GM of what they just created,
+  and with no rate limit on authenticated routes they could then walk `?q=a`, `?q=b`, … and
+  reassemble the directory a page at a time. My doc comment claimed the directory was no longer
+  enumerable, which was **false**. What actually raises the cost is the required search term (there
+  is no listing mode to fall into), the cap, and a per-user rate limit — the role check only bounds
+  who can ask about *your* world. The comment now says that rather than overclaiming.
+- The authorization decision moved into `WorldMemberService`, matching the repo's own standard and
+  every other privileged action on that controller, which check in the controller *and* the service.
+  Because both layers enforce, removing either one leaves the endpoint tests green — so the service
+  guard has its own Application-layer tests, which is what would catch the next caller that is not
+  a controller.
+
+Also fixed while in here: the picker swallowed a failed search and rendered it as "no matching
+users"; it kept a selected candidate across a world switch, so Add could put someone in the wrong
+world; and it had no `MaxItems`, so MudBlazor's default of 10 silently truncated with no indicator.
+
+**Left alone deliberately:** `Users.Username` has no index and the match is a leading-wildcard
+`LIKE`, so each search is a full scan of a two-row table. Fine now, worth an index before it isn't.
+Separately, user provisioning falls back to the raw Auth0 subject when a token carries no nickname
+claim, so a username can legitimately *be* an auth identifier — a pre-existing provisioning issue,
+spun off as its own task rather than papered over with an assertion here that would pass for the
+wrong reason.
 
 ## Deferred — real but low payoff
 

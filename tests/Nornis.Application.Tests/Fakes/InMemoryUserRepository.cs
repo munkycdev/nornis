@@ -27,9 +27,26 @@ public class InMemoryUserRepository : IUserRepository
         return Task.FromResult(user);
     }
 
-    public Task<IReadOnlyList<User>> ListAsync(CancellationToken cancellationToken = default)
+    /// <summary>Memberships this fake knows about, seeded with <see cref="SeedMembership"/>.</summary>
+    private readonly HashSet<(Guid WorldId, Guid UserId)> _memberships = [];
+
+    public void SeedMembership(Guid worldId, Guid userId) => _memberships.Add((worldId, userId));
+
+    /// <summary>
+    /// Mirrors the real query's shape. The real join is covered against a provider in
+    /// <c>UserRepositoryAddableTests</c> — this exists so Application-layer callers have something
+    /// to run against, not to be the thing that proves the exclusion works.
+    /// </summary>
+    public Task<IReadOnlyList<User>> ListAddableToWorldAsync(
+        Guid worldId, string? search, int limit, CancellationToken cancellationToken = default)
     {
-        var users = _users.OrderBy(u => u.Username).ToList();
+        var users = _users
+            .Where(u => !_memberships.Contains((worldId, u.Id)))
+            .Where(u => string.IsNullOrWhiteSpace(search) || u.Username.Contains(search.Trim()))
+            .OrderBy(u => u.Username)
+            .Take(limit)
+            .ToList();
+
         return Task.FromResult<IReadOnlyList<User>>(users.AsReadOnly());
     }
 

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
@@ -65,6 +66,45 @@ public class WorldMembersController : ControllerBase
         }
 
         return Ok(ToWorldMemberResponse(result.Value!));
+    }
+
+    /// <summary>
+    /// Candidates for this world's add-member picker: users who are not already members, matched
+    /// on username, capped.
+    ///
+    /// <para>This replaced <c>GET /api/users</c>, which handed every username and id in the system
+    /// to any authenticated caller in one request. Only this picker ever used it.</para>
+    ///
+    /// <para><b>What the role check does and does not buy.</b> It stops a Player or an outsider
+    /// asking about <i>your</i> world. It does not make the directory unreadable, because anyone
+    /// can create a world and be its GM — so a determined caller can still ask, just about a world
+    /// of their own. What actually raises the cost of reassembling the directory is the rest of
+    /// this: a search term is required (there is no listing mode), results are capped, and the
+    /// endpoint is rate limited per user. Enumeration goes from one request to a throttled crawl.
+    /// The gate below is defence in depth over the service's own check, which is where the
+    /// authorization decision is made.</para>
+    /// </summary>
+    [HttpGet("addable")]
+    [EnableRateLimiting("user-search")]
+    public async Task<IActionResult> ListAddable(
+        Guid worldId,
+        [FromQuery] string? q,
+        CancellationToken ct)
+    {
+        if (HttpContext.GetWorldMember().Role != WorldRole.GM)
+        {
+            return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can search for users to add."));
+        }
+
+        var result = await _worldMemberService.SearchAddableUsersAsync(
+            worldId, HttpContext.GetNornisUser().Id, q, ct);
+
+        if (!result.IsSuccess)
+        {
+            return MapError(result.Error!);
+        }
+
+        return Ok(result.Value!.Select(u => new UserSummaryResponse(u.Id, u.Username)).ToList());
     }
 
     [HttpPost]
