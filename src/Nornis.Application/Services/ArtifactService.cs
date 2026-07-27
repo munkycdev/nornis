@@ -50,13 +50,11 @@ public class ArtifactService : IArtifactService
     /// with no real owner is unattributable, and unattributable Private content fails closed
     /// exactly as it does in <see cref="VisibilityFilter"/>.
     /// </summary>
-    private static bool CanSeeSource(Source source, Guid userId, WorldRole role) =>
-        CanSeeSource(source.Visibility, source.CreatedByUserId, userId, role);
-
     /// <summary>
-    /// The same predicate over the two fields it actually reads, so it can be applied to a
-    /// <see cref="SourceAttribution"/> projection as well as a full entity. One implementation —
-    /// this decides whether a Private note leaks, and two copies would eventually disagree.
+    /// The visibility predicate over the two fields it actually reads, so it applies to a
+    /// <see cref="SourceAttribution"/> projection without needing a full entity. One
+    /// implementation — this decides whether a Private note leaks, and two copies would
+    /// eventually disagree.
     /// </summary>
     private static bool CanSeeSource(
         VisibilityScope visibility, Guid createdByUserId, Guid userId, WorldRole role) => visibility switch

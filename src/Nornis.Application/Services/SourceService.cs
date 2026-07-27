@@ -352,8 +352,7 @@ public class SourceService : ISourceService
         var allSources = await _sourceRepository.ListByWorldAsync(worldId, cancellationToken: ct);
 
         // Compiled once for the whole list rather than per element.
-        var canSee = SourceVisibilityRule.Compile(requestingUserId, role);
-        var filtered = allSources.Where(canSee);
+        var filtered = allSources.Where(CanSeePredicate(requestingUserId, role));
 
         if (campaignId is not null)
         {
@@ -489,9 +488,28 @@ public class SourceService : ISourceService
     /// The rule itself lives in <see cref="SourceVisibilityRule"/> so that the SQL used for
     /// counts and the in-memory filter used here are the same definition. Keeping a second copy
     /// here is how a badge count starts disagreeing with the list it summarises.
+    ///
+    /// The compiled delegate is memoised because compiling one builds and JIT-compiles a fresh
+    /// <c>DynamicMethod</c>. This service is scoped, and every call within a request carries the
+    /// same caller, so in practice the cache holds exactly one entry and every single-source read
+    /// after the first is free.
     /// </remarks>
-    private static bool CanSeeSource(Source source, Guid userId, WorldRole role) =>
-        SourceVisibilityRule.Compile(userId, role)(source);
+    private (Guid UserId, WorldRole Role, Func<Source, bool> Predicate)? _canSeeCache;
+
+    private Func<Source, bool> CanSeePredicate(Guid userId, WorldRole role)
+    {
+        if (_canSeeCache is { } cached && cached.UserId == userId && cached.Role == role)
+        {
+            return cached.Predicate;
+        }
+
+        var predicate = SourceVisibilityRule.Compile(userId, role);
+        _canSeeCache = (userId, role, predicate);
+        return predicate;
+    }
+
+    private bool CanSeeSource(Source source, Guid userId, WorldRole role) =>
+        CanSeePredicate(userId, role)(source);
 
     private static bool IsValidTransition(SourceProcessingStatus current, SourceProcessingStatus target)
     {

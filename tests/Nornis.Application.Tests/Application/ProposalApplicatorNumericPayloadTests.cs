@@ -32,7 +32,7 @@ public class ProposalApplicatorNumericPayloadTests
 
         _applicator = new ProposalApplicator(
             _artifactRepo, _factRepo, new InMemoryArtifactRelationshipRepository(),
-            new InMemorySourceReferenceRepository(), sourceRepo,
+            new InMemorySourceReferenceRepository(),
             new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
             new InMemoryWorldMemberRepository());
 

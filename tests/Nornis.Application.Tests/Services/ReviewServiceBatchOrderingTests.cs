@@ -46,7 +46,7 @@ public class ReviewServiceBatchOrderingTests
 
         // Real validator and applicator: the whole point is that name resolution really runs.
         var applicator = new ProposalApplicator(
-            _artifactRepo, _factRepo, relationshipRepo, sourceRefRepo, _sourceRepo,
+            _artifactRepo, _factRepo, relationshipRepo, sourceRefRepo,
             new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
             new InMemoryWorldMemberRepository());
 

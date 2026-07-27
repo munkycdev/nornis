@@ -50,6 +50,11 @@ public static class SourceVisibilityRule
     /// The same rule for callers holding entities in memory. Compile ONCE per call site and reuse
     /// the delegate across the collection — compiling inside a predicate would rebuild it per
     /// element, which is orders of magnitude more expensive than the comparison it performs.
+    ///
+    /// Deliberately NOT a hand-written boolean twin of the expression above. A second
+    /// implementation of a rule that decides whether a Private note is visible would be free to
+    /// drift from the one the database uses, and the cost of that is a leak. Callers that need it
+    /// per request should memoise the delegate (see <c>SourceService</c>), not re-derive the rule.
     /// </summary>
     public static Func<Source, bool> Compile(Guid userId, WorldRole role) =>
         CanSee(userId, role).Compile();

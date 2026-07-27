@@ -247,10 +247,23 @@ else
     /// </summary>
     private static readonly TimeSpan IdleInterval = TimeSpan.FromSeconds(90);
 
-    /// <summary>Anything in flight, or anything waiting to be reviewed.</summary>
+    /// <summary>
+    /// Whether something will change these numbers without the user doing anything.
+    ///
+    /// Only the pipeline states count. A review backlog is deliberately excluded: pending
+    /// proposals sit at a nonzero count for as long as the GM takes to walk the queue, so
+    /// including it pinned every open tab to the fast cadence indefinitely — exactly the load
+    /// this cadence exists to shed. New proposals arrive when an extraction finishes, and that
+    /// transition is already covered by <c>Queued</c>/<c>Processing</c> being non-zero while it
+    /// is happening.
+    ///
+    /// <c>Ready</c> stays in: it is normally a brief hop before <c>Queued</c>, and the alternative
+    /// is a badge that lags a just-marked-ready source by up to 90 seconds. It can strand there if
+    /// an enqueue fails, which pins the fast poll — rare, and the visible cost of being wrong in
+    /// the safe direction.
+    /// </summary>
     private bool HasWorkInFlight => _activity is not null
-        && (_activity.Queued > 0 || _activity.Processing > 0 || _activity.Ready > 0
-            || _activity.PendingProposals > 0);
+        && (_activity.Queued > 0 || _activity.Processing > 0 || _activity.Ready > 0);
 
     private async Task PollActivityAsync()
     {
@@ -287,11 +300,14 @@ else
             return;
         }
 
-        // A refresh can now be triggered from several places at once — a signal and a navigation
-        // often land together — and each is a round trip. One at a time is plenty; the loser
-        // drops out rather than queueing a duplicate fetch of the same numbers.
+        // A refresh can be triggered from several places at once — a signal and a navigation often
+        // land together. Only one runs; the loser records that it wanted one rather than vanishing,
+        // because a dropped trigger used to leave the badge stale until the next poll tick, which
+        // on an idle world is 90 seconds away.
         if (_activityRefreshing)
         {
+            _refreshRequestedWhileBusy = true;
+            _forceRequestedWhileBusy |= force;
             return;
         }
 
@@ -300,12 +316,13 @@ else
         // times, and a navigation often lands right behind another trigger. A short freshness
         // window collapses those into one fetch.
         //
-        // It applies only when the counts we hold are for the world being asked about — these
-        // numbers are per-world, so a world switch must always refetch or the badge would show
-        // the previous world's totals.
-        var sameWorld = _activityWorldId == Worlds.Current.Id;
+        // Keyed on world AND effective role, because the API answers differently for each: the
+        // client stamps X-Nornis-View-As on every call and the server rewrites the member role
+        // from it. Keyed on world alone, toggling "view as player" within the window kept the
+        // GM's counts on screen beside a preview claiming to show a player's view.
+        var key = ActivityKey();
         if (!force
-            && sameWorld
+            && _activityKey == key
             && _activityFetchedAt is { } last
             && DateTimeOffset.UtcNow - last < FreshnessWindow)
         {
@@ -317,10 +334,13 @@ else
         {
             var worldId = Worlds.Current.Id;
             var result = await Api.GetSourceActivityAsync(worldId, _activityCts.Token);
-            if (result.IsSuccess)
+
+            // Discard a response for a world or role the user has since moved away from —
+            // otherwise a slow fetch can paint the previous world's totals under the new name.
+            if (result.IsSuccess && Worlds.Current?.Id == worldId && ActivityKey() == key)
             {
                 _activity = result.Value;
-                _activityWorldId = worldId;
+                _activityKey = key;
                 _activityFetchedAt = DateTimeOffset.UtcNow;
                 await InvokeAsync(StateHasChanged);
             }
@@ -333,9 +353,22 @@ else
         {
             _activityRefreshing = false;
         }
+
+        // Serve whoever was turned away while this ran. Bounded: the re-run clears the flags
+        // before it starts, so a steady stream of triggers collapses into one follow-up rather
+        // than recursing per trigger.
+        if (_refreshRequestedWhileBusy)
+        {
+            var forceRerun = _forceRequestedWhileBusy;
+            _refreshRequestedWhileBusy = false;
+            _forceRequestedWhileBusy = false;
+            await RefreshActivityAsync(forceRerun);
+        }
     }
 
     private bool _activityRefreshing;
+    private bool _refreshRequestedWhileBusy;
+    private bool _forceRequestedWhileBusy;
 
     /// <summary>
     /// How long a just-fetched set of counts is considered current. Deliberately shorter than any
@@ -345,9 +378,14 @@ else
 
     private DateTimeOffset? _activityFetchedAt;
 
-    /// <summary>Which world the counts we are holding belong to — the window must not suppress a
-    /// refetch after a world switch.</summary>
-    private Guid? _activityWorldId;
+    /// <summary>
+    /// What the counts we hold describe: the world, and the role they were fetched under. Both
+    /// matter — the API answers differently when a GM is viewing as a player.
+    /// </summary>
+    private (Guid World, string? Role)? _activityKey;
+
+    private (Guid World, string? Role)? ActivityKey() =>
+        Worlds.Current is null ? null : (Worlds.Current.Id, Worlds.EffectiveRole);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

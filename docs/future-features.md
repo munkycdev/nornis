@@ -320,6 +320,44 @@ a nav poll retrying against an expired token. Unrelated to this work and not yet
 - [ ] Investigate the activity-endpoint 401 storm. A circuit outliving its token would explain it;
       the badge fails silently either way, which is its own small version of tonight's problem.
 
+## Independent review of Phases 3–4 — DONE 2026-07-27
+
+`code-critic` finally ran (on Opus — it exhausted the Fable tier twice; equal to what wrote the
+code, so within the repo rule, but not the stronger-model read the rule prefers).
+
+**The high-stakes claim held.** It rebuilt the pre-change predicate from `9463cd2` and ran it
+against the new EF expression over a full matrix — every scope × draft state × ownership, for GM,
+owning Player, other Player, Observer and anonymous — with **zero mismatches**. It also confirmed
+`relationshipsForA` has no mutate-then-fall-through path, all five `ApplyAsync` call sites pass a
+source matching `batch.SourceId`, and the fail-closed and first-reference-wins semantics survived.
+Nothing required a fix that night.
+
+Six real defects, all now fixed:
+
+- [x] **`HasWorkInFlight` counted a review backlog as work in flight**, so any GM with an
+      unreviewed queue pinned *every open tab* to the 15-second cadence — the exact load Phase 4
+      set out to shed. Now only `Queued`/`Processing`/`Ready`. New proposals arrive when an
+      extraction finishes, which those states already cover.
+- [x] **The freshness window was keyed on world alone, not (world, effective role).** Toggling
+      "view as player" within 3 seconds of a poll kept the GM's counts on screen for up to 90
+      seconds beside a preview claiming to show a player's view. The API genuinely answers
+      differently per view-as.
+- [x] **A dropped concurrent refresh lingered up to 90 seconds** instead of 15. Triggers turned
+      away while a fetch is in flight now record that they wanted one and get served afterwards,
+      and a response for a world/role the user has since left is discarded rather than painted.
+- [x] **`CountOpenForReviewerAsync` had no test** — the one new query deciding per-role scope.
+      Seven relational tests added, each asserting the count *agrees with what
+      `ListReviewQueueAsync` would return*, since a badge promising work the review page cannot
+      list is the failure that matters. Its two scope divergences from the queue (source-exists,
+      world match) are closed rather than left fail-safe-by-accident.
+- [x] **`CanSeeSource` compiled a fresh expression per call** at the one call site whose own doc
+      comment forbids it. Memoised on the scoped service instead.
+      **Note:** the first attempt hand-wrote a plain-boolean twin of the rule — which would have
+      reintroduced exactly the drift risk `SourceVisibilityRule` exists to prevent, trading a
+      leak risk for tens of microseconds. Reverted; the class now says so explicitly.
+- [x] **Dead members removed** — `ProposalApplicator._sourceRepository` (all seven re-fetches
+      gone) and the unreachable `CanSeeSource(Source, …)` overload in `ArtifactService`.
+
 ## Phase 3 — The N+1 cluster — DONE 2026-07-27 (7 of 8)
 
 Clean build (0 warnings), all **2,928 tests green**. No migration.

@@ -42,7 +42,7 @@ public class ProposalApplicatorTests
             _factRepo,
             _relationshipRepo,
             _sourceRefRepo,
-            _sourceRepo, new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
+             new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
             _memberRepo);
 
         _worldId = Guid.NewGuid();

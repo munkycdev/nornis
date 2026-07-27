@@ -46,7 +46,8 @@ public class ProposalApplicatorPlacemarkTests
         _placemarkRepo = new InMemoryMapPlacemarkRepository();
 
         _applicator = new ProposalApplicator(
-            _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo, _sourceRepo,
+            _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo,
+            
             _attachmentRepo, _placemarkRepo, new InMemoryWorldMemberRepository());
 
         _worldId = Guid.NewGuid();

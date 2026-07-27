@@ -29,7 +29,6 @@ public class ProposalApplicator : IProposalApplicator
     private readonly IArtifactFactRepository _artifactFactRepository;
     private readonly IArtifactRelationshipRepository _artifactRelationshipRepository;
     private readonly ISourceReferenceRepository _sourceReferenceRepository;
-    private readonly ISourceRepository _sourceRepository;
     private readonly ISourceAttachmentRepository _sourceAttachmentRepository;
     private readonly IMapPlacemarkRepository _mapPlacemarkRepository;
     private readonly IWorldMemberRepository _worldMemberRepository;
@@ -39,7 +38,6 @@ public class ProposalApplicator : IProposalApplicator
         IArtifactFactRepository artifactFactRepository,
         IArtifactRelationshipRepository artifactRelationshipRepository,
         ISourceReferenceRepository sourceReferenceRepository,
-        ISourceRepository sourceRepository,
         ISourceAttachmentRepository sourceAttachmentRepository,
         IMapPlacemarkRepository mapPlacemarkRepository,
         IWorldMemberRepository worldMemberRepository)
@@ -48,7 +46,6 @@ public class ProposalApplicator : IProposalApplicator
         _artifactFactRepository = artifactFactRepository;
         _artifactRelationshipRepository = artifactRelationshipRepository;
         _sourceReferenceRepository = sourceReferenceRepository;
-        _sourceRepository = sourceRepository;
         _sourceAttachmentRepository = sourceAttachmentRepository;
         _mapPlacemarkRepository = mapPlacemarkRepository;
         _worldMemberRepository = worldMemberRepository;

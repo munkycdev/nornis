@@ -118,8 +118,16 @@ public class ReviewProposalRepository : IReviewProposalRepository
             .Where(x => x.Proposal.Status == ReviewProposalStatus.Pending
                 || x.Proposal.Status == ReviewProposalStatus.Edited)
             // The reviewer scope, expressed as a join rather than a materialised id list.
-            .Where(x => !restrictToOwnSources
-                || _context.Sources.Any(s => s.Id == x.Batch.SourceId && s.CreatedByUserId == actingUserId));
+            //
+            // Both halves require the batch's source to still exist, matching the queue — which
+            // derives its allowed-id list from the world's sources and so cannot include a batch
+            // whose source is gone. Deleting a source removes its batches, so an orphan should be
+            // impossible; if one ever occurred, the badge would otherwise show a number the
+            // review page could not reproduce.
+            .Where(x => _context.Sources.Any(s =>
+                s.Id == x.Batch.SourceId
+                && s.WorldId == worldId
+                && (!restrictToOwnSources || s.CreatedByUserId == actingUserId)));
 
         // Counting limit + 1 reproduces the queue's has-more probe exactly, so the badge and the
         // queue agree on when the cap has been hit.

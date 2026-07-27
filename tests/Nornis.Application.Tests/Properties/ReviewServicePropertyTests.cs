@@ -96,7 +96,7 @@ public class ReviewServicePropertyTests
             artifactFactRepo,
             artifactRelationshipRepo,
             sourceRefRepo,
-            sourceRepo, new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
+            new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
             new InMemoryWorldMemberRepository());
 
         // Seed data
