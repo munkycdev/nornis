@@ -195,7 +195,7 @@ public class PublicController : ControllerBase
             return PublicNotFound();
         }
 
-        var result = await _sourceService.ListByWorldAsync(world.Id, AnonymousUserId, PublicRole, ct);
+        var result = await _sourceService.ListSummariesByWorldAsync(world.Id, AnonymousUserId, PublicRole, ct);
         return result.IsSuccess
             ? Ok(result.Value!
                 .Where(s => s.Type is SourceType.SessionNote or SourceType.ImportedNote)

@@ -8,6 +8,7 @@ using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 
 namespace Nornis.Api.Controllers;
 
@@ -95,15 +96,15 @@ public class SourcesController : ControllerBase
             }
         }
 
-        var result = await _sourceService.ListByWorldAsync(worldId, user.Id, member.Role, ct, campaignFilter, unassignedOnly);
+        var result = await _sourceService.ListSummariesByWorldAsync(
+            worldId, user.Id, member.Role, ct, campaignFilter, unassignedOnly);
 
         if (!result.IsSuccess)
         {
             return MapError(result.Error!);
         }
 
-        var sources = result.Value!;
-        var response = sources.Select(ToSourceListItemResponse).ToList();
+        var response = result.Value!.Select(ToSourceListItemResponse).ToList();
 
         return Ok(response);
     }
@@ -613,7 +614,7 @@ public class SourcesController : ControllerBase
             DerivedText: source.DerivedText);
     }
 
-    internal static SourceListItemResponse ToSourceListItemResponse(Source source)
+    internal static SourceListItemResponse ToSourceListItemResponse(SourceListItem source)
     {
         return new SourceListItemResponse(
             Id: source.Id,
@@ -626,7 +627,7 @@ public class SourcesController : ControllerBase
             Visibility: source.Visibility.ToString(),
             ProcessingStatus: source.ProcessingStatus.ToString(),
             CampaignId: source.CampaignId,
-            CampaignName: source.Campaign?.Name);
+            CampaignName: source.CampaignName);
     }
 
     private IActionResult MapError(AppError error)

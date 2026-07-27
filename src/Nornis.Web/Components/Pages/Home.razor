@@ -394,10 +394,15 @@ else
 
         var storylinesTask = Api.GetStorylinesAsync(id);
         var artifactsTask = Api.GetArtifactsAsync(id);
-        var canonTask = Api.GetCanonAsync(id);
+        // Two narrow asks instead of the world's whole canon. The dashboard renders three of each
+        // kind, and each request also stops the server loading the other kind at all. They join
+        // the same parallel fan-out below, so this costs no extra latency.
+        var canonFactsTask = Api.GetCanonAsync(id, kind: "Fact", limit: 3);
+        var canonRelationshipsTask = Api.GetCanonAsync(id, kind: "Relationship", limit: 3);
         var reviewTask = Api.GetReviewQueueAsync(id);
         var suggestionsTask = Api.GetAskSuggestionsAsync(id);
-        await Task.WhenAll(storylinesTask, artifactsTask, canonTask, reviewTask, suggestionsTask);
+        await Task.WhenAll(
+            storylinesTask, artifactsTask, canonFactsTask, canonRelationshipsTask, reviewTask, suggestionsTask);
 
         _storylines = (storylinesTask.Result.Value ?? []).Take(10).ToList();
 
@@ -411,9 +416,8 @@ else
             .Take(4)
             .ToList();
 
-        var canon = canonTask.Result.Value ?? [];
-        _canonFacts = canon.Where(c => c.Kind == "Fact").Take(3).ToList();
-        _canonRelationships = canon.Where(c => c.Kind == "Relationship").Take(3).ToList();
+        _canonFacts = canonFactsTask.Result.Value ?? [];
+        _canonRelationships = canonRelationshipsTask.Result.Value ?? [];
 
         _proposals = reviewTask.Result.Value?.Proposals ?? [];
 

@@ -532,12 +532,38 @@ a downstream failure and a repeated write on a warm cache.
 - [ ] Re-check the budget guard per chunk in the storyline retrospective, and persist verdicts per
       chunk so a late failure does not discard work already paid for.
 
-## Phase 7 — Endpoint shape and payload
+## Phase 7 — Endpoint shape and payload — PARTIAL 2026-07-27
 
-- [ ] Add `limit`/`kind` to `GET /canon`. Its only consumer calls `.Take(3)` twice and renders six
-      rows; today it returns the world's entire knowledge graph.
-- [ ] Add projections to list-shaped repository methods so list endpoints stop selecting `Body` and
-      `DerivedText` for DTOs that read neither.
+The two items real data said were worth doing. Clean build, 2,953 tests green, no migration.
+
+**Measurement re-ranked this phase.** `GET /api/users` reads as the alarming item — it returns
+every user in the system to any authenticated caller — but there are **2 users**. It is a
+directory leak that grows, not a live exposure, so it lost to the two items below.
+
+- [x] **Source list projected in SQL.** `/sources` polls every four seconds while anything is
+      processing, and every poll loaded whole rows including `Body` and `DerivedText` — ~1.48 MB
+      of transcript on the one world with real content — to render titles and status chips. Now a
+      `SourceListItem` projection that never touches those columns, with the shared
+      `SourceVisibilityRule` pushed into the query alongside it. Seven relational tests cover
+      per-role visibility, the draft gate, ordering, campaign filters and world isolation, plus a
+      type-level guard that `SourceListItem` can never grow a body column back.
+- [x] **`GET /canon` bounded.** The dashboard — the landing page — pulled the world's entire
+      knowledge graph to render six rows. `kind` and `limit` added; `kind` makes the service skip
+      loading the other kind entirely, so it saves a query rather than only wire bytes. `Take` is
+      applied after ordering and after the visibility and truth-state filters, so a cap can never
+      hide an entry a filter would have kept. `Home.razor` makes two narrow calls inside its
+      existing parallel fan-out.
+      **Behaviour change:** a caller omitting `?limit=` now gets at most 200 entries instead of
+      everything. `Home.razor` is the only consumer.
+
+Still open:
+
+- [ ] Keyset paging on the unbounded list endpoints. Deferred as an API contract change needing
+      every consumer audited; `/canon`'s 200-entry default cap addresses the unbounded-growth risk
+      without it.
+- [ ] Require a search term and cap results on `GET /api/users`. Worth doing before the user table
+      is interesting, not urgent at two rows — and the tighter fix is to make it world-scoped and
+      GM-gated rather than merely capped, since only the add-member picker uses it.
 - [ ] Add keyset paging to the unbounded list endpoints, prioritising sources, artifacts, canon and
       users. Audit each consumer in the same change — `Home.razor` currently assumes it receives
       everything.

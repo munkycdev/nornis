@@ -26,10 +26,15 @@ public class CanonController : ControllerBase
         _canonService = canonService;
     }
 
+    /// <summary>Most entries returned when the caller does not ask for fewer.</summary>
+    private const int DefaultLimit = 200;
+
     [HttpGet]
     public async Task<IActionResult> Get(
         Guid worldId,
         [FromQuery] string? truthState,
+        [FromQuery] string? kind,
+        [FromQuery] int? limit,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
@@ -45,11 +50,32 @@ public class CanonController : ControllerBase
             truthStateFilter = parsed;
         }
 
+        CanonEntryKind? kindFilter = null;
+        if (kind is not null)
+        {
+            if (!Enum.TryParse<CanonEntryKind>(kind, ignoreCase: true, out var parsedKind))
+            {
+                return BadRequest(new ErrorResponse("invalid_kind", $"'{kind}' is not a valid canon entry kind."));
+            }
+            kindFilter = parsedKind;
+        }
+
+        if (limit is <= 0)
+        {
+            return BadRequest(new ErrorResponse("invalid_limit", "limit must be greater than zero."));
+        }
+
+        // Defaulted rather than unbounded: this used to return the world's entire canon to a
+        // caller that renders six rows, and nothing stops it growing.
+        var effectiveLimit = Math.Min(limit ?? DefaultLimit, DefaultLimit);
+
         var query = new CanonQuery(
             WorldId: worldId,
             ActingUserId: user.Id,
             ActingUserRole: member.Role,
-            TruthState: truthStateFilter);
+            TruthState: truthStateFilter,
+            Kind: kindFilter,
+            Limit: effectiveLimit);
 
         var result = await _canonService.GetCanonAsync(query, ct);
 

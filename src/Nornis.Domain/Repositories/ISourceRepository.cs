@@ -13,6 +13,22 @@ public interface ISourceRepository
     Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The world's sources as a list shows them — visibility applied in SQL, newest first, and
+    /// without the unbounded <c>Body</c>/<c>DerivedText</c> columns no list view reads. See
+    /// <see cref="SourceListItem"/>.
+    /// </summary>
+    /// <param name="campaignId">When set, only sources in that campaign.</param>
+    /// <param name="unassignedOnly">When true, only sources with no campaign. Ignored if
+    /// <paramref name="campaignId"/> is set.</param>
+    Task<IReadOnlyList<SourceListItem>> ListSummariesByWorldAsync(
+        Guid worldId,
+        Guid requestingUserId,
+        WorldRole role,
+        Guid? campaignId = null,
+        bool unassignedOnly = false,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Whether the world has any source created strictly after <paramref name="after"/>,
     /// optionally restricted to one processing status. Backs the onboarding checklist, which is
     /// polled every 15 seconds while a new user works through it — the previous shape loaded

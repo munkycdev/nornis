@@ -584,10 +584,13 @@ public class NornisApiClient
     public Task<ApiResult<WrapUpApplyResult>> ApplyWrapUpAsync(Guid worldId, WrapUpDecisionsBody body, CancellationToken ct = default) =>
         PostAsync<WrapUpDecisionsBody, WrapUpApplyResult>($"/api/worlds/{worldId}/storylines/wrap-up", body, ct);
 
+    /// <param name="kind">"Fact" or "Relationship" — also stops the server loading the other.</param>
+    /// <param name="limit">Ask for what you render; the endpoint caps and defaults regardless.</param>
     public Task<ApiResult<IReadOnlyList<CanonEntry>>> GetCanonAsync(
-        Guid worldId, string? truthState = null, CancellationToken ct = default) =>
+        Guid worldId, string? truthState = null, string? kind = null, int? limit = null,
+        CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<CanonEntry>>(
-            $"/api/worlds/{worldId}/canon{Query(("truthState", truthState))}", ct);
+            $"/api/worlds/{worldId}/canon{Query(("truthState", truthState), ("kind", kind), ("limit", limit?.ToString()))}", ct);
 
     public Task<ApiResult<ReviewQueue>> GetReviewQueueAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<ReviewQueue>($"/api/worlds/{worldId}/reviews/proposals", ct);

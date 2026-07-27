@@ -370,6 +370,16 @@ public class SourceService : ISourceService
         return AppResult<IReadOnlyList<Source>>.Success(visibleSources);
     }
 
+    public async Task<AppResult<IReadOnlyList<SourceListItem>>> ListSummariesByWorldAsync(
+        Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct,
+        Guid? campaignId = null, bool unassignedOnly = false)
+    {
+        var items = await _sourceRepository.ListSummariesByWorldAsync(
+            worldId, requestingUserId, role, campaignId, unassignedOnly, ct);
+
+        return AppResult<IReadOnlyList<SourceListItem>>.Success(items);
+    }
+
     /// <summary>
     /// Two aggregate queries. The badge this feeds is polled every few seconds from every open
     /// tab, and used to be answered by loading every source in the world (including the

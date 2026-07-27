@@ -31,6 +31,48 @@ public class SourceRepository : ISourceRepository
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<SourceListItem>> ListSummariesByWorldAsync(
+        Guid worldId,
+        Guid requestingUserId,
+        WorldRole role,
+        Guid? campaignId = null,
+        bool unassignedOnly = false,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Sources
+            .AsNoTracking()
+            .Where(s => s.WorldId == worldId)
+            // Same shared rule the counts and the in-memory filter use.
+            .Where(SourceVisibilityRule.CanSee(requestingUserId, role));
+
+        if (campaignId is not null)
+        {
+            query = query.Where(s => s.CampaignId == campaignId);
+        }
+        else if (unassignedOnly)
+        {
+            query = query.Where(s => s.CampaignId == null);
+        }
+
+        // Projected, not Include'd: the campaign name is pulled through the navigation without
+        // materialising the campaign, and Body/DerivedText are never touched.
+        return await query
+            .OrderByDescending(s => s.CreatedAt)
+            .Select(s => new SourceListItem(
+                s.Id,
+                s.WorldId,
+                s.Type,
+                s.Title,
+                s.OccurredAt,
+                s.CreatedAt,
+                s.CreatedByUserId,
+                s.Visibility,
+                s.ProcessingStatus,
+                s.CampaignId,
+                s.Campaign != null ? s.Campaign.Name : null))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> AnyCreatedAfterAsync(
         Guid worldId,
         DateTimeOffset after,

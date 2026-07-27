@@ -42,8 +42,17 @@ public class CanonService : ICanonService
 
         var visibleIds = artifactsById.Keys.ToList();
 
-        var facts = await _factRepository.ListByArtifactIdsAsync(visibleIds, filter, int.MaxValue, ct);
-        var relationships = await _relationshipRepository.ListByArtifactIdsAsync(visibleIds, filter, ct);
+        // Load only the kind that was asked for. The dashboard wants three facts and three
+        // relationships and used to pull the world's entire canon to find them.
+        var wantsFacts = query.Kind is null or CanonEntryKind.Fact;
+        var wantsRelationships = query.Kind is null or CanonEntryKind.Relationship;
+
+        var facts = wantsFacts
+            ? await _factRepository.ListByArtifactIdsAsync(visibleIds, filter, int.MaxValue, ct)
+            : [];
+        var relationships = wantsRelationships
+            ? await _relationshipRepository.ListByArtifactIdsAsync(visibleIds, filter, ct)
+            : [];
 
         var entries = new List<CanonEntry>();
 
@@ -96,11 +105,16 @@ public class CanonService : ICanonService
                 UpdatedAt: relationship.UpdatedAt));
         }
 
-        var ordered = entries
-            .OrderByDescending(e => e.UpdatedAt)
-            .ToList();
+        // Ordered first, then capped — a limit applied earlier could drop a newer entry that the
+        // visibility or truth-state filters would have kept.
+        IEnumerable<CanonEntry> ordered = entries.OrderByDescending(e => e.UpdatedAt);
 
-        return AppResult<IReadOnlyList<CanonEntry>>.Success(ordered);
+        if (query.Limit is > 0)
+        {
+            ordered = ordered.Take(query.Limit.Value);
+        }
+
+        return AppResult<IReadOnlyList<CanonEntry>>.Success(ordered.ToList());
     }
 
     /// <summary>

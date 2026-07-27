@@ -35,6 +35,38 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.FromResult(source);
     }
 
+    public Task<IReadOnlyList<SourceListItem>> ListSummariesByWorldAsync(
+        Guid worldId,
+        Guid requestingUserId,
+        WorldRole role,
+        Guid? campaignId = null,
+        bool unassignedOnly = false,
+        CancellationToken cancellationToken = default)
+    {
+        // Mirrors the real query: shared visibility rule, same campaign filters, newest first.
+        var canSee = SourceVisibilityRule.Compile(requestingUserId, role);
+
+        var query = _sources.Where(s => s.WorldId == worldId).Where(canSee);
+
+        if (campaignId is not null)
+        {
+            query = query.Where(s => s.CampaignId == campaignId);
+        }
+        else if (unassignedOnly)
+        {
+            query = query.Where(s => s.CampaignId is null);
+        }
+
+        var result = query
+            .OrderByDescending(s => s.CreatedAt)
+            .Select(s => new SourceListItem(
+                s.Id, s.WorldId, s.Type, s.Title, s.OccurredAt, s.CreatedAt,
+                s.CreatedByUserId, s.Visibility, s.ProcessingStatus, s.CampaignId, s.Campaign?.Name))
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<SourceListItem>>(result.AsReadOnly());
+    }
+
     public Task<bool> AnyCreatedAfterAsync(
         Guid worldId,
         DateTimeOffset after,
