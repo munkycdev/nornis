@@ -35,7 +35,24 @@ else
         <MudAlert Severity="Severity.Error" Class="mb-3">@_error</MudAlert>
     }
 
-    @if (_session is null)
+    @if (_loadFailed)
+    {
+        @* Never offer "Start an import" here: an import may well exist and the server would
+           refuse to create a second one, leaving nowhere to go. *@
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+            <MudIcon Icon="@Icons.Material.Outlined.CloudOff" Size="Size.Large" Class="nornis-comingsoon-icon" />
+            <MudText Typo="Typo.h5" Class="nornis-serif">Could not load your import</MudText>
+            <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+                This is a connection problem, not a lost backlog — if an import was in progress it is
+                still there. Try again in a moment.
+            </MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Refresh"
+                       OnClick="RefreshAsync" Disabled="@(_busy || _loading)" Class="mt-4">
+                Try again
+            </MudButton>
+        </MudPaper>
+    }
+    else if (_session is null)
     {
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
             <MudIcon Icon="@Icons.Material.Outlined.LibraryBooks" Size="Size.Large" Class="nornis-comingsoon-icon" />
@@ -402,6 +419,10 @@ else
     private bool _busy;
     private string? _error;
 
+    /// <summary>The session could not be read, as distinct from there being none. Keeps the
+    /// page off the empty state, whose only action is one the server will refuse.</summary>
+    private bool _loadFailed;
+
     private string _title = string.Empty;
     private string? _body;
     private DateTime? _occurredAt;
@@ -451,6 +472,7 @@ else
         if (Worlds.Current is null || Worlds.EffectiveRole != "GM")
         {
             _session = null;
+            _loadFailed = false;
             _loading = false;
             return;
         }
@@ -459,9 +481,22 @@ else
         var result = await Api.GetCurrentImportSessionAsync(Worlds.Current.Id, _cts.Token);
         _loading = false;
 
-        // "No import in progress" is the empty state, not an error.
-        _session = result.IsSuccess ? result.Value : null;
-        _error = result.IsSuccess || result.Error!.Code is "not_found" ? null : result.Error!.Message;
+        if (result.IsSuccess)
+        {
+            _session = result.Value;
+            _loadFailed = false;
+            _error = null;
+            return;
+        }
+
+        // Only a 404 means "there is no import" — the empty state, not an error. Any other
+        // failure (the API restarting under a deploy, a dropped connection) must NOT fall
+        // through to the empty state: it offers "Start an import", which then 409s because a
+        // session does exist, and the backlog view holding the Abandon button never renders.
+        // That combination is a dead end with no way out of the page.
+        _session = null;
+        _loadFailed = result.Error!.Code is not "not_found";
+        _error = _loadFailed ? result.Error!.Message : null;
     }
 
     /// <summary>Light poll so an extraction finishing moves the panel without a manual refresh.</summary>
@@ -492,8 +527,42 @@ else
         }
     }
 
-    private async Task CreateAsync() =>
-        await ActAsync(worldId => Api.CreateImportSessionAsync(worldId, _cts.Token));
+    private async Task RefreshAsync()
+    {
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task CreateAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var result = await Api.CreateImportSessionAsync(Worlds.Current.Id, _cts.Token);
+        _busy = false;
+
+        if (result.IsSuccess)
+        {
+            _session = result.Value;
+            _loadFailed = false;
+            _error = null;
+            return;
+        }
+
+        // The world already has one and this screen was out of date — that is not a failure
+        // the user can act on, it just means "here it is". Show it rather than an error the
+        // page offers no way past.
+        if (result.Error!.Code == "import_session_active")
+        {
+            await LoadAsync();
+            return;
+        }
+
+        Snackbar.Add(result.Error!.Message, Severity.Error);
+    }
 
     private async Task AddNoteAsync()
     {
@@ -765,6 +834,7 @@ else
         }
 
         _session = result.Value;
+        _loadFailed = false;
         _error = null;
         return true;
     }
