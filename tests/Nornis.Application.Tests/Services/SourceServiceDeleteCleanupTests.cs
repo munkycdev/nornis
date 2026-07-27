@@ -37,6 +37,7 @@ public class SourceServiceDeleteCleanupTests
             new InMemoryCampaignRepository(),
             new FakeExtractionQueueClient(),
             _reviewBatchRepository,
+            new InMemoryReviewProposalRepository(),
             _attachmentRepository,
             _blobStorage,
             NullLogger<SourceService>.Instance);

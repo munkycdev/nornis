@@ -37,7 +37,7 @@ public class SourceFailedEnqueueLeavesReadyTests
         queueClient.ConfigureToFail(true);
 
         var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient,
-            new InMemoryReviewBatchRepository(), new InMemorySourceAttachmentRepository(),
+            new InMemoryReviewBatchRepository(), new InMemoryReviewProposalRepository(), new InMemorySourceAttachmentRepository(),
             new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
 
         var source = new Source

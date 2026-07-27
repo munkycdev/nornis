@@ -91,6 +91,43 @@ public class ReviewProposalRepository : IReviewProposalRepository
         return proposal;
     }
 
+    public async Task<(int Count, bool HasMore)> CountOpenForReviewerAsync(
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole actingUserRole,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        // Observers review nothing, so there is no query to run.
+        if (actingUserRole is not (WorldRole.GM or WorldRole.Player))
+        {
+            return (0, false);
+        }
+
+        var restrictToOwnSources = actingUserRole == WorldRole.Player;
+
+        var query = _context.ReviewProposals
+            .AsNoTracking()
+            .Join(
+                _context.ReviewBatches,
+                rp => rp.ReviewBatchId,
+                rb => rb.Id,
+                (rp, rb) => new { Proposal = rp, Batch = rb })
+            .Where(x => x.Batch.WorldId == worldId)
+            // Edited is open, same as Pending — mirrors ListReviewQueueAsync.
+            .Where(x => x.Proposal.Status == ReviewProposalStatus.Pending
+                || x.Proposal.Status == ReviewProposalStatus.Edited)
+            // The reviewer scope, expressed as a join rather than a materialised id list.
+            .Where(x => !restrictToOwnSources
+                || _context.Sources.Any(s => s.Id == x.Batch.SourceId && s.CreatedByUserId == actingUserId));
+
+        // Counting limit + 1 reproduces the queue's has-more probe exactly, so the badge and the
+        // queue agree on when the cap has been hit.
+        var counted = await query.Take(limit + 1).CountAsync(cancellationToken);
+
+        return counted > limit ? (limit, true) : (counted, false);
+    }
+
     public async Task<(IReadOnlyList<ReviewProposal> Proposals, bool HasMore)> ListReviewQueueAsync(
         Guid worldId,
         IReadOnlyList<Guid> allowedSourceIds,

@@ -1,4 +1,5 @@
 ﻿using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 
 namespace Nornis.Domain.Repositories;
 
@@ -35,6 +36,23 @@ public interface IReviewProposalRepository
     /// The review queue page: open proposals (Pending or Edited) from the given sources,
     /// oldest batch first.
     /// </summary>
+    /// <summary>
+    /// How many open proposals this reviewer has waiting, counted in SQL, capped at
+    /// <paramref name="limit"/> with a has-more flag — the same shape and the same scoping rules
+    /// as <see cref="ListReviewQueueAsync"/>, but without materialising proposals, batches,
+    /// sources or artifacts to arrive at one integer for a nav badge.
+    ///
+    /// Review scoping is deliberately STRICTER than source visibility: a Player may read a
+    /// party-visible source they did not write, but may only review proposals on sources they
+    /// authored. Observers review nothing.
+    /// </summary>
+    Task<(int Count, bool HasMore)> CountOpenForReviewerAsync(
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole actingUserRole,
+        int limit,
+        CancellationToken cancellationToken = default);
+
     Task<(IReadOnlyList<ReviewProposal> Proposals, bool HasMore)> ListReviewQueueAsync(
         Guid worldId,
         IReadOnlyList<Guid> allowedSourceIds,

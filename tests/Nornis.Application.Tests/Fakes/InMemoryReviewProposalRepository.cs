@@ -9,6 +9,12 @@ public class InMemoryReviewProposalRepository : IReviewProposalRepository
     private readonly List<ReviewProposal> _proposals = [];
     private readonly InMemoryReviewBatchRepository? _batchRepository;
 
+    /// <summary>
+    /// Needed only by <see cref="CountOpenForReviewerAsync"/>, which scopes a Player to proposals
+    /// on sources they authored — that ownership lives on the source, not the batch.
+    /// </summary>
+    private readonly InMemorySourceRepository? _sourceRepository;
+
     public IReadOnlyList<ReviewProposal> Proposals => _proposals.AsReadOnly();
 
     public InMemoryReviewProposalRepository()
@@ -18,6 +24,13 @@ public class InMemoryReviewProposalRepository : IReviewProposalRepository
     public InMemoryReviewProposalRepository(InMemoryReviewBatchRepository batchRepository)
     {
         _batchRepository = batchRepository;
+    }
+
+    public InMemoryReviewProposalRepository(
+        InMemoryReviewBatchRepository batchRepository, InMemorySourceRepository sourceRepository)
+    {
+        _batchRepository = batchRepository;
+        _sourceRepository = sourceRepository;
     }
 
     public Task<ReviewProposal> CreateAsync(ReviewProposal proposal, CancellationToken cancellationToken = default)
@@ -79,6 +92,37 @@ public class InMemoryReviewProposalRepository : IReviewProposalRepository
             _proposals[index] = proposal;
         }
         return Task.FromResult(proposal);
+    }
+
+    public Task<(int Count, bool HasMore)> CountOpenForReviewerAsync(
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole actingUserRole,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        if (actingUserRole is not (WorldRole.GM or WorldRole.Player))
+        {
+            return Task.FromResult((0, false));
+        }
+
+        var batches = _batchRepository?.Batches ?? [];
+        var sources = _sourceRepository?.Sources ?? [];
+
+        var open = _proposals
+            .Where(p => p.Status is ReviewProposalStatus.Pending or ReviewProposalStatus.Edited)
+            .Join(
+                batches.Where(b => b.WorldId == worldId),
+                p => p.ReviewBatchId,
+                b => b.Id,
+                (p, b) => b)
+            // A Player reviews only what came from their own sources; a GM reviews everything.
+            .Where(b => actingUserRole == WorldRole.GM
+                || sources.Any(s => s.Id == b.SourceId && s.CreatedByUserId == actingUserId))
+            .Take(limit + 1)
+            .Count();
+
+        return Task.FromResult(open > limit ? (limit, true) : (open, false));
     }
 
     public Task<(IReadOnlyList<ReviewProposal> Proposals, bool HasMore)> ListReviewQueueAsync(

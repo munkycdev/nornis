@@ -8,6 +8,17 @@ public interface IAiUsageRecordRepository
 {
     Task<AiUsageRecord> CreateAsync(AiUsageRecord record, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Whether this user has ever completed the given operation successfully in this world.
+    /// Backs the onboarding checklist, which polls every 15 seconds — loading the world's usage
+    /// ledger to answer a boolean got more expensive with every AI call ever made.
+    /// </summary>
+    Task<bool> AnySucceededAsync(
+        Guid worldId,
+        Guid userId,
+        AiOperationType operationType,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<AiUsageRecord>> QueryAsync(
         Guid? worldId = null,
         Guid? userId = null,

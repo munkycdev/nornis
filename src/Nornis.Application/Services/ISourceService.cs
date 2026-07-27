@@ -14,5 +14,11 @@ public interface ISourceService
     /// <param name="campaignId">Restrict to sources of this campaign.</param>
     /// <param name="unassignedOnly">Restrict to sources with no campaign; ignored when <paramref name="campaignId"/> is set.</param>
     Task<AppResult<IReadOnlyList<Source>>> ListByWorldAsync(Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct, Guid? campaignId = null, bool unassignedOnly = false);
+
+    /// <summary>
+    /// Nav badge counts for a world, computed as aggregates rather than by loading and grouping
+    /// the world's sources. See <see cref="SourceActivity"/>.
+    /// </summary>
+    Task<AppResult<SourceActivity>> GetActivityAsync(Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct);
     Task<AppResult<Source>> MarkReadyAsync(MarkSourceReadyCommand command, CancellationToken ct);
 }

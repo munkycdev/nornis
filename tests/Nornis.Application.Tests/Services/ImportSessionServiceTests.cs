@@ -46,6 +46,7 @@ public class ImportSessionServiceTests
             new InMemoryCampaignRepository(),
             _queue,
             _batches,
+            _proposals,
             new InMemorySourceAttachmentRepository(),
             new FakeBlobStorageService(),
             NullLogger<SourceService>.Instance);

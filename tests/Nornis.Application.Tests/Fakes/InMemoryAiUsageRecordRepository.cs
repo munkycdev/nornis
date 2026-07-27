@@ -17,6 +17,20 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
         return Task.FromResult(record);
     }
 
+    public Task<bool> AnySucceededAsync(
+        Guid worldId,
+        Guid userId,
+        AiOperationType operationType,
+        CancellationToken cancellationToken = default)
+    {
+        var any = _records.Any(r => r.WorldId == worldId
+            && r.UserId == userId
+            && r.OperationType == operationType
+            && r.Succeeded);
+
+        return Task.FromResult(any);
+    }
+
     public Task<IReadOnlyList<AiUsageRecord>> QueryAsync(
         Guid? worldId = null,
         Guid? userId = null,

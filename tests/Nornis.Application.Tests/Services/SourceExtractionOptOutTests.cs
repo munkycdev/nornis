@@ -35,7 +35,7 @@ public class SourceExtractionOptOutTests
         _batchRepo = new InMemoryReviewBatchRepository();
         _queueClient = new FakeExtractionQueueClient();
         _sourceService = new SourceService(_sourceRepo, new InMemoryWorldMemberRepository(),
-            new InMemoryCampaignRepository(), _queueClient, _batchRepo,
+            new InMemoryCampaignRepository(), _queueClient, _batchRepo, new InMemoryReviewProposalRepository(),
             new InMemorySourceAttachmentRepository(), new FakeBlobStorageService(),
             NullLogger<SourceService>.Instance);
     }

@@ -191,37 +191,33 @@ public class TutorialService : ITutorialService
     {
         switch (stepKey)
         {
+            // Every detector is an existence check pushed into SQL. The checklist polls this
+            // whole switch every 15 seconds for the duration of a new user's first session, and
+            // it used to answer four booleans by loading four tables in full — two of them
+            // carrying session bodies. AnyDecidedByWorldAsync below was already the right shape;
+            // the others now match it.
             case TutorialSteps.AskTheLoremaster:
-            {
-                var records = await _aiUsageRepository.QueryAsync(
-                    worldId: world.Id, userId: userId,
-                    operationType: AiOperationType.AskLoremaster, cancellationToken: ct);
-                return records.Any(r => r.Succeeded);
-            }
+                return await _aiUsageRepository.AnySucceededAsync(
+                    world.Id, userId, AiOperationType.AskLoremaster, ct);
 
             // Template rows are all written with CreatedAt == world.CreatedAt, so anything
             // strictly later is the user's own addition.
             case TutorialSteps.AddSessionSix:
-            {
-                var sources = await _sourceRepository.ListByWorldAsync(world.Id, cancellationToken: ct);
-                return sources.Any(s => s.CreatedAt > world.CreatedAt);
-            }
+                return await _sourceRepository.AnyCreatedAfterAsync(world.Id, world.CreatedAt, null, ct);
 
             case TutorialSteps.WatchExtraction:
-            {
-                var sources = await _sourceRepository.ListByWorldAsync(world.Id, cancellationToken: ct);
-                return sources.Any(s => s.CreatedAt > world.CreatedAt
-                    && s.ProcessingStatus == SourceProcessingStatus.Processed);
-            }
+                return await _sourceRepository.AnyCreatedAfterAsync(
+                    world.Id, world.CreatedAt, SourceProcessingStatus.Processed, ct);
 
             case TutorialSteps.VetExtraction:
                 return await _proposalRepository.AnyDecidedByWorldAsync(world.Id, ct);
 
             case TutorialSteps.RevealSecret:
-            {
-                var batches = await _batchRepository.ListByWorldAsync(world.Id, ct);
-                return batches.Any(b => string.Equals(b.Kind, "Reveal", StringComparison.OrdinalIgnoreCase));
-            }
+                // Case-sensitive where the old in-memory check was not. Kind is written by
+                // RevealService as the literal "Reveal" and never user-supplied, so this matches
+                // the same rows — and a SQL-side comparison keeps it a single indexed predicate
+                // rather than a full scan.
+                return await _batchRepository.AnyOfKindAsync(world.Id, "Reveal", ct);
 
             default:
                 return false;

@@ -108,40 +108,35 @@ public class SourcesController : ControllerBase
         return Ok(response);
     }
 
-    /// <summary>Activity counts for nav badges: in-flight/failed sources + pending proposals.</summary>
+    /// <summary>
+    /// Activity counts for nav badges: in-flight/failed sources + pending proposals.
+    ///
+    /// Two aggregate queries. This is the most frequently hit endpoint in the system — polled
+    /// from every open tab for the life of the circuit — and it used to answer with the world's
+    /// entire source table loaded twice (transcripts included), plus the full review queue with
+    /// its proposals, batches and artifacts, all discarded to produce six integers.
+    /// </summary>
     [HttpGet("activity")]
-    public async Task<IActionResult> GetActivity(
-        Guid worldId,
-        [FromServices] IReviewService reviewService,
-        CancellationToken ct)
+    public async Task<IActionResult> GetActivity(Guid worldId, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        var sourcesResult = await _sourceService.ListByWorldAsync(worldId, user.Id, member.Role, ct);
-        if (!sourcesResult.IsSuccess)
+        var result = await _sourceService.GetActivityAsync(worldId, user.Id, member.Role, ct);
+        if (!result.IsSuccess)
         {
-            return MapError(sourcesResult.Error!);
+            return MapError(result.Error!);
         }
 
-        var queueResult = await reviewService.ListReviewQueueAsync(
-            new ReviewQueueQuery(worldId, user.Id, member.Role, null), ct);
-        if (!queueResult.IsSuccess)
-        {
-            return MapError(queueResult.Error!);
-        }
-
-        var byStatus = sourcesResult.Value!
-            .GroupBy(s => s.ProcessingStatus)
-            .ToDictionary(g => g.Key, g => g.Count());
+        var activity = result.Value!;
 
         return Ok(new SourceActivityResponse(
-            Ready: byStatus.GetValueOrDefault(SourceProcessingStatus.Ready),
-            Queued: byStatus.GetValueOrDefault(SourceProcessingStatus.Queued),
-            Processing: byStatus.GetValueOrDefault(SourceProcessingStatus.Processing),
-            Failed: byStatus.GetValueOrDefault(SourceProcessingStatus.Failed),
-            PendingProposals: queueResult.Value!.Proposals.Count,
-            PendingProposalsCapped: queueResult.Value.HasMore));
+            Ready: activity.Ready,
+            Queued: activity.Queued,
+            Processing: activity.Processing,
+            Failed: activity.Failed,
+            PendingProposals: activity.PendingProposals,
+            PendingProposalsCapped: activity.PendingProposalsCapped));
     }
 
     [HttpGet("{sourceId:guid}")]

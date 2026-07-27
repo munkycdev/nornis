@@ -58,6 +58,13 @@ public class ReviewBatchRepository : IReviewBatchRepository
             .AnyAsync(rb => rb.SourceId == sourceId && rb.Kind == kind, cancellationToken);
     }
 
+    public async Task<bool> AnyOfKindAsync(Guid worldId, string kind, CancellationToken cancellationToken = default)
+    {
+        return await _context.ReviewBatches
+            .AsNoTracking()
+            .AnyAsync(rb => rb.WorldId == worldId && rb.Kind == kind, cancellationToken);
+    }
+
     public async Task DeleteBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default)
     {
         // Tracked-load delete: the InMemory provider used in tests lacks ExecuteDelete.

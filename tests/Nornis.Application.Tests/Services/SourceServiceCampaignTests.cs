@@ -29,7 +29,7 @@ public class SourceServiceCampaignTests
         _sourceRepository = new InMemorySourceRepository();
         _campaignRepository = new InMemoryCampaignRepository();
         _sut = new SourceService(_sourceRepository, new InMemoryWorldMemberRepository(), _campaignRepository, new FakeExtractionQueueClient(),
-            new InMemoryReviewBatchRepository(), new InMemorySourceAttachmentRepository(),
+            new InMemoryReviewBatchRepository(), new InMemoryReviewProposalRepository(), new InMemorySourceAttachmentRepository(),
             new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
 
         _campaign = new Campaign

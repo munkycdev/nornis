@@ -35,6 +35,35 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.FromResult(source);
     }
 
+    public Task<bool> AnyCreatedAfterAsync(
+        Guid worldId,
+        DateTimeOffset after,
+        SourceProcessingStatus? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        var any = _sources.Any(s => s.WorldId == worldId
+            && s.CreatedAt > after
+            && (status is null || s.ProcessingStatus == status.Value));
+
+        return Task.FromResult(any);
+    }
+
+    public Task<IReadOnlyDictionary<SourceProcessingStatus, int>> CountByStatusAsync(
+        Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken cancellationToken = default)
+    {
+        // Uses the same shared rule the real query translates to SQL, so this fake cannot
+        // disagree with production about who sees what.
+        var canSee = SourceVisibilityRule.Compile(requestingUserId, role);
+
+        var counts = _sources
+            .Where(s => s.WorldId == worldId)
+            .Where(canSee)
+            .GroupBy(s => s.ProcessingStatus)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        return Task.FromResult<IReadOnlyDictionary<SourceProcessingStatus, int>>(counts);
+    }
+
     public Task<IReadOnlyList<SourceAttribution>> ListAttributionByIdsAsync(
         IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
     {

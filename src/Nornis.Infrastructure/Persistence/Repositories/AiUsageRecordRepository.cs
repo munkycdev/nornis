@@ -28,6 +28,22 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
         return record;
     }
 
+    public async Task<bool> AnySucceededAsync(
+        Guid worldId,
+        Guid userId,
+        AiOperationType operationType,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.AiUsageRecords
+            .AsNoTracking()
+            .AnyAsync(
+                r => r.WorldId == worldId
+                    && r.UserId == userId
+                    && r.OperationType == operationType
+                    && r.Succeeded,
+                cancellationToken);
+    }
+
     public async Task<IReadOnlyList<AiUsageRecord>> QueryAsync(
         Guid? worldId = null,
         Guid? userId = null,

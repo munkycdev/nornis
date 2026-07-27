@@ -12,6 +12,13 @@ namespace Nornis.Application.Services;
 
 public class ReviewService : IReviewService
 {
+    /// <summary>
+    /// Most open proposals the queue returns in one page. Shared with the nav badge count so the
+    /// two agree on when the cap has been reached — a badge reading "200+" beside a queue showing
+    /// a different cap would be its own bug report.
+    /// </summary>
+    public const int ReviewQueueLimit = 200;
+
     private readonly IReviewProposalRepository _reviewProposalRepository;
     private readonly IReviewBatchRepository _reviewBatchRepository;
     private readonly ISourceRepository _sourceRepository;
@@ -76,7 +83,7 @@ public class ReviewService : IReviewService
             return AppResult<ReviewQueueResult>.Success(new ReviewQueueResult([], false));
 
         var (proposals, hasMore) = await _reviewProposalRepository.ListReviewQueueAsync(
-            query.WorldId, allowedSourceIds, query.FilterByBatchId, limit: 200, ct);
+            query.WorldId, allowedSourceIds, query.FilterByBatchId, limit: ReviewQueueLimit, ct);
 
         var context = await BuildProposalContextAsync(query.WorldId, proposals, sources, ct);
 

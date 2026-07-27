@@ -23,6 +23,13 @@ public interface IReviewBatchRepository
 
     Task<IReadOnlyList<ReviewBatch>> ListByWorldAsync(Guid worldId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Whether the world has any batch of the given kind. Backs the onboarding checklist's
+    /// "reveal a secret" step, which is polled every 15 seconds and previously answered by
+    /// loading every batch in the world.
+    /// </summary>
+    Task<bool> AnyOfKindAsync(Guid worldId, string kind, CancellationToken cancellationToken = default);
+
     Task UpdateStatusAsync(Guid id, ReviewBatchStatus status, CancellationToken cancellationToken = default);
 
     Task UpdateCompletedAsync(Guid id, DateTimeOffset completedAt, CancellationToken cancellationToken = default);

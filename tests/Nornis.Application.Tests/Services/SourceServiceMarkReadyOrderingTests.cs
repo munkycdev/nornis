@@ -31,7 +31,7 @@ public class SourceServiceMarkReadyOrderingTests
         _queueClient = new FakeExtractionQueueClient();
         _sut = new SourceService(_sourceRepository, new InMemoryWorldMemberRepository(),
             new InMemoryCampaignRepository(), _queueClient,
-            new InMemoryReviewBatchRepository(), new InMemorySourceAttachmentRepository(),
+            new InMemoryReviewBatchRepository(), new InMemoryReviewProposalRepository(), new InMemorySourceAttachmentRepository(),
             new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
     }
 

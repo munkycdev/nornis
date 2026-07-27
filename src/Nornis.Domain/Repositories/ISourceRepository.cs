@@ -13,6 +13,35 @@ public interface ISourceRepository
     Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Whether the world has any source created strictly after <paramref name="after"/>,
+    /// optionally restricted to one processing status. Backs the onboarding checklist, which is
+    /// polled every 15 seconds while a new user works through it — the previous shape loaded
+    /// every source in the world (bodies included) to answer a boolean.
+    ///
+    /// Unfiltered by visibility on purpose: the checklist reports on the tutorial world's own
+    /// progress, not on what any particular reader may see.
+    /// </summary>
+    Task<bool> AnyCreatedAfterAsync(
+        Guid worldId,
+        DateTimeOffset after,
+        SourceProcessingStatus? status = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// How many sources sit in each processing status, counted in SQL for the caller's
+    /// visibility. Backs the nav activity badge, which is polled continuously from every open
+    /// tab: the previous shape loaded every source row in the world — <c>Body</c>, transcripts
+    /// and all — to group them in memory and return a handful of integers.
+    ///
+    /// Statuses with no rows are absent from the result rather than present as zero.
+    /// </summary>
+    Task<IReadOnlyDictionary<SourceProcessingStatus, int>> CountByStatusAsync(
+        Guid worldId,
+        Guid requestingUserId,
+        WorldRole role,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Just enough of each source to decide visibility and show a title. Use this instead of
     /// looping <see cref="GetByIdAsync"/> when displaying provenance: it is one round trip
     /// rather than one per source, and it leaves <c>Body</c>/<c>DerivedText</c> in the database

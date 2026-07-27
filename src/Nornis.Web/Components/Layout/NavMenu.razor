@@ -224,22 +224,48 @@ else
         _ = PollActivityAsync();
     }
 
-    private void OnActivitySignal() => InvokeAsync(RefreshActivityAsync);
+    // A signal means this browser just wrote something, so the counts are known to be stale —
+    // never let the freshness window swallow it.
+    private void OnActivitySignal() => InvokeAsync(() => RefreshActivityAsync(force: true));
 
+    // Navigation alone changes nothing server-side, so this one respects the freshness window.
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e) =>
-        InvokeAsync(RefreshActivityAsync);
+        InvokeAsync(() => RefreshActivityAsync());
 
     // Light poll so processing/review badges move without navigation.
     private SourceActivity? _activity;
     private readonly CancellationTokenSource _activityCts = new();
 
+    /// <summary>Poll cadence while something is actually moving.</summary>
+    private static readonly TimeSpan ActiveInterval = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// Cadence when the world is idle. Nothing changes these numbers without either this browser
+    /// acting — which raises <c>ActivitySignal</c> and refreshes immediately — or the worker
+    /// finishing something, which only happens when work was queued. So the fast poll buys
+    /// nothing on an idle world, and it used to run forever in every open tab.
+    /// </summary>
+    private static readonly TimeSpan IdleInterval = TimeSpan.FromSeconds(90);
+
+    /// <summary>Anything in flight, or anything waiting to be reviewed.</summary>
+    private bool HasWorkInFlight => _activity is not null
+        && (_activity.Queued > 0 || _activity.Processing > 0 || _activity.Ready > 0
+            || _activity.PendingProposals > 0);
+
     private async Task PollActivityAsync()
     {
         try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
-            while (await timer.WaitForNextTickAsync(_activityCts.Token))
+            // Rebuilt each iteration so the cadence can follow the world's state. PeriodicTimer's
+            // Period is settable, but recreating keeps the intent obvious at the call site.
+            while (!_activityCts.IsCancellationRequested)
             {
+                using var timer = new PeriodicTimer(HasWorkInFlight ? ActiveInterval : IdleInterval);
+                if (!await timer.WaitForNextTickAsync(_activityCts.Token))
+                {
+                    return;
+                }
+
                 await RefreshActivityAsync();
             }
         }
@@ -249,7 +275,11 @@ else
         }
     }
 
-    private async Task RefreshActivityAsync()
+    /// <param name="force">
+    /// Skip the freshness window. Used when something is known to have changed the numbers —
+    /// a write this browser made — where showing a stale badge would look like a lost update.
+    /// </param>
+    private async Task RefreshActivityAsync(bool force = false)
     {
         if (Worlds.Current is null)
         {
@@ -265,13 +295,33 @@ else
             return;
         }
 
+        // The concurrency guard above only collapses *simultaneous* triggers. Sequential ones
+        // still each cost a request, and they arrive in bursts: boot raises Worlds.Changed three
+        // times, and a navigation often lands right behind another trigger. A short freshness
+        // window collapses those into one fetch.
+        //
+        // It applies only when the counts we hold are for the world being asked about — these
+        // numbers are per-world, so a world switch must always refetch or the badge would show
+        // the previous world's totals.
+        var sameWorld = _activityWorldId == Worlds.Current.Id;
+        if (!force
+            && sameWorld
+            && _activityFetchedAt is { } last
+            && DateTimeOffset.UtcNow - last < FreshnessWindow)
+        {
+            return;
+        }
+
         _activityRefreshing = true;
         try
         {
-            var result = await Api.GetSourceActivityAsync(Worlds.Current.Id, _activityCts.Token);
+            var worldId = Worlds.Current.Id;
+            var result = await Api.GetSourceActivityAsync(worldId, _activityCts.Token);
             if (result.IsSuccess)
             {
                 _activity = result.Value;
+                _activityWorldId = worldId;
+                _activityFetchedAt = DateTimeOffset.UtcNow;
                 await InvokeAsync(StateHasChanged);
             }
         }
@@ -286,6 +336,18 @@ else
     }
 
     private bool _activityRefreshing;
+
+    /// <summary>
+    /// How long a just-fetched set of counts is considered current. Deliberately shorter than any
+    /// poll interval — this exists to collapse trigger bursts, not to slow the badge down.
+    /// </summary>
+    private static readonly TimeSpan FreshnessWindow = TimeSpan.FromSeconds(3);
+
+    private DateTimeOffset? _activityFetchedAt;
+
+    /// <summary>Which world the counts we are holding belong to — the window must not suppress a
+    /// refetch after a world switch.</summary>
+    private Guid? _activityWorldId;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

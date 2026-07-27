@@ -40,7 +40,7 @@ public class SourceProcessingStatusGuardsOnUpdateTests
         var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient,
-            new InMemoryReviewBatchRepository(), new InMemorySourceAttachmentRepository(),
+            new InMemoryReviewBatchRepository(), new InMemoryReviewProposalRepository(), new InMemorySourceAttachmentRepository(),
             new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
 
         sourceRepo.CreateAsync(scenario.ExistingSource, CancellationToken.None).GetAwaiter().GetResult();
@@ -84,7 +84,7 @@ public class SourceProcessingStatusGuardsOnUpdateTests
         var memberRepo = new InMemoryWorldMemberRepository();
         var queueClient = new FakeExtractionQueueClient();
         var service = new SourceService(sourceRepo, memberRepo, new InMemoryCampaignRepository(), queueClient,
-            new InMemoryReviewBatchRepository(), new InMemorySourceAttachmentRepository(),
+            new InMemoryReviewBatchRepository(), new InMemoryReviewProposalRepository(), new InMemorySourceAttachmentRepository(),
             new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
 
         sourceRepo.CreateAsync(scenario.ExistingSource, CancellationToken.None).GetAwaiter().GetResult();
@@ -139,7 +139,7 @@ public class SourceProcessedUpdateGuardTests
         _batchRepo = new InMemoryReviewBatchRepository();
         _service = new SourceService(_sourceRepo, new InMemoryWorldMemberRepository(),
             new InMemoryCampaignRepository(), new FakeExtractionQueueClient(),
-            _batchRepo, new InMemorySourceAttachmentRepository(),
+            _batchRepo, new InMemoryReviewProposalRepository(), new InMemorySourceAttachmentRepository(),
             new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
 
         _source = new Source

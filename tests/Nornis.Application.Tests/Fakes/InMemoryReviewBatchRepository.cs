@@ -43,6 +43,11 @@ public class InMemoryReviewBatchRepository : IReviewBatchRepository
         return Task.FromResult(_batches.Any(b => b.SourceId == sourceId && b.Kind == kind));
     }
 
+    public Task<bool> AnyOfKindAsync(Guid worldId, string kind, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(_batches.Any(b => b.WorldId == worldId && b.Kind == kind));
+    }
+
     public Task DeleteBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default)
     {
         _batches.RemoveAll(b => b.SourceId == sourceId);

@@ -31,6 +31,43 @@ public class SourceRepository : ISourceRepository
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
     }
 
+    public async Task<bool> AnyCreatedAfterAsync(
+        Guid worldId,
+        DateTimeOffset after,
+        SourceProcessingStatus? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Sources
+            .AsNoTracking()
+            .Where(s => s.WorldId == worldId && s.CreatedAt > after);
+
+        if (status is not null)
+        {
+            query = query.Where(s => s.ProcessingStatus == status.Value);
+        }
+
+        return await query.AnyAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<SourceProcessingStatus, int>> CountByStatusAsync(
+        Guid worldId,
+        Guid requestingUserId,
+        WorldRole role,
+        CancellationToken cancellationToken = default)
+    {
+        // The visibility predicate is the shared expression, so this cannot drift from the
+        // in-memory filter that produces the list these counts describe.
+        var counts = await _context.Sources
+            .AsNoTracking()
+            .Where(s => s.WorldId == worldId)
+            .Where(SourceVisibilityRule.CanSee(requestingUserId, role))
+            .GroupBy(s => s.ProcessingStatus)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(c => c.Status, c => c.Count);
+    }
+
     public async Task<IReadOnlyList<SourceAttribution>> ListAttributionByIdsAsync(
         IReadOnlyList<Guid> ids,
         CancellationToken cancellationToken = default)

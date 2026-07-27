@@ -36,7 +36,7 @@ public class SourceDraftVisibilityTests
         _sourceRepository = new InMemorySourceRepository();
         _sut = new SourceService(_sourceRepository, new InMemoryWorldMemberRepository(),
             new InMemoryCampaignRepository(), new FakeExtractionQueueClient(),
-            new InMemoryReviewBatchRepository(), new InMemorySourceAttachmentRepository(),
+            new InMemoryReviewBatchRepository(), new InMemoryReviewProposalRepository(), new InMemorySourceAttachmentRepository(),
             new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
     }
 

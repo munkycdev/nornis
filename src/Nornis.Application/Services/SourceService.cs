@@ -5,6 +5,7 @@ using Nornis.Application.Models;
 using Nornis.Application.Storage;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -16,6 +17,7 @@ public class SourceService : ISourceService
     private readonly ICampaignRepository _campaignRepository;
     private readonly IExtractionQueueClient _extractionQueueClient;
     private readonly IReviewBatchRepository _reviewBatchRepository;
+    private readonly IReviewProposalRepository _reviewProposalRepository;
     private readonly ISourceAttachmentRepository _sourceAttachmentRepository;
     private readonly IBlobStorageService _blobStorage;
     private readonly ILogger<SourceService> _logger;
@@ -37,6 +39,7 @@ public class SourceService : ISourceService
         ICampaignRepository campaignRepository,
         IExtractionQueueClient extractionQueueClient,
         IReviewBatchRepository reviewBatchRepository,
+        IReviewProposalRepository reviewProposalRepository,
         ISourceAttachmentRepository sourceAttachmentRepository,
         IBlobStorageService blobStorage,
         ILogger<SourceService> logger)
@@ -46,6 +49,7 @@ public class SourceService : ISourceService
         _campaignRepository = campaignRepository;
         _extractionQueueClient = extractionQueueClient;
         _reviewBatchRepository = reviewBatchRepository;
+        _reviewProposalRepository = reviewProposalRepository;
         _sourceAttachmentRepository = sourceAttachmentRepository;
         _blobStorage = blobStorage;
         _logger = logger;
@@ -347,7 +351,9 @@ public class SourceService : ISourceService
     {
         var allSources = await _sourceRepository.ListByWorldAsync(worldId, cancellationToken: ct);
 
-        var filtered = allSources.Where(s => CanSeeSource(s, requestingUserId, role));
+        // Compiled once for the whole list rather than per element.
+        var canSee = SourceVisibilityRule.Compile(requestingUserId, role);
+        var filtered = allSources.Where(canSee);
 
         if (campaignId is not null)
         {
@@ -363,6 +369,30 @@ public class SourceService : ISourceService
             .ToList();
 
         return AppResult<IReadOnlyList<Source>>.Success(visibleSources);
+    }
+
+    /// <summary>
+    /// Two aggregate queries. The badge this feeds is polled every few seconds from every open
+    /// tab, and used to be answered by loading every source in the world (including the
+    /// unbounded Body and DerivedText columns) twice, plus the review queue's proposals,
+    /// batches and artifacts — then discarding all of it to return six integers.
+    /// </summary>
+    public async Task<AppResult<SourceActivity>> GetActivityAsync(
+        Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct)
+    {
+        var byStatus = await _sourceRepository.CountByStatusAsync(worldId, requestingUserId, role, ct);
+
+        // Same cap as the review queue, so the badge and the queue agree on when it is reached.
+        var (pending, capped) = await _reviewProposalRepository.CountOpenForReviewerAsync(
+            worldId, requestingUserId, role, ReviewService.ReviewQueueLimit, ct);
+
+        return AppResult<SourceActivity>.Success(new SourceActivity(
+            Ready: byStatus.GetValueOrDefault(SourceProcessingStatus.Ready),
+            Queued: byStatus.GetValueOrDefault(SourceProcessingStatus.Queued),
+            Processing: byStatus.GetValueOrDefault(SourceProcessingStatus.Processing),
+            Failed: byStatus.GetValueOrDefault(SourceProcessingStatus.Failed),
+            PendingProposals: pending,
+            PendingProposalsCapped: capped));
     }
 
     public async Task<AppResult<Source>> MarkReadyAsync(MarkSourceReadyCommand command, CancellationToken ct)
@@ -455,30 +485,13 @@ public class SourceService : ISourceService
     /// must never treat an empty id as a match: unattributable rows fail closed, exactly as
     /// they do in <see cref="VisibilityFilter"/>.
     /// </summary>
-    private static bool CanSeeSource(Source source, Guid userId, WorldRole role)
-    {
-        var allowedByVisibility = source.Visibility switch
-        {
-            VisibilityScope.PartyVisible => true,
-            VisibilityScope.Private => role == WorldRole.GM
-                || (userId != Guid.Empty && source.CreatedByUserId == userId),
-            VisibilityScope.GMOnly => role == WorldRole.GM,
-            _ => false
-        };
-
-        if (!allowedByVisibility)
-        {
-            return false;
-        }
-
-        if (source.ProcessingStatus == SourceProcessingStatus.Draft)
-        {
-            return role == WorldRole.GM
-                || (userId != Guid.Empty && source.CreatedByUserId == userId);
-        }
-
-        return true;
-    }
+    /// <remarks>
+    /// The rule itself lives in <see cref="SourceVisibilityRule"/> so that the SQL used for
+    /// counts and the in-memory filter used here are the same definition. Keeping a second copy
+    /// here is how a badge count starts disagreeing with the list it summarises.
+    /// </remarks>
+    private static bool CanSeeSource(Source source, Guid userId, WorldRole role) =>
+        SourceVisibilityRule.Compile(userId, role)(source);
 
     private static bool IsValidTransition(SourceProcessingStatus current, SourceProcessingStatus target)
     {

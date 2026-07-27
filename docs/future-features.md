@@ -317,19 +317,60 @@ on a 613-artifact database.
       memory for the prompt. Cover the archived/cap/endpoint differences with tests *first* —
       the score is published, so a silent shift is worse than the duplicate query.
 
-## Phase 4 — The activity endpoint
+## Phase 4 — The activity endpoint — DONE 2026-07-27
 
-The single biggest recurring cost, flagged independently by four auditors.
+Clean build (0 warnings), **2,960 tests green**. No migration.
 
-- [ ] Replace the endpoint body with `GroupBy`/`Count` aggregate queries — no entity materialization.
-      The in-memory visibility predicate must move into SQL exactly, or badge counts leak private
-      sources. **Write the per-role tests (GM / Player-owner / Player-other / Observer) first.**
-- [ ] Add a projection so `ListReviewQueueAsync` stops loading whole sources for an id list, and kill
-      the duplicate full-source load in the same request.
-- [ ] Give the client a freshness window, back off to 60s+ when nothing is in flight, and stop
-      polling when the tab is hidden. `Sources.razor` already has the guard NavMenu lacks.
-- [ ] Apply the same treatment to the tutorial-checklist detectors, which re-run full-table scans
-      every 15 seconds during onboarding.
+`GET /worlds/{id}/sources/activity` is now two aggregate queries. It previously loaded every
+source row in the world *twice* — `Body` and `DerivedText` included — plus up to 200 proposals,
+every review batch, every artifact, and sometimes every fact, then threw all of it away to return
+six integers. On Symbaroum (1,482 KB of source text, per Phase 2) that was roughly 700 MB/hour
+per open tab.
+
+- [x] Endpoint replaced with `CountByStatusAsync` + `CountOpenForReviewerAsync`, both aggregating
+      in SQL. No entity materialisation on this path at all.
+- [x] **The visibility rule now has exactly one definition.** Rather than hand-writing a SQL
+      predicate beside the existing in-memory one, the rule moved to
+      `SourceVisibilityRule.CanSee(userId, role)` as an `Expression`, used directly by EF and
+      compiled once per call site for in-memory filtering. A second copy is precisely how a badge
+      count starts disagreeing with the list it summarises, and the direction it fails is a
+      Private note appearing in someone else's total.
+- [x] Per-role tests written first, at two levels: nine in `Nornis.Domain.Tests` pinning the rule
+      itself (expectations derived from the *original* predicate, so a drifting translation is
+      caught), and eight in `Nornis.Infrastructure.Tests` running the real query against a
+      relational provider — an in-memory fake could agree with the C# while the generated SQL
+      leaked.
+- [x] Review scoping kept deliberately separate from source visibility. They are **not** the same
+      rule: a Player may read a party-visible source they did not write, but may only review
+      proposals on sources they authored. Conflating them would have silently widened the review
+      queue.
+- [x] Client polling: a 3-second freshness window collapses trigger bursts (boot raises
+      `Worlds.Changed` three times; a write raises `ActivitySignal` and is usually followed by a
+      navigation), and the idle cadence drops from 15s to 90s. Writes bypass the window via
+      `force: true` so a badge never looks like it lost an update, and the window is keyed on the
+      world the counts belong to so a world switch always refetches.
+- [x] Tutorial checklist detectors pushed into SQL as existence checks. Four booleans, polled
+      every 15 seconds through a new user's first session, previously answered by loading four
+      tables in full — two of them carrying session bodies.
+
+**Two things the tests corrected, worth recording:**
+
+1. The Private gate is "GM **or author**", with no further role test — so an Observer who authored
+   a Private source still sees it. My first test asserted the intuitive "Observers see only
+   PartyVisible" and failed against correct code. The rule as written is now pinned explicitly so
+   any future tightening is a deliberate decision.
+2. A truly unattributable source cannot exist: `CreatedByUserId` is a real foreign key to `Users`,
+   so the `Guid.Empty` ownership guard is defence in depth rather than a live case. Trying to seed
+   one fails on the constraint.
+
+**Not done — stopping the poll when the tab is hidden.** It needs a JS interop listener on
+`visibilitychange` plus disposal, which is more surface than the rest of this phase combined, and
+the 90-second idle cadence already removes most of what it would save. Left as its own item rather
+than bundled in here.
+
+- [ ] Suspend the nav poll on `document.visibilityState === "hidden"` and refresh once on
+      becoming visible. Dispose the listener with the component — `NavMenu` already has the
+      `IDisposable` plumbing.
 
 ## Phase 5 — Authorization-sensitive and correctness-sensitive
 
