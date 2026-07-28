@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
+using Nornis.Api.Caching;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Nornis.Api.Contracts.Requests;
@@ -57,6 +59,8 @@ public class PublicController : ControllerBase
     }
 
     [HttpGet("")]
+
+    [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
     public async Task<IActionResult> GetWorld(string slug, CancellationToken ct)
     {
         var world = await ResolveAsync(slug, ct);
@@ -104,6 +108,8 @@ public class PublicController : ControllerBase
     }
 
     [HttpGet("artifacts")]
+
+    [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
     public async Task<IActionResult> ListArtifacts(string slug, CancellationToken ct)
     {
         var world = await ResolveAsync(slug, ct);
@@ -121,6 +127,8 @@ public class PublicController : ControllerBase
     }
 
     [HttpGet("artifacts/graph")]
+
+    [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
     public async Task<IActionResult> GetArtifactGraph(string slug, CancellationToken ct)
     {
         var world = await ResolveAsync(slug, ct);
@@ -134,6 +142,8 @@ public class PublicController : ControllerBase
     }
 
     [HttpGet("artifacts/{artifactId:guid}")]
+
+    [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
     public async Task<IActionResult> GetArtifact(string slug, Guid artifactId, CancellationToken ct)
     {
         var world = await ResolveAsync(slug, ct);
@@ -147,6 +157,8 @@ public class PublicController : ControllerBase
     }
 
     [HttpGet("timeline")]
+
+    [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
     public async Task<IActionResult> GetTimeline(string slug, CancellationToken ct)
     {
         var world = await ResolveAsync(slug, ct);
@@ -164,6 +176,7 @@ public class PublicController : ControllerBase
     /// side — anonymous readers get the auto-picked map the members' view defaults to.
     /// </summary>
     [HttpGet("journey")]
+    [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
     public async Task<IActionResult> GetJourney(string slug, CancellationToken ct)
     {
         var world = await ResolveAsync(slug, ct);
@@ -187,6 +200,8 @@ public class PublicController : ControllerBase
     }
 
     [HttpGet("sources")]
+
+    [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
     public async Task<IActionResult> ListSources(string slug, CancellationToken ct)
     {
         var world = await ResolveAsync(slug, ct);
@@ -205,6 +220,8 @@ public class PublicController : ControllerBase
     }
 
     [HttpGet("sources/{sourceId:guid}")]
+
+    [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
     public async Task<IActionResult> GetSource(string slug, Guid sourceId, CancellationToken ct)
     {
         var world = await ResolveAsync(slug, ct);
@@ -219,6 +236,7 @@ public class PublicController : ControllerBase
 
     /// <summary>What a public session contributed to the record — Observer-scoped like every read.</summary>
     [HttpGet("sources/{sourceId:guid}/knowledge")]
+    [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
     public async Task<IActionResult> GetSourceKnowledge(
         string slug,
         Guid sourceId,
@@ -254,6 +272,7 @@ public class PublicController : ControllerBase
 
     /// <summary>The Location artifacts a public session is linked to.</summary>
     [HttpGet("sources/{sourceId:guid}/locations")]
+    [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
     public async Task<IActionResult> GetSourceLocations(
         string slug,
         Guid sourceId,

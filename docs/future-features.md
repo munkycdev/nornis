@@ -723,8 +723,7 @@ Still open:
 - [ ] Add keyset paging to the unbounded list endpoints, prioritising sources, artifacts, canon and
       users. Audit each consumer in the same change — `Home.razor` currently assumes it receives
       everything.
-- [ ] Add output caching to the anonymous public GETs — the most exposed surface and the one whose
-      data changes least often. Never on `Ask`. Tag-evict on the public-access and demo kill switches.
+- [x] ~~Add output caching to the anonymous public GETs~~ — **DONE 2026-07-27, below.**
 - [ ] Compose the dashboard and source-detail fetches into single endpoints, built by calling the
       same application services so there is one authorization implementation. `Task.WhenAll` on
       `SourceDetail`'s serial waterfall is the cheap interim step.
@@ -771,6 +770,47 @@ Separately, user provisioning falls back to the raw Auth0 subject when a token c
 claim, so a username can legitimately *be* an auth identifier — a pre-existing provisioning issue,
 spun off as its own task rather than papered over with an assertion here that would pass for the
 wrong reason.
+
+## Output caching on the public pages — DONE 2026-07-27
+
+All ten `GET`s under `/api/public/worlds/{slug}` are output-cached for a minute; `Ask` is not. That
+surface is the one a stranger can reach — a shared link, a crawler, a chat unfurl — and the only
+one in the API whose response does not depend on who is asking, because every public read runs as
+Observer with a sentinel user id. A link doing the rounds now costs one set of queries rather than
+one per visitor.
+
+**The plan said "tag-evict on the public-access and demo kill switches". That was not enough**, and
+`code-critic` found why. Evicting only on world settings left the writes that matter most alone:
+setting a published session note to GMOnly, deleting a source, removing a fact. Those are
+takedowns. A GM who spots a player's real name in a published note and hides it would have gone on
+serving it to anonymous visitors for the rest of the cache window.
+
+Worse, my own comment claimed the short duration was safe partly because a GM checking their public
+page would notice. **They would not.** The Blazor host attaches the bearer token to every API call,
+and output caching declines to serve a request carrying an `Authorization` header — so the signed-in
+GM always sees the live page and never the copy strangers are getting. The person best placed to
+notice is the one person who cannot.
+
+Eviction is now a blanket result filter: any successful non-GET drops the tag. Enumerating write
+paths would have to be redone correctly every time one is added, and getting it wrong is silent.
+
+The review also found the cache key varied by every query key — the framework default. These
+endpoints read no query parameters at all, so `?_=1` and `?_=2` were two entries for one response,
+which made walking `?_=1..n` against a real slug a way to fill the 100 MB in-memory store and burn
+the shared anonymous rate-limit budget while never being served from cache once. A small policy now
+drops the query string from the key.
+
+Confirmed clean by the same review, empirically rather than from memory: the path already carries
+route values, so `/artifacts/{a}` and `/artifacts/{b}` do not collide; and `UseOutputCache` sitting
+*inside* `UseResponseCompression` is the correct order — the cache stores uncompressed bytes and a
+hit re-enters compression, so a client that did not ask for Brotli does not get it.
+
+**Known and accepted:** a change made directly in the database, bypassing the API, is not evicted
+and can be up to a minute stale. That is what the duration is for.
+
+**Removed rather than kept:** a test asserting an unknown slug's 404 is not remembered. It is not —
+the framework refuses to store any non-200 — but that is an invariant this code cannot reach, so
+the test passed no matter what we did. It read like coverage and was worth nothing.
 
 ## Deferred — real but low payoff
 

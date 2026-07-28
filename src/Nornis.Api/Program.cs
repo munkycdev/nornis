@@ -1,8 +1,9 @@
-﻿using Azure.Messaging.ServiceBus;
+using Azure.Messaging.ServiceBus;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Nornis.Api.Authentication;
+using Nornis.Api.Caching;
 using Nornis.Api.BackgroundServices;
 using Nornis.Api.Filters;
 using Nornis.Api.Middleware;
@@ -64,7 +65,13 @@ else
 }
 
 // MVC controllers
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    // Any successful write drops the anonymous public cache. Blanket rather than per-endpoint
+    // because the writes that matter most are takedowns, and a list of them would have to be kept
+    // correct forever — see EvictPublicCacheOnWriteFilter.
+    options.Filters.Add<EvictPublicCacheOnWriteFilter>();
+});
 
 // Backs the subject-to-user cache in UserProvisioningMiddleware, which otherwise queries the
 // user table on every authenticated request purely to turn a JWT subject into a Guid.
@@ -337,11 +344,36 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
+// Output caching, used by exactly one thing: the anonymous public world pages. That is the most
+// exposed surface — a shared link, a crawler, an unfurl — and the only one whose response does not
+// depend on who is asking, because every public read runs as Observer with a sentinel user id.
+//
+// Nothing else may opt in without thinking hard about the cache key. Authenticated responses vary
+// by user, role, and the view-as header, and a policy that missed one of those would serve one
+// reader another's view of a world.
+builder.Services.AddOutputCache(options =>
+{
+    options.AddPolicy(PublicOutputCache.PolicyName, policy => policy
+        .Expire(PublicOutputCache.Duration)
+        .Tag(PublicOutputCache.AllTag)
+        // Last, so it wins over the default policy's vary-by-every-query-key. The path already
+        // carries everything these endpoints read; see IgnoreQueryStringPolicy for why inheriting
+        // the default here is a cache-fill vector rather than a nicety.
+        .AddPolicy<IgnoreQueryStringPolicy>());
+});
+
 var app = builder.Build();
 
 // First in the pipeline: compression has to wrap the response stream before anything writes to
 // it, including the error handler and the health-check writer.
 app.UseResponseCompression();
+
+// Deliberately INSIDE compression, not outside it. Outside, a cache hit would short-circuit before
+// the compression middleware and every cached response would go out uncompressed; inside, the
+// cache stores the raw bytes and compression is applied per request against that caller's
+// Accept-Encoding. Getting this backwards is not a slow response, it is a wrong one — a client
+// that did not ask for Brotli receiving Brotli.
+app.UseOutputCache();
 
 // Middleware pipeline order:
 // 1. Authentication (validates JWT)
