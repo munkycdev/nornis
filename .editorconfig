@@ -2,11 +2,16 @@
 root = true
 
 # All files
+#
+# Line endings and encodings are deliberately NOT enforced here. Every file in the index is
+# stored LF, the CI runner is Linux and checks out LF, and dev machines are Windows — an
+# end_of_line rule therefore guarantees that `dotnet format --verify-no-changes` disagrees
+# between local and CI, whichever value is picked. Git owns line endings; the formatter
+# checks what is the same on every OS. charset likewise: enforcing utf-8-bom would demand a
+# BOM be injected into hundreds of files that build fine without one.
 [*]
 indent_style = space
 indent_size = 4
-end_of_line = crlf
-charset = utf-8-bom
 trim_trailing_whitespace = true
 insert_final_newline = true
 
