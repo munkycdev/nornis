@@ -151,6 +151,8 @@ builder.Services.AddScoped<Nornis.Web.State.ActivitySignal>();
 builder.Services.AddScoped<Nornis.Web.State.OnboardingState>();
 builder.Services.AddScoped<Nornis.Web.State.AskState>();
 builder.Services.AddScoped<Nornis.Web.State.ViewAsState>();
+builder.Services.AddScoped<Nornis.Web.State.GmNoteContext>();
+builder.Services.AddScoped<Nornis.Web.Services.GmNoteWriter>();
 
 var app = builder.Build();
 

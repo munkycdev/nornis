@@ -1,0 +1,50 @@
+@inject WorldState Worlds
+@inject GmNoteContext NoteContext
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@implements IDisposable
+
+@* Lives in the topbar so the GM can write a note against whatever they are reading, without
+   leaving the page for /capture. Hidden for players, and hidden for a GM viewing as one. *@
+@if (Visible)
+{
+    <MudTooltip Text="Write a GM note — Nornis reads it and proposes updates">
+        <MudIconButton Icon="@Icons.Material.Filled.NoteAdd"
+                       Color="Color.Default"
+                       OnClick="OpenAsync"
+                       aria-label="Write a GM note" />
+    </MudTooltip>
+}
+
+@code {
+    private bool Visible => Worlds.Current is not null && Worlds.EffectiveRole == "GM";
+
+    protected override void OnInitialized() => Worlds.Changed += OnWorldsChanged;
+
+    private void OnWorldsChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task OpenAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters<GmNoteDialog>
+        {
+            { d => d.WorldId, Worlds.Current.Id },
+            { d => d.Subject, NoteContext.Subject },
+        };
+
+        var dialog = await DialogService.ShowAsync<GmNoteDialog>(
+            "New GM note", parameters, new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            Snackbar.Add("Noted — proposals will appear in the review queue shortly.", Severity.Success);
+        }
+    }
+
+    public void Dispose() => Worlds.Changed -= OnWorldsChanged;
+}

@@ -20,6 +20,9 @@
 
 ## 3. Artifact quick-add
 
+> **Superseded** by the global GM-note button (`GmNoteButton` / `GmNoteDialog` / `GmNoteWriter`).
+> Same two-call flow, moved to the topbar and restricted to GMs.
+
 Pure client + existing APIs. On `ArtifactDetail.razor` (hidden for observers): a
 multiline box + visibility select + "Add to record" button that
 

@@ -1,0 +1,101 @@
+@inject GmNoteWriter Notes
+
+@* A GM note is an ordinary source of type GMNote, marked ready immediately so extraction
+   reads it and proposes updates — including corrections to facts already on the record. *@
+<MudDialog>
+    <DialogContent>
+        @* Removable: the subject comes from whatever page the GM was on, so they get the last
+           word on whether this note is really about it. *@
+        @if (_subject is not null)
+        {
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary"
+                     Icon="@Icons.Material.Filled.Link" Class="mb-2"
+                     OnClose="@(() => _subject = null)">
+                @_subject
+            </MudChip>
+        }
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Write what you know. Nornis reads the note and proposes updates for review — new facts,
+            or corrections to ones already on the record.
+        </MudText>
+
+        <MudTextField @bind-Value="_text"
+                      Lines="6"
+                      Immediate="true"
+                      AutoFocus="true"
+                      Placeholder="@Placeholder"
+                      Variant="Variant.Outlined"
+                      Class="mb-3" />
+
+        <MudSelect T="string" @bind-Value="_visibility" Dense="true" Label="Visibility"
+                   Variant="Variant.Outlined" Class="nornis-role-select"
+                   HelperText="Party-visible notes can be cited in answers your players see.">
+            <MudSelectItem Value="@("PartyVisible")">PartyVisible</MudSelectItem>
+            <MudSelectItem Value="@("GMOnly")">GMOnly</MudSelectItem>
+            <MudSelectItem Value="@("Private")">Private</MudSelectItem>
+        </MudSelect>
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Disabled="_busy">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                   StartIcon="@Icons.Material.Filled.AutoAwesome"
+                   OnClick="Submit"
+                   Disabled="@(_busy || string.IsNullOrWhiteSpace(_text))">
+            Save note
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private MudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid WorldId { get; set; }
+
+    /// <summary>What the GM was reading when they opened this, if the page knew. Prefixed onto
+    /// the note body so extraction can match it to the artifact by name.</summary>
+    [Parameter] public string? Subject { get; set; }
+
+    /// <summary>The subject actually in force — <see cref="Subject"/> until the GM drops it.</summary>
+    private string? _subject;
+    private string _text = string.Empty;
+    private string _visibility = "PartyVisible";
+    private bool _busy;
+    private string? _error;
+
+    protected override void OnInitialized() => _subject = Subject;
+
+    private string Placeholder => _subject is null
+        ? "e.g. The Silver Key was never in Voss's quarters — the party planted it."
+        : $"e.g. {_subject} was last seen…";
+
+    private async Task Submit()
+    {
+        if (string.IsNullOrWhiteSpace(_text))
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        var result = await Notes.SaveAsync(WorldId, _subject, _text, _visibility);
+
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(result.Value));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -1,6 +1,5 @@
 ## List of unprocessed features
 
-* When logged in as the GM, I'd like a right-bar feature to add GM notes on the Ask response page. This is intended to allow a GM to correct findings when asking questions to ensure proper narrative structure.
 * Perform a comprehensive review of the entire repo and identify opportunities to improve the overall system to make it something I can proudly post on my profile rather than having something that looks obviously vibe-coded. This should include enforcing SOLID and Clean Code principles.
 
 ---

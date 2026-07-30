@@ -36,6 +36,10 @@ of asking an operator to change server configuration.
 
 ### Requirement 3: Artifact Quick-Add
 
+> **Superseded.** The box on the artifact page was replaced by the global GM-note button in
+> the topbar, which does the same thing from any page and is GM-only. Members other than the
+> GM now capture through `/capture`. Kept here as the record of what shipped originally.
+
 **User Story:** As a member on an artifact page, I want to type what I know and have it
 become reviewable knowledge about that artifact.
 
