@@ -10,23 +10,19 @@ Deviation from .kiro/steering/azure-hosting.md (AKS): MVP hosts on Container App
 same containers + ACR, no cluster to operate, scale-to-zero worker via a KEDA
 Service Bus scaler. Revisit AKS if/when scale demands it.
 
-Prereqs: az CLI logged in; images pushed to ACR (deploy workflow or az acr build).
+Prereqs: az CLI logged in; images pushed to ACR (deploy workflow or az acr build);
+Auth0:ClientSecret present in the Nornis.Web user-secrets store (see below).
 
-NOT REPRODUCED BY THIS SCRIPT — apply by hand after running it, or the apps come up broken.
-Reconciled against the live stack on 2026-07-27; everything below exists in production but has
-no source here, because the values live nowhere in the repo or in user-secrets:
+Auth0 (reproduced since 2026-07-29 — this used to be the one thing the script could not
+rebuild, so a re-provision yielded apps that could not authenticate). The non-secret values
+— domain, audience, claims namespace, client id — are ordinary parameters defaulting to the
+live tenant. The web app's client secret is the only true secret and is read from the
+Nornis.Web user-secrets store, like every other secret this script consumes:
 
-  ca-nornis-api   Auth0__Domain, Auth0__Audience, Auth0__ClaimsNamespace
-  ca-nornis-web   Auth0__Domain, Auth0__ClientId, Auth0__ClientSecret, Auth0__Audience
+  dotnet user-secrets set "Auth0:ClientSecret" <value> --project src/Nornis.Web
 
-Without them the API rejects every token and the Web app cannot complete a login. Read the
-current values back before re-provisioning:
-
-  az containerapp show -g rg-nornis -n ca-nornis-api `
-      --query "properties.template.containers[0].env" -o table
-
-Also note WebPush:PublicKey / WebPush:PrivateKey exist in the Api and Worker user-secrets
-stores but are set on neither live app, so browser push notifications are inert in production.
+The value lives in the Auth0 dashboard (Applications > Nornis) and, until the next rotation,
+as the auth0-client-secret secret on the live ca-nornis-web app.
 #>
 param(
     [string]$ResourceGroup = "rg-nornis",
@@ -39,7 +35,16 @@ param(
     [string]$Queue = "source-extraction",
     [string]$LibraryQueue = "library-indexing",
     [string]$AppInsights = "appi-nornis",
-    [string]$ImageTag = "bootstrap"
+    [string]$ImageTag = "bootstrap",
+    # Auth0 tenant wiring. None of these are secrets — the client secret is the only one, and
+    # it comes from the Nornis.Web user-secrets store. ClaimsNamespace matches the tenant's
+    # post-login Action, which stamps profile claims under this prefix; the chronicis.app value
+    # predates the Nornis rename and is shared with Chronicis — changing it here without
+    # changing the Action would break user provisioning.
+    [string]$Auth0Domain = "auth.nornis.app",
+    [string]$Auth0Audience = "https://api.nornis.app",
+    [string]$Auth0ClaimsNamespace = "https://chronicis.app",
+    [string]$Auth0WebClientId = "dMNCPqm8QMRar6Cw1nKVajXwV6aP9d5q"
 )
 
 $ErrorActionPreference = "Stop"
@@ -101,6 +106,9 @@ $extractEndpoint= Get-UserSecret "src/Nornis.Worker" "Extraction:AiEndpoint"
 # Library indexing reads uploaded PDFs from blob storage. Without this the worker still runs
 # (blob registration is lazy) but every indexing message fails.
 $blobConn       = Get-UserSecret "src/Nornis.Api"    "BlobStorage:ConnectionString"
+# Without this the web app cannot complete a login; without the API's Auth0 env vars below,
+# the API rejects every token. Both halves have to travel together.
+$auth0WebSecret = Get-UserSecret "src/Nornis.Web"    "Auth0:ClientSecret"
 
 # KEDA authenticates against a single connection string; the scaler rule on $Queue carries
 # Manage over the whole namespace path it was issued for, and both scale rules reference the
@@ -151,6 +159,11 @@ $apiEnv = @(
     "Loremaster__AiEndpoint=$loreEndpoint"
     "BlobStorage__ConnectionString=secretref:blob-conn"
     "AiBudget__DailyWorldBudgetUsd=2"
+    # JWT validation. Without these the API rejects every token — and because the fallback
+    # policy requires authentication on everything, that is the whole API, not one endpoint.
+    "Auth0__Domain=$Auth0Domain"
+    "Auth0__Audience=$Auth0Audience"
+    "Auth0__ClaimsNamespace=$Auth0ClaimsNamespace"
 )
 if ($appInsightsConn) {
     $apiSecrets += "appi-conn=$appInsightsConn"
@@ -168,25 +181,32 @@ az containerapp create --name ca-nornis-api --resource-group $ResourceGroup `
 $apiFqdn = az containerapp show -g $ResourceGroup -n ca-nornis-api --query properties.configuration.ingress.fqdn -o tsv
 
 Write-Host "== Web app (sticky sessions for the Blazor Server circuit)"
+# The secret name matches the live app (auth0-client-secret) so a re-provision converges on
+# the same shape instead of leaving two secrets for one value.
+$webSecrets = @(
+    "auth0-client-secret=$auth0WebSecret"
+)
 $webEnv = @(
     "ASPNETCORE_ENVIRONMENT=Production"
     "Api__BaseUrl=https://$apiFqdn"
+    # OIDC login. AuthFeature keys on ClientId being present — omit these and the app comes up
+    # in the anonymous dev mode, publicly, against an API that will then reject every call.
+    "Auth0__Domain=$Auth0Domain"
+    "Auth0__ClientId=$Auth0WebClientId"
+    "Auth0__ClientSecret=secretref:auth0-client-secret"
+    "Auth0__Audience=$Auth0Audience"
 )
+if ($appInsightsConn) {
+    $webSecrets += "appi-conn=$appInsightsConn"
+    $webEnv     += "APPLICATIONINSIGHTS_CONNECTION_STRING=secretref:appi-conn"
+}
 az containerapp create --name ca-nornis-web --resource-group $ResourceGroup `
     --environment $Environment --registry-server $acrServer --registry-identity $identityId `
     --user-assigned $identityId `
     --image "$acrServer/nornis-web:$ImageTag" --target-port 8080 --ingress external `
     --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi `
+    --secrets @webSecrets `
     --env-vars @webEnv -o none
-
-# The Web app has no other secrets, so telemetry is wired in a follow-up update rather than
-# threading an optional --secrets through the create call.
-if ($appInsightsConn) {
-    az containerapp secret set --name ca-nornis-web --resource-group $ResourceGroup `
-        --secrets "appi-conn=$appInsightsConn" -o none
-    az containerapp update --name ca-nornis-web --resource-group $ResourceGroup `
-        --set-env-vars "APPLICATIONINSIGHTS_CONNECTION_STRING=secretref:appi-conn" -o none
-}
 az containerapp ingress sticky-sessions set --affinity sticky `
     -g $ResourceGroup -n ca-nornis-web -o none
 

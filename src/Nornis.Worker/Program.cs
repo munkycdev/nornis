@@ -100,16 +100,6 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<IExtractionReplayRepository, ExtractionReplayRepository>();
         services.AddScoped<IImportSessionRepository, ImportSessionRepository>();
 
-        // Notifications. The worker is where the asynchronous work actually finishes, so it is
-        // the process that has to be able to tell someone about it.
-        services.Configure<Nornis.Infrastructure.Notifications.WebPushOptions>(
-            context.Configuration.GetSection(Nornis.Infrastructure.Notifications.WebPushOptions.SectionName));
-        services.AddScoped<IPushSubscriptionRepository, PushSubscriptionRepository>();
-        services.AddScoped<Nornis.Application.Notifications.INotificationSender,
-            Nornis.Infrastructure.Notifications.WebPushNotificationSender>();
-        services.AddScoped<Nornis.Application.Notifications.IExtractionNotifier,
-            Nornis.Application.Notifications.ExtractionNotifier>();
-
         // Azure OpenAI client
         services.AddSingleton<ChatClient>(sp =>
         {

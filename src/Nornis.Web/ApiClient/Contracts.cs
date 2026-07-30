@@ -4,23 +4,6 @@ namespace Nornis.Web.ApiClient;
 // so it owns its view of the wire shape rather than referencing the API's types. Enum-valued
 // fields are carried as strings, exactly as the API serializes them.
 
-// Mirrors Nornis.Api PushConfigResponse. Configured is false when the server has no VAPID
-// keys, which is the normal state of a developer machine.
-public record PushConfig(bool Configured, string? PublicKey);
-
-// Mirrors Nornis.Api PushSubscriptionResponse — one browser, without its credentials.
-public record PushSubscriptionSummary(
-    Guid Id,
-    string? Label,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset? LastSucceededAt);
-
-// Mirrors Nornis.Api SavePushSubscriptionRequest.
-public record SavePushSubscriptionRequest(string Endpoint, string P256dh, string Auth, string? Label);
-
-/// <summary>What push.js hands back after a successful subscribe.</summary>
-public record PushSubscribeResult(bool Ok, string? Reason, string? Endpoint, string? P256dh, string? Auth, string? Label);
-
 public record WorldSummary(
     Guid Id,
     string Name,

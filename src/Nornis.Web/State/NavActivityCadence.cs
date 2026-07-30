@@ -23,13 +23,27 @@ public static class NavActivityCadence
     public static readonly TimeSpan Idle = TimeSpan.FromSeconds(90);
 
     /// <summary>
+    /// Cadence while the session is expired: the API has rejected the token and every poll at the
+    /// normal rate would 401 the same way — the storm this replaces ran at ~400 unauthorized
+    /// requests over three hours. A slow probe is kept, rather than stopping outright, because
+    /// each attempt goes back through the token refresher: when the failure was transient the
+    /// probe is what notices recovery and restores the normal cadence without the user doing
+    /// anything.
+    /// </summary>
+    public static readonly TimeSpan Expired = TimeSpan.FromMinutes(5);
+
+    /// <summary>
     /// The wait before the next tick.
     ///
-    /// <para>A hidden tab holds the slow cadence whatever the world is doing: the fast one exists
-    /// to move a badge promptly, and a background tab has no badge on screen to move.</para>
+    /// <para>An expired session overrides everything: work in flight is not a reason to hammer an
+    /// API that has already said no. A hidden tab holds the slow cadence whatever the world is
+    /// doing: the fast one exists to move a badge promptly, and a background tab has no badge on
+    /// screen to move.</para>
     /// </summary>
-    public static TimeSpan Interval(bool tabVisible, bool hasWorkInFlight) =>
-        tabVisible && hasWorkInFlight ? Active : Idle;
+    public static TimeSpan Interval(bool tabVisible, bool hasWorkInFlight, bool sessionExpired) =>
+        sessionExpired ? Expired
+        : tabVisible && hasWorkInFlight ? Active
+        : Idle;
 
     /// <summary>
     /// Whether becoming <paramref name="visible"/> means the badges need re-reading now.
@@ -60,6 +74,7 @@ public static class NavActivityCadence
     public static async Task RunAsync(
         Func<bool> isTabVisible,
         Func<bool> hasWorkInFlight,
+        Func<bool> isSessionExpired,
         Func<TimeSpan, CancellationToken, Task<bool>> waitAsync,
         Func<Task> fetchAsync,
         CancellationToken ct)
@@ -68,7 +83,7 @@ public static class NavActivityCadence
         {
             while (!ct.IsCancellationRequested)
             {
-                var interval = Interval(isTabVisible(), hasWorkInFlight());
+                var interval = Interval(isTabVisible(), hasWorkInFlight(), isSessionExpired());
 
                 if (!await waitAsync(interval, ct))
                 {

@@ -37,12 +37,14 @@ public class NavMenuTabVisibilityTests : BunitContext
 
         var viewAs = new ViewAsState();
         var signal = new ActivitySignal();
+        var authSession = new AuthSessionState();
         var api = new NornisApiClient(
-            new HttpClient(_handler) { BaseAddress = new Uri("http://localhost") }, viewAs, signal);
+            new HttpClient(_handler) { BaseAddress = new Uri("http://localhost") }, viewAs, signal, authSession);
 
         Services.AddMudServices();
         Services.AddSingleton(viewAs);
         Services.AddSingleton(signal);
+        Services.AddSingleton(authSession);
         Services.AddSingleton(api);
         Services.AddSingleton(new AuthFeature(false));
         Services.AddSingleton(sp => new WorldState(api, viewAs, sp.GetRequiredService<IJSRuntime>()));

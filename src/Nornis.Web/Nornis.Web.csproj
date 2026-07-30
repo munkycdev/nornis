@@ -1,5 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <PropertyGroup>
+    <!-- Holds only Auth0:ClientSecret, read by provision-azure.ps1. Local dev runs anonymous
+         against the API's dev-auth bypass and never reads this store. -->
+    <UserSecretsId>nornis-web</UserSecretsId>
+  </PropertyGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Nornis.Web.Tests" />
   </ItemGroup>

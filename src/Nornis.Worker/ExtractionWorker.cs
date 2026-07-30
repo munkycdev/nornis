@@ -3,7 +3,6 @@ using System.Text.Json;
 using Azure.Messaging.ServiceBus;
 using Nornis.Application.Messaging;
 using Nornis.Application.Models;
-using Nornis.Application.Notifications;
 using Nornis.Application.Services;
 using Nornis.Infrastructure.Messaging;
 
@@ -106,21 +105,6 @@ public sealed class ExtractionWorker : BackgroundService
                     .ProcessExtractionAsync(message.SourceId, message.WorldId, args.CancellationToken);
 
             stopwatch.Stop();
-
-            // Told from here rather than inside the extraction: this is the only place that sees
-            // every finish, and a notification must never be able to change the outcome of one.
-            // Backfill sweeps are housekeeping nobody asked for and stay silent.
-            if (message.Kind != ExtractionKind.RelationshipBackfill
-                && outcome.Type is OutcomeType.Success or OutcomeType.NonTransientFailure)
-            {
-                await scope.ServiceProvider.GetRequiredService<IExtractionNotifier>()
-                    .NotifyExtractionFinishedAsync(
-                        message.SourceId,
-                        message.WorldId,
-                        succeeded: outcome.Type == OutcomeType.Success,
-                        proposalCount: outcome.ProposalCount,
-                        args.CancellationToken);
-            }
 
             switch (outcome.Type)
             {

@@ -16,12 +16,16 @@ public class NornisApiClient
     private readonly HttpClient _httpClient;
     private readonly State.ViewAsState _viewAs;
     private readonly State.ActivitySignal _activity;
+    private readonly State.AuthSessionState _authSession;
 
-    public NornisApiClient(HttpClient httpClient, State.ViewAsState viewAs, State.ActivitySignal activity)
+    public NornisApiClient(
+        HttpClient httpClient, State.ViewAsState viewAs, State.ActivitySignal activity,
+        State.AuthSessionState authSession)
     {
         _httpClient = httpClient;
         _viewAs = viewAs;
         _activity = activity;
+        _authSession = authSession;
     }
 
     /// <summary>Base address the client is configured to call (for display/diagnostics).</summary>
@@ -606,26 +610,6 @@ public class NornisApiClient
     public Task<ApiResult<ReviewQueue>> GetReviewQueueAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<ReviewQueue>($"/api/worlds/{worldId}/reviews/proposals", ct);
 
-    // -------------------------------------------------------------- Notifications --
-
-    /// <summary>The VAPID public key, and whether the server can send at all.</summary>
-    public Task<ApiResult<PushConfig>> GetPushConfigAsync(CancellationToken ct = default) =>
-        GetAsync<PushConfig>("/api/notifications/config", ct);
-
-    /// <summary>Browsers this user has enabled notifications on.</summary>
-    public Task<ApiResult<List<PushSubscriptionSummary>>> GetPushSubscriptionsAsync(CancellationToken ct = default) =>
-        GetAsync<List<PushSubscriptionSummary>>("/api/notifications/subscriptions", ct);
-
-    /// <summary>Registers this browser to receive notifications.</summary>
-    public Task<ApiResult<PushSubscriptionSummary>> SavePushSubscriptionAsync(
-        SavePushSubscriptionRequest request, CancellationToken ct = default) =>
-        PostAsync<SavePushSubscriptionRequest, PushSubscriptionSummary>(
-            "/api/notifications/subscriptions", request, ct);
-
-    /// <summary>Forgets a browser, by the endpoint it identifies itself with.</summary>
-    public Task<ApiResult<bool>> DeletePushSubscriptionAsync(string endpoint, CancellationToken ct = default) =>
-        DeleteAsync($"/api/notifications/subscriptions?endpoint={Uri.EscapeDataString(endpoint)}", ct);
-
     // ------------------------------------------------------------------------ Ask --
 
     public Task<ApiResult<AskAnswer>> AskLoremasterAsync(Guid worldId, string question, string? conversationContext = null, CancellationToken ct = default) =>
@@ -722,6 +706,20 @@ public class NornisApiClient
         }
 
         var response = await _httpClient.SendAsync(request, ct);
+
+        // Every call goes through here, so this is also the one place that always sees the API
+        // say "I don't know who you are". A 401 marks the session expired; any success clears it,
+        // because a working response is proof the credentials work again (a failed token refresh
+        // can be transient). 403 and 5xx deliberately change nothing — they say something about
+        // the request, not about whether the caller is authenticated.
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            _authSession.NotifyUnauthorized();
+        }
+        else if (response.IsSuccessStatusCode)
+        {
+            _authSession.NotifyAuthorized();
+        }
 
         // Every write goes through here, so this is the one place that cannot forget to say the
         // sidebar's counts are stale. Announcing on any successful write rather than on a list

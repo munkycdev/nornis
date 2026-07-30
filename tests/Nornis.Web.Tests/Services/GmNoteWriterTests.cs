@@ -26,7 +26,8 @@ public class GmNoteWriterTests
         var api = new NornisApiClient(
             new HttpClient(handler) { BaseAddress = new Uri("http://localhost") },
             new ViewAsState(),
-            new ActivitySignal());
+            new ActivitySignal(),
+            new AuthSessionState());
         return (new GmNoteWriter(api), handler);
     }
 

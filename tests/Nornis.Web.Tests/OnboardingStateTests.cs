@@ -19,7 +19,8 @@ public class OnboardingStateTests
         new(new NornisApiClient(
             new HttpClient(handler) { BaseAddress = new Uri("http://localhost") },
             new ViewAsState(),
-            new ActivitySignal()));
+            new ActivitySignal(),
+            new AuthSessionState()));
 
     [Test]
     public async Task ConcurrentCallers_ShareOneRequest()

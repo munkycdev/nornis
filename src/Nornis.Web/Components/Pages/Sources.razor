@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
+@inject Nornis.Web.State.AuthSessionState AuthSession
 
 <PageTitle>Sources — Nornis</PageTitle>
 
@@ -178,6 +179,11 @@ else
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(4));
             while (await timer.WaitForNextTickAsync(_pollCts.Token))
             {
+                // An expired session turns this four-second poll into a 401 storm; the nav owns
+                // telling the user and probing for recovery, so this one just stands down.
+                if (AuthSession.Expired)
+                    continue;
+
                 if (Worlds.Current is null || !_sources.Any(x => ActiveStatuses.Contains(x.ProcessingStatus)))
                     continue;
 

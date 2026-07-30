@@ -19,14 +19,14 @@ public class NavActivityCadenceTests
     [Test]
     public void AVisibleTabWithWorkInFlight_PollsFast()
     {
-        Assert.That(NavActivityCadence.Interval(tabVisible: true, hasWorkInFlight: true),
+        Assert.That(NavActivityCadence.Interval(tabVisible: true, hasWorkInFlight: true, sessionExpired: false),
             Is.EqualTo(NavActivityCadence.Active));
     }
 
     [Test]
     public void AVisibleIdleTab_PollsSlowly()
     {
-        Assert.That(NavActivityCadence.Interval(tabVisible: true, hasWorkInFlight: false),
+        Assert.That(NavActivityCadence.Interval(tabVisible: true, hasWorkInFlight: false, sessionExpired: false),
             Is.EqualTo(NavActivityCadence.Idle));
     }
 
@@ -36,7 +36,7 @@ public class NavActivityCadenceTests
         // The fast cadence exists to move a badge promptly. A background tab has no badge on
         // screen, so work in flight is not a reason to check four times a minute — and an
         // extraction running while the user is in another tab is exactly when it would.
-        Assert.That(NavActivityCadence.Interval(tabVisible: false, hasWorkInFlight: true),
+        Assert.That(NavActivityCadence.Interval(tabVisible: false, hasWorkInFlight: true, sessionExpired: false),
             Is.EqualTo(NavActivityCadence.Idle));
     }
 
@@ -44,8 +44,30 @@ public class NavActivityCadenceTests
     public void AHiddenIdleTab_PollsSlowly()
     {
         // The fourth corner of the truth table, so all four are pinned rather than three.
-        Assert.That(NavActivityCadence.Interval(tabVisible: false, hasWorkInFlight: false),
+        Assert.That(NavActivityCadence.Interval(tabVisible: false, hasWorkInFlight: false, sessionExpired: false),
             Is.EqualTo(NavActivityCadence.Idle));
+    }
+
+    [TestCase(true, true)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(false, false)]
+    public void AnExpiredSession_HoldsTheProbeCadence_WhateverElseIsTrue(bool visible, bool workInFlight)
+    {
+        // Work in flight is the dangerous corner: it is exactly the state that used to pin the
+        // fast cadence, and with a dead token every one of those fast polls is a guaranteed 401.
+        // The observed storm was ~400 unauthorized requests over three hours from one tab.
+        Assert.That(NavActivityCadence.Interval(visible, workInFlight, sessionExpired: true),
+            Is.EqualTo(NavActivityCadence.Expired));
+    }
+
+    [Test]
+    public void TheExpiredProbeIsSlowEnoughToBeWorthHaving()
+    {
+        // The probe exists to notice recovery, not to keep the badge fresh — it has to be far
+        // slower than the idle cadence or expiry changes nothing.
+        Assert.That(NavActivityCadence.Expired, Is.GreaterThanOrEqualTo(TimeSpan.FromMinutes(2)));
+        Assert.That(NavActivityCadence.Expired, Is.GreaterThan(NavActivityCadence.Idle));
     }
 
     [Test]
@@ -125,8 +147,11 @@ public class NavActivityCadenceTests
         }
     }
 
-    private static Task RunAsync(FakeClock clock, Func<bool> visible, bool workInFlight = false) =>
-        NavActivityCadence.RunAsync(visible, () => workInFlight, clock.WaitAsync, clock.FetchAsync, clock.Cts.Token);
+    private static Task RunAsync(
+        FakeClock clock, Func<bool> visible, bool workInFlight = false, Func<bool>? expired = null) =>
+        NavActivityCadence.RunAsync(
+            visible, () => workInFlight, expired ?? (() => false),
+            clock.WaitAsync, clock.FetchAsync, clock.Cts.Token);
 
     [Test]
     public async Task AHiddenTabTicksButFetchesNothing()
@@ -166,6 +191,7 @@ public class NavActivityCadenceTests
         await NavActivityCadence.RunAsync(
             () => visible,
             () => false,
+            () => false,
             (interval, ct) => { visible = false; return clock.WaitAsync(interval, ct); },
             clock.FetchAsync,
             clock.Cts.Token);
@@ -195,6 +221,7 @@ public class NavActivityCadenceTests
         await NavActivityCadence.RunAsync(
             () => visible,
             () => true,
+            () => false,
             (interval, ct) => { visible = true; return clock.WaitAsync(interval, ct); },
             clock.FetchAsync,
             clock.Cts.Token);
@@ -203,6 +230,23 @@ public class NavActivityCadenceTests
         {
             Assert.That(clock.Waits[0], Is.EqualTo(NavActivityCadence.Idle), "hidden when it started");
             Assert.That(clock.Waits[1], Is.EqualTo(NavActivityCadence.Active), "visible when it woke");
+        });
+    }
+
+    [Test]
+    public async Task AnExpiredSessionWaitsTheProbeInterval_ButStillFetches()
+    {
+        // The probe request is the recovery mechanism: it goes back through the token refresher,
+        // and one success is what clears the expired state. Standing down completely would leave
+        // the session expired forever even after a transient Auth0 outage passed.
+        var clock = new FakeClock { StopAfterWaits = 2 };
+
+        await RunAsync(clock, visible: () => true, workInFlight: true, expired: () => true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clock.Waits, Is.All.EqualTo(NavActivityCadence.Expired));
+            Assert.That(clock.Fetches, Is.EqualTo(1), "the probe still spends its one request");
         });
     }
 

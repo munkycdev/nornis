@@ -140,6 +140,19 @@
 </div>
 }
 
+@if (AuthSession.Expired)
+{
+    @* The person whose poll is failing is the one person the failure is invisible to — the badge
+       just stops moving. Say so, and offer the fix: a full page load re-runs the cookie path,
+       which either refreshes the tokens silently or ends the session cleanly at the login page. *@
+    <div class="px-3 py-1">
+        <MudAlert Severity="Severity.Warning" Dense="true">
+            Your session has expired.
+            <MudLink OnClick="ReloadToSignIn" Typo="Typo.body2"><b>Sign in again</b></MudLink>
+        </MudAlert>
+    </div>
+}
+
 @if (Auth.Enabled)
 {
     <AuthorizeView>
@@ -181,6 +194,7 @@ else
 @inject Nornis.Web.State.ActivitySignal Activity
 @inject NavigationManager Nav
 @inject Nornis.Web.Authentication.AuthFeature Auth
+@inject Nornis.Web.State.AuthSessionState AuthSession
 @inject IDialogService DialogService
 @inject IJSRuntime JS
 
@@ -204,6 +218,7 @@ else
         // arriving on a page after making one somewhere else.
         Activity.Changed += OnActivitySignal;
         Nav.LocationChanged += OnLocationChanged;
+        AuthSession.Changed += OnAuthSessionChanged;
 
         // Everything below is wasted during the static prerender pass. The authenticated shell
         // renders nothing but a boot spinner then — MainLayout gates @Body on Worlds.Ready, which
@@ -231,6 +246,25 @@ else
     // Navigation alone changes nothing server-side, so this one respects the freshness window.
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e) =>
         InvokeAsync(() => RefreshActivityAsync());
+
+    // The session flipped between working and expired. Show or clear the banner, and cut the
+    // current wait short so the loop recomputes its cadence now — in both directions: dropping
+    // to the slow probe immediately is the point of the fix, and picking the normal cadence
+    // back up immediately is what makes recovery feel like nothing was ever wrong.
+    private void OnAuthSessionChanged() => InvokeAsync(() =>
+    {
+        _pollWake?.Cancel();
+        StateHasChanged();
+    });
+
+    /// <summary>
+    /// A full document load — not a circuit navigation — so the request runs the cookie path:
+    /// <c>Auth0TokenRefresher.ValidatePrincipalAsync</c> either refreshes the tokens and writes
+    /// them back into the cookie, or rejects the principal and the user lands on a clean login.
+    /// A circuit can do neither for itself: it makes no full HTTP requests, and a cookie cannot
+    /// be rewritten over an established SignalR connection.
+    /// </summary>
+    private void ReloadToSignIn() => Nav.NavigateTo(Nav.Uri, forceLoad: true);
 
     // Light poll so processing/review badges move without navigation.
     private SourceActivity? _activity;
@@ -291,6 +325,7 @@ else
     private Task PollActivityAsync() => NavActivityCadence.RunAsync(
         isTabVisible: () => _tabVisible,
         hasWorkInFlight: () => HasWorkInFlight,
+        isSessionExpired: () => AuthSession.Expired,
         waitAsync: WaitForNextPollAsync,
         fetchAsync: () => RefreshActivityAsync(),
         ct: _activityCts.Token);
@@ -520,6 +555,7 @@ else
         _activityCts.Dispose();
         Activity.Changed -= OnActivitySignal;
         Nav.LocationChanged -= OnLocationChanged;
+        AuthSession.Changed -= OnAuthSessionChanged;
         Worlds.Changed -= OnWorldsChanged;
 
         if (_visibilityToken is { } token)

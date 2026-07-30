@@ -37,7 +37,8 @@ public class GmNoteButtonTests : BunitContext
         _viewAs = new ViewAsState();
         var signal = new ActivitySignal();
         var api = new NornisApiClient(
-            new HttpClient(_handler) { BaseAddress = new Uri("http://localhost") }, _viewAs, signal);
+            new HttpClient(_handler) { BaseAddress = new Uri("http://localhost") }, _viewAs, signal,
+            new AuthSessionState());
 
         Services.AddMudServices();
         Services.AddSingleton(_viewAs);

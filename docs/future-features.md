@@ -67,12 +67,25 @@ which narrows the duplicate-assessment window to rolling deploys rather than ste
 - [x] **Run `code-critic` over this change.** It touches a migration and a concurrency primitive,
       so the repo's own rule calls for an independent review. The attempt on 2026-07-27 failed —
       model usage credits exhausted — so this change has *not* had a second pair of eyes.
-- [ ] Apply the Auth0 settings the script still cannot reproduce (documented in its header). They
-      exist only on the live container apps — not in the repo, not in user-secrets — so a
-      re-provision today still yields apps that cannot authenticate.
-- [ ] Decide on `WebPush:PublicKey` / `WebPush:PrivateKey`: present in the Api and Worker
-      user-secrets stores, set on neither live app, so browser push notifications are inert in
-      production. Either wire them up or remove the feature's config.
+- [x] ~~Apply the Auth0 settings the script still cannot reproduce~~ — **DONE 2026-07-29.** The
+      premise needed one correction: the live web app already held the client secret as a proper
+      container-app secret (`auth0-client-secret`) — the values were only missing from the *repo's*
+      sourcing. The script now takes the four non-secret values (domain, audience, claims
+      namespace, client id) as parameters defaulting to the live tenant, and reads the client
+      secret from a new `Nornis.Web` user-secrets store (`UserSecretsId: nornis-web`), which was
+      seeded from the live app. The API gets `Auth0__Domain/Audience/ClaimsNamespace`; the web app
+      gets the full OIDC set with the secret as a secretref under the same name the live app uses,
+      so a re-provision converges instead of forking. No Azure mutation was needed — live state
+      was already correct; only the script could not reproduce it.
+- [x] ~~Decide on `WebPush:PublicKey` / `WebPush:PrivateKey`~~ — **Decided: removed, 2026-07-29.**
+      The whole feature, not just the config: controller, sender, options, `ExtractionNotifier`
+      chain, `PushSubscription` entity/repository/table, client subscribe UI, `push.js`,
+      `service-worker.js`, the `WebPush` package, and the user-secrets keys on both stores.
+      Migration `20260730023525_RemovePushSubscriptions` drops the table — **apply it AFTER the
+      images deploy, not before**: the repo's usual pre-deploy order exists for additive changes,
+      and a drop inverts it (the old image serves `/api/notifications` until the deploy lands).
+      If push ever comes back, the notification itself is ~200 lines against this commit; the
+      volume policy in `ExtractionNotifier`'s doc comment is the part worth re-reading first.
 - [x] ~~Consider whether `ASPNETCORE_ENVIRONMENT=Development` on the live apps is still wanted.~~
       **This premise was wrong.** Verified 2026-07-27: both `ca-nornis-api` and `ca-nornis-web`
       already run `Production`, and the worker never set the variable at all. In Phase 0 I listed
@@ -316,8 +329,25 @@ Five alert rules existed on `appi-nornis`; none covered AI calls.
 **Also surfaced while looking:** ~403 `401`s on `GET .../sources/activity` over three hours —
 a nav poll retrying against an expired token. Unrelated to this work and not yet diagnosed.
 
-- [ ] Investigate the activity-endpoint 401 storm. A circuit outliving its token would explain it;
-      the badge fails silently either way, which is its own small version of tonight's problem.
+- [x] ~~Investigate the activity-endpoint 401 storm~~ — **DIAGNOSED AND FIXED 2026-07-29.** The
+      silent-refresh work of 2026-07-16 already handled the happy path; the storm is its failure
+      path. When a refresh fails or the cookie has no refresh token, `Auth0TokenRefresher`
+      deliberately returns the stale token "so the API's 401 surfaces normally" — but nothing was
+      looking at that 401. Every poller discarded the failed `ApiResult` and kept its cadence;
+      with work in flight the nav polled every 15 seconds, forever, and the circuit can neither
+      rewrite its cookie nor challenge on its own.
+
+      The fix has one new seam: a scoped `AuthSessionState`, flipped by `NornisApiClient` on any
+      401 and cleared on any success — so a transient refresh failure (an Auth0 outage) heals
+      itself. 403/5xx deliberately touch nothing: they describe the request, not the caller.
+      The nav poll drops to a 5-minute probe (`NavActivityCadence.Expired`) rather than stopping —
+      each probe re-attempts the refresh, which is the recovery path — and shows a "session
+      expired — sign in again" banner whose link forces a full document load, running the cookie
+      path that refreshes or cleanly re-challenges. The four page pollers (SourceDetail and
+      Sources at 4s, Import at 2s, TutorialChecklist at 15s) stand down entirely; the nav owns
+      the probe and the message. Covered at three levels: the state rules
+      (`AuthSessionStateTests`), the cadence truth table (`NavActivityCadenceTests`), and the
+      banner wiring end-to-end through a stubbed 401 (`NavMenuSessionExpiryTests`).
 
 ## Independent review of Phases 3–4 — DONE 2026-07-27
 
@@ -643,17 +673,21 @@ and the doc comments that overstated what changed were corrected.
       the actual rendered prompt text, not a proxy — hash too coarsely and real changes get skipped,
       the GM stops getting findings, and nobody notices. Also cap the record (relationships and
       timeline sources have no cap at all) and bound the per-tick sweep with jitter.
-- [ ] Replace the bare `AbandonMessageAsync` with a delivery-count-proportional backoff via scheduled
-      re-enqueue. A 429 is currently answered with an immediate re-request. Carry an explicit attempt
-      counter, since re-enqueue resets `DeliveryCount` and would otherwise remove the DLQ backstop.
+- [x] ~~Replace the bare `AbandonMessageAsync` with a backoff via scheduled re-enqueue~~ —
+      **superseded by the worker-reliability half above (2026-07-27):** the backoff shipped as
+      `RedeliveryBackoff` (in-process wait before abandoning), and the scheduled-re-enqueue design
+      this item describes was *deliberately rejected* there — it resets `DeliveryCount`, losing
+      the DLQ backstop, and the namespace is Basic tier. Do not implement as written.
 - [ ] Persist library-indexing chunks per batch and resume from the highest stored `Ord`, so a
       failure stops re-buying the whole document. Key the resume on a content hash so a re-upload
       does not resume onto stale vectors.
 - [ ] Only then raise `MaxConcurrentCalls` off 1 — and raise worker memory first. Three concurrent
       extractions each buffering a full PDF into a 0.5 GiB container is a realistic OOM, and more
       concurrency without the backoff fix just manufactures more 429s.
-- [ ] Add a shared `TransientFailureClassifier` keyed on typed status codes. Both services currently
-      substring-match exception messages, and disagree with each other.
+- [x] ~~Add a shared `TransientFailureClassifier` keyed on typed status codes~~ — **already done
+      in the worker-reliability half above (2026-07-27):** `Nornis.Application/Ai/
+      TransientFailureClassifier.cs`, with tests, used by both workers. This entry predated that
+      work and was never ticked.
 - [ ] Store a content hash on `LibraryDocument` and short-circuit `ReindexAsync` when it matches.
       Always leave a force-reindex escape hatch.
 - [ ] Move world-name generation off the premium Ask deployment onto a cheap keyed client, and give
@@ -724,8 +758,13 @@ Still open:
       everything.
 - [x] ~~Add output caching to the anonymous public GETs~~ — **DONE 2026-07-27, below.**
 - [ ] Compose the dashboard and source-detail fetches into single endpoints, built by calling the
-      same application services so there is one authorization implementation. `Task.WhenAll` on
-      `SourceDetail`'s serial waterfall is the cheap interim step.
+      same application services so there is one authorization implementation. ~~`Task.WhenAll` on
+      `SourceDetail`'s serial waterfall is the cheap interim step.~~ **Interim step DONE
+      2026-07-29:** the campaign list and replay banner now load alongside the source fetch, and
+      the four source-dependent loads (attachments, map, locations, knowledge) fan out together —
+      seven serial round trips at worst are now three stages. The world id is captured once at
+      load start, closing a latent NRE when a world switch landed mid-waterfall. The full
+      endpoint-composition item above stays open.
 
 ## The user directory — DONE 2026-07-27
 

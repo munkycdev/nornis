@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
+@inject Nornis.Web.State.AuthSessionState AuthSession
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject NavigationManager Nav
@@ -658,6 +659,11 @@
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(4));
             while (await timer.WaitForNextTickAsync(_pollCts.Token))
             {
+                // An expired session turns this four-second poll into a 401 storm; the nav owns
+                // telling the user and probing for recovery, so this one just stands down.
+                if (AuthSession.Expired)
+                    continue;
+
                 if (Worlds.Current is null || _source is null)
                     continue;
 
@@ -711,40 +717,46 @@
         _loadedId = SourceId;
         StateHasChanged();
 
-        var campaignsResult = await Api.GetCampaignsAsync(Worlds.Current.Id);
-        _campaigns = campaignsResult.IsSuccess ? campaignsResult.Value! : [];
+        // Captured once: a world switch mid-load nulls Worlds.Current, and every fetch below
+        // should describe the world this load started in — a late response for another world
+        // is discarded by the callers' own checks.
+        var worldId = Worlds.Current.Id;
 
-        var result = await Api.GetSourceAsync(Worlds.Current.Id, SourceId);
+        // The campaign list and the GM's replay banner don't depend on the source row, so they
+        // run alongside the fetch everything else waits on.
+        var campaignsTask = Api.GetCampaignsAsync(worldId);
+        var replayTask = RefreshReplayAsync(CancellationToken.None);
+        var result = await Api.GetSourceAsync(worldId, SourceId);
+
+        var campaignsResult = await campaignsTask;
+        _campaigns = campaignsResult.IsSuccess ? campaignsResult.Value! : [];
+        await replayTask;
 
         _loading = false;
         if (result.IsSuccess)
         {
             _source = result.Value!;
 
-            // Blob-backed attachments (handwritten pages, uploaded images/files, maps).
-            // URLs are short-lived SAS links minted per load.
             _attachments = [];
             _mapView = null;
+            _locations = [];
+
+            // Which of these apply depends on the source's type and status, but none depends on
+            // another — fetched together rather than as the serial waterfall this used to be.
+            var loads = new List<Task> { LoadKnowledgeAsync() };
             if (_source.Type is "HandwrittenNotes" or "Image" or "Upload" or "Map")
             {
-                var attachments = await Api.GetSourceAttachmentsAsync(Worlds.Current.Id, SourceId);
-                _attachments = attachments.IsSuccess ? attachments.Value! : [];
+                loads.Add(LoadAttachmentsAsync(worldId));
             }
             if (_source.Type == "Map")
             {
-                var map = await Api.GetSourceMapAsync(Worlds.Current.Id, SourceId);
-                _mapView = map.IsSuccess ? map.Value : null;
+                loads.Add(LoadMapAsync(worldId));
             }
-
-            _locations = [];
             if (_source.Type is "SessionNote" or "ImportedNote")
             {
-                var locations = await Api.GetSourceLocationsAsync(Worlds.Current.Id, SourceId);
-                _locations = locations.IsSuccess ? locations.Value! : [];
+                loads.Add(LoadLocationsAsync(worldId));
             }
-
-            await RefreshReplayAsync(CancellationToken.None);
-            await LoadKnowledgeAsync();
+            await Task.WhenAll(loads);
         }
         else if (result.Error!.Code == "not_found")
         {
@@ -757,6 +769,26 @@
             _source = null;
         }
         StateHasChanged();
+    }
+
+    // Blob-backed attachments (handwritten pages, uploaded images/files, maps).
+    // URLs are short-lived SAS links minted per load.
+    private async Task LoadAttachmentsAsync(Guid worldId)
+    {
+        var attachments = await Api.GetSourceAttachmentsAsync(worldId, SourceId);
+        _attachments = attachments.IsSuccess ? attachments.Value! : [];
+    }
+
+    private async Task LoadMapAsync(Guid worldId)
+    {
+        var map = await Api.GetSourceMapAsync(worldId, SourceId);
+        _mapView = map.IsSuccess ? map.Value : null;
+    }
+
+    private async Task LoadLocationsAsync(Guid worldId)
+    {
+        var locations = await Api.GetSourceLocationsAsync(worldId, SourceId);
+        _locations = locations.IsSuccess ? locations.Value! : [];
     }
 
     private SourceKnowledgeDto? _knowledge;

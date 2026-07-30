@@ -4,6 +4,7 @@
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
+@inject Nornis.Web.State.AuthSessionState AuthSession
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
@@ -667,6 +668,13 @@ else
             while (await timer.WaitForNextTickAsync(_cts.Token))
             {
                 tick++;
+
+                // Stand down on an expired session — the nav owns surfacing it and probing
+                // for recovery; a two-second poll is the worst offender in a 401 storm.
+                if (AuthSession.Expired)
+                {
+                    continue;
+                }
 
                 if (_busy || _session is null || _session.Status != "InProgress")
                 {

@@ -1,6 +1,7 @@
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
+@inject Nornis.Web.State.AuthSessionState AuthSession
 @inject OnboardingState Onboarding
 @inject NavigationManager Nav
 @inject IDialogService DialogService
@@ -146,7 +147,9 @@
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
             while (await timer.WaitForNextTickAsync(_cts.Token))
             {
-                if (Visible && !AllDone)
+                // Stand down on an expired session — the nav owns surfacing it and probing
+                // for recovery; this poll would only add to the 401s.
+                if (Visible && !AllDone && !AuthSession.Expired)
                 {
                     await RefreshAsync();
                 }
