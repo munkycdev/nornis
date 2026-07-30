@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Nornis.Api.Controllers;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
+using Nornis.Api.Controllers;
 using Nornis.Api.Filters;
 using Nornis.Application.Errors;
 using Nornis.Application.Knowledge;

@@ -47,49 +47,75 @@ public class ProposalApplicatorPlacemarkTests
 
         _applicator = new ProposalApplicator(
             _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo,
-            
+
             _attachmentRepo, _placemarkRepo, new InMemoryWorldMemberRepository());
 
         _worldId = Guid.NewGuid();
         _source = new Source
         {
-            Id = Guid.NewGuid(), WorldId = _worldId, Type = SourceType.Map, Title = "Realm map",
-            Visibility = VisibilityScope.PartyVisible, ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedByUserId = Guid.NewGuid(), CreatedAt = DateTimeOffset.UtcNow.AddHours(-1)
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = SourceType.Map,
+            Title = "Realm map",
+            Visibility = VisibilityScope.PartyVisible,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedByUserId = Guid.NewGuid(),
+            CreatedAt = DateTimeOffset.UtcNow.AddHours(-1)
         };
         _sourceRepo.Seed(_source);
 
         _batch = new ReviewBatch
         {
-            Id = Guid.NewGuid(), WorldId = _worldId, SourceId = _source.Id,
-            Status = ReviewBatchStatus.InReview, CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-30)
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            SourceId = _source.Id,
+            Status = ReviewBatchStatus.InReview,
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-30)
         };
 
         _mapAttachment = new SourceAttachment
         {
-            Id = Guid.NewGuid(), SourceId = _source.Id, WorldId = _worldId,
-            Kind = SourceAttachmentKind.MapImage, FileName = "map.png", ContentType = "image/png",
-            SizeBytes = 3, BlobPath = "b", Ord = 0, Status = SourceAttachmentStatus.Stored,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            SourceId = _source.Id,
+            WorldId = _worldId,
+            Kind = SourceAttachmentKind.MapImage,
+            FileName = "map.png",
+            ContentType = "image/png",
+            SizeBytes = 3,
+            BlobPath = "b",
+            Ord = 0,
+            Status = SourceAttachmentStatus.Stored,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _attachmentRepo.Seed(_mapAttachment);
     }
 
     private ReviewProposal Proposal(ReviewChangeType type, Guid? targetId, object payload) => new()
     {
-        Id = Guid.NewGuid(), ReviewBatchId = _batch.Id, ChangeType = type,
-        TargetType = ReviewTargetType.Artifact, TargetId = targetId,
+        Id = Guid.NewGuid(),
+        ReviewBatchId = _batch.Id,
+        ChangeType = type,
+        TargetType = ReviewTargetType.Artifact,
+        TargetId = targetId,
         ProposedValueJson = JsonSerializer.Serialize(payload, JsonOptions),
-        Rationale = "test", Status = ReviewProposalStatus.Pending, CreatedAt = DateTimeOffset.UtcNow
+        Rationale = "test",
+        Status = ReviewProposalStatus.Pending,
+        CreatedAt = DateTimeOffset.UtcNow
     };
 
     private Artifact SeedLocation(string name)
     {
         var a = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = _worldId, Type = ArtifactType.Location, Name = name,
-            Visibility = VisibilityScope.PartyVisible, Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = ArtifactType.Location,
+            Name = name,
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _artifactRepo.Seed(a);
         return a;
@@ -100,7 +126,9 @@ public class ProposalApplicatorPlacemarkTests
     {
         var proposal = Proposal(ReviewChangeType.CreateArtifact, null, new
         {
-            name = "Ironhold", type = "Location", summary = "A fortress marked on the map.",
+            name = "Ironhold",
+            type = "Location",
+            summary = "A fortress marked on the map.",
             mapPlacemark = new { attachmentId = _mapAttachment.Id, x = 0.4m, y = 0.6m, label = "Ironhold" }
         });
 
@@ -119,16 +147,25 @@ public class ProposalApplicatorPlacemarkTests
     {
         var foreignAttachment = new SourceAttachment
         {
-            Id = Guid.NewGuid(), SourceId = Guid.NewGuid(), WorldId = _worldId,
-            Kind = SourceAttachmentKind.MapImage, FileName = "other.png", ContentType = "image/png",
-            SizeBytes = 3, BlobPath = "x", Ord = 0, Status = SourceAttachmentStatus.Stored,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            SourceId = Guid.NewGuid(),
+            WorldId = _worldId,
+            Kind = SourceAttachmentKind.MapImage,
+            FileName = "other.png",
+            ContentType = "image/png",
+            SizeBytes = 3,
+            BlobPath = "x",
+            Ord = 0,
+            Status = SourceAttachmentStatus.Stored,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _attachmentRepo.Seed(foreignAttachment);
 
         var proposal = Proposal(ReviewChangeType.CreateArtifact, null, new
         {
-            name = "Ironhold", type = "Location",
+            name = "Ironhold",
+            type = "Location",
             mapPlacemark = new { attachmentId = foreignAttachment.Id, x = 0.4m, y = 0.6m, label = "Ironhold" }
         });
 
@@ -144,7 +181,11 @@ public class ProposalApplicatorPlacemarkTests
         var ironhold = SeedLocation("Ironhold");
         var proposal = Proposal(ReviewChangeType.AddPlacemark, ironhold.Id, new
         {
-            artifactId = ironhold.Id, attachmentId = _mapAttachment.Id, x = 0.3m, y = 0.7m, label = "Ironhold"
+            artifactId = ironhold.Id,
+            attachmentId = _mapAttachment.Id,
+            x = 0.3m,
+            y = 0.7m,
+            label = "Ironhold"
         });
 
         var result = await _applicator.ApplyAsync(proposal, _batch, _source, VisibilityFilter.All, CancellationToken.None);
@@ -159,7 +200,11 @@ public class ProposalApplicatorPlacemarkTests
         var ironhold = SeedLocation("Ironhold");
         var proposal = Proposal(ReviewChangeType.AddPlacemark, null, new
         {
-            artifactName = "Ironhold", attachmentId = _mapAttachment.Id, x = 0.3m, y = 0.7m, label = "Ironhold"
+            artifactName = "Ironhold",
+            attachmentId = _mapAttachment.Id,
+            x = 0.3m,
+            y = 0.7m,
+            label = "Ironhold"
         });
 
         var result = await _applicator.ApplyAsync(proposal, _batch, _source, VisibilityFilter.All, CancellationToken.None);
@@ -175,7 +220,11 @@ public class ProposalApplicatorPlacemarkTests
         SeedLocation("Duplicate");
         var proposal = Proposal(ReviewChangeType.AddPlacemark, null, new
         {
-            artifactName = "Duplicate", attachmentId = _mapAttachment.Id, x = 0.3m, y = 0.7m, label = "Duplicate"
+            artifactName = "Duplicate",
+            attachmentId = _mapAttachment.Id,
+            x = 0.3m,
+            y = 0.7m,
+            label = "Duplicate"
         });
 
         var result = await _applicator.ApplyAsync(proposal, _batch, _source, VisibilityFilter.All, CancellationToken.None);
@@ -190,14 +239,23 @@ public class ProposalApplicatorPlacemarkTests
         var ironhold = SeedLocation("Ironhold");
         _placemarkRepo.Seed(new MapPlacemark
         {
-            Id = Guid.NewGuid(), WorldId = _worldId, SourceAttachmentId = _mapAttachment.Id,
-            ArtifactId = ironhold.Id, X = 0.1m, Y = 0.1m,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            SourceAttachmentId = _mapAttachment.Id,
+            ArtifactId = ironhold.Id,
+            X = 0.1m,
+            Y = 0.1m,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         });
 
         var proposal = Proposal(ReviewChangeType.AddPlacemark, ironhold.Id, new
         {
-            artifactId = ironhold.Id, attachmentId = _mapAttachment.Id, x = 0.8m, y = 0.9m, label = "Ironhold"
+            artifactId = ironhold.Id,
+            attachmentId = _mapAttachment.Id,
+            x = 0.8m,
+            y = 0.9m,
+            label = "Ironhold"
         });
 
         var result = await _applicator.ApplyAsync(proposal, _batch, _source, VisibilityFilter.All, CancellationToken.None);
@@ -214,9 +272,14 @@ public class ProposalApplicatorPlacemarkTests
         var duplicate = SeedLocation("Iron Hold");
         var pin = new MapPlacemark
         {
-            Id = Guid.NewGuid(), WorldId = _worldId, SourceAttachmentId = _mapAttachment.Id,
-            ArtifactId = duplicate.Id, X = 0.5m, Y = 0.5m,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            SourceAttachmentId = _mapAttachment.Id,
+            ArtifactId = duplicate.Id,
+            X = 0.5m,
+            Y = 0.5m,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _placemarkRepo.Seed(pin);
 
@@ -237,13 +300,25 @@ public class ProposalApplicatorPlacemarkTests
         // Both pinned on the same map — the target's pin wins, the duplicate's is dropped.
         _placemarkRepo.Seed(new MapPlacemark
         {
-            Id = Guid.NewGuid(), WorldId = _worldId, SourceAttachmentId = _mapAttachment.Id,
-            ArtifactId = target.Id, X = 0.5m, Y = 0.5m, CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            SourceAttachmentId = _mapAttachment.Id,
+            ArtifactId = target.Id,
+            X = 0.5m,
+            Y = 0.5m,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         });
         _placemarkRepo.Seed(new MapPlacemark
         {
-            Id = Guid.NewGuid(), WorldId = _worldId, SourceAttachmentId = _mapAttachment.Id,
-            ArtifactId = duplicate.Id, X = 0.6m, Y = 0.6m, CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            SourceAttachmentId = _mapAttachment.Id,
+            ArtifactId = duplicate.Id,
+            X = 0.6m,
+            Y = 0.6m,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         });
 
         var proposal = Proposal(ReviewChangeType.MergeArtifact, target.Id,

@@ -214,9 +214,14 @@ public class SourceAttachmentServiceTests
     {
         var source = new Source
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = type, Title = "Source",
-            Visibility = VisibilityScope.PartyVisible, ProcessingStatus = status,
-            CreatedAt = DateTimeOffset.UtcNow, CreatedByUserId = OwnerId
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = type,
+            Title = "Source",
+            Visibility = VisibilityScope.PartyVisible,
+            ProcessingStatus = status,
+            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedByUserId = OwnerId
         };
         _sourceRepository.Seed(source);
         return source;

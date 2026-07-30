@@ -1,8 +1,8 @@
-using Microsoft.Extensions.Options;
-using Nornis.Application.Configuration;
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
+using Microsoft.Extensions.Options;
+using Nornis.Application.Configuration;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;

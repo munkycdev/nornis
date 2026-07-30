@@ -565,7 +565,9 @@ public class ProposalValidatorTests
             artifactId,
             artifactName,
             attachmentId = attachmentId ?? Guid.NewGuid(),
-            x, y, label
+            x,
+            y,
+            label
         });
 
     [Test]

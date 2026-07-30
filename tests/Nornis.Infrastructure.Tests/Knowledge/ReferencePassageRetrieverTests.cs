@@ -1,12 +1,12 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using NUnit.Framework;
 using Nornis.Application.Configuration;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
 using Nornis.Infrastructure.Knowledge;
+using NUnit.Framework;
 
 namespace Nornis.Infrastructure.Tests.Knowledge;
 

@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
-using NUnit.Framework;
 using Nornis.Api.Tests.Infrastructure;
+using NUnit.Framework;
 
 namespace Nornis.Api.Tests.Authentication;
 

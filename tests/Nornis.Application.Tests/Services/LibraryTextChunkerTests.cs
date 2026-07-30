@@ -1,6 +1,6 @@
-using NUnit.Framework;
 using Nornis.Application.Services;
 using Nornis.Application.Storage;
+using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services;
 

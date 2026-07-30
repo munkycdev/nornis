@@ -41,18 +41,31 @@ public class MapViewServiceTests
 
         _source = new Source
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = SourceType.Map, Title = "Map",
-            Visibility = VisibilityScope.PartyVisible, ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedByUserId = OwnerId, CreatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = SourceType.Map,
+            Title = "Map",
+            Visibility = VisibilityScope.PartyVisible,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedByUserId = OwnerId,
+            CreatedAt = DateTimeOffset.UtcNow
         };
         _sourceRepo.Seed(_source);
 
         _map = new SourceAttachment
         {
-            Id = Guid.NewGuid(), SourceId = _source.Id, WorldId = WorldId,
-            Kind = SourceAttachmentKind.MapImage, FileName = "map.png", ContentType = "image/png",
-            SizeBytes = 3, BlobPath = "b", Ord = 0, Status = SourceAttachmentStatus.Stored,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            SourceId = _source.Id,
+            WorldId = WorldId,
+            Kind = SourceAttachmentKind.MapImage,
+            FileName = "map.png",
+            ContentType = "image/png",
+            SizeBytes = 3,
+            BlobPath = "b",
+            Ord = 0,
+            Status = SourceAttachmentStatus.Stored,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _attachmentRepo.Seed(_map);
     }
@@ -61,9 +74,15 @@ public class MapViewServiceTests
     {
         var a = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = ArtifactType.Location, Name = name,
-            Visibility = visibility, CreatedByUserId = owner, Status = status,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = ArtifactType.Location,
+            Name = name,
+            Visibility = visibility,
+            CreatedByUserId = owner,
+            Status = status,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _artifactRepo.Seed(a);
         return a;
@@ -71,8 +90,14 @@ public class MapViewServiceTests
 
     private void SeedPin(Guid artifactId) => _placemarkRepo.Seed(new MapPlacemark
     {
-        Id = Guid.NewGuid(), WorldId = WorldId, SourceAttachmentId = _map.Id, ArtifactId = artifactId,
-        X = 0.5m, Y = 0.5m, CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+        Id = Guid.NewGuid(),
+        WorldId = WorldId,
+        SourceAttachmentId = _map.Id,
+        ArtifactId = artifactId,
+        X = 0.5m,
+        Y = 0.5m,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
     });
 
     [Test]
@@ -198,9 +223,14 @@ public class MapViewServiceTests
     {
         var npc = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = ArtifactType.Character, Name = "Sera",
-            Visibility = VisibilityScope.PartyVisible, Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = ArtifactType.Character,
+            Name = "Sera",
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _artifactRepo.Seed(npc);
 
@@ -285,9 +315,16 @@ public class MapViewServiceTests
         artifact = SeedLocation("Thistle Hold", VisibilityScope.PartyVisible);
         var pin = new MapPlacemark
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, SourceAttachmentId = _map.Id, ArtifactId = artifact.Id,
-            X = 0.5m, Y = 0.5m, Label = "Thistle Hold", Confidence = 0.9m,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            SourceAttachmentId = _map.Id,
+            ArtifactId = artifact.Id,
+            X = 0.5m,
+            Y = 0.5m,
+            Label = "Thistle Hold",
+            Confidence = 0.9m,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _placemarkRepo.Seed(pin);
         return pin;
@@ -377,8 +414,14 @@ public class MapViewServiceTests
         var hidden = SeedLocation("GM Secret", VisibilityScope.GMOnly);
         var pin = new MapPlacemark
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, SourceAttachmentId = _map.Id, ArtifactId = hidden.Id,
-            X = 0.5m, Y = 0.5m, CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            SourceAttachmentId = _map.Id,
+            ArtifactId = hidden.Id,
+            X = 0.5m,
+            Y = 0.5m,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _placemarkRepo.Seed(pin);
 

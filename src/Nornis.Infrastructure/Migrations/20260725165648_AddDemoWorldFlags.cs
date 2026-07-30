@@ -2,39 +2,38 @@
 
 #nullable disable
 
-namespace Nornis.Infrastructure.Migrations
+namespace Nornis.Infrastructure.Migrations;
+
+/// <inheritdoc />
+public partial class AddDemoWorldFlags : Migration
 {
     /// <inheritdoc />
-    public partial class AddDemoWorldFlags : Migration
+    protected override void Up(MigrationBuilder migrationBuilder)
     {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.AddColumn<bool>(
-                name: "IsDemo",
-                table: "Worlds",
-                type: "bit",
-                nullable: false,
-                defaultValue: false);
+        migrationBuilder.AddColumn<bool>(
+            name: "IsDemo",
+            table: "Worlds",
+            type: "bit",
+            nullable: false,
+            defaultValue: false);
 
-            migrationBuilder.AddColumn<bool>(
-                name: "TutorialEnabled",
-                table: "Worlds",
-                type: "bit",
-                nullable: false,
-                defaultValue: false);
-        }
+        migrationBuilder.AddColumn<bool>(
+            name: "TutorialEnabled",
+            table: "Worlds",
+            type: "bit",
+            nullable: false,
+            defaultValue: false);
+    }
 
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropColumn(
-                name: "IsDemo",
-                table: "Worlds");
+    /// <inheritdoc />
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.DropColumn(
+            name: "IsDemo",
+            table: "Worlds");
 
-            migrationBuilder.DropColumn(
-                name: "TutorialEnabled",
-                table: "Worlds");
-        }
+        migrationBuilder.DropColumn(
+            name: "TutorialEnabled",
+            table: "Worlds");
     }
 }

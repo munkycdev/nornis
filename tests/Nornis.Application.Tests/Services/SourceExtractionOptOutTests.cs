@@ -109,8 +109,11 @@ public class SourceExtractionOptOutTests
         var source = SeedSource(SourceProcessingStatus.Processed);
         await _batchRepo.CreateAsync(new ReviewBatch
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, SourceId = source.Id,
-            Status = ReviewBatchStatus.Completed, CreatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            SourceId = source.Id,
+            Status = ReviewBatchStatus.Completed,
+            CreatedAt = DateTimeOffset.UtcNow
         });
 
         var result = await _sourceService.UpdateAsync(new UpdateSourceCommand(

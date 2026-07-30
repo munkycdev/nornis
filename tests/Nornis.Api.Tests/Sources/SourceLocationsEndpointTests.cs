@@ -43,9 +43,15 @@ public class SourceLocationsEndpointTests
         var now = DateTimeOffset.UtcNow;
         var artifact = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = _scenario.World.Id, Type = type, Name = name,
-            Summary = $"About {name}.", Visibility = visibility, Status = ArtifactStatus.Active,
-            CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            WorldId = _scenario.World.Id,
+            Type = type,
+            Name = name,
+            Summary = $"About {name}.",
+            Visibility = visibility,
+            Status = ArtifactStatus.Active,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         db.Artifacts.Add(artifact);
         await db.SaveChangesAsync();

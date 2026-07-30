@@ -40,29 +40,55 @@ public class JourneyEndpointTests
 
         var source = new Source
         {
-            Id = Guid.NewGuid(), WorldId = _scenario.World.Id, Type = SourceType.Map, Title = "Realm map",
-            Visibility = VisibilityScope.PartyVisible, ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedByUserId = _scenario.GmUserId, CreatedAt = now
+            Id = Guid.NewGuid(),
+            WorldId = _scenario.World.Id,
+            Type = SourceType.Map,
+            Title = "Realm map",
+            Visibility = VisibilityScope.PartyVisible,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedByUserId = _scenario.GmUserId,
+            CreatedAt = now
         };
         var map = new SourceAttachment
         {
-            Id = Guid.NewGuid(), SourceId = source.Id, WorldId = _scenario.World.Id,
-            Kind = SourceAttachmentKind.MapImage, FileName = "map.png", ContentType = "image/png",
-            SizeBytes = 10, BlobPath = $"worlds/{_scenario.World.Id}/sources/{source.Id}/000-map.png",
-            Ord = 0, Status = SourceAttachmentStatus.Stored, CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            SourceId = source.Id,
+            WorldId = _scenario.World.Id,
+            Kind = SourceAttachmentKind.MapImage,
+            FileName = "map.png",
+            ContentType = "image/png",
+            SizeBytes = 10,
+            BlobPath = $"worlds/{_scenario.World.Id}/sources/{source.Id}/000-map.png",
+            Ord = 0,
+            Status = SourceAttachmentStatus.Stored,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         var location = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = _scenario.World.Id, Type = ArtifactType.Location, Name = locationName,
-            Visibility = VisibilityScope.PartyVisible, Status = ArtifactStatus.Active, CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            WorldId = _scenario.World.Id,
+            Type = ArtifactType.Location,
+            Name = locationName,
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         db.Sources.Add(source);
         db.SourceAttachments.Add(map);
         db.Artifacts.Add(location);
         db.MapPlacemarks.Add(new MapPlacemark
         {
-            Id = Guid.NewGuid(), WorldId = _scenario.World.Id, SourceAttachmentId = map.Id,
-            ArtifactId = location.Id, X = 0.5m, Y = 0.5m, Label = locationName, CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            WorldId = _scenario.World.Id,
+            SourceAttachmentId = map.Id,
+            ArtifactId = location.Id,
+            X = 0.5m,
+            Y = 0.5m,
+            Label = locationName,
+            CreatedAt = now,
+            UpdatedAt = now
         });
         await db.SaveChangesAsync();
         return location.Id;
@@ -77,15 +103,24 @@ public class JourneyEndpointTests
 
         var session = new Source
         {
-            Id = Guid.NewGuid(), WorldId = _scenario.World.Id, Type = SourceType.SessionNote, Title = title,
-            Visibility = visibility, ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedByUserId = _scenario.GmUserId, CreatedAt = now, OccurredAt = occurredAt
+            Id = Guid.NewGuid(),
+            WorldId = _scenario.World.Id,
+            Type = SourceType.SessionNote,
+            Title = title,
+            Visibility = visibility,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedByUserId = _scenario.GmUserId,
+            CreatedAt = now,
+            OccurredAt = occurredAt
         };
         db.Sources.Add(session);
         db.SourceReferences.Add(new SourceReference
         {
-            Id = Guid.NewGuid(), SourceId = session.Id, TargetType = SourceReferenceTargetType.Artifact,
-            TargetId = locationId, CreatedAt = now
+            Id = Guid.NewGuid(),
+            SourceId = session.Id,
+            TargetType = SourceReferenceTargetType.Artifact,
+            TargetId = locationId,
+            CreatedAt = now
         });
         await db.SaveChangesAsync();
     }

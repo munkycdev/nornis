@@ -48,19 +48,19 @@ public class RecentSessionRetrievalTests
         VisibilityScope visibility = VisibilityScope.PartyVisible,
         string? body = "Things happened.",
         string? derivedText = null) => new()
-    {
-        Id = Guid.NewGuid(),
-        WorldId = _worldId,
-        Type = type,
-        Title = title,
-        Body = body,
-        DerivedText = derivedText,
-        OccurredAt = occurredAt,
-        CreatedAt = createdAt,
-        CreatedByUserId = Guid.NewGuid(),
-        Visibility = visibility,
-        ProcessingStatus = SourceProcessingStatus.Processed
-    };
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = type,
+            Title = title,
+            Body = body,
+            DerivedText = derivedText,
+            OccurredAt = occurredAt,
+            CreatedAt = createdAt,
+            CreatedByUserId = Guid.NewGuid(),
+            Visibility = visibility,
+            ProcessingStatus = SourceProcessingStatus.Processed
+        };
 
     [Test]
     public async Task Sessions_AreOrderedNewestFirst_ByOccurredAtFallingBackToCreatedAt()

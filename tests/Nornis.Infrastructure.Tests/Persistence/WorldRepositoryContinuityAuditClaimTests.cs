@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using NUnit.Framework;
 using Nornis.Domain.Entities;
 using Nornis.Infrastructure.Persistence.Repositories;
+using NUnit.Framework;
 
 namespace Nornis.Infrastructure.Tests.Persistence;
 

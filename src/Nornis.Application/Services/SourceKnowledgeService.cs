@@ -89,54 +89,54 @@ public class SourceKnowledgeService : ISourceKnowledgeService
             switch (reference.TargetType)
             {
                 case SourceReferenceTargetType.Artifact:
-                {
-                    var artifact = ArtifactOrNull(reference.TargetId);
-                    if (artifact is not null && artifact.WorldId == worldId
-                        && Visible(filter, artifact.Visibility, artifact.CreatedByUserId)
-                        && seenArtifacts.Add(artifact.Id))
                     {
-                        artifacts.Add(new SourceKnowledgeArtifact(
-                            artifact.Id, artifact.Name, artifact.Type.ToString(), reference.Quote));
+                        var artifact = ArtifactOrNull(reference.TargetId);
+                        if (artifact is not null && artifact.WorldId == worldId
+                            && Visible(filter, artifact.Visibility, artifact.CreatedByUserId)
+                            && seenArtifacts.Add(artifact.Id))
+                        {
+                            artifacts.Add(new SourceKnowledgeArtifact(
+                                artifact.Id, artifact.Name, artifact.Type.ToString(), reference.Quote));
+                        }
+                        break;
                     }
-                    break;
-                }
                 case SourceReferenceTargetType.ArtifactFact:
-                {
-                    if (!factsById.TryGetValue(reference.TargetId, out var fact)
-                        || !Visible(filter, fact.Visibility, fact.CreatedByUserId)
-                        || seenFacts.Contains(fact.Id))
                     {
+                        if (!factsById.TryGetValue(reference.TargetId, out var fact)
+                            || !Visible(filter, fact.Visibility, fact.CreatedByUserId)
+                            || seenFacts.Contains(fact.Id))
+                        {
+                            break;
+                        }
+                        var owner = ArtifactOrNull(fact.ArtifactId);
+                        if (owner is not null && owner.WorldId == worldId)
+                        {
+                            seenFacts.Add(fact.Id);
+                            facts.Add(new SourceKnowledgeFact(
+                                fact.Id, owner.Id, owner.Name, fact.Predicate, fact.Value,
+                                fact.TruthState.ToString(), fact.Visibility.ToString(), reference.Quote));
+                        }
                         break;
                     }
-                    var owner = ArtifactOrNull(fact.ArtifactId);
-                    if (owner is not null && owner.WorldId == worldId)
-                    {
-                        seenFacts.Add(fact.Id);
-                        facts.Add(new SourceKnowledgeFact(
-                            fact.Id, owner.Id, owner.Name, fact.Predicate, fact.Value,
-                            fact.TruthState.ToString(), fact.Visibility.ToString(), reference.Quote));
-                    }
-                    break;
-                }
                 case SourceReferenceTargetType.ArtifactRelationship:
-                {
-                    if (!relationshipsById.TryGetValue(reference.TargetId, out var relationship)
-                        || relationship.WorldId != worldId
-                        || !Visible(filter, relationship.Visibility, relationship.CreatedByUserId)
-                        || seenRelationships.Contains(relationship.Id))
                     {
+                        if (!relationshipsById.TryGetValue(reference.TargetId, out var relationship)
+                            || relationship.WorldId != worldId
+                            || !Visible(filter, relationship.Visibility, relationship.CreatedByUserId)
+                            || seenRelationships.Contains(relationship.Id))
+                        {
+                            break;
+                        }
+                        var a = ArtifactOrNull(relationship.ArtifactAId);
+                        var b = ArtifactOrNull(relationship.ArtifactBId);
+                        if (a is not null && b is not null)
+                        {
+                            seenRelationships.Add(relationship.Id);
+                            relationships.Add(new SourceKnowledgeRelationship(
+                                relationship.Id, a.Id, a.Name, relationship.Type, b.Id, b.Name, reference.Quote));
+                        }
                         break;
                     }
-                    var a = ArtifactOrNull(relationship.ArtifactAId);
-                    var b = ArtifactOrNull(relationship.ArtifactBId);
-                    if (a is not null && b is not null)
-                    {
-                        seenRelationships.Add(relationship.Id);
-                        relationships.Add(new SourceKnowledgeRelationship(
-                            relationship.Id, a.Id, a.Name, relationship.Type, b.Id, b.Name, reference.Quote));
-                    }
-                    break;
-                }
             }
         }
 

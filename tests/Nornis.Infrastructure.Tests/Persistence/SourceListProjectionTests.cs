@@ -1,8 +1,8 @@
-using NUnit.Framework;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
 using Nornis.Infrastructure.Persistence.Repositories;
+using NUnit.Framework;
 
 namespace Nornis.Infrastructure.Tests.Persistence;
 

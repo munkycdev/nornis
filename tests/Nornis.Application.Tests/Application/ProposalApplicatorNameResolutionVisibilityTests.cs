@@ -53,7 +53,7 @@ public class ProposalApplicatorNameResolutionVisibilityTests
             _factRepo,
             _relationshipRepo,
             _sourceRefRepo,
-            
+
             new InMemorySourceAttachmentRepository(),
             new InMemoryMapPlacemarkRepository(),
             new InMemoryWorldMemberRepository());

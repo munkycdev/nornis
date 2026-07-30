@@ -53,52 +53,89 @@ public class SourceReprocessMapCascadeTests
     {
         var source = new Source
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = SourceType.Map, Title = "Realm",
-            Visibility = VisibilityScope.PartyVisible, ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedByUserId = OwnerId, CreatedAt = DateTimeOffset.UtcNow, ExtractionEnabled = true
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = SourceType.Map,
+            Title = "Realm",
+            Visibility = VisibilityScope.PartyVisible,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedByUserId = OwnerId,
+            CreatedAt = DateTimeOffset.UtcNow,
+            ExtractionEnabled = true
         };
         _sourceRepo.Seed(source);
 
         var map = new SourceAttachment
         {
-            Id = Guid.NewGuid(), SourceId = source.Id, WorldId = WorldId,
-            Kind = SourceAttachmentKind.MapImage, FileName = "map.png", ContentType = "image/png",
-            SizeBytes = 3, BlobPath = "b", Ord = 0, Status = SourceAttachmentStatus.Stored,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            SourceId = source.Id,
+            WorldId = WorldId,
+            Kind = SourceAttachmentKind.MapImage,
+            FileName = "map.png",
+            ContentType = "image/png",
+            SizeBytes = 3,
+            BlobPath = "b",
+            Ord = 0,
+            Status = SourceAttachmentStatus.Stored,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _attachmentRepo.Seed(map);
 
         var batch = new ReviewBatch
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, SourceId = source.Id,
-            Status = ReviewBatchStatus.Completed, CreatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            SourceId = source.Id,
+            Status = ReviewBatchStatus.Completed,
+            CreatedAt = DateTimeOffset.UtcNow
         };
         _batchRepo.CreateAsync(batch).GetAwaiter().GetResult();
 
         // The source created a Location, pinned it, and nothing else touched it → orphan.
         var created = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = ArtifactType.Location, Name = "Ironhold",
-            Visibility = VisibilityScope.PartyVisible, Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = ArtifactType.Location,
+            Name = "Ironhold",
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _artifactRepo.Seed(created);
         _proposalRepo.CreateAsync(new ReviewProposal
         {
-            Id = Guid.NewGuid(), ReviewBatchId = batch.Id, ChangeType = ReviewChangeType.CreateArtifact,
-            TargetType = ReviewTargetType.Artifact, TargetId = created.Id, ProposedValueJson = "{}",
-            Rationale = "test", Status = ReviewProposalStatus.Accepted, CreatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            ReviewBatchId = batch.Id,
+            ChangeType = ReviewChangeType.CreateArtifact,
+            TargetType = ReviewTargetType.Artifact,
+            TargetId = created.Id,
+            ProposedValueJson = "{}",
+            Rationale = "test",
+            Status = ReviewProposalStatus.Accepted,
+            CreatedAt = DateTimeOffset.UtcNow
         }).GetAwaiter().GetResult();
         _refRepo.Seed(new SourceReference
         {
-            Id = Guid.NewGuid(), SourceId = source.Id, TargetType = SourceReferenceTargetType.Artifact,
-            TargetId = created.Id, CreatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            SourceId = source.Id,
+            TargetType = SourceReferenceTargetType.Artifact,
+            TargetId = created.Id,
+            CreatedAt = DateTimeOffset.UtcNow
         });
 
         var pin = new MapPlacemark
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, SourceAttachmentId = map.Id, ArtifactId = created.Id,
-            X = 0.4m, Y = 0.6m, CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            SourceAttachmentId = map.Id,
+            ArtifactId = created.Id,
+            X = 0.4m,
+            Y = 0.6m,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _placemarkRepo.Seed(pin);
 
@@ -127,9 +164,14 @@ public class SourceReprocessMapCascadeTests
         var otherAttachmentId = Guid.NewGuid();
         _placemarkRepo.Seed(new MapPlacemark
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, SourceAttachmentId = otherAttachmentId,
-            ArtifactId = scenario.Created.Id, X = 0.1m, Y = 0.1m,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            SourceAttachmentId = otherAttachmentId,
+            ArtifactId = scenario.Created.Id,
+            X = 0.1m,
+            Y = 0.1m,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         });
 
         var result = await _sut.ReprocessAsync(

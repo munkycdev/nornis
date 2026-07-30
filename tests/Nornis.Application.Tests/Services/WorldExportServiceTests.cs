@@ -1,13 +1,13 @@
 using System.IO.Compression;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
-using NUnit.Framework;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
+using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services;
 

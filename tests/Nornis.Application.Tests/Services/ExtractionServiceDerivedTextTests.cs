@@ -125,7 +125,12 @@ public class ExtractionServiceDerivedTextTests
 
     private void ConfigureAiEmpty() => _aiClient.SetupSuccess(new AiExtractionResponse
     {
-        Proposals = [], InputTokens = 10, OutputTokens = 5, TotalTokens = 15, DurationMs = 100, Model = "nornis-extract"
+        Proposals = [],
+        InputTokens = 10,
+        OutputTokens = 5,
+        TotalTokens = 15,
+        DurationMs = 100,
+        Model = "nornis-extract"
     });
 
     [Test]
@@ -254,10 +259,18 @@ public class ExtractionServiceDerivedTextTests
         _blob.Blobs[blobPath] = (System.Text.Encoding.UTF8.GetBytes("Plain text lore about Ironhold."), "text/plain");
         _attachmentRepo.Seed(new SourceAttachment
         {
-            Id = Guid.NewGuid(), SourceId = source.Id, WorldId = WorldId,
-            Kind = SourceAttachmentKind.Document, FileName = "notes.txt", ContentType = "text/plain",
-            SizeBytes = 30, BlobPath = blobPath, Ord = 0, Status = SourceAttachmentStatus.Stored,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            SourceId = source.Id,
+            WorldId = WorldId,
+            Kind = SourceAttachmentKind.Document,
+            FileName = "notes.txt",
+            ContentType = "text/plain",
+            SizeBytes = 30,
+            BlobPath = blobPath,
+            Ord = 0,
+            Status = SourceAttachmentStatus.Stored,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         });
         ConfigureAiEmpty();
 

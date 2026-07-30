@@ -37,30 +37,50 @@ public class PrivateVisibilityEndpointTests
 
         _sharedArtifact = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = _scenario.World.Id, Type = ArtifactType.Location,
-            Name = "Black Harbor", Visibility = VisibilityScope.PartyVisible,
-            Status = ArtifactStatus.Active, CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            WorldId = _scenario.World.Id,
+            Type = ArtifactType.Location,
+            Name = "Black Harbor",
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         _gmsPrivateArtifact = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = _scenario.World.Id, Type = ArtifactType.Character,
-            Name = "Kelda Secret Contact", Visibility = VisibilityScope.Private,
+            Id = Guid.NewGuid(),
+            WorldId = _scenario.World.Id,
+            Type = ArtifactType.Character,
+            Name = "Kelda Secret Contact",
+            Visibility = VisibilityScope.Private,
             CreatedByUserId = _scenario.GmUserId,
-            Status = ArtifactStatus.Active, CreatedAt = now, UpdatedAt = now
+            Status = ArtifactStatus.Active,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         _playersOwnPrivate = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = _scenario.World.Id, Type = ArtifactType.Character,
-            Name = "Tavrin Hidden Ally", Visibility = VisibilityScope.Private,
+            Id = Guid.NewGuid(),
+            WorldId = _scenario.World.Id,
+            Type = ArtifactType.Character,
+            Name = "Tavrin Hidden Ally",
+            Visibility = VisibilityScope.Private,
             CreatedByUserId = _scenario.PlayerUserId,
-            Status = ArtifactStatus.Active, CreatedAt = now, UpdatedAt = now
+            Status = ArtifactStatus.Active,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         _gmsPrivateFact = new ArtifactFact
         {
-            Id = Guid.NewGuid(), ArtifactId = _sharedArtifact.Id,
-            Predicate = "hidden vault", Value = "beneath the lighthouse",
-            TruthState = TruthState.Likely, Visibility = VisibilityScope.Private,
-            CreatedByUserId = _scenario.GmUserId, CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            ArtifactId = _sharedArtifact.Id,
+            Predicate = "hidden vault",
+            Value = "beneath the lighthouse",
+            TruthState = TruthState.Likely,
+            Visibility = VisibilityScope.Private,
+            CreatedByUserId = _scenario.GmUserId,
+            CreatedAt = now,
+            UpdatedAt = now
         };
 
         db.Artifacts.AddRange(_sharedArtifact, _gmsPrivateArtifact, _playersOwnPrivate);

@@ -2,28 +2,27 @@
 
 #nullable disable
 
-namespace Nornis.Infrastructure.Migrations
+namespace Nornis.Infrastructure.Migrations;
+
+/// <inheritdoc />
+public partial class AddWorldIsTemplate : Migration
 {
     /// <inheritdoc />
-    public partial class AddWorldIsTemplate : Migration
+    protected override void Up(MigrationBuilder migrationBuilder)
     {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.AddColumn<bool>(
-                name: "IsTemplate",
-                table: "Worlds",
-                type: "bit",
-                nullable: false,
-                defaultValue: false);
-        }
+        migrationBuilder.AddColumn<bool>(
+            name: "IsTemplate",
+            table: "Worlds",
+            type: "bit",
+            nullable: false,
+            defaultValue: false);
+    }
 
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropColumn(
-                name: "IsTemplate",
-                table: "Worlds");
-        }
+    /// <inheritdoc />
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.DropColumn(
+            name: "IsTemplate",
+            table: "Worlds");
     }
 }

@@ -473,9 +473,15 @@ public class ContinuityAuditService : IContinuityAuditService
                     continue;
                 switch (kind)
                 {
-                    case "artifact": artifactIds.Add(id); break;
-                    case "fact": factIds.Add(id); break;
-                    case "rel": relIds.Add(id); break;
+                    case "artifact":
+                        artifactIds.Add(id);
+                        break;
+                    case "fact":
+                        factIds.Add(id);
+                        break;
+                    case "rel":
+                        relIds.Add(id);
+                        break;
                 }
             }
         }

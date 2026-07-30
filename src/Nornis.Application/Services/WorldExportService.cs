@@ -156,7 +156,11 @@ public class WorldExportService : IWorldExportService
         {
             await WriteJsonEntryAsync(zip, "members.json", data.Members.Select(m => new
             {
-                m.Id, m.UserId, m.Role, m.DisplayName, m.JoinedAt,
+                m.Id,
+                m.UserId,
+                m.Role,
+                m.DisplayName,
+                m.JoinedAt,
             }), ct);
         }
 
@@ -166,16 +170,30 @@ public class WorldExportService : IWorldExportService
             {
                 Campaigns = data.Campaigns.Select(c => new
                 {
-                    c.Id, c.Name, c.Description, c.Status, c.StartedAt, c.EndedAt,
-                    c.CreatedAt, c.UpdatedAt, c.CreatedByUserId,
+                    c.Id,
+                    c.Name,
+                    c.Description,
+                    c.Status,
+                    c.StartedAt,
+                    c.EndedAt,
+                    c.CreatedAt,
+                    c.UpdatedAt,
+                    c.CreatedByUserId,
                 }),
                 CampaignCharacters = data.CampaignCharacters.Select(cc => new
                 {
-                    cc.Id, cc.CampaignId, cc.CharacterId, cc.CreatedAt,
+                    cc.Id,
+                    cc.CampaignId,
+                    cc.CharacterId,
+                    cc.CreatedAt,
                 }),
                 StorylineCampaigns = data.StorylineCampaigns.Select(sc => new
                 {
-                    sc.Id, sc.ArtifactId, sc.CampaignId, sc.CreatedAt, sc.CreatedByUserId,
+                    sc.Id,
+                    sc.ArtifactId,
+                    sc.CampaignId,
+                    sc.CreatedAt,
+                    sc.CreatedByUserId,
                 }),
             }, ct);
         }
@@ -184,7 +202,13 @@ public class WorldExportService : IWorldExportService
         {
             await WriteJsonEntryAsync(zip, "characters.json", data.Characters.Select(c => new
             {
-                c.Id, c.WorldMemberId, c.Name, c.Description, c.ArtifactId, c.CreatedAt, c.UpdatedAt,
+                c.Id,
+                c.WorldMemberId,
+                c.Name,
+                c.Description,
+                c.ArtifactId,
+                c.CreatedAt,
+                c.UpdatedAt,
             }), ct);
         }
 
@@ -194,17 +218,38 @@ public class WorldExportService : IWorldExportService
             {
                 Sources = data.Sources.Select(s => new
                 {
-                    s.Id, s.CampaignId, s.Type, s.Title, s.Body, s.Uri, s.OccurredAt,
-                    s.CreatedAt, s.CreatedByUserId, s.Visibility, s.ProcessingStatus,
-                    s.ExtractionEnabled, s.DerivedText,
+                    s.Id,
+                    s.CampaignId,
+                    s.Type,
+                    s.Title,
+                    s.Body,
+                    s.Uri,
+                    s.OccurredAt,
+                    s.CreatedAt,
+                    s.CreatedByUserId,
+                    s.Visibility,
+                    s.ProcessingStatus,
+                    s.ExtractionEnabled,
+                    s.DerivedText,
                 }),
                 Extractions = data.SourceExtractions.Select(e => new
                 {
-                    e.Id, e.SourceId, e.ExtractionType, e.Text, e.Confidence, e.CreatedAt,
+                    e.Id,
+                    e.SourceId,
+                    e.ExtractionType,
+                    e.Text,
+                    e.Confidence,
+                    e.CreatedAt,
                 }),
                 References = data.SourceReferences.Select(r => new
                 {
-                    r.Id, r.SourceId, r.TargetType, r.TargetId, r.Quote, r.Notes, r.CreatedAt,
+                    r.Id,
+                    r.SourceId,
+                    r.TargetType,
+                    r.TargetId,
+                    r.Quote,
+                    r.Notes,
+                    r.CreatedAt,
                 }),
             }, ct);
         }
@@ -213,8 +258,16 @@ public class WorldExportService : IWorldExportService
         {
             await WriteJsonEntryAsync(zip, "attachments.json", data.Attachments.Select(a => new
             {
-                a.Id, a.SourceId, a.Kind, a.FileName, a.ContentType, a.SizeBytes,
-                a.Ord, a.Status, a.CreatedAt, a.UpdatedAt,
+                a.Id,
+                a.SourceId,
+                a.Kind,
+                a.FileName,
+                a.ContentType,
+                a.SizeBytes,
+                a.Ord,
+                a.Status,
+                a.CreatedAt,
+                a.UpdatedAt,
                 File = a.Status == SourceAttachmentStatus.Stored ? AttachmentEntryName(a) : null,
             }), ct);
 
@@ -230,18 +283,43 @@ public class WorldExportService : IWorldExportService
             {
                 Artifacts = data.Artifacts.Select(a => new
                 {
-                    a.Id, a.Type, a.Name, a.Summary, a.Visibility, a.Confidence,
-                    a.Status, a.CreatedAt, a.UpdatedAt, a.CreatedByUserId,
+                    a.Id,
+                    a.Type,
+                    a.Name,
+                    a.Summary,
+                    a.Visibility,
+                    a.Confidence,
+                    a.Status,
+                    a.CreatedAt,
+                    a.UpdatedAt,
+                    a.CreatedByUserId,
                 }),
                 Facts = data.ArtifactFacts.Select(f => new
                 {
-                    f.Id, f.ArtifactId, f.Predicate, f.Value, f.Confidence, f.TruthState,
-                    f.Visibility, f.CreatedAt, f.UpdatedAt, f.CreatedByUserId,
+                    f.Id,
+                    f.ArtifactId,
+                    f.Predicate,
+                    f.Value,
+                    f.Confidence,
+                    f.TruthState,
+                    f.Visibility,
+                    f.CreatedAt,
+                    f.UpdatedAt,
+                    f.CreatedByUserId,
                 }),
                 Relationships = data.ArtifactRelationships.Select(r => new
                 {
-                    r.Id, r.ArtifactAId, r.ArtifactBId, r.Type, r.Description, r.Confidence,
-                    r.TruthState, r.Visibility, r.CreatedAt, r.UpdatedAt, r.CreatedByUserId,
+                    r.Id,
+                    r.ArtifactAId,
+                    r.ArtifactBId,
+                    r.Type,
+                    r.Description,
+                    r.Confidence,
+                    r.TruthState,
+                    r.Visibility,
+                    r.CreatedAt,
+                    r.UpdatedAt,
+                    r.CreatedByUserId,
                 }),
             }, ct);
         }
@@ -250,8 +328,15 @@ public class WorldExportService : IWorldExportService
         {
             await WriteJsonEntryAsync(zip, "map-pins.json", data.MapPlacemarks.Select(p => new
             {
-                p.Id, p.SourceAttachmentId, p.ArtifactId, p.X, p.Y, p.Label,
-                p.Confidence, p.CreatedAt, p.UpdatedAt,
+                p.Id,
+                p.SourceAttachmentId,
+                p.ArtifactId,
+                p.X,
+                p.Y,
+                p.Label,
+                p.Confidence,
+                p.CreatedAt,
+                p.UpdatedAt,
             }), ct);
         }
 
@@ -259,8 +344,18 @@ public class WorldExportService : IWorldExportService
         {
             await WriteJsonEntryAsync(zip, "library.json", data.LibraryDocuments.Select(d => new
             {
-                d.Id, d.Title, d.FileName, d.ContentType, d.SizeBytes, d.Kind,
-                d.Visibility, d.Status, d.PageCount, d.UploadedByUserId, d.CreatedAt, d.UpdatedAt,
+                d.Id,
+                d.Title,
+                d.FileName,
+                d.ContentType,
+                d.SizeBytes,
+                d.Kind,
+                d.Visibility,
+                d.Status,
+                d.PageCount,
+                d.UploadedByUserId,
+                d.CreatedAt,
+                d.UpdatedAt,
                 File = d.Status != LibraryDocumentStatus.PendingUpload ? LibraryEntryName(d) : null,
             }), ct);
 
@@ -276,13 +371,27 @@ public class WorldExportService : IWorldExportService
             {
                 Batches = data.ReviewBatches.Select(b => new
                 {
-                    b.Id, b.SourceId, b.Status, b.Kind, b.CreatedAt, b.CompletedAt,
+                    b.Id,
+                    b.SourceId,
+                    b.Status,
+                    b.Kind,
+                    b.CreatedAt,
+                    b.CompletedAt,
                 }),
                 Proposals = data.ReviewProposals.Select(p => new
                 {
-                    p.Id, p.ReviewBatchId, p.ChangeType, p.TargetType, p.TargetId,
-                    p.ProposedValueJson, p.Rationale, p.Confidence, p.Status,
-                    p.CreatedAt, p.ReviewedAt, p.ReviewedByUserId,
+                    p.Id,
+                    p.ReviewBatchId,
+                    p.ChangeType,
+                    p.TargetType,
+                    p.TargetId,
+                    p.ProposedValueJson,
+                    p.Rationale,
+                    p.Confidence,
+                    p.Status,
+                    p.CreatedAt,
+                    p.ReviewedAt,
+                    p.ReviewedByUserId,
                 }),
             }, ct);
         }
@@ -293,12 +402,22 @@ public class WorldExportService : IWorldExportService
             {
                 Assessments = data.HealthAssessments.Select(h => new
                 {
-                    h.Id, h.CreatedAt, h.Model, h.Score,
+                    h.Id,
+                    h.CreatedAt,
+                    h.Model,
+                    h.Score,
                 }),
                 Findings = data.ContinuityFindings.Select(f => new
                 {
-                    f.Id, f.HealthAssessmentId, f.Category, f.Severity, f.Summary,
-                    f.SuggestedAction, f.EvidenceJson, f.ArtifactId, f.Status,
+                    f.Id,
+                    f.HealthAssessmentId,
+                    f.Category,
+                    f.Severity,
+                    f.Summary,
+                    f.SuggestedAction,
+                    f.EvidenceJson,
+                    f.ArtifactId,
+                    f.Status,
                 }),
             }, ct);
         }
@@ -307,9 +426,20 @@ public class WorldExportService : IWorldExportService
         {
             await WriteJsonEntryAsync(zip, "ai-usage.json", data.AiUsageRecords.Select(a => new
             {
-                a.Id, a.UserId, a.OperationType, a.Model, a.InputTokens, a.OutputTokens,
-                a.TotalTokens, a.EstimatedCostUsd, a.SourceId, a.ReviewBatchId,
-                a.DurationMs, a.Succeeded, a.ErrorCode, a.CreatedAt,
+                a.Id,
+                a.UserId,
+                a.OperationType,
+                a.Model,
+                a.InputTokens,
+                a.OutputTokens,
+                a.TotalTokens,
+                a.EstimatedCostUsd,
+                a.SourceId,
+                a.ReviewBatchId,
+                a.DurationMs,
+                a.Succeeded,
+                a.ErrorCode,
+                a.CreatedAt,
             }), ct);
         }
 

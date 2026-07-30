@@ -2,28 +2,27 @@
 
 #nullable disable
 
-namespace Nornis.Infrastructure.Migrations
+namespace Nornis.Infrastructure.Migrations;
+
+/// <inheritdoc />
+public partial class AddReviewBatchKind : Migration
 {
     /// <inheritdoc />
-    public partial class AddReviewBatchKind : Migration
+    protected override void Up(MigrationBuilder migrationBuilder)
     {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.AddColumn<string>(
-                name: "Kind",
-                table: "ReviewBatches",
-                type: "nvarchar(40)",
-                maxLength: 40,
-                nullable: true);
-        }
+        migrationBuilder.AddColumn<string>(
+            name: "Kind",
+            table: "ReviewBatches",
+            type: "nvarchar(40)",
+            maxLength: 40,
+            nullable: true);
+    }
 
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropColumn(
-                name: "Kind",
-                table: "ReviewBatches");
-        }
+    /// <inheritdoc />
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.DropColumn(
+            name: "Kind",
+            table: "ReviewBatches");
     }
 }

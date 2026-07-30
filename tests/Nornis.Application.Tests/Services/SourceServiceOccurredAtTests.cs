@@ -1,5 +1,5 @@
-using Nornis.Application.Models;
 using Microsoft.Extensions.Logging.Abstractions;
+using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Enums;

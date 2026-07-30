@@ -53,17 +53,31 @@ public class JourneyMapServiceTests
     {
         var source = new Source
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = SourceType.Map, Title = "Map",
-            Visibility = visibility, ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedByUserId = GmId, CreatedAt = DateTimeOffset.UtcNow, OccurredAt = occurredAt
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = SourceType.Map,
+            Title = "Map",
+            Visibility = visibility,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedByUserId = GmId,
+            CreatedAt = DateTimeOffset.UtcNow,
+            OccurredAt = occurredAt
         };
         _sources.Seed(source);
         var map = new SourceAttachment
         {
-            Id = Guid.NewGuid(), SourceId = source.Id, WorldId = WorldId,
-            Kind = SourceAttachmentKind.MapImage, FileName = "map.png", ContentType = "image/png",
-            SizeBytes = 3, BlobPath = $"b/{source.Id}", Ord = 0, Status = SourceAttachmentStatus.Stored,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            SourceId = source.Id,
+            WorldId = WorldId,
+            Kind = SourceAttachmentKind.MapImage,
+            FileName = "map.png",
+            ContentType = "image/png",
+            SizeBytes = 3,
+            BlobPath = $"b/{source.Id}",
+            Ord = 0,
+            Status = SourceAttachmentStatus.Stored,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _attachments.Seed(map);
         return (source, map);
@@ -75,9 +89,16 @@ public class JourneyMapServiceTests
     {
         var a = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = type, Name = name,
-            Visibility = visibility, CreatedByUserId = owner, Status = status, Summary = summary,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = type,
+            Name = name,
+            Visibility = visibility,
+            CreatedByUserId = owner,
+            Status = status,
+            Summary = summary,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _artifacts.Seed(a);
         return a;
@@ -85,8 +106,14 @@ public class JourneyMapServiceTests
 
     private void SeedPin(Guid mapAttachmentId, Guid artifactId) => _placemarks.Seed(new MapPlacemark
     {
-        Id = Guid.NewGuid(), WorldId = WorldId, SourceAttachmentId = mapAttachmentId, ArtifactId = artifactId,
-        X = 0.5m, Y = 0.5m, CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+        Id = Guid.NewGuid(),
+        WorldId = WorldId,
+        SourceAttachmentId = mapAttachmentId,
+        ArtifactId = artifactId,
+        X = 0.5m,
+        Y = 0.5m,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
     });
 
     private Source SeedSession(DateTimeOffset? occurredAt,
@@ -95,9 +122,15 @@ public class JourneyMapServiceTests
     {
         var source = new Source
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = type, Title = title,
-            Visibility = visibility, ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedByUserId = owner ?? GmId, CreatedAt = DateTimeOffset.UtcNow, OccurredAt = occurredAt
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = type,
+            Title = title,
+            Visibility = visibility,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedByUserId = owner ?? GmId,
+            CreatedAt = DateTimeOffset.UtcNow,
+            OccurredAt = occurredAt
         };
         _sources.Seed(source);
         return source;
@@ -107,8 +140,11 @@ public class JourneyMapServiceTests
     // provenance for any highlight.
     private void SeedTouch(Guid sessionId, Guid artifactId) => _references.Seed(new SourceReference
     {
-        Id = Guid.NewGuid(), SourceId = sessionId, TargetType = SourceReferenceTargetType.Artifact,
-        TargetId = artifactId, CreatedAt = DateTimeOffset.UtcNow
+        Id = Guid.NewGuid(),
+        SourceId = sessionId,
+        TargetType = SourceReferenceTargetType.Artifact,
+        TargetId = artifactId,
+        CreatedAt = DateTimeOffset.UtcNow
     });
 
     private Task<AppResult<JourneyMap>> Run(Guid? mapSourceId, Guid userId, WorldRole role) =>

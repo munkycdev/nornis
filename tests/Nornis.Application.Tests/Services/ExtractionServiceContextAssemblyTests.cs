@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using NUnit.Framework;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Models;
@@ -8,6 +7,7 @@ using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services;
 

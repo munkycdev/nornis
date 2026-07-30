@@ -117,11 +117,11 @@ public class RetrievalCountCapArbitraries
             from requestingUserId in ArbMap.Default.GeneratorFor<Guid>()
             from role in roleGen
             from maxCount in maxCountGen
-            // Generate more artifacts than maxCount (between maxCount+2 and maxCount+15)
+                // Generate more artifacts than maxCount (between maxCount+2 and maxCount+15)
             from extraCount in Gen.Choose(2, 15)
             let artifactCount = maxCount + extraCount
             from artifacts in GenArtifacts(worldId, artifactCount)
-            // Pick 1-3 indices of artifacts to mention in the question (name-matching)
+                // Pick 1-3 indices of artifacts to mention in the question (name-matching)
             from nameMatchCount in Gen.Choose(1, Math.Min(3, artifactCount))
             from matchedIndices in Gen.Choose(0, artifactCount - 1).ArrayOf(nameMatchCount)
             let question = BuildQuestion(artifacts, matchedIndices.Distinct().ToList())

@@ -194,18 +194,18 @@ public class ReviewService : IReviewService
                 return null;
 
             case ReviewChangeType.AddRelationship:
-            {
-                var payload = DeserializePayload<AddRelationshipPayload>(proposal.ProposedValueJson);
-                if (payload is null)
-                    return null;
-                var a = payload.ArtifactAId is { } aId
-                    ? artifactNames.GetValueOrDefault(aId, payload.ArtifactAName ?? "?")
-                    : payload.ArtifactAName ?? "?";
-                var b = payload.ArtifactBId is { } bId
-                    ? artifactNames.GetValueOrDefault(bId, payload.ArtifactBName ?? "?")
-                    : payload.ArtifactBName ?? "?";
-                return $"{a} ↔ {b}";
-            }
+                {
+                    var payload = DeserializePayload<AddRelationshipPayload>(proposal.ProposedValueJson);
+                    if (payload is null)
+                        return null;
+                    var a = payload.ArtifactAId is { } aId
+                        ? artifactNames.GetValueOrDefault(aId, payload.ArtifactAName ?? "?")
+                        : payload.ArtifactAName ?? "?";
+                    var b = payload.ArtifactBId is { } bId
+                        ? artifactNames.GetValueOrDefault(bId, payload.ArtifactBName ?? "?")
+                        : payload.ArtifactBName ?? "?";
+                    return $"{a} ↔ {b}";
+                }
 
             case ReviewChangeType.UpdateRelationship:
                 if (proposal.TargetId is { } relId && relationshipsById?.GetValueOrDefault(relId) is { } rel)
@@ -876,7 +876,8 @@ public class ReviewService : IReviewService
     private async Task UpdateBatchLifecycleAsync(Guid batchId, CancellationToken ct)
     {
         var batch = await _reviewBatchRepository.GetByIdAsync(batchId, ct);
-        if (batch is null) return;
+        if (batch is null)
+            return;
 
         // Don't touch Canceled or Failed batches
         if (batch.Status is ReviewBatchStatus.Canceled or ReviewBatchStatus.Failed)

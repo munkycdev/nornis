@@ -104,10 +104,18 @@ public class ExtractionServiceMapTests
         _blob.Blobs[blobPath] = (new byte[] { 9, 9, 9 }, "image/png");
         _mapAttachment = new SourceAttachment
         {
-            Id = Guid.NewGuid(), SourceId = _source.Id, WorldId = WorldId,
-            Kind = SourceAttachmentKind.MapImage, FileName = "map.png", ContentType = "image/png",
-            SizeBytes = 3, BlobPath = blobPath, Ord = 0, Status = SourceAttachmentStatus.Stored,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            SourceId = _source.Id,
+            WorldId = WorldId,
+            Kind = SourceAttachmentKind.MapImage,
+            FileName = "map.png",
+            ContentType = "image/png",
+            SizeBytes = 3,
+            BlobPath = blobPath,
+            Ord = 0,
+            Status = SourceAttachmentStatus.Stored,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _attachmentRepo.Seed(_mapAttachment);
     }
@@ -116,9 +124,14 @@ public class ExtractionServiceMapTests
     {
         var a = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = ArtifactType.Location, Name = name,
-            Visibility = VisibilityScope.PartyVisible, Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = ArtifactType.Location,
+            Name = name,
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _artifactRepo.Seed(a);
         return a;
@@ -203,9 +216,14 @@ public class ExtractionServiceMapTests
         var ironhold = SeedLocation("Ironhold");
         _placemarkRepo.Seed(new MapPlacemark
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, SourceAttachmentId = _mapAttachment.Id,
-            ArtifactId = ironhold.Id, X = 0.4m, Y = 0.6m,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            SourceAttachmentId = _mapAttachment.Id,
+            ArtifactId = ironhold.Id,
+            X = 0.4m,
+            Y = 0.6m,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         });
         _mapClient.PlacesToReturn = [new MapPlace("Ironhold", "fortress", 0.4m, 0.6m, 0.9m, ironhold.Id)];
 
@@ -255,8 +273,12 @@ public class ExtractionServiceMapTests
     {
         _batchRepo.CreateAsync(new ReviewBatch
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, SourceId = _source.Id,
-            Status = ReviewBatchStatus.Completed, CreatedAt = DateTimeOffset.UtcNow, CompletedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            SourceId = _source.Id,
+            Status = ReviewBatchStatus.Completed,
+            CreatedAt = DateTimeOffset.UtcNow,
+            CompletedAt = DateTimeOffset.UtcNow
         }).GetAwaiter().GetResult();
 
         var outcome = await _sut.ProcessExtractionAsync(_source.Id, WorldId, CancellationToken.None);

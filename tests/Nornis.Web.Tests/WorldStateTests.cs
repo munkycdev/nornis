@@ -1,8 +1,8 @@
 using System.Net;
 using System.Text;
-using NUnit.Framework;
 using Nornis.Web.ApiClient;
 using Nornis.Web.State;
+using NUnit.Framework;
 
 namespace Nornis.Web.Tests;
 

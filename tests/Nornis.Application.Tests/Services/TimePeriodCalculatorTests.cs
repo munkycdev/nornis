@@ -1,5 +1,5 @@
-using NUnit.Framework;
 using Nornis.Application.Services;
+using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services;
 

@@ -50,31 +50,51 @@ public class PrivateOwnershipLeakTests
         var now = DateTimeOffset.UtcNow;
         _privateArtifact = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = ArtifactType.Character,
-            Name = "Secret Contact", Visibility = VisibilityScope.Private,
-            CreatedByUserId = PlayerA, Status = ArtifactStatus.Active,
-            CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = ArtifactType.Character,
+            Name = "Secret Contact",
+            Visibility = VisibilityScope.Private,
+            CreatedByUserId = PlayerA,
+            Status = ArtifactStatus.Active,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         _partyArtifact = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = ArtifactType.Location,
-            Name = "Black Harbor", Visibility = VisibilityScope.PartyVisible,
-            Status = ArtifactStatus.Active, CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = ArtifactType.Location,
+            Name = "Black Harbor",
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         _privateFact = new ArtifactFact
         {
-            Id = Guid.NewGuid(), ArtifactId = _partyArtifact.Id,
-            Predicate = "secret entrance", Value = "behind the fish market",
-            TruthState = TruthState.Likely, Visibility = VisibilityScope.Private,
-            CreatedByUserId = PlayerA, CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            ArtifactId = _partyArtifact.Id,
+            Predicate = "secret entrance",
+            Value = "behind the fish market",
+            TruthState = TruthState.Likely,
+            Visibility = VisibilityScope.Private,
+            CreatedByUserId = PlayerA,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         _privateRelationship = new ArtifactRelationship
         {
-            Id = Guid.NewGuid(), WorldId = WorldId,
-            ArtifactAId = _privateArtifact.Id, ArtifactBId = _partyArtifact.Id,
-            Type = "HidesIn", TruthState = TruthState.Likely,
-            Visibility = VisibilityScope.Private, CreatedByUserId = PlayerA,
-            CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            ArtifactAId = _privateArtifact.Id,
+            ArtifactBId = _partyArtifact.Id,
+            Type = "HidesIn",
+            TruthState = TruthState.Likely,
+            Visibility = VisibilityScope.Private,
+            CreatedByUserId = PlayerA,
+            CreatedAt = now,
+            UpdatedAt = now
         };
 
         _artifactRepo.Seed(_privateArtifact, _partyArtifact);
@@ -221,10 +241,15 @@ public class PrivateOwnershipLeakTests
     {
         var privateStoryline = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = ArtifactType.Storyline,
-            Name = "A's Secret Quest", Visibility = VisibilityScope.Private,
-            CreatedByUserId = PlayerA, Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = ArtifactType.Storyline,
+            Name = "A's Secret Quest",
+            Visibility = VisibilityScope.Private,
+            CreatedByUserId = PlayerA,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _artifactRepo.Seed(privateStoryline);
 
@@ -244,21 +269,28 @@ public class PrivateOwnershipLeakTests
     {
         var source = new Source
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = SourceType.SessionNote,
-            Title = "A's journal", Visibility = VisibilityScope.Private,
-            CreatedByUserId = PlayerA, CreatedAt = DateTimeOffset.UtcNow,
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = SourceType.SessionNote,
+            Title = "A's journal",
+            Visibility = VisibilityScope.Private,
+            CreatedByUserId = PlayerA,
+            CreatedAt = DateTimeOffset.UtcNow,
             ProcessingStatus = SourceProcessingStatus.Processed
         };
         _sourceRepo.Seed(source);
         var batch = new ReviewBatch
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, SourceId = source.Id,
-            Status = ReviewBatchStatus.Pending, CreatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            SourceId = source.Id,
+            Status = ReviewBatchStatus.Pending,
+            CreatedAt = DateTimeOffset.UtcNow
         };
 
         var applicator = new ProposalApplicator(
             _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo,
-            
+
             new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
             new InMemoryWorldMemberRepository());
 
@@ -293,15 +325,26 @@ public class PrivateOwnershipLeakTests
         var now = DateTimeOffset.UtcNow;
         var privateChild = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = ArtifactType.Storyline,
-            Name = "A's Secret Quest", Visibility = VisibilityScope.Private,
-            CreatedByUserId = PlayerA, Status = ArtifactStatus.Active, CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = ArtifactType.Storyline,
+            Name = "A's Secret Quest",
+            Visibility = VisibilityScope.Private,
+            CreatedByUserId = PlayerA,
+            Status = ArtifactStatus.Active,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         var partyParent = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = ArtifactType.Storyline,
-            Name = "The Main Arc", Visibility = VisibilityScope.PartyVisible,
-            Status = ArtifactStatus.Active, CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = ArtifactType.Storyline,
+            Name = "The Main Arc",
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         _artifactRepo.Seed(privateChild, partyParent);
 
@@ -319,15 +362,15 @@ public class PrivateOwnershipLeakTests
 
     private static ReviewProposal MakeProposal(
         Guid batchId, ReviewChangeType changeType, Guid? targetId, string payloadJson) => new()
-    {
-        Id = Guid.NewGuid(),
-        ReviewBatchId = batchId,
-        ChangeType = changeType,
-        TargetType = ReviewTargetType.Artifact,
-        TargetId = targetId,
-        ProposedValueJson = payloadJson,
-        Rationale = "test",
-        Status = ReviewProposalStatus.Pending,
-        CreatedAt = DateTimeOffset.UtcNow
-    };
+        {
+            Id = Guid.NewGuid(),
+            ReviewBatchId = batchId,
+            ChangeType = changeType,
+            TargetType = ReviewTargetType.Artifact,
+            TargetId = targetId,
+            ProposedValueJson = payloadJson,
+            Rationale = "test",
+            Status = ReviewProposalStatus.Pending,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
 }

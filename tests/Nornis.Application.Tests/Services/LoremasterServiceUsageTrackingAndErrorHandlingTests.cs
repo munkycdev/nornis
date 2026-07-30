@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Options;
-using NSubstitute;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
@@ -7,6 +6,7 @@ using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Enums;
+using NSubstitute;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services;

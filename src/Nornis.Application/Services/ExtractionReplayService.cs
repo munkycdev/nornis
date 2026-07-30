@@ -178,7 +178,7 @@ public class ExtractionReplayService : IExtractionReplayService
             {
                 replay.Status = ExtractionReplayStatus.Completed;
                 replay.UpdatedAt = DateTimeOffset.UtcNow;
-            replay.CompletedAt = replay.UpdatedAt;
+                replay.CompletedAt = replay.UpdatedAt;
                 await _replayRepository.UpdateAsync(replay, ct);
                 _logger.LogInformation(
                     "Extraction replay completed. ReplayId={ReplayId}, WorldId={WorldId}",

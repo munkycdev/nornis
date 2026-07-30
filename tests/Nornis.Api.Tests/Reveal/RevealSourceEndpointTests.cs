@@ -41,16 +41,29 @@ public class RevealSourceEndpointTests
         var now = DateTimeOffset.UtcNow;
         var source = new Source
         {
-            Id = Guid.NewGuid(), WorldId = _scenario.World.Id, Type = SourceType.Map, Title = "The GM's master map",
-            Visibility = VisibilityScope.GMOnly, ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedByUserId = _scenario.GmUserId, CreatedAt = now
+            Id = Guid.NewGuid(),
+            WorldId = _scenario.World.Id,
+            Type = SourceType.Map,
+            Title = "The GM's master map",
+            Visibility = VisibilityScope.GMOnly,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedByUserId = _scenario.GmUserId,
+            CreatedAt = now
         };
         var map = new SourceAttachment
         {
-            Id = Guid.NewGuid(), SourceId = source.Id, WorldId = _scenario.World.Id,
-            Kind = SourceAttachmentKind.MapImage, FileName = "map.png", ContentType = "image/png",
-            SizeBytes = 10, BlobPath = $"worlds/{_scenario.World.Id}/sources/{source.Id}/000-map.png",
-            Ord = 0, Status = SourceAttachmentStatus.Stored, CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            SourceId = source.Id,
+            WorldId = _scenario.World.Id,
+            Kind = SourceAttachmentKind.MapImage,
+            FileName = "map.png",
+            ContentType = "image/png",
+            SizeBytes = 10,
+            BlobPath = $"worlds/{_scenario.World.Id}/sources/{source.Id}/000-map.png",
+            Ord = 0,
+            Status = SourceAttachmentStatus.Stored,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         db.Sources.Add(source);
         db.SourceAttachments.Add(map);
@@ -65,14 +78,27 @@ public class RevealSourceEndpointTests
         var now = DateTimeOffset.UtcNow;
         var artifact = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = _scenario.World.Id, Type = ArtifactType.Location, Name = name,
-            Visibility = visibility, Status = ArtifactStatus.Active, CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            WorldId = _scenario.World.Id,
+            Type = ArtifactType.Location,
+            Name = name,
+            Visibility = visibility,
+            Status = ArtifactStatus.Active,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         db.Artifacts.Add(artifact);
         db.MapPlacemarks.Add(new MapPlacemark
         {
-            Id = Guid.NewGuid(), WorldId = _scenario.World.Id, SourceAttachmentId = mapAttachmentId,
-            ArtifactId = artifact.Id, X = 0.5m, Y = 0.5m, Label = name, CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            WorldId = _scenario.World.Id,
+            SourceAttachmentId = mapAttachmentId,
+            ArtifactId = artifact.Id,
+            X = 0.5m,
+            Y = 0.5m,
+            Label = name,
+            CreatedAt = now,
+            UpdatedAt = now
         });
         await db.SaveChangesAsync();
     }

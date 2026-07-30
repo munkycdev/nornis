@@ -2,27 +2,26 @@
 
 #nullable disable
 
-namespace Nornis.Infrastructure.Migrations
+namespace Nornis.Infrastructure.Migrations;
+
+/// <inheritdoc />
+public partial class AddCachedInputTokens : Migration
 {
     /// <inheritdoc />
-    public partial class AddCachedInputTokens : Migration
+    protected override void Up(MigrationBuilder migrationBuilder)
     {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.AddColumn<int>(
-                name: "CachedInputTokens",
-                table: "AiUsageRecords",
-                type: "int",
-                nullable: true);
-        }
+        migrationBuilder.AddColumn<int>(
+            name: "CachedInputTokens",
+            table: "AiUsageRecords",
+            type: "int",
+            nullable: true);
+    }
 
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropColumn(
-                name: "CachedInputTokens",
-                table: "AiUsageRecords");
-        }
+    /// <inheritdoc />
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.DropColumn(
+            name: "CachedInputTokens",
+            table: "AiUsageRecords");
     }
 }

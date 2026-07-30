@@ -46,7 +46,7 @@ public class ProposalApplicatorDedupTests
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
             _sourceRefRepo,
-            
+
             new InMemorySourceAttachmentRepository(),
             new InMemoryMapPlacemarkRepository(),
             _memberRepo);

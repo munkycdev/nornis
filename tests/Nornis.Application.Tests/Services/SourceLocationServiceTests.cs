@@ -37,9 +37,14 @@ public class SourceLocationServiceTests
 
         _session = new Source
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = SourceType.SessionNote, Title = "Session 5",
-            Visibility = VisibilityScope.PartyVisible, ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedByUserId = OwnerId, CreatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = SourceType.SessionNote,
+            Title = "Session 5",
+            Visibility = VisibilityScope.PartyVisible,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedByUserId = OwnerId,
+            CreatedAt = DateTimeOffset.UtcNow
         };
         _sourceRepo.Seed(_session);
     }
@@ -50,9 +55,15 @@ public class SourceLocationServiceTests
     {
         var a = new Artifact
         {
-            Id = Guid.NewGuid(), WorldId = worldId ?? WorldId, Type = type, Name = name,
-            Summary = "A harbor town.", Visibility = visibility, Status = status,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = worldId ?? WorldId,
+            Type = type,
+            Name = name,
+            Summary = "A harbor town.",
+            Visibility = visibility,
+            Status = status,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
         _artifactRepo.Seed(a);
         return a;
@@ -60,8 +71,12 @@ public class SourceLocationServiceTests
 
     private void SeedRef(Guid artifactId, string? quote = null) => _refRepo.Seed(new SourceReference
     {
-        Id = Guid.NewGuid(), SourceId = _session.Id, TargetType = SourceReferenceTargetType.Artifact,
-        TargetId = artifactId, Quote = quote, CreatedAt = DateTimeOffset.UtcNow
+        Id = Guid.NewGuid(),
+        SourceId = _session.Id,
+        TargetType = SourceReferenceTargetType.Artifact,
+        TargetId = artifactId,
+        Quote = quote,
+        CreatedAt = DateTimeOffset.UtcNow
     });
 
     [Test]
@@ -221,9 +236,14 @@ public class SourceLocationServiceTests
     {
         var gmOnly = new Source
         {
-            Id = Guid.NewGuid(), WorldId = WorldId, Type = SourceType.SessionNote, Title = "GM prep",
-            Visibility = VisibilityScope.GMOnly, ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedByUserId = OwnerId, CreatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = SourceType.SessionNote,
+            Title = "GM prep",
+            Visibility = VisibilityScope.GMOnly,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedByUserId = OwnerId,
+            CreatedAt = DateTimeOffset.UtcNow
         };
         _sourceRepo.Seed(gmOnly);
 

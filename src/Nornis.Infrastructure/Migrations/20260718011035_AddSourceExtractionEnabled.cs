@@ -2,28 +2,27 @@
 
 #nullable disable
 
-namespace Nornis.Infrastructure.Migrations
+namespace Nornis.Infrastructure.Migrations;
+
+/// <inheritdoc />
+public partial class AddSourceExtractionEnabled : Migration
 {
     /// <inheritdoc />
-    public partial class AddSourceExtractionEnabled : Migration
+    protected override void Up(MigrationBuilder migrationBuilder)
     {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.AddColumn<bool>(
-                name: "ExtractionEnabled",
-                table: "Sources",
-                type: "bit",
-                nullable: false,
-                defaultValue: true);
-        }
+        migrationBuilder.AddColumn<bool>(
+            name: "ExtractionEnabled",
+            table: "Sources",
+            type: "bit",
+            nullable: false,
+            defaultValue: true);
+    }
 
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropColumn(
-                name: "ExtractionEnabled",
-                table: "Sources");
-        }
+    /// <inheritdoc />
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.DropColumn(
+            name: "ExtractionEnabled",
+            table: "Sources");
     }
 }

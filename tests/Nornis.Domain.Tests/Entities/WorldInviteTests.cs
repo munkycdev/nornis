@@ -14,18 +14,18 @@ public class WorldInviteTests
         int? maxUses = null,
         int useCount = 0,
         DateTimeOffset? revokedAt = null) => new()
-    {
-        Id = Guid.NewGuid(),
-        WorldId = Guid.NewGuid(),
-        Code = "code",
-        Role = WorldRole.Player,
-        CreatedByUserId = Guid.NewGuid(),
-        CreatedAt = Now.AddDays(-1),
-        ExpiresAt = expiresAt,
-        MaxUses = maxUses,
-        UseCount = useCount,
-        RevokedAt = revokedAt
-    };
+        {
+            Id = Guid.NewGuid(),
+            WorldId = Guid.NewGuid(),
+            Code = "code",
+            Role = WorldRole.Player,
+            CreatedByUserId = Guid.NewGuid(),
+            CreatedAt = Now.AddDays(-1),
+            ExpiresAt = expiresAt,
+            MaxUses = maxUses,
+            UseCount = useCount,
+            RevokedAt = revokedAt
+        };
 
     [Test]
     public void StatusAt_NoLimits_IsActive()

@@ -54,13 +54,13 @@ public class LoremasterServiceSessionTests
 
     private static KnowledgeSession MakeSession(
         string title, DateTimeOffset date, string? text = "The party did things.") => new()
-    {
-        Id = Guid.NewGuid(),
-        Title = title,
-        Date = date,
-        Text = text,
-        ReferenceId = $"session:{Guid.NewGuid()}"
-    };
+        {
+            Id = Guid.NewGuid(),
+            Title = title,
+            Date = date,
+            Text = text,
+            ReferenceId = $"session:{Guid.NewGuid()}"
+        };
 
     // ---------------------------------------------------------------- Prompt content --
 

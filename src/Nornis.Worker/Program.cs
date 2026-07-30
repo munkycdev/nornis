@@ -1,5 +1,6 @@
 ﻿using System.ClientModel;
 using Azure.AI.OpenAI;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
@@ -12,10 +13,9 @@ using Nornis.Infrastructure.Messaging;
 using Nornis.Infrastructure.Persistence;
 using Nornis.Infrastructure.Persistence.Repositories;
 using Nornis.Infrastructure.Storage;
-using Azure.Monitor.OpenTelemetry.AspNetCore;
+using Nornis.Infrastructure.Telemetry;
 using Nornis.Worker;
 using Nornis.Worker.Configuration;
-using Nornis.Infrastructure.Telemetry;
 using OpenAI.Chat;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
