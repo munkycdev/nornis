@@ -27,17 +27,9 @@ jobs:
       - name: Test
         run: dotnet test --no-build
 
-      # KNOWN NO-OP. Bare `dotnet format` APPLIES fixes to the runner's working tree and exits 0,
-      # so this step cannot fail and the changes are discarded with the runner — it verifies
-      # nothing today.
-      #
-      # The fix is `--verify-no-changes`, but it cannot be turned on yet: the repo has never
-      # satisfied the analyzers, so it currently reports ~37,000 findings across 897 files
-      # (mostly IDE0161 file-scoped namespaces, plus CHARSET/BOM inconsistencies that even
-      # `dotnet format whitespace` trips on). Flipping the flag would fail every PR immediately.
-      #
-      # Landing it needs its own commit: run `dotnet format` across the tree, commit the churn
-      # alone so it is reviewable, then change this line. Doing it inside a feature branch would
-      # bury the real diff. Tracked in docs/future-features.md.
+      # A real check since 2026-07-29: the tree was formatted in one mechanical commit and
+      # .editorconfig no longer enforces line endings or BOMs (git owns those — the old rules
+      # made this check unsatisfiable across Windows dev machines and this Linux runner).
+      # If this step fails, run `dotnet format` locally and commit what it changes.
       - name: Format Check
-        run: dotnet format
+        run: dotnet format --verify-no-changes --no-restore

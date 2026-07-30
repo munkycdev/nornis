@@ -173,10 +173,17 @@ never satisfied the analyzers: `--verify-no-changes` reports ~37,000 findings ac
 whitespace` trips on). Flipping the flag would fail every PR immediately. `ci.yml` now carries a
 comment stating plainly that the step is a no-op and why, instead of looking like a real check.
 
-- [ ] Land the formatting check as its own commit: run `dotnet format` across the tree, commit the
-      churn alone so it stays reviewable, then switch `ci.yml` to `--verify-no-changes
-      --no-restore`. Doing it inside a feature branch would bury the real diff — and with several
-      agents sharing this working directory, an 897-file reformat needs a quiet moment.
+- [x] ~~Land the formatting check as its own commit~~ — **DONE 2026-07-29, in three commits.**
+      The ~37,000-findings figure was dominated by rules that could never be satisfied: the old
+      `.editorconfig` demanded CRLF and utf-8-bom for every file, while all 979 C# files are
+      stored LF and CI checks out on Linux — so the verify flag would have failed there no matter
+      what was committed from Windows. Commit 1 removed both rules (git owns line endings; the
+      formatter now checks only what is identical on every OS). That collapsed the real churn to
+      **118 files** (mostly IDE0161 file-scoped namespaces) — commit 2, purely mechanical, build
+      and all 3,130 tests green before and after. Commit 3 flipped `ci.yml` to
+      `dotnet format --verify-no-changes --no-restore`, which now exits 0 locally. Watch the
+      first CI run on this push — a Linux/Windows divergence in analyzer behaviour would show up
+      there and nowhere else.
 
 **Correction (2026-07-27), previously recorded here as a caveat:** I wrote that the static-asset
 win was half-inert because the live apps ran `ASPNETCORE_ENVIRONMENT=Development`. Both parts of
