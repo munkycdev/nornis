@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Services;
 using Nornis.Domain.Repositories;
@@ -16,8 +17,10 @@ public static class TestUsageRecorder
         IAiUsageRecordRepository repository,
         ExtractionOptions? extraction = null,
         LoremasterOptions? loremaster = null,
-        LibraryOptions? library = null) =>
+        LibraryOptions? library = null,
+        IAiOutcomeMonitor? outcomeMonitor = null) =>
         new(repository,
+            outcomeMonitor ?? new AiOutcomeMonitor(),
             Options.Create(extraction ?? new ExtractionOptions()),
             Options.Create(loremaster ?? new LoremasterOptions()),
             Options.Create(library ?? new LibraryOptions()));

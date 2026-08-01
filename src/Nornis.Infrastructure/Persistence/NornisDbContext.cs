@@ -40,6 +40,7 @@ public class NornisDbContext : DbContext
 
     public DbSet<ImportSessionItem> ImportSessionItems => Set<ImportSessionItem>();
     public DbSet<TutorialProgress> TutorialProgress => Set<TutorialProgress>();
+    public DbSet<WorkerHeartbeat> WorkerHeartbeats => Set<WorkerHeartbeat>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

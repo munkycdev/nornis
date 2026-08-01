@@ -6,7 +6,9 @@ namespace Nornis.Infrastructure.Messaging;
 
 public class ServiceBusExtractionQueueClient : IExtractionQueueClient, IAsyncDisposable
 {
-    private const string QueueName = "source-extraction";
+    // Public so the API's service-bus status probe names the same queue this sends to,
+    // rather than a copy that can drift — see ServiceBusLibraryIndexingQueueClient.
+    public const string QueueName = "source-extraction";
 
     private readonly ServiceBusClient _serviceBusClient;
 

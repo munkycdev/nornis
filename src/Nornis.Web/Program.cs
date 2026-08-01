@@ -203,6 +203,11 @@ if (authEnabled)
 
 app.UseAntiforgery();
 
+// Liveness only. Web is a UI shell over the API and owns no dependencies of its own, so
+// anything it could probe would be reporting on the API's behalf — which /status already
+// does, better. This exists so the platform has something to ping.
+app.MapGet("/health", () => Results.Json(new { status = "Healthy" })).AllowAnonymous();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

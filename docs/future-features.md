@@ -11,7 +11,8 @@ files under `docs/plans/`; nothing here restates them.
 gates and drifted-visibility leaks (via 1.2/1.7 + the auth review's fixes: world-scoped
 review-queue name resolution, Draft gate on the Ask session feed, own-row visibility on
 fact/relationship updates); D4's validator-enum rejection (via 1.7); scrub 1.10's
-LibraryDocumentDetail reload guard; item 1 below (test quality phase 1).
+LibraryDocumentDetail reload guard; item 1 below (test quality phase 1); item 2 below
+(system status — `/status`, the five checks, Web `/health`, worker heartbeat).
 
 Numbers below stay fixed for this run even as items complete — sessions and notes
 refer to them by number.
@@ -35,8 +36,11 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
 **Opus-ready, in order:**
 
 1. Test quality phase 1 — coverage collection + local report. Config and scripts only.
-2. System status: the `/status` endpoint, checks, Web `/health`, worker heartbeat
-   (first additive migration of this run — apply before its deploy).
+2. System status: the `/status` endpoint, checks, Web `/health`, worker heartbeat.
+   **Done, but its migration is not applied yet** — `AddWorkerHeartbeats` (additive,
+   one CreateTable) must be run against prod *before* the deploy that carries it, or
+   the worker's first beat 500s and `worker-heartbeat` reports the worker dead.
+   The status *page* is not part of this — it lands with item 3, which owns the site.
 3. Test quality phase 2 + the status page — CI surfacing, history branch, one static
    dashboard site carrying both faces. Pages-vs-`$web` fallback is pre-decided.
 4. O5 dependency patching + O6 runbooks — config and docs.
