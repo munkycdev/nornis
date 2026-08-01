@@ -173,8 +173,11 @@ public class SourceService : ISourceService
 
         if (source.ProcessingStatus == SourceProcessingStatus.Processed)
         {
-            // Value comparison, not presence: clients resend unchanged fields.
-            var bodyChanged = command.Body is not null && command.Body != source.Body;
+            // Value comparison, not presence: clients resend unchanged fields. A clear is
+            // a change too — emptying an extracted source's body invalidates exactly the
+            // derived knowledge the reprocess gate exists to protect.
+            var bodyChanged = (command.Body is not null && command.Body != source.Body)
+                || (command.ClearBody && source.Body is not null);
             var visibilityChanged = command.Visibility is not null && command.Visibility != source.Visibility;
 
             if (bodyChanged || visibilityChanged)
@@ -220,6 +223,12 @@ public class SourceService : ISourceService
 
             source.Body = command.Body;
         }
+        else if (command.ClearBody)
+        {
+            // Null means "unchanged" in a partial update, so emptying the editor has to be
+            // said explicitly — the same idiom as ClearOccurredAt.
+            source.Body = null;
+        }
 
         // Validate optional Uri if provided
         if (command.Uri is not null)
@@ -231,6 +240,10 @@ public class SourceService : ISourceService
             }
 
             source.Uri = command.Uri;
+        }
+        else if (command.ClearUri)
+        {
+            source.Uri = null;
         }
 
         if (command.OccurredAt is not null)
