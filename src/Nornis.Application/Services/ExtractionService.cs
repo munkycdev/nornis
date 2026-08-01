@@ -333,14 +333,14 @@ public class ExtractionService : IExtractionService
             await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.Timeout, ct);
             return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
         }
-        catch (HttpRequestException ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
+        catch (Exception ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
         {
             _logger.LogError(ex, "Permanent transcription failure. SourceId={SourceId}", source.Id);
             await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.AiCallFailure, ct);
             await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
             return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (ex is AiHttpException or HttpRequestException)
         {
             _logger.LogWarning(ex, "Transient transcription failure. SourceId={SourceId}", source.Id);
             await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.TransientError, ct);
@@ -464,14 +464,14 @@ public class ExtractionService : IExtractionService
 
                 return await HandleSuccessfulResponseAsync(source, worldId, synthesized, ct, AiOperationType.MapExtraction);
             }
-            catch (AiExtractionParseException ex)
+            catch (AiParseException ex)
             {
                 lastError = ex.Message;
                 _logger.LogWarning(ex,
                     "Map extraction parse failed on attempt {Attempt}/{MaxAttempts}. SourceId={SourceId}",
                     attempt, maxAttempts, source.Id);
             }
-            catch (AiExtractionTimeoutException ex)
+            catch (AiTimeoutException ex)
             {
                 await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.Timeout, ct);
                 return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
@@ -481,14 +481,14 @@ public class ExtractionService : IExtractionService
                 await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.Timeout, ct);
                 return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
             }
-            catch (HttpRequestException ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
+            catch (Exception ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
             {
                 _logger.LogError(ex, "Permanent map extraction failure. SourceId={SourceId}", source.Id);
                 await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.AiCallFailure, ct);
                 await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
                 return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
             }
-            catch (HttpRequestException ex)
+            catch (Exception ex) when (ex is AiHttpException or HttpRequestException)
             {
                 _logger.LogWarning(ex, "Transient map extraction failure. SourceId={SourceId}", source.Id);
                 await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.TransientError, ct);
@@ -785,14 +785,14 @@ public class ExtractionService : IExtractionService
                 await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading, null, false, ErrorCategories.Timeout, ct);
                 return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
             }
-            catch (HttpRequestException ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
+            catch (Exception ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
             {
                 _logger.LogError(ex, "Permanent image reading failure. SourceId={SourceId}", source.Id);
                 await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading, null, false, ErrorCategories.AiCallFailure, ct);
                 await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
                 return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
             }
-            catch (HttpRequestException ex)
+            catch (Exception ex) when (ex is AiHttpException or HttpRequestException)
             {
                 _logger.LogWarning(ex, "Transient image reading failure. SourceId={SourceId}", source.Id);
                 await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading, null, false, ErrorCategories.TransientError, ct);
@@ -1031,7 +1031,7 @@ public class ExtractionService : IExtractionService
                     "AI response validation failed on attempt {Attempt}/{MaxAttempts}. SourceId={SourceId}, Error={Error}",
                     attempt, maxAttempts, source.Id, validationError);
             }
-            catch (AiExtractionParseException ex)
+            catch (AiParseException ex)
             {
                 // Malformed AI output (bad JSON, invalid fields) is retryable: sampling
                 // variance means the next attempt usually parses. Exhausted retries fall
@@ -1041,7 +1041,7 @@ public class ExtractionService : IExtractionService
                     "AI response parse failed on attempt {Attempt}/{MaxAttempts}. SourceId={SourceId}",
                     attempt, maxAttempts, source.Id);
             }
-            catch (AiExtractionTimeoutException ex)
+            catch (AiTimeoutException ex)
             {
                 await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.Timeout, ct);
                 return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
@@ -1052,7 +1052,7 @@ public class ExtractionService : IExtractionService
                 await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.Timeout, ct);
                 return await TransientOutcomeAsync(source, ErrorCategories.Timeout, "AI call timed out.", ct);
             }
-            catch (HttpRequestException ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
+            catch (Exception ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
             {
                 // 4xx (other than 408/429): the request itself is bad — a retry sends the same
                 // bytes and fails the same way. Fail the source so the problem surfaces.
@@ -1062,7 +1062,7 @@ public class ExtractionService : IExtractionService
                 await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
                 return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
             }
-            catch (HttpRequestException ex)
+            catch (Exception ex) when (ex is AiHttpException or HttpRequestException)
             {
                 // Network error / 5xx / throttling — transient failure
                 _logger.LogWarning(ex,

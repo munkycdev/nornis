@@ -138,11 +138,10 @@ public class AzureOpenAiLoremasterClientTests
                 throw new InvalidOperationException("Should not reach here");
             });
 
-        var ex = Assert.ThrowsAsync<AiLoremasterTimeoutException>(
+        var ex = Assert.ThrowsAsync<AiTimeoutException>(
             async () => await _client.AskAsync(shortTimeoutRequest, CancellationToken.None));
 
-        Assert.That(ex!.DurationMs, Is.GreaterThanOrEqualTo(0));
-        Assert.That(ex.Message, Does.Contain("timed out"));
+        Assert.That(ex!.Message, Does.Contain("timed out"));
     }
 
     [Test]
@@ -166,7 +165,7 @@ public class AzureOpenAiLoremasterClientTests
     #region Rate Limit Tests
 
     [Test]
-    public void AskAsync_429Response_ThrowsAiLoremasterRateLimitException()
+    public void AskAsync_429Response_ThrowsRateLimitedAiHttpException()
     {
         var mockResponse = Substitute.For<PipelineResponse>();
         mockResponse.Status.Returns(429);
@@ -178,11 +177,10 @@ public class AzureOpenAiLoremasterClientTests
             Arg.Any<CancellationToken>())
             .ThrowsAsync(clientException);
 
-        var ex = Assert.ThrowsAsync<AiLoremasterRateLimitException>(
+        var ex = Assert.ThrowsAsync<AiHttpException>(
             async () => await _client.AskAsync(DefaultRequest, CancellationToken.None));
 
-        Assert.That(ex!.DurationMs, Is.GreaterThanOrEqualTo(0));
-        Assert.That(ex.Message, Does.Contain("rate limited"));
+        Assert.That(ex!.StatusCode, Is.EqualTo(429));
     }
 
     #endregion
@@ -190,7 +188,7 @@ public class AzureOpenAiLoremasterClientTests
     #region Service Error Tests
 
     [Test]
-    public void AskAsync_500Response_ThrowsAiLoremasterServiceException()
+    public void AskAsync_500Response_ThrowsAiHttpException()
     {
         var mockResponse = Substitute.For<PipelineResponse>();
         mockResponse.Status.Returns(500);
@@ -202,15 +200,14 @@ public class AzureOpenAiLoremasterClientTests
             Arg.Any<CancellationToken>())
             .ThrowsAsync(clientException);
 
-        var ex = Assert.ThrowsAsync<AiLoremasterServiceException>(
+        var ex = Assert.ThrowsAsync<AiHttpException>(
             async () => await _client.AskAsync(DefaultRequest, CancellationToken.None));
 
-        Assert.That(ex!.HttpStatus, Is.EqualTo(500));
-        Assert.That(ex.DurationMs, Is.GreaterThanOrEqualTo(0));
+        Assert.That(ex!.StatusCode, Is.EqualTo(500));
     }
 
     [Test]
-    public void AskAsync_503Response_ThrowsAiLoremasterServiceException()
+    public void AskAsync_503Response_ThrowsAiHttpException()
     {
         var mockResponse = Substitute.For<PipelineResponse>();
         mockResponse.Status.Returns(503);
@@ -222,14 +219,14 @@ public class AzureOpenAiLoremasterClientTests
             Arg.Any<CancellationToken>())
             .ThrowsAsync(clientException);
 
-        var ex = Assert.ThrowsAsync<AiLoremasterServiceException>(
+        var ex = Assert.ThrowsAsync<AiHttpException>(
             async () => await _client.AskAsync(DefaultRequest, CancellationToken.None));
 
-        Assert.That(ex!.HttpStatus, Is.EqualTo(503));
+        Assert.That(ex!.StatusCode, Is.EqualTo(503));
     }
 
     [Test]
-    public void AskAsync_NonServerClientResultException_ThrowsAiLoremasterServiceException()
+    public void AskAsync_NonServerClientResultException_ThrowsAiHttpException()
     {
         var mockResponse = Substitute.For<PipelineResponse>();
         mockResponse.Status.Returns(400);
@@ -241,14 +238,14 @@ public class AzureOpenAiLoremasterClientTests
             Arg.Any<CancellationToken>())
             .ThrowsAsync(clientException);
 
-        var ex = Assert.ThrowsAsync<AiLoremasterServiceException>(
+        var ex = Assert.ThrowsAsync<AiHttpException>(
             async () => await _client.AskAsync(DefaultRequest, CancellationToken.None));
 
-        Assert.That(ex!.HttpStatus, Is.EqualTo(400));
+        Assert.That(ex!.StatusCode, Is.EqualTo(400));
     }
 
     [Test]
-    public void AskAsync_UnexpectedException_ThrowsAiLoremasterServiceException()
+    public void AskAsync_UnexpectedException_ThrowsAiHttpException()
     {
         _mockChatClient.CompleteChatAsync(
             Arg.Any<IEnumerable<ChatMessage>>(),
@@ -256,10 +253,10 @@ public class AzureOpenAiLoremasterClientTests
             Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("Something unexpected"));
 
-        var ex = Assert.ThrowsAsync<AiLoremasterServiceException>(
+        var ex = Assert.ThrowsAsync<AiHttpException>(
             async () => await _client.AskAsync(DefaultRequest, CancellationToken.None));
 
-        Assert.That(ex!.HttpStatus, Is.EqualTo(500));
+        Assert.That(ex!.StatusCode, Is.Null);
         Assert.That(ex.Message, Does.Contain("Unexpected error"));
     }
 

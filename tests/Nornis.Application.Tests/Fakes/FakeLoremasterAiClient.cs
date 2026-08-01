@@ -94,7 +94,7 @@ public class FakeLoremasterAiClient : ILoremasterAiClient
 
     /// <summary>
     /// Configures the fake to simulate a rate limit (429) response
-    /// (throws <see cref="HttpRequestException"/> with status 429).
+    /// (throws <see cref="AiHttpException"/> with status 429).
     /// </summary>
     public void SetupRateLimited()
     {
@@ -105,7 +105,7 @@ public class FakeLoremasterAiClient : ILoremasterAiClient
 
     /// <summary>
     /// Configures the fake to simulate a service error (5xx) response
-    /// (throws <see cref="HttpRequestException"/> with status 503).
+    /// (throws <see cref="AiHttpException"/> with status 503).
     /// </summary>
     public void SetupServiceError()
     {
@@ -133,16 +133,10 @@ public class FakeLoremasterAiClient : ILoremasterAiClient
                     "The AI request timed out after the configured timeout period.");
 
             case FailureMode.RateLimited:
-                throw new HttpRequestException(
-                    "AI service rate limited: HTTP 429",
-                    inner: null,
-                    statusCode: HttpStatusCode.TooManyRequests);
+                throw new AiHttpException("AI service rate limited: HTTP 429", 429);
 
             case FailureMode.ServiceError:
-                throw new HttpRequestException(
-                    "AI service unavailable: HTTP 503",
-                    inner: null,
-                    statusCode: HttpStatusCode.ServiceUnavailable);
+                throw new AiHttpException("AI service unavailable: HTTP 503", 503);
         }
 
         // Return configured response or default

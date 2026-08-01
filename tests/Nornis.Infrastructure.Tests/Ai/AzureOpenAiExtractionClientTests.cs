@@ -201,7 +201,7 @@ public class AzureOpenAiExtractionClientTests
 
         SetupMockToReturn(responseJson);
 
-        Assert.ThrowsAsync<AiExtractionParseException>(
+        Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
     }
 
@@ -224,7 +224,7 @@ public class AzureOpenAiExtractionClientTests
 
         SetupMockToReturn(responseJson);
 
-        Assert.ThrowsAsync<AiExtractionParseException>(
+        Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
     }
 
@@ -247,7 +247,7 @@ public class AzureOpenAiExtractionClientTests
 
         SetupMockToReturn(responseJson);
 
-        Assert.ThrowsAsync<AiExtractionParseException>(
+        Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
     }
 
@@ -270,7 +270,7 @@ public class AzureOpenAiExtractionClientTests
 
         SetupMockToReturn(responseJson);
 
-        Assert.ThrowsAsync<AiExtractionParseException>(
+        Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
     }
 
@@ -293,7 +293,7 @@ public class AzureOpenAiExtractionClientTests
 
         SetupMockToReturn(responseJson);
 
-        Assert.ThrowsAsync<AiExtractionParseException>(
+        Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
     }
 
@@ -317,7 +317,7 @@ public class AzureOpenAiExtractionClientTests
 
         SetupMockToReturn(responseJson);
 
-        Assert.ThrowsAsync<AiExtractionParseException>(
+        Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
     }
 
@@ -341,7 +341,7 @@ public class AzureOpenAiExtractionClientTests
 
         SetupMockToReturn(responseJson);
 
-        Assert.ThrowsAsync<AiExtractionParseException>(
+        Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
     }
 
@@ -366,7 +366,7 @@ public class AzureOpenAiExtractionClientTests
 
         SetupMockToReturn(responseJson);
 
-        Assert.ThrowsAsync<AiExtractionParseException>(
+        Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
     }
 
@@ -390,7 +390,7 @@ public class AzureOpenAiExtractionClientTests
 
         SetupMockToReturn(responseJson);
 
-        Assert.ThrowsAsync<AiExtractionParseException>(
+        Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
     }
 
@@ -414,7 +414,7 @@ public class AzureOpenAiExtractionClientTests
 
         SetupMockToReturn(responseJson);
 
-        Assert.ThrowsAsync<AiExtractionParseException>(
+        Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
     }
 
@@ -455,7 +455,7 @@ public class AzureOpenAiExtractionClientTests
     #region Error Handling Tests
 
     [Test]
-    public void ExtractAsync_Timeout_ThrowsAiExtractionTimeoutException()
+    public void ExtractAsync_Timeout_ThrowsAiTimeoutException()
     {
         // Configure a very short timeout
         var shortTimeoutOptions = Options.Create(new ExtractionOptions
@@ -483,12 +483,12 @@ public class AzureOpenAiExtractionClientTests
                 throw new InvalidOperationException("Should not reach here");
             });
 
-        Assert.ThrowsAsync<AiExtractionTimeoutException>(
+        Assert.ThrowsAsync<AiTimeoutException>(
             async () => await client.ExtractAsync(DefaultRequest, CancellationToken.None));
     }
 
     [Test]
-    public void ExtractAsync_429Response_ThrowsHttpRequestException()
+    public void ExtractAsync_429Response_ThrowsAiHttpException()
     {
         var exception = new ClientResultException(
             "Too Many Requests",
@@ -505,14 +505,14 @@ public class AzureOpenAiExtractionClientTests
             Arg.Any<CancellationToken>())
             .ThrowsAsync(clientException);
 
-        var ex = Assert.ThrowsAsync<HttpRequestException>(
+        var ex = Assert.ThrowsAsync<AiHttpException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
 
-        Assert.That(ex!.StatusCode, Is.EqualTo(HttpStatusCode.TooManyRequests));
+        Assert.That(ex!.StatusCode, Is.EqualTo(429));
     }
 
     [Test]
-    public void ExtractAsync_503Response_ThrowsHttpRequestException()
+    public void ExtractAsync_503Response_ThrowsAiHttpException()
     {
         var mockResponse = Substitute.For<PipelineResponse>();
         mockResponse.Status.Returns(503);
@@ -524,14 +524,14 @@ public class AzureOpenAiExtractionClientTests
             Arg.Any<CancellationToken>())
             .ThrowsAsync(clientException);
 
-        var ex = Assert.ThrowsAsync<HttpRequestException>(
+        var ex = Assert.ThrowsAsync<AiHttpException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
 
-        Assert.That(ex!.StatusCode, Is.EqualTo(HttpStatusCode.ServiceUnavailable));
+        Assert.That(ex!.StatusCode, Is.EqualTo(503));
     }
 
     [Test]
-    public void ExtractAsync_NetworkException_ThrowsHttpRequestException()
+    public void ExtractAsync_NetworkException_ThrowsAiHttpException()
     {
         _mockChatClient.CompleteChatAsync(
             Arg.Any<IEnumerable<ChatMessage>>(),
@@ -539,7 +539,7 @@ public class AzureOpenAiExtractionClientTests
             Arg.Any<CancellationToken>())
             .ThrowsAsync(new HttpRequestException("Network error"));
 
-        Assert.ThrowsAsync<HttpRequestException>(
+        Assert.ThrowsAsync<AiHttpException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
     }
 

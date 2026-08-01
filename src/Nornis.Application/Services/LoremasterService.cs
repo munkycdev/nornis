@@ -203,41 +203,24 @@ public partial class LoremasterService : ILoremasterService
             return AppResult<LoremasterAnswer>.Fail(
                 new AppError(503, "service_unavailable", "The Loremaster is temporarily unavailable. Please try again."));
         }
-        catch (HttpRequestException ex) when (IsRateLimitException(ex))
+        catch (AiTimeoutException)
         {
-            // Rate limit (429)
-            stopwatch.Stop();
-            await TrackUsageAsync(command, aiResponse, stopwatch.Elapsed, false, "RateLimited", ct);
-            return AppResult<LoremasterAnswer>.Fail(
-                new AppError(429, "rate_limited", "Too many requests. Please try again in a moment."));
-        }
-        catch (HttpRequestException)
-        {
-            // Service error
-            stopwatch.Stop();
-            await TrackUsageAsync(command, aiResponse, stopwatch.Elapsed, false, "ServiceError", ct);
-            return AppResult<LoremasterAnswer>.Fail(
-                new AppError(503, "service_unavailable", "The Loremaster is temporarily unavailable. Please try again."));
-        }
-        catch (Exception ex) when (IsRateLimitByTypeName(ex))
-        {
-            // Rate limit from typed Infrastructure exception
-            stopwatch.Stop();
-            await TrackUsageAsync(command, aiResponse, stopwatch.Elapsed, false, "RateLimited", ct);
-            return AppResult<LoremasterAnswer>.Fail(
-                new AppError(429, "rate_limited", "Too many requests. Please try again in a moment."));
-        }
-        catch (Exception ex) when (IsTimeoutByTypeName(ex))
-        {
-            // Timeout from typed Infrastructure exception
             stopwatch.Stop();
             await TrackUsageAsync(command, aiResponse, stopwatch.Elapsed, false, "Timeout", ct);
             return AppResult<LoremasterAnswer>.Fail(
                 new AppError(503, "service_unavailable", "The Loremaster is temporarily unavailable. Please try again."));
         }
+        catch (AiHttpException ex) when (ex.StatusCode == 429)
+        {
+            stopwatch.Stop();
+            await TrackUsageAsync(command, aiResponse, stopwatch.Elapsed, false, "RateLimited", ct);
+            return AppResult<LoremasterAnswer>.Fail(
+                new AppError(429, "rate_limited", "Too many requests. Please try again in a moment."));
+        }
         catch (Exception)
         {
-            // Unexpected AI error or service exception
+            // Anything else in the taxonomy — HTTP failure, parse failure, or the
+            // unexpected — reads the same to the asker: temporarily unavailable.
             stopwatch.Stop();
             await TrackUsageAsync(command, aiResponse, stopwatch.Elapsed, false, "ServiceError", ct);
             return AppResult<LoremasterAnswer>.Fail(
@@ -352,17 +335,6 @@ public partial class LoremasterService : ILoremasterService
             command.WorldId, command.UserId, AiOperationType.AskLoremaster, usage,
             succeeded, errorCode, ct: ct);
     }
-
-    private static bool IsRateLimitException(HttpRequestException ex) =>
-        ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests ||
-        ex.Message.Contains("429", StringComparison.Ordinal) ||
-        ex.Message.Contains("rate limit", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsRateLimitByTypeName(Exception ex) =>
-        ex.GetType().Name.Contains("RateLimit", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsTimeoutByTypeName(Exception ex) =>
-        ex.GetType().Name.Contains("Timeout", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Builds the AI request prompt from the question, knowledge context, and optional

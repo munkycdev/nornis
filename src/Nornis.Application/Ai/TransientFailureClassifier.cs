@@ -37,16 +37,18 @@ public static class TransientFailureClassifier
     /// </remarks>
     public static bool IsTransient(Exception ex) => ex switch
     {
+        AiHttpException { StatusCode: { } aiStatus } => IsTransientStatus(aiStatus),
         HttpRequestException { StatusCode: { } status } => IsTransientStatus((int)status),
 
         // A timeout says nothing about the request's validity — the service may simply have been
-        // busy. (Extraction catches AiExtractionTimeoutException explicitly, before reaching
+        // busy. (Extraction catches AiTimeoutException explicitly, before reaching
         // here, and already treated it as transient — so this arm changes nothing for that path.
         // It matters for library indexing, whose own matcher was the only one that handled
         // TimeoutException, and it keeps the two from disagreeing again.)
-        TimeoutException or AiExtractionTimeoutException => true,
+        TimeoutException or AiTimeoutException => true,
 
         // A socket or DNS failure with no status is an infrastructure problem, not a bad request.
+        AiHttpException => true,
         HttpRequestException => true,
 
         // Cancellation is the caller's decision, never a service failure.
@@ -61,6 +63,7 @@ public static class TransientFailureClassifier
     /// </summary>
     public static bool IsPermanentHttpFailure(Exception ex) => ex switch
     {
+        AiHttpException { StatusCode: { } aiStatus } => IsPermanentStatus(aiStatus),
         HttpRequestException { StatusCode: { } status } => IsPermanentStatus((int)status),
         _ => false,
     };

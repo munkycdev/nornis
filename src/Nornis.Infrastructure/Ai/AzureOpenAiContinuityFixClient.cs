@@ -27,77 +27,22 @@ public class AzureOpenAiContinuityFixClient : IContinuityFixAiClient
 
     public async Task<ContinuityFixAiResponse> DraftAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var stopwatch = Stopwatch.StartNew();
-
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(request.TimeoutSeconds));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
-
-        try
+        var completionOptions = new ChatCompletionOptions
         {
-            var messages = new List<ChatMessage>
-            {
-                new SystemChatMessage(request.SystemPrompt),
-                new UserChatMessage(request.UserMessage)
-            };
+            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
+                jsonSchemaFormatName: "continuity_fix_proposals",
+                jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
+                jsonSchemaIsStrict: true)
+        };
 
-            var completionOptions = new ChatCompletionOptions
-            {
-                ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                    jsonSchemaFormatName: "continuity_fix_proposals",
-                    jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
-                    jsonSchemaIsStrict: true)
-            };
+        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
+            _chatClient, request, completionOptions, "Continuity fix", _logger, ct);
 
-            var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);
-
-            stopwatch.Stop();
-
-            var chatCompletion = response.Value;
-            var content = chatCompletion.Content[0].Text;
-            var proposals = ParseProposals(content);
-            var usage = chatCompletion.Usage;
-
-            return new ContinuityFixAiResponse
-            {
-                Proposals = proposals,
-                Usage = new AiUsage
-                {
-                    InputTokens = usage.InputTokenCount,
-                    OutputTokens = usage.OutputTokenCount,
-                    TotalTokens = usage.TotalTokenCount,
-                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                    Model = request.Model
-                }
-            };
-        }
-        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+        return new ContinuityFixAiResponse
         {
-            stopwatch.Stop();
-            _logger.LogWarning("Continuity fix AI call timed out after {TimeoutSeconds}s", request.TimeoutSeconds);
-            throw new TimeoutException($"Continuity fix AI call timed out after {request.TimeoutSeconds} seconds.");
-        }
-        catch (ClientResultException ex)
-        {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Continuity fix AI call failed with status {Status}", ex.Status);
-            throw new HttpRequestException($"Continuity fix AI call failed: HTTP {ex.Status}", ex, (HttpStatusCode)ex.Status);
-        }
-        catch (OperationCanceledException)
-        {
-            stopwatch.Stop();
-            throw;
-        }
-        catch (HttpRequestException)
-        {
-            stopwatch.Stop();
-            throw;
-        }
-        catch (Exception ex)
-        {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Unexpected error during continuity fix AI call");
-            throw new HttpRequestException("Unexpected error during continuity fix AI call.", ex);
-        }
+            Proposals = ParseProposals(content),
+            Usage = usage
+        };
     }
 
     internal static string GetStructuredOutputSchema()

@@ -374,7 +374,7 @@ public class ExtractionServiceTests
     {
         var source = CreateQueuedSource();
         _sourceRepository.Seed(source);
-        _aiClient.EnqueueThrow(new AiExtractionParseException("AI response was null or empty."));
+        _aiClient.EnqueueThrow(new AiParseException("AI response was null or empty."));
         _aiClient.EnqueueSuccess(CreateValidResponse());
 
         var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
@@ -392,9 +392,9 @@ public class ExtractionServiceTests
         var source = CreateQueuedSource();
         _sourceRepository.Seed(source);
         // 1 initial + MaxParseRetryAttempts (2) = 3 attempts
-        _aiClient.EnqueueThrow(new AiExtractionParseException("Proposal at index 0 has invalid targetId 'not-a-uuid' (expected UUID or null)."));
-        _aiClient.EnqueueThrow(new AiExtractionParseException("Proposal at index 0 has invalid targetId 'not-a-uuid' (expected UUID or null)."));
-        _aiClient.EnqueueThrow(new AiExtractionParseException("Proposal at index 0 has invalid targetId 'not-a-uuid' (expected UUID or null)."));
+        _aiClient.EnqueueThrow(new AiParseException("Proposal at index 0 has invalid targetId 'not-a-uuid' (expected UUID or null)."));
+        _aiClient.EnqueueThrow(new AiParseException("Proposal at index 0 has invalid targetId 'not-a-uuid' (expected UUID or null)."));
+        _aiClient.EnqueueThrow(new AiParseException("Proposal at index 0 has invalid targetId 'not-a-uuid' (expected UUID or null)."));
 
         var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
@@ -411,7 +411,7 @@ public class ExtractionServiceTests
     {
         var source = CreateQueuedSource();
         _sourceRepository.Seed(source);
-        _aiClient.EnqueueThrow(new AiExtractionTimeoutException("AI extraction timed out after 60 seconds.", 60000));
+        _aiClient.EnqueueThrow(new AiTimeoutException("AI extraction timed out after 60 seconds."));
 
         var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 

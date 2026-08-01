@@ -42,7 +42,7 @@ public class TransientFailureClassifierTests
         {
             Assert.That(TransientFailureClassifier.IsTransient(new TimeoutException()), Is.True);
             Assert.That(
-                TransientFailureClassifier.IsTransient(new AiExtractionTimeoutException("timed out", 30_000)),
+                TransientFailureClassifier.IsTransient(new AiTimeoutException("timed out")),
                 Is.True);
         });
     }

@@ -36,92 +36,67 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
 
     public async Task<MapExtractionResponse> ExtractAsync(MapExtractionRequest request, CancellationToken ct)
     {
+        // The stopwatch spans refinement too — DurationMs reports the whole map read,
+        // not just the first pass, exactly as the usage aggregation below sums tokens.
         var stopwatch = Stopwatch.StartNew();
 
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(request.TimeoutSeconds));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
-
-        try
+        var parts = new List<ChatMessageContentPart>
         {
-            var parts = new List<ChatMessageContentPart>
+            ChatMessageContentPart.CreateTextPart(BuildUserContext(request)),
+            ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(request.ImageBytes), request.MediaType)
+        };
+
+        var messages = new List<ChatMessage>
+        {
+            new SystemChatMessage(BuildSystemPrompt()),
+            new UserChatMessage(parts)
+        };
+
+        var completionOptions = new ChatCompletionOptions
+        {
+            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
+                jsonSchemaFormatName: "map_places",
+                jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
+                // Unlike text extraction there is no open proposedValue object here,
+                // so the schema is strict-mode compliant.
+                jsonSchemaIsStrict: true)
+        };
+
+        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
+            _chatClient, messages, completionOptions, request.Model, request.TimeoutSeconds,
+            "Map extraction", _logger, ct);
+
+        var places = ParsePlaces(content);
+        var inputTokens = usage.InputTokens;
+        var outputTokens = usage.OutputTokens;
+        var totalTokens = usage.TotalTokens;
+
+        // Whole-map positions land within a few percent of the truth — good enough to
+        // find each place, too sloppy to pin it. The refinement pass re-reads positions
+        // per cropped tile, where places are large in frame. Best-effort: any tile that
+        // fails keeps its first-pass positions.
+        if (request.RefinePositions && places.Count > 0)
+        {
+            var refined = await RefinePlacesAsync(request, places, ct);
+            places = refined.Places;
+            inputTokens += refined.InputTokens;
+            outputTokens += refined.OutputTokens;
+            totalTokens += refined.TotalTokens;
+        }
+
+        stopwatch.Stop();
+
+        return new MapExtractionResponse
+        {
+            Places = places,
+            Usage = usage with
             {
-                ChatMessageContentPart.CreateTextPart(BuildUserContext(request)),
-                ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(request.ImageBytes), request.MediaType)
-            };
-
-            var messages = new List<ChatMessage>
-            {
-                new SystemChatMessage(BuildSystemPrompt()),
-                new UserChatMessage(parts)
-            };
-
-            var completionOptions = new ChatCompletionOptions
-            {
-                ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                    jsonSchemaFormatName: "map_places",
-                    jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
-                    // Unlike text extraction there is no open proposedValue object here,
-                    // so the schema is strict-mode compliant.
-                    jsonSchemaIsStrict: true)
-            };
-
-            var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);
-
-            var chatCompletion = response.Value;
-            var content = chatCompletion.Content.Count > 0 ? chatCompletion.Content[0].Text : string.Empty;
-            var places = ParsePlaces(content);
-            var usage = chatCompletion.Usage;
-            var inputTokens = usage.InputTokenCount;
-            var outputTokens = usage.OutputTokenCount;
-            var totalTokens = usage.TotalTokenCount;
-
-            // Whole-map positions land within a few percent of the truth — good enough to
-            // find each place, too sloppy to pin it. The refinement pass re-reads positions
-            // per cropped tile, where places are large in frame. Best-effort: any tile that
-            // fails keeps its first-pass positions.
-            if (request.RefinePositions && places.Count > 0)
-            {
-                var refined = await RefinePlacesAsync(request, places, ct);
-                places = refined.Places;
-                inputTokens += refined.InputTokens;
-                outputTokens += refined.OutputTokens;
-                totalTokens += refined.TotalTokens;
+                InputTokens = inputTokens,
+                OutputTokens = outputTokens,
+                TotalTokens = totalTokens,
+                DurationMs = (int)stopwatch.ElapsedMilliseconds,
             }
-
-            stopwatch.Stop();
-
-            return new MapExtractionResponse
-            {
-                Places = places,
-                Usage = new AiUsage
-                {
-                    InputTokens = inputTokens,
-                    OutputTokens = outputTokens,
-                    TotalTokens = totalTokens,
-                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                    Model = request.Model
-                }
-            };
-        }
-        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
-        {
-            stopwatch.Stop();
-            _logger.LogWarning("Map extraction timed out after {TimeoutSeconds}s", request.TimeoutSeconds);
-            throw new AiExtractionTimeoutException(
-                $"Map extraction timed out after {request.TimeoutSeconds} seconds.",
-                (int)stopwatch.ElapsedMilliseconds);
-        }
-        catch (ClientResultException ex)
-        {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Map extraction failed with status {Status}", ex.Status);
-            throw new HttpRequestException($"Map extraction failed: HTTP {ex.Status}", ex, (HttpStatusCode)ex.Status);
-        }
-        catch (OperationCanceledException)
-        {
-            stopwatch.Stop();
-            throw;
-        }
+        };
     }
 
     private sealed record RefinementResult(
@@ -256,7 +231,7 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
         }
         catch (JsonException ex)
         {
-            throw new AiExtractionParseException("Map refinement returned malformed JSON.", ex);
+            throw new AiParseException("Map refinement returned malformed JSON.", ex);
         }
 
         var positions = new List<(int, (decimal, decimal))>();
@@ -373,12 +348,12 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
         catch (JsonException ex)
         {
             _logger.LogError(ex, "Failed to parse map extraction structured output");
-            throw new AiExtractionParseException("Map extraction returned malformed JSON.", ex);
+            throw new AiParseException("Map extraction returned malformed JSON.", ex);
         }
 
         if (document?.Places is null)
         {
-            throw new AiExtractionParseException("Map extraction response is missing the places array.");
+            throw new AiParseException("Map extraction response is missing the places array.");
         }
 
         var places = new List<MapPlace>(document.Places.Count);

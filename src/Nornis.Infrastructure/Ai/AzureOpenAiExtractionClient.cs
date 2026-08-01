@@ -58,106 +58,38 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
 
     public async Task<AiExtractionResponse> ExtractAsync(ExtractionRequest request, CancellationToken ct)
     {
-        var stopwatch = Stopwatch.StartNew();
+        var messages = BuildMessages(request);
+        var completionOptions = BuildCompletionOptions();
 
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_options.AiTimeoutSeconds));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
-
+        (string Content, AiUsage Usage) result;
         try
         {
-            var messages = BuildMessages(request);
-            var completionOptions = BuildCompletionOptions();
-
-            var response = await _chatClient.CompleteChatAsync(
-                messages,
-                completionOptions,
-                linkedCts.Token);
-
-            stopwatch.Stop();
-
-            var chatCompletion = response.Value;
-            var content = chatCompletion.Content[0].Text;
-
-            var proposals = ParseAndValidateResponse(content);
-            var usage = chatCompletion.Usage;
-
-            return new AiExtractionResponse
-            {
-                Proposals = proposals,
-                Usage = new AiUsage
-                {
-                    InputTokens = usage.InputTokenCount,
-                    // How much of the input the service served from its prompt cache. Extraction is
-                    // ~88% of all AI spend and its prompt carries a large, world-stable artifact
-                    // catalog, so this is the number that says whether prompt-cache work is paying
-                    // off. Without it, reordering the prompt for cache-friendliness is unmeasurable.
-                    CachedInputTokens = usage.InputTokenDetails?.CachedTokenCount,
-                    OutputTokens = usage.OutputTokenCount,
-                    TotalTokens = usage.TotalTokenCount,
-                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                    Model = _options.AiModel
-                }
-            };
+            result = await AzureOpenAiCallExecutor.ExecuteAsync(
+                _chatClient, messages, completionOptions, _options.AiModel, _options.AiTimeoutSeconds,
+                "AI extraction", _logger, ct);
         }
-        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+        catch (AiHttpException ex) when (ex.InnerException is ClientResultException raw)
         {
-            stopwatch.Stop();
-            _logger.LogWarning("AI extraction call timed out after {TimeoutSeconds}s", _options.AiTimeoutSeconds);
-            throw new AiExtractionTimeoutException(
-                $"AI extraction timed out after {_options.AiTimeoutSeconds} seconds.",
-                (int)stopwatch.ElapsedMilliseconds);
-        }
-        catch (ClientResultException ex) when (IsTransientStatusCode(ex))
-        {
-            stopwatch.Stop();
-            _logger.LogWarning(ex, "Transient AI service error (status {Status})", ex.Status);
-            throw new HttpRequestException(
-                $"Transient AI service error: HTTP {ex.Status}",
-                ex,
-                (HttpStatusCode)ex.Status);
-        }
-        catch (ClientResultException ex)
-        {
-            stopwatch.Stop();
             // The response body names the exact failure — for content_filter 400s it carries
             // per-category verdicts (violence/hate/sexual/self-harm severity, jailbreak) that
             // the exception message omits. Log it or the failure is undiagnosable.
             _logger.LogError(ex, "AI call failed with status {Status}. Response body: {ResponseBody}",
-                ex.Status, GetRawResponseBody(ex));
-            throw new HttpRequestException(
-                $"AI call failed: HTTP {ex.Status}",
-                ex,
-                (HttpStatusCode)ex.Status);
-        }
-        catch (HttpRequestException)
-        {
-            stopwatch.Stop();
+                raw.Status, GetRawResponseBody(raw));
             throw;
+        }
+
+        try
+        {
+            return new AiExtractionResponse
+            {
+                Proposals = ParseAndValidateResponse(result.Content),
+                Usage = result.Usage
+            };
         }
         catch (JsonException ex)
         {
-            stopwatch.Stop();
             _logger.LogError(ex, "Failed to parse AI structured output response");
-            throw new AiExtractionParseException("Failed to parse AI structured output response.", ex);
-        }
-        catch (AiExtractionParseException)
-        {
-            stopwatch.Stop();
-            throw;
-        }
-        catch (AiExtractionTimeoutException)
-        {
-            throw;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Unexpected error during AI extraction");
-            throw new HttpRequestException("Unexpected error during AI extraction.", ex);
+            throw new AiParseException("Failed to parse AI structured output response.", ex);
         }
     }
 
@@ -509,14 +441,14 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
     private IReadOnlyList<ExtractionProposal> ParseAndValidateResponse(string content)
     {
         var document = JsonNode.Parse(content)
-            ?? throw new AiExtractionParseException("AI response was null or empty.");
+            ?? throw new AiParseException("AI response was null or empty.");
 
         var proposalsNode = document["proposals"]
-            ?? throw new AiExtractionParseException("AI response missing required 'proposals' field.");
+            ?? throw new AiParseException("AI response missing required 'proposals' field.");
 
         if (proposalsNode is not JsonArray proposalsArray)
         {
-            throw new AiExtractionParseException("AI response 'proposals' field is not an array.");
+            throw new AiParseException("AI response 'proposals' field is not an array.");
         }
 
         // Rich sources can legitimately overrun the 50-proposal cap the prompt asks for.
@@ -544,7 +476,7 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
         for (var i = 0; i < proposalsArray.Count; i++)
         {
             var proposalNode = proposalsArray[i]
-                ?? throw new AiExtractionParseException($"Proposal at index {i} is null.");
+                ?? throw new AiParseException($"Proposal at index {i} is null.");
 
             proposals.Add(ParseProposal(proposalNode, i));
         }
@@ -560,40 +492,40 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
 
         if (!ValidChangeTypes.Contains(changeType))
         {
-            throw new AiExtractionParseException(
+            throw new AiParseException(
                 $"Proposal at index {index} has invalid changeType '{changeType}'.");
         }
 
         if (!ValidTargetTypes.Contains(targetType))
         {
-            throw new AiExtractionParseException(
+            throw new AiParseException(
                 $"Proposal at index {index} has invalid targetType '{targetType}'.");
         }
 
         if (rationale.Length == 0)
         {
-            throw new AiExtractionParseException(
+            throw new AiParseException(
                 $"Proposal at index {index} has empty rationale.");
         }
 
         if (rationale.Length > 500)
         {
-            throw new AiExtractionParseException(
+            throw new AiParseException(
                 $"Proposal at index {index} has rationale exceeding 500 characters ({rationale.Length}).");
         }
 
         var confidenceNode = node["confidence"]
-            ?? throw new AiExtractionParseException($"Proposal at index {index} missing required 'confidence' field.");
+            ?? throw new AiParseException($"Proposal at index {index} missing required 'confidence' field.");
 
         var confidence = confidenceNode.GetValue<decimal>();
         if (confidence < 0.0m || confidence > 1.0m)
         {
-            throw new AiExtractionParseException(
+            throw new AiParseException(
                 $"Proposal at index {index} has confidence {confidence} outside valid range 0.0-1.0.");
         }
 
         var proposedValueNode = node["proposedValue"]
-            ?? throw new AiExtractionParseException($"Proposal at index {index} missing required 'proposedValue' field.");
+            ?? throw new AiParseException($"Proposal at index {index} missing required 'proposedValue' field.");
 
         string? quote = null;
         var quoteNode = node["quote"];
@@ -621,14 +553,14 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             }
             else
             {
-                throw new AiExtractionParseException(
+                throw new AiParseException(
                     $"Proposal at index {index} has invalid targetId '{targetIdStr}' (expected UUID or null).");
             }
         }
 
         // Deserialize proposedValue as a dynamic object for flexibility
         var proposedValue = JsonSerializer.Deserialize<object>(proposedValueNode.ToJsonString(), JsonOptions)
-            ?? throw new AiExtractionParseException($"Proposal at index {index} has null proposedValue after deserialization.");
+            ?? throw new AiParseException($"Proposal at index {index} has null proposedValue after deserialization.");
 
         return new ExtractionProposal
         {
@@ -645,22 +577,16 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
     private static string GetRequiredString(JsonNode node, string fieldName, int proposalIndex)
     {
         var fieldNode = node[fieldName]
-            ?? throw new AiExtractionParseException(
+            ?? throw new AiParseException(
                 $"Proposal at index {proposalIndex} missing required '{fieldName}' field.");
 
         if (fieldNode.GetValueKind() != JsonValueKind.String)
         {
-            throw new AiExtractionParseException(
+            throw new AiParseException(
                 $"Proposal at index {proposalIndex} has non-string '{fieldName}' field.");
         }
 
         return fieldNode.GetValue<string>();
-    }
-
-    private static bool IsTransientStatusCode(ClientResultException ex)
-    {
-        return ex.Status == (int)HttpStatusCode.TooManyRequests ||
-               ex.Status == (int)HttpStatusCode.ServiceUnavailable;
     }
 
     private static string GetRawResponseBody(ClientResultException ex)

@@ -177,7 +177,7 @@ public class AzureOpenAiMapExtractionClientTests
     {
         SetupResponses("not json");
 
-        Assert.ThrowsAsync<AiExtractionParseException>(
+        Assert.ThrowsAsync<AiParseException>(
             () => _client.ExtractAsync(Request(refine: true), CancellationToken.None));
     }
 }

@@ -27,77 +27,22 @@ public class AzureOpenAiAuditClient : IAuditAiClient
 
     public async Task<AuditAiResponse> AssessAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var stopwatch = Stopwatch.StartNew();
-
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(request.TimeoutSeconds));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
-
-        try
+        var completionOptions = new ChatCompletionOptions
         {
-            var messages = new List<ChatMessage>
-            {
-                new SystemChatMessage(request.SystemPrompt),
-                new UserChatMessage(request.UserMessage)
-            };
+            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
+                jsonSchemaFormatName: "continuity_findings",
+                jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
+                jsonSchemaIsStrict: true)
+        };
 
-            var completionOptions = new ChatCompletionOptions
-            {
-                ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                    jsonSchemaFormatName: "continuity_findings",
-                    jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
-                    jsonSchemaIsStrict: true)
-            };
+        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
+            _chatClient, request, completionOptions, "Continuity audit", _logger, ct);
 
-            var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);
-
-            stopwatch.Stop();
-
-            var chatCompletion = response.Value;
-            var content = chatCompletion.Content[0].Text;
-            var findings = ParseFindings(content);
-            var usage = chatCompletion.Usage;
-
-            return new AuditAiResponse
-            {
-                Findings = findings,
-                Usage = new AiUsage
-                {
-                    InputTokens = usage.InputTokenCount,
-                    OutputTokens = usage.OutputTokenCount,
-                    TotalTokens = usage.TotalTokenCount,
-                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                    Model = request.Model
-                }
-            };
-        }
-        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+        return new AuditAiResponse
         {
-            stopwatch.Stop();
-            _logger.LogWarning("Continuity audit AI call timed out after {TimeoutSeconds}s", request.TimeoutSeconds);
-            throw new TimeoutException($"Continuity audit AI call timed out after {request.TimeoutSeconds} seconds.");
-        }
-        catch (ClientResultException ex)
-        {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Continuity audit AI call failed with status {Status}", ex.Status);
-            throw new HttpRequestException($"Continuity audit AI call failed: HTTP {ex.Status}", ex, (HttpStatusCode)ex.Status);
-        }
-        catch (OperationCanceledException)
-        {
-            stopwatch.Stop();
-            throw;
-        }
-        catch (HttpRequestException)
-        {
-            stopwatch.Stop();
-            throw;
-        }
-        catch (Exception ex)
-        {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Unexpected error during continuity audit AI call");
-            throw new HttpRequestException("Unexpected error during continuity audit AI call.", ex);
-        }
+            Findings = ParseFindings(content),
+            Usage = usage
+        };
     }
 
     internal static string GetStructuredOutputSchema()
@@ -147,11 +92,11 @@ public class AzureOpenAiAuditClient : IAuditAiClient
     private static IReadOnlyList<AuditFinding> ParseFindings(string content)
     {
         var document = JsonNode.Parse(content)
-            ?? throw new HttpRequestException("Continuity audit AI response was null or empty.");
+            ?? throw new AiParseException("Continuity audit AI response was null or empty.");
 
         if (document["findings"] is not JsonArray findingsArray)
         {
-            throw new HttpRequestException("Continuity audit AI response missing 'findings' array.");
+            throw new AiParseException("Continuity audit AI response missing 'findings' array.");
         }
 
         var findings = new List<AuditFinding>(findingsArray.Count);

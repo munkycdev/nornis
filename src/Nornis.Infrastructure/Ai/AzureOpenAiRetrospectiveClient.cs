@@ -27,77 +27,22 @@ public class AzureOpenAiRetrospectiveClient : IRetrospectiveAiClient
 
     public async Task<RetrospectiveAiResponse> AssessAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var stopwatch = Stopwatch.StartNew();
-
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(request.TimeoutSeconds));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
-
-        try
+        var completionOptions = new ChatCompletionOptions
         {
-            var messages = new List<ChatMessage>
-            {
-                new SystemChatMessage(request.SystemPrompt),
-                new UserChatMessage(request.UserMessage)
-            };
+            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
+                jsonSchemaFormatName: "storyline_verdicts",
+                jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
+                jsonSchemaIsStrict: true)
+        };
 
-            var completionOptions = new ChatCompletionOptions
-            {
-                ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                    jsonSchemaFormatName: "storyline_verdicts",
-                    jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
-                    jsonSchemaIsStrict: true)
-            };
+        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
+            _chatClient, request, completionOptions, "Storyline retrospective", _logger, ct);
 
-            var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);
-
-            stopwatch.Stop();
-
-            var chatCompletion = response.Value;
-            var content = chatCompletion.Content[0].Text;
-            var verdicts = ParseVerdicts(content);
-            var usage = chatCompletion.Usage;
-
-            return new RetrospectiveAiResponse
-            {
-                Verdicts = verdicts,
-                Usage = new AiUsage
-                {
-                    InputTokens = usage.InputTokenCount,
-                    OutputTokens = usage.OutputTokenCount,
-                    TotalTokens = usage.TotalTokenCount,
-                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                    Model = request.Model
-                }
-            };
-        }
-        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+        return new RetrospectiveAiResponse
         {
-            stopwatch.Stop();
-            _logger.LogWarning("Storyline retrospective AI call timed out after {TimeoutSeconds}s", request.TimeoutSeconds);
-            throw new TimeoutException($"Storyline retrospective AI call timed out after {request.TimeoutSeconds} seconds.");
-        }
-        catch (ClientResultException ex)
-        {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Storyline retrospective AI call failed with status {Status}", ex.Status);
-            throw new HttpRequestException($"Storyline retrospective AI call failed: HTTP {ex.Status}", ex, (HttpStatusCode)ex.Status);
-        }
-        catch (OperationCanceledException)
-        {
-            stopwatch.Stop();
-            throw;
-        }
-        catch (HttpRequestException)
-        {
-            stopwatch.Stop();
-            throw;
-        }
-        catch (Exception ex)
-        {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Unexpected error during storyline retrospective AI call");
-            throw new HttpRequestException("Unexpected error during storyline retrospective AI call.", ex);
-        }
+            Verdicts = ParseVerdicts(content),
+            Usage = usage
+        };
     }
 
     internal static string GetStructuredOutputSchema()

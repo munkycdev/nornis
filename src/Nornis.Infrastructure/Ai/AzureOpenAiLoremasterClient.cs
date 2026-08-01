@@ -28,104 +28,15 @@ public class AzureOpenAiLoremasterClient : ILoremasterAiClient
 
     public async Task<LoremasterAiResponse> AskAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var stopwatch = Stopwatch.StartNew();
+        // No MaxOutputTokenCount — see AzureOpenAiExtractionClient: the current SDK serialises
+        // it as "max_tokens", which these deployments reject with HTTP 400.
+        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
+            _chatClient, request, new ChatCompletionOptions(), "Loremaster", _logger, ct);
 
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(request.TimeoutSeconds));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
-
-        try
+        return new LoremasterAiResponse
         {
-            var messages = new List<ChatMessage>
-            {
-                new SystemChatMessage(request.SystemPrompt),
-                new UserChatMessage(request.UserMessage)
-            };
-
-            // No MaxOutputTokenCount — see AzureOpenAiExtractionClient: the current SDK serialises
-            // it as "max_tokens", which these deployments reject with HTTP 400.
-            var response = await _chatClient.CompleteChatAsync(
-                messages,
-                cancellationToken: linkedCts.Token);
-
-            stopwatch.Stop();
-
-            var chatCompletion = response.Value;
-            var answerText = chatCompletion.Content[0].Text;
-            var usage = chatCompletion.Usage;
-
-            return new LoremasterAiResponse
-            {
-                AnswerText = answerText,
-                Usage = new AiUsage
-                {
-                    InputTokens = usage.InputTokenCount,
-                    OutputTokens = usage.OutputTokenCount,
-                    TotalTokens = usage.TotalTokenCount,
-                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                    Model = request.Model
-                }
-            };
-        }
-        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
-        {
-            stopwatch.Stop();
-            _logger.LogWarning(
-                "Loremaster AI call timed out after {TimeoutSeconds}s",
-                request.TimeoutSeconds);
-
-            throw new AiLoremasterTimeoutException(
-                $"Loremaster AI call timed out after {request.TimeoutSeconds} seconds.",
-                (int)stopwatch.ElapsedMilliseconds);
-        }
-        catch (ClientResultException ex) when (ex.Status == (int)HttpStatusCode.TooManyRequests)
-        {
-            stopwatch.Stop();
-            _logger.LogWarning(ex, "Loremaster AI rate limited (429)");
-
-            throw new AiLoremasterRateLimitException(
-                "AI service rate limited. Please try again later.",
-                (int)stopwatch.ElapsedMilliseconds,
-                ex);
-        }
-        catch (ClientResultException ex) when (IsServerError(ex.Status))
-        {
-            stopwatch.Stop();
-            _logger.LogWarning(ex, "Loremaster AI service error (status {Status})", ex.Status);
-
-            throw new AiLoremasterServiceException(
-                $"AI service error: HTTP {ex.Status}",
-                ex.Status,
-                (int)stopwatch.ElapsedMilliseconds,
-                ex);
-        }
-        catch (ClientResultException ex)
-        {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Loremaster AI call failed with status {Status}", ex.Status);
-
-            throw new AiLoremasterServiceException(
-                $"AI call failed: HTTP {ex.Status}",
-                ex.Status,
-                (int)stopwatch.ElapsedMilliseconds,
-                ex);
-        }
-        catch (OperationCanceledException)
-        {
-            stopwatch.Stop();
-            throw;
-        }
-        catch (Exception ex)
-        {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Unexpected error during Loremaster AI call");
-
-            throw new AiLoremasterServiceException(
-                "Unexpected error during Loremaster AI call.",
-                500,
-                (int)stopwatch.ElapsedMilliseconds,
-                ex);
-        }
+            AnswerText = content,
+            Usage = usage
+        };
     }
-
-    private static bool IsServerError(int statusCode) => statusCode >= 500 && statusCode < 600;
 }

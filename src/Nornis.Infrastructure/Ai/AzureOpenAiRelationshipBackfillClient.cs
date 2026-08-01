@@ -27,77 +27,22 @@ public class AzureOpenAiRelationshipBackfillClient : IRelationshipBackfillAiClie
 
     public async Task<RelationshipBackfillAiResponse> ProposeLinksAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var stopwatch = Stopwatch.StartNew();
-
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(request.TimeoutSeconds));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
-
-        try
+        var completionOptions = new ChatCompletionOptions
         {
-            var messages = new List<ChatMessage>
-            {
-                new SystemChatMessage(request.SystemPrompt),
-                new UserChatMessage(request.UserMessage)
-            };
+            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
+                jsonSchemaFormatName: "backfill_links",
+                jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
+                jsonSchemaIsStrict: true)
+        };
 
-            var completionOptions = new ChatCompletionOptions
-            {
-                ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                    jsonSchemaFormatName: "backfill_links",
-                    jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
-                    jsonSchemaIsStrict: true)
-            };
+        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
+            _chatClient, request, completionOptions, "Relationship backfill", _logger, ct);
 
-            var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);
-
-            stopwatch.Stop();
-
-            var chatCompletion = response.Value;
-            var content = chatCompletion.Content[0].Text;
-            var links = ParseLinks(content);
-            var usage = chatCompletion.Usage;
-
-            return new RelationshipBackfillAiResponse
-            {
-                Links = links,
-                Usage = new AiUsage
-                {
-                    InputTokens = usage.InputTokenCount,
-                    OutputTokens = usage.OutputTokenCount,
-                    TotalTokens = usage.TotalTokenCount,
-                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                    Model = request.Model
-                }
-            };
-        }
-        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+        return new RelationshipBackfillAiResponse
         {
-            stopwatch.Stop();
-            _logger.LogWarning("Relationship backfill AI call timed out after {TimeoutSeconds}s", request.TimeoutSeconds);
-            throw new TimeoutException($"Relationship backfill AI call timed out after {request.TimeoutSeconds} seconds.");
-        }
-        catch (ClientResultException ex)
-        {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Relationship backfill AI call failed with status {Status}", ex.Status);
-            throw new HttpRequestException($"Relationship backfill AI call failed: HTTP {ex.Status}", ex, (HttpStatusCode)ex.Status);
-        }
-        catch (OperationCanceledException)
-        {
-            stopwatch.Stop();
-            throw;
-        }
-        catch (HttpRequestException)
-        {
-            stopwatch.Stop();
-            throw;
-        }
-        catch (Exception ex)
-        {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Unexpected error during relationship backfill AI call");
-            throw new HttpRequestException("Unexpected error during relationship backfill AI call.", ex);
-        }
+            Links = ParseLinks(content),
+            Usage = usage
+        };
     }
 
     internal static string GetStructuredOutputSchema()

@@ -28,81 +28,33 @@ public class AzureOpenAiImageReadingClient : IImageReadingClient
 
     public async Task<ImageReadingResponse> ReadAsync(ImageReadingRequest request, CancellationToken ct)
     {
-        var stopwatch = Stopwatch.StartNew();
-
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(request.TimeoutSeconds));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
-
-        try
+        var fileNames = string.Join(", ", request.Images.Select(i => i.FileName));
+        var parts = new List<ChatMessageContentPart>
         {
-            var fileNames = string.Join(", ", request.Images.Select(i => i.FileName));
-            var parts = new List<ChatMessageContentPart>
-            {
-                ChatMessageContentPart.CreateTextPart(
-                    $"Read the following {request.Images.Count} image(s), in order: {fileNames}.")
-            };
-            foreach (var image in request.Images)
-            {
-                parts.Add(ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(image.ImageBytes), image.MediaType));
-            }
-
-            var messages = new List<ChatMessage>
-            {
-                new SystemChatMessage(BuildSystemPrompt()),
-                new UserChatMessage(parts)
-            };
-
-            // options: null — see AzureOpenAiExtractionClient. MaxOutputTokenCount serialises as
-            // "max_tokens", which these deployments reject with HTTP 400.
-            var response = await _chatClient.CompleteChatAsync(messages, options: null, linkedCts.Token);
-
-            stopwatch.Stop();
-
-            var chatCompletion = response.Value;
-            var markdown = chatCompletion.Content.Count > 0 ? chatCompletion.Content[0].Text : string.Empty;
-            var usage = chatCompletion.Usage;
-
-            return new ImageReadingResponse
-            {
-                Markdown = markdown,
-                Usage = new AiUsage
-                {
-                    InputTokens = usage.InputTokenCount,
-                    OutputTokens = usage.OutputTokenCount,
-                    TotalTokens = usage.TotalTokenCount,
-                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                    Model = request.Model
-                }
-            };
-        }
-        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+            ChatMessageContentPart.CreateTextPart(
+                $"Read the following {request.Images.Count} image(s), in order: {fileNames}.")
+        };
+        foreach (var image in request.Images)
         {
-            stopwatch.Stop();
-            _logger.LogWarning("Image reading timed out after {TimeoutSeconds}s", request.TimeoutSeconds);
-            throw new TimeoutException($"Image reading timed out after {request.TimeoutSeconds} seconds.");
+            parts.Add(ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(image.ImageBytes), image.MediaType));
         }
-        catch (ClientResultException ex)
+
+        var messages = new List<ChatMessage>
         {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Image reading failed with status {Status}", ex.Status);
-            throw new HttpRequestException($"Image reading failed: HTTP {ex.Status}", ex, (HttpStatusCode)ex.Status);
-        }
-        catch (OperationCanceledException)
+            new SystemChatMessage(BuildSystemPrompt()),
+            new UserChatMessage(parts)
+        };
+        // options: empty — see AzureOpenAiExtractionClient. MaxOutputTokenCount serialises as
+        // "max_tokens", which these deployments reject with HTTP 400.
+        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
+            _chatClient, messages, new ChatCompletionOptions(), request.Model, request.TimeoutSeconds,
+            "Image reading", _logger, ct);
+
+        return new ImageReadingResponse
         {
-            stopwatch.Stop();
-            throw;
-        }
-        catch (HttpRequestException)
-        {
-            stopwatch.Stop();
-            throw;
-        }
-        catch (Exception ex)
-        {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Unexpected error during image reading");
-            throw new HttpRequestException("Unexpected error during image reading.", ex);
-        }
+            Markdown = content,
+            Usage = usage
+        };
     }
 
     internal static string BuildSystemPrompt()
