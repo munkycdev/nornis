@@ -1,0 +1,116 @@
+name: Coverage
+
+# Separate from deploy.yml on purpose: a rollout should not wait on report generation,
+# and a coverage step must never be able to hold up a deploy. The cost is running the
+# suite twice per push to main, which buys a deploy pipeline that stays lean.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write # append to the coverage-history branch
+  pages: write
+  id-token: write
+
+concurrency:
+  group: coverage-main
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - run: dotnet restore Nornis.sln
+      - run: dotnet build Nornis.sln --no-restore
+
+      - name: Test with coverage
+        run: >
+          dotnet test Nornis.sln --no-build
+          --settings coverlet.runsettings
+          --collect:"XPlat Code Coverage"
+          --results-directory artifacts/coverage/raw
+
+      - run: dotnet tool restore
+
+      - name: Generate reports
+        run: |
+          dotnet reportgenerator \
+            "-reports:artifacts/coverage/raw/**/coverage.cobertura.xml" \
+            "-targetdir:artifacts/coverage/report" \
+            "-reporttypes:Html;Cobertura;MarkdownSummaryGithub;JsonSummary" \
+            "-title:Nornis coverage" \
+            -verbosity:Warning
+          cat artifacts/coverage/report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      # The exposure decision, enforced here rather than trusted: the full report embeds
+      # annotated source and stays an artifact. The published site gets aggregates only —
+      # not because the source is secret (the repo is public) but because a dashboard read
+      # at a glance should not be a source dump.
+      - name: Attach the full report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: artifacts/coverage/report
+          retention-days: 30
+
+      # One file, one commit, no checkout dance: read the existing history straight out of
+      # the remote branch, append, and write a new commit with plumbing. The branch is an
+      # orphan and stays a single file, so nothing here needs a working tree.
+      - name: Append to the coverage history
+        run: |
+          entry=$(jq -c \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg sha "${GITHUB_SHA:0:7}" '
+            {
+              date: $date,
+              sha: $sha,
+              line: .summary.linecoverage,
+              branch: .summary.branchcoverage,
+              assemblies: [.coverage.assemblies[] | {name: .name, line: .coverage, branch: .branchcoverage}]
+            }' artifacts/coverage/report/Summary.json)
+
+          if git fetch origin coverage-history 2>/dev/null; then
+            git show FETCH_HEAD:history.json > old.json
+            parent="-p FETCH_HEAD"
+          else
+            echo '[]' > old.json
+            parent=""
+          fi
+
+          jq --argjson e "$entry" '. + [$e]' old.json > history.json
+
+          blob=$(git hash-object -w history.json)
+          tree=$(printf '100644 blob %s\thistory.json\n' "$blob" | git mktree)
+          # shellcheck disable=SC2086
+          commit=$(git commit-tree "$tree" $parent -m "Coverage for ${GITHUB_SHA:0:7}")
+          git push origin "$commit:refs/heads/coverage-history"
+
+      - name: Assemble the dashboard
+        run: |
+          mkdir -p _site
+          cp ci/pages/*.html ci/pages/*.css _site/
+          cp history.json _site/history.json
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  # Split from collect so a Pages misconfiguration cannot cost the coverage run its
+  # history append or its report artifact. Needs Settings → Pages → Source: GitHub
+  # Actions; until that is set, this job is the only part that fails.
+  publish:
+    needs: collect
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -24,8 +24,33 @@ jobs:
       - name: Build
         run: dotnet build --no-restore
 
+      # Coverage is collected on every PR and reported, never gated. The steering doc
+      # commits Nornis to coverage as signal rather than a bar to clear, so this step's
+      # job is to put the number where a reviewer sees it without changing whether the
+      # PR can merge. Floors — on Domain and Application only — arrive in phase 4, set
+      # from observed history rather than aspiration.
       - name: Test
-        run: dotnet test --no-build
+        run: >
+          dotnet test --no-build
+          --settings coverlet.runsettings
+          --collect:"XPlat Code Coverage"
+          --results-directory artifacts/coverage/raw
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Coverage summary
+        # Runs even when tests fail: a failing PR is exactly when knowing what the tests
+        # did cover is useful, and this step can never be the thing that fails the run.
+        if: always()
+        continue-on-error: true
+        run: |
+          dotnet reportgenerator \
+            "-reports:artifacts/coverage/raw/**/coverage.cobertura.xml" \
+            "-targetdir:artifacts/coverage/summary" \
+            "-reporttypes:MarkdownSummaryGithub" \
+            -verbosity:Warning
+          cat artifacts/coverage/summary/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
 
       # A real check since 2026-07-29: the tree was formatted in one mechanical commit and
       # .editorconfig no longer enforces line endings or BOMs (git owns those — the old rules
