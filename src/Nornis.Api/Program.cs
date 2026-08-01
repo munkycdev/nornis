@@ -122,7 +122,8 @@ if (builder.Environment.IsDevelopment())
 // world's continuity health — see HealthController — and the product keeps that word.)
 var healthChecks = builder.Services.AddHealthChecks()
     .AddCheck<PendingMigrationsHealthCheck>("pending-migrations", tags: [StatusEndpoint.LivenessTag])
-    .AddCheck<WorkerHeartbeatHealthCheck>("worker-heartbeat", tags: [StatusEndpoint.DependencyTag])
+    .AddCheck<WorkerHeartbeatHealthCheck>("worker-heartbeat", failureStatus: null,
+        tags: [StatusEndpoint.DependencyTag], timeout: StatusEndpoint.ProbeTimeout)
     .AddCheck<AiAvailabilityHealthCheck>("azure-openai", tags: [StatusEndpoint.DependencyTag]);
 
 // Each probe registers only when its dependency is actually configured, mirroring the
@@ -133,7 +134,8 @@ if (!string.IsNullOrWhiteSpace(sqlConnectionString))
 {
     // Pending-migrations already implies connectivity, but a separate row makes "the
     // database is down" and "a migration was missed" read as different failures.
-    healthChecks.AddSqlServer(sqlConnectionString, name: "sql", tags: [StatusEndpoint.DependencyTag]);
+    healthChecks.AddSqlServer(sqlConnectionString, name: "sql",
+        tags: [StatusEndpoint.DependencyTag], timeout: StatusEndpoint.ProbeTimeout);
 }
 
 var statusBlobConnectionString = builder.Configuration["BlobStorage:ConnectionString"];
@@ -142,20 +144,20 @@ if (!string.IsNullOrWhiteSpace(statusBlobConnectionString))
     healthChecks.AddAzureBlobStorage(
         _ => new Azure.Storage.Blobs.BlobServiceClient(statusBlobConnectionString),
         name: "blob-storage",
-        tags: [StatusEndpoint.DependencyTag]);
+        tags: [StatusEndpoint.DependencyTag],
+        timeout: StatusEndpoint.ProbeTimeout);
 }
 
-var statusServiceBusConnectionString = builder.Configuration["AzureServiceBus:ConnectionString"];
-if (!string.IsNullOrWhiteSpace(statusServiceBusConnectionString))
+if (!string.IsNullOrWhiteSpace(builder.Configuration["AzureServiceBus:ConnectionString"]))
 {
-    // The extraction queue specifically, not the namespace: an extraction queue that has
-    // gone missing is the failure that silently strands every source, and it is exactly
-    // what a namespace-level ping would not catch.
-    healthChecks.AddAzureServiceBusQueue(
-        statusServiceBusConnectionString,
-        ServiceBusExtractionQueueClient.QueueName,
-        name: "service-bus",
-        tags: [StatusEndpoint.DependencyTag]);
+    // The extraction queue specifically, not the namespace: a queue that has gone missing
+    // is the failure that silently strands every source, and a namespace-level ping would
+    // not catch it. See ServiceBusQueueHealthCheck for why this is not the packaged
+    // Azure Service Bus check — that one requires Manage rights the API must not hold.
+    builder.Services.AddSingleton<ServiceBusQueueHealthCheck>();
+    healthChecks.AddCheck<ServiceBusQueueHealthCheck>(
+        "service-bus", failureStatus: null,
+        tags: [StatusEndpoint.DependencyTag], timeout: StatusEndpoint.ProbeTimeout);
 }
 
 // DbContext registration (SQL Server)
