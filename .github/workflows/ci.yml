@@ -24,6 +24,24 @@ jobs:
       - name: Build
         run: dotnet build --no-restore
 
+      # Belt to NuGet Audit's braces. Restore already fails this build on a vulnerable
+      # package — audit's NU1901-NU1904 are errors under TreatWarningsAsErrors, which is
+      # why Nornis.Infrastructure and Nornis.Web carry explicit pins past advisories in
+      # their transitive graphs. This step adds a legible report of what was found, and
+      # keeps working if audit is ever narrowed or switched off.
+      #
+      # It greps rather than trusting the exit code on purpose: `dotnet list package
+      # --vulnerable` reports findings and still exits 0, so a naive step passes green
+      # while printing the vulnerabilities it just found.
+      - name: Vulnerable packages
+        run: |
+          dotnet list package --vulnerable --include-transitive 2>&1 | tee audit.txt
+          if grep -q "has the following vulnerable packages" audit.txt; then
+            echo "::error::Vulnerable packages found — see the log above."
+            exit 1
+          fi
+          echo "No vulnerable packages."
+
       # Coverage is collected on every PR and reported, never gated. The steering doc
       # commits Nornis to coverage as signal rather than a bar to clear, so this step's
       # job is to put the number where a reviewer sees it without changing whether the

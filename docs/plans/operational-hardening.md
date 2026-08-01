@@ -79,16 +79,34 @@ incident or runaway behavior without a redeploy.
 
 ## O5 — dependency patching
 
-- Dependabot: `nuget` + `github-actions` ecosystems, weekly, minor/patch grouped
-  into one PR.
-- `dotnet list package --vulnerable --include-transitive` as a CI step that fails
-  on findings. The existing gates (warnings-as-errors, tests, format) are what make
-  auto-bump PRs safe to merge quickly.
+**Done 2026-08-01.**
+
+- ~~Dependabot: `nuget` + `github-actions` ecosystems, weekly, minor/patch grouped
+  into one PR.~~ `.github/dependabot.yml`. Majors stay ungrouped on purpose — they
+  change behaviour and each wants its own read and its own revert. The `github-actions`
+  ecosystem is also what will propose the Node 20 major bumps the run annotations have
+  been asking for.
+- ~~`dotnet list package --vulnerable --include-transitive` as a CI step that fails
+  on findings.~~ In `ci.yml`. Two things worth knowing about it: the command **exits 0
+  even when it finds vulnerabilities**, so the step greps its output rather than
+  trusting the exit code; and it is belt to NuGet Audit's braces rather than the only
+  protection — restore already fails the build on a vulnerable package, because
+  NU1901-NU1904 are errors under `TreatWarningsAsErrors`. That is why
+  `Nornis.Infrastructure` and `Nornis.Web` carry explicit pins past advisories. The
+  step's value is a legible report, and surviving audit ever being narrowed.
 
 ## O6 — runbooks
 
-`docs/runbooks/`, one short doc per nameable failure mode: worker dead, migration
-missed, DLQ non-empty, Auth0 outage, budget cap hit, AI paused. Each: the symptom
-(which alert fires, what `/status` shows), diagnosis steps, remedy commands,
-verification. Every Azure alert's description links to its runbook — an alert that
-doesn't say what to do next is half an alert.
+**Done 2026-08-01.** `docs/runbooks/` — nine docs, and every one of the six Azure
+alerts in `rg-nornis` now carries a `Runbook:` link in its own description.
+
+Written against what exists rather than the spec's list verbatim:
+
+- The list named **AI paused**; there is no kill switch yet (O4), and a runbook for a
+  control that does not exist is worse than none. Recorded as pending in the index.
+- Three alerts had no entry on the list and needed one anyway — `nornis-sql-dtu`,
+  `nornis-log-ingestion-spike`, `nornis-audit-prompt-size` — because "every alert links
+  to its runbook" is the harder half of this item and those three are alerts.
+- Two runbooks deliberately end without an incident action. Audit prompt size reports a
+  trend whose remedies are product decisions, and budget cap hit is the system doing
+  what it was told. Saying so is more useful than inventing a command.
