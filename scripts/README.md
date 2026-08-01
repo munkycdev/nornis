@@ -57,6 +57,16 @@ The list is a test-writing backlog ordered by risk, never a gate. Razor `BuildRe
 methods are excluded — compiler-generated markup that would otherwise fill the table and
 bury everything a person could act on.
 
+## dlq.ps1
+
+Peek, resubmit or purge dead-lettered messages — the companion to
+docs/runbooks/dead-letter-queue.md. Speaks the Service Bus REST API over a SAS token, so
+it needs pwsh and nothing else. Credentials come from the sb-manage secret via your own
+az login; the running system gains no access.
+
+Peek is non-destructive and holds its locks through the walk, so it reports a true count
+and leaves the queue as it found it.
+
 ## import-notes.py
 
 Bulk-imports a note-vault export (wiki-style folder layout: `Wiki/`, `Characters/`,

@@ -42,15 +42,26 @@ content-filter rejection just dead-letters it again.
 
 ## Remedy
 
-There is no peek/resubmit script yet — that is O2 in
-`docs/plans/operational-hardening.md`. Until it exists, use Service Bus Explorer in the
-portal:
+`scripts/dlq.ps1` does all three moves. It reads the `sb-manage` secret through your own
+`az login`, so it needs the rights you would need in the portal and grants the running
+system nothing.
 
-> Service Bus → `sb-nornis-dev` → Queues → `source-extraction` → Service Bus Explorer →
-> switch to **Dead-letter** → Peek to read, **Resubmit** to send back to the active queue.
+```powershell
+./scripts/dlq.ps1                                        # peek — non-destructive
+./scripts/dlq.ps1 -Queue library-indexing                # the other queue
+./scripts/dlq.ps1 -Action Resubmit -Count 5
+./scripts/dlq.ps1 -Action Purge -Count 100
+```
 
-Peek first, always. The dead-letter reason and description are on each message and tell
-you which of the causes above you are looking at.
+**Peek first, always.** It prints each message's dead-letter reason and description, which
+is what tells you which of the causes above you are looking at. Peek holds locks while it
+walks and releases them at the end, so the queue is exactly as you found it.
+
+- **Transient** (the outage is over): `-Action Resubmit`. Messages go back to the live
+  queue and are picked up on the next scale-up.
+- **Deterministic** (content filter, malformed source): resubmitting changes nothing. Fix
+  the source in the UI and re-run extraction from there, which enqueues a fresh message.
+  Then `-Action Purge` the dead-lettered one so the alert clears.
 
 - **Transient** (the outage is over): resubmit. It will be picked up on the next scale-up.
 - **Deterministic** (content filter, malformed source): resubmitting changes nothing.
@@ -72,3 +83,9 @@ resolves once the count stays down.
 An empty DLQ is not the same as work completing. A resubmitted message that fails again
 lands straight back here — if the count returns within minutes, stop resubmitting and
 treat the cause as deterministic.
+
+There is deliberately **no dead-letter row on `/status`**. Reading queue depth needs Manage
+rights on the namespace, and the API holds a Send-only key by design; the only way to put
+that number on the page would be to give the most exposed component in the system queue
+administration. The alert already covers detection, and the count is an operator's
+question rather than a public one.
