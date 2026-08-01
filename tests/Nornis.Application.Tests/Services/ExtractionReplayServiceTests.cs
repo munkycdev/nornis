@@ -94,6 +94,31 @@ public class ExtractionReplayServiceTests
     }
 
     [Test]
+    public async Task Start_RaceThatSlipsPastTheCheck_Conflicts_NotCrashes()
+    {
+        // The gate is check-then-create, so a double-click can pass it twice — the filtered
+        // unique index is what actually holds "one Active replay per world". This drives the
+        // path where the check saw nothing and the insert lost anyway: the second start must
+        // read as the same 409, not a 500 with a second Active replay requeueing sources.
+        var start = SeedSource("Session 1", Day5);
+        var alsoStart = SeedSource("Session 2", Day10);
+
+        var first = await _sut.StartAsync(WorldId, start.Id, GmId, WorldRole.GM, CancellationToken.None);
+        Assert.That(first.IsSuccess, Is.True);
+
+        // Bypass the gate the way a concurrent request does — by having already passed it.
+        var second = await _sut.StartAsync(WorldId, alsoStart.Id, GmId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(second.IsSuccess, Is.False);
+            Assert.That(second.Error!.Code, Is.EqualTo("replay_active"));
+            Assert.That(_replayRepo.Replays.Count(r => r.Status == ExtractionReplayStatus.Active), Is.EqualTo(1),
+                "a lost race must never leave a second Active replay behind");
+        });
+    }
+
+    [Test]
     public async Task Start_ActiveReplayExists_Conflicts()
     {
         var start = SeedSource("Session 1", Day5);

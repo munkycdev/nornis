@@ -57,6 +57,9 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
 6. D2 deterministic functional bugs — every item carries a repro and a prescribed fix.
    Includes the merge skip-branch row deletion (prerequisite for W2) and the
    stale-response family. Two additive migrations (batch and replay unique indexes).
+   **In progress 2026-08-01:** merge skip-branch, stale-response family, ClearBody/ClearUri,
+   and the replay unique index (migration `AddExtractionReplayActiveUniqueIndex` — **apply
+   before the deploy that carries it**) are done. Eight items remain.
 7. D3 error handling — prescribed, mostly mechanical. Includes the D1 leftovers that
    are metering-shaped: the $0-pricing alert (in the shared recorder) and
    failed-attempt usage recording.

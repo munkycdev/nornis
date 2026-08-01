@@ -31,6 +31,17 @@ public class ExtractionReplayConfiguration : IEntityTypeConfiguration<Extraction
         // The one query that matters: "this world's active replay".
         builder.HasIndex(r => new { r.WorldId, r.Status });
 
+        // …and the uniqueness that makes the service's check-then-create safe. Without it a
+        // double-click produced two Active replays for one world: advance and cancel then
+        // targeted an arbitrary one of them and both requeued sources. ImportSessions two
+        // files away already enforced exactly this invariant — this is that pattern, not a
+        // new idea. Status is stored as a string (see the conversion above), so the filter
+        // matches on the name.
+        builder.HasIndex(r => r.WorldId)
+            .IsUnique()
+            .HasFilter("[Status] = 'Active'")
+            .HasDatabaseName("IX_ExtractionReplays_WorldId_Active");
+
         builder.HasOne(r => r.World)
             .WithMany()
             .HasForeignKey(r => r.WorldId)

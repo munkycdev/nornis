@@ -12,10 +12,18 @@ public class InMemoryExtractionReplayRepository : IExtractionReplayRepository
 
     public void Seed(params ExtractionReplay[] replays) => _replays.AddRange(replays);
 
-    public Task<ExtractionReplay> CreateAsync(ExtractionReplay replay, CancellationToken cancellationToken = default)
+    public Task<ExtractionReplay?> CreateAsync(ExtractionReplay replay, CancellationToken cancellationToken = default)
     {
+        // Enforces the same filtered unique index the real schema does, so this fake cannot
+        // disagree with production about whether a second Active replay is possible.
+        if (replay.Status == ExtractionReplayStatus.Active
+            && _replays.Any(r => r.WorldId == replay.WorldId && r.Status == ExtractionReplayStatus.Active))
+        {
+            return Task.FromResult<ExtractionReplay?>(null);
+        }
+
         _replays.Add(replay);
-        return Task.FromResult(replay);
+        return Task.FromResult<ExtractionReplay?>(replay);
     }
 
     public Task<ExtractionReplay?> GetActiveByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)
