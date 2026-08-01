@@ -44,10 +44,28 @@ confirms the new revision came up.
 `RedeliveryBackoff` deliberately preserves the dead-letter backstop; nothing watches
 the backstop. A message that exhausts retries today vanishes silently.
 
-- Azure Monitor alert on dead-lettered message count > 0.
-- A `dlq` row in the `/status` `deps` checks — message count only, via the
-  admin client.
-- `scripts/dlq.ps1`: peek, resubmit, purge — the runbook companion for O6.
+**Done 2026-08-01**, with one bullet deliberately dropped.
+
+- ~~Azure Monitor alert on dead-lettered message count > 0.~~ Already existed:
+  `nornis-sb-deadletter`, `DeadletteredMessages > 0`, evaluated every 5 minutes.
+- ~~A `dlq` row in the `/status` `deps` checks — message count only, via the admin
+  client.~~ **Not built, and should not be.** Reading queue depth needs Manage on the
+  namespace. The namespace has deliberate least-privilege policies — `nornis-send` for the
+  API, `nornis-listen` for the worker, `nornis-manage` for the KEDA scaler alone — so the
+  only way to put that number on the page is to hand the most exposed component in the
+  system queue administration. The alert already detects it, and the count is an
+  operator's question rather than a public one. This is the same wall the `service-bus`
+  check hit; there the answer was to ask a question the API had rights to ask, and here
+  there is no such question.
+- ~~`scripts/dlq.ps1`: peek, resubmit, purge — the runbook companion for O6.~~ Built,
+  speaking the Service Bus REST API over a SAS token rather than loading the .NET SDK, so
+  it needs pwsh and nothing else. Credentials come from the `sb-manage` secret through the
+  operator's own `az login`; nothing in the running system gains access.
+  - Verified against a throwaway queue seeded with a real dead-lettered message, which is
+    the only way any of it could be verified — production had no dead letters. That test
+    caught a genuine bug: peek unlocked each message as it read it, so the next request
+    returned the same one and a single stuck message reported as ten. Peek now holds its
+    locks through the walk and releases them in a `finally`.
 
 ## O3 — managed identity sweep
 

@@ -47,11 +47,11 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
    Takes the Node 20 rider with it: the `github-actions` ecosystem is what will now
    propose those major bumps, to be read one changelog at a time rather than accepted
    as a batch.
-5. O1 post-deploy verification + O2 DLQ visibility — probes, pipeline poll, alert,
-   status row, peek/resubmit script. All spec'd. **The pipeline poll landed early
-   (2026-08-01)** with the status work, because a cold revision was rendering as a red
-   status page; what remains of O1 is the Container Apps liveness/readiness probes and
-   naming the failing check in `/health`'s body.
+5. O1 post-deploy verification + O2 DLQ visibility. **O2 done 2026-08-01**; the pipeline
+   poll landed earlier the same day with the status work. The `/status` dlq row was
+   dropped on purpose — it needs Manage rights the public API must not hold; see the plan.
+   **Still open:** the Container Apps liveness/readiness probes, and naming the failing
+   check in `/health`'s body.
 6. D2 deterministic functional bugs — every item carries a repro and a prescribed fix.
    Includes the merge skip-branch row deletion (prerequisite for W2) and the
    stale-response family. Two additive migrations (batch and replay unique indexes).
