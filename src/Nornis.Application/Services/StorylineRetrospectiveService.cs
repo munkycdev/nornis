@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
+using Nornis.Application.Common;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
@@ -192,7 +193,7 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
                     TargetType = ReviewTargetType.Artifact,
                     TargetId = storylineId,
                     ProposedValueJson = $$"""{"status":"{{status}}"}""",
-                    Rationale = Truncate(verdict.Rationale, 500),
+                    Rationale = verdict.Rationale.Truncate(500),
                     Confidence = verdict.Confidence,
                     Status = ReviewProposalStatus.Pending,
                     CreatedAt = now
@@ -318,7 +319,4 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
         return response.InputTokens * pricing.InputPerMillionTokensUsd / 1_000_000m
              + response.OutputTokens * pricing.OutputPerMillionTokensUsd / 1_000_000m;
     }
-
-    private static string Truncate(string value, int maxLength) =>
-        value.Length <= maxLength ? value : value[..maxLength];
 }

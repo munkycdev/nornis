@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
+using Nornis.Application.Common;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
@@ -362,7 +363,7 @@ public class ContinuityFixService : IContinuityFixService
                 continue;
 
             result.Add(new DraftProposal(
-                m.ChangeType, m.TargetType, targetId, json, Truncate(p.Rationale.Trim(), 500), confidence));
+                m.ChangeType, m.TargetType, targetId, json, p.Rationale.Trim().Truncate(500, ellipsis: true), confidence));
 
             if (result.Count >= MaxProposals)
                 break;
@@ -404,7 +405,7 @@ public class ContinuityFixService : IContinuityFixService
             Id = Guid.NewGuid(),
             WorldId = worldId,
             Type = SourceType.GMNote,
-            Title = $"Continuity fix — {Truncate(finding.Summary, 80)}",
+            Title = $"Continuity fix — {finding.Summary.Truncate(80, ellipsis: true)}",
             Body = body.ToString(),
             Visibility = VisibilityScope.GMOnly,
             ProcessingStatus = SourceProcessingStatus.Processed,
@@ -451,7 +452,7 @@ public class ContinuityFixService : IContinuityFixService
                     SourceId = source.Id,
                     TargetType = SourceReferenceTargetType.ReviewProposal,
                     TargetId = proposal.Id,
-                    Notes = $"Drafted fix for finding: {Truncate(finding.Summary, 200)}",
+                    Notes = $"Drafted fix for finding: {finding.Summary.Truncate(200, ellipsis: true)}",
                     CreatedAt = now
                 }, ct);
             }
@@ -481,9 +482,6 @@ public class ContinuityFixService : IContinuityFixService
             return [];
         }
     }
-
-    private static string Truncate(string value, int max) =>
-        value.Length <= max ? value : value[..max].TrimEnd() + "…";
 
     // --------------------------------------------------------------------- Usage tracking --
 

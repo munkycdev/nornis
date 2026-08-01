@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
+using Nornis.Application.Common;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
@@ -540,7 +541,7 @@ public class ContinuityAuditService : IContinuityAuditService
                 var owner = lookup.Artifacts.GetValueOrDefault(fact.ArtifactId);
                 return new ContinuityEvidenceItemView(
                     refId, "Fact",
-                    $"{owner?.Name ?? "Unknown artifact"} — {fact.Predicate}: {Truncate(fact.Value, 80)}",
+                    $"{owner?.Name ?? "Unknown artifact"} — {fact.Predicate}: {fact.Value.Truncate(80, ellipsis: true)}",
                     fact.ArtifactId, fact.UpdatedAt > assessedAt, false);
 
             case "fact":
@@ -562,9 +563,6 @@ public class ContinuityAuditService : IContinuityAuditService
                 return new ContinuityEvidenceItemView(refId, "Item", "Unrecognized reference", null, false, true);
         }
     }
-
-    private static string Truncate(string value, int max) =>
-        value.Length <= max ? value : value[..max].TrimEnd() + "…";
 
     // ---------------------------------------------------------------------------- Mapping --
 

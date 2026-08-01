@@ -198,7 +198,7 @@
             });
             if (_conversation.Exchanges.Count == 1)
             {
-                _conversation.Title = Truncate(q);
+                _conversation.Title = Nornis.Web.Services.DisplayText.Truncate(q, 48);
             }
             _conversation.UpdatedAt = DateTimeOffset.UtcNow;
             await SaveToHistoryAsync();
@@ -245,8 +245,6 @@
         }
         return sb.ToString();
     }
-
-    private static string Truncate(string q) => q.Length <= 48 ? q : q[..47].TrimEnd() + "…";
 
     private static string CleanAnswer(string text) =>
         System.Text.RegularExpressions.Regex.Replace(text, @"\s*\[ref:[^\]]+\]", "").Trim();

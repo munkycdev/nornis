@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
+using Nornis.Application.Common;
 using Nornis.Application.Configuration;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
@@ -376,7 +377,7 @@ public class RelationshipBackfillService : IRelationshipBackfillService
                     ChangeType = ReviewChangeType.AddRelationship,
                     TargetType = ReviewTargetType.ArtifactRelationship,
                     ProposedValueJson = JsonSerializer.Serialize(payload, PayloadJsonOptions),
-                    Rationale = Truncate(link.Rationale, 500),
+                    Rationale = link.Rationale.Truncate(500),
                     Confidence = link.Confidence,
                     Status = ReviewProposalStatus.Pending,
                     CreatedAt = now
@@ -389,7 +390,7 @@ public class RelationshipBackfillService : IRelationshipBackfillService
                     SourceId = source.Id,
                     TargetType = SourceReferenceTargetType.ReviewProposal,
                     TargetId = proposal.Id,
-                    Quote = link.Quote is null ? null : Truncate(link.Quote, 300),
+                    Quote = link.Quote is null ? null : link.Quote.Truncate(300),
                     CreatedAt = now
                 }, ct);
             }
@@ -536,7 +537,4 @@ public class RelationshipBackfillService : IRelationshipBackfillService
              + response.OutputTokens * pricing.OutputPerMillionTokensUsd / 1_000_000m;
     }
 
-
-    private static string Truncate(string value, int maxLength) =>
-        value.Length <= maxLength ? value : value[..maxLength];
 }

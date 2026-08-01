@@ -279,7 +279,7 @@
 
         if (_current is null)
         {
-            _current = new AskConversation { Title = Truncate(question) };
+            _current = new AskConversation { Title = Nornis.Web.Services.DisplayText.Truncate(question, 48) };
             _conversations.Add(_current);
         }
 
@@ -307,7 +307,7 @@
             });
             if (_current.Exchanges.Count == 1)
             {
-                _current.Title = Truncate(question);
+                _current.Title = Nornis.Web.Services.DisplayText.Truncate(question, 48);
             }
             _current.UpdatedAt = DateTimeOffset.UtcNow;
             await SaveHistoryAsync();
@@ -377,8 +377,6 @@
         }
         return sb.ToString();
     }
-
-    private static string Truncate(string q) => q.Length <= 48 ? q : q[..47].TrimEnd() + "…";
 
     private static string CleanAnswer(string text) => Nornis.Web.Services.LoremasterDisplay.CleanAnswer(text);
 

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Application;
+using Nornis.Application.Common;
 using Nornis.Application.Errors;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -75,7 +76,7 @@ public class ArtifactMergeService : IArtifactMergeService
             Id = Guid.NewGuid(),
             WorldId = worldId,
             Type = SourceType.GMNote,
-            Title = Truncate($"Artifact merge — {duplicate.Name} → {target.Name} — {now:yyyy-MM-dd}", 200),
+            Title = $"Artifact merge — {duplicate.Name} → {target.Name} — {now:yyyy-MM-dd}".Truncate(200),
             Body = $"GM merged duplicate artifact \"{duplicate.Name}\" ({duplicate.Id}) into \"{target.Name}\" ({target.Id}).",
             Visibility = VisibilityScope.GMOnly,
             ProcessingStatus = SourceProcessingStatus.Processed,
@@ -140,7 +141,4 @@ public class ArtifactMergeService : IArtifactMergeService
             throw;
         }
     }
-
-    private static string Truncate(string value, int maxLength) =>
-        value.Length <= maxLength ? value : value[..maxLength];
 }

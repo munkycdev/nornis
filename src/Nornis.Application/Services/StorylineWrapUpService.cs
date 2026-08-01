@@ -326,7 +326,7 @@ public class StorylineWrapUpService : IStorylineWrapUpService
             Id = Guid.NewGuid(),
             WorldId = command.WorldId,
             Type = SourceType.GMNote,
-            Title = Truncate($"Session wrap-up — {now:yyyy-MM-dd}", 200),
+            Title = $"Session wrap-up — {now:yyyy-MM-dd}",
             Body = body.ToString(),
             Visibility = VisibilityScope.GMOnly,
             ProcessingStatus = SourceProcessingStatus.Processed,
@@ -390,7 +390,4 @@ public class StorylineWrapUpService : IStorylineWrapUpService
             throw;
         }
     }
-
-    private static string Truncate(string value, int maxLength) =>
-        value.Length <= maxLength ? value : value[..maxLength];
 }

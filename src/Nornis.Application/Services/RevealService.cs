@@ -217,7 +217,7 @@ public class RevealService : IRevealService
             Id = Guid.NewGuid(),
             WorldId = command.WorldId,
             Type = SourceType.Reveal,
-            Title = Truncate($"Reveal — {now:yyyy-MM-dd}", 200),
+            Title = $"Reveal — {now:yyyy-MM-dd}",
             Body = BuildBody(command.Note, artifactsToReveal, factsToReveal.Count, relationshipsToReveal.Count, corrections.Count),
             Visibility = VisibilityScope.PartyVisible,
             ProcessingStatus = SourceProcessingStatus.Processed,
@@ -455,7 +455,4 @@ public class RevealService : IRevealService
 
     private static AppResult<RevealResult> Fail(int status, string code, string message) =>
         AppResult<RevealResult>.Fail(new AppError(status, code, message));
-
-    private static string Truncate(string value, int maxLength) =>
-        value.Length <= maxLength ? value : value[..maxLength];
 }

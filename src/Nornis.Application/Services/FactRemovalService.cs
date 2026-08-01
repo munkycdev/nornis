@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Nornis.Application.Common;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
@@ -69,7 +70,7 @@ public class FactRemovalService : IFactRemovalService
             Id = Guid.NewGuid(),
             WorldId = command.WorldId,
             Type = SourceType.GMNote,
-            Title = Truncate($"Fact removed — {artifact.Name}: {fact.Predicate} — {now:yyyy-MM-dd}", 200),
+            Title = $"Fact removed — {artifact.Name}: {fact.Predicate} — {now:yyyy-MM-dd}".Truncate(200),
             Body = $"GM removed an incorrect fact from \"{artifact.Name}\".\n\n" +
                    $"Fact: {fact.Predicate} — {fact.Value} ({fact.TruthState})\n\n" +
                    $"Reason: {command.Note.Trim()}",
@@ -93,7 +94,7 @@ public class FactRemovalService : IFactRemovalService
                 SourceId = note.Id,
                 TargetType = SourceReferenceTargetType.Artifact,
                 TargetId = artifact.Id,
-                Notes = Truncate($"Removed fact: {fact.Predicate} — {fact.Value}", 2000),
+                Notes = $"Removed fact: {fact.Predicate} — {fact.Value}".Truncate(2000),
                 CreatedAt = now
             }, ct);
 
@@ -118,7 +119,4 @@ public class FactRemovalService : IFactRemovalService
 
         return AppResult.Success();
     }
-
-    private static string Truncate(string value, int max) =>
-        value.Length <= max ? value : value[..max];
 }

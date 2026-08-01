@@ -426,9 +426,6 @@ else
     private string StatusColor(string status) =>
         StatusColors.FirstOrDefault(s => s.Status == status).Color ?? "#9AA5B1";
 
-    private static string Truncate(string text, int max) =>
-        text.Length <= max ? text : text[..(max - 1)] + "…";
-
     // Razor reserves the <text> tag, so SVG text elements are emitted as raw markup.
     private static MarkupString SvgText(int x, int y, int fontSize, string fill, string content) =>
         new($"<text x=\"{x}\" y=\"{y}\" font-size=\"{fontSize}\" fill=\"{fill}\">{System.Net.WebUtility.HtmlEncode(content)}</text>");
@@ -470,7 +467,7 @@ else
         var session = Data.Sessions.FirstOrDefault(s => s.SourceId == point.SourceId);
         var header = $"{session?.Title ?? "Session"} — {point.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}";
         var lines = point.Developments.Take(6)
-            .Select(d => $"• {(d.IsOpenQuestion ? "Open question — " : "")}{Truncate(d.Text, 110)}");
+            .Select(d => $"• {(d.IsOpenQuestion ? "Open question — " : "")}{Nornis.Web.Services.DisplayText.Truncate(d.Text, 110)}");
         var more = point.Developments.Count > 6 ? $"\n…and {point.Developments.Count - 6} more" : "";
         return $"{header}\n{string.Join("\n", lines)}{more}\n(click to open the session)";
     }

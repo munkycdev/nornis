@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
+using Nornis.Application.Common;
 using Nornis.Application.Configuration;
 using Nornis.Application.Models;
 using Nornis.Application.Storage;
@@ -152,7 +153,7 @@ public class LibraryIndexingService : ILibraryIndexingService
 
             _logger.LogError(ex, "Indexing failed for library document {DocumentId}", document.Id);
             await TrackUsageAsync(document, 0, (int)stopwatch.ElapsedMilliseconds, succeeded: false, ct);
-            return await FailAsync(document, "index_error", Truncate(ex.Message, 1900), ct);
+            return await FailAsync(document, "index_error", ex.Message.Truncate(1900), ct);
         }
     }
 
@@ -206,7 +207,4 @@ public class LibraryIndexingService : ILibraryIndexingService
 
     // Retry classification lives in TransientFailureClassifier — shared with extraction, which
     // previously disagreed with this method about whether a timeout was worth retrying.
-
-    private static string Truncate(string value, int max) =>
-        value.Length <= max ? value : value[..max];
 }
