@@ -317,7 +317,9 @@ else
         _busy = true;
         _error = null;
 
-        var body = isHandwritten || _editor is null ? null : await _editor.GetMarkdownAsync();
+        var body = isHandwritten || _editor is null || !_editor.Initialized
+            ? null
+            : await _editor.GetMarkdownAsync();
 
         var request = new CreateSourceRequest(
             _title.Trim(),

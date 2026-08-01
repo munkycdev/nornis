@@ -1020,7 +1020,11 @@
         _editError = null;
 
         // The body lives in the TipTap editor; pull it as markdown once at save.
-        var body = _bodyEditor is null ? _editBody : await _bodyEditor.GetMarkdownAsync();
+        // An editor that never initialised falls back to the loaded body, so a JS failure
+        // reads as "unchanged" and never as the clear instruction an empty box now sends.
+        var body = _bodyEditor is null || !_bodyEditor.Initialized
+            ? _editBody
+            : await _bodyEditor.GetMarkdownAsync();
         var normalizedBody = string.IsNullOrWhiteSpace(body) ? null : body;
 
         var occurredAt = _editOccurredAt.HasValue
@@ -1029,6 +1033,11 @@
         // Null OccurredAt means "no change" to the partial update, so clearing the
         // picker on a dated source has to be said explicitly.
         var clearOccurredAt = occurredAt is null && _source.OccurredAt is not null;
+        // Same idiom, same reason: a null Body means "unchanged", so emptying the editor
+        // silently reverted under a success toast until these flags existed.
+        var clearBody = normalizedBody is null && _source.Body is not null;
+        var editedUri = string.IsNullOrWhiteSpace(_editUri) ? null : _editUri;
+        var clearUri = editedUri is null && _source.Uri is not null;
 
         ApiResult<SourceDetailDto> result;
         var reprocessed = false;
@@ -1045,7 +1054,9 @@
             result = await Api.UpdateSourceAsync(Worlds.Current.Id, _source.Id, new UpdateSourceRequest(
                 Title: _editTitle.Trim(),
                 Body: bodyChanged ? normalizedBody : null,
-                Uri: string.IsNullOrWhiteSpace(_editUri) ? null : _editUri,
+                ClearBody: bodyChanged && clearBody,
+                Uri: editedUri,
+                ClearUri: clearUri,
                 OccurredAt: occurredAt,
                 ClearOccurredAt: clearOccurredAt,
                 Type: _editType,
@@ -1070,7 +1081,9 @@
             result = await Api.UpdateSourceAsync(Worlds.Current.Id, _source.Id, new UpdateSourceRequest(
                 Title: _editTitle.Trim(),
                 Body: normalizedBody,
-                Uri: string.IsNullOrWhiteSpace(_editUri) ? null : _editUri,
+                ClearBody: clearBody,
+                Uri: editedUri,
+                ClearUri: clearUri,
                 OccurredAt: occurredAt,
                 ClearOccurredAt: clearOccurredAt,
                 Type: _editType,

@@ -115,12 +115,26 @@
         }
     }
 
-    /// <summary>Current content as markdown, or null when effectively empty.</summary>
+    /// <summary>
+    /// True once the JS editor has been initialised. Callers that treat an empty result as
+    /// an intentional clear MUST check this first — see <see cref="GetMarkdownAsync"/>.
+    /// </summary>
+    public bool Initialized => _initialized;
+
+    /// <summary>
+    /// Current content as markdown, or null when effectively empty.
+    ///
+    /// Throws when the editor never initialised, which is the point: this used to return
+    /// null in that case, indistinguishable from "the user emptied the box". Now that an
+    /// empty body is a instruction to clear the stored one, a failed JS init returning
+    /// null silently would erase a source's contents. Loud beats lossy.
+    /// </summary>
     public async Task<string?> GetMarkdownAsync()
     {
         if (!_initialized)
         {
-            return null;
+            throw new InvalidOperationException(
+                "NotesEditor has not initialised; check Initialized before reading content.");
         }
 
         var html = await JS.InvokeAsync<string>("nornisEditor.getHtml", _elementId);

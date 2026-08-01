@@ -77,6 +77,19 @@ changes that item's priority, not its shape.
 
 ## D2 — deterministic functional bugs
 
+- ~~**Clearing a source's body or URI silently reverts under a success toast.**~~
+  **Fixed 2026-08-01.** `ClearBody`/`ClearUri` added through request, command, service and
+  client, mirroring `ClearOccurredAt`. A clear now also counts as a body change for the
+  reprocess gate — emptying an extracted source invalidates exactly the derived knowledge
+  that gate protects.
+  - The ordering dependency was the real hazard and was handled first: `NotesEditor.
+    GetMarkdownAsync` returned null when JS init had failed, indistinguishable from "the
+    user emptied the box". Adding a clear flag on top of that would have turned a JS
+    failure into silent data destruction. It now throws, and both callers check
+    `Initialized` — `SourceDetail` falls back to the loaded body, so a dead editor reads
+    as "unchanged" and can never be read as an instruction to erase.
+  - Original diagnosis follows.
+
 - **Clearing a source's body or URI silently reverts under a success toast.**
   `UpdateSourceRequest` is partial-update with `ClearOccurredAt`/`ClearCampaign` but
   no `ClearBody`/`ClearUri`; an emptied editor maps to null = "unchanged"
