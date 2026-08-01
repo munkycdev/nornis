@@ -187,8 +187,15 @@ else
                     continue;
 
                 // Quiet refresh: no loading state, just swap the data in place.
-                var result = await Api.GetSourcesAsync(Worlds.Current.Id, CampaignFilterOrNull, _pollCts.Token);
-                if (result.IsSuccess)
+                var worldId = Worlds.Current.Id;
+                var campaignFilter = CampaignFilterOrNull;
+                var result = await Api.GetSourcesAsync(worldId, campaignFilter, _pollCts.Token);
+
+                // Four seconds is long enough to switch world or campaign filter mid-poll, and
+                // a quiet swap gives no hint that the list now describes somewhere else.
+                if (result.IsSuccess
+                    && Worlds.Current?.Id == worldId
+                    && CampaignFilterOrNull == campaignFilter)
                 {
                     _sources = result.Value!;
                     await InvokeAsync(StateHasChanged);
@@ -215,7 +222,17 @@ else
         _error = null;
         StateHasChanged();
 
-        var result = await Api.GetSourcesAsync(Worlds.Current.Id, CampaignFilterOrNull);
+        var worldId = Worlds.Current.Id;
+        var campaignFilter = CampaignFilterOrNull;
+        var result = await Api.GetSourcesAsync(worldId, campaignFilter);
+
+        // Changing the campaign filter fires a fresh load without cancelling the last, and
+        // they do not return in order — the slower one would otherwise repopulate the list
+        // with the filter the user just moved off.
+        if (Worlds.Current?.Id != worldId || CampaignFilterOrNull != campaignFilter)
+        {
+            return;
+        }
 
         _loading = false;
         if (result.IsSuccess)

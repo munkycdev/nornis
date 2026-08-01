@@ -778,7 +778,18 @@
         _loadedId = ArtifactId;
         StateHasChanged();
 
-        var result = await Api.GetArtifactAsync(Worlds.Current.Id, ArtifactId);
+        var worldId = Worlds.Current.Id;
+        var artifactId = ArtifactId;
+        var result = await Api.GetArtifactAsync(worldId, artifactId);
+
+        // Clicking through the codex starts a load per artifact, and they do not come back in
+        // the order they were sent. Without this, the slowest response wins and paints an
+        // artifact the reader has already navigated past — under the new one's URL.
+        // _loadedId is the sequence marker: a newer load overwrote it before its own await.
+        if (_disposed || _loadedId != artifactId || Worlds.Current?.Id != worldId)
+        {
+            return;
+        }
 
         _loading = false;
         if (result.IsSuccess)

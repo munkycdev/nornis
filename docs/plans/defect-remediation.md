@@ -132,7 +132,26 @@ changes that item's priority, not its shape.
   rows, arbitrary advance/cancel targeting, both requeue sources. Fix: filtered
   unique index `(WorldId) WHERE Status='Active'` (additive), map the violation to the
   existing 409.
-- **The stale-response family.** One shape, several sites: a load captures an
+- ~~**The stale-response family.**~~ **Fixed 2026-08-01** at all six sites, each with the
+  identity captured before the await and re-checked after: `WorldState.
+  LoadContinuityCoreAsync` (world), `ArtifactDetail` and `SourceDetail` (`_loadedId` as a
+  sequence marker, plus world), `PublicWorldArtifactDetail` (`_loadedKey`), the `Sources`
+  poll and initial load (world **and** campaign filter), and `CostsPanel` breakdowns
+  (world **and** both range ends).
+  - `SourceDetail` carried a comment claiming late responses were "discarded by the
+    callers' own checks". There was no such check anywhere. A comment asserting a
+    guarantee is worth exactly as much as the code implementing it, and this one had been
+    load-bearing in review for however long it had been there.
+  - Two sites needed more than the world id. The Sources poll and the Costs breakdowns
+    race on *filter* rather than identity — same world, different question — so checking
+    the world alone would have looked correct and fixed nothing.
+  - Tested at `WorldState`, the one site that is a plain service rather than a component:
+    a gated HTTP handler holds the first world's assessment open, the test switches world,
+    then releases. Verified failing with the guard removed. The five component sites are
+    the same three lines and are not separately covered — bUnit can drive them, but the
+    harness cost is real and the shape is now uniform.
+
+- **(original diagnosis)** One shape, several sites: a load captures an
   identity, awaits, then applies the result without re-checking. `WorldState.
   LoadContinuityCoreAsync` (:224-240) lets the previous world's score clobber the
   current one's; `SourceDetail`/`ArtifactDetail`/`PublicWorldArtifactDetail` paint the

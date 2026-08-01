@@ -135,9 +135,19 @@
         {
             return;
         }
-        _loadedKey = (Slug, ArtifactId);
+        var key = (Slug, ArtifactId);
+        _loadedKey = key;
         _loading = true;
         var result = await Api.GetPublicArtifactAsync(Slug, ArtifactId);
+
+        // Overlapping loads do not return in the order they were sent, so without this the
+        // slowest wins and shows the artifact a visitor clicked past. _loadedKey is the
+        // sequence marker — a newer load overwrote it before its own await.
+        if (_loadedKey != key)
+        {
+            return;
+        }
+
         _detail = result.IsSuccess ? result.Value : null;
         _loading = false;
     }

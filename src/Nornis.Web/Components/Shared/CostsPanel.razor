@@ -260,6 +260,15 @@ else
         var userTask = Api.GetCostsByUserAsync(id, from, to);
         await Task.WhenAll(operationTask, modelTask, userTask);
 
+        // Each date-picker change fires another load without cancelling the last. Adjusting a
+        // range is naturally a flurry of them, and the slowest reply would otherwise fill the
+        // table with costs for a period the picker no longer shows — numbers that look
+        // authoritative and describe the wrong dates.
+        if (Worlds.Current?.Id != id || FromOffset != from || ToOffset != to)
+        {
+            return;
+        }
+
         _loadingBreakdowns = false;
 
         var failure = new[] { operationTask.Result.Error, modelTask.Result.Error, userTask.Result.Error }

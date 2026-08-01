@@ -717,15 +717,24 @@
         StateHasChanged();
 
         // Captured once: a world switch mid-load nulls Worlds.Current, and every fetch below
-        // should describe the world this load started in — a late response for another world
-        // is discarded by the callers' own checks.
+        // should describe the world this load started in.
         var worldId = Worlds.Current.Id;
+        var sourceId = SourceId;
 
         // The campaign list and the GM's replay banner don't depend on the source row, so they
         // run alongside the fetch everything else waits on.
         var campaignsTask = Api.GetCampaignsAsync(worldId);
         var replayTask = RefreshReplayAsync(CancellationToken.None);
-        var result = await Api.GetSourceAsync(worldId, SourceId);
+        var result = await Api.GetSourceAsync(worldId, sourceId);
+
+        // The comment that used to sit above claimed late responses were "discarded by the
+        // callers' own checks". No such check existed anywhere — so overlapping loads painted
+        // whichever finished last, and a world switch mid-load painted the old world's source.
+        // _loadedId is the sequence marker: a newer load overwrote it before its own await.
+        if (_loadedId != sourceId || Worlds.Current?.Id != worldId)
+        {
+            return;
+        }
 
         var campaignsResult = await campaignsTask;
         _campaigns = campaignsResult.IsSuccess ? campaignsResult.Value! : [];
