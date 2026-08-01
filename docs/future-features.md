@@ -65,7 +65,9 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
    thing Fable does on return.
 9. Scrub tier 3 convention unification, then tier 4 test pruning — mechanical sweeps;
    the doc names each decision.
-10. Test quality phase 5 (authorization-suite tagging) and phase 3 (CRAP hotspots).
+10. Test quality phase 5 (authorization-suite tagging). **Phase 3 (CRAP hotspots) done
+    2026-08-01** — pulled forward while the dashboard was open and the data was already
+    in the merged Cobertura.
 11. O4 AI kill switch (design pre-decided, one additive migration) and O3 managed
     identity (procedural, but touches prod credentials — do it attended).
 

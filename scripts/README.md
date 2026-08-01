@@ -40,6 +40,23 @@ reported as skipped instead of taking the whole run down. There is no coverage g
 the report is a signal to read, not a bar to clear (`.kiro/steering/testing-strategy.md`,
 `docs/plans/test-quality.md`).
 
+## crap-report.ps1
+
+Ranks methods by CRAP score — complexity squared against uncovered-ness cubed — so the
+code that is dangerous to change sorts to the top. Reads the merged Cobertura that
+`coverage.ps1` produces, writes `artifacts/coverage/crap.json` and `crap.md`, and prints
+the worst fifteen.
+
+```powershell
+./scripts/coverage.ps1 -NoOpen   # produces the merged Cobertura
+./scripts/crap-report.ps1        # ranks it
+./scripts/crap-report.ps1 -Top 50
+```
+
+The list is a test-writing backlog ordered by risk, never a gate. Razor `BuildRenderTree`
+methods are excluded — compiler-generated markup that would otherwise fill the table and
+bury everything a person could act on.
+
 ## import-notes.py
 
 Bulk-imports a note-vault export (wiki-style folder layout: `Wiki/`, `Characters/`,
