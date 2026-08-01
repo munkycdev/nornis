@@ -100,7 +100,6 @@ nornis-worker   Background processor — drains the extraction queue
 | `src/Nornis.Api` | Controllers, request/response contracts, auth filters. |
 | `src/Nornis.Web` | Blazor pages and components, API client. |
 | `src/Nornis.Worker` | Queue-driven extraction, indexing, and transcription jobs. |
-| `src/Nornis.Shared` | Types shared across hosts. |
 
 **Stack:** .NET 10 · Blazor · ASP.NET Core · Azure SQL (EF Core, repository pattern) ·
 Azure Blob Storage · Azure Service Bus · Azure OpenAI · Auth0 (Discord) · Azure Container
@@ -170,20 +169,60 @@ dotnet test tests/Nornis.Application.Tests/ --filter "FullyQualifiedName~Library
 Warnings are errors ([`Directory.Build.props`](Directory.Build.props)), so a clean build is
 the bar.
 
+### Coverage and risk
+
+Coverage is signal here, never a gate — see
+[`.kiro/steering/testing-strategy.md`](.kiro/steering/testing-strategy.md).
+
+```powershell
+./scripts/coverage.ps1              # collect, merge, open the HTML report
+./scripts/coverage.ps1 -Projects Domain,Application
+./scripts/crap-report.ps1           # rank methods by complexity against coverage
+```
+
+Every push to `main` publishes both to <https://status.nornis.app> — per-assembly trend and
+the CRAP hotspot table, which is the test-writing backlog ordered by risk rather than by
+whatever a percentage is shouting about. The full annotated report stays a build artifact on
+the workflow run.
+
 ---
 
 ## Deployment
 
 Pushing to `main` deploys. [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
-builds the three images in parallel with the test run, applies EF migrations, then rolls the
-Azure Container Apps forward — gated on tests passing, so images for a failing commit are
-tagged but never deployed. Pull requests run
-[`ci.yml`](.github/workflows/ci.yml) instead: restore, build, test, format.
+builds the three images in parallel with the test run, rolls the Azure Container Apps
+forward, then **polls `/health` until the new revision serves** and fails loudly if it never
+does — gated on tests passing, so images for a failing commit are tagged but never deployed.
+Pull requests run [`ci.yml`](.github/workflows/ci.yml) instead: restore, build, test,
+vulnerable-package scan, format.
 
-Because migrations run *before* the new images go live and the old revision keeps serving
-until the rollout, **migrations must stay additive**.
+**EF migrations are *not* applied by the pipeline.** They are run by hand, *before* pushing
+the commit that needs them, and **must stay additive** so the old revision keeps serving
+through the rollout:
+
+```powershell
+dotnet ef database update --project src/Nornis.Infrastructure `
+    --startup-project src/Nornis.Api --connection "<prod>"
+```
+
+Miss that step and `/health` returns 503 until it is run — see
+[`docs/runbooks/migration-missed.md`](docs/runbooks/migration-missed.md).
 
 Infrastructure is provisioned by [`scripts/provision-azure.ps1`](scripts/provision-azure.ps1).
+
+---
+
+## Operations
+
+| Surface | Answers |
+|---|---|
+| `GET /health` (API) | *Is this deploy broken?* Pending migrations only. The availability alert watches it, and it backs the Container Apps readiness probe. |
+| `GET /status` (API) | *Are the dependencies healthy?* SQL, blob storage, Service Bus, Azure OpenAI, worker heartbeat. Anonymous; names and verdicts only. |
+| <https://status.nornis.app> | Both dashboard faces. Hosted on GitHub Pages, deliberately outside Azure, so it still loads when the system it reports on does not. |
+
+[`docs/runbooks/`](docs/runbooks/README.md) has one doc per nameable failure mode, and every
+Azure alert links to its own from its description. `./scripts/dlq.ps1` peeks, resubmits and
+purges dead-lettered messages.
 
 ---
 
@@ -192,9 +231,12 @@ Infrastructure is provisioned by [`scripts/provision-azure.ps1`](scripts/provisi
 ```text
 src/            Application source (see the table above)
 tests/          One test project per source project
+ci/pages/       The static engineering dashboard published to status.nornis.app
 docs/features/  Per-feature design docs, numbered in build order
-docs/           Backlog and images
-scripts/        Local stack, Azure provisioning, bulk note import
+docs/plans/     Backlog specs; docs/future-features.md holds the execution order
+docs/runbooks/  One doc per nameable failure mode, linked from every Azure alert
+docs/           Images
+scripts/        Local stack, provisioning, note import, coverage, CRAP, dead-letter queue
 .kiro/steering/ Product vision, architecture, and standards that guide the build
 ```
 

@@ -8,6 +8,16 @@
     <h1>What's new</h1>
 
     <section class="nornis-changelog-entry">
+        <h2>July 21 – August 1, 2026</h2>
+        <ul>
+            <li>A status page at <a href="https://status.nornis.app">status.nornis.app</a>, linked from the footer. It reports whether Nornis and the services it depends on are healthy, and it is hosted outside the system it watches — so when something is wrong, the page telling you still loads.</li>
+            <li>Tightened visibility in several places where private or GM-only material could surface to someone who should not see it: the review queue, the session feed on Ask, and edits to facts and relationships. Nothing about what you had marked private changed — where it was honoured did.</li>
+            <li>Extraction failures no longer disappear quietly. A job that fails for good is now noticed rather than lost, and there are tools to look at it and send it back through.</li>
+            <li>Under the hood: deploys now check the app actually came up before reporting success, and the background worker reports in so a stall is visible instead of silent. Plus a long housekeeping pass — duplicated logic folded together, dead scaffolding removed.</li>
+        </ul>
+    </section>
+
+    <section class="nornis-changelog-entry">
         <h2>July 16–20, 2026</h2>
         <ul>
             <li>Public world sharing: give a world a public address and switch it on — anyone gets a read-only view of party-visible material only (the codex, the timeline, and session notes), as an anonymous observer. Nothing private or GM-only ever appears, and you can switch it off again at any time.</li>
