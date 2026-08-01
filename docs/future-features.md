@@ -50,8 +50,10 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
 5. O1 post-deploy verification + O2 DLQ visibility. **O2 done 2026-08-01**; the pipeline
    poll landed earlier the same day with the status work. The `/status` dlq row was
    dropped on purpose — it needs Manage rights the public API must not hold; see the plan.
-   **Still open:** the Container Apps liveness/readiness probes, and naming the failing
-   check in `/health`'s body.
+   **O1 done 2026-08-01** — probes are on api and web, with liveness deliberately on TCP
+   rather than `/health` (see the plan: liveness on `/health` turns the migration window
+   into a crash loop). The one piece left is naming the failing check in `/health`'s body,
+   which is an additive change to a payload the availability alert reads.
 6. D2 deterministic functional bugs — every item carries a repro and a prescribed fix.
    Includes the merge skip-branch row deletion (prerequisite for W2) and the
    stale-response family. Two additive migrations (batch and replay unique indexes).

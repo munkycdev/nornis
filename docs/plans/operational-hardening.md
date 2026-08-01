@@ -17,9 +17,30 @@ soft-delete, Azure-side cost tripwires, and local-dev/prod separation.
 `deploy.yml` currently ends the moment `az containerapp update` returns; nothing
 confirms the new revision came up.
 
-- Wire `/health` as Container Apps liveness + readiness probes on `ca-nornis-api`
+- ~~Wire `/health` as Container Apps liveness + readiness probes on `ca-nornis-api`
   (and on Web once the status plan gives it a `/health`), so a failing revision
-  never takes traffic and the old revision keeps serving.
+  never takes traffic and the old revision keeps serving.~~ **Done 2026-08-01, with
+  liveness pointed somewhere else on purpose.**
+  - **Readiness → `/health`.** This is what the stated goal actually describes: a
+    revision whose `/health` never goes green never becomes ready, so traffic stays on
+    the previous one. `initialDelaySeconds 10`, `failureThreshold 6`, `timeout 10` —
+    generous, because a cold start against an idle database has been measured at eight
+    seconds and a probe that gives up sooner would fail every deploy.
+  - **Liveness → TCP on 8080, not `/health`.** Liveness restarts the container, and
+    `/health` returns 503 while a migration is pending. Wiring the two together turns
+    the documented migration window into a crash loop: restart, migration still
+    pending, restart again — replacing a revision that serves 503 and says what is
+    wrong with one that never stays up long enough to say anything. TCP answers the
+    question liveness is actually asking, which is whether the process is listening.
+  - Applied as an ARM `PATCH` on `properties.template` alone, so
+    `properties.configuration` — where the secrets live — was never in the request.
+    Verified after: env var names, secret names and image identical on both apps.
+    `az containerapp update --yaml` would have round-tripped the whole app including
+    secret placeholders, which is the way this goes wrong.
+  - Two API-version potholes on the way: the captured template carries a read-only
+    `imageType` the PATCH validator rejects, and `scale.cooldownPeriod` /
+    `pollingInterval` are unknown to `2024-03-01`. Strip the first, use `2025-01-01`
+    for the second. Both failures were clean — nothing was applied.
 - ~~Pipeline step after the update: poll the public `/health` until healthy, with a
   timeout that fails the run loudly.~~ **Done 2026-08-01** — `deploy.yml` now polls
   `/health` for up to three minutes and fails the run loudly, then warms the new
