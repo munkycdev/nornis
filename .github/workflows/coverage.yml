@@ -49,6 +49,16 @@ jobs:
             -verbosity:Warning
           cat artifacts/coverage/report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
 
+      # Risk-weighted, where the coverage percentage above is not: this ranks methods by
+      # complexity against coverage, so an uncovered visibility branch and an uncovered
+      # DTO mapper stop looking like the same emergency. The list is the test-writing
+      # backlog. Never a gate — see the steering doc.
+      - name: CRAP hotspots
+        shell: pwsh
+        run: |
+          ./scripts/crap-report.ps1
+          Get-Content artifacts/coverage/crap.md | Add-Content $env:GITHUB_STEP_SUMMARY
+
       # The exposure decision, enforced here rather than trusted: the full report embeds
       # annotated source and stays an artifact. The published site gets aggregates only —
       # not because the source is secret (the repo is public) but because a dashboard read
@@ -104,6 +114,9 @@ jobs:
           # of the site, and a glob that names types silently drops whatever it forgot.
           cp -r ci/pages/. _site/
           cp history.json _site/history.json
+          # Method names only — no source, no line numbers. Consistent with the full
+          # report staying an artifact.
+          cp artifacts/coverage/crap.json _site/crap.json
 
       - uses: actions/upload-pages-artifact@v3
         with:

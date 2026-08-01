@@ -56,6 +56,29 @@
             <div id="chart"></div>
             <p class="muted" id="chart-note"></p>
         </div>
+
+        <div class="card">
+            <h2>CRAP hotspots</h2>
+            <p class="muted" id="crap-summary">Loading…</p>
+            <table id="crap">
+                <thead>
+                    <tr>
+                        <th>Method</th>
+                        <th class="num">Complexity</th>
+                        <th class="num">Line coverage</th>
+                        <th class="num">CRAP</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <p class="muted">
+                CRAP = complexity² × (1 − coverage)³ + complexity. Coverage enters cubed, so
+                testing a gnarly method collapses its score quickly; a fully covered method
+                scores exactly its complexity, which only refactoring can lower. This is the
+                test-writing backlog, ordered by risk rather than by whatever a percentage
+                is shouting about.
+            </p>
+        </div>
     </main>
 
     <footer>
@@ -145,6 +168,35 @@
             .catch(() => {
                 document.getElementById('latest').textContent =
                     'Coverage history could not be loaded.';
+            });
+
+        // Thresholds come from the file rather than being repeated here — crap-report.ps1
+        // owns them, and two copies would drift apart the first time one moved.
+        fetch('crap.json')
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status))))
+            .then((data) => {
+                const { red, amber } = data.thresholds;
+                document.getElementById('crap-summary').textContent =
+                    `${data.totals.methods} methods scored · ${data.totals.red} at or above ${red} · ` +
+                    `${data.totals.amber} at or above ${amber}. Top ${data.hotspots.length} shown.`;
+
+                document.querySelector('#crap tbody').innerHTML = data.hotspots
+                    .map((h) => {
+                        const band = h.Crap >= red ? 's-unhealthy' : h.Crap >= amber ? 's-degraded' : '';
+                        // The band is a class on the number, and the number is the label —
+                        // colour is never carrying the meaning alone.
+                        return `<tr>
+                                <td><code>${h.Method}</code></td>
+                                <td class="num">${h.Complexity}</td>
+                                <td class="num">${h.Coverage}%</td>
+                                <td class="num ${band}"><strong>${h.Crap}</strong></td>
+                            </tr>`;
+                    })
+                    .join('');
+            })
+            .catch(() => {
+                document.getElementById('crap-summary').textContent =
+                    'No hotspot data yet — the next run on main will produce it.';
             });
     </script>
 </body>

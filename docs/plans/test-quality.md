@@ -83,6 +83,27 @@ Ground rules:
 
 ## Phase 3 — CRAP-score hotspots
 
+**Done 2026-08-01**, pulled ahead of its place in the execution order because the
+dashboard was being built anyway and the data was already in the merged Cobertura.
+
+- **Read the merged Cobertura, not the raw per-project files.** Merging is what makes a
+  method covered by one test project and touched by another read correctly — and
+  ReportGenerator also resolves async state machines, so `Foo/<BarAsync>d__7.MoveNext`
+  arrives as `Foo.BarAsync` without any unmangling of our own.
+- **`BuildRenderTree` is excluded, and the list is worthless without that.** It is what
+  the Razor compiler emits for a component's markup: enormous, uncovered, and written by
+  nobody. Left in, it holds seven of the top ten (SourceDetail alone scores 4970) and
+  buries every hand-written method. Coverlet's filters are assembly- and type-scoped, so
+  it cannot be dropped at collection time without also losing the `@code` block in the
+  same file — the exclusion has to live in the report script.
+- Consequence worth remembering for phase 4: `Nornis.Web`'s coverage *percentage* is
+  still depressed by that same generated markup, since it cannot be excluded from
+  collection. Another reason floors never go near Web.
+- First run: 1978 methods scored, 226 red, 175 amber. The top of the list is
+  Blazor component handlers and the three AI response parsers
+  (`ParseProposals`, `ParseFindings`, `ParseLinks`) — model output parsing with no tests
+  behind it, which is exactly the risk-weighted answer a percentage could not give.
+
 - CRAP(m) = comp(m)² × (1 − cov(m))³ + comp(m), from the merged Cobertura — coverlet
   already emits per-method cyclomatic complexity. Adapt the `dotnet-test` plugin's
   `Compute-CrapScores.ps1` / `Extract-MethodCoverage.ps1` into `scripts/crap-report.ps1`.

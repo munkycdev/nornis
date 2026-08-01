@@ -82,7 +82,7 @@ dotnet tool restore | Out-Null
 dotnet reportgenerator `
     "-reports:$(Join-Path $rawDir '**/coverage.cobertura.xml')" `
     "-targetdir:$reportDir" `
-    '-reporttypes:Html' `
+    '-reporttypes:Html;Cobertura' `
     '-title:Nornis coverage' `
     -verbosity:Warning
 if ($LASTEXITCODE -ne 0) { throw 'reportgenerator failed' }
