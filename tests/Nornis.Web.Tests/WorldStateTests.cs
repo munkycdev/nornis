@@ -12,7 +12,7 @@ public class WorldStateTests
     private static WorldState CreateState() =>
         CreateState(new StubApiHandler());
 
-    private static WorldState CreateState(StubApiHandler handler, string? storedWorldId = null)
+    private static WorldState CreateState(HttpMessageHandler handler, string? storedWorldId = null)
     {
         var viewAs = new ViewAsState();
         var client = new NornisApiClient(
@@ -263,6 +263,89 @@ public class WorldStateTests
         await state.EnsureSelectionRestoredAsync();
 
         Assert.That(state.Current!.Id, Is.EqualTo(handler.WorldId));
+    }
+
+    [Test]
+    public async Task LoadContinuity_ForAWorldTheUserHasLeft_IsDiscarded()
+    {
+        // The continuity score is a number a GM reads and acts on, so painting the previous
+        // world's under the new world's name is worse than showing nothing. A slow assessment
+        // plus a world switch is all it takes, and both are ordinary.
+        var handler = new GatedAssessmentHandler();
+        var state = CreateState(handler);
+        await state.EnsureSelectionRestoredAsync();
+        Assert.That(state.Current!.Id, Is.EqualTo(handler.WorldId), "starts on the first world");
+
+        // Arm only now: the restore above loads continuity too, and gating that would
+        // deadlock the setup rather than test anything.
+        handler.Arm();
+        var inFlight = state.LoadContinuityAsync();
+        await handler.RequestReceived.Task;
+
+        // Switch away while the first world's assessment is still in flight. Select clears
+        // the score and starts a load for the new world, which this handler 404s.
+        state.Select(handler.SecondWorldId);
+
+        handler.Release();
+        await inFlight;
+
+        Assert.That(state.Continuity, Is.Null,
+            "the departed world's assessment must not land under the world now on screen");
+    }
+
+    /// <summary>
+    /// Holds the first world's assessment open until released, so a world switch can be
+    /// interleaved with a response that is genuinely still in flight.
+    /// </summary>
+    private sealed class GatedAssessmentHandler : HttpMessageHandler
+    {
+        private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private volatile bool _armed;
+
+        public Guid WorldId { get; } = Guid.NewGuid();
+        public Guid SecondWorldId { get; } = Guid.NewGuid();
+        public TaskCompletionSource RequestReceived { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Makes the next assessment request block until <see cref="Release"/>.</summary>
+        public void Arm() => _armed = true;
+
+        public void Release() => _gate.TrySetResult();
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var path = request.RequestUri!.AbsolutePath;
+
+            if (path == "/api/worlds")
+            {
+                return Json(
+                    $$"""
+                    [{"id":"{{WorldId}}","name":"W","description":null,"gameSystem":null,"myRole":"GM"},
+                     {"id":"{{SecondWorldId}}","name":"W2","description":null,"gameSystem":null,"myRole":"GM"}]
+                    """);
+            }
+
+            if (path == $"/api/worlds/{WorldId}/health/assessment")
+            {
+                if (_armed)
+                {
+                    RequestReceived.TrySetResult();
+                    await _gate.Task;
+                }
+
+                return Json(
+                    $$"""
+                    {"hasData":true,"assessmentId":"{{Guid.NewGuid()}}","createdAt":"2026-07-21T00:00:00Z",
+                     "model":"test-model","score":90,"effectiveScore":84,"heuristicScore":90,"findings":[]}
+                    """);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        private static HttpResponseMessage Json(string body) => new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json")
+        };
     }
 
     /// <summary>Serves a two-world list and a canned assessment, counting requests per endpoint.</summary>

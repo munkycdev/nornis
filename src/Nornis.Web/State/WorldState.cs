@@ -233,7 +233,17 @@ public class WorldState
             return;
         }
 
-        var result = await _api.GetContinuityAssessmentAsync(Current.Id, ct);
+        // Capture before the await: switching worlds mid-flight would otherwise let the
+        // previous world's assessment land under the new world's name. The continuity score
+        // is a number a GM acts on, so showing the wrong world's is worse than showing none.
+        var worldId = Current.Id;
+        var result = await _api.GetContinuityAssessmentAsync(worldId, ct);
+
+        if (Current?.Id != worldId)
+        {
+            return;
+        }
+
         Continuity = result.IsSuccess ? result.Value : null;
         ContinuityError = result.IsSuccess ? null : result.Error;
         Changed?.Invoke();
