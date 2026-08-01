@@ -39,6 +39,7 @@ public class JourneyMapService : IJourneyMapService
     {
         // One load of the world's sources, reused for canvas discovery and the timeline walk.
         var allSources = await _sourceRepository.ListByWorldAsync(worldId, cancellationToken: ct);
+        var canSeeSource = SourceVisibilityRule.Compile(userId, role);
 
         // 1. Resolve the canvas — the map image + its caller-visible pins — via MapViewService.
         MapView canvas;
@@ -54,7 +55,7 @@ public class JourneyMapService : IJourneyMapService
         else
         {
             var candidates = allSources
-                .Where(s => s.Type == SourceType.Map && CanSeeSource(s, userId, role));
+                .Where(s => s.Type == SourceType.Map && canSeeSource(s));
 
             (Source Source, MapView View)? best = null;
             foreach (var candidate in candidates)
@@ -101,7 +102,7 @@ public class JourneyMapService : IJourneyMapService
         foreach (var source in allSources)
         {
             if (source.Type is not (SourceType.SessionNote or SourceType.ImportedNote)
-                || !CanSeeSource(source, userId, role))
+                || !canSeeSource(source))
             {
                 continue;
             }
@@ -217,14 +218,5 @@ public class JourneyMapService : IJourneyMapService
         ArtifactType.Storyline => 5,
         ArtifactType.Concept => 6,
         _ => 7
-    };
-
-    // The standard source-visibility predicate, identical to MapViewService's gate.
-    private static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch
-    {
-        VisibilityScope.PartyVisible => true,
-        VisibilityScope.Private => role == WorldRole.GM || source.CreatedByUserId == userId,
-        VisibilityScope.GMOnly => role == WorldRole.GM,
-        _ => false
     };
 }

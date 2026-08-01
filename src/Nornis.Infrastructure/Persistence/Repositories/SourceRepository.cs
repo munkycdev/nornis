@@ -116,6 +116,8 @@ public class SourceRepository : ISourceRepository
 
     public async Task<IReadOnlyList<SourceAttribution>> ListAttributionByIdsAsync(
         IReadOnlyList<Guid> ids,
+        Guid userId,
+        WorldRole role,
         CancellationToken cancellationToken = default)
     {
         if (ids.Count == 0)
@@ -127,6 +129,7 @@ public class SourceRepository : ISourceRepository
         return await _context.Sources
             .AsNoTracking()
             .Where(s => ids.Contains(s.Id))
+            .Where(SourceVisibilityRule.CanSee(userId, role))
             .Select(s => new SourceAttribution(s.Id, s.Title, s.Visibility, s.CreatedByUserId))
             .ToListAsync(cancellationToken);
     }
@@ -152,17 +155,12 @@ public class SourceRepository : ISourceRepository
         int maxCount,
         CancellationToken cancellationToken = default)
     {
-        // Hoisted locals translate to SQL parameters.
-        var scopes = filter.Scopes;
-        var owner = filter.PrivateOwnerUserId;
-
         return await _context.Sources
             .AsNoTracking()
             .Where(s => s.WorldId == worldId
                 && (SessionTypes.Contains(s.Type)
-                    || (s.Type == SourceType.ImportedNote && s.OccurredAt != null))
-                && scopes.Contains(s.Visibility)
-                && (s.Visibility != VisibilityScope.Private || owner == null || s.CreatedByUserId == owner))
+                    || (s.Type == SourceType.ImportedNote && s.OccurredAt != null)))
+            .Where(filter.CanSeeSource())
             .OrderByDescending(s => s.OccurredAt ?? s.CreatedAt)
             .Take(maxCount)
             .ToListAsync(cancellationToken);
@@ -177,10 +175,6 @@ public class SourceRepository : ISourceRepository
         int maxCount,
         CancellationToken cancellationToken = default)
     {
-        // Hoisted locals translate to SQL parameters.
-        var scopes = filter.Scopes;
-        var owner = filter.PrivateOwnerUserId;
-
         // Undated imported notes participate by CreatedAt — for a bulk import that is
         // upload order, the best available approximation of story order. The strict
         // tuple comparison (effective date, then CreatedAt) also excludes the pivot
@@ -191,9 +185,8 @@ public class SourceRepository : ISourceRepository
                 && (SessionTypes.Contains(s.Type) || s.Type == SourceType.ImportedNote)
                 && (campaignId == null || s.CampaignId == null || s.CampaignId == campaignId)
                 && ((s.OccurredAt ?? s.CreatedAt) < pivotOccurred
-                    || ((s.OccurredAt ?? s.CreatedAt) == pivotOccurred && s.CreatedAt < pivotCreated))
-                && scopes.Contains(s.Visibility)
-                && (s.Visibility != VisibilityScope.Private || owner == null || s.CreatedByUserId == owner))
+                    || ((s.OccurredAt ?? s.CreatedAt) == pivotOccurred && s.CreatedAt < pivotCreated)))
+            .Where(filter.CanSeeSource())
             .OrderByDescending(s => s.OccurredAt ?? s.CreatedAt)
             .ThenByDescending(s => s.CreatedAt)
             .Take(maxCount)

@@ -266,7 +266,7 @@ public class ReviewService : IReviewService
         if (source is null)
             return AppResult<AcceptProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
 
-        if (!IsSourceVisibleToUser(source, command.ActingUserId, command.ActingUserRole))
+        if (!CanReviewSource(source, command.ActingUserId, command.ActingUserRole))
             return AppResult<AcceptProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
 
         var authResult = CheckReviewAuthorization(command.ActingUserRole, command.ActingUserId, source);
@@ -433,7 +433,7 @@ public class ReviewService : IReviewService
         if (source is null)
             return AppResult<RejectProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
 
-        if (!IsSourceVisibleToUser(source, command.ActingUserId, command.ActingUserRole))
+        if (!CanReviewSource(source, command.ActingUserId, command.ActingUserRole))
             return AppResult<RejectProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
 
         var authResult = CheckReviewAuthorization(command.ActingUserRole, command.ActingUserId, source);
@@ -493,7 +493,7 @@ public class ReviewService : IReviewService
         }
 
         // 4. Check visibility: if source is invisible to the user, return not-found
-        if (!IsSourceVisibleToUser(source, command.ActingUserId, command.ActingUserRole))
+        if (!CanReviewSource(source, command.ActingUserId, command.ActingUserRole))
         {
             return AppResult<EditProposalResult>.Fail(
                 new AppError(404, "not_found", "Proposal not found."));
@@ -685,7 +685,7 @@ public class ReviewService : IReviewService
             source = loaded;
         }
 
-        if (!IsSourceVisibleToUser(source, command.ActingUserId, command.ActingUserRole))
+        if (!CanReviewSource(source, command.ActingUserId, command.ActingUserRole))
             return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
 
         var authResult = CheckReviewAuthorization(command.ActingUserRole, command.ActingUserId, source);
@@ -782,7 +782,7 @@ public class ReviewService : IReviewService
                 continue;
             }
 
-            if (!IsSourceVisibleToUser(source, command.ActingUserId, command.ActingUserRole))
+            if (!CanReviewSource(source, command.ActingUserId, command.ActingUserRole))
             {
                 failed.Add(new BatchFailureDetail(proposalId, "not_found", "Proposal not found."));
                 continue;
@@ -850,7 +850,10 @@ public class ReviewService : IReviewService
         };
     }
 
-    private bool IsSourceVisibleToUser(Source source, Guid userId, WorldRole role)
+    // Deliberately NOT SourceVisibilityRule: review authorization is narrower than
+    // visibility. A Player can see any PartyVisible source but may only act on
+    // proposals from sources they authored.
+    private bool CanReviewSource(Source source, Guid userId, WorldRole role)
     {
         return role switch
         {

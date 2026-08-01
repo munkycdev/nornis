@@ -38,7 +38,7 @@ public class MapViewService : IMapViewService
         Guid sourceId, Guid worldId, Guid userId, WorldRole role, CancellationToken ct)
     {
         var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
-        if (source is null || source.WorldId != worldId || !CanSeeSource(source, userId, role))
+        if (source is null || source.WorldId != worldId || !SourceVisibilityRule.Compile(userId, role)(source))
         {
             return AppResult<MapView>.Fail(new AppError(404, "not_found", "Source not found."));
         }
@@ -239,7 +239,7 @@ public class MapViewService : IMapViewService
         Guid sourceId, Guid worldId, Guid userId, WorldRole role, CancellationToken ct)
     {
         var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
-        if (source is null || source.WorldId != worldId || !CanSeeSource(source, userId, role))
+        if (source is null || source.WorldId != worldId || !SourceVisibilityRule.Compile(userId, role)(source))
         {
             return (new AppError(404, "not_found", "Source not found."), null);
         }
@@ -259,12 +259,4 @@ public class MapViewService : IMapViewService
 
         return (null, attachment);
     }
-
-    private static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch
-    {
-        VisibilityScope.PartyVisible => true,
-        VisibilityScope.Private => role == WorldRole.GM || source.CreatedByUserId == userId,
-        VisibilityScope.GMOnly => role == WorldRole.GM,
-        _ => false
-    };
 }

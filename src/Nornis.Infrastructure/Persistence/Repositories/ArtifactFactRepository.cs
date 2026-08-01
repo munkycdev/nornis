@@ -67,16 +67,10 @@ public class ArtifactFactRepository : IArtifactFactRepository
         if (artifactIds.Count == 0)
             return [];
 
-        // Hoisted locals translate to SQL parameters. The visibility predicate applies
-        // before the per-artifact cap so invisible facts never consume cap slots.
-        var scopes = filter.Scopes;
-        var owner = filter.PrivateOwnerUserId;
-
         var facts = await _context.ArtifactFacts
             .AsNoTracking()
             .Where(f => artifactIds.Contains(f.ArtifactId))
-            .Where(f => scopes.Contains(f.Visibility)
-                && (f.Visibility != VisibilityScope.Private || owner == null || f.CreatedByUserId == owner))
+            .Where(filter.CanSeeFact())
             .OrderByDescending(f => f.UpdatedAt)
             .ToListAsync(cancellationToken);
 

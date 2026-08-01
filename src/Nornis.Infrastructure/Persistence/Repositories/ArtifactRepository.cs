@@ -86,10 +86,6 @@ public class ArtifactRepository : IArtifactRepository
 
     public async Task<IReadOnlyList<Artifact>> ListByEquivalentNameAsync(Guid worldId, string name, VisibilityFilter filter, CancellationToken cancellationToken = default)
     {
-        // Hoisted locals translate to SQL parameters.
-        var scopes = filter.Scopes;
-        var owner = filter.PrivateOwnerUserId;
-
         // World, status and visibility stay in SQL — the visibility predicate in particular
         // must not move client-side, since ArtifactNameLookupVisibilityTests exists precisely
         // to stop it drifting from VisibilityFilter.CanSee.
@@ -106,9 +102,8 @@ public class ArtifactRepository : IArtifactRepository
         var candidates = await _context.Artifacts
             .AsNoTracking()
             .Where(a => a.WorldId == worldId
-                && a.Status != ArtifactStatus.Archived
-                && scopes.Contains(a.Visibility)
-                && (a.Visibility != VisibilityScope.Private || owner == null || a.CreatedByUserId == owner))
+                && a.Status != ArtifactStatus.Archived)
+            .Where(filter.CanSeeArtifact())
             .ToListAsync(cancellationToken);
 
         return candidates
@@ -122,16 +117,12 @@ public class ArtifactRepository : IArtifactRepository
         VisibilityFilter filter,
         CancellationToken cancellationToken = default)
     {
-        var scopes = filter.Scopes;
-        var owner = filter.PrivateOwnerUserId;
-
         return await _context.Artifacts
             .AsNoTracking()
             .Where(a => a.WorldId == worldId
                 && a.Type == type
-                && a.Status != ArtifactStatus.Archived
-                && scopes.Contains(a.Visibility)
-                && (a.Visibility != VisibilityScope.Private || owner == null || a.CreatedByUserId == owner))
+                && a.Status != ArtifactStatus.Archived)
+            .Where(filter.CanSeeArtifact())
             .OrderBy(a => a.Name)
             .ToListAsync(cancellationToken);
     }
@@ -142,16 +133,11 @@ public class ArtifactRepository : IArtifactRepository
         int maxCount,
         CancellationToken cancellationToken = default)
     {
-        // Hoisted locals translate to SQL parameters.
-        var scopes = filter.Scopes;
-        var owner = filter.PrivateOwnerUserId;
-
         return await _context.Artifacts
             .AsNoTracking()
             .Where(a => a.WorldId == worldId
-                && a.Status != ArtifactStatus.Archived
-                && scopes.Contains(a.Visibility)
-                && (a.Visibility != VisibilityScope.Private || owner == null || a.CreatedByUserId == owner))
+                && a.Status != ArtifactStatus.Archived)
+            .Where(filter.CanSeeArtifact())
             .OrderByDescending(a => a.UpdatedAt)
             .Take(maxCount)
             .ToListAsync(cancellationToken);
@@ -163,15 +149,11 @@ public class ArtifactRepository : IArtifactRepository
         VisibilityFilter filter,
         CancellationToken cancellationToken = default)
     {
-        var scopes = filter.Scopes;
-        var owner = filter.PrivateOwnerUserId;
-
         var candidates = await _context.Artifacts
             .AsNoTracking()
             .Where(a => a.WorldId == worldId
-                && a.Status != ArtifactStatus.Archived
-                && scopes.Contains(a.Visibility)
-                && (a.Visibility != VisibilityScope.Private || owner == null || a.CreatedByUserId == owner))
+                && a.Status != ArtifactStatus.Archived)
+            .Where(filter.CanSeeArtifact())
             .ToListAsync(cancellationToken);
 
         return candidates

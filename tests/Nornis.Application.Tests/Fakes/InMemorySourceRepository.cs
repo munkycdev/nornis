@@ -98,12 +98,14 @@ public class InMemorySourceRepository : ISourceRepository
     }
 
     public Task<IReadOnlyList<SourceAttribution>> ListAttributionByIdsAsync(
-        IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
+        IReadOnlyList<Guid> ids, Guid userId, WorldRole role, CancellationToken cancellationToken = default)
     {
         // Mirrors the real projection, including that unknown ids are simply absent — callers
-        // rely on that to fail closed on a reference they cannot attribute.
+        // rely on that to fail closed on a reference they cannot attribute. Visibility uses
+        // the same shared rule the SQL form applies.
+        var canSee = SourceVisibilityRule.Compile(userId, role);
         var result = _sources
-            .Where(s => ids.Contains(s.Id))
+            .Where(s => ids.Contains(s.Id) && canSee(s))
             .Select(s => new SourceAttribution(s.Id, s.Title, s.Visibility, s.CreatedByUserId))
             .ToList();
 

@@ -38,14 +38,6 @@ public sealed class StorylineDevelopmentReader
         _sourceRepository = sourceRepository;
     }
 
-    public static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch
-    {
-        VisibilityScope.PartyVisible => true,
-        VisibilityScope.Private => role == WorldRole.GM || source.CreatedByUserId == userId,
-        VisibilityScope.GMOnly => role == WorldRole.GM,
-        _ => false
-    };
-
     public async Task<StorylineDevelopmentData> ReadAsync(
         Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct)
     {
@@ -88,8 +80,9 @@ public sealed class StorylineDevelopmentReader
 
         // Sessions the caller may see, dated. Undated sources (lore documents) carry no
         // position on a real-world axis and are skipped.
+        var canSeeSource = SourceVisibilityRule.Compile(requestingUserId, role);
         var sources = (await _sourceRepository.ListByWorldAsync(worldId, null, ct))
-            .Where(s => s.OccurredAt is not null && CanSeeSource(s, requestingUserId, role))
+            .Where(s => s.OccurredAt is not null && canSeeSource(s))
             .ToDictionary(s => s.Id);
 
         var targetIds = storylineIds

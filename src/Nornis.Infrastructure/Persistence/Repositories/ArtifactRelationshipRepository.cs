@@ -57,16 +57,11 @@ public class ArtifactRelationshipRepository : IArtifactRelationshipRepository
         if (artifactIds.Count == 0)
             return [];
 
-        // Hoisted locals translate to SQL parameters.
-        var scopes = filter.Scopes;
-        var owner = filter.PrivateOwnerUserId;
-
         return await _context.ArtifactRelationships
             .AsNoTracking()
             .Where(ar =>
-                (artifactIds.Contains(ar.ArtifactAId) || artifactIds.Contains(ar.ArtifactBId))
-                && scopes.Contains(ar.Visibility)
-                && (ar.Visibility != VisibilityScope.Private || owner == null || ar.CreatedByUserId == owner))
+                (artifactIds.Contains(ar.ArtifactAId) || artifactIds.Contains(ar.ArtifactBId)))
+            .Where(filter.CanSeeRelationship())
             .ToListAsync(cancellationToken);
     }
 

@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 
 namespace Nornis.Domain.Models;
@@ -58,4 +60,44 @@ public sealed record VisibilityFilter
         && (visibility != VisibilityScope.Private
             || PrivateOwnerUserId is null
             || createdByUserId == PrivateOwnerUserId);
+
+    // The SQL forms of CanSee, one per queried entity. EF must see concrete property
+    // access to translate, and the entities share no visibility interface, so the
+    // predicate repeats per type HERE — and only here, where the copies sit side by
+    // side and a drifted arm is visible in one screenful. Repositories must use these
+    // rather than inlining the predicate: a hand-rolled copy in a query is how a
+    // Private row ends up in someone else's count. Locals are hoisted so EF renders
+    // them as SQL parameters.
+
+    public Expression<Func<Artifact, bool>> CanSeeArtifact()
+    {
+        var scopes = Scopes;
+        var owner = PrivateOwnerUserId;
+        return a => scopes.Contains(a.Visibility)
+            && (a.Visibility != VisibilityScope.Private || owner == null || a.CreatedByUserId == owner);
+    }
+
+    public Expression<Func<ArtifactFact, bool>> CanSeeFact()
+    {
+        var scopes = Scopes;
+        var owner = PrivateOwnerUserId;
+        return f => scopes.Contains(f.Visibility)
+            && (f.Visibility != VisibilityScope.Private || owner == null || f.CreatedByUserId == owner);
+    }
+
+    public Expression<Func<ArtifactRelationship, bool>> CanSeeRelationship()
+    {
+        var scopes = Scopes;
+        var owner = PrivateOwnerUserId;
+        return r => scopes.Contains(r.Visibility)
+            && (r.Visibility != VisibilityScope.Private || owner == null || r.CreatedByUserId == owner);
+    }
+
+    public Expression<Func<Source, bool>> CanSeeSource()
+    {
+        var scopes = Scopes;
+        var owner = PrivateOwnerUserId;
+        return s => scopes.Contains(s.Visibility)
+            && (s.Visibility != VisibilityScope.Private || owner == null || s.CreatedByUserId == owner);
+    }
 }

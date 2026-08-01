@@ -33,7 +33,7 @@ public class SourceLocationService : ISourceLocationService
         Guid sourceId, Guid worldId, Guid userId, WorldRole role, CancellationToken ct)
     {
         var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
-        if (source is null || source.WorldId != worldId || !CanSeeSource(source, userId, role))
+        if (source is null || source.WorldId != worldId || !SourceVisibilityRule.Compile(userId, role)(source))
         {
             return NotFound();
         }
@@ -164,13 +164,4 @@ public class SourceLocationService : ISourceLocationService
 
     private static AppResult<IReadOnlyList<LinkedLocation>> NotFound() =>
         AppResult<IReadOnlyList<LinkedLocation>>.Fail(new AppError(404, "not_found", "Source not found."));
-
-    // The standard source-visibility predicate, identical to MapViewService / JourneyMapService.
-    private static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch
-    {
-        VisibilityScope.PartyVisible => true,
-        VisibilityScope.Private => role == WorldRole.GM || source.CreatedByUserId == userId,
-        VisibilityScope.GMOnly => role == WorldRole.GM,
-        _ => false
-    };
 }

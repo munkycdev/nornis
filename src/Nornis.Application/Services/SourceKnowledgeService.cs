@@ -38,7 +38,7 @@ public class SourceKnowledgeService : ISourceKnowledgeService
         Guid worldId, Guid sourceId, Guid requestingUserId, WorldRole role, CancellationToken ct)
     {
         var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
-        if (source is null || source.WorldId != worldId || !CanSeeSource(source, requestingUserId, role))
+        if (source is null || source.WorldId != worldId || !SourceVisibilityRule.Compile(requestingUserId, role)(source))
         {
             return AppResult<SourceKnowledge>.Fail(new AppError(404, "not_found", "Source not found."));
         }
@@ -92,7 +92,7 @@ public class SourceKnowledgeService : ISourceKnowledgeService
                     {
                         var artifact = ArtifactOrNull(reference.TargetId);
                         if (artifact is not null && artifact.WorldId == worldId
-                            && Visible(filter, artifact.Visibility, artifact.CreatedByUserId)
+                            && filter.CanSee(artifact.Visibility, artifact.CreatedByUserId)
                             && seenArtifacts.Add(artifact.Id))
                         {
                             artifacts.Add(new SourceKnowledgeArtifact(
@@ -103,7 +103,7 @@ public class SourceKnowledgeService : ISourceKnowledgeService
                 case SourceReferenceTargetType.ArtifactFact:
                     {
                         if (!factsById.TryGetValue(reference.TargetId, out var fact)
-                            || !Visible(filter, fact.Visibility, fact.CreatedByUserId)
+                            || !filter.CanSee(fact.Visibility, fact.CreatedByUserId)
                             || seenFacts.Contains(fact.Id))
                         {
                             break;
@@ -122,7 +122,7 @@ public class SourceKnowledgeService : ISourceKnowledgeService
                     {
                         if (!relationshipsById.TryGetValue(reference.TargetId, out var relationship)
                             || relationship.WorldId != worldId
-                            || !Visible(filter, relationship.Visibility, relationship.CreatedByUserId)
+                            || !filter.CanSee(relationship.Visibility, relationship.CreatedByUserId)
                             || seenRelationships.Contains(relationship.Id))
                         {
                             break;
@@ -142,20 +142,4 @@ public class SourceKnowledgeService : ISourceKnowledgeService
 
         return AppResult<SourceKnowledge>.Success(new SourceKnowledge(artifacts, facts, relationships));
     }
-
-    private static bool CanSeeSource(Source source, Guid userId, WorldRole role) => source.Visibility switch
-    {
-        VisibilityScope.PartyVisible => true,
-        VisibilityScope.Private => role == WorldRole.GM || source.CreatedByUserId == userId,
-        VisibilityScope.GMOnly => role == WorldRole.GM,
-        _ => false,
-    };
-
-    // Mirrors VisibilityFilter semantics for a single row: scope must be readable, and
-    // Private rows are additionally gated by ownership unless the reader is unrestricted.
-    private static bool Visible(VisibilityFilter filter, VisibilityScope visibility, Guid? createdByUserId) =>
-        filter.Scopes.Contains(visibility)
-        && (visibility != VisibilityScope.Private
-            || filter.PrivateOwnerUserId is null
-            || createdByUserId == filter.PrivateOwnerUserId);
 }

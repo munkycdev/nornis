@@ -165,24 +165,15 @@ public class SuggestionService : ISuggestionService
     {
         var sources = await _sourceRepository.ListByWorldAsync(worldId, null, ct);
         var cutoff = DateTimeOffset.UtcNow.AddDays(-RecentSourceWindowDays);
+        var canSeeSource = SourceVisibilityRule.Compile(userId, role);
 
         var latest = sources
             .Where(s => s.CreatedAt >= cutoff)
-            .Where(s => IsSourceVisible(s, userId, role))
+            .Where(canSeeSource)
             .MaxBy(s => s.CreatedAt);
 
         return latest is null ? [] : [$"What changed since \"{latest.Title}\"?"];
     }
-
-    private static bool IsSourceVisible(Source source, Guid userId, WorldRole role) =>
-        role switch
-        {
-            WorldRole.GM => true,
-            WorldRole.Player => source.Visibility == VisibilityScope.PartyVisible
-                                   || (source.Visibility == VisibilityScope.Private && source.CreatedByUserId == userId),
-            _ => source.Visibility == VisibilityScope.PartyVisible
-        };
-
 
     /// <summary>
     /// Stable FNV-1a hash of the world id and the current UTC date, so suggestions

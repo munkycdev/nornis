@@ -41,31 +41,6 @@ public class ArtifactService : IArtifactService
         _campaignRepository = campaignRepository;
     }
 
-    /// <summary>
-    /// Whether this reader may know the source exists — and therefore may be shown anything
-    /// drawn from it, its excerpts above all.
-    ///
-    /// The anonymous public world page reads as Observer with <see cref="Guid.Empty"/> for the
-    /// user id, so the Private arm must never treat an empty id as an ownership match: a row
-    /// with no real owner is unattributable, and unattributable Private content fails closed
-    /// exactly as it does in <see cref="VisibilityFilter"/>.
-    /// </summary>
-    /// <summary>
-    /// The visibility predicate over the two fields it actually reads, so it applies to a
-    /// <see cref="SourceAttribution"/> projection without needing a full entity. One
-    /// implementation — this decides whether a Private note leaks, and two copies would
-    /// eventually disagree.
-    /// </summary>
-    private static bool CanSeeSource(
-        VisibilityScope visibility, Guid createdByUserId, Guid userId, WorldRole role) => visibility switch
-        {
-            VisibilityScope.PartyVisible => true,
-            VisibilityScope.Private => role == WorldRole.GM
-                || (userId != Guid.Empty && createdByUserId == userId),
-            VisibilityScope.GMOnly => role == WorldRole.GM,
-            _ => false
-        };
-
     public async Task<AppResult<IReadOnlyList<Artifact>>> ListAsync(ArtifactListQuery query, CancellationToken ct)
     {
         var filter = VisibilityFilter.ForRole(query.ActingUserRole, query.ActingUserId);
@@ -200,23 +175,13 @@ public class ArtifactService : IArtifactService
         // Ids that no longer resolve are simply absent from the result, which preserves the
         // fail-closed behaviour the loop had: an unattributable reference is dropped entirely.
         var citedSourceIds = allReferences.Select(r => r.SourceId).Distinct().ToList();
-        var attributions = await _sourceRepository.ListAttributionByIdsAsync(citedSourceIds, ct);
+        var attributions = await _sourceRepository.ListAttributionByIdsAsync(
+            citedSourceIds, requestingUserId, role, ct);
 
-        var sourceTitles = new Dictionary<Guid, string>();
-        var visibleSourceIds = new HashSet<Guid>();
-        foreach (var attribution in attributions)
-        {
-            if (!CanSeeSource(attribution.Visibility, attribution.CreatedByUserId, requestingUserId, role))
-            {
-                continue;
-            }
-
-            visibleSourceIds.Add(attribution.Id);
-            sourceTitles[attribution.Id] = attribution.Title;
-        }
+        var sourceTitles = attributions.ToDictionary(a => a.Id, a => a.Title);
 
         var sourceReferences = allReferences
-            .Where(r => visibleSourceIds.Contains(r.SourceId))
+            .Where(r => sourceTitles.ContainsKey(r.SourceId))
             .ToList();
 
         var playedBy = await ResolvePlayedByAsync(artifact, ct);

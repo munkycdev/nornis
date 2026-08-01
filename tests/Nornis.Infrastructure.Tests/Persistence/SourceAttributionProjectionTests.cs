@@ -56,7 +56,11 @@ public class SourceAttributionProjectionTests : IntegrationTestBase
         _repository = new SourceRepository(Context);
     }
 
-    private async Task<Guid> SeedSourceAsync(string title, VisibilityScope visibility, string body)
+    private async Task<Guid> SeedSourceAsync(
+        string title,
+        VisibilityScope visibility,
+        string body,
+        SourceProcessingStatus status = SourceProcessingStatus.Processed)
     {
         var id = Guid.NewGuid();
         Context.Sources.Add(new Source
@@ -67,7 +71,7 @@ public class SourceAttributionProjectionTests : IntegrationTestBase
             Title = title,
             Body = body,
             Visibility = visibility,
-            ProcessingStatus = SourceProcessingStatus.Processed,
+            ProcessingStatus = status,
             CreatedByUserId = _authorId,
             CreatedAt = DateTimeOffset.UtcNow,
         });
@@ -76,11 +80,30 @@ public class SourceAttributionProjectionTests : IntegrationTestBase
     }
 
     [Test]
+    public async Task FiltersByReaderVisibility_InTheQueryItself()
+    {
+        // The visibility gate rides inside the SQL so no caller can forget to apply it
+        // afterwards. A Player who authored nothing gets the party row and nothing else:
+        // no GM-only row, no other author's Private note, and no unfinished draft —
+        // provenance for a draft import must not name it before the GM walks it.
+        var party = await SeedSourceAsync("Party", VisibilityScope.PartyVisible, "x");
+        var gmOnly = await SeedSourceAsync("GM", VisibilityScope.GMOnly, "x");
+        var privateNote = await SeedSourceAsync("Private", VisibilityScope.Private, "x");
+        var draft = await SeedSourceAsync(
+            "Draft", VisibilityScope.PartyVisible, "x", SourceProcessingStatus.Draft);
+
+        var result = await _repository.ListAttributionByIdsAsync(
+            [party, gmOnly, privateNote, draft], Guid.NewGuid(), WorldRole.Player);
+
+        Assert.That(result.Select(r => r.Id), Is.EqualTo(new[] { party }));
+    }
+
+    [Test]
     public async Task CarriesEveryFieldTheVisibilityDecisionNeeds()
     {
         var id = await SeedSourceAsync("Session 4", VisibilityScope.GMOnly, "secret notes");
 
-        var result = await _repository.ListAttributionByIdsAsync([id]);
+        var result = await _repository.ListAttributionByIdsAsync([id], _authorId, WorldRole.GM);
 
         var only = result.Single();
         Assert.Multiple(() =>
@@ -99,7 +122,7 @@ public class SourceAttributionProjectionTests : IntegrationTestBase
         var b = await SeedSourceAsync("B", VisibilityScope.Private, "b");
         var c = await SeedSourceAsync("C", VisibilityScope.GMOnly, "c");
 
-        var result = await _repository.ListAttributionByIdsAsync([a, b, c]);
+        var result = await _repository.ListAttributionByIdsAsync([a, b, c], _authorId, WorldRole.GM);
 
         Assert.That(result.Select(r => r.Title), Is.EquivalentTo(new[] { "A", "B", "C" }));
     }
@@ -111,7 +134,7 @@ public class SourceAttributionProjectionTests : IntegrationTestBase
         // not appear — not arrive as a null-titled placeholder that renders as an empty citation.
         var known = await SeedSourceAsync("Known", VisibilityScope.PartyVisible, "x");
 
-        var result = await _repository.ListAttributionByIdsAsync([known, Guid.NewGuid()]);
+        var result = await _repository.ListAttributionByIdsAsync([known, Guid.NewGuid()], _authorId, WorldRole.GM);
 
         Assert.That(result, Has.Count.EqualTo(1));
         Assert.That(result.Single().Id, Is.EqualTo(known));
@@ -120,7 +143,7 @@ public class SourceAttributionProjectionTests : IntegrationTestBase
     [Test]
     public async Task EmptyInput_DoesNotQuery()
     {
-        var result = await _repository.ListAttributionByIdsAsync([]);
+        var result = await _repository.ListAttributionByIdsAsync([], _authorId, WorldRole.GM);
 
         Assert.That(result, Is.Empty);
     }

@@ -58,14 +58,17 @@ public interface ISourceRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Just enough of each source to decide visibility and show a title. Use this instead of
-    /// looping <see cref="GetByIdAsync"/> when displaying provenance: it is one round trip
+    /// Just enough of each visible source to name it. Use this instead of looping
+    /// <see cref="GetByIdAsync"/> when displaying provenance: it is one round trip
     /// rather than one per source, and it leaves <c>Body</c>/<c>DerivedText</c> in the database
     /// instead of dragging every cited transcript across the wire to read a title.
-    /// Ids that no longer exist are simply absent from the result.
+    /// Visibility is <see cref="SourceVisibilityRule"/>, applied in SQL — rows the reader may
+    /// not see are absent from the result, exactly like ids that no longer exist.
     /// </summary>
     Task<IReadOnlyList<SourceAttribution>> ListAttributionByIdsAsync(
         IReadOnlyList<Guid> ids,
+        Guid userId,
+        WorldRole role,
         CancellationToken cancellationToken = default);
 
     /// <summary>The world's most recent play sessions (session-recording source types),
