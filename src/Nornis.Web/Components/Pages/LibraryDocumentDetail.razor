@@ -23,6 +23,14 @@
     {
         <LoadingRows Rows="3" />
     }
+    else if (_notFound)
+    {
+        <MudAlert Severity="Severity.Warning">This document doesn't exist or you can't see it.</MudAlert>
+    }
+    else if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
     else if (_document is null)
     {
         <MudAlert Severity="Severity.Warning">This document doesn't exist or you can't see it.</MudAlert>
@@ -89,6 +97,9 @@
     [Parameter] public Guid DocumentId { get; set; }
 
     private bool _loading;
+    private bool _notFound;
+    private string? _error;
+    private Guid _loadedId;
     private LibraryDocumentDto? _document;
 
     protected override async Task OnInitializedAsync()
@@ -100,7 +111,9 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (_document is not null && _document.Id != DocumentId)
+        // Guard on the id we last ATTEMPTED, not the loaded row — a failed load must
+        // not leave the page refusing to retry when the route changes.
+        if (DocumentId != _loadedId)
         {
             await LoadAsync();
         }
@@ -118,11 +131,29 @@
         }
 
         _loading = true;
+        _notFound = false;
+        _error = null;
+        _loadedId = DocumentId;
         StateHasChanged();
 
         var result = await Api.GetLibraryDocumentAsync(Worlds.Current.Id, DocumentId);
         _loading = false;
-        _document = result.IsSuccess ? result.Value : null;
+        if (result.IsSuccess)
+        {
+            _document = result.Value;
+        }
+        else if (result.Error!.Code == "not_found")
+        {
+            _notFound = true;
+            _document = null;
+        }
+        else
+        {
+            // A transient API failure is not "this document doesn't exist" — say what
+            // actually happened, like the source and artifact detail pages do.
+            _error = result.Error!.Message;
+            _document = null;
+        }
         StateHasChanged();
     }
 

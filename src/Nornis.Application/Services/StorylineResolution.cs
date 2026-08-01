@@ -12,12 +12,10 @@ namespace Nornis.Application.Services;
 /// </summary>
 internal static class StorylineResolution
 {
-    private const string OpenQuestionPredicate = "open question";
-
     /// <summary>A provisional, non-question fact that resolving the storyline settles to Confirmed.</summary>
     public static bool SettlesOnResolve(ArtifactFact fact) =>
         fact.TruthState is TruthState.Likely or TruthState.Rumor or TruthState.Disputed
-        && !string.Equals(fact.Predicate, OpenQuestionPredicate, StringComparison.OrdinalIgnoreCase);
+        && !OpenQuestionFact.HasOpenQuestionPredicate(fact);
 
     /// <summary>
     /// Promotes a storyline's provisional facts to Confirmed. Callers gate on the artifact being

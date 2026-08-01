@@ -2,6 +2,7 @@
 @inject NornisApiClient Api
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
+@implements IDisposable
 
 @* Chronicis's 3-step SAS handshake from Blazor Server: request-upload mints the write URL,
    nornis-upload.js PUTs the file straight to blob storage (never over the SignalR circuit),
@@ -144,4 +145,6 @@
     }
 
     private void Cancel() => MudDialog.Cancel();
+    public void Dispose() => _selfRef?.Dispose();
+
 }

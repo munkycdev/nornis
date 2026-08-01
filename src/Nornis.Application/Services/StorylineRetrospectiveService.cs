@@ -8,6 +8,7 @@ using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -81,11 +82,12 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
             return AppResult<RetrospectiveResult>.Success(new RetrospectiveResult(0, 0, null));
         }
 
-        var factsByStoryline = new Dictionary<Guid, IReadOnlyList<ArtifactFact>>();
-        foreach (var storyline in storylines)
-        {
-            factsByStoryline[storyline.Id] = await _factRepository.ListByArtifactAsync(storyline.Id, ct);
-        }
+        // One query for the whole sweep. The retrospective is GM-gated, so the
+        // unrestricted filter is deliberate — the prompt may cite GM-only facts.
+        var factsByStoryline = (await _factRepository.ListByArtifactIdsAsync(
+                storylines.Select(s => s.Id).ToList(), VisibilityFilter.All, int.MaxValue, ct))
+            .GroupBy(f => f.ArtifactId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<ArtifactFact>)g.ToList());
 
         // Assess in chunks; collect verdicts across all calls before persisting anything.
         var verdicts = new List<RetrospectiveVerdict>();
@@ -271,7 +273,7 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
                 sb.AppendLine("Facts:");
                 foreach (var fact in facts)
                 {
-                    var open = fact.Predicate == "open question" && fact.TruthState != TruthState.False
+                    var open = OpenQuestionFact.IsOpenQuestion(fact)
                         ? " [OPEN]"
                         : string.Empty;
                     sb.AppendLine($"- {fact.Predicate}: {fact.Value} (truth: {fact.TruthState}){open}");

@@ -1,3 +1,4 @@
+using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 
 namespace Nornis.Application.Models;
@@ -45,5 +46,7 @@ public record RevealResult(
 }
 
 /// <summary>Outcome of revealing a source: it is now party-visible (or already was). Attachments
-/// such as a map image ride the source's visibility, so revealing the source surfaces them.</summary>
-public record RevealSourceResult(Guid SourceId, string Title, bool WasAlreadyVisible);
+/// such as a map image ride the source's visibility, so revealing the source surfaces them.
+/// Carries the source the service already loaded — its visibility reflecting the reveal — so
+/// the endpoint never has to refetch what was just read.</summary>
+public record RevealSourceResult(Source Source, bool WasAlreadyVisible);

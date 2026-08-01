@@ -315,7 +315,7 @@ public class RevealService : IRevealService
 
         if (source.Visibility == VisibilityScope.PartyVisible)
         {
-            return AppResult<RevealSourceResult>.Success(new RevealSourceResult(source.Id, source.Title, true));
+            return AppResult<RevealSourceResult>.Success(new RevealSourceResult(source, true));
         }
 
         if (source.Visibility == VisibilityScope.Private)
@@ -334,7 +334,11 @@ public class RevealService : IRevealService
 
         await RecordTutorialRevealAsync(worldId, actingUserId, ct);
 
-        return AppResult<RevealSourceResult>.Success(new RevealSourceResult(source.Id, source.Title, false));
+        // The no-tracking entity still carries its pre-reveal visibility; reflect the
+        // write so the caller renders what the party now sees.
+        source.Visibility = VisibilityScope.PartyVisible;
+
+        return AppResult<RevealSourceResult>.Success(new RevealSourceResult(source, false));
     }
 
     /// <summary>

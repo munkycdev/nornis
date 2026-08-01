@@ -17,12 +17,10 @@ namespace Nornis.Api.Controllers;
 public class SourcesController : ControllerBase
 {
     private readonly ISourceService _sourceService;
-    private readonly ISourceAttachmentService _attachmentService;
 
-    public SourcesController(ISourceService sourceService, ISourceAttachmentService attachmentService)
+    public SourcesController(ISourceService sourceService)
     {
         _sourceService = sourceService;
-        _attachmentService = attachmentService;
     }
 
     [HttpPost]
@@ -443,14 +441,8 @@ public class SourcesController : ControllerBase
             return result.Error!.ToActionResult();
         }
 
-        // Return the now-party-visible source so the client refreshes its state.
-        var refreshed = await _sourceService.GetByIdAsync(sourceId, worldId, user.Id, member.Role, ct);
-        if (!refreshed.IsSuccess)
-        {
-            return refreshed.Error!.ToActionResult();
-        }
-
-        return Ok(ToSourceResponse(refreshed.Value!));
+        // The now-party-visible source, straight from the reveal — no refetch.
+        return Ok(ToSourceResponse(result.Value!.Source));
     }
 
     [HttpPost("{sourceId:guid}/ready")]
@@ -484,7 +476,8 @@ public class SourcesController : ControllerBase
 
     [HttpPost("{sourceId:guid}/attachments/request-upload")]
     public async Task<IActionResult> RequestAttachmentUpload(
-        Guid worldId, Guid sourceId, [FromBody] RequestSourceAttachmentUploadRequest request, CancellationToken ct)
+        Guid worldId, Guid sourceId, [FromBody] RequestSourceAttachmentUploadRequest request,
+        [FromServices] ISourceAttachmentService attachmentService, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
@@ -505,7 +498,7 @@ public class SourcesController : ControllerBase
             Kind: kind,
             Ord: request.Ord);
 
-        var result = await _attachmentService.RequestUploadAsync(command, ct);
+        var result = await attachmentService.RequestUploadAsync(command, ct);
 
         if (!result.IsSuccess)
         {
@@ -518,12 +511,13 @@ public class SourcesController : ControllerBase
 
     [HttpPost("{sourceId:guid}/attachments/{attachmentId:guid}/confirm")]
     public async Task<IActionResult> ConfirmAttachmentUpload(
-        Guid worldId, Guid sourceId, Guid attachmentId, CancellationToken ct)
+        Guid worldId, Guid sourceId, Guid attachmentId,
+        [FromServices] ISourceAttachmentService attachmentService, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        var result = await _attachmentService.ConfirmUploadAsync(attachmentId, sourceId, worldId, user.Id, member.Role, ct);
+        var result = await attachmentService.ConfirmUploadAsync(attachmentId, sourceId, worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -534,7 +528,8 @@ public class SourcesController : ControllerBase
     }
 
     [HttpGet("{sourceId:guid}/attachments")]
-    public async Task<IActionResult> ListAttachments(Guid worldId, Guid sourceId, CancellationToken ct)
+    public async Task<IActionResult> ListAttachments(
+        Guid worldId, Guid sourceId, [FromServices] ISourceAttachmentService attachmentService, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
@@ -547,7 +542,7 @@ public class SourcesController : ControllerBase
             return sourceResult.Error!.ToActionResult();
         }
 
-        var result = await _attachmentService.ListAsync(sourceId, worldId, user.Id, member.Role, ct);
+        var result = await attachmentService.ListAsync(sourceId, worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -563,12 +558,13 @@ public class SourcesController : ControllerBase
 
     [HttpDelete("{sourceId:guid}/attachments/{attachmentId:guid}")]
     public async Task<IActionResult> DeleteAttachment(
-        Guid worldId, Guid sourceId, Guid attachmentId, CancellationToken ct)
+        Guid worldId, Guid sourceId, Guid attachmentId,
+        [FromServices] ISourceAttachmentService attachmentService, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        var result = await _attachmentService.DeleteAsync(attachmentId, sourceId, worldId, user.Id, member.Role, ct);
+        var result = await attachmentService.DeleteAsync(attachmentId, sourceId, worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {

@@ -126,8 +126,7 @@ public sealed class StorylineDevelopmentReader
 
             if (factsById.TryGetValue(reference.TargetId, out var fact))
             {
-                var isOpenQuestion = string.Equals(fact.Predicate, "open question", StringComparison.OrdinalIgnoreCase)
-                    && fact.TruthState != TruthState.False;
+                var isOpenQuestion = OpenQuestionFact.IsOpenQuestion(fact);
                 // Open questions read as bare questions — the UI prefixes them, so the
                 // predicate would just repeat itself.
                 var text = isOpenQuestion ? fact.Value : $"{fact.Predicate}: {fact.Value}";

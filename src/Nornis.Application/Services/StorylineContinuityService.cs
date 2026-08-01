@@ -66,8 +66,7 @@ public class StorylineContinuityService : IStorylineContinuityService
                 .ToList();
 
             var openQuestionCount = data.Facts.Count(f => f.ArtifactId == s.Id
-                && string.Equals(f.Predicate, "open question", StringComparison.OrdinalIgnoreCase)
-                && f.TruthState != TruthState.False);
+                && OpenQuestionFact.IsOpenQuestion(f));
 
             if (devDates.Count == 0)
             {
