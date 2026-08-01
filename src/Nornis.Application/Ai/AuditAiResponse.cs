@@ -8,9 +8,5 @@ namespace Nornis.Application.Ai;
 public class AuditAiResponse
 {
     public required IReadOnlyList<AuditFinding> Findings { get; init; }
-    public required int InputTokens { get; init; }
-    public required int OutputTokens { get; init; }
-    public required int TotalTokens { get; init; }
-    public required int DurationMs { get; init; }
-    public required string Model { get; init; }
+    public required AiUsage Usage { get; init; }
 }

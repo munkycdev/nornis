@@ -56,7 +56,7 @@ public class ContinuityAuditServiceTests
         _service = new ContinuityAuditService(
             _budgetGuard,
             health, _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo, _sourceRepo,
-            _ai, _assessmentRepo, _dismissalRepo, _usageRepo, options);
+            _ai, _assessmentRepo, _dismissalRepo, TestUsageRecorder.Wrap(_usageRepo, loremaster: options.Value), options);
 
         _worldId = Guid.NewGuid();
 

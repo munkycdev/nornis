@@ -25,7 +25,7 @@ public class AzureOpenAiAuditClient : IAuditAiClient
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<AuditAiResponse> AssessAsync(AuditAiRequest request, CancellationToken ct)
+    public async Task<AuditAiResponse> AssessAsync(AiPromptRequest request, CancellationToken ct)
     {
         var stopwatch = Stopwatch.StartNew();
 
@@ -60,11 +60,14 @@ public class AzureOpenAiAuditClient : IAuditAiClient
             return new AuditAiResponse
             {
                 Findings = findings,
-                InputTokens = usage.InputTokenCount,
-                OutputTokens = usage.OutputTokenCount,
-                TotalTokens = usage.TotalTokenCount,
-                DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                Model = request.Model
+                Usage = new AiUsage
+                {
+                    InputTokens = usage.InputTokenCount,
+                    OutputTokens = usage.OutputTokenCount,
+                    TotalTokens = usage.TotalTokenCount,
+                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
+                    Model = request.Model
+                }
             };
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)

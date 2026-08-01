@@ -73,7 +73,7 @@ public class CostCalculationCorrectnessPropertyTests
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,
-            aiUsageRecordRepo,
+            TestUsageRecorder.Wrap(aiUsageRecordRepo, extraction: options.Value),
             artifactRepo,
             artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),
@@ -122,11 +122,14 @@ public class CostCalculationCorrectnessPropertyTests
                     Confidence = 0.8m
                 }
             ],
-            InputTokens = scenario.InputTokens,
-            OutputTokens = scenario.OutputTokens,
-            TotalTokens = scenario.InputTokens + scenario.OutputTokens,
-            DurationMs = 500,
-            Model = modelName
+            Usage = new AiUsage
+            {
+                InputTokens = scenario.InputTokens,
+                OutputTokens = scenario.OutputTokens,
+                TotalTokens = scenario.InputTokens + scenario.OutputTokens,
+                DurationMs = 500,
+                Model = modelName
+            }
         };
         fakeAiClient.SetupSuccess(aiResponse);
 

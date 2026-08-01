@@ -129,7 +129,7 @@ public class ContextPayloadRespectsFactsLimitPropertyTests
                     reviewBatchRepo,
                     reviewProposalRepo,
                     sourceReferenceRepo,
-                    aiUsageRecordRepo,
+                    TestUsageRecorder.Wrap(aiUsageRecordRepo),
                     artifactRepo,
                     artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),

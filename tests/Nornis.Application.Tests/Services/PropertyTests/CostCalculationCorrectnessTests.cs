@@ -60,7 +60,7 @@ public class CostCalculationCorrectnessTests
         var service = new LoremasterService(
             knowledgeRetriever, new FakeReferencePassageRetriever(),
             aiClient,
-            usageRepo,
+            TestUsageRecorder.Wrap(usageRepo, loremaster: options.Value),
             new FakeAiBudgetGuard(), options);
 
         var command = new AskLoremasterCommand(
@@ -85,14 +85,14 @@ public class CostCalculationCorrectnessTests
 
         // Calculate expected cost using the formula
         var expectedCost =
-            (scenario.AiResponse.InputTokens * scenario.InputPerMillionTokensUsd / 1_000_000m)
-            + (scenario.AiResponse.OutputTokens * scenario.OutputPerMillionTokensUsd / 1_000_000m);
+            (scenario.AiResponse.Usage.InputTokens * scenario.InputPerMillionTokensUsd / 1_000_000m)
+            + (scenario.AiResponse.Usage.OutputTokens * scenario.OutputPerMillionTokensUsd / 1_000_000m);
 
         // Assert — EstimatedCostUsd matches formula exactly
         Assert.That(record.EstimatedCostUsd, Is.EqualTo(expectedCost),
-            $"EstimatedCostUsd should equal (InputTokens={scenario.AiResponse.InputTokens} × " +
+            $"EstimatedCostUsd should equal (InputTokens={scenario.AiResponse.Usage.InputTokens} × " +
             $"InputRate={scenario.InputPerMillionTokensUsd} / 1,000,000) + " +
-            $"(OutputTokens={scenario.AiResponse.OutputTokens} × " +
+            $"(OutputTokens={scenario.AiResponse.Usage.OutputTokens} × " +
             $"OutputRate={scenario.OutputPerMillionTokensUsd} / 1,000,000) = {expectedCost}, " +
             $"but got {record.EstimatedCostUsd}.");
     }
@@ -131,7 +131,7 @@ public class CostCalculationCorrectnessTests
         var service = new LoremasterService(
             knowledgeRetriever, new FakeReferencePassageRetriever(),
             aiClient,
-            usageRepo,
+            TestUsageRecorder.Wrap(usageRepo, loremaster: options.Value),
             new FakeAiBudgetGuard(), options);
 
         var command = new AskLoremasterCommand(
@@ -197,11 +197,14 @@ public class CostCalculationArbitraries
             let aiResponse = new LoremasterAiResponse
             {
                 AnswerText = "The Loremaster provides this answer based on world knowledge.",
-                InputTokens = inputTokens,
-                OutputTokens = outputTokens,
-                TotalTokens = inputTokens + outputTokens,
-                DurationMs = 200 + (outputTokens / 10),
-                Model = modelName
+                Usage = new AiUsage
+                {
+                    InputTokens = inputTokens,
+                    OutputTokens = outputTokens,
+                    TotalTokens = inputTokens + outputTokens,
+                    DurationMs = 200 + (outputTokens / 10),
+                    Model = modelName
+                }
             }
             let context = new KnowledgeContext
             {

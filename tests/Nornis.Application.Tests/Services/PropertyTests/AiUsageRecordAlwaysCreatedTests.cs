@@ -78,7 +78,7 @@ public class AiUsageRecordAlwaysCreatedTests
         var service = new LoremasterService(
             knowledgeRetriever, new FakeReferencePassageRetriever(),
             aiClient,
-            usageRepo,
+            TestUsageRecorder.Wrap(usageRepo),
             new FakeAiBudgetGuard(), options);
 
         var command = new AskLoremasterCommand(
@@ -117,13 +117,13 @@ public class AiUsageRecordAlwaysCreatedTests
         if (scenario.AiSucceeds)
         {
             // Assert — token counts match the AI response
-            Assert.That(record.InputTokens, Is.EqualTo(scenario.AiResponse.InputTokens),
+            Assert.That(record.InputTokens, Is.EqualTo(scenario.AiResponse.Usage.InputTokens),
                 "AiUsageRecord.InputTokens must match AI response.");
-            Assert.That(record.OutputTokens, Is.EqualTo(scenario.AiResponse.OutputTokens),
+            Assert.That(record.OutputTokens, Is.EqualTo(scenario.AiResponse.Usage.OutputTokens),
                 "AiUsageRecord.OutputTokens must match AI response.");
-            Assert.That(record.TotalTokens, Is.EqualTo(scenario.AiResponse.TotalTokens),
+            Assert.That(record.TotalTokens, Is.EqualTo(scenario.AiResponse.Usage.TotalTokens),
                 "AiUsageRecord.TotalTokens must match AI response.");
-            Assert.That(record.Model, Is.EqualTo(scenario.AiResponse.Model),
+            Assert.That(record.Model, Is.EqualTo(scenario.AiResponse.Usage.Model),
                 "AiUsageRecord.Model must match AI response.");
 
             // Assert — DurationMs is non-negative
@@ -241,11 +241,14 @@ public class AiUsageRecordScenarioArbitraries
             select new LoremasterAiResponse
             {
                 AnswerText = "Captain Voss is known to frequent Black Harbor [ref:art-123].",
-                InputTokens = inputTokens,
-                OutputTokens = outputTokens,
-                TotalTokens = inputTokens + outputTokens,
-                DurationMs = durationMs,
-                Model = "gpt-4o"
+                Usage = new AiUsage
+                {
+                    InputTokens = inputTokens,
+                    OutputTokens = outputTokens,
+                    TotalTokens = inputTokens + outputTokens,
+                    DurationMs = durationMs,
+                    Model = "gpt-4o"
+                }
             };
 
         // Generate a knowledge context with at least one artifact

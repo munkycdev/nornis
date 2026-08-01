@@ -63,7 +63,7 @@ public class ExtractionServiceTranscriptionTests
             _reviewBatchRepository,
             new InMemoryReviewProposalRepository(),
             new InMemorySourceReferenceRepository(),
-            _aiUsageRecordRepository,
+            TestUsageRecorder.Wrap(_aiUsageRecordRepository, extraction: options),
             new InMemoryArtifactRepository(),
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
@@ -125,11 +125,14 @@ public class ExtractionServiceTranscriptionTests
         _aiClient.SetupSuccess(new AiExtractionResponse
         {
             Proposals = [],
-            InputTokens = 500,
-            OutputTokens = 200,
-            TotalTokens = 700,
-            DurationMs = 1200,
-            Model = "nornis-extract"
+            Usage = new AiUsage
+            {
+                InputTokens = 500,
+                OutputTokens = 200,
+                TotalTokens = 700,
+                DurationMs = 1200,
+                Model = "nornis-extract"
+            }
         });
     }
 

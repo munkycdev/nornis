@@ -63,7 +63,7 @@ public class RelationshipBackfillServiceTests
             _reviewBatchRepository,
             _reviewProposalRepository,
             _sourceReferenceRepository,
-            _aiUsageRecordRepository,
+            TestUsageRecorder.Wrap(_aiUsageRecordRepository, extraction: options),
             _aiClient,
             _budgetGuard,
             new FakeUnitOfWork(),
@@ -124,11 +124,14 @@ public class RelationshipBackfillServiceTests
         _aiClient.Response = new RelationshipBackfillAiResponse
         {
             Links = links,
-            InputTokens = 1000,
-            OutputTokens = 200,
-            TotalTokens = 1200,
-            DurationMs = 900,
-            Model = "nornis-extract"
+            Usage = new AiUsage
+            {
+                InputTokens = 1000,
+                OutputTokens = 200,
+                TotalTokens = 1200,
+                DurationMs = 900,
+                Model = "nornis-extract"
+            }
         };
     }
 

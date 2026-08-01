@@ -25,7 +25,7 @@ public class AzureOpenAiRetrospectiveClient : IRetrospectiveAiClient
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<RetrospectiveAiResponse> AssessAsync(RetrospectiveAiRequest request, CancellationToken ct)
+    public async Task<RetrospectiveAiResponse> AssessAsync(AiPromptRequest request, CancellationToken ct)
     {
         var stopwatch = Stopwatch.StartNew();
 
@@ -60,11 +60,14 @@ public class AzureOpenAiRetrospectiveClient : IRetrospectiveAiClient
             return new RetrospectiveAiResponse
             {
                 Verdicts = verdicts,
-                InputTokens = usage.InputTokenCount,
-                OutputTokens = usage.OutputTokenCount,
-                TotalTokens = usage.TotalTokenCount,
-                DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                Model = request.Model
+                Usage = new AiUsage
+                {
+                    InputTokens = usage.InputTokenCount,
+                    OutputTokens = usage.OutputTokenCount,
+                    TotalTokens = usage.TotalTokenCount,
+                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
+                    Model = request.Model
+                }
             };
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)

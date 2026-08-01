@@ -101,7 +101,7 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                     reviewBatchRepo,
                     reviewProposalRepo,
                     sourceReferenceRepo,
-                    aiUsageRecordRepo,
+                    TestUsageRecorder.Wrap(aiUsageRecordRepo),
                     artifactRepo,
                     artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),
@@ -139,11 +139,14 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                             Confidence = 0.8m
                         }
                     ],
-                    InputTokens = 500,
-                    OutputTokens = 200,
-                    TotalTokens = 700,
-                    DurationMs = 1000,
-                    Model = "gpt-4o"
+                    Usage = new AiUsage
+                    {
+                        InputTokens = 500,
+                        OutputTokens = 200,
+                        TotalTokens = 700,
+                        DurationMs = 1000,
+                        Model = "gpt-4o"
+                    }
                 });
 
                 // Act
@@ -267,7 +270,7 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                     reviewBatchRepo,
                     reviewProposalRepo,
                     sourceReferenceRepo,
-                    aiUsageRecordRepo,
+                    TestUsageRecorder.Wrap(aiUsageRecordRepo),
                     artifactRepo,
                     artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),
@@ -305,11 +308,14 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                             Confidence = 0.7m
                         }
                     ],
-                    InputTokens = 300,
-                    OutputTokens = 150,
-                    TotalTokens = 450,
-                    DurationMs = 800,
-                    Model = "gpt-4o"
+                    Usage = new AiUsage
+                    {
+                        InputTokens = 300,
+                        OutputTokens = 150,
+                        TotalTokens = 450,
+                        DurationMs = 800,
+                        Model = "gpt-4o"
+                    }
                 });
 
                 // Act

@@ -292,11 +292,14 @@ public static class ExtractionGenerators
         select new AiExtractionResponse
         {
             Proposals = proposals.ToList(),
-            InputTokens = inputTokens,
-            OutputTokens = outputTokens,
-            TotalTokens = inputTokens + outputTokens,
-            DurationMs = durationMs,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = inputTokens,
+                OutputTokens = outputTokens,
+                TotalTokens = inputTokens + outputTokens,
+                DurationMs = durationMs,
+                Model = "gpt-4o"
+            }
         };
 
     private static AiExtractionResponse CreateInvalidChangeTypeResponse() => new()
@@ -312,11 +315,14 @@ public static class ExtractionGenerators
                 Confidence = 0.5m
             }
         ],
-        InputTokens = 100,
-        OutputTokens = 50,
-        TotalTokens = 150,
-        DurationMs = 500,
-        Model = "gpt-4o"
+        Usage = new AiUsage
+        {
+            InputTokens = 100,
+            OutputTokens = 50,
+            TotalTokens = 150,
+            DurationMs = 500,
+            Model = "gpt-4o"
+        }
     };
 
     private static AiExtractionResponse CreateInvalidTargetTypeResponse() => new()
@@ -332,11 +338,14 @@ public static class ExtractionGenerators
                 Confidence = 0.5m
             }
         ],
-        InputTokens = 100,
-        OutputTokens = 50,
-        TotalTokens = 150,
-        DurationMs = 500,
-        Model = "gpt-4o"
+        Usage = new AiUsage
+        {
+            InputTokens = 100,
+            OutputTokens = 50,
+            TotalTokens = 150,
+            DurationMs = 500,
+            Model = "gpt-4o"
+        }
     };
 
     private static AiExtractionResponse CreateLongRationaleResponse() => new()
@@ -352,11 +361,14 @@ public static class ExtractionGenerators
                 Confidence = 0.5m
             }
         ],
-        InputTokens = 100,
-        OutputTokens = 50,
-        TotalTokens = 150,
-        DurationMs = 500,
-        Model = "gpt-4o"
+        Usage = new AiUsage
+        {
+            InputTokens = 100,
+            OutputTokens = 50,
+            TotalTokens = 150,
+            DurationMs = 500,
+            Model = "gpt-4o"
+        }
     };
 
     private static AiExtractionResponse CreateInvalidConfidenceResponse() => new()
@@ -372,11 +384,14 @@ public static class ExtractionGenerators
                 Confidence = 1.5m
             }
         ],
-        InputTokens = 100,
-        OutputTokens = 50,
-        TotalTokens = 150,
-        DurationMs = 500,
-        Model = "gpt-4o"
+        Usage = new AiUsage
+        {
+            InputTokens = 100,
+            OutputTokens = 50,
+            TotalTokens = 150,
+            DurationMs = 500,
+            Model = "gpt-4o"
+        }
     };
 
     private static AiExtractionResponse CreateTooManyProposalsResponse()
@@ -393,11 +408,14 @@ public static class ExtractionGenerators
         return new AiExtractionResponse
         {
             Proposals = proposals,
-            InputTokens = 100,
-            OutputTokens = 50,
-            TotalTokens = 150,
-            DurationMs = 500,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 100,
+                OutputTokens = 50,
+                TotalTokens = 150,
+                DurationMs = 500,
+                Model = "gpt-4o"
+            }
         };
     }
 }

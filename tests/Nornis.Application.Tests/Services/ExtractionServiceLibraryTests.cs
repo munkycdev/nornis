@@ -56,7 +56,7 @@ public class ExtractionServiceLibraryTests
             new InMemoryReviewBatchRepository(),
             new InMemoryReviewProposalRepository(),
             new InMemorySourceReferenceRepository(),
-            new InMemoryAiUsageRecordRepository(),
+            TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository()),
             new InMemoryArtifactRepository(),
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
@@ -114,11 +114,14 @@ public class ExtractionServiceLibraryTests
                 Confidence = 0.9m
             }
         ],
-        InputTokens = 500,
-        OutputTokens = 200,
-        TotalTokens = 700,
-        DurationMs = 1000,
-        Model = "gpt-4o"
+        Usage = new AiUsage
+        {
+            InputTokens = 500,
+            OutputTokens = 200,
+            TotalTokens = 700,
+            DurationMs = 1000,
+            Model = "gpt-4o"
+        }
     };
 
     [Test]

@@ -32,7 +32,7 @@ public class LoremasterServiceSessionTests
             _knowledgeRetriever,
             _passageRetriever,
             _aiClient,
-            new InMemoryAiUsageRecordRepository(),
+            TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository()),
             new FakeAiBudgetGuard(),
             Options.Create(new LoremasterOptions
             {

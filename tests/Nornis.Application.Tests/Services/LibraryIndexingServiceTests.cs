@@ -34,7 +34,7 @@ public class LibraryIndexingServiceTests
         _embeddings = new FakeEmbeddingClient();
         _usage = new InMemoryAiUsageRecordRepository();
         _sut = new LibraryIndexingService(_documents, _chunks, _blobs, _pdf, _embeddings,
-            new FakeAiBudgetGuard(), _usage, Options.Create(new LibraryOptions()),
+            new FakeAiBudgetGuard(), TestUsageRecorder.Wrap(_usage), Options.Create(new LibraryOptions()),
             NullLogger<LibraryIndexingService>.Instance);
     }
 
@@ -136,7 +136,7 @@ public class LibraryIndexingServiceTests
     {
         var doc = SeedIndexingDocument();
         _sut = new LibraryIndexingService(_documents, _chunks, _blobs, _pdf, _embeddings,
-            new FakeAiBudgetGuard { Exceeded = true }, _usage, Options.Create(new LibraryOptions()),
+            new FakeAiBudgetGuard { Exceeded = true }, TestUsageRecorder.Wrap(_usage), Options.Create(new LibraryOptions()),
             NullLogger<LibraryIndexingService>.Instance);
 
         var outcome = await _sut.ProcessIndexingAsync(doc.Id, WorldId, CancellationToken.None);
@@ -151,7 +151,7 @@ public class LibraryIndexingServiceTests
         var doc = SeedIndexingDocument();
         var options = new LibraryOptions { MaxChunkChars = 50, OverlapChars = 0, EmbedBatchSize = 3 };
         _sut = new LibraryIndexingService(_documents, _chunks, _blobs, _pdf, _embeddings,
-            new FakeAiBudgetGuard(), _usage, Options.Create(options),
+            new FakeAiBudgetGuard(), TestUsageRecorder.Wrap(_usage, library: options), Options.Create(options),
             NullLogger<LibraryIndexingService>.Instance);
         _pdf.Pages.Add(new PdfPageText(1, string.Join("\n\n", Enumerable.Range(1, 10).Select(i => $"Paragraph {i} with words."))));
 

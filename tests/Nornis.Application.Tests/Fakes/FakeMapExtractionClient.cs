@@ -22,11 +22,14 @@ public class FakeMapExtractionClient : IMapExtractionClient
         return Task.FromResult(new MapExtractionResponse
         {
             Places = PlacesToReturn,
-            InputTokens = 3000,
-            OutputTokens = 500,
-            TotalTokens = 3500,
-            DurationMs = 1200,
-            Model = request.Model
+            Usage = new AiUsage
+            {
+                InputTokens = 3000,
+                OutputTokens = 500,
+                TotalTokens = 3500,
+                DurationMs = 1200,
+                Model = request.Model
+            }
         });
     }
 }

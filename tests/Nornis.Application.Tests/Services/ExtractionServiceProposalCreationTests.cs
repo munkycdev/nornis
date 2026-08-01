@@ -68,7 +68,7 @@ public class ExtractionServiceProposalCreationTests
             _batchRepo,
             _proposalRepo,
             _sourceRefRepo,
-            _usageRepo,
+            TestUsageRecorder.Wrap(_usageRepo),
             _artifactRepo,
             _factRepo,
             new InMemoryArtifactRelationshipRepository(),
@@ -120,11 +120,14 @@ public class ExtractionServiceProposalCreationTests
         return new AiExtractionResponse
         {
             Proposals = proposals,
-            InputTokens = 500,
-            OutputTokens = 200,
-            TotalTokens = 700,
-            DurationMs = 1200,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 500,
+                OutputTokens = 200,
+                TotalTokens = 700,
+                DurationMs = 1200,
+                Model = "gpt-4o"
+            }
         };
     }
 
@@ -221,11 +224,14 @@ public class ExtractionServiceProposalCreationTests
                     Confidence = 0.92m
                 }
             ],
-            InputTokens = 400,
-            OutputTokens = 150,
-            TotalTokens = 550,
-            DurationMs = 800,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 400,
+                OutputTokens = 150,
+                TotalTokens = 550,
+                DurationMs = 800,
+                Model = "gpt-4o"
+            }
         };
         _aiClient.SetupSuccess(aiResponse);
 
@@ -279,11 +285,14 @@ public class ExtractionServiceProposalCreationTests
                     Confidence = 0.80m
                 }
             ],
-            InputTokens = 300,
-            OutputTokens = 100,
-            TotalTokens = 400,
-            DurationMs = 600,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 300,
+                OutputTokens = 100,
+                TotalTokens = 400,
+                DurationMs = 600,
+                Model = "gpt-4o"
+            }
         };
         _aiClient.SetupSuccess(aiResponse);
 
@@ -375,11 +384,14 @@ public class ExtractionServiceProposalCreationTests
                     Confidence = 0.9m
                 }
             ],
-            InputTokens = 200,
-            OutputTokens = 100,
-            TotalTokens = 300,
-            DurationMs = 500,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 200,
+                OutputTokens = 100,
+                TotalTokens = 300,
+                DurationMs = 500,
+                Model = "gpt-4o"
+            }
         };
         _aiClient.SetupSuccess(aiResponse);
 
@@ -410,11 +422,14 @@ public class ExtractionServiceProposalCreationTests
                     Confidence = 0.95m
                 }
             ],
-            InputTokens = 200,
-            OutputTokens = 100,
-            TotalTokens = 300,
-            DurationMs = 500,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 200,
+                OutputTokens = 100,
+                TotalTokens = 300,
+                DurationMs = 500,
+                Model = "gpt-4o"
+            }
         };
         _aiClient.SetupSuccess(aiResponse);
 
@@ -446,11 +461,14 @@ public class ExtractionServiceProposalCreationTests
                     Confidence = 0.75m
                 }
             ],
-            InputTokens = 200,
-            OutputTokens = 100,
-            TotalTokens = 300,
-            DurationMs = 500,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 200,
+                OutputTokens = 100,
+                TotalTokens = 300,
+                DurationMs = 500,
+                Model = "gpt-4o"
+            }
         };
         _aiClient.SetupSuccess(aiResponse);
 
@@ -498,11 +516,14 @@ public class ExtractionServiceProposalCreationTests
                     Confidence = 0.9m
                 }
             ],
-            InputTokens = 300,
-            OutputTokens = 150,
-            TotalTokens = 450,
-            DurationMs = 700,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 300,
+                OutputTokens = 150,
+                TotalTokens = 450,
+                DurationMs = 700,
+                Model = "gpt-4o"
+            }
         };
         _aiClient.SetupSuccess(aiResponse);
 
@@ -530,11 +551,14 @@ public class ExtractionServiceProposalCreationTests
         var emptyResponse = new AiExtractionResponse
         {
             Proposals = [],
-            InputTokens = 300,
-            OutputTokens = 50,
-            TotalTokens = 350,
-            DurationMs = 400,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 300,
+                OutputTokens = 50,
+                TotalTokens = 350,
+                DurationMs = 400,
+                Model = "gpt-4o"
+            }
         };
         _aiClient.SetupSuccess(emptyResponse);
 
@@ -558,11 +582,14 @@ public class ExtractionServiceProposalCreationTests
         var emptyResponse = new AiExtractionResponse
         {
             Proposals = [],
-            InputTokens = 200,
-            OutputTokens = 30,
-            TotalTokens = 230,
-            DurationMs = 300,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 200,
+                OutputTokens = 30,
+                TotalTokens = 230,
+                DurationMs = 300,
+                Model = "gpt-4o"
+            }
         };
         _aiClient.SetupSuccess(emptyResponse);
 

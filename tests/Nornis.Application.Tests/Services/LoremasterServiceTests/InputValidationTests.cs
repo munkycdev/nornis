@@ -42,7 +42,7 @@ public class InputValidationTests
         _service = new LoremasterService(
             _knowledgeRetriever, new FakeReferencePassageRetriever(),
             _aiClient,
-            _aiUsageRecordRepository,
+            TestUsageRecorder.Wrap(_aiUsageRecordRepository),
             new FakeAiBudgetGuard(), Options.Create(options));
     }
 
@@ -95,7 +95,7 @@ public class InputValidationTests
             Arg.Any<CancellationToken>())
             .Returns(CreateEmptyContext());
 
-        _aiClient.AskAsync(Arg.Any<LoremasterAiRequest>(), Arg.Any<CancellationToken>())
+        _aiClient.AskAsync(Arg.Any<AiPromptRequest>(), Arg.Any<CancellationToken>())
             .Returns(CreateDefaultAiResponse());
 
         var command = CreateCommand(question: "Who is Captain Voss?");
@@ -133,7 +133,7 @@ public class InputValidationTests
         await _service.AskAsync(command, CancellationToken.None);
 
         await _aiClient.DidNotReceive().AskAsync(
-            Arg.Any<LoremasterAiRequest>(),
+            Arg.Any<AiPromptRequest>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -160,7 +160,7 @@ public class InputValidationTests
         await _service.AskAsync(command, CancellationToken.None);
 
         await _aiClient.DidNotReceive().AskAsync(
-            Arg.Any<LoremasterAiRequest>(),
+            Arg.Any<AiPromptRequest>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -189,7 +189,7 @@ public class InputValidationTests
         await _service.AskAsync(command, CancellationToken.None);
 
         await _aiClient.DidNotReceive().AskAsync(
-            Arg.Any<LoremasterAiRequest>(),
+            Arg.Any<AiPromptRequest>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -206,7 +206,7 @@ public class InputValidationTests
             Arg.Any<CancellationToken>())
             .Returns(CreateEmptyContext());
 
-        _aiClient.AskAsync(Arg.Any<LoremasterAiRequest>(), Arg.Any<CancellationToken>())
+        _aiClient.AskAsync(Arg.Any<AiPromptRequest>(), Arg.Any<CancellationToken>())
             .Returns(CreateDefaultAiResponse());
 
         var command = CreateCommand(question: exactQuestion);
@@ -247,10 +247,13 @@ public class InputValidationTests
     private static LoremasterAiResponse CreateDefaultAiResponse() => new()
     {
         AnswerText = "I don't have a confirmed source for that yet.",
-        InputTokens = 150,
-        OutputTokens = 42,
-        TotalTokens = 192,
-        DurationMs = 620,
-        Model = "gpt-4o"
+        Usage = new AiUsage
+        {
+            InputTokens = 150,
+            OutputTokens = 42,
+            TotalTokens = 192,
+            DurationMs = 620,
+            Model = "gpt-4o"
+        }
     };
 }

@@ -8,14 +8,17 @@ namespace Nornis.Api.Tests.Infrastructure;
 /// </summary>
 public class FakeRetrospectiveAiClient : IRetrospectiveAiClient
 {
-    public Task<RetrospectiveAiResponse> AssessAsync(RetrospectiveAiRequest request, CancellationToken ct) =>
+    public Task<RetrospectiveAiResponse> AssessAsync(AiPromptRequest request, CancellationToken ct) =>
         Task.FromResult(new RetrospectiveAiResponse
         {
             Verdicts = [],
-            InputTokens = 0,
-            OutputTokens = 0,
-            TotalTokens = 0,
-            DurationMs = 0,
-            Model = request.Model
+            Usage = new AiUsage
+            {
+                InputTokens = 0,
+                OutputTokens = 0,
+                TotalTokens = 0,
+                DurationMs = 0,
+                Model = request.Model
+            }
         });
 }

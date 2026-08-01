@@ -8,12 +8,12 @@ namespace Nornis.Application.Tests.Fakes;
 /// </summary>
 public class FakeAuditAiClient : IAuditAiClient
 {
-    private readonly List<AuditAiRequest> _requests = [];
+    private readonly List<AiPromptRequest> _requests = [];
     private IReadOnlyList<AuditFinding> _findings = [];
     private Exception? _exception;
 
-    public IReadOnlyList<AuditAiRequest> Requests => _requests.AsReadOnly();
-    public AuditAiRequest? LastRequest => _requests.Count > 0 ? _requests[^1] : null;
+    public IReadOnlyList<AiPromptRequest> Requests => _requests.AsReadOnly();
+    public AiPromptRequest? LastRequest => _requests.Count > 0 ? _requests[^1] : null;
     public int CallCount { get; private set; }
 
     public int InputTokens { get; set; } = 900;
@@ -31,7 +31,7 @@ public class FakeAuditAiClient : IAuditAiClient
         _exception = exception;
     }
 
-    public Task<AuditAiResponse> AssessAsync(AuditAiRequest request, CancellationToken ct)
+    public Task<AuditAiResponse> AssessAsync(AiPromptRequest request, CancellationToken ct)
     {
         _requests.Add(request);
         CallCount++;
@@ -44,11 +44,14 @@ public class FakeAuditAiClient : IAuditAiClient
         return Task.FromResult(new AuditAiResponse
         {
             Findings = _findings,
-            InputTokens = InputTokens,
-            OutputTokens = OutputTokens,
-            TotalTokens = InputTokens + OutputTokens,
-            DurationMs = 1234,
-            Model = Model
+            Usage = new AiUsage
+            {
+                InputTokens = InputTokens,
+                OutputTokens = OutputTokens,
+                TotalTokens = InputTokens + OutputTokens,
+                DurationMs = 1234,
+                Model = Model
+            }
         });
     }
 }

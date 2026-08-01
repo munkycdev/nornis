@@ -26,7 +26,7 @@ public class AzureOpenAiLoremasterClient : ILoremasterAiClient
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<LoremasterAiResponse> AskAsync(LoremasterAiRequest request, CancellationToken ct)
+    public async Task<LoremasterAiResponse> AskAsync(AiPromptRequest request, CancellationToken ct)
     {
         var stopwatch = Stopwatch.StartNew();
 
@@ -56,11 +56,14 @@ public class AzureOpenAiLoremasterClient : ILoremasterAiClient
             return new LoremasterAiResponse
             {
                 AnswerText = answerText,
-                InputTokens = usage.InputTokenCount,
-                OutputTokens = usage.OutputTokenCount,
-                TotalTokens = usage.TotalTokenCount,
-                DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                Model = request.Model
+                Usage = new AiUsage
+                {
+                    InputTokens = usage.InputTokenCount,
+                    OutputTokens = usage.OutputTokenCount,
+                    TotalTokens = usage.TotalTokenCount,
+                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
+                    Model = request.Model
+                }
             };
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)

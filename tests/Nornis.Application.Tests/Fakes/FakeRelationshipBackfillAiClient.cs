@@ -7,9 +7,9 @@ public class FakeRelationshipBackfillAiClient : IRelationshipBackfillAiClient
     public RelationshipBackfillAiResponse? Response { get; set; }
     public Exception? ExceptionToThrow { get; set; }
     public int CallCount { get; private set; }
-    public RelationshipBackfillAiRequest? LastRequest { get; private set; }
+    public AiPromptRequest? LastRequest { get; private set; }
 
-    public Task<RelationshipBackfillAiResponse> ProposeLinksAsync(RelationshipBackfillAiRequest request, CancellationToken ct)
+    public Task<RelationshipBackfillAiResponse> ProposeLinksAsync(AiPromptRequest request, CancellationToken ct)
     {
         CallCount++;
         LastRequest = request;
@@ -22,11 +22,14 @@ public class FakeRelationshipBackfillAiClient : IRelationshipBackfillAiClient
         return Task.FromResult(Response ?? new RelationshipBackfillAiResponse
         {
             Links = [],
-            InputTokens = 100,
-            OutputTokens = 50,
-            TotalTokens = 150,
-            DurationMs = 500,
-            Model = request.Model
+            Usage = new AiUsage
+            {
+                InputTokens = 100,
+                OutputTokens = 50,
+                TotalTokens = 150,
+                DurationMs = 500,
+                Model = request.Model
+            }
         });
     }
 }

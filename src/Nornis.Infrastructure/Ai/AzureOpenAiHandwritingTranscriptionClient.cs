@@ -64,11 +64,14 @@ public class AzureOpenAiHandwritingTranscriptionClient : IHandwritingTranscripti
             return new HandwritingTranscriptionResponse
             {
                 Markdown = markdown,
-                InputTokens = usage.InputTokenCount,
-                OutputTokens = usage.OutputTokenCount,
-                TotalTokens = usage.TotalTokenCount,
-                DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                Model = request.Model
+                Usage = new AiUsage
+                {
+                    InputTokens = usage.InputTokenCount,
+                    OutputTokens = usage.OutputTokenCount,
+                    TotalTokens = usage.TotalTokenCount,
+                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
+                    Model = request.Model
+                }
             };
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)

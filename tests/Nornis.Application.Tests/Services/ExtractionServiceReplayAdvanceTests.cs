@@ -54,7 +54,7 @@ public class ExtractionServiceReplayAdvanceTests
             new InMemoryReviewBatchRepository(),
             new InMemoryReviewProposalRepository(),
             new InMemorySourceReferenceRepository(),
-            new InMemoryAiUsageRecordRepository(),
+            TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository()),
             new InMemoryArtifactRepository(),
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
@@ -99,11 +99,14 @@ public class ExtractionServiceReplayAdvanceTests
         _aiClient.SetupSuccess(new AiExtractionResponse
         {
             Proposals = [],
-            InputTokens = 500,
-            OutputTokens = 200,
-            TotalTokens = 700,
-            DurationMs = 1200,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 500,
+                OutputTokens = 200,
+                TotalTokens = 700,
+                DurationMs = 1200,
+                Model = "gpt-4o"
+            }
         });
 
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
@@ -128,11 +131,14 @@ public class ExtractionServiceReplayAdvanceTests
                     Confidence = 0.85m
                 }
             ],
-            InputTokens = 500,
-            OutputTokens = 200,
-            TotalTokens = 700,
-            DurationMs = 1200,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 500,
+                OutputTokens = 200,
+                TotalTokens = 700,
+                DurationMs = 1200,
+                Model = "gpt-4o"
+            }
         });
 
         var outcome = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);

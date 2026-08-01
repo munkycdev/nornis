@@ -21,7 +21,7 @@ public class AzureOpenAiLoremasterClientTests
     private ILogger<AzureOpenAiLoremasterClient> _logger = null!;
     private AzureOpenAiLoremasterClient _client = null!;
 
-    private static readonly LoremasterAiRequest DefaultRequest = new()
+    private static readonly AiPromptRequest DefaultRequest = new()
     {
         SystemPrompt = "You are the Loremaster.",
         UserMessage = "Who is Captain Voss?",
@@ -90,11 +90,11 @@ public class AzureOpenAiLoremasterClientTests
         var response = await _client.AskAsync(DefaultRequest, CancellationToken.None);
 
         Assert.That(response.AnswerText, Is.EqualTo(answerText));
-        Assert.That(response.InputTokens, Is.EqualTo(800));
-        Assert.That(response.OutputTokens, Is.EqualTo(200));
-        Assert.That(response.TotalTokens, Is.EqualTo(1000));
-        Assert.That(response.Model, Is.EqualTo("gpt-4o"));
-        Assert.That(response.DurationMs, Is.GreaterThanOrEqualTo(0));
+        Assert.That(response.Usage.InputTokens, Is.EqualTo(800));
+        Assert.That(response.Usage.OutputTokens, Is.EqualTo(200));
+        Assert.That(response.Usage.TotalTokens, Is.EqualTo(1000));
+        Assert.That(response.Usage.Model, Is.EqualTo("gpt-4o"));
+        Assert.That(response.Usage.DurationMs, Is.GreaterThanOrEqualTo(0));
     }
 
     [Test]
@@ -118,7 +118,7 @@ public class AzureOpenAiLoremasterClientTests
     [Test]
     public void AskAsync_Timeout_ThrowsAiLoremasterTimeoutException()
     {
-        var shortTimeoutRequest = new LoremasterAiRequest
+        var shortTimeoutRequest = new AiPromptRequest
         {
             SystemPrompt = "System prompt",
             UserMessage = "Question?",

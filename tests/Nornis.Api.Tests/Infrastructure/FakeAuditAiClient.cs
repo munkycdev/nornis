@@ -24,7 +24,7 @@ public class FakeAuditAiClient : IAuditAiClient
         _exception = exception;
     }
 
-    public Task<AuditAiResponse> AssessAsync(AuditAiRequest request, CancellationToken ct)
+    public Task<AuditAiResponse> AssessAsync(AiPromptRequest request, CancellationToken ct)
     {
         CallCount++;
 
@@ -36,11 +36,14 @@ public class FakeAuditAiClient : IAuditAiClient
         return Task.FromResult(new AuditAiResponse
         {
             Findings = _findings,
-            InputTokens = 900,
-            OutputTokens = 120,
-            TotalTokens = 1020,
-            DurationMs = 1234,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 900,
+                OutputTokens = 120,
+                TotalTokens = 1020,
+                DurationMs = 1234,
+                Model = "gpt-4o"
+            }
         });
     }
 }

@@ -64,7 +64,7 @@ public class ContinuityFixServiceTests
         _service = new ContinuityFixService(
             _budgetGuard, _assessmentRepo, _artifactRepo, _factRepo, _relationshipRepo,
             _sourceRepo, _batchRepo, _proposalRepo, _sourceRefRepo,
-            new ProposalValidator(), _ai, _usageRepo, _unitOfWork, options);
+            new ProposalValidator(), _ai, TestUsageRecorder.Wrap(_usageRepo), _unitOfWork, options);
 
         _worldId = Guid.NewGuid();
         _userId = Guid.NewGuid();

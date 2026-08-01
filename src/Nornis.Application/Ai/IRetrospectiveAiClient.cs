@@ -8,25 +8,13 @@ namespace Nornis.Application.Ai;
 /// </summary>
 public interface IRetrospectiveAiClient
 {
-    Task<RetrospectiveAiResponse> AssessAsync(RetrospectiveAiRequest request, CancellationToken ct);
-}
-
-public class RetrospectiveAiRequest
-{
-    public required string SystemPrompt { get; init; }
-    public required string UserMessage { get; init; }
-    public required string Model { get; init; }
-    public required int TimeoutSeconds { get; init; }
+    Task<RetrospectiveAiResponse> AssessAsync(AiPromptRequest request, CancellationToken ct);
 }
 
 public class RetrospectiveAiResponse
 {
     public required IReadOnlyList<RetrospectiveVerdict> Verdicts { get; init; }
-    public required int InputTokens { get; init; }
-    public required int OutputTokens { get; init; }
-    public required int TotalTokens { get; init; }
-    public required int DurationMs { get; init; }
-    public required string Model { get; init; }
+    public required AiUsage Usage { get; init; }
 }
 
 /// <summary>

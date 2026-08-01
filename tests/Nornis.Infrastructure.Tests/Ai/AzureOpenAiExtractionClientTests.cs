@@ -154,11 +154,11 @@ public class AzureOpenAiExtractionClientTests
 
         var result = await _client.ExtractAsync(DefaultRequest, CancellationToken.None);
 
-        Assert.That(result.InputTokens, Is.EqualTo(500));
-        Assert.That(result.OutputTokens, Is.EqualTo(150));
-        Assert.That(result.TotalTokens, Is.EqualTo(650));
-        Assert.That(result.Model, Is.EqualTo("gpt-4o"));
-        Assert.That(result.DurationMs, Is.GreaterThanOrEqualTo(0));
+        Assert.That(result.Usage.InputTokens, Is.EqualTo(500));
+        Assert.That(result.Usage.OutputTokens, Is.EqualTo(150));
+        Assert.That(result.Usage.TotalTokens, Is.EqualTo(650));
+        Assert.That(result.Usage.Model, Is.EqualTo("gpt-4o"));
+        Assert.That(result.Usage.DurationMs, Is.GreaterThanOrEqualTo(0));
     }
 
     [Test]
@@ -175,7 +175,7 @@ public class AzureOpenAiExtractionClientTests
         var result = await _client.ExtractAsync(DefaultRequest, CancellationToken.None);
 
         Assert.That(result.Proposals, Is.Empty);
-        Assert.That(result.InputTokens, Is.EqualTo(500));
+        Assert.That(result.Usage.InputTokens, Is.EqualTo(500));
     }
 
     #endregion

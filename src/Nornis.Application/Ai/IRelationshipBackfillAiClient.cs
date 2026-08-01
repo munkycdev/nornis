@@ -7,25 +7,13 @@ namespace Nornis.Application.Ai;
 /// </summary>
 public interface IRelationshipBackfillAiClient
 {
-    Task<RelationshipBackfillAiResponse> ProposeLinksAsync(RelationshipBackfillAiRequest request, CancellationToken ct);
-}
-
-public class RelationshipBackfillAiRequest
-{
-    public required string SystemPrompt { get; init; }
-    public required string UserMessage { get; init; }
-    public required string Model { get; init; }
-    public required int TimeoutSeconds { get; init; }
+    Task<RelationshipBackfillAiResponse> ProposeLinksAsync(AiPromptRequest request, CancellationToken ct);
 }
 
 public class RelationshipBackfillAiResponse
 {
     public required IReadOnlyList<BackfillLinkProposal> Links { get; init; }
-    public required int InputTokens { get; init; }
-    public required int OutputTokens { get; init; }
-    public required int TotalTokens { get; init; }
-    public required int DurationMs { get; init; }
-    public required string Model { get; init; }
+    public required AiUsage Usage { get; init; }
 }
 
 /// <summary>

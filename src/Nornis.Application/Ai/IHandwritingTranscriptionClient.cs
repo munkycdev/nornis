@@ -22,9 +22,5 @@ public class HandwritingTranscriptionRequest
 public class HandwritingTranscriptionResponse
 {
     public required string Markdown { get; init; }
-    public required int InputTokens { get; init; }
-    public required int OutputTokens { get; init; }
-    public required int TotalTokens { get; init; }
-    public required int DurationMs { get; init; }
-    public required string Model { get; init; }
+    public required AiUsage Usage { get; init; }
 }

@@ -32,7 +32,7 @@ public class ContinuityAuditService : IContinuityAuditService
     private readonly IAuditAiClient _aiClient;
     private readonly IHealthAssessmentRepository _assessmentRepository;
     private readonly IContinuityDismissalRepository _dismissalRepository;
-    private readonly IAiUsageRecordRepository _aiUsageRecordRepository;
+    private readonly IAiUsageRecorder _usageRecorder;
     private readonly LoremasterOptions _options;
 
     /// <summary>Findings accepted per assessment are capped to keep the report actionable.</summary>
@@ -103,7 +103,7 @@ public class ContinuityAuditService : IContinuityAuditService
         IAuditAiClient aiClient,
         IHealthAssessmentRepository assessmentRepository,
         IContinuityDismissalRepository dismissalRepository,
-        IAiUsageRecordRepository aiUsageRecordRepository,
+        IAiUsageRecorder usageRecorder,
         IOptions<LoremasterOptions> options)
     {
         _budgetGuard = budgetGuard;
@@ -116,7 +116,7 @@ public class ContinuityAuditService : IContinuityAuditService
         _aiClient = aiClient;
         _assessmentRepository = assessmentRepository;
         _dismissalRepository = dismissalRepository;
-        _aiUsageRecordRepository = aiUsageRecordRepository;
+        _usageRecorder = usageRecorder;
         _options = options.Value;
     }
 
@@ -165,7 +165,7 @@ public class ContinuityAuditService : IContinuityAuditService
         var recordLookup = BuildRecordLookup(artifacts, facts, relationships);
 
         // 3. Call the AI. Track usage on success and failure alike (parity with LoremasterService).
-        var request = new AuditAiRequest
+        var request = new AiPromptRequest
         {
             SystemPrompt = SystemPrompt,
             UserMessage = recordText,
@@ -206,7 +206,7 @@ public class ContinuityAuditService : IContinuityAuditService
             Id = Guid.NewGuid(),
             WorldId = worldId,
             CreatedAt = DateTimeOffset.UtcNow,
-            Model = response.Model,
+            Model = response.Usage.Model,
             Score = BlendScore(heuristic, findings
                 .Where(f => f.Status == ContinuityFindingStatus.Open)
                 .Select(f => f.Severity)),
@@ -746,42 +746,10 @@ public class ContinuityAuditService : IContinuityAuditService
 
     // --------------------------------------------------------------------- Usage tracking --
 
-    private async Task TrackUsageAsync(
+    private Task TrackUsageAsync(
         Guid worldId, Guid? userId, AuditAiResponse? response, bool succeeded, string? errorCode,
-        CancellationToken ct)
-    {
-        var record = new AiUsageRecord
-        {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            UserId = userId,
-            OperationType = AiOperationType.ContinuityAudit,
-            Model = response?.Model ?? _options.AiModel,
-            InputTokens = response?.InputTokens ?? 0,
-            OutputTokens = response?.OutputTokens ?? 0,
-            TotalTokens = response?.TotalTokens ?? 0,
-            EstimatedCostUsd = CalculateCost(response),
-            DurationMs = response?.DurationMs ?? 0,
-            Succeeded = succeeded,
-            ErrorCode = errorCode,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-
-        await _aiUsageRecordRepository.CreateAsync(record, ct);
-    }
-
-    private decimal CalculateCost(AuditAiResponse? response)
-    {
-        if (response is null)
-            return 0m;
-
-        // Cost lookup keys on the model the response reports — same discipline as LoremasterService.
-        if (!_options.ModelPricing.TryGetValue(response.Model, out var pricing))
-            return 0m;
-
-        var inputCost = response.InputTokens * pricing.InputPerMillionTokensUsd / 1_000_000m;
-        var outputCost = response.OutputTokens * pricing.OutputPerMillionTokensUsd / 1_000_000m;
-
-        return inputCost + outputCost;
-    }
+        CancellationToken ct) =>
+        _usageRecorder.RecordAsync(
+            worldId, userId, AiOperationType.ContinuityAudit, response?.Usage,
+            succeeded, errorCode, fallbackModel: _options.AiModel, ct: ct);
 }

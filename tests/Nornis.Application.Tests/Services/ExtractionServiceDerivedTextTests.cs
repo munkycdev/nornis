@@ -66,7 +66,7 @@ public class ExtractionServiceDerivedTextTests
             _batchRepo,
             new InMemoryReviewProposalRepository(),
             new InMemorySourceReferenceRepository(),
-            _usageRepo,
+            TestUsageRecorder.Wrap(_usageRepo),
             new InMemoryArtifactRepository(),
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
@@ -126,11 +126,14 @@ public class ExtractionServiceDerivedTextTests
     private void ConfigureAiEmpty() => _aiClient.SetupSuccess(new AiExtractionResponse
     {
         Proposals = [],
-        InputTokens = 10,
-        OutputTokens = 5,
-        TotalTokens = 15,
-        DurationMs = 100,
-        Model = "nornis-extract"
+        Usage = new AiUsage
+        {
+            InputTokens = 10,
+            OutputTokens = 5,
+            TotalTokens = 15,
+            DurationMs = 100,
+            Model = "nornis-extract"
+        }
     });
 
     [Test]

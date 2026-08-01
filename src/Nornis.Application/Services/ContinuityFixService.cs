@@ -89,7 +89,7 @@ public class ContinuityFixService : IContinuityFixService
     private readonly ISourceReferenceRepository _sourceReferenceRepository;
     private readonly IProposalValidator _proposalValidator;
     private readonly IContinuityFixAiClient _aiClient;
-    private readonly IAiUsageRecordRepository _aiUsageRecordRepository;
+    private readonly IAiUsageRecorder _usageRecorder;
     private readonly IUnitOfWork _unitOfWork;
     private readonly LoremasterOptions _options;
 
@@ -105,7 +105,7 @@ public class ContinuityFixService : IContinuityFixService
         ISourceReferenceRepository sourceReferenceRepository,
         IProposalValidator proposalValidator,
         IContinuityFixAiClient aiClient,
-        IAiUsageRecordRepository aiUsageRecordRepository,
+        IAiUsageRecorder usageRecorder,
         IUnitOfWork unitOfWork,
         IOptions<LoremasterOptions> options)
     {
@@ -120,7 +120,7 @@ public class ContinuityFixService : IContinuityFixService
         _sourceReferenceRepository = sourceReferenceRepository;
         _proposalValidator = proposalValidator;
         _aiClient = aiClient;
-        _aiUsageRecordRepository = aiUsageRecordRepository;
+        _usageRecorder = usageRecorder;
         _unitOfWork = unitOfWork;
         _options = options.Value;
     }
@@ -159,7 +159,7 @@ public class ContinuityFixService : IContinuityFixService
         var userMessage = BuildUserMessage(finding, artifacts, facts, relationships);
 
         // 2. Call the AI. Track usage on success and failure alike (parity with the audit).
-        var request = new ContinuityFixAiRequest
+        var request = new AiPromptRequest
         {
             SystemPrompt = SystemPrompt,
             UserMessage = userMessage,
@@ -485,41 +485,11 @@ public class ContinuityFixService : IContinuityFixService
 
     // --------------------------------------------------------------------- Usage tracking --
 
-    private async Task TrackUsageAsync(
+    private Task TrackUsageAsync(
         Guid worldId, Guid? userId, ContinuityFixAiResponse? response, bool succeeded,
-        string? errorCode, CancellationToken ct)
-    {
-        var record = new AiUsageRecord
-        {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            UserId = userId,
-            OperationType = AiOperationType.ContinuityFix,
-            Model = response?.Model ?? _options.AiModel,
-            InputTokens = response?.InputTokens ?? 0,
-            OutputTokens = response?.OutputTokens ?? 0,
-            TotalTokens = response?.TotalTokens ?? 0,
-            EstimatedCostUsd = CalculateCost(response),
-            DurationMs = response?.DurationMs ?? 0,
-            Succeeded = succeeded,
-            ErrorCode = errorCode,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
+        string? errorCode, CancellationToken ct) =>
+        _usageRecorder.RecordAsync(
+            worldId, userId, AiOperationType.ContinuityFix, response?.Usage,
+            succeeded, errorCode, fallbackModel: _options.AiModel, ct: ct);
 
-        await _aiUsageRecordRepository.CreateAsync(record, ct);
-    }
-
-    private decimal CalculateCost(ContinuityFixAiResponse? response)
-    {
-        if (response is null)
-            return 0m;
-
-        if (!_options.ModelPricing.TryGetValue(response.Model, out var pricing))
-            return 0m;
-
-        var inputCost = response.InputTokens * pricing.InputPerMillionTokensUsd / 1_000_000m;
-        var outputCost = response.OutputTokens * pricing.OutputPerMillionTokensUsd / 1_000_000m;
-
-        return inputCost + outputCost;
-    }
 }

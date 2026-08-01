@@ -72,7 +72,7 @@ public class ExtractionServiceUsageTrackingTests
             _batchRepo,
             _proposalRepo,
             _sourceRefRepo,
-            _usageRepo,
+            TestUsageRecorder.Wrap(_usageRepo, extraction: opts),
             _artifactRepo,
             _factRepo,
             new InMemoryArtifactRelationshipRepository(),
@@ -126,11 +126,14 @@ public class ExtractionServiceUsageTrackingTests
                     Confidence = 0.9m
                 }
             ],
-            InputTokens = inputTokens,
-            OutputTokens = outputTokens,
-            TotalTokens = totalTokens,
-            DurationMs = durationMs,
-            Model = model
+            Usage = new AiUsage
+            {
+                InputTokens = inputTokens,
+                OutputTokens = outputTokens,
+                TotalTokens = totalTokens,
+                DurationMs = durationMs,
+                Model = model
+            }
         };
     }
 
@@ -341,11 +344,14 @@ public class ExtractionServiceUsageTrackingTests
                     Confidence = 0.85m
                 }
             ],
-            InputTokens = 1000,
-            OutputTokens = 500,
-            TotalTokens = 1500,
-            DurationMs = 800,
-            Model = "unknown-model"
+            Usage = new AiUsage
+            {
+                InputTokens = 1000,
+                OutputTokens = 500,
+                TotalTokens = 1500,
+                DurationMs = 800,
+                Model = "unknown-model"
+            }
         };
         _aiClient.SetupSuccess(response);
 

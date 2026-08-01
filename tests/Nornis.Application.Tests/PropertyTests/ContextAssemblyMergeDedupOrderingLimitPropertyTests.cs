@@ -245,7 +245,7 @@ public class ContextAssemblyMergeDedupOrderingLimitPropertyTests
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,
-            aiUsageRecordRepo,
+            TestUsageRecorder.Wrap(aiUsageRecordRepo),
             artifactRepo,
             artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),

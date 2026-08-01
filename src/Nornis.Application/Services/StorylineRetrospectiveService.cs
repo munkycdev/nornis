@@ -22,7 +22,7 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
     private readonly IReviewBatchRepository _reviewBatchRepository;
     private readonly IReviewProposalRepository _reviewProposalRepository;
     private readonly ISourceReferenceRepository _sourceReferenceRepository;
-    private readonly IAiUsageRecordRepository _aiUsageRecordRepository;
+    private readonly IAiUsageRecorder _usageRecorder;
     private readonly IRetrospectiveAiClient _aiClient;
     private readonly IAiBudgetGuard _budgetGuard;
     private readonly IUnitOfWork _unitOfWork;
@@ -36,7 +36,7 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
         IReviewBatchRepository reviewBatchRepository,
         IReviewProposalRepository reviewProposalRepository,
         ISourceReferenceRepository sourceReferenceRepository,
-        IAiUsageRecordRepository aiUsageRecordRepository,
+        IAiUsageRecorder usageRecorder,
         IRetrospectiveAiClient aiClient,
         IAiBudgetGuard budgetGuard,
         IUnitOfWork unitOfWork,
@@ -49,7 +49,7 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
         _reviewBatchRepository = reviewBatchRepository;
         _reviewProposalRepository = reviewProposalRepository;
         _sourceReferenceRepository = sourceReferenceRepository;
-        _aiUsageRecordRepository = aiUsageRecordRepository;
+        _usageRecorder = usageRecorder;
         _aiClient = aiClient;
         _budgetGuard = budgetGuard;
         _unitOfWork = unitOfWork;
@@ -94,7 +94,7 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
             RetrospectiveAiResponse response;
             try
             {
-                response = await _aiClient.AssessAsync(new RetrospectiveAiRequest
+                response = await _aiClient.AssessAsync(new AiPromptRequest
                 {
                     SystemPrompt = BuildSystemPrompt(),
                     UserMessage = BuildUserMessage(chunk, factsByStoryline),
@@ -286,37 +286,9 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
         return sb.ToString();
     }
 
-    private async Task TrackUsageAsync(
-        Guid worldId, Guid userId, RetrospectiveAiResponse? response, bool succeeded, string? errorCode, CancellationToken ct)
-    {
-        var record = new AiUsageRecord
-        {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            UserId = userId,
-            OperationType = AiOperationType.StorylineRetrospective,
-            Model = response?.Model ?? _options.AiModel,
-            InputTokens = response?.InputTokens ?? 0,
-            OutputTokens = response?.OutputTokens ?? 0,
-            TotalTokens = response?.TotalTokens ?? 0,
-            EstimatedCostUsd = CalculateCost(response),
-            DurationMs = response?.DurationMs ?? 0,
-            Succeeded = succeeded,
-            ErrorCode = errorCode,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-
-        await _aiUsageRecordRepository.CreateAsync(record, ct);
-    }
-
-    private decimal CalculateCost(RetrospectiveAiResponse? response)
-    {
-        if (response is null || !_options.ModelPricing.TryGetValue(response.Model, out var pricing))
-        {
-            return 0m;
-        }
-
-        return response.InputTokens * pricing.InputPerMillionTokensUsd / 1_000_000m
-             + response.OutputTokens * pricing.OutputPerMillionTokensUsd / 1_000_000m;
-    }
+    private Task TrackUsageAsync(
+        Guid worldId, Guid userId, RetrospectiveAiResponse? response, bool succeeded, string? errorCode, CancellationToken ct) =>
+        _usageRecorder.RecordAsync(
+            worldId, userId, AiOperationType.StorylineRetrospective, response?.Usage,
+            succeeded, errorCode, fallbackModel: _options.AiModel, ct: ct);
 }

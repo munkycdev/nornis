@@ -71,7 +71,7 @@ public class EmptyBodyShortCircuitsPropertyTests
                     reviewBatchRepo,
                     reviewProposalRepo,
                     sourceReferenceRepo,
-                    aiUsageRecordRepo,
+                    TestUsageRecorder.Wrap(aiUsageRecordRepo),
                     artifactRepo,
                     artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),

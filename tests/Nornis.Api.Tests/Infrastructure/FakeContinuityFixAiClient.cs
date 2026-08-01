@@ -24,7 +24,7 @@ public class FakeContinuityFixAiClient : IContinuityFixAiClient
         _exception = exception;
     }
 
-    public Task<ContinuityFixAiResponse> DraftAsync(ContinuityFixAiRequest request, CancellationToken ct)
+    public Task<ContinuityFixAiResponse> DraftAsync(AiPromptRequest request, CancellationToken ct)
     {
         CallCount++;
 
@@ -36,11 +36,14 @@ public class FakeContinuityFixAiClient : IContinuityFixAiClient
         return Task.FromResult(new ContinuityFixAiResponse
         {
             Proposals = _proposals,
-            InputTokens = 700,
-            OutputTokens = 90,
-            TotalTokens = 790,
-            DurationMs = 987,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 700,
+                OutputTokens = 90,
+                TotalTokens = 790,
+                DurationMs = 987,
+                Model = "gpt-4o"
+            }
         });
     }
 }

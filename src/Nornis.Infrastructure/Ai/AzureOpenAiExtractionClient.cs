@@ -84,16 +84,19 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             return new AiExtractionResponse
             {
                 Proposals = proposals,
-                InputTokens = usage.InputTokenCount,
-                // How much of the input the service served from its prompt cache. Extraction is
-                // ~88% of all AI spend and its prompt carries a large, world-stable artifact
-                // catalog, so this is the number that says whether prompt-cache work is paying
-                // off. Without it, reordering the prompt for cache-friendliness is unmeasurable.
-                CachedInputTokens = usage.InputTokenDetails?.CachedTokenCount,
-                OutputTokens = usage.OutputTokenCount,
-                TotalTokens = usage.TotalTokenCount,
-                DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                Model = _options.AiModel
+                Usage = new AiUsage
+                {
+                    InputTokens = usage.InputTokenCount,
+                    // How much of the input the service served from its prompt cache. Extraction is
+                    // ~88% of all AI spend and its prompt carries a large, world-stable artifact
+                    // catalog, so this is the number that says whether prompt-cache work is paying
+                    // off. Without it, reordering the prompt for cache-friendliness is unmeasurable.
+                    CachedInputTokens = usage.InputTokenDetails?.CachedTokenCount,
+                    OutputTokens = usage.OutputTokenCount,
+                    TotalTokens = usage.TotalTokenCount,
+                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
+                    Model = _options.AiModel
+                }
             };
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)

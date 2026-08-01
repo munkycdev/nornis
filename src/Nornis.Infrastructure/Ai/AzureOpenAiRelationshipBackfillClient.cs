@@ -25,7 +25,7 @@ public class AzureOpenAiRelationshipBackfillClient : IRelationshipBackfillAiClie
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<RelationshipBackfillAiResponse> ProposeLinksAsync(RelationshipBackfillAiRequest request, CancellationToken ct)
+    public async Task<RelationshipBackfillAiResponse> ProposeLinksAsync(AiPromptRequest request, CancellationToken ct)
     {
         var stopwatch = Stopwatch.StartNew();
 
@@ -60,11 +60,14 @@ public class AzureOpenAiRelationshipBackfillClient : IRelationshipBackfillAiClie
             return new RelationshipBackfillAiResponse
             {
                 Links = links,
-                InputTokens = usage.InputTokenCount,
-                OutputTokens = usage.OutputTokenCount,
-                TotalTokens = usage.TotalTokenCount,
-                DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                Model = request.Model
+                Usage = new AiUsage
+                {
+                    InputTokens = usage.InputTokenCount,
+                    OutputTokens = usage.OutputTokenCount,
+                    TotalTokens = usage.TotalTokenCount,
+                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
+                    Model = request.Model
+                }
             };
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)

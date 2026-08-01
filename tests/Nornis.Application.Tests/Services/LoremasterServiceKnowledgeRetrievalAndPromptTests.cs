@@ -50,7 +50,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
         _service = new LoremasterService(
             _knowledgeRetriever, new FakeReferencePassageRetriever(),
             _aiClient,
-            _aiUsageRecordRepository,
+            TestUsageRecorder.Wrap(_aiUsageRecordRepository),
             new FakeAiBudgetGuard(), Options.Create(options));
     }
 

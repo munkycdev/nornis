@@ -22,7 +22,7 @@ public class ExtractionService : IExtractionService
     private readonly IReviewBatchRepository _reviewBatchRepository;
     private readonly IReviewProposalRepository _reviewProposalRepository;
     private readonly ISourceReferenceRepository _sourceReferenceRepository;
-    private readonly IAiUsageRecordRepository _aiUsageRecordRepository;
+    private readonly IAiUsageRecorder _usageRecorder;
     private readonly IArtifactRepository _artifactRepository;
     private readonly IArtifactFactRepository _artifactFactRepository;
     private readonly IArtifactRelationshipRepository _artifactRelationshipRepository;
@@ -66,7 +66,7 @@ public class ExtractionService : IExtractionService
         IReviewBatchRepository reviewBatchRepository,
         IReviewProposalRepository reviewProposalRepository,
         ISourceReferenceRepository sourceReferenceRepository,
-        IAiUsageRecordRepository aiUsageRecordRepository,
+        IAiUsageRecorder usageRecorder,
         IArtifactRepository artifactRepository,
         IArtifactFactRepository artifactFactRepository,
         IArtifactRelationshipRepository artifactRelationshipRepository,
@@ -100,7 +100,7 @@ public class ExtractionService : IExtractionService
         _reviewBatchRepository = reviewBatchRepository;
         _reviewProposalRepository = reviewProposalRepository;
         _sourceReferenceRepository = sourceReferenceRepository;
-        _aiUsageRecordRepository = aiUsageRecordRepository;
+        _usageRecorder = usageRecorder;
         _artifactRepository = artifactRepository;
         _artifactFactRepository = artifactFactRepository;
         _artifactRelationshipRepository = artifactRelationshipRepository;
@@ -376,32 +376,12 @@ public class ExtractionService : IExtractionService
         return null;
     }
 
-    private async Task TrackTranscriptionUsageAsync(
+    private Task TrackTranscriptionUsageAsync(
         Source source, Guid worldId, HandwritingTranscriptionResponse? response,
-        bool succeeded, string? errorCode, CancellationToken ct)
-    {
-        var costUsd = response is null || !_options.ModelPricing.TryGetValue(response.Model, out var pricing)
-            ? 0m
-            : response.InputTokens * pricing.InputPerMillionTokensUsd / 1_000_000m
-              + response.OutputTokens * pricing.OutputPerMillionTokensUsd / 1_000_000m;
-
-        await _aiUsageRecordRepository.CreateAsync(new AiUsageRecord
-        {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            SourceId = source.Id,
-            OperationType = AiOperationType.HandwritingTranscription,
-            Model = response?.Model ?? _options.AiModel,
-            InputTokens = response?.InputTokens ?? 0,
-            OutputTokens = response?.OutputTokens ?? 0,
-            TotalTokens = response?.TotalTokens ?? 0,
-            EstimatedCostUsd = costUsd,
-            DurationMs = response?.DurationMs ?? 0,
-            Succeeded = succeeded,
-            ErrorCode = errorCode,
-            CreatedAt = DateTimeOffset.UtcNow
-        }, ct);
-    }
+        bool succeeded, string? errorCode, CancellationToken ct) =>
+        _usageRecorder.RecordAsync(
+            worldId, null, AiOperationType.HandwritingTranscription, response?.Usage,
+            succeeded, errorCode, sourceId: source.Id, fallbackModel: _options.AiModel, ct: ct);
 
     /// <summary>
     /// Map extraction: reads place names + normalized positions off the map image and
@@ -479,11 +459,7 @@ public class ExtractionService : IExtractionService
                 var synthesized = new AiExtractionResponse
                 {
                     Proposals = proposals,
-                    InputTokens = response.InputTokens,
-                    OutputTokens = response.OutputTokens,
-                    TotalTokens = response.TotalTokens,
-                    DurationMs = response.DurationMs,
-                    Model = response.Model
+                    Usage = response.Usage
                 };
 
                 return await HandleSuccessfulResponseAsync(source, worldId, synthesized, ct, AiOperationType.MapExtraction);
@@ -831,8 +807,7 @@ public class ExtractionService : IExtractionService
             }
 
             await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading,
-                (response.Model, response.InputTokens, response.OutputTokens, response.TotalTokens, response.DurationMs),
-                true, null, ct);
+                response.Usage, true, null, ct);
 
             if (!string.IsNullOrWhiteSpace(response.Markdown))
             {
@@ -871,33 +846,12 @@ public class ExtractionService : IExtractionService
         return null;
     }
 
-    private async Task TrackVisionUsageAsync(
-        Source source, Guid worldId, AiOperationType operationType,
-        (string Model, int InputTokens, int OutputTokens, int TotalTokens, int DurationMs)? usage,
-        bool succeeded, string? errorCode, CancellationToken ct)
-    {
-        var costUsd = usage is null || !_options.ModelPricing.TryGetValue(usage.Value.Model, out var pricing)
-            ? 0m
-            : usage.Value.InputTokens * pricing.InputPerMillionTokensUsd / 1_000_000m
-              + usage.Value.OutputTokens * pricing.OutputPerMillionTokensUsd / 1_000_000m;
-
-        await _aiUsageRecordRepository.CreateAsync(new AiUsageRecord
-        {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            SourceId = source.Id,
-            OperationType = operationType,
-            Model = usage?.Model ?? _options.AiModel,
-            InputTokens = usage?.InputTokens ?? 0,
-            OutputTokens = usage?.OutputTokens ?? 0,
-            TotalTokens = usage?.TotalTokens ?? 0,
-            EstimatedCostUsd = costUsd,
-            DurationMs = usage?.DurationMs ?? 0,
-            Succeeded = succeeded,
-            ErrorCode = errorCode,
-            CreatedAt = DateTimeOffset.UtcNow
-        }, ct);
-    }
+    private Task TrackVisionUsageAsync(
+        Source source, Guid worldId, AiOperationType operationType, AiUsage? usage,
+        bool succeeded, string? errorCode, CancellationToken ct) =>
+        _usageRecorder.RecordAsync(
+            worldId, null, operationType, usage,
+            succeeded, errorCode, sourceId: source.Id, fallbackModel: _options.AiModel, ct: ct);
 
     private async Task<ExtractionOutcome> HandleEmptyBodyAsync(
         Source source, Guid worldId, CancellationToken ct)
@@ -1265,54 +1219,14 @@ public class ExtractionService : IExtractionService
         }
     }
 
-    private async Task TrackUsageAsync(
+    private Task TrackUsageAsync(
         Source source, Guid worldId, AiExtractionResponse? response,
         bool succeeded, string? errorCode, CancellationToken ct, Guid? reviewBatchId = null,
-        AiOperationType operationType = AiOperationType.SourceExtraction)
-    {
-        var costUsd = CalculateCost(response);
-
-        var record = new AiUsageRecord
-        {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            SourceId = source.Id,
-            OperationType = operationType,
-            Model = response?.Model ?? _options.AiModel,
-            InputTokens = response?.InputTokens ?? 0,
-            CachedInputTokens = response?.CachedInputTokens,
-            OutputTokens = response?.OutputTokens ?? 0,
-            TotalTokens = response?.TotalTokens ?? 0,
-            EstimatedCostUsd = costUsd,
-            DurationMs = response?.DurationMs ?? 0,
-            Succeeded = succeeded,
-            ErrorCode = errorCode,
-            ReviewBatchId = reviewBatchId,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-
-        await _aiUsageRecordRepository.CreateAsync(record, ct);
-    }
-
-    private decimal CalculateCost(AiExtractionResponse? response)
-    {
-        if (response is null)
-        {
-            return 0m;
-        }
-
-        var model = response.Model;
-
-        if (!_options.ModelPricing.TryGetValue(model, out var pricing))
-        {
-            return 0m;
-        }
-
-        var inputCost = response.InputTokens * pricing.InputPerMillionTokensUsd / 1_000_000m;
-        var outputCost = response.OutputTokens * pricing.OutputPerMillionTokensUsd / 1_000_000m;
-
-        return inputCost + outputCost;
-    }
+        AiOperationType operationType = AiOperationType.SourceExtraction) =>
+        _usageRecorder.RecordAsync(
+            worldId, null, operationType, response?.Usage,
+            succeeded, errorCode, sourceId: source.Id, reviewBatchId: reviewBatchId,
+            fallbackModel: _options.AiModel, ct: ct);
 
     private static string? ValidateResponse(AiExtractionResponse response)
     {

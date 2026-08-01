@@ -22,11 +22,14 @@ public class FakeHandwritingTranscriptionClient : IHandwritingTranscriptionClien
         return Task.FromResult(new HandwritingTranscriptionResponse
         {
             Markdown = MarkdownToReturn,
-            InputTokens = 2000,
-            OutputTokens = 400,
-            TotalTokens = 2400,
-            DurationMs = 800,
-            Model = request.Model
+            Usage = new AiUsage
+            {
+                InputTokens = 2000,
+                OutputTokens = 400,
+                TotalTokens = 2400,
+                DurationMs = 800,
+                Model = request.Model
+            }
         });
     }
 }

@@ -62,11 +62,14 @@ public class ExtractionServiceLocationContextTests
         _aiClient.SetupSuccess(new AiExtractionResponse
         {
             Proposals = [],
-            InputTokens = 500,
-            OutputTokens = 200,
-            TotalTokens = 700,
-            DurationMs = 1200,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 500,
+                OutputTokens = 200,
+                TotalTokens = 700,
+                DurationMs = 1200,
+                Model = "gpt-4o"
+            }
         });
     }
 
@@ -76,7 +79,7 @@ public class ExtractionServiceLocationContextTests
         new InMemoryReviewBatchRepository(),
         new InMemoryReviewProposalRepository(),
         _referenceRepository,
-        new InMemoryAiUsageRecordRepository(),
+        TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository()),
         _artifactRepository,
         new InMemoryArtifactFactRepository(),
         new InMemoryArtifactRelationshipRepository(),

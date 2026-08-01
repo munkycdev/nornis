@@ -70,7 +70,7 @@ public class ExtractionServiceMapTests
             _batchRepo,
             _proposalRepo,
             new InMemorySourceReferenceRepository(),
-            new InMemoryAiUsageRecordRepository(),
+            TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository()),
             _artifactRepo,
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),

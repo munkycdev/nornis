@@ -67,7 +67,7 @@ public class ExtractionServiceTests
             _reviewBatchRepository,
             _reviewProposalRepository,
             _sourceReferenceRepository,
-            _aiUsageRecordRepository,
+            TestUsageRecorder.Wrap(_aiUsageRecordRepository, extraction: _options),
             _artifactRepository,
             _artifactFactRepository,
             new InMemoryArtifactRelationshipRepository(),
@@ -114,11 +114,14 @@ public class ExtractionServiceTests
         return new AiExtractionResponse
         {
             Proposals = proposals,
-            InputTokens = 500,
-            OutputTokens = 200,
-            TotalTokens = 700,
-            DurationMs = 1200,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 500,
+                OutputTokens = 200,
+                TotalTokens = 700,
+                DurationMs = 1200,
+                Model = "gpt-4o"
+            }
         };
     }
 

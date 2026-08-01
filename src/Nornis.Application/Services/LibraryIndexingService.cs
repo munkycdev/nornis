@@ -30,7 +30,7 @@ public class LibraryIndexingService : ILibraryIndexingService
     private readonly IPdfTextExtractor _pdfTextExtractor;
     private readonly IEmbeddingClient _embeddingClient;
     private readonly IAiBudgetGuard _budgetGuard;
-    private readonly IAiUsageRecordRepository _usageRepository;
+    private readonly IAiUsageRecorder _usageRecorder;
     private readonly LibraryOptions _options;
     private readonly ILogger<LibraryIndexingService> _logger;
 
@@ -41,7 +41,7 @@ public class LibraryIndexingService : ILibraryIndexingService
         IPdfTextExtractor pdfTextExtractor,
         IEmbeddingClient embeddingClient,
         IAiBudgetGuard budgetGuard,
-        IAiUsageRecordRepository usageRepository,
+        IAiUsageRecorder usageRecorder,
         IOptions<LibraryOptions> options,
         ILogger<LibraryIndexingService> logger)
     {
@@ -51,7 +51,7 @@ public class LibraryIndexingService : ILibraryIndexingService
         _pdfTextExtractor = pdfTextExtractor;
         _embeddingClient = embeddingClient;
         _budgetGuard = budgetGuard;
-        _usageRepository = usageRepository;
+        _usageRecorder = usageRecorder;
         _options = options.Value;
         _logger = logger;
     }
@@ -179,24 +179,17 @@ public class LibraryIndexingService : ILibraryIndexingService
     {
         try
         {
-            var pricing = _options.ModelPricing.GetValueOrDefault(_options.EmbeddingDeployment);
-            var cost = pricing is null ? 0m : inputTokens * pricing.InputPerMillionTokensUsd / 1_000_000m;
-
-            await _usageRepository.CreateAsync(new AiUsageRecord
+            var usage = new AiUsage
             {
-                Id = Guid.NewGuid(),
-                WorldId = document.WorldId,
-                UserId = document.UploadedByUserId,
-                OperationType = AiOperationType.Embedding,
                 Model = _options.EmbeddingDeployment,
                 InputTokens = inputTokens,
                 OutputTokens = 0,
                 TotalTokens = inputTokens,
-                EstimatedCostUsd = cost,
                 DurationMs = durationMs,
-                Succeeded = succeeded,
-                CreatedAt = DateTimeOffset.UtcNow,
-            }, ct);
+            };
+            await _usageRecorder.RecordAsync(
+                document.WorldId, document.UploadedByUserId, AiOperationType.Embedding,
+                usage, succeeded, null, ct: ct);
         }
         catch (Exception ex)
         {

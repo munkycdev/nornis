@@ -85,11 +85,14 @@ public class FakeAiExtractionClient : IAiExtractionClient
                         Confidence = 0.5m
                     }
                 ],
-                InputTokens = 100,
-                OutputTokens = 50,
-                TotalTokens = 150,
-                DurationMs = 500,
-                Model = "gpt-4o"
+                Usage = new AiUsage
+                {
+                    InputTokens = 100,
+                    OutputTokens = 50,
+                    TotalTokens = 150,
+                    DurationMs = 500,
+                    Model = "gpt-4o"
+                }
             };
             return Task.FromResult(invalidResponse);
         }

@@ -25,7 +25,7 @@ public class AzureOpenAiContinuityFixClient : IContinuityFixAiClient
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<ContinuityFixAiResponse> DraftAsync(ContinuityFixAiRequest request, CancellationToken ct)
+    public async Task<ContinuityFixAiResponse> DraftAsync(AiPromptRequest request, CancellationToken ct)
     {
         var stopwatch = Stopwatch.StartNew();
 
@@ -60,11 +60,14 @@ public class AzureOpenAiContinuityFixClient : IContinuityFixAiClient
             return new ContinuityFixAiResponse
             {
                 Proposals = proposals,
-                InputTokens = usage.InputTokenCount,
-                OutputTokens = usage.OutputTokenCount,
-                TotalTokens = usage.TotalTokenCount,
-                DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                Model = request.Model
+                Usage = new AiUsage
+                {
+                    InputTokens = usage.InputTokenCount,
+                    OutputTokens = usage.OutputTokenCount,
+                    TotalTokens = usage.TotalTokenCount,
+                    DurationMs = (int)stopwatch.ElapsedMilliseconds,
+                    Model = request.Model
+                }
             };
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)

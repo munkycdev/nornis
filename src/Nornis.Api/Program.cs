@@ -134,6 +134,7 @@ builder.Services.AddScoped<IArtifactFactRepository, ArtifactFactRepository>();
 builder.Services.AddScoped<IArtifactRelationshipRepository, ArtifactRelationshipRepository>();
 builder.Services.AddScoped<ISourceReferenceRepository, SourceReferenceRepository>();
 builder.Services.AddScoped<IAiUsageRecordRepository, AiUsageRecordRepository>();
+builder.Services.AddScoped<IAiUsageRecorder, AiUsageRecorder>();
 builder.Services.AddScoped<IHealthAssessmentRepository, HealthAssessmentRepository>();
 builder.Services.AddScoped<IContinuityDismissalRepository, ContinuityDismissalRepository>();
 builder.Services.AddScoped<ILibraryDocumentRepository, LibraryDocumentRepository>();

@@ -22,11 +22,14 @@ public class FakeImageReadingClient : IImageReadingClient
         return Task.FromResult(new ImageReadingResponse
         {
             Markdown = MarkdownToReturn,
-            InputTokens = 1500,
-            OutputTokens = 300,
-            TotalTokens = 1800,
-            DurationMs = 700,
-            Model = request.Model
+            Usage = new AiUsage
+            {
+                InputTokens = 1500,
+                OutputTokens = 300,
+                TotalTokens = 1800,
+                DurationMs = 700,
+                Model = request.Model
+            }
         });
     }
 }

@@ -18,7 +18,7 @@ public partial class LoremasterService : ILoremasterService
     private readonly IKnowledgeRetriever _knowledgeRetriever;
     private readonly IReferencePassageRetriever _passageRetriever;
     private readonly ILoremasterAiClient _aiClient;
-    private readonly IAiUsageRecordRepository _aiUsageRecordRepository;
+    private readonly IAiUsageRecorder _usageRecorder;
     private readonly IAiBudgetGuard _budgetGuard;
     private readonly LoremasterOptions _options;
 
@@ -101,14 +101,14 @@ public partial class LoremasterService : ILoremasterService
         IKnowledgeRetriever knowledgeRetriever,
         IReferencePassageRetriever passageRetriever,
         ILoremasterAiClient aiClient,
-        IAiUsageRecordRepository aiUsageRecordRepository,
+        IAiUsageRecorder usageRecorder,
         IAiBudgetGuard budgetGuard,
         IOptions<LoremasterOptions> options)
     {
         _knowledgeRetriever = knowledgeRetriever;
         _passageRetriever = passageRetriever;
         _aiClient = aiClient;
-        _aiUsageRecordRepository = aiUsageRecordRepository;
+        _usageRecorder = usageRecorder;
         _budgetGuard = budgetGuard;
         _options = options.Value;
     }
@@ -328,7 +328,9 @@ public partial class LoremasterService : ILoremasterService
         return caveats;
     }
 
-    private async Task TrackUsageAsync(
+    // Duration comes from the service's own stopwatch — a timeout never yields a
+    // response to read one from, and the ledger row must still carry how long we waited.
+    private Task TrackUsageAsync(
         AskLoremasterCommand command,
         LoremasterAiResponse? response,
         TimeSpan elapsed,
@@ -336,40 +338,19 @@ public partial class LoremasterService : ILoremasterService
         string? errorCode,
         CancellationToken ct)
     {
-        var costUsd = CalculateCost(response);
-
-        var record = new AiUsageRecord
+        var usage = response?.Usage ?? new AiUsage
         {
-            Id = Guid.NewGuid(),
-            WorldId = command.WorldId,
-            UserId = command.UserId,
-            OperationType = AiOperationType.AskLoremaster,
-            Model = response?.Model ?? _options.AiModel,
-            InputTokens = response?.InputTokens ?? 0,
-            OutputTokens = response?.OutputTokens ?? 0,
-            TotalTokens = response?.TotalTokens ?? 0,
-            EstimatedCostUsd = costUsd,
-            DurationMs = (int)elapsed.TotalMilliseconds,
-            Succeeded = succeeded,
-            ErrorCode = errorCode,
-            CreatedAt = DateTimeOffset.UtcNow
+            Model = _options.AiModel,
+            InputTokens = 0,
+            OutputTokens = 0,
+            TotalTokens = 0,
+            DurationMs = 0,
         };
+        usage = usage with { DurationMs = (int)elapsed.TotalMilliseconds };
 
-        await _aiUsageRecordRepository.CreateAsync(record, ct);
-    }
-
-    private decimal CalculateCost(LoremasterAiResponse? response)
-    {
-        if (response is null)
-            return 0m;
-
-        if (!_options.ModelPricing.TryGetValue(response.Model, out var pricing))
-            return 0m;
-
-        var inputCost = response.InputTokens * pricing.InputPerMillionTokensUsd / 1_000_000m;
-        var outputCost = response.OutputTokens * pricing.OutputPerMillionTokensUsd / 1_000_000m;
-
-        return inputCost + outputCost;
+        return _usageRecorder.RecordAsync(
+            command.WorldId, command.UserId, AiOperationType.AskLoremaster, usage,
+            succeeded, errorCode, ct: ct);
     }
 
     private static bool IsRateLimitException(HttpRequestException ex) =>
@@ -387,7 +368,7 @@ public partial class LoremasterService : ILoremasterService
     /// Builds the AI request prompt from the question, knowledge context, and optional
     /// prior conversation exchanges.
     /// </summary>
-    internal LoremasterAiRequest BuildPrompt(string question, KnowledgeContext context, string? conversationContext = null)
+    internal AiPromptRequest BuildPrompt(string question, KnowledgeContext context, string? conversationContext = null)
     {
         var userMessage = new StringBuilder();
 
@@ -417,7 +398,7 @@ public partial class LoremasterService : ILoremasterService
         userMessage.AppendLine();
         userMessage.AppendLine(question);
 
-        return new LoremasterAiRequest
+        return new AiPromptRequest
         {
             SystemPrompt = SystemPromptTemplate,
             UserMessage = userMessage.ToString(),

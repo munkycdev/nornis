@@ -9,19 +9,19 @@ namespace Nornis.Api.Tests.Infrastructure;
 /// </summary>
 public class FakeLoremasterAiClient : ILoremasterAiClient
 {
-    private readonly List<LoremasterAiRequest> _requests = [];
+    private readonly List<AiPromptRequest> _requests = [];
     private LoremasterAiResponse? _cannedResponse;
     private FailureMode _failureMode = FailureMode.None;
 
     /// <summary>
     /// All requests that have been made to this client, in order.
     /// </summary>
-    public IReadOnlyList<LoremasterAiRequest> Requests => _requests.AsReadOnly();
+    public IReadOnlyList<AiPromptRequest> Requests => _requests.AsReadOnly();
 
     /// <summary>
     /// The most recent request made to this client, or null if none.
     /// </summary>
-    public LoremasterAiRequest? LastRequest => _requests.Count > 0 ? _requests[^1] : null;
+    public AiPromptRequest? LastRequest => _requests.Count > 0 ? _requests[^1] : null;
 
     /// <summary>
     /// The number of calls made to this client.
@@ -40,11 +40,14 @@ public class FakeLoremasterAiClient : ILoremasterAiClient
         _cannedResponse = new LoremasterAiResponse
         {
             AnswerText = answerText,
-            InputTokens = inputTokens,
-            OutputTokens = outputTokens,
-            TotalTokens = inputTokens + outputTokens,
-            DurationMs = 200 + (outputTokens * 5),
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = inputTokens,
+                OutputTokens = outputTokens,
+                TotalTokens = inputTokens + outputTokens,
+                DurationMs = 200 + (outputTokens * 5),
+                Model = "gpt-4o"
+            }
         };
         _failureMode = FailureMode.None;
     }
@@ -67,7 +70,7 @@ public class FakeLoremasterAiClient : ILoremasterAiClient
         _cannedResponse = null;
     }
 
-    public Task<LoremasterAiResponse> AskAsync(LoremasterAiRequest request, CancellationToken ct)
+    public Task<LoremasterAiResponse> AskAsync(AiPromptRequest request, CancellationToken ct)
     {
         _requests.Add(request);
 
@@ -90,11 +93,14 @@ public class FakeLoremasterAiClient : ILoremasterAiClient
     private static LoremasterAiResponse DefaultResponse() => new()
     {
         AnswerText = "I don't have a confirmed source for that yet.",
-        InputTokens = 150,
-        OutputTokens = 42,
-        TotalTokens = 192,
-        DurationMs = 620,
-        Model = "gpt-4o"
+        Usage = new AiUsage
+        {
+            InputTokens = 150,
+            OutputTokens = 42,
+            TotalTokens = 192,
+            DurationMs = 620,
+            Model = "gpt-4o"
+        }
     };
 
     private enum FailureMode

@@ -2,5 +2,5 @@ namespace Nornis.Application.Ai;
 
 public interface ILoremasterAiClient
 {
-    Task<LoremasterAiResponse> AskAsync(LoremasterAiRequest request, CancellationToken ct);
+    Task<LoremasterAiResponse> AskAsync(AiPromptRequest request, CancellationToken ct);
 }

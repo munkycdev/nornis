@@ -11,9 +11,9 @@ public class FakeContinuityFixAiClient : IContinuityFixAiClient
     public IReadOnlyList<ContinuityFixProposal> Proposals { get; set; } = [];
     public Exception? ExceptionToThrow { get; set; }
     public int CallCount { get; private set; }
-    public ContinuityFixAiRequest? LastRequest { get; private set; }
+    public AiPromptRequest? LastRequest { get; private set; }
 
-    public Task<ContinuityFixAiResponse> DraftAsync(ContinuityFixAiRequest request, CancellationToken ct)
+    public Task<ContinuityFixAiResponse> DraftAsync(AiPromptRequest request, CancellationToken ct)
     {
         CallCount++;
         LastRequest = request;
@@ -26,11 +26,14 @@ public class FakeContinuityFixAiClient : IContinuityFixAiClient
         return Task.FromResult(new ContinuityFixAiResponse
         {
             Proposals = Proposals,
-            InputTokens = 500,
-            OutputTokens = 80,
-            TotalTokens = 580,
-            DurationMs = 321,
-            Model = request.Model
+            Usage = new AiUsage
+            {
+                InputTokens = 500,
+                OutputTokens = 80,
+                TotalTokens = 580,
+                DurationMs = 321,
+                Model = request.Model
+            }
         });
     }
 }

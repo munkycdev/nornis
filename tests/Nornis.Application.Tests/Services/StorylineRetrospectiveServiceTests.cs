@@ -61,7 +61,7 @@ public class StorylineRetrospectiveServiceTests
             _batchRepo,
             _proposalRepo,
             _sourceRefRepo,
-            _usageRepo,
+            TestUsageRecorder.Wrap(_usageRepo, loremaster: options),
             _aiClient,
             _budgetGuard,
             new FakeUnitOfWork(),

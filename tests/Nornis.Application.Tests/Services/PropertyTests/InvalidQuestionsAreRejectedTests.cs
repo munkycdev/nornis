@@ -45,7 +45,7 @@ public class InvalidQuestionsAreRejectedTests
         var service = new LoremasterService(
             knowledgeRetriever, new FakeReferencePassageRetriever(),
             aiClient,
-            usageRepo,
+            TestUsageRecorder.Wrap(usageRepo),
             new FakeAiBudgetGuard(), options);
 
         var command = new AskLoremasterCommand(

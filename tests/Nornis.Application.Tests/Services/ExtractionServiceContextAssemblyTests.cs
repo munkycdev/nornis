@@ -64,7 +64,7 @@ public class ExtractionServiceContextAssemblyTests
         _reviewBatchRepository,
         _reviewProposalRepository,
         _sourceReferenceRepository,
-        _aiUsageRecordRepository,
+        TestUsageRecorder.Wrap(_aiUsageRecordRepository),
         _artifactRepository,
         _artifactFactRepository,
         _relationshipRepository,
@@ -137,11 +137,14 @@ public class ExtractionServiceContextAssemblyTests
         _aiClient.SetupSuccess(new AiExtractionResponse
         {
             Proposals = proposals,
-            InputTokens = 500,
-            OutputTokens = 200,
-            TotalTokens = 700,
-            DurationMs = 1200,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 500,
+                OutputTokens = 200,
+                TotalTokens = 700,
+                DurationMs = 1200,
+                Model = "gpt-4o"
+            }
         });
     }
 

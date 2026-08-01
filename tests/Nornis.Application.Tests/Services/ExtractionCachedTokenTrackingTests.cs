@@ -16,12 +16,15 @@ public class ExtractionCachedTokenTrackingTests
     private static AiExtractionResponse Response(int? cached) => new()
     {
         Proposals = [],
-        InputTokens = 16_000,
-        CachedInputTokens = cached,
-        OutputTokens = 3_000,
-        TotalTokens = 19_000,
-        DurationMs = 1_200,
-        Model = "nornis-extract",
+        Usage = new AiUsage
+        {
+            InputTokens = 16_000,
+            CachedInputTokens = cached,
+            OutputTokens = 3_000,
+            TotalTokens = 19_000,
+            DurationMs = 1_200,
+            Model = "nornis-extract",
+        },
     };
 
     [Test]
@@ -32,14 +35,17 @@ public class ExtractionCachedTokenTrackingTests
         var response = new AiExtractionResponse
         {
             Proposals = [],
-            InputTokens = 16_000,
-            OutputTokens = 3_000,
-            TotalTokens = 19_000,
-            DurationMs = 1_200,
-            Model = "nornis-extract",
+            Usage = new AiUsage
+            {
+                InputTokens = 16_000,
+                OutputTokens = 3_000,
+                TotalTokens = 19_000,
+                DurationMs = 1_200,
+                Model = "nornis-extract",
+            },
         };
 
-        Assert.That(response.CachedInputTokens, Is.Null);
+        Assert.That(response.Usage.CachedInputTokens, Is.Null);
     }
 
     [Test]
@@ -47,15 +53,15 @@ public class ExtractionCachedTokenTrackingTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(Response(0).CachedInputTokens, Is.Zero, "the provider reported no cache hit");
-            Assert.That(Response(null).CachedInputTokens, Is.Null, "the provider reported nothing at all");
+            Assert.That(Response(0).Usage.CachedInputTokens, Is.Zero, "the provider reported no cache hit");
+            Assert.That(Response(null).Usage.CachedInputTokens, Is.Null, "the provider reported nothing at all");
         });
     }
 
     [Test]
     public void CachedTokens_AreCarriedThroughUnchanged()
     {
-        Assert.That(Response(12_800).CachedInputTokens, Is.EqualTo(12_800));
+        Assert.That(Response(12_800).Usage.CachedInputTokens, Is.EqualTo(12_800));
     }
 
     [Test]
@@ -65,6 +71,6 @@ public class ExtractionCachedTokenTrackingTests
         // subset of input, so a reading above it would mean we had wired the wrong number.
         var response = Response(12_800);
 
-        Assert.That(response.CachedInputTokens, Is.LessThanOrEqualTo(response.InputTokens));
+        Assert.That(response.Usage.CachedInputTokens, Is.LessThanOrEqualTo(response.Usage.InputTokens));
     }
 }

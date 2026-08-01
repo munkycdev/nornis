@@ -97,11 +97,14 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
                 var aiResponse = new AiExtractionResponse
                 {
                     Proposals = proposals,
-                    InputTokens = 500,
-                    OutputTokens = 200,
-                    TotalTokens = 700,
-                    DurationMs = 1000,
-                    Model = "gpt-4o"
+                    Usage = new AiUsage
+                    {
+                        InputTokens = 500,
+                        OutputTokens = 200,
+                        TotalTokens = 700,
+                        DurationMs = 1000,
+                        Model = "gpt-4o"
+                    }
                 };
 
                 var sourceRepo = new InMemorySourceRepository();
@@ -140,7 +143,7 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
                     reviewBatchRepo,
                     reviewProposalRepo,
                     sourceReferenceRepo,
-                    aiUsageRecordRepo,
+                    TestUsageRecorder.Wrap(aiUsageRecordRepo),
                     artifactRepo,
                     artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),
@@ -241,11 +244,14 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
                 var aiResponse = new AiExtractionResponse
                 {
                     Proposals = proposals,
-                    InputTokens = 300,
-                    OutputTokens = 150,
-                    TotalTokens = 450,
-                    DurationMs = 800,
-                    Model = "gpt-4o"
+                    Usage = new AiUsage
+                    {
+                        InputTokens = 300,
+                        OutputTokens = 150,
+                        TotalTokens = 450,
+                        DurationMs = 800,
+                        Model = "gpt-4o"
+                    }
                 };
 
                 var (service, reviewProposalRepo) = CreateServiceAndRepo(source, aiResponse);
@@ -312,11 +318,14 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
                 var aiResponse = new AiExtractionResponse
                 {
                     Proposals = proposals,
-                    InputTokens = 400,
-                    OutputTokens = 200,
-                    TotalTokens = 600,
-                    DurationMs = 900,
-                    Model = "gpt-4o"
+                    Usage = new AiUsage
+                    {
+                        InputTokens = 400,
+                        OutputTokens = 200,
+                        TotalTokens = 600,
+                        DurationMs = 900,
+                        Model = "gpt-4o"
+                    }
                 };
 
                 var (service, reviewProposalRepo) = CreateServiceAndRepo(source, aiResponse);
@@ -391,7 +400,7 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,
-            aiUsageRecordRepo,
+            TestUsageRecorder.Wrap(aiUsageRecordRepo),
             artifactRepo,
             artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),

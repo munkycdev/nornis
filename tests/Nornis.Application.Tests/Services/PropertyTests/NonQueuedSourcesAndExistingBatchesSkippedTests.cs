@@ -64,7 +64,7 @@ public class NonQueuedSourcesAndExistingBatchesSkippedTests
             batchRepo,
             proposalRepo,
             sourceRefRepo,
-            usageRepo,
+            TestUsageRecorder.Wrap(usageRepo),
             artifactRepo,
             factRepo,
             new InMemoryArtifactRelationshipRepository(),

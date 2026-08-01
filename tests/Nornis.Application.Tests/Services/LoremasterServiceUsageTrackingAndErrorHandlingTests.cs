@@ -48,7 +48,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         _service = new LoremasterService(
             _knowledgeRetriever, new FakeReferencePassageRetriever(),
             _aiClient,
-            _aiUsageRecordRepository,
+            TestUsageRecorder.Wrap(_aiUsageRecordRepository, loremaster: _options),
             new FakeAiBudgetGuard(), Options.Create(_options));
     }
 
@@ -96,11 +96,14 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         _aiClient.SetupSuccess(new LoremasterAiResponse
         {
             AnswerText = "Captain Voss is a sea captain based in Black Harbor.",
-            InputTokens = 500,
-            OutputTokens = 120,
-            TotalTokens = 620,
-            DurationMs = 800,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 500,
+                OutputTokens = 120,
+                TotalTokens = 620,
+                DurationMs = 800,
+                Model = "gpt-4o"
+            }
         });
 
         await _service.AskAsync(CreateCommand(), CancellationToken.None);
@@ -153,11 +156,14 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         _aiClient.SetupSuccess(new LoremasterAiResponse
         {
             AnswerText = "Captain Voss is a sea captain.",
-            InputTokens = 400,
-            OutputTokens = 80,
-            TotalTokens = 480,
-            DurationMs = 500,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 400,
+                OutputTokens = 80,
+                TotalTokens = 480,
+                DurationMs = 500,
+                Model = "gpt-4o"
+            }
         });
 
         await _service.AskAsync(CreateCommand(), CancellationToken.None);
@@ -173,11 +179,14 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         _aiClient.SetupSuccess(new LoremasterAiResponse
         {
             AnswerText = "Captain Voss is a sea captain.",
-            InputTokens = 500,
-            OutputTokens = 120,
-            TotalTokens = 620,
-            DurationMs = 800,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 500,
+                OutputTokens = 120,
+                TotalTokens = 620,
+                DurationMs = 800,
+                Model = "gpt-4o"
+            }
         });
 
         await _service.AskAsync(CreateCommand(), CancellationToken.None);
@@ -421,11 +430,14 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         _aiClient.SetupSuccess(new LoremasterAiResponse
         {
             AnswerText = "Captain Voss is a sea captain.",
-            InputTokens = 1000,
-            OutputTokens = 200,
-            TotalTokens = 1200,
-            DurationMs = 600,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 1000,
+                OutputTokens = 200,
+                TotalTokens = 1200,
+                DurationMs = 600,
+                Model = "gpt-4o"
+            }
         });
 
         await _service.AskAsync(CreateCommand(), CancellationToken.None);
@@ -445,11 +457,14 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         _aiClient.SetupSuccess(new LoremasterAiResponse
         {
             AnswerText = "Detailed answer about the world.",
-            InputTokens = 8000,
-            OutputTokens = 2000,
-            TotalTokens = 10000,
-            DurationMs = 3000,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 8000,
+                OutputTokens = 2000,
+                TotalTokens = 10000,
+                DurationMs = 3000,
+                Model = "gpt-4o"
+            }
         });
 
         await _service.AskAsync(CreateCommand(), CancellationToken.None);
@@ -481,11 +496,14 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         _aiClient.SetupSuccess(new LoremasterAiResponse
         {
             AnswerText = "Answer text.",
-            InputTokens = 500,
-            OutputTokens = 100,
-            TotalTokens = 600,
-            DurationMs = 400,
-            Model = "unknown-model"
+            Usage = new AiUsage
+            {
+                InputTokens = 500,
+                OutputTokens = 100,
+                TotalTokens = 600,
+                DurationMs = 400,
+                Model = "unknown-model"
+            }
         });
 
         await _service.AskAsync(CreateCommand(), CancellationToken.None);
@@ -505,27 +523,30 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         using var cts = new CancellationTokenSource();
 
         var aiClient = Substitute.For<ILoremasterAiClient>();
-        aiClient.AskAsync(Arg.Any<LoremasterAiRequest>(), Arg.Any<CancellationToken>())
+        aiClient.AskAsync(Arg.Any<AiPromptRequest>(), Arg.Any<CancellationToken>())
             .Returns(new LoremasterAiResponse
             {
                 AnswerText = "Answer",
-                InputTokens = 100,
-                OutputTokens = 50,
-                TotalTokens = 150,
-                DurationMs = 200,
-                Model = "gpt-4o"
+                Usage = new AiUsage
+                {
+                    InputTokens = 100,
+                    OutputTokens = 50,
+                    TotalTokens = 150,
+                    DurationMs = 200,
+                    Model = "gpt-4o"
+                }
             });
 
         var service = new LoremasterService(
             _knowledgeRetriever, new FakeReferencePassageRetriever(),
             aiClient,
-            _aiUsageRecordRepository,
+            TestUsageRecorder.Wrap(_aiUsageRecordRepository, loremaster: _options),
             new FakeAiBudgetGuard(), Options.Create(_options));
 
         await service.AskAsync(CreateCommand(), cts.Token);
 
         await aiClient.Received(1).AskAsync(
-            Arg.Any<LoremasterAiRequest>(),
+            Arg.Any<AiPromptRequest>(),
             cts.Token);
     }
 
@@ -554,7 +575,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         var service = new LoremasterService(
             retriever, new FakeReferencePassageRetriever(),
             _aiClient,
-            _aiUsageRecordRepository,
+            TestUsageRecorder.Wrap(_aiUsageRecordRepository, loremaster: _options),
             new FakeAiBudgetGuard(), Options.Create(_options));
 
         await service.AskAsync(CreateCommand(), cts.Token);

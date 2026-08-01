@@ -429,7 +429,7 @@ public class LoremasterAuthorizationTestFactory : NornisWebApplicationFactory
 /// </summary>
 public class EchoLoremasterAiClient : ILoremasterAiClient
 {
-    public Task<LoremasterAiResponse> AskAsync(LoremasterAiRequest request, CancellationToken ct)
+    public Task<LoremasterAiResponse> AskAsync(AiPromptRequest request, CancellationToken ct)
     {
         // Extract only the knowledge context section (before "## Question")
         var userMessage = request.UserMessage;
@@ -443,11 +443,14 @@ public class EchoLoremasterAiClient : ILoremasterAiClient
         return Task.FromResult(new LoremasterAiResponse
         {
             AnswerText = knowledgeContext,
-            InputTokens = 100,
-            OutputTokens = 50,
-            TotalTokens = 150,
-            DurationMs = 200,
-            Model = "gpt-4o"
+            Usage = new AiUsage
+            {
+                InputTokens = 100,
+                OutputTokens = 50,
+                TotalTokens = 150,
+                DurationMs = 200,
+                Model = "gpt-4o"
+            }
         });
     }
 }

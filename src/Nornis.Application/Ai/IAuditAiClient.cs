@@ -7,5 +7,5 @@ namespace Nornis.Application.Ai;
 /// </summary>
 public interface IAuditAiClient
 {
-    Task<AuditAiResponse> AssessAsync(AuditAiRequest request, CancellationToken ct);
+    Task<AuditAiResponse> AssessAsync(AiPromptRequest request, CancellationToken ct);
 }

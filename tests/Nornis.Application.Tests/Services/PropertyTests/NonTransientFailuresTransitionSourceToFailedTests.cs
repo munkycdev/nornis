@@ -70,7 +70,7 @@ public class NonTransientFailuresTransitionSourceToFailedTests
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,
-            aiUsageRecordRepo,
+            TestUsageRecorder.Wrap(aiUsageRecordRepo),
             artifactRepo,
             artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),

@@ -96,9 +96,9 @@ public class AzureOpenAiMapExtractionClientTests
         Assert.That(result.Places[0].X, Is.EqualTo(expected).Within(0.001m));
         Assert.That(result.Places[0].Y, Is.EqualTo(expected).Within(0.001m));
         // Usage sums across both calls.
-        Assert.That(result.InputTokens, Is.EqualTo(200));
-        Assert.That(result.OutputTokens, Is.EqualTo(20));
-        Assert.That(result.TotalTokens, Is.EqualTo(220));
+        Assert.That(result.Usage.InputTokens, Is.EqualTo(200));
+        Assert.That(result.Usage.OutputTokens, Is.EqualTo(20));
+        Assert.That(result.Usage.TotalTokens, Is.EqualTo(220));
         await _mockChatClient.Received(2).CompleteChatAsync(
             Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatCompletionOptions>(), Arg.Any<CancellationToken>());
     }
@@ -112,7 +112,7 @@ public class AzureOpenAiMapExtractionClientTests
 
         Assert.That(result.Places[0].X, Is.EqualTo(0.30m));
         Assert.That(result.Places[0].Y, Is.EqualTo(0.30m));
-        Assert.That(result.TotalTokens, Is.EqualTo(110));
+        Assert.That(result.Usage.TotalTokens, Is.EqualTo(110));
         await _mockChatClient.Received(1).CompleteChatAsync(
             Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatCompletionOptions>(), Arg.Any<CancellationToken>());
     }

@@ -136,7 +136,7 @@ public class SourceExtractionOptOutTests
             _batchRepo,
             new InMemoryReviewProposalRepository(),
             new InMemorySourceReferenceRepository(),
-            new InMemoryAiUsageRecordRepository(),
+            TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository()),
             new InMemoryArtifactRepository(),
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
