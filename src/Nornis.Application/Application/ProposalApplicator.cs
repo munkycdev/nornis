@@ -549,12 +549,19 @@ public class ProposalApplicator : IProposalApplicator
         {
             // Decide the self-reference case BEFORE touching the entity: these rows may
             // be tracked, and a mutated-but-skipped entity would still flush with the
-            // next SaveChanges. A relationship that would connect the target to itself
-            // is simply left behind, orphaned with the archived source.
+            // next SaveChanges.
             var newA = relationship.ArtifactAId == payload.SourceArtifactId ? targetArtifact.Id : relationship.ArtifactAId;
             var newB = relationship.ArtifactBId == payload.SourceArtifactId ? targetArtifact.Id : relationship.ArtifactBId;
             if (newA == newB)
             {
+                // The duplicate was related to the target it is being merged into, so the
+                // row would now join the target to itself. Delete it rather than leave it:
+                // skipping only avoids reassignment, and the untouched row still points at
+                // the artifact about to be archived. Left alive it is a permanent tax —
+                // the target's detail page lists the archived duplicate as a connection,
+                // and every continuity audit re-raises it as "Unknown artifact" evidence
+                // that no cleanup can reach.
+                await _artifactRelationshipRepository.DeleteAsync(relationship.Id, ct);
                 continue;
             }
 

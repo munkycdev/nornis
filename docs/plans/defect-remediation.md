@@ -94,16 +94,32 @@ changes that item's priority, not its shape.
   the second of two proposals touching one row in a single `BatchAcceptAsync`. Fix:
   repositories reuse the tracked instance (`Find` + `CurrentValues.SetValues`) or
   detach entries after SaveChanges.
-- **Merge leaves the duplicate↔target relationship row live, and the continuity audit
-  re-flags it forever.** `ProposalApplicator.cs:559-579`'s skip branch discards an
-  unpersisted mutation (rows are no-tracking), leaving the DB row pointing at the
-  archived duplicate. Confirmed downstream: the target's detail page lists the
-  archived duplicate as a connection (`ArtifactService.cs:626-646` has no status
-  filter); the continuity audit renders it as "**Unknown artifact**" evidence that
-  survives finding validation — a recurring, score-penalizing DanglingThread after
-  every merge of related artifacts; `SourceReprocessService.cs:320-321` counts it,
-  blocking cleanup. Fix: delete the relationship in the skip branch, inside the merge
-  transaction — and correct the comment, which misdescribes the mechanism.
+- ~~**Merge leaves the duplicate↔target relationship row live, and the continuity audit
+  re-flags it forever.**~~ **Fixed 2026-08-01.** The skip branch now deletes the row
+  inside the merge transaction, and the comment describing it as "simply left behind,
+  orphaned with the archived source" is gone — that sentence documented the bug.
+  - Worth recording *how* this survived: a unit test asserted the wrong behaviour
+    outright ("A would-be self-referencing relationship must not be mutated at all",
+    checking the row was still present and unchanged), while the property test two
+    directories away states Requirement 9.5 as "reassign all ArtifactRelationships …
+    **removing** any that would become self-referencing". The requirement was right the
+    whole time; the unit test had been written to describe the code. A test that
+    codifies current behaviour rather than intended behaviour turns a bug into a
+    guarded invariant.
+  - Verified by removing the fix and confirming the updated test fails, then restoring.
+  - This unblocks W2 (duplicate sweep), which would otherwise have generated a fresh
+    dangling row per merge.
+
+  - As originally diagnosed: the skip branch discarded an unpersisted mutation (rows are
+    no-tracking), leaving the DB row pointing at the archived duplicate. Downstream, the
+    target's detail page listed the archived duplicate as a connection (`ArtifactService`
+    has no status filter); the continuity audit rendered it as "**Unknown artifact**"
+    evidence that survives finding validation — a recurring, score-penalizing
+    DanglingThread after every merge of related artifacts — and `SourceReprocessService`
+    counted it, blocking cleanup. **Those two downstream readers are untouched and still
+    have no status filter**; they are now simply never handed a dangling row by merge.
+    Any row left over from a merge *before* this fix is still out there and still
+    counted.
 - **Dead-lettered extraction wedges the source at Queued forever.** After five
   redeliveries (~2 minutes of backoff) the message dead-letters; nothing consumes the
   DLQ, and `ValidTransitions` offers no user-reachable exit from Queued — update,
