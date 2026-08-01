@@ -165,6 +165,109 @@ public class ProposalApplicatorTests
     #region UpdateArtifact
 
     [Test]
+    public async Task UpdateArtifact_TargetInAnotherWorld_Returns404AndChangesNothing()
+    {
+        // The payload is Player-editable: a TargetId must never be trusted to point
+        // inside the batch's world. Wrong world reads exactly like "does not exist".
+        var foreignArtifact = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            WorldId = Guid.NewGuid(),
+            Type = ArtifactType.Character,
+            Name = "Captain Voss",
+            Summary = "Another world's canon",
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
+            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1)
+        };
+        _artifactRepo.Seed(foreignArtifact);
+
+        var payload = new UpdateArtifactPayload("Hijacked", null, null, null, null);
+        var proposal = MakeProposal(ReviewChangeType.UpdateArtifact, payload, foreignArtifact.Id);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, VisibilityFilter.All, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+        Assert.That(result.Error.Code, Is.EqualTo("target_not_found"));
+        Assert.That(_artifactRepo.Artifacts.Single().Name, Is.EqualTo("Captain Voss"));
+    }
+
+    [Test]
+    public async Task UpdateArtifact_TargetInvisibleToAccepter_Returns404AndChangesNothing()
+    {
+        // A Player accepting proposals on their own source must not be able to bind a
+        // hand-edited GUID to a GM-only artifact — its very existence must not leak.
+        var gmOnlyArtifact = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = ArtifactType.Faction,
+            Name = "Shadow Cult",
+            Visibility = VisibilityScope.GMOnly,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
+            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1)
+        };
+        _artifactRepo.Seed(gmOnlyArtifact);
+
+        var payload = new UpdateArtifactPayload("Exposed", null, null, null, null);
+        var proposal = MakeProposal(ReviewChangeType.UpdateArtifact, payload, gmOnlyArtifact.Id);
+
+        var playerFilter = VisibilityFilter.ForRole(WorldRole.Player, Guid.NewGuid());
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, playerFilter, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+        Assert.That(result.Error.Code, Is.EqualTo("target_not_found"));
+        Assert.That(_artifactRepo.Artifacts.Single().Name, Is.EqualTo("Shadow Cult"));
+    }
+
+    [Test]
+    public async Task UpdateFact_ParentArtifactInvisibleToAccepter_Returns404AndChangesNothing()
+    {
+        // Facts are scoped through their parent artifact — a fact id under a GM-only
+        // artifact must 404 for a Player accepter.
+        var gmOnlyArtifact = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = ArtifactType.Faction,
+            Name = "Shadow Cult",
+            Visibility = VisibilityScope.GMOnly,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
+            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1)
+        };
+        _artifactRepo.Seed(gmOnlyArtifact);
+
+        var hiddenFact = new ArtifactFact
+        {
+            Id = Guid.NewGuid(),
+            ArtifactId = gmOnlyArtifact.Id,
+            Predicate = "allegiance",
+            Value = "Captain Voss",
+            TruthState = TruthState.Hidden,
+            Visibility = VisibilityScope.GMOnly,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
+            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1)
+        };
+        _factRepo.Seed(hiddenFact);
+
+        var payload = new UpdateFactPayload("Rewritten", null, null, null);
+        var proposal = MakeProposal(ReviewChangeType.UpdateFact, payload, hiddenFact.Id);
+
+        var playerFilter = VisibilityFilter.ForRole(WorldRole.Player, Guid.NewGuid());
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, playerFilter, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+        Assert.That(result.Error.Code, Is.EqualTo("target_not_found"));
+        Assert.That(_factRepo.Facts.Single().Value, Is.EqualTo("Captain Voss"));
+    }
+
+    [Test]
     public async Task UpdateArtifact_UpdatesOnlyNonNullFieldsAndSetsUpdatedAt()
     {
         var existingArtifact = new Artifact
@@ -365,12 +468,13 @@ public class ProposalApplicatorTests
         Assert.That(updatedRel.ArtifactAId, Is.EqualTo(targetArtifact.Id));
         Assert.That(updatedRel.ArtifactBId, Is.EqualTo(thirdArtifact.Id));
 
-        // Self-referencing relationship was skipped (not persisted via UpdateAsync)
-        // The in-memory object was mutated during reassignment logic, then skipped
-        // The key assertion: it would become self-referencing (A==B) after reassignment
+        // The would-be self-referencing relationship is decided BEFORE any mutation and
+        // left behind untouched — orphaned with the archived source. Mutating it first
+        // and skipping the save was the old bug: a tracked entity would still flush.
         var selfRef = _relationshipRepo.Relationships.Single(r => r.Id == selfRefRelationship.Id);
-        Assert.That(selfRef.ArtifactAId, Is.EqualTo(selfRef.ArtifactBId),
-            "Self-referencing relationship should have both sides pointing to same artifact after reassignment attempt");
+        Assert.That(selfRef.ArtifactAId, Is.EqualTo(sourceArtifact.Id),
+            "A would-be self-referencing relationship must not be mutated at all");
+        Assert.That(selfRef.ArtifactBId, Is.EqualTo(targetArtifact.Id));
 
         // Source artifact archived
         var archivedSource = _artifactRepo.Artifacts.Single(a => a.Id == sourceArtifact.Id);
@@ -714,12 +818,38 @@ public class ProposalApplicatorTests
     [Test]
     public async Task UpdateRelationship_UpdatesOnlySpecifiedFields()
     {
+        // The relationship is scoped through its endpoint artifacts, so they must exist
+        // in the world and be visible to the accepter.
+        var endpointA = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = ArtifactType.Character,
+            Name = "Captain Voss",
+            Status = ArtifactStatus.Active,
+            Visibility = VisibilityScope.PartyVisible,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-2),
+            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-2)
+        };
+        var endpointB = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = ArtifactType.Location,
+            Name = "Black Harbor",
+            Status = ArtifactStatus.Active,
+            Visibility = VisibilityScope.PartyVisible,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-2),
+            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-2)
+        };
+        _artifactRepo.Seed(endpointA, endpointB);
+
         var existingRelationship = new ArtifactRelationship
         {
             Id = Guid.NewGuid(),
             WorldId = _worldId,
-            ArtifactAId = Guid.NewGuid(),
-            ArtifactBId = Guid.NewGuid(),
+            ArtifactAId = endpointA.Id,
+            ArtifactBId = endpointB.Id,
             Type = "LocatedIn",
             Description = "Captain Voss is in Black Harbor",
             Confidence = 0.7m,

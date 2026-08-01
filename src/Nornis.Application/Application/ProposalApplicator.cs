@@ -15,16 +15,6 @@ namespace Nornis.Application.Application;
 /// </summary>
 public class ProposalApplicator : IProposalApplicator
 {
-    // The extractor occasionally quotes a number ("confidence": "0.99"). The extraction
-    // boundary normalizes new payloads, but rows stored before that — and hand-edited
-    // ones — must still apply, so reading numbers from strings is allowed here too.
-    // Genuinely non-numeric strings ("high") still throw and fail the apply.
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        NumberHandling = JsonNumberHandling.AllowReadingFromString
-    };
-
     /// <summary>
     /// Candidate artifacts for the CreateArtifact dedup, keyed by (world, type). Accepting a
     /// 50-proposal batch used to reload every artifact of the proposed type once per create, plus
@@ -71,12 +61,12 @@ public class ProposalApplicator : IProposalApplicator
         return proposal.ChangeType switch
         {
             ReviewChangeType.CreateArtifact => await ApplyCreateArtifact(proposal, batch, source, ct),
-            ReviewChangeType.UpdateArtifact => await ApplyUpdateArtifact(proposal, batch, source, ct),
-            ReviewChangeType.MergeArtifact => await ApplyMergeArtifact(proposal, batch, source, ct),
+            ReviewChangeType.UpdateArtifact => await ApplyUpdateArtifact(proposal, batch, source, actingFilter, ct),
+            ReviewChangeType.MergeArtifact => await ApplyMergeArtifact(proposal, batch, source, actingFilter, ct),
             ReviewChangeType.AddFact => await ApplyAddFact(proposal, batch, source, actingFilter, ct),
-            ReviewChangeType.UpdateFact => await ApplyUpdateFact(proposal, batch, source, ct),
+            ReviewChangeType.UpdateFact => await ApplyUpdateFact(proposal, batch, source, actingFilter, ct),
             ReviewChangeType.AddRelationship => await ApplyAddRelationship(proposal, batch, source, actingFilter, ct),
-            ReviewChangeType.UpdateRelationship => await ApplyUpdateRelationship(proposal, batch, source, ct),
+            ReviewChangeType.UpdateRelationship => await ApplyUpdateRelationship(proposal, batch, source, actingFilter, ct),
             ReviewChangeType.AddPlacemark => await ApplyAddPlacemark(proposal, batch, source, actingFilter, ct),
             _ => AppResult<ApplyResult>.Fail(new AppError(400, "unknown_change_type", $"Unknown change type: {proposal.ChangeType}"))
         };
@@ -369,26 +359,18 @@ public class ProposalApplicator : IProposalApplicator
 
         // Resolve the artifact: TargetId, payload id, or name (ambiguity surfaces to the
         // reviewer exactly like name-referenced facts).
-        Artifact? artifact;
         var artifactId = proposal.TargetId ?? payload.ArtifactId;
-        if (artifactId is not null && artifactId != Guid.Empty)
-        {
-            artifact = await _artifactRepository.GetByIdAsync(artifactId.Value, ct);
-            if (artifact is null || artifact.WorldId != batch.WorldId)
-                return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target artifact not found."));
-        }
-        else if (!string.IsNullOrWhiteSpace(payload.ArtifactName))
-        {
-            var resolution = await ResolveArtifactByNameAsync(batch.WorldId, payload.ArtifactName, actingFilter, ct);
-            if (!resolution.IsSuccess)
-                return AppResult<ApplyResult>.Fail(resolution.Error!);
-            artifact = resolution.Value!;
-        }
-        else
+        if ((artifactId is null || artifactId == Guid.Empty) && string.IsNullOrWhiteSpace(payload.ArtifactName))
         {
             return AppResult<ApplyResult>.Fail(new AppError(400, "invalid_payload",
                 "AddPlacemark requires an ArtifactId or ArtifactName."));
         }
+
+        var artifactResolution = await ResolveTargetArtifactAsync(
+            batch.WorldId, artifactId, payload.ArtifactName, actingFilter, ct);
+        if (!artifactResolution.IsSuccess)
+            return AppResult<ApplyResult>.Fail(artifactResolution.Error!);
+        var artifact = artifactResolution.Value!;
 
         var pinError = await CreatePlacemarkAsync(batch, artifact.Id, payload.AttachmentId, payload.X, payload.Y, payload.Label, payload.Confidence, ct);
         if (pinError is not null)
@@ -453,7 +435,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<ApplyResult>> ApplyUpdateArtifact(
-        ReviewProposal proposal, ReviewBatch batch, Source source, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, Source source, VisibilityFilter actingFilter, CancellationToken ct)
     {
         if (proposal.TargetId is null)
             return AppResult<ApplyResult>.Fail(new AppError(400, "missing_target_id", "UpdateArtifact requires a TargetId."));
@@ -462,9 +444,10 @@ public class ProposalApplicator : IProposalApplicator
         if (payload is null)
             return AppResult<ApplyResult>.Fail(new AppError(400, "invalid_payload", "Failed to deserialize UpdateArtifact payload."));
 
-        var artifact = await _artifactRepository.GetByIdAsync(proposal.TargetId.Value, ct);
-        if (artifact is null)
-            return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target artifact not found."));
+        var resolution = await ResolveTargetArtifactAsync(batch.WorldId, proposal.TargetId, null, actingFilter, ct);
+        if (!resolution.IsSuccess)
+            return AppResult<ApplyResult>.Fail(resolution.Error!);
+        var artifact = resolution.Value!;
 
 
         if (payload.Name is not null)
@@ -510,7 +493,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<ApplyResult>> ApplyMergeArtifact(
-        ReviewProposal proposal, ReviewBatch batch, Source source, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, Source source, VisibilityFilter actingFilter, CancellationToken ct)
     {
         if (proposal.TargetId is null)
             return AppResult<ApplyResult>.Fail(new AppError(400, "missing_target_id", "MergeArtifact requires a TargetId."));
@@ -519,13 +502,15 @@ public class ProposalApplicator : IProposalApplicator
         if (payload is null)
             return AppResult<ApplyResult>.Fail(new AppError(400, "invalid_payload", "Failed to deserialize MergeArtifact payload."));
 
-        var targetArtifact = await _artifactRepository.GetByIdAsync(proposal.TargetId.Value, ct);
-        if (targetArtifact is null)
-            return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target artifact not found."));
+        var targetResolution = await ResolveTargetArtifactAsync(batch.WorldId, proposal.TargetId, null, actingFilter, ct);
+        if (!targetResolution.IsSuccess)
+            return AppResult<ApplyResult>.Fail(targetResolution.Error!);
+        var targetArtifact = targetResolution.Value!;
 
-        var sourceArtifact = await _artifactRepository.GetByIdAsync(payload.SourceArtifactId, ct);
-        if (sourceArtifact is null)
+        var sourceResolution = await ResolveTargetArtifactAsync(batch.WorldId, payload.SourceArtifactId, null, actingFilter, ct);
+        if (!sourceResolution.IsSuccess)
             return AppResult<ApplyResult>.Fail(new AppError(404, "source_artifact_not_found", "Source artifact for merge not found."));
+        var sourceArtifact = sourceResolution.Value!;
 
 
         // Update target artifact fields from payload
@@ -548,38 +533,40 @@ public class ProposalApplicator : IProposalApplicator
 
         await _artifactRepository.UpdateAsync(targetArtifact, ct);
 
-        // Reassign facts from source artifact to target artifact
+        // Reassign facts from source artifact to target artifact — one save for the
+        // collection, not one per row.
         var sourceFacts = await _artifactFactRepository.ListByArtifactAsync(payload.SourceArtifactId, ct);
         foreach (var fact in sourceFacts)
         {
             fact.ArtifactId = targetArtifact.Id;
-            await _artifactFactRepository.UpdateAsync(fact, ct);
         }
+        await _artifactFactRepository.UpdateRangeAsync(sourceFacts, ct);
 
-        // Reassign relationships from source artifact to target artifact
+        // Reassign relationships from source artifact to target artifact.
         var sourceRelationships = await _artifactRelationshipRepository.ListByArtifactAsync(payload.SourceArtifactId, ct);
+        var reassignedRelationships = new List<ArtifactRelationship>();
         foreach (var relationship in sourceRelationships)
         {
-            // Reassign artifact references
-            if (relationship.ArtifactAId == payload.SourceArtifactId)
-                relationship.ArtifactAId = targetArtifact.Id;
-
-            if (relationship.ArtifactBId == payload.SourceArtifactId)
-                relationship.ArtifactBId = targetArtifact.Id;
-
-            // Remove self-referencing relationships after reassignment
-            if (relationship.ArtifactAId == relationship.ArtifactBId)
+            // Decide the self-reference case BEFORE touching the entity: these rows may
+            // be tracked, and a mutated-but-skipped entity would still flush with the
+            // next SaveChanges. A relationship that would connect the target to itself
+            // is simply left behind, orphaned with the archived source.
+            var newA = relationship.ArtifactAId == payload.SourceArtifactId ? targetArtifact.Id : relationship.ArtifactAId;
+            var newB = relationship.ArtifactBId == payload.SourceArtifactId ? targetArtifact.Id : relationship.ArtifactBId;
+            if (newA == newB)
             {
-                // Archive the self-referencing relationship by not updating it
-                // (it will be orphaned since the source artifact is archived)
                 continue;
             }
 
-            await _artifactRelationshipRepository.UpdateAsync(relationship, ct);
+            relationship.ArtifactAId = newA;
+            relationship.ArtifactBId = newB;
+            reassignedRelationships.Add(relationship);
         }
+        await _artifactRelationshipRepository.UpdateRangeAsync(reassignedRelationships, ct);
 
         // Reassign map pins to the merge target; when the target already has a pin on
         // the same map (unique key), the target's pin wins and the source's is dropped.
+        var reassignedPlacemarks = new List<MapPlacemark>();
         foreach (var placemark in await _mapPlacemarkRepository.ListByArtifactAsync(payload.SourceArtifactId, ct))
         {
             var collision = await _mapPlacemarkRepository.GetByAttachmentAndArtifactAsync(
@@ -592,8 +579,9 @@ public class ProposalApplicator : IProposalApplicator
 
             placemark.ArtifactId = targetArtifact.Id;
             placemark.UpdatedAt = DateTimeOffset.UtcNow;
-            await _mapPlacemarkRepository.UpdateAsync(placemark, ct);
+            reassignedPlacemarks.Add(placemark);
         }
+        await _mapPlacemarkRepository.UpdateRangeAsync(reassignedPlacemarks, ct);
 
         // Archive the source artifact
         sourceArtifact.Status = ArtifactStatus.Archived;
@@ -618,25 +606,17 @@ public class ProposalApplicator : IProposalApplicator
 
         // Resolve the target artifact: by TargetId, or by name for artifacts created earlier
         // in the same batch (their GUIDs did not exist at extraction time).
-        Artifact? artifact;
-        if (proposal.TargetId is not null)
-        {
-            artifact = await _artifactRepository.GetByIdAsync(proposal.TargetId.Value, ct);
-            if (artifact is null)
-                return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target artifact not found."));
-        }
-        else if (!string.IsNullOrWhiteSpace(payload.ArtifactName))
-        {
-            var resolution = await ResolveArtifactByNameAsync(batch.WorldId, payload.ArtifactName, actingFilter, ct);
-            if (!resolution.IsSuccess)
-                return AppResult<ApplyResult>.Fail(resolution.Error!);
-            artifact = resolution.Value!;
-        }
-        else
+        if (proposal.TargetId is null && string.IsNullOrWhiteSpace(payload.ArtifactName))
         {
             return AppResult<ApplyResult>.Fail(new AppError(400, "missing_target_id",
                 "AddFact requires a TargetId or an artifactName referencing an Artifact."));
         }
+
+        var artifactResolution = await ResolveTargetArtifactAsync(
+            batch.WorldId, proposal.TargetId, payload.ArtifactName, actingFilter, ct);
+        if (!artifactResolution.IsSuccess)
+            return AppResult<ApplyResult>.Fail(artifactResolution.Error!);
+        var artifact = artifactResolution.Value!;
 
 
         var now = DateTimeOffset.UtcNow;
@@ -669,7 +649,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<ApplyResult>> ApplyUpdateFact(
-        ReviewProposal proposal, ReviewBatch batch, Source source, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, Source source, VisibilityFilter actingFilter, CancellationToken ct)
     {
         if (proposal.TargetId is null)
             return AppResult<ApplyResult>.Fail(new AppError(400, "missing_target_id", "UpdateFact requires a TargetId."));
@@ -680,6 +660,12 @@ public class ProposalApplicator : IProposalApplicator
 
         var fact = await _artifactFactRepository.GetByIdAsync(proposal.TargetId.Value, ct);
         if (fact is null)
+            return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target fact not found."));
+
+        // The fact is scoped through its parent artifact: wrong world or an artifact the
+        // accepter may not see reads as the same 404 as a fact that does not exist.
+        var parent = await ResolveTargetArtifactAsync(batch.WorldId, fact.ArtifactId, null, actingFilter, ct);
+        if (!parent.IsSuccess)
             return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target fact not found."));
 
 
@@ -820,7 +806,7 @@ public class ProposalApplicator : IProposalApplicator
     }
 
     private async Task<AppResult<ApplyResult>> ApplyUpdateRelationship(
-        ReviewProposal proposal, ReviewBatch batch, Source source, CancellationToken ct)
+        ReviewProposal proposal, ReviewBatch batch, Source source, VisibilityFilter actingFilter, CancellationToken ct)
     {
         if (proposal.TargetId is null)
             return AppResult<ApplyResult>.Fail(new AppError(400, "missing_target_id", "UpdateRelationship requires a TargetId."));
@@ -831,6 +817,16 @@ public class ProposalApplicator : IProposalApplicator
 
         var relationship = await _artifactRelationshipRepository.GetByIdAsync(proposal.TargetId.Value, ct);
         if (relationship is null)
+            return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target relationship not found."));
+
+        // The relationship is scoped through its endpoint artifacts: either endpoint in
+        // the wrong world, or hidden from the accepter, reads as the same 404 as a
+        // relationship that does not exist.
+        var endpointACheck = await ResolveTargetArtifactAsync(batch.WorldId, relationship.ArtifactAId, null, actingFilter, ct);
+        var endpointBCheck = endpointACheck.IsSuccess
+            ? await ResolveTargetArtifactAsync(batch.WorldId, relationship.ArtifactBId, null, actingFilter, ct)
+            : endpointACheck;
+        if (!endpointACheck.IsSuccess || !endpointBCheck.IsSuccess)
             return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target relationship not found."));
 
 
@@ -900,20 +896,52 @@ public class ProposalApplicator : IProposalApplicator
         };
     }
 
+    /// <summary>
+    /// The one authorized artifact resolution for proposal targets: by id, or by name for
+    /// artifacts created earlier in the same batch. The by-id path enforces world scope
+    /// AND the accepter's visibility, exactly as the by-name path always has — the
+    /// payload is Player-editable, so an id can never be trusted to point inside the
+    /// world or at something the accepter may see. Failures read as a plain 404: the
+    /// caller learns nothing about artifacts hidden from them.
+    /// </summary>
+    private async Task<AppResult<Artifact>> ResolveTargetArtifactAsync(
+        Guid worldId, Guid? artifactId, string? artifactName,
+        VisibilityFilter actingFilter, CancellationToken ct)
+    {
+        if (artifactId is not null && artifactId != Guid.Empty)
+        {
+            var artifact = await _artifactRepository.GetByIdAsync(artifactId.Value, ct);
+            if (artifact is null
+                || artifact.WorldId != worldId
+                || !actingFilter.CanSee(artifact.Visibility, artifact.CreatedByUserId))
+            {
+                return AppResult<Artifact>.Fail(new AppError(404, "target_not_found", "Target artifact not found."));
+            }
+
+            return AppResult<Artifact>.Success(artifact);
+        }
+
+        if (!string.IsNullOrWhiteSpace(artifactName))
+            return await ResolveArtifactByNameAsync(worldId, artifactName, actingFilter, ct);
+
+        return AppResult<Artifact>.Fail(new AppError(400, "missing_target_id",
+            "A TargetId or artifact name is required."));
+    }
+
     private async Task<AppResult<Artifact>> ResolveRelationshipEndpointAsync(
         Guid worldId, Guid? artifactId, string? artifactName, string endpointLabel,
         VisibilityFilter actingFilter, CancellationToken ct)
     {
         if (artifactId is not null && artifactId != Guid.Empty)
         {
-            var artifact = await _artifactRepository.GetByIdAsync(artifactId.Value, ct);
-            if (artifact is null)
+            var resolved = await ResolveTargetArtifactAsync(worldId, artifactId, null, actingFilter, ct);
+            if (!resolved.IsSuccess)
             {
                 var code = endpointLabel == "ArtifactA" ? "artifact_a_not_found" : "artifact_b_not_found";
                 return AppResult<Artifact>.Fail(new AppError(404, code, $"{endpointLabel} not found."));
             }
 
-            return AppResult<Artifact>.Success(artifact);
+            return resolved;
         }
 
         if (!string.IsNullOrWhiteSpace(artifactName))
@@ -970,7 +998,7 @@ public class ProposalApplicator : IProposalApplicator
     {
         try
         {
-            return JsonSerializer.Deserialize<T>(json, JsonOptions);
+            return JsonSerializer.Deserialize<T>(json, ProposalJson.Options);
         }
         catch (JsonException)
         {

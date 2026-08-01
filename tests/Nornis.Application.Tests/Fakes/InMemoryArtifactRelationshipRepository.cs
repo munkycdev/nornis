@@ -73,4 +73,12 @@ public class InMemoryArtifactRelationshipRepository : IArtifactRelationshipRepos
         var results = _relationships.Where(r => ids.Contains(r.Id)).ToList();
         return Task.FromResult<IReadOnlyList<ArtifactRelationship>>(results.AsReadOnly());
     }
+    public async Task UpdateRangeAsync(IReadOnlyList<ArtifactRelationship> relationships, CancellationToken cancellationToken = default)
+    {
+        foreach (var item in relationships)
+        {
+            await UpdateAsync(item, cancellationToken);
+        }
+    }
+
 }

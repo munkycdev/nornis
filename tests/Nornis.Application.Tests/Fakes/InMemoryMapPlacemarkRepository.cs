@@ -80,4 +80,12 @@ public class InMemoryMapPlacemarkRepository : IMapPlacemarkRepository
             .ToHashSet();
         _placemarks.RemoveAll(p => attachmentIds.Contains(p.SourceAttachmentId));
     }
+    public async Task UpdateRangeAsync(IReadOnlyList<MapPlacemark> placemarks, CancellationToken cancellationToken = default)
+    {
+        foreach (var item in placemarks)
+        {
+            await UpdateAsync(item, cancellationToken);
+        }
+    }
+
 }

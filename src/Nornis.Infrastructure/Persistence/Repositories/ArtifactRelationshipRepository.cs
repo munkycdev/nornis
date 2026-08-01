@@ -72,6 +72,17 @@ public class ArtifactRelationshipRepository : IArtifactRelationshipRepository
         return relationship;
     }
 
+    public async Task UpdateRangeAsync(IReadOnlyList<ArtifactRelationship> relationships, CancellationToken cancellationToken = default)
+    {
+        if (relationships.Count == 0)
+        {
+            return;
+        }
+
+        _context.ArtifactRelationships.UpdateRange(relationships);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task DeleteAsync(Guid relationshipId, CancellationToken cancellationToken = default)
     {
         var relationship = await _context.ArtifactRelationships

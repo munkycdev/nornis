@@ -14,6 +14,9 @@ public interface IMapPlacemarkRepository
 
     Task<MapPlacemark> UpdateAsync(MapPlacemark placemark, CancellationToken cancellationToken = default);
 
+    /// <summary>Persists updates to the given rows in one save. Empty input is a no-op.</summary>
+    Task UpdateRangeAsync(IReadOnlyList<MapPlacemark> placemarks, CancellationToken cancellationToken = default);
+
     Task DeleteAsync(Guid placemarkId, CancellationToken cancellationToken = default);
 
     /// <summary>Removes all pins referencing an artifact — required wherever artifacts

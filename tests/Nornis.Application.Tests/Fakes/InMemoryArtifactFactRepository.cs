@@ -70,4 +70,12 @@ public class InMemoryArtifactFactRepository : IArtifactFactRepository
         var results = _facts.Where(f => ids.Contains(f.Id)).ToList();
         return Task.FromResult<IReadOnlyList<ArtifactFact>>(results.AsReadOnly());
     }
+    public async Task UpdateRangeAsync(IReadOnlyList<ArtifactFact> facts, CancellationToken cancellationToken = default)
+    {
+        foreach (var item in facts)
+        {
+            await UpdateAsync(item, cancellationToken);
+        }
+    }
+
 }

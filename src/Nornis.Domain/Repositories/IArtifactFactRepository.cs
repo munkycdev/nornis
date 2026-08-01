@@ -14,6 +14,9 @@ public interface IArtifactFactRepository
 
     Task<ArtifactFact> UpdateAsync(ArtifactFact fact, CancellationToken cancellationToken = default);
 
+    /// <summary>Persists updates to the given rows in one save. Empty input is a no-op.</summary>
+    Task UpdateRangeAsync(IReadOnlyList<ArtifactFact> facts, CancellationToken cancellationToken = default);
+
     Task DeleteAsync(Guid factId, CancellationToken cancellationToken = default);
 
     /// <summary>

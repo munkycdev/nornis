@@ -50,6 +50,17 @@ public class MapPlacemarkRepository : IMapPlacemarkRepository
         return placemark;
     }
 
+    public async Task UpdateRangeAsync(IReadOnlyList<MapPlacemark> placemarks, CancellationToken cancellationToken = default)
+    {
+        if (placemarks.Count == 0)
+        {
+            return;
+        }
+
+        _context.MapPlacemarks.UpdateRange(placemarks);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task DeleteAsync(Guid placemarkId, CancellationToken cancellationToken = default)
     {
         var placemark = await _context.MapPlacemarks

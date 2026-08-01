@@ -19,6 +19,9 @@ public interface IArtifactRelationshipRepository
 
     Task<ArtifactRelationship> UpdateAsync(ArtifactRelationship relationship, CancellationToken cancellationToken = default);
 
+    /// <summary>Persists updates to the given rows in one save. Empty input is a no-op.</summary>
+    Task UpdateRangeAsync(IReadOnlyList<ArtifactRelationship> relationships, CancellationToken cancellationToken = default);
+
     Task DeleteAsync(Guid relationshipId, CancellationToken cancellationToken = default);
 
     /// <summary>

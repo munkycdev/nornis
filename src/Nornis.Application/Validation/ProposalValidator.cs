@@ -1,5 +1,5 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using Nornis.Application.Application;
 using Nornis.Application.Errors;
 using Nornis.Domain.Enums;
 
@@ -12,15 +12,6 @@ namespace Nornis.Application.Validation;
 public sealed class ProposalValidator : IProposalValidator
 {
     private const int MaxJsonLength = 32_768;
-
-    // Quoted numbers ("confidence": "0.99") come out of the extractor now and then, and
-    // out of hand edits. Accept them here so a payload that will apply cleanly is not
-    // rejected at the gate; a non-numeric string still fails with the usual invalid_payload.
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        NumberHandling = JsonNumberHandling.AllowReadingFromString
-    };
 
     public AppResult ValidateProposedValue(string json, ReviewChangeType changeType)
     {
@@ -50,24 +41,72 @@ public sealed class ProposalValidator : IProposalValidator
         };
     }
 
-    private static AppResult ValidateCreateArtifact(string json)
+    /// <summary>
+    /// The deserialize-and-null-check prologue every arm used to open with, once. Parses
+    /// with <see cref="ProposalJson.Options"/> — the same options the applicator reads
+    /// with, so this gate can never pass a payload the apply cannot parse.
+    /// </summary>
+    private static bool TryDeserialize<T>(string json, string label, out T payload, out AppResult failure)
+        where T : class
     {
-        CreateArtifactPayload? payload;
+        T? parsed;
         try
         {
-            payload = JsonSerializer.Deserialize<CreateArtifactPayload>(json, JsonOptions);
+            parsed = JsonSerializer.Deserialize<T>(json, ProposalJson.Options);
         }
         catch (JsonException ex)
         {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                $"Failed to deserialize CreateArtifact payload: {ex.Message}"));
+            payload = null!;
+            failure = AppResult.Fail(new AppError(400, "invalid_payload",
+                $"Failed to deserialize {label} payload: {ex.Message}"));
+            return false;
         }
 
-        if (payload is null)
+        if (parsed is null)
         {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                "CreateArtifact payload deserialized to null."));
+            payload = null!;
+            failure = AppResult.Fail(new AppError(400, "invalid_payload",
+                $"{label} payload deserialized to null."));
+            return false;
         }
+
+        payload = parsed;
+        failure = AppResult.Success();
+        return true;
+    }
+
+    /// <summary>
+    /// One policy for enum-carrying payload strings: null means "not provided"; anything
+    /// else must parse, case-insensitively, or the payload is rejected here at the gate.
+    /// (The arms used to split three ways — reject, silently ignore, silently default.)
+    /// </summary>
+    private static AppResult? InvalidEnum<TEnum>(string? value, string label, string field)
+        where TEnum : struct, Enum
+    {
+        if (value is null || Enum.TryParse<TEnum>(value, ignoreCase: true, out _))
+        {
+            return null;
+        }
+
+        return AppResult.Fail(new AppError(400, "invalid_payload",
+            $"{label}: {field} '{value}' is not a valid {typeof(TEnum).Name}."));
+    }
+
+    private static AppResult? InvalidName(string? name, string label)
+    {
+        if (name is null || (!string.IsNullOrWhiteSpace(name) && name.Length <= 200))
+        {
+            return null;
+        }
+
+        return AppResult.Fail(new AppError(400, "invalid_payload",
+            $"{label}: Name must be between 1 and 200 characters."));
+    }
+
+    private static AppResult ValidateCreateArtifact(string json)
+    {
+        if (!TryDeserialize<CreateArtifactPayload>(json, "CreateArtifact", out var payload, out var failure))
+            return failure;
 
         if (string.IsNullOrWhiteSpace(payload.Name))
         {
@@ -75,11 +114,8 @@ public sealed class ProposalValidator : IProposalValidator
                 "CreateArtifact: Name is required."));
         }
 
-        if (payload.Name.Length < 1 || payload.Name.Length > 200)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                "CreateArtifact: Name must be between 1 and 200 characters."));
-        }
+        if (InvalidName(payload.Name, "CreateArtifact") is { } badName)
+            return badName;
 
         if (string.IsNullOrWhiteSpace(payload.Type))
         {
@@ -92,6 +128,9 @@ public sealed class ProposalValidator : IProposalValidator
             return AppResult.Fail(new AppError(400, "invalid_payload",
                 $"CreateArtifact: Type '{payload.Type}' is not a valid ArtifactType."));
         }
+
+        if (InvalidEnum<VisibilityScope>(payload.Visibility, "CreateArtifact", "Visibility") is { } badVisibility)
+            return badVisibility;
 
         if (payload.MapPlacemark is { } pin)
         {
@@ -113,22 +152,8 @@ public sealed class ProposalValidator : IProposalValidator
 
     private static AppResult ValidateAddPlacemark(string json)
     {
-        AddPlacemarkPayload? payload;
-        try
-        {
-            payload = JsonSerializer.Deserialize<AddPlacemarkPayload>(json, JsonOptions);
-        }
-        catch (JsonException ex)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                $"Failed to deserialize AddPlacemark payload: {ex.Message}"));
-        }
-
-        if (payload is null)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                "AddPlacemark payload deserialized to null."));
-        }
+        if (!TryDeserialize<AddPlacemarkPayload>(json, "AddPlacemark", out var payload, out var failure))
+            return failure;
 
         if (payload.AttachmentId == Guid.Empty)
         {
@@ -160,22 +185,8 @@ public sealed class ProposalValidator : IProposalValidator
 
     private static AppResult ValidateUpdateArtifact(string json)
     {
-        UpdateArtifactPayload? payload;
-        try
-        {
-            payload = JsonSerializer.Deserialize<UpdateArtifactPayload>(json, JsonOptions);
-        }
-        catch (JsonException ex)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                $"Failed to deserialize UpdateArtifact payload: {ex.Message}"));
-        }
-
-        if (payload is null)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                "UpdateArtifact payload deserialized to null."));
-        }
+        if (!TryDeserialize<UpdateArtifactPayload>(json, "UpdateArtifact", out var payload, out var failure))
+            return failure;
 
         if (payload.Name is null && payload.Summary is null && payload.Visibility is null
             && payload.Confidence is null && payload.Status is null)
@@ -184,27 +195,22 @@ public sealed class ProposalValidator : IProposalValidator
                 "UpdateArtifact: At least one field must be non-null."));
         }
 
+        if (InvalidName(payload.Name, "UpdateArtifact") is { } badName)
+            return badName;
+
+        if (InvalidEnum<VisibilityScope>(payload.Visibility, "UpdateArtifact", "Visibility") is { } badVisibility)
+            return badVisibility;
+
+        if (InvalidEnum<ArtifactStatus>(payload.Status, "UpdateArtifact", "Status") is { } badStatus)
+            return badStatus;
+
         return AppResult.Success();
     }
 
     private static AppResult ValidateMergeArtifact(string json)
     {
-        MergeArtifactPayload? payload;
-        try
-        {
-            payload = JsonSerializer.Deserialize<MergeArtifactPayload>(json, JsonOptions);
-        }
-        catch (JsonException ex)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                $"Failed to deserialize MergeArtifact payload: {ex.Message}"));
-        }
-
-        if (payload is null)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                "MergeArtifact payload deserialized to null."));
-        }
+        if (!TryDeserialize<MergeArtifactPayload>(json, "MergeArtifact", out var payload, out var failure))
+            return failure;
 
         if (payload.SourceArtifactId == Guid.Empty)
         {
@@ -212,27 +218,19 @@ public sealed class ProposalValidator : IProposalValidator
                 "MergeArtifact: SourceArtifactId is required and must be a non-empty GUID."));
         }
 
+        if (InvalidName(payload.Name, "MergeArtifact") is { } badName)
+            return badName;
+
+        if (InvalidEnum<VisibilityScope>(payload.Visibility, "MergeArtifact", "Visibility") is { } badVisibility)
+            return badVisibility;
+
         return AppResult.Success();
     }
 
     private static AppResult ValidateAddFact(string json)
     {
-        AddFactPayload? payload;
-        try
-        {
-            payload = JsonSerializer.Deserialize<AddFactPayload>(json, JsonOptions);
-        }
-        catch (JsonException ex)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                $"Failed to deserialize AddFact payload: {ex.Message}"));
-        }
-
-        if (payload is null)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                "AddFact payload deserialized to null."));
-        }
+        if (!TryDeserialize<AddFactPayload>(json, "AddFact", out var payload, out var failure))
+            return failure;
 
         if (string.IsNullOrWhiteSpace(payload.Predicate))
         {
@@ -258,27 +256,19 @@ public sealed class ProposalValidator : IProposalValidator
                 "AddFact: Value must be between 1 and 4000 characters."));
         }
 
+        if (InvalidEnum<TruthState>(payload.TruthState, "AddFact", "TruthState") is { } badTruthState)
+            return badTruthState;
+
+        if (InvalidEnum<VisibilityScope>(payload.Visibility, "AddFact", "Visibility") is { } badVisibility)
+            return badVisibility;
+
         return AppResult.Success();
     }
 
     private static AppResult ValidateUpdateFact(string json)
     {
-        UpdateFactPayload? payload;
-        try
-        {
-            payload = JsonSerializer.Deserialize<UpdateFactPayload>(json, JsonOptions);
-        }
-        catch (JsonException ex)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                $"Failed to deserialize UpdateFact payload: {ex.Message}"));
-        }
-
-        if (payload is null)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                "UpdateFact payload deserialized to null."));
-        }
+        if (!TryDeserialize<UpdateFactPayload>(json, "UpdateFact", out var payload, out var failure))
+            return failure;
 
         if (payload.Value is null && payload.Confidence is null
             && payload.TruthState is null && payload.Visibility is null)
@@ -287,27 +277,19 @@ public sealed class ProposalValidator : IProposalValidator
                 "UpdateFact: At least one field must be non-null."));
         }
 
+        if (InvalidEnum<TruthState>(payload.TruthState, "UpdateFact", "TruthState") is { } badTruthState)
+            return badTruthState;
+
+        if (InvalidEnum<VisibilityScope>(payload.Visibility, "UpdateFact", "Visibility") is { } badVisibility)
+            return badVisibility;
+
         return AppResult.Success();
     }
 
     private static AppResult ValidateAddRelationship(string json)
     {
-        AddRelationshipPayload? payload;
-        try
-        {
-            payload = JsonSerializer.Deserialize<AddRelationshipPayload>(json, JsonOptions);
-        }
-        catch (JsonException ex)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                $"Failed to deserialize AddRelationship payload: {ex.Message}"));
-        }
-
-        if (payload is null)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                "AddRelationship payload deserialized to null."));
-        }
+        if (!TryDeserialize<AddRelationshipPayload>(json, "AddRelationship", out var payload, out var failure))
+            return failure;
 
         // Each endpoint needs an id or a name (names cover artifacts created in the same batch,
         // resolved by the applicator at accept time).
@@ -337,27 +319,19 @@ public sealed class ProposalValidator : IProposalValidator
                 "AddRelationship: Type must be between 1 and 200 characters."));
         }
 
+        if (InvalidEnum<TruthState>(payload.TruthState, "AddRelationship", "TruthState") is { } badTruthState)
+            return badTruthState;
+
+        if (InvalidEnum<VisibilityScope>(payload.Visibility, "AddRelationship", "Visibility") is { } badVisibility)
+            return badVisibility;
+
         return AppResult.Success();
     }
 
     private static AppResult ValidateUpdateRelationship(string json)
     {
-        UpdateRelationshipPayload? payload;
-        try
-        {
-            payload = JsonSerializer.Deserialize<UpdateRelationshipPayload>(json, JsonOptions);
-        }
-        catch (JsonException ex)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                $"Failed to deserialize UpdateRelationship payload: {ex.Message}"));
-        }
-
-        if (payload is null)
-        {
-            return AppResult.Fail(new AppError(400, "invalid_payload",
-                "UpdateRelationship payload deserialized to null."));
-        }
+        if (!TryDeserialize<UpdateRelationshipPayload>(json, "UpdateRelationship", out var payload, out var failure))
+            return failure;
 
         if (payload.Type is null && payload.Description is null
             && payload.Confidence is null && payload.TruthState is null && payload.Visibility is null)
@@ -365,6 +339,18 @@ public sealed class ProposalValidator : IProposalValidator
             return AppResult.Fail(new AppError(400, "invalid_payload",
                 "UpdateRelationship: At least one field must be non-null."));
         }
+
+        if (payload.Type is not null && (string.IsNullOrWhiteSpace(payload.Type) || payload.Type.Length > 200))
+        {
+            return AppResult.Fail(new AppError(400, "invalid_payload",
+                "UpdateRelationship: Type must be between 1 and 200 characters."));
+        }
+
+        if (InvalidEnum<TruthState>(payload.TruthState, "UpdateRelationship", "TruthState") is { } badTruthState)
+            return badTruthState;
+
+        if (InvalidEnum<VisibilityScope>(payload.Visibility, "UpdateRelationship", "Visibility") is { } badVisibility)
+            return badVisibility;
 
         return AppResult.Success();
     }

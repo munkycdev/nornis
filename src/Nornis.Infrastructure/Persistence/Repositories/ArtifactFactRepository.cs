@@ -44,6 +44,17 @@ public class ArtifactFactRepository : IArtifactFactRepository
         return fact;
     }
 
+    public async Task UpdateRangeAsync(IReadOnlyList<ArtifactFact> facts, CancellationToken cancellationToken = default)
+    {
+        if (facts.Count == 0)
+        {
+            return;
+        }
+
+        _context.ArtifactFacts.UpdateRange(facts);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task DeleteAsync(Guid factId, CancellationToken cancellationToken = default)
     {
         var fact = await _context.ArtifactFacts
