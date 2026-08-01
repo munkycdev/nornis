@@ -58,6 +58,17 @@ public interface ISourceRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// How many sources anywhere are waiting on the extraction worker (Queued or Processing).
+    ///
+    /// Deliberately unscoped by world, user or visibility, unlike everything else here: it
+    /// answers an operational question — is there work outstanding — rather than a question
+    /// about what someone may see, and it returns a count, never a row. Backs
+    /// <c>WorkerHeartbeatHealthCheck</c>, which must not report a worker missing when there
+    /// was nothing for it to do.
+    /// </summary>
+    Task<int> CountAwaitingExtractionAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Just enough of each visible source to name it. Use this instead of looping
     /// <see cref="GetByIdAsync"/> when displaying provenance: it is one round trip
     /// rather than one per source, and it leaves <c>Body</c>/<c>DerivedText</c> in the database

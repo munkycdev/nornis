@@ -95,7 +95,48 @@ jobs:
           done
           for pid in "${pids[@]}"; do wait "$pid"; done
 
+      # Part of O1 (see docs/plans/operational-hardening.md): until this existed, the job
+      # ended the moment `az containerapp update` returned and nothing confirmed the new
+      # revision came up. On 2026-08-01 a broken image build left four commits undeployed
+      # while the run summary still looked half-green.
+      - name: Verify the rollout
+        run: |
+          # Gate on /health only. It means one thing — is this deploy broken — so it is the
+          # honest pass/fail for a rollout. /status covers dependencies the deploy does not
+          # control, and failing a release because Service Bus is having a moment would
+          # train everyone to ignore a red pipeline.
+          deadline=$((SECONDS + 180))
+          until [ "$(curl -fsS -o /dev/null -w '%{http_code}' https://api.nornis.app/health || true)" = "200" ]; do
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::API /health did not return 200 within 3 minutes of the rollout."
+              curl -sS -i https://api.nornis.app/health || true
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "API is serving."
+
+      - name: Warm the new revision
+        run: |
+          # The first request after a revision swap pays for cold connection pools and JIT.
+          # api and web run at minReplicas=1, so a swap is the only time they are ever cold —
+          # spending that cost here means the first human request does not, and stops a
+          # healthy-but-cold system from rendering as a red status page.
+          curl -fsS -o /dev/null https://nornis.app/ || true
+          for _ in 1 2 3; do
+            curl -fsS -o /dev/null https://api.nornis.app/status || true
+            sleep 2
+          done
+
       - name: Report endpoints
         run: |
           echo "web: https://$(az containerapp show -g $RESOURCE_GROUP -n ca-nornis-web --query properties.configuration.ingress.fqdn -o tsv)" >> $GITHUB_STEP_SUMMARY
           echo "api: https://$(az containerapp show -g $RESOURCE_GROUP -n ca-nornis-api --query properties.configuration.ingress.fqdn -o tsv)" >> $GITHUB_STEP_SUMMARY
+          {
+            echo ''
+            echo '### Post-deploy status'
+            echo '```json'
+            curl -sS https://api.nornis.app/status || true
+            echo ''
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY

@@ -20,10 +20,19 @@ confirms the new revision came up.
 - Wire `/health` as Container Apps liveness + readiness probes on `ca-nornis-api`
   (and on Web once the status plan gives it a `/health`), so a failing revision
   never takes traffic and the old revision keeps serving.
-- Pipeline step after the update: poll the public `/health` until healthy, with a
-  timeout that fails the run loudly. The response body names the failing check, so
-  the step can distinguish "app broken" from the known pending-migrations window and
-  say "run the manual migration step" instead of a bare failure.
+- ~~Pipeline step after the update: poll the public `/health` until healthy, with a
+  timeout that fails the run loudly.~~ **Done 2026-08-01** — `deploy.yml` now polls
+  `/health` for up to three minutes and fails the run loudly, then warms the new
+  revision (api and web run at `minReplicas=1`, so a revision swap is the only moment
+  they are ever cold) and prints `/status` into the step summary. It gates on `/health`
+  only: `/status` covers dependencies the deploy does not control, and failing a
+  release because Service Bus is having a moment would train everyone to ignore a red
+  pipeline.
+  - **Still open:** the spec assumed "the response body names the failing check, so
+    the step can distinguish 'app broken' from the known pending-migrations window."
+    It does not — `/health`'s writer emits `{status}` and nothing else, deliberately.
+    Naming the failing check there is an additive change to a body the availability
+    alert reads, so it belongs to whoever finishes O1, not to a drive-by.
 - The Worker has no probe surface; its post-deploy verification is the
   worker-heartbeat check in the System status plan.
 - `containerapp update` kills mid-extraction work. Safety rests on Service Bus

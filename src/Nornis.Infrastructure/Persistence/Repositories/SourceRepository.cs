@@ -23,6 +23,16 @@ public class SourceRepository : ISourceRepository
         return source;
     }
 
+    public async Task<int> CountAwaitingExtractionAsync(CancellationToken cancellationToken = default)
+    {
+        return await _context.Sources
+            .AsNoTracking()
+            .CountAsync(
+                s => s.ProcessingStatus == SourceProcessingStatus.Queued
+                    || s.ProcessingStatus == SourceProcessingStatus.Processing,
+                cancellationToken);
+    }
+
     public async Task<Source?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.Sources

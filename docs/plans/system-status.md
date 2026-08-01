@@ -51,10 +51,24 @@ Two decisions frame everything below:
 - **worker-heartbeat** — the highest-value check in the set, and the one that needs a
   schema touch. The Worker has no HTTP, so it writes a heartbeat instead: a one-row
   table (additive migration) updated every ~60s by a hosted service; the API-side
-  check reads freshness — Degraded past ~2 minutes, Unhealthy past ~5. Today a dead
+  check reads freshness — ~~Degraded past ~2 minutes, Unhealthy past ~5~~. Today a dead
   Worker means sources sit "Queued" silently; this check is what makes that visible,
   and later alertable. One process-level heartbeat covers both hosted services
   (extraction, library indexing) unless they ever ship separately.
+  - **Amended 2026-08-01, after shipping it wrong.** Freshness alone is not the
+    verdict. `ca-nornis-worker` runs at `minReplicas 0` and scales up on queue depth,
+    so an idle worker is *correct* — and the thresholds above put `/status` at 503
+    within five minutes of a quiet system. Silence is only evidence of failure when
+    there is work outstanding. The check now reads the count of sources in Queued or
+    Processing first: none pending is Healthy whatever the heartbeat says; with work
+    pending, a heartbeat older than 2 minutes is Degraded (most likely the scaler
+    starting the worker to meet that very work) and older than 15 minutes is
+    Unhealthy. 15, not 5, because scaling from zero and pulling an image cannot reach
+    it — so crossing it is unambiguous.
+  - Deliberately no `QueuedAt` column, which would let the check measure how long work
+    has actually waited rather than inferring it. That is a schema change in service of
+    a monitoring check; the heartbeat's own age is a good enough clock while a scaler
+    polls every 30 seconds. Revisit only if the inference proves wrong in practice.
 
 ## The page
 

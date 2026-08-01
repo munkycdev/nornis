@@ -97,6 +97,15 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.FromResult<IReadOnlyDictionary<SourceProcessingStatus, int>>(counts);
     }
 
+    public Task<int> CountAwaitingExtractionAsync(CancellationToken cancellationToken = default)
+    {
+        // Unscoped by world and visibility, like the real query — it answers an operational
+        // question, not a question about what a reader may see.
+        return Task.FromResult(_sources.Count(s =>
+            s.ProcessingStatus == SourceProcessingStatus.Queued
+            || s.ProcessingStatus == SourceProcessingStatus.Processing));
+    }
+
     public Task<IReadOnlyList<SourceAttribution>> ListAttributionByIdsAsync(
         IReadOnlyList<Guid> ids, Guid userId, WorldRole role, CancellationToken cancellationToken = default)
     {
