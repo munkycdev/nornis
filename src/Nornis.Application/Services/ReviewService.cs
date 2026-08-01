@@ -85,7 +85,7 @@ public class ReviewService : IReviewService
         var (proposals, hasMore) = await _reviewProposalRepository.ListReviewQueueAsync(
             query.WorldId, allowedSourceIds, query.FilterByBatchId, limit: ReviewQueueLimit, ct);
 
-        var context = await BuildProposalContextAsync(query.WorldId, proposals, sources, ct);
+        var context = await BuildProposalContextAsync(proposals, sources, ct);
 
         return AppResult<ReviewQueueResult>.Success(new ReviewQueueResult(proposals, hasMore, context));
     }
@@ -95,7 +95,6 @@ public class ReviewService : IReviewService
     /// human-readable name for what it targets, so the review UI never shows a bare GUID.
     /// </summary>
     private async Task<IReadOnlyDictionary<Guid, ReviewProposalContext>> BuildProposalContextAsync(
-        Guid worldId,
         IReadOnlyList<ReviewProposal> proposals,
         IReadOnlyList<Source> sources,
         CancellationToken ct)
@@ -104,37 +103,85 @@ public class ReviewService : IReviewService
         if (proposals.Count == 0)
             return result;
 
-        var batches = (await _reviewBatchRepository.ListByWorldAsync(worldId, ct))
+        // Every load below resolves only the ids actually present in this page of
+        // proposals — never the world's full batch, artifact, or fact tables. Name
+        // resolution is unrestricted on purpose: a reviewer only ever receives proposals
+        // from sources they may see, and their targets came from that source's own
+        // (already-scoped) extraction context. If review ever surfaces proposals across
+        // users' sources, this must become a per-user VisibilityFilter.
+        var batchIds = proposals.Select(p => p.ReviewBatchId).Distinct().ToList();
+        var batches = (await _reviewBatchRepository.ListByIdsAsync(batchIds, ct))
             .ToDictionary(b => b.Id);
         var sourceTitles = sources.ToDictionary(s => s.Id, s => s.Title);
 
-        var artifacts = await _artifactRepository.ListByWorldAsync(worldId, null, null, ct);
-        var artifactNames = artifacts.ToDictionary(a => a.Id, a => a.Name);
+        var mergePayloads = proposals
+            .Where(p => p.ChangeType == ReviewChangeType.MergeArtifact)
+            .Select(p => (p.Id, Payload: DeserializePayload<MergeArtifactPayload>(p.ProposedValueJson)))
+            .Where(x => x.Payload is not null)
+            .ToDictionary(x => x.Id, x => x.Payload!);
 
-        // Facts and relationships are only needed for Update* proposals — load lazily.
-        Dictionary<Guid, ArtifactFact>? factsById = null;
-        Dictionary<Guid, ArtifactRelationship>? relationshipsById = null;
+        var addRelationshipPayloads = proposals
+            .Where(p => p.ChangeType == ReviewChangeType.AddRelationship)
+            .Select(p => (p.Id, Payload: DeserializePayload<AddRelationshipPayload>(p.ProposedValueJson)))
+            .Where(x => x.Payload is not null)
+            .ToDictionary(x => x.Id, x => x.Payload!);
 
-        if (proposals.Any(p => p.ChangeType == ReviewChangeType.UpdateFact && p.TargetId is not null))
+        var factIds = proposals
+            .Where(p => p.ChangeType == ReviewChangeType.UpdateFact && p.TargetId is not null)
+            .Select(p => p.TargetId!.Value)
+            .Distinct()
+            .ToList();
+        var factsById = factIds.Count > 0
+            ? (await _artifactFactRepository.ListByIdsAsync(factIds, ct)).ToDictionary(f => f.Id)
+            : null;
+
+        var relationshipIds = proposals
+            .Where(p => p.ChangeType == ReviewChangeType.UpdateRelationship && p.TargetId is not null)
+            .Select(p => p.TargetId!.Value)
+            .Distinct()
+            .ToList();
+        var relationshipsById = relationshipIds.Count > 0
+            ? (await _artifactRelationshipRepository.ListByIdsAsync(relationshipIds, ct)).ToDictionary(r => r.Id)
+            : null;
+
+        // The artifact names a page can mention: direct targets, merge sources, the owners
+        // of updated facts, and the endpoints of added or updated relationships.
+        var artifactIds = new HashSet<Guid>();
+        foreach (var proposal in proposals)
         {
-            // Name resolution for the review UI — unrestricted on purpose: a reviewer only
-            // ever receives proposals from sources they may see, and their targets came from
-            // that source's own (already-scoped) extraction context. If review ever surfaces
-            // proposals across users' sources, this must become a per-user VisibilityFilter.
-            var facts = await _artifactFactRepository.ListByArtifactIdsAsync(
-                artifactNames.Keys.ToList(),
-                VisibilityFilter.All,
-                int.MaxValue, ct);
-            factsById = facts.ToDictionary(f => f.Id);
+            if (proposal.TargetId is { } targetId && proposal.ChangeType
+                is ReviewChangeType.AddFact or ReviewChangeType.UpdateArtifact or ReviewChangeType.MergeArtifact)
+            {
+                artifactIds.Add(targetId);
+            }
+        }
+        foreach (var payload in mergePayloads.Values)
+            artifactIds.Add(payload.SourceArtifactId);
+        foreach (var payload in addRelationshipPayloads.Values)
+        {
+            if (payload.ArtifactAId is { } aId)
+                artifactIds.Add(aId);
+            if (payload.ArtifactBId is { } bId)
+                artifactIds.Add(bId);
+        }
+        if (factsById is not null)
+        {
+            foreach (var fact in factsById.Values)
+                artifactIds.Add(fact.ArtifactId);
+        }
+        if (relationshipsById is not null)
+        {
+            foreach (var relationship in relationshipsById.Values)
+            {
+                artifactIds.Add(relationship.ArtifactAId);
+                artifactIds.Add(relationship.ArtifactBId);
+            }
         }
 
-        if (proposals.Any(p => p.ChangeType == ReviewChangeType.UpdateRelationship && p.TargetId is not null))
-        {
-            var relationships = await _artifactRelationshipRepository.ListByArtifactIdsAsync(
-                artifactNames.Keys.ToList(),
-                VisibilityFilter.All, ct);
-            relationshipsById = relationships.ToDictionary(r => r.Id);
-        }
+        var artifactNames = artifactIds.Count > 0
+            ? (await _artifactRepository.ListByIdsAsync(artifactIds.ToList(), ct))
+                .ToDictionary(a => a.Id, a => a.Name)
+            : [];
 
         foreach (var proposal in proposals)
         {
@@ -148,14 +195,14 @@ public class ReviewService : IReviewService
                 batchKind = batch.Kind;
             }
 
-            var targetName = ResolveTargetName(proposal, artifactNames, factsById, relationshipsById);
+            var targetName = ResolveTargetName(
+                proposal, artifactNames, factsById, relationshipsById, addRelationshipPayloads);
 
             string? mergeSourceName = null;
-            if (proposal.ChangeType == ReviewChangeType.MergeArtifact)
+            if (mergePayloads.TryGetValue(proposal.Id, out var mergePayload)
+                && artifactNames.TryGetValue(mergePayload.SourceArtifactId, out var name))
             {
-                var payload = DeserializePayload<MergeArtifactPayload>(proposal.ProposedValueJson);
-                if (payload is not null && artifactNames.TryGetValue(payload.SourceArtifactId, out var name))
-                    mergeSourceName = name;
+                mergeSourceName = name;
             }
 
             result[proposal.Id] = new ReviewProposalContext(sourceId, sourceTitle, targetName, mergeSourceName, batchKind);
@@ -168,7 +215,8 @@ public class ReviewService : IReviewService
         ReviewProposal proposal,
         Dictionary<Guid, string> artifactNames,
         Dictionary<Guid, ArtifactFact>? factsById,
-        Dictionary<Guid, ArtifactRelationship>? relationshipsById)
+        Dictionary<Guid, ArtifactRelationship>? relationshipsById,
+        Dictionary<Guid, AddRelationshipPayload> addRelationshipPayloads)
     {
         switch (proposal.ChangeType)
         {
@@ -195,8 +243,7 @@ public class ReviewService : IReviewService
 
             case ReviewChangeType.AddRelationship:
                 {
-                    var payload = DeserializePayload<AddRelationshipPayload>(proposal.ProposedValueJson);
-                    if (payload is null)
+                    if (!addRelationshipPayloads.TryGetValue(proposal.Id, out var payload))
                         return null;
                     var a = payload.ArtifactAId is { } aId
                         ? artifactNames.GetValueOrDefault(aId, payload.ArtifactAName ?? "?")
@@ -254,38 +301,23 @@ public class ReviewService : IReviewService
     private async Task<AppResult<AcceptProposalResult>> AcceptProposalCoreAsync(
         AcceptProposalCommand command, bool allowCascade, CancellationToken ct)
     {
-        var proposal = await _reviewProposalRepository.GetByIdAsync(command.ProposalId, ct);
-        if (proposal is null)
-            return AppResult<AcceptProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
+        var loaded = await LoadAuthorizedProposalAsync(
+            command.ProposalId, command.WorldId, command.ActingUserId, command.ActingUserRole, ct);
+        if (!loaded.IsSuccess)
+            return AppResult<AcceptProposalResult>.Fail(loaded.Error!);
+        var (proposal, batch, source) = loaded.Value!;
 
-        var batch = await _reviewBatchRepository.GetByIdAsync(proposal.ReviewBatchId, ct);
-        if (batch is null || batch.WorldId != command.WorldId)
-            return AppResult<AcceptProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
-
-        var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
-        if (source is null)
-            return AppResult<AcceptProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
-
-        if (!CanReviewSource(source, command.ActingUserId, command.ActingUserRole))
-            return AppResult<AcceptProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
-
-        var authResult = CheckReviewAuthorization(command.ActingUserRole, command.ActingUserId, source);
-        if (!authResult.IsSuccess)
-            return AppResult<AcceptProposalResult>.Fail(authResult.Error!);
-
-        // Idempotent: already Accepted
-        if (proposal.Status == ReviewProposalStatus.Accepted)
-            return AppResult<AcceptProposalResult>.Success(new AcceptProposalResult(
-                proposal.Id, proposal.Status, proposal.ReviewedAt!.Value, proposal.ReviewedByUserId!.Value,
-                proposal.TargetId, proposal.AppliedToExistingArtifact == true));
-
-        // Conflicting: Rejected → 409
-        if (proposal.Status == ReviewProposalStatus.Rejected)
-            return AppResult<AcceptProposalResult>.Fail(new AppError(409, "conflict", "Cannot accept a proposal that has already been rejected."));
-
-        // Guard: only Pending or Edited
-        if (proposal.Status is not (ReviewProposalStatus.Pending or ReviewProposalStatus.Edited))
-            return AppResult<AcceptProposalResult>.Fail(new AppError(409, "invalid_status", "Only Pending or Edited proposals can be accepted."));
+        // Terminal states: accept is idempotent, rejected conflicts. The enum has no
+        // fifth member, so everything else is Pending or Edited and proceeds.
+        switch (proposal.Status)
+        {
+            case ReviewProposalStatus.Accepted:
+                return AppResult<AcceptProposalResult>.Success(new AcceptProposalResult(
+                    proposal.Id, proposal.Status, proposal.ReviewedAt!.Value, proposal.ReviewedByUserId!.Value,
+                    proposal.TargetId, proposal.AppliedToExistingArtifact == true));
+            case ReviewProposalStatus.Rejected:
+                return AppResult<AcceptProposalResult>.Fail(new AppError(409, "conflict", "Cannot accept a proposal that has already been rejected."));
+        }
 
         // Validate ProposedValueJson
         var validationResult = _proposalValidator.ValidateProposedValue(proposal.ProposedValueJson, proposal.ChangeType);
@@ -421,37 +453,22 @@ public class ReviewService : IReviewService
     public async Task<AppResult<RejectProposalResult>> RejectProposalAsync(
         RejectProposalCommand command, CancellationToken ct)
     {
-        var proposal = await _reviewProposalRepository.GetByIdAsync(command.ProposalId, ct);
-        if (proposal is null)
-            return AppResult<RejectProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
+        var loaded = await LoadAuthorizedProposalAsync(
+            command.ProposalId, command.WorldId, command.ActingUserId, command.ActingUserRole, ct);
+        if (!loaded.IsSuccess)
+            return AppResult<RejectProposalResult>.Fail(loaded.Error!);
+        var (proposal, batch, _) = loaded.Value!;
 
-        var batch = await _reviewBatchRepository.GetByIdAsync(proposal.ReviewBatchId, ct);
-        if (batch is null || batch.WorldId != command.WorldId)
-            return AppResult<RejectProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
-
-        var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
-        if (source is null)
-            return AppResult<RejectProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
-
-        if (!CanReviewSource(source, command.ActingUserId, command.ActingUserRole))
-            return AppResult<RejectProposalResult>.Fail(new AppError(404, "not_found", "Proposal not found."));
-
-        var authResult = CheckReviewAuthorization(command.ActingUserRole, command.ActingUserId, source);
-        if (!authResult.IsSuccess)
-            return AppResult<RejectProposalResult>.Fail(authResult.Error!);
-
-        // Idempotent: already Rejected
-        if (proposal.Status == ReviewProposalStatus.Rejected)
-            return AppResult<RejectProposalResult>.Success(new RejectProposalResult(
-                proposal.Id, proposal.Status, proposal.ReviewedAt!.Value, proposal.ReviewedByUserId!.Value));
-
-        // Conflicting: Accepted → 409
-        if (proposal.Status == ReviewProposalStatus.Accepted)
-            return AppResult<RejectProposalResult>.Fail(new AppError(409, "conflict", "Cannot reject a proposal that has already been accepted."));
-
-        // Guard: only Pending or Edited
-        if (proposal.Status is not (ReviewProposalStatus.Pending or ReviewProposalStatus.Edited))
-            return AppResult<RejectProposalResult>.Fail(new AppError(409, "invalid_status", "Only Pending or Edited proposals can be rejected."));
+        // Terminal states: reject is idempotent, accepted conflicts. The enum has no
+        // fifth member, so everything else is Pending or Edited and proceeds.
+        switch (proposal.Status)
+        {
+            case ReviewProposalStatus.Rejected:
+                return AppResult<RejectProposalResult>.Success(new RejectProposalResult(
+                    proposal.Id, proposal.Status, proposal.ReviewedAt!.Value, proposal.ReviewedByUserId!.Value));
+            case ReviewProposalStatus.Accepted:
+                return AppResult<RejectProposalResult>.Fail(new AppError(409, "conflict", "Cannot reject a proposal that has already been accepted."));
+        }
 
         var now = DateTimeOffset.UtcNow;
         proposal.Status = ReviewProposalStatus.Rejected;
@@ -468,59 +485,22 @@ public class ReviewService : IReviewService
     public async Task<AppResult<EditProposalResult>> EditProposalAsync(
         EditProposalCommand command, CancellationToken ct)
     {
-        // 1. Load proposal by Id
-        var proposal = await _reviewProposalRepository.GetByIdAsync(command.ProposalId, ct);
-        if (proposal is null)
+        var loaded = await LoadAuthorizedProposalAsync(
+            command.ProposalId, command.WorldId, command.ActingUserId, command.ActingUserRole, ct);
+        if (!loaded.IsSuccess)
         {
-            return AppResult<EditProposalResult>.Fail(
-                new AppError(404, "not_found", "Proposal not found."));
+            return AppResult<EditProposalResult>.Fail(loaded.Error!);
         }
+        var (proposal, _, _) = loaded.Value!;
 
-        // 2. Load batch by proposal.ReviewBatchId
-        var batch = await _reviewBatchRepository.GetByIdAsync(proposal.ReviewBatchId, ct);
-        if (batch is null)
-        {
-            return AppResult<EditProposalResult>.Fail(
-                new AppError(500, "internal_error", "Review batch not found for proposal."));
-        }
-
-        // 3. Load source by batch.SourceId
-        var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
-        if (source is null)
-        {
-            return AppResult<EditProposalResult>.Fail(
-                new AppError(500, "internal_error", "Source not found for review batch."));
-        }
-
-        // 4. Check visibility: if source is invisible to the user, return not-found
-        if (!CanReviewSource(source, command.ActingUserId, command.ActingUserRole))
-        {
-            return AppResult<EditProposalResult>.Fail(
-                new AppError(404, "not_found", "Proposal not found."));
-        }
-
-        // 5. Check authorization: Observer → 403, Player not owning source → 403
-        var authResult = CheckReviewAuthorization(command.ActingUserRole, command.ActingUserId, source);
-        if (!authResult.IsSuccess)
-        {
-            return AppResult<EditProposalResult>.Fail(authResult.Error!);
-        }
-
-        // 6. If proposal.Status is Accepted or Rejected → return 409 conflict error
+        // Terminal states conflict; the enum has no fifth member, so everything else is
+        // Pending or Edited and proceeds.
         if (proposal.Status is ReviewProposalStatus.Accepted or ReviewProposalStatus.Rejected)
         {
             return AppResult<EditProposalResult>.Fail(
                 new AppError(409, "conflict", "Only Pending or Edited proposals can be edited."));
         }
 
-        // 7. If proposal.Status is not Pending and not Edited → error
-        if (proposal.Status is not ReviewProposalStatus.Pending and not ReviewProposalStatus.Edited)
-        {
-            return AppResult<EditProposalResult>.Fail(
-                new AppError(400, "invalid_status", "Only Pending or Edited proposals can be edited."));
-        }
-
-        // 8. Validate the NEW ProposedValueJson via IProposalValidator
         var validationResult = _proposalValidator.ValidateProposedValue(
             command.NewProposedValueJson, proposal.ChangeType);
         if (!validationResult.IsSuccess)
@@ -651,46 +631,12 @@ public class ReviewService : IReviewService
         Dictionary<Guid, Source> sources,
         CancellationToken ct)
     {
-        // Deliberately re-read, not memoised — the retry pass depends on seeing the updated
-        // Status so an already-accepted proposal takes the idempotent path.
-        var proposal = await _reviewProposalRepository.GetByIdAsync(proposalId, ct);
-        if (proposal is null)
-            return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
-
-        if (!batches.TryGetValue(proposal.ReviewBatchId, out var batch))
-        {
-            var loaded = await _reviewBatchRepository.GetByIdAsync(proposal.ReviewBatchId, ct);
-            if (loaded is null)
-                return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
-
-            // Only cache batches that passed the world check, so a mismatched one can never be
-            // served to a later proposal without being re-checked.
-            if (loaded.WorldId != command.WorldId)
-                return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
-
-            batches[proposal.ReviewBatchId] = loaded;
-            batch = loaded;
-        }
-
-        if (batch.WorldId != command.WorldId)
-            return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
-
-        if (!sources.TryGetValue(batch.SourceId, out var source))
-        {
-            var loaded = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
-            if (loaded is null)
-                return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
-
-            sources[batch.SourceId] = loaded;
-            source = loaded;
-        }
-
-        if (!CanReviewSource(source, command.ActingUserId, command.ActingUserRole))
-            return new BatchFailureDetail(proposalId, "not_found", "Proposal not found.");
-
-        var authResult = CheckReviewAuthorization(command.ActingUserRole, command.ActingUserId, source);
-        if (!authResult.IsSuccess)
-            return new BatchFailureDetail(proposalId, "forbidden", authResult.Error!.Message);
+        var loadResult = await LoadAuthorizedProposalAsync(
+            proposalId, command.WorldId, command.ActingUserId, command.ActingUserRole, ct,
+            batches, sources);
+        if (!loadResult.IsSuccess)
+            return new BatchFailureDetail(proposalId, loadResult.Error!.Code, loadResult.Error!.Message);
+        var (proposal, batch, source) = loadResult.Value!;
 
         // Idempotent: already Accepted
         if (proposal.Status == ReviewProposalStatus.Accepted)
@@ -701,13 +647,10 @@ public class ReviewService : IReviewService
             return null;
         }
 
-        // Conflicting: Rejected → conflict
+        // Conflicting: Rejected → conflict. The enum has no fifth member, so everything
+        // else is Pending or Edited and proceeds.
         if (proposal.Status == ReviewProposalStatus.Rejected)
             return new BatchFailureDetail(proposalId, "conflict", "Cannot accept a proposal that has already been rejected.");
-
-        // Guard: only Pending or Edited
-        if (proposal.Status is not (ReviewProposalStatus.Pending or ReviewProposalStatus.Edited))
-            return new BatchFailureDetail(proposalId, "conflict", "Only Pending or Edited proposals can be accepted.");
 
         // Validate ProposedValueJson
         var validationResult = _proposalValidator.ValidateProposedValue(proposal.ProposedValueJson, proposal.ChangeType);
@@ -759,41 +702,23 @@ public class ReviewService : IReviewService
         var failed = new List<BatchFailureDetail>();
         var affectedBatchIds = new HashSet<Guid>();
 
+        // Same memoization batch accept carries: the selection is nearly always one
+        // extraction's proposals, and the batch and source are immutable for the
+        // duration — read once, reused across the loop.
+        var batches = new Dictionary<Guid, ReviewBatch>();
+        var sources = new Dictionary<Guid, Source>();
+
         foreach (var proposalId in uniqueIds)
         {
-            var proposal = await _reviewProposalRepository.GetByIdAsync(proposalId, ct);
-            if (proposal is null)
+            var loadResult = await LoadAuthorizedProposalAsync(
+                proposalId, command.WorldId, command.ActingUserId, command.ActingUserRole, ct,
+                batches, sources);
+            if (!loadResult.IsSuccess)
             {
-                failed.Add(new BatchFailureDetail(proposalId, "not_found", "Proposal not found."));
+                failed.Add(new BatchFailureDetail(proposalId, loadResult.Error!.Code, loadResult.Error!.Message));
                 continue;
             }
-
-            var batch = await _reviewBatchRepository.GetByIdAsync(proposal.ReviewBatchId, ct);
-            if (batch is null || batch.WorldId != command.WorldId)
-            {
-                failed.Add(new BatchFailureDetail(proposalId, "not_found", "Proposal not found."));
-                continue;
-            }
-
-            var source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
-            if (source is null)
-            {
-                failed.Add(new BatchFailureDetail(proposalId, "not_found", "Proposal not found."));
-                continue;
-            }
-
-            if (!CanReviewSource(source, command.ActingUserId, command.ActingUserRole))
-            {
-                failed.Add(new BatchFailureDetail(proposalId, "not_found", "Proposal not found."));
-                continue;
-            }
-
-            var authResult = CheckReviewAuthorization(command.ActingUserRole, command.ActingUserId, source);
-            if (!authResult.IsSuccess)
-            {
-                failed.Add(new BatchFailureDetail(proposalId, "forbidden", authResult.Error!.Message));
-                continue;
-            }
+            var (proposal, batch, _) = loadResult.Value!;
 
             // Idempotent: already Rejected
             if (proposal.Status == ReviewProposalStatus.Rejected)
@@ -803,17 +728,11 @@ public class ReviewService : IReviewService
                 continue;
             }
 
-            // Conflicting: Accepted → conflict
+            // Conflicting: Accepted → conflict. The enum has no fifth member, so
+            // everything else is Pending or Edited and proceeds.
             if (proposal.Status == ReviewProposalStatus.Accepted)
             {
                 failed.Add(new BatchFailureDetail(proposalId, "conflict", "Cannot reject a proposal that has already been accepted."));
-                continue;
-            }
-
-            // Guard: only Pending or Edited
-            if (proposal.Status is not (ReviewProposalStatus.Pending or ReviewProposalStatus.Edited))
-            {
-                failed.Add(new BatchFailureDetail(proposalId, "conflict", "Only Pending or Edited proposals can be rejected."));
                 continue;
             }
 
@@ -848,6 +767,63 @@ public class ReviewService : IReviewService
             WorldRole.Observer => [],
             _ => []
         };
+    }
+
+    private sealed record AuthorizedProposal(ReviewProposal Proposal, ReviewBatch Batch, Source Source);
+
+    /// <summary>
+    /// The proposal → batch → source ladder every review action starts with, authorization
+    /// included. Every rung fails as the same 404 — whether the proposal is missing,
+    /// addressed through the wrong world, orphaned of its batch or source, or backed by a
+    /// source this caller may not review, the caller learns only "no such proposal". Role
+    /// failures surface as the 403 <see cref="CheckReviewAuthorization"/> produces.
+    ///
+    /// The proposal itself is deliberately re-read on every call — batch accept's retry
+    /// pass depends on seeing the updated Status so an already-accepted proposal takes the
+    /// idempotent path instead of applying twice. Batch operations pass their per-command
+    /// caches for the batch and source, which are immutable for the operation; an entry is
+    /// only ever cached after its world check passed, so a cached batch can never be served
+    /// to a later proposal unchecked.
+    /// </summary>
+    private async Task<AppResult<AuthorizedProposal>> LoadAuthorizedProposalAsync(
+        Guid proposalId,
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole actingRole,
+        CancellationToken ct,
+        Dictionary<Guid, ReviewBatch>? batchCache = null,
+        Dictionary<Guid, Source>? sourceCache = null)
+    {
+        var notFound = new AppError(404, "not_found", "Proposal not found.");
+
+        var proposal = await _reviewProposalRepository.GetByIdAsync(proposalId, ct);
+        if (proposal is null)
+            return AppResult<AuthorizedProposal>.Fail(notFound);
+
+        if (batchCache is null || !batchCache.TryGetValue(proposal.ReviewBatchId, out var batch))
+        {
+            batch = await _reviewBatchRepository.GetByIdAsync(proposal.ReviewBatchId, ct);
+            if (batch is null || batch.WorldId != worldId)
+                return AppResult<AuthorizedProposal>.Fail(notFound);
+            batchCache?.Add(proposal.ReviewBatchId, batch);
+        }
+
+        if (sourceCache is null || !sourceCache.TryGetValue(batch.SourceId, out var source))
+        {
+            source = await _sourceRepository.GetByIdAsync(batch.SourceId, ct);
+            if (source is null)
+                return AppResult<AuthorizedProposal>.Fail(notFound);
+            sourceCache?.Add(batch.SourceId, source);
+        }
+
+        if (!CanReviewSource(source, actingUserId, actingRole))
+            return AppResult<AuthorizedProposal>.Fail(notFound);
+
+        var authResult = CheckReviewAuthorization(actingRole, actingUserId, source);
+        if (!authResult.IsSuccess)
+            return AppResult<AuthorizedProposal>.Fail(authResult.Error!);
+
+        return AppResult<AuthorizedProposal>.Success(new AuthorizedProposal(proposal, batch, source));
     }
 
     // Deliberately NOT SourceVisibilityRule: review authorization is narrower than

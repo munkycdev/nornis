@@ -9,6 +9,9 @@ public interface IReviewBatchRepository
 
     Task<ReviewBatch?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>The batches for the given ids, one query. Unknown ids are simply absent.</summary>
+    Task<IReadOnlyList<ReviewBatch>> ListByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default);
+
     Task<ReviewBatch?> GetBySourceIdAsync(Guid sourceId, CancellationToken cancellationToken = default);
 
     /// <summary>All batches for a source, extraction and backfill kinds alike.</summary>

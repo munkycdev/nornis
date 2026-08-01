@@ -89,6 +89,31 @@ public class ReviewServiceEditTests
     #region Happy Path — JSON Replaced, Status → Edited
 
     [Test]
+    public async Task Edit_WrongWorld_Returns404AndChangesNothing()
+    {
+        // The one review action that used to skip the world-scope check on its batch.
+        // A proposal addressed through the wrong world must 404 exactly like one that
+        // does not exist — and must not be modified.
+        var proposal = MakePendingProposal();
+        await _proposalRepo.CreateAsync(proposal);
+
+        var originalJson = proposal.ProposedValueJson;
+        var newJson = """{"name":"Captain Voss (Edited)","type":"Character","summary":"A suspicious harbor captain"}""";
+        var command = new EditProposalCommand(
+            proposal.Id, Guid.NewGuid(), _gmUserId, WorldRole.GM, newJson);
+
+        var result = await _service.EditProposalAsync(command, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+        Assert.That(result.Error.Code, Is.EqualTo("not_found"));
+
+        var stored = await _proposalRepo.GetByIdAsync(proposal.Id);
+        Assert.That(stored!.Status, Is.EqualTo(ReviewProposalStatus.Pending));
+        Assert.That(stored.ProposedValueJson, Is.EqualTo(originalJson));
+    }
+
+    [Test]
     public async Task Edit_PendingProposal_ReplacesJsonAndTransitionsToEdited()
     {
         var proposal = MakePendingProposal();

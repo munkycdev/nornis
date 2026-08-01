@@ -28,6 +28,18 @@ public class ReviewBatchRepository : IReviewBatchRepository
             .FirstOrDefaultAsync(rb => rb.Id == id, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ReviewBatch>> ListByIdsAsync(
+        IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        if (ids.Count == 0)
+            return [];
+
+        return await _context.ReviewBatches
+            .AsNoTracking()
+            .Where(rb => ids.Contains(rb.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<ReviewBatch?> GetBySourceIdAsync(Guid sourceId, CancellationToken cancellationToken = default)
     {
         // Kind == null keeps this the *extraction* batch: sweep batches (e.g. the

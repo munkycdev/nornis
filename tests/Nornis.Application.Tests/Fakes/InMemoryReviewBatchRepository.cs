@@ -22,6 +22,13 @@ public class InMemoryReviewBatchRepository : IReviewBatchRepository
         return Task.FromResult(batch);
     }
 
+    public Task<IReadOnlyList<ReviewBatch>> ListByIdsAsync(
+        IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var result = _batches.Where(b => ids.Contains(b.Id)).ToList();
+        return Task.FromResult<IReadOnlyList<ReviewBatch>>(result.AsReadOnly());
+    }
+
     public Task<ReviewBatch?> GetBySourceIdAsync(Guid sourceId, CancellationToken cancellationToken = default)
     {
         // Mirrors the EF repository: only extraction batches (Kind == null) count.
