@@ -39,8 +39,7 @@ public class ArtifactFactRepository : IArtifactFactRepository
 
     public async Task<ArtifactFact> UpdateAsync(ArtifactFact fact, CancellationToken cancellationToken = default)
     {
-        _context.ArtifactFacts.Update(fact);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachAsync(fact, cancellationToken);
         return fact;
     }
 
@@ -51,8 +50,7 @@ public class ArtifactFactRepository : IArtifactFactRepository
             return;
         }
 
-        _context.ArtifactFacts.UpdateRange(facts);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachRangeAsync(facts, cancellationToken);
     }
 
     public async Task DeleteAsync(Guid factId, CancellationToken cancellationToken = default)

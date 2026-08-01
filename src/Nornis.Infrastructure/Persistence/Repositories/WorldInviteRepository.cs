@@ -59,6 +59,10 @@ public class WorldInviteRepository : IWorldInviteRepository
                 "The invite was modified concurrently.", ex);
         }
 
+        // Detached for the same reason every other repository here detaches — see
+        // TrackedUpdateExtensions. Done inline rather than through the helper because this
+        // one translates the concurrency failure on the way out.
+        _context.Entry(invite).State = EntityState.Detached;
         return invite;
     }
 }

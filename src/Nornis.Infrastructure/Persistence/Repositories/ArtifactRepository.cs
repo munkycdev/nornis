@@ -74,8 +74,7 @@ public class ArtifactRepository : IArtifactRepository
 
     public async Task<Artifact> UpdateAsync(Artifact artifact, CancellationToken cancellationToken = default)
     {
-        _context.Artifacts.Update(artifact);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachAsync(artifact, cancellationToken);
         return artifact;
     }
 

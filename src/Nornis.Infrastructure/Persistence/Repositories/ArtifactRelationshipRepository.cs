@@ -67,8 +67,7 @@ public class ArtifactRelationshipRepository : IArtifactRelationshipRepository
 
     public async Task<ArtifactRelationship> UpdateAsync(ArtifactRelationship relationship, CancellationToken cancellationToken = default)
     {
-        _context.ArtifactRelationships.Update(relationship);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachAsync(relationship, cancellationToken);
         return relationship;
     }
 
@@ -79,8 +78,7 @@ public class ArtifactRelationshipRepository : IArtifactRelationshipRepository
             return;
         }
 
-        _context.ArtifactRelationships.UpdateRange(relationships);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachRangeAsync(relationships, cancellationToken);
     }
 
     public async Task DeleteAsync(Guid relationshipId, CancellationToken cancellationToken = default)

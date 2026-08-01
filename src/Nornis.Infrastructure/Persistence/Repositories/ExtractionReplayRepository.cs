@@ -44,8 +44,7 @@ public class ExtractionReplayRepository : IExtractionReplayRepository
 
     public async Task<ExtractionReplay> UpdateAsync(ExtractionReplay replay, CancellationToken cancellationToken = default)
     {
-        _context.ExtractionReplays.Update(replay);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachAsync(replay, cancellationToken);
         return replay;
     }
 }

@@ -64,8 +64,7 @@ public class HealthAssessmentRepository : IHealthAssessmentRepository
     public async Task<ContinuityFinding> UpdateFindingAsync(
         ContinuityFinding finding, CancellationToken cancellationToken = default)
     {
-        _context.ContinuityFindings.Update(finding);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachAsync(finding, cancellationToken);
         return finding;
     }
 }

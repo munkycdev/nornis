@@ -309,8 +309,7 @@ public class SourceRepository : ISourceRepository
 
     public async Task<Source> UpdateAsync(Source source, CancellationToken cancellationToken = default)
     {
-        _context.Sources.Update(source);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachAsync(source, cancellationToken);
         await LoadCampaignAsync(source, cancellationToken);
         return source;
     }
