@@ -219,7 +219,7 @@ public class WorldsController : ControllerBase
         var categories = new List<WorldExportCategory>();
         foreach (var name in request.Categories ?? [])
         {
-            if (!Enum.TryParse<WorldExportCategory>(name, ignoreCase: true, out var category))
+            if (!EnumParsing.TryParseDefined<WorldExportCategory>(name, out var category))
             {
                 return BadRequest(new ErrorResponse("invalid_category", $"'{name}' is not an exportable data type."));
             }

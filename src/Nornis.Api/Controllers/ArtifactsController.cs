@@ -67,7 +67,7 @@ public class ArtifactsController : ControllerBase
         ArtifactType? typeFilter = null;
         if (type is not null)
         {
-            if (!Enum.TryParse<ArtifactType>(type, ignoreCase: true, out var parsedType))
+            if (!EnumParsing.TryParseDefined<ArtifactType>(type, out var parsedType))
             {
                 return BadRequest(new ErrorResponse("invalid_artifact_type", $"'{type}' is not a valid artifact type."));
             }
@@ -77,7 +77,7 @@ public class ArtifactsController : ControllerBase
         ArtifactStatus? statusFilter = null;
         if (status is not null)
         {
-            if (!Enum.TryParse<ArtifactStatus>(status, ignoreCase: true, out var parsedStatus))
+            if (!EnumParsing.TryParseDefined<ArtifactStatus>(status, out var parsedStatus))
             {
                 return BadRequest(new ErrorResponse("invalid_artifact_status", $"'{status}' is not a valid artifact status."));
             }
@@ -233,7 +233,7 @@ public class ArtifactsController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        if (!Enum.TryParse<ArtifactStatus>(request.Status, ignoreCase: true, out var status))
+        if (!EnumParsing.TryParseDefined<ArtifactStatus>(request.Status, out var status))
         {
             return BadRequest(new ErrorResponse("invalid_artifact_status", $"'{request.Status}' is not a valid artifact status."));
         }

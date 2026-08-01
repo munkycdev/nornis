@@ -34,12 +34,12 @@ public class SourcesController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        if (!Enum.TryParse<SourceType>(request.Type, ignoreCase: true, out var sourceType))
+        if (!EnumParsing.TryParseDefined<SourceType>(request.Type, out var sourceType))
         {
             return BadRequest(new ErrorResponse("invalid_source_type", $"'{request.Type}' is not a valid source type."));
         }
 
-        if (!Enum.TryParse<VisibilityScope>(request.Visibility, ignoreCase: true, out var visibility))
+        if (!EnumParsing.TryParseDefined<VisibilityScope>(request.Visibility, out var visibility))
         {
             return BadRequest(new ErrorResponse("invalid_visibility", $"'{request.Visibility}' is not a valid visibility scope."));
         }
@@ -171,7 +171,7 @@ public class SourcesController : ControllerBase
         SourceType? sourceType = null;
         if (request.Type is not null)
         {
-            if (!Enum.TryParse<SourceType>(request.Type, ignoreCase: true, out var parsedType))
+            if (!EnumParsing.TryParseDefined<SourceType>(request.Type, out var parsedType))
             {
                 return BadRequest(new ErrorResponse("invalid_source_type", $"'{request.Type}' is not a valid source type."));
             }
@@ -181,7 +181,7 @@ public class SourcesController : ControllerBase
         VisibilityScope? visibility = null;
         if (request.Visibility is not null)
         {
-            if (!Enum.TryParse<VisibilityScope>(request.Visibility, ignoreCase: true, out var parsedVisibility))
+            if (!EnumParsing.TryParseDefined<VisibilityScope>(request.Visibility, out var parsedVisibility))
             {
                 return BadRequest(new ErrorResponse("invalid_visibility", $"'{request.Visibility}' is not a valid visibility scope."));
             }
@@ -489,7 +489,7 @@ public class SourcesController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        if (!Enum.TryParse<SourceAttachmentKind>(request.Kind, ignoreCase: true, out var kind))
+        if (!EnumParsing.TryParseDefined<SourceAttachmentKind>(request.Kind, out var kind))
         {
             return BadRequest(new ErrorResponse("invalid_kind", $"'{request.Kind}' is not a valid attachment kind."));
         }

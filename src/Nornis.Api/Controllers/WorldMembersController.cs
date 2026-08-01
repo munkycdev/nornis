@@ -120,7 +120,7 @@ public class WorldMembersController : ControllerBase
             return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can add members."));
         }
 
-        if (!Enum.TryParse<WorldRole>(request.Role, ignoreCase: true, out var role))
+        if (!EnumParsing.TryParseDefined<WorldRole>(request.Role, out var role))
         {
             return BadRequest(new ErrorResponse("invalid_role", $"'{request.Role}' is not a valid world role."));
         }
@@ -159,7 +159,7 @@ public class WorldMembersController : ControllerBase
             return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can update member roles."));
         }
 
-        if (!Enum.TryParse<WorldRole>(request.Role, ignoreCase: true, out var newRole))
+        if (!EnumParsing.TryParseDefined<WorldRole>(request.Role, out var newRole))
         {
             return BadRequest(new ErrorResponse("invalid_role", $"'{request.Role}' is not a valid world role."));
         }

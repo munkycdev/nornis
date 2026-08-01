@@ -37,7 +37,7 @@ public class RevealController : ControllerBase
         var corrections = new List<FactCorrection>();
         foreach (var correction in request.Corrections ?? [])
         {
-            if (!Enum.TryParse<TruthState>(correction.TruthState, ignoreCase: true, out var truthState))
+            if (!EnumParsing.TryParseDefined<TruthState>(correction.TruthState, out var truthState))
             {
                 return BadRequest(new ErrorResponse("invalid_truth_state",
                     $"'{correction.TruthState}' is not a valid truth state."));

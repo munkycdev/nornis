@@ -89,7 +89,7 @@ public class StorylinesController : ControllerBase
         var closures = new List<WrapUpClosure>();
         foreach (var closure in request.Closures ?? [])
         {
-            if (!Enum.TryParse<ArtifactStatus>(closure.Status, ignoreCase: true, out var status))
+            if (!EnumParsing.TryParseDefined<ArtifactStatus>(closure.Status, out var status))
             {
                 return BadRequest(new ErrorResponse("invalid_artifact_status",
                     $"'{closure.Status}' is not a valid artifact status."));
@@ -231,7 +231,7 @@ public class StorylinesController : ControllerBase
         ArtifactStatus? statusFilter = null;
         if (status is not null)
         {
-            if (!Enum.TryParse<ArtifactStatus>(status, ignoreCase: true, out var parsedStatus))
+            if (!EnumParsing.TryParseDefined<ArtifactStatus>(status, out var parsedStatus))
             {
                 return BadRequest(new ErrorResponse("invalid_artifact_status", $"'{status}' is not a valid artifact status."));
             }

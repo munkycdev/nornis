@@ -36,12 +36,12 @@ public class LibraryController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        if (!Enum.TryParse<LibraryDocumentKind>(request.Kind, ignoreCase: true, out var kind))
+        if (!EnumParsing.TryParseDefined<LibraryDocumentKind>(request.Kind, out var kind))
         {
             return BadRequest(new ErrorResponse("invalid_kind", $"'{request.Kind}' is not a valid document kind."));
         }
 
-        if (!Enum.TryParse<VisibilityScope>(request.Visibility, ignoreCase: true, out var visibility))
+        if (!EnumParsing.TryParseDefined<VisibilityScope>(request.Visibility, out var visibility))
         {
             return BadRequest(new ErrorResponse("invalid_visibility", $"'{request.Visibility}' is not a valid visibility scope."));
         }
@@ -112,7 +112,7 @@ public class LibraryController : ControllerBase
     {
         var member = HttpContext.GetWorldMember();
 
-        if (!Enum.TryParse<VisibilityScope>(request.Visibility, ignoreCase: true, out var visibility))
+        if (!EnumParsing.TryParseDefined<VisibilityScope>(request.Visibility, out var visibility))
         {
             return BadRequest(new ErrorResponse("invalid_visibility", $"'{request.Visibility}' is not a valid visibility scope."));
         }

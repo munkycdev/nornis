@@ -56,7 +56,7 @@ public class CanonController : ControllerBase
         TruthState? truthStateFilter = null;
         if (truthState is not null)
         {
-            if (!Enum.TryParse<TruthState>(truthState, ignoreCase: true, out var parsed))
+            if (!EnumParsing.TryParseDefined<TruthState>(truthState, out var parsed))
             {
                 return BadRequest(new ErrorResponse("invalid_truth_state", $"'{truthState}' is not a valid truth state."));
             }
@@ -66,11 +66,7 @@ public class CanonController : ControllerBase
         CanonEntryKind? kindFilter = null;
         if (kind is not null)
         {
-            // IsDefined as well as TryParse: TryParse happily accepts "7" and yields an undefined
-            // enum value, which would match neither kind and return an empty canon that looks
-            // exactly like "this world has nothing yet".
-            if (!Enum.TryParse<CanonEntryKind>(kind, ignoreCase: true, out var parsedKind)
-                || !Enum.IsDefined(parsedKind))
+            if (!EnumParsing.TryParseDefined<CanonEntryKind>(kind, out var parsedKind))
             {
                 return BadRequest(new ErrorResponse("invalid_kind", $"'{kind}' is not a valid canon entry kind."));
             }

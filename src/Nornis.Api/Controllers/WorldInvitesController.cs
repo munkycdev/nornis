@@ -59,7 +59,7 @@ public class WorldInvitesController : ControllerBase
             return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can create invites."));
         }
 
-        if (!Enum.TryParse<WorldRole>(request.Role, ignoreCase: true, out var role))
+        if (!EnumParsing.TryParseDefined<WorldRole>(request.Role, out var role))
         {
             return BadRequest(new ErrorResponse("invalid_role", $"'{request.Role}' is not a valid world role."));
         }

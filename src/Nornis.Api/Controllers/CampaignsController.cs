@@ -32,7 +32,7 @@ public class CampaignsController : ControllerBase
         var member = HttpContext.GetWorldMember();
 
         var status = CampaignStatus.Active;
-        if (request.Status is not null && !Enum.TryParse(request.Status, ignoreCase: true, out status))
+        if (request.Status is not null && !EnumParsing.TryParseDefined(request.Status, out status))
         {
             return BadRequest(new ErrorResponse("invalid_status", $"'{request.Status}' is not a valid campaign status."));
         }
@@ -97,7 +97,7 @@ public class CampaignsController : ControllerBase
         CampaignStatus? status = null;
         if (request.Status is not null)
         {
-            if (!Enum.TryParse<CampaignStatus>(request.Status, ignoreCase: true, out var parsedStatus))
+            if (!EnumParsing.TryParseDefined<CampaignStatus>(request.Status, out var parsedStatus))
             {
                 return BadRequest(new ErrorResponse("invalid_status", $"'{request.Status}' is not a valid campaign status."));
             }
