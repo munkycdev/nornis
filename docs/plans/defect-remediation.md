@@ -139,7 +139,19 @@ changes that item's priority, not its shape.
   delete, mark-ready, and reprocess all reject it. Same wedge from the
   crash-between-commit-and-enqueue window. Fix: allow Queued→Ready retry after a
   staleness threshold, or sweep batch-less Queued sources.
-- **Two Active replays per world.** Check-then-create with a non-unique index
+- ~~**Two Active replays per world.**~~ **Fixed 2026-08-01.** Filtered unique index
+  `IX_ExtractionReplays_WorldId_Active` (additive migration
+  `AddExtractionReplayActiveUniqueIndex`), matching the ImportSessions precedent verbatim.
+  - The 409 mapping had to happen in the repository, not the service: `Nornis.Application`
+    references no persistence library, so `DbUpdateException` is not a type it can name.
+    `CreateAsync` now returns null on the conflict and the service maps that to the same
+    `replay_active` error the check-then-create gate returns. The in-memory fake enforces
+    the same invariant, so it cannot disagree with production about what is possible.
+  - Checked production before shipping: zero worlds currently hold more than one Active
+    replay, so the index applies cleanly. Worth doing for any unique index added after the
+    fact — the migration fails on existing duplicates and takes the deploy with it.
+
+- **(original diagnosis)** Two Active replays per world. Check-then-create with a non-unique index
   (`ExtractionReplayConfiguration.cs:32`) — while `ImportSessionConfiguration.cs:28-31`
   enforces exactly this invariant correctly two files away. Double-click → two Active
   rows, arbitrary advance/cancel targeting, both requeue sources. Fix: filtered

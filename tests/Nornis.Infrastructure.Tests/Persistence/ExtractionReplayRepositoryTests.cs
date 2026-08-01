@@ -62,7 +62,7 @@ public class ExtractionReplayRepositoryTests : IntegrationTestBase
         var found = await repo.GetActiveByWorldAsync(world.Id);
 
         Assert.That(found, Is.Not.Null);
-        Assert.That(found!.Id, Is.EqualTo(active.Id));
+        Assert.That(found!.Id, Is.EqualTo(active!.Id));
     }
 
     [Test]
@@ -82,7 +82,7 @@ public class ExtractionReplayRepositoryTests : IntegrationTestBase
     {
         var (world, user) = SeedWorldAndUser();
         var repo = new ExtractionReplayRepository(Context);
-        var replay = await repo.CreateAsync(MakeReplay(world.Id, user.Id, ExtractionReplayStatus.Active));
+        var replay = (await repo.CreateAsync(MakeReplay(world.Id, user.Id, ExtractionReplayStatus.Active)))!;
 
         var nextCursor = Guid.NewGuid();
         replay.CurrentSourceId = nextCursor;

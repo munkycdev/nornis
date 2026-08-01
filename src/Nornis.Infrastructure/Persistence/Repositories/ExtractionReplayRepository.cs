@@ -14,10 +14,22 @@ public class ExtractionReplayRepository : IExtractionReplayRepository
         _context = context;
     }
 
-    public async Task<ExtractionReplay> CreateAsync(ExtractionReplay replay, CancellationToken cancellationToken = default)
+    public async Task<ExtractionReplay?> CreateAsync(ExtractionReplay replay, CancellationToken cancellationToken = default)
     {
         _context.ExtractionReplays.Add(replay);
-        await _context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // IX_ExtractionReplays_WorldId_Active rejected a second Active replay. The
+            // exception type is EF's, so it is translated here rather than leaking into the
+            // application layer, which references no persistence library at all.
+            _context.ChangeTracker.Clear();
+            return null;
+        }
+
         return replay;
     }
 

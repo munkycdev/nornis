@@ -76,6 +76,16 @@ public class ExtractionReplayService : IExtractionReplayService
             UpdatedAt = now
         }, ct);
 
+        if (replay is null)
+        {
+            // The gate above is check-then-create, so a double-click can pass it twice. The
+            // filtered unique index is what actually holds the invariant; this turns the
+            // loser of that race into the same 409 the gate would have returned, rather than
+            // a 500 and a second Active replay requeueing sources of its own.
+            return AppResult<ExtractionReplayInfo>.Fail(new AppError(409, "replay_active",
+                "A replay is already in progress for this world. Cancel it before starting another."));
+        }
+
         var reprocess = await _reprocessService.ReprocessAsync(
             new ReprocessSourceCommand(startSourceId, worldId, actingUserId, actingUserRole), ct);
         if (!reprocess.IsSuccess)
