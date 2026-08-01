@@ -39,8 +39,7 @@ public class SourceAttachmentRepository : ISourceAttachmentRepository
 
     public async Task<SourceAttachment> UpdateAsync(SourceAttachment attachment, CancellationToken cancellationToken = default)
     {
-        _context.SourceAttachments.Update(attachment);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachAsync(attachment, cancellationToken);
         _context.Entry(attachment).State = EntityState.Detached;
         return attachment;
     }

@@ -37,8 +37,7 @@ public class WorldRepository : IWorldRepository
 
     public async Task<World> UpdateAsync(World world, CancellationToken cancellationToken = default)
     {
-        _context.Worlds.Update(world);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachAsync(world, cancellationToken);
         return world;
     }
 

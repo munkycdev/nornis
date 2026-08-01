@@ -99,7 +99,20 @@ changes that item's priority, not its shape.
   **Ordering dependency:** fix `NotesEditor`'s init/empty conflation
   (`NotesEditor.razor:119-129` — a failed JS init returns null forever) in the same
   change, or the new flag turns a JS failure into a data-destroying clear.
-- **Second update of the same row in one request throws.** Repositories read
+- ~~**Second update of the same row in one request throws.**~~ **Fixed 2026-08-01** at the
+  repository layer rather than per-caller. All 19 whole-entity write sites across 16
+  repositories now route through `TrackedUpdateExtensions.SaveAndDetachAsync`, which
+  detaches after the save so each call is the self-contained read-modify-write the
+  interface already implied. `WorldInviteRepository` detaches inline because it translates
+  a concurrency failure on the way out.
+  - Fixing it per-caller would have left the same trap armed at seventeen other sites and
+    added exactly the horizontal duplication the scrub plan exists to remove.
+  - Tested in `Nornis.Infrastructure.Tests` and nowhere else on purpose: this needs a real
+    change tracker, and the in-memory fakes track nothing, so a service-level test would
+    have passed against the broken code. Verified failing with the detach removed — the
+    original "another instance with the same key value is already being tracked".
+
+- **(original diagnosis)** Second update of the same row in one request throws. Repositories read
   `AsNoTracking` and write via `DbSet.Update(entity)`; after SaveChanges the instance
   stays tracked, so attaching a second instance with the same key throws.
   Deterministic: a reveal whose `FactIds` and `Corrections` name the same fact →

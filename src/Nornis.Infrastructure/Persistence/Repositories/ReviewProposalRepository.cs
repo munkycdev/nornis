@@ -86,8 +86,7 @@ public class ReviewProposalRepository : IReviewProposalRepository
 
     public async Task<ReviewProposal> UpdateAsync(ReviewProposal proposal, CancellationToken cancellationToken = default)
     {
-        _context.ReviewProposals.Update(proposal);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachAsync(proposal, cancellationToken);
         return proposal;
     }
 

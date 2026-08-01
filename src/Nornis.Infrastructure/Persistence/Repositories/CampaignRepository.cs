@@ -38,8 +38,7 @@ public class CampaignRepository : ICampaignRepository
 
     public async Task<Campaign> UpdateAsync(Campaign campaign, CancellationToken cancellationToken = default)
     {
-        _context.Campaigns.Update(campaign);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachAsync(campaign, cancellationToken);
         return campaign;
     }
 

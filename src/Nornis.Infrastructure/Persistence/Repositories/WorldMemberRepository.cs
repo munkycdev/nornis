@@ -45,8 +45,7 @@ public class WorldMemberRepository : IWorldMemberRepository
 
     public async Task<WorldMember> UpdateAsync(WorldMember member, CancellationToken cancellationToken = default)
     {
-        _context.WorldMembers.Update(member);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachAsync(member, cancellationToken);
         return member;
     }
 

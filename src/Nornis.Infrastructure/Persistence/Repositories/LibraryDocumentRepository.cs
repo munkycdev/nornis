@@ -55,8 +55,7 @@ public class LibraryDocumentRepository : ILibraryDocumentRepository
 
     public async Task<LibraryDocument> UpdateAsync(LibraryDocument document, CancellationToken cancellationToken = default)
     {
-        _context.LibraryDocuments.Update(document);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachAsync(document, cancellationToken);
         return document;
     }
 

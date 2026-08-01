@@ -50,8 +50,7 @@ public class CharacterRepository : ICharacterRepository
 
     public async Task<Character> UpdateAsync(Character character, CancellationToken cancellationToken = default)
     {
-        _context.Characters.Update(character);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachAsync(character, cancellationToken);
         return character;
     }
 

@@ -45,8 +45,7 @@ public class MapPlacemarkRepository : IMapPlacemarkRepository
 
     public async Task<MapPlacemark> UpdateAsync(MapPlacemark placemark, CancellationToken cancellationToken = default)
     {
-        _context.MapPlacemarks.Update(placemark);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachAsync(placemark, cancellationToken);
         return placemark;
     }
 
@@ -57,8 +56,7 @@ public class MapPlacemarkRepository : IMapPlacemarkRepository
             return;
         }
 
-        _context.MapPlacemarks.UpdateRange(placemarks);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveAndDetachRangeAsync(placemarks, cancellationToken);
     }
 
     public async Task DeleteAsync(Guid placemarkId, CancellationToken cancellationToken = default)
