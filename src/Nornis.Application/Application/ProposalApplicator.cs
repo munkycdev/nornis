@@ -662,10 +662,11 @@ public class ProposalApplicator : IProposalApplicator
         if (fact is null)
             return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target fact not found."));
 
-        // The fact is scoped through its parent artifact: wrong world or an artifact the
-        // accepter may not see reads as the same 404 as a fact that does not exist.
+        // The fact is scoped through its parent artifact AND its own visibility: wrong
+        // world, a hidden parent, or a fact the accepter may not see itself (a GM-only
+        // or other-user Private row under a shared artifact) all read as the same 404.
         var parent = await ResolveTargetArtifactAsync(batch.WorldId, fact.ArtifactId, null, actingFilter, ct);
-        if (!parent.IsSuccess)
+        if (!parent.IsSuccess || !actingFilter.CanSee(fact.Visibility, fact.CreatedByUserId))
             return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target fact not found."));
 
 
@@ -819,9 +820,11 @@ public class ProposalApplicator : IProposalApplicator
         if (relationship is null)
             return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target relationship not found."));
 
-        // The relationship is scoped through its endpoint artifacts: either endpoint in
-        // the wrong world, or hidden from the accepter, reads as the same 404 as a
-        // relationship that does not exist.
+        // The relationship is scoped through its endpoint artifacts AND its own
+        // visibility: either endpoint wrong-world or hidden, or the relationship row
+        // itself invisible to the accepter, reads as the same 404.
+        if (!actingFilter.CanSee(relationship.Visibility, relationship.CreatedByUserId))
+            return AppResult<ApplyResult>.Fail(new AppError(404, "target_not_found", "Target relationship not found."));
         var endpointACheck = await ResolveTargetArtifactAsync(batch.WorldId, relationship.ArtifactAId, null, actingFilter, ct);
         var endpointBCheck = endpointACheck.IsSuccess
             ? await ResolveTargetArtifactAsync(batch.WorldId, relationship.ArtifactBId, null, actingFilter, ct)

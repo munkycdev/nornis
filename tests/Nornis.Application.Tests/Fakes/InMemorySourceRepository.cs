@@ -124,17 +124,18 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.FromResult<IReadOnlyList<Source>>(query.ToList().AsReadOnly());
     }
 
-    public Task<IReadOnlyList<Source>> ListRecentSessionsAsync(Guid worldId, VisibilityFilter filter, int maxCount, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<Source>> ListRecentSessionsAsync(Guid worldId, Guid userId, WorldRole role, int maxCount, CancellationToken cancellationToken = default)
     {
         // Mirrors SourceRepository: session-recording types (plus dated ImportedNotes),
-        // visibility-filtered, newest first by OccurredAt ?? CreatedAt.
+        // gated by the shared source rule, newest first by OccurredAt ?? CreatedAt.
         SourceType[] sessionTypes = [SourceType.SessionNote, SourceType.Transcript, SourceType.SessionAudio];
+        var canSee = SourceVisibilityRule.Compile(userId, role);
 
         var result = _sources
             .Where(s => s.WorldId == worldId
                 && (sessionTypes.Contains(s.Type)
                     || (s.Type == SourceType.ImportedNote && s.OccurredAt is not null))
-                && filter.CanSee(s.Visibility, s.CreatedByUserId))
+                && canSee(s))
             .OrderByDescending(s => s.OccurredAt ?? s.CreatedAt)
             .Take(maxCount)
             .ToList();

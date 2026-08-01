@@ -58,7 +58,7 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
         // Fetched regardless of artifact hits — a young world may have session notes
         // before it has any extracted canon.
         var sessions = await _sourceRepository.ListRecentSessionsAsync(
-            worldId, filter, _options.RecentSessionCount, ct);
+            worldId, userId, role, _options.RecentSessionCount, ct);
 
         if (artifacts.Count == 0)
         {

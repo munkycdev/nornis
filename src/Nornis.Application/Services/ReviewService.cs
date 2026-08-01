@@ -85,7 +85,7 @@ public class ReviewService : IReviewService
         var (proposals, hasMore) = await _reviewProposalRepository.ListReviewQueueAsync(
             query.WorldId, allowedSourceIds, query.FilterByBatchId, limit: ReviewQueueLimit, ct);
 
-        var context = await BuildProposalContextAsync(proposals, sources, ct);
+        var context = await BuildProposalContextAsync(query.WorldId, proposals, sources, ct);
 
         return AppResult<ReviewQueueResult>.Success(new ReviewQueueResult(proposals, hasMore, context));
     }
@@ -95,6 +95,7 @@ public class ReviewService : IReviewService
     /// human-readable name for what it targets, so the review UI never shows a bare GUID.
     /// </summary>
     private async Task<IReadOnlyDictionary<Guid, ReviewProposalContext>> BuildProposalContextAsync(
+        Guid worldId,
         IReadOnlyList<ReviewProposal> proposals,
         IReadOnlyList<Source> sources,
         CancellationToken ct)
@@ -104,11 +105,13 @@ public class ReviewService : IReviewService
             return result;
 
         // Every load below resolves only the ids actually present in this page of
-        // proposals — never the world's full batch, artifact, or fact tables. Name
-        // resolution is unrestricted on purpose: a reviewer only ever receives proposals
-        // from sources they may see, and their targets came from that source's own
-        // (already-scoped) extraction context. If review ever surfaces proposals across
-        // users' sources, this must become a per-user VisibilityFilter.
+        // proposals — never the world's full batch, artifact, or fact tables. Within the
+        // world, name resolution is visibility-unrestricted on purpose: a reviewer only
+        // ever receives proposals from sources they may see, and their targets came from
+        // that source's own (already-scoped) extraction context. World scope, though, is
+        // enforced below — payload-borne ids are Player-editable and must never resolve
+        // outside the world. If review ever surfaces proposals across users' sources,
+        // this must become a per-user VisibilityFilter.
         var batchIds = proposals.Select(p => p.ReviewBatchId).Distinct().ToList();
         var batches = (await _reviewBatchRepository.ListByIdsAsync(batchIds, ct))
             .ToDictionary(b => b.Id);
@@ -178,8 +181,12 @@ public class ReviewService : IReviewService
             }
         }
 
+        // World-scoped: the merge and relationship ids come out of Player-editable
+        // payloads, so an unscoped by-ids load would let an edited GUID read another
+        // world's artifact name — or probe existence — through the review queue.
         var artifactNames = artifactIds.Count > 0
             ? (await _artifactRepository.ListByIdsAsync(artifactIds.ToList(), ct))
+                .Where(a => a.WorldId == worldId)
                 .ToDictionary(a => a.Id, a => a.Name)
             : [];
 

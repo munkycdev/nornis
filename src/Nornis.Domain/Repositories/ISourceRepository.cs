@@ -1,4 +1,4 @@
-﻿using Nornis.Domain.Entities;
+using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
 
@@ -72,8 +72,10 @@ public interface ISourceRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>The world's most recent play sessions (session-recording source types),
-    /// visibility-filtered, ordered by when they happened (OccurredAt ?? CreatedAt) descending.</summary>
-    Task<IReadOnlyList<Source>> ListRecentSessionsAsync(Guid worldId, VisibilityFilter filter, int maxCount, CancellationToken cancellationToken = default);
+    /// ordered by when they happened (OccurredAt ?? CreatedAt) descending. Visibility is
+    /// <see cref="SourceVisibilityRule"/> — Draft gate and anonymous-identity guard included,
+    /// because these rows' full text feeds the Ask context.</summary>
+    Task<IReadOnlyList<Source>> ListRecentSessionsAsync(Guid worldId, Guid userId, WorldRole role, int maxCount, CancellationToken cancellationToken = default);
 
     /// <summary>The timeline sources (session-recording types plus imported notes) that sit
     /// strictly before a pivot moment on the play timeline, nearest first. The pivot is the

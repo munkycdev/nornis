@@ -151,7 +151,8 @@ public class SourceRepository : ISourceRepository
 
     public async Task<IReadOnlyList<Source>> ListRecentSessionsAsync(
         Guid worldId,
-        VisibilityFilter filter,
+        Guid userId,
+        WorldRole role,
         int maxCount,
         CancellationToken cancellationToken = default)
     {
@@ -160,7 +161,7 @@ public class SourceRepository : ISourceRepository
             .Where(s => s.WorldId == worldId
                 && (SessionTypes.Contains(s.Type)
                     || (s.Type == SourceType.ImportedNote && s.OccurredAt != null)))
-            .Where(filter.CanSeeSource())
+            .Where(SourceVisibilityRule.CanSee(userId, role))
             .OrderByDescending(s => s.OccurredAt ?? s.CreatedAt)
             .Take(maxCount)
             .ToListAsync(cancellationToken);
