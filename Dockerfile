@@ -13,7 +13,6 @@ WORKDIR /src
 COPY ["Nornis.sln", "."]
 COPY ["Directory.Build.props", "."]
 COPY ["src/Nornis.Domain/Nornis.Domain.csproj", "src/Nornis.Domain/"]
-COPY ["src/Nornis.Shared/Nornis.Shared.csproj", "src/Nornis.Shared/"]
 COPY ["src/Nornis.Application/Nornis.Application.csproj", "src/Nornis.Application/"]
 COPY ["src/Nornis.Infrastructure/Nornis.Infrastructure.csproj", "src/Nornis.Infrastructure/"]
 COPY ["src/Nornis.Api/Nornis.Api.csproj", "src/Nornis.Api/"]
