@@ -1,0 +1,115 @@
+# Loremaster wiki operations
+
+> Part of the Nornis backlog. This file is a spec, not authorization: execute only
+> through the Execution order in `docs/future-features.md`, which holds sequencing,
+> completion status, and the Opus/Fable gate.
+
+2026-08-01. Product of reading Karpathy's LLM-wiki pattern
+(gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) against the tree. The
+pattern: an LLM maintains a persistent synthesis layer between raw sources and
+queries — three layers (sources → wiki → schema) and three operations (ingest,
+query, lint). The reading's verdict: Nornis already *is* this pattern, with a
+stricter trust model than the gist proposes (the review gate, TruthState,
+visibility). What remains are four operations the pattern names that the tree
+doesn't have. Ordered by value; W3 and W4 are independent of the rest.
+
+**Already built — do not rebuild.** Recorded so the gist doesn't inspire
+duplicates: the three layers are Sources → Artifacts → Views verbatim
+(domain-model.md); the *lint* operation shipped as Continuity Health — heuristic
+`IHealthService`, AI `ContinuityAuditService` (Contradiction, DanglingThread,
+StaleStoryline, TimelineConflict, SummaryDrift; grounded evidence, dismissals),
+and `ContinuityFixService` drafting fixes as ordinary Pending proposals; the
+`log.md` analog is ReviewBatch history + SourceReference + AiUsageRecord. The
+gist's "simple markdown indexing works at moderate scale" is the same bet
+ai-extraction.md makes deferring vector retrieval — the pattern endorses the
+architecture; these items only fill in missing operations.
+
+Ground rules:
+
+- Every new AI call goes through `IAiBudgetGuard` and the shared usage recorder
+  (scrub **1.4**) and executor (scrub **1.5**) — no new hand-rolled tracking or
+  catch ladders.
+- Every synthesized batch gets a named `Kind`. The defect plan already flags the
+  `Kind = null` divergence (D4, review-provenance item); nothing here may add to it.
+- Visibility law is unchanged: nothing derived from GMOnly/Private material may
+  surface at a wider scope (ai-extraction.md's default mapping).
+- Migrations additive, as everywhere else in this file.
+
+## W1 — accept-time summary maintenance
+
+The gist's core loop is "ingest updates the relevant wiki pages." Nornis ingests
+into facts and relationships, but `Artifact.Summary` — the page — only changes
+when a proposal happens to carry one. `AiOperationType.ArtifactSummary` is
+declared and referenced nowhere: the MVP op ("generate artifact summaries from
+accepted facts") was never built. The audit's SummaryDrift category exists to
+*detect* the rot this operation would *prevent*.
+
+- `IArtifactSummaryService`: artifact + accepted facts + relationships in, fresh
+  summary out. Uses the dormant `ArtifactSummary` operation type.
+- Trigger: after `BatchAcceptAsync` completes, enqueue a refresh for each artifact
+  whose facts or relationships changed — Service Bus message, worker-side,
+  budget-guarded; never inline in the accept request. Coalesce to one refresh per
+  artifact per batch; skip pure-visibility changes.
+- **Policy decision, made before implementation and recorded in
+  ai-extraction.md:** does the refreshed summary route through review, or is it a
+  "trusted system operation" under the core rule's own carve-out? Recommended:
+  trusted operation — the summary is derived presentation over already-accepted
+  knowledge, not new knowledge; forcing a review round per accepted batch would
+  double review traffic to approve restatements. Record provenance either way,
+  and let a per-world setting opt back into review if a GM wants the gate.
+- Payoff: Ask grounds on current summaries (grounding order already puts
+  artifacts first), SummaryDrift findings decay toward zero, and public Ask gets
+  cheaper grounding — which stretches the monthly cap.
+
+## W2 — whole-world duplicate sweep
+
+Dedup runs only at ingest, against name-matched context — "Voss" and "Captain
+Voss" created three sessions apart survive forever, and no audit category looks
+for them. The machinery to *act* on duplicates exists end to end (`MergeArtifact`
+change type, `ArtifactMergeService`); only the sweep that feeds it is missing.
+
+- Cheapest first: a sixth audit category (`DuplicateArtifact`) in
+  `ContinuityAuditService` — the prompt already reads the whole record; evidence
+  is the two artifact refs. Extend `ContinuityFixService`'s allowed changes with
+  MergeArtifact so the fix path can draft the merge.
+- **Ordering dependency:** lands after the defect plan's merge fix (D2, the live
+  duplicate↔target relationship row) — a sweep that triggers more merges before
+  that fix multiplies the recurring DanglingThread it causes.
+- Phase 2, if candidate quality disappoints: embeddings already exist
+  (`AiOperationType.Embedding`, exact-KNN search verified sound) — compute
+  name-trigram + embedding-similarity candidate pairs in SQL and have the LLM
+  adjudicate only the candidates, instead of asking it to spot pairs unaided.
+
+## W3 — the world digest (the gist's `index.md`)
+
+One maintained world-level synthesis: active storylines and their momentum,
+recent movements, open questions. Storyline retrospectives and wrap-ups exist
+per-storyline; nothing renders the state of the *world*.
+
+- A generated read-model, **not** an artifact: an artifact's mutations must flow
+  through review, and a derived page would pollute the knowledge graph it
+  summarizes. In domain-model.md's terms a digest is a View. Persist the last
+  digest per world with its generation time; show staleness rather than
+  regenerating on every visit.
+- Trigger: GM-invoked, plus optionally auto after N accepted batches. Grounding
+  mirrors the audit's whole-record read (and shares its prompt-size guards).
+- Two renderings from one generation pass: the GM digest (full, GMOnly) and a
+  PartyVisible recap with hidden/GM material withheld — the second doubles as the
+  session-recap and new-player-onboarding surface, which is the same need the
+  demo-world/tutorial work keeps circling.
+
+## W4 — Ask answers filed back
+
+The gist files good query answers back into the wiki; Ask is currently read-only.
+When an answer synthesizes something not yet recorded — connects two facts, names
+an implication — the synthesis evaporates when the conversation ends.
+
+- A "file this" action on an Ask answer: the answer text becomes a synthesized
+  GM-only source routed through ordinary extraction, yielding a reviewable batch.
+  The provenance pattern already exists (StorylineRetrospectiveService,
+  ContinuityFixService); new batch `Kind`, e.g. `AskFileBack`.
+- **Ordering dependency:** waits for D4's shared synthetic-batch writer — built
+  before it, this becomes the ninth hand-assembled copy of the provenance
+  invariant.
+- Visibility follows grounding: an answer grounded on GMOnly material files
+  GMOnly. Smallest item in the set; UI is one button and a snackbar.

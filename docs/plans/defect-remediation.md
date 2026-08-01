@@ -1,0 +1,266 @@
+# Defect remediation
+
+> Part of the Nornis backlog. This file is a spec, not authorization: execute only
+> through the Execution order in `docs/future-features.md`, which holds sequencing,
+> completion status, and the Opus/Fable gate.
+
+2026-08-01. Product of a follow-up scan with a different lens: not authorship tells but
+genuine engineering defects. Five reviewers (transactionality/idempotency,
+architecture/SOLID, Web state safety, silent-failure paths, infrastructure I/O) plus a
+hands-on read of the review/applicator core. Same ground rules as the scrub plan above:
+verify line numbers before changing anything, **[auth]** items get independent review
+after implementation, migrations stay additive (the two index fixes below qualify).
+Where a defect's fix *is* a scrub tier item, it is cross-referenced — the defect
+changes that item's priority, not its shape.
+
+## D1 — security and data integrity (do first, before or alongside tier 1)
+
+- **[auth] Applicator by-id resolution skips both world and visibility checks.**
+  `ProposalApplicator.ResolveRelationshipEndpointAsync` by-id branch (:903-917) checks
+  only null — never `artifact.WorldId == batch.WorldId`, never `actingFilter` — while
+  the by-name branch beside it applies the filter with a doc comment explaining
+  exactly why the payload is dangerous (player-editable). Same gap in
+  ApplyUpdateArtifact (:465), ApplyMergeArtifact (:522), ApplyUpdateFact (:681),
+  ApplyUpdateRelationship (:832), ApplyAddFact's TargetId branch (:624). Scenario: a
+  Player edits their own proposal's payload to a GM-only or cross-world GUID and
+  accepts it — the relationship binds to the hidden artifact and its existence leaks
+  through graph and canon surfaces. Fix: world-scope + `actingFilter` gate on every
+  by-id load (facts via their parent artifact). Executes naturally with scrub 1.7's
+  `ResolveTargetArtifactAsync` consolidation.
+- **[auth] The drifted visibility copies are a live leak, not just a tell.** The six
+  hand-rolled predicates enforce only the scope gate — they miss the Draft gate the
+  canonical `SourceVisibilityRule` enforces. Import-walk notes are created
+  PartyVisible+**Draft** (`ImportSessionService.cs:125`), so
+  `SuggestionService.cs:166-174` can quote a draft import's title to a player that the
+  sources list correctly hides. Second axis: five copies also lack the
+  `Guid.Empty` anonymous-identity guard on paths reachable from `PublicController`.
+  Fix = scrub **1.2**, promoted from cleanliness to leak closure. (Note:
+  `ReviewService.IsSourceVisibleToUser` looks like a seventh copy but is a different,
+  correct rule — review authorization; rename it rather than "fixing" it.)
+- **[auth] Reveal corrections skip the Private guard.** `RevealService.cs:175-191`:
+  steps 1-3 all apply `PrivateGuard`; the corrections step does not, and runs under
+  `VisibilityFilter.All` — a correction naming a player's Private fact flips its truth
+  state and files a PartyVisible reveal as its provenance, violating the class's own
+  "never touches Private knowledge" contract. Fix: `PrivateGuard` in the corrections
+  loop.
+- **Concurrent duplicate extraction commits two batches for one source.** Idempotency
+  is gated on batch-existence plus an unconditional status write
+  (`ExtractionService.cs:148-192`, `SourceRepository.cs:253-265`; Source has no
+  RowVersion), and lock-lost redelivery (a transcription+extraction run crossing
+  `MaxAutoLockRenewalDuration`) runs a second full pass *concurrently*: two batches,
+  ~2× proposals, 2× AI spend. Fix: filtered unique index
+  `ReviewBatches(SourceId) WHERE Kind IS NULL` (additive) so the second commit fails
+  into the existing Skipped path, plus a conditional claim
+  (`UPDATE … WHERE Status='Queued'`, rows-affected as the gate).
+- **Upload size caps never check the actual blob.** Caps validate the client's
+  *declared* `SizeBytes` (`LibraryService.cs:90`, `SourceAttachmentService.cs:205-215`),
+  then a Create|Write SAS is issued and `ConfirmUploadAsync` stores the real size
+  without comparing it (`LibraryService.cs:146-153`). Downstream pipelines buffer
+  whole documents in RAM (`PdfPigTextExtractor.cs:13-15`, the vision paths) — any
+  member can OOM the worker with a multi-GB blob, killing both queue processors on a
+  repeatable loop. Fix: re-validate `metadata.SizeBytes` at both confirm sites and
+  delete the oversized blob.
+- **A pricing-key miss silently prices AI usage at $0 — which disables the budget
+  guard.** `TryGetValue → return 0m` in six services; `AiBudgetGuard` sums
+  `EstimatedCostUsd`, so a renamed deployment or omitted config section means every
+  record is $0, `IsExceeded` never trips, and the dashboard shows healthy. One
+  options file even documents the failure mode. Fix: warn once per unknown model,
+  alert on Succeeded-with-tokens-but-zero-cost, consider a conservative fallback
+  price. Folds into scrub **1.4**'s usage recorder.
+- **Ask contaminates the other world's saved history on mid-flight world switch.**
+  `Ask.razor:292-313` re-reads `_current` after the await; `OnWorldChanged` has
+  replaced it, so world A's Q&A is appended to world B's conversation and persisted
+  under B's storage key (NRE variant when B has no conversations).
+  `LoremasterPanel.razor:183-204` has the same bleed. Fix: capture conversation
+  reference and storage key before the await; discard the response if
+  `Worlds.Current?.Id` changed.
+
+## D2 — deterministic functional bugs
+
+- **Clearing a source's body or URI silently reverts under a success toast.**
+  `UpdateSourceRequest` is partial-update with `ClearOccurredAt`/`ClearCampaign` but
+  no `ClearBody`/`ClearUri`; an emptied editor maps to null = "unchanged"
+  (`SourceDetail.razor:1015-1072`). The server keeps the old body, the UI says
+  "Source updated.", and an intentional body-clear never triggers reprocess. Fix: add
+  the two Clear flags API-side and client-side, mirroring the OccurredAt idiom.
+  **Ordering dependency:** fix `NotesEditor`'s init/empty conflation
+  (`NotesEditor.razor:119-129` — a failed JS init returns null forever) in the same
+  change, or the new flag turns a JS failure into a data-destroying clear.
+- **Second update of the same row in one request throws.** Repositories read
+  `AsNoTracking` and write via `DbSet.Update(entity)`; after SaveChanges the instance
+  stays tracked, so attaching a second instance with the same key throws.
+  Deterministic: a reveal whose `FactIds` and `Corrections` name the same fact →
+  `ApplyUpdateFact` twice → 500 every time (`RevealService.cs:255-284`). Also fails
+  the second of two proposals touching one row in a single `BatchAcceptAsync`. Fix:
+  repositories reuse the tracked instance (`Find` + `CurrentValues.SetValues`) or
+  detach entries after SaveChanges.
+- **Merge leaves the duplicate↔target relationship row live, and the continuity audit
+  re-flags it forever.** `ProposalApplicator.cs:559-579`'s skip branch discards an
+  unpersisted mutation (rows are no-tracking), leaving the DB row pointing at the
+  archived duplicate. Confirmed downstream: the target's detail page lists the
+  archived duplicate as a connection (`ArtifactService.cs:626-646` has no status
+  filter); the continuity audit renders it as "**Unknown artifact**" evidence that
+  survives finding validation — a recurring, score-penalizing DanglingThread after
+  every merge of related artifacts; `SourceReprocessService.cs:320-321` counts it,
+  blocking cleanup. Fix: delete the relationship in the skip branch, inside the merge
+  transaction — and correct the comment, which misdescribes the mechanism.
+- **Dead-lettered extraction wedges the source at Queued forever.** After five
+  redeliveries (~2 minutes of backoff) the message dead-letters; nothing consumes the
+  DLQ, and `ValidTransitions` offers no user-reachable exit from Queued — update,
+  delete, mark-ready, and reprocess all reject it. Same wedge from the
+  crash-between-commit-and-enqueue window. Fix: allow Queued→Ready retry after a
+  staleness threshold, or sweep batch-less Queued sources.
+- **Two Active replays per world.** Check-then-create with a non-unique index
+  (`ExtractionReplayConfiguration.cs:32`) — while `ImportSessionConfiguration.cs:28-31`
+  enforces exactly this invariant correctly two files away. Double-click → two Active
+  rows, arbitrary advance/cancel targeting, both requeue sources. Fix: filtered
+  unique index `(WorldId) WHERE Status='Active'` (additive), map the violation to the
+  existing 409.
+- **The stale-response family.** One shape, several sites: a load captures an
+  identity, awaits, then applies the result without re-checking. `WorldState.
+  LoadContinuityCoreAsync` (:224-240) lets the previous world's score clobber the
+  current one's; `SourceDetail`/`ArtifactDetail`/`PublicWorldArtifactDetail` paint the
+  loser of overlapping detail loads (SourceDetail's comment claims discard checks that
+  don't exist); the Sources poll and CostsPanel range switches race the same way.
+  `NavMenu.RefreshActivityAsync:404-415` and `Home.RunAssessment:450` already
+  implement the guard — apply that three-line pattern at each site. Absorbs scrub
+  1.10's LibraryDocumentDetail reload item.
+- **Extraction can persist proposals that can never be accepted.** `EnforceVisibility`
+  truncates payloads at 50,000 chars (guaranteeing invalid JSON when it fires) while
+  the validator caps at 32,768 — and extraction never runs the validator at all. A
+  payload between the caps is Pending forever; every accept fails `payload_too_large`.
+  Fix: one shared cap constant; run `IProposalValidator` at extraction time, treating
+  failures as parse-retryable.
+- **Skipping an in-flight import note starts a concurrent extraction.**
+  `ImportSessionService.AdvanceAsync` (:462-468) never checks the current item's
+  state before dispatching the next — defeating the serialization this feature exists
+  to provide. Fix: refuse skip while Extracting, mirroring `item_not_ready`.
+- **Ink autosave re-entrancy creates duplicate Draft sources.** `SaveInkAsync` sets no
+  flag; two debounced callbacks interleave during a slow first save while `_sourceId`
+  is still null → two Drafts, one orphaned (`InkCapture.razor:113-195`). Fix: a
+  `_saving` flag with a trailing-dirty bit.
+- **Extraction never validates `source.WorldId == worldId`.** A mis-enqueued pair
+  extracts normally but checks and bills the *wrong world's* budget silently. Fix:
+  assert world consistency at pipeline entry (and standardize worldId-first parameter
+  order — both orders currently exist across sibling interfaces).
+- **A dead queue processor looks healthy forever.** `StartProcessingAsync` is called
+  once with no retry (`ExtractionWorker.cs:38`), exceptions are ignored by design, and
+  the worker exposes no health surface — a Service Bus blip at boot silently halts
+  extraction until the next deploy. Fix: retry with backoff; surface processor
+  liveness or fail fast.
+- **Wrap-up reports total failure after partial success.** Closures commit in their
+  own transaction; a later step's failure returns an error, the GM retries, and a
+  duplicate wrap-up source/batch is minted for an already-closed storyline
+  (`StorylineWrapUpService.cs:239-297`). Fix: pre-validate all decisions before the
+  closure transaction, or return per-step results (the `BatchOperationResult` shape
+  exists).
+
+## D3 — error handling and observability
+
+- **ReviewService has no logger, and its blanket catches swallow everything.**
+  :328-333 and :738-742 convert bugs, constraint violations, and concurrency
+  conflicts alike into an unlogged generic 500 — the loser of a duplicate-accept race
+  gets "transaction_failed" instead of the idempotent result the code promises
+  sequential retries. A swallowed conflict also leaves the scoped DbContext poisoned
+  (stale Modified entity fails later SaveChanges in the same request — see
+  `ExtractionReplayService.cs:139-149`). Fix: inject a logger; catch
+  `DbUpdateConcurrencyException` specifically (re-read, return idempotent/409);
+  `ChangeTracker.Clear()` after swallowed conflicts; let true bugs propagate.
+- **LoremasterService's belt-over-suspenders catch hides bugs and mangles
+  cancellation** (:174-178, no logger; a user-cancelled request becomes a 500). Fix:
+  narrow it, rethrow when `ct.IsCancellationRequested`, log the rest. Its type-name
+  exception sniffing (`IsRateLimitByTypeName`) is scrub **1.5** — confirmed against
+  the codebase's own documented string-matching incident.
+- **`ReferencePassageRetriever` catch-all swallows cancellation** (:92-97) — shutdown
+  reads as "no passages" and extraction continues on a cancelled token. Fix: OCE
+  filter-rethrow above the catch-all.
+- **Blob container init does sync network I/O in the constructor and bypasses
+  exception translation** (`AzureBlobStorageService.cs:33-34`) — a transient storage
+  503 at first use surfaces as raw `RequestFailedException`, which the classifier
+  can't type-match, wrongly marking documents IndexFailed. Fix: async lazy init
+  inside the first operation, wrapped in the same translation as `OpenReadAsync`.
+- **Paid tokens from failed attempts go unmetered.** Embedding retries re-pay
+  unrecorded batches; parse-failure responses record zero tokens. The guard
+  undercounts exactly when spend is roughest. Fix: attach usage to parse exceptions;
+  record per attempt.
+- **Demo-world name generation is the only unmetered AI call** (no guard, no usage
+  record — bounded only by the demo rate limit). Fix: write the usage record even if
+  the guard stays off by design.
+- **A failed heuristic read silently becomes continuity score 0**
+  (`ContinuityAuditService.cs:130-132, :237-238`) — indistinguishable from "the
+  record is terrible". Fix: fail the run or mark the input degraded.
+
+## D4 — hardening and design debt
+
+- **Embeddings are the one AI path with no application timeout**
+  (`AzureOpenAiEmbeddingClient.cs:18-23`; SDK default ≈ 7 min worst case per batch,
+  inside user-facing Ask and against the worker's lock ceiling). Fix: the linked
+  timeout-CTS pattern all nine chat clients already use.
+- **Azure SDK internal retries stack beneath the designed backoff ladder** (default 3
+  per delivery × 5 deliveries — the near-instant re-request behavior
+  `RedeliveryBackoff` was written to eliminate, happening below its sight line). Fix:
+  set `MaxRetries` explicitly (0-1); classification + backoff own retry policy.
+- **The AI budget is check-then-act** — N concurrent runs at budget-ε each buy a full
+  call. Overshoot is bounded by worker concurrency; either accept as a documented
+  soft cap or insert a provisional usage row inside the check.
+- **Zero means opposite things in the two budget caps**: world daily budget `<= 0` →
+  guard *off*; public Ask monthly `<= 0` → feature *blocked* — same class. Fix: null
+  inherits, 0 blocks, both.
+- **The validator accepts what the applicator silently reinterprets**: a GM typo like
+  truthState `"Flase"` is coerced to Likely with no error; unparseable Status is
+  dropped. Fix with scrub **1.7**: reject unknown enum strings at the validator.
+- **ExtractionService is a four-pipeline god class** (1,696 lines, 21 constructor
+  dependencies) whose size is already warping API decisions — the nullable-dependency
+  hack exists, per its own comment, because the constructions were too numerous to
+  update. Fix: extract a MapExtractionPipeline and SourceTextDerivation
+  (transcription + attachment derivation) as owned collaborators plus the shared
+  usage recorder from scrub **1.4**; keep the orchestrating state machine.
+- **The Web re-implements the continuity scoring it renders**
+  (`WorldMemory.razor:226-246` mirrors the penalty table, cap, and suspension rule;
+  no compiler or test spans the deploy boundary). Fix: the assessment DTO carries the
+  breakdown; the razor renders received numbers only.
+- **Nullable "optional" DI dependencies turn misregistration into silent feature
+  loss** (`ExtractionService.cs:42-49`, `ReviewService.cs:33-35` — replays silently
+  stall, grounding silently vanishes). Fix: required parameters with no-op
+  implementations (`NoOpWorldNameGenerator` is the house pattern). Same item as
+  scrub tier 1's finding; priority raised.
+- **`AppError` speaks HTTP inside Application** (~340 sites choose literal status
+  codes). Mitigations are real: the 404-anti-existence-oracle policy is consistently
+  applied, and the Worker already uses the correct non-HTTP idiom
+  (`ExtractionOutcome`). Fix if desired: a semantic error-kind enum mapped once in
+  Api — mechanical and wire-compatible; do it with scrub **1.1** or not at all.
+- **The prompt seam has two owners**: five clients receive Application-built prompt
+  strings; extraction's system prompt — the product's most consequential business
+  text — lives in the vendor adapter. Converge on the string seam (an
+  Application-side extraction prompt builder; the client keeps transport, timeout,
+  parse). Extends scrub **1.5**.
+- **The review-provenance invariant is hand-assembled in eight services**, and one
+  divergence already exists: `ArtifactMergeService` creates batches with `Kind =
+  null` — the value reserved for normal source extraction (currently masked because
+  merge batches are born Completed). Fix: `proposal.Accept(userId, now)` on the
+  entity, one shared synthetic-batch writer, and a named merge Kind.
+- **Smaller items**: Ask history grows localStorage without bound and fails silently
+  at quota (cap + one-time snackbar); accepting an invite doesn't persist the world
+  selection, so the next full load restores the old world; abandoned PendingUpload
+  rows and their blobs are never swept; the indexing pipeline holds an entire
+  document's PDF + text + chunks + embeddings in RAM at once (incremental chunk
+  writes, or lower the indexable cap); `WorldState.EnsureLoadedAsync` caches a failed
+  first load if a future caller passes a CancellationToken — a loaded gun, note only.
+
+## What the scan verified as sound
+
+Recorded so nobody re-litigates it: accept/merge/reveal/reprocess are genuinely
+atomic (EfUnitOfWork is real — one scoped DbContext, so per-repository SaveChanges
+enlists); RowVersion properly fences duplicate accepts, replay claims, and invite
+redemption; worker PeekLock completion ordering is correct and
+commit-Queued-before-enqueue holds on every enqueue path; world deletion is atomic
+with deliberate best-effort blob cleanup; the budget guard covers every AI path except
+demo naming; vector search is exact KNN in SQL, not client-side cosine; Service Bus
+sender/processor lifetimes are right; all nine chat clients link their timeout CTS to
+the caller token correctly; Web DI lifetimes, event subscribe/unsubscribe pairing
+(25+ components), all five poll loops, the auth-expiry stand-down, and JS-side
+teardown are uniformly clean; pagination, cost math, week boundaries, the continuity
+score blend, and the import walk's optimistic concurrency all check out. The
+`.csproj` dependency graph is textbook; `ProposalApplicator`'s size is judged
+inherent, not negligent; `TransientFailureClassifier` is the standard the rest of the
+error handling should be held to.
