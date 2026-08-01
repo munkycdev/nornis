@@ -468,13 +468,14 @@ public class ProposalApplicatorTests
         Assert.That(updatedRel.ArtifactAId, Is.EqualTo(targetArtifact.Id));
         Assert.That(updatedRel.ArtifactBId, Is.EqualTo(thirdArtifact.Id));
 
-        // The would-be self-referencing relationship is decided BEFORE any mutation and
-        // left behind untouched — orphaned with the archived source. Mutating it first
-        // and skipping the save was the old bug: a tracked entity would still flush.
-        var selfRef = _relationshipRepo.Relationships.Single(r => r.Id == selfRefRelationship.Id);
-        Assert.That(selfRef.ArtifactAId, Is.EqualTo(sourceArtifact.Id),
-            "A would-be self-referencing relationship must not be mutated at all");
-        Assert.That(selfRef.ArtifactBId, Is.EqualTo(targetArtifact.Id));
+        // The would-be self-referencing relationship is deleted, which is what Requirement
+        // 9.5 has always said ("removing any that would become self-referencing"). This
+        // assertion previously demanded the opposite — that the row survive untouched —
+        // which described the code rather than the requirement. Leaving it alive pointed a
+        // live row at an archived artifact: the target's detail page listed the duplicate
+        // as a connection, and every continuity audit re-raised it as unreachable evidence.
+        Assert.That(_relationshipRepo.Relationships.Any(r => r.Id == selfRefRelationship.Id), Is.False,
+            "A relationship that would connect the merge target to itself must be removed, not orphaned");
 
         // Source artifact archived
         var archivedSource = _artifactRepo.Artifacts.Single(a => a.Id == sourceArtifact.Id);
