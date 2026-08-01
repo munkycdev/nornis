@@ -60,13 +60,26 @@ Ground rules:
   from `history.json` (per-assembly lines over time), CRAP hotspot table (phase 3),
   authorization-suite count (phase 5), and the live system-status page ("System
   status" plan below).
-- **Exposure decision, made here:** the full ReportGenerator HTML report embeds
-  annotated source. The public dashboard gets aggregates, trends, and method names
-  only; the full report attaches to the workflow run as a build artifact, not the
-  site. (Chronicis publishes its full report; Nornis's source stays private.)
-- Hosting: GitHub Pages if the repo's plan allows it; otherwise the `$web` static
-  container on the existing Azure storage account — same artifacts, different upload
-  step.
+- **Exposure decision, revised 2026-08-01:** this originally read "the full report
+  attaches to the workflow run as a build artifact, not the site — Nornis's source
+  stays private." That premise was false: the repo is **public**, so the annotated
+  source in the full ReportGenerator HTML exposes nothing GitHub does not already
+  serve. The decision stands, but on the honest reason — a dashboard people read at a
+  glance should be aggregates, trends and method names, not a source dump. Publishing
+  the full report is now a free choice, not a risk. Do not inherit the old sentence as
+  a security constraint.
+- **Hosting decision, made 2026-08-01: GitHub Pages, not `$web`.** Not a preference —
+  a failure-domain requirement, and it is the status page (below) that forces it.
+  `$web` sits on the same Azure storage account the application uses, so a storage or
+  regional outage takes down the app *and* the page whose only job is to say the app
+  is down. Pages fails independently. The repo is public, so Pages is available on the
+  free plan; the "if the repo's plan allows it" caveat is resolved.
+  - The API's `Status:DashboardOrigins` setting exists for this: set it to the Pages
+    origin so the page can fetch `/status` cross-origin. Nothing else on the API is.
+  - A `status.nornis.app` CNAME to Pages is safe *because* `nornis.app` DNS is at the
+    registrar (Namecheap), not Azure. Were DNS ever moved into Azure, the custom
+    domain would quietly re-couple the two and the raw `*.github.io` URL would become
+    the correct address.
 
 ## Phase 3 — CRAP-score hotspots
 
