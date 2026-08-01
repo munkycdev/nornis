@@ -76,6 +76,11 @@ jobs:
               assemblies: [.coverage.assemblies[] | {name: .name, line: .coverage, branch: .branchcoverage}]
             }' artifacts/coverage/report/Summary.json)
 
+          # commit-tree writes a commit object directly, so it needs an identity just as
+          # `git commit` would — the runner has none by default.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           if git fetch origin coverage-history 2>/dev/null; then
             git show FETCH_HEAD:history.json > old.json
             parent="-p FETCH_HEAD"
