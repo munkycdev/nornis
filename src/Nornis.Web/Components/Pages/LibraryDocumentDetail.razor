@@ -35,13 +35,13 @@
                 <div class="flex-grow-1">
                     <MudText Typo="Typo.h5" Class="nornis-serif">@_document.Title</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @_document.Kind · @_document.FileName · @FormatSize(_document.SizeBytes)
+                        @_document.Kind · @_document.FileName · @DisplayText.FormatSize(_document.SizeBytes)
                         @(_document.PageCount is { } p ? $" · {p} pages" : "")
                     </MudText>
                 </div>
                 <LibraryVisibilityChip Document="_document" OnChanged="LoadAsync" />
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_document.Status)">
-                    @(_document.Status == "Indexed" ? $"Indexed · {_document.ChunkCount} passages" : _document.Status)
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@LibraryDisplay.StatusColor(_document.Status)">
+                    @LibraryDisplay.StatusLabel(_document.Status, _document.ChunkCount)
                 </MudChip>
             </div>
 
@@ -175,21 +175,6 @@
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
     }
-
-    private static Color StatusColor(string status) => status switch
-    {
-        "Indexed" => Color.Success,
-        "Indexing" => Color.Info,
-        "IndexFailed" => Color.Error,
-        _ => Color.Default,
-    };
-
-    private static string FormatSize(long bytes) => bytes switch
-    {
-        >= 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} MB",
-        >= 1024 => $"{bytes / 1024.0:0.#} KB",
-        _ => $"{bytes} B",
-    };
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

@@ -44,7 +44,7 @@
                 <MudText Typo="Typo.h4" Class="nornis-serif">@_source.Title</MudText>
                 <div class="nornis-detail-chips">
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@SourceTypeDisplay.Label(_source.Type)</MudChip>
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_source.ProcessingStatus)">@_source.ProcessingStatus</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SourceStatusDisplay.StatusColor(_source.ProcessingStatus)">@_source.ProcessingStatus</MudChip>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@_source.Visibility</MudChip>
                     @if (!_source.ExtractionEnabled)
                     {
@@ -140,7 +140,7 @@
                     <MudSelect @bind-Value="_editVisibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1"
                                Disabled="IsProcessed"
                                HelperText="@(IsProcessed ? "Locked after processing — derived knowledge keeps its scope." : null)">
-                        @foreach (var vis in _visibilities)
+                        @foreach (var vis in VisibilityDisplay.Scopes)
                         {
                             <MudSelectItem Value="@vis">@vis</MudSelectItem>
                         }
@@ -411,7 +411,7 @@
                             <MudListItem T="string" Href="@doc.Url" Target="_blank"
                                          Icon="@FileIcon(doc.ContentType)">
                                 @doc.FileName
-                                <span class="nornis-list-meta ml-2">@FormatSize(doc.SizeBytes)</span>
+                                <span class="nornis-list-meta ml-2">@DisplayText.FormatSize(doc.SizeBytes)</span>
                             </MudListItem>
                         }
                     </MudList>
@@ -459,7 +459,6 @@
             ? SourceTypeDisplay.CaptureOptions.Prepend((_source.Type, SourceTypeDisplay.Label(_source.Type)))
             : SourceTypeDisplay.CaptureOptions;
 
-    private readonly string[] _visibilities = ["PartyVisible", "GMOnly", "Private"];
 
     private bool _editing;
     private bool _saving;
@@ -1366,15 +1365,6 @@
         }
     }
 
-    private static Color StatusColor(string status) => status switch
-    {
-        "Processed" => Color.Success,
-        "Processing" or "Queued" => Color.Info,
-        "Failed" => Color.Error,
-        "Ready" => Color.Warning,
-        _ => Color.Default,
-    };
-
     private static string FileIcon(string contentType) =>
         contentType switch
         {
@@ -1383,13 +1373,6 @@
             _ when contentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase) => Icons.Material.Outlined.Description,
             _ => Icons.Material.Outlined.InsertDriveFile,
         };
-
-    private static string FormatSize(long bytes) => bytes switch
-    {
-        >= 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} MB",
-        >= 1024 => $"{bytes / 1024.0:0.#} KB",
-        _ => $"{bytes} B",
-    };
 
     public void Dispose()
     {

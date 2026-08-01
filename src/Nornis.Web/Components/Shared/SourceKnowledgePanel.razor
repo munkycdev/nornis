@@ -101,7 +101,7 @@
                     <div class="nornis-list-body">
                         <div class="nornis-list-title">
                             <a href="@($"{ArtifactLinkBase}/{rel.ArtifactAId}")" class="nornis-link">@rel.ArtifactAName</a>
-                            <span class="nornis-list-meta">@Humanize(rel.Type)</span>
+                            <span class="nornis-list-meta">@DisplayText.Humanize(rel.Type)</span>
                             <a href="@($"{ArtifactLinkBase}/{rel.ArtifactBId}")" class="nornis-link">@rel.ArtifactBName</a>
                         </div>
                         @if (!string.IsNullOrWhiteSpace(rel.Quote))
@@ -155,7 +155,4 @@
         _removingFactId = null;
         _removalNote = string.Empty;
     }
-
-    private static string Humanize(string pascal) =>
-        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 }

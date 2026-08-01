@@ -1,4 +1,4 @@
-﻿@page "/artifacts/{ArtifactId:guid}"
+@page "/artifacts/{ArtifactId:guid}"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -59,7 +59,7 @@
                         <MudMenu Dense="true">
                             <ActivatorContent>
                                 <MudTooltip Text="Change status">
-                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_detail.Status)"
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ArtifactTypeDisplay.StatusColor(_detail.Status)"
                                              Icon="@Icons.Material.Filled.ArrowDropDown">@_detail.Status</MudChip>
                                 </MudTooltip>
                             </ActivatorContent>
@@ -73,7 +73,7 @@
                     }
                     else
                     {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(_detail.Status)">@_detail.Status</MudChip>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ArtifactTypeDisplay.StatusColor(_detail.Status)">@_detail.Status</MudChip>
                     }
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@_detail.Visibility</MudChip>
                     @if (_detail.PlayedBy is { Count: > 0 } players)
@@ -104,7 +104,7 @@
                         <div class="nornis-list-body">
                             <div class="nornis-list-title">
                                 <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@FindingSeverityColor(finding.Severity)">@finding.Severity</MudChip>
-                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@Humanize(finding.Category)</MudChip>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@DisplayText.Humanize(finding.Category)</MudChip>
                             </div>
                             <div class="nornis-list-sub mt-1">@finding.Summary</div>
                             @if (!string.IsNullOrWhiteSpace(finding.SuggestedAction))
@@ -850,14 +850,6 @@
         return _detail?.ConnectedArtifacts.FirstOrDefault(c => c.Id == otherId);
     }
 
-    private static Color StatusColor(string status) => status switch
-    {
-        "Active" => Color.Success,
-        "Dormant" => Color.Warning,
-        "Resolved" => Color.Info,
-        _ => Color.Default,
-    };
-
     // Convention over schema: unresolved tensions live as facts with the exact predicate
     // "open question" (extraction emits them; answering one flips its truth state to False).
     private const string OpenQuestionPredicate = "open question";
@@ -911,9 +903,6 @@
         "Medium" => Color.Warning,
         _ => Color.Default,
     };
-
-    private static string Humanize(string pascal) =>
-        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 
     private static Color TruthColor(string truth) => truth switch
     {

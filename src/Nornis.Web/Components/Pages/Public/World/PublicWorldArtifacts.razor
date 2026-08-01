@@ -87,7 +87,7 @@
                                     var statusKey = $"{typeKey}/{statusGroup.Key}";
                                     <div class="nornis-tree-subheader" @onclick="() => Toggle(statusKey)">
                                         <MudIcon Icon="@(IsCollapsed(statusKey) ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ExpandMore)" Size="Size.Small" />
-                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@StatusColor(statusGroup.Key)">@statusGroup.Key</MudChip>
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@ArtifactTypeDisplay.StatusColor(statusGroup.Key)">@statusGroup.Key</MudChip>
                                         <span class="nornis-list-meta">@statusGroup.Count()</span>
                                     </div>
                                     @if (!IsCollapsed(statusKey))
@@ -123,8 +123,8 @@
                             }
                             <div class="nornis-artifact-card-foot">
                                 <MudChip T="string" Size="Size.Small" Variant="Variant.Text">@a.Type</MudChip>
-                                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(a.Status)">@a.Status</MudChip>
-                                <span class="nornis-list-meta ml-auto">advanced @Ago(a.UpdatedAt)</span>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ArtifactTypeDisplay.StatusColor(a.Status)">@a.Status</MudChip>
+                                <span class="nornis-list-meta ml-auto">advanced @RelativeTime.Ago(a.UpdatedAt)</span>
                             </div>
                         </a>
                     }
@@ -162,15 +162,6 @@
                     : filtered.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase))
                 .ToList();
         }
-    }
-
-    private static string Ago(DateTimeOffset t)
-    {
-        var d = DateTimeOffset.UtcNow - t.ToUniversalTime();
-        if (d.TotalMinutes < 60) return $"{Math.Max(1, (int)d.TotalMinutes)}m ago";
-        if (d.TotalHours < 24) return $"{(int)d.TotalHours}h ago";
-        if (d.TotalDays < 2) return "Yesterday";
-        return $"{(int)d.TotalDays}d ago";
     }
 
     // ---------------------------------------------------------------- Graph view --
@@ -232,14 +223,6 @@
         "Resolved" => 2,
         "Archived" => 3,
         _ => 4,
-    };
-
-    private static Color StatusColor(string status) => status switch
-    {
-        "Active" => Color.Success,
-        "Dormant" => Color.Warning,
-        "Resolved" => Color.Info,
-        _ => Color.Default,
     };
 
     protected override async Task OnParametersSetAsync()

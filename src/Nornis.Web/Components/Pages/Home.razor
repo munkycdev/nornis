@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @using System.Text.Json
 @implements IDisposable
 @inject WorldState Worlds
@@ -140,7 +140,7 @@ else
                                     <div class="nornis-list-title">@fact.ArtifactName</div>
                                     <div class="nornis-list-sub">@fact.Label@(fact.Detail is null ? "" : $": {fact.Detail}")</div>
                                 </div>
-                                <span class="nornis-list-meta">@Ago(fact.UpdatedAt)</span>
+                                <span class="nornis-list-meta">@RelativeTime.Ago(fact.UpdatedAt)</span>
                             </a>
                         }
                     </MudPaper>
@@ -162,7 +162,7 @@ else
                                     <div class="nornis-list-title">
                                         <ArtifactTip Name="@item.Name" Summary="@item.Summary" />
                                     </div>
-                                    <div class="nornis-list-sub">@item.Type · updated @Ago(item.UpdatedAt)</div>
+                                    <div class="nornis-list-sub">@item.Type · updated @RelativeTime.Ago(item.UpdatedAt)</div>
                                 </div>
                                 <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Color="Color.Tertiary" />
                             </a>
@@ -193,11 +193,11 @@ else
                         <div class="nornis-ai-summary">
                             <div class="nornis-ring">
                                 <MudProgressCircular Value="@a.EffectiveScore" Min="0" Max="100"
-                                                     Color="@HealthColor(a.EffectiveScore)" Size="Size.Medium" StrokeWidth="4" />
+                                                     Color="@DisplayText.HealthColor(a.EffectiveScore)" Size="Size.Medium" StrokeWidth="4" />
                                 <span class="nornis-ring-value">@a.EffectiveScore</span>
                             </div>
                             <div class="nornis-ai-meta">
-                                <div class="nornis-ai-asof">as of @Ago(a.CreatedAt!.Value)</div>
+                                <div class="nornis-ai-asof">as of @RelativeTime.Ago(a.CreatedAt!.Value)</div>
                                 <div class="nornis-ai-sub">Heuristic @a.HeuristicScore · @OpenFindingCount(a) open finding@(OpenFindingCount(a) == 1 ? "" : "s")</div>
                             </div>
                         </div>
@@ -275,7 +275,7 @@ else
                             <div class="nornis-list-title">@rel.ArtifactName</div>
                             <div class="nornis-list-sub">@rel.Label @rel.OtherArtifactName</div>
                         </div>
-                        <span class="nornis-list-meta">@Ago(rel.UpdatedAt)</span>
+                        <span class="nornis-list-meta">@RelativeTime.Ago(rel.UpdatedAt)</span>
                     </a>
                 }
             </MudPaper>
@@ -464,13 +464,6 @@ else
     private static int OpenFindingCount(ContinuityAssessment a) =>
         a.Findings.Count(f => f.Status == "Open");
 
-    private static Color HealthColor(int score) => score switch
-    {
-        >= 70 => Color.Success,
-        >= 50 => Color.Warning,
-        _ => Color.Error,
-    };
-
     private static string ProposalName(ReviewProposal p)
     {
         try
@@ -485,7 +478,7 @@ else
         {
             // Fall through to a humanized change type.
         }
-        return Humanize(p.ChangeType);
+        return DisplayText.Humanize(p.ChangeType);
     }
 
     private static bool IsConflict(ReviewProposal p) =>
@@ -497,18 +490,6 @@ else
     // The dot's colour can't be the only signal — name the state for screen readers and on hover.
     private static string DotLabel(ReviewProposal p) =>
         IsConflict(p) ? "Conflict" : "Awaiting review";
-
-    private static string Ago(DateTimeOffset t)
-    {
-        var d = DateTimeOffset.UtcNow - t.ToUniversalTime();
-        if (d.TotalMinutes < 60) return $"{Math.Max(1, (int)d.TotalMinutes)}m ago";
-        if (d.TotalHours < 24) return $"{(int)d.TotalHours}h ago";
-        if (d.TotalDays < 2) return "Yesterday";
-        return $"{(int)d.TotalDays}d ago";
-    }
-
-    private static string Humanize(string pascal) =>
-        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

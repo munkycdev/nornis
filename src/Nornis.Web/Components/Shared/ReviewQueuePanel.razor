@@ -78,7 +78,7 @@ else
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                 <div class="nornis-proposal-head">
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ChangeColor(p.ChangeType)">
-                        @Humanize(p.ChangeType)
+                        @DisplayText.Humanize(p.ChangeType)
                     </MudChip>
                     @if (TargetLabel(p) is { } target)
                     {
@@ -494,7 +494,7 @@ else
                         JsonValueKind.String => prop.Value.GetString() ?? "",
                         _ => prop.Value.ToString(),
                     };
-                    list.Add((Humanize(prop.Name), value));
+                    list.Add((DisplayText.Humanize(prop.Name), value));
                 }
             }
         }
@@ -521,9 +521,6 @@ else
         changeType.StartsWith("Merge") ? Color.Warning :
         changeType == "AddPlacemark" ? Color.Tertiary :
         Color.Default;
-
-    private static string Humanize(string pascal) =>
-        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 
     /// <summary>How many proposals are currently on screen — the host's count badge.</summary>
     public int Count => _proposals.Count;

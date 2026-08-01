@@ -1,4 +1,4 @@
-﻿@page "/timeline"
+@page "/timeline"
 @page "/storylines"
 @using Microsoft.AspNetCore.WebUtilities
 @implements IDisposable
@@ -148,12 +148,12 @@ else
                         <p class="nornis-artifact-card-summary">@s.Summary</p>
                     }
                     <div class="nornis-artifact-card-foot">
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(s.Status)">@s.Status</MudChip>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ArtifactTypeDisplay.StatusColor(s.Status)">@s.Status</MudChip>
                         @if (s.Visibility == "GMOnly")
                         {
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">GM only</MudChip>
                         }
-                        <span class="nornis-list-meta ml-auto">advanced @Ago(s.UpdatedAt)</span>
+                        <span class="nornis-list-meta ml-auto">advanced @RelativeTime.Ago(s.UpdatedAt)</span>
                     </div>
                 </a>
             }
@@ -466,23 +466,6 @@ else
         {
             await LoadJourneyAsync();
         }
-    }
-
-    private static Color StatusColor(string status) => status switch
-    {
-        "Active" => Color.Success,
-        "Dormant" => Color.Warning,
-        "Resolved" => Color.Info,
-        _ => Color.Default,
-    };
-
-    private static string Ago(DateTimeOffset t)
-    {
-        var d = DateTimeOffset.UtcNow - t.ToUniversalTime();
-        if (d.TotalMinutes < 60) return $"{Math.Max(1, (int)d.TotalMinutes)}m ago";
-        if (d.TotalHours < 24) return $"{(int)d.TotalHours}h ago";
-        if (d.TotalDays < 2) return "Yesterday";
-        return $"{(int)d.TotalDays}d ago";
     }
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;

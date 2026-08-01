@@ -1,4 +1,4 @@
-﻿@page "/capture"
+@page "/capture"
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject NavigationManager Nav
@@ -38,7 +38,7 @@ else
                         }
                     </MudSelect>
                     <MudSelect @bind-Value="_visibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1">
-                        @foreach (var vis in _visibilities)
+                        @foreach (var vis in VisibilityDisplay.Scopes)
                         {
                             <MudSelectItem Value="@vis">@vis</MudSelectItem>
                         }
@@ -78,7 +78,7 @@ else
                                    loop finishes, so referencing i directly is off-by-N. *@
                                 var fileNumber = i + 1;
                                 var page = _pageFiles[i];
-                                <MudText Typo="Typo.body2">@($"File {fileNumber}: {page.Name} ({FormatSize(page.Size)})")</MudText>
+                                <MudText Typo="Typo.body2">@($"File {fileNumber}: {page.Name} ({DisplayText.FormatSize(page.Size)})")</MudText>
                             }
                         </div>
                     }
@@ -164,7 +164,6 @@ else
 
 @code {
 
-    private readonly string[] _visibilities = ["PartyVisible", "GMOnly", "Private"];
 
     // Set from the dashboard capture tiles, e.g. /capture?type=WebLink.
     [Parameter, SupplyParameterFromQuery]
@@ -370,11 +369,4 @@ else
             : "Source stored in the record — no extraction.", Severity.Success);
         Nav.NavigateTo("/sources");
     }
-
-    private static string FormatSize(long bytes) => bytes switch
-    {
-        >= 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} MB",
-        >= 1024 => $"{bytes / 1024.0:0.#} KB",
-        _ => $"{bytes} B",
-    };
 }

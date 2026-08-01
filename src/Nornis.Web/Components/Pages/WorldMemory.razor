@@ -64,7 +64,7 @@
             <div class="d-flex align-center gap-4 flex-wrap">
                 <div class="nornis-ring">
                     <MudProgressCircular Value="@assessment.EffectiveScore" Min="0" Max="100"
-                                         Color="@HealthColor(assessment.EffectiveScore)" Size="Size.Large" StrokeWidth="4" />
+                                         Color="@DisplayText.HealthColor(assessment.EffectiveScore)" Size="Size.Large" StrokeWidth="4" />
                     <span class="nornis-ring-value">@assessment.EffectiveScore</span>
                 </div>
                 <div class="flex-grow-1">
@@ -74,7 +74,7 @@
                         = effective <b>@assessment.EffectiveScore</b>
                     </MudText>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        AI audit ran @Ago(assessment.CreatedAt!.Value) with @assessment.Model ·
+                        AI audit ran @RelativeTime.Ago(assessment.CreatedAt!.Value) with @assessment.Model ·
                         the heuristic is recomputed live, so the effective score stays current between audits
                     </MudText>
                 </div>
@@ -142,7 +142,7 @@
                         <div class="nornis-list-body">
                             <div class="nornis-list-title">
                                 <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SeverityColor(finding.Severity)">@finding.Severity</MudChip>
-                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@Humanize(finding.Category)</MudChip>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@DisplayText.Humanize(finding.Category)</MudChip>
                                 @if (finding.IsStale)
                                 {
                                     <MudTooltip Text="Cited evidence was edited or removed after the audit ran — the penalty is suspended until the next run verifies the fix">
@@ -365,13 +365,6 @@
         _ => Icons.Material.Outlined.HelpOutline,
     };
 
-    private static Color HealthColor(int score) => score switch
-    {
-        >= 70 => Color.Success,
-        >= 50 => Color.Warning,
-        _ => Color.Error,
-    };
-
     private static Color SeverityColor(string severity) => severity switch
     {
         "High" => Color.Error,
@@ -385,18 +378,6 @@
         "Medium" => 1,
         _ => 2,
     };
-
-    private static string Humanize(string pascal) =>
-        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
-
-    private static string Ago(DateTimeOffset t)
-    {
-        var d = DateTimeOffset.UtcNow - t.ToUniversalTime();
-        if (d.TotalMinutes < 60) return $"{Math.Max(1, (int)d.TotalMinutes)}m ago";
-        if (d.TotalHours < 24) return $"{(int)d.TotalHours}h ago";
-        if (d.TotalDays < 2) return "yesterday";
-        return $"{(int)d.TotalDays}d ago";
-    }
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

@@ -78,7 +78,7 @@ else
                 @foreach (var o in _byOperation)
                 {
                     <div class="nornis-cost-row">
-                        <span class="nornis-cost-row-name">@Humanize(o.OperationType)</span>
+                        <span class="nornis-cost-row-name">@DisplayText.Humanize(o.OperationType)</span>
                         <span class="nornis-list-meta">@TokenSplit(o.Summary)</span>
                         <span class="nornis-cost-row-amount">@Money(o.Summary.TotalEstimatedCostUsd)</span>
                     </div>
@@ -288,9 +288,6 @@ else
 
     private static string TokenSplit(CostSummary s) =>
         $"{Tokens(s.TotalInputTokens)} in · {Tokens(s.TotalOutputTokens)} out";
-
-    private static string Humanize(string pascal) =>
-        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

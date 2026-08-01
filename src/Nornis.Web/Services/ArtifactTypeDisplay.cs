@@ -19,4 +19,13 @@ public static class ArtifactTypeDisplay
         "Concept" => Icons.Material.Outlined.Lightbulb,
         _ => Icons.Material.Outlined.Description,
     };
+
+    /// <summary>Artifact status chips: Active green, Dormant amber, Resolved blue.</summary>
+    public static Color StatusColor(string status) => status switch
+    {
+        "Active" => Color.Success,
+        "Dormant" => Color.Warning,
+        "Resolved" => Color.Info,
+        _ => Color.Default,
+    };
 }

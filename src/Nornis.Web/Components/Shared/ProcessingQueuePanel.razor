@@ -27,7 +27,7 @@ else
     <div class="d-flex gap-2 align-center mb-3">
         @foreach (var (label, count) in StatusCounts)
         {
-            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@StatusColor(label)">@label: @count</MudChip>
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@SourceStatusDisplay.StatusColor(label)">@label: @count</MudChip>
         }
         <MudSpacer />
         <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
@@ -65,9 +65,9 @@ else
                 <div class="nornis-list-row">
                     <div class="nornis-list-body">
                         <a href="@($"/sources/{s.Id}")" class="nornis-list-title nornis-link">@s.Title</a>
-                        <div class="nornis-list-sub">@s.Type · added @Ago(s.CreatedAt)</div>
+                        <div class="nornis-list-sub">@s.Type · added @RelativeTime.Ago(s.CreatedAt)</div>
                     </div>
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(s.ProcessingStatus)">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SourceStatusDisplay.StatusColor(s.ProcessingStatus)">
                         @s.ProcessingStatus
                     </MudChip>
                     @if (s.ProcessingStatus == "Failed")
@@ -200,25 +200,6 @@ else
             Snackbar.Add($"Could not resubmit: {result.Error!.Message}", Severity.Error);
             StateHasChanged();
         }
-    }
-
-    private static Color StatusColor(string status) => status switch
-    {
-        "Failed" => Color.Error,
-        "Processing" => Color.Info,
-        "Queued" => Color.Warning,
-        "Ready" => Color.Warning,
-        "Processed" => Color.Success,
-        _ => Color.Default,
-    };
-
-    private static string Ago(DateTimeOffset t)
-    {
-        var d = DateTimeOffset.UtcNow - t.ToUniversalTime();
-        if (d.TotalMinutes < 60) return $"{Math.Max(1, (int)d.TotalMinutes)}m ago";
-        if (d.TotalHours < 24) return $"{(int)d.TotalHours}h ago";
-        if (d.TotalDays < 2) return "Yesterday";
-        return $"{(int)d.TotalDays}d ago";
     }
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;

@@ -34,7 +34,7 @@
 
         @if (_fileName is not null)
         {
-            <MudText Typo="Typo.body2" Class="mt-2">@_fileName (@FormatSize(_fileSize))</MudText>
+            <MudText Typo="Typo.body2" Class="mt-2">@_fileName (@DisplayText.FormatSize(_fileSize))</MudText>
         }
 
         @if (_uploading)
@@ -144,11 +144,4 @@
     }
 
     private void Cancel() => MudDialog.Cancel();
-
-    private static string FormatSize(long bytes) => bytes switch
-    {
-        >= 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} MB",
-        >= 1024 => $"{bytes / 1024.0:0.#} KB",
-        _ => $"{bytes} B",
-    };
 }

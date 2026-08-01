@@ -59,12 +59,12 @@ else
                 <div class="nornis-list-body">
                     <a href="@($"/library/{doc.Id}")" class="nornis-list-title nornis-link">@doc.Title</a>
                     <div class="nornis-list-sub">
-                        @doc.Kind · @FormatSize(doc.SizeBytes)@(doc.PageCount is { } p ? $" · {p} pages" : "")
+                        @doc.Kind · @DisplayText.FormatSize(doc.SizeBytes)@(doc.PageCount is { } p ? $" · {p} pages" : "")
                     </div>
                 </div>
                 <LibraryVisibilityChip Document="doc" OnChanged="LoadAsync" />
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusColor(doc.Status)">
-                    @StatusLabel(doc)
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@LibraryDisplay.StatusColor(doc.Status)">
+                    @LibraryDisplay.StatusLabel(doc.Status, doc.ChunkCount)
                 </MudChip>
                 @if (doc.Status == "IndexFailed")
                 {
@@ -200,37 +200,12 @@ else
     private bool CanManage(LibraryDocumentDto doc) =>
         Worlds.EffectiveRole == "GM" || doc.UploadedByUserId == _myUserId;
 
-    private static string StatusLabel(LibraryDocumentDto doc) => doc.Status switch
-    {
-        "Indexed" => $"Indexed · {doc.ChunkCount} passages",
-        "Indexing" => "Indexing…",
-        "IndexFailed" => "Index failed",
-        "Stored" => "Stored",
-        _ => doc.Status,
-    };
-
-    private static Color StatusColor(string status) => status switch
-    {
-        "Indexed" => Color.Success,
-        "Indexing" => Color.Info,
-        "IndexFailed" => Color.Error,
-        _ => Color.Default,
-    };
-
     private static string KindIcon(string kind) => kind switch
     {
         "Sourcebook" => Icons.Material.Outlined.MenuBook,
         "Map" => Icons.Material.Outlined.Map,
         "Handout" => Icons.Material.Outlined.Description,
         _ => Icons.Material.Outlined.InsertDriveFile,
-    };
-
-    private static string FormatSize(long bytes) => bytes switch
-    {
-        >= 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024 * 1024):0.#} GB",
-        >= 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} MB",
-        >= 1024 => $"{bytes / 1024.0:0.#} KB",
-        _ => $"{bytes} B",
     };
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;

@@ -83,7 +83,7 @@
                                             <a href="@($"/w/{Slug}/artifacts/{other.Id}")" class="nornis-link">@other.Name</a>
                                         </ArtifactTip>
                                     </div>
-                                    <div class="nornis-list-sub">@Humanize(rel.Type)@(rel.Description is null ? "" : $" — {rel.Description}")</div>
+                                    <div class="nornis-list-sub">@DisplayText.Humanize(rel.Type)@(rel.Description is null ? "" : $" — {rel.Description}")</div>
                                 </div>
                             </div>
                         }
@@ -166,7 +166,4 @@
         var otherId = rel.ArtifactAId == ArtifactId ? rel.ArtifactBId : rel.ArtifactAId;
         return _detail?.ConnectedArtifacts.FirstOrDefault(c => c.Id == otherId);
     }
-
-    private static string Humanize(string pascal) =>
-        string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 }

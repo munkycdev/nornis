@@ -1,4 +1,4 @@
-﻿@page "/ask"
+@page "/ask"
 @using System.Text
 @using System.Text.Json
 @implements IDisposable
@@ -83,7 +83,7 @@
                         <div class="nornis-answer-head">
                             <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />
                             <span class="nornis-answer-label">Loremaster</span>
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@ConfidenceColor(ex.Confidence)">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@LoremasterDisplay.ConfidenceColor(ex.Confidence)">
                                 @ex.Confidence confidence
                             </MudChip>
                         </div>
@@ -178,8 +178,6 @@
     private Guid _loadedWorldId;
     private bool _initialized;
 
-    private string StorageKey => $"nornis:ask:{Worlds.Current?.Id}";
-
     protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
 
     private void OnWorldChanged() => InvokeAsync(ReloadForWorldAsync);
@@ -227,7 +225,7 @@
     {
         try
         {
-            var json = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", LoremasterDisplay.StorageKey(Worlds.Current?.Id));
             _conversations = string.IsNullOrWhiteSpace(json)
                 ? []
                 : JsonSerializer.Deserialize<List<AskConversation>>(json) ?? [];
@@ -242,7 +240,7 @@
     {
         try
         {
-            await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, JsonSerializer.Serialize(_conversations));
+            await JS.InvokeVoidAsync("localStorage.setItem", LoremasterDisplay.StorageKey(Worlds.Current?.Id), JsonSerializer.Serialize(_conversations));
         }
         catch
         {
@@ -283,7 +281,7 @@
             _conversations.Add(_current);
         }
 
-        var context = BuildContext(_current);
+        var context = LoremasterDisplay.BuildContext(_current);
         _pendingQuestion = question;
         _asking = true;
         _error = null;
@@ -300,7 +298,7 @@
             _current.Exchanges.Add(new AskExchange
             {
                 Question = question,
-                Answer = CleanAnswer(a.Answer),
+                Answer = LoremasterDisplay.CleanAnswer(a.Answer),
                 Confidence = a.Confidence,
                 Citations = a.Citations.Select(c => new AskCitation { DisplayName = c.DisplayName, ArtifactId = c.ArtifactId, DocumentId = c.DocumentId }).ToList(),
                 Caveats = a.Caveats.ToList(),
@@ -360,27 +358,6 @@
         _current = _conversations.FirstOrDefault(c => c.Id == id);
         _error = null;
     }
-
-    private static string? BuildContext(AskConversation c)
-    {
-        if (c.Exchanges.Count == 0)
-        {
-            return null;
-        }
-
-        var sb = new StringBuilder();
-        sb.AppendLine("Earlier in this conversation (most recent last):");
-        foreach (var ex in c.Exchanges.TakeLast(5))
-        {
-            sb.AppendLine($"Q: {ex.Question}");
-            sb.AppendLine($"A: {ex.Answer}");
-        }
-        return sb.ToString();
-    }
-
-    private static string CleanAnswer(string text) => Nornis.Web.Services.LoremasterDisplay.CleanAnswer(text);
-
-    private static Color ConfidenceColor(string confidence) => Nornis.Web.Services.LoremasterDisplay.ConfidenceColor(confidence);
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }
