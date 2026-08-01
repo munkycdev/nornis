@@ -54,6 +54,11 @@ ScaffoldingReadMe.txt
 # Obsidian vault config (per-user workspace state, not shared)
 .obsidian/
 
+# Personal working material that lives in this tree but is not part of Nornis. This repo
+# is public; anything dropped in docs/ is published by default, so unrelated folders are
+# excluded explicitly rather than left to whoever runs `git add` next.
+docs/leadership-operating-system-main/
+
 # OS files
 Thumbs.db
 ehthumbs.db
