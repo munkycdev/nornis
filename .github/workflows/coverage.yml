@@ -54,7 +54,7 @@ jobs:
       # not because the source is secret (the repo is public) but because a dashboard read
       # at a glance should not be a source dump.
       - name: Attach the full report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: artifacts/coverage/report
