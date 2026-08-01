@@ -31,30 +31,6 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
         return Task.FromResult(any);
     }
 
-    public Task<IReadOnlyList<AiUsageRecord>> QueryAsync(
-        Guid? worldId = null,
-        Guid? userId = null,
-        DateTimeOffset? fromDate = null,
-        DateTimeOffset? toDate = null,
-        AiOperationType? operationType = null,
-        CancellationToken cancellationToken = default)
-    {
-        var query = _records.AsEnumerable();
-
-        if (worldId.HasValue)
-            query = query.Where(r => r.WorldId == worldId.Value);
-        if (userId.HasValue)
-            query = query.Where(r => r.UserId == userId.Value);
-        if (fromDate.HasValue)
-            query = query.Where(r => r.CreatedAt >= fromDate.Value);
-        if (toDate.HasValue)
-            query = query.Where(r => r.CreatedAt <= toDate.Value);
-        if (operationType.HasValue)
-            query = query.Where(r => r.OperationType == operationType.Value);
-
-        return Task.FromResult<IReadOnlyList<AiUsageRecord>>(query.ToList().AsReadOnly());
-    }
-
     public Task<CostSummary> AggregateAsync(
         Guid worldId,
         Guid? userId,
@@ -73,7 +49,7 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
 
         var records = query.ToList();
         if (records.Count == 0)
-            return Task.FromResult(CostSummary.Empty);
+            return Task.FromResult(new CostSummary());
 
         return Task.FromResult(new CostSummary
         {

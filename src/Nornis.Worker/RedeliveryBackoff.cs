@@ -29,7 +29,6 @@ namespace Nornis.Worker;
 public static class RedeliveryBackoff
 {
     private static readonly TimeSpan BaseDelay = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan MaxDelay = TimeSpan.FromSeconds(60);
 
     /// <summary>
     /// Mirrors <c>MaxDeliveryCount</c> on both production queues (see provision-azure.ps1 and
@@ -40,9 +39,9 @@ public static class RedeliveryBackoff
     public const int QueueMaxDeliveryCount = 5;
 
     /// <summary>
-    /// How long to wait before the given delivery attempt is released. Doubles per attempt and
-    /// caps: 5s, 10s, 20s, 40s, then 60s. Across the five deliveries the production queues allow,
-    /// that is a little over two minutes of total backoff before the message dead-letters.
+    /// How long to wait before the given delivery attempt is released. Doubles per attempt:
+    /// 5s, 10s, 20s, 40s across the four deliveries that retry — the fifth dead-letters
+    /// instead of waiting. That is 75 seconds of total backoff before the message dead-letters.
     /// </summary>
     public static TimeSpan DelayFor(long deliveryCount)
     {
@@ -58,12 +57,8 @@ public static class RedeliveryBackoff
         // exponent negative and produce a nonsense delay.
         var attempt = Math.Max(1, deliveryCount);
 
-        // Cap the exponent before computing the power, so a message that somehow accumulated a
-        // large delivery count cannot overflow into an enormous TimeSpan.
-        var exponent = Math.Min(attempt - 1, 10);
-        var seconds = BaseDelay.TotalSeconds * Math.Pow(2, exponent);
-
-        return TimeSpan.FromSeconds(Math.Min(seconds, MaxDelay.TotalSeconds));
+        // The early return above bounds attempt to 1..4, so the exponent is at most 3.
+        return TimeSpan.FromSeconds(BaseDelay.TotalSeconds * Math.Pow(2, attempt - 1));
     }
 
     /// <summary>

@@ -22,7 +22,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Nornis.Application\Nornis.Application.csproj" />
     <ProjectReference Include="..\Nornis.Domain\Nornis.Domain.csproj" />
-    <ProjectReference Include="..\Nornis.Shared\Nornis.Shared.csproj" />
   </ItemGroup>
 
 </Project>

@@ -213,12 +213,12 @@ public class RelationshipBackfillService : IRelationshipBackfillService
         // link) GM-only material.
         var filter = VisibilityFilter.ForSourceContext(source.Visibility, source.CreatedByUserId);
 
-        var storylines = (await _artifactRepository.ListByWorldAsync(worldId, ArtifactType.Storyline, null, ct))
+        var storylines = (await _artifactRepository.ListByWorldAsync(worldId, ArtifactType.Storyline, ct))
             .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
             .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var events = (await _artifactRepository.ListByWorldAsync(worldId, ArtifactType.Event, null, ct))
+        var events = (await _artifactRepository.ListByWorldAsync(worldId, ArtifactType.Event, ct))
             .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
             .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();

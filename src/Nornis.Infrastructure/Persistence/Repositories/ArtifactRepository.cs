@@ -58,7 +58,7 @@ public class ArtifactRepository : IArtifactRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Artifact>> ListByWorldAsync(Guid worldId, ArtifactType? type = null, VisibilityScope? visibility = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Artifact>> ListByWorldAsync(Guid worldId, ArtifactType? type = null, CancellationToken cancellationToken = default)
     {
         var query = _context.Artifacts
             .AsNoTracking()
@@ -67,11 +67,6 @@ public class ArtifactRepository : IArtifactRepository
         if (type is not null)
         {
             query = query.Where(a => a.Type == type.Value);
-        }
-
-        if (visibility is not null)
-        {
-            query = query.Where(a => a.Visibility == visibility.Value);
         }
 
         return await query.ToListAsync(cancellationToken);

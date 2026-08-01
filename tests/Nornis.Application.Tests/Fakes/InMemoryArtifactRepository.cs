@@ -37,14 +37,11 @@ public class InMemoryArtifactRepository : IArtifactRepository
     public Task<IReadOnlyList<Artifact>> ListByWorldAsync(
         Guid worldId,
         ArtifactType? type = null,
-        VisibilityScope? visibility = null,
         CancellationToken cancellationToken = default)
     {
         var query = _artifacts.Where(a => a.WorldId == worldId);
         if (type.HasValue)
             query = query.Where(a => a.Type == type.Value);
-        if (visibility.HasValue)
-            query = query.Where(a => a.Visibility == visibility.Value);
 
         return Task.FromResult<IReadOnlyList<Artifact>>(query.ToList().AsReadOnly());
     }

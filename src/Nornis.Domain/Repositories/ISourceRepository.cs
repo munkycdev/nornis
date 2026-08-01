@@ -10,7 +10,7 @@ public interface ISourceRepository
 
     Task<Source?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// The world's sources as a list shows them — visibility applied in SQL, newest first, and

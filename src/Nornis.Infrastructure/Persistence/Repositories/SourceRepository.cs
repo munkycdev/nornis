@@ -134,19 +134,13 @@ public class SourceRepository : ISourceRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)
     {
-        var query = _context.Sources
+        return await _context.Sources
             .AsNoTracking()
             .Include(s => s.Campaign)
-            .Where(s => s.WorldId == worldId);
-
-        if (visibility is not null)
-        {
-            query = query.Where(s => s.Visibility == visibility.Value);
-        }
-
-        return await query.ToListAsync(cancellationToken);
+            .Where(s => s.WorldId == worldId)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<Source>> ListRecentSessionsAsync(

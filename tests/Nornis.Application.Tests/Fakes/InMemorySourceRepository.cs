@@ -112,16 +112,10 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.FromResult<IReadOnlyList<SourceAttribution>>(result.AsReadOnly());
     }
 
-    public Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, VisibilityScope? visibility = null, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<Source>> ListByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)
     {
-        var query = _sources.Where(s => s.WorldId == worldId);
-
-        if (visibility is not null)
-        {
-            query = query.Where(s => s.Visibility == visibility.Value);
-        }
-
-        return Task.FromResult<IReadOnlyList<Source>>(query.ToList().AsReadOnly());
+        var result = _sources.Where(s => s.WorldId == worldId).ToList();
+        return Task.FromResult<IReadOnlyList<Source>>(result.AsReadOnly());
     }
 
     public Task<IReadOnlyList<Source>> ListRecentSessionsAsync(Guid worldId, Guid userId, WorldRole role, int maxCount, CancellationToken cancellationToken = default)

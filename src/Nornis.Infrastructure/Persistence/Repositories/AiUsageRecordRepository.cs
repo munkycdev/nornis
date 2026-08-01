@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
@@ -44,44 +44,6 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
                 cancellationToken);
     }
 
-    public async Task<IReadOnlyList<AiUsageRecord>> QueryAsync(
-        Guid? worldId = null,
-        Guid? userId = null,
-        DateTimeOffset? fromDate = null,
-        DateTimeOffset? toDate = null,
-        AiOperationType? operationType = null,
-        CancellationToken cancellationToken = default)
-    {
-        var query = _context.AiUsageRecords.AsNoTracking().AsQueryable();
-
-        if (worldId.HasValue)
-        {
-            query = query.Where(r => r.WorldId == worldId.Value);
-        }
-
-        if (userId.HasValue)
-        {
-            query = query.Where(r => r.UserId == userId.Value);
-        }
-
-        if (fromDate.HasValue)
-        {
-            query = query.Where(r => r.CreatedAt >= fromDate.Value);
-        }
-
-        if (toDate.HasValue)
-        {
-            query = query.Where(r => r.CreatedAt <= toDate.Value);
-        }
-
-        if (operationType.HasValue)
-        {
-            query = query.Where(r => r.OperationType == operationType.Value);
-        }
-
-        return await query.ToListAsync(cancellationToken);
-    }
-
     public async Task<CostSummary> AggregateAsync(
         Guid worldId,
         Guid? userId,
@@ -103,7 +65,7 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
             })
             .FirstOrDefaultAsync(cancellationToken);
 
-        return result ?? CostSummary.Empty;
+        return result ?? new CostSummary();
     }
 
     public async Task<decimal> SumPublicAskCostAsync(

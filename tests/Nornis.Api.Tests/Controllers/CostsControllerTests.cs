@@ -549,10 +549,10 @@ public class CostsControllerTests
     {
         return new TimePeriodCostResult
         {
-            Today = CostSummary.Empty,
-            ThisWeek = CostSummary.Empty,
-            ThisMonth = CostSummary.Empty,
-            AllTime = CostSummary.Empty
+            Today = new CostSummary(),
+            ThisWeek = new CostSummary(),
+            ThisMonth = new CostSummary(),
+            AllTime = new CostSummary()
         };
     }
 

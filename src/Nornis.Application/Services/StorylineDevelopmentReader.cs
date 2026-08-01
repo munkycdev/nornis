@@ -45,7 +45,7 @@ public sealed class StorylineDevelopmentReader
 
         // Every visible artifact — storylines become lanes; the rest resolve relationship
         // counterpart names. Archived storylines are merge leftovers and stay out.
-        var allArtifacts = (await _artifactRepository.ListByWorldAsync(worldId, null, null, ct))
+        var allArtifacts = (await _artifactRepository.ListByWorldAsync(worldId, null, ct))
             .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
             .ToDictionary(a => a.Id);
 
@@ -81,7 +81,7 @@ public sealed class StorylineDevelopmentReader
         // Sessions the caller may see, dated. Undated sources (lore documents) carry no
         // position on a real-world axis and are skipped.
         var canSeeSource = SourceVisibilityRule.Compile(requestingUserId, role);
-        var sources = (await _sourceRepository.ListByWorldAsync(worldId, null, ct))
+        var sources = (await _sourceRepository.ListByWorldAsync(worldId, ct))
             .Where(s => s.OccurredAt is not null && canSeeSource(s))
             .ToDictionary(s => s.Id);
 

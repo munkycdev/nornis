@@ -112,12 +112,6 @@ public class EnumDefinitionTests
     }
 
     [Test]
-    public void ConversationRole_HasExpectedValues()
-    {
-        AssertEnumHasExactValues<ConversationRole>("User", "Assistant");
-    }
-
-    [Test]
     public void WorldRole_HasNoUnexpectedValues()
     {
         Assert.That(Enum.GetNames<WorldRole>(), Has.Length.EqualTo(3));
@@ -202,12 +196,6 @@ public class EnumDefinitionTests
     }
 
     [Test]
-    public void ConversationRole_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<ConversationRole>(), Has.Length.EqualTo(2));
-    }
-
-    [Test]
     public void InviteStatus_HasNoUnexpectedValues()
     {
         Assert.That(Enum.GetNames<InviteStatus>(), Has.Length.EqualTo(4));
@@ -227,7 +215,7 @@ public class EnumDefinitionTests
         // (world invitations) + ExtractionReplayStatus (timeline re-extraction walk)
         // + WorldExportCategory (world export)
         // + ImportSessionStatus/ImportItemState (campaign backlog import walk).
-        Assert.That(enumTypes, Has.Count.EqualTo(28),
-            "Expected exactly 28 enums in Nornis.Domain.Enums namespace.");
+        Assert.That(enumTypes, Has.Count.EqualTo(27),
+            "Expected exactly 27 enums in Nornis.Domain.Enums namespace.");
     }
 }

@@ -20,7 +20,6 @@
   <ItemGroup>
     <!-- Web is a separate deployable that talks to nornis-api over HTTP. It shares only
          DTO/contract types via Nornis.Shared — never the Application/Infrastructure layers. -->
-    <ProjectReference Include="..\Nornis.Shared\Nornis.Shared.csproj" />
   </ItemGroup>
 
 </Project>

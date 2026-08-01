@@ -30,7 +30,7 @@ public class CanonService : ICanonService
 
         // Only artifacts the caller may see contribute to canon. Facts and relationships have
         // no world FK, so world-wide retrieval goes through the visible artifact ids.
-        var artifacts = await _artifactRepository.ListByWorldAsync(query.WorldId, null, null, ct);
+        var artifacts = await _artifactRepository.ListByWorldAsync(query.WorldId, null, ct);
         var artifactsById = artifacts
             .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
             .ToDictionary(a => a.Id);

@@ -10,7 +10,7 @@ public interface IArtifactRepository
 
     Task<Artifact?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<Artifact>> ListByWorldAsync(Guid worldId, ArtifactType? type = null, VisibilityScope? visibility = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Artifact>> ListByWorldAsync(Guid worldId, ArtifactType? type = null, CancellationToken cancellationToken = default);
 
     Task<Artifact> UpdateAsync(Artifact artifact, CancellationToken cancellationToken = default);
 

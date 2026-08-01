@@ -45,7 +45,7 @@ public class ArtifactService : IArtifactService
     {
         var filter = VisibilityFilter.ForRole(query.ActingUserRole, query.ActingUserId);
 
-        var artifacts = await _artifactRepository.ListByWorldAsync(query.WorldId, query.Type, null, ct);
+        var artifacts = await _artifactRepository.ListByWorldAsync(query.WorldId, query.Type, ct);
 
         // No status filter means "the live world", not "everything ever": Archived rows are
         // merge leftovers and closed storylines, and this list is served anonymously on the
@@ -70,7 +70,7 @@ public class ArtifactService : IArtifactService
         }
 
         var filter = VisibilityFilter.ForRole(query.ActingUserRole, query.ActingUserId);
-        var artifacts = await _artifactRepository.ListByWorldAsync(query.WorldId, null, null, ct);
+        var artifacts = await _artifactRepository.ListByWorldAsync(query.WorldId, null, ct);
 
         // Ties break toward the shorter name (the more specific match of the two) and then
         // the more recently touched artifact.
@@ -95,7 +95,7 @@ public class ArtifactService : IArtifactService
 
         // Archived artifacts are merge leftovers — they carry no live edges worth drawing,
         // and this graph is served anonymously on the public world page.
-        var artifacts = (await _artifactRepository.ListByWorldAsync(worldId, null, null, ct))
+        var artifacts = (await _artifactRepository.ListByWorldAsync(worldId, null, ct))
             .Where(a => a.Status != ArtifactStatus.Archived)
             .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
             .ToList();
@@ -252,7 +252,7 @@ public class ArtifactService : IArtifactService
 
         // Cycle guard: walk up from the intended parent; hitting the child means the
         // child is already an ancestor of the parent.
-        var storylineIds = (await _artifactRepository.ListByWorldAsync(command.WorldId, ArtifactType.Storyline, null, ct))
+        var storylineIds = (await _artifactRepository.ListByWorldAsync(command.WorldId, ArtifactType.Storyline, ct))
             .Select(a => a.Id)
             .ToList();
         var partOfEdges = (await _relationshipRepository.ListByArtifactIdsAsync(

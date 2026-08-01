@@ -134,7 +134,7 @@ public class ContinuityAuditService : IContinuityAuditService
 
         // 2. Load the full GM-scoped record. Archived artifacts (merge leftovers) are dead
         // weight for a continuity read and stay out of the prompt.
-        var artifacts = (await _artifactRepository.ListByWorldAsync(worldId, null, null, ct))
+        var artifacts = (await _artifactRepository.ListByWorldAsync(worldId, null, ct))
             .Where(a => a.Status != ArtifactStatus.Archived)
             .ToList();
         var artifactIds = artifacts.Select(a => a.Id).ToList();
@@ -159,7 +159,7 @@ public class ContinuityAuditService : IContinuityAuditService
         var sourceRefs = targetIds.Count > 0
             ? await _sourceReferenceRepository.ListByTargetIdsAsync(targetIds, ct)
             : [];
-        var sources = await _sourceRepository.ListByWorldAsync(worldId, null, ct);
+        var sources = await _sourceRepository.ListByWorldAsync(worldId, ct);
 
         var recordText = FormatWorldRecord(artifacts, facts, relationships, sourceRefs, sources);
         var recordLookup = BuildRecordLookup(artifacts, facts, relationships);

@@ -21,7 +21,7 @@ public static class HttpContextExtensions
     public static WorldMember GetWorldMember(this HttpContext context)
     {
         return context.Items["WorldMember"] as WorldMember
-            ?? throw new InvalidOperationException("WorldMember not found in HttpContext. Ensure WorldMemberFilter is applied.");
+            ?? throw new InvalidOperationException("WorldMember not found in HttpContext. Ensure WorldMemberActionFilter is applied.");
     }
 
     /// <summary>

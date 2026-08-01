@@ -72,7 +72,7 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
             return AppResult<RetrospectiveResult>.Fail(budgetError);
         }
 
-        var storylines = (await _artifactRepository.ListByWorldAsync(worldId, ArtifactType.Storyline, null, ct))
+        var storylines = (await _artifactRepository.ListByWorldAsync(worldId, ArtifactType.Storyline, ct))
             .Where(a => a.Status == ArtifactStatus.Active)
             .OrderBy(a => a.Name)
             .ToList();

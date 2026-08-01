@@ -39,7 +39,7 @@ public class RelationshipBackfillQueueService : IRelationshipBackfillQueueServic
                 "Only GMs can run a relationship backfill."));
         }
 
-        var eligible = (await _sourceRepository.ListByWorldAsync(worldId, null, ct))
+        var eligible = (await _sourceRepository.ListByWorldAsync(worldId, ct))
             .Where(s => s.ProcessingStatus == SourceProcessingStatus.Processed
                 && !string.IsNullOrWhiteSpace(s.Body))
             .ToList();

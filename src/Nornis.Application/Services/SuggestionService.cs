@@ -163,7 +163,7 @@ public class SuggestionService : ISuggestionService
     private async Task<List<string>> RecapCandidatesAsync(
         Guid worldId, Guid userId, WorldRole role, CancellationToken ct)
     {
-        var sources = await _sourceRepository.ListByWorldAsync(worldId, null, ct);
+        var sources = await _sourceRepository.ListByWorldAsync(worldId, ct);
         var cutoff = DateTimeOffset.UtcNow.AddDays(-RecentSourceWindowDays);
         var canSeeSource = SourceVisibilityRule.Compile(userId, role);
 

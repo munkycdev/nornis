@@ -51,7 +51,7 @@ public class ArtifactsController : ControllerBase
             return result.Error!.ToActionResult();
         }
 
-        return Ok(new { targetArtifactId = result.Value });
+        return Ok(new MergeArtifactResponse(result.Value));
     }
 
     [HttpGet]

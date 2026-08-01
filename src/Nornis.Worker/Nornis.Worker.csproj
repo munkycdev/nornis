@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Worker"><PropertyGroup>  <UserSecretsId>6085c24d-9697-4e82-bd83-41e59b59be30</UserSecretsId>
+<Project Sdk="Microsoft.NET.Sdk.Worker"><PropertyGroup>  <UserSecretsId>6085c24d-9697-4e82-bd83-41e59b59be30</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,7 +16,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Nornis.Application\Nornis.Application.csproj" />
     <ProjectReference Include="..\Nornis.Infrastructure\Nornis.Infrastructure.csproj" />
-    <ProjectReference Include="..\Nornis.Shared\Nornis.Shared.csproj" />
   </ItemGroup>
 
 </Project>

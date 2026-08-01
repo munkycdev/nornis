@@ -1,4 +1,4 @@
-﻿using Nornis.Domain.Entities;
+using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
 
@@ -17,14 +17,6 @@ public interface IAiUsageRecordRepository
         Guid worldId,
         Guid userId,
         AiOperationType operationType,
-        CancellationToken cancellationToken = default);
-
-    Task<IReadOnlyList<AiUsageRecord>> QueryAsync(
-        Guid? worldId = null,
-        Guid? userId = null,
-        DateTimeOffset? fromDate = null,
-        DateTimeOffset? toDate = null,
-        AiOperationType? operationType = null,
         CancellationToken cancellationToken = default);
 
     Task<CostSummary> AggregateAsync(

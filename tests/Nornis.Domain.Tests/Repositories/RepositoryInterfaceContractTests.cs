@@ -52,7 +52,7 @@ public class RepositoryInterfaceContractTests
         [typeof(IReviewBatchRepository)] = ["CreateAsync", "GetByIdAsync", "ListByWorldAsync", "UpdateStatusAsync"],
         [typeof(IReviewProposalRepository)] = ["CreateAsync", "GetByIdAsync", "ListByReviewBatchAsync", "ListPendingByWorldAsync", "UpdateAsync"],
         [typeof(ISourceReferenceRepository)] = ["CreateAsync", "ListByTargetAsync"],
-        [typeof(IAiUsageRecordRepository)] = ["CreateAsync", "QueryAsync", "AggregateAsync", "AggregateByOperationTypeAsync", "AggregateByModelAsync", "AggregateByUserAsync", "AggregateByWorldAsync"],
+        [typeof(IAiUsageRecordRepository)] = ["CreateAsync", "AggregateAsync", "AggregateByOperationTypeAsync", "AggregateByModelAsync", "AggregateByUserAsync", "AggregateByWorldAsync"],
         [typeof(IHealthAssessmentRepository)] = ["CreateAsync", "GetLatestWithFindingsAsync", "GetLatestCreatedAtAsync", "GetFindingByIdAsync", "UpdateFindingAsync"],
         [typeof(IContinuityDismissalRepository)] = ["CreateAsync", "ListByWorldAsync"],
         [typeof(ICampaignRepository)] = ["CreateAsync", "GetByIdAsync", "ListByWorldAsync", "UpdateAsync", "DeleteAsync"],

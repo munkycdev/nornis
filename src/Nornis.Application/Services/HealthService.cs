@@ -29,7 +29,7 @@ public class HealthService : IHealthService
 
     public async Task<AppResult<WorldHealth>> GetHealthAsync(Guid worldId, CancellationToken ct)
     {
-        var artifacts = await _artifactRepository.ListByWorldAsync(worldId, null, null, ct);
+        var artifacts = await _artifactRepository.ListByWorldAsync(worldId, null, ct);
 
         if (artifacts.Count == 0)
         {
