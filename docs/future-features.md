@@ -11,7 +11,16 @@ files under `docs/plans/`; nothing here restates them.
 gates and drifted-visibility leaks (via 1.2/1.7 + the auth review's fixes: world-scoped
 review-queue name resolution, Draft gate on the Ask session feed, own-row visibility on
 fact/relationship updates); D4's validator-enum rejection (via 1.7); scrub 1.10's
-LibraryDocumentDetail reload guard.
+LibraryDocumentDetail reload guard; item 1 below (test quality phase 1).
+
+Numbers below stay fixed for this run even as items complete — sessions and notes
+refer to them by number.
+
+**Deploy was broken 2026-08-01 16:04–17:41** and nobody noticed for four commits: the
+Dockerfile still copied `src/Nornis.Shared`, deleted by scrub tier 2. `test` stayed
+green the whole time, so the run summary looked half-fine. Fixed in `1797d0b`. The
+lesson is O1's, and it is already on the list: nothing verified the deploy actually
+landed.
 
 **Session bootstrap** (everything else a cold session needs): the bar is a clean
 `dotnet build Nornis.sln` (warnings are errors), full `dotnet test Nornis.sln` green,
@@ -65,6 +74,26 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
 18. Scrub tier 5 comment pass — pure editorial judgment.
 19. Test quality phase 6 (qualitative audits) — after tier 4's pruning, so we never
     grade tests scheduled for deletion.
+
+## Riders
+
+Small things noticed in passing, too small for a plan file, parked against the item
+that already opens the right file. Neither is urgent; both rot if left unwritten.
+
+- **Node 20 action deprecation** (rides with 4, O5 dependency patching). Every
+  workflow run now annotates that `actions/checkout@v4`, `actions/setup-dotnet@v4`,
+  `azure/login@v2`, and `docker/setup-buildx-action@v3` target Node 20 and are being
+  force-run on Node 24. Warnings today, breakage on whatever date GitHub drops the
+  fallback. O5 is already the item that decides how this repo takes dependency bumps —
+  action majors are the same question, and a major bump can change action inputs, so
+  it wants a real read of each changelog rather than a find-and-replace.
+- **Tier 2's unfinished sweep** (rides with 9, tier 3 conventions). Deleting
+  `src/Nornis.Shared` left three references behind: an ItemGroup in
+  `src/Nornis.Web/Nornis.Web.csproj` now empty apart from a comment describing the
+  deleted project, a row in the README project table, and the solution layout in
+  `.kiro/steering/coding-standards.md` — that last one wants the dated-amendment
+  convention, not a silent edit. Historical records under `docs/features/` and
+  `docs/performance-audit/` mention it too and are meant to; leave them.
 
 ## The spec files
 
