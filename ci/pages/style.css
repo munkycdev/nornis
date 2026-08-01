@@ -1,98 +1,169 @@
-/* Shared by both faces of the dashboard. Palette from .kiro/steering/ui-design-system.md.
-   No external stylesheets or fonts: this site's whole job is to load when other things
-   are not loading, so it depends on nothing it does not ship. */
+/* ============================================================================
+   Nornis engineering dashboard.
+
+   Colours, type and rhythm are lifted from the running application rather than
+   from the steering doc's suggested palette, which has drifted: the authority is
+   src/Nornis.Web/Components/NornisTheme.cs, which calls itself the single source
+   of truth for Nornis colours. Values are duplicated here rather than shared
+   because this site is deployed to GitHub Pages by a different workflow and can
+   never import from the app — so when the theme changes, this file must be
+   updated by hand. That is the cost of a status page that survives Azure.
+
+   Layout follows the public site (PublicLayout.razor): light ground, airy
+   header, brand mark beside a letter-spaced serif wordmark. No sidebar.
+   ============================================================================ */
 
 :root {
-    --body-bg: #f8f5ef;
-    --card-bg: #fffdf8;
-    --text: #172a36;
-    --nav: #0f1f2d;
+    /* Brand */
+    --primary: #0e2e4a;
     --gold: #c4a15a;
-    --slate: #6d7a80;
-    --ok: #4a7c59;
-    --warn: #b5822e;
-    --bad: #b04a3f;
-    --rule: #e4ddd0;
+    --slate: #5e6b7a;
+
+    /* Neutrals */
+    --bg: #f5f1e9;
+    --surface: #fffdf9;
+    --text: #16293b;
+    --text-secondary: #5e6b7a;
+    --divider: #e7e0d3;
+
+    /* Status — the app's muted set, not browser defaults */
+    --success: #4e9a6b;
+    --warning: #c08a2e;
+    --error: #b5533f;
+
+    --serif: 'Cormorant Garamond', Georgia, serif;
+    --sans: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+    --card-shadow: 0 1px 2px rgba(14, 46, 74, 0.05), 0 8px 24px rgba(14, 46, 74, 0.05);
+    --topo: radial-gradient(120% 100% at 50% 0%, rgba(196, 161, 90, 0.05) 0%, rgba(196, 161, 90, 0) 55%);
+    --radius: 12px;
 }
 
 * {
     box-sizing: border-box;
 }
 
+html,
 body {
     margin: 0;
-    background: var(--body-bg);
+    min-height: 100vh;
+    background-color: var(--bg);
+    background-image: var(--topo);
     color: var(--text);
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    line-height: 1.5;
+    font-family: var(--sans);
+    line-height: 1.55;
 }
 
-header {
-    background: var(--nav);
-    color: var(--card-bg);
-    padding: 1.25rem 1.5rem;
-}
+/* ------------------------------------------------------------------ header -- */
 
-header h1 {
-    margin: 0;
-    font-size: 1.15rem;
-    letter-spacing: 0.02em;
-}
-
-header h1 span {
-    color: var(--gold);
-}
-
-nav {
-    margin-top: 0.5rem;
+.nav {
     display: flex;
-    gap: 1rem;
-    font-size: 0.9rem;
+    align-items: center;
+    gap: 28px;
+    padding: 18px 40px;
+    max-width: 1120px;
+    width: 100%;
+    margin: 0 auto;
 }
 
-nav a {
-    color: var(--card-bg);
-    opacity: 0.75;
+.brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
     text-decoration: none;
+}
+
+.brand img {
+    height: 29px;
+    width: auto;
+    display: block;
+}
+
+.brand-name {
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    letter-spacing: 0.3em;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.nav-links {
+    display: flex;
+    gap: 22px;
+    margin-left: auto;
+    font-size: 0.92rem;
+}
+
+.nav-links a {
+    color: var(--slate);
+    text-decoration: none;
+    padding-bottom: 3px;
     border-bottom: 2px solid transparent;
-    padding-bottom: 2px;
 }
 
-nav a:hover {
-    opacity: 1;
+.nav-links a:hover {
+    color: var(--primary);
 }
 
-nav a[aria-current="page"] {
-    opacity: 1;
+.nav-links a[aria-current="page"] {
+    color: var(--primary);
     border-bottom-color: var(--gold);
+    font-weight: 500;
 }
+
+/* -------------------------------------------------------------------- body -- */
 
 main {
-    max-width: 60rem;
+    max-width: 1120px;
     margin: 0 auto;
-    padding: 1.5rem;
+    padding: 8px 40px 40px;
+}
+
+.page-title {
+    font-family: var(--serif);
+    font-size: 2rem;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+    margin: 0.6rem 0 1.4rem;
 }
 
 .card {
-    background: var(--card-bg);
-    border: 1px solid var(--rule);
-    border-radius: 6px;
-    padding: 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--divider);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    padding: 1.4rem 1.5rem;
     margin-bottom: 1.25rem;
 }
 
+/* The app's eyebrow treatment — uppercase, widely tracked, secondary colour. */
 .card h2 {
-    margin: 0 0 0.75rem;
-    font-size: 1rem;
-    color: var(--slate);
-    font-weight: 600;
+    margin: 0 0 0.9rem;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.22em;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-secondary);
 }
 
 .muted {
-    color: var(--slate);
+    color: var(--text-secondary);
     font-size: 0.85rem;
+}
+
+.headline-figure {
+    font-family: var(--serif);
+    font-size: 2.6rem;
+    font-weight: 600;
+    line-height: 1.1;
+}
+
+.headline-figure .unit {
+    font-family: var(--sans);
+    font-size: 0.95rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
 }
 
 table {
@@ -104,70 +175,109 @@ table {
 th,
 td {
     text-align: left;
-    padding: 0.4rem 0.5rem;
-    border-bottom: 1px solid var(--rule);
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--divider);
+}
+
+tr:last-child td {
+    border-bottom: none;
 }
 
 th {
-    color: var(--slate);
-    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.14em;
 }
 
 td.num {
     text-align: right;
 }
 
-/* Status semantics. The dot is decoration; the word beside it is the signal — the
-   steering doc requires colour never be the only indicator. */
+/* ------------------------------------------------------------------ status -- */
+
+/* The dot is decoration; the word beside it carries the meaning. The design
+   system requires colour never be the only indicator. */
 .badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.45rem;
     font-weight: 600;
 }
 
 .badge::before {
     content: "";
-    width: 0.6rem;
-    height: 0.6rem;
+    width: 0.55rem;
+    height: 0.55rem;
     border-radius: 50%;
     background: currentColor;
+    flex: none;
 }
 
 .s-healthy {
-    color: var(--ok);
+    color: var(--success);
 }
 
 .s-degraded {
-    color: var(--warn);
+    color: var(--warning);
 }
 
 .s-unhealthy,
 .s-unreachable {
-    color: var(--bad);
+    color: var(--error);
 }
 
 .banner {
+    background: var(--surface);
+    border: 1px solid var(--divider);
     border-left: 4px solid currentColor;
-    padding: 0.9rem 1.1rem;
-    border-radius: 4px;
-    background: var(--card-bg);
-    border-top: 1px solid var(--rule);
-    border-right: 1px solid var(--rule);
-    border-bottom: 1px solid var(--rule);
-    font-size: 1.05rem;
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    padding: 1.1rem 1.3rem;
+    font-size: 1rem;
 }
 
 .banner strong {
-    font-size: 1.15rem;
+    font-family: var(--serif);
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: 0.005em;
 }
 
+.banner .banner-detail {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+/* ------------------------------------------------------------------ footer -- */
+
 footer {
-    max-width: 60rem;
+    max-width: 1120px;
     margin: 0 auto;
-    padding: 0 1.5rem 2.5rem;
-    color: var(--slate);
+    padding: 0 40px 3rem;
+    color: var(--text-secondary);
     font-size: 0.8rem;
+    border-top: 1px solid var(--divider);
+    padding-top: 1.2rem;
+    margin-top: 1rem;
+}
+
+footer code {
+    font-size: 0.78rem;
+    color: var(--slate);
+}
+
+@media (max-width: 640px) {
+
+    .nav,
+    main,
+    footer {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .nav-links {
+        gap: 14px;
+    }
 }

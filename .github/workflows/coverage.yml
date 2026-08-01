@@ -100,7 +100,9 @@ jobs:
       - name: Assemble the dashboard
         run: |
           mkdir -p _site
-          cp ci/pages/*.html ci/pages/*.css _site/
+          # Everything in ci/pages, not a list of extensions — the brand assets are part
+          # of the site, and a glob that names types silently drops whatever it forgot.
+          cp -r ci/pages/. _site/
           cp history.json _site/history.json
 
       - uses: actions/upload-pages-artifact@v3

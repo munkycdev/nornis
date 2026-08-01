@@ -1,5 +1,18 @@
 # UI Design System
 
+> **Amendment (2026-08-01):** the "Suggested starting palette" under Visual Tokens below
+> is exactly that — a starting point, and the shipped app has moved past it. The authority
+> is `src/Nornis.Web/Components/NornisTheme.cs`, which calls itself the single source of
+> truth for Nornis colours and is what MudBlazor renders from. Every value differs by a
+> few points (body `#F5F1E9` not `#F8F5EF`, navy `#0E2E4A` not `#0F1F2D`, slate `#5E6B7A`
+> not `#6D7A80`), and the status colours the palette leaves as prose are concrete there:
+> success `#4E9A6B`, warning `#C08A2E`, error `#B5533F`. Typography is likewise real
+> rather than suggested — Cormorant Garamond for display and brand, Inter for body, with
+> a 12px corner radius. Read the theme file when building anything; the palette below
+> records the intent it grew from. The engineering dashboard in `ci/pages/` is the one
+> place those values are duplicated by hand, because it deploys to GitHub Pages and can
+> never import from the app.
+
 ## Product Vibe
 
 Nornis should feel like a calm, modern world Loremaster with a durable, archival identity.

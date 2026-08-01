@@ -5,19 +5,32 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Nornis — system status</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <!-- The one external dependency this site takes, and only because failing it is
+         cosmetic: the fallback stack renders fine. Nothing functional is fetched from
+         anywhere but this origin and the Nornis API. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <header>
-        <h1>Nornis <span>·</span> engineering dashboard</h1>
-        <nav>
+    <header class="nav">
+        <a href="index.html" class="brand">
+            <img src="mini-logo.png" alt="">
+            <span class="brand-name">NORNIS</span>
+        </a>
+        <nav class="nav-links" aria-label="Dashboard sections">
             <a href="index.html">Coverage</a>
             <a href="status.html" aria-current="page">System status</a>
         </nav>
     </header>
 
     <main>
+        <h1 class="page-title">System status</h1>
+
         <div id="banner" class="banner muted">Checking…</div>
 
         <div class="card" style="margin-top:1.25rem">
@@ -63,7 +76,7 @@
         function paint(state, headline, detail) {
             const banner = document.getElementById('banner');
             banner.className = `banner badge s-${state.toLowerCase()}`;
-            banner.innerHTML = `<strong>${headline}</strong>${detail ? ` — ${detail}` : ''}`;
+            banner.innerHTML = `<strong>${headline}</strong>${detail ? `<span class="banner-detail"> — ${detail}</span>` : ''}`;
         }
 
         function renderChecks(checks) {
