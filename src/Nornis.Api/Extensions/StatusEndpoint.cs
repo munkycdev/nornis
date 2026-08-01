@@ -19,11 +19,17 @@ public static class StatusEndpoint
 
     /// <summary>
     /// Ceiling on any single dependency probe. An unreachable dependency fails by not
-    /// answering, and the SDKs retry generously — the first production /status spent
-    /// fourteen seconds on one unreachable queue. A status page that hangs is a status
-    /// page nobody waits for, and "down" is the answer either way.
+    /// answering and the SDKs retry generously — the first production /status spent
+    /// fourteen seconds on one unreachable queue.
+    ///
+    /// Tuned twice. It started at 5s, which was tighter than a healthy system's own cold
+    /// path: after an idle spell the first request measured sql at 4.0s and the heartbeat
+    /// read at 8.2s, so the ceiling reported a working platform as broken. A ceiling below
+    /// worst-case healthy latency does not bound a hang, it manufactures an outage — and a
+    /// page that cries wolf is worth less than a page that takes a moment. Above the
+    /// observed cold path with margin; the dashboard retries once and allows 20s.
     /// </summary>
-    public static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(15);
 
     /// <summary>
     /// Writes the aggregate plus one row per check.

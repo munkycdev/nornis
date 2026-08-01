@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nornis — coverage</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header>
+        <h1>Nornis <span>·</span> engineering dashboard</h1>
+        <nav>
+            <a href="index.html" aria-current="page">Coverage</a>
+            <a href="status.html">System status</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="card">
+            <h2>Latest</h2>
+            <div id="latest" class="muted">Loading…</div>
+        </div>
+
+        <div class="card">
+            <h2>By assembly</h2>
+            <table id="assemblies">
+                <thead>
+                    <tr>
+                        <th>Assembly</th>
+                        <th class="num">Line</th>
+                        <th class="num">Branch</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>Line coverage over time</h2>
+            <div id="chart"></div>
+            <p class="muted" id="chart-note"></p>
+        </div>
+    </main>
+
+    <footer>
+        Coverage here is signal, not a gate — see <code>.kiro/steering/testing-strategy.md</code>.
+        The full annotated report is attached to each Coverage workflow run as a build artifact;
+        this page carries aggregates only.
+    </footer>
+
+    <script>
+        // Palette echoes style.css. Kept in JS because the chart is drawn, not styled.
+        const SERIES_COLOURS = ['#c4a15a', '#4a7c59', '#b04a3f', '#6d7a80', '#2f6f8f', '#8a5a9c'];
+
+        const pct = (n) => `${Number(n).toFixed(1)}%`;
+
+        function renderLatest(entry) {
+            document.getElementById('latest').innerHTML = `
+                <div style="font-size:2rem;font-weight:600">${pct(entry.line)}
+                    <span style="font-size:1rem;font-weight:400;color:var(--slate)">lines</span>
+                    &nbsp;·&nbsp;${pct(entry.branch)}
+                    <span style="font-size:1rem;font-weight:400;color:var(--slate)">branches</span>
+                </div>
+                <div class="muted">commit ${entry.sha} · ${new Date(entry.date).toLocaleString()}</div>`;
+        }
+
+        function renderAssemblies(entry) {
+            const body = document.querySelector('#assemblies tbody');
+            body.innerHTML = entry.assemblies
+                .slice()
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((a) => `<tr><td>${a.name}</td><td class="num">${pct(a.line)}</td><td class="num">${pct(a.branch)}</td></tr>`)
+                .join('');
+        }
+
+        // Hand-drawn SVG rather than a charting library: this site has to render when the
+        // rest of the system does not, so it ships no dependency it cannot serve itself.
+        function renderChart(history) {
+            const W = 880, H = 260, PAD = { top: 12, right: 130, bottom: 26, left: 40 };
+            const names = [...new Set(history.flatMap((e) => e.assemblies.map((a) => a.name)))].sort();
+            const x = (i) => PAD.left + (i * (W - PAD.left - PAD.right)) / Math.max(1, history.length - 1);
+            const y = (v) => PAD.top + ((100 - v) * (H - PAD.top - PAD.bottom)) / 100;
+
+            const gridlines = [0, 25, 50, 75, 100].map((v) =>
+                `<line x1="${PAD.left}" y1="${y(v)}" x2="${W - PAD.right}" y2="${y(v)}" stroke="#e4ddd0"/>
+                 <text x="${PAD.left - 6}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="#6d7a80">${v}</text>`).join('');
+
+            const series = names.map((name, n) => {
+                const points = history
+                    .map((e, i) => ({ i, a: e.assemblies.find((a) => a.name === name) }))
+                    .filter((p) => p.a)
+                    .map((p) => `${x(p.i)},${y(p.a.line)}`)
+                    .join(' ');
+                const colour = SERIES_COLOURS[n % SERIES_COLOURS.length];
+                const legendY = PAD.top + 12 + n * 16;
+                return `<polyline fill="none" stroke="${colour}" stroke-width="2" points="${points}"/>
+                        <rect x="${W - PAD.right + 12}" y="${legendY - 8}" width="9" height="9" fill="${colour}"/>
+                        <text x="${W - PAD.right + 26}" y="${legendY}" font-size="11" fill="#172a36">${name.replace('Nornis.', '')}</text>`;
+            }).join('');
+
+            document.getElementById('chart').innerHTML =
+                `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Line coverage per assembly over time">
+                    ${gridlines}${series}
+                 </svg>`;
+        }
+
+        fetch('history.json')
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status))))
+            .then((history) => {
+                if (!history.length) {
+                    document.getElementById('latest').textContent =
+                        'No coverage recorded yet — the first run on main will populate this.';
+                    return;
+                }
+                const latest = history[history.length - 1];
+                renderLatest(latest);
+                renderAssemblies(latest);
+
+                // One data point is a dot, not a trend. Say so rather than draw a flat line
+                // that reads as "nothing is changing".
+                const note = document.getElementById('chart-note');
+                if (history.length < 2) {
+                    document.getElementById('chart').innerHTML = '';
+                    note.textContent = 'A trend needs at least two runs on main. One recorded so far.';
+                } else {
+                    renderChart(history);
+                    note.textContent = `${history.length} runs recorded.`;
+                }
+            })
+            .catch(() => {
+                document.getElementById('latest').textContent =
+                    'Coverage history could not be loaded.';
+            });
+    </script>
+</body>
+
+</html>

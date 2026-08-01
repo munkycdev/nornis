@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nornis — system status</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header>
+        <h1>Nornis <span>·</span> engineering dashboard</h1>
+        <nav>
+            <a href="index.html">Coverage</a>
+            <a href="status.html" aria-current="page">System status</a>
+        </nav>
+    </header>
+
+    <main>
+        <div id="banner" class="banner muted">Checking…</div>
+
+        <div class="card" style="margin-top:1.25rem">
+            <h2>Dependencies</h2>
+            <table id="checks">
+                <thead>
+                    <tr>
+                        <th>Check</th>
+                        <th>State</th>
+                        <th class="num">Took</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <p class="muted" id="checked-at"></p>
+        </div>
+    </main>
+
+    <footer>
+        This page is hosted on GitHub Pages, deliberately outside Azure, so it still loads when
+        the system it reports on does not — at which point it can only tell you the API is
+        unreachable, which is the most useful thing it could say. Uptime history lives in
+        Application Insights, which is inside the same failure domain and will be dark alongside
+        the API.
+    </footer>
+
+    <script>
+        const STATUS_URL = 'https://api.nornis.app/status';
+        const REFRESH_MS = 30000;
+
+        // A cold API or a sleeping database can take several seconds to answer. Retrying once
+        // before declaring anything is the difference between a status page and an alarm that
+        // cries wolf every morning.
+        const ATTEMPTS = 2;
+        const ATTEMPT_TIMEOUT_MS = 20000;
+
+        const WORDS = {
+            Healthy: 'Everything is up',
+            Degraded: 'Running, with something worth watching',
+            Unhealthy: 'Something is wrong'
+        };
+
+        function paint(state, headline, detail) {
+            const banner = document.getElementById('banner');
+            banner.className = `banner badge s-${state.toLowerCase()}`;
+            banner.innerHTML = `<strong>${headline}</strong>${detail ? ` — ${detail}` : ''}`;
+        }
+
+        function renderChecks(checks) {
+            document.querySelector('#checks tbody').innerHTML = checks
+                .map((c) => `<tr>
+                        <td>${c.name}</td>
+                        <td><span class="badge s-${c.status.toLowerCase()}">${c.status}</span></td>
+                        <td class="num">${c.durationMs} ms</td>
+                    </tr>`)
+                .join('');
+        }
+
+        async function fetchOnce() {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
+            try {
+                // Not r.ok: /status answers 503 when a dependency is down, and that body is
+                // exactly what this page exists to display.
+                const r = await fetch(STATUS_URL, { signal: controller.signal, cache: 'no-store' });
+                return await r.json();
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+
+        async function refresh() {
+            for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+                try {
+                    const data = await fetchOnce();
+                    paint(data.status, WORDS[data.status] || data.status, '');
+                    renderChecks(data.checks);
+                    document.getElementById('checked-at').textContent =
+                        `Checked ${new Date().toLocaleTimeString()} · refreshes every ${REFRESH_MS / 1000}s`;
+                    return;
+                } catch (e) {
+                    if (attempt === ATTEMPTS) {
+                        // Unreachable is a state, and the loudest one this page can report.
+                        // An empty screen would be the one genuinely useless outcome.
+                        paint('unreachable', 'API unreachable',
+                            'The status endpoint did not answer. The API itself may be down.');
+                        document.querySelector('#checks tbody').innerHTML =
+                            '<tr><td colspan="3" class="muted">No dependency information — the API could not be reached to ask.</td></tr>';
+                        document.getElementById('checked-at').textContent =
+                            `Last attempt ${new Date().toLocaleTimeString()}`;
+                    }
+                }
+            }
+        }
+
+        refresh();
+        setInterval(refresh, REFRESH_MS);
+    </script>
+</body>
+
+</html>
