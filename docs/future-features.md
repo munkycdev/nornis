@@ -13,6 +13,16 @@ review-queue name resolution, Draft gate on the Ask session feed, own-row visibi
 fact/relationship updates); D4's validator-enum rejection (via 1.7); scrub 1.10's
 LibraryDocumentDetail reload guard.
 
+**Session bootstrap** (everything else a cold session needs): the bar is a clean
+`dotnet build Nornis.sln` (warnings are errors), full `dotnet test Nornis.sln` green,
+and `dotnet format` on touched files (CI verifies). If Api.Tests/Web.Tests binaries
+are file-locked, the local dev servers are running — test the other projects
+individually and say what you could not verify; never kill the servers. Branch per
+work item, merge to main only when asked; a push to main deploys to production.
+Migrations are applied manually before the deploy that needs them
+(`dotnet ef database update --project src/Nornis.Infrastructure --startup-project
+src/Nornis.Api --connection "<prod>"`) and must stay additive.
+
 **Opus-ready, in order:**
 
 1. Test quality phase 1 — coverage collection + local report. Config and scripts only.
