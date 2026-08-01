@@ -1,5 +1,16 @@
 # CI/CD
 
+> **Amendment (July 2026):** Three departures from the text below, all settled.
+> Infrastructure is provisioned by **`scripts/provision-azure.ps1`** (az CLI), not
+> Terraform — deferred until a second environment exists (see `azure-hosting.md`);
+> the Terraform Requirements section is dormant until then. Deployment targets
+> **Azure Container Apps**, not AKS: `deploy.yml` builds and pushes images to ACR,
+> then runs `az containerapp update` on `ca-nornis-{api,web,worker}` — no manifests,
+> no Helm, and "Kubernetes probes" reads as Container Apps probes. The workflow set
+> is `ci.yml` (PRs: build, test, format) plus `deploy.yml` (main: test-gated
+> rollout), not the five-file layout suggested below; there is one environment
+> (prod), deployed automatically from main.
+
 ## Tooling
 
 Use GitHub Actions for CI/CD.

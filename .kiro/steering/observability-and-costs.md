@@ -1,5 +1,15 @@
 # Observability and Cost Tracking
 
+> **Amendment (July 2026):** Observability runs on **Azure Monitor / Application
+> Insights** (`appi-nornis`) via OpenTelemetry, not DataDog — read every DataDog
+> reference below accordingly. The "service tags" exist as OTel service names
+> (`nornis-api`, `nornis-web`, `nornis-worker`) on each host's resource. API and Web
+> telemetry is sampled down (its volume scales with open browser tabs); the worker's
+> is deliberately unsampled — low volume, and the most diagnostically valuable traces
+> in the system. Alert rules and an availability test against `/health` are live.
+> Everything else below — the metric list, logging rules, and cost tracking as a
+> product feature — stands as written.
+
 ## Observability Tool
 
 Use DataDog for logs, metrics, traces, and dashboards.

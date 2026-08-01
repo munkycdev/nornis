@@ -2,40 +2,35 @@
 
 Guidance for Claude Code working in the Nornis repo.
 
-Start with [README.md](README.md) for what Nornis is and how to build it, then
-`.kiro/steering/product-vision.md` and `.kiro/steering/coding-standards.md`.
+Start with [README.md](README.md) for what Nornis is and how to build it.
 
-## Model delegation
+## Steering
 
-**This rule is conditional on which model you are. Check before following it.**
+The docs in `.kiro/steering/` are the operating instructions for this repo — treat
+them with the same authority Kiro gives them. Nothing in them is advisory.
 
-- **If you are Fable 5:** do not write or edit source files yourself. Hand the work to
-  the `implementer` subagent (Opus) with a self-contained spec — it cannot see this
-  conversation, so state the goal, the files or areas involved, the constraints, and
-  what "done" means. Review what comes back yourself, or route it to the `code-critic`
-  subagent (also Fable, read-only) when an independent read with no memory of the spec
-  would catch more. Decide with the user what to act on.
+**Always** (read before changing anything):
 
-  Trivial mechanical edits — a typo, a version bump, a one-line copy change — do not
-  need this. Delegate when the change involves judgment.
+- `coding-standards.md` — how code is written here; the authority on style and idiom.
+- `domain-model.md` — entities and the deliberate vocabulary (Storyline, Source,
+  Artifact, Fact, Relationship, Canon, Reveal). Naming drift is a defect.
 
-- **If you are Opus or Sonnet:** implement directly. Reach for `code-critic` on your
-  own work when the change is large or touches authorization, visibility, or
-  migrations — it escalates to a stronger model *and* reads with no memory of having
-  written the code.
+**By task** (read the matching doc before starting that kind of work):
 
-Fable is the most capable tier and the most expensive, and its turns run long. The
-point of the split is to spend it where judgment compounds — deciding what to build,
-and reviewing what came back — while the high-volume token work of actually writing
-the code happens on Opus. Never review with a model weaker than the one that wrote
-the code.
+| Working on…                                   | Read first                    |
+| --------------------------------------------- | ----------------------------- |
+| Deciding what to build, scoping a feature     | `product-vision.md`, `mvp-scope.md`, `project.md` |
+| Solution structure, project references, layers | `architecture.md`            |
+| Tests                                          | `testing-strategy.md`        |
+| Auth, roles, visibility, anything user-scoped  | `security-and-permissions.md` |
+| AI extraction, Loremaster, review pipeline     | `ai-extraction.md`           |
+| UI / Blazor components                         | `ui-design-system.md`        |
+| Infrastructure, hosting, provisioning          | `azure-hosting.md`           |
+| GitHub Actions, pipelines                      | `cicd.md`                    |
+| Telemetry, alerts, cost tracking               | `observability-and-costs.md` |
 
-## Working conventions
-
-- Several agents may be running in this one working directory at once. Stage only the
-  files you touched, and expect `main` to move under you.
-- Warnings are errors. A clean `dotnet build Nornis.sln` is the bar.
-- If test builds fail with file-lock errors on `Nornis.Api.Tests` or `Nornis.Web.Tests`,
-  the local dev servers are running — test the library projects individually rather than
-  killing them.
-- Migrations must stay additive; they run before the new images go live.
+**When a steering doc and the tree disagree** (it happens — e.g. a doc may name a
+tool the system no longer uses): the tree is the authority on what *is*, the doc on
+what is *intended*. Don't silently follow either — surface the mismatch, and if the
+reality is the settled decision, amend the doc the way `azure-hosting.md` does it: a
+dated amendment note at the top, original text left in place.
