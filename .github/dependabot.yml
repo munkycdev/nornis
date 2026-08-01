@@ -1,0 +1,40 @@
+# Dependency patching (O5). The premise is that this repo's existing gates —
+# warnings-as-errors, the full suite, the format check, and now the vulnerability scan
+# in ci.yml — are strong enough that a routine bump can be read and merged quickly.
+# Automation that opens PRs nobody dares merge is worse than no automation.
+version: 2
+
+updates:
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for the routine drift. Majors stay separate: they are the ones that
+      # change behaviour, and each deserves its own read and its own revert.
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "deps"
+    # Note for whoever takes the first major bumps here: every run currently warns that
+    # checkout@v4, setup-dotnet@v4, azure/login@v2 and setup-buildx-action@v3 target
+    # Node 20 and are being forced onto Node 24. Those majors are the fix. Read each
+    # changelog — action majors change inputs, and azure/login in particular gates the
+    # OIDC deploy — rather than accepting all four at once.

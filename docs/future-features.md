@@ -43,7 +43,10 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
    The status *page* is not part of this — it lands with item 3, which owns the site.
 3. Test quality phase 2 + the status page — CI surfacing, history branch, one static
    dashboard site carrying both faces. Pages-vs-`$web` fallback is pre-decided.
-4. O5 dependency patching + O6 runbooks — config and docs.
+4. O5 dependency patching + O6 runbooks — config and docs. **Done 2026-08-01.**
+   Takes the Node 20 rider with it: the `github-actions` ecosystem is what will now
+   propose those major bumps, to be read one changelog at a time rather than accepted
+   as a batch.
 5. O1 post-deploy verification + O2 DLQ visibility — probes, pipeline poll, alert,
    status row, peek/resubmit script. All spec'd. **The pipeline poll landed early
    (2026-08-01)** with the status work, because a cold revision was rendering as a red
@@ -87,13 +90,11 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
 Small things noticed in passing, too small for a plan file, parked against the item
 that already opens the right file. Neither is urgent; both rot if left unwritten.
 
-- **Node 20 action deprecation** (rides with 4, O5 dependency patching). Every
-  workflow run now annotates that `actions/checkout@v4`, `actions/setup-dotnet@v4`,
-  `azure/login@v2`, and `docker/setup-buildx-action@v3` target Node 20 and are being
-  force-run on Node 24. Warnings today, breakage on whatever date GitHub drops the
-  fallback. O5 is already the item that decides how this repo takes dependency bumps —
-  action majors are the same question, and a major bump can change action inputs, so
-  it wants a real read of each changelog rather than a find-and-replace.
+- ~~**Node 20 action deprecation**~~ **(handled 2026-08-01 by item 4.)** Dependabot's
+  `github-actions` ecosystem will open the major bumps for `actions/checkout`,
+  `actions/setup-dotnet`, `azure/login` and `docker/setup-buildx-action` as separate
+  PRs. Read each changelog before merging — majors change action inputs, and
+  `azure/login` gates the OIDC deploy.
 - **Tier 2's unfinished sweep** (rides with 9, tier 3 conventions). Deleting
   `src/Nornis.Shared` left three references behind: an ItemGroup in
   `src/Nornis.Web/Nornis.Web.csproj` now empty apart from a comment describing the
