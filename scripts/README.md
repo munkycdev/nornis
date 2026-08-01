@@ -22,6 +22,24 @@ launching apps.
 docker compose -f compose.local.yaml down   # tear down
 ```
 
+## coverage.ps1
+
+Runs the test projects with coverage collection (`coverlet.runsettings` at the repo
+root) and merges the results into a browsable HTML report under `artifacts/coverage/`
+(gitignored). ReportGenerator is pinned in `.config/dotnet-tools.json`, so local and CI
+runs share one version.
+
+```powershell
+./scripts/coverage.ps1                            # everything, opens the report
+./scripts/coverage.ps1 -Projects Domain,Application
+./scripts/coverage.ps1 -NoOpen
+```
+
+Projects are run one at a time, so a test binary locked by a running dev server is
+reported as skipped instead of taking the whole run down. There is no coverage gate —
+the report is a signal to read, not a bar to clear (`.kiro/steering/testing-strategy.md`,
+`docs/plans/test-quality.md`).
+
 ## import-notes.py
 
 Bulk-imports a note-vault export (wiki-style folder layout: `Wiki/`, `Characters/`,
