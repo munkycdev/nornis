@@ -45,7 +45,10 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
    dashboard site carrying both faces. Pages-vs-`$web` fallback is pre-decided.
 4. O5 dependency patching + O6 runbooks — config and docs.
 5. O1 post-deploy verification + O2 DLQ visibility — probes, pipeline poll, alert,
-   status row, peek/resubmit script. All spec'd.
+   status row, peek/resubmit script. All spec'd. **The pipeline poll landed early
+   (2026-08-01)** with the status work, because a cold revision was rendering as a red
+   status page; what remains of O1 is the Container Apps liveness/readiness probes and
+   naming the failing check in `/health`'s body.
 6. D2 deterministic functional bugs — every item carries a repro and a prescribed fix.
    Includes the merge skip-branch row deletion (prerequisite for W2) and the
    stale-response family. Two additive migrations (batch and replay unique indexes).
