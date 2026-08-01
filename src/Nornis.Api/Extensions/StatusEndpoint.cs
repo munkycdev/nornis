@@ -18,6 +18,14 @@ public static class StatusEndpoint
     public const string LivenessTag = "live";
 
     /// <summary>
+    /// Ceiling on any single dependency probe. An unreachable dependency fails by not
+    /// answering, and the SDKs retry generously — the first production /status spent
+    /// fourteen seconds on one unreachable queue. A status page that hangs is a status
+    /// page nobody waits for, and "down" is the answer either way.
+    /// </summary>
+    public static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>
     /// Writes the aggregate plus one row per check.
     ///
     /// Deliberately not written: check descriptions and exception text. Those are where the

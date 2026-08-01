@@ -4,7 +4,6 @@
   <ItemGroup>
     <!-- Dependency probes behind GET /status. Each is a thin wrapper over the same SDK the
          app already uses; the value is uniform HealthCheckResult semantics, not access. -->
-    <PackageReference Include="AspNetCore.HealthChecks.AzureServiceBus" Version="9.0.0" />
     <PackageReference Include="AspNetCore.HealthChecks.Azure.Storage.Blobs" Version="9.0.0" />
     <PackageReference Include="AspNetCore.HealthChecks.SqlServer" Version="9.0.0" />
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.20.1" />
