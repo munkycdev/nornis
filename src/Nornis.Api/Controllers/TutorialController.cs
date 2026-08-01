@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
-using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 
@@ -30,7 +29,7 @@ public class TutorialController : ControllerBase
     {
         var user = HttpContext.GetNornisUser();
         var result = await _tutorialService.GetChecklistAsync(worldId, user.Id, ct);
-        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : MapError(result.Error!);
+        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 
     [HttpPost("steps/{stepKey}")]
@@ -38,7 +37,7 @@ public class TutorialController : ControllerBase
     {
         var user = HttpContext.GetNornisUser();
         var result = await _tutorialService.ReportStepAsync(worldId, user.Id, stepKey, ct);
-        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : MapError(result.Error!);
+        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 
     [HttpGet("session-six")]
@@ -47,19 +46,11 @@ public class TutorialController : ControllerBase
         var result = await _tutorialService.GetSessionSixAsync(ct);
         return result.IsSuccess
             ? Ok(new TutorialSessionSixResponse(result.Value!))
-            : MapError(result.Error!);
+            : result.Error!.ToActionResult();
     }
 
     private static TutorialChecklistResponse ToResponse(TutorialChecklist checklist) =>
         new(checklist.Steps
             .Select(s => new TutorialStepResponse(s.Key, s.Chapter, s.ClientReported, s.CompletedAt))
             .ToList());
-
-    private IActionResult MapError(AppError error) => error.StatusCode switch
-    {
-        400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
-        404 => NotFound(new ErrorResponse(error.Code, error.Message)),
-        409 => Conflict(new ErrorResponse(error.Code, error.Message)),
-        _ => StatusCode(error.StatusCode, new ErrorResponse(error.Code, error.Message))
-    };
 }

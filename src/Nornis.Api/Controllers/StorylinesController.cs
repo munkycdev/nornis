@@ -3,7 +3,6 @@ using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
-using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Enums;
@@ -58,7 +57,7 @@ public class StorylinesController : ControllerBase
         var result = await _continuityService.GetContinuityReportAsync(worldId, user.Id, member.Role, ct);
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToContinuityResponse(result.Value!));
@@ -74,7 +73,7 @@ public class StorylinesController : ControllerBase
         var result = await _wrapUpService.GetWrapUpAsync(worldId, user.Id, member.Role, ct);
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToWrapUpResponse(result.Value!));
@@ -110,7 +109,7 @@ public class StorylinesController : ControllerBase
         var result = await _wrapUpService.ApplyAsync(command, ct);
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var value = result.Value!;
@@ -157,7 +156,7 @@ public class StorylinesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var value = result.Value!;
@@ -178,7 +177,7 @@ public class StorylinesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var value = result.Value!;
@@ -199,7 +198,7 @@ public class StorylinesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToTimelineResponse(result.Value!));
@@ -250,23 +249,11 @@ public class StorylinesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var response = result.Value!.Select(ArtifactsController.ToListItemResponse).ToList();
 
         return Ok(response);
-    }
-
-    private IActionResult MapError(AppError error)
-    {
-        return error.StatusCode switch
-        {
-            400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
-            403 => StatusCode(403, new ErrorResponse(error.Code, error.Message)),
-            404 => NotFound(new ErrorResponse(error.Code, error.Message)),
-            409 => Conflict(new ErrorResponse(error.Code, error.Message)),
-            _ => StatusCode(error.StatusCode, new ErrorResponse(error.Code, error.Message))
-        };
     }
 }

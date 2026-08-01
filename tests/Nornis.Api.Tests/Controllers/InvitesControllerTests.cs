@@ -68,7 +68,7 @@ public class InvitesControllerTests
 
         var result = await _controller.Preview("nope", CancellationToken.None);
 
-        Assert.That(result, Is.TypeOf<NotFoundObjectResult>());
+        Assert.That((result as ObjectResult)!.StatusCode, Is.EqualTo(404));
     }
 
     // -------------------------------------------------------------------- Accept --
@@ -110,6 +110,6 @@ public class InvitesControllerTests
 
         var result = await _controller.Accept("abc123", CancellationToken.None);
 
-        Assert.That(result, Is.TypeOf<ConflictObjectResult>());
+        Assert.That((result as ObjectResult)!.StatusCode, Is.EqualTo(409));
     }
 }

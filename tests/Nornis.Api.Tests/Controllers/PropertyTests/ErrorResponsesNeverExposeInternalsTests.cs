@@ -1,13 +1,10 @@
-using System.Reflection;
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
 using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Responses;
-using Nornis.Api.Controllers;
+using Nornis.Api.Extensions;
 using Nornis.Application.Errors;
-using Nornis.Application.Services;
-using NSubstitute;
 using NUnit.Framework;
 
 namespace Nornis.Api.Tests.Controllers.PropertyTests;
@@ -25,21 +22,14 @@ namespace Nornis.Api.Tests.Controllers.PropertyTests;
 [Category("Feature: ask-loremaster, Property 12: Error Responses Never Expose Internals")]
 public class ErrorResponsesNeverExposeInternalsTests
 {
-    private static readonly MethodInfo MapErrorMethod = typeof(LoremasterController)
-        .GetMethod("MapError", BindingFlags.NonPublic | BindingFlags.Instance)!;
-
     [FsCheck.NUnit.Property(
         Arbitrary = [typeof(ErrorResponseArbitraries)],
         MaxTest = 100)]
     [Description("Feature: ask-loremaster, Property 12: Error Responses Never Expose Internals")]
     public void MapError_NeverExposesInternalDetails(ErrorResponseScenario scenario)
     {
-        // Arrange
-        var mockService = Substitute.For<ILoremasterService>();
-        var controller = new LoremasterController(mockService, Substitute.For<ISuggestionService>());
-
-        // Act — invoke MapError via reflection
-        var result = (IActionResult)MapErrorMethod.Invoke(controller, [scenario.Error])!;
+        // Act — the shared mapper is now the single enforcement point for this property
+        var result = scenario.Error.ToActionResult();
 
         // Extract the ErrorResponse from the result
         var errorResponse = ExtractErrorResponse(result);

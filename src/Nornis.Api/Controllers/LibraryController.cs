@@ -3,7 +3,6 @@ using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
-using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
@@ -61,7 +60,7 @@ public class LibraryController : ControllerBase
         var result = await _libraryService.RequestUploadAsync(command, ct);
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(new LibraryUploadResponse(ToResponse(result.Value!.Document), result.Value.UploadUrl));
@@ -72,7 +71,7 @@ public class LibraryController : ControllerBase
     {
         var user = HttpContext.GetNornisUser();
         var result = await _libraryService.ConfirmUploadAsync(documentId, worldId, user.Id, ct);
-        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : MapError(result.Error!);
+        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 
     [HttpGet]
@@ -82,7 +81,7 @@ public class LibraryController : ControllerBase
         var result = await _libraryService.ListAsync(worldId, member.Role, ct);
         return result.IsSuccess
             ? Ok(result.Value!.Select(ToResponse).ToList())
-            : MapError(result.Error!);
+            : result.Error!.ToActionResult();
     }
 
     [HttpGet("{documentId:guid}")]
@@ -90,7 +89,7 @@ public class LibraryController : ControllerBase
     {
         var member = HttpContext.GetWorldMember();
         var result = await _libraryService.GetByIdAsync(documentId, worldId, member.Role, ct);
-        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : MapError(result.Error!);
+        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 
     [HttpGet("{documentId:guid}/download")]
@@ -100,7 +99,7 @@ public class LibraryController : ControllerBase
         var result = await _libraryService.GetDownloadAsync(documentId, worldId, member.Role, ct);
         return result.IsSuccess
             ? Ok(new LibraryDownloadResponse(result.Value!.DownloadUrl, result.Value.FileName, result.Value.ContentType, result.Value.SizeBytes))
-            : MapError(result.Error!);
+            : result.Error!.ToActionResult();
     }
 
     /// <summary>GM-only: moves a document between the party shelf and the GM's.</summary>
@@ -119,7 +118,7 @@ public class LibraryController : ControllerBase
         }
 
         var result = await _libraryService.SetVisibilityAsync(documentId, worldId, member.Role, visibility, ct);
-        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : MapError(result.Error!);
+        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 
     [HttpDelete("{documentId:guid}")]
@@ -128,7 +127,7 @@ public class LibraryController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
         var result = await _libraryService.DeleteAsync(documentId, worldId, user.Id, member.Role, ct);
-        return result.IsSuccess ? NoContent() : MapError(result.Error!);
+        return result.IsSuccess ? NoContent() : result.Error!.ToActionResult();
     }
 
     [HttpPost("{documentId:guid}/reindex")]
@@ -137,20 +136,11 @@ public class LibraryController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
         var result = await _libraryService.ReindexAsync(documentId, worldId, user.Id, member.Role, ct);
-        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : MapError(result.Error!);
+        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 
     private static LibraryDocumentResponse ToResponse(LibraryDocument d) => new(
         d.Id, d.WorldId, d.Title, d.FileName, d.ContentType, d.SizeBytes,
         d.Kind.ToString(), d.Visibility.ToString(), d.Status.ToString(),
         d.PageCount, d.ChunkCount, d.ErrorMessage, d.UploadedByUserId, d.CreatedAt, d.UpdatedAt);
-
-    private IActionResult MapError(AppError error) => error.StatusCode switch
-    {
-        400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
-        403 => StatusCode(403, new ErrorResponse(error.Code, error.Message)),
-        404 => NotFound(new ErrorResponse(error.Code, error.Message)),
-        409 => Conflict(new ErrorResponse(error.Code, error.Message)),
-        _ => StatusCode(error.StatusCode, new ErrorResponse(error.Code, error.Message)),
-    };
 }

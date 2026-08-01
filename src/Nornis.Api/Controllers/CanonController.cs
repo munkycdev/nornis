@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
-using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Enums;
@@ -104,7 +103,7 @@ public class CanonController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var response = result.Value!.Select(ToCanonEntryResponse).ToList();
@@ -127,17 +126,5 @@ public class CanonController : ControllerBase
             TruthState: entry.TruthState.ToString(),
             Visibility: entry.Visibility.ToString(),
             UpdatedAt: entry.UpdatedAt);
-    }
-
-    private IActionResult MapError(AppError error)
-    {
-        return error.StatusCode switch
-        {
-            400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
-            403 => StatusCode(403, new ErrorResponse(error.Code, error.Message)),
-            404 => NotFound(new ErrorResponse(error.Code, error.Message)),
-            409 => Conflict(new ErrorResponse(error.Code, error.Message)),
-            _ => StatusCode(error.StatusCode, new ErrorResponse(error.Code, error.Message))
-        };
     }
 }

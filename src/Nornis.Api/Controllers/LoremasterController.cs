@@ -3,7 +3,6 @@ using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
-using Nornis.Application.Errors;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
@@ -55,7 +54,7 @@ public class LoremasterController : ControllerBase
         var result = await _loremasterService.AskAsync(command, ct);
 
         if (!result.IsSuccess)
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
 
         var answer = result.Value!;
         return Ok(ToAnswerResponse(answer));
@@ -81,16 +80,5 @@ public class LoremasterController : ControllerBase
             RelationshipId: citation.RelationshipId,
             SourceId: citation.SourceId,
             DocumentId: citation.DocumentId);
-    }
-
-    private IActionResult MapError(AppError error)
-    {
-        return error.StatusCode switch
-        {
-            400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
-            429 => StatusCode(429, new ErrorResponse(error.Code, error.Message)),
-            503 => StatusCode(503, new ErrorResponse(error.Code, error.Message)),
-            _ => StatusCode(500, new ErrorResponse("internal_error", "Something went wrong. Please try again."))
-        };
     }
 }

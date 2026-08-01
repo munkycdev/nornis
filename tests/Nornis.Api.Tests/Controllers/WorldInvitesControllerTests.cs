@@ -145,7 +145,7 @@ public class WorldInvitesControllerTests
 
         var result = await _controller.Revoke(WorldId, Guid.NewGuid(), CancellationToken.None);
 
-        Assert.That(result, Is.TypeOf<NotFoundObjectResult>());
+        Assert.That((result as ObjectResult)!.StatusCode, Is.EqualTo(404));
     }
 
     [Test]

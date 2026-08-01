@@ -3,7 +3,6 @@ using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
-using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 
@@ -35,7 +34,7 @@ public class ExtractionReplayController : ControllerBase
         var result = await _replayService.GetActiveAsync(worldId, user.Id, member.Role, ct);
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(new ExtractionReplayStateResponse(
@@ -52,7 +51,7 @@ public class ExtractionReplayController : ControllerBase
         var result = await _replayService.CountFromAsync(worldId, startSourceId, user.Id, member.Role, ct);
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(new ExtractionReplayPreviewResponse(result.Value));
@@ -69,7 +68,7 @@ public class ExtractionReplayController : ControllerBase
             worldId, request.StartSourceId, user.Id, member.Role, ct);
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToResponse(result.Value!));
@@ -84,7 +83,7 @@ public class ExtractionReplayController : ControllerBase
         var result = await _replayService.CancelAsync(worldId, user.Id, member.Role, ct);
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToResponse(result.Value!));
@@ -93,16 +92,4 @@ public class ExtractionReplayController : ControllerBase
     private static ExtractionReplayResponse ToResponse(ExtractionReplayInfo info) =>
         new(info.Id, info.Status, info.CurrentSourceId, info.CurrentSourceTitle,
             info.CurrentSourceProcessingStatus, info.RemainingCount, info.CreatedAt);
-
-    private IActionResult MapError(AppError error)
-    {
-        return error.StatusCode switch
-        {
-            400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
-            403 => StatusCode(403, new ErrorResponse(error.Code, error.Message)),
-            404 => NotFound(new ErrorResponse(error.Code, error.Message)),
-            409 => Conflict(new ErrorResponse(error.Code, error.Message)),
-            _ => StatusCode(error.StatusCode, new ErrorResponse(error.Code, error.Message))
-        };
-    }
 }

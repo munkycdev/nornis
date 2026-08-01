@@ -3,7 +3,6 @@ using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
-using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
@@ -39,7 +38,7 @@ public class WorldsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var world = result.Value!;
@@ -64,7 +63,7 @@ public class WorldsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var world = result.Value!;
@@ -82,7 +81,7 @@ public class WorldsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var worlds = result.Value!;
@@ -114,7 +113,7 @@ public class WorldsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var world = result.Value!;
@@ -156,7 +155,7 @@ public class WorldsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var world = result.Value!;
@@ -193,7 +192,7 @@ public class WorldsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return NoContent();
@@ -237,7 +236,7 @@ public class WorldsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var export = result.Value!;
@@ -262,17 +261,5 @@ public class WorldsController : ControllerBase
             IsDemo: world.IsDemo,
             TutorialEnabled: world.TutorialEnabled,
             IsTemplate: world.IsTemplate);
-    }
-
-    private IActionResult MapError(AppError error)
-    {
-        return error.StatusCode switch
-        {
-            400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
-            403 => StatusCode(403, new ErrorResponse(error.Code, error.Message)),
-            404 => NotFound(new ErrorResponse(error.Code, error.Message)),
-            409 => Conflict(new ErrorResponse(error.Code, error.Message)),
-            _ => StatusCode(error.StatusCode, new ErrorResponse(error.Code, error.Message))
-        };
     }
 }

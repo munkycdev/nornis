@@ -79,7 +79,7 @@ public class ImportSessionsController : ControllerBase
         var result = await _importService.ListCandidatesAsync(worldId, sessionId, user.Id, member.Role, ct);
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(result.Value!.Select(c => new ImportCandidateResponse(
@@ -161,7 +161,7 @@ public class ImportSessionsController : ControllerBase
     {
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToResponse(result.Value!));
@@ -188,16 +188,4 @@ public class ImportSessionsController : ControllerBase
             info.CurrentItemId,
             info.CurrentIndex,
             info.SettledCount);
-
-    private IActionResult MapError(AppError error)
-    {
-        return error.StatusCode switch
-        {
-            400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
-            403 => StatusCode(403, new ErrorResponse(error.Code, error.Message)),
-            404 => NotFound(new ErrorResponse(error.Code, error.Message)),
-            409 => Conflict(new ErrorResponse(error.Code, error.Message)),
-            _ => StatusCode(error.StatusCode, new ErrorResponse(error.Code, error.Message))
-        };
-    }
 }

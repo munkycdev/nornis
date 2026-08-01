@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
-using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Enums;
@@ -41,7 +40,7 @@ public class HealthController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToResponse(result.Value!));
@@ -60,7 +59,7 @@ public class HealthController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToResponse(result.Value!));
@@ -79,7 +78,7 @@ public class HealthController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToResponse(result.Value!));
@@ -102,7 +101,7 @@ public class HealthController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var draft = result.Value!;
@@ -129,15 +128,4 @@ public class HealthController : ControllerBase
 
     private static ContinuityEvidenceItemResponse ToResponse(ContinuityEvidenceItemView e) =>
         new(e.RefId, e.Kind, e.Label, e.ArtifactId, e.ChangedSinceAudit, e.Missing);
-
-    private IActionResult MapError(AppError error)
-    {
-        return error.StatusCode switch
-        {
-            400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
-            403 => StatusCode(403, new ErrorResponse(error.Code, error.Message)),
-            404 => NotFound(new ErrorResponse(error.Code, error.Message)),
-            _ => StatusCode(error.StatusCode, new ErrorResponse(error.Code, error.Message))
-        };
-    }
 }

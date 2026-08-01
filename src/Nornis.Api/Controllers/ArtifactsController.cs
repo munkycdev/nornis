@@ -3,7 +3,6 @@ using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
-using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
@@ -49,7 +48,7 @@ public class ArtifactsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(new { targetArtifactId = result.Value });
@@ -96,7 +95,7 @@ public class ArtifactsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var response = result.Value!.Select(ToListItemResponse).ToList();
@@ -129,7 +128,7 @@ public class ArtifactsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(result.Value!.Select(ToListItemResponse).ToList());
@@ -157,7 +156,7 @@ public class ArtifactsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToListItemResponse(result.Value!));
@@ -185,7 +184,7 @@ public class ArtifactsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return NoContent();
@@ -217,7 +216,7 @@ public class ArtifactsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return NoContent();
@@ -250,7 +249,7 @@ public class ArtifactsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToListItemResponse(result.Value!));
@@ -267,7 +266,7 @@ public class ArtifactsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToGraphResponse(result.Value!));
@@ -290,7 +289,7 @@ public class ArtifactsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToDetailResponse(result.Value!));
@@ -307,7 +306,7 @@ public class ArtifactsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var preview = result.Value!;
@@ -332,7 +331,7 @@ public class ArtifactsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return NoContent();
@@ -424,17 +423,5 @@ public class ArtifactsController : ControllerBase
             Notes: reference.Notes,
             CreatedAt: reference.CreatedAt,
             SourceTitle: sourceTitles?.GetValueOrDefault(reference.SourceId));
-    }
-
-    private IActionResult MapError(AppError error)
-    {
-        return error.StatusCode switch
-        {
-            400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
-            403 => StatusCode(403, new ErrorResponse(error.Code, error.Message)),
-            404 => NotFound(new ErrorResponse(error.Code, error.Message)),
-            409 => Conflict(new ErrorResponse(error.Code, error.Message)),
-            _ => StatusCode(error.StatusCode, new ErrorResponse(error.Code, error.Message))
-        };
     }
 }

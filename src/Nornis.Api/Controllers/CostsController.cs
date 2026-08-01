@@ -3,7 +3,6 @@ using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
 using Nornis.Application.Configuration;
-using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Models;
@@ -43,7 +42,7 @@ public class CostsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         // Budget display honors any per-world override.
@@ -70,7 +69,7 @@ public class CostsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(result.Value!.Select(ToUserCostResponse).ToList());
@@ -95,7 +94,7 @@ public class CostsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(result.Value!.Select(ToOperationTypeCostResponse).ToList());
@@ -120,19 +119,10 @@ public class CostsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(result.Value!.Select(ToModelCostResponse).ToList());
-    }
-
-    private IActionResult MapError(AppError error)
-    {
-        return error.StatusCode switch
-        {
-            400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
-            _ => StatusCode(500, new ErrorResponse("internal_error", "Something went wrong. Please try again."))
-        };
     }
 
     private static TimePeriodSummaryResponse ToTimePeriodSummaryResponse(TimePeriodCostResult result, decimal budget)
@@ -209,19 +199,10 @@ public class CrossWorldCostsController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(result.Value!.Select(ToWorldCostResponse).ToList());
-    }
-
-    private IActionResult MapError(AppError error)
-    {
-        return error.StatusCode switch
-        {
-            400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
-            _ => StatusCode(500, new ErrorResponse("internal_error", "Something went wrong. Please try again."))
-        };
     }
 
     private static WorldCostResponse ToWorldCostResponse(WorldCostResult result)

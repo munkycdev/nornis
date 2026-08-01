@@ -306,7 +306,7 @@ public class LoremasterControllerTests
         var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
-        var badRequestResult = result as BadRequestObjectResult;
+        var badRequestResult = result as ObjectResult;
         Assert.That(badRequestResult, Is.Not.Null);
         Assert.That(badRequestResult!.StatusCode, Is.EqualTo(400));
 
@@ -331,7 +331,7 @@ public class LoremasterControllerTests
         var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
-        var badRequestResult = result as BadRequestObjectResult;
+        var badRequestResult = result as ObjectResult;
         Assert.That(badRequestResult, Is.Not.Null);
 
         var errorResponse = badRequestResult!.Value as ErrorResponse;
@@ -458,9 +458,11 @@ public class LoremasterControllerTests
     }
 
     [Test]
-    public async Task Ask_UnknownStatusCode_Returns500WithGenericMessage()
+    public async Task Ask_UnknownStatusCode_SanitizesBody()
     {
-        // Arrange — an unexpected status code that doesn't match 400, 429, or 503
+        // Arrange — an unexpected status code that doesn't match 400, 429, or 503.
+        // The status passes through (it may carry retry semantics); the body must
+        // still be scrubbed.
         var request = new AskLoremasterRequest("Who is Captain Voss?");
 
         _loremasterService
@@ -474,7 +476,7 @@ public class LoremasterControllerTests
         // Assert
         var objectResult = result as ObjectResult;
         Assert.That(objectResult, Is.Not.Null);
-        Assert.That(objectResult!.StatusCode, Is.EqualTo(500));
+        Assert.That(objectResult!.StatusCode, Is.EqualTo(502));
 
         var errorResponse = objectResult.Value as ErrorResponse;
         Assert.That(errorResponse, Is.Not.Null);

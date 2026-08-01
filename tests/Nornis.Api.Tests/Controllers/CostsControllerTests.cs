@@ -210,7 +210,7 @@ public class CostsControllerTests
         var result = await _controller.GetByUser(WorldId, startDate, endDate, CancellationToken.None);
 
         // Assert
-        var badRequestResult = result as BadRequestObjectResult;
+        var badRequestResult = result as ObjectResult;
         Assert.That(badRequestResult, Is.Not.Null);
         Assert.That(badRequestResult!.StatusCode, Is.EqualTo(400));
 
@@ -236,7 +236,7 @@ public class CostsControllerTests
         var result = await _controller.GetByOperation(WorldId, startDate, endDate, CancellationToken.None);
 
         // Assert
-        var badRequestResult = result as BadRequestObjectResult;
+        var badRequestResult = result as ObjectResult;
         Assert.That(badRequestResult, Is.Not.Null);
 
         var errorResponse = badRequestResult!.Value as ErrorResponse;
@@ -260,7 +260,7 @@ public class CostsControllerTests
         var result = await _controller.GetByModel(WorldId, startDate, endDate, CancellationToken.None);
 
         // Assert
-        var badRequestResult = result as BadRequestObjectResult;
+        var badRequestResult = result as ObjectResult;
         Assert.That(badRequestResult, Is.Not.Null);
 
         var errorResponse = badRequestResult!.Value as ErrorResponse;
@@ -367,9 +367,10 @@ public class CostsControllerTests
     }
 
     [Test]
-    public async Task GetSummary_UnknownStatusCode_Returns500WithGenericMessage()
+    public async Task GetSummary_UnknownStatusCode_SanitizesBody()
     {
-        // Arrange — an unexpected status code from the service
+        // Arrange — an unexpected status code from the service. The status passes
+        // through (it may carry retry semantics); the body must still be scrubbed.
         _costService
             .GetSummaryAsync(WorldId, KeldaUserId, WorldRole.GM, Arg.Any<CancellationToken>())
             .Returns(AppResult<TimePeriodCostResult>.Fail(
@@ -381,7 +382,7 @@ public class CostsControllerTests
         // Assert
         var objectResult = result as ObjectResult;
         Assert.That(objectResult, Is.Not.Null);
-        Assert.That(objectResult!.StatusCode, Is.EqualTo(500));
+        Assert.That(objectResult!.StatusCode, Is.EqualTo(502));
 
         var errorResponse = objectResult.Value as ErrorResponse;
         Assert.That(errorResponse, Is.Not.Null);

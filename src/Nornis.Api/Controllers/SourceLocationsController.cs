@@ -3,7 +3,6 @@ using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
-using Nornis.Application.Errors;
 using Nornis.Application.Services;
 
 namespace Nornis.Api.Controllers;
@@ -34,7 +33,7 @@ public class SourceLocationsController : ControllerBase
         var member = HttpContext.GetWorldMember();
 
         var result = await _service.ListLocationsAsync(sourceId, worldId, user.Id, member.Role, ct);
-        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : MapError(result.Error!);
+        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 
     /// <summary>Links this session to a Location (idempotent). Returns the updated set.</summary>
@@ -46,7 +45,7 @@ public class SourceLocationsController : ControllerBase
         var member = HttpContext.GetWorldMember();
 
         var result = await _service.LinkLocationAsync(sourceId, worldId, request.ArtifactId, user.Id, member.Role, ct);
-        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : MapError(result.Error!);
+        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 
     /// <summary>Removes this session's link to a Location (any link — extractor- or user-authored).</summary>
@@ -57,18 +56,9 @@ public class SourceLocationsController : ControllerBase
         var member = HttpContext.GetWorldMember();
 
         var result = await _service.UnlinkLocationAsync(sourceId, worldId, artifactId, user.Id, member.Role, ct);
-        return result.IsSuccess ? NoContent() : MapError(result.Error!);
+        return result.IsSuccess ? NoContent() : result.Error!.ToActionResult();
     }
 
     private static IReadOnlyList<LinkedLocationResponse> ToResponse(IReadOnlyList<LinkedLocation> locations) =>
         locations.Select(l => new LinkedLocationResponse(l.ArtifactId, l.Name, l.Summary)).ToList();
-
-    private IActionResult MapError(AppError error) => error.StatusCode switch
-    {
-        400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
-        403 => StatusCode(403, new ErrorResponse(error.Code, error.Message)),
-        404 => NotFound(new ErrorResponse(error.Code, error.Message)),
-        409 => Conflict(new ErrorResponse(error.Code, error.Message)),
-        _ => StatusCode(error.StatusCode, new ErrorResponse(error.Code, error.Message))
-    };
 }

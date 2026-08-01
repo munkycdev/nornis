@@ -3,7 +3,6 @@ using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
-using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
@@ -62,7 +61,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var source = result.Value!;
@@ -101,7 +100,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var response = result.Value!.Select(ToSourceListItemResponse).ToList();
@@ -126,7 +125,7 @@ public class SourcesController : ControllerBase
         var result = await _sourceService.GetActivityAsync(worldId, user.Id, member.Role, ct);
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var activity = result.Value!;
@@ -150,7 +149,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var source = result.Value!;
@@ -209,7 +208,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var source = result.Value!;
@@ -228,7 +227,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return NoContent();
@@ -249,7 +248,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var map = result.Value!;
@@ -279,7 +278,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var pin = result.Value!;
@@ -304,7 +303,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var pin = result.Value!;
@@ -328,7 +327,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return NoContent();
@@ -349,7 +348,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var knowledge = result.Value!;
@@ -381,7 +380,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var preview = result.Value!;
@@ -420,7 +419,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToSourceResponse(result.Value!));
@@ -441,14 +440,14 @@ public class SourcesController : ControllerBase
         var result = await revealService.RevealSourceAsync(worldId, sourceId, user.Id, member.Role, ct);
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         // Return the now-party-visible source so the client refreshes its state.
         var refreshed = await _sourceService.GetByIdAsync(sourceId, worldId, user.Id, member.Role, ct);
         if (!refreshed.IsSuccess)
         {
-            return MapError(refreshed.Error!);
+            return refreshed.Error!.ToActionResult();
         }
 
         return Ok(ToSourceResponse(refreshed.Value!));
@@ -470,7 +469,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var source = result.Value!;
@@ -510,7 +509,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var ticket = result.Value!;
@@ -528,7 +527,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return Ok(ToAttachmentResponse(result.Value!));
@@ -545,14 +544,14 @@ public class SourcesController : ControllerBase
         var sourceResult = await _sourceService.GetByIdAsync(sourceId, worldId, user.Id, member.Role, ct);
         if (!sourceResult.IsSuccess)
         {
-            return MapError(sourceResult.Error!);
+            return sourceResult.Error!.ToActionResult();
         }
 
         var result = await _attachmentService.ListAsync(sourceId, worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         var response = result.Value!
@@ -573,7 +572,7 @@ public class SourcesController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            return MapError(result.Error!);
+            return result.Error!.ToActionResult();
         }
 
         return NoContent();
@@ -628,17 +627,5 @@ public class SourcesController : ControllerBase
             ProcessingStatus: source.ProcessingStatus.ToString(),
             CampaignId: source.CampaignId,
             CampaignName: source.CampaignName);
-    }
-
-    private IActionResult MapError(AppError error)
-    {
-        return error.StatusCode switch
-        {
-            400 => BadRequest(new ErrorResponse(error.Code, error.Message)),
-            403 => StatusCode(403, new ErrorResponse(error.Code, error.Message)),
-            404 => NotFound(new ErrorResponse(error.Code, error.Message)),
-            409 => Conflict(new ErrorResponse(error.Code, error.Message)),
-            _ => StatusCode(error.StatusCode, new ErrorResponse(error.Code, error.Message))
-        };
     }
 }
