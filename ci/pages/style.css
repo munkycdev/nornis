@@ -111,6 +111,22 @@ body {
     font-weight: 500;
 }
 
+/* The way back to the product. Set apart from the two dashboard sections because it
+   leaves the site — and someone who arrived here during an outage is one click from
+   checking whether the app is back. */
+.nav-links a.nav-app {
+    color: var(--primary);
+    font-weight: 500;
+    padding: 4px 12px;
+    border: 1px solid var(--divider);
+    border-radius: 999px;
+    background: var(--surface);
+}
+
+.nav-links a.nav-app:hover {
+    border-color: var(--gold);
+}
+
 /* -------------------------------------------------------------------- body -- */
 
 main {
