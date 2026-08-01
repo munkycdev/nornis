@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 using Nornis.Infrastructure.Persistence;
 using NUnit.Framework;
 
@@ -56,6 +57,26 @@ public class StatusEndpointTests
         {
             WorkerName = WorkerHeartbeatHealthCheck.WorkerName,
             BeatAt = at
+        });
+        context.SaveChanges();
+    }
+
+    /// <summary>
+    /// Work the worker owes. With no heartbeat alongside it, this is the one combination
+    /// the worker-heartbeat check treats as a genuine failure.
+    /// </summary>
+    private void SeedQueuedSource()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        context.Sources.Add(new Source
+        {
+            Id = Guid.NewGuid(),
+            WorldId = Guid.NewGuid(),
+            CreatedByUserId = Guid.NewGuid(),
+            Title = "Awaiting extraction",
+            CreatedAt = DateTimeOffset.UtcNow,
+            ProcessingStatus = SourceProcessingStatus.Queued
         });
         context.SaveChanges();
     }
@@ -117,8 +138,27 @@ public class StatusEndpointTests
     }
 
     [Test]
-    public async Task Status_WithNoHeartbeatEverWritten_IsUnhealthy()
+    public async Task Status_OnAnIdleSystemWithNoWorker_IsHealthy()
     {
+        // Nothing queued and no heartbeat ever written — which is exactly how production
+        // looks most of the time, because the worker scales to zero when the queue drains.
+        // This shipped as a 503 for its first hour; it is the reason the check now asks
+        // whether work is outstanding before it asks whether the worker is awake.
+        var response = await _client.GetAsync("/status");
+        var status = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(status.GetProperty("status").GetString(), Is.EqualTo("Healthy"));
+        });
+    }
+
+    [Test]
+    public async Task Status_WithWorkQueuedAndNoWorker_IsUnhealthy()
+    {
+        SeedQueuedSource();
+
         var response = await _client.GetAsync("/status");
         var status = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
 
@@ -132,8 +172,10 @@ public class StatusEndpointTests
     [Test]
     public async Task Health_StaysGreenWhenADependencyIsDown()
     {
-        // No heartbeat has ever been written, so /status is Unhealthy — and /health must
-        // not care. This is the regression that would re-fuse the two signals together.
+        // Work outstanding and no worker to drain it puts /status at Unhealthy — and
+        // /health must not care. This is the regression that would re-fuse the two signals.
+        SeedQueuedSource();
+
         var statusResponse = await _client.GetAsync("/status");
         var healthResponse = await _client.GetAsync("/health");
 
