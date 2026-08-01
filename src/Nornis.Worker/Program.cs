@@ -100,6 +100,12 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<ICharacterRepository, CharacterRepository>();
         services.AddScoped<IExtractionReplayRepository, ExtractionReplayRepository>();
         services.AddScoped<IImportSessionRepository, ImportSessionRepository>();
+        services.AddScoped<IWorkerHeartbeatRepository, WorkerHeartbeatRepository>();
+
+        // The worker records AI outcomes into the same monitor interface the API's status
+        // check reads — but these are two processes, so this instance is only ever written
+        // to. It exists so AiUsageRecorder has one shape in both hosts.
+        services.AddSingleton<Nornis.Application.Ai.IAiOutcomeMonitor, AiOutcomeMonitor>();
 
         // Azure OpenAI client
         services.AddSingleton<ChatClient>(sp =>
@@ -218,6 +224,7 @@ var builder = Host.CreateDefaultBuilder(args)
         // Hosted services
         services.AddHostedService<ExtractionWorker>();
         services.AddHostedService<LibraryIndexingWorker>();
+        services.AddHostedService<HeartbeatWorker>();
     });
 
 var host = builder.Build();

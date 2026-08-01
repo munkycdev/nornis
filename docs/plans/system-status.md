@@ -62,8 +62,17 @@ Two decisions frame everything below:
   of `/status`, one tile per check plus an aggregate banner.
 - **Unreachable is a state.** A failed fetch renders "API unreachable" as the loudest
   tile — that is the most important thing the page can ever say, not an empty screen.
+- **Hosted off Azure — GitHub Pages, decided 2026-08-01.** This is the requirement that
+  settles the test-quality plan's hosting choice for the whole dashboard. The page's
+  entire value in a real outage is being reachable when the thing it reports on is not,
+  and the `$web` container shares a storage account with the application: one regional
+  failure and the status page dies alongside the system it was meant to explain.
+  Note precisely what this buys and what it does not — during an Azure outage the page
+  still cannot reach `/status`, so it renders "API unreachable" and nothing more
+  detailed. That is the point. It loads from somewhere that is not broken and says so.
 - Live-only, no history: App Insights availability tests already record uptime over
-  time. Link out to that; do not rebuild it on the history branch.
+  time. Link out to that; do not rebuild it on the history branch. The link is *not* an
+  outage fallback — App Insights is Azure, and is dark in the same failure.
 - Sequencing: the endpoint work is independent and useful bare (curl-able) — it can
   land before the dashboard exists. The page needs phase 2's site.
 

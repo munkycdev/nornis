@@ -6,6 +6,7 @@ using Nornis.Api.Authentication;
 using Nornis.Api.BackgroundServices;
 using Nornis.Api.Caching;
 using Nornis.Api.Development;
+using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
 using Nornis.Api.Middleware;
 using Nornis.Application.Ai;
@@ -108,10 +109,54 @@ if (builder.Environment.IsDevelopment())
     });
 }
 
-// Health checks. The pending-migrations check makes /health (and the availability
-// alert watching it) catch a deploy whose manual EF migration step was missed.
-builder.Services.AddHealthChecks()
-    .AddCheck<PendingMigrationsHealthCheck>("pending-migrations");
+// Health checks come in two families, kept apart on purpose.
+//
+// `live` backs /health, which the availability alert and the post-deploy migration window
+// both read as "is this deploy broken". Only the pending-migrations check belongs there:
+// it is the one failure that means the rollout itself is wrong.
+//
+// `deps` backs /status, the ops surface. A Service Bus blip belongs there and must never
+// reach /health, where it would impersonate a missed migration and page someone.
+//
+// (Endpoint, page and nav all say "status". In Nornis vocabulary "health" already means a
+// world's continuity health — see HealthController — and the product keeps that word.)
+var healthChecks = builder.Services.AddHealthChecks()
+    .AddCheck<PendingMigrationsHealthCheck>("pending-migrations", tags: [StatusEndpoint.LivenessTag])
+    .AddCheck<WorkerHeartbeatHealthCheck>("worker-heartbeat", tags: [StatusEndpoint.DependencyTag])
+    .AddCheck<AiAvailabilityHealthCheck>("azure-openai", tags: [StatusEndpoint.DependencyTag]);
+
+// Each probe registers only when its dependency is actually configured, mirroring the
+// client registrations further down: a local run without Service Bus should show a status
+// page missing that row, not a red one.
+var sqlConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (!string.IsNullOrWhiteSpace(sqlConnectionString))
+{
+    // Pending-migrations already implies connectivity, but a separate row makes "the
+    // database is down" and "a migration was missed" read as different failures.
+    healthChecks.AddSqlServer(sqlConnectionString, name: "sql", tags: [StatusEndpoint.DependencyTag]);
+}
+
+var statusBlobConnectionString = builder.Configuration["BlobStorage:ConnectionString"];
+if (!string.IsNullOrWhiteSpace(statusBlobConnectionString))
+{
+    healthChecks.AddAzureBlobStorage(
+        _ => new Azure.Storage.Blobs.BlobServiceClient(statusBlobConnectionString),
+        name: "blob-storage",
+        tags: [StatusEndpoint.DependencyTag]);
+}
+
+var statusServiceBusConnectionString = builder.Configuration["AzureServiceBus:ConnectionString"];
+if (!string.IsNullOrWhiteSpace(statusServiceBusConnectionString))
+{
+    // The extraction queue specifically, not the namespace: an extraction queue that has
+    // gone missing is the failure that silently strands every source, and it is exactly
+    // what a namespace-level ping would not catch.
+    healthChecks.AddAzureServiceBusQueue(
+        statusServiceBusConnectionString,
+        ServiceBusExtractionQueueClient.QueueName,
+        name: "service-bus",
+        tags: [StatusEndpoint.DependencyTag]);
+}
 
 // DbContext registration (SQL Server)
 builder.Services.AddDbContext<NornisDbContext>(options =>
@@ -135,6 +180,10 @@ builder.Services.AddScoped<IArtifactRelationshipRepository, ArtifactRelationship
 builder.Services.AddScoped<ISourceReferenceRepository, SourceReferenceRepository>();
 builder.Services.AddScoped<IAiUsageRecordRepository, AiUsageRecordRepository>();
 builder.Services.AddScoped<IAiUsageRecorder, AiUsageRecorder>();
+// Singleton: the AI-availability check reads what accumulated across requests, so a
+// per-request instance would always look idle.
+builder.Services.AddSingleton<IAiOutcomeMonitor, AiOutcomeMonitor>();
+builder.Services.AddScoped<IWorkerHeartbeatRepository, WorkerHeartbeatRepository>();
 builder.Services.AddScoped<IHealthAssessmentRepository, HealthAssessmentRepository>();
 builder.Services.AddScoped<IContinuityDismissalRepository, ContinuityDismissalRepository>();
 builder.Services.AddScoped<ILibraryDocumentRepository, LibraryDocumentRepository>();
@@ -337,6 +386,19 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
+// CORS for exactly one thing: the status dashboard fetching /status from its own origin.
+// Origins are configured rather than hard-coded because the dashboard's home (GitHub Pages
+// or the storage account's $web container) is decided by the test-quality plan's phase 2,
+// not here. Unset means no cross-origin access — curl and same-origin still work.
+var statusDashboardOrigins = builder.Configuration
+    .GetSection("Status:DashboardOrigins").Get<string[]>() ?? [];
+if (statusDashboardOrigins.Length > 0)
+{
+    builder.Services.AddCors(options => options.AddPolicy(
+        StatusEndpoint.CorsPolicyName,
+        policy => policy.WithOrigins(statusDashboardOrigins).WithMethods("GET")));
+}
+
 // Output caching, used by exactly one thing: the anonymous public world pages. That is the most
 // exposed surface — a shared link, a crawler, an unfurl — and the only one whose response does not
 // depend on who is asking, because every public read runs as Observer with a sentinel user id.
@@ -399,13 +461,39 @@ else
 
 app.UseRateLimiter();
 
+// Only /status opts in (RequireCors below); nothing else on the API is cross-origin.
+if (statusDashboardOrigins.Length > 0)
+{
+    app.UseCors();
+}
+
 app.MapControllers();
 
+// Unchanged in meaning, now explicit about it: the predicate pins /health to the liveness
+// family, so adding a dependency probe below can never widen what /health reports on.
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
     AllowCachingResponses = false,
+    Predicate = registration => registration.Tags.Contains(StatusEndpoint.LivenessTag),
     ResponseWriter = WriteHealthResponse
 }).AllowAnonymous();
+
+// The ops surface. Anonymous per the steering doc's carve-out, which names /status
+// alongside /health, and rate-limited with the same policy as the other anonymous
+// endpoints: each request fans out into a SQL, blob and Service Bus round trip, so an
+// unbounded one would let a stranger drive real load against three dependencies at once.
+// 120/minute/IP is far more than the dashboard's one-fetch-per-view needs.
+var statusEndpoint = app.MapHealthChecks("/status", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    AllowCachingResponses = false,
+    Predicate = registration => registration.Tags.Contains(StatusEndpoint.DependencyTag),
+    ResponseWriter = StatusEndpoint.WriteStatusResponse
+}).AllowAnonymous().RequireRateLimiting("public");
+
+if (statusDashboardOrigins.Length > 0)
+{
+    statusEndpoint.RequireCors(StatusEndpoint.CorsPolicyName);
+}
 
 app.Run();
 
