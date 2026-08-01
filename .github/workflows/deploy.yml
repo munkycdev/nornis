@@ -46,7 +46,7 @@ jobs:
       - name: ACR login
         run: az acr login --name "$ACR"
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # One shared build stage compiles the solution once; the second and third
       # targets reuse it from the builder's local cache. The GHA cache keeps the
