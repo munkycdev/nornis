@@ -1,5 +1,9 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
+using Nornis.Application.Configuration;
+using Nornis.Domain.Enums;
 using OpenAI.Chat;
 
 namespace Nornis.Infrastructure.Ai;
@@ -17,11 +21,19 @@ public class AzureOpenAiWorldNameGenerator : IWorldNameGenerator
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(8);
 
     private readonly ChatClient _chatClient;
+    private readonly IAiUsageRecorder _usageRecorder;
+    private readonly LoremasterOptions _options;
     private readonly ILogger<AzureOpenAiWorldNameGenerator> _logger;
 
-    public AzureOpenAiWorldNameGenerator(ChatClient chatClient, ILogger<AzureOpenAiWorldNameGenerator> logger)
+    public AzureOpenAiWorldNameGenerator(
+        ChatClient chatClient,
+        IAiUsageRecorder usageRecorder,
+        IOptions<LoremasterOptions> options,
+        ILogger<AzureOpenAiWorldNameGenerator> logger)
     {
         _chatClient = chatClient;
+        _usageRecorder = usageRecorder;
+        _options = options.Value;
         _logger = logger;
     }
 
@@ -29,6 +41,7 @@ public class AzureOpenAiWorldNameGenerator : IWorldNameGenerator
     {
         using var timeoutCts = new CancellationTokenSource(Timeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+        var stopwatch = Stopwatch.StartNew();
 
         try
         {

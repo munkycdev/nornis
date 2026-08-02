@@ -355,7 +355,19 @@ changes that item's priority, not its shape.
   unrecorded batches; parse-failure responses record zero tokens. The guard
   undercounts exactly when spend is roughest. Fix: attach usage to parse exceptions;
   record per attempt.
-- **Demo-world name generation is the only unmetered AI call** (no guard, no usage
+- ~~**Demo-world name generation is the only unmetered AI call**~~ **Fixed 2026-08-01.**
+  New `AiOperationType.WorldNaming`; the call now writes a usage record on success *and*
+  on failure. The budget guard stays off by design — naming must never fail or block demo
+  creation — but "not guarded" was never a reason to be invisible on the cost page.
+  - The failure row matters more than the success one here: this call was failing silently
+    in production from 2026-07-26 (the `max_tokens` 400) and nobody noticed, because the
+    catch turns any failure into the static-name fallback. A zero-token failed row is what
+    would have made that visible.
+  - Recording is wrapped in its own try: metering must never be the thing that breaks
+    world creation.
+  - No test — `ChatClient` is a concrete SDK type with no seam here, the same reason the
+    sibling AI clients are covered only where they parse.
+- **(original)** Demo-world name generation is the only unmetered AI call (no guard, no usage
   record — bounded only by the demo rate limit). Fix: write the usage record even if
   the guard stays off by design.
 - ~~**A failed heuristic read silently becomes continuity score 0**~~ **Fixed 2026-08-01**
