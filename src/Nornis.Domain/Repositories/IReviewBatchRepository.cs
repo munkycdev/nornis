@@ -3,6 +3,10 @@ using Nornis.Domain.Enums;
 
 namespace Nornis.Domain.Repositories;
 
+/// <summary>
+/// Missing-row contract (see <c>coding-standards.md</c>): the scoped status writes throw
+/// when the batch is gone; <c>DeleteBySourceAsync</c> no-ops.
+/// </summary>
 public interface IReviewBatchRepository
 {
     Task<ReviewBatch> CreateAsync(ReviewBatch batch, CancellationToken cancellationToken = default);

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Repositories;
 
@@ -46,20 +46,15 @@ public class CampaignRepository : ICampaignRepository
     {
         // The database intentionally does not cascade these (multiple-cascade-path
         // restriction); detach dependents first so knowledge and sources survive.
-        await _context.Sources
-            .Where(s => s.CampaignId == campaignId)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.CampaignId, (Guid?)null), cancellationToken);
+        await _context.SetWhereAsync<Source, Guid?>(
+            s => s.CampaignId == campaignId, s => s.CampaignId, null, cancellationToken);
 
-        await _context.CampaignCharacters
-            .Where(cc => cc.CampaignId == campaignId)
-            .ExecuteDeleteAsync(cancellationToken);
+        await _context.DeleteWhereAsync<CampaignCharacter>(
+            cc => cc.CampaignId == campaignId, cancellationToken);
 
-        await _context.StorylineCampaigns
-            .Where(sc => sc.CampaignId == campaignId)
-            .ExecuteDeleteAsync(cancellationToken);
+        await _context.DeleteWhereAsync<StorylineCampaign>(
+            sc => sc.CampaignId == campaignId, cancellationToken);
 
-        await _context.Campaigns
-            .Where(c => c.Id == campaignId)
-            .ExecuteDeleteAsync(cancellationToken);
+        await _context.DeleteWhereAsync<Campaign>(c => c.Id == campaignId, cancellationToken);
     }
 }

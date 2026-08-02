@@ -248,62 +248,34 @@ public class SourceRepository : ISourceRepository
     private static readonly SourceType[] SessionTypes =
         [SourceType.SessionNote, SourceType.Transcript, SourceType.SessionAudio];
 
-    public async Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default)
+    public Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default) =>
+        MutateAsync(id, source => source.ProcessingStatus = status, cancellationToken);
+
+    /// <summary>The reveal path lifts a GM-only source to PartyVisible without a whole-entity
+    /// update, which would fight the general update's post-extraction visibility lock.</summary>
+    public Task UpdateVisibilityAsync(Guid id, VisibilityScope visibility, CancellationToken cancellationToken = default) =>
+        MutateAsync(id, source => source.Visibility = visibility, cancellationToken);
+
+    /// <summary>The worker persists a vision transcription without clobbering other columns —
+    /// the GM may have edited the title while the page images were being read.</summary>
+    public Task UpdateBodyAsync(Guid id, string body, CancellationToken cancellationToken = default) =>
+        MutateAsync(id, source => source.Body = body, cancellationToken);
+
+    public Task UpdateDerivedTextAsync(Guid id, string? derivedText, CancellationToken cancellationToken = default) =>
+        MutateAsync(id, source => source.DerivedText = derivedText, cancellationToken);
+
+    /// <summary>
+    /// Loads the row tracked, applies one column, saves. Four scoped writers were this same
+    /// eleven lines with one assignment changed; the differences that mattered were the
+    /// assignment and the reason, so those are what is left at each call site.
+    ///
+    /// Tracked rather than <c>ExecuteUpdate</c> deliberately: these run inside the unit of
+    /// work alongside other writes, and a bulk statement would commit outside it.
+    /// </summary>
+    private async Task MutateAsync(Guid id, Action<Source> apply, CancellationToken cancellationToken)
     {
-        var source = await _context.Sources
-            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
-
-        if (source is null)
-        {
-            throw new InvalidOperationException($"Source with id '{id}' not found.");
-        }
-
-        source.ProcessingStatus = status;
-        await _context.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task UpdateVisibilityAsync(Guid id, VisibilityScope visibility, CancellationToken cancellationToken = default)
-    {
-        // Scoped column write (same tracked-load pattern as UpdateProcessingStatusAsync): the
-        // reveal path lifts a GM-only source to PartyVisible without a whole-entity update.
-        var source = await _context.Sources
-            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
-
-        if (source is null)
-        {
-            throw new InvalidOperationException($"Source with id '{id}' not found.");
-        }
-
-        source.Visibility = visibility;
-        await _context.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task UpdateBodyAsync(Guid id, string body, CancellationToken cancellationToken = default)
-    {
-        // Scoped column write (same tracked-load pattern as UpdateProcessingStatusAsync):
-        // the worker persists a vision transcription without clobbering other columns.
-        var source = await _context.Sources
-            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
-
-        if (source is null)
-        {
-            throw new InvalidOperationException($"Source with id '{id}' not found.");
-        }
-
-        source.Body = body;
-        await _context.SaveChangesAsync(cancellationToken);
-    }
-    public async Task UpdateDerivedTextAsync(Guid id, string? derivedText, CancellationToken cancellationToken = default)
-    {
-        var source = await _context.Sources
-            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
-
-        if (source is null)
-        {
-            throw new InvalidOperationException($"Source with id '{id}' not found.");
-        }
-
-        source.DerivedText = derivedText;
+        var source = await _context.LoadForUpdateAsync<Source>(id, cancellationToken);
+        apply(source);
         await _context.SaveChangesAsync(cancellationToken);
     }
 

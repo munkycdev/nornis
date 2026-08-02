@@ -95,6 +95,27 @@ Infrastructure implements:
 
 Repository interfaces are defined in the Domain or Application layer. Infrastructure provides the concrete implementations using EF Core.
 
+### The missing-row contract (added 2026-08-02)
+
+Decided per verb, because the three answers previously in the tree disagreed about the
+same situation:
+
+- **A mutation of a row that is not there throws.** Callers reach these having just loaded
+  and authorized the row, so its absence is a concurrent delete or a bug, never an ordinary
+  outcome. Returning quietly makes the request report success for work it did not do.
+  `NornisDbContext.LoadForUpdateAsync<T>(id, ct)` is the one way to load for a scoped write;
+  it names the entity and the id in the exception, which a bare `FirstAsync` does not.
+- **A delete of a row that is not there does nothing.** Delete is idempotent by nature — the
+  caller wanted it gone and it is gone.
+
+### Set-based writes
+
+`ExecuteDelete` / `ExecuteUpdate` need a relational provider, and the API integration tests
+run on InMemory. Use `DeleteWhereAsync` / `SetWhereAsync` rather than hand-writing the
+`IsRelational()` branch or calling the bulk API unguarded. The exception is code that is
+relational-only for other reasons (vector columns, explicit transactions) — leave the raw
+call there and say why, so the constraint stays visible.
+
 ## API Layer
 
 - Authenticate by default.

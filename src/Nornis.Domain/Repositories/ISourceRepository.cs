@@ -1,9 +1,13 @@
-using Nornis.Domain.Entities;
+﻿using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
 
 namespace Nornis.Domain.Repositories;
 
+/// <summary>
+/// Missing-row contract (see <c>coding-standards.md</c>): the scoped column writes below
+/// throw when the source is gone; <c>DeleteAsync</c> no-ops.
+/// </summary>
 public interface ISourceRepository
 {
     Task<Source> CreateAsync(Source source, CancellationToken cancellationToken = default);

@@ -22,6 +22,10 @@ public class LibraryChunkRepository : ILibraryChunkRepository
         IReadOnlyList<LibraryChunkWrite> chunks,
         CancellationToken cancellationToken = default)
     {
+        // Relational-only by nature, so the bulk call stays raw here: the embedding is a
+        // SqlVector shadow property and this opens a real transaction. Nothing about this
+        // method could run on the InMemory provider, and pretending otherwise with the
+        // guarded helper would only hide that.
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 
         await _context.LibraryChunks
@@ -41,12 +45,10 @@ public class LibraryChunkRepository : ILibraryChunkRepository
         await transaction.CommitAsync(cancellationToken);
     }
 
-    public async Task DeleteForDocumentAsync(Guid documentId, CancellationToken cancellationToken = default)
-    {
-        await _context.LibraryChunks
-            .Where(c => c.DocumentId == documentId)
-            .ExecuteDeleteAsync(cancellationToken);
-    }
+    public Task DeleteForDocumentAsync(Guid documentId, CancellationToken cancellationToken = default) =>
+        // Unlike the replace above, this one is reachable from the API's InMemory tests —
+        // deleting a document deletes its chunks.
+        _context.DeleteWhereAsync<LibraryChunk>(c => c.DocumentId == documentId, cancellationToken);
 
     public async Task<IReadOnlyList<LibraryChunkHit>> ListByDocumentOrdsAsync(
         Guid documentId,
