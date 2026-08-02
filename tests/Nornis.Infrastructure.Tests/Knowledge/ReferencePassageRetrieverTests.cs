@@ -134,7 +134,7 @@ public class ReferencePassageRetrieverTests
         SeedIndexedDocument(); // seeded doc is GMOnly
 
         var passages = await _sut.RetrieveForScopesAsync(
-            "q", WorldId, new[] { VisibilityScope.PartyVisible }, Guid.NewGuid(), CancellationToken.None);
+            "q", WorldId, [VisibilityScope.PartyVisible], Guid.NewGuid(), CancellationToken.None);
 
         Assert.That(passages, Is.Empty);
         Assert.That(_embeddings.Batches, Is.Empty, "a party-visible caller pays nothing when only GM-only docs exist");
@@ -151,7 +151,7 @@ public class ReferencePassageRetrieverTests
 
         var passages = await _sut.RetrieveForScopesAsync(
             "ranger", WorldId,
-            new[] { VisibilityScope.PartyVisible, VisibilityScope.GMOnly }, Guid.NewGuid(), CancellationToken.None);
+            [VisibilityScope.PartyVisible, VisibilityScope.GMOnly], Guid.NewGuid(), CancellationToken.None);
 
         Assert.That(passages.Select(p => p.ChunkId), Is.EqualTo(new[] { hit.ChunkId }));
     }

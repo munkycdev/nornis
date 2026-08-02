@@ -88,8 +88,8 @@ public class StorylineCampaignRepositoryTests : IntegrationTestBase
         var three = SeedCampaign(world.Id, user.Id, "Three");
         var repo = new StorylineCampaignRepository(Context);
 
-        await repo.ReplaceForStorylineAsync(storyline.Id, new[] { one.Id, two.Id }, user.Id);
-        await repo.ReplaceForStorylineAsync(storyline.Id, new[] { two.Id, three.Id }, user.Id);
+        await repo.ReplaceForStorylineAsync(storyline.Id, [one.Id, two.Id], user.Id);
+        await repo.ReplaceForStorylineAsync(storyline.Id, [two.Id, three.Id], user.Id);
 
         var links = await repo.ListByArtifactIdAsync(storyline.Id);
         Assert.That(links.Select(l => l.CampaignId), Is.EquivalentTo(new[] { two.Id, three.Id }));
@@ -103,10 +103,10 @@ public class StorylineCampaignRepositoryTests : IntegrationTestBase
         var b = SeedStoryline(world.Id);
         var campaign = SeedCampaign(world.Id, user.Id, "One");
         var repo = new StorylineCampaignRepository(Context);
-        await repo.ReplaceForStorylineAsync(a.Id, new[] { campaign.Id }, user.Id);
-        await repo.ReplaceForStorylineAsync(b.Id, new[] { campaign.Id }, user.Id);
+        await repo.ReplaceForStorylineAsync(a.Id, [campaign.Id], user.Id);
+        await repo.ReplaceForStorylineAsync(b.Id, [campaign.Id], user.Id);
 
-        var links = await repo.ListByArtifactIdsAsync(new[] { a.Id });
+        var links = await repo.ListByArtifactIdsAsync([a.Id]);
 
         Assert.That(links.Select(l => l.ArtifactId), Is.EqualTo(new[] { a.Id }));
     }
@@ -118,7 +118,7 @@ public class StorylineCampaignRepositoryTests : IntegrationTestBase
         var storyline = SeedStoryline(world.Id);
         var campaign = SeedCampaign(world.Id, user.Id, "Doomed");
         await new StorylineCampaignRepository(Context)
-            .ReplaceForStorylineAsync(storyline.Id, new[] { campaign.Id }, user.Id);
+            .ReplaceForStorylineAsync(storyline.Id, [campaign.Id], user.Id);
 
         await new CampaignRepository(Context).DeleteAsync(campaign.Id);
 
