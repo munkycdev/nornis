@@ -262,6 +262,37 @@ public class SourceRepository : ISourceRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<bool> TryClaimForExtractionAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        // The predicate is the lock, exactly as in WorldRepository.TryClaimContinuityAuditAsync:
+        // one UPDATE ... WHERE decides the winner inside the database, so two workers racing on
+        // the same source produce one row affected and one zero, with no read-then-write window
+        // for both to pass through. Losing here costs nothing; winning twice costs two full
+        // extractions and two batches for one source.
+        if (_context.Database.IsRelational())
+        {
+            var affected = await _context.Sources
+                .Where(s => s.Id == id && s.ProcessingStatus == SourceProcessingStatus.Queued)
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(s => s.ProcessingStatus, SourceProcessingStatus.Processing),
+                    cancellationToken);
+
+            return affected == 1;
+        }
+
+        // InMemory (API integration tests) has no ExecuteUpdate. Single-threaded there, so a
+        // read-modify-write reproduces the observable contract without the atomicity.
+        var source = await _context.Sources.FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+        if (source is null || source.ProcessingStatus != SourceProcessingStatus.Queued)
+        {
+            return false;
+        }
+
+        source.ProcessingStatus = SourceProcessingStatus.Processing;
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task UpdateVisibilityAsync(Guid id, VisibilityScope visibility, CancellationToken cancellationToken = default)
     {
         // Scoped column write (same tracked-load pattern as UpdateProcessingStatusAsync): the

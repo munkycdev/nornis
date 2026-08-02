@@ -21,6 +21,27 @@ public class ReviewBatchRepository : IReviewBatchRepository
         return batch;
     }
 
+    public async Task<ReviewBatch?> TryCreateExtractionBatchAsync(
+        ReviewBatch batch, CancellationToken cancellationToken = default)
+    {
+        _context.ReviewBatches.Add(batch);
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // IX_ReviewBatches_SourceId_Extraction rejected a second extraction batch for this
+            // source. Translated here rather than in the application layer, which references no
+            // persistence library and so cannot name DbUpdateException — the same seam
+            // ExtractionReplayRepository uses for its Active-replay index.
+            _context.ChangeTracker.Clear();
+            return null;
+        }
+
+        return batch;
+    }
+
     public async Task<ReviewBatch?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.ReviewBatches
