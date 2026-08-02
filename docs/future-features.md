@@ -64,7 +64,7 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
    the Queued wedge — is **assessed and deliberately not attempted**: every route out needs
    a status timestamp the schema does not have, and the ungated version trades a wedge for
    double AI spend. The plan spells out what it needs.
-7. D3 error handling — prescribed, mostly mechanical. Includes the D1 leftovers that
+7. D3 error handling — **done 2026-08-01, all seven items.** Prescribed, mostly mechanical. Includes the D1 leftovers that
    are metering-shaped: the $0-pricing alert (in the shared recorder) and
    failed-attempt usage recording.
 8. D1 remainder — reveal-corrections PrivateGuard, upload-size re-validation at

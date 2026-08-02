@@ -76,6 +76,12 @@ public class LibraryIndexingService : ILibraryIndexingService
         }
 
         var stopwatch = Stopwatch.StartNew();
+
+        // Outside the try on purpose: embedding runs batch by batch, and a failure part way
+        // through means the earlier batches were billed. Redelivery then re-embeds the whole
+        // document and pays for them again — so tokens spent before the failure have to be
+        // recorded from the catches, which means they cannot be scoped to the happy path.
+        var totalTokens = 0;
         try
         {
             IReadOnlyList<PdfPageText> pages;
@@ -93,7 +99,6 @@ public class LibraryIndexingService : ILibraryIndexingService
 
             var now = DateTimeOffset.UtcNow;
             var writes = new List<LibraryChunkWrite>(chunks.Count);
-            var totalTokens = 0;
 
             foreach (var batch in chunks.Chunk(_options.EmbedBatchSize))
             {
@@ -136,6 +141,9 @@ public class LibraryIndexingService : ILibraryIndexingService
         catch (Exception ex) when (TransientFailureClassifier.IsTransient(ex))
         {
             _logger.LogWarning(ex, "Transient failure indexing {DocumentId}; message will be redelivered", document.Id);
+            // Tokens already billed before the failure. The retry re-embeds from scratch and
+            // pays again; recording both is what makes the budget guard see real spend.
+            await TrackUsageAsync(document, totalTokens, (int)stopwatch.ElapsedMilliseconds, succeeded: false, ct);
             return ExtractionOutcome.Transient("transient", ex.Message);
         }
         catch (FileNotFoundException)
@@ -152,7 +160,8 @@ public class LibraryIndexingService : ILibraryIndexingService
             }
 
             _logger.LogError(ex, "Indexing failed for library document {DocumentId}", document.Id);
-            await TrackUsageAsync(document, 0, (int)stopwatch.ElapsedMilliseconds, succeeded: false, ct);
+            // Was hard-coded to 0, which discarded every batch embedded before the failure.
+            await TrackUsageAsync(document, totalTokens, (int)stopwatch.ElapsedMilliseconds, succeeded: false, ct);
             return await FailAsync(document, "index_error", ex.Message.Truncate(1900), ct);
         }
     }
