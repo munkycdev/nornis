@@ -1,4 +1,4 @@
-# Top-most EditorConfig file
+﻿# Top-most EditorConfig file
 root = true
 
 # All files
@@ -69,6 +69,13 @@ dotnet_style_prefer_simplified_interpolation = true:suggestion
 # `.ToList()` and `.ToArray()` calls into spreads, which changes what gets allocated and
 # reads worse in query chains. This one covers construction, which is where the split was.
 dotnet_style_prefer_collection_expression = when_types_loosely_match:warning
+
+# IDE0305 off explicitly. The preference above covers construction — `new List<T>()` and
+# `new[] { ... }` — which is where the 84/91 split actually was. IDE0305 is a different
+# rule wearing the same setting: it rewrites `.ToList()` / `.ToArray()` at the end of a
+# query into `[.. query]`, which changes what is allocated and reads worse in a chain.
+# Ninety-six sites, none of them the drift this was meant to stop.
+dotnet_diagnostic.IDE0305.severity = none
 
 # Field preferences
 dotnet_style_readonly_field = true:warning
