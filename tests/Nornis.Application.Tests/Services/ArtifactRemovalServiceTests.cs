@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -214,6 +214,8 @@ public class ArtifactRemovalServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task PreviewAsync_AsNonGm_Returns403()
     {
         SeedScenario();
@@ -279,6 +281,8 @@ public class ArtifactRemovalServiceTests
 
     [TestCase(WorldRole.Player)]
     [TestCase(WorldRole.Observer)]
+
+    [Category("Authorization")]
     public async Task RemoveAsync_AsNonGm_Returns403AndDeletesNothing(WorldRole role)
     {
         SeedScenario();

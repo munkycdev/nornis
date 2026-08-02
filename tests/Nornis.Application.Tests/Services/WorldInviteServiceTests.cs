@@ -1,4 +1,4 @@
-using Nornis.Application.Models;
+﻿using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -94,6 +94,8 @@ public class WorldInviteServiceTests
 
     [TestCase(WorldRole.Player)]
     [TestCase(WorldRole.Observer)]
+
+    [Category("Authorization")]
     public async Task CreateAsync_AsNonGm_Returns403(WorldRole actingRole)
     {
         SeedMember(GmUserId, actingRole);
@@ -107,6 +109,8 @@ public class WorldInviteServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task CreateAsync_NotAMember_Returns403()
     {
         var command = new CreateInviteCommand(WorldId, Guid.NewGuid(), WorldRole.Player);
@@ -171,6 +175,8 @@ public class WorldInviteServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ListAsync_AsNonGm_Returns403()
     {
         var playerId = Guid.NewGuid();
@@ -197,6 +203,8 @@ public class WorldInviteServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RevokeAsync_AsNonGm_Returns403()
     {
         var playerId = Guid.NewGuid();

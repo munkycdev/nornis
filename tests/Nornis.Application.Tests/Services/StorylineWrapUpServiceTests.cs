@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
@@ -158,6 +158,8 @@ public class StorylineWrapUpServiceTests
 
     [TestCase(WorldRole.Player)]
     [TestCase(WorldRole.Observer)]
+
+    [Category("Authorization")]
     public async Task GetWrapUp_NonGm_Returns403(WorldRole role)
     {
         var result = await Service().GetWrapUpAsync(_worldId, Guid.NewGuid(), role, CancellationToken.None);
@@ -167,6 +169,8 @@ public class StorylineWrapUpServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Apply_NonGm_Returns403()
     {
         var command = new WrapUpDecisionsCommand(_worldId, Guid.NewGuid(), WorldRole.Player, [], [], [], []);

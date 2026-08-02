@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
@@ -238,6 +238,8 @@ public class ExtractionServiceLocationContextTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GmOnlyPriorSource_InvisibleToPartyVisibleExtraction()
     {
         var gmPrior = SeedSource("GM aside", Day10, visibility: VisibilityScope.GMOnly);
@@ -250,6 +252,8 @@ public class ExtractionServiceLocationContextTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GmOnlyLocation_ExcludedFromPartyVisibleContext()
     {
         var prior = SeedSource("Session 4", Day10);

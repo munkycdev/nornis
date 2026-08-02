@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 # PRs only — pushes to main run the test job inside deploy.yml instead.
 on:
@@ -69,6 +69,21 @@ jobs:
             "-reporttypes:MarkdownSummaryGithub" \
             -verbosity:Warning
           cat artifacts/coverage/summary/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Phase 5 of the test-quality plan: the authorization suite as its own green mark
+      # rather than a share of a coverage percentage. The steering doc enumerates the surface
+      # — anonymous rejection, non-member denial, GMOnly invisibility, observer immutability,
+      # private-content scoping, Ask retrieval — and this is the spiritual successor to
+      # Chronicis's 100%: total coverage of a deliberately enumerated surface, where the
+      # count only goes up.
+      #
+      # Runs even when the full suite above failed, because "did the authorization tests
+      # still pass" is the first question worth answering about a red build. It re-runs
+      # tests the previous step already ran; that is the price of a separate mark, and the
+      # suite is a fraction of the whole.
+      - name: Authorization suite
+        if: always()
+        run: dotnet test --no-build --filter "TestCategory=Authorization"
 
       # A real check since 2026-07-29: the tree was formatted in one mechanical commit and
       # .editorconfig no longer enforces line endings or BOMs (git owns those — the old rules

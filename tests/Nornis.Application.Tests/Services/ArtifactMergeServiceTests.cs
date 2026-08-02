@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Application;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -87,6 +87,8 @@ public class ArtifactMergeServiceTests
 
     [TestCase(WorldRole.Player)]
     [TestCase(WorldRole.Observer)]
+
+    [Category("Authorization")]
     public async Task MergeAsync_NonGm_Returns403(WorldRole role)
     {
         var duplicate = SeedArtifact("Karvosthi");

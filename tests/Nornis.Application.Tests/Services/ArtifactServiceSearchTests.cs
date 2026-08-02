@@ -132,6 +132,8 @@ public class ArtifactServiceSearchTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task SearchAsync_Player_DoesNotLeakGmOnlyOrOthersPrivateArtifacts()
     {
         _artifactRepo.Seed(
@@ -151,6 +153,8 @@ public class ArtifactServiceSearchTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task SearchAsync_Observer_SeesOnlyPartyVisibleArtifacts()
     {
         _artifactRepo.Seed(

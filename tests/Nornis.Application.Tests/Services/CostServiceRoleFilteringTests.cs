@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -98,6 +98,8 @@ public class CostServiceRoleFilteringTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetSummaryAsync_AsPlayer_ReturnsOnlyOwnRecords()
     {
         // Act
@@ -110,6 +112,8 @@ public class CostServiceRoleFilteringTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetSummaryAsync_AsObserver_ReturnsOnlyOwnRecords()
     {
         // Act
@@ -122,6 +126,8 @@ public class CostServiceRoleFilteringTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetByUserAsync_AsPlayer_ReturnsOnlyOwnEntry()
     {
         // Act
@@ -153,6 +159,8 @@ public class CostServiceRoleFilteringTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetByUserAsync_AsObserver_ReturnsOnlyOwnEntry()
     {
         // Act
@@ -182,6 +190,8 @@ public class CostServiceRoleFilteringTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetByOperationTypeAsync_AsPlayer_ReturnsOnlyOwnRecords()
     {
         // Act
@@ -195,6 +205,8 @@ public class CostServiceRoleFilteringTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetByModelAsync_AsObserver_ReturnsOnlyOwnRecords()
     {
         // Act

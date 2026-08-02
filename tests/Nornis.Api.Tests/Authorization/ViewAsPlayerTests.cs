@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Http;
 using Nornis.Api.Contracts.Requests;
@@ -65,6 +65,8 @@ public class ViewAsPlayerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Gm_WithViewAsHeader_GmGatedWriteFailsClosed()
     {
         var (client, worldId) = await CreateGmWithWorldAsync();

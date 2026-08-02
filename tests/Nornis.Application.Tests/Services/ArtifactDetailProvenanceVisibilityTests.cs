@@ -1,4 +1,4 @@
-using Nornis.Application.Services;
+﻿using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -90,6 +90,8 @@ public class ArtifactDetailProvenanceVisibilityTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Player_SeesOnlyThePartyVisibleQuote()
     {
         var quotes = await QuotesFor(_playerId, WorldRole.Player);
@@ -100,6 +102,8 @@ public class ArtifactDetailProvenanceVisibilityTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Observer_SeesOnlyThePartyVisibleQuote()
     {
         var quotes = await QuotesFor(Guid.NewGuid(), WorldRole.Observer);
@@ -108,6 +112,8 @@ public class ArtifactDetailProvenanceVisibilityTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AnonymousPublicViewer_SeesOnlyThePartyVisibleQuote()
     {
         // The public world page reads through this same method as Observer/Guid.Empty.

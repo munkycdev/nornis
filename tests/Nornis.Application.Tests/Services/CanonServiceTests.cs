@@ -1,4 +1,4 @@
-using Nornis.Application.Models;
+﻿using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -111,6 +111,8 @@ public class CanonServiceTests
     #region Visibility scoping
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetCanonAsync_Player_ExcludesGmOnlyFacts()
     {
         var voss = MakeArtifact("Captain Voss", VisibilityScope.PartyVisible);
@@ -126,6 +128,8 @@ public class CanonServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetCanonAsync_Observer_SeesOnlyPartyVisible()
     {
         var voss = MakeArtifact("Captain Voss", VisibilityScope.PartyVisible);
@@ -160,6 +164,8 @@ public class CanonServiceTests
     #region Hidden truth state
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetCanonAsync_HiddenTruthState_ExcludedFromPlayer_EvenWhenPartyVisible()
     {
         var voss = MakeArtifact("Captain Voss", VisibilityScope.PartyVisible);
@@ -173,6 +179,8 @@ public class CanonServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetCanonAsync_HiddenTruthState_VisibleToGm()
     {
         var voss = MakeArtifact("Captain Voss", VisibilityScope.PartyVisible);

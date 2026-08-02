@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -85,6 +85,8 @@ public class StatusEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Status_IsAnonymous()
     {
         var response = await _client.GetAsync("/status");

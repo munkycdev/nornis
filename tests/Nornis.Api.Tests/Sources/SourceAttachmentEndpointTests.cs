@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
@@ -106,6 +106,8 @@ public class SourceAttachmentEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RequestUpload_NonOwnerPlayer_403()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);

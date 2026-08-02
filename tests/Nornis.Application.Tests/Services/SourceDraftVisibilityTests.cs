@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -72,6 +72,8 @@ public class SourceDraftVisibilityTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task HeldImportNote_IsHiddenFromPlayersAndObservers()
     {
         var held = Seed(SourceProcessingStatus.Draft, GmUserId);
@@ -85,6 +87,8 @@ public class SourceDraftVisibilityTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task HeldImportNote_IsHiddenFromTheAnonymousPublicPage()
     {
         // PublicController reads as Observer with Guid.Empty for the user id.

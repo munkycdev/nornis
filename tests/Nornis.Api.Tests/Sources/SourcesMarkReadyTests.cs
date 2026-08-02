@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Tests.Infrastructure;
@@ -135,6 +135,8 @@ public class SourcesMarkReadyTests
     #region Authorization — Non-Creator Non-GM Cannot Mark Ready
 
     [Test]
+
+    [Category("Authorization")]
     public async Task MarkReady_ByNonCreatorPlayer_Returns403()
     {
         // Arrange — GM creates a source, Player (non-creator, non-GM) tries to mark ready
@@ -155,6 +157,8 @@ public class SourcesMarkReadyTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task MarkReady_ByObserver_Returns403()
     {
         // Arrange — Player creates a source

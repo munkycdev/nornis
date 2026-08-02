@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
@@ -59,6 +59,8 @@ public class LibraryControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RequestUpload_AsObserver_Returns403()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
@@ -82,6 +84,8 @@ public class LibraryControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RequestUpload_PlayerAskingGmOnly_ClampsToPartyVisible()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
@@ -104,6 +108,8 @@ public class LibraryControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task List_AsPlayer_HidesGmOnlyDocuments()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
@@ -141,6 +147,8 @@ public class LibraryControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task SetVisibility_GmRevealingGmOnlyBook_PutsItOnThePlayersShelf()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
@@ -167,6 +175,8 @@ public class LibraryControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task SetVisibility_AsPlayer_Returns403()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
@@ -197,6 +207,8 @@ public class LibraryControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Delete_PlayerDeletingGmUpload_Returns403()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);

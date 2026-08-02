@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Responses;
@@ -156,6 +156,8 @@ public class JourneyEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetJourney_Player_DoesNotSeeGmOnlySessionStop()
     {
         var locationId = await SeedMapWithPinAsync("Black Harbor");

@@ -1,4 +1,4 @@
-using Nornis.Application.Services;
+﻿using Nornis.Application.Services;
 using Nornis.Domain.Enums;
 using NUnit.Framework;
 
@@ -33,6 +33,8 @@ public class RevealClosureTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public void FactWhoseParentIsGmOnlyAndNotRevealed_ReportsTheParent()
     {
         var missing = RevealClosure.MissingArtifactDependencies(
@@ -57,6 +59,8 @@ public class RevealClosureTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public void RelationshipWithGmOnlyEndpointNotRevealed_ReportsThatEndpoint()
     {
         var missing = RevealClosure.MissingArtifactDependencies(

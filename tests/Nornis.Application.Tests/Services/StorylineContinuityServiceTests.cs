@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -256,6 +256,8 @@ public class StorylineContinuityServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GmOnlyStoryline_IsInvisibleToPlayers()
     {
         var secret = SeedStoryline("Hidden Plot", visibility: VisibilityScope.GMOnly);

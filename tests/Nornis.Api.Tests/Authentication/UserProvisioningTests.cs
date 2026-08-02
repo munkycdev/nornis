@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Tests.Infrastructure;
@@ -25,6 +25,8 @@ public class UserProvisioningTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task NewUser_IsCreatedFromJwtClaims()
     {
         // Arrange
@@ -53,6 +55,8 @@ public class UserProvisioningTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ExistingUser_IsResolvedWithoutModification()
     {
         // Arrange
@@ -91,6 +95,8 @@ public class UserProvisioningTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task MissingEmailClaim_Returns401()
     {
         // Arrange - generate token without email claim
@@ -109,6 +115,8 @@ public class UserProvisioningTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task NicknameFallsBackToSub_WhenNicknameAbsent()
     {
         // Arrange - create token without nickname claim

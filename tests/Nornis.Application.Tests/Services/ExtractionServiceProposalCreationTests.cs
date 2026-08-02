@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -405,6 +405,8 @@ public class ExtractionServiceProposalCreationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task VisibilityEnforcement_OverwritesProposedValueJson_ForGMOnlySource()
     {
         // Arrange — AI response has PartyVisible but source is GMOnly

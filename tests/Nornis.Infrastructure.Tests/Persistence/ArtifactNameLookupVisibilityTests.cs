@@ -1,4 +1,4 @@
-using Nornis.Domain.Entities;
+﻿using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
 using Nornis.Infrastructure.Persistence.Repositories;
@@ -55,6 +55,8 @@ public class ArtifactNameLookupVisibilityTests : IntegrationTestBase
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GmOnlyArtifact_IsInvisibleToAPlayer()
     {
         await SeedAsync(VisibilityScope.GMOnly);
@@ -65,6 +67,8 @@ public class ArtifactNameLookupVisibilityTests : IntegrationTestBase
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AnotherUsersPrivateArtifact_IsInvisibleToAPlayer()
     {
         await SeedAsync(VisibilityScope.Private, createdByUserId: _otherPlayerId);
@@ -75,6 +79,8 @@ public class ArtifactNameLookupVisibilityTests : IntegrationTestBase
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task UnattributedPrivateArtifact_IsInvisibleToAPlayer()
     {
         // NULL CreatedByUserId — a legacy or GM-authored Private row. The SQL comparison
@@ -118,6 +124,8 @@ public class ArtifactNameLookupVisibilityTests : IntegrationTestBase
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GmOnlyArtifact_IsVisibleToAGm()
     {
         var expected = await SeedAsync(VisibilityScope.GMOnly);
@@ -128,6 +136,8 @@ public class ArtifactNameLookupVisibilityTests : IntegrationTestBase
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task HiddenDuplicate_DoesNotJoinThePlayersMatchSet()
     {
         // The ambiguity branch upstream counts these rows, so a hidden duplicate leaking in

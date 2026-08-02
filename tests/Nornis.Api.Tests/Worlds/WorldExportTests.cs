@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -152,6 +152,8 @@ public class WorldExportTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ExportWorld_AsPlayer_Returns403()
     {
         var gmClient = _factory.CreateAuthenticatedClient(
@@ -180,6 +182,8 @@ public class WorldExportTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ExportWorld_AsNonMember_Returns403()
     {
         var gmClient = _factory.CreateAuthenticatedClient(

@@ -1,4 +1,4 @@
-using Nornis.Application.Services;
+﻿using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -142,6 +142,8 @@ public class SourceKnowledgeServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetForSource_PlayerDoesNotSeeGmOnlyFacts()
     {
         var partyFact = SeedFact(_vossId, "title");
@@ -182,6 +184,8 @@ public class SourceKnowledgeServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetForSource_GmOnlySource_HiddenFromPlayers()
     {
         _source.Visibility = VisibilityScope.GMOnly;

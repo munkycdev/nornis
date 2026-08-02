@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Models;
@@ -57,6 +57,8 @@ public class LibraryServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RequestUpload_Observer_Returns403()
     {
         var result = await _sut.RequestUploadAsync(Command(role: WorldRole.Observer), CancellationToken.None);
@@ -85,6 +87,8 @@ public class LibraryServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RequestUpload_PlayerRequestingGmOnly_IsClampedToPartyVisible()
     {
         var result = await _sut.RequestUploadAsync(
@@ -146,6 +150,8 @@ public class LibraryServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task List_Player_ExcludesGmOnlyAndPending()
     {
         _documents.Seed(
@@ -159,6 +165,8 @@ public class LibraryServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetById_GmOnlyDoc_AsPlayer_Returns404()
     {
         var doc = Doc(VisibilityScope.GMOnly, LibraryDocumentStatus.Indexed, "GM module");
@@ -170,6 +178,8 @@ public class LibraryServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Delete_PlayerWhoIsNotUploader_Returns403()
     {
         var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexed, "Party book", uploadedBy: GmId);
@@ -260,6 +270,8 @@ public class LibraryServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task SetVisibility_GmOnlyToPartyVisible_MovesToPartyShelf()
     {
         var doc = Doc(VisibilityScope.GMOnly, LibraryDocumentStatus.Indexed, "Forbidden Depths");
@@ -277,6 +289,8 @@ public class LibraryServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task SetVisibility_PartyVisibleToGmOnly_HidesItAgain()
     {
         var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexed, "Black Harbor gazetteer");
@@ -293,6 +307,8 @@ public class LibraryServiceTests
 
     [TestCase(WorldRole.Player)]
     [TestCase(WorldRole.Observer)]
+
+    [Category("Authorization")]
     public async Task SetVisibility_NonGm_Returns403(WorldRole role)
     {
         var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexed, "Party book", uploadedBy: PlayerId);

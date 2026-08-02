@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text;
 using Nornis.Web.ApiClient;
 using Nornis.Web.State;
@@ -77,6 +77,8 @@ public class WorldStateTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task EnsureContinuityLoadedAsync_SkipsGmOnlyEndpointForOtherRoles()
     {
         var handler = new StubApiHandler { MyRole = "Player" };
@@ -166,6 +168,8 @@ public class WorldStateTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ViewingAsPlayer_SkipsGmOnlyContinuityFetch_AndRestoresOnExit()
     {
         var handler = new StubApiHandler();

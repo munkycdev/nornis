@@ -1,4 +1,4 @@
-using Nornis.Domain.Entities;
+﻿using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
 using NUnit.Framework;
@@ -74,6 +74,8 @@ public class SourceVisibilityRuleTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public void PlayerOwner_StillCannotSeeGmOnly()
     {
         // Owning a source does not grant the GM scope — a GM-only note authored by this player
@@ -84,6 +86,8 @@ public class SourceVisibilityRuleTests
     // ------------------------------------------------------------------ Player, not the owner
 
     [Test]
+
+    [Category("Authorization")]
     public void PlayerOther_SeesPartyVisibleOnly()
     {
         Assert.Multiple(() =>
@@ -96,6 +100,8 @@ public class SourceVisibilityRuleTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public void PlayerOther_CannotSeeSomeoneElsesDraft_EvenWhenPartyVisible()
     {
         var draft = Make(VisibilityScope.PartyVisible, Owner, SourceProcessingStatus.Draft);
@@ -107,6 +113,8 @@ public class SourceVisibilityRuleTests
     // ------------------------------------------------------------------ Observer
 
     [Test]
+
+    [Category("Authorization")]
     public void Observer_SeesPartyVisibleOnly()
     {
         Assert.Multiple(() =>

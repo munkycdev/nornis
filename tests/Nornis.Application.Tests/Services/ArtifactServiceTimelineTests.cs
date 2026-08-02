@@ -1,4 +1,4 @@
-using Nornis.Application.Services;
+﻿using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -177,6 +177,8 @@ public class ArtifactServiceTimelineTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Timeline_GmOnlyFactsHiddenFromPlayers()
     {
         var storyline = SeedArtifact("Arc");
@@ -192,6 +194,8 @@ public class ArtifactServiceTimelineTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Timeline_HiddenTruthFactsHiddenFromPlayers()
     {
         // Hidden truth states are GM knowledge even when the fact's visibility scope is

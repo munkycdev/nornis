@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Responses;
@@ -85,6 +85,8 @@ public class StorylineCampaignsEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task SetCampaigns_AsPlayer_IsForbidden()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);

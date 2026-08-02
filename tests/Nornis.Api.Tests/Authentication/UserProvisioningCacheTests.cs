@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -87,6 +87,8 @@ public class UserProvisioningCacheTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task DownstreamFailure_OnAWarmCache_IsNotSwallowedByTheMiddleware()
     {
         // The middleware catches exceptions around user *resolution*. If the continuation ran

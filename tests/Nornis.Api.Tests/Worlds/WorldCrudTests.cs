@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -322,6 +322,8 @@ public class WorldCrudTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task UpdateWorld_ByNonGm_Returns403()
     {
         // Arrange - GM creates world
@@ -365,6 +367,8 @@ public class WorldCrudTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task UpdateWorld_ByNonMember_Returns403()
     {
         // Arrange - GM creates world
@@ -392,6 +396,8 @@ public class WorldCrudTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task UpdateWorld_NonExistentWorld_Returns403()
     {
         // Arrange - User is authenticated but the world doesn't exist

@@ -1,4 +1,4 @@
-using Nornis.Domain.Entities;
+﻿using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Infrastructure.Persistence.Repositories;
 using NUnit.Framework;
@@ -135,6 +135,8 @@ public class SourceActivityCountTests : IntegrationTestBase
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task PlayerNotTheOwner_CountsPartyVisibleOnly()
     {
         var counts = await CountAsync(_otherPlayerId, WorldRole.Player);
@@ -152,6 +154,8 @@ public class SourceActivityCountTests : IntegrationTestBase
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Observer_WhoAuthoredNothing_CountsPartyVisibleNonDraftOnly()
     {
         // A stranger's identity: owns none of the seeded rows, so nothing can reach them by

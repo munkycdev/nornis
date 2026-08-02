@@ -1,4 +1,4 @@
-using Nornis.Application.Models;
+﻿using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -67,6 +67,8 @@ public class CampaignServiceTests
 
     [TestCase(WorldRole.Player)]
     [TestCase(WorldRole.Observer)]
+
+    [Category("Authorization")]
     public async Task CreateAsync_AsNonGm_Returns403(WorldRole role)
     {
         var command = new CreateCampaignCommand(WorldId, "Side Game", Guid.NewGuid(), role);
@@ -143,6 +145,8 @@ public class CampaignServiceTests
     // ------------------------------------------------------------------- Update --
 
     [Test]
+
+    [Category("Authorization")]
     public async Task UpdateAsync_AsGm_AppliesOnlyProvidedFields()
     {
         var campaign = CreateCampaign();
@@ -159,6 +163,8 @@ public class CampaignServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task UpdateAsync_AsPlayer_Returns403()
     {
         var campaign = CreateCampaign();
@@ -227,6 +233,8 @@ public class CampaignServiceTests
 
     [TestCase(WorldRole.Player)]
     [TestCase(WorldRole.Observer)]
+
+    [Category("Authorization")]
     public async Task DeleteAsync_AsNonGm_Returns403(WorldRole role)
     {
         var campaign = CreateCampaign();
@@ -279,6 +287,8 @@ public class CampaignServiceTests
 
     [TestCase(WorldRole.Player)]
     [TestCase(WorldRole.Observer)]
+
+    [Category("Authorization")]
     public async Task AssignCharactersAsync_AsNonGm_Returns403(WorldRole role)
     {
         var campaign = CreateCampaign();

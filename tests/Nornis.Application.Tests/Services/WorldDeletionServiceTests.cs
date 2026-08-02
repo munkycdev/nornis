@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -98,6 +98,8 @@ public class WorldDeletionServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Delete_AsPlayer_Returns403()
     {
         var result = await _sut.DeleteAsync(Command("Black Harbor", _playerId), CancellationToken.None);
@@ -108,6 +110,8 @@ public class WorldDeletionServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Delete_AsNonMember_Returns403()
     {
         var result = await _sut.DeleteAsync(Command("Black Harbor", Guid.NewGuid()), CancellationToken.None);

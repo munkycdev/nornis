@@ -1,4 +1,4 @@
-using Nornis.Application.Models;
+﻿using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -93,6 +93,8 @@ public class ReviewServiceListQueueTests
     #region Player sees only proposals from own sources
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ListReviewQueue_PlayerSeesOnlyProposalsFromOwnSources()
     {
         var tavrinSource = MakeSource(_tavrinUserId, VisibilityScope.PartyVisible, "Tavrin's Notes");
@@ -138,6 +140,8 @@ public class ReviewServiceListQueueTests
     #region GMOnly source proposals hidden from Players
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ListReviewQueue_GmOnlySourceProposalsHiddenFromPlayers()
     {
         var gmOnlySource = MakeSource(_keldaUserId, VisibilityScope.GMOnly, "GM Secret Notes");
@@ -154,6 +158,8 @@ public class ReviewServiceListQueueTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ListReviewQueue_GmOnlySourceProposalsVisibleToGm()
     {
         var gmOnlySource = MakeSource(_keldaUserId, VisibilityScope.GMOnly, "GM Secret Notes");
@@ -175,6 +181,8 @@ public class ReviewServiceListQueueTests
     #region Private source proposals hidden from non-creator non-GMs
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ListReviewQueue_PrivateSourceProposalsHiddenFromOtherPlayers()
     {
         // Tavrin creates a Private source — another player shouldn't see its proposals
@@ -263,6 +271,8 @@ public class ReviewServiceListQueueTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ListReviewQueue_PartyVisibleProposalsNotVisibleToOtherPlayer()
     {
         // PartyVisible source created by Tavrin — another Player cannot review it

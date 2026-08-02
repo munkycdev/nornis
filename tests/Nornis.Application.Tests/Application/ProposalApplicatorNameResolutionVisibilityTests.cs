@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Nornis.Application.Application;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Application.Validation;
@@ -93,6 +93,8 @@ public class ProposalApplicatorNameResolutionVisibilityTests
     #region Cross-visibility write bind
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AddFact_PlayerNamingGMOnlyArtifact_DoesNotResolve()
     {
         var secret = SeedArtifact("The Lich's True Name", VisibilityScope.GMOnly);
@@ -136,6 +138,8 @@ public class ProposalApplicatorNameResolutionVisibilityTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AddRelationship_PlayerNamingGMOnlyEndpoint_DoesNotResolve()
     {
         SeedArtifact("Captain Voss", VisibilityScope.PartyVisible);
@@ -155,6 +159,8 @@ public class ProposalApplicatorNameResolutionVisibilityTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AddPlacemark_PlayerNamingGMOnlyArtifact_DoesNotResolve()
     {
         SeedArtifact("Hidden Vault", VisibilityScope.GMOnly);
@@ -175,6 +181,8 @@ public class ProposalApplicatorNameResolutionVisibilityTests
     #region Existence oracle
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AddFact_PlayerNamingGMOnlyArtifact_IsIndistinguishableFromANameThatDoesNotExist()
     {
         // Nothing seeded yet: this name genuinely does not exist in the world.
@@ -237,6 +245,8 @@ public class ProposalApplicatorNameResolutionVisibilityTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AddFact_GMNamingGMOnlyArtifact_StillResolves()
     {
         var secret = SeedArtifact("The Lich's True Name", VisibilityScope.GMOnly);

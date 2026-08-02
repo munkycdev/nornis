@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using Nornis.Api.Tests.Infrastructure;
 using NUnit.Framework;
@@ -23,6 +23,8 @@ public class JwtAuthenticationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ValidToken_GrantsAccess_ToProtectedEndpoint()
     {
         // Arrange
@@ -39,6 +41,8 @@ public class JwtAuthenticationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task MissingToken_Returns401_ForProtectedEndpoint()
     {
         // Arrange
@@ -52,6 +56,8 @@ public class JwtAuthenticationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ExpiredToken_Returns401_ForProtectedEndpoint()
     {
         // Arrange
@@ -71,6 +77,8 @@ public class JwtAuthenticationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task WrongIssuer_Returns401_ForProtectedEndpoint()
     {
         // Arrange

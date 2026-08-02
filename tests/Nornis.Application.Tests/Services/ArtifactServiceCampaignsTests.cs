@@ -1,4 +1,4 @@
-using Nornis.Application.Models;
+﻿using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -111,6 +111,8 @@ public class ArtifactServiceCampaignsTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task SetCampaigns_PlayerIsRejected()
     {
         var storyline = SeedArtifact("Arc");

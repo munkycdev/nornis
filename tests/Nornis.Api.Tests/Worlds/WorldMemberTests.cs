@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -92,6 +92,8 @@ public class WorldMemberTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AddMember_ByNonGm_Returns403()
     {
         // Arrange - create world as GM, then add a Player
@@ -304,6 +306,8 @@ public class WorldMemberTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ListMembers_ByNonMember_Returns403()
     {
         // Arrange - create world with one user

@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -110,6 +110,8 @@ public class WorldDeleteTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task DeleteWorld_AsPlayer_Returns403()
     {
         var gmClient = _factory.CreateAuthenticatedClient(
@@ -140,6 +142,8 @@ public class WorldDeleteTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task DeleteWorld_AsNonMember_Returns403()
     {
         var gmClient = _factory.CreateAuthenticatedClient(

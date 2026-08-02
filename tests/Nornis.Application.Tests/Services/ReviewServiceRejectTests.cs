@@ -1,4 +1,4 @@
-using Nornis.Application.Models;
+﻿using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -321,6 +321,8 @@ public class ReviewServiceRejectTests
     #region Invisible proposal returns not-found
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RejectProposal_GMOnlySourceInvisibleToPlayer_ReturnsNotFound()
     {
         var gmSource = new Source
@@ -361,6 +363,8 @@ public class ReviewServiceRejectTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RejectProposal_PrivateSourceInvisibleToOtherPlayer_ReturnsNotFound()
     {
         var otherPlayerId = Guid.NewGuid();

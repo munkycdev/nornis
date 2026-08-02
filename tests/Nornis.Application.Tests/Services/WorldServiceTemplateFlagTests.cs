@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
@@ -96,6 +96,8 @@ public class WorldServiceTemplateFlagTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Update_ByNonGm_CannotSetTemplateFlag()
     {
         var playerId = Guid.NewGuid();

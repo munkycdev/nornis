@@ -1,4 +1,4 @@
-# Test quality visibility
+﻿# Test quality visibility
 
 > Part of the Nornis backlog. This file is a spec, not authorization: execute only
 > through the Execution order in `docs/future-features.md`, which holds sequencing,
@@ -127,6 +127,30 @@ dashboard was being built anyway and the data was already in the merged Cobertur
   100% anywhere.
 
 ## Phase 5 — the authorization suite as a named check
+
+**Done 2026-08-02. 303 tests tagged, 318 test cases.**
+
+- The enumeration was the work, exactly as this section predicted, and the first two passes
+  were both wrong in an instructive way. Matching any test that *mentions* a role caught 390
+  — pagination and empty-state tests among them. Matching on assertion shape alone still let
+  in a caching test and a `/health` test of mine, because `Is.Empty` near the word "Player"
+  proves nothing.
+- What survived: a test is in the suite when it **asserts a denial** (401, 403,
+  `insufficient_role`, `access_denied`) or when its **name states the scoping fact**
+  (`GmOnlyPin_IsHiddenFromPlayer`, `Observer_SeesNoPrivateContentAtAll`). Both halves are
+  mechanical enough to re-run and tight enough that the count means something.
+- The positive halves of gates are in deliberately — `GmOnlyArtifact_IsVisibleToAGm` is the
+  twin of the invisibility test, and a suite that only counts refusals would let someone
+  "fix" a leak by denying everyone.
+- Distribution: Application 152, Api 135, Infrastructure 15, Domain 8, Web 8, Worker 0. The
+  worker's zero is correct — it authorizes nothing; it processes what the API already
+  admitted.
+- CI runs it as its own step with `if: always()`, so a red build still answers "did the
+  authorization tests hold" — the first question worth asking about one.
+- The dashboard charts the count from `history.json`. The count is emitted per-project with
+  `LogFilePrefix`, not `LogFileName`: a fixed name makes every project overwrite one file
+  and the total silently becomes whichever project ran last (135, not 318).
+
 
 - Tag every test covering the steering doc's authorization list (anonymous
   rejection, non-member denial, GMOnly invisibility, observer immutability,

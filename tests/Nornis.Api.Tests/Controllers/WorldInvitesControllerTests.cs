@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
@@ -82,6 +82,8 @@ public class WorldInvitesControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task List_AsNonGm_Returns403()
     {
         SetupHttpContext(GmUserId, WorldRole.Player);
@@ -115,6 +117,8 @@ public class WorldInvitesControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Create_AsNonGm_Returns403()
     {
         SetupHttpContext(GmUserId, WorldRole.Player);
@@ -149,6 +153,8 @@ public class WorldInvitesControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Revoke_AsNonGm_Returns403()
     {
         SetupHttpContext(GmUserId, WorldRole.Observer);

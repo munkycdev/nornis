@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Responses;
@@ -28,6 +28,8 @@ public class RelationshipBackfillEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Backfill_AsPlayer_Returns403()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);

@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -113,6 +113,8 @@ public class ContinuityAuditWorkflowIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Assess_NonGm_Returns403()
     {
         var response = await _scenario.PlayerClient.PostAsync($"{HealthUrl}/assess", content: null);
@@ -122,6 +124,8 @@ public class ContinuityAuditWorkflowIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetAssessment_NonGm_Returns403()
     {
         var response = await _scenario.PlayerClient.GetAsync($"{HealthUrl}/assessment");
@@ -356,6 +360,8 @@ public class ContinuityAuditWorkflowIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task DraftFix_NonGm_Returns403()
     {
         var response = await _scenario.PlayerClient.PostAsync(

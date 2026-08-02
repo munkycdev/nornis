@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
@@ -118,6 +118,8 @@ public class SourcesControllerCreateTests
     #region Authorization
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Create_ByObserver_Returns403()
     {
         // Arrange
@@ -134,6 +136,8 @@ public class SourcesControllerCreateTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Create_PlayerWithGMOnlyVisibility_Returns400()
     {
         // Arrange

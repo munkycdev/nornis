@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -143,6 +143,8 @@ public class DemoWorldTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task KillSwitch_BlocksEnablingPublicAccessOnDemoWorlds()
     {
         var client = CreateClientWithTemplate(("DemoWorlds:PublicAccessEnabled", "false"));

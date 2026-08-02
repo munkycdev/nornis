@@ -1,4 +1,4 @@
-using Nornis.Application.Services;
+﻿using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -143,6 +143,8 @@ public class SourceLocationServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Link_GmOnlyLocation_HiddenFromPlayer_Returns400()
     {
         var secret = SeedArtifact(ArtifactType.Location, VisibilityScope.GMOnly, name: "Smuggler's Cove");
@@ -155,6 +157,8 @@ public class SourceLocationServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Link_ByNonCreatorPlayer_Returns403()
     {
         var place = SeedArtifact(ArtifactType.Location, VisibilityScope.PartyVisible);
@@ -167,6 +171,8 @@ public class SourceLocationServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Link_ByObserver_Returns403()
     {
         var place = SeedArtifact(ArtifactType.Location, VisibilityScope.PartyVisible);
@@ -202,6 +208,8 @@ public class SourceLocationServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Unlink_ByNonCreatorPlayer_Returns403()
     {
         var place = SeedArtifact(ArtifactType.Location, VisibilityScope.PartyVisible);

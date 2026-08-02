@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
@@ -103,6 +103,8 @@ public class SourcesUpdateTests
     #region Non-creator Player cannot update
 
     [Test]
+
+    [Category("Authorization")]
     public async Task UpdateSource_NonCreatorPlayerUpdates_Returns403()
     {
         // Arrange — GM creates a PartyVisible source; a different Player tries to update
@@ -129,6 +131,8 @@ public class SourcesUpdateTests
     #region Observer cannot update
 
     [Test]
+
+    [Category("Authorization")]
     public async Task UpdateSource_ObserverUpdates_Returns403()
     {
         // Arrange — GM creates a PartyVisible source; Observer tries to update
@@ -220,6 +224,8 @@ public class SourcesUpdateTests
     #region Player setting GMOnly visibility returns 400
 
     [Test]
+
+    [Category("Authorization")]
     public async Task UpdateSource_PlayerSetsGMOnlyVisibility_Returns400()
     {
         // Arrange — Player creates their own source, then tries to set it to GMOnly

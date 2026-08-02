@@ -1,4 +1,4 @@
-using Nornis.Domain.Entities;
+﻿using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Infrastructure.Persistence.Repositories;
 using NUnit.Framework;
@@ -72,6 +72,8 @@ public class UserRepositoryAddableTests : IntegrationTestBase
     private UserRepository Repository => new(Context);
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ExistingMembersAreExcluded()
     {
         var worldId = SeedWorld();

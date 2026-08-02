@@ -1,4 +1,4 @@
-using Nornis.Application.Models;
+﻿using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -71,6 +71,8 @@ public class ArtifactServiceRenameTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RenameAsync_Player_IsRejected()
     {
         var artifact = SeedArtifact();
@@ -83,6 +85,8 @@ public class ArtifactServiceRenameTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RenameAsync_Observer_IsRejected()
     {
         var artifact = SeedArtifact();

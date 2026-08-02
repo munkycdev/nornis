@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -99,6 +99,8 @@ public class ArtifactRemovalFlowTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Delete_ByNonMember_Returns403()
     {
         var gm = _factory.CreateAuthenticatedClient(

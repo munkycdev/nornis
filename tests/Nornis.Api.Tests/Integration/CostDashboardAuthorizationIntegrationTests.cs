@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Responses;
@@ -50,6 +50,8 @@ public class CostDashboardAuthorizationIntegrationTests
     #region Missing JWT → 401
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetSummary_WithoutJwt_Returns401()
     {
         // Arrange — unauthenticated client (no bearer token)
@@ -63,6 +65,8 @@ public class CostDashboardAuthorizationIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetByUser_WithoutJwt_Returns401()
     {
         var client = _factory.CreateClient();
@@ -71,6 +75,8 @@ public class CostDashboardAuthorizationIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetByWorld_WithoutJwt_Returns401()
     {
         var client = _factory.CreateClient();
@@ -83,6 +89,8 @@ public class CostDashboardAuthorizationIntegrationTests
     #region Non-member → 403 without revealing world existence
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetSummary_NonMember_Returns403()
     {
         // Arrange — user who is not a member of the world
@@ -94,6 +102,8 @@ public class CostDashboardAuthorizationIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetSummary_NonMemberOnNonExistentWorld_Returns403()
     {
         // Verify same response for non-existent world (no information leakage)
@@ -104,6 +114,8 @@ public class CostDashboardAuthorizationIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetByUser_NonMember_Returns403()
     {
         var response = await _scenario.NonMemberClient.GetAsync(ByUserUrl);
@@ -111,6 +123,8 @@ public class CostDashboardAuthorizationIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetByOperation_NonMember_Returns403()
     {
         var response = await _scenario.NonMemberClient.GetAsync(ByOperationUrl);
@@ -118,6 +132,8 @@ public class CostDashboardAuthorizationIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetByModel_NonMember_Returns403()
     {
         var response = await _scenario.NonMemberClient.GetAsync(ByModelUrl);
@@ -176,6 +192,8 @@ public class CostDashboardAuthorizationIntegrationTests
     #region Player sees only their own usage data
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetSummary_PlayerRole_SeesOnlyOwnData()
     {
         // Act
@@ -193,6 +211,8 @@ public class CostDashboardAuthorizationIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetByUser_PlayerRole_ReturnsOnlyOwnSummary()
     {
         // Act
@@ -211,6 +231,8 @@ public class CostDashboardAuthorizationIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetByOperation_PlayerRole_SeesOnlyOwnUsageByOperationType()
     {
         // Act
@@ -228,6 +250,8 @@ public class CostDashboardAuthorizationIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetByModel_PlayerRole_SeesOnlyOwnUsageByModel()
     {
         // Act
@@ -249,6 +273,8 @@ public class CostDashboardAuthorizationIntegrationTests
     #region Observer sees only their own usage data
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetSummary_ObserverRole_SeesOnlyOwnData()
     {
         // Act
@@ -266,6 +292,8 @@ public class CostDashboardAuthorizationIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetByUser_ObserverRole_ReturnsOnlyOwnSummary()
     {
         // Act
@@ -288,6 +316,8 @@ public class CostDashboardAuthorizationIntegrationTests
     #region Cross-world endpoint returns only GM-role worlds
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetByWorld_ReturnsOnlyGmRoleWorlds()
     {
         // Act — GM user (Kelda) is GM on "Black Harbor Investigation"

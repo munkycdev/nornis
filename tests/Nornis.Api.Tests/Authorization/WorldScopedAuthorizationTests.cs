@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Requests;
@@ -33,6 +33,7 @@ public class WorldScopedAuthorizationTests
     /// Validates: Requirements 8.1, 8.2
     /// </summary>
     [Test]
+    [Category("Authorization")]
     public async Task NonMember_AccessingWorldEndpoint_Returns403()
     {
         // Arrange - User A creates a world (becomes GM)
@@ -67,6 +68,7 @@ public class WorldScopedAuthorizationTests
     /// Validates: Requirements 8.2, 8.5
     /// </summary>
     [Test]
+    [Category("Authorization")]
     public async Task NonMember_AccessingNonExistentWorld_Returns403NotFound()
     {
         // Arrange - authenticate a user who has no memberships

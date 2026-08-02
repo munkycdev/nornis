@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
@@ -592,6 +592,8 @@ public class LoremasterServicePromptTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public void AssembleCaveats_HiddenFacts_AddGmOnlyCaveat()
     {
         var context = new KnowledgeContext

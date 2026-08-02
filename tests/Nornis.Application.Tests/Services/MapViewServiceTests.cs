@@ -1,4 +1,4 @@
-using Nornis.Application.Services;
+﻿using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -149,6 +149,8 @@ public class MapViewServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task PrivateSource_NotVisibleToOtherPlayer_Returns404()
     {
         _source.Visibility = VisibilityScope.Private;
@@ -194,6 +196,8 @@ public class MapViewServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task CreatePlacemark_OtherPlayer_Forbidden()
     {
         var location = SeedLocation("Thistle Hold", VisibilityScope.PartyVisible);
@@ -207,6 +211,8 @@ public class MapViewServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task CreatePlacemark_Observer_Forbidden()
     {
         var location = SeedLocation("Thistle Hold", VisibilityScope.PartyVisible);
@@ -359,6 +365,8 @@ public class MapViewServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task MovePlacemark_OtherPlayer_Forbidden()
     {
         var pin = SeedMovablePin(out _);
@@ -371,6 +379,8 @@ public class MapViewServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task MovePlacemark_Observer_Forbidden()
     {
         var pin = SeedMovablePin(out _);
@@ -461,6 +471,8 @@ public class MapViewServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RemovePlacemark_OtherPlayer_Forbidden()
     {
         var pin = SeedMovablePin(out _);
@@ -474,6 +486,8 @@ public class MapViewServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RemovePlacemark_Observer_Forbidden()
     {
         var pin = SeedMovablePin(out _);

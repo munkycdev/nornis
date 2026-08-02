@@ -1,4 +1,4 @@
-using Nornis.Application.Models;
+﻿using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -67,6 +67,8 @@ public class ArtifactServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ListAsync_Player_SeesPartyAndPrivateButNotGmOnly()
     {
         _artifactRepo.Seed(
@@ -87,6 +89,8 @@ public class ArtifactServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ListAsync_Observer_SeesOnlyPartyVisible()
     {
         _artifactRepo.Seed(
@@ -225,6 +229,8 @@ public class ArtifactServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetGraphAsync_StillHidesGmOnlyFromObserver()
     {
         _artifactRepo.Seed(
@@ -284,6 +290,8 @@ public class ArtifactServiceTests
     #region GetDetailAsync — aggregation and fact/relationship visibility
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetDetailAsync_FiltersGmOnlyFactsFromPlayer()
     {
         var voss = MakeArtifact("Captain Voss", VisibilityScope.PartyVisible);
@@ -301,6 +309,8 @@ public class ArtifactServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetDetailAsync_Gm_SeesGmOnlyFacts()
     {
         var voss = MakeArtifact("Captain Voss", VisibilityScope.PartyVisible);

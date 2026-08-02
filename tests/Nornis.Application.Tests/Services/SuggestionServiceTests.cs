@@ -1,4 +1,4 @@
-using Nornis.Application.Services;
+﻿using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -161,6 +161,8 @@ public class SuggestionServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GmOnlyArtifactNames_NeverAppearForObservers()
     {
         SeedArtifact("Secret Villain", ArtifactType.Character, visibility: VisibilityScope.GMOnly);

@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -115,6 +115,8 @@ public class InviteFlowTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task CreateInvite_ByNonGm_Returns403()
     {
         var gmClient = GmClient("invite-104");
@@ -179,6 +181,8 @@ public class InviteFlowTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AcceptInvite_Unauthenticated_Returns401()
     {
         // No bearer token — the global fallback policy rejects the request.

@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -104,6 +104,8 @@ public class SourceAttachmentServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RequestUpload_NonOwnerPlayer_403()
     {
         var source = SeedSource();
