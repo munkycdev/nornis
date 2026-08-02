@@ -87,9 +87,13 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
      `SourceRepository.MutateAsync`); and the small idioms. Two items reversed the plan's
      stated direction and say why in the scrub doc — persisted-enum ordinals, and the
      collection-expression rule's scope.
-   - **Left on tier 3: the two [auth] items** — the GM-gating seam and trust-the-filter.
-     Both relocate authorization checks, so they belong behind item 8's review gate rather
-     than merged unreviewed.
+   - **The two [auth] items are done 2026-08-02** and sit on `tier3-auth-seams`, unmerged
+     behind the same independent-review gate as item 8. Sixteen of seventeen inline GM
+     checks collapsed onto the service layer; five services stopped re-reading the
+     membership row the action filter had already resolved. Four of those "duplicates"
+     turned out to be the *only* enforcement (HealthController's four, StorylinesController's
+     one) and were moved rather than deleted. The trade — services now trust an opt-in
+     filter — is covered by a new `WorldMemberFilterCoverageTests`.
    - Tier 4 merged: the three running ledgers, the reflection roster (now an assembly scan),
      one shared `ReviewHarness` replacing six copies, and sixteen properties that generated
      an argument they never read. Left: converting those sixteen to plain `[Test]`s, and the

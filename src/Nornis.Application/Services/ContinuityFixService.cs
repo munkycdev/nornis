@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
@@ -126,8 +126,16 @@ public class ContinuityFixService : IContinuityFixService
     }
 
     public async Task<AppResult<ContinuityFixDraft>> DraftFixAsync(
-        Guid worldId, Guid findingId, Guid actingUserId, CancellationToken ct)
+        Guid worldId, Guid findingId, Guid actingUserId, WorldRole actingUserRole, CancellationToken ct)
     {
+        // GM-only, moved here from HealthController. Drafting a fix spends an AI call and
+        // writes proposals into the review queue.
+        if (actingUserRole != WorldRole.GM)
+        {
+            return AppResult<ContinuityFixDraft>.Fail(new AppError(403, "insufficient_role",
+                "Only GMs can draft continuity fixes."));
+        }
+
         // 0. The finding must exist, belong to this world, and still be worth fixing.
         var finding = await _assessmentRepository.GetFindingByIdAsync(findingId, ct);
         if (finding is null || finding.HealthAssessment.WorldId != worldId)

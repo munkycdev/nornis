@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Services;
@@ -120,7 +120,7 @@ public class ContinuityAuditServiceTests
     {
         _budgetGuard.Exceeded = true;
 
-        var result = await _service.RunAssessmentAsync(_worldId, null, CancellationToken.None);
+        var result = await _service.RunAssessmentAsync(_worldId, null, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(429));
@@ -134,7 +134,7 @@ public class ContinuityAuditServiceTests
             Finding(evidence: [ArtifactRef]),
             Finding(category: "DanglingThread", severity: "Low", evidence: [FactRef]));
 
-        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value!.Findings, Has.Count.EqualTo(2));
@@ -148,7 +148,7 @@ public class ContinuityAuditServiceTests
     {
         _ai.SetupFindings(Finding(evidence: [FactRef]));
 
-        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         // The finding cites a fact — the primary artifact should resolve to that fact's owner.
         Assert.That(result.Value!.Findings[0].ArtifactId, Is.EqualTo(_voss.Id));
@@ -163,7 +163,7 @@ public class ContinuityAuditServiceTests
             evidence: [$"ref:{FactRef}", $"[ref:{ArtifactRef}]"],
             artifactRef: $"ref:{ArtifactRef}"));
 
-        var result = await _service.RunAssessmentAsync(_worldId, null, CancellationToken.None);
+        var result = await _service.RunAssessmentAsync(_worldId, null, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value!.Findings, Has.Count.EqualTo(1));
@@ -177,7 +177,7 @@ public class ContinuityAuditServiceTests
             Finding(evidence: [$"fact:{Guid.NewGuid()}"]),     // unknown -> dropped
             Finding(evidence: [ArtifactRef]));                 // valid -> kept
 
-        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.Value!.Findings, Has.Count.EqualTo(1));
         Assert.That(_assessmentRepo.Findings, Has.Count.EqualTo(1));
@@ -188,7 +188,7 @@ public class ContinuityAuditServiceTests
     {
         _ai.SetupFindings(Finding(evidence: [FactRef, $"rel:{Guid.NewGuid()}"]));
 
-        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.Value!.Findings, Has.Count.EqualTo(1));
         Assert.That(result.Value.Findings[0].Evidence, Is.EqualTo(new[] { FactRef }));
@@ -200,7 +200,7 @@ public class ContinuityAuditServiceTests
         var many = Enumerable.Range(0, 25).Select(_ => Finding(severity: "Low", evidence: [FactRef])).ToArray();
         _ai.SetupFindings(many);
 
-        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.Value!.Findings, Has.Count.EqualTo(ContinuityAuditService.MaxFindings));
         Assert.That(_assessmentRepo.Findings, Has.Count.EqualTo(20));
@@ -211,7 +211,7 @@ public class ContinuityAuditServiceTests
     {
         _ai.SetupFindings(Finding(evidence: [ArtifactRef]));
 
-        await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(_usageRepo.Records, Has.Count.EqualTo(1));
         var record = _usageRepo.Records[0];
@@ -227,7 +227,7 @@ public class ContinuityAuditServiceTests
     {
         _ai.SetupFailure(new HttpRequestException("boom"));
 
-        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(503));
@@ -241,16 +241,16 @@ public class ContinuityAuditServiceTests
     public async Task DismissFinding_TransitionsOpenToDismissed_AndRaisesEffectiveScore()
     {
         _ai.SetupFindings(Finding(severity: "High", evidence: [ArtifactRef]));
-        var run = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var run = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
         var findingId = run.Value!.Findings[0].Id;
         var effectiveBefore = run.Value.EffectiveScore;
 
-        var dismissed = await _service.DismissFindingAsync(_worldId, findingId, CancellationToken.None);
+        var dismissed = await _service.DismissFindingAsync(_worldId, findingId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(dismissed.IsSuccess, Is.True);
         Assert.That(dismissed.Value!.Status, Is.EqualTo(ContinuityFindingStatus.Dismissed.ToString()));
 
-        var latest = await _service.GetLatestAsync(_worldId, CancellationToken.None);
+        var latest = await _service.GetLatestAsync(_worldId, WorldRole.GM, CancellationToken.None);
         // The High finding penalised the score by 12; dismissing it restores those points.
         Assert.That(latest.Value!.EffectiveScore, Is.EqualTo(effectiveBefore + 12));
         // ...and the adjudicated finding drops out of the listing entirely.
@@ -261,7 +261,7 @@ public class ContinuityAuditServiceTests
     [Test]
     public async Task DismissFinding_UnknownId_Returns404()
     {
-        var result = await _service.DismissFindingAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var result = await _service.DismissFindingAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
@@ -271,10 +271,10 @@ public class ContinuityAuditServiceTests
     public async Task DismissFinding_WrongWorld_Returns404()
     {
         _ai.SetupFindings(Finding(evidence: [ArtifactRef]));
-        var run = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var run = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
         var findingId = run.Value!.Findings[0].Id;
 
-        var result = await _service.DismissFindingAsync(Guid.NewGuid(), findingId, CancellationToken.None);
+        var result = await _service.DismissFindingAsync(Guid.NewGuid(), findingId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
@@ -286,7 +286,7 @@ public class ContinuityAuditServiceTests
     {
         _ai.SetupFindings(Finding(evidence: [FactRef, ArtifactRef]));
 
-        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         var finding = result.Value!.Findings[0];
         Assert.That(finding.IsStale, Is.False);
@@ -309,13 +309,13 @@ public class ContinuityAuditServiceTests
     public async Task GetLatest_CitedFactEditedAfterAudit_MarksFindingStaleAndSuspendsPenalty()
     {
         _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
-        var run = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var run = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
         var effectiveBefore = run.Value!.EffectiveScore;
 
         _vossFact.Value = "Aboard the Grey Gull";
         _vossFact.UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(5);
 
-        var latest = await _service.GetLatestAsync(_worldId, CancellationToken.None);
+        var latest = await _service.GetLatestAsync(_worldId, WorldRole.GM, CancellationToken.None);
 
         var finding = latest.Value!.Findings[0];
         Assert.That(finding.Status, Is.EqualTo(ContinuityFindingStatus.Open.ToString()));
@@ -329,11 +329,11 @@ public class ContinuityAuditServiceTests
     public async Task GetLatest_CitedFactDeletedAfterAudit_MarksEvidenceMissingAndFindingStale()
     {
         _ai.SetupFindings(Finding(evidence: [FactRef]));
-        await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         await _factRepo.DeleteAsync(_vossFact.Id);
 
-        var latest = await _service.GetLatestAsync(_worldId, CancellationToken.None);
+        var latest = await _service.GetLatestAsync(_worldId, WorldRole.GM, CancellationToken.None);
 
         var finding = latest.Value!.Findings[0];
         Assert.That(finding.IsStale, Is.True);
@@ -346,9 +346,9 @@ public class ContinuityAuditServiceTests
     public async Task GetLatest_UntouchedEvidence_StaysCountedAndUnchanged()
     {
         _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
-        var run = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var run = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
-        var latest = await _service.GetLatestAsync(_worldId, CancellationToken.None);
+        var latest = await _service.GetLatestAsync(_worldId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(latest.Value!.Findings[0].IsStale, Is.False);
         Assert.That(latest.Value.EffectiveScore, Is.EqualTo(run.Value!.EffectiveScore));
@@ -375,7 +375,7 @@ public class ContinuityAuditServiceTests
             Finding(evidence: [$"fact:{retired.Id}"]),   // grounded only in retired material -> dropped
             Finding(evidence: [FactRef]));               // grounded in live material -> kept
 
-        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(_ai.LastRequest!.UserMessage, Does.Not.Contain("The Sunken Quarter"));
         Assert.That(result.Value!.Findings, Has.Count.EqualTo(1));
@@ -387,14 +387,14 @@ public class ContinuityAuditServiceTests
     {
         var finding = Finding(severity: "High", evidence: [FactRef]);
         _ai.SetupFindings(finding);
-        var first = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
-        await _service.DismissFindingAsync(_worldId, first.Value!.Findings[0].Id, CancellationToken.None);
-        var effectiveAfterDismiss = (await _service.GetLatestAsync(_worldId, CancellationToken.None))
+        var first = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
+        await _service.DismissFindingAsync(_worldId, first.Value!.Findings[0].Id, WorldRole.GM, CancellationToken.None);
+        var effectiveAfterDismiss = (await _service.GetLatestAsync(_worldId, WorldRole.GM, CancellationToken.None))
             .Value!.EffectiveScore;
 
         // The model re-detects the same issue on the next run.
         _ai.SetupFindings(finding);
-        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         // Recorded as dismissed, and never shown again — not even as a greyed-out row.
         Assert.That(FindingsFor(second.Value!.AssessmentId!.Value), Has.Count.EqualTo(1));
@@ -414,11 +414,11 @@ public class ContinuityAuditServiceTests
         // issue routinely cites one extra ref, and under the subset test it resurrected.
         // The registry matches on a shared ref instead, so the dismissal holds.
         _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
-        var first = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
-        await _service.DismissFindingAsync(_worldId, first.Value!.Findings[0].Id, CancellationToken.None);
+        var first = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
+        await _service.DismissFindingAsync(_worldId, first.Value!.Findings[0].Id, WorldRole.GM, CancellationToken.None);
 
         _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef, ArtifactRef]));
-        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(FindingsFor(second.Value!.AssessmentId!.Value)[0].Status,
             Is.EqualTo(ContinuityFindingStatus.Dismissed));
@@ -433,16 +433,16 @@ public class ContinuityAuditServiceTests
         // slipped through as Open (different evidence), the next run's "previous" held no
         // Dismissed row and the adjudication was gone for good. The registry has no decay.
         _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
-        var first = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
-        await _service.DismissFindingAsync(_worldId, first.Value!.Findings[0].Id, CancellationToken.None);
+        var first = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
+        await _service.DismissFindingAsync(_worldId, first.Value!.Findings[0].Id, WorldRole.GM, CancellationToken.None);
 
         // Generation 2 re-detects with shifted evidence...
         _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef, ArtifactRef]));
-        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         // ...and generation 3 re-detects again, with the original evidence.
         _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
-        var third = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var third = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(FindingsFor(second.Value!.AssessmentId!.Value)[0].Status,
             Is.EqualTo(ContinuityFindingStatus.Dismissed));
@@ -469,12 +469,12 @@ public class ContinuityAuditServiceTests
         _artifactRepo.Seed(other);
 
         _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
-        var first = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
-        await _service.DismissFindingAsync(_worldId, first.Value!.Findings[0].Id, CancellationToken.None);
+        var first = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
+        await _service.DismissFindingAsync(_worldId, first.Value!.Findings[0].Id, WorldRole.GM, CancellationToken.None);
 
         // Same category, but an unrelated issue about a different item — a real new finding.
         _ai.SetupFindings(Finding(severity: "High", evidence: [$"artifact:{other.Id}"]));
-        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(second.Value!.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Open.ToString()));
     }
@@ -514,9 +514,9 @@ public class ContinuityAuditServiceTests
     public async Task DismissFinding_WritesRegistryRowForTheWorld()
     {
         _ai.SetupFindings(Finding(category: "SummaryDrift", severity: "Medium", evidence: [FactRef]));
-        var run = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var run = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
-        await _service.DismissFindingAsync(_worldId, run.Value!.Findings[0].Id, CancellationToken.None);
+        await _service.DismissFindingAsync(_worldId, run.Value!.Findings[0].Id, WorldRole.GM, CancellationToken.None);
 
         Assert.That(_dismissalRepo.Dismissals, Has.Count.EqualTo(1));
         var row = _dismissalRepo.Dismissals[0];
@@ -539,7 +539,7 @@ public class ContinuityAuditServiceTests
         });
 
         _ai.SetupFindings(Finding(severity: "High", evidence: [FactRef]));
-        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.Value!.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Open.ToString()));
     }
@@ -550,10 +550,10 @@ public class ContinuityAuditServiceTests
         // Open (un-dismissed) findings do not carry forward — only GM adjudications do.
         var finding = Finding(severity: "High", evidence: [FactRef]);
         _ai.SetupFindings(finding);
-        await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         _ai.SetupFindings(finding);
-        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        var second = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(second.Value!.Findings[0].Status, Is.EqualTo(ContinuityFindingStatus.Open.ToString()));
     }
@@ -588,9 +588,9 @@ public class ContinuityAuditServiceTests
         _relationshipRepo.Seed(rel);
 
         _ai.SetupFindings(Finding(evidence: [$"rel:{rel.Id}"]));
-        await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), CancellationToken.None);
+        await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
-        var latest = await _service.GetLatestAsync(_worldId, CancellationToken.None);
+        var latest = await _service.GetLatestAsync(_worldId, WorldRole.GM, CancellationToken.None);
 
         var item = latest.Value!.Findings[0].EvidenceItems[0];
         Assert.That(item.Kind, Is.EqualTo("Relationship"));
@@ -601,7 +601,7 @@ public class ContinuityAuditServiceTests
     [Test]
     public async Task GetLatest_NoAssessment_ReturnsHasDataFalse()
     {
-        var result = await _service.GetLatestAsync(_worldId, CancellationToken.None);
+        var result = await _service.GetLatestAsync(_worldId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value!.HasData, Is.False);
@@ -624,7 +624,7 @@ public class ContinuityAuditServiceTests
         });
         _ai.SetupFindings();
 
-        await _service.RunAssessmentAsync(_worldId, null, CancellationToken.None);
+        await _service.RunAssessmentAsync(_worldId, null, WorldRole.GM, CancellationToken.None);
 
         Assert.That(_ai.LastRequest!.UserMessage, Does.Contain("Captain Voss"));
         Assert.That(_ai.LastRequest.UserMessage, Does.Not.Contain("Merged Leftover Voss"));

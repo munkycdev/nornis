@@ -1,6 +1,8 @@
-using Nornis.Application.Errors;
+﻿using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
+
+using Nornis.Domain.Enums;
 
 namespace Nornis.Application.Services;
 
@@ -10,10 +12,12 @@ public interface IWorldInviteService
     Task<AppResult<WorldInvite>> CreateAsync(CreateInviteCommand command, CancellationToken ct);
 
     /// <summary>Lists a world's invites, newest first. GM-only.</summary>
-    Task<AppResult<IReadOnlyList<WorldInvite>>> ListAsync(Guid worldId, Guid actingUserId, CancellationToken ct);
+    Task<AppResult<IReadOnlyList<WorldInvite>>> ListAsync(
+        Guid worldId, Guid actingUserId, WorldRole actingUserRole, CancellationToken ct);
 
     /// <summary>Revokes an invite so it can no longer be redeemed. GM-only.</summary>
-    Task<AppResult<WorldInvite>> RevokeAsync(Guid worldId, Guid inviteId, Guid actingUserId, CancellationToken ct);
+    Task<AppResult<WorldInvite>> RevokeAsync(
+        Guid worldId, Guid inviteId, Guid actingUserId, WorldRole actingUserRole, CancellationToken ct);
 
     /// <summary>
     /// Describes an invite for the landing page (world name, granted role, validity).

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
@@ -132,17 +132,13 @@ public class WorldsController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        if (member.Role != WorldRole.GM)
-        {
-            return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can update world settings."));
-        }
-
         var command = new UpdateWorldCommand(
             WorldId: worldId,
             Name: request.Name,
             Description: request.Description,
             GameSystem: request.GameSystem,
             ActingUserId: user.Id,
+            ActingUserRole: member.Role,
             DailyAiBudgetUsd: request.DailyAiBudgetUsd,
             ClearDailyAiBudget: request.ClearDailyAiBudget,
             PublicSlug: request.PublicSlug,
@@ -178,14 +174,10 @@ public class WorldsController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        if (member.Role != WorldRole.GM)
-        {
-            return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can delete a world."));
-        }
-
         var command = new DeleteWorldCommand(
             WorldId: worldId,
             ActingUserId: user.Id,
+            ActingUserRole: member.Role,
             ConfirmationName: confirmName);
 
         var result = await deletionService.DeleteAsync(command, ct);
@@ -211,11 +203,6 @@ public class WorldsController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        if (member.Role != WorldRole.GM)
-        {
-            return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can export a world."));
-        }
-
         var categories = new List<WorldExportCategory>();
         foreach (var name in request.Categories ?? [])
         {
@@ -230,6 +217,7 @@ public class WorldsController : ControllerBase
         var command = new ExportWorldCommand(
             WorldId: worldId,
             ActingUserId: user.Id,
+            ActingUserRole: member.Role,
             Categories: categories);
 
         var result = await exportService.ExportAsync(command, ct);

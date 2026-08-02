@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Services;
 using Nornis.Domain.Repositories;
@@ -122,7 +122,7 @@ public class ContinuityAuditBackgroundService : BackgroundService
                 _logger.LogInformation("Auto-running continuity assessment for world {WorldId}", worldId);
 
                 // System-run: no user attributed. RunAssessmentAsync records its own usage/failures.
-                var result = await auditService.RunAssessmentAsync(worldId, null, ct);
+                var result = await auditService.RunAssessmentAsync(worldId, null, actingUserRole: null, ct);
                 if (!result.IsSuccess)
                 {
                     _logger.LogWarning(

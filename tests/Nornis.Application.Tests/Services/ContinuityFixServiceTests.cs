@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Services;
@@ -172,7 +172,7 @@ public class ContinuityFixServiceTests
     [Test]
     public async Task DraftFix_UnknownFinding_Returns404()
     {
-        var result = await _service.DraftFixAsync(_worldId, Guid.NewGuid(), _userId, CancellationToken.None);
+        var result = await _service.DraftFixAsync(_worldId, Guid.NewGuid(), _userId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
@@ -182,7 +182,7 @@ public class ContinuityFixServiceTests
     [Test]
     public async Task DraftFix_FindingFromAnotherWorld_Returns404()
     {
-        var result = await _service.DraftFixAsync(Guid.NewGuid(), _finding.Id, _userId, CancellationToken.None);
+        var result = await _service.DraftFixAsync(Guid.NewGuid(), _finding.Id, _userId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
@@ -194,7 +194,7 @@ public class ContinuityFixServiceTests
     {
         var dismissed = SeedFinding(_worldId, [$"fact:{_harborFact.Id}"], ContinuityFindingStatus.Dismissed);
 
-        var result = await _service.DraftFixAsync(_worldId, dismissed.Id, _userId, CancellationToken.None);
+        var result = await _service.DraftFixAsync(_worldId, dismissed.Id, _userId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(409));
@@ -206,7 +206,7 @@ public class ContinuityFixServiceTests
     {
         _budgetGuard.Exceeded = true;
 
-        var result = await _service.DraftFixAsync(_worldId, _finding.Id, _userId, CancellationToken.None);
+        var result = await _service.DraftFixAsync(_worldId, _finding.Id, _userId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(429));
@@ -218,7 +218,7 @@ public class ContinuityFixServiceTests
     {
         var orphaned = SeedFinding(_worldId, [$"fact:{Guid.NewGuid()}"]);
         orphaned.ArtifactId = null;
-        var result = await _service.DraftFixAsync(_worldId, orphaned.Id, _userId, CancellationToken.None);
+        var result = await _service.DraftFixAsync(_worldId, orphaned.Id, _userId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("evidence_gone"));
@@ -230,7 +230,7 @@ public class ContinuityFixServiceTests
     {
         _ai.ExceptionToThrow = new HttpRequestException("boom");
 
-        var result = await _service.DraftFixAsync(_worldId, _finding.Id, _userId, CancellationToken.None);
+        var result = await _service.DraftFixAsync(_worldId, _finding.Id, _userId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(503));
@@ -246,7 +246,7 @@ public class ContinuityFixServiceTests
     {
         _ai.Proposals = [RetireHarborFactProposal()];
 
-        var result = await _service.DraftFixAsync(_worldId, _finding.Id, _userId, CancellationToken.None);
+        var result = await _service.DraftFixAsync(_worldId, _finding.Id, _userId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var draft = result.Value!;
@@ -285,7 +285,7 @@ public class ContinuityFixServiceTests
     {
         _ai.Proposals = [];
 
-        await _service.DraftFixAsync(_worldId, _finding.Id, _userId, CancellationToken.None);
+        await _service.DraftFixAsync(_worldId, _finding.Id, _userId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(_ai.LastRequest, Is.Not.Null);
         var message = _ai.LastRequest!.UserMessage;
@@ -300,7 +300,7 @@ public class ContinuityFixServiceTests
     {
         _ai.Proposals = [];
 
-        var result = await _service.DraftFixAsync(_worldId, _finding.Id, _userId, CancellationToken.None);
+        var result = await _service.DraftFixAsync(_worldId, _finding.Id, _userId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value!.ProposalCount, Is.EqualTo(0));

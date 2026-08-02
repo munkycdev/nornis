@@ -70,7 +70,7 @@ public class WorldInvitesControllerTests
     [Test]
     public async Task List_AsGm_Returns200WithInvites()
     {
-        _inviteService.ListAsync(WorldId, GmUserId, Arg.Any<CancellationToken>())
+        _inviteService.ListAsync(WorldId, GmUserId, Arg.Any<WorldRole>(), Arg.Any<CancellationToken>())
             .Returns(AppResult<IReadOnlyList<WorldInvite>>.Success([Invite(), Invite()]));
 
         var result = await _controller.List(WorldId, CancellationToken.None);
@@ -84,14 +84,16 @@ public class WorldInvitesControllerTests
     [Test]
 
     [Category("Authorization")]
-    public async Task List_AsNonGm_Returns403()
+    public async Task List_ForwardsTheCallersActualRole()
     {
         SetupHttpContext(GmUserId, WorldRole.Player);
+        _inviteService.ListAsync(WorldId, GmUserId, Arg.Any<WorldRole>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<IReadOnlyList<WorldInvite>>.Success([]));
 
-        var result = await _controller.List(WorldId, CancellationToken.None);
+        await _controller.List(WorldId, CancellationToken.None);
 
-        Assert.That((result as ObjectResult)!.StatusCode, Is.EqualTo(403));
-        await _inviteService.DidNotReceive().ListAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _inviteService.Received(1).ListAsync(
+            WorldId, GmUserId, WorldRole.Player, Arg.Any<CancellationToken>());
     }
 
     // -------------------------------------------------------------------- Create --
@@ -119,13 +121,21 @@ public class WorldInvitesControllerTests
     [Test]
 
     [Category("Authorization")]
-    public async Task Create_AsNonGm_Returns403()
+    public async Task Create_ForwardsTheCallersActualRole()
     {
+        // The 403 itself moved into WorldInviteService (see WorldInviteServiceTests). What a
+        // controller test can still prove — and what the service now depends on — is that the
+        // role reaching it is the caller's, not a constant. A controller that passed
+        // WorldRole.GM here would disable the gate for everyone while every test stayed green.
         SetupHttpContext(GmUserId, WorldRole.Player);
+        _inviteService.CreateAsync(Arg.Any<CreateInviteCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<WorldInvite>.Success(Invite()));
 
-        var result = await _controller.Create(WorldId, new CreateInviteRequest("Player"), CancellationToken.None);
+        await _controller.Create(WorldId, new CreateInviteRequest("Player"), CancellationToken.None);
 
-        Assert.That((result as ObjectResult)!.StatusCode, Is.EqualTo(403));
+        await _inviteService.Received(1).CreateAsync(
+            Arg.Is<CreateInviteCommand>(c => c.ActingUserRole == WorldRole.Player),
+            Arg.Any<CancellationToken>());
     }
 
     // -------------------------------------------------------------------- Revoke --
@@ -133,7 +143,7 @@ public class WorldInvitesControllerTests
     [Test]
     public async Task Revoke_AsGm_Returns204()
     {
-        _inviteService.RevokeAsync(WorldId, Arg.Any<Guid>(), GmUserId, Arg.Any<CancellationToken>())
+        _inviteService.RevokeAsync(WorldId, Arg.Any<Guid>(), GmUserId, Arg.Any<WorldRole>(), Arg.Any<CancellationToken>())
             .Returns(AppResult<WorldInvite>.Success(Invite()));
 
         var result = await _controller.Revoke(WorldId, Guid.NewGuid(), CancellationToken.None);
@@ -144,7 +154,7 @@ public class WorldInvitesControllerTests
     [Test]
     public async Task Revoke_NotFound_Returns404()
     {
-        _inviteService.RevokeAsync(WorldId, Arg.Any<Guid>(), GmUserId, Arg.Any<CancellationToken>())
+        _inviteService.RevokeAsync(WorldId, Arg.Any<Guid>(), GmUserId, Arg.Any<WorldRole>(), Arg.Any<CancellationToken>())
             .Returns(AppResult<WorldInvite>.Fail(new AppError(404, "not_found", "Invite not found in this world.")));
 
         var result = await _controller.Revoke(WorldId, Guid.NewGuid(), CancellationToken.None);
@@ -155,13 +165,16 @@ public class WorldInvitesControllerTests
     [Test]
 
     [Category("Authorization")]
-    public async Task Revoke_AsNonGm_Returns403()
+    public async Task Revoke_ForwardsTheCallersActualRole()
     {
         SetupHttpContext(GmUserId, WorldRole.Observer);
+        _inviteService.RevokeAsync(WorldId, Arg.Any<Guid>(), GmUserId, Arg.Any<WorldRole>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<WorldInvite>.Success(Invite()));
 
-        var result = await _controller.Revoke(WorldId, Guid.NewGuid(), CancellationToken.None);
+        await _controller.Revoke(WorldId, Guid.NewGuid(), CancellationToken.None);
 
-        Assert.That((result as ObjectResult)!.StatusCode, Is.EqualTo(403));
+        await _inviteService.Received(1).RevokeAsync(
+            WorldId, Arg.Any<Guid>(), GmUserId, WorldRole.Observer, Arg.Any<CancellationToken>());
     }
 
     // The world-scoped controller must resolve membership via the action filter.

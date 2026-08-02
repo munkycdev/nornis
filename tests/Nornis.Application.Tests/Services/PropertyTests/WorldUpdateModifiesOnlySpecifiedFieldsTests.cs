@@ -6,6 +6,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
+using Nornis.Domain.Enums;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services.PropertyTests;
@@ -58,7 +59,8 @@ public class WorldUpdateModifiesOnlySpecifiedFieldsTests
             input.NewName,
             input.NewDescription,
             input.NewGameSystem,
-            input.UserId);
+            input.UserId,
+            WorldRole.GM);
 
         var updateResult = service.UpdateAsync(updateCommand, CancellationToken.None).GetAwaiter().GetResult();
         Assert.That(updateResult.IsSuccess, Is.True, "World update should succeed for GM with valid input");

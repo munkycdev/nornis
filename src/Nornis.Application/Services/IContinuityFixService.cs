@@ -1,5 +1,7 @@
-using Nornis.Application.Errors;
+﻿using Nornis.Application.Errors;
 using Nornis.Application.Models;
+
+using Nornis.Domain.Enums;
 
 namespace Nornis.Application.Services;
 
@@ -12,5 +14,5 @@ namespace Nornis.Application.Services;
 public interface IContinuityFixService
 {
     Task<AppResult<ContinuityFixDraft>> DraftFixAsync(
-        Guid worldId, Guid findingId, Guid actingUserId, CancellationToken ct);
+        Guid worldId, Guid findingId, Guid actingUserId, WorldRole actingUserRole, CancellationToken ct);
 }

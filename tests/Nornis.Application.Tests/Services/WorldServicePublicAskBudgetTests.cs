@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Models;
@@ -52,7 +52,7 @@ public class WorldServicePublicAskBudgetTests
     }
 
     private UpdateWorldCommand Command(decimal? budget = null, bool clear = false) =>
-        new(_world.Id, null, null, null, _gmId,
+        new(_world.Id, null, null, null, _gmId, WorldRole.GM,
             PublicAskMonthlyBudgetUsd: budget, ClearPublicAskBudget: clear);
 
     [Test]
@@ -94,7 +94,7 @@ public class WorldServicePublicAskBudgetTests
     public async Task Update_ExplicitBudget_WinsOverClearFlag()
     {
         var result = await _sut.UpdateAsync(
-            new UpdateWorldCommand(_world.Id, null, null, null, _gmId,
+            new UpdateWorldCommand(_world.Id, null, null, null, _gmId, WorldRole.GM,
                 PublicAskMonthlyBudgetUsd: 5m, ClearPublicAskBudget: true),
             CancellationToken.None);
 

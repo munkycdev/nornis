@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
@@ -47,12 +47,6 @@ public class StorylinesController : ControllerBase
     {
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
-
-        if (member.Role != WorldRole.GM)
-        {
-            return StatusCode(403, new ErrorResponse("insufficient_role",
-                "Only GMs can view the storyline continuity signal."));
-        }
 
         var result = await _continuityService.GetContinuityReportAsync(worldId, user.Id, member.Role, ct);
         if (!result.IsSuccess)

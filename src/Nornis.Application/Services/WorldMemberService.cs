@@ -1,4 +1,4 @@
-using Nornis.Application.Authorization;
+﻿using Nornis.Application.Authorization;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
@@ -29,9 +29,9 @@ public class WorldMemberService : IWorldMemberService
                 new AppError(400, "invalid_role", "Role must be GM, Player, or Observer."));
         }
 
-        // Verify acting user is a GM in this world
-        var actingMember = await _memberRepository.GetByWorldAndUserAsync(command.WorldId, command.ActingUserId, ct);
-        if (actingMember is null || actingMember.Role != WorldRole.GM)
+        // The action filter resolved this caller's membership already; the role rides in on
+        // the command. Reads of the *target* member below stay — that is a different person.
+        if (command.ActingUserRole != WorldRole.GM)
         {
             return AppResult<WorldMember>.Fail(
                 new AppError(403, "insufficient_role", "Only a GM can add members to a world."));
@@ -67,11 +67,11 @@ public class WorldMemberService : IWorldMemberService
         return AppResult<WorldMember>.Success(created);
     }
 
-    public async Task<AppResult> RemoveMemberAsync(Guid worldId, Guid targetUserId, Guid actingUserId, CancellationToken ct)
+    public async Task<AppResult> RemoveMemberAsync(
+        Guid worldId, Guid targetUserId, Guid actingUserId, WorldRole actingUserRole, CancellationToken ct)
     {
         // Verify acting user is a GM
-        var actingMember = await _memberRepository.GetByWorldAndUserAsync(worldId, actingUserId, ct);
-        if (actingMember is null || actingMember.Role != WorldRole.GM)
+        if (actingUserRole != WorldRole.GM)
         {
             return AppResult.Fail(
                 new AppError(403, "insufficient_role", "Only a GM can remove members from a world."));
@@ -110,8 +110,7 @@ public class WorldMemberService : IWorldMemberService
         }
 
         // Verify acting user is a GM
-        var actingMember = await _memberRepository.GetByWorldAndUserAsync(command.WorldId, command.ActingUserId, ct);
-        if (actingMember is null || actingMember.Role != WorldRole.GM)
+        if (command.ActingUserRole != WorldRole.GM)
         {
             return AppResult<WorldMember>.Fail(
                 new AppError(403, "insufficient_role", "Only a GM can change member roles."));

@@ -1,4 +1,25 @@
-# Security and Permissions
+﻿# Security and Permissions
+
+> **Amendment (2026-08-02):** two sections at the foot of this document — "Public Sharing"
+> and "World Invitation" — describe MVP deferrals that were later built. Both are corrected
+> in place below rather than deleted, because the *reasoning* they carry still governs how
+> those features work. The anonymous-endpoint list has grown accordingly. Everything else
+> here — the role model, the visibility model, the AI rules, the secure-development rules —
+> stands as written and is the authority for `[auth]` work.
+
+> **Amendment (2026-08-02): where GM gating lives.** Role checks are enforced in the
+> **application services**, which receive the acting role as a parameter (`ActingUserRole` on
+> a command, or an explicit argument). Controllers resolve membership through
+> `WorldMemberActionFilter` and pass what it found; they no longer re-check the role
+> themselves, and services no longer re-read the membership row the filter already resolved.
+> One inline controller check survives on purpose —
+> `WorldMembersController.ListAddable`, whose service reads across the user table rather
+> than within a world — and it is commented as deliberate.
+>
+> This makes the filter load-bearing: it is opt-in per controller, so
+> `WorldMemberFilterCoverageTests` asserts every `{worldId}`-routed controller carries it.
+> A new world-scoped controller without that attribute is an authorization hole, not a
+> performance detail.
 
 ## Authentication
 
@@ -24,12 +45,19 @@ Authenticated by default.
 
 Anonymous endpoints are forbidden unless explicitly approved.
 
-Allowed anonymous endpoints for MVP:
+Allowed anonymous endpoints (updated 2026-08-02):
 
 ```text
-GET /health
-GET /status optional
+GET  /health                              liveness — is this deploy broken
+GET  /status                              dependency probes for the ops page
+     /api/public/worlds/{slug}/**         the public world surface (below)
+POST /api/public/worlds/{slug}/ask        public Ask, capped per world
 ```
+
+The `/api/public/**` family is anonymous by design and rate-limited as a group. It serves
+only what a GM has explicitly published: a world with `PublicAccessEnabled` and a slug, and
+within it only PartyVisible content. Public Ask additionally requires a positive
+per-world monthly budget — the cap is also the switch, so it is off until a GM sets one.
 
 Everything else requires:
 
@@ -163,10 +191,39 @@ Track:
 
 ## Public Sharing
 
-No public anonymous world sharing in MVP.
+> **Amended 2026-08-02.** Original text: *"No public anonymous world sharing in MVP. Do not
+> build public world browsing unless explicitly requested later."* It was explicitly
+> requested later, and built.
 
-Do not build public world browsing unless explicitly requested later.
+A GM may publish a world at `/w/{slug}` by setting a public slug and enabling public access.
+The rules that make it safe:
+
+- **PartyVisible only.** GMOnly and Private content never crosses the public boundary, and
+  Draft sources are excluded — the same `SourceVisibilityRule` the authenticated paths use,
+  with an anonymous identity of `Guid.Empty`.
+- **Anonymous means anonymous.** There is no user, so there is no "own Private content"
+  carve-out to fall through; the empty-identity guard exists precisely to stop one.
+- **Public Ask is capped in money, not requests.** A per-world monthly USD budget gates it,
+  and a world with no positive budget has the feature off. That is the deliberate inverse of
+  the world daily budget, where zero means "no cap".
+- Publishing is a GM action and reversible: clearing the slug or disabling access removes it.
 
 ## World Invitation
 
-World invitation flow is deferred for MVP. Members will be added through direct GM action only. No invite links, email invitations, or Discord integration for member onboarding in MVP.
+> **Amended 2026-08-02.** Original text: *"World invitation flow is deferred for MVP. Members
+> will be added through direct GM action only. No invite links, email invitations, or Discord
+> integration for member onboarding in MVP."* Invite links were built; the rest was not.
+
+GMs may create invite links. Direct GM addition still exists alongside them.
+
+- **Creating, listing and revoking invites is GM-only**, enforced in `WorldInviteService`.
+- **An invite carries the role it grants**, chosen by the GM at creation. It cannot grant
+  more than the GM could grant directly.
+- **Redemption is the one world-scoped path with no membership filter in front of it**, by
+  necessity: the redeemer is not a member yet. It authorizes on the invite code itself, and
+  is idempotent — redeeming twice lands an existing member back in the world without
+  consuming a use.
+- Invites can expire and can carry a maximum use count; revoked, expired and exhausted
+  invites each answer with their own error rather than a generic refusal.
+- Still not built, and still not wanted without a request: email invitations and Discord
+  onboarding integration.
