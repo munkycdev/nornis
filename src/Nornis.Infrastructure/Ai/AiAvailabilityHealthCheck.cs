@@ -1,5 +1,6 @@
-using Microsoft.Extensions.Diagnostics.HealthChecks;
+﻿using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Nornis.Application.Ai;
+using Nornis.Application.Services;
 
 namespace Nornis.Infrastructure.Ai;
 
@@ -19,28 +20,41 @@ public class AiAvailabilityHealthCheck : IHealthCheck
     public static readonly TimeSpan Window = TimeSpan.FromMinutes(15);
 
     private readonly IAiOutcomeMonitor _monitor;
+    private readonly IAiPauseGate _pauseGate;
 
-    public AiAvailabilityHealthCheck(IAiOutcomeMonitor monitor)
+    public AiAvailabilityHealthCheck(IAiOutcomeMonitor monitor, IAiPauseGate pauseGate)
     {
         _monitor = monitor;
+        _pauseGate = pauseGate;
     }
 
-    public Task<HealthCheckResult> CheckHealthAsync(
+    public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
+        // A deliberate pause must not read as a provider outage. It is reported Degraded
+        // rather than Healthy because the feature genuinely is unavailable — but the text
+        // says who turned it off, which is the difference between "we did this" and "Azure
+        // is broken" on a page someone reads at 2am.
+        if (await _pauseGate.GetAsync(cancellationToken) is { IsPaused: true } paused)
+        {
+            return HealthCheckResult.Degraded(string.IsNullOrWhiteSpace(paused.Reason)
+                ? "AI is paused by an operator."
+                : $"AI is paused by an operator: {paused.Reason}");
+        }
+
         var snapshot = _monitor.Snapshot(Window, DateTimeOffset.UtcNow);
 
         if (snapshot.Total == 0)
         {
-            return Task.FromResult(HealthCheckResult.Healthy("No AI calls in the last 15 minutes."));
+            return HealthCheckResult.Healthy("No AI calls in the last 15 minutes.");
         }
 
         // Every observed call failing is the signal. A mixed result means the provider is
         // answering and something about particular requests is at fault — a content filter
         // rejection, a budget refusal — which is not an outage and must not read as one.
-        return Task.FromResult(snapshot.Failures == snapshot.Total
+        return snapshot.Failures == snapshot.Total
             ? HealthCheckResult.Degraded($"The last {snapshot.Total} AI call(s) all failed.")
-            : HealthCheckResult.Healthy($"{snapshot.Total - snapshot.Failures} of {snapshot.Total} recent AI call(s) succeeded."));
+            : HealthCheckResult.Healthy($"{snapshot.Total - snapshot.Failures} of {snapshot.Total} recent AI call(s) succeeded.");
     }
 }

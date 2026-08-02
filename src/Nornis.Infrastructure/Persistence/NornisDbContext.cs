@@ -42,6 +42,8 @@ public class NornisDbContext : DbContext
     public DbSet<TutorialProgress> TutorialProgress => Set<TutorialProgress>();
     public DbSet<WorkerHeartbeat> WorkerHeartbeats => Set<WorkerHeartbeat>();
 
+    public DbSet<OperationalFlag> OperationalFlags => Set<OperationalFlag>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(NornisDbContext).Assembly);

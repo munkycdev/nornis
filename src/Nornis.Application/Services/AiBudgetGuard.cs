@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Domain.Repositories;
@@ -10,15 +10,18 @@ public class AiBudgetGuard : IAiBudgetGuard
     private readonly IAiUsageRecordRepository _usageRepository;
     private readonly IWorldRepository _worldRepository;
     private readonly AiBudgetOptions _options;
+    private readonly IAiPauseGate _pauseGate;
 
     public AiBudgetGuard(
         IAiUsageRecordRepository usageRepository,
         IWorldRepository worldRepository,
-        IOptions<AiBudgetOptions> options)
+        IOptions<AiBudgetOptions> options,
+        IAiPauseGate pauseGate)
     {
         _usageRepository = usageRepository;
         _worldRepository = worldRepository;
         _options = options.Value;
+        _pauseGate = pauseGate;
     }
 
     public async Task<AiBudgetStatus> GetStatusAsync(Guid worldId, CancellationToken ct)
@@ -40,6 +43,14 @@ public class AiBudgetGuard : IAiBudgetGuard
 
     public async Task<AppError?> CheckAsync(Guid worldId, CancellationToken ct)
     {
+        // The global pause is checked before the budget, and here rather than at each of the
+        // eight services that spend money: every paid dispatch already calls this method, so
+        // this is the one seam that reaches all of them without touching any of them.
+        if (await _pauseGate.GetAsync(ct) is { IsPaused: true } paused)
+        {
+            return PausedError(paused);
+        }
+
         var status = await GetStatusAsync(worldId, ct);
         if (!status.IsExceeded)
             return null;
@@ -47,6 +58,16 @@ public class AiBudgetGuard : IAiBudgetGuard
         return new AppError(429, "ai_budget_exceeded",
             $"This world's daily AI budget (${status.DailyBudgetUsd:0.00}) is spent for today. It resets at midnight UTC.");
     }
+
+    /// <summary>
+    /// 503, not 429: a pause is the service being deliberately unavailable, not the caller
+    /// having asked too often. Retry-After is meaningless here — nobody knows when an operator
+    /// will flip it back — so the reason they typed is what the user gets instead.
+    /// </summary>
+    private static AppError PausedError(AiPauseState paused) =>
+        new(503, "ai_paused", string.IsNullOrWhiteSpace(paused.Reason)
+            ? "AI features are paused. Try again shortly."
+            : $"AI features are paused: {paused.Reason}");
 
     public async Task<PublicAskBudgetStatus> GetPublicAskStatusAsync(Guid worldId, CancellationToken ct)
     {
@@ -70,6 +91,11 @@ public class AiBudgetGuard : IAiBudgetGuard
 
     public async Task<AppError?> CheckPublicAskAsync(Guid worldId, CancellationToken ct)
     {
+        if (await _pauseGate.GetAsync(ct) is { IsPaused: true } paused)
+        {
+            return PausedError(paused);
+        }
+
         var status = await GetPublicAskStatusAsync(worldId, ct);
 
         if (!status.IsEnabled)

@@ -106,12 +106,15 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
     was open and the data was already in the merged Cobertura.
 11. O4 AI kill switch (design pre-decided, one additive migration) and O3 managed
     identity (procedural, but touches prod credentials — do it attended).
-    **O4 not started; its transport design was wrong and is now corrected in the plan.**
-    The spec had the Worker re-scheduling messages "using the same scheduled-copy mechanism
-    `RedeliveryBackoff` already uses" — `RedeliveryBackoff` uses no such mechanism and argues
-    against it, and the namespace is Basic tier, where scheduled messages do not exist. The
-    answer is to stop consuming while paused, which both workers already have the machinery
-    for. Everything else about O4 is still to build.
+    **O4 done 2026-08-02.** Its transport design was wrong in the spec and was corrected
+    before anything was built: the Worker was to reschedule messages "using the same
+    scheduled-copy mechanism `RedeliveryBackoff` already uses" — which uses no such
+    mechanism and argues against it, on a Basic-tier namespace where scheduled messages do
+    not exist. Paused now means *stop consuming*, so queued work waits in the queue instead
+    of burning delivery counts. Migration `AddOperationalFlags` is additive (one
+    CreateTable) and must be applied before the deploy that carries it.
+    **O3 remains the only open item, and is attended-only** — it changes how every host
+    authenticates to prod.
 
 **Hold for Fable:**
 

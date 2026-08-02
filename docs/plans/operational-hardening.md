@@ -149,8 +149,28 @@ incident or runaway behavior without a redeploy.
   - Interactive paths (Ask, assess) still return an explicit "AI is paused" error, and the
     natural seam is `AiBudgetGuard.CheckAsync` — every paid dispatch already calls it, so
     the refusal reaches all eight services without touching any of them.
-- **Not started otherwise.** The flag, its migration, the ~60s cache, the status banner and
-  the flip script are all still to build; only the transport question above is settled.
+- ~~**Not started otherwise.**~~ **Built 2026-08-02.** `OperationalFlags`, keyed by flag name
+  (additive migration, one CreateTable); `AiPauseGate` on a 60s cache; `scripts/ai-pause.ps1`;
+  `docs/runbooks/ai-paused.md`, which was the one entry the O6 pass had to leave pending.
+  - **One seam, not eight.** The refusal lives in `AiBudgetGuard.CheckAsync` — every paid
+    dispatch already calls it, so the switch reaches all eight spending services without
+    touching any of them. 503 `ai_paused` rather than 429: a pause is deliberate
+    unavailability, not the caller asking too often, and there is no Retry-After anyone
+    could honestly supply.
+  - **The gate fails open, and that is the whole design.** An unreadable flag reads as
+    running. Failing closed turns a database blip into the total AI outage this switch
+    exists to *end* — and a phantom pause is one nobody can lift, because lifting it needs
+    the same database. Tested.
+  - **Singleton gate, scoped read.** The cache is only worth having if it is shared, so the
+    gate is a singleton; a singleton holding a scoped repository is a captive DbContext, so
+    `ScopedOperationalFlagReader` opens a scope per read. At once-a-minute that costs
+    nothing.
+  - The worker's half is `PausableProcessing`, replacing the infinite wait in both queue
+    workers. Lag from flip to quiet queue is ~90s (60s cache + 20s poll) — slower than an
+    in-process flag, faster than a redeploy by two orders of magnitude, which is the
+    comparison that matters at 2am.
+  - Deliberately no admin UI. A switch that pauses the product for everyone should not be
+    one click away, and an operator flipping it is already at a terminal.
 - The status page renders the flag as a banner when set — a pause should look
   deliberate, not broken.
 
