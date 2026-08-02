@@ -73,7 +73,7 @@ public class ArtifactServiceCampaignsTests
         var c1 = SeedCampaign("One");
         var c2 = SeedCampaign("Two");
 
-        var result = await _service.SetStorylineCampaignsAsync(Command(storyline.Id, new[] { c1.Id, c2.Id }), CancellationToken.None);
+        var result = await _service.SetStorylineCampaignsAsync(Command(storyline.Id, [c1.Id, c2.Id]), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var declared = (await _storylineCampaignRepo.ListByArtifactIdAsync(storyline.Id, CancellationToken.None))
@@ -89,7 +89,7 @@ public class ArtifactServiceCampaignsTests
         var c2 = SeedCampaign("Two");
         _storylineCampaignRepo.Seed(storyline.Id, c1.Id);
 
-        var result = await _service.SetStorylineCampaignsAsync(Command(storyline.Id, new[] { c2.Id }), CancellationToken.None);
+        var result = await _service.SetStorylineCampaignsAsync(Command(storyline.Id, [c2.Id]), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         var declared = (await _storylineCampaignRepo.ListByArtifactIdAsync(storyline.Id, CancellationToken.None))
@@ -117,7 +117,7 @@ public class ArtifactServiceCampaignsTests
         var c1 = SeedCampaign("One");
 
         var result = await _service.SetStorylineCampaignsAsync(
-            Command(storyline.Id, new[] { c1.Id }, WorldRole.Player), CancellationToken.None);
+            Command(storyline.Id, [c1.Id], WorldRole.Player), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
@@ -129,7 +129,7 @@ public class ArtifactServiceCampaignsTests
         var location = SeedArtifact("A place", ArtifactType.Location);
         var c1 = SeedCampaign("One");
 
-        var result = await _service.SetStorylineCampaignsAsync(Command(location.Id, new[] { c1.Id }), CancellationToken.None);
+        var result = await _service.SetStorylineCampaignsAsync(Command(location.Id, [c1.Id]), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
@@ -141,7 +141,7 @@ public class ArtifactServiceCampaignsTests
         var storyline = SeedArtifact("Arc");
         var foreign = SeedCampaign("Elsewhere", worldId: Guid.NewGuid());
 
-        var result = await _service.SetStorylineCampaignsAsync(Command(storyline.Id, new[] { foreign.Id }), CancellationToken.None);
+        var result = await _service.SetStorylineCampaignsAsync(Command(storyline.Id, [foreign.Id]), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
