@@ -75,7 +75,8 @@ public class WorldMemberServicePropertyTests
             world.Id,
             targetUserId,
             WorldRole.Player,
-            scenario.ActingUserId);
+            scenario.ActingUserId,
+            scenario.ActingRole);
 
         // Act
         var result = memberService.AddMemberAsync(command, CancellationToken.None).GetAwaiter().GetResult();
@@ -99,6 +100,7 @@ public class WorldMemberServicePropertyTests
             world.Id,
             scenario.GmUserId,
             scenario.ActingUserId,
+            scenario.ActingRole,
             CancellationToken.None).GetAwaiter().GetResult();
 
         // Assert
@@ -119,7 +121,8 @@ public class WorldMemberServicePropertyTests
             world.Id,
             scenario.GmUserId,
             WorldRole.Observer,
-            scenario.ActingUserId);
+            scenario.ActingUserId,
+            scenario.ActingRole);
 
         // Act
         var result = memberService.UpdateRoleAsync(command, CancellationToken.None).GetAwaiter().GetResult();

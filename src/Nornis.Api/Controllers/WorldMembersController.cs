@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
@@ -90,6 +90,10 @@ public class WorldMembersController : ControllerBase
         [FromQuery] string? q,
         CancellationToken ct)
     {
+        // The one inline GM check that stays. SearchAddableUsersAsync re-checks it too, and
+        // that duplication is deliberate: this is the only query in the application that reads
+        // across the user table rather than within a world, so it gets two locks rather than
+        // one. See IWorldMemberService for the longer note.
         if (HttpContext.GetWorldMember().Role != WorldRole.GM)
         {
             return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can search for users to add."));
@@ -115,11 +119,6 @@ public class WorldMembersController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        if (member.Role != WorldRole.GM)
-        {
-            return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can add members."));
-        }
-
         if (!EnumParsing.TryParseDefined<WorldRole>(request.Role, out var role))
         {
             return BadRequest(new ErrorResponse("invalid_role", $"'{request.Role}' is not a valid world role."));
@@ -129,7 +128,8 @@ public class WorldMembersController : ControllerBase
             WorldId: worldId,
             TargetUserId: request.UserId,
             Role: role,
-            ActingUserId: user.Id);
+            ActingUserId: user.Id,
+            ActingUserRole: member.Role);
 
         var result = await _worldMemberService.AddMemberAsync(command, ct);
 
@@ -154,11 +154,6 @@ public class WorldMembersController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        if (member.Role != WorldRole.GM)
-        {
-            return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can update member roles."));
-        }
-
         if (!EnumParsing.TryParseDefined<WorldRole>(request.Role, out var newRole))
         {
             return BadRequest(new ErrorResponse("invalid_role", $"'{request.Role}' is not a valid world role."));
@@ -168,7 +163,8 @@ public class WorldMembersController : ControllerBase
             WorldId: worldId,
             TargetUserId: userId,
             NewRole: newRole,
-            ActingUserId: user.Id);
+            ActingUserId: user.Id,
+            ActingUserRole: member.Role);
 
         var result = await _worldMemberService.UpdateRoleAsync(command, ct);
 
@@ -192,12 +188,7 @@ public class WorldMembersController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        if (member.Role != WorldRole.GM)
-        {
-            return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can remove members."));
-        }
-
-        var result = await _worldMemberService.RemoveMemberAsync(worldId, userId, user.Id, ct);
+        var result = await _worldMemberService.RemoveMemberAsync(worldId, userId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {

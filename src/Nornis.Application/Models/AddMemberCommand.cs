@@ -1,4 +1,4 @@
-using Nornis.Domain.Enums;
+﻿using Nornis.Domain.Enums;
 
 namespace Nornis.Application.Models;
 
@@ -6,4 +6,5 @@ public record AddMemberCommand(
     Guid WorldId,
     Guid TargetUserId,
     WorldRole Role,
-    Guid ActingUserId);
+    Guid ActingUserId,
+    WorldRole ActingUserRole);

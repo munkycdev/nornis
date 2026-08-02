@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
@@ -31,13 +31,8 @@ public class WorldInvitesController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> List(Guid worldId, CancellationToken ct)
     {
-        if (HttpContext.GetWorldMember().Role != WorldRole.GM)
-        {
-            return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can view invites."));
-        }
-
         var user = HttpContext.GetNornisUser();
-        var result = await _inviteService.ListAsync(worldId, user.Id, ct);
+        var result = await _inviteService.ListAsync(worldId, user.Id, HttpContext.GetWorldMember().Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -54,18 +49,19 @@ public class WorldInvitesController : ControllerBase
         [FromBody] CreateInviteRequest request,
         CancellationToken ct)
     {
-        if (HttpContext.GetWorldMember().Role != WorldRole.GM)
-        {
-            return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can create invites."));
-        }
-
         if (!EnumParsing.TryParseDefined<WorldRole>(request.Role, out var role))
         {
             return BadRequest(new ErrorResponse("invalid_role", $"'{request.Role}' is not a valid world role."));
         }
 
         var user = HttpContext.GetNornisUser();
-        var command = new CreateInviteCommand(worldId, user.Id, role, request.ExpiresAt, request.MaxUses);
+        var command = new CreateInviteCommand(
+            WorldId: worldId,
+            ActingUserId: user.Id,
+            InvitedRole: role,
+            ExpiresAt: request.ExpiresAt,
+            MaxUses: request.MaxUses,
+            ActingUserRole: HttpContext.GetWorldMember().Role);
 
         var result = await _inviteService.CreateAsync(command, ct);
         if (!result.IsSuccess)
@@ -80,13 +76,8 @@ public class WorldInvitesController : ControllerBase
     [HttpDelete("{inviteId:guid}")]
     public async Task<IActionResult> Revoke(Guid worldId, Guid inviteId, CancellationToken ct)
     {
-        if (HttpContext.GetWorldMember().Role != WorldRole.GM)
-        {
-            return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can revoke invites."));
-        }
-
         var user = HttpContext.GetNornisUser();
-        var result = await _inviteService.RevokeAsync(worldId, inviteId, user.Id, ct);
+        var result = await _inviteService.RevokeAsync(worldId, inviteId, user.Id, HttpContext.GetWorldMember().Role, ct);
 
         if (!result.IsSuccess)
         {

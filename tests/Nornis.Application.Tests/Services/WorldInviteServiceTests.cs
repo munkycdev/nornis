@@ -80,7 +80,7 @@ public class WorldInviteServiceTests
     public async Task CreateAsync_AsGm_CreatesInvite()
     {
         SeedGm();
-        var command = new CreateInviteCommand(WorldId, GmUserId, WorldRole.Player, MaxUses: 5);
+        var command = new CreateInviteCommand(WorldId, GmUserId, WorldRole.Player, MaxUses: 5, ActingUserRole: WorldRole.GM);
 
         var result = await _sut.CreateAsync(command, CancellationToken.None);
 
@@ -99,7 +99,7 @@ public class WorldInviteServiceTests
     public async Task CreateAsync_AsNonGm_Returns403(WorldRole actingRole)
     {
         SeedMember(GmUserId, actingRole);
-        var command = new CreateInviteCommand(WorldId, GmUserId, WorldRole.Player);
+        var command = new CreateInviteCommand(WorldId, GmUserId, WorldRole.Player, ActingUserRole: actingRole);
 
         var result = await _sut.CreateAsync(command, CancellationToken.None);
 
@@ -151,7 +151,7 @@ public class WorldInviteServiceTests
     public async Task CreateAsync_NonPositiveMaxUses_Returns400(int maxUses)
     {
         SeedGm();
-        var command = new CreateInviteCommand(WorldId, GmUserId, WorldRole.Player, MaxUses: maxUses);
+        var command = new CreateInviteCommand(WorldId, GmUserId, WorldRole.Player, MaxUses: maxUses, ActingUserRole: WorldRole.GM);
 
         var result = await _sut.CreateAsync(command, CancellationToken.None);
 
@@ -168,7 +168,7 @@ public class WorldInviteServiceTests
         SeedInvite("code-a");
         SeedInvite("code-b");
 
-        var result = await _sut.ListAsync(WorldId, GmUserId, CancellationToken.None);
+        var result = await _sut.ListAsync(WorldId, GmUserId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value!, Has.Count.EqualTo(2));
@@ -182,7 +182,7 @@ public class WorldInviteServiceTests
         var playerId = Guid.NewGuid();
         SeedMember(playerId, WorldRole.Player);
 
-        var result = await _sut.ListAsync(WorldId, playerId, CancellationToken.None);
+        var result = await _sut.ListAsync(WorldId, playerId, WorldRole.Player, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
@@ -196,7 +196,7 @@ public class WorldInviteServiceTests
         SeedGm();
         var invite = SeedInvite();
 
-        var result = await _sut.RevokeAsync(WorldId, invite.Id, GmUserId, CancellationToken.None);
+        var result = await _sut.RevokeAsync(WorldId, invite.Id, GmUserId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value!.RevokedAt, Is.Not.Null);
@@ -211,7 +211,7 @@ public class WorldInviteServiceTests
         SeedMember(playerId, WorldRole.Player);
         var invite = SeedInvite();
 
-        var result = await _sut.RevokeAsync(WorldId, invite.Id, playerId, CancellationToken.None);
+        var result = await _sut.RevokeAsync(WorldId, invite.Id, playerId, WorldRole.Player, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
@@ -222,7 +222,7 @@ public class WorldInviteServiceTests
     {
         SeedGm();
 
-        var result = await _sut.RevokeAsync(WorldId, Guid.NewGuid(), GmUserId, CancellationToken.None);
+        var result = await _sut.RevokeAsync(WorldId, Guid.NewGuid(), GmUserId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
@@ -234,7 +234,7 @@ public class WorldInviteServiceTests
         SeedGm();
         var invite = SeedInvite(worldId: Guid.NewGuid());
 
-        var result = await _sut.RevokeAsync(WorldId, invite.Id, GmUserId, CancellationToken.None);
+        var result = await _sut.RevokeAsync(WorldId, invite.Id, GmUserId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));

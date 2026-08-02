@@ -1,4 +1,4 @@
-using Nornis.Domain.Enums;
+﻿using Nornis.Domain.Enums;
 
 namespace Nornis.Application.Models;
 
@@ -9,6 +9,9 @@ namespace Nornis.Application.Models;
 public record CreateInviteCommand(
     Guid WorldId,
     Guid ActingUserId,
-    WorldRole Role,
+    WorldRole InvitedRole,
     DateTimeOffset? ExpiresAt = null,
-    int? MaxUses = null);
+    int? MaxUses = null,
+    // Last, and named differently from InvitedRole on purpose: two adjacent WorldRole
+    // parameters in an authorization command is a swap the compiler cannot catch.
+    WorldRole ActingUserRole = WorldRole.Observer);

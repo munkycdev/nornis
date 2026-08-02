@@ -1,4 +1,4 @@
-using Nornis.Application.Errors;
+﻿using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -25,7 +25,7 @@ public class WorldInviteService : IWorldInviteService
 
     public async Task<AppResult<WorldInvite>> CreateAsync(CreateInviteCommand command, CancellationToken ct)
     {
-        if (!Enum.IsDefined(typeof(WorldRole), command.Role))
+        if (!Enum.IsDefined(typeof(WorldRole), command.InvitedRole))
         {
             return AppResult<WorldInvite>.Fail(
                 new AppError(400, "invalid_role", "Role must be GM, Player, or Observer."));
@@ -45,7 +45,7 @@ public class WorldInviteService : IWorldInviteService
                 new AppError(400, "validation_error", "Maximum uses must be at least 1."));
         }
 
-        var gmCheck = await RequireGmAsync(command.WorldId, command.ActingUserId, ct);
+        var gmCheck = RequireGm(command.ActingUserRole);
         if (gmCheck is not null)
         {
             return AppResult<WorldInvite>.Fail(gmCheck);
@@ -58,7 +58,7 @@ public class WorldInviteService : IWorldInviteService
             Id = Guid.NewGuid(),
             WorldId = command.WorldId,
             Code = _codeGenerator.Generate(),
-            Role = command.Role,
+            Role = command.InvitedRole,
             CreatedByUserId = command.ActingUserId,
             CreatedAt = now,
             ExpiresAt = command.ExpiresAt,
@@ -70,9 +70,10 @@ public class WorldInviteService : IWorldInviteService
         return AppResult<WorldInvite>.Success(created);
     }
 
-    public async Task<AppResult<IReadOnlyList<WorldInvite>>> ListAsync(Guid worldId, Guid actingUserId, CancellationToken ct)
+    public async Task<AppResult<IReadOnlyList<WorldInvite>>> ListAsync(
+        Guid worldId, Guid actingUserId, WorldRole actingUserRole, CancellationToken ct)
     {
-        var gmCheck = await RequireGmAsync(worldId, actingUserId, ct);
+        var gmCheck = RequireGm(actingUserRole);
         if (gmCheck is not null)
         {
             return AppResult<IReadOnlyList<WorldInvite>>.Fail(gmCheck);
@@ -82,9 +83,10 @@ public class WorldInviteService : IWorldInviteService
         return AppResult<IReadOnlyList<WorldInvite>>.Success(invites);
     }
 
-    public async Task<AppResult<WorldInvite>> RevokeAsync(Guid worldId, Guid inviteId, Guid actingUserId, CancellationToken ct)
+    public async Task<AppResult<WorldInvite>> RevokeAsync(
+        Guid worldId, Guid inviteId, Guid actingUserId, WorldRole actingUserRole, CancellationToken ct)
     {
-        var gmCheck = await RequireGmAsync(worldId, actingUserId, ct);
+        var gmCheck = RequireGm(actingUserRole);
         if (gmCheck is not null)
         {
             return AppResult<WorldInvite>.Fail(gmCheck);
@@ -178,17 +180,15 @@ public class WorldInviteService : IWorldInviteService
             new InviteRedemption(invite.WorldId, worldName, AlreadyMember: false));
     }
 
-    /// <summary>Returns a 403 error when the acting user is not a GM of the world, else null.</summary>
-    private async Task<AppError?> RequireGmAsync(Guid worldId, Guid actingUserId, CancellationToken ct)
-    {
-        var actingMember = await _memberRepository.GetByWorldAndUserAsync(worldId, actingUserId, ct);
-        if (actingMember is null || actingMember.Role != WorldRole.GM)
-        {
-            return new AppError(403, "insufficient_role", "Only a GM can manage world invites.");
-        }
-
-        return null;
-    }
+    /// <summary>
+    /// Returns a 403 when the acting role is not GM, else null. Takes the role rather than
+    /// re-reading the membership row: WorldMemberActionFilter resolved it before the request
+    /// reached a controller, and asking again is a second query for an answer already held.
+    /// </summary>
+    private static AppError? RequireGm(WorldRole actingUserRole) =>
+        actingUserRole != WorldRole.GM
+            ? new AppError(403, "insufficient_role", "Only a GM can manage world invites.")
+            : null;
 
     private static AppError InvalidInviteError(InviteStatus status) => status switch
     {
