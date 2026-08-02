@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
@@ -33,99 +33,8 @@ public class ReviewServicePropertyTests4
 
     #region Helpers
 
-    /// <summary>
-    /// Creates a ReviewService with FakeProposalValidator and FakeProposalApplicator.
-    /// Used for tests where we don't need real validation/application.
-    /// </summary>
-    private static FakeTestContext CreateFakeService()
-    {
-        var batchRepo = new InMemoryReviewBatchRepository();
-        var proposalRepo = new InMemoryReviewProposalRepository(batchRepo);
-        var sourceRepo = new InMemorySourceRepository();
-        var artifactRepo = new InMemoryArtifactRepository();
-        var artifactFactRepo = new InMemoryArtifactFactRepository();
-        var artifactRelationshipRepo = new InMemoryArtifactRelationshipRepository();
-        var sourceRefRepo = new InMemorySourceReferenceRepository();
-        var unitOfWork = new FakeUnitOfWork();
-        var validator = new FakeProposalValidator();
-        var applicator = new FakeProposalApplicator();
 
-        var service = new ReviewService(
-            proposalRepo,
-            batchRepo,
-            sourceRepo,
-            artifactRepo,
-            artifactFactRepo,
-            artifactRelationshipRepo,
-            sourceRefRepo,
-            unitOfWork,
-            validator,
-            applicator);
 
-        return new FakeTestContext(
-            service, proposalRepo, batchRepo, sourceRepo,
-            artifactRepo, artifactFactRepo, artifactRelationshipRepo, sourceRefRepo);
-    }
-
-    /// <summary>
-    /// Creates a ReviewService with REAL ProposalValidator and REAL ProposalApplicator.
-    /// Used for Property 20 where visibility defaults are tested through real application.
-    /// </summary>
-    private static RealTestContext CreateRealService()
-    {
-        var batchRepo = new InMemoryReviewBatchRepository();
-        var proposalRepo = new InMemoryReviewProposalRepository(batchRepo);
-        var sourceRepo = new InMemorySourceRepository();
-        var artifactRepo = new InMemoryArtifactRepository();
-        var artifactFactRepo = new InMemoryArtifactFactRepository();
-        var artifactRelationshipRepo = new InMemoryArtifactRelationshipRepository();
-        var sourceRefRepo = new InMemorySourceReferenceRepository();
-        var unitOfWork = new FakeUnitOfWork();
-        var validator = new ProposalValidator();
-        var applicator = new ProposalApplicator(
-            artifactRepo,
-            artifactFactRepo,
-            artifactRelationshipRepo,
-            sourceRefRepo,
-            new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
-            new InMemoryWorldMemberRepository());
-
-        var service = new ReviewService(
-            proposalRepo,
-            batchRepo,
-            sourceRepo,
-            artifactRepo,
-            artifactFactRepo,
-            artifactRelationshipRepo,
-            sourceRefRepo,
-            unitOfWork,
-            validator,
-            applicator);
-
-        return new RealTestContext(
-            service, proposalRepo, batchRepo, sourceRepo,
-            artifactRepo, artifactFactRepo, artifactRelationshipRepo, sourceRefRepo);
-    }
-
-    private record FakeTestContext(
-        ReviewService Service,
-        InMemoryReviewProposalRepository ProposalRepo,
-        InMemoryReviewBatchRepository BatchRepo,
-        InMemorySourceRepository SourceRepo,
-        InMemoryArtifactRepository ArtifactRepo,
-        InMemoryArtifactFactRepository ArtifactFactRepo,
-        InMemoryArtifactRelationshipRepository ArtifactRelationshipRepo,
-        InMemorySourceReferenceRepository SourceRefRepo);
-
-    private record RealTestContext(
-        ReviewService Service,
-        InMemoryReviewProposalRepository ProposalRepo,
-        InMemoryReviewBatchRepository BatchRepo,
-        InMemorySourceRepository SourceRepo,
-        InMemoryArtifactRepository ArtifactRepo,
-        InMemoryArtifactFactRepository ArtifactFactRepo,
-        InMemoryArtifactRelationshipRepository ArtifactRelationshipRepo,
-        InMemorySourceReferenceRepository SourceRefRepo);
 
     #endregion
 
@@ -144,7 +53,7 @@ public class ReviewServicePropertyTests4
     public Property All_proposals_terminal_transitions_batch_to_completed(PositiveInt countRaw, bool lastAccepted)
     {
         var totalProposals = (countRaw.Get % 5) + 2; // 2-6 proposals
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -254,7 +163,7 @@ public class ReviewServicePropertyTests4
     public Property Batch_not_completed_while_non_terminal_proposals_remain(PositiveInt countRaw)
     {
         var totalProposals = (countRaw.Get % 5) + 3; // 3-7 proposals
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -334,11 +243,11 @@ public class ReviewServicePropertyTests4
     ///
     /// **Validates: Requirements 10.1, 10.2**
     /// </summary>
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 18: Idempotent Accept of Already-Accepted Proposal")]
-    public Property Idempotent_accept_of_already_accepted_proposal(ProposalWithContext pwc)
+    public Property Idempotent_accept_of_already_accepted_proposal()
     {
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var originalReviewerId = Guid.NewGuid();
@@ -409,11 +318,11 @@ public class ReviewServicePropertyTests4
             .And(noNewSourceRefs.Label("No new source references should be created"));
     }
 
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 18: Idempotent Reject of Already-Rejected Proposal")]
-    public Property Idempotent_reject_of_already_rejected_proposal(ProposalWithContext pwc)
+    public Property Idempotent_reject_of_already_rejected_proposal()
     {
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var originalReviewerId = Guid.NewGuid();
@@ -495,11 +404,11 @@ public class ReviewServicePropertyTests4
     ///
     /// **Validates: Requirements 10.3**
     /// </summary>
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 19: Accept Rejected Proposal Returns Error")]
-    public Property Accept_rejected_proposal_returns_conflict_error(ProposalWithContext pwc)
+    public Property Accept_rejected_proposal_returns_conflict_error()
     {
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -558,11 +467,11 @@ public class ReviewServicePropertyTests4
             .And(codeIsConflict.Label($"Error code should be 'conflict', got '{result.Error?.Code}'"));
     }
 
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 19: Reject Accepted Proposal Returns Error")]
-    public Property Reject_accepted_proposal_returns_conflict_error(ProposalWithContext pwc)
+    public Property Reject_accepted_proposal_returns_conflict_error()
     {
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -638,7 +547,7 @@ public class ReviewServicePropertyTests4
     [Description("Feature: review-proposal-workflow, Property 20: Accepted Entity Inherits Source Visibility When Not Specified")]
     public Property Accepted_entity_inherits_source_visibility_when_not_specified(VisibilityScope sourceVisibility)
     {
-        var ctx = CreateRealService();
+        var ctx = ReviewHarness.WithRealApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -711,7 +620,7 @@ public class ReviewServicePropertyTests4
     public Property Accepted_entity_uses_explicit_visibility_when_specified(
         VisibilityScope sourceVisibility, VisibilityScope explicitVisibility)
     {
-        var ctx = CreateRealService();
+        var ctx = ReviewHarness.WithRealApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -799,7 +708,7 @@ public class ReviewServicePropertyTests4
     {
         var batchCount = (batchCountRaw.Get % 3) + 2; // 2-4 batches
         var proposalsPerBatch = (proposalsPerBatchRaw.Get % 4) + 2; // 2-5 proposals per batch
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -916,7 +825,7 @@ public class ReviewServicePropertyTests4
     {
         var extraCount = (extraRaw.Get % 10) + 1; // 1-10 extra beyond 200
         var totalCount = 200 + extraCount;
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -983,7 +892,7 @@ public class ReviewServicePropertyTests4
     public Property Review_queue_pagination_under_200_returns_hasmore_false(PositiveInt countRaw)
     {
         var count = (countRaw.Get % 50) + 1; // 1-50 proposals (well under 200)
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
@@ -37,104 +37,15 @@ public class ReviewServicePropertyTests2
 
     #region Helpers
 
-    /// <summary>
-    /// Creates a ReviewService with REAL ProposalValidator and ProposalApplicator,
-    /// returning all in-memory repositories for seeding and assertions.
-    /// </summary>
-    private static TestContext CreateRealService()
-    {
-        var batchRepo = new InMemoryReviewBatchRepository();
-        var proposalRepo = new InMemoryReviewProposalRepository(batchRepo);
-        var sourceRepo = new InMemorySourceRepository();
-        var artifactRepo = new InMemoryArtifactRepository();
-        var artifactFactRepo = new InMemoryArtifactFactRepository();
-        var artifactRelationshipRepo = new InMemoryArtifactRelationshipRepository();
-        var sourceRefRepo = new InMemorySourceReferenceRepository();
-        var unitOfWork = new FakeUnitOfWork();
-        var validator = new ProposalValidator();
-        var applicator = new ProposalApplicator(
-            artifactRepo,
-            artifactFactRepo,
-            artifactRelationshipRepo,
-            sourceRefRepo,
-            new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
-            new InMemoryWorldMemberRepository());
 
-        var service = new ReviewService(
-            proposalRepo,
-            batchRepo,
-            sourceRepo,
-            artifactRepo,
-            artifactFactRepo,
-            artifactRelationshipRepo,
-            sourceRefRepo,
-            unitOfWork,
-            validator,
-            applicator);
 
-        return new TestContext(
-            service, proposalRepo, batchRepo, sourceRepo,
-            artifactRepo, artifactFactRepo, artifactRelationshipRepo, sourceRefRepo);
-    }
 
-    /// <summary>
-    /// Creates a ReviewService with FakeProposalApplicator (for reject tests).
-    /// </summary>
-    private static TestContextWithFakeApplicator CreateFakeApplicatorService()
-    {
-        var batchRepo = new InMemoryReviewBatchRepository();
-        var proposalRepo = new InMemoryReviewProposalRepository(batchRepo);
-        var sourceRepo = new InMemorySourceRepository();
-        var artifactRepo = new InMemoryArtifactRepository();
-        var artifactFactRepo = new InMemoryArtifactFactRepository();
-        var artifactRelationshipRepo = new InMemoryArtifactRelationshipRepository();
-        var sourceRefRepo = new InMemorySourceReferenceRepository();
-        var unitOfWork = new FakeUnitOfWork();
-        var validator = new FakeProposalValidator();
-        var applicator = new FakeProposalApplicator();
-
-        var service = new ReviewService(
-            proposalRepo,
-            batchRepo,
-            sourceRepo,
-            artifactRepo,
-            artifactFactRepo,
-            artifactRelationshipRepo,
-            sourceRefRepo,
-            unitOfWork,
-            validator,
-            applicator);
-
-        return new TestContextWithFakeApplicator(
-            service, proposalRepo, batchRepo, sourceRepo,
-            artifactRepo, artifactFactRepo, artifactRelationshipRepo, sourceRefRepo);
-    }
-
-    private record TestContext(
-        ReviewService Service,
-        InMemoryReviewProposalRepository ProposalRepo,
-        InMemoryReviewBatchRepository BatchRepo,
-        InMemorySourceRepository SourceRepo,
-        InMemoryArtifactRepository ArtifactRepo,
-        InMemoryArtifactFactRepository ArtifactFactRepo,
-        InMemoryArtifactRelationshipRepository ArtifactRelationshipRepo,
-        InMemorySourceReferenceRepository SourceRefRepo);
-
-    private record TestContextWithFakeApplicator(
-        ReviewService Service,
-        InMemoryReviewProposalRepository ProposalRepo,
-        InMemoryReviewBatchRepository BatchRepo,
-        InMemorySourceRepository SourceRepo,
-        InMemoryArtifactRepository ArtifactRepo,
-        InMemoryArtifactFactRepository ArtifactFactRepo,
-        InMemoryArtifactRelationshipRepository ArtifactRelationshipRepo,
-        InMemorySourceReferenceRepository SourceRefRepo);
 
     /// <summary>
     /// Seeds the standard source + batch + proposal structure and returns relevant IDs.
     /// </summary>
     private static (Source Source, ReviewBatch Batch, Guid WorldId, Guid UserId)
-        SeedSourceAndBatch(TestContext ctx)
+        SeedSourceAndBatch(ReviewHarness ctx)
     {
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -181,7 +92,7 @@ public class ReviewServicePropertyTests2
     [Description("Feature: review-proposal-workflow, Property 6: Update Acceptance Updates Existing Entity")]
     public Property Update_acceptance_updates_existing_entity(PositiveInt confidenceRaw)
     {
-        var ctx = CreateRealService();
+        var ctx = ReviewHarness.WithRealApplicator();
         var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
 
         // Create an existing artifact to update
@@ -263,13 +174,13 @@ public class ReviewServicePropertyTests2
     ///
     /// **Validates: Requirements 2.4, 2.6, 9.2, 9.3**
     /// </summary>
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 7: Add Acceptance Creates Correct Entity")]
-    public Property AddFact_acceptance_creates_correct_fact(ProposalWithContext pwc)
+    public Property AddFact_acceptance_creates_correct_fact()
     {
         // Use the AddFactProposalWithContext generator via the arbitrary
         // but we build our own here for full control
-        var ctx = CreateRealService();
+        var ctx = ReviewHarness.WithRealApplicator();
         var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
 
         // Create target artifact
@@ -337,11 +248,11 @@ public class ReviewServicePropertyTests2
             .And(createdAtCorrect.Label("CreatedAt should be approximately current UTC"));
     }
 
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 7: Add Acceptance Creates Correct Entity")]
-    public Property AddRelationship_acceptance_creates_correct_relationship(ProposalWithContext pwc)
+    public Property AddRelationship_acceptance_creates_correct_relationship()
     {
-        var ctx = CreateRealService();
+        var ctx = ReviewHarness.WithRealApplicator();
         var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
 
         // Create two artifacts for the relationship
@@ -447,11 +358,11 @@ public class ReviewServicePropertyTests2
     ///
     /// **Validates: Requirements 9.5**
     /// </summary>
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 8: MergeArtifact Reassigns and Archives")]
-    public Property MergeArtifact_reassigns_and_archives(PositiveInt seed)
+    public Property MergeArtifact_reassigns_and_archives()
     {
-        var ctx = CreateRealService();
+        var ctx = ReviewHarness.WithRealApplicator();
         var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
 
         // Create target artifact
@@ -627,11 +538,11 @@ public class ReviewServicePropertyTests2
     ///
     /// **Validates: Requirements 2.8**
     /// </summary>
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 9: Accept Creates SourceReference")]
-    public Property Accept_creates_source_reference_for_CreateArtifact(ProposalWithContext pwc)
+    public Property Accept_creates_source_reference_for_CreateArtifact()
     {
-        var ctx = CreateRealService();
+        var ctx = ReviewHarness.WithRealApplicator();
         var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
 
         // Use CreateArtifact type
@@ -673,11 +584,11 @@ public class ReviewServicePropertyTests2
             .And(targetIdCorrect.Label("SourceReference.TargetId should be non-empty"));
     }
 
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 9: Accept Creates SourceReference")]
-    public Property Accept_creates_source_reference_for_AddFact(ProposalWithContext pwc)
+    public Property Accept_creates_source_reference_for_AddFact()
     {
-        var ctx = CreateRealService();
+        var ctx = ReviewHarness.WithRealApplicator();
         var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
 
         // Create target artifact for the fact
@@ -732,11 +643,11 @@ public class ReviewServicePropertyTests2
             .And(targetIdCorrect.Label("SourceReference.TargetId should be non-empty"));
     }
 
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 9: Accept Creates SourceReference")]
-    public Property Accept_creates_source_reference_for_AddRelationship(ProposalWithContext pwc)
+    public Property Accept_creates_source_reference_for_AddRelationship()
     {
-        var ctx = CreateRealService();
+        var ctx = ReviewHarness.WithRealApplicator();
         var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
 
         var artifactA = new Artifact
@@ -823,7 +734,7 @@ public class ReviewServicePropertyTests2
     [Description("Feature: review-proposal-workflow, Property 10: Reject Transitions Without Knowledge Graph Changes")]
     public Property Reject_transitions_without_knowledge_graph_changes(ReviewChangeType changeType)
     {
-        var fakeCtx = CreateFakeApplicatorService();
+        var fakeCtx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();

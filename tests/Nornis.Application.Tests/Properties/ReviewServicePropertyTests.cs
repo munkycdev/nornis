@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
@@ -33,90 +33,36 @@ public class ReviewServicePropertyTests
     #region Helpers
 
     /// <summary>
-    /// Creates a ReviewService wired to in-memory fakes with the given scenario data seeded.
-    /// Uses FakeProposalValidator and FakeProposalApplicator for properties 1-4.
+    /// The shared harness plus this file's seeding. Both builders used to inline the same
+    /// thirty-five lines of construction that four other files also carried; only the seeding
+    /// below was ever specific to these properties.
     /// </summary>
-    private static (ReviewService Service, InMemoryReviewProposalRepository ProposalRepo,
-        InMemoryArtifactRepository ArtifactRepo, InMemorySourceReferenceRepository SourceRefRepo)
-        CreateServiceWithFakes(ReviewScenario scenario)
+    private static ReviewHarness SeededWithFakes(ReviewScenario scenario)
     {
-        var batchRepo = new InMemoryReviewBatchRepository();
-        var proposalRepo = new InMemoryReviewProposalRepository(batchRepo);
-        var sourceRepo = new InMemorySourceRepository();
-        var artifactRepo = new InMemoryArtifactRepository();
-        var artifactFactRepo = new InMemoryArtifactFactRepository();
-        var artifactRelationshipRepo = new InMemoryArtifactRelationshipRepository();
-        var sourceRefRepo = new InMemorySourceReferenceRepository();
-        var unitOfWork = new FakeUnitOfWork();
-        var validator = new FakeProposalValidator();
-        var applicator = new FakeProposalApplicator();
-
-        // Seed data
-        sourceRepo.Seed(scenario.Sources);
+        var harness = ReviewHarness.WithFakeApplicator();
+        harness.SourceRepo.Seed(scenario.Sources);
         foreach (var batch in scenario.Batches)
-            batchRepo.CreateAsync(batch).GetAwaiter().GetResult();
+        {
+            harness.BatchRepo.CreateAsync(batch).GetAwaiter().GetResult();
+        }
         foreach (var proposal in scenario.Proposals)
-            proposalRepo.CreateAsync(proposal).GetAwaiter().GetResult();
-
-        var service = new ReviewService(
-            proposalRepo,
-            batchRepo,
-            sourceRepo,
-            artifactRepo,
-            artifactFactRepo,
-            artifactRelationshipRepo,
-            sourceRefRepo,
-            unitOfWork,
-            validator,
-            applicator);
-
-        return (service, proposalRepo, artifactRepo, sourceRefRepo);
+        {
+            harness.ProposalRepo.CreateAsync(proposal).GetAwaiter().GetResult();
+        }
+        return harness;
     }
 
     /// <summary>
-    /// Creates a ReviewService with REAL ProposalValidator and ProposalApplicator
-    /// for full integration property tests (Properties 4 and 5).
+    /// The real validator and applicator, for the properties whose subject is what a payload
+    /// turns into rather than how ReviewService routes it.
     /// </summary>
-    private static (ReviewService Service, InMemoryReviewProposalRepository ProposalRepo,
-        InMemoryArtifactRepository ArtifactRepo, InMemorySourceReferenceRepository SourceRefRepo,
-        InMemoryReviewBatchRepository BatchRepo, InMemorySourceRepository SourceRepo)
-        CreateServiceWithRealApplicator(ProposalWithContext ctx)
+    private static ReviewHarness SeededWithRealApplicator(ProposalWithContext ctx)
     {
-        var batchRepo = new InMemoryReviewBatchRepository();
-        var proposalRepo = new InMemoryReviewProposalRepository(batchRepo);
-        var sourceRepo = new InMemorySourceRepository();
-        var artifactRepo = new InMemoryArtifactRepository();
-        var artifactFactRepo = new InMemoryArtifactFactRepository();
-        var artifactRelationshipRepo = new InMemoryArtifactRelationshipRepository();
-        var sourceRefRepo = new InMemorySourceReferenceRepository();
-        var unitOfWork = new FakeUnitOfWork();
-        var validator = new ProposalValidator();
-        var applicator = new ProposalApplicator(
-            artifactRepo,
-            artifactFactRepo,
-            artifactRelationshipRepo,
-            sourceRefRepo,
-            new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
-            new InMemoryWorldMemberRepository());
-
-        // Seed data
-        sourceRepo.Seed(ctx.Source);
-        batchRepo.CreateAsync(ctx.Batch).GetAwaiter().GetResult();
-        proposalRepo.CreateAsync(ctx.Proposal).GetAwaiter().GetResult();
-
-        var service = new ReviewService(
-            proposalRepo,
-            batchRepo,
-            sourceRepo,
-            artifactRepo,
-            artifactFactRepo,
-            artifactRelationshipRepo,
-            sourceRefRepo,
-            unitOfWork,
-            validator,
-            applicator);
-
-        return (service, proposalRepo, artifactRepo, sourceRefRepo, batchRepo, sourceRepo);
+        var harness = ReviewHarness.WithRealApplicator();
+        harness.SourceRepo.Seed(ctx.Source);
+        harness.BatchRepo.CreateAsync(ctx.Batch).GetAwaiter().GetResult();
+        harness.ProposalRepo.CreateAsync(ctx.Proposal).GetAwaiter().GetResult();
+        return harness;
     }
 
     #endregion
@@ -138,7 +84,7 @@ public class ReviewServicePropertyTests
     [Description("Feature: review-proposal-workflow, Property 1: Visibility Filtering")]
     public Property GM_sees_all_Player_sees_own_Observer_sees_none(ReviewScenario scenario)
     {
-        var (service, _, _, _) = CreateServiceWithFakes(scenario);
+        var service = SeededWithFakes(scenario).Service;
 
         // GM query
         var gmQuery = new ReviewQueueQuery(scenario.WorldId, scenario.GmUserId, WorldRole.GM);
@@ -210,7 +156,7 @@ public class ReviewServicePropertyTests
         if (scenario.Proposals.Count == 0)
             return true.ToProperty();
 
-        var (service, _, _, _) = CreateServiceWithFakes(scenario);
+        var service = SeededWithFakes(scenario).Service;
 
         // Pick first pending proposal
         var proposal = scenario.Proposals.First(p => p.Status == ReviewProposalStatus.Pending);
@@ -294,7 +240,7 @@ public class ReviewServicePropertyTests
         if (invisibleProposals.Count == 0)
             return true.ToProperty(); // No invisible proposals in this scenario
 
-        var (service, _, _, _) = CreateServiceWithFakes(scenario);
+        var service = SeededWithFakes(scenario).Service;
 
         var allReturnNotFound = true;
         var failureLabels = new List<string>();
@@ -359,7 +305,8 @@ public class ReviewServicePropertyTests
     [Description("Feature: review-proposal-workflow, Property 4: Accept Transitions Status and Sets Metadata")]
     public Property Accept_transitions_status_and_sets_metadata(ProposalWithContext ctx)
     {
-        var (service, proposalRepo, _, _, _, _) = CreateServiceWithRealApplicator(ctx);
+        var harness = SeededWithRealApplicator(ctx);
+        var (service, proposalRepo) = (harness.Service, harness.ProposalRepo);
 
         var before = DateTimeOffset.UtcNow;
 
@@ -420,7 +367,9 @@ public class ReviewServicePropertyTests
     [Description("Feature: review-proposal-workflow, Property 5: CreateArtifact Acceptance Creates Correct Artifact")]
     public Property CreateArtifact_acceptance_creates_correct_artifact(ProposalWithContext ctx)
     {
-        var (service, proposalRepo, artifactRepo, sourceRefRepo, _, _) = CreateServiceWithRealApplicator(ctx);
+        var harness = SeededWithRealApplicator(ctx);
+        var (service, proposalRepo, artifactRepo, sourceRefRepo) =
+            (harness.Service, harness.ProposalRepo, harness.ArtifactRepo, harness.SourceRefRepo);
 
         var before = DateTimeOffset.UtcNow;
 
