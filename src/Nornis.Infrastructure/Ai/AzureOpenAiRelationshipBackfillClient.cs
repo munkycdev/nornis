@@ -21,8 +21,8 @@ public class AzureOpenAiRelationshipBackfillClient : IRelationshipBackfillAiClie
 
     public AzureOpenAiRelationshipBackfillClient(ChatClient chatClient, ILogger<AzureOpenAiRelationshipBackfillClient> logger)
     {
-        _chatClient = chatClient ?? throw new ArgumentNullException(nameof(chatClient));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _chatClient = chatClient;
+        _logger = logger;
     }
 
     public async Task<RelationshipBackfillAiResponse> ProposeLinksAsync(AiPromptRequest request, CancellationToken ct)

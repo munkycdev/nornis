@@ -240,8 +240,14 @@ Same decision made two or three ways across sibling files. Pick once, apply ever
   `Database.IsRelational()` branch, unconditional ExecuteDelete that would throw).
   Generalize the IsRelational helper and apply it; also collapse SourceRepository's
   four copy-paste single-column mutators onto one private `MutateAsync(id, apply, ct)`.
-- **DI constructor null-guards**: the repo splits ~50/50 on
-  `?? throw new ArgumentNullException`. Under DI they're unreachable; drop them all.
+- ~~**DI constructor null-guards**~~ **Done 2026-08-01.** All 26 removed across 13 files.
+  Two of them were load-bearing for nullable flow analysis rather than for null-checking —
+  `_options = options?.Value ?? throw …` — so dropping the throw left a `?.` the compiler
+  then rejected. The `?.` went with it; under DI neither could ever fire.
+  - Three tests existed solely to assert those guards threw
+    (`AzureOpenAiLoremasterClientTests`' Constructor Validation region). They went with the
+    guards: a test whose whole subject is unreachable defensive code outlives its subject
+    only by keeping the code alive. Infrastructure suite 305 → 302.
 - **Small idioms**, enforceable via .editorconfig where possible: collection
   expressions vs `new List<>` (currently 84/91 split — IDE0028/IDE0305),
   `IsNullOrWhiteSpace` as the default check, `IReadOnlyList<T>` uniformly on the API
@@ -258,7 +264,14 @@ RedeliveryBackoffTests, the import-walk fixtures) is the model; this tier prunes
 older spec-shaped layer down to it. Expect the test count to drop meaningfully; that is
 the point.
 
-- **Enum ledger tests**: delete the fifteen `*_HasNoUnexpectedValues` count twins
+- ~~**Enum ledger tests**: delete the fifteen `*_HasNoUnexpectedValues` count twins~~
+  **Done 2026-08-01 — fourteen deleted, not fifteen.** `InviteStatus` had no
+  `_HasExpectedValues` counterpart, so its count test was that enum's *only* coverage;
+  it was converted to the exact-values idiom instead of deleted. Every enum now has
+  exactly one test, and it is the one that fails on an addition *or* a removal.
+  - Evidence for the redundancy arrived the same day: adding `AiOperationType.WorldNaming`
+    required editing two assertions to state one fact, and the count twin caught nothing
+    the name list had not already caught. Domain suite 714 → 700.
   (strictly weaker than their `Is.EquivalentTo` siblings, can never fail alone) and the
   two running-ledger tests (`AllEnums_AreInExpectedNamespace` with its hand-maintained
   count of 28, and EntityStructureTests' equivalent).

@@ -21,8 +21,8 @@ public class AzureOpenAiContinuityFixClient : IContinuityFixAiClient
 
     public AzureOpenAiContinuityFixClient(ChatClient chatClient, ILogger<AzureOpenAiContinuityFixClient> logger)
     {
-        _chatClient = chatClient ?? throw new ArgumentNullException(nameof(chatClient));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _chatClient = chatClient;
+        _logger = logger;
     }
 
     public async Task<ContinuityFixAiResponse> DraftAsync(AiPromptRequest request, CancellationToken ct)

@@ -21,8 +21,8 @@ public class AzureOpenAiAuditClient : IAuditAiClient
 
     public AzureOpenAiAuditClient(ChatClient chatClient, ILogger<AzureOpenAiAuditClient> logger)
     {
-        _chatClient = chatClient ?? throw new ArgumentNullException(nameof(chatClient));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _chatClient = chatClient;
+        _logger = logger;
     }
 
     public async Task<AuditAiResponse> AssessAsync(AiPromptRequest request, CancellationToken ct)

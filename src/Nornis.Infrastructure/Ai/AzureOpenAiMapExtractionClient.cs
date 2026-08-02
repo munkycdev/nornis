@@ -30,8 +30,8 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
     public AzureOpenAiMapExtractionClient(
         ChatClient chatClient, ILogger<AzureOpenAiMapExtractionClient> logger)
     {
-        _chatClient = chatClient ?? throw new ArgumentNullException(nameof(chatClient));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _chatClient = chatClient;
+        _logger = logger;
     }
 
     public async Task<MapExtractionResponse> ExtractAsync(MapExtractionRequest request, CancellationToken ct)

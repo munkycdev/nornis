@@ -21,9 +21,9 @@ public class AzureOpenAiLoremasterClient : ILoremasterAiClient
         IOptions<LoremasterOptions> options,
         ILogger<AzureOpenAiLoremasterClient> logger)
     {
-        _chatClient = chatClient ?? throw new ArgumentNullException(nameof(chatClient));
-        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _chatClient = chatClient;
+        _options = options.Value;
+        _logger = logger;
     }
 
     public async Task<LoremasterAiResponse> AskAsync(AiPromptRequest request, CancellationToken ct)

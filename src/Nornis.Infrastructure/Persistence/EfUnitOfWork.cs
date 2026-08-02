@@ -10,7 +10,7 @@ public class EfUnitOfWork : IUnitOfWork
 
     public EfUnitOfWork(NornisDbContext dbContext)
     {
-        _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+        _dbContext = dbContext;
     }
 
     public async Task<ITransactionScope> BeginTransactionAsync(CancellationToken cancellationToken = default)
