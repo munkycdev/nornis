@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -14,6 +14,7 @@ public class AiBudgetGuardTests
     private Guid _worldId;
     private InMemoryAiUsageRecordRepository _usageRepo = null!;
     private InMemoryWorldRepository _worldRepo = null!;
+    private FakeAiPauseGate _pauseGate = null!;
 
     [SetUp]
     public void SetUp()
@@ -21,10 +22,11 @@ public class AiBudgetGuardTests
         _worldId = Guid.NewGuid();
         _usageRepo = new InMemoryAiUsageRecordRepository();
         _worldRepo = new InMemoryWorldRepository();
+        _pauseGate = new FakeAiPauseGate();
     }
 
     private AiBudgetGuard MakeGuard(decimal dailyBudgetUsd) =>
-        new(_usageRepo, _worldRepo, Options.Create(new AiBudgetOptions { DailyWorldBudgetUsd = dailyBudgetUsd }));
+        new(_usageRepo, _worldRepo, Options.Create(new AiBudgetOptions { DailyWorldBudgetUsd = dailyBudgetUsd }), _pauseGate);
 
     private void SeedWorld(decimal? dailyAiBudgetUsd)
     {
@@ -146,5 +148,38 @@ public class AiBudgetGuardTests
         Assert.That(status.SpentTodayUsd, Is.EqualTo(0.75m));
         Assert.That(status.DailyBudgetUsd, Is.EqualTo(2.00m));
         Assert.That(status.IsExceeded, Is.False);
+    }
+
+    [Test]
+    public async Task WhenAiIsPaused_EveryPaidCallIsRefused()
+    {
+        SeedWorld(dailyAiBudgetUsd: 100m);
+        _pauseGate.Pause("Provider incident");
+
+        var error = await MakeGuard(100m).CheckAsync(_worldId, CancellationToken.None);
+
+        // Checked here rather than at the eight services that spend money: every paid
+        // dispatch already calls CheckAsync, so this one seam reaches all of them.
+        Assert.Multiple(() =>
+        {
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error!.StatusCode, Is.EqualTo(503), "a pause is unavailability, not rate limiting");
+            Assert.That(error.Code, Is.EqualTo("ai_paused"));
+            Assert.That(error.Message, Does.Contain("Provider incident"),
+                "the operator's reason is what makes a pause read as deliberate");
+        });
+    }
+
+    [Test]
+    public async Task WhenAiIsPaused_TheBudgetIsNotEvenConsulted()
+    {
+        // No world seeded, so a budget read would fault or fall through to a default. The
+        // pause has to win before any of that: during a provider incident the last thing an
+        // operator wants is the switch depending on more of the system still working.
+        _pauseGate.Pause();
+
+        var error = await MakeGuard(100m).CheckAsync(_worldId, CancellationToken.None);
+
+        Assert.That(error!.Code, Is.EqualTo("ai_paused"));
     }
 }

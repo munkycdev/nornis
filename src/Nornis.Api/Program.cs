@@ -186,6 +186,12 @@ builder.Services.AddScoped<IAiUsageRecorder, AiUsageRecorder>();
 // per-request instance would always look idle.
 builder.Services.AddSingleton<IAiOutcomeMonitor, AiOutcomeMonitor>();
 builder.Services.AddScoped<IWorkerHeartbeatRepository, WorkerHeartbeatRepository>();
+builder.Services.AddScoped<IOperationalFlagRepository, OperationalFlagRepository>();
+// Singleton so the ~60s cache is shared: scoped would mean a fresh cache per request,
+// which is a database read per paid AI call — the thing the cache exists to avoid.
+builder.Services.AddSingleton<IAiPauseGate>(sp => new AiPauseGate(
+    new ScopedOperationalFlagReader(sp.GetRequiredService<IServiceScopeFactory>()),
+    sp.GetRequiredService<ILogger<AiPauseGate>>()));
 builder.Services.AddScoped<IHealthAssessmentRepository, HealthAssessmentRepository>();
 builder.Services.AddScoped<IContinuityDismissalRepository, ContinuityDismissalRepository>();
 builder.Services.AddScoped<ILibraryDocumentRepository, LibraryDocumentRepository>();

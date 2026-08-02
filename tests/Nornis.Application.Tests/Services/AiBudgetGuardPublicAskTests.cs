@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -19,6 +19,7 @@ public class AiBudgetGuardPublicAskTests
     private Guid _worldId;
     private InMemoryAiUsageRecordRepository _usageRepo = null!;
     private InMemoryWorldRepository _worldRepo = null!;
+    private FakeAiPauseGate _pauseGate = null!;
 
     [SetUp]
     public void SetUp()
@@ -26,10 +27,11 @@ public class AiBudgetGuardPublicAskTests
         _worldId = Guid.NewGuid();
         _usageRepo = new InMemoryAiUsageRecordRepository();
         _worldRepo = new InMemoryWorldRepository();
+        _pauseGate = new FakeAiPauseGate();
     }
 
     private AiBudgetGuard Guard() =>
-        new(_usageRepo, _worldRepo, Options.Create(new AiBudgetOptions()));
+        new(_usageRepo, _worldRepo, Options.Create(new AiBudgetOptions()), _pauseGate);
 
     private void SeedWorld(decimal? publicAskMonthlyBudgetUsd)
     {

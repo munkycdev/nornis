@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.Json;
 using Azure.Messaging.ServiceBus;
 using Nornis.Application.Messaging;
@@ -43,18 +43,25 @@ public sealed class ExtractionWorker : BackgroundService
 
         _logger.LogInformation("ExtractionWorker started, listening for messages on source-extraction queue");
 
-        try
-        {
-            await Task.Delay(Timeout.Infinite, stoppingToken);
-        }
-        catch (OperationCanceledException)
-        {
-            // Graceful shutdown requested
-        }
-
-        await _processor.StopProcessingAsync(CancellationToken.None);
+        await PausableProcessing.RunUntilStoppedAsync(
+            _processor.StartProcessingAsync,
+            _processor.StopProcessingAsync,
+            ReadPauseStateAsync,
+            "source-extraction",
+            _logger,
+            stoppingToken);
 
         _logger.LogInformation("ExtractionWorker stopped");
+    }
+
+    /// <summary>
+    /// A fresh scope per poll: the gate's repository is scoped to a DbContext, and a worker
+    /// that lives for days must not hold one open for the duration.
+    /// </summary>
+    private async Task<AiPauseState> ReadPauseStateAsync(CancellationToken ct)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<IAiPauseGate>().GetAsync(ct);
     }
 
     private async Task ProcessMessageAsync(ProcessMessageEventArgs args)

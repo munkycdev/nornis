@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Diagnostics.HealthChecks;
+﻿using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Nornis.Application.Services;
 using Nornis.Infrastructure.Ai;
 using NUnit.Framework;
@@ -14,7 +14,7 @@ namespace Nornis.Infrastructure.Tests.Ai;
 public class AiAvailabilityHealthCheckTests
 {
     private static Task<HealthCheckResult> CheckAsync(AiOutcomeMonitor monitor) =>
-        new AiAvailabilityHealthCheck(monitor).CheckHealthAsync(new HealthCheckContext());
+        new AiAvailabilityHealthCheck(monitor, PauseGate(paused: false)).CheckHealthAsync(new HealthCheckContext());
 
     [Test]
     public async Task NoRecentCalls_IsHealthy()
@@ -59,5 +59,33 @@ public class AiAvailabilityHealthCheckTests
         var result = await CheckAsync(monitor);
 
         Assert.That(result.Status, Is.EqualTo(HealthStatus.Healthy));
+    }
+
+    private static IAiPauseGate PauseGate(bool paused, string? reason = null) =>
+        new StubPauseGate(paused ? new AiPauseState(true, reason) : AiPauseState.Running);
+
+    private sealed class StubPauseGate : IAiPauseGate
+    {
+        private readonly AiPauseState _state;
+        public StubPauseGate(AiPauseState state) => _state = state;
+        public Task<AiPauseState> GetAsync(CancellationToken ct) => Task.FromResult(_state);
+    }
+
+    [Test]
+    public async Task WhenAiIsPaused_TheCheckSaysWhoTurnedItOff()
+    {
+        var monitor = new AiOutcomeMonitor();
+        var result = await new AiAvailabilityHealthCheck(monitor, PauseGate(true, "Provider incident"))
+            .CheckHealthAsync(new HealthCheckContext());
+
+        // Degraded, because the feature genuinely is unavailable — but the text has to
+        // distinguish "we did this on purpose" from "Azure is broken", which is the whole
+        // difference between a calm page and a false alarm.
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Status, Is.EqualTo(HealthStatus.Degraded));
+            Assert.That(result.Description, Does.Contain("paused by an operator"));
+            Assert.That(result.Description, Does.Contain("Provider incident"));
+        });
     }
 }

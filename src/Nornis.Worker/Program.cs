@@ -101,6 +101,12 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<IExtractionReplayRepository, ExtractionReplayRepository>();
         services.AddScoped<IImportSessionRepository, ImportSessionRepository>();
         services.AddScoped<IWorkerHeartbeatRepository, WorkerHeartbeatRepository>();
+        services.AddScoped<IOperationalFlagRepository, OperationalFlagRepository>();
+        // Singleton so the ~60s cache is shared: scoped would mean a fresh cache per request,
+        // which is a database read per paid AI call — the thing the cache exists to avoid.
+        services.AddSingleton<IAiPauseGate>(sp => new AiPauseGate(
+            new ScopedOperationalFlagReader(sp.GetRequiredService<IServiceScopeFactory>()),
+            sp.GetRequiredService<ILogger<AiPauseGate>>()));
 
         // The worker records AI outcomes into the same monitor interface the API's status
         // check reads — but these are two processes, so this instance is only ever written

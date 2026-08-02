@@ -1,4 +1,4 @@
-# Scripts
+﻿# Scripts
 
 ## provision-azure.ps1
 
@@ -56,6 +56,25 @@ the worst fifteen.
 The list is a test-writing backlog ordered by risk, never a gate. Razor `BuildRenderTree`
 methods are excluded — compiler-generated markup that would otherwise fill the table and
 bury everything a person could act on.
+
+## ai-pause.ps1
+
+Pauses or resumes every paid AI call, system-wide, without a redeploy. Per-world budgets cap
+spend over a day; this is the lever for stopping it *now* — a provider incident, a runaway
+replay, a prompt behaving badly in production.
+
+```powershell
+./scripts/ai-pause.ps1                                              # status
+./scripts/ai-pause.ps1 -Action Pause -Reason "Provider incident"    # stop
+./scripts/ai-pause.ps1 -Action Resume                               # start
+```
+
+Effective within ~90 seconds. Interactive paths refuse with the reason; the queue workers
+stop consuming, so queued work waits in the queue rather than burning delivery counts
+toward the dead-letter backstop. A script rather than a UI on purpose: a switch that pauses
+the product for everyone should not be one click away.
+
+See [docs/runbooks/ai-paused.md](../docs/runbooks/ai-paused.md).
 
 ## dlq.ps1
 

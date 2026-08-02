@@ -1,4 +1,4 @@
-# Runbooks
+﻿# Runbooks
 
 One doc per nameable failure mode. Each answers the same four questions in the same
 order: what you saw, how to confirm it, what to do, and how to know it worked.
@@ -11,6 +11,7 @@ two in the morning. If a step says "investigate", it is not finished.
 | [Worker dead](worker-dead.md) | `/status` → `worker-heartbeat` Unhealthy; sources stuck Queued |
 | [Migration missed](migration-missed.md) | The deploy run's verify step; `/health` 503 naming `pending-migrations` |
 | [Dead-letter queue non-empty](dead-letter-queue.md) | `nornis-sb-deadletter` |
+| [AI paused](ai-paused.md) | `/status` → `azure-openai` Degraded, "paused by an operator" |
 | [AI call failures](ai-call-failures.md) | `nornis-ai-call-failures`; `/status` → `azure-openai` Degraded |
 | [Budget cap hit](budget-cap-hit.md) | No alert — surfaces as users reporting extraction refusals |
 | [Database under pressure](database-pressure.md) | `nornis-sql-dtu`; `/status` slow or `sql` Unhealthy |
@@ -47,6 +48,6 @@ Two endpoints, two meanings, and it matters which one you are reading:
 
 ## Not yet written
 
-- **AI paused** — waits on the kill switch (O4 in `docs/plans/operational-hardening.md`).
-  There is nothing to pause yet, and a runbook for a control that does not exist would
-  be worse than none.
+Nothing outstanding. The one entry that lived here — AI paused — was waiting on a control
+that did not exist; the kill switch shipped 2026-08-02 and [ai-paused.md](ai-paused.md)
+went with it.
