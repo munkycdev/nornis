@@ -477,7 +477,7 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
 {
     AllowCachingResponses = false,
     Predicate = registration => registration.Tags.Contains(StatusEndpoint.LivenessTag),
-    ResponseWriter = WriteHealthResponse
+    ResponseWriter = StatusEndpoint.WriteHealthResponse
 }).AllowAnonymous();
 
 // The ops surface. Anonymous per the steering doc's carve-out, which names /status
@@ -498,22 +498,6 @@ if (statusDashboardOrigins.Length > 0)
 }
 
 app.Run();
-
-static Task WriteHealthResponse(HttpContext context, Microsoft.Extensions.Diagnostics.HealthChecks.HealthReport report)
-{
-    context.Response.ContentType = "application/json";
-
-    var status = report.Status == Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Healthy
-        ? "Healthy"
-        : "Unhealthy";
-
-    context.Response.StatusCode = report.Status == Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Healthy
-        ? StatusCodes.Status200OK
-        : StatusCodes.Status503ServiceUnavailable;
-
-    var json = System.Text.Json.JsonSerializer.Serialize(new { status });
-    return context.Response.WriteAsync(json);
-}
 
 // Make Program accessible to integration tests via WebApplicationFactory<Program>
 public partial class Program { }

@@ -59,4 +59,41 @@ public static class StatusEndpoint
 
         return context.Response.WriteAsync(JsonSerializer.Serialize(payload));
     }
+
+    /// <summary>
+    /// Writes /health: a binary verdict, plus the names of whatever is failing.
+    ///
+    /// Binary on purpose, where /status reports three states. /health answers one question —
+    /// is this deploy broken — and Degraded is not an answer to it. The names are what a
+    /// reader could not get before: a 503 used to be indistinguishable between a missed
+    /// migration and an app that cannot start, so the deploy poll could only report that
+    /// three minutes had passed. `failing` is always present, empty when healthy; a field
+    /// that appears only on failure breaks the reader exactly when it is needed.
+    ///
+    /// Names only, never descriptions — the pending-migrations check's own message lists
+    /// migration names, which is schema detail, and this payload is anonymous. Same rule as
+    /// WriteStatusResponse above, which is why the two now sit together.
+    /// </summary>
+    public static Task WriteHealthResponse(HttpContext context, HealthReport report)
+    {
+        context.Response.ContentType = "application/json";
+
+        var healthy = report.Status == HealthStatus.Healthy;
+
+        context.Response.StatusCode = healthy
+            ? StatusCodes.Status200OK
+            : StatusCodes.Status503ServiceUnavailable;
+
+        var payload = new
+        {
+            status = healthy ? "Healthy" : "Unhealthy",
+            failing = report.Entries
+                .Where(entry => entry.Value.Status != HealthStatus.Healthy)
+                .Select(entry => entry.Key)
+                .Order()
+                .ToArray()
+        };
+
+        return context.Response.WriteAsync(JsonSerializer.Serialize(payload));
+    }
 }

@@ -7,8 +7,10 @@ namespace Nornis.Infrastructure.Persistence;
 /// Reports Unhealthy while the database is missing migrations the deployed code expects.
 /// Migrations are applied manually before deploy (see deploy.yml); when that step is
 /// missed, the app comes up fine and then 500s on the first query that touches a missing
-/// table. This turns that silent gap into a failing /health, so the availability alert
-/// fires at deploy time instead of a user finding it.
+/// table. This turns that silent gap into a failing /health, which the readiness probe and
+/// the deploy poll both read — so the rollout stops instead of a user finding it.
+///
+/// Nothing alerts on it between deploys: `nornis-availability` pings the Web app, not this.
 /// </summary>
 public class PendingMigrationsHealthCheck : IHealthCheck
 {

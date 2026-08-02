@@ -9,7 +9,7 @@ two in the morning. If a step says "investigate", it is not finished.
 | Runbook | Fires as |
 | --- | --- |
 | [Worker dead](worker-dead.md) | `/status` → `worker-heartbeat` Unhealthy; sources stuck Queued |
-| [Migration missed](migration-missed.md) | `nornis-availability`; `/health` 503 |
+| [Migration missed](migration-missed.md) | The deploy run's verify step; `/health` 503 naming `pending-migrations` |
 | [Dead-letter queue non-empty](dead-letter-queue.md) | `nornis-sb-deadletter` |
 | [AI call failures](ai-call-failures.md) | `nornis-ai-call-failures`; `/status` → `azure-openai` Degraded |
 | [Budget cap hit](budget-cap-hit.md) | No alert — surfaces as users reporting extraction refusals |
@@ -39,7 +39,9 @@ Everything lives in resource group `rg-nornis`:
 Two endpoints, two meanings, and it matters which one you are reading:
 
 - **`/health`** answers *is this deploy broken*. Only the pending-migrations check
-  reports here. The `nornis-availability` alert watches it.
+  reports here, and the body names it when it fails. Read by the Container Apps
+  readiness probe and by `deploy.yml`. **Nothing alerts on it** — `nornis-availability`
+  watches a ping against the Web app's `/welcome`, which is green while the API is down.
 - **`/status`** answers *are the dependencies healthy*. Five checks, anonymous, no
   detail beyond names and verdicts.
 
