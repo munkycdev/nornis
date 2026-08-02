@@ -1,4 +1,4 @@
-@page "/locations"
+﻿@page "/locations"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -14,7 +14,7 @@
         <MudText Typo="Typo.h4" Class="nornis-serif">Locations</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">Every place your party has been.</MudText>
     </div>
-    @if (Worlds.EffectiveRole == "GM" && _journey is not null)
+    @if (Worlds.IsGm && _journey is not null)
     {
         <MudTooltip Text="Open the map's source page, where pins can be dragged or removed.">
             <MudButton Variant="Variant.Outlined" Color="Color.Primary"

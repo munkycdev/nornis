@@ -1,11 +1,11 @@
-@inject WorldState Worlds
+﻿@inject WorldState Worlds
 @inject NornisApiClient Api
 @inject ISnackbar Snackbar
 
 @* Which shelf a library document sits on. A GM can move it between the two; everyone
    else only ever sees party-visible documents, so the badge is read-only for them. *@
 
-@if (Worlds.EffectiveRole == "GM")
+@if (Worlds.IsGm)
 {
     <MudMenu Dense="true">
         <ActivatorContent>

@@ -2,6 +2,8 @@ namespace Nornis.Application.Configuration;
 
 public class LoremasterOptions
 {
+    public const string SectionName = "Loremaster";
+
     public string AiModel { get; set; } = string.Empty;
     public string AiEndpoint { get; set; } = string.Empty;
     public int AiTimeoutSeconds { get; set; } = 30;

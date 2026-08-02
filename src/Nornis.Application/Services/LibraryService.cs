@@ -1,4 +1,4 @@
-using System.Collections.Frozen;
+﻿using System.Collections.Frozen;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
@@ -251,18 +251,18 @@ public class LibraryService : ILibraryService
         return AppResult<LibraryDocument>.Success(document);
     }
 
-    public async Task<AppResult<bool>> DeleteAsync(Guid documentId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)
+    public async Task<AppResult> DeleteAsync(Guid documentId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)
     {
         var result = await GetByIdAsync(documentId, worldId, role, ct);
         if (!result.IsSuccess)
         {
-            return AppResult<bool>.Fail(result.Error!);
+            return AppResult.Fail(result.Error!);
         }
 
         var document = result.Value!;
         if (role != WorldRole.GM && document.UploadedByUserId != actingUserId)
         {
-            return AppResult<bool>.Fail(new AppError(403, "insufficient_role", "Only the uploader or a GM can delete a library document."));
+            return AppResult.Fail(new AppError(403, "insufficient_role", "Only the uploader or a GM can delete a library document."));
         }
 
         // Deleting mid-index races the worker's chunk-insert transaction (lock timeouts,
@@ -272,7 +272,7 @@ public class LibraryService : ILibraryService
         if (document.Status == LibraryDocumentStatus.Indexing
             && document.UpdatedAt > DateTimeOffset.UtcNow.AddMinutes(-StaleIndexingMinutes))
         {
-            return AppResult<bool>.Fail(new AppError(409, "indexing_in_progress",
+            return AppResult.Fail(new AppError(409, "indexing_in_progress",
                 "This document is still being indexed — it can be deleted once indexing finishes."));
         }
 
@@ -288,7 +288,7 @@ public class LibraryService : ILibraryService
         }
 
         await _documentRepository.DeleteAsync(document.Id, ct);
-        return AppResult<bool>.Success(true);
+        return AppResult.Success();
     }
 
     public async Task<AppResult<LibraryDocument>> ReindexAsync(Guid documentId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)

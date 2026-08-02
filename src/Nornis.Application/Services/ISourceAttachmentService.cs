@@ -1,4 +1,4 @@
-using Nornis.Application.Errors;
+﻿using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -13,5 +13,5 @@ public interface ISourceAttachmentService
 
     Task<AppResult<IReadOnlyList<SourceAttachmentWithUrl>>> ListAsync(Guid sourceId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct);
 
-    Task<AppResult<bool>> DeleteAsync(Guid attachmentId, Guid sourceId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct);
+    Task<AppResult> DeleteAsync(Guid attachmentId, Guid sourceId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct);
 }

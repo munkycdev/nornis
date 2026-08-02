@@ -1,4 +1,4 @@
-using Nornis.Application.Errors;
+﻿using Nornis.Application.Errors;
 using Nornis.Application.Models;
 
 namespace Nornis.Application.Services;
@@ -10,5 +10,5 @@ namespace Nornis.Application.Services;
 /// </summary>
 public interface IWorldDeletionService
 {
-    Task<AppResult<bool>> DeleteAsync(DeleteWorldCommand command, CancellationToken ct);
+    Task<AppResult> DeleteAsync(DeleteWorldCommand command, CancellationToken ct);
 }

@@ -1,4 +1,4 @@
-@page "/library"
+﻿@page "/library"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -198,7 +198,7 @@ else
 
     // Mirrors the server rule (uploader or GM); the server still enforces it.
     private bool CanManage(LibraryDocumentDto doc) =>
-        Worlds.EffectiveRole == "GM" || doc.UploadedByUserId == _myUserId;
+        Worlds.IsGm || doc.UploadedByUserId == _myUserId;
 
     private static string KindIcon(string kind) => kind switch
     {

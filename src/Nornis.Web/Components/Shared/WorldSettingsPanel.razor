@@ -1,4 +1,4 @@
-@implements IDisposable
+﻿@implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject IDialogService DialogService
@@ -353,9 +353,9 @@
 </div>
 
 @code {
-    private readonly string[] _roles = ["GM", "Player", "Observer"];
+    private readonly string[] _roles = [WorldRoles.Gm, WorldRoles.Player, WorldRoles.Observer];
 
-    private bool _isGm => Worlds.EffectiveRole == "GM";
+    private bool _isGm => Worlds.IsGm;
 
     // World settings form
     private string _name = string.Empty;

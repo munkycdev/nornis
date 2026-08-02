@@ -57,12 +57,12 @@ var builder = Host.CreateDefaultBuilder(args)
             options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
 
         // Bind and validate configuration sections
-        services.Configure<ExtractionOptions>(configuration.GetSection("Extraction"));
-        services.Configure<WorkerOptions>(configuration.GetSection("ServiceBus"));
+        services.Configure<ExtractionOptions>(configuration.GetSection(ExtractionOptions.SectionName));
+        services.Configure<WorkerOptions>(configuration.GetSection(WorkerOptions.SectionName));
 
         // Fail fast: validate required configuration at startup
-        var extractionOptions = configuration.GetSection("Extraction").Get<ExtractionOptions>();
-        var workerOptions = configuration.GetSection("ServiceBus").Get<WorkerOptions>();
+        var extractionOptions = configuration.GetSection(ExtractionOptions.SectionName).Get<ExtractionOptions>();
+        var workerOptions = configuration.GetSection(WorkerOptions.SectionName).Get<WorkerOptions>();
 
         if (string.IsNullOrWhiteSpace(extractionOptions?.AiModel))
             throw new InvalidOperationException(

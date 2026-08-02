@@ -1,4 +1,4 @@
-@page "/admin"
+﻿@page "/admin"
 @implements IDisposable
 @inject WorldState Worlds
 
@@ -11,7 +11,7 @@
 {
     <NoWorld />
 }
-else if (Worlds.EffectiveRole != "GM")
+else if (!Worlds.IsGm)
 {
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
         <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Large" Class="nornis-comingsoon-icon" />

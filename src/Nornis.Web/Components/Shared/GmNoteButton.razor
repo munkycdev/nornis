@@ -1,4 +1,4 @@
-@inject WorldState Worlds
+﻿@inject WorldState Worlds
 @inject GmNoteContext NoteContext
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
@@ -17,7 +17,7 @@
 }
 
 @code {
-    private bool Visible => Worlds.Current is not null && Worlds.EffectiveRole == "GM";
+    private bool Visible => Worlds.Current is not null && Worlds.IsGm;
 
     protected override void OnInitialized() => Worlds.Changed += OnWorldsChanged;
 

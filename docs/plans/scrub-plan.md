@@ -235,7 +235,15 @@ Same decision made two or three ways across sibling files. Pick once, apply ever
   request today).
 - **Options classes**: `public const string SectionName` on all seven, not four; hosts
   bind by the constant.
-- **Persisted enums**: explicit values on all of them, not just the three newest.
+- ~~**Persisted enums**: explicit values on all of them, not just the three newest.~~
+  **Done 2026-08-02, in the other direction.** The split was real; the prescription had it
+  backwards. Every persisted enum is configured `HasConversion<string>()` (31 sites, no
+  exceptions) and every API contract carries enums as `string`, so the ordinal is stored
+  nowhere and crosses no wire. `ImportItemState` is not persisted at all. Numbers on three
+  enums documented a constraint that does not exist, and adding them to the other
+  twenty-four would have spread it — the number is the safe thing to change and the *name*
+  is the breaking one. Removed from the three; the invariant is stated once, on
+  `EnumDefinitionTests`, which is what actually enforces the names.
 - **InMemory-provider strategy**: three answers today (tracked-load-always,
   `Database.IsRelational()` branch, unconditional ExecuteDelete that would throw).
   Generalize the IsRelational helper and apply it; also collapse SourceRepository's

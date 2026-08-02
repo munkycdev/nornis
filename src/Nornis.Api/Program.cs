@@ -1,4 +1,4 @@
-using Azure.Messaging.ServiceBus;
+﻿using Azure.Messaging.ServiceBus;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
@@ -245,7 +245,7 @@ builder.Services.AddScoped<IProposalApplicator, ProposalApplicator>();
 builder.Services.AddScoped<ICostService, CostService>();
 
 // Loremaster service registrations
-builder.Services.Configure<LoremasterOptions>(builder.Configuration.GetSection("Loremaster"));
+builder.Services.Configure<LoremasterOptions>(builder.Configuration.GetSection(LoremasterOptions.SectionName));
 builder.Services.Configure<AiBudgetOptions>(builder.Configuration.GetSection(AiBudgetOptions.SectionName));
 builder.Services.AddScoped<IAiBudgetGuard, AiBudgetGuard>();
 builder.Services.AddScoped<ILoremasterService, LoremasterService>();
@@ -254,7 +254,7 @@ builder.Services.AddScoped<IKnowledgeRetriever, KeywordKnowledgeRetriever>();
 
 // Continuity audit (AI-assessed health): options + hourly auto-trigger. The audit AI client
 // reuses the Loremaster's Azure OpenAI ChatClient and configuration (registered below).
-builder.Services.Configure<ContinuityAuditOptions>(builder.Configuration.GetSection("ContinuityAudit"));
+builder.Services.Configure<ContinuityAuditOptions>(builder.Configuration.GetSection(ContinuityAuditOptions.SectionName));
 builder.Services.Configure<ContinuityOptions>(builder.Configuration.GetSection(ContinuityOptions.SectionName));
 builder.Services.AddHostedService<ContinuityAuditBackgroundService>();
 

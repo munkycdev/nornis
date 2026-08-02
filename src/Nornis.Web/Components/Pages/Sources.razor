@@ -1,4 +1,4 @@
-@page "/sources"
+﻿@page "/sources"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -25,7 +25,7 @@
                 }
             </MudSelect>
         }
-        @if (Worlds.EffectiveRole == "GM")
+        @if (Worlds.IsGm)
         {
             @* The backlog import is the GM's way in for a campaign that already happened. *@
             <MudButton Variant="Variant.Outlined"

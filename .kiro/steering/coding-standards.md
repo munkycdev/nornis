@@ -1,5 +1,13 @@
 # Coding Standards
 
+> **Amendment (2026-08-02):** the solution layout below still lists `Nornis.Shared` and
+> `Nornis.Shared.Tests`. Both were deleted on 2026-08-01 (`1f21e55`): the project was
+> empty, referenced by all five siblings, and its test project asserted `true`. Web owns
+> its own contract types (`Contracts.cs`) and Api owns its request/response records, which
+> is the deliberate decision the deletion recorded rather than reversed — so nothing moved
+> into a replacement. Read the tree as six projects and six test projects. The rule below
+> it, "every project must have a corresponding test project", is unchanged and still holds.
+
 ## General Principles
 
 - Prefer clarity over cleverness.
