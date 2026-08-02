@@ -145,6 +145,31 @@ public class ExtractionServiceTests
 
     #endregion
 
+    #region World consistency
+
+    [Test]
+    public async Task ProcessExtractionAsync_MessageWorldDiffersFromSource_FailsWithoutCallingAi()
+    {
+        // Everything downstream trusts the message's worldId: the budget guard meters
+        // against it, the batch is filed under it, context is scoped by it. A mis-enqueued
+        // pair therefore extracted normally while spending another world's daily allowance,
+        // and nothing could notice because every consumer read the same wrong id.
+        var source = CreateQueuedSource();
+        _sourceRepository.Seed(source);
+
+        var result = await _sut.ProcessExtractionAsync(source.Id, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
+            Assert.That(_aiClient.CallCount, Is.EqualTo(0), "no paid call for an inconsistent pair");
+            Assert.That(_aiUsageRecordRepository.Records, Is.Empty, "and nothing billed to either world");
+            Assert.That(_reviewBatchRepository.Batches, Is.Empty);
+        });
+    }
+
+    #endregion
+
     #region Source Not Found → NonTransientFailure with SourceNotFound
 
     [Test]

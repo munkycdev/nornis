@@ -246,7 +246,17 @@ changes that item's priority, not its shape.
   flag; two debounced callbacks interleave during a slow first save while `_sourceId`
   is still null → two Drafts, one orphaned (`InkCapture.razor:113-195`). Fix: a
   `_saving` flag with a trailing-dirty bit.
-- **Extraction never validates `source.WorldId == worldId`.** A mis-enqueued pair
+- **Extraction never validates `source.WorldId == worldId`.** **Assertion added
+  2026-08-01; the parameter-order half is not done.**
+  - Done: `ProcessExtractionAsync` refuses an inconsistent pair before any paid call,
+    returning non-transient — redelivering the same mismatch reproduces it, so retrying is
+    pointless. Verified nothing is billed to either world.
+  - **Not done:** standardising worldId-first parameter order across sibling interfaces.
+    Both orders still exist, which is what made a mis-enqueued pair plausible in the first
+    place. That is a mechanical sweep and belongs with the scrub plan's convention tier,
+    not bolted onto a defect fix.
+
+- **(original diagnosis)** Extraction never validates `source.WorldId == worldId`. A mis-enqueued pair
   extracts normally but checks and bills the *wrong world's* budget silently. Fix:
   assert world consistency at pipeline entry (and standardize worldId-first parameter
   order — both orders currently exist across sibling interfaces).

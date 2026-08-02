@@ -131,6 +131,22 @@ public class ExtractionService : IExtractionService
             return ExtractionOutcome.NonTransient(ErrorCategories.SourceNotFound, "Source not found.");
         }
 
+        // 1a. The message's worldId is taken on trust everywhere below — the budget guard
+        //     meters against it, the review batch is filed under it, retrieved context is
+        //     scoped by it. A mis-enqueued pair therefore extracts perfectly normally while
+        //     spending another world's daily allowance and filing the result somewhere the
+        //     source does not live. Nothing downstream can notice, because every consumer is
+        //     reading the same wrong id. Non-transient on purpose: redelivering an
+        //     inconsistent pair produces the same inconsistency.
+        if (source.WorldId != worldId)
+        {
+            _logger.LogError(
+                "Extraction message world mismatch. SourceId={SourceId}, MessageWorldId={MessageWorldId}, SourceWorldId={SourceWorldId}",
+                sourceId, worldId, source.WorldId);
+            return ExtractionOutcome.NonTransient(ErrorCategories.ValidationFailure,
+                "The message's world does not match the source's world.");
+        }
+
         // 2. Extraction opt-out: a queued message for a source stored without extraction
         //    (flag toggled after enqueue) must not extract. File it instead of leaving it
         //    claimed by the pipeline.
