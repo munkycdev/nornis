@@ -283,16 +283,40 @@ the point.
   (strictly weaker than their `Is.EquivalentTo` siblings, can never fail alone) and the
   two running-ledger tests (`AllEnums_AreInExpectedNamespace` with its hand-maintained
   count of 28, and EntityStructureTests' equivalent).
-- **Reflection roster**: delete `RepositoryInterfaceContractTests.ExpectedMethods` and
-  its existence test (the compiler does this); keep the CancellationToken/Task
-  convention sweeps in the same file — those are real architecture tests.
-- **Property-test theater**: ReviewServicePropertyTests1–4 contain FsCheck properties
-  whose generated input is ignored while a deterministic body runs 100 times. Convert
-  to plain `[Test]`s (most scenarios already exist in ReviewServiceAcceptTests) or
-  route the generator through; merge the four numbered files into concern-named
-  fixtures with one shared factory instead of four ~35-line construction helpers. The
-  newer PropertyTests folder (real `Gen.Elements` + adversarial strings) shows the
-  house standard.
+- ~~**Reflection roster**~~ **Done 2026-08-02, and one step further.** `ExpectedMethods`
+  and `Interface_DefinesExpectedMethod` are gone — the compiler already enforces that an
+  interface defines its own methods. The hand-written `RepositoryInterfaces` array went
+  too, replaced by an assembly scan: the array's only guard was a third test counting it
+  against the assembly, and a discovered list cannot go stale in the first place. Same 29
+  interfaces, so the CancellationToken/Task sweeps cover exactly what they did before.
+  Domain suite 700 → 587.
+  - The two running-ledger tests went with it. Worth recording *why* they were worthless
+    rather than merely annoying: `AllEnums_AreInExpectedNamespace` counted the enums that
+    were already in the right namespace, so an enum added to the *wrong* one left the
+    count at 27 and passed. The test's name described a check its body did not perform.
+- **Property-test theater** — **partly done 2026-08-02.**
+  - Done: one shared factory. Six copies of the same thirty-five construction lines across
+    four files returned seven byte-identical record declarations under six names
+    (`TestContext`, `TestContextWithFakeApplicator`, `EditTestContext`, `RealTestContext`,
+    `FakeTestContext`). The names implied a difference the fields never had — the only
+    thing that varied was which validator and applicator went in. Now `ReviewHarness`,
+    with `WithFakeApplicator()` / `WithRealApplicator()` and the two seeding wrappers that
+    were genuinely specific to file 1.
+  - Done: sixteen of the thirty-three properties took a generated argument their bodies
+    never referenced, then ran the same deterministic body a hundred times — 1,584
+    executions of nothing. Verified by scanning each body for its own parameter rather
+    than trusting the audit note. Those now take no argument and declare `MaxTest = 1`,
+    which is what they always were.
+  - **Not done: converting those sixteen to plain `[Test]`s.** Their bodies return
+    labelled `Property` conjunctions built with `.Label().And()`, and early-exit with
+    `return false.Label(...)`. Converting means rewriting sixteen assertion bodies by
+    hand, which is a different job from pruning and carries a real risk of quietly
+    changing what is asserted. The signature and `MaxTest = 1` now tell the truth about
+    what they are; the `Property` return type is what is left to remove.
+  - **Not done: merging the four numbered files into concern-named fixtures.** With the
+    factory shared this is now pure file movement, and it would bury the diff above.
+  - The newer PropertyTests folder (real `Gen.Elements` + adversarial strings) remains the
+    house standard.
 - **Per-field decomposition**: LoremasterServiceUsageTrackingAndErrorHandlingTests'
   seven one-field assertions over the same arrange become one record-fields test; the
   3×3 error grid becomes one `[TestCase]` over (failure kind, status, code). Same

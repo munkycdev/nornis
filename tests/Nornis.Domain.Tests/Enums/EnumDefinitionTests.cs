@@ -1,4 +1,4 @@
-using Nornis.Domain.Enums;
+﻿using Nornis.Domain.Enums;
 using NUnit.Framework;
 
 namespace Nornis.Domain.Tests.Enums;
@@ -136,23 +136,5 @@ public class EnumDefinitionTests
     public void InviteStatus_HasExpectedValues()
     {
         AssertEnumHasExactValues<InviteStatus>("Active", "Revoked", "Expired", "Exhausted");
-    }
-
-    [Test]
-    public void AllEnums_AreInExpectedNamespace()
-    {
-        var enumTypes = typeof(WorldRole).Assembly
-            .GetTypes()
-            .Where(t => t.IsEnum && t.Namespace == "Nornis.Domain.Enums")
-            .ToList();
-
-        // 15 original + ContinuityFindingCategory/Severity/Status (AI-assessed Continuity
-        // Health) + CampaignStatus (worlds-and-campaigns) + LibraryDocumentKind/Status
-        // (Library) + SourceAttachmentKind/Status (handwritten notes) + InviteStatus
-        // (world invitations) + ExtractionReplayStatus (timeline re-extraction walk)
-        // + WorldExportCategory (world export)
-        // + ImportSessionStatus/ImportItemState (campaign backlog import walk).
-        Assert.That(enumTypes, Has.Count.EqualTo(27),
-            "Expected exactly 27 enums in Nornis.Domain.Enums namespace.");
     }
 }

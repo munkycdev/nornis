@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
@@ -33,143 +33,10 @@ public class ReviewServicePropertyTests3
 
     #region Helpers
 
-    /// <summary>
-    /// Creates a ReviewService with REAL ProposalValidator and FakeProposalApplicator.
-    /// Used for edit tests where validation matters but application should NOT occur.
-    /// </summary>
-    private static EditTestContext CreateEditService()
-    {
-        var batchRepo = new InMemoryReviewBatchRepository();
-        var proposalRepo = new InMemoryReviewProposalRepository(batchRepo);
-        var sourceRepo = new InMemorySourceRepository();
-        var artifactRepo = new InMemoryArtifactRepository();
-        var artifactFactRepo = new InMemoryArtifactFactRepository();
-        var artifactRelationshipRepo = new InMemoryArtifactRelationshipRepository();
-        var sourceRefRepo = new InMemorySourceReferenceRepository();
-        var unitOfWork = new FakeUnitOfWork();
-        var validator = new ProposalValidator(); // REAL validator
-        var applicator = new FakeProposalApplicator(); // FAKE applicator
 
-        var service = new ReviewService(
-            proposalRepo,
-            batchRepo,
-            sourceRepo,
-            artifactRepo,
-            artifactFactRepo,
-            artifactRelationshipRepo,
-            sourceRefRepo,
-            unitOfWork,
-            validator,
-            applicator);
 
-        return new EditTestContext(
-            service, proposalRepo, batchRepo, sourceRepo,
-            artifactRepo, artifactFactRepo, artifactRelationshipRepo, sourceRefRepo);
-    }
 
-    /// <summary>
-    /// Creates a ReviewService with REAL ProposalValidator and REAL ProposalApplicator.
-    /// Used for accept after edit tests.
-    /// </summary>
-    private static RealTestContext CreateRealService()
-    {
-        var batchRepo = new InMemoryReviewBatchRepository();
-        var proposalRepo = new InMemoryReviewProposalRepository(batchRepo);
-        var sourceRepo = new InMemorySourceRepository();
-        var artifactRepo = new InMemoryArtifactRepository();
-        var artifactFactRepo = new InMemoryArtifactFactRepository();
-        var artifactRelationshipRepo = new InMemoryArtifactRelationshipRepository();
-        var sourceRefRepo = new InMemorySourceReferenceRepository();
-        var unitOfWork = new FakeUnitOfWork();
-        var validator = new ProposalValidator();
-        var applicator = new ProposalApplicator(
-            artifactRepo,
-            artifactFactRepo,
-            artifactRelationshipRepo,
-            sourceRefRepo,
-            new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
-            new InMemoryWorldMemberRepository());
 
-        var service = new ReviewService(
-            proposalRepo,
-            batchRepo,
-            sourceRepo,
-            artifactRepo,
-            artifactFactRepo,
-            artifactRelationshipRepo,
-            sourceRefRepo,
-            unitOfWork,
-            validator,
-            applicator);
-
-        return new RealTestContext(
-            service, proposalRepo, batchRepo, sourceRepo,
-            artifactRepo, artifactFactRepo, artifactRelationshipRepo, sourceRefRepo);
-    }
-
-    /// <summary>
-    /// Creates a ReviewService with FakeProposalValidator and FakeProposalApplicator.
-    /// Used for batch tests where we don't need real validation/application.
-    /// </summary>
-    private static FakeTestContext CreateFakeService()
-    {
-        var batchRepo = new InMemoryReviewBatchRepository();
-        var proposalRepo = new InMemoryReviewProposalRepository(batchRepo);
-        var sourceRepo = new InMemorySourceRepository();
-        var artifactRepo = new InMemoryArtifactRepository();
-        var artifactFactRepo = new InMemoryArtifactFactRepository();
-        var artifactRelationshipRepo = new InMemoryArtifactRelationshipRepository();
-        var sourceRefRepo = new InMemorySourceReferenceRepository();
-        var unitOfWork = new FakeUnitOfWork();
-        var validator = new FakeProposalValidator();
-        var applicator = new FakeProposalApplicator();
-
-        var service = new ReviewService(
-            proposalRepo,
-            batchRepo,
-            sourceRepo,
-            artifactRepo,
-            artifactFactRepo,
-            artifactRelationshipRepo,
-            sourceRefRepo,
-            unitOfWork,
-            validator,
-            applicator);
-
-        return new FakeTestContext(
-            service, proposalRepo, batchRepo, sourceRepo,
-            artifactRepo, artifactFactRepo, artifactRelationshipRepo, sourceRefRepo);
-    }
-
-    private record EditTestContext(
-        ReviewService Service,
-        InMemoryReviewProposalRepository ProposalRepo,
-        InMemoryReviewBatchRepository BatchRepo,
-        InMemorySourceRepository SourceRepo,
-        InMemoryArtifactRepository ArtifactRepo,
-        InMemoryArtifactFactRepository ArtifactFactRepo,
-        InMemoryArtifactRelationshipRepository ArtifactRelationshipRepo,
-        InMemorySourceReferenceRepository SourceRefRepo);
-
-    private record RealTestContext(
-        ReviewService Service,
-        InMemoryReviewProposalRepository ProposalRepo,
-        InMemoryReviewBatchRepository BatchRepo,
-        InMemorySourceRepository SourceRepo,
-        InMemoryArtifactRepository ArtifactRepo,
-        InMemoryArtifactFactRepository ArtifactFactRepo,
-        InMemoryArtifactRelationshipRepository ArtifactRelationshipRepo,
-        InMemorySourceReferenceRepository SourceRefRepo);
-
-    private record FakeTestContext(
-        ReviewService Service,
-        InMemoryReviewProposalRepository ProposalRepo,
-        InMemoryReviewBatchRepository BatchRepo,
-        InMemorySourceRepository SourceRepo,
-        InMemoryArtifactRepository ArtifactRepo,
-        InMemoryArtifactFactRepository ArtifactFactRepo,
-        InMemoryArtifactRelationshipRepository ArtifactRelationshipRepo,
-        InMemorySourceReferenceRepository SourceRefRepo);
 
     #endregion
 
@@ -193,7 +60,7 @@ public class ReviewServicePropertyTests3
         if (initialStatus is not (ReviewProposalStatus.Pending or ReviewProposalStatus.Edited))
             return true.ToProperty();
 
-        var ctx = CreateEditService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -292,12 +159,12 @@ public class ReviewServicePropertyTests3
     ///
     /// **Validates: Requirements 4.2**
     /// </summary>
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 12: Edited Proposals Allow Subsequent Accept")]
-    public Property Edited_proposals_allow_subsequent_accept(ProposalWithContext pwc)
+    public Property Edited_proposals_allow_subsequent_accept()
     {
         // Use REAL applicator for accept — the edited JSON must actually work
-        var ctx = CreateRealService();
+        var ctx = ReviewHarness.WithRealApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -359,12 +226,12 @@ public class ReviewServicePropertyTests3
             .And(artifactCreated.Label($"Artifact should be created, got {ctx.ArtifactRepo.Artifacts.Count}"));
     }
 
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 12: Edited Proposals Allow Subsequent Reject")]
-    public Property Edited_proposals_allow_subsequent_reject(ProposalWithContext pwc)
+    public Property Edited_proposals_allow_subsequent_reject()
     {
         // Use FAKE applicator for reject — no application needed
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -446,7 +313,7 @@ public class ReviewServicePropertyTests3
     public Property Batch_accept_processes_each_proposal_correctly(PositiveInt countRaw)
     {
         var count = (countRaw.Get % 10) + 1; // 1-10 for test speed
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -520,7 +387,7 @@ public class ReviewServicePropertyTests3
     public Property Batch_reject_processes_each_proposal_correctly(PositiveInt countRaw)
     {
         var count = (countRaw.Get % 10) + 1; // 1-10 for test speed
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -602,11 +469,11 @@ public class ReviewServicePropertyTests3
     ///
     /// **Validates: Requirements 5.3, 5.5**
     /// </summary>
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 14: Batch Partial Failure Reports Correct Partitioning")]
-    public Property Batch_partial_failure_reports_correct_partitioning(PositiveInt seed)
+    public Property Batch_partial_failure_reports_correct_partitioning()
     {
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var gmUserId = Guid.NewGuid();
         var playerUserId = Guid.NewGuid();
@@ -763,11 +630,11 @@ public class ReviewServicePropertyTests3
     ///
     /// **Validates: Requirements 8.1, 3.6**
     /// </summary>
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 15: First Accept Transitions Batch to InReview")]
-    public Property First_accept_transitions_batch_to_inreview(ProposalWithContext pwc)
+    public Property First_accept_transitions_batch_to_inreview()
     {
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -840,11 +707,11 @@ public class ReviewServicePropertyTests3
         return isInReview.Label($"Batch should be InReview, got {updatedBatch.Status}");
     }
 
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 15: First Reject Transitions Batch to InReview")]
-    public Property First_reject_transitions_batch_to_inreview(ProposalWithContext pwc)
+    public Property First_reject_transitions_batch_to_inreview()
     {
-        var ctx = CreateFakeService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();
@@ -916,11 +783,11 @@ public class ReviewServicePropertyTests3
         return isInReview.Label($"Batch should be InReview, got {updatedBatch.Status}");
     }
 
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [FsCheck.NUnit.Property(MaxTest = 1)]
     [Description("Feature: review-proposal-workflow, Property 15: First Edit Transitions Batch to InReview")]
-    public Property First_edit_transitions_batch_to_inreview(ProposalWithContext pwc)
+    public Property First_edit_transitions_batch_to_inreview()
     {
-        var ctx = CreateEditService();
+        var ctx = ReviewHarness.WithFakeApplicator();
 
         var userId = Guid.NewGuid();
         var worldId = Guid.NewGuid();

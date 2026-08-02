@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Nornis.Domain.Entities;
 using NUnit.Framework;
 
@@ -121,28 +121,5 @@ public class EntityStructureTests
             Assert.That(property.SetMethod, Is.Not.Null,
                 $"{entityType.Name}.{property.Name} should have a public setter");
         }
-    }
-
-    [Test]
-    public void Domain_Assembly_Contains_Expected_Entity_Classes()
-    {
-        var entityTypes = typeof(User).Assembly
-            .GetTypes()
-            .Where(t => t.Namespace == "Nornis.Domain.Entities" && t.IsClass && !t.IsAbstract)
-            .ToList();
-
-        // 12 original + HealthAssessment + ContinuityFinding (AI-assessed Continuity
-        // Health) + Campaign/Character/CampaignCharacter (worlds-and-campaigns)
-        // + SourceAttachment (handwritten notes) + LibraryDocument/LibraryChunk (Library)
-        // + MapPlacemark (map sources) + WorldInvite (world invitations)
-        // + StorylineCampaign (cross-campaign storylines)
-        // + ExtractionReplay (timeline re-extraction walk)
-        // + TutorialProgress (demo-world tutorial, feature 20)
-        // + ContinuityDismissal (world-scoped dismissal registry)
-        // + ImportSession/ImportSessionItem (campaign backlog import walk)
-        // + WorkerHeartbeat (worker liveness for /status) — deliberately absent from
-        //   AllEntityTypes above: it is keyed by host name, not a Guid Id, because one
-        //   row per host is the point.
-        Assert.That(entityTypes, Has.Count.EqualTo(29));
     }
 }
