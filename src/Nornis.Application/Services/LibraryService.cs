@@ -150,6 +150,24 @@ public class LibraryService : ILibraryService
                 "The file has not arrived in storage — upload it to the provided URL, then confirm."));
         }
 
+        // The cap in RequestUploadAsync validates a number the client sent; this validates the
+        // file. Between the two sits a Create|Write SAS, so what actually lands in storage is
+        // whatever the uploader chose to put there. Downstream, the indexing pipeline buffers a
+        // whole document in RAM — so an unchecked blob here is a member with an OOM switch for
+        // the worker, on a loop, and the row would carry the honest size while nothing had ever
+        // compared it to the cap.
+        if (metadata.SizeBytes > _options.MaxUploadSizeBytes)
+        {
+            await DeleteOversizedBlobAsync(document.BlobPath, metadata.SizeBytes, ct);
+
+            // Left PendingUpload, exactly like the not-arrived case above: from here on this
+            // document is one that never uploaded, and re-uploading through the same ticket is
+            // the remedy. Confirming again just deletes again.
+            return AppResult<LibraryDocument>.Fail(new AppError(400, "upload_too_large",
+                $"The uploaded file is {metadata.SizeBytes / (1024 * 1024)} MB, over the "
+                + $"{_options.MaxUploadSizeBytes / (1024 * 1024)} MB limit. It has been discarded."));
+        }
+
         document.SizeBytes = metadata.SizeBytes;
         document.UpdatedAt = DateTimeOffset.UtcNow;
 
@@ -334,5 +352,27 @@ public class LibraryService : ILibraryService
         }
 
         return AppResult<LibraryDocument>.Success(document);
+    }
+
+    /// <summary>
+    /// Best-effort, and the failure is swallowed for the usual reason (an orphaned blob beats
+    /// a lie to the caller) — but the log line is not optional. An oversized upload is a
+    /// member doing something the client cannot do by accident, so a delete that fails is
+    /// worth seeing.
+    /// </summary>
+    private async Task DeleteOversizedBlobAsync(string blobPath, long sizeBytes, CancellationToken ct)
+    {
+        _logger.LogWarning(
+            "Discarding oversized upload at {BlobPath}: {SizeBytes} bytes against a {MaxBytes} byte cap",
+            blobPath, sizeBytes, _options.MaxUploadSizeBytes);
+
+        try
+        {
+            await _blobStorage.DeleteBlobAsync(blobPath, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete oversized upload at {BlobPath}", blobPath);
+        }
     }
 }

@@ -158,6 +158,58 @@ public class SourceAttachmentServiceTests
     }
 
     [Test]
+    public async Task Confirm_BlobBiggerThanTheCap_IsRejectedAndDiscarded()
+    {
+        var source = SeedSource();
+        // Declared 5000 bytes at request time and accepted there. The SAS in between is
+        // Create|Write, so this is what the uploader can actually put in the container.
+        var ticket = (await _sut.RequestUploadAsync(PageCommand(source.Id), CancellationToken.None)).Value!;
+        _blobStorage.Blobs[ticket.Attachment.BlobPath] =
+            (new byte[SourceAttachmentService.MaxAttachmentSizeBytes + 1], "image/jpeg");
+
+        var result = await _sut.ConfirmUploadAsync(
+            ticket.Attachment.Id, source.Id, WorldId, OwnerId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo("upload_too_large"));
+            Assert.That(_blobStorage.DeletedPaths, Does.Contain(ticket.Attachment.BlobPath));
+            Assert.That(_attachmentRepository.Attachments.Single().Status,
+                Is.EqualTo(SourceAttachmentStatus.PendingUpload));
+        });
+    }
+
+    [Test]
+    public async Task Confirm_OversizedInkReconfirm_IsRejectedButTheCanvasSurvives()
+    {
+        var source = SeedSource();
+        var inkCommand = new RequestSourceAttachmentUploadCommand(
+            WorldId, source.Id, OwnerId, WorldRole.GM, null, "application/json", 100,
+            SourceAttachmentKind.InkDocument, 0);
+        var ticket = (await _sut.RequestUploadAsync(inkCommand, CancellationToken.None)).Value!;
+        _blobStorage.Blobs[ticket.Attachment.BlobPath] = (new byte[50], "application/json");
+        await _sut.ConfirmUploadAsync(ticket.Attachment.Id, source.Id, WorldId, OwnerId, WorldRole.GM, CancellationToken.None);
+
+        // Autosave overwrote in place with something over the cap.
+        _blobStorage.Blobs[ticket.Attachment.BlobPath] =
+            (new byte[SourceAttachmentService.MaxAttachmentSizeBytes + 1], "application/json");
+        var result = await _sut.ConfirmUploadAsync(
+            ticket.Attachment.Id, source.Id, WorldId, OwnerId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Error!.Code, Is.EqualTo("upload_too_large"));
+
+            // Deleting here would destroy the drawing to protect a pipeline the ink document
+            // never enters — it is read by the browser that wrote it and by nothing on the
+            // server. The size stamp stays at its last valid value.
+            Assert.That(_blobStorage.DeletedPaths, Does.Not.Contain(ticket.Attachment.BlobPath));
+            Assert.That(_attachmentRepository.Attachments.Single().SizeBytes, Is.EqualTo(50));
+        });
+    }
+
+    [Test]
     public async Task Confirm_PageImageTwice_409_ButInkReconfirms()
     {
         var source = SeedSource();
