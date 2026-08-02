@@ -346,8 +346,21 @@ changes that item's priority, not its shape.
 - **(original)** `ReferencePassageRetriever` catch-all swallows cancellation (:92-97) — shutdown
   reads as "no passages" and extraction continues on a cancelled token. Fix: OCE
   filter-rethrow above the catch-all.
-- **Blob container init does sync network I/O in the constructor and bypasses
-  exception translation** (`AzureBlobStorageService.cs:33-34`) — a transient storage
+- ~~**Blob container init does sync network I/O in the constructor and bypasses
+  exception translation**~~ **Fixed 2026-08-01.** Container creation moved out of the
+  constructor to first use, behind a gate, and translated through the same
+  `HttpRequestException` mapping as `OpenReadAsync` — so a transient 503 is now something
+  the classifier can type-match instead of a raw `RequestFailedException` that permanently
+  marked a document IndexFailed.
+  - Deliberately **not** a `Lazy<Task>`: that caches a faulted task for the life of the
+    process, so one 503 during the first call would leave the service permanently broken —
+    the same over-correction in a different place. A failure leaves the ready flag unset
+    and the next call retries.
+  - `GetBlobMetadataAsync` and the SAS builders do not wait on it. Metadata already
+    translates a 404 to null, so creating a container in order to read from it would be a
+    round trip that buys nothing; SAS generation touches no network at all.
+- **(original)** Blob container init does sync network I/O in the constructor and bypasses
+  exception translation (`AzureBlobStorageService.cs:33-34`) — a transient storage
   503 at first use surfaces as raw `RequestFailedException`, which the classifier
   can't type-match, wrongly marking documents IndexFailed. Fix: async lazy init
   inside the first operation, wrapped in the same translation as `OpenReadAsync`.
