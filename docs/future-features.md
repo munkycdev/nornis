@@ -1,4 +1,4 @@
-# Execution order
+﻿# Execution order
 
 2026-08-01. The master sequence across every plan below, ordered for execution.
 Sorting rule: work whose judgment calls are already made in these specs — mechanical
@@ -80,12 +80,34 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
    review rule applies before merge.** If uncomfortable on Opus, these are the first
    thing Fable does on return.
 9. Scrub tier 3 convention unification, then tier 4 test pruning — mechanical sweeps;
-   the doc names each decision.
-10. Test quality phase 5 (authorization-suite tagging). **Phase 3 (CRAP hotspots) done
-    2026-08-01** — pulled forward while the dashboard was open and the data was already
-    in the merged Cobertura.
+   the doc names each decision. **Both largely done 2026-08-02.**
+   - Tier 3 merged in three passes: the mechanical conventions (one GM test, `SectionName`
+     on all seven Options, `AppResult` over `AppResult<bool>`, the tier-2 rider); the
+     repository contracts (missing-row per verb, `DeleteWhereAsync`/`SetWhereAsync`,
+     `SourceRepository.MutateAsync`); and the small idioms. Two items reversed the plan's
+     stated direction and say why in the scrub doc — persisted-enum ordinals, and the
+     collection-expression rule's scope.
+   - **Left on tier 3: the two [auth] items** — the GM-gating seam and trust-the-filter.
+     Both relocate authorization checks, so they belong behind item 8's review gate rather
+     than merged unreviewed.
+   - Tier 4 merged: the three running ledgers, the reflection roster (now an assembly scan),
+     one shared `ReviewHarness` replacing six copies, and sixteen properties that generated
+     an argument they never read. Left: converting those sixteen to plain `[Test]`s, and the
+     concern-naming of the four numbered files — both recorded in the scrub doc with reasons.
+10. Test quality phase 5 (authorization-suite tagging). **Done 2026-08-02** — 303 tests
+    tagged, 318 cases, a named CI step that runs even on a red build, and the count charted
+    on the dashboard. The enumeration was the work: two broader passes caught pagination and
+    empty-state tests, so the rule is now "asserts a denial, or its name states the scoping
+    fact". **Phase 3 (CRAP hotspots) done 2026-08-01** — pulled forward while the dashboard
+    was open and the data was already in the merged Cobertura.
 11. O4 AI kill switch (design pre-decided, one additive migration) and O3 managed
     identity (procedural, but touches prod credentials — do it attended).
+    **O4 not started; its transport design was wrong and is now corrected in the plan.**
+    The spec had the Worker re-scheduling messages "using the same scheduled-copy mechanism
+    `RedeliveryBackoff` already uses" — `RedeliveryBackoff` uses no such mechanism and argues
+    against it, and the namespace is Basic tier, where scheduled messages do not exist. The
+    answer is to stop consuming while paused, which both workers already have the machinery
+    for. Everything else about O4 is still to build.
 
 **Hold for Fable:**
 

@@ -1,4 +1,4 @@
-# Operational hardening
+﻿# Operational hardening
 
 > Part of the Nornis backlog. This file is a spec, not authorization: execute only
 > through the Execution order in `docs/future-features.md`, which holds sequencing,
@@ -128,10 +128,29 @@ incident or runaway behavior without a redeploy.
 - One global flag in a new single-row operational-flags table (additive migration),
   read with a ~60s cache at every paid-AI dispatch seam: extraction, Ask, continuity
   assessment, library indexing. Flipped by script; no admin UI needed yet.
-- **Paused must not mean dead-lettered:** the Worker re-schedules messages using the
+- ~~**Paused must not mean dead-lettered:** the Worker re-schedules messages using the
   same scheduled-copy mechanism `RedeliveryBackoff` already uses, so queued work
-  waits out the pause without burning delivery counts. Interactive paths (Ask,
-  assess) return an explicit "AI is paused" error.
+  waits out the pause without burning delivery counts.~~ **Both halves of that sentence
+  are false — read this before building it (assessed 2026-08-02).**
+  - `RedeliveryBackoff` does not use a scheduled copy. It uses an in-handler delay, and its
+    doc comment is a written argument *against* the scheduled copy: re-enqueueing resets
+    `DeliveryCount`, so the queue's dead-letter backstop stops working and has to be
+    replaced by an attempt counter carried in the message — "getting that wrong turns a
+    bounded retry into an unbounded one, which is worse than the problem."
+  - The namespace is **Basic tier** (`sb-nornis-dev`, verified against Azure). Scheduled
+    messages are a Standard-tier feature. The mechanism the spec prescribes is not merely
+    inadvisable here; it does not exist.
+  - **The design that does work is simpler than either: while paused, stop consuming.**
+    A message nobody receives burns no delivery count, dead-letters nothing, and needs no
+    counter — it just waits in the queue. Both workers already have the machinery:
+    `StopProcessingAsync` on shutdown, and `ProcessorStartup.StartWithRetryAsync` to bring
+    them back. What is missing is a hosted service that watches the flag and toggles them,
+    which is a smaller thing than the message-level dance the spec imagined.
+  - Interactive paths (Ask, assess) still return an explicit "AI is paused" error, and the
+    natural seam is `AiBudgetGuard.CheckAsync` — every paid dispatch already calls it, so
+    the refusal reaches all eight services without touching any of them.
+- **Not started otherwise.** The flag, its migration, the ~60s cache, the status banner and
+  the flip script are all still to build; only the transport question above is settled.
 - The status page renders the flag as a banner when set — a pause should look
   deliberate, not broken.
 
