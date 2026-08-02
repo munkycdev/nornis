@@ -43,6 +43,10 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
    The status *page* is not part of this — it lands with item 3, which owns the site.
 3. Test quality phase 2 + the status page — CI surfacing, history branch, one static
    dashboard site carrying both faces. Pages-vs-`$web` fallback is pre-decided.
+   **Done 2026-08-01** (`b8e87b2`..`9524ddc`), recorded a day late: `ci.yml` reports
+   coverage per PR, `coverage.yml` merges and appends to the `coverage-history` orphan
+   branch, and `ci/pages/` carries both faces at <https://status.nornis.app>. Phase 3's
+   CRAP table rode along, which is why it is marked done under item 10.
 4. O5 dependency patching + O6 runbooks — config and docs. **Done 2026-08-01.**
    Takes the Node 20 rider with it: the `github-actions` ecosystem is what will now
    propose those major bumps, to be read one changelog at a time rather than accepted
@@ -52,8 +56,11 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
    dropped on purpose — it needs Manage rights the public API must not hold; see the plan.
    **O1 done 2026-08-01** — probes are on api and web, with liveness deliberately on TCP
    rather than `/health` (see the plan: liveness on `/health` turns the migration window
-   into a crash loop). The one piece left is naming the failing check in `/health`'s body,
-   which is an additive change to a payload the availability alert reads.
+   into a crash loop). **Fully closed 2026-08-02**: `/health` now emits
+   `{status, failing}` and `deploy.yml` names the cause. That last piece had been held
+   as "a payload the availability alert reads" — it is not. The alert pings the Web
+   app's `/welcome`, so **nothing alerts on the API at all**; the plan carries the
+   detail and the one-resource fix, which is unbought recurring spend, not code.
 6. D2 deterministic functional bugs — every item carries a repro and a prescribed fix.
    Includes the merge skip-branch row deletion (prerequisite for W2) and the
    stale-response family. Two additive migrations (batch and replay unique indexes).

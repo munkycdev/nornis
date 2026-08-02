@@ -108,8 +108,18 @@ jobs:
           deadline=$((SECONDS + 180))
           until [ "$(curl -fsS -o /dev/null -w '%{http_code}' https://api.nornis.app/health || true)" = "200" ]; do
             if [ "$SECONDS" -ge "$deadline" ]; then
-              echo "::error::API /health did not return 200 within 3 minutes of the rollout."
-              curl -sS -i https://api.nornis.app/health || true
+              # /health names what is failing, so this can say which of the two very
+              # different failures happened instead of only that three minutes elapsed.
+              # Still fails either way — a deploy sitting behind an unapplied migration is
+              # broken, it is just broken in a way with a known five-line remedy.
+              body=$(curl -sS https://api.nornis.app/health || true)
+              if echo "$body" | grep -q 'pending-migrations'; then
+                echo "::error::Migration not applied. Run \`dotnet ef database update\` against prod — docs/runbooks/migration-missed.md — then re-run this job."
+              else
+                echo "::error::API /health did not return 200 within 3 minutes of the rollout."
+              fi
+              echo "$body"
+              curl -sS -i -o /dev/null -w 'status: %{http_code}\n' https://api.nornis.app/health || true
               exit 1
             fi
             sleep 5

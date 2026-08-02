@@ -2,12 +2,18 @@
 
 ## Symptom
 
-`nornis-availability` fires. `/health` returns **503** with `{"status":"Unhealthy"}`, and
-it started immediately after a deploy.
+The deploy run fails at **Verify the rollout**, naming `pending-migrations`. Or `/health`
+returns **503** and names it, immediately after a deploy.
 
 ```bash
 curl -s -w " [%{http_code}]\n" https://api.nornis.app/health
+# {"status":"Unhealthy","failing":["pending-migrations"]} [503]
 ```
+
+**No alert fires for this.** `nornis-availability` watches a ping against the *Web* app's
+`/welcome`, which renders perfectly well while the API is refusing to serve — so the deploy
+run is the only thing that will tell you, and only at the moment of rollout. If a migration
+is missed some other way, nothing is watching.
 
 This is the failure the pending-migrations check exists to catch. Without it, a deploy
 whose migration step was skipped comes up looking fine and then 500s on the first request
@@ -21,8 +27,8 @@ produces exactly this.
 
 ## Diagnose
 
-`/health` deliberately says only `Unhealthy` — it is anonymous, so it names no schema.
-Ask the database instead:
+`/health` names the failing check but not the migrations — it is anonymous, so it names no
+schema. Ask the database instead:
 
 ```bash
 CONN=$(dotnet user-secrets list --project src/Nornis.Api \
@@ -51,17 +57,19 @@ dotnet ef database update \
   --connection "$CONN"
 ```
 
-Expect the availability alert to have fired already. That is the system working, not a
-false alarm — the window between deploy and migration is genuinely an outage for anything
-touching the new schema.
+The window between deploy and migration is genuinely an outage for anything touching the
+new schema, and the readiness probe is what contains it: the new revision never goes ready,
+so traffic stays on the old one.
 
 ## Verify
 
 ```bash
-curl -s -w " [%{http_code}]\n" https://api.nornis.app/health   # {"status":"Healthy"} [200]
+curl -s -w " [%{http_code}]\n" https://api.nornis.app/health
+# {"status":"Healthy","failing":[]} [200]
 ```
 
-The alert resolves on its own once pings succeed.
+Then re-run the failed deploy job — the rollout is not finished until its verify step
+passes.
 
 ## Prevention
 

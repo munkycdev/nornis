@@ -6,9 +6,20 @@
 > (`nornis-api`, `nornis-web`, `nornis-worker`) on each host's resource. API and Web
 > telemetry is sampled down (its volume scales with open browser tabs); the worker's
 > is deliberately unsampled — low volume, and the most diagnostically valuable traces
-> in the system. Alert rules and an availability test against `/health` are live.
+> in the system. Alert rules and an availability test are live.
 > Everything else below — the metric list, logging rules, and cost tracking as a
 > product feature — stands as written.
+
+> **Amendment (2026-08-02):** the sentence above said the availability test runs
+> "against `/health`". It does not, and never did. `ping-nornis-app` requests
+> `https://nornis.app/welcome` — a static marketing page on the **Web** app — and
+> validates only that it returns 200. `nornis-availability` fires on that test's
+> success rate, so **no alert currently watches the API at all**: a missed migration,
+> a crashed API revision, or a 503 from `/health` leaves the ping green, because
+> `/welcome` renders without the API. Verified against the live resource, not inferred.
+> Closing it takes a second standard test against `https://api.nornis.app/health`;
+> until that exists, the API's only post-deploy verification is `deploy.yml`'s poll,
+> which runs once per rollout and sees nothing in between.
 
 ## Observability Tool
 

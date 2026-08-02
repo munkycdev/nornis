@@ -1,6 +1,9 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Nornis.Api.Extensions;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Infrastructure.Persistence;
@@ -187,16 +190,59 @@ public class StatusEndpointTests
     }
 
     [Test]
-    public async Task Health_KeepsItsOriginalShape()
+    public async Task Health_KeepsTheVerdictItAlwaysHad()
     {
         var response = await _client.GetAsync("/health");
         var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
 
-        // The availability alert reads this. Adding /status must not have changed it.
+        // `status` is the contract: the deploy poll and the readiness probe both key off it,
+        // and `failing` was added beside it rather than in place of it.
         Assert.Multiple(() =>
         {
             Assert.That(body.GetProperty("status").GetString(), Is.EqualTo("Healthy"));
-            Assert.That(body.EnumerateObject().Select(p => p.Name), Is.EquivalentTo(new[] { "status" }));
+            Assert.That(
+                body.EnumerateObject().Select(p => p.Name),
+                Is.EquivalentTo(new[] { "status", "failing" }));
+        });
+    }
+
+    [Test]
+    public async Task Health_WhenHealthy_NamesNothing()
+    {
+        var response = await _client.GetAsync("/health");
+        var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+
+        // Present and empty, not absent. A field that only appears on failure is a field
+        // whose reader breaks on the one response it was written for.
+        Assert.That(body.GetProperty("failing").EnumerateArray(), Is.Empty);
+    }
+
+    [Test]
+    public async Task Health_WhenACheckFails_NamesIt()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+                services.AddHealthChecks().AddCheck(
+                    "deliberately-broken",
+                    () => HealthCheckResult.Unhealthy("Connection string: hunter2"),
+                    tags: [StatusEndpoint.LivenessTag])));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/health");
+        var raw = await response.Content.ReadAsStringAsync();
+        var body = JsonDocument.Parse(raw).RootElement;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.ServiceUnavailable));
+            Assert.That(body.GetProperty("status").GetString(), Is.EqualTo("Unhealthy"));
+            Assert.That(
+                body.GetProperty("failing").EnumerateArray().Select(n => n.GetString()),
+                Is.EquivalentTo(new[] { "deliberately-broken" }));
+
+            // The name is the whole payload. The check's own description is where a
+            // connection string would ride out to an anonymous caller.
+            Assert.That(raw, Does.Not.Contain("hunter2"));
         });
     }
 }

@@ -49,11 +49,30 @@ confirms the new revision came up.
   only: `/status` covers dependencies the deploy does not control, and failing a
   release because Service Bus is having a moment would train everyone to ignore a red
   pipeline.
-  - **Still open:** the spec assumed "the response body names the failing check, so
+  - ~~**Still open:** the spec assumed "the response body names the failing check, so
     the step can distinguish 'app broken' from the known pending-migrations window."
-    It does not — `/health`'s writer emits `{status}` and nothing else, deliberately.
-    Naming the failing check there is an additive change to a body the availability
-    alert reads, so it belongs to whoever finishes O1, not to a drive-by.
+    It does not — `/health`'s writer emits `{status}` and nothing else, deliberately.~~
+    **Done 2026-08-02.** `/health` now emits `{status, failing}`, `failing` being the
+    names of the not-Healthy checks — always present, empty when green. Names only, no
+    descriptions: the pending-migrations check's own message lists migration names, and
+    this payload is anonymous. The writer moved next to `WriteStatusResponse` so both
+    live under the one comment stating that rule. `deploy.yml` reads it and tells you to
+    apply the migration instead of reporting that three minutes elapsed.
+  - **The reason this was deferred was not true, and the truth is worse.** It was held
+    back as "an additive change to a body the availability alert reads." No alert reads
+    it. `ping-nornis-app` requests `https://nornis.app/welcome` — a static page on the
+    **Web** app — and validates a 200 with no content match; `nornis-availability` fires
+    on that ping's success rate. So nothing whatsoever alerts on the API: a missed
+    migration, a crashed revision, a hard 503 all leave the alert green, because
+    `/welcome` renders with the API dark. Checked against the live resource rather than
+    inferred — `audit-04-api.md` had already listed "whether an availability test
+    actually pings `/health`" as an unverified inference, and it was wrong.
+    - Consequence for O1: the deploy poll is now the *only* thing verifying the API, and
+      it runs once per rollout. Between deploys nothing is watching.
+    - Fix is one resource — a second standard test against
+      `https://api.nornis.app/health`, expecting 200. Not created here: it is recurring
+      spend (~$6/mo, doubling the availability line) on an account this plan does not get
+      to enlarge unattended. Everything the code side needs is already in place.
 - The Worker has no probe surface; its post-deploy verification is the
   worker-heartbeat check in the System status plan.
 - `containerapp update` kills mid-extraction work. Safety rests on Service Bus

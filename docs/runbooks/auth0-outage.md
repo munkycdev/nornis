@@ -5,12 +5,13 @@
 Nobody can sign in. Existing sessions keep working until their tokens expire, so this
 often arrives as a trickle rather than a cliff — a few users at first, then everyone.
 
-`nornis-availability` may fire, because the ping hits `nornis.app`, which redirects to
-Auth0 when unauthenticated. `/status` will be **entirely green**: Auth0 is not one of the
-five dependency checks, because the API validates JWTs against cached signing keys and
-does not call Auth0 per request.
+Nothing fires. `nornis-availability` pings `nornis.app/welcome`, which is a public page
+that renders without Auth0 and without the API, so it stays green throughout. `/status`
+will be **entirely green** too: Auth0 is not one of the five dependency checks, because the
+API validates JWTs against cached signing keys and does not call Auth0 per request.
 
-That gap is worth knowing. A green status page does not mean people can log in.
+That gap is worth knowing, and it is wider than it reads. A green status page does not mean
+people can log in — and a green availability alert does not mean the API is up.
 
 ## Setup
 
