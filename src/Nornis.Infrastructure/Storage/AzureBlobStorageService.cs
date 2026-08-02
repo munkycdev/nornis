@@ -30,8 +30,57 @@ public sealed class AzureBlobStorageService : IBlobStorageService
         _containerName = containerName;
         _blobServiceClient = new BlobServiceClient(connectionString);
 
-        var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
-        containerClient.CreateIfNotExists(PublicAccessType.None);
+        // Container creation used to happen right here, synchronously, in the constructor.
+        // Two problems, both real: it blocked a DI resolution on a network round trip, and it
+        // threw a raw RequestFailedException from a code path with no translation — so a
+        // transient storage 503 at first use reached library indexing as an exception the
+        // classifier could not type-match, and the document was permanently marked
+        // IndexFailed over a blip. Deferred to first use and translated like everything else.
+    }
+
+    private readonly SemaphoreSlim _containerGate = new(1, 1);
+    private bool _containerReady;
+
+    /// <summary>
+    /// Ensures the container exists, once per process, on the first operation that needs it.
+    ///
+    /// Deliberately not a <c>Lazy&lt;Task&gt;</c>: that caches a faulted task forever, so a
+    /// single 503 during the first call would leave the service permanently broken — the
+    /// exact over-correction this fix exists to avoid. A failure here leaves the flag unset
+    /// and the next call tries again.
+    /// </summary>
+    private async Task EnsureContainerAsync(CancellationToken cancellationToken)
+    {
+        if (_containerReady)
+        {
+            return;
+        }
+
+        await _containerGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (_containerReady)
+            {
+                return;
+            }
+
+            await _blobServiceClient
+                .GetBlobContainerClient(_containerName)
+                .CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: cancellationToken);
+
+            _containerReady = true;
+        }
+        catch (RequestFailedException ex)
+        {
+            throw new HttpRequestException(
+                $"Blob container init failed for {_containerName}: HTTP {ex.Status}",
+                ex,
+                (HttpStatusCode)ex.Status);
+        }
+        finally
+        {
+            _containerGate.Release();
+        }
     }
 
     public string BuildBlobPath(Guid worldId, Guid documentId, string fileName)
@@ -94,6 +143,7 @@ public sealed class AzureBlobStorageService : IBlobStorageService
     /// </remarks>
     public async Task<Stream> OpenReadAsync(string blobPath, CancellationToken cancellationToken = default)
     {
+        await EnsureContainerAsync(cancellationToken);
         try
         {
             return await GetBlobClient(blobPath).OpenReadAsync(cancellationToken: cancellationToken);
@@ -118,6 +168,7 @@ public sealed class AzureBlobStorageService : IBlobStorageService
 
     public async Task UploadAsync(string blobPath, Stream content, string contentType, CancellationToken cancellationToken = default)
     {
+        await EnsureContainerAsync(cancellationToken);
         var blobClient = GetBlobClient(blobPath);
         await blobClient.UploadAsync(
             content,
@@ -127,12 +178,14 @@ public sealed class AzureBlobStorageService : IBlobStorageService
 
     public async Task DeleteBlobAsync(string blobPath, CancellationToken cancellationToken = default)
     {
+        await EnsureContainerAsync(cancellationToken);
         var blobClient = GetBlobClient(blobPath);
         await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
     }
 
     public async Task DeleteByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
     {
+        await EnsureContainerAsync(cancellationToken);
         var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
         await foreach (var blob in containerClient.GetBlobsAsync(prefix: prefix, cancellationToken: cancellationToken))
         {
