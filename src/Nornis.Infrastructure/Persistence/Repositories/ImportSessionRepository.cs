@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
@@ -47,12 +47,7 @@ public class ImportSessionRepository : IImportSessionRepository
     public async Task UpdateAsync(
         Guid id, ImportSessionStatus status, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
     {
-        var session = await _context.ImportSessions.FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
-        if (session is null)
-        {
-            return;
-        }
-
+        var session = await _context.LoadForUpdateAsync<ImportSession>(id, cancellationToken);
         session.Status = status;
         session.UpdatedAt = updatedAt;
         await _context.SaveChangesAsync(cancellationToken);
@@ -60,12 +55,7 @@ public class ImportSessionRepository : IImportSessionRepository
 
     public async Task TouchAsync(Guid id, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
     {
-        var session = await _context.ImportSessions.FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
-        if (session is null)
-        {
-            return;
-        }
-
+        var session = await _context.LoadForUpdateAsync<ImportSession>(id, cancellationToken);
         session.UpdatedAt = updatedAt;
         await _context.SaveChangesAsync(cancellationToken);
     }
@@ -92,12 +82,7 @@ public class ImportSessionRepository : IImportSessionRepository
     public async Task SetItemDispatchedAsync(
         Guid itemId, DateTimeOffset dispatchedAt, CancellationToken cancellationToken = default)
     {
-        var item = await _context.ImportSessionItems.FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);
-        if (item is null)
-        {
-            return;
-        }
-
+        var item = await _context.LoadForUpdateAsync<ImportSessionItem>(itemId, cancellationToken);
         item.DispatchedAt = dispatchedAt;
         await _context.SaveChangesAsync(cancellationToken);
     }
@@ -140,12 +125,7 @@ public class ImportSessionRepository : IImportSessionRepository
 
     public async Task SetItemSkippedAsync(Guid itemId, bool skipped, CancellationToken cancellationToken = default)
     {
-        var item = await _context.ImportSessionItems.FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);
-        if (item is null)
-        {
-            return;
-        }
-
+        var item = await _context.LoadForUpdateAsync<ImportSessionItem>(itemId, cancellationToken);
         item.Skipped = skipped;
         await _context.SaveChangesAsync(cancellationToken);
     }

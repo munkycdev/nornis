@@ -57,9 +57,7 @@ public class CharacterRepository : ICharacterRepository
     public async Task DeleteAsync(Guid characterId, CancellationToken cancellationToken = default)
     {
         // Campaign assignments cascade from the character in the database.
-        await _context.Characters
-            .Where(c => c.Id == characterId)
-            .ExecuteDeleteAsync(cancellationToken);
+        await _context.DeleteWhereAsync<Character>(c => c.Id == characterId, cancellationToken);
     }
 
     public async Task ReplaceCampaignAssignmentsAsync(Guid campaignId, IReadOnlyCollection<Guid> characterIds, CancellationToken cancellationToken = default)

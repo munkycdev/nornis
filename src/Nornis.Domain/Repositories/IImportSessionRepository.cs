@@ -8,6 +8,10 @@ namespace Nornis.Domain.Repositories;
 /// session, and every read wants the session with its items attached. Writes are scoped
 /// rather than whole-graph saves so an item reorder never re-saves the session, and a
 /// status change never re-saves the items.
+///
+/// Missing-row contract (see <c>coding-standards.md</c>): the scoped writes throw when the
+/// session or item is gone — they used to return quietly, which reported a status change
+/// that never happened — while <c>DeleteItemAsync</c> no-ops.
 /// </summary>
 public interface IImportSessionRepository
 {

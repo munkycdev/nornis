@@ -114,8 +114,7 @@ public class ReviewBatchRepository : IReviewBatchRepository
 
     public async Task UpdateStatusAsync(Guid id, ReviewBatchStatus status, CancellationToken cancellationToken = default)
     {
-        var batch = await _context.ReviewBatches
-            .FirstAsync(rb => rb.Id == id, cancellationToken);
+        var batch = await _context.LoadForUpdateAsync<ReviewBatch>(id, cancellationToken);
 
         batch.Status = status;
 
@@ -129,8 +128,7 @@ public class ReviewBatchRepository : IReviewBatchRepository
 
     public async Task UpdateCompletedAsync(Guid id, DateTimeOffset completedAt, CancellationToken cancellationToken = default)
     {
-        var batch = await _context.ReviewBatches
-            .FirstAsync(rb => rb.Id == id, cancellationToken);
+        var batch = await _context.LoadForUpdateAsync<ReviewBatch>(id, cancellationToken);
 
         batch.Status = ReviewBatchStatus.Completed;
         batch.CompletedAt = completedAt;
