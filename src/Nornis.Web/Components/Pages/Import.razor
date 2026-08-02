@@ -562,7 +562,7 @@ else
     private DateTime? _occurredAt;
 
     private bool _showCandidates;
-    private List<ImportCandidateDto>? _candidates;
+    private IReadOnlyList<ImportCandidateDto>? _candidates;
     private readonly HashSet<Guid> _selected = [];
 
     // Drag reorder: the row being carried, and the row it is currently over. Both are cleared

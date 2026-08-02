@@ -104,7 +104,7 @@ public class ArtifactServiceCampaignsTests
         var c1 = SeedCampaign("One");
         _storylineCampaignRepo.Seed(storyline.Id, c1.Id);
 
-        var result = await _service.SetStorylineCampaignsAsync(Command(storyline.Id, Array.Empty<Guid>()), CancellationToken.None);
+        var result = await _service.SetStorylineCampaignsAsync(Command(storyline.Id, []), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(await _storylineCampaignRepo.ListByArtifactIdAsync(storyline.Id, CancellationToken.None), Is.Empty);

@@ -1626,7 +1626,7 @@ public class ExtractionService : IExtractionService
 
         var allowedScopes = source.Visibility == VisibilityScope.GMOnly
             ? new[] { VisibilityScope.PartyVisible, VisibilityScope.GMOnly }
-            : new[] { VisibilityScope.PartyVisible };
+            : [VisibilityScope.PartyVisible];
 
         var query = BuildRetrievalQuery(source);
         return await _passageRetriever.RetrieveForScopesAsync(

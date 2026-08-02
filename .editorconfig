@@ -60,6 +60,16 @@ dotnet_style_prefer_inferred_anonymous_type_member_names = true:suggestion
 dotnet_style_prefer_compound_assignment = true:suggestion
 dotnet_style_prefer_simplified_interpolation = true:suggestion
 
+# Collection expressions. The tree was split 84/91 between `[]` and `new List<T>()` for the
+# same intent, which is a coin-flip a reader has to re-decide in every file. `warning` is a
+# build break here (warnings are errors), which is the point: the split came back every time
+# it was only a suggestion.
+#
+# `when_types_loosely_match` deliberately, not `always`: the stricter setting also rewrites
+# `.ToList()` and `.ToArray()` calls into spreads, which changes what gets allocated and
+# reads worse in query chains. This one covers construction, which is where the split was.
+dotnet_style_prefer_collection_expression = when_types_loosely_match:warning
+
 # Field preferences
 dotnet_style_readonly_field = true:warning
 

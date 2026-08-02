@@ -816,8 +816,8 @@
         }
         StateHasChanged();
 
-        await LoadConnectionsGraphAsync();
-        await LoadCampaignsEditorAsync();
+        // Neither reads what the other writes, and both are below the fold.
+        await Task.WhenAll(LoadConnectionsGraphAsync(), LoadCampaignsEditorAsync());
     }
 
     // Whole-world graph for the Connections neighborhood; the BFS trim to FocusId/depth

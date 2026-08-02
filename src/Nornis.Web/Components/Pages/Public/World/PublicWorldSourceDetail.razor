@@ -105,14 +105,20 @@
         if (_source is not null)
         {
             StateHasChanged();
-            var locations = await Api.GetPublicSourceLocationsAsync(Slug, SourceId);
-            _locations = locations.IsSuccess ? locations.Value! : [];
+
+            // Started first, awaited last, so it overlaps the knowledge read instead of
+            // queueing behind it. Task.WhenAll does not fit here — knowledge is conditional,
+            // and shaping the pair to match would cost more than it saves.
+            var locationsTask = Api.GetPublicSourceLocationsAsync(Slug, SourceId);
 
             if (_source.ProcessingStatus == "Processed" && _source.ExtractionEnabled)
             {
                 var knowledge = await Api.GetPublicSourceKnowledgeAsync(Slug, SourceId);
                 _knowledge = knowledge.IsSuccess ? knowledge.Value : new SourceKnowledgeDto([], [], []);
             }
+
+            var locations = await locationsTask;
+            _locations = locations.IsSuccess ? locations.Value! : [];
         }
     }
 
