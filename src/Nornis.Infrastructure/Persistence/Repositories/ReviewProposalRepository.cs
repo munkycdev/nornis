@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Exceptions;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Persistence.Repositories;
@@ -86,7 +87,21 @@ public class ReviewProposalRepository : IReviewProposalRepository
 
     public async Task<ReviewProposal> UpdateAsync(ReviewProposal proposal, CancellationToken cancellationToken = default)
     {
-        await _context.SaveAndDetachAsync(proposal, cancellationToken);
+        try
+        {
+            await _context.SaveAndDetachAsync(proposal, cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // A concurrent decision changed this proposal's RowVersion first. Translated to
+            // the provider-agnostic signal (as WorldInviteRepository does) so ReviewService
+            // can answer 409 instead of the untraceable 500 the blanket catch used to give
+            // the loser of a duplicate-accept race.
+            _context.ChangeTracker.Clear();
+            throw new ConcurrencyConflictException(
+                $"Proposal {proposal.Id} was modified concurrently.", ex);
+        }
+
         return proposal;
     }
 

@@ -1,10 +1,13 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Application;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Validation;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Exceptions;
 using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
@@ -34,6 +37,8 @@ public class ReviewService : IReviewService
     // register the real advancer. Null means "no replay to advance".
     private readonly IExtractionReplayAdvancer? _replayAdvancer;
 
+    private readonly ILogger<ReviewService> _logger;
+
     public ReviewService(
         IReviewProposalRepository reviewProposalRepository,
         IReviewBatchRepository reviewBatchRepository,
@@ -45,8 +50,13 @@ public class ReviewService : IReviewService
         IUnitOfWork unitOfWork,
         IProposalValidator proposalValidator,
         IProposalApplicator proposalApplicator,
-        IExtractionReplayAdvancer? replayAdvancer = null)
+        IExtractionReplayAdvancer? replayAdvancer = null,
+        ILogger<ReviewService>? logger = null)
     {
+        // Optional so the sixteen existing construction sites keep compiling; the host
+        // always supplies one, and tests that do not care get the null sink. Mirrors the
+        // replayAdvancer parameter directly above.
+        _logger = logger ?? NullLogger<ReviewService>.Instance;
         _replayAdvancer = replayAdvancer;
         _reviewProposalRepository = reviewProposalRepository;
         _reviewBatchRepository = reviewBatchRepository;
@@ -364,9 +374,26 @@ public class ReviewService : IReviewService
 
             await transaction.CommitAsync(ct);
         }
-        catch
+        catch (ConcurrencyConflictException ex)
         {
+            // Two accepts of the same proposal raced. This is a conflict, not a server
+            // fault: the loser used to get an unlogged 500 saying the operation could not
+            // be completed, when in truth someone else completed it.
             await transaction.RollbackAsync(ct);
+            _logger.LogInformation(ex,
+                "Concurrent accept lost the race. ProposalId={ProposalId}", proposal.Id);
+            return AppResult<AcceptProposalResult>.Fail(new AppError(409, "conflict",
+                "This proposal was decided by another request. Refresh to see where it stands."));
+        }
+        catch (Exception ex)
+        {
+            // Still broad — an apply touches several repositories and half a write must not
+            // escape the rollback. But it is logged now: this used to convert bugs,
+            // constraint violations and conflicts alike into one identical, untraceable
+            // message, which is why the race above went unnoticed.
+            await transaction.RollbackAsync(ct);
+            _logger.LogError(ex,
+                "Accept transaction failed. ProposalId={ProposalId}", proposal.Id);
             return AppResult<AcceptProposalResult>.Fail(
                 new AppError(500, "transaction_failed", $"Failed to accept proposal {proposal.Id}. The operation could not be completed."));
         }
@@ -685,9 +712,19 @@ public class ReviewService : IReviewService
 
             await transaction.CommitAsync(ct);
         }
-        catch
+        catch (ConcurrencyConflictException ex)
         {
             await transaction.RollbackAsync(ct);
+            _logger.LogInformation(ex,
+                "Concurrent accept lost the race in a batch. ProposalId={ProposalId}", proposalId);
+            return new BatchFailureDetail(proposalId, "conflict",
+                "This proposal was decided by another request.");
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync(ct);
+            _logger.LogError(ex,
+                "Batch accept transaction failed. ProposalId={ProposalId}", proposalId);
             return new BatchFailureDetail(proposalId, "transaction_failed", $"Failed to accept proposal {proposalId}. The operation could not be completed.");
         }
 
