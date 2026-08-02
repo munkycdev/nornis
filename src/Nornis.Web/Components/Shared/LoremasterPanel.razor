@@ -172,21 +172,33 @@
             return;
         }
 
+        // Captured before the await for the same reason OnWorldChanged exists: a switch
+        // mid-thread must not mix records. That handler already drops the thread — without
+        // these, the in-flight answer would then land in the replacement.
+        var askedWorldId = Worlds.Current.Id;
+        var conversation = _conversation;
+
         _input = string.Empty;
         _pendingQuestion = q;
         _asking = true;
         _error = null;
         StateHasChanged();
 
-        var result = await Api.AskLoremasterAsync(Worlds.Current.Id, q, LoremasterDisplay.BuildContext(_conversation));
+        var result = await Api.AskLoremasterAsync(askedWorldId, q, LoremasterDisplay.BuildContext(conversation));
 
         _asking = false;
         _pendingQuestion = null;
 
+        if (Worlds.Current?.Id != askedWorldId)
+        {
+            StateHasChanged();
+            return;
+        }
+
         if (result.IsSuccess)
         {
             var a = result.Value!;
-            _conversation.Exchanges.Add(new AskExchange
+            conversation.Exchanges.Add(new AskExchange
             {
                 Question = q,
                 Answer = LoremasterDisplay.CleanAnswer(a.Answer),
@@ -194,12 +206,12 @@
                 Citations = a.Citations.Select(c => new AskCitation { DisplayName = c.DisplayName, ArtifactId = c.ArtifactId, DocumentId = c.DocumentId }).ToList(),
                 Caveats = a.Caveats.ToList(),
             });
-            if (_conversation.Exchanges.Count == 1)
+            if (conversation.Exchanges.Count == 1)
             {
-                _conversation.Title = Nornis.Web.Services.DisplayText.Truncate(q, 48);
+                conversation.Title = Nornis.Web.Services.DisplayText.Truncate(q, 48);
             }
-            _conversation.UpdatedAt = DateTimeOffset.UtcNow;
-            await SaveToHistoryAsync();
+            conversation.UpdatedAt = DateTimeOffset.UtcNow;
+            await SaveToHistoryAsync(askedWorldId, conversation);
         }
         else
         {
@@ -208,18 +220,25 @@
         StateHasChanged();
     }
 
-    // Upserts this thread into the shared /ask history without clobbering other conversations.
-    private async Task SaveToHistoryAsync()
+    /// <summary>
+    /// Upserts this thread into the shared /ask history without clobbering other
+    /// conversations. World and thread come in as arguments because this is a
+    /// read-modify-write with an await in the middle: re-reading <c>Worlds.Current</c> for the
+    /// second key would let a switch between the two calls write one world's history into
+    /// the other's, without any world switch during the question itself.
+    /// </summary>
+    private async Task SaveToHistoryAsync(Guid worldId, AskConversation conversation)
     {
         try
         {
-            var json = await JS.InvokeAsync<string?>("localStorage.getItem", LoremasterDisplay.StorageKey(Worlds.Current?.Id));
+            var key = LoremasterDisplay.StorageKey(worldId);
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", key);
             var conversations = string.IsNullOrWhiteSpace(json)
                 ? []
                 : JsonSerializer.Deserialize<List<AskConversation>>(json) ?? [];
-            conversations.RemoveAll(c => c.Id == _conversation.Id);
-            conversations.Add(_conversation);
-            await JS.InvokeVoidAsync("localStorage.setItem", LoremasterDisplay.StorageKey(Worlds.Current?.Id), JsonSerializer.Serialize(conversations));
+            conversations.RemoveAll(c => c.Id == conversation.Id);
+            conversations.Add(conversation);
+            await JS.InvokeVoidAsync("localStorage.setItem", key, JsonSerializer.Serialize(conversations));
         }
         catch
         {
