@@ -16,7 +16,7 @@ public class ServiceBusLibraryIndexingQueueClient : ILibraryIndexingQueueClient,
 
     public ServiceBusLibraryIndexingQueueClient(ServiceBusClient serviceBusClient)
     {
-        _serviceBusClient = serviceBusClient ?? throw new ArgumentNullException(nameof(serviceBusClient));
+        _serviceBusClient = serviceBusClient;
         _sender = new Lazy<ServiceBusSender>(() => _serviceBusClient.CreateSender(QueueName));
     }
 

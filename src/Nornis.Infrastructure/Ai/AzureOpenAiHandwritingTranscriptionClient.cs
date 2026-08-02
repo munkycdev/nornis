@@ -22,8 +22,8 @@ public class AzureOpenAiHandwritingTranscriptionClient : IHandwritingTranscripti
     public AzureOpenAiHandwritingTranscriptionClient(
         ChatClient chatClient, ILogger<AzureOpenAiHandwritingTranscriptionClient> logger)
     {
-        _chatClient = chatClient ?? throw new ArgumentNullException(nameof(chatClient));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _chatClient = chatClient;
+        _logger = logger;
     }
 
     public async Task<HandwritingTranscriptionResponse> TranscribeAsync(HandwritingTranscriptionRequest request, CancellationToken ct)

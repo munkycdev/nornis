@@ -262,28 +262,4 @@ public class AzureOpenAiLoremasterClientTests
 
     #endregion
 
-    #region Constructor Validation
-
-    [Test]
-    public void Constructor_NullChatClient_ThrowsArgumentNullException()
-    {
-        Assert.Throws<ArgumentNullException>(
-            () => new AzureOpenAiLoremasterClient(null!, _options, _logger));
-    }
-
-    [Test]
-    public void Constructor_NullOptions_ThrowsArgumentNullException()
-    {
-        Assert.Throws<ArgumentNullException>(
-            () => new AzureOpenAiLoremasterClient(_mockChatClient, null!, _logger));
-    }
-
-    [Test]
-    public void Constructor_NullLogger_ThrowsArgumentNullException()
-    {
-        Assert.Throws<ArgumentNullException>(
-            () => new AzureOpenAiLoremasterClient(_mockChatClient, _options, null!));
-    }
-
-    #endregion
 }

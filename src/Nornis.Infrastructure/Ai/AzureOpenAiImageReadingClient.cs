@@ -22,8 +22,8 @@ public class AzureOpenAiImageReadingClient : IImageReadingClient
     public AzureOpenAiImageReadingClient(
         ChatClient chatClient, ILogger<AzureOpenAiImageReadingClient> logger)
     {
-        _chatClient = chatClient ?? throw new ArgumentNullException(nameof(chatClient));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _chatClient = chatClient;
+        _logger = logger;
     }
 
     public async Task<ImageReadingResponse> ReadAsync(ImageReadingRequest request, CancellationToken ct)

@@ -111,94 +111,24 @@ public class EnumDefinitionTests
             "SourceExtraction", "ArtifactSummary", "AskLoremaster", "SourceExtractionRepair", "ContinuityAudit", "StorylineRetrospective", "Embedding", "RelationshipBackfill", "HandwritingTranscription", "ImageReading", "MapExtraction", "ContinuityFix", "WorldNaming");
     }
 
-    [Test]
-    public void WorldRole_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<WorldRole>(), Has.Length.EqualTo(3));
-    }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     [Test]
-    public void SourceType_HasNoUnexpectedValues()
+    public void InviteStatus_HasExpectedValues()
     {
-        Assert.That(Enum.GetNames<SourceType>(), Has.Length.EqualTo(13));
-    }
-
-    [Test]
-    public void SourceProcessingStatus_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<SourceProcessingStatus>(), Has.Length.EqualTo(6));
-    }
-
-    [Test]
-    public void ArtifactType_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<ArtifactType>(), Has.Length.EqualTo(8));
-    }
-
-    [Test]
-    public void ArtifactStatus_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<ArtifactStatus>(), Has.Length.EqualTo(4));
-    }
-
-    [Test]
-    public void TruthState_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<TruthState>(), Has.Length.EqualTo(6));
-    }
-
-    [Test]
-    public void VisibilityScope_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<VisibilityScope>(), Has.Length.EqualTo(3));
-    }
-
-    [Test]
-    public void ReviewBatchStatus_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<ReviewBatchStatus>(), Has.Length.EqualTo(5));
-    }
-
-    [Test]
-    public void ReviewProposalStatus_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<ReviewProposalStatus>(), Has.Length.EqualTo(4));
-    }
-
-    [Test]
-    public void ReviewChangeType_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<ReviewChangeType>(), Has.Length.EqualTo(8));
-    }
-
-    [Test]
-    public void ReviewTargetType_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<ReviewTargetType>(), Has.Length.EqualTo(3));
-    }
-
-    [Test]
-    public void SourceExtractionType_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<SourceExtractionType>(), Has.Length.EqualTo(5));
-    }
-
-    [Test]
-    public void SourceReferenceTargetType_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<SourceReferenceTargetType>(), Has.Length.EqualTo(4));
-    }
-
-    [Test]
-    public void AiOperationType_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<AiOperationType>(), Has.Length.EqualTo(13));
-    }
-
-    [Test]
-    public void InviteStatus_HasNoUnexpectedValues()
-    {
-        Assert.That(Enum.GetNames<InviteStatus>(), Has.Length.EqualTo(4));
+        AssertEnumHasExactValues<InviteStatus>("Active", "Revoked", "Expired", "Exhausted");
     }
 
     [Test]

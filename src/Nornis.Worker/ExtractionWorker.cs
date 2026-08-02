@@ -25,9 +25,9 @@ public sealed class ExtractionWorker : BackgroundService
         IServiceScopeFactory scopeFactory,
         ILogger<ExtractionWorker> logger)
     {
-        _processor = processor ?? throw new ArgumentNullException(nameof(processor));
-        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _processor = processor;
+        _scopeFactory = scopeFactory;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

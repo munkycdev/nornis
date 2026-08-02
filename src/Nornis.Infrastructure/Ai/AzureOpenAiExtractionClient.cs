@@ -51,9 +51,9 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
         IOptions<ExtractionOptions> options,
         ILogger<AzureOpenAiExtractionClient> logger)
     {
-        _chatClient = chatClient ?? throw new ArgumentNullException(nameof(chatClient));
-        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _chatClient = chatClient;
+        _options = options.Value;
+        _logger = logger;
     }
 
     public async Task<AiExtractionResponse> ExtractAsync(ExtractionRequest request, CancellationToken ct)
