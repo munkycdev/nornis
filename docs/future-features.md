@@ -57,9 +57,13 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
 6. D2 deterministic functional bugs — every item carries a repro and a prescribed fix.
    Includes the merge skip-branch row deletion (prerequisite for W2) and the
    stale-response family. Two additive migrations (batch and replay unique indexes).
-   **In progress 2026-08-01:** merge skip-branch, stale-response family, ClearBody/ClearUri,
-   and the replay unique index (migration `AddExtractionReplayActiveUniqueIndex` — **apply
-   before the deploy that carries it**) are done. Eight items remain.
+   **2026-08-01: eleven of twelve done**, migration `AddExtractionReplayActiveUniqueIndex`
+   applied. Three of the eleven are deliberately partial and say so in the plan (payload
+   cap without extraction-time schema validation; world assertion without the
+   parameter-order sweep; wrap-up idempotency without per-step reporting). The twelfth —
+   the Queued wedge — is **assessed and deliberately not attempted**: every route out needs
+   a status timestamp the schema does not have, and the ungated version trades a wedge for
+   double AI spend. The plan spells out what it needs.
 7. D3 error handling — prescribed, mostly mechanical. Includes the D1 leftovers that
    are metering-shaped: the $0-pricing alert (in the shared recorder) and
    failed-attempt usage recording.

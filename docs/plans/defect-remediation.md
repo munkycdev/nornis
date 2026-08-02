@@ -146,7 +146,26 @@ changes that item's priority, not its shape.
     have no status filter**; they are now simply never handed a dangling row by merge.
     Any row left over from a merge *before* this fix is still out there and still
     counted.
-- **Dead-lettered extraction wedges the source at Queued forever.** After five
+- **Dead-lettered extraction wedges the source at Queued forever.** **Not fixed — the
+  obvious fix is a trap. Read this before attempting it (assessed 2026-08-01).**
+  - `ValidTransitions` has `Queued → { Processing }` only, so neither route out works:
+    - **Staleness-gated `Queued → Ready`** needs a clock, and there is none. `Source` has
+      no `UpdatedAt`, and `UpdateProcessingStatusAsync` writes the status column without
+      stamping a time. So this needs a schema change (a `StatusChangedAt`, additive) plus
+      a migration applied to prod before its deploy — not a one-line table edit.
+    - **Ungated `Queued → Ready`** would let a GM re-ready a source the worker is
+      genuinely mid-way through, producing a second extraction and a second paid AI call
+      for one source. That trades a visible wedge for silent double spend, which is worse.
+    - **Sweeping batch-less Queued sources** needs a background job and a definition of
+      "too long" — the same clock problem, relocated.
+  - Less urgent than when it was written: the wedge is now *visible* rather than silent.
+    `worker-heartbeat` on `/status` reports work outstanding with no worker, the
+    `nornis-sb-deadletter` alert fires when a message dead-letters, and `scripts/dlq.ps1`
+    peeks and resubmits it — which un-wedges the source through the normal path.
+  - Recommended: `StatusChangedAt` (additive) + staleness-gated `Queued → Ready`, with the
+    threshold comfortably past the worker's redelivery window.
+
+- **(original diagnosis)** Dead-lettered extraction wedges the source at Queued forever. After five
   redeliveries (~2 minutes of backoff) the message dead-letters; nothing consumes the
   DLQ, and `ValidTransitions` offers no user-reachable exit from Queued — update,
   delete, mark-ready, and reprocess all reject it. Same wedge from the
