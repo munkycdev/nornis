@@ -222,7 +222,19 @@ changes that item's priority, not its shape.
   `ImportSessionService.AdvanceAsync` (:462-468) never checks the current item's
   state before dispatching the next — defeating the serialization this feature exists
   to provide. Fix: refuse skip while Extracting, mirroring `item_not_ready`.
-- **Ink autosave re-entrancy creates duplicate Draft sources.** `SaveInkAsync` sets no
+- ~~**Ink autosave re-entrancy creates duplicate Draft sources.**~~ **Fixed 2026-08-01.**
+  A `SemaphoreSlim` serialises saves, so the second of two interleaved autosaves finds
+  `_sourceId` already set instead of creating a second Draft.
+  - Chose a gate over the spec's flag-plus-dirty-bit because two of the three callers must
+    not be skipped: `ExitAsync` and `ProcessAsync` need the canvas actually persisted, and
+    a flag that returns false while a save is in flight would have read as a save failure
+    and aborted processing. Autosave alone drops its callback when the gate is held —
+    those strokes ride the next change.
+  - Not covered by a test: reproducing it needs two interleaved JS-invoked callbacks
+    against a real circuit, which bUnit does not give cheaply. The guard is three lines and
+    the failure mode is now structurally impossible rather than timing-dependent.
+
+- **(original diagnosis)** Ink autosave re-entrancy creates duplicate Draft sources. `SaveInkAsync` sets no
   flag; two debounced callbacks interleave during a slow first save while `_sourceId`
   is still null → two Drafts, one orphaned (`InkCapture.razor:113-195`). Fix: a
   `_saving` flag with a trailing-dirty bit.

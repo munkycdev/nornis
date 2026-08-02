@@ -43,6 +43,14 @@
     private string _tool = "pen";
     private string _status = "";
     private bool _busy;
+
+    /// <summary>
+    /// One ink save at a time. Autosave is debounced from JS, so two callbacks could
+    /// previously interleave during a slow first save while _sourceId was still null —
+    /// each then created its own Draft source, leaving one orphaned with the strokes and
+    /// the canvas pointing at the other.
+    /// </summary>
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
     private bool _initialized;
 
     // The single ink attachment's upload ticket, cached across autosaves and refreshed
@@ -113,7 +121,10 @@
     [JSInvokable]
     public async Task OnInkChanged()
     {
-        if (!_initialized || _busy)
+        // A save already running means these strokes will be picked up by the next change,
+        // so drop this callback rather than queueing behind it. Exit and Process still wait
+        // on the gate, so neither can skip a save it needs.
+        if (!_initialized || _busy || _saveGate.CurrentCount == 0)
         {
             return;
         }
@@ -124,6 +135,19 @@
     /// Draft source on first save so an empty canvas never creates anything. The ink JSON
     /// itself never crosses the circuit — JS PUTs it straight to the blob SAS URL.</summary>
     private async Task<bool> SaveInkAsync()
+    {
+        await _saveGate.WaitAsync();
+        try
+        {
+            return await SaveInkCoreAsync();
+        }
+        finally
+        {
+            _saveGate.Release();
+        }
+    }
+
+    private async Task<bool> SaveInkCoreAsync()
     {
         if (Worlds.Current is null)
         {
@@ -304,6 +328,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        _saveGate.Dispose();
         try
         {
             await JS.InvokeVoidAsync("nornisInk.destroy", _canvasId);
