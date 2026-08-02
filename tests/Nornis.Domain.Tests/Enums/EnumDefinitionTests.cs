@@ -108,7 +108,7 @@ public class EnumDefinitionTests
     public void AiOperationType_HasExpectedValues()
     {
         AssertEnumHasExactValues<AiOperationType>(
-            "SourceExtraction", "ArtifactSummary", "AskLoremaster", "SourceExtractionRepair", "ContinuityAudit", "StorylineRetrospective", "Embedding", "RelationshipBackfill", "HandwritingTranscription", "ImageReading", "MapExtraction", "ContinuityFix");
+            "SourceExtraction", "ArtifactSummary", "AskLoremaster", "SourceExtractionRepair", "ContinuityAudit", "StorylineRetrospective", "Embedding", "RelationshipBackfill", "HandwritingTranscription", "ImageReading", "MapExtraction", "ContinuityFix", "WorldNaming");
     }
 
     [Test]
@@ -192,7 +192,7 @@ public class EnumDefinitionTests
     [Test]
     public void AiOperationType_HasNoUnexpectedValues()
     {
-        Assert.That(Enum.GetNames<AiOperationType>(), Has.Length.EqualTo(12));
+        Assert.That(Enum.GetNames<AiOperationType>(), Has.Length.EqualTo(13));
     }
 
     [Test]
