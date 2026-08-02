@@ -54,11 +54,27 @@ public class FakeAiExtractionClient : IAiExtractionClient
         _successResponse = null;
     }
 
-    public Task<AiExtractionResponse> ExtractAsync(ExtractionRequest request, CancellationToken ct)
+    /// <summary>
+    /// Runs while the call is "in flight". The only seam a single-threaded test has for staging
+    /// something that happens during a real extraction — a second worker finishing first, say.
+    /// </summary>
+    public Func<Task>? OnCall { get; set; }
+
+    public async Task<AiExtractionResponse> ExtractAsync(ExtractionRequest request, CancellationToken ct)
     {
         _requests.Add(request);
         _callCount++;
 
+        if (OnCall is not null)
+        {
+            await OnCall();
+        }
+
+        return await ExtractCoreAsync(request);
+    }
+
+    private Task<AiExtractionResponse> ExtractCoreAsync(ExtractionRequest request)
+    {
         if (_script.Count > 0)
         {
             return Task.FromResult(_script.Dequeue()());

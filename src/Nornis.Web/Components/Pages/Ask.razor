@@ -236,11 +236,15 @@
         }
     }
 
-    private async Task SaveHistoryAsync()
+    /// <summary>
+    /// Takes the world explicitly rather than reading <c>Worlds.Current</c>: the caller knows
+    /// which world's history this list is, and that is not a question to re-ask after an await.
+    /// </summary>
+    private async Task SaveHistoryAsync(Guid worldId)
     {
         try
         {
-            await JS.InvokeVoidAsync("localStorage.setItem", LoremasterDisplay.StorageKey(Worlds.Current?.Id), JsonSerializer.Serialize(_conversations));
+            await JS.InvokeVoidAsync("localStorage.setItem", LoremasterDisplay.StorageKey(worldId), JsonSerializer.Serialize(_conversations));
         }
         catch
         {
@@ -281,21 +285,36 @@
             _conversations.Add(_current);
         }
 
-        var context = LoremasterDisplay.BuildContext(_current);
+        // Everything this answer belongs to, captured before the await. A Loremaster call
+        // takes seconds, which is long enough to switch worlds in — and OnWorldChanged
+        // replaces both _conversations and _current with the other world's while it runs.
+        var askedWorldId = Worlds.Current.Id;
+        var conversation = _current;
+
+        var context = LoremasterDisplay.BuildContext(conversation);
         _pendingQuestion = question;
         _asking = true;
         _error = null;
         StateHasChanged();
 
-        var result = await Api.AskLoremasterAsync(Worlds.Current.Id, question, context);
+        var result = await Api.AskLoremasterAsync(askedWorldId, question, context);
 
         _asking = false;
         _pendingQuestion = null;
 
+        // Reading _current here instead would append one world's Q&A to another's thread and
+        // persist the whole list under the new world's key — or throw, when the new world has
+        // no conversations and _current is null.
+        if (Worlds.Current?.Id != askedWorldId)
+        {
+            StateHasChanged();
+            return;
+        }
+
         if (result.IsSuccess)
         {
             var a = result.Value!;
-            _current.Exchanges.Add(new AskExchange
+            conversation.Exchanges.Add(new AskExchange
             {
                 Question = question,
                 Answer = LoremasterDisplay.CleanAnswer(a.Answer),
@@ -303,20 +322,20 @@
                 Citations = a.Citations.Select(c => new AskCitation { DisplayName = c.DisplayName, ArtifactId = c.ArtifactId, DocumentId = c.DocumentId }).ToList(),
                 Caveats = a.Caveats.ToList(),
             });
-            if (_current.Exchanges.Count == 1)
+            if (conversation.Exchanges.Count == 1)
             {
-                _current.Title = Nornis.Web.Services.DisplayText.Truncate(question, 48);
+                conversation.Title = Nornis.Web.Services.DisplayText.Truncate(question, 48);
             }
-            _current.UpdatedAt = DateTimeOffset.UtcNow;
-            await SaveHistoryAsync();
+            conversation.UpdatedAt = DateTimeOffset.UtcNow;
+            await SaveHistoryAsync(askedWorldId);
         }
         else
         {
             _error = result.Error!.Message;
             // Discard a conversation that never got its first answer.
-            if (_current.Exchanges.Count == 0)
+            if (conversation.Exchanges.Count == 0)
             {
-                _conversations.Remove(_current);
+                _conversations.Remove(conversation);
                 _current = _conversations.OrderByDescending(c => c.UpdatedAt).FirstOrDefault();
             }
         }
@@ -332,22 +351,26 @@
 
     private async Task ClearConversationAsync()
     {
-        if (_current is null)
+        if (_current is null || Worlds.Current is null)
         {
             return;
         }
+
+        // The dialog is an await like any other, and it can stay open indefinitely.
+        var worldId = Worlds.Current.Id;
+        var conversation = _current;
 
         var confirmed = await DialogService.ShowMessageBox(
             "Delete conversation?",
-            $"Remove \"{_current.Title}\" from your ask history? This cannot be undone.",
+            $"Remove \"{conversation.Title}\" from your ask history? This cannot be undone.",
             yesText: "Delete", cancelText: "Cancel");
-        if (confirmed != true)
+        if (confirmed != true || Worlds.Current?.Id != worldId)
         {
             return;
         }
 
-        _conversations.Remove(_current);
-        await SaveHistoryAsync();
+        _conversations.Remove(conversation);
+        await SaveHistoryAsync(worldId);
         _current = _conversations.OrderByDescending(c => c.UpdatedAt).FirstOrDefault();
         _error = null;
         StateHasChanged();

@@ -251,6 +251,29 @@ public class RevealServiceTests
         Assert.That(_batchRepo.Batches.Single().Kind, Is.EqualTo("Reveal"));
     }
 
+    [Test]
+    public async Task RevealAsync_CorrectionOnAPrivateFact_Returns400()
+    {
+        var voss = SeedArtifact("Captain Voss", VisibilityScope.PartyVisible, ArtifactType.Character);
+        var playersOwn = SeedFact(voss.Id, "suspicion", "I think Voss is lying",
+            VisibilityScope.Private, TruthState.Likely);
+
+        var result = await _sut.RevealAsync(
+            Command(corrections: [new FactCorrection(playersOwn.Id, TruthState.False)]), CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
+            Assert.That(result.Error.Code, Is.EqualTo("cannot_reveal_private"));
+
+            // The rejection has to be whole. Correcting a Private fact would rewrite a
+            // player's own belief and cite a PartyVisible reveal as the reason.
+            Assert.That(CurrentFact(playersOwn.Id).TruthState, Is.EqualTo(TruthState.Likely));
+            Assert.That(_batchRepo.Batches, Is.Empty);
+        });
+    }
+
     // ---- validation ----
 
     [Test]

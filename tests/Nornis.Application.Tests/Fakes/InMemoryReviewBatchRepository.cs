@@ -16,6 +16,27 @@ public class InMemoryReviewBatchRepository : IReviewBatchRepository
         return Task.FromResult(batch);
     }
 
+    /// <summary>
+    /// Enforces IX_ReviewBatches_SourceId_Extraction. A fake that let a second extraction batch
+    /// through would disagree with production about what is possible, and every test asserting
+    /// the loser's behaviour would be asserting against a world that cannot exist.
+    /// </summary>
+    public Task<ReviewBatch?> TryCreateExtractionBatchAsync(
+        ReviewBatch batch, CancellationToken cancellationToken = default)
+    {
+        if (_batches.Any(b => b.SourceId == batch.SourceId
+                              && b.Kind is null
+                              && b.Status is ReviewBatchStatus.Pending
+                                  or ReviewBatchStatus.InReview
+                                  or ReviewBatchStatus.Completed))
+        {
+            return Task.FromResult<ReviewBatch?>(null);
+        }
+
+        _batches.Add(batch);
+        return Task.FromResult<ReviewBatch?>(batch);
+    }
+
     public Task<ReviewBatch?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var batch = _batches.FirstOrDefault(b => b.Id == id);

@@ -205,8 +205,19 @@ public class ExtractionService : IExtractionService
                 $"Source is in {source.ProcessingStatus} status, not Queued.");
         }
 
-        // 4. Transition: Queued → Processing
-        await _sourceRepository.UpdateProcessingStatusAsync(sourceId, SourceProcessingStatus.Processing, ct);
+        // 4. Claim: Queued → Processing, and only from Queued. The check above and this write
+        //    used to be a read followed by an unconditional update, which two deliveries of the
+        //    same message could both pass — losing the race now costs nothing, because the loser
+        //    stops here, before the first paid call. The Processing branch above is a crashed
+        //    run being resumed and is already claimed; the index on ReviewBatches is what stops
+        //    *that* one racing a still-live original.
+        if (source.ProcessingStatus == SourceProcessingStatus.Queued
+            && !await _sourceRepository.TryClaimForExtractionAsync(sourceId, ct))
+        {
+            _logger.LogInformation(
+                "Another delivery already claimed this source for extraction. SourceId={SourceId}", sourceId);
+            return ExtractionOutcome.SkippedIdempotent("Another run already claimed this source.");
+        }
 
         // 4b. Handwritten notes arrive as page images; vision transcription produces the
         // body here, then the normal pipeline continues. The transcription is persisted,
@@ -889,11 +900,28 @@ public class ExtractionService : IExtractionService
             CompletedAt = now
         };
 
-        await _reviewBatchRepository.CreateAsync(batch, ct);
+        if (await _reviewBatchRepository.TryCreateExtractionBatchAsync(batch, ct) is null)
+        {
+            return LostTheBatchRace(source.Id);
+        }
+
         await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Processed, ct);
         await TryAdvanceReplayAsync(worldId, source.Id, ct);
 
         return ExtractionOutcome.Succeeded(batch.Id, 0);
+    }
+
+    /// <summary>
+    /// A concurrent run committed the source's extraction batch first. The winner owns the
+    /// source's status from here, so this run must not touch it — writing Failed would clobber
+    /// a Processed the other run had already earned, and writing Processed would be claiming
+    /// credit for work it rolled back.
+    /// </summary>
+    private ExtractionOutcome LostTheBatchRace(Guid sourceId)
+    {
+        _logger.LogWarning(
+            "A concurrent run already committed this source's extraction batch. SourceId={SourceId}", sourceId);
+        return ExtractionOutcome.SkippedIdempotent("A concurrent run already committed this source's batch.");
     }
 
     /// <summary>An empty batch is born Completed — no review will ever touch it, so a
@@ -1150,7 +1178,14 @@ public class ExtractionService : IExtractionService
                 CompletedAt = now
             };
 
-            await _reviewBatchRepository.CreateAsync(emptyBatch, ct);
+            if (await _reviewBatchRepository.TryCreateExtractionBatchAsync(emptyBatch, ct) is null)
+            {
+                // The call was still made and still billed, so it is still metered — the ledger
+                // records spend, not usefulness.
+                await TrackUsageAsync(source, worldId, response, true, null, ct, null, operationType);
+                return LostTheBatchRace(source.Id);
+            }
+
             await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Processed, ct);
             await TrackUsageAsync(source, worldId, response, true, null, ct, emptyBatch.Id, operationType);
             await TryAdvanceReplayAsync(worldId, source.Id, ct);
@@ -1159,7 +1194,7 @@ public class ExtractionService : IExtractionService
         }
 
         // Atomic creation: ReviewBatch + ReviewProposals + SourceReferences
-        Guid batchId;
+        Guid? batchId;
         try
         {
             batchId = await CreateProposalsAtomicallyAsync(source, worldId, response, now, ct);
@@ -1174,16 +1209,29 @@ public class ExtractionService : IExtractionService
                 "Failed to persist proposals: " + ex.Message);
         }
 
+        // Null is a lost race, not a failure, and the difference matters at exactly this line:
+        // the catch above marks the source Failed, which for a loser would overwrite the
+        // Processed the winner just wrote and report a working extraction as broken.
+        if (batchId is null)
+        {
+            await TrackUsageAsync(source, worldId, response, true, null, ct, null, operationType);
+            return LostTheBatchRace(source.Id);
+        }
+
         // Transition source to Processed
         await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Processed, ct);
 
         // Track usage OUTSIDE the proposal transaction (persists even on rollback)
         await TrackUsageAsync(source, worldId, response, true, null, ct, batchId, operationType);
 
-        return ExtractionOutcome.Succeeded(batchId, response.Proposals.Count);
+        return ExtractionOutcome.Succeeded(batchId.Value, response.Proposals.Count);
     }
 
-    private async Task<Guid> CreateProposalsAtomicallyAsync(
+    /// <summary>
+    /// Returns the new batch's id, or null when another run committed this source's extraction
+    /// batch first — a rollback with nothing lost, not an error.
+    /// </summary>
+    private async Task<Guid?> CreateProposalsAtomicallyAsync(
         Source source, Guid worldId, AiExtractionResponse response,
         DateTimeOffset now, CancellationToken ct)
     {
@@ -1200,7 +1248,11 @@ public class ExtractionService : IExtractionService
                 CreatedAt = now
             };
 
-            await _reviewBatchRepository.CreateAsync(batch, ct);
+            if (await _reviewBatchRepository.TryCreateExtractionBatchAsync(batch, ct) is null)
+            {
+                await transaction.RollbackAsync(ct);
+                return null;
+            }
 
             foreach (var proposal in response.Proposals)
             {

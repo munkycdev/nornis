@@ -209,6 +209,38 @@ public class SourceAttachmentService : ISourceAttachmentService
                 "The file has not arrived in storage — upload it to the provided URL, then confirm."));
         }
 
+        // RequestUploadAsync capped a number the client sent. This caps the file, which is a
+        // different thing: the SAS in between is Create|Write, so the uploader decides what
+        // lands. Page images and documents are derivation inputs the worker reads whole into
+        // RAM, so an unchecked blob here is an OOM switch for the extraction pipeline.
+        if (metadata.SizeBytes > MaxAttachmentSizeBytes)
+        {
+            _logger.LogWarning(
+                "Discarding oversized attachment at {BlobPath}: {SizeBytes} bytes against a {MaxBytes} byte cap",
+                attachment.BlobPath, metadata.SizeBytes, MaxAttachmentSizeBytes);
+
+            // Delete only what was never anyone's data. A PendingUpload blob is an in-flight
+            // upload that failed validation, so discarding it costs nothing; the ink document
+            // re-confirms while already Stored, and it is read by the browser that drew it and
+            // by nothing on the server — deleting that would destroy a canvas to protect a
+            // pipeline it never enters.
+            if (attachment.Status == SourceAttachmentStatus.PendingUpload)
+            {
+                try
+                {
+                    await _blobStorage.DeleteBlobAsync(attachment.BlobPath, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to delete oversized attachment at {BlobPath}", attachment.BlobPath);
+                }
+            }
+
+            return AppResult<SourceAttachment>.Fail(new AppError(400, "upload_too_large",
+                $"The uploaded file is {metadata.SizeBytes / (1024 * 1024)} MB, over the "
+                + $"{MaxAttachmentSizeBytes / (1024 * 1024)} MB limit."));
+        }
+
         attachment.SizeBytes = metadata.SizeBytes;
         attachment.Status = SourceAttachmentStatus.Stored;
         attachment.UpdatedAt = DateTimeOffset.UtcNow;

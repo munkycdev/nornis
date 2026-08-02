@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Application;
 using Nornis.Application.Errors;
@@ -185,6 +185,15 @@ public class RevealService : IRevealService
             if (await RecordArtifactVisibilityAsync(fact.ArtifactId) is { } parentError)
             {
                 return AppResult<RevealResult>.Fail(parentError);
+            }
+
+            // Same guard the three promotion steps above apply, and for a stronger reason:
+            // those would only widen a Private fact's audience, while a correction rewrites
+            // its truth state and files a PartyVisible reveal as the provenance. Reveal is
+            // the GM-knowledge instrument; a player's Private fact is not its business.
+            if (PrivateGuard(fact.Visibility, "fact", correction.FactId) is { } priv)
+            {
+                return AppResult<RevealResult>.Fail(priv);
             }
 
             corrections.Add(correction);

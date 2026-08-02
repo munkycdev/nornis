@@ -11,6 +11,15 @@ public interface IReviewBatchRepository
 {
     Task<ReviewBatch> CreateAsync(ReviewBatch batch, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Creates the one extraction batch a source is allowed, or returns null when another run
+    /// already committed it. Separate from <see cref="CreateAsync"/> because it is a different
+    /// verb: a conditional insert whose condition the database enforces, for the only batch
+    /// kind that is one-per-source. Every other batch kind is free to repeat and keeps using
+    /// <see cref="CreateAsync"/>.
+    /// </summary>
+    Task<ReviewBatch?> TryCreateExtractionBatchAsync(ReviewBatch batch, CancellationToken cancellationToken = default);
+
     Task<ReviewBatch?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>The batches for the given ids, one query. Unknown ids are simply absent.</summary>

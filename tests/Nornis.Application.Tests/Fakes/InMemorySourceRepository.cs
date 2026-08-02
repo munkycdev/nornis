@@ -223,6 +223,41 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Simulates another worker winning the claim in the instant between this caller's read and
+    /// its write — the race itself, which a single-threaded fake cannot otherwise stage.
+    /// </summary>
+    public bool StealNextExtractionClaim { get; set; }
+
+    /// <summary>
+    /// Enforces the same Queued-only condition the real UPDATE ... WHERE does, so a test cannot
+    /// see a claim succeed here that the database would have rejected. The atomicity is not
+    /// reproduced and does not need to be — the fake is single-threaded.
+    /// </summary>
+    public Task<bool> TryClaimForExtractionAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (StealNextExtractionClaim)
+        {
+            StealNextExtractionClaim = false;
+            var stolen = _sources.FirstOrDefault(s => s.Id == id);
+            if (stolen is not null)
+            {
+                stolen.ProcessingStatus = SourceProcessingStatus.Processing;
+            }
+            return Task.FromResult(false);
+        }
+
+        var source = _sources.FirstOrDefault(s => s.Id == id);
+        if (source is null || source.ProcessingStatus != SourceProcessingStatus.Queued)
+        {
+            return Task.FromResult(false);
+        }
+
+        _statusTransitions.Add((id, source.ProcessingStatus, SourceProcessingStatus.Processing));
+        source.ProcessingStatus = SourceProcessingStatus.Processing;
+        return Task.FromResult(true);
+    }
+
     public Task UpdateVisibilityAsync(Guid id, VisibilityScope visibility, CancellationToken cancellationToken = default)
     {
         var source = _sources.FirstOrDefault(s => s.Id == id);

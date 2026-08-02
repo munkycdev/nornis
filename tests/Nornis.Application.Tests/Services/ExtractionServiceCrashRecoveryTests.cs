@@ -156,6 +156,58 @@ public class ExtractionServiceCrashRecoveryTests
     }
 
     [Test]
+    public async Task QueuedSource_ClaimedByAnotherDelivery_SkipsBeforeSpendingAnything()
+    {
+        var source = SeedSource(SourceProcessingStatus.Queued);
+
+        // The window this closes: both deliveries read Queued, and the status write used to be
+        // unconditional, so both walked into a full paid pass. The steal reproduces the other
+        // worker winning the UPDATE ... WHERE in the instant between this run's read and write.
+        _sourceRepository.StealNextExtractionClaim = true;
+
+        var outcome = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Skipped));
+            Assert.That(_aiClient.CallCount, Is.EqualTo(0), "the loser must stop before the first paid call");
+            Assert.That(_reviewBatchRepository.Batches, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task ResumedRun_LosingTheBatchRace_SkipsAndLeavesTheWinnersStatusAlone()
+    {
+        // The redelivery half, which no claim can catch: a run whose lock lapsed is genuinely
+        // still working, so the redelivered message finds Processing with no batch and resumes.
+        // Both then run to completion — the AI spend is already lost — and the index decides
+        // which one gets to commit.
+        var source = SeedSource(SourceProcessingStatus.Processing);
+        _aiClient.OnCall = () => _reviewBatchRepository.CreateAsync(new ReviewBatch
+        {
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            SourceId = source.Id,
+            Status = ReviewBatchStatus.Pending,
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+
+        var outcome = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Skipped));
+            Assert.That(_reviewBatchRepository.Batches, Has.Count.EqualTo(1),
+                "one source, one extraction batch, however many runs got that far");
+
+            // The winner owns the status. Failed would report a working extraction as broken,
+            // and Processed would be this run claiming credit for a batch it rolled back.
+            Assert.That(_sourceRepository.StatusTransitions.Select(t => t.To),
+                Does.Not.Contain(SourceProcessingStatus.Failed));
+        });
+    }
+
+    [Test]
     public async Task QueuedSource_WithExistingBatch_StillSkipsWithoutStatusChange()
     {
         var source = SeedSource(SourceProcessingStatus.Queued);

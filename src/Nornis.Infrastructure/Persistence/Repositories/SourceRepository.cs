@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
@@ -263,6 +263,37 @@ public class SourceRepository : ISourceRepository
 
     public Task UpdateDerivedTextAsync(Guid id, string? derivedText, CancellationToken cancellationToken = default) =>
         MutateAsync(id, source => source.DerivedText = derivedText, cancellationToken);
+
+    public async Task<bool> TryClaimForExtractionAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        // Not MutateAsync: that one loads, mutates and saves, which is the read-then-write
+        // window two workers can both pass through. The predicate here *is* the lock — one
+        // UPDATE ... WHERE decides the winner inside the database, exactly as in
+        // WorldRepository.TryClaimContinuityAuditAsync. Losing costs nothing; winning twice
+        // costs two full extractions and two batches for one source.
+        if (_context.Database.IsRelational())
+        {
+            var affected = await _context.Sources
+                .Where(s => s.Id == id && s.ProcessingStatus == SourceProcessingStatus.Queued)
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(s => s.ProcessingStatus, SourceProcessingStatus.Processing),
+                    cancellationToken);
+
+            return affected == 1;
+        }
+
+        // InMemory (API integration tests) has no ExecuteUpdate. Single-threaded there, so a
+        // read-modify-write reproduces the observable contract without the atomicity.
+        var source = await _context.Sources.FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+        if (source is null || source.ProcessingStatus != SourceProcessingStatus.Queued)
+        {
+            return false;
+        }
+
+        source.ProcessingStatus = SourceProcessingStatus.Processing;
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
 
     /// <summary>
     /// Loads the row tracked, applies one column, saves. Four scoped writers were this same

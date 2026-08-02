@@ -136,6 +136,52 @@ public class LibraryServiceTests
     }
 
     [Test]
+    public async Task ConfirmUpload_BlobBiggerThanTheCap_IsRejectedAndDiscarded()
+    {
+        // The cap moves rather than the file: a real 200 MB blob would cost the suite 200 MB
+        // to prove a comparison. What matters is that the *blob* is measured, not the number
+        // the client sent — the client's number passed validation at request time.
+        var sut = new LibraryService(_documents, _chunks, _blobs, _queue,
+            Options.Create(new LibraryOptions { MaxUploadSizeBytes = 1024 }),
+            NullLogger<LibraryService>.Instance);
+        var ticket = (await sut.RequestUploadAsync(Command(size: 512), CancellationToken.None)).Value!;
+        _blobs.Blobs[ticket.Document.BlobPath] = (new byte[4096], "application/pdf");
+
+        var result = await sut.ConfirmUploadAsync(ticket.Document.Id, WorldId, GmId, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo("upload_too_large"));
+
+            // The blob is the hazard — the indexing pipeline reads a whole document into RAM,
+            // so leaving it would leave an OOM switch a member could pull on a loop.
+            Assert.That(_blobs.DeletedPaths, Does.Contain(ticket.Document.BlobPath));
+            Assert.That(_queue.Sent, Is.Empty);
+
+            // Back to indistinguishable from an upload that never arrived.
+            Assert.That(_documents.Documents.Single().Status, Is.EqualTo(LibraryDocumentStatus.PendingUpload));
+        });
+    }
+
+    [Test]
+    public async Task ConfirmUpload_BlobDeleteFails_StillRejects()
+    {
+        var sut = new LibraryService(_documents, _chunks, _blobs, _queue,
+            Options.Create(new LibraryOptions { MaxUploadSizeBytes = 1024 }),
+            NullLogger<LibraryService>.Instance);
+        var ticket = (await sut.RequestUploadAsync(Command(size: 512), CancellationToken.None)).Value!;
+        _blobs.Blobs[ticket.Document.BlobPath] = (new byte[4096], "application/pdf");
+        _blobs.FailDeletes = true;
+
+        var result = await sut.ConfirmUploadAsync(ticket.Document.Id, WorldId, GmId, CancellationToken.None);
+
+        // Cleanup is best-effort; the rejection is not. A storage blip must not be a way to
+        // get an oversized document confirmed.
+        Assert.That(result.Error!.Code, Is.EqualTo("upload_too_large"));
+    }
+
+    [Test]
     public async Task ConfirmUpload_EnqueueFails_FallsBackToStoredWith502()
     {
         var ticket = (await _sut.RequestUploadAsync(Command(), CancellationToken.None)).Value!;

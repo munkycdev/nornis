@@ -143,6 +143,13 @@ public interface ISourceRepository
 
     Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Queued → Processing, but only from Queued: true means this caller owns the extraction,
+    /// false means someone else already claimed it. Two deliveries of the same message can
+    /// both read Queued, and an unconditional write lets both proceed into a full paid pass.
+    /// </summary>
+    Task<bool> TryClaimForExtractionAsync(Guid id, CancellationToken cancellationToken = default);
+
     /// <summary>Scoped Visibility write — the sanctioned reveal path lifts a GM-only source to
     /// PartyVisible without routing through the general update, which locks visibility after
     /// extraction.</summary>
