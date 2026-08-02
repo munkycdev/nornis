@@ -459,6 +459,32 @@ public class ImportSessionServiceTests
     }
 
     [Test]
+    public async Task Advance_SkipWhileStillExtracting_IsRefused()
+    {
+        // Skipping used to bypass the readiness check, so skipping a note the worker was
+        // mid-way through queued the next one alongside it — two extractions at once, in
+        // the one feature that exists to keep them serial.
+        var session = await NewSessionAsync();
+        await AddNoteAsync(session.Id, "Session 1");
+        await AddNoteAsync(session.Id, "Session 2");
+        await _sut.StartAsync(WorldId, session.Id, GmId, WorldRole.GM, CancellationToken.None);
+
+        // First note is Extracting: started, nothing reported back yet.
+        var sentBefore = _queue.SentMessages.Count;
+
+        var result = await _sut.AdvanceAsync(
+            WorldId, session.Id, skipCurrent: true, expectedItemId: null, GmId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo("item_not_ready"));
+            Assert.That(_queue.SentMessages, Has.Count.EqualTo(sentBefore),
+                "nothing may be dispatched while the current note is still extracting");
+        });
+    }
+
+    [Test]
     public async Task Advance_SkipCurrent_PassesOverAndQueuesTheNext()
     {
         var session = await NewSessionAsync();
