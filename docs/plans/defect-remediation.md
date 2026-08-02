@@ -260,7 +260,18 @@ changes that item's priority, not its shape.
   extracts normally but checks and bills the *wrong world's* budget silently. Fix:
   assert world consistency at pipeline entry (and standardize worldId-first parameter
   order — both orders currently exist across sibling interfaces).
-- **A dead queue processor looks healthy forever.** `StartProcessingAsync` is called
+- ~~**A dead queue processor looks healthy forever.**~~ **Fixed 2026-08-01.** Both queue
+  workers now start through `ProcessorStartup.StartWithRetryAsync` — exponential backoff
+  capped at two minutes, retrying until it starts or shutdown cancels.
+  - Retrying forever is deliberate: there is no useful "give up" for a queue processor. If
+    the namespace returns in ten minutes the right behaviour is to start consuming.
+  - The start delegate is passed in rather than the processor, because
+    `ServiceBusExtractionProcessor` is sealed with non-virtual methods and could not be
+    faked. That also made the retry itself testable without any Service Bus at all.
+  - The second half of the spec item — "surface processor liveness" — is covered by the
+    worker heartbeat from the System status plan, which is already live.
+
+- **(original diagnosis)** A dead queue processor looks healthy forever. `StartProcessingAsync` is called
   once with no retry (`ExtractionWorker.cs:38`), exceptions are ignored by design, and
   the worker exposes no health surface — a Service Bus blip at boot silently halts
   extraction until the next deploy. Fix: retry with backoff; surface processor

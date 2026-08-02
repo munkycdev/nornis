@@ -35,7 +35,11 @@ public sealed class ExtractionWorker : BackgroundService
         _processor.ProcessMessageAsync += ProcessMessageAsync;
         _processor.ProcessErrorAsync += ProcessErrorAsync;
 
-        await _processor.StartProcessingAsync(stoppingToken);
+        if (!await ProcessorStartup.StartWithRetryAsync(
+                _processor.StartProcessingAsync, "source-extraction", _logger, stoppingToken))
+        {
+            return;
+        }
 
         _logger.LogInformation("ExtractionWorker started, listening for messages on source-extraction queue");
 
