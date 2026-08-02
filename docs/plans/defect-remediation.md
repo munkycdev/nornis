@@ -379,7 +379,21 @@ changes that item's priority, not its shape.
   503 at first use surfaces as raw `RequestFailedException`, which the classifier
   can't type-match, wrongly marking documents IndexFailed. Fix: async lazy init
   inside the first operation, wrapped in the same translation as `OpenReadAsync`.
-- **Paid tokens from failed attempts go unmetered.** Embedding retries re-pay
+- ~~**Paid tokens from failed attempts go unmetered.**~~ **Fixed 2026-08-01**, both halves.
+  - **Parse failures.** `AiParseException` now carries the usage its attempt was billed
+    for, attached where `result.Usage` is already in scope, and the extraction and map
+    retry loops record one row per attempt. A model needing three tries costs three times;
+    the guard used to see nothing.
+  - **Embedding retries.** `totalTokens` moved out of the `try` so the catches can meter
+    what was already spent. The transient path recorded nothing at all — and it is the path
+    that redelivers and re-embeds the whole document — while the general catch hard-coded
+    `0`, discarding every batch completed before the failure.
+  - Both recording paths swallow their own errors: metering must never turn a retryable
+    failure into a lost extraction.
+  - The shape worth remembering: every one of these undercounted *only* on failure, so the
+    ledger looked right in normal use and drifted exactly when a model was misbehaving and
+    retrying — the moment the budget guard is the thing standing between you and a bill.
+- **(original)** Paid tokens from failed attempts go unmetered. Embedding retries re-pay
   unrecorded batches; parse-failure responses record zero tokens. The guard
   undercounts exactly when spend is roughest. Fix: attach usage to parse exceptions;
   record per attempt.

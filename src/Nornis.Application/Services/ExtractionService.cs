@@ -487,6 +487,10 @@ public class ExtractionService : IExtractionService
                 _logger.LogWarning(ex,
                     "Map extraction parse failed on attempt {Attempt}/{MaxAttempts}. SourceId={SourceId}",
                     attempt, maxAttempts, source.Id);
+
+                await RecordAttemptUsageAsync(
+                    source, worldId, ex.Usage, ErrorCategories.ParseFailure, ct,
+                    AiOperationType.MapExtraction);
             }
             catch (AiTimeoutException ex)
             {
@@ -1057,6 +1061,13 @@ public class ExtractionService : IExtractionService
                 _logger.LogWarning(ex,
                     "AI response parse failed on attempt {Attempt}/{MaxAttempts}. SourceId={SourceId}",
                     attempt, maxAttempts, source.Id);
+
+                // Metered per attempt, not once at the end. Unparseable output is still paid
+                // output, and a model that needs three tries costs three times — which the
+                // daily budget guard used to see as nothing at all, precisely when spend was
+                // roughest. Recorded here rather than after the loop so the row count matches
+                // the call count.
+                await RecordAttemptUsageAsync(source, worldId, ex.Usage, ErrorCategories.ParseFailure, ct);
             }
             catch (AiTimeoutException ex)
             {
@@ -1233,6 +1244,29 @@ public class ExtractionService : IExtractionService
         {
             await transaction.RollbackAsync(ct);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// One ledger row for one paid call, whether or not its output could be used. Failures
+    /// here are swallowed: metering must never be the thing that turns a retryable parse
+    /// failure into a lost extraction.
+    /// </summary>
+    private async Task RecordAttemptUsageAsync(
+        Source source, Guid worldId, AiUsage? usage, string errorCode, CancellationToken ct,
+        AiOperationType operationType = AiOperationType.SourceExtraction)
+    {
+        try
+        {
+            await _usageRecorder.RecordAsync(
+                worldId, null, operationType, usage,
+                succeeded: false, errorCode: errorCode, sourceId: source.Id,
+                fallbackModel: _options.AiModel, ct: ct);
+        }
+        catch (Exception recordEx)
+        {
+            _logger.LogWarning(recordEx,
+                "Failed to record usage for a failed extraction attempt. SourceId={SourceId}", source.Id);
         }
     }
 

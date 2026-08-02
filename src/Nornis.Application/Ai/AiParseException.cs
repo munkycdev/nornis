@@ -8,6 +8,15 @@ namespace Nornis.Application.Ai;
 /// </summary>
 public class AiParseException : Exception
 {
+    /// <summary>
+    /// Tokens the provider billed for the attempt that failed to parse, when the caller had
+    /// them in scope. Unparseable output is still paid output: recording zero here made the
+    /// daily budget guard undercount exactly when a model was misbehaving and every attempt
+    /// was being retried — the moment spend is roughest and the guard matters most.
+    /// Null when the failure happened before any usage was reported.
+    /// </summary>
+    public AiUsage? Usage { get; init; }
+
     public AiParseException(string message)
         : base(message)
     {

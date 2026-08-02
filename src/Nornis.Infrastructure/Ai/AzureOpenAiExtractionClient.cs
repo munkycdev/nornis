@@ -89,7 +89,11 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
         catch (JsonException ex)
         {
             _logger.LogError(ex, "Failed to parse AI structured output response");
-            throw new AiParseException("Failed to parse AI structured output response.", ex);
+            // Carry the tokens this attempt was billed for; the retry loop meters them.
+            throw new AiParseException("Failed to parse AI structured output response.", ex)
+            {
+                Usage = result.Usage
+            };
         }
     }
 
