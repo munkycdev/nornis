@@ -218,7 +218,15 @@ changes that item's priority, not its shape.
   payload between the caps is Pending forever; every accept fails `payload_too_large`.
   Fix: one shared cap constant; run `IProposalValidator` at extraction time, treating
   failures as parse-retryable.
-- **Skipping an in-flight import note starts a concurrent extraction.**
+- ~~**Skipping an in-flight import note starts a concurrent extraction.**~~ **Fixed
+  2026-08-01.** Skip now refuses while the current item is `Extracting`, returning the same
+  `item_not_ready` the non-skip path uses.
+  - Only `Extracting` blocks. `Reviewing` and `Failed` stay skippable — those are the GM
+    declining to finish something that has already stopped moving, which is what skip is
+    for. Blocking those would have broken the feature to fix the bug.
+  - Verified by removing the guard and watching the test fail.
+
+- **(original diagnosis)** Skipping an in-flight import note starts a concurrent extraction.
   `ImportSessionService.AdvanceAsync` (:462-468) never checks the current item's
   state before dispatching the next — defeating the serialization this feature exists
   to provide. Fix: refuse skip while Extracting, mirroring `item_not_ready`.

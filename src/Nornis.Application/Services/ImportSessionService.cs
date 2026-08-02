@@ -461,6 +461,17 @@ public class ImportSessionService : IImportSessionService
 
         if (skipCurrent)
         {
+            // Skipping used to bypass the state check below entirely, so skipping a note the
+            // worker was mid-way through dispatched the next one alongside it — two
+            // extractions at once, in a feature whose whole purpose is that they run one at
+            // a time. Reviewing and Failed stay skippable: those are the GM choosing not to
+            // finish something that has already stopped moving.
+            if (current.State == ImportItemState.Extracting)
+            {
+                return AppResult<ImportSessionInfo>.Fail(new AppError(409, "item_not_ready",
+                    $"“{current.Title}” is still extracting. Wait for it to finish before skipping it."));
+            }
+
             await _sessionRepository.SetItemSkippedAsync(current.Id, true, ct);
             _logger.LogInformation(
                 "Import item skipped. SessionId={SessionId}, ItemId={ItemId}, SourceId={SourceId}, State={State}",
