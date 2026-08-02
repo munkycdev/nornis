@@ -198,7 +198,21 @@ changes that item's priority, not its shape.
   `NavMenu.RefreshActivityAsync:404-415` and `Home.RunAssessment:450` already
   implement the guard — apply that three-line pattern at each site. Absorbs scrub
   1.10's LibraryDocumentDetail reload item.
-- **Extraction can persist proposals that can never be accepted.** `EnforceVisibility`
+- **Extraction can persist proposals that can never be accepted.** **Partly fixed
+  2026-08-01 — read the second bullet before assuming this is closed.**
+  - Done: one cap. `ProposalValidator.MaxJsonLength` is now public and extraction builds
+    against it, so the 50,000/32,768 gap that made a whole size range permanently
+    unacceptable is gone. Truncation is gone with it — cutting JSON at a fixed length
+    slices mid-token and guarantees a payload that cannot deserialize, so an oversized
+    value now throws, rolls the batch back, and fails the source with a reason instead of
+    storing something nobody can accept.
+  - **Not done:** running `IProposalValidator` over each payload at extraction time.
+    That needs the validator injected into `ExtractionService` and pre-flight validation
+    ahead of `CreateProposalsAtomicallyAsync` so a schema failure lands in the existing
+    parse-retry loop rather than the persist catch. Schema-invalid payloads can still be
+    stored Pending today; only the size class is closed.
+
+- **(original diagnosis)** Extraction can persist proposals that can never be accepted. `EnforceVisibility`
   truncates payloads at 50,000 chars (guaranteeing invalid JSON when it fires) while
   the validator caps at 32,768 — and extraction never runs the validator at all. A
   payload between the caps is Pending forever; every accept fails `payload_too_large`.

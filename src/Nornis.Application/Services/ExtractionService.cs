@@ -8,6 +8,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Storage;
+using Nornis.Application.Validation;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
@@ -1449,24 +1450,34 @@ public class ExtractionService : IExtractionService
             }
 
             var result = node?.ToJsonString() ?? json;
-
-            // Enforce max length of 50,000 characters
-            if (result.Length > 50_000)
-            {
-                result = result[..50_000];
-            }
-
+            EnsureWithinCap(result);
             return result;
+        }
+        catch (AiParseException)
+        {
+            throw;
         }
         catch
         {
-            // If we can't parse, just serialize and enforce the limit
-            if (json.Length > 50_000)
-            {
-                json = json[..50_000];
-            }
-
+            EnsureWithinCap(json);
             return json;
+        }
+    }
+
+    /// <summary>
+    /// Rejects an oversized payload instead of trimming it. The old code cut the string at
+    /// a fixed length, which for JSON means slicing mid-token and guaranteeing a payload
+    /// that can never deserialize — and it cut at 50,000 while the accept path refused
+    /// anything over <see cref="ProposalValidator.MaxJsonLength"/>, so the survivors were
+    /// unacceptable anyway. Throwing rolls the batch back and fails the source with a
+    /// reason, which is recoverable; a stored proposal nobody can ever accept is not.
+    /// </summary>
+    private static void EnsureWithinCap(string json)
+    {
+        if (json.Length > ProposalValidator.MaxJsonLength)
+        {
+            throw new AiParseException(
+                $"Proposed value is {json.Length} characters, over the {ProposalValidator.MaxJsonLength} limit.");
         }
     }
 

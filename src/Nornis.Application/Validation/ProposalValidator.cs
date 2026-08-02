@@ -11,7 +11,13 @@ namespace Nornis.Application.Validation;
 /// </summary>
 public sealed class ProposalValidator : IProposalValidator
 {
-    private const int MaxJsonLength = 32_768;
+    /// <summary>
+    /// The one cap. Public because extraction must build payloads against the same number
+    /// the accept path enforces — when they disagreed (50,000 there, 32,768 here) anything
+    /// in between was persisted Pending and then failed payload_too_large on every accept,
+    /// forever.
+    /// </summary>
+    public const int MaxJsonLength = 32_768;
 
     public AppResult ValidateProposedValue(string json, ReviewChangeType changeType)
     {
