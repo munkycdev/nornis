@@ -1,4 +1,4 @@
-# Implementation scrub plan
+﻿# Implementation scrub plan
 
 > Part of the Nornis backlog. This file is a spec, not authorization: execute only
 > through the Execution order in `docs/future-features.md`, which holds sequencing,
@@ -224,15 +224,33 @@ Same decision made two or three ways across sibling files. Pick once, apply ever
   returns, ReviewBatchRepository uses bare `FirstAsync`, deletes no-op in two shapes.
   Decide per-verb (mutations throw, deletes no-op is a defensible pair), document it on
   the Domain interfaces, and align the implementations.
-- **GM-gating seam** **[auth]**: three styles today (inline in four controllers, a
-  `RequireGm()` helper in one, service-layer-only in the documented majority). Adopt
-  the service-layer pattern everywhere; keep the one documented defense-in-depth site
-  (WorldMembersController.ListAddable); delete the rest of the inline checks and their
-  slightly-differently-worded duplicate messages.
-- **Trust the filter**: SourceService-style `ActingUserRole` on the command everywhere,
-  instead of WorldsController/WorldMemberService/WorldInviteService re-fetching the
-  membership row the action filter already resolved (up to three identical queries per
-  request today).
+- ~~**GM-gating seam** **[auth]**~~ **Done 2026-08-02.** Sixteen of seventeen inline checks
+  gone; `ListAddable` keeps its one, now commented as deliberate.
+  - **"Delete the rest of the inline checks" would have opened five holes.** Five were not
+    duplicates: HealthController's four gates and StorylinesController's one were the *only*
+    enforcement, because `IContinuityAuditService` and `IContinuityFixService` took no role
+    at all. They moved into the services instead. StorylineContinuityService is the one to
+    remember — it already *took* the role and passed it to a visibility-filtering reader, so
+    deleting the controller check would have served players a player-shaped continuity report
+    rather than a refusal. Verify what is behind a check before calling it a duplicate.
+  - `RunAssessmentAsync` takes a **nullable** role: the background trigger runs for no user,
+    which the nullable `userId` beside it already said.
+- ~~**Trust the filter**~~ **Done 2026-08-02** across WorldService, WorldDeletionService,
+  WorldExportService, WorldInviteService and WorldMemberService.
+  - **What it costs, recorded so nobody rediscovers it in an incident:** those services no
+    longer verify membership independently. They trust `WorldMemberActionFilter`, which is
+    **opt-in per controller**. That invariant was previously unenforced;
+    `WorldMemberFilterCoverageTests` now asserts every `{worldId}`-routed controller carries
+    the filter, plus a second test proving the reflection sweep still matches something.
+  - Two service-level non-member tests moved with the responsibility, and one storyline
+    visibility test was retargeted at `StorylineDevelopmentReader` — the layer that actually
+    filters — because the service above it no longer answers a player.
+  - **Membership-existence checks were left alone**: `ListMembersAsync` and
+    `WorldService.GetByIdAsync` still ask whether the caller is a member at all. That is a
+    narrower question than role gating, on read paths, and deserves its own decision.
+  - Watch for adjacent same-typed role parameters. `CreateInviteCommand` nearly ended up with
+    `ActingUserRole` beside the invited `Role` — a swap no compiler catches and no test
+    notices, since both are valid roles. Renamed to `InvitedRole`, acting role moved last.
 - **Options classes**: `public const string SectionName` on all seven, not four; hosts
   bind by the constant.
 - ~~**Persisted enums**: explicit values on all of them, not just the three newest.~~
