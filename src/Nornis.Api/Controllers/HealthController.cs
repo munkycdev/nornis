@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
@@ -30,13 +30,9 @@ public class HealthController : ControllerBase
     [HttpPost("assess")]
     public async Task<IActionResult> Assess(Guid worldId, CancellationToken ct)
     {
-        if (RequireGm() is { } forbidden)
-        {
-            return forbidden;
-        }
-
         var user = HttpContext.GetNornisUser();
-        var result = await _auditService.RunAssessmentAsync(worldId, user.Id, ct);
+        var member = HttpContext.GetWorldMember();
+        var result = await _auditService.RunAssessmentAsync(worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -50,12 +46,8 @@ public class HealthController : ControllerBase
     [HttpGet("assessment")]
     public async Task<IActionResult> GetAssessment(Guid worldId, CancellationToken ct)
     {
-        if (RequireGm() is { } forbidden)
-        {
-            return forbidden;
-        }
-
-        var result = await _auditService.GetLatestAsync(worldId, ct);
+        var member = HttpContext.GetWorldMember();
+        var result = await _auditService.GetLatestAsync(worldId, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -69,12 +61,8 @@ public class HealthController : ControllerBase
     [HttpPost("findings/{findingId:guid}/dismiss")]
     public async Task<IActionResult> DismissFinding(Guid worldId, Guid findingId, CancellationToken ct)
     {
-        if (RequireGm() is { } forbidden)
-        {
-            return forbidden;
-        }
-
-        var result = await _auditService.DismissFindingAsync(worldId, findingId, ct);
+        var member = HttpContext.GetWorldMember();
+        var result = await _auditService.DismissFindingAsync(worldId, findingId, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -91,13 +79,9 @@ public class HealthController : ControllerBase
     [HttpPost("findings/{findingId:guid}/draft-fix")]
     public async Task<IActionResult> DraftFix(Guid worldId, Guid findingId, CancellationToken ct)
     {
-        if (RequireGm() is { } forbidden)
-        {
-            return forbidden;
-        }
-
         var user = HttpContext.GetNornisUser();
-        var result = await _fixService.DraftFixAsync(worldId, findingId, user.Id, ct);
+        var member = HttpContext.GetWorldMember();
+        var result = await _fixService.DraftFixAsync(worldId, findingId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -106,16 +90,6 @@ public class HealthController : ControllerBase
 
         var draft = result.Value!;
         return Ok(new DraftFixResponse(draft.BatchId, draft.SourceId, draft.ProposalCount));
-    }
-
-    private IActionResult? RequireGm()
-    {
-        var member = HttpContext.GetWorldMember();
-        if (member.Role != WorldRole.GM)
-        {
-            return StatusCode(403, new ErrorResponse("insufficient_role", "Only GMs can run continuity assessments."));
-        }
-        return null;
     }
 
     private static ContinuityAssessmentResponse ToResponse(ContinuityAssessment a) =>

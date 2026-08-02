@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
@@ -44,9 +44,8 @@ public class WorldExportService : IWorldExportService
 
     public async Task<AppResult<WorldExportResult>> ExportAsync(ExportWorldCommand command, CancellationToken ct)
     {
-        var member = await _worldMemberRepository.GetByWorldAndUserAsync(command.WorldId, command.ActingUserId, ct);
-
-        if (member is null || !member.Role.IsAtLeast(WorldRole.GM))
+        // See WorldDeletionService: the filter resolved membership already.
+        if (!command.ActingUserRole.IsAtLeast(WorldRole.GM))
         {
             return AppResult<WorldExportResult>.Fail(new AppError(403, "insufficient_role", "Only a GM can export a world."));
         }

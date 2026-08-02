@@ -58,7 +58,7 @@ public class WorldServiceTemplateFlagTests
     }
 
     private UpdateWorldCommand Command(bool? isTemplate) =>
-        new(_world.Id, null, null, null, _gmId, IsTemplate: isTemplate);
+        new(_world.Id, null, null, null, _gmId, WorldRole.GM, IsTemplate: isTemplate);
 
     [Test]
     public async Task Update_SetsTemplateFlag_WithoutTouchingIsDemo()
@@ -111,7 +111,7 @@ public class WorldServiceTemplateFlagTests
         });
 
         var result = await _sut.UpdateAsync(
-            new UpdateWorldCommand(_world.Id, null, null, null, playerId, IsTemplate: true),
+            new UpdateWorldCommand(_world.Id, null, null, null, playerId, WorldRole.Player, IsTemplate: true),
             CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);

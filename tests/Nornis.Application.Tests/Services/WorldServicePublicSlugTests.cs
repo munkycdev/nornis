@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
@@ -46,7 +46,7 @@ public class WorldServicePublicSlugTests
     }
 
     private UpdateWorldCommand Command(string? slug = null, bool? enabled = null) =>
-        new(_world.Id, null, null, null, _gmId, PublicSlug: slug, PublicAccessEnabled: enabled);
+        new(_world.Id, null, null, null, _gmId, WorldRole.GM, PublicSlug: slug, PublicAccessEnabled: enabled);
 
     [Test]
     public async Task Update_ValidSlug_NormalizesToLowercase()

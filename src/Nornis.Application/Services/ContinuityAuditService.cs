@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
@@ -121,8 +121,17 @@ public class ContinuityAuditService : IContinuityAuditService
     }
 
     public async Task<AppResult<ContinuityAssessment>> RunAssessmentAsync(
-        Guid worldId, Guid? userId, CancellationToken ct)
+        Guid worldId, Guid? userId, WorldRole? actingUserRole, CancellationToken ct)
     {
+        // GM-only, enforced here rather than in HealthController — which is where all four of
+        // these gates used to live as the only copy. Null means the background trigger, which
+        // runs on a schedule for no user at all; the nullable userId beside it says the same.
+        if (actingUserRole is not null && actingUserRole != WorldRole.GM)
+        {
+            return AppResult<ContinuityAssessment>.Fail(new AppError(403, "insufficient_role",
+                "Only GMs can run continuity assessments."));
+        }
+
         // 0. Daily AI budget gate — the audit reads the whole record into a prompt.
         var budgetError = await _budgetGuard.CheckAsync(worldId, ct);
         if (budgetError is not null)
@@ -231,8 +240,15 @@ public class ContinuityAuditService : IContinuityAuditService
             ToAssessment(assessment, findings, heuristic, recordLookup));
     }
 
-    public async Task<AppResult<ContinuityAssessment>> GetLatestAsync(Guid worldId, CancellationToken ct)
+    public async Task<AppResult<ContinuityAssessment>> GetLatestAsync(
+        Guid worldId, WorldRole actingUserRole, CancellationToken ct)
     {
+        if (actingUserRole != WorldRole.GM)
+        {
+            return AppResult<ContinuityAssessment>.Fail(new AppError(403, "insufficient_role",
+                "Only GMs can read continuity assessments."));
+        }
+
         var assessment = await _assessmentRepository.GetLatestWithFindingsAsync(worldId, ct);
         if (assessment is null)
         {
@@ -260,8 +276,14 @@ public class ContinuityAuditService : IContinuityAuditService
     }
 
     public async Task<AppResult<ContinuityFindingView>> DismissFindingAsync(
-        Guid worldId, Guid findingId, CancellationToken ct)
+        Guid worldId, Guid findingId, WorldRole actingUserRole, CancellationToken ct)
     {
+        if (actingUserRole != WorldRole.GM)
+        {
+            return AppResult<ContinuityFindingView>.Fail(new AppError(403, "insufficient_role",
+                "Only GMs can dismiss continuity findings."));
+        }
+
         var finding = await _assessmentRepository.GetFindingByIdAsync(findingId, ct);
         if (finding is null || finding.HealthAssessment.WorldId != worldId)
         {

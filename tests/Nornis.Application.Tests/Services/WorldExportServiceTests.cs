@@ -64,8 +64,10 @@ public class WorldExportServiceTests
 
     private ExportWorldCommand Command(
         IReadOnlyCollection<WorldExportCategory>? categories = null,
-        Guid? actingUserId = null) =>
-        new(_world.Id, actingUserId ?? _gmId, categories ?? Enum.GetValues<WorldExportCategory>());
+        Guid? actingUserId = null,
+        WorldRole actingUserRole = WorldRole.GM) =>
+        new(_world.Id, actingUserId ?? _gmId, actingUserRole,
+            categories ?? Enum.GetValues<WorldExportCategory>());
 
     private byte[] UploadedZipBytes()
     {
@@ -272,7 +274,7 @@ public class WorldExportServiceTests
     [Category("Authorization")]
     public async Task Export_AsPlayer_Returns403()
     {
-        var result = await _sut.ExportAsync(Command(actingUserId: _playerId), CancellationToken.None);
+        var result = await _sut.ExportAsync(Command(actingUserId: _playerId, actingUserRole: WorldRole.Player), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
@@ -283,12 +285,23 @@ public class WorldExportServiceTests
     [Test]
 
     [Category("Authorization")]
-    public async Task Export_AsNonMember_Returns403()
+    public async Task Export_AsAnythingBelowGm_Returns403()
     {
-        var result = await _sut.ExportAsync(Command(actingUserId: Guid.NewGuid()), CancellationToken.None);
+        // Non-membership is no longer this layer's question. The service used to re-read the
+        // membership row and reject a stranger; it now trusts the role WorldMemberActionFilter
+        // resolved, and the filter refuses non-members before the request reaches a controller.
+        // Two tests hold that end: WorldScopedAuthorizationTests proves the filter 403s a
+        // non-member, and WorldMemberFilterCoverageTests proves every world-scoped controller
+        // carries it. What is left here is the role gate, which is this service's own.
+        var result = await _sut.ExportAsync(
+            Command(actingUserId: _playerId, actingUserRole: WorldRole.Observer), CancellationToken.None);
 
-        Assert.That(result.IsSuccess, Is.False);
-        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+            Assert.That(result.Error.Code, Is.EqualTo("insufficient_role"));
+        });
     }
 
     [Test]

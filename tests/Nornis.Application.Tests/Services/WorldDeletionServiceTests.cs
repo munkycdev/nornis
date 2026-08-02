@@ -57,8 +57,9 @@ public class WorldDeletionServiceTests
         }).GetAwaiter().GetResult();
     }
 
-    private DeleteWorldCommand Command(string? confirmationName, Guid? actingUserId = null) =>
-        new(_world.Id, actingUserId ?? _gmId, confirmationName);
+    private DeleteWorldCommand Command(
+        string? confirmationName, Guid? actingUserId = null, WorldRole actingUserRole = WorldRole.GM) =>
+        new(_world.Id, actingUserId ?? _gmId, actingUserRole, confirmationName);
 
     [Test]
     public async Task Delete_GmWithExactName_DeletesWorldAndBlobs()
@@ -102,7 +103,7 @@ public class WorldDeletionServiceTests
     [Category("Authorization")]
     public async Task Delete_AsPlayer_Returns403()
     {
-        var result = await _sut.DeleteAsync(Command("Black Harbor", _playerId), CancellationToken.None);
+        var result = await _sut.DeleteAsync(Command("Black Harbor", _playerId, WorldRole.Player), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
@@ -112,12 +113,21 @@ public class WorldDeletionServiceTests
     [Test]
 
     [Category("Authorization")]
-    public async Task Delete_AsNonMember_Returns403()
+    public async Task Delete_AsAnythingBelowGm_Returns403()
     {
-        var result = await _sut.DeleteAsync(Command("Black Harbor", Guid.NewGuid()), CancellationToken.None);
+        // Non-membership moved to WorldMemberActionFilter, which refuses strangers before a
+        // controller runs — see WorldScopedAuthorizationTests for that, and
+        // WorldMemberFilterCoverageTests for the proof that every world controller carries it.
+        // The role gate is what remains this service's own.
+        var result = await _sut.DeleteAsync(
+            Command("Black Harbor", _playerId, WorldRole.Observer), CancellationToken.None);
 
-        Assert.That(result.IsSuccess, Is.False);
-        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+            Assert.That(result.Error.Code, Is.EqualTo("insufficient_role"));
+        });
     }
 
     [Test]

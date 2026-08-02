@@ -1,4 +1,4 @@
-using FsCheck;
+﻿using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
 using Microsoft.Extensions.Options;
@@ -39,7 +39,8 @@ public class WorldMemberServicePropertyTests
             "Updated Name",
             "Updated Description",
             "Pathfinder 2e",
-            scenario.ActingUserId);
+            scenario.ActingUserId,
+            scenario.ActingRole);
 
         // Act
         var result = worldService.UpdateAsync(command, CancellationToken.None).GetAwaiter().GetResult();

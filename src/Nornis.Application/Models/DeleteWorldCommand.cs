@@ -1,3 +1,5 @@
+﻿using Nornis.Domain.Enums;
+
 namespace Nornis.Application.Models;
 
 /// <summary>
@@ -7,4 +9,5 @@ namespace Nornis.Application.Models;
 public record DeleteWorldCommand(
     Guid WorldId,
     Guid ActingUserId,
+    WorldRole ActingUserRole,
     string? ConfirmationName);

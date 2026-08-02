@@ -1,3 +1,5 @@
+﻿using Nornis.Domain.Enums;
+
 namespace Nornis.Application.Models;
 
 public record UpdateWorldCommand(
@@ -6,6 +8,7 @@ public record UpdateWorldCommand(
     string? Description,
     string? GameSystem,
     Guid ActingUserId,
+    WorldRole ActingUserRole,
     decimal? DailyAiBudgetUsd = null,
     bool ClearDailyAiBudget = false,
     string? PublicSlug = null,

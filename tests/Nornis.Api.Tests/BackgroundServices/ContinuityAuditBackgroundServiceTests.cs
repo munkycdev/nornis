@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Api.BackgroundServices;
@@ -7,6 +7,7 @@ using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
 using NSubstitute;
 using NUnit.Framework;
@@ -111,7 +112,7 @@ public class ContinuityAuditBackgroundServiceTests
         await RunOneTickAsync();
 
         await _auditService.DidNotReceive().RunAssessmentAsync(
-            Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
+            Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<WorldRole?>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -129,7 +130,7 @@ public class ContinuityAuditBackgroundServiceTests
         _worlds.TryClaimContinuityAuditAsync(
                 worldId, Arg.Any<DateTimeOffset>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
             .Returns(true);
-        _auditService.RunAssessmentAsync(worldId, null, Arg.Any<CancellationToken>())
+        _auditService.RunAssessmentAsync(worldId, null, null, Arg.Any<CancellationToken>())
             .Returns(AppResult<ContinuityAssessment>.Success(
                 new ContinuityAssessment(
                     HasData: true,
@@ -143,7 +144,7 @@ public class ContinuityAuditBackgroundServiceTests
 
         await RunOneTickAsync();
 
-        await _auditService.Received(1).RunAssessmentAsync(worldId, null, Arg.Any<CancellationToken>());
+        await _auditService.Received(1).RunAssessmentAsync(worldId, null, null, Arg.Any<CancellationToken>());
     }
 
     /// <summary>

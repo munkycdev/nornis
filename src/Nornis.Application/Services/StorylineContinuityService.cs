@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
@@ -27,6 +27,16 @@ public class StorylineContinuityService : IStorylineContinuityService
     public async Task<AppResult<StorylineContinuityReport>> GetContinuityReportAsync(
         Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken ct)
     {
+        // The gate lives here rather than in the controller, which is where it used to be and
+        // where it was the only copy. The role was already a parameter — it just fed the
+        // reader's visibility filter, so a player would have received a player-shaped report
+        // instead of a refusal. Continuity is GM prep material; its existence is GM-only.
+        if (role != WorldRole.GM)
+        {
+            return AppResult<StorylineContinuityReport>.Fail(new AppError(403, "insufficient_role",
+                "Only GMs can view the storyline continuity signal."));
+        }
+
         var data = await _reader.ReadAsync(worldId, requestingUserId, role, ct);
         return AppResult<StorylineContinuityReport>.Success(BuildReport(data, _options.StaleThresholdSessions));
     }

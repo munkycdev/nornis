@@ -1,4 +1,4 @@
-using Nornis.Domain.Enums;
+﻿using Nornis.Domain.Enums;
 
 namespace Nornis.Application.Models;
 
@@ -8,6 +8,7 @@ namespace Nornis.Application.Models;
 public record ExportWorldCommand(
     Guid WorldId,
     Guid ActingUserId,
+    WorldRole ActingUserRole,
     IReadOnlyCollection<WorldExportCategory> Categories);
 
 /// <summary>

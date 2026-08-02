@@ -1,4 +1,4 @@
-using FsCheck;
+﻿using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
 using Microsoft.Extensions.Options;
@@ -81,7 +81,8 @@ public class WorldNameValidationTests
             input.InvalidName,
             null,
             null,
-            input.UserId);
+            input.UserId,
+            WorldRole.GM);
 
         var updateResult = service.UpdateAsync(updateCommand, CancellationToken.None).GetAwaiter().GetResult();
 

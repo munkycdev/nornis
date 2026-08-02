@@ -29,9 +29,11 @@ public class WorldDeletionService : IWorldDeletionService
 
     public async Task<AppResult> DeleteAsync(DeleteWorldCommand command, CancellationToken ct)
     {
-        var member = await _worldMemberRepository.GetByWorldAndUserAsync(command.WorldId, command.ActingUserId, ct);
-
-        if (member is null || !member.Role.IsAtLeast(WorldRole.GM))
+        // The action filter already resolved this caller's membership and refused non-members
+        // before the request reached here; re-reading the row asks the database a question it has
+        // just answered. Trusting the filter is the codebase's majority idiom (SourceService and
+        // every review path), and the role travels on the command so the seam stays visible.
+        if (!command.ActingUserRole.IsAtLeast(WorldRole.GM))
         {
             return AppResult.Fail(new AppError(403, "insufficient_role", "Only a GM can delete a world."));
         }

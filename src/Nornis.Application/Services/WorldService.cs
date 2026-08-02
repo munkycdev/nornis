@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Nornis.Application.Authorization;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
@@ -83,9 +83,8 @@ public class WorldService : IWorldService
 
     public async Task<AppResult<World>> UpdateAsync(UpdateWorldCommand command, CancellationToken ct)
     {
-        var member = await _worldMemberRepository.GetByWorldAndUserAsync(command.WorldId, command.ActingUserId, ct);
-
-        if (member is null || !member.Role.IsAtLeast(WorldRole.GM))
+        // See WorldDeletionService: the action filter resolved membership before this ran.
+        if (!command.ActingUserRole.IsAtLeast(WorldRole.GM))
         {
             return AppResult<World>.Fail(new AppError(403, "insufficient_role", "Only a GM can update world settings."));
         }

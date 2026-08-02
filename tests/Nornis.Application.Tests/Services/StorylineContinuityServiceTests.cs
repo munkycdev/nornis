@@ -35,6 +35,9 @@ public class StorylineContinuityServiceTests
         _gmUserId = Guid.NewGuid();
     }
 
+    private StorylineDevelopmentReader Reader() =>
+        new(_artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo, _sourceRepo);
+
     private StorylineContinuityService Service(int staleThreshold = 3)
     {
         var reader = new StorylineDevelopmentReader(
@@ -270,14 +273,38 @@ public class StorylineContinuityServiceTests
         }
 
         var playerId = Guid.NewGuid();
-        var asPlayer = await Service(staleThreshold: 3)
-            .GetContinuityReportAsync(_worldId, playerId, WorldRole.Player, CancellationToken.None);
+
+        // Asked of the reader, not the service. The service is GM-only — the gate moved into it
+        // from StorylinesController on 2026-08-02 — so it answers a player with 403 and never
+        // reaches the filtering this test is about. The reader is where visibility is actually
+        // applied, and it is shared with the wrap-up path, so it is the honest subject.
+        var asPlayer = await Reader().ReadAsync(_worldId, playerId, WorldRole.Player, CancellationToken.None);
         var asGm = await Service(staleThreshold: 3)
             .GetContinuityReportAsync(_worldId, _gmUserId, WorldRole.GM, CancellationToken.None);
 
-        Assert.That(asPlayer.Value!.Quiet.Any(q => q.Name == "Hidden Plot"), Is.False);
-        Assert.That(asPlayer.Value.Unanchored.Any(u => u.Name == "Hidden Plot"), Is.False);
-        // GM sees the hidden arc as quiet.
-        Assert.That(asGm.Value!.Quiet.Any(q => q.Name == "Hidden Plot"), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(asPlayer.Storylines.Any(sl => sl.Name == "Hidden Plot"), Is.False,
+                "a GM-only storyline must not reach a player through the reader");
+            Assert.That(asGm.Value!.Quiet.Any(q => q.Name == "Hidden Plot"), Is.True);
+        });
+    }
+
+    [Test]
+    [Category("Authorization")]
+    public async Task ContinuityReport_ForAPlayer_Returns403()
+    {
+        // The gate the controller used to hold. Continuity is GM prep material, and before this
+        // moved into the service a player reaching it would have received a player-shaped
+        // report rather than a refusal.
+        var result = await Service()
+            .GetContinuityReportAsync(_worldId, Guid.NewGuid(), WorldRole.Player, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+            Assert.That(result.Error.Code, Is.EqualTo("insufficient_role"));
+        });
     }
 }
