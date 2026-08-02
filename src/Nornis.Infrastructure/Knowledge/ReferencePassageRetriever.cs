@@ -89,6 +89,14 @@ public class ReferencePassageRetriever : IReferencePassageRetriever
                 ReferenceId = $"passage:{h.ChunkId}",
             }).ToList();
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Shutdown is not a retrieval failure. Swallowed below, it read as "this world
+            // has no reference passages" and the caller carried on extracting against a
+            // cancelled token — producing a worse answer, silently, at exactly the moment
+            // the process was going away.
+            throw;
+        }
         catch (Exception ex)
         {
             // Reference passages enrich the result; their failure must never sink the primary op.

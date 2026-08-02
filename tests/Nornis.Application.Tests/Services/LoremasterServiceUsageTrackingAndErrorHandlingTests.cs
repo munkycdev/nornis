@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
@@ -49,7 +50,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
             _knowledgeRetriever, new FakeReferencePassageRetriever(),
             _aiClient,
             TestUsageRecorder.Wrap(_aiUsageRecordRepository, loremaster: _options),
-            new FakeAiBudgetGuard(), Options.Create(_options));
+            new FakeAiBudgetGuard(), Options.Create(_options), NullLogger<LoremasterService>.Instance);
     }
 
     private AskLoremasterCommand CreateCommand(string question = "Who is Captain Voss?") =>
@@ -541,7 +542,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
             _knowledgeRetriever, new FakeReferencePassageRetriever(),
             aiClient,
             TestUsageRecorder.Wrap(_aiUsageRecordRepository, loremaster: _options),
-            new FakeAiBudgetGuard(), Options.Create(_options));
+            new FakeAiBudgetGuard(), Options.Create(_options), NullLogger<LoremasterService>.Instance);
 
         await service.AskAsync(CreateCommand(), cts.Token);
 
@@ -576,7 +577,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
             retriever, new FakeReferencePassageRetriever(),
             _aiClient,
             TestUsageRecorder.Wrap(_aiUsageRecordRepository, loremaster: _options),
-            new FakeAiBudgetGuard(), Options.Create(_options));
+            new FakeAiBudgetGuard(), Options.Create(_options), NullLogger<LoremasterService>.Instance);
 
         await service.AskAsync(CreateCommand(), cts.Token);
 
