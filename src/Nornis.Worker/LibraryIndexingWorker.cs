@@ -38,7 +38,11 @@ public sealed class LibraryIndexingWorker : BackgroundService
         _processor.ProcessMessageAsync += ProcessMessageAsync;
         _processor.ProcessErrorAsync += ProcessErrorAsync;
 
-        await _processor.StartProcessingAsync(stoppingToken);
+        if (!await ProcessorStartup.StartWithRetryAsync(
+                _processor.StartProcessingAsync, ServiceBusLibraryIndexingQueueClient.QueueName, _logger, stoppingToken))
+        {
+            return;
+        }
 
         _logger.LogInformation("LibraryIndexingWorker started, listening on {Queue}", ServiceBusLibraryIndexingQueueClient.QueueName);
 
