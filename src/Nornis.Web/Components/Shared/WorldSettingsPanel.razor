@@ -453,9 +453,8 @@
     {
         await Worlds.EnsureLoadedAsync();
         SyncFromWorld();
-        await LoadMembersAsync();
-        await LoadCampaignsAndCharactersAsync();
-        await LoadInvitesAsync();
+        // Three independent panels' worth of data, three round trips, one wait.
+        await Task.WhenAll(LoadMembersAsync(), LoadCampaignsAndCharactersAsync(), LoadInvitesAsync());
     }
 
     private void OnWorldChanged() => InvokeAsync(async () =>

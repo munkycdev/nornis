@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 
 namespace Nornis.Web.ApiClient;
@@ -105,8 +105,7 @@ public class NornisApiClient
     public Task<ApiResult<IReadOnlyList<UserSummaryDto>>> GetAddableUsersAsync(
         Guid worldId, string? search = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<UserSummaryDto>>(
-            $"/api/worlds/{worldId}/members/addable{(string.IsNullOrWhiteSpace(search) ? "" : $"?q={Uri.EscapeDataString(search)}")}",
-            ct);
+            $"/api/worlds/{worldId}/members/addable{Query(("q", search))}", ct);
 
     public Task<ApiResult<WorldMember>> UpdateMemberRoleAsync(Guid worldId, Guid userId, string role, CancellationToken ct = default) =>
         PutAsync<UpdateMemberRoleRequest, WorldMember>($"/api/worlds/{worldId}/members/{userId}", new UpdateMemberRoleRequest(role), ct);
@@ -320,9 +319,9 @@ public class NornisApiClient
             new ReorderImportItemsRequest(itemIds), ct);
 
     /// <summary>GM-only: sources in this world that could be staged, in story order.</summary>
-    public Task<ApiResult<List<ImportCandidateDto>>> ListImportCandidatesAsync(
+    public Task<ApiResult<IReadOnlyList<ImportCandidateDto>>> ListImportCandidatesAsync(
         Guid worldId, Guid sessionId, CancellationToken ct = default) =>
-        GetAsync<List<ImportCandidateDto>>(
+        GetAsync<IReadOnlyList<ImportCandidateDto>>(
             $"/api/worlds/{worldId}/import-sessions/{sessionId}/candidates", ct);
 
     /// <summary>GM-only: stages sources the world already holds, appended in story order.</summary>

@@ -85,7 +85,7 @@ public class CostService : ICostService
                 userId, sw.ElapsedMilliseconds);
 
             return AppResult<IReadOnlyList<WorldCostResult>>.Success(
-                Array.Empty<WorldCostResult>());
+                []);
         }
 
         var groupedSummaries = await _aiUsageRecordRepository.AggregateByWorldAsync(gmWorldIds, null, null, ct);
@@ -144,15 +144,15 @@ public class CostService : ICostService
             // Non-GM: return only the requesting user's summary
             var userEntry = groupedSummaries.FirstOrDefault(g => g.Key == userId);
             results = userEntry is not null
-                ? new[]
-                {
+                ?
+                [
                     new UserCostResult
                     {
                         UserId = userId,
                         Username = usernameMap.GetValueOrDefault(userId, "Unknown"),
                         Summary = userEntry.Summary
                     }
-                }
+                ]
                 : Array.Empty<UserCostResult>();
         }
         else

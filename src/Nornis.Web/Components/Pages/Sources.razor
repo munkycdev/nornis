@@ -141,16 +141,16 @@ else
     {
         Worlds.Changed += OnWorldChanged;
         await Worlds.EnsureLoadedAsync();
-        await LoadCampaignsAsync();
-        await LoadSourcesAsync();
+        // Independent reads: the filter list and the list it filters. Serially, the page waits
+        // for the sum of two round trips to show anything.
+        await Task.WhenAll(LoadCampaignsAsync(), LoadSourcesAsync());
         _ = PollWhileProcessingAsync();
     }
 
     private void OnWorldChanged() => InvokeAsync(async () =>
     {
         _campaignFilter = string.Empty;
-        await LoadCampaignsAsync();
-        await LoadSourcesAsync();
+        await Task.WhenAll(LoadCampaignsAsync(), LoadSourcesAsync());
     });
 
     private async Task LoadCampaignsAsync()

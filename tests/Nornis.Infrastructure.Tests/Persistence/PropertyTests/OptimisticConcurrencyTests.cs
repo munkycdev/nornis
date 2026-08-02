@@ -60,7 +60,7 @@ public class OptimisticConcurrencyTests : IDisposable
             Email = "voss@blackharbor.test",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
-            RowVersion = new byte[] { 0x01 }
+            RowVersion = [0x01]
         };
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
@@ -76,7 +76,7 @@ public class OptimisticConcurrencyTests : IDisposable
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
             CreatedByUserId = userId,
-            RowVersion = new byte[] { 0x01 }
+            RowVersion = [0x01]
         };
         _context.Worlds.Add(world);
         await _context.SaveChangesAsync();
@@ -95,7 +95,7 @@ public class OptimisticConcurrencyTests : IDisposable
             Status = ArtifactStatus.Active,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
-            RowVersion = new byte[] { 0x01 }
+            RowVersion = [0x01]
         };
         _context.Artifacts.Add(artifact);
         await _context.SaveChangesAsync();
@@ -182,7 +182,7 @@ public class OptimisticConcurrencyTests : IDisposable
                 CreatedAt = generated.CreatedAt,
                 UpdatedAt = generated.UpdatedAt,
                 CreatedByUserId = user.Id,
-                RowVersion = new byte[] { 0x01 }
+                RowVersion = [0x01]
             };
             _context.Worlds.Add(world);
             await _context.SaveChangesAsync();
@@ -206,7 +206,7 @@ public class OptimisticConcurrencyTests : IDisposable
                 Email = generated.Email,
                 CreatedAt = generated.CreatedAt,
                 UpdatedAt = generated.UpdatedAt,
-                RowVersion = new byte[] { 0x01 }
+                RowVersion = [0x01]
             };
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
@@ -237,7 +237,7 @@ public class OptimisticConcurrencyTests : IDisposable
                 Status = generated.Status,
                 CreatedAt = generated.CreatedAt,
                 UpdatedAt = generated.UpdatedAt,
-                RowVersion = new byte[] { 0x01 }
+                RowVersion = [0x01]
             };
             _context.Artifacts.Add(artifact);
             await _context.SaveChangesAsync();
@@ -268,7 +268,7 @@ public class OptimisticConcurrencyTests : IDisposable
                 Visibility = generated.Visibility,
                 CreatedAt = generated.CreatedAt,
                 UpdatedAt = generated.UpdatedAt,
-                RowVersion = new byte[] { 0x01 }
+                RowVersion = [0x01]
             };
             _context.ArtifactFacts.Add(fact);
             await _context.SaveChangesAsync();
@@ -297,7 +297,7 @@ public class OptimisticConcurrencyTests : IDisposable
                 Status = ArtifactStatus.Active,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow,
-                RowVersion = new byte[] { 0x01 }
+                RowVersion = [0x01]
             };
             var artifactB = new Artifact
             {
@@ -309,7 +309,7 @@ public class OptimisticConcurrencyTests : IDisposable
                 Status = ArtifactStatus.Active,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow,
-                RowVersion = new byte[] { 0x01 }
+                RowVersion = [0x01]
             };
             _context.Artifacts.AddRange(artifactA, artifactB);
             await _context.SaveChangesAsync();
@@ -327,7 +327,7 @@ public class OptimisticConcurrencyTests : IDisposable
                 Visibility = generated.Visibility,
                 CreatedAt = generated.CreatedAt,
                 UpdatedAt = generated.UpdatedAt,
-                RowVersion = new byte[] { 0x01 }
+                RowVersion = [0x01]
             };
             _context.ArtifactRelationships.Add(relationship);
             await _context.SaveChangesAsync();
@@ -360,7 +360,7 @@ public class OptimisticConcurrencyTests : IDisposable
                 Confidence = generated.Confidence,
                 Status = ReviewProposalStatus.Pending,
                 CreatedAt = generated.CreatedAt,
-                RowVersion = new byte[] { 0x01 }
+                RowVersion = [0x01]
             };
             _context.ReviewProposals.Add(proposal);
             await _context.SaveChangesAsync();
