@@ -319,7 +319,22 @@ changes that item's priority, not its shape.
 
 ## D3 — error handling and observability
 
-- **ReviewService has no logger, and its blanket catches swallow everything.**
+- ~~**ReviewService has no logger, and its blanket catches swallow everything.**~~
+  **Fixed 2026-08-01.**
+  - Logger injected as an *optional* constructor parameter, mirroring `replayAdvancer`
+    directly above it, so the sixteen existing construction sites keep compiling and the
+    host still supplies a real one. Both blanket catches now log rather than swallow.
+  - `ConcurrencyConflictException` is caught specifically at both sites and answers **409**,
+    not 500 — the loser of a duplicate-accept race is being told someone else decided it,
+    which is true, instead of that the operation could not be completed, which was not.
+  - That required the other half: `ReviewProposalRepository.UpdateAsync` now translates
+    `DbUpdateConcurrencyException` into the domain signal (as `WorldInviteRepository`
+    already did) and clears the change tracker. Without it the new catch could never fire —
+    `ReviewProposal` carries a `RowVersion`, so the raw EF exception was reaching a layer
+    that cannot name it.
+  - `ChangeTracker.Clear()` on the swallowed-conflict path is handled: it lives in the
+    repository translation, where the poisoned context actually is.
+- **(original)** ReviewService has no logger, and its blanket catches swallow everything.
   :328-333 and :738-742 convert bugs, constraint violations, and concurrency
   conflicts alike into an unlogged generic 500 — the loser of a duplicate-accept race
   gets "transaction_failed" instead of the idempotent result the code promises
