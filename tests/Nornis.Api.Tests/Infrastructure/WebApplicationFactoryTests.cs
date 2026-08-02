@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using NUnit.Framework;
 
 namespace Nornis.Api.Tests.Infrastructure;
@@ -59,6 +59,8 @@ public class WebApplicationFactoryTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task UnauthenticatedRequest_ToProtectedEndpoint_Returns401()
     {
         // Arrange
@@ -72,6 +74,8 @@ public class WebApplicationFactoryTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AuthenticatedRequest_ToProtectedEndpoint_DoesNotReturn401()
     {
         // Arrange

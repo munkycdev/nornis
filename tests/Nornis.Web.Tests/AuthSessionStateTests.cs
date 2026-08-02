@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text;
 using Nornis.Web.ApiClient;
 using Nornis.Web.State;
@@ -41,6 +41,8 @@ public class AuthSessionStateTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AnUnauthorizedResponse_MarksTheSessionExpired()
     {
         _handler.Respond = HttpStatusCode.Unauthorized;
@@ -51,6 +53,8 @@ public class AuthSessionStateTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ASuccessfulResponse_ClearsTheExpiredState()
     {
         // The self-healing path: a failed token refresh can be transient (an Auth0 outage), and
@@ -67,6 +71,8 @@ public class AuthSessionStateTests
     [TestCase(HttpStatusCode.Forbidden)]
     [TestCase(HttpStatusCode.InternalServerError)]
     [TestCase(HttpStatusCode.NotFound)]
+
+    [Category("Authorization")]
     public async Task OtherFailures_DoNotTouchTheState(HttpStatusCode status)
     {
         // In both directions: they must not raise the alarm, and they must not clear a real one —

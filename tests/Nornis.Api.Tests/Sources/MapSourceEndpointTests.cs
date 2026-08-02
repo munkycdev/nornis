@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Requests;
@@ -260,6 +260,8 @@ public class MapSourceEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task CreatePlacemark_PlayerWhoIsNotCreator_403()
     {
         var (source, _) = await SeedMapSourceAsync(); // created by the GM
@@ -311,6 +313,8 @@ public class MapSourceEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task MovePlacemark_PlayerWhoIsNotCreator_403()
     {
         var (source, map) = await SeedMapSourceAsync(); // created by the GM
@@ -355,6 +359,8 @@ public class MapSourceEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RemovePlacemark_PlayerWhoIsNotCreator_403()
     {
         var (source, map) = await SeedMapSourceAsync(); // created by the GM

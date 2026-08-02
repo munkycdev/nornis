@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Tests.Infrastructure;
@@ -21,6 +21,8 @@ public class ArtifactsControllerTests
     #region List
 
     [Test]
+
+    [Category("Authorization")]
     public async Task List_AsPlayer_ExcludesGmOnlyArtifacts()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
@@ -86,6 +88,8 @@ public class ArtifactsControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task List_NonMember_ReturnsForbidden()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
@@ -122,6 +126,8 @@ public class ArtifactsControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Rename_AsPlayer_ReturnsForbidden()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
@@ -217,6 +223,8 @@ public class ArtifactsControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetById_GmOnlyArtifact_AsPlayer_ReturnsNotFound()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);

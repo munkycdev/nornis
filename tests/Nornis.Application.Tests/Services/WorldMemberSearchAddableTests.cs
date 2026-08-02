@@ -1,4 +1,4 @@
-using Nornis.Application.Services;
+﻿using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -76,6 +76,8 @@ public class WorldMemberSearchAddableTests
     // ------------------------------------------------------------------ who may ask
 
     [Test]
+
+    [Category("Authorization")]
     public async Task APlayerIsRefused()
     {
         var result = await Search(_playerId, "mira");
@@ -88,6 +90,8 @@ public class WorldMemberSearchAddableTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ANonMemberIsRefused()
     {
         var result = await Search(Guid.NewGuid(), "mira");
@@ -131,6 +135,8 @@ public class WorldMemberSearchAddableTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task TheRoleIsCheckedBeforeTheTerm()
     {
         // A Player sending a blank term must learn that they may not search, not that their term

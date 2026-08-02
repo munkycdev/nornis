@@ -1,4 +1,4 @@
-name: Coverage
+﻿name: Coverage
 
 # Separate from deploy.yml on purpose: a rollout should not wait on report generation,
 # and a coverage step must never be able to hold up a deploy. The cost is running the
@@ -70,6 +70,23 @@ jobs:
           path: artifacts/coverage/report
           retention-days: 30
 
+      # The authorization suite's size, charted beside coverage because it answers a
+      # different question: not what fraction of the code is exercised, but how much of a
+      # deliberately enumerated surface is nailed down. The count only goes up — every
+      # [auth]-flagged change adds to it — so a flat line is the signal, not a healthy number.
+      - name: Count the authorization suite
+        run: |
+          dotnet test --no-build --filter "TestCategory=Authorization" \
+            --logger "trx;LogFilePrefix=auth" --results-directory artifacts/auth || true
+          # LogFilePrefix, not LogFileName: with a fixed name every project overwrites the
+          # same file and the count silently becomes whichever project ran last.
+          # grep over the XML rather than parsing it — the attribute is stable, and this
+          # step must never be the thing that fails the run.
+          count=$(grep -ho 'executed="[0-9]*"' artifacts/auth/*.trx 2>/dev/null \
+            | grep -o '[0-9]*' | awk '{ total += $1 } END { print total + 0 }')
+          echo "AUTH_SUITE_COUNT=${count:-0}" >> "$GITHUB_ENV"
+          echo "Authorization suite: ${count:-0} tests" >> "$GITHUB_STEP_SUMMARY"
+
       # One file, one commit, no checkout dance: read the existing history straight out of
       # the remote branch, append, and write a new commit with plumbing. The branch is an
       # orphan and stays a single file, so nothing here needs a working tree.
@@ -77,10 +94,12 @@ jobs:
         run: |
           entry=$(jq -c \
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg sha "${GITHUB_SHA:0:7}" '
+            --arg sha "${GITHUB_SHA:0:7}" \
+            --argjson auth "${AUTH_SUITE_COUNT:-0}" '
             {
               date: $date,
               sha: $sha,
+              authorizationTests: $auth,
               line: .summary.linecoverage,
               branch: .summary.branchcoverage,
               assemblies: [.coverage.assemblies[] | {name: .name, line: .coverage, branch: .branchcoverage}]

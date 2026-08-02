@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Application;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
@@ -59,6 +59,8 @@ public class RevealServiceTests
 
     [TestCase(WorldRole.Player)]
     [TestCase(WorldRole.Observer)]
+
+    [Category("Authorization")]
     public async Task RevealAsync_NonGm_Returns403_AndChangesNothing(WorldRole role)
     {
         var artifact = SeedArtifact("Black Harbor", VisibilityScope.GMOnly);
@@ -74,6 +76,8 @@ public class RevealServiceTests
     // ---- happy paths, one per element kind ----
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RevealAsync_GmOnlyArtifact_BecomesPartyVisible_WithProvenance()
     {
         var artifact = SeedArtifact("Black Harbor", VisibilityScope.GMOnly);
@@ -110,6 +114,8 @@ public class RevealServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RevealAsync_GmOnlyFact_OnVisibleArtifact_BecomesPartyVisible()
     {
         var voss = SeedArtifact("Captain Voss", VisibilityScope.PartyVisible, ArtifactType.Character);
@@ -123,6 +129,8 @@ public class RevealServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RevealAsync_GmOnlyRelationship_BetweenVisibleArtifacts_BecomesPartyVisible()
     {
         var voss = SeedArtifact("Captain Voss", VisibilityScope.PartyVisible, ArtifactType.Character);
@@ -155,6 +163,8 @@ public class RevealServiceTests
     // ---- closure ----
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RevealAsync_FactOnGmOnlyArtifact_NotClosed_ReportsMissingArtifact_AndAppliesNothing()
     {
         var harbor = SeedArtifact("Black Harbor", VisibilityScope.GMOnly);
@@ -188,6 +198,8 @@ public class RevealServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RevealAsync_RelationshipWithGmOnlyEndpoint_NotClosed_ReportsEndpoint()
     {
         var voss = SeedArtifact("Captain Voss", VisibilityScope.PartyVisible, ArtifactType.Character);
@@ -204,6 +216,8 @@ public class RevealServiceTests
     // ---- selective: reveal the place, not its secrets ----
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RevealAsync_RevealingArtifact_DoesNotRevealItsGmOnlyFacts()
     {
         var harbor = SeedArtifact("Black Harbor", VisibilityScope.GMOnly);
@@ -293,6 +307,8 @@ public class RevealServiceTests
 
     [TestCase(WorldRole.Player)]
     [TestCase(WorldRole.Observer)]
+
+    [Category("Authorization")]
     public async Task RevealSourceAsync_NonGm_Returns403_AndChangesNothing(WorldRole role)
     {
         var source = SeedSource(VisibilityScope.GMOnly);
@@ -305,6 +321,8 @@ public class RevealServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RevealSourceAsync_GmOnlySource_BecomesPartyVisible()
     {
         var source = SeedSource(VisibilityScope.GMOnly);

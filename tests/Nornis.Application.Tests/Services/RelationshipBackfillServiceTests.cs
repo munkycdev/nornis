@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
@@ -302,6 +302,8 @@ public class RelationshipBackfillServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GmOnlyArtifact_NotLinkableFromPartyVisibleSource()
     {
         var source = SeedProcessedSource(visibility: VisibilityScope.PartyVisible);

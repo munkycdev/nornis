@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Requests;
@@ -101,6 +101,8 @@ public class PublicControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task PublicArtifacts_ExcludeGmOnly_AndGmOnlyDetail404s()
     {
         var scenario = await SetupPublicWorldAsync();
@@ -123,6 +125,7 @@ public class PublicControllerTests
     // That makes this list a disclosure surface: a GM-only neighbour must not leak through it,
     // summary or otherwise, even though the artifact being viewed is public.
     [Test]
+    [Category("Authorization")]
     public async Task PublicArtifactDetail_Connections_CarrySummaries_ButExcludeGmOnlyNeighbours()
     {
         var scenario = await SetupPublicWorldAsync();
@@ -156,6 +159,8 @@ public class PublicControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task PublicArtifactGraph_ExcludesGmOnlyNodes()
     {
         var scenario = await SetupPublicWorldAsync();
@@ -202,6 +207,8 @@ public class PublicControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task PublicSources_PartyVisibleReadable_GmOnly404()
     {
         var scenario = await SetupPublicWorldAsync();
@@ -239,6 +246,8 @@ public class PublicControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AnonymousClient_AuthenticatedEndpoints_Still401()
     {
         var scenario = await SetupPublicWorldAsync();
@@ -253,6 +262,8 @@ public class PublicControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task PublicNamespace_HasNoLibrary_AndAskOffByDefault()
     {
         await SetupPublicWorldAsync();

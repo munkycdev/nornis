@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Messaging;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -50,6 +50,8 @@ public class RelationshipBackfillQueueServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task NonGm_Forbidden()
     {
         var result = await _sut.QueueBackfillAsync(WorldId, WorldRole.Player, CancellationToken.None);

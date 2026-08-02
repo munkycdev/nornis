@@ -1,4 +1,4 @@
-using Nornis.Application.Models;
+﻿using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -91,6 +91,8 @@ public class CharacterServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task CreateAsync_Observer_Returns403()
     {
         var command = new CreateCharacterCommand(WorldId, "Watcher", _observer.UserId, WorldRole.Observer);
@@ -114,6 +116,8 @@ public class CharacterServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task CreateAsync_PlayerCreatesForAnotherMember_Returns403()
     {
         var command = new CreateCharacterCommand(WorldId, "Hijack", _player.UserId, WorldRole.Player,
@@ -177,6 +181,8 @@ public class CharacterServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task UpdateAsync_OtherPlayer_Returns403()
     {
         var character = SeedCharacter(_player);
@@ -347,6 +353,8 @@ public class CharacterServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task UpdateAsync_PlayerLinksGmOnlyArtifact_Returns400()
     {
         var character = SeedCharacter(_player);
@@ -416,6 +424,8 @@ public class CharacterServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ClaimAsync_Observer_Returns403()
     {
         var character = SeedCharacter(_gm);
@@ -468,6 +478,8 @@ public class CharacterServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task DeleteAsync_OtherPlayer_Returns403()
     {
         var character = SeedCharacter(_player);
@@ -480,6 +492,8 @@ public class CharacterServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task DeleteAsync_Observer_Returns403()
     {
         var character = SeedCharacter(_player);

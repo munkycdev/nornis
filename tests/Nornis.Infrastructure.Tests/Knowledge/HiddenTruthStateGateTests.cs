@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -77,6 +77,8 @@ public class HiddenTruthStateGateTests
 
     [TestCase(WorldRole.Player)]
     [TestCase(WorldRole.Observer)]
+
+    [Category("Authorization")]
     public async Task HiddenTruthState_IsFilteredForNonGmRoles(WorldRole role)
     {
         var context = await _retriever.RetrieveAsync(
@@ -87,6 +89,8 @@ public class HiddenTruthStateGateTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task HiddenTruthState_IsIncludedForGm()
     {
         var context = await _retriever.RetrieveAsync(

@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Tests.Infrastructure;
@@ -99,6 +99,8 @@ public class CharacterArtifactLinkTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Claim_AsObserver_ReturnsForbidden()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
@@ -111,6 +113,8 @@ public class CharacterArtifactLinkTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Update_PlayerLinksGmOnlyArtifact_ReturnsBadRequest()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);

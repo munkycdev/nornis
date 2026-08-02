@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 
 <head>
@@ -99,7 +99,20 @@
                 <div class="headline-figure">${pct(entry.line)}<span class="unit"> lines</span>
                     &nbsp;·&nbsp;${pct(entry.branch)}<span class="unit"> branches</span>
                 </div>
-                <div class="muted">commit ${entry.sha} · ${new Date(entry.date).toLocaleString()}</div>`;
+                <div class="muted">commit ${entry.sha} · ${new Date(entry.date).toLocaleString()}</div>
+                ${renderAuthorizationSuite(entry)}`;
+        }
+
+        // A count, not a percentage, and deliberately so: this is the size of a deliberately
+        // enumerated surface — anonymous rejection, non-member denial, GMOnly invisibility,
+        // observer immutability, private-content scoping, Ask retrieval — where the number
+        // only goes up. Absent from older history entries, which predate the suite.
+        function renderAuthorizationSuite(entry) {
+            if (entry.authorizationTests === undefined) {
+                return '';
+            }
+            return `<div class="auth-suite">Authorization suite:
+                <strong>${entry.authorizationTests}</strong> tests</div>`;
         }
 
         function renderAssemblies(entry) {

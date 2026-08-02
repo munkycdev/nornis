@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Requests;
@@ -91,6 +91,8 @@ public class SourceLocationsEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Link_ByNonCreatorPlayer_Returns403()
     {
         var session = await SeedSessionAsync(_scenario.GmUserId); // GM owns it
@@ -117,6 +119,8 @@ public class SourceLocationsEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task List_Player_DoesNotSeeGmOnlyLocation()
     {
         var session = await SeedSessionAsync(_scenario.GmUserId); // PartyVisible, so the player can read it

@@ -297,3 +297,18 @@ footer code {
         gap: 14px;
     }
 }
+
+/* The authorization suite's size, under the coverage headline. A count rather than a
+   percentage, so it reads as a tally and not as another figure to compare against 100. */
+.auth-suite {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--divider);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.auth-suite strong {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}

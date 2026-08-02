@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Nornis.Api.Tests.Infrastructure;
 using Nornis.Domain.Enums;
@@ -32,6 +32,8 @@ public class RevealEndpointTests
     private string ArtifactsUrl => $"/api/worlds/{_scenario.World.Id}/artifacts";
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Reveal_Gm_PromotesGmOnlyArtifact_AndPlayerThenSeesIt()
     {
         var cove = await KnowledgeTestHelpers.CreateTestArtifactAsync(
@@ -49,6 +51,8 @@ public class RevealEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Reveal_Player_IsForbidden()
     {
         var cove = await KnowledgeTestHelpers.CreateTestArtifactAsync(
@@ -78,6 +82,8 @@ public class RevealEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Reveal_Gm_PromotesGmOnlyFact_AndPlayerThenSeesItsValue()
     {
         var voss = await KnowledgeTestHelpers.CreateTestArtifactAsync(

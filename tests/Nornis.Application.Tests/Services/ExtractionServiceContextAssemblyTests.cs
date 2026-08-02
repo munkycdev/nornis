@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
@@ -248,6 +248,8 @@ public class ExtractionServiceContextAssemblyTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task VisibilityFiltering_PrivateSource_OnlyPrivateArtifacts()
     {
         // Arrange: Private source should only see Private artifacts
@@ -277,6 +279,8 @@ public class ExtractionServiceContextAssemblyTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task VisibilityFiltering_GMOnlySource_IncludesGMOnlyAndPartyVisible()
     {
         // Arrange: GMOnly source should see GMOnly and PartyVisible artifacts
@@ -305,6 +309,8 @@ public class ExtractionServiceContextAssemblyTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task VisibilityFiltering_PartyVisibleSource_OnlyPartyVisibleArtifacts()
     {
         // Arrange: PartyVisible source should only see PartyVisible artifacts
@@ -468,6 +474,8 @@ public class ExtractionServiceContextAssemblyTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task FactScoping_PartyVisibleSource_ExcludesGmOnlyAndPrivateFacts()
     {
         // A PartyVisible extraction prompt must never see GM-only or Private facts,
@@ -491,6 +499,8 @@ public class ExtractionServiceContextAssemblyTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task FactScoping_PartyVisibleSource_ExcludesHiddenTruthFacts()
     {
         // Hidden truth states are GM knowledge even when the fact's visibility scope is
@@ -513,6 +523,8 @@ public class ExtractionServiceContextAssemblyTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task FactScoping_GmOnlySource_SeesGmFactsAndHiddenTruths()
     {
         // GM-authored sources extract against the full GM view (minus Private).

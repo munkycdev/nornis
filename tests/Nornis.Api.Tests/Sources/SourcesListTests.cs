@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Tests.Infrastructure;
@@ -134,6 +134,8 @@ public class SourcesListTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ListSources_AsObserver_ReturnsOnlyPartyVisibleSources()
     {
         // Arrange

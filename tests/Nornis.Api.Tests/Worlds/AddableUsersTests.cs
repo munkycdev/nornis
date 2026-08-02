@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -60,6 +60,8 @@ public class AddableUsersTests
     // ------------------------------------------------------------------ the gate
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ANonMember_CannotEnumerateTheDirectory()
     {
         // The exposure the old endpoint had, stated as a test: an authenticated stranger asking
@@ -74,6 +76,8 @@ public class AddableUsersTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task APlayerMember_CannotEnumerateTheDirectory()
     {
         // Being in the world is not enough. Adding members is GM work, so listing the candidates
@@ -94,6 +98,8 @@ public class AddableUsersTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AGmOfAnotherWorld_CannotUseTheirRoleHere()
     {
         // Being a GM somewhere does not make you a GM everywhere. This is the membership filter's

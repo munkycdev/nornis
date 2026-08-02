@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Tests.Infrastructure;
@@ -66,6 +66,7 @@ public class SourceGetTests
     /// Validates: Requirements 2.1, 2.7
     /// </summary>
     [Test]
+    [Category("Authorization")]
     public async Task GmCanGetGmOnlySource()
     {
         // Arrange
@@ -160,6 +161,7 @@ public class SourceGetTests
     /// Validates: Requirements 2.2, 9.1, 9.4
     /// </summary>
     [Test]
+    [Category("Authorization")]
     public async Task PlayerCannotGetOtherUsersPrivateSource_Returns404()
     {
         // Arrange — GM creates a Private source
@@ -185,6 +187,7 @@ public class SourceGetTests
     /// Validates: Requirements 2.3, 9.2, 9.4
     /// </summary>
     [Test]
+    [Category("Authorization")]
     public async Task PlayerCannotGetGmOnlySource_Returns404()
     {
         // Arrange
@@ -242,6 +245,7 @@ public class SourceGetTests
     /// Validates: Requirements 2.2, 9.1, 9.4
     /// </summary>
     [Test]
+    [Category("Authorization")]
     public async Task ObserverCannotGetPrivateSource_Returns404()
     {
         // Arrange — Player creates a Private source
@@ -267,6 +271,7 @@ public class SourceGetTests
     /// Validates: Requirements 2.3, 9.2, 9.4
     /// </summary>
     [Test]
+    [Category("Authorization")]
     public async Task ObserverCannotGetGmOnlySource_Returns404()
     {
         // Arrange
@@ -310,6 +315,7 @@ public class SourceGetTests
     /// Validates: Requirements 2.6, 10.1, 10.2
     /// </summary>
     [Test]
+    [Category("Authorization")]
     public async Task NonMember_CannotGetSource_Returns403()
     {
         // Arrange — Create a source in the world

@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
@@ -92,6 +92,8 @@ public class StorylineRetrospectiveServiceTests
 
     [TestCase(WorldRole.Player)]
     [TestCase(WorldRole.Observer)]
+
+    [Category("Authorization")]
     public async Task RunAsync_NonGm_Returns403(WorldRole role)
     {
         var result = await _sut.RunAsync(WorldId, Guid.NewGuid(), role, CancellationToken.None);

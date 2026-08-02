@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Requests;
@@ -138,6 +138,8 @@ public class SourceReprocessEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Reprocess_Observer_Returns403()
     {
         var (source, _) = await SeedProcessedSourceWithArtifactAsync();

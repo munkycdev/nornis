@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Tests.Infrastructure;
 using Nornis.Domain.Entities;
@@ -104,6 +104,8 @@ public class RevealSourceEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RevealSource_Gm_MakesGmOnlyMapVisibleToPlayer_ButKeepsGmOnlyPinHidden()
     {
         var (source, map) = await SeedGmOnlyMapAsync();
@@ -126,6 +128,8 @@ public class RevealSourceEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RevealSource_Player_IsForbidden()
     {
         var (source, _) = await SeedGmOnlyMapAsync();
@@ -148,6 +152,8 @@ public class RevealSourceEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RevealSource_Gm_GmOnlyTextSource_ThenVisibleToPlayer()
     {
         var source = await SourceTestHelpers.CreateTestSourceAsync(

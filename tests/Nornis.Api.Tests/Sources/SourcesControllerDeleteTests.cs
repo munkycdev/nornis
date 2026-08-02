@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Tests.Infrastructure;
@@ -82,6 +82,8 @@ public class SourcesControllerDeleteTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Delete_ByNonCreatorPlayer_Returns403()
     {
         // Arrange

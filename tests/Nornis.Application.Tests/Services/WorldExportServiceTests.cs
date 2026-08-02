@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Models;
@@ -268,6 +268,8 @@ public class WorldExportServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Export_AsPlayer_Returns403()
     {
         var result = await _sut.ExportAsync(Command(actingUserId: _playerId), CancellationToken.None);
@@ -279,6 +281,8 @@ public class WorldExportServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Export_AsNonMember_Returns403()
     {
         var result = await _sut.ExportAsync(Command(actingUserId: Guid.NewGuid()), CancellationToken.None);

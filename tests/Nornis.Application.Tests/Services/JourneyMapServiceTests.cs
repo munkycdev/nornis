@@ -1,4 +1,4 @@
-using Nornis.Application.Errors;
+﻿using Nornis.Application.Errors;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -197,6 +197,8 @@ public class JourneyMapServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ExplicitMapSourceId_InvisibleToPlayer_Returns404()
     {
         var (gmMap, map) = SeedMap(visibility: VisibilityScope.GMOnly);
@@ -285,6 +287,8 @@ public class JourneyMapServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GmOnlyPin_IsHiddenFromPlayer()
     {
         var (_, map) = SeedMap();

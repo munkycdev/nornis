@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Requests;
@@ -161,6 +161,8 @@ public class PublicJourneyEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task PublicJourney_OmitsGmOnlySessions_FromTheAnonymousTrail()
     {
         var locationId = await SeedMapWithPinAsync("Black Harbor");

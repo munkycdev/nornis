@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -312,6 +312,8 @@ public class SourceReprocessServiceTests
     // ------------------------------------------------------------ authorization --
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Reprocess_Observer_Returns403()
     {
         var source = SeedSource();
@@ -323,6 +325,8 @@ public class SourceReprocessServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Reprocess_PlayerNotCreator_Returns403()
     {
         var source = SeedSource(createdBy: OtherUserId);

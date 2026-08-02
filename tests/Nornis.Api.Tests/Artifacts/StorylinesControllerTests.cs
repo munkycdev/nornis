@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Tests.Infrastructure;
@@ -68,6 +68,8 @@ public class StorylinesControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task List_NonMember_ReturnsForbidden()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
@@ -80,6 +82,8 @@ public class StorylinesControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Continuity_NonGm_ReturnsForbidden()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
@@ -104,6 +108,8 @@ public class StorylinesControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task WrapUp_NonGm_ReturnsForbidden()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);

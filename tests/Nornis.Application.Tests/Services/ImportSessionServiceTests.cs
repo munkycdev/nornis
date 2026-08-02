@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -127,6 +127,8 @@ public class ImportSessionServiceTests
     // ------------------------------------------------------------------- create --
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Create_NonGm_Forbidden()
     {
         var result = await _sut.CreateAsync(WorldId, PlayerId, WorldRole.Player, CancellationToken.None);
@@ -200,6 +202,8 @@ public class ImportSessionServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AddItem_NonGm_Forbidden()
     {
         var session = await NewSessionAsync();
@@ -648,6 +652,8 @@ public class ImportSessionServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Advance_NonGm_Forbidden()
     {
         var session = await NewSessionAsync();

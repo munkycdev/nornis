@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -111,6 +111,8 @@ public class NavMenuSessionExpiryTests : BunitContext
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task ARecoveredSession_ClearsTheBannerWithoutAReload()
     {
         // A failed token refresh can be transient. The slow probe (or any successful call) goes

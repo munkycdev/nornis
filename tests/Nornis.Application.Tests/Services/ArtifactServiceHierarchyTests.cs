@@ -1,4 +1,4 @@
-using Nornis.Application.Models;
+﻿using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -226,6 +226,8 @@ public class ArtifactServiceHierarchyTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task SetParent_NonGm_Returns403()
     {
         var child = SeedStoryline("Sub-arc");
@@ -238,6 +240,8 @@ public class ArtifactServiceHierarchyTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task SetParent_GmOnlyEndpointNarrowsLinkVisibility()
     {
         var child = SeedStoryline("Sub-arc", VisibilityScope.GMOnly);
@@ -262,6 +266,8 @@ public class ArtifactServiceHierarchyTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task SetStatus_NonGm_Returns403()
     {
         var arc = SeedStoryline("Arc");

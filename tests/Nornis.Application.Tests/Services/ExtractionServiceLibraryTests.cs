@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
@@ -151,6 +151,8 @@ public class ExtractionServiceLibraryTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Extraction_PartyVisibleSource_RetrievesPartyVisibleShelvesOnly()
     {
         SeedSource(VisibilityScope.PartyVisible);
@@ -162,6 +164,8 @@ public class ExtractionServiceLibraryTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Extraction_GmOnlySource_RetrievesPartyVisibleAndGmOnlyShelves()
     {
         SeedSource(VisibilityScope.GMOnly);

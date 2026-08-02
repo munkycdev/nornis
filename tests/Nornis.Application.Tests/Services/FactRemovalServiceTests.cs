@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -112,6 +112,8 @@ public class FactRemovalServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Remove_NonGm_Returns403_AndChangesNothing()
     {
         var result = await _sut.RemoveAsync(Command(role: WorldRole.Player), CancellationToken.None);

@@ -1,4 +1,4 @@
-using Nornis.Application.Application;
+﻿using Nornis.Application.Application;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
@@ -227,6 +227,8 @@ public class ReviewServiceBatchTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task BatchAccept_PlayerCannotSeeOtherPlayersSource_ReportsNotFound()
     {
         // Source owned by another player — Player visibility check fails first
@@ -530,6 +532,8 @@ public class ReviewServiceBatchTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task BatchAccept_PlayerAuthorizedOnlyForOwnSource_PartialFailure()
     {
         // Player owns _source. Create another source owned by GM.
@@ -670,6 +674,8 @@ public class ReviewServiceBatchTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task BatchReject_PlayerAuthorizedOnlyForOwnSource_PartialFailure()
     {
         var gmSource = new Source

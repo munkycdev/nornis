@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Tests.Infrastructure;
@@ -43,6 +43,8 @@ public class CanonControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Get_AsPlayer_ExcludesGmOnlyAndHiddenEntries()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
@@ -98,6 +100,8 @@ public class CanonControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Get_NonMember_ReturnsForbidden()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);

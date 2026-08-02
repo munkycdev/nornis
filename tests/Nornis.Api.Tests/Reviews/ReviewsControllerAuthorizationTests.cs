@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -99,6 +99,7 @@ public class ReviewsControllerAuthorizationTests
     /// Validates: Requirements 12.1, 12.2
     /// </summary>
     [Test]
+    [Category("Authorization")]
     public async Task ListProposals_NonMember_Returns403()
     {
         var outsider = _factory.CreateAuthenticatedClient(
@@ -116,6 +117,8 @@ public class ReviewsControllerAuthorizationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AcceptProposal_NonMember_Returns403()
     {
         var outsider = _factory.CreateAuthenticatedClient(
@@ -132,6 +135,8 @@ public class ReviewsControllerAuthorizationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RejectProposal_NonMember_Returns403()
     {
         var outsider = _factory.CreateAuthenticatedClient(
@@ -148,6 +153,8 @@ public class ReviewsControllerAuthorizationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task EditProposal_NonMember_Returns403()
     {
         var outsider = _factory.CreateAuthenticatedClient(
@@ -165,6 +172,8 @@ public class ReviewsControllerAuthorizationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task BatchAccept_NonMember_Returns403()
     {
         var outsider = _factory.CreateAuthenticatedClient(
@@ -182,6 +191,8 @@ public class ReviewsControllerAuthorizationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task BatchReject_NonMember_Returns403()
     {
         var outsider = _factory.CreateAuthenticatedClient(
@@ -242,6 +253,7 @@ public class ReviewsControllerAuthorizationTests
     /// Validates: Requirement 12.4
     /// </summary>
     [Test]
+    [Category("Authorization")]
     public async Task ListProposals_NonExistentWorld_Returns403()
     {
         var nonExistentWorldId = Guid.NewGuid();
@@ -253,6 +265,8 @@ public class ReviewsControllerAuthorizationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AcceptProposal_NonExistentWorld_Returns403()
     {
         var nonExistentWorldId = Guid.NewGuid();
@@ -273,6 +287,7 @@ public class ReviewsControllerAuthorizationTests
     /// Validates: Requirement 12.6
     /// </summary>
     [Test]
+    [Category("Authorization")]
     public async Task ListProposals_NoJwt_Returns401()
     {
         var client = _factory.CreateClient();
@@ -283,6 +298,8 @@ public class ReviewsControllerAuthorizationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AcceptProposal_NoJwt_Returns401()
     {
         var client = _factory.CreateClient();
@@ -293,6 +310,8 @@ public class ReviewsControllerAuthorizationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task RejectProposal_NoJwt_Returns401()
     {
         var client = _factory.CreateClient();
@@ -303,6 +322,8 @@ public class ReviewsControllerAuthorizationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task EditProposal_NoJwt_Returns401()
     {
         var client = _factory.CreateClient();
@@ -314,6 +335,8 @@ public class ReviewsControllerAuthorizationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task BatchAccept_NoJwt_Returns401()
     {
         var client = _factory.CreateClient();
@@ -325,6 +348,8 @@ public class ReviewsControllerAuthorizationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task BatchReject_NoJwt_Returns401()
     {
         var client = _factory.CreateClient();
@@ -336,6 +361,8 @@ public class ReviewsControllerAuthorizationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task AcceptProposal_ExpiredJwt_Returns401()
     {
         var token = TestJwtIssuer.GenerateExpiredToken();
@@ -426,6 +453,7 @@ public class ReviewsControllerAuthorizationTests
     /// Validates: Requirements 6.5, 12.3
     /// </summary>
     [Test]
+    [Category("Authorization")]
     public async Task AcceptProposal_GmWithValidJwt_IsAuthorized()
     {
         var response = await _scenario.GmClient.PostAsync(AcceptUrl, null);

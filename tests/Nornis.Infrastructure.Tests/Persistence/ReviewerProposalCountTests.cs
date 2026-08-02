@@ -1,4 +1,4 @@
-using Nornis.Domain.Entities;
+﻿using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Infrastructure.Persistence.Repositories;
 using NUnit.Framework;
@@ -152,6 +152,8 @@ public class ReviewerProposalCountTests : IntegrationTestBase
         AssertAgreesWithQueueAsync(_gmId, WorldRole.GM, 5);
 
     [Test]
+
+    [Category("Authorization")]
     public Task Player_CountsOnlyProposalsOnSourcesTheyAuthored() =>
         AssertAgreesWithQueueAsync(_playerId, WorldRole.Player, 2);
 

@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -115,6 +115,8 @@ public class RecentSessionRetrievalTests
 
     [TestCase(WorldRole.Player)]
     [TestCase(WorldRole.Observer)]
+
+    [Category("Authorization")]
     public async Task GmOnlySessions_AreHiddenFromNonGmAskers(WorldRole role)
     {
         var now = DateTimeOffset.UtcNow;
@@ -129,6 +131,8 @@ public class RecentSessionRetrievalTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GmSeesGmOnlySessions()
     {
         var now = DateTimeOffset.UtcNow;

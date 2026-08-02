@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Requests;
@@ -113,6 +113,8 @@ public class ImportSessionsControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Player_CannotRunAnImport()
     {
         var player = _factory.CreateAuthenticatedClient(

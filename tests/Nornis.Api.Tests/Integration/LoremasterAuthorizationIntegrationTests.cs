@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Requests;
@@ -47,6 +47,8 @@ public class LoremasterAuthorizationIntegrationTests
     #region Authorization Tests
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Ask_WithoutJwt_Returns401()
     {
         // Arrange — unauthenticated client (no bearer token)
@@ -62,6 +64,8 @@ public class LoremasterAuthorizationIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Ask_NonMember_Returns403WithoutRevealingWorldExistence()
     {
         // Arrange — user who is not a member of the world
@@ -97,6 +101,8 @@ public class LoremasterAuthorizationIntegrationTests
     #region GM Visibility Tests
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Ask_GmRole_ReceivesGmOnlyContentInAnswer()
     {
         // Arrange — GM asks about the GMOnly artifact
@@ -119,6 +125,8 @@ public class LoremasterAuthorizationIntegrationTests
     #region Player Visibility Tests
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Ask_PlayerRole_DoesNotReceiveGmOnlyContent()
     {
         // Arrange — Player asks about the GMOnly artifact by name
@@ -158,6 +166,8 @@ public class LoremasterAuthorizationIntegrationTests
     #region Observer Visibility Tests
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Ask_ObserverRole_ReceivesOnlyPartyVisibleContent()
     {
         // Arrange — Observer asks about various artifacts
@@ -180,6 +190,8 @@ public class LoremasterAuthorizationIntegrationTests
     #region Private Content Tests
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Ask_PrivateFactsOfOtherUsers_NeverAppearInAnswers()
     {
         // Arrange — Player asks about the PartyVisible artifact that has a GMOnly fact attached.
@@ -200,6 +212,8 @@ public class LoremasterAuthorizationIntegrationTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Ask_GmOnlyFactsOfArtifacts_NeverAppearForObserver()
     {
         // Arrange — Observer asks about the PartyVisible artifact

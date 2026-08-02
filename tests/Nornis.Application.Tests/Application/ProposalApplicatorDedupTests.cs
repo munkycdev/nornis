@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Nornis.Application.Application;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Application.Validation;
@@ -180,6 +180,8 @@ public class ProposalApplicatorDedupTests
     #region Visibility is the author's, not the reviewer's
 
     [Test]
+
+    [Category("Authorization")]
     public async Task PlayerAuthoredSource_GmOnlySameNameArtifact_CreatesNewEvenWhenAGmAccepts()
     {
         // The GM reviewing this can see the hidden artifact. Binding to it would tell the
@@ -224,6 +226,8 @@ public class ProposalApplicatorDedupTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GmAuthoredGmNote_MatchesAGmOnlyArtifact()
     {
         _source.CreatedByUserId = _gmId;
@@ -274,6 +278,8 @@ public class ProposalApplicatorDedupTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GmAuthoredPartyVisibleRecap_DoesNotBindToAGmOnlyArtifact()
     {
         // The GM can see the hidden artifact, but this note is for the party. Binding would
@@ -290,6 +296,8 @@ public class ProposalApplicatorDedupTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GmOnlySource_MayStillBindToPartyVisibleCanon()
     {
         // Binding downward is legal and load-bearing: a GM walking a backlog import writes
@@ -312,6 +320,8 @@ public class ProposalApplicatorDedupTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task PlayerAuthoredGmOnlySource_StillCannotBindToAGmOnlyArtifact()
     {
         // The source gate would allow GMOnly; the author gate must still refuse, because the

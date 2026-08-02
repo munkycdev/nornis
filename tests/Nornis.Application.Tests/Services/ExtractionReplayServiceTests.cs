@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -82,6 +82,8 @@ public class ExtractionReplayServiceTests
     // ------------------------------------------------------------------- Start --
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Start_NonGm_Forbidden()
     {
         var start = SeedSource("Session 1", Day5);
@@ -362,6 +364,8 @@ public class ExtractionReplayServiceTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task GetActive_NonGm_Forbidden()
     {
         var result = await _sut.GetActiveAsync(WorldId, GmId, WorldRole.Player, CancellationToken.None);

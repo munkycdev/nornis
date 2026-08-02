@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Tests.Infrastructure;
 using Nornis.Domain.Entities;
@@ -123,6 +123,8 @@ public class PrivateVisibilityEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Detail_SharedArtifact_HidesAnotherUsersPrivateFact()
     {
         var body = await (await _scenario.PlayerClient.GetAsync(
@@ -136,6 +138,8 @@ public class PrivateVisibilityEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Graph_Player_ExcludesAnotherUsersPrivateNode()
     {
         var body = await (await _scenario.PlayerClient.GetAsync(
@@ -146,6 +150,8 @@ public class PrivateVisibilityEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Canon_Player_ExcludesAnotherUsersPrivateFact()
     {
         var body = await (await _scenario.PlayerClient.GetAsync(
@@ -155,6 +161,8 @@ public class PrivateVisibilityEndpointTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public async Task Observer_SeesNoPrivateContentAtAll()
     {
         var body = await (await _scenario.ObserverClient.GetAsync(

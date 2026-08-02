@@ -1,4 +1,4 @@
-using Nornis.Domain.Enums;
+﻿using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
 using NUnit.Framework;
 
@@ -29,6 +29,8 @@ public class VisibilityFilterTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public void ForRole_Player_SeesOwnPrivateOnly()
     {
         var filter = VisibilityFilter.ForRole(WorldRole.Player, Me);
@@ -41,6 +43,8 @@ public class VisibilityFilterTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public void ForRole_Observer_SeesPartyVisibleOnly()
     {
         var filter = VisibilityFilter.ForRole(WorldRole.Observer, Me);
@@ -72,6 +76,8 @@ public class VisibilityFilterTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public void ForSourceContext_GmOnlySource_SeesGmAndParty()
     {
         var filter = VisibilityFilter.ForSourceContext(VisibilityScope.GMOnly, Me);
@@ -82,6 +88,8 @@ public class VisibilityFilterTests
     }
 
     [Test]
+
+    [Category("Authorization")]
     public void ForSourceContext_PartyVisibleSource_SeesPartyOnly()
     {
         var filter = VisibilityFilter.ForSourceContext(VisibilityScope.PartyVisible, Me);
