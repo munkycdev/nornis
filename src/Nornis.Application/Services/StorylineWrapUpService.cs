@@ -246,8 +246,11 @@ public class StorylineWrapUpService : IStorylineWrapUpService
             {
                 return AppResult<WrapUpResult>.Fail(closureResult.Error!);
             }
-            batchId = closureResult.Value;
-            closed = command.Closures.Count;
+            // Guid.Empty means every requested closure was already applied — a retry after a
+            // later step failed. Report no batch and no closures rather than claiming work
+            // this call did not do.
+            batchId = closureResult.Value == Guid.Empty ? null : closureResult.Value;
+            closed = batchId is null ? 0 : command.Closures.Count;
         }
 
         // 2..4 delegate to existing self-contained flows (each manages its own transaction),
@@ -309,7 +312,25 @@ public class StorylineWrapUpService : IStorylineWrapUpService
                 return AppResult<Guid>.Fail(new AppError(404, "not_found",
                     $"Storyline {closure.StorylineId} not found in this world."));
             }
+            // Already at the requested status: skip rather than mint a second closure for it.
+            // The later steps of a wrap-up (accepts, rejects, parenting) each commit in their
+            // own transaction, so a failure in one of them returns an error *after* these
+            // closures are durable. The GM sees "it failed", retries the whole wrap-up, and
+            // without this the retry writes another synthetic source and batch closing a
+            // storyline that is already closed.
+            if (artifact.Status == closure.Status)
+            {
+                continue;
+            }
+
             targets.Add((closure, artifact));
+        }
+
+        // Everything requested was already applied — almost certainly a retry after a later
+        // step failed. Nothing to write, and no batch to report.
+        if (targets.Count == 0)
+        {
+            return AppResult<Guid>.Success(Guid.Empty);
         }
 
         var now = DateTimeOffset.UtcNow;

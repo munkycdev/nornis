@@ -276,7 +276,22 @@ changes that item's priority, not its shape.
   the worker exposes no health surface — a Service Bus blip at boot silently halts
   extraction until the next deploy. Fix: retry with backoff; surface processor
   liveness or fail fast.
-- **Wrap-up reports total failure after partial success.** Closures commit in their
+- **Wrap-up reports total failure after partial success.** **Duplicate-minting fixed
+  2026-08-01; the reporting half is not.**
+  - Done: closures are now idempotent. A closure whose storyline already holds the
+    requested status is skipped, and a call where every closure was already applied writes
+    no synthetic source and reports `Closed: 0, BatchId: null`. That kills the actual harm
+    — a retry after a later step failed used to mint a second wrap-up batch closing an
+    already-closed storyline.
+  - **Not done:** returning per-step results. A later step's failure still reports the
+    whole call as failed, so the GM is told nothing happened when the closures did. Fixing
+    that properly means changing what the endpoint returns and teaching the UI to read a
+    partial result — today it treats anything non-success as "nothing applied". Worth
+    doing with the `BatchOperationResult` shape, not as a tail-end.
+  - Narrower in practice than it reads: `SessionWrapUpCard` submits one decision per call,
+    so the multi-step path is reachable through the API but not through the UI.
+
+- **(original diagnosis)** Wrap-up reports total failure after partial success. Closures commit in their
   own transaction; a later step's failure returns an error, the GM retries, and a
   duplicate wrap-up source/batch is minted for an already-closed storyline
   (`StorylineWrapUpService.cs:239-297`). Fix: pre-validate all decisions before the

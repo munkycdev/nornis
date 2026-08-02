@@ -253,6 +253,31 @@ public class StorylineWrapUpServiceTests
     }
 
     [Test]
+    public async Task Apply_ClosureAlreadyApplied_MintsNothingSecondTime()
+    {
+        // Closures commit in their own transaction, so a failure in a later step of the
+        // wrap-up returns an error after they are already durable. The GM sees "it failed"
+        // and retries the whole wrap-up — which used to write a second synthetic source and
+        // batch closing a storyline that was already closed.
+        // Seeded already Resolved: the state the storyline is in when the first attempt's
+        // closure committed and a later step then failed.
+        var arc = SeedStoryline("Finished Arc", ArtifactStatus.Resolved);
+        var command = new WrapUpDecisionsCommand(_worldId, _gmUserId, WorldRole.GM,
+            [new WrapUpClosure(arc.Id, ArtifactStatus.Resolved)], [], [], []);
+
+        var batchesAfterFirst = _batchRepo.Batches.Count;
+        var retry = await Service().ApplyAsync(command, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(retry.IsSuccess, Is.True, retry.Error?.Message);
+            Assert.That(retry.Value!.Closed, Is.Zero, "a retry closed nothing new");
+            Assert.That(retry.Value.BatchId, Is.Null, "and minted no second wrap-up batch");
+            Assert.That(_batchRepo.Batches, Has.Count.EqualTo(batchesAfterFirst));
+        });
+    }
+
+    [Test]
     public async Task Apply_Closure_CreatesWrapUpBatchAndAcceptsProposal()
     {
         var arc = SeedStoryline("Finished Arc");
