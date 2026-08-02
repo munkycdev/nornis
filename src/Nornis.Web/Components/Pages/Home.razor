@@ -1,4 +1,4 @@
-@page "/"
+﻿@page "/"
 @using System.Text.Json
 @implements IDisposable
 @inject WorldState Worlds
@@ -301,7 +301,7 @@ else
     private string? _assessmentError;
 
     private bool _showAiAssessment =>
-        string.Equals(Worlds.EffectiveRole, "GM", StringComparison.OrdinalIgnoreCase);
+        Worlds.IsGm;
 
     // Shown until the data-driven suggestions load (or if that call fails).
     private static readonly string[] DefaultSuggestions =

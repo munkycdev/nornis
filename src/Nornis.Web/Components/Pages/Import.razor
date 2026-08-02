@@ -1,4 +1,4 @@
-@page "/extract"
+﻿@page "/extract"
 @* The original address, kept working: the feature shipped as "import" and links to it exist. *@
 @page "/import"
 @implements IDisposable
@@ -25,7 +25,7 @@
 {
     <NoWorld />
 }
-else if (Worlds.EffectiveRole != "GM")
+else if (!Worlds.IsGm)
 {
     <MudAlert Severity="Severity.Info">Only the GM can extract a campaign.</MudAlert>
 }
@@ -624,7 +624,7 @@ else
 
     private async Task LoadAsync()
     {
-        if (Worlds.Current is null || Worlds.EffectiveRole != "GM")
+        if (Worlds.Current is null || !Worlds.IsGm)
         {
             _session = null;
             _loadFailed = false;

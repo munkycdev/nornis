@@ -10,16 +10,16 @@
     <InternalsVisibleTo Include="Nornis.Web.Tests" />
   </ItemGroup>
 
+  <!-- No ProjectReference, deliberately. Web is a separate deployable that talks to
+       nornis-api over HTTP and owns its own copy of the contracts (see Contracts.cs) — it
+       never references the Application or Infrastructure layers. Nothing enforces this but
+       the absence below, so an added reference here is the thing to question in review. -->
+
   <ItemGroup>
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.5.0" />
     <PackageReference Include="Markdig" Version="0.41.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.2" />
     <PackageReference Include="MudBlazor" Version="7.15.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- Web is a separate deployable that talks to nornis-api over HTTP. It shares only
-         DTO/contract types via Nornis.Shared — never the Application/Infrastructure layers. -->
   </ItemGroup>
 
 </Project>

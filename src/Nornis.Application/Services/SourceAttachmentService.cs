@@ -1,4 +1,4 @@
-using System.Collections.Frozen;
+﻿using System.Collections.Frozen;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
@@ -249,19 +249,19 @@ public class SourceAttachmentService : ISourceAttachmentService
         return AppResult<IReadOnlyList<SourceAttachmentWithUrl>>.Success(result);
     }
 
-    public async Task<AppResult<bool>> DeleteAsync(
+    public async Task<AppResult> DeleteAsync(
         Guid attachmentId, Guid sourceId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)
     {
         var gate = await LoadMutableSourceAsync(sourceId, worldId, actingUserId, role, ct);
         if (!gate.IsSuccess)
         {
-            return AppResult<bool>.Fail(gate.Error!);
+            return AppResult.Fail(gate.Error!);
         }
 
         var attachment = await _attachmentRepository.GetByIdAsync(attachmentId, ct);
         if (attachment is null || attachment.SourceId != sourceId)
         {
-            return AppResult<bool>.Fail(new AppError(404, "not_found", "Attachment not found."));
+            return AppResult.Fail(new AppError(404, "not_found", "Attachment not found."));
         }
 
         // Blob first, failure swallowed (Library convention): an orphaned blob beats an
@@ -282,7 +282,7 @@ public class SourceAttachmentService : ISourceAttachmentService
             await _sourceRepository.UpdateDerivedTextAsync(sourceId, null, ct);
         }
 
-        return AppResult<bool>.Success(true);
+        return AppResult.Success();
     }
 
     /// <summary>

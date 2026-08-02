@@ -1,4 +1,4 @@
-<a href="/" class="nornis-brand nornis-brand-link" aria-label="Nornis home">
+﻿<a href="/" class="nornis-brand nornis-brand-link" aria-label="Nornis home">
     <img src="images/logo.png" alt="Nornis" class="nornis-brand-logo" />
     <div class="nornis-brand-name">NORNIS</div>
     <div class="nornis-brand-tagline">Your world, remembered.</div>
@@ -29,7 +29,7 @@
                 {
                     <div class="nornis-world-label d-flex align-center gap-1">
                         World ·
-                        @if (Worlds.Current.MyRole == "GM")
+                        @if (Worlds.Current.MyRole == WorldRoles.Gm)
                         {
                             <button type="button" class="nornis-role-chip"
                                     title="See this world as your players do"
@@ -69,7 +69,7 @@
             <MudDivider />
         }
         <MudMenuItem Icon="@Icons.Material.Filled.Add" OnClick="CreateWorld">New world</MudMenuItem>
-        @if (Worlds.Current?.MyRole == "GM" && !Worlds.ViewingAsPlayer)
+        @if (Worlds.Current?.MyRole == WorldRoles.Gm && !Worlds.ViewingAsPlayer)
         {
             <MudDivider />
             <MudMenuItem Icon="@Icons.Material.Outlined.Visibility" OnClick="EnterPlayerView">View as player</MudMenuItem>
@@ -102,13 +102,13 @@
             <span class="nornis-nav-count" title="processing">@_activity.InFlight</span>
         }
     </MudNavLink>
-    @if (Worlds.EffectiveRole == "GM")
+    @if (Worlds.IsGm)
     {
         <MudNavLink Href="/admin" Icon="@Icons.Material.Outlined.Tune">Admin</MudNavLink>
     }
 </MudNavMenu>
 
-@if (Worlds.EffectiveRole == "GM")
+@if (Worlds.IsGm)
 {
 <div class="nornis-memory">
     <div class="nornis-memory-title">World Memory</div>

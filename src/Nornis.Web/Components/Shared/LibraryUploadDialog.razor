@@ -1,4 +1,4 @@
-@inject WorldState Worlds
+﻿@inject WorldState Worlds
 @inject NornisApiClient Api
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
@@ -20,7 +20,7 @@
                     <MudSelectItem Value="@kind">@kind</MudSelectItem>
                 }
             </MudSelect>
-            @if (Worlds.EffectiveRole == "GM")
+            @if (Worlds.IsGm)
             {
                 <MudSelect @bind-Value="_visibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1">
                     <MudSelectItem Value="@("GMOnly")">GM only</MudSelectItem>
@@ -106,7 +106,7 @@
         _progress = 0;
         _error = null;
 
-        var visibility = Worlds.EffectiveRole == "GM" ? _visibility : "PartyVisible";
+        var visibility = Worlds.IsGm ? _visibility : "PartyVisible";
         var ticket = await Api.RequestLibraryUploadAsync(Worlds.Current.Id,
             new RequestLibraryUploadRequest(_title.Trim(), _fileName, _contentType, _fileSize, _kind, visibility));
 

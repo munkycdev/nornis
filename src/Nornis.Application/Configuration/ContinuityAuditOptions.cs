@@ -7,6 +7,8 @@ namespace Nornis.Application.Configuration;
 /// </summary>
 public class ContinuityAuditOptions
 {
+    public const string SectionName = "ContinuityAudit";
+
     /// <summary>
     /// How often the background trigger evaluates worlds. Zero or negative disables the trigger
     /// entirely — the same convention <see cref="AiBudgetOptions"/> uses — so that the natural

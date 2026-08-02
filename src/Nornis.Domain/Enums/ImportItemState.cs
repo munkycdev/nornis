@@ -1,4 +1,4 @@
-namespace Nornis.Domain.Enums;
+﻿namespace Nornis.Domain.Enums;
 
 /// <summary>
 /// Where an import item stands. Derived entirely from its source's processing status and
@@ -9,20 +9,20 @@ namespace Nornis.Domain.Enums;
 public enum ImportItemState
 {
     /// <summary>Held back: the source is still Draft, waiting its turn.</summary>
-    Waiting = 0,
+    Waiting,
 
     /// <summary>Marked ready — queued, or in the worker's hands.</summary>
-    Extracting = 1,
+    Extracting,
 
     /// <summary>Extracted; open (Pending or Edited) proposals still await a decision.</summary>
-    Reviewing = 2,
+    Reviewing,
 
     /// <summary>Extraction failed. The GM can retry it or skip it.</summary>
-    Failed = 3,
+    Failed,
 
     /// <summary>Processed with nothing left open — the walk may advance past it.</summary>
-    Done = 4,
+    Done,
 
     /// <summary>Passed over by the GM. Overrides every other state.</summary>
-    Skipped = 5
+    Skipped
 }

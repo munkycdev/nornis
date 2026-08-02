@@ -2,6 +2,11 @@ namespace Nornis.Worker.Configuration;
 
 public class WorkerOptions
 {
+    /// <summary>Named for what the section holds, which is Service Bus wiring, not for the
+    /// class — the one place the two names diverge, so binding by the constant matters more
+    /// here than anywhere else.</summary>
+    public const string SectionName = "ServiceBus";
+
     public string ConnectionString { get; set; } = string.Empty;
 
     public string QueueName { get; set; } = "source-extraction";

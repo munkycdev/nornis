@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Nornis.Application.Authorization;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
@@ -27,27 +27,27 @@ public class WorldDeletionService : IWorldDeletionService
         _logger = logger;
     }
 
-    public async Task<AppResult<bool>> DeleteAsync(DeleteWorldCommand command, CancellationToken ct)
+    public async Task<AppResult> DeleteAsync(DeleteWorldCommand command, CancellationToken ct)
     {
         var member = await _worldMemberRepository.GetByWorldAndUserAsync(command.WorldId, command.ActingUserId, ct);
 
         if (member is null || !member.Role.IsAtLeast(WorldRole.GM))
         {
-            return AppResult<bool>.Fail(new AppError(403, "insufficient_role", "Only a GM can delete a world."));
+            return AppResult.Fail(new AppError(403, "insufficient_role", "Only a GM can delete a world."));
         }
 
         var world = await _worldRepository.GetByIdAsync(command.WorldId, ct);
 
         if (world is null)
         {
-            return AppResult<bool>.Fail(new AppError(404, "not_found", "World not found."));
+            return AppResult.Fail(new AppError(404, "not_found", "World not found."));
         }
 
         // Case-sensitive on purpose: this is the last line of defense before an
         // unrecoverable wipe, so the typed name must match exactly.
         if (!string.Equals(command.ConfirmationName?.Trim(), world.Name, StringComparison.Ordinal))
         {
-            return AppResult<bool>.Fail(new AppError(400, "confirmation_mismatch",
+            return AppResult.Fail(new AppError(400, "confirmation_mismatch",
                 "Type the world's exact name to confirm deletion."));
         }
 
@@ -71,6 +71,6 @@ public class WorldDeletionService : IWorldDeletionService
             "World {WorldId} (\"{WorldName}\") permanently deleted by user {UserId}",
             command.WorldId, world.Name, command.ActingUserId);
 
-        return AppResult<bool>.Success(true);
+        return AppResult.Success();
     }
 }

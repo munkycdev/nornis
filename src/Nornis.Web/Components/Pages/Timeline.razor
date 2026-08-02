@@ -1,4 +1,4 @@
-@page "/timeline"
+﻿@page "/timeline"
 @page "/storylines"
 @using Microsoft.AspNetCore.WebUtilities
 @implements IDisposable
@@ -15,7 +15,7 @@
         <MudText Typo="Typo.h4" Class="nornis-serif">Timeline</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">The stories in motion.</MudText>
     </div>
-    @if (Worlds.EffectiveRole == "GM")
+    @if (Worlds.IsGm)
     {
         <MudTooltip Text="AI reads each Active storyline against the record and proposes closing the finished ones — you review every proposal.">
             <MudButton Variant="Variant.Outlined" Color="Color.Primary"
@@ -82,7 +82,7 @@ else
         }
         else
         {
-            @if (Worlds.EffectiveRole == "GM")
+            @if (Worlds.IsGm)
             {
                 <div class="d-flex justify-end mb-1">
                     <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary"
@@ -108,7 +108,7 @@ else
         else
         {
             <StorylineTimelineChart Data="_timeline" StatusFilter="_selectedStatuses"
-                                    CanEdit="@(Worlds.EffectiveRole == "GM")"
+                                    CanEdit="@(Worlds.IsGm)"
                                     ReparentRequested="OnReparentRequestedAsync"
                                     UnnestRequested="OnUnnestRequestedAsync" />
         }

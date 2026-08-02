@@ -1,4 +1,4 @@
-@page "/sources/{SourceId:guid}"
+﻿@page "/sources/{SourceId:guid}"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -68,7 +68,7 @@
                             @(_source.ExtractionEnabled ? "Process" : "Store")
                         </MudButton>
                     }
-                    @if (Worlds.EffectiveRole == "GM" && _source.Visibility == "GMOnly")
+                    @if (Worlds.IsGm && _source.Visibility == "GMOnly")
                     {
                         <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
                                    StartIcon="@Icons.Material.Filled.Visibility"
@@ -306,7 +306,7 @@
             @if (_source.ProcessingStatus == "Processed" && _source.ExtractionEnabled)
             {
                 <SourceKnowledgePanel Knowledge="_knowledge"
-                                      CanRemoveFacts="@(Worlds.EffectiveRole == "GM")"
+                                      CanRemoveFacts="@(Worlds.IsGm)"
                                       Busy="_removingFact"
                                       RemoveFactRequested="OnRemoveFactAsync" />
             }
@@ -496,7 +496,7 @@
     // record, so players don't get the button even for their own notes (their path is the
     // ordinary edit flow, which reprocesses on a body change). Status gate mirrors what
     // the reprocess endpoint accepts.
-    private bool CanReRun => Worlds.EffectiveRole == "GM"
+    private bool CanReRun => Worlds.IsGm
         && _source is not null
         && _source.ExtractionEnabled
         && _source.ProcessingStatus is "Processed" or "Failed";
@@ -515,7 +515,7 @@
 
     // The API also allows the source creator; the client doesn't know its own user id,
     // so the drag affordance shows for GMs only (map sources are GM uploads in practice).
-    private bool CanEditMapPins => Worlds.EffectiveRole == "GM";
+    private bool CanEditMapPins => Worlds.IsGm;
 
     /// <summary>Persists a dragged pin's new position; false snaps the pin back in the viewer.</summary>
     private async Task<bool> PersistPinMoveAsync(Guid placemarkId, decimal x, decimal y)
@@ -1210,7 +1210,7 @@
     /// transient failures — the banner is a convenience, not a workflow gate.</summary>
     private async Task RefreshReplayAsync(CancellationToken ct)
     {
-        if (Worlds.Current is null || Worlds.EffectiveRole != "GM")
+        if (Worlds.Current is null || !Worlds.IsGm)
         {
             _replay = null;
             return;

@@ -1,4 +1,4 @@
-@page "/artifacts/{ArtifactId:guid}"
+﻿@page "/artifacts/{ArtifactId:guid}"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -44,7 +44,7 @@
             <div>
                 <div class="d-flex align-center gap-1">
                     <MudText Typo="Typo.h4" Class="nornis-serif">@_detail.Name</MudText>
-                    @if (Worlds.EffectiveRole == "GM")
+                    @if (Worlds.IsGm)
                     {
                         <MudTooltip Text="Rename">
                             <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small"
@@ -54,7 +54,7 @@
                 </div>
                 <div class="nornis-detail-chips">
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_detail.Type</MudChip>
-                    @if (Worlds.EffectiveRole == "GM")
+                    @if (Worlds.IsGm)
                     {
                         <MudMenu Dense="true">
                             <ActivatorContent>
@@ -91,7 +91,7 @@
             </div>
         </div>
 
-        @if (Worlds.EffectiveRole == "GM" && ArtifactFindings.Count > 0)
+        @if (Worlds.IsGm && ArtifactFindings.Count > 0)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">
@@ -192,7 +192,7 @@
             }
         </MudPaper>
 
-        @if (_detail.Type == "Storyline" && Worlds.EffectiveRole == "GM")
+        @if (_detail.Type == "Storyline" && Worlds.IsGm)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">Part of</div>
@@ -227,7 +227,7 @@
             </MudPaper>
         }
 
-        @if (_detail.Type == "Storyline" && Worlds.EffectiveRole == "GM")
+        @if (_detail.Type == "Storyline" && Worlds.IsGm)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">Campaigns</div>
@@ -307,7 +307,7 @@
             </MudPaper>
         }
 
-        @if (Worlds.EffectiveRole == "GM")
+        @if (Worlds.IsGm)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">Merge duplicate</div>
@@ -354,7 +354,7 @@
             </MudPaper>
         }
 
-        @if (Worlds.EffectiveRole == "GM" && HasGmOnlyContent)
+        @if (Worlds.IsGm && HasGmOnlyContent)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">Reveal to the party</div>
@@ -679,7 +679,7 @@
     private async Task LoadCampaignsEditorAsync()
     {
         if (Worlds.Current is null || _detail is null
-            || _detail.Type != "Storyline" || Worlds.EffectiveRole != "GM")
+            || _detail.Type != "Storyline" || !Worlds.IsGm)
         {
             _campaigns = [];
             return;

@@ -2,6 +2,8 @@ namespace Nornis.Application.Configuration;
 
 public class ExtractionOptions
 {
+    public const string SectionName = "Extraction";
+
     public string AiModel { get; set; } = string.Empty;
     public string AiEndpoint { get; set; } = string.Empty;
     public int AiTimeoutSeconds { get; set; } = 60;

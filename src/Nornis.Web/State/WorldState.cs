@@ -1,4 +1,4 @@
-using Microsoft.JSInterop;
+﻿using Microsoft.JSInterop;
 using Nornis.Web.ApiClient;
 
 namespace Nornis.Web.State;
@@ -54,6 +54,14 @@ public class WorldState
     /// downgrade server-side, so data and chrome stay consistent.
     /// </summary>
     public string? EffectiveRole => ViewingAsPlayer ? "Player" : Current?.MyRole;
+
+    /// <summary>
+    /// The one GM test. Roles arrive from the API as strings, so every gate was spelling out
+    /// its own comparison — twenty-seven of them, in three spellings, one of which had quietly
+    /// become case-insensitive while the rest were not. A gate that reads differently in one
+    /// file than in twenty-six others is a gate nobody can audit at a glance.
+    /// </summary>
+    public bool IsGm => EffectiveRole == WorldRoles.Gm;
 
     /// <summary>
     /// Enters or leaves player view. Only meaningful for GMs (the UI offers it to no one
@@ -225,7 +233,7 @@ public class WorldState
     {
         // The endpoint is GM-only — skip the guaranteed 403 for other roles, including a
         // GM currently viewing as player (the view-as header would make the server refuse).
-        if (Current is null || !string.Equals(EffectiveRole, "GM", StringComparison.OrdinalIgnoreCase))
+        if (Current is null || !IsGm)
         {
             Continuity = null;
             ContinuityError = null;

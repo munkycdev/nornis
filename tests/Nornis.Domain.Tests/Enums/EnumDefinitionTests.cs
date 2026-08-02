@@ -3,6 +3,13 @@ using NUnit.Framework;
 
 namespace Nornis.Domain.Tests.Enums;
 
+/// <summary>
+/// The names are the contract, which is why these tests assert names and no enum in the domain
+/// declares a numeric value. Every persisted enum is configured <c>HasConversion&lt;string&gt;()</c>
+/// and every API contract carries the enum as a string, so the ordinal is stored nowhere and
+/// crosses no wire — reordering members is free, and <em>renaming</em> one is the change that
+/// silently orphans existing rows. Pinning numbers would advertise the opposite.
+/// </summary>
 [TestFixture]
 public class EnumDefinitionTests
 {
