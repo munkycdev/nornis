@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
@@ -97,14 +98,18 @@ public partial class LoremasterService : ILoremasterService
           the conversation history provided.
         """;
 
+    private readonly ILogger<LoremasterService> _logger;
+
     public LoremasterService(
         IKnowledgeRetriever knowledgeRetriever,
         IReferencePassageRetriever passageRetriever,
         ILoremasterAiClient aiClient,
         IAiUsageRecorder usageRecorder,
         IAiBudgetGuard budgetGuard,
-        IOptions<LoremasterOptions> options)
+        IOptions<LoremasterOptions> options,
+        ILogger<LoremasterService> logger)
     {
+        _logger = logger;
         _knowledgeRetriever = knowledgeRetriever;
         _passageRetriever = passageRetriever;
         _aiClient = aiClient;
@@ -171,8 +176,19 @@ public partial class LoremasterService : ILoremasterService
                 }
             }
         }
-        catch (Exception)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
+            // A reader navigating away cancelled this. Swallowed below it became a 500 —
+            // an error nobody caused, logged as if the service had broken.
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Still broad, because context assembly touches several stores and a partial
+            // failure should not lose the question. But it is logged now: this used to
+            // convert every bug in here into an identical, untraceable message.
+            _logger.LogError(ex,
+                "Loremaster context assembly failed. WorldId={WorldId}", command.WorldId);
             return AppResult<LoremasterAnswer>.Fail(
                 new AppError(500, "internal_error", "Something went wrong. Please try again."));
         }

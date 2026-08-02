@@ -328,12 +328,22 @@ changes that item's priority, not its shape.
   `ExtractionReplayService.cs:139-149`). Fix: inject a logger; catch
   `DbUpdateConcurrencyException` specifically (re-read, return idempotent/409);
   `ChangeTracker.Clear()` after swallowed conflicts; let true bugs propagate.
-- **LoremasterService's belt-over-suspenders catch hides bugs and mangles
-  cancellation** (:174-178, no logger; a user-cancelled request becomes a 500). Fix:
+- ~~**LoremasterService's belt-over-suspenders catch hides bugs and mangles
+  cancellation**~~ **Fixed 2026-08-01.** Logger injected; a cancelled request rethrows
+  instead of becoming a 500 nobody caused; everything else is logged with the world id
+  rather than collapsing into one untraceable message. The catch stays broad on purpose —
+  context assembly touches several stores and a partial failure should not lose the
+  question — but it is no longer silent. `IsRateLimitByTypeName` remains scrub 1.5's.
+- **(original)** LoremasterService's belt-over-suspenders catch hides bugs and mangles
+  cancellation (:174-178, no logger; a user-cancelled request becomes a 500). Fix:
   narrow it, rethrow when `ct.IsCancellationRequested`, log the rest. Its type-name
   exception sniffing (`IsRateLimitByTypeName`) is scrub **1.5** — confirmed against
   the codebase's own documented string-matching incident.
-- **`ReferencePassageRetriever` catch-all swallows cancellation** (:92-97) — shutdown
+- ~~**`ReferencePassageRetriever` catch-all swallows cancellation**~~ **Fixed
+  2026-08-01.** An OCE filter-rethrow sits above the catch-all, so shutdown no longer
+  reads as "this world has no reference passages" while extraction carries on against a
+  cancelled token.
+- **(original)** `ReferencePassageRetriever` catch-all swallows cancellation (:92-97) — shutdown
   reads as "no passages" and extraction continues on a cancelled token. Fix: OCE
   filter-rethrow above the catch-all.
 - **Blob container init does sync network I/O in the constructor and bypasses
@@ -348,7 +358,16 @@ changes that item's priority, not its shape.
 - **Demo-world name generation is the only unmetered AI call** (no guard, no usage
   record — bounded only by the demo rate limit). Fix: write the usage record even if
   the guard stays off by design.
-- **A failed heuristic read silently becomes continuity score 0**
+- ~~**A failed heuristic read silently becomes continuity score 0**~~ **Fixed 2026-08-01**
+  at both sites: the audit run and the read path now return the underlying failure instead
+  of substituting 0. A fabricated zero is indistinguishable from a record in ruins, and on
+  the audit path it also meant spending a paid AI call blending against a fiction.
+  - Not covered by a test: the fixture wires a real `HealthService`, so forcing the failure
+    means breaking a repository underneath it. The change is two guard clauses.
+  - `ContinuityAuditService` still has no logger, so these failures return but are not
+    logged. Injecting one cascades through its construction sites — worth doing with the
+    ReviewService logger item below, which needs the same treatment.
+- **(original)** A failed heuristic read silently becomes continuity score 0
   (`ContinuityAuditService.cs:130-132, :237-238`) — indistinguishable from "the
   record is terrible". Fix: fail the run or mark the input degraded.
 

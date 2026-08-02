@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
@@ -51,7 +52,7 @@ public class LoremasterServiceKnowledgeRetrievalAndPromptTests
             _knowledgeRetriever, new FakeReferencePassageRetriever(),
             _aiClient,
             TestUsageRecorder.Wrap(_aiUsageRecordRepository),
-            new FakeAiBudgetGuard(), Options.Create(options));
+            new FakeAiBudgetGuard(), Options.Create(options), NullLogger<LoremasterService>.Instance);
     }
 
     #region Knowledge Retrieval Tests

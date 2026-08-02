@@ -1,6 +1,7 @@
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
@@ -58,7 +59,7 @@ public class PromptContainsQuestionAndContextTests
             knowledgeRetriever, new FakeReferencePassageRetriever(),
             aiClient,
             TestUsageRecorder.Wrap(usageRepo),
-            new FakeAiBudgetGuard(), options);
+            new FakeAiBudgetGuard(), options, NullLogger<LoremasterService>.Instance);
 
         var command = new AskLoremasterCommand(
             WorldId: scenario.WorldId,

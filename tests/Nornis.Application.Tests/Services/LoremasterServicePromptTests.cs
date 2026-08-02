@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
@@ -33,7 +34,7 @@ public class LoremasterServicePromptTests
         };
 
         _budgetGuard = new FakeAiBudgetGuard();
-        _service = new LoremasterService(_knowledgeRetriever, new FakeReferencePassageRetriever(), _aiClient, TestUsageRecorder.Wrap(_aiUsageRecordRepository), _budgetGuard, Options.Create(_options));
+        _service = new LoremasterService(_knowledgeRetriever, new FakeReferencePassageRetriever(), _aiClient, TestUsageRecorder.Wrap(_aiUsageRecordRepository), _budgetGuard, Options.Create(_options), NullLogger<LoremasterService>.Instance);
     }
 
     [Test]

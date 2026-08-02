@@ -128,9 +128,17 @@ public class ContinuityAuditService : IContinuityAuditService
         if (budgetError is not null)
             return AppResult<ContinuityAssessment>.Fail(budgetError);
 
-        // 1. Heuristic base score (the fast/free tier we blend against).
+        // 1. Heuristic base score (the fast/free tier we blend against). A failed read used
+        // to fall through as 0, which is indistinguishable from "this record is in ruins" —
+        // and the audit would then spend a paid AI call blending against a fiction. Fail the
+        // run instead: no score at all is honest, a fabricated zero is not.
         var heuristicResult = await _healthService.GetHealthAsync(worldId, ct);
-        var heuristic = heuristicResult.IsSuccess ? heuristicResult.Value!.OverallScore : 0;
+        if (!heuristicResult.IsSuccess)
+        {
+            return AppResult<ContinuityAssessment>.Fail(heuristicResult.Error!);
+        }
+
+        var heuristic = heuristicResult.Value!.OverallScore;
 
         // 2. Load the full GM-scoped record. Archived artifacts (merge leftovers) are dead
         // weight for a continuity read and stay out of the prompt.
@@ -236,7 +244,14 @@ public class ContinuityAuditService : IContinuityAuditService
         // findings that are still Open and still grounded — dismissing a finding, or editing the
         // evidence it cites (which makes it stale), raises the effective score.
         var heuristicResult = await _healthService.GetHealthAsync(worldId, ct);
-        var heuristic = heuristicResult.IsSuccess ? heuristicResult.Value!.OverallScore : 0;
+        if (!heuristicResult.IsSuccess)
+        {
+            // Same rule on the read path: refuse rather than report a zero the record did
+            // not earn. The stored assessment is still there to re-read once this recovers.
+            return AppResult<ContinuityAssessment>.Fail(heuristicResult.Error!);
+        }
+
+        var heuristic = heuristicResult.Value!.OverallScore;
 
         var recordLookup = await LoadRecordLookupAsync(assessment.Findings, ct);
 

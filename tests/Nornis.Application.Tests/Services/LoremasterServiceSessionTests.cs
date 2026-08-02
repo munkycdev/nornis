@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
@@ -40,7 +41,8 @@ public class LoremasterServiceSessionTests
                 AiTimeoutSeconds = 30,
                 MaxRetrievalCount = 30,
                 MaxQuestionLength = 2000
-            }));
+            }),
+            NullLogger<LoremasterService>.Instance);
     }
 
     private static KnowledgeContext EmptyContext(IReadOnlyList<KnowledgeSession>? sessions = null) => new()
