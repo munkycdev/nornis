@@ -1,4 +1,4 @@
-# Observability and Cost Tracking
+﻿# Observability and Cost Tracking
 
 > **Amendment (July 2026):** Observability runs on **Azure Monitor / Application
 > Insights** (`appi-nornis`) via OpenTelemetry, not DataDog — read every DataDog
@@ -17,9 +17,16 @@
 > success rate, so **no alert currently watches the API at all**: a missed migration,
 > a crashed API revision, or a 503 from `/health` leaves the ping green, because
 > `/welcome` renders without the API. Verified against the live resource, not inferred.
-> Closing it takes a second standard test against `https://api.nornis.app/health`;
-> until that exists, the API's only post-deploy verification is `deploy.yml`'s poll,
-> which runs once per rollout and sees nothing in between.
+> **Closed the same day.** `ping-nornis-api-health` now pings `https://api.nornis.app/health`
+> from the same two locations every 15 minutes, expecting 200 — and since `/health` answers
+> 503 when a migration is pending, a missed migration finally pages someone.
+>
+> Adding it required changing the alert, not just adding a test. `nornis-availability` had no
+> dimensions, so it averaged availability across *every* web test. A second test would have
+> **reduced** sensitivity: an API at 82% alone crosses the 90% threshold, but averaged with a
+> healthy Web app reads as 91% and stays quiet. The alert now splits on
+> `availabilityResult/name`, so each test is judged alone and the notification names which one
+> is down.
 
 ## Observability Tool
 

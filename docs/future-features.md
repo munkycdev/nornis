@@ -58,9 +58,10 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
    rather than `/health` (see the plan: liveness on `/health` turns the migration window
    into a crash loop). **Fully closed 2026-08-02**: `/health` now emits
    `{status, failing}` and `deploy.yml` names the cause. That last piece had been held
-   as "a payload the availability alert reads" — it is not. The alert pings the Web
-   app's `/welcome`, so **nothing alerts on the API at all**; the plan carries the
-   detail and the one-resource fix, which is unbought recurring spend, not code.
+   as "a payload the availability alert reads" — it was not; the alert pinged only the Web
+   app's `/welcome`. **Closed 2026-08-02** with a second availability test against
+   `/health`, plus a dimension split on the alert without which the new test would have
+   diluted the old one's sensitivity. See the plan.
 6. D2 deterministic functional bugs — every item carries a repro and a prescribed fix.
    Includes the merge skip-branch row deletion (prerequisite for W2) and the
    stale-response family. Two additive migrations (batch and replay unique indexes).

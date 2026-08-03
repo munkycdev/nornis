@@ -69,10 +69,18 @@ confirms the new revision came up.
     actually pings `/health`" as an unverified inference, and it was wrong.
     - Consequence for O1: the deploy poll is now the *only* thing verifying the API, and
       it runs once per rollout. Between deploys nothing is watching.
-    - Fix is one resource — a second standard test against
-      `https://api.nornis.app/health`, expecting 200. Not created here: it is recurring
-      spend (~$6/mo, doubling the availability line) on an account this plan does not get
-      to enlarge unattended. Everything the code side needs is already in place.
+    - **Closed 2026-08-02.** `ping-nornis-api-health` pings `https://api.nornis.app/health`
+      every 15 minutes from the same two locations as the Web test, expecting 200. Since
+      `/health` answers 503 on a pending migration, a missed migration now pages.
+    - **The test alone would have made things worse.** `nornis-availability` had no
+      dimensions, so it averaged availability across every web test in the component. Adding
+      a second test *lowers* per-endpoint sensitivity: an API sitting at 82% crosses the 90%
+      threshold on its own, but averaged with a healthy Web app reads as 91% and stays
+      quiet. The alert now splits on `availabilityResult/name`, so each test is evaluated
+      alone and the notification says which one is down.
+    - No content validation, deliberately. `/health` already answers 503 when unhealthy, so
+      the status code carries the whole signal — and a content match on a payload that just
+      grew a `failing` field is a check that breaks the next time the payload changes.
 - The Worker has no probe surface; its post-deploy verification is the
   worker-heartbeat check in the System status plan.
 - `containerapp update` kills mid-extraction work. Safety rests on Service Bus
