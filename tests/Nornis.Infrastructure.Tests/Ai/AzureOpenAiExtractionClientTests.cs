@@ -1,6 +1,7 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
 using System.Net;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -79,6 +80,45 @@ public class AzureOpenAiExtractionClientTests
             Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(result));
     }
+
+    /// <summary>
+    /// A proposal the client accepts. The parse-failure tests below each break exactly
+    /// one field of it, so what a case asserts is legible from the field name alone.
+    /// </summary>
+    private const string ValidProposal = """
+        {
+          "changeType": "CreateArtifact",
+          "targetType": "Artifact",
+          "targetId": null,
+          "proposedValue": { "name": "Voss" },
+          "rationale": "Test rationale.",
+          "confidence": 0.8
+        }
+        """;
+
+    /// <summary>
+    /// The valid proposal with one field dropped, wrapped in the response envelope.
+    /// </summary>
+    private static string ResponseWithout(string field)
+    {
+        var proposal = JsonNode.Parse(ValidProposal)!.AsObject();
+        proposal.Remove(field);
+        return Envelope(proposal);
+    }
+
+    /// <summary>
+    /// The valid proposal with one field replaced by <paramref name="rawJson"/> — a JSON
+    /// literal, so a case can supply a string, a number or a wrong-typed value alike.
+    /// </summary>
+    private static string ResponseWith(string field, string rawJson)
+    {
+        var proposal = JsonNode.Parse(ValidProposal)!.AsObject();
+        proposal[field] = JsonNode.Parse(rawJson);
+        return Envelope(proposal);
+    }
+
+    private static string Envelope(JsonObject proposal) =>
+        new JsonObject { ["proposals"] = new JsonArray(proposal) }.ToJsonString();
 
     #endregion
 
@@ -182,240 +222,50 @@ public class AzureOpenAiExtractionClientTests
 
     #region Parse Failure Tests
 
-    [Test]
-    public void ExtractAsync_MissingChangeTypeField_ThrowsParseException()
+    [TestCase("changeType")]
+    [TestCase("targetType")]
+    [TestCase("rationale")]
+    [TestCase("confidence")]
+    [TestCase("proposedValue")]
+    public void ExtractAsync_ProposalMissingARequiredField_ThrowsParseExceptionNamingIt(string field)
     {
-        var responseJson = """
-            {
-              "proposals": [
-                {
-                  "targetType": "Artifact",
-                  "targetId": null,
-                  "proposedValue": { "name": "Voss" },
-                  "rationale": "Test rationale.",
-                  "confidence": 0.8
-                }
-              ]
-            }
-            """;
+        SetupMockToReturn(ResponseWithout(field));
 
-        SetupMockToReturn(responseJson);
-
-        Assert.ThrowsAsync<AiParseException>(
+        var ex = Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
+
+        // The message reaches the retry loop's log, and that log line is all anyone has
+        // when a model starts omitting a field — so naming the field is the contract.
+        Assert.That(ex!.Message, Does.Contain(field));
+    }
+
+    [TestCase("changeType", "\"DeleteArtifact\"", Description = "not one of the four verbs")]
+    [TestCase("targetType", "\"World\"", Description = "not a proposable entity")]
+    [TestCase("confidence", "1.5", Description = "above the 0.0-1.0 range")]
+    [TestCase("confidence", "-0.1", Description = "below the 0.0-1.0 range")]
+    [TestCase("rationale", "\"\"", Description = "present but empty")]
+    public void ExtractAsync_ProposalFieldOutOfRange_ThrowsParseExceptionNamingIt(
+        string field, string rawJson)
+    {
+        SetupMockToReturn(ResponseWith(field, rawJson));
+
+        var ex = Assert.ThrowsAsync<AiParseException>(
+            async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
+
+        Assert.That(ex!.Message, Does.Contain(field));
     }
 
     [Test]
-    public void ExtractAsync_MissingTargetTypeField_ThrowsParseException()
+    public void ExtractAsync_RationaleExceeding500Chars_ThrowsParseExceptionNamingIt()
     {
-        var responseJson = """
-            {
-              "proposals": [
-                {
-                  "changeType": "CreateArtifact",
-                  "targetId": null,
-                  "proposedValue": { "name": "Voss" },
-                  "rationale": "Test rationale.",
-                  "confidence": 0.8
-                }
-              ]
-            }
-            """;
+        // Separate from the range cases above only because a 501-character literal is not
+        // a compile-time constant and so cannot ride in a [TestCase].
+        SetupMockToReturn(ResponseWith("rationale", $"\"{new string('x', 501)}\""));
 
-        SetupMockToReturn(responseJson);
-
-        Assert.ThrowsAsync<AiParseException>(
+        var ex = Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
-    }
 
-    [Test]
-    public void ExtractAsync_MissingRationaleField_ThrowsParseException()
-    {
-        var responseJson = """
-            {
-              "proposals": [
-                {
-                  "changeType": "CreateArtifact",
-                  "targetType": "Artifact",
-                  "targetId": null,
-                  "proposedValue": { "name": "Voss" },
-                  "confidence": 0.8
-                }
-              ]
-            }
-            """;
-
-        SetupMockToReturn(responseJson);
-
-        Assert.ThrowsAsync<AiParseException>(
-            async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
-    }
-
-    [Test]
-    public void ExtractAsync_MissingConfidenceField_ThrowsParseException()
-    {
-        var responseJson = """
-            {
-              "proposals": [
-                {
-                  "changeType": "CreateArtifact",
-                  "targetType": "Artifact",
-                  "targetId": null,
-                  "proposedValue": { "name": "Voss" },
-                  "rationale": "Test rationale."
-                }
-              ]
-            }
-            """;
-
-        SetupMockToReturn(responseJson);
-
-        Assert.ThrowsAsync<AiParseException>(
-            async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
-    }
-
-    [Test]
-    public void ExtractAsync_MissingProposedValueField_ThrowsParseException()
-    {
-        var responseJson = """
-            {
-              "proposals": [
-                {
-                  "changeType": "CreateArtifact",
-                  "targetType": "Artifact",
-                  "targetId": null,
-                  "rationale": "Test rationale.",
-                  "confidence": 0.8
-                }
-              ]
-            }
-            """;
-
-        SetupMockToReturn(responseJson);
-
-        Assert.ThrowsAsync<AiParseException>(
-            async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
-    }
-
-    [Test]
-    public void ExtractAsync_InvalidChangeType_ThrowsParseException()
-    {
-        var responseJson = """
-            {
-              "proposals": [
-                {
-                  "changeType": "DeleteArtifact",
-                  "targetType": "Artifact",
-                  "targetId": null,
-                  "proposedValue": { "name": "Voss" },
-                  "rationale": "Test rationale.",
-                  "confidence": 0.8
-                }
-              ]
-            }
-            """;
-
-        SetupMockToReturn(responseJson);
-
-        Assert.ThrowsAsync<AiParseException>(
-            async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
-    }
-
-    [Test]
-    public void ExtractAsync_InvalidTargetType_ThrowsParseException()
-    {
-        var responseJson = """
-            {
-              "proposals": [
-                {
-                  "changeType": "CreateArtifact",
-                  "targetType": "World",
-                  "targetId": null,
-                  "proposedValue": { "name": "Voss" },
-                  "rationale": "Test rationale.",
-                  "confidence": 0.8
-                }
-              ]
-            }
-            """;
-
-        SetupMockToReturn(responseJson);
-
-        Assert.ThrowsAsync<AiParseException>(
-            async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
-    }
-
-    [Test]
-    public void ExtractAsync_RationaleExceeding500Chars_ThrowsParseException()
-    {
-        var longRationale = new string('x', 501);
-        var responseJson = $$"""
-            {
-              "proposals": [
-                {
-                  "changeType": "CreateArtifact",
-                  "targetType": "Artifact",
-                  "targetId": null,
-                  "proposedValue": { "name": "Voss" },
-                  "rationale": "{{longRationale}}",
-                  "confidence": 0.8
-                }
-              ]
-            }
-            """;
-
-        SetupMockToReturn(responseJson);
-
-        Assert.ThrowsAsync<AiParseException>(
-            async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
-    }
-
-    [Test]
-    public void ExtractAsync_ConfidenceAbove1_ThrowsParseException()
-    {
-        var responseJson = """
-            {
-              "proposals": [
-                {
-                  "changeType": "CreateArtifact",
-                  "targetType": "Artifact",
-                  "targetId": null,
-                  "proposedValue": { "name": "Voss" },
-                  "rationale": "Test rationale.",
-                  "confidence": 1.5
-                }
-              ]
-            }
-            """;
-
-        SetupMockToReturn(responseJson);
-
-        Assert.ThrowsAsync<AiParseException>(
-            async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
-    }
-
-    [Test]
-    public void ExtractAsync_ConfidenceBelowZero_ThrowsParseException()
-    {
-        var responseJson = """
-            {
-              "proposals": [
-                {
-                  "changeType": "CreateArtifact",
-                  "targetType": "Artifact",
-                  "targetId": null,
-                  "proposedValue": { "name": "Voss" },
-                  "rationale": "Test rationale.",
-                  "confidence": -0.1
-                }
-              ]
-            }
-            """;
-
-        SetupMockToReturn(responseJson);
-
-        Assert.ThrowsAsync<AiParseException>(
-            async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
+        Assert.That(ex!.Message, Does.Contain("rationale"));
     }
 
     [Test]

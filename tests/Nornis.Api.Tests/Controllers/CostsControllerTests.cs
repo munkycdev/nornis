@@ -154,44 +154,6 @@ public class CostsControllerTests
 
     #endregion
 
-    #region WorldMemberActionFilter Applied (non-member → 403)
-
-    [Test]
-    public void CostsController_HasServiceFilterAttribute_ForWorldMemberActionFilter()
-    {
-        var attributes = typeof(CostsController)
-            .GetCustomAttributes(typeof(ServiceFilterAttribute), inherit: true)
-            .Cast<ServiceFilterAttribute>()
-            .ToList();
-
-        Assert.That(attributes, Has.Count.GreaterThanOrEqualTo(1));
-        Assert.That(
-            attributes.Any(a => a.ServiceType == typeof(WorldMemberActionFilter)),
-            Is.True,
-            "CostsController must have [ServiceFilter(typeof(WorldMemberActionFilter))]");
-    }
-
-    [Test]
-    public void CostsController_HasApiControllerAttribute()
-    {
-        var hasAttribute = Attribute.IsDefined(typeof(CostsController), typeof(ApiControllerAttribute));
-        Assert.That(hasAttribute, Is.True, "CostsController must have [ApiController] attribute");
-    }
-
-    [Test]
-    public void CostsController_HasCorrectRouteAttribute()
-    {
-        var routeAttribute = typeof(CostsController)
-            .GetCustomAttributes(typeof(RouteAttribute), inherit: true)
-            .Cast<RouteAttribute>()
-            .FirstOrDefault();
-
-        Assert.That(routeAttribute, Is.Not.Null);
-        Assert.That(routeAttribute!.Template, Is.EqualTo("api/worlds/{worldId:guid}/costs"));
-    }
-
-    #endregion
-
     #region Invalid Date Range → 400 with Descriptive Message
 
     [Test]
@@ -266,26 +228,6 @@ public class CostsControllerTests
         var errorResponse = badRequestResult!.Value as ErrorResponse;
         Assert.That(errorResponse, Is.Not.Null);
         Assert.That(errorResponse!.Code, Is.EqualTo("invalid_date_range"));
-    }
-
-    #endregion
-
-    #region Invalid WorldId Format → 404 (Route Constraint)
-
-    [Test]
-    public void CostsController_RouteConstraint_RequiresGuidFormat()
-    {
-        // The route "api/worlds/{worldId:guid}/costs" has a :guid constraint.
-        // Non-GUID values will never reach the controller action (ASP.NET Core returns 404 at routing level).
-        // We verify the route template declares the constraint.
-        var routeAttribute = typeof(CostsController)
-            .GetCustomAttributes(typeof(RouteAttribute), inherit: true)
-            .Cast<RouteAttribute>()
-            .FirstOrDefault();
-
-        Assert.That(routeAttribute, Is.Not.Null);
-        Assert.That(routeAttribute!.Template, Does.Contain("{worldId:guid}"),
-            "Route must include :guid constraint to reject non-GUID worldId values with 404");
     }
 
     #endregion
@@ -394,40 +336,6 @@ public class CostsControllerTests
     #endregion
 
     #region Cross-World Endpoint Accessible Without World-Scoped Filter
-
-    [Test]
-    public void CrossWorldCostsController_DoesNotHaveWorldMemberActionFilter()
-    {
-        // The CrossWorldCostsController should NOT have the WorldMemberActionFilter
-        // because it is not scoped to a single world.
-        var attributes = typeof(CrossWorldCostsController)
-            .GetCustomAttributes(typeof(ServiceFilterAttribute), inherit: true)
-            .Cast<ServiceFilterAttribute>()
-            .ToList();
-
-        var hasWorldFilter = attributes.Any(a => a.ServiceType == typeof(WorldMemberActionFilter));
-        Assert.That(hasWorldFilter, Is.False,
-            "CrossWorldCostsController must NOT have WorldMemberActionFilter since it is not world-scoped");
-    }
-
-    [Test]
-    public void CrossWorldCostsController_HasApiControllerAttribute()
-    {
-        var hasAttribute = Attribute.IsDefined(typeof(CrossWorldCostsController), typeof(ApiControllerAttribute));
-        Assert.That(hasAttribute, Is.True, "CrossWorldCostsController must have [ApiController] attribute");
-    }
-
-    [Test]
-    public void CrossWorldCostsController_HasCorrectRouteAttribute()
-    {
-        var routeAttribute = typeof(CrossWorldCostsController)
-            .GetCustomAttributes(typeof(RouteAttribute), inherit: true)
-            .Cast<RouteAttribute>()
-            .FirstOrDefault();
-
-        Assert.That(routeAttribute, Is.Not.Null);
-        Assert.That(routeAttribute!.Template, Is.EqualTo("api/costs"));
-    }
 
     [Test]
     public async Task CrossWorldCostsController_GetByWorld_Returns200WithResults()

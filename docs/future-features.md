@@ -98,8 +98,12 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
      filter — is covered by a new `WorldMemberFilterCoverageTests`.
    - Tier 4 merged: the three running ledgers, the reflection roster (now an assembly scan),
      one shared `ReviewHarness` replacing six copies, and sixteen properties that generated
-     an argument they never read. Left: converting those sixteen to plain `[Test]`s, and the
-     concern-naming of the four numbered files — both recorded in the scrub doc with reasons.
+     an argument they never read. **The last three bullets closed 2026-08-02** — per-field
+     decomposition, attribute padding, consolidation sweep. Net −21 cases across the suite
+     and two facts that had no test before (the extraction client's empty-rationale branch,
+     a non-GUID worldId reaching routing). Left: converting those sixteen properties to plain
+     `[Test]`s, and the concern-naming of the four numbered files — both recorded in the
+     scrub doc with reasons, and both still true.
 10. Test quality phase 5 (authorization-suite tagging). **Done 2026-08-02** — 303 tests
     tagged, 318 cases, a named CI step that runs even on a red build, and the count charted
     on the dashboard. The enumeration was the work: two broader passes caught pagination and
@@ -137,7 +141,8 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
 ## Riders
 
 Small things noticed in passing, too small for a plan file, parked against the item
-that already opens the right file. Neither is urgent; both rot if left unwritten.
+that already opens the right file. None is ever urgent; all of them rot if left
+unwritten. Both entries below are now closed, kept for the record.
 
 - ~~**Node 20 action deprecation**~~ **(handled 2026-08-01 by item 4; finished
   2026-08-02.)** Item 4 took `actions/checkout`, `azure/login` and
@@ -149,13 +154,17 @@ that already opens the right file. Neither is urgent; both rot if left unwritten
   `actions/setup-dotnet`, `azure/login` and `docker/setup-buildx-action` as separate
   PRs. Read each changelog before merging — majors change action inputs, and
   `azure/login` gates the OIDC deploy.
-- **Tier 2's unfinished sweep** (rides with 9, tier 3 conventions). Deleting
-  `src/Nornis.Shared` left three references behind: an ItemGroup in
-  `src/Nornis.Web/Nornis.Web.csproj` now empty apart from a comment describing the
-  deleted project, a row in the README project table, and the solution layout in
-  `.kiro/steering/coding-standards.md` — that last one wants the dated-amendment
-  convention, not a silent edit. Historical records under `docs/features/` and
-  `docs/performance-audit/` mention it too and are meant to; leave them.
+- ~~**Tier 2's unfinished sweep**~~ **(closed; confirmed 2026-08-02.)** All three went
+  with item 9's tier-3 passes: the `Nornis.Web.csproj` ItemGroup is now a bare comment
+  explaining why there is no ProjectReference, the README row is gone, and
+  `coding-standards.md` carries a dated amendment over the stale solution layout rather
+  than a silent edit. Original note: deleting `src/Nornis.Shared` left three references
+  behind: an ItemGroup in `src/Nornis.Web/Nornis.Web.csproj` now empty apart from a
+  comment describing the deleted project, a row in the README project table, and the
+  solution layout in `.kiro/steering/coding-standards.md` — that last one wants the
+  dated-amendment convention, not a silent edit. Historical records under
+  `docs/features/` and `docs/performance-audit/` mention it too and are meant to; leave
+  them.
 
 ## The spec files
 

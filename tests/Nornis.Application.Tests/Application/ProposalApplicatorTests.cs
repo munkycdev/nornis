@@ -169,19 +169,8 @@ public class ProposalApplicatorTests
     {
         // The payload is Player-editable: a TargetId must never be trusted to point
         // inside the batch's world. Wrong world reads exactly like "does not exist".
-        var foreignArtifact = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = Guid.NewGuid(),
-            Type = ArtifactType.Character,
-            Name = "Captain Voss",
-            Summary = "Another world's canon",
-            Visibility = VisibilityScope.PartyVisible,
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
-            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1)
-        };
-        _artifactRepo.Seed(foreignArtifact);
+        var foreignArtifact = SeedArtifact(
+            "Captain Voss", summary: "Another world's canon", worldId: Guid.NewGuid());
 
         var payload = new UpdateArtifactPayload("Hijacked", null, null, null, null);
         var proposal = MakeProposal(ReviewChangeType.UpdateArtifact, payload, foreignArtifact.Id);
@@ -199,18 +188,8 @@ public class ProposalApplicatorTests
     {
         // A Player accepting proposals on their own source must not be able to bind a
         // hand-edited GUID to a GM-only artifact — its very existence must not leak.
-        var gmOnlyArtifact = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Faction,
-            Name = "Shadow Cult",
-            Visibility = VisibilityScope.GMOnly,
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
-            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1)
-        };
-        _artifactRepo.Seed(gmOnlyArtifact);
+        var gmOnlyArtifact = SeedArtifact(
+            "Shadow Cult", ArtifactType.Faction, VisibilityScope.GMOnly);
 
         var payload = new UpdateArtifactPayload("Exposed", null, null, null, null);
         var proposal = MakeProposal(ReviewChangeType.UpdateArtifact, payload, gmOnlyArtifact.Id);
@@ -229,18 +208,8 @@ public class ProposalApplicatorTests
     {
         // Facts are scoped through their parent artifact — a fact id under a GM-only
         // artifact must 404 for a Player accepter.
-        var gmOnlyArtifact = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Faction,
-            Name = "Shadow Cult",
-            Visibility = VisibilityScope.GMOnly,
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
-            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1)
-        };
-        _artifactRepo.Seed(gmOnlyArtifact);
+        var gmOnlyArtifact = SeedArtifact(
+            "Shadow Cult", ArtifactType.Faction, VisibilityScope.GMOnly);
 
         var hiddenFact = new ArtifactFact
         {
@@ -270,20 +239,8 @@ public class ProposalApplicatorTests
     [Test]
     public async Task UpdateArtifact_UpdatesOnlyNonNullFieldsAndSetsUpdatedAt()
     {
-        var existingArtifact = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Character,
-            Name = "Captain Voss",
-            Summary = "Original summary",
-            Visibility = VisibilityScope.PartyVisible,
-            Confidence = 0.7m,
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
-            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1)
-        };
-        _artifactRepo.Seed(existingArtifact);
+        var existingArtifact = SeedArtifact(
+            "Captain Voss", summary: "Original summary", confidence: 0.7m);
 
         var payload = new UpdateArtifactPayload(
             null, "Updated summary about Black Harbor", null, 0.9m, null);
@@ -320,18 +277,7 @@ public class ProposalApplicatorTests
     {
         // A wrap-up/retrospective closure resolves a storyline through this path — its
         // provisional facts must settle to Confirmed just as the artifact-page action does.
-        var storyline = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Storyline,
-            Name = "Missing Caravan",
-            Visibility = VisibilityScope.PartyVisible,
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
-            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1)
-        };
-        _artifactRepo.Seed(storyline);
+        var storyline = SeedArtifact("Missing Caravan", ArtifactType.Storyline);
 
         var provisional = SeedFact(storyline.Id, TruthState.Likely);
         var deliberate = SeedFact(storyline.Id, TruthState.False);
@@ -370,44 +316,9 @@ public class ProposalApplicatorTests
     [Test]
     public async Task MergeArtifact_ReassignsFactsAndRelationships_RemovesSelfRefs_ArchivesSource()
     {
-        var targetArtifact = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Character,
-            Name = "Captain Voss",
-            Summary = "Target artifact",
-            Visibility = VisibilityScope.PartyVisible,
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow.AddDays(-2),
-            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-2)
-        };
-
-        var sourceArtifact = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Character,
-            Name = "Cpt. Voss",
-            Summary = "Duplicate",
-            Visibility = VisibilityScope.PartyVisible,
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
-            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1)
-        };
-
-        var thirdArtifact = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Location,
-            Name = "Black Harbor",
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-
-        _artifactRepo.Seed(targetArtifact, sourceArtifact, thirdArtifact);
+        var targetArtifact = SeedArtifact("Captain Voss", summary: "Target artifact");
+        var sourceArtifact = SeedArtifact("Cpt. Voss", summary: "Duplicate");
+        var thirdArtifact = SeedArtifact("Black Harbor", ArtifactType.Location);
 
         // Facts on source artifact
         var fact = new ArtifactFact
@@ -496,17 +407,7 @@ public class ProposalApplicatorTests
     [Test]
     public async Task AddFact_CreatesFactWithCorrectArtifactIdFromTargetId()
     {
-        var artifact = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Character,
-            Name = "Captain Voss",
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-        _artifactRepo.Seed(artifact);
+        var artifact = SeedArtifact("Captain Voss");
 
         var payload = new AddFactPayload(
             "location", "Black Harbor", 0.8m, "Likely", "PartyVisible");
@@ -545,17 +446,7 @@ public class ProposalApplicatorTests
     [Test]
     public async Task UpdateFact_UpdatesOnlySpecifiedFields()
     {
-        var artifact = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Character,
-            Name = "Captain Voss",
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-        _artifactRepo.Seed(artifact);
+        var artifact = SeedArtifact("Captain Voss");
 
         var existingFact = new ArtifactFact
         {
@@ -608,27 +499,8 @@ public class ProposalApplicatorTests
     [Test]
     public async Task AddRelationship_CreatesRelationshipWithCorrectFields()
     {
-        var artifactA = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Character,
-            Name = "Captain Voss",
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-        var artifactB = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Location,
-            Name = "Black Harbor",
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-        _artifactRepo.Seed(artifactA, artifactB);
+        var artifactA = SeedArtifact("Captain Voss");
+        var artifactB = SeedArtifact("Black Harbor", ArtifactType.Location);
 
         var payload = new AddRelationshipPayload(
             artifactA.Id, artifactB.Id, "LocatedIn",
@@ -652,18 +524,7 @@ public class ProposalApplicatorTests
 
     private Artifact SeedStoryline(string name)
     {
-        var storyline = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Storyline,
-            Name = name,
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-        _artifactRepo.Seed(storyline);
-        return storyline;
+        return SeedArtifact(name, ArtifactType.Storyline);
     }
 
     private ReviewProposal PartOfProposal(Artifact child, Artifact parent) =>
@@ -765,17 +626,7 @@ public class ProposalApplicatorTests
     [Test]
     public async Task AddRelationship_ArtifactANotFound_ReturnsValidationError()
     {
-        var artifactB = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Location,
-            Name = "Black Harbor",
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-        _artifactRepo.Seed(artifactB);
+        var artifactB = SeedArtifact("Black Harbor", ArtifactType.Location);
 
         var payload = new AddRelationshipPayload(
             Guid.NewGuid(), artifactB.Id, "LocatedIn", null, null, null, null);
@@ -790,17 +641,7 @@ public class ProposalApplicatorTests
     [Test]
     public async Task AddRelationship_ArtifactBNotFound_ReturnsValidationError()
     {
-        var artifactA = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Character,
-            Name = "Captain Voss",
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-        _artifactRepo.Seed(artifactA);
+        var artifactA = SeedArtifact("Captain Voss");
 
         var payload = new AddRelationshipPayload(
             artifactA.Id, Guid.NewGuid(), "LocatedIn", null, null, null, null);
@@ -821,29 +662,8 @@ public class ProposalApplicatorTests
     {
         // The relationship is scoped through its endpoint artifacts, so they must exist
         // in the world and be visible to the accepter.
-        var endpointA = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Character,
-            Name = "Captain Voss",
-            Status = ArtifactStatus.Active,
-            Visibility = VisibilityScope.PartyVisible,
-            CreatedAt = DateTimeOffset.UtcNow.AddDays(-2),
-            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-2)
-        };
-        var endpointB = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Location,
-            Name = "Black Harbor",
-            Status = ArtifactStatus.Active,
-            Visibility = VisibilityScope.PartyVisible,
-            CreatedAt = DateTimeOffset.UtcNow.AddDays(-2),
-            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-2)
-        };
-        _artifactRepo.Seed(endpointA, endpointB);
+        var endpointA = SeedArtifact("Captain Voss");
+        var endpointB = SeedArtifact("Black Harbor", ArtifactType.Location);
 
         var existingRelationship = new ArtifactRelationship
         {
@@ -917,17 +737,7 @@ public class ProposalApplicatorTests
     [Test]
     public async Task AddFact_CreatesSourceReference()
     {
-        var artifact = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Character,
-            Name = "Captain Voss",
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-        _artifactRepo.Seed(artifact);
+        var artifact = SeedArtifact("Captain Voss");
 
         var payload = new AddFactPayload("rank", "Captain", null, null, null);
         var proposal = MakeProposal(ReviewChangeType.AddFact, payload, artifact.Id);
@@ -944,27 +754,8 @@ public class ProposalApplicatorTests
     [Test]
     public async Task AddRelationship_CreatesSourceReference()
     {
-        var artifactA = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Character,
-            Name = "Captain Voss",
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-        var artifactB = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Location,
-            Name = "Black Harbor",
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-        _artifactRepo.Seed(artifactA, artifactB);
+        var artifactA = SeedArtifact("Captain Voss");
+        var artifactB = SeedArtifact("Black Harbor", ArtifactType.Location);
 
         var payload = new AddRelationshipPayload(
             artifactA.Id, artifactB.Id, "LocatedIn", null, null, null, null);
@@ -982,17 +773,7 @@ public class ProposalApplicatorTests
     [Test]
     public async Task UpdateArtifact_CreatesSourceReference()
     {
-        var artifact = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            Type = ArtifactType.Character,
-            Name = "Captain Voss",
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-        _artifactRepo.Seed(artifact);
+        var artifact = SeedArtifact("Captain Voss");
 
         var payload = new UpdateArtifactPayload("Captain Voss Updated", null, null, null, null);
         var proposal = MakeProposal(ReviewChangeType.UpdateArtifact, payload, artifact.Id);
@@ -1067,23 +848,43 @@ public class ProposalApplicatorTests
 
     #region Helpers
 
-    #region Name-based artifact references
-
-    private Artifact SeedArtifact(string name, ArtifactType type = ArtifactType.Character)
+    /// <summary>
+    /// An active artifact in the batch's world, seeded and returned. The parameters are
+    /// the only axes any test in this file varies; anything else it needs to differ, it
+    /// sets on the returned instance before acting.
+    /// </summary>
+    /// <param name="worldId">
+    /// Overridden only by the cross-world tests, where the point is that a TargetId
+    /// pointing outside the batch's world reads as "does not exist".
+    /// </param>
+    private Artifact SeedArtifact(
+        string name,
+        ArtifactType type = ArtifactType.Character,
+        VisibilityScope visibility = VisibilityScope.PartyVisible,
+        string? summary = null,
+        decimal? confidence = null,
+        Guid? worldId = null)
     {
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
-            WorldId = _worldId,
+            WorldId = worldId ?? _worldId,
             Type = type,
             Name = name,
+            Summary = summary,
+            Visibility = visibility,
+            Confidence = confidence,
             Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
+            // Backdated so "did apply touch this?" assertions can tell a seeded
+            // timestamp from one the applicator wrote.
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
+            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1)
         };
         _artifactRepo.Seed(artifact);
         return artifact;
     }
+
+    #region Name-based artifact references
 
     [Test]
     public async Task AddFact_ByArtifactName_ResolvesArtifactAndCreatesFact()
@@ -1153,17 +954,7 @@ public class ProposalApplicatorTests
     [Test]
     public async Task AddFact_ByArtifactName_OtherWorld_IsNotResolved()
     {
-        var other = new Artifact
-        {
-            Id = Guid.NewGuid(),
-            WorldId = Guid.NewGuid(), // different world
-            Type = ArtifactType.Character,
-            Name = "Captain Voss",
-            Status = ArtifactStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-        _artifactRepo.Seed(other);
+        SeedArtifact("Captain Voss", worldId: Guid.NewGuid());
 
         var payload = new AddFactPayload(
             "rank", "Captain", null, null, null, ArtifactName: "Captain Voss");

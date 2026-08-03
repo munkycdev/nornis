@@ -140,6 +140,17 @@ public class CostDashboardAuthorizationIntegrationTests
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }
 
+    [Test]
+    public async Task GetSummary_WorldIdThatIsNotAGuid_Returns404AtRouting()
+    {
+        // The route's {worldId:guid} constraint has to reject this before the action —
+        // and before the member filter, which is why a member client still gets 404 and
+        // not the 403 an unroutable world-scoped request would otherwise produce.
+        var response = await _scenario.GmClient.GetAsync("/api/worlds/not-a-guid/costs/summary");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
+
     #endregion
 
     #region GM sees aggregated data for all users in world
