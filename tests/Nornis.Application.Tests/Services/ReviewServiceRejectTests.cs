@@ -52,7 +52,8 @@ public class ReviewServiceRejectTests
             _sourceRefRepo,
             _unitOfWork,
             _validator,
-            _applicator);
+            _applicator,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
 
         _worldId = Guid.NewGuid();
         _gmUserId = Guid.NewGuid();

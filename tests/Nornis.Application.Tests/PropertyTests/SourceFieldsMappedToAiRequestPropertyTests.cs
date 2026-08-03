@@ -1,8 +1,9 @@
-using FsCheck.NUnit;
+﻿using FsCheck.NUnit;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
+using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -86,7 +87,9 @@ public class SourceFieldsMappedToAiRequestPropertyTests
             new FakeMapExtractionClient(),
             new FakeAiBudgetGuard(), unitOfWork,
             options,
-            logger);
+            logger,
+            passageRetriever: NoOpReferencePassageRetriever.Instance,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
 
         // Seed source in Queued status with non-empty body (guaranteed by ExtractionArbitraries)
         sourceRepo.Seed(source);
@@ -182,7 +185,9 @@ public class SourceFieldsMappedToAiRequestPropertyTests
             new FakeMapExtractionClient(),
             new FakeAiBudgetGuard(), unitOfWork,
             options,
-            logger);
+            logger,
+            passageRetriever: NoOpReferencePassageRetriever.Instance,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
 
         sourceRepo.Seed(source);
         fakeAiClient.SetupSuccess(aiResponse);
@@ -261,7 +266,9 @@ public class SourceFieldsMappedToAiRequestPropertyTests
             new FakeMapExtractionClient(),
             new FakeAiBudgetGuard(), unitOfWork,
             options,
-            logger);
+            logger,
+            passageRetriever: NoOpReferencePassageRetriever.Instance,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
 
         sourceRepo.Seed(source);
         fakeAiClient.SetupSuccess(aiResponse);

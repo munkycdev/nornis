@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
+using Nornis.Application.Knowledge;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Application.Tests.Generators;
@@ -157,7 +158,9 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
                     new FakeMapExtractionClient(),
                     new FakeAiBudgetGuard(), unitOfWork,
                     options,
-                    logger);
+                    logger,
+            passageRetriever: NoOpReferencePassageRetriever.Instance,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
 
                 sourceRepo.Seed(source);
                 fakeAiClient.SetupSuccess(aiResponse);
@@ -414,7 +417,9 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
             new FakeMapExtractionClient(),
             new FakeAiBudgetGuard(), unitOfWork,
             options,
-            logger);
+            logger,
+            passageRetriever: NoOpReferencePassageRetriever.Instance,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
 
         sourceRepo.Seed(source);
         fakeAiClient.SetupSuccess(aiResponse);

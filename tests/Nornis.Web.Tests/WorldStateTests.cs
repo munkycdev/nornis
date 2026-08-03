@@ -38,7 +38,8 @@ public class WorldStateTests
             Score: 90,
             EffectiveScore: 84,
             HeuristicScore: 90,
-            Findings: []);
+            Findings: [],
+            Penalty: ContinuityPenaltyBreakdown.Empty);
 
         state.SetContinuity(assessment);
 

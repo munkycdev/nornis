@@ -94,7 +94,13 @@ public class HealthController : ControllerBase
 
     private static ContinuityAssessmentResponse ToResponse(ContinuityAssessment a) =>
         new(a.HasData, a.AssessmentId, a.CreatedAt, a.Model, a.Score, a.EffectiveScore, a.HeuristicScore,
-            a.Findings.Select(ToResponse).ToList());
+            a.Findings.Select(ToResponse).ToList(), ToResponse(a.Penalty));
+
+    private static ContinuityPenaltyBreakdownResponse ToResponse(ContinuityPenaltyBreakdown p) =>
+        new(p.Lines.Select(l => new ContinuityPenaltyLineResponse(
+                l.Severity, l.PenaltyEach, l.Count, l.Subtotal)).ToList(),
+            p.Scale.Select(s => new ContinuitySeverityWeightResponse(s.Severity, s.PenaltyEach)).ToList(),
+            p.StaleSuspendedCount, p.RawPenalty, p.CappedPenalty, p.Cap, p.IsCapped);
 
     private static ContinuityFindingResponse ToResponse(ContinuityFindingView f) =>
         new(f.Id, f.Category, f.Severity, f.Summary, f.SuggestedAction, f.Evidence,

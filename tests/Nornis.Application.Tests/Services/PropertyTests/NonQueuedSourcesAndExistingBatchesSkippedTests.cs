@@ -1,9 +1,10 @@
-using FsCheck;
+﻿using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
+using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -78,7 +79,9 @@ public class NonQueuedSourcesAndExistingBatchesSkippedTests
             new FakeMapExtractionClient(),
             new FakeAiBudgetGuard(), unitOfWork,
             options,
-            NullLogger<ExtractionService>.Instance);
+            NullLogger<ExtractionService>.Instance,
+            passageRetriever: NoOpReferencePassageRetriever.Instance,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
     }
 
     [FsCheck.NUnit.Property(

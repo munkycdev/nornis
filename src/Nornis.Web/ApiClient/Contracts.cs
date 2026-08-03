@@ -534,7 +534,31 @@ public record ContinuityAssessment(
     int Score,
     int EffectiveScore,
     int HeuristicScore,
-    IReadOnlyList<ContinuityFinding> Findings);
+    IReadOnlyList<ContinuityFinding> Findings,
+    ContinuityPenaltyBreakdown Penalty);
+
+/// <summary>
+/// The penalty arithmetic, done by the API. World Memory used to recompute this here — its own
+/// severity table, its own cap, its own copy of the stale-suspension rule — and nothing spanning
+/// the two deployables would have caught them drifting apart.
+/// </summary>
+public record ContinuityPenaltyBreakdown(
+    IReadOnlyList<ContinuityPenaltyLine> Lines,
+    IReadOnlyList<ContinuitySeverityWeight> Scale,
+    int StaleSuspendedCount,
+    int RawPenalty,
+    int CappedPenalty,
+    int Cap,
+    bool IsCapped)
+{
+    /// <summary>Null-guard only. Every rendered path has a real breakdown from the API, including
+    /// the never-assessed case — which still carries the scale.</summary>
+    public static ContinuityPenaltyBreakdown Empty { get; } = new([], [], 0, 0, 0, 0, false);
+}
+
+public record ContinuityPenaltyLine(string Severity, int PenaltyEach, int Count, int Subtotal);
+
+public record ContinuitySeverityWeight(string Severity, int PenaltyEach);
 
 public record ContinuityFinding(
     Guid Id,

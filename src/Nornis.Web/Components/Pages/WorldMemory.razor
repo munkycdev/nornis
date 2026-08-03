@@ -70,7 +70,7 @@
                 <div class="flex-grow-1">
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-wm-formula">
                         Heuristic <b>@assessment.HeuristicScore</b>
-                        − findings penalty <b>@TotalPenalty</b>@(PenaltyCapped ? " (capped at 40)" : "")
+                        − findings penalty <b>@Penalty.CappedPenalty</b>@(Penalty.IsCapped ? $" (capped at {Penalty.Cap})" : "")
                         = effective <b>@assessment.EffectiveScore</b>
                     </MudText>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
@@ -87,33 +87,30 @@
             <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
                 The auditor reads the whole record and names specific continuity risks; every finding
                 must cite real record items or it is dropped. The AI never grades the score — each
-                open finding subtracts a fixed penalty (High 12, Medium 6, Low 2, total capped at 40).
+                open finding subtracts a fixed penalty
+                (@string.Join(", ", Penalty.Scale.Select(s => $"{s.Severity} {s.PenaltyEach}")), total capped at @Penalty.Cap).
                 Dismissing a finding gives its points back and drops it from this list for good —
                 later runs won't re-raise it. A finding whose cited evidence you have since edited
                 stops counting until the next run verifies the fix.
             </MudText>
 
-            @foreach (var (severity, penalty) in SeverityPenalties)
+            @foreach (var line in Penalty.Lines)
             {
-                var count = CountedFindings.Count(f => f.Severity == severity);
-                if (count > 0)
-                {
-                    <div class="nornis-cost-row">
-                        <span class="nornis-cost-row-name">
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SeverityColor(severity)">@severity</MudChip>
-                        </span>
-                        <span class="nornis-list-meta">@count × @penalty</span>
-                        <span class="nornis-cost-row-amount">−@(count * penalty)</span>
-                    </div>
-                }
+                <div class="nornis-cost-row">
+                    <span class="nornis-cost-row-name">
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SeverityColor(line.Severity)">@line.Severity</MudChip>
+                    </span>
+                    <span class="nornis-list-meta">@line.Count × @line.PenaltyEach</span>
+                    <span class="nornis-cost-row-amount">−@line.Subtotal</span>
+                </div>
             }
-            @if (StaleFindings.Count > 0)
+            @if (Penalty.StaleSuspendedCount > 0)
             {
                 <div class="nornis-cost-row">
                     <span class="nornis-cost-row-name">
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">Changed since audit</MudChip>
                     </span>
-                    <span class="nornis-list-meta">@StaleFindings.Count suspended — re-run to verify</span>
+                    <span class="nornis-list-meta">@Penalty.StaleSuspendedCount suspended — re-run to verify</span>
                     <span class="nornis-cost-row-amount">−0</span>
                 </div>
             }
@@ -124,8 +121,8 @@
             else
             {
                 <div class="nornis-cost-row nornis-wm-total">
-                    <span class="nornis-cost-row-name">Total penalty@(PenaltyCapped ? $" (raw {RawPenalty}, capped)" : "")</span>
-                    <span class="nornis-cost-row-amount">−@TotalPenalty</span>
+                    <span class="nornis-cost-row-name">Total penalty@(Penalty.IsCapped ? $" (raw {Penalty.RawPenalty}, capped)" : "")</span>
+                    <span class="nornis-cost-row-amount">−@Penalty.CappedPenalty</span>
                 </div>
             }
         </MudPaper>
@@ -223,27 +220,16 @@
     // card, and the sidebar ring. Updates flow back through Worlds.SetContinuity.
     private ContinuityAssessment? Assessment => Worlds.Continuity;
 
-    // Mirrors ContinuityAuditService.PenaltyFor / TotalPenalty (High 12, Medium 6, Low 2, cap 40).
-    private static readonly (string Severity, int Penalty)[] SeverityPenalties =
-        [("High", 12), ("Medium", 6), ("Low", 2)];
-
     private IReadOnlyList<ContinuityFinding> OpenFindings =>
         Assessment is { HasData: true } a ? a.Findings.Where(f => f.Status == "Open").ToList() : [];
 
-    // Stale findings (evidence edited/removed after the audit) stop counting toward the
-    // penalty until a re-run verifies the fix — mirrors ContinuityAuditService.ToAssessment.
-    private IReadOnlyList<ContinuityFinding> CountedFindings =>
-        OpenFindings.Where(f => !f.IsStale).ToList();
-
-    private IReadOnlyList<ContinuityFinding> StaleFindings =>
-        OpenFindings.Where(f => f.IsStale).ToList();
-
-    private int RawPenalty =>
-        CountedFindings.Sum(f => SeverityPenalties.FirstOrDefault(s => s.Severity == f.Severity).Penalty);
-
-    private int TotalPenalty => Math.Min(40, RawPenalty);
-
-    private bool PenaltyCapped => RawPenalty > 40;
+    /// <summary>
+    /// The scoring rule lives in ContinuityAuditService and arrives already applied. This page
+    /// used to hold a second copy of the severity table, the cap and the stale-suspension rule,
+    /// across a deploy boundary no compiler or test spans.
+    /// </summary>
+    private ContinuityPenaltyBreakdown Penalty =>
+        Assessment?.Penalty ?? ContinuityPenaltyBreakdown.Empty;
 
     protected override async Task OnInitializedAsync()
     {

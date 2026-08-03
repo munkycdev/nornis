@@ -498,15 +498,30 @@ changes that item's priority, not its shape.
   update. Fix: extract a MapExtractionPipeline and SourceTextDerivation
   (transcription + attachment derivation) as owned collaborators plus the shared
   usage recorder from scrub **1.4**; keep the orchestrating state machine.
-- **The Web re-implements the continuity scoring it renders**
-  (`WorldMemory.razor:226-246` mirrors the penalty table, cap, and suspension rule;
-  no compiler or test spans the deploy boundary). Fix: the assessment DTO carries the
-  breakdown; the razor renders received numbers only.
-- **Nullable "optional" DI dependencies turn misregistration into silent feature
-  loss** (`ExtractionService.cs:42-49`, `ReviewService.cs:33-35` — replays silently
-  stall, grounding silently vanishes). Fix: required parameters with no-op
-  implementations (`NoOpWorldNameGenerator` is the house pattern). Same item as
-  scrub tier 1's finding; priority raised.
+- ~~**The Web re-implements the continuity scoring it renders**~~ **Done 2026-08-03.**
+  `ContinuityAssessment` carries a `ContinuityPenaltyBreakdown` — per-severity lines, the
+  stale-suspended count, raw and capped totals, the cap itself, and whether it bit — built
+  by `ContinuityAuditService.BuildPenaltyBreakdown` beside the rule it applies.
+  - The severity table was mirrored *three* times, not two: the razor's `SeverityPenalties`
+    array, its `Math.Min(40, …)`, and the explanatory paragraph that spells out
+    "High 12, Medium 6, Low 2, total capped at 40" in prose. The breakdown therefore also
+    carries `Scale` — the whole table including severities this assessment has none of —
+    so the page can state the rule without knowing it.
+  - Verified the way this class of bug has to be: the bUnit tests hand the page a breakdown
+    with deliberately wrong weights (High 99, cap 150). If the page still owned the rule it
+    would render 12 and 40 and those numbers would never appear.
+- ~~**Nullable "optional" DI dependencies turn misregistration into silent feature loss**~~
+  **Done 2026-08-03.** `passageRetriever` and `replayAdvancer` are required parameters, and
+  `NoOpReferencePassageRetriever` / `NoOpExtractionReplayAdvancer` let a caller with
+  genuinely no library or no replay say so. Both hosts already registered the real ones
+  unconditionally, so nothing changes at runtime — what changes is that forgetting to now
+  fails at startup instead of quietly stalling replays forever.
+  - The 39 construction sites the old comment cited as the reason for the defaults were all
+    in tests, and were updated from the compiler's own list rather than by hand: signatures
+    first, then each CS7036 tells you the file, the position and the missing parameter.
+  - `ReviewService`'s optional `logger` was left alone deliberately. An absent logger costs
+    log lines, not a feature — which is the distinction this item is drawn on, and the
+    constructor now says so.
 - **`AppError` speaks HTTP inside Application** (~340 sites choose literal status
   codes). Mitigations are real: the 404-anti-existence-oracle policy is consistently
   applied, and the Worker already uses the correct non-HTTP idiom

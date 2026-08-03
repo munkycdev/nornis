@@ -1,7 +1,8 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
+using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -75,7 +76,9 @@ public class ExtractionServiceCrashRecoveryTests
             new FakeAiBudgetGuard(),
             new FakeUnitOfWork(),
             Options.Create(options),
-            NullLogger<ExtractionService>.Instance);
+            NullLogger<ExtractionService>.Instance,
+            passageRetriever: NoOpReferencePassageRetriever.Instance,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
 
         _aiClient.SetupSuccess(new AiExtractionResponse
         {

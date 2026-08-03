@@ -1,10 +1,11 @@
-using FsCheck;
+﻿using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
+using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -84,7 +85,9 @@ public class NonTransientFailuresTransitionSourceToFailedTests
             new FakeMapExtractionClient(),
             new FakeAiBudgetGuard(), unitOfWork,
             options,
-            logger);
+            logger,
+            passageRetriever: NoOpReferencePassageRetriever.Instance,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
 
         // Seed the source in Queued status with a non-empty body
         sourceRepo.Seed(source);

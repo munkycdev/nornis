@@ -1,7 +1,8 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
+using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -86,7 +87,9 @@ public class ExtractionServiceUsageTrackingTests
             new FakeMapExtractionClient(),
             new FakeAiBudgetGuard(), _unitOfWork,
             Options.Create(opts),
-            NullLogger<ExtractionService>.Instance);
+            NullLogger<ExtractionService>.Instance,
+            passageRetriever: NoOpReferencePassageRetriever.Instance,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
     }
 
     private static Source CreateQueuedSource(string body = "Captain Voss was seen in Black Harbor.")

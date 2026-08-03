@@ -73,4 +73,80 @@ public class ContinuityAuditScoringTests
 
         Assert.That(after - before, Is.EqualTo(12));
     }
+
+    #region The breakdown the Web renders
+
+    [Test]
+    public void Breakdown_AgreesWithTotalPenalty()
+    {
+        var severities = new[]
+        {
+            ContinuityFindingSeverity.High,
+            ContinuityFindingSeverity.High,
+            ContinuityFindingSeverity.Low,
+        };
+
+        var breakdown = ContinuityAuditService.BuildPenaltyBreakdown(severities, staleSuspendedCount: 0);
+
+        // The itemised version and the scalar version are two renderings of one rule. The Web
+        // renders the itemised one, so a divergence would show a total that does not match the
+        // score beside it — which is exactly what having two copies of the rule used to risk.
+        Assert.Multiple(() =>
+        {
+            Assert.That(breakdown.CappedPenalty, Is.EqualTo(ContinuityAuditService.TotalPenalty(severities)));
+            Assert.That(breakdown.Lines.Sum(l => l.Subtotal), Is.EqualTo(breakdown.RawPenalty));
+        });
+    }
+
+    [Test]
+    public void Breakdown_ListsOnlySeveritiesPresent_WorstFirst()
+    {
+        var breakdown = ContinuityAuditService.BuildPenaltyBreakdown(
+            [ContinuityFindingSeverity.Low, ContinuityFindingSeverity.High], staleSuspendedCount: 0);
+
+        Assert.That(breakdown.Lines.Select(l => l.Severity), Is.EqualTo(["High", "Low"]));
+    }
+
+    [Test]
+    public void Breakdown_ReportsTheCapAndWhetherItBit()
+    {
+        // Four Highs is 48, over the cap of 40.
+        var overCap = Enumerable.Repeat(ContinuityFindingSeverity.High, 4).ToList();
+
+        var breakdown = ContinuityAuditService.BuildPenaltyBreakdown(overCap, staleSuspendedCount: 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(breakdown.RawPenalty, Is.EqualTo(48));
+            Assert.That(breakdown.CappedPenalty, Is.EqualTo(ContinuityAuditService.PenaltyCap));
+            Assert.That(breakdown.IsCapped, Is.True);
+        });
+    }
+
+    [Test]
+    public void Breakdown_CarriesTheWholeScaleEvenWhenNothingScored()
+    {
+        var breakdown = ContinuityAuditService.BuildPenaltyBreakdown([], staleSuspendedCount: 0);
+
+        // The page states the rule ("High 12, Medium 6, Low 2") as well as applying it, and a
+        // world with no findings still has to be able to state it.
+        Assert.Multiple(() =>
+        {
+            Assert.That(breakdown.Lines, Is.Empty);
+            Assert.That(
+                breakdown.Scale.Select(s => (s.Severity, s.PenaltyEach)),
+                Is.EqualTo([("High", 12), ("Medium", 6), ("Low", 2)]));
+        });
+    }
+
+    [Test]
+    public void Breakdown_ScaleMatchesPenaltyFor()
+    {
+        // The scale is derived, not typed twice — this fails if someone reintroduces a literal.
+        Assert.That(
+            ContinuityAuditService.SeverityScale.Select(s => s.PenaltyEach),
+            Is.EqualTo(ContinuityAuditService.PenaltySeverities.Select(ContinuityAuditService.PenaltyFor)));
+    }
+
+    #endregion
 }

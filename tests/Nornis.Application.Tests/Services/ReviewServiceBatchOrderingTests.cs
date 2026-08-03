@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Nornis.Application.Application;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
@@ -80,7 +80,8 @@ public class ReviewServiceBatchOrderingTests
         _service = new ReviewService(
             _proposalRepo, _batchRepo, _sourceRepo, _artifactRepo, _factRepo,
             relationshipRepo, sourceRefRepo, new FakeUnitOfWork(),
-            new ProposalValidator(), applicator);
+            new ProposalValidator(), applicator,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
     }
 
     [Test]
@@ -328,7 +329,8 @@ public class ReviewServiceBatchOrderingTests
     private ReviewService BuildServiceWith(IProposalApplicator applicator) =>
         new(_proposalRepo, _batchRepo, _sourceRepo, _artifactRepo, _factRepo,
             new InMemoryArtifactRelationshipRepository(), new InMemorySourceReferenceRepository(),
-            new FakeUnitOfWork(), new ProposalValidator(), applicator);
+            new FakeUnitOfWork(), new ProposalValidator(), applicator,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
 
     private async Task<ReviewProposal> SeedAsync(ReviewProposal proposal)
     {
