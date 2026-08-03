@@ -120,7 +120,8 @@ var builder = Host.CreateDefaultBuilder(args)
             var endpoint = new Uri(options.AiEndpoint);
             var credential = new ApiKeyCredential(
                 configuration["Extraction:AiApiKey"] ?? string.Empty);
-            var azureClient = new AzureOpenAIClient(endpoint, credential);
+            var azureClient = AzureOpenAiClientFactory.Create(
+                endpoint, credential, AzureOpenAiClientFactory.RetriesOwnedByBackoff);
             return azureClient.GetChatClient(options.AiModel);
         });
 
@@ -204,9 +205,10 @@ var builder = Host.CreateDefaultBuilder(args)
         {
             var options = sp.GetRequiredService<IOptions<ExtractionOptions>>().Value;
             var libraryOptions = sp.GetRequiredService<IOptions<LibraryOptions>>().Value;
-            var azureClient = new AzureOpenAIClient(
+            var azureClient = AzureOpenAiClientFactory.Create(
                 new Uri(options.AiEndpoint),
-                new ApiKeyCredential(configuration["Extraction:AiApiKey"] ?? string.Empty));
+                new ApiKeyCredential(configuration["Extraction:AiApiKey"] ?? string.Empty),
+                AzureOpenAiClientFactory.RetriesOwnedByBackoff);
             return azureClient.GetEmbeddingClient(libraryOptions.EmbeddingDeployment);
         });
         services.AddScoped<IEmbeddingClient, AzureOpenAiEmbeddingClient>();

@@ -25,6 +25,16 @@ public class LibraryOptions
     /// <summary>Chunks per embedding API call.</summary>
     public int EmbedBatchSize { get; set; } = 64;
 
+    /// <summary>
+    /// Ceiling on a single embedding call. Embeddings were the one AI path with no application
+    /// timeout, so a hung call fell back to the SDK's own ≈7-minute worst case — inside a
+    /// user-facing Ask, and against the worker's library lock-renewal ceiling, where a run that
+    /// outlives its lock is redelivered and re-buys every embedding it had already paid for.
+    /// One batch of <see cref="EmbedBatchSize"/> chunks is seconds of work; a minute is the
+    /// point at which something is wrong rather than slow.
+    /// </summary>
+    public int AiTimeoutSeconds { get; set; } = 60;
+
     /// <summary>Similarity seeds retrieved per ask (before neighbor expansion).</summary>
     public int RetrievalTopK { get; set; } = 6;
 

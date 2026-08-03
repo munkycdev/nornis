@@ -26,10 +26,17 @@ public class AiBudgetGuard : IAiBudgetGuard
 
     public async Task<AiBudgetStatus> GetStatusAsync(Guid worldId, CancellationToken ct)
     {
-        // A world-level override wins over the configured default.
+        // A world-level override wins over the configured default; null inherits, exactly as a
+        // null public-Ask cap does below.
         var world = await _worldRepository.GetByIdAsync(worldId, ct);
         var budget = world?.DailyAiBudgetUsd ?? _options.DailyWorldBudgetUsd;
-        if (budget <= 0)
+
+        // Only an absent ceiling means "spend freely". A zero is a ceiling of zero, and falls
+        // through to be exceeded by any spend at all — the same reading the public-Ask cap gives
+        // it. This used to be `<= 0`, so the two caps disagreed about what zero meant, and a zero
+        // reaching WorldService's 0.01 floor by some future route would have opened this guard
+        // rather than closed it.
+        if (budget is not { } ceiling)
             return new AiBudgetStatus(0m, 0m, IsExceeded: false);
 
         var todayUtc = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
@@ -37,8 +44,8 @@ public class AiBudgetGuard : IAiBudgetGuard
 
         return new AiBudgetStatus(
             SpentTodayUsd: summary.TotalEstimatedCostUsd,
-            DailyBudgetUsd: budget,
-            IsExceeded: summary.TotalEstimatedCostUsd >= budget);
+            DailyBudgetUsd: ceiling,
+            IsExceeded: summary.TotalEstimatedCostUsd >= ceiling);
     }
 
     public async Task<AppError?> CheckAsync(Guid worldId, CancellationToken ct)

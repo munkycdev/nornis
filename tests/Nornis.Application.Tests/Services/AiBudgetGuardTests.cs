@@ -25,7 +25,7 @@ public class AiBudgetGuardTests
         _pauseGate = new FakeAiPauseGate();
     }
 
-    private AiBudgetGuard MakeGuard(decimal dailyBudgetUsd) =>
+    private AiBudgetGuard MakeGuard(decimal? dailyBudgetUsd) =>
         new(_usageRepo, _worldRepo, Options.Create(new AiBudgetOptions { DailyWorldBudgetUsd = dailyBudgetUsd }), _pauseGate);
 
     private void SeedWorld(decimal? dailyAiBudgetUsd)
@@ -129,13 +129,51 @@ public class AiBudgetGuardTests
     }
 
     [Test]
-    public async Task ZeroBudget_DisablesGuard()
+    public async Task ZeroBudget_BlocksEverySpend()
     {
         SeedUsage(100.00m, DateTimeOffset.UtcNow);
 
         var error = await MakeGuard(0m).CheckAsync(_worldId, CancellationToken.None);
 
+        // Zero used to disable the guard here while meaning "switched off" for the public-Ask
+        // cap — the same literal, opposite outcomes. A ceiling of zero is now a ceiling.
+        Assert.That(error, Is.Not.Null);
+        Assert.That(error!.Code, Is.EqualTo("ai_budget_exceeded"));
+    }
+
+    [Test]
+    public async Task ZeroBudget_BlocksBeforeAnythingHasBeenSpent()
+    {
+        // No usage seeded at all. Nothing spent still exceeds a ceiling of nothing, which is
+        // what makes zero a usable "stop" rather than a value that only bites after the fact.
+        var error = await MakeGuard(0m).CheckAsync(_worldId, CancellationToken.None);
+
+        Assert.That(error, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task NoConfiguredBudget_DisablesGuard()
+    {
+        SeedUsage(100.00m, DateTimeOffset.UtcNow);
+
+        // Absence is now the only way to run without a ceiling, so it has to keep working —
+        // this is the escape hatch that zero used to be.
+        var error = await MakeGuard(null).CheckAsync(_worldId, CancellationToken.None);
+
         Assert.That(error, Is.Null);
+    }
+
+    [Test]
+    public async Task WorldBudget_OverridesAConfiguredDefaultOfNone()
+    {
+        SeedWorld(1.00m);
+        SeedUsage(2.00m, DateTimeOffset.UtcNow);
+
+        // The world's own ceiling has to win even when the default is "no ceiling", or a world
+        // that deliberately set a limit would inherit unlimited spending from configuration.
+        var error = await MakeGuard(null).CheckAsync(_worldId, CancellationToken.None);
+
+        Assert.That(error, Is.Not.Null);
     }
 
     [Test]

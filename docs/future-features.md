@@ -1,4 +1,4 @@
-﻿# Execution order
+# Execution order
 
 2026-08-01. The master sequence across every plan below, ordered for execution.
 Sorting rule: work whose judgment calls are already made in these specs — mechanical
