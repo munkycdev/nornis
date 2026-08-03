@@ -139,7 +139,12 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
 Small things noticed in passing, too small for a plan file, parked against the item
 that already opens the right file. Neither is urgent; both rot if left unwritten.
 
-- ~~**Node 20 action deprecation**~~ **(handled 2026-08-01 by item 4.)** Dependabot's
+- ~~**Node 20 action deprecation**~~ **(handled 2026-08-01 by item 4; finished
+  2026-08-02.)** Item 4 took `actions/checkout`, `azure/login` and
+  `docker/setup-buildx-action` but left `actions/setup-dotnet` on v4, so every run
+  kept emitting the deprecation annotation — which is how this was noticed, from the
+  MudBlazor deploy's summary. Now on v6 in all three workflows; v5 and v6 both run
+  node24, and v6 is an ESM migration with no input changes. Original note: Dependabot's
   `github-actions` ecosystem will open the major bumps for `actions/checkout`,
   `actions/setup-dotnet`, `azure/login` and `docker/setup-buildx-action` as separate
   PRs. Read each changelog before merging — majors change action inputs, and
