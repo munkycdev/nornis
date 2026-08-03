@@ -134,7 +134,7 @@ public class WorldInvitesControllerTests
         await _controller.Create(WorldId, new CreateInviteRequest("Player"), CancellationToken.None);
 
         await _inviteService.Received(1).CreateAsync(
-            Arg.Is<CreateInviteCommand>(c => c.ActingUserRole == WorldRole.Player),
+            Arg.Is<CreateInviteCommand>(c => c != null && c.ActingUserRole == WorldRole.Player),
             Arg.Any<CancellationToken>());
     }
 

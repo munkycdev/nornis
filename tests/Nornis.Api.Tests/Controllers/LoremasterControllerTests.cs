@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
@@ -192,6 +192,7 @@ public class LoremasterControllerTests
         // Assert
         await _loremasterService.Received(1).AskAsync(
             Arg.Is<AskLoremasterCommand>(cmd =>
+                cmd != null &&
                 cmd.WorldId == WorldId &&
                 cmd.Question == "What happened at Black Harbor?" &&
                 cmd.UserId == TavrinUserId &&
@@ -262,7 +263,7 @@ public class LoremasterControllerTests
         Assert.That(okResult!.StatusCode, Is.EqualTo(200));
 
         await _loremasterService.Received(1).AskAsync(
-            Arg.Is<AskLoremasterCommand>(cmd => cmd.ConversationContext == null),
+            Arg.Is<AskLoremasterCommand>(cmd => cmd != null && cmd.ConversationContext == null),
             Arg.Any<CancellationToken>());
     }
 
@@ -283,7 +284,7 @@ public class LoremasterControllerTests
         // Assert
         await _loremasterService.Received(1).AskAsync(
             Arg.Is<AskLoremasterCommand>(cmd =>
-                cmd.ConversationContext == conversationContext),
+                cmd != null && cmd.ConversationContext == conversationContext),
             Arg.Any<CancellationToken>());
     }
 

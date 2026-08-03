@@ -1,4 +1,4 @@
-using System.ClientModel;
+﻿using System.ClientModel;
 using System.ClientModel.Primitives;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -106,7 +106,7 @@ public class AzureOpenAiLoremasterClientTests
 
         await _mockChatClient.Received(1).CompleteChatAsync(
             Arg.Is<IEnumerable<ChatMessage>>(messages =>
-                messages.Count() == 2),
+                messages != null && messages.Count() == 2),
             Arg.Any<ChatCompletionOptions>(),
             Arg.Any<CancellationToken>());
     }
