@@ -1,4 +1,4 @@
-﻿name: Coverage
+name: Coverage
 
 # Separate from deploy.yml on purpose: a rollout should not wait on report generation,
 # and a coverage step must never be able to hold up a deploy. The cost is running the
@@ -145,7 +145,7 @@ jobs:
           # report staying an artifact.
           cp artifacts/coverage/crap.json _site/crap.json
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
