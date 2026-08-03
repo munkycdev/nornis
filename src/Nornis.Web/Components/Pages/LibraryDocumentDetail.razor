@@ -1,4 +1,4 @@
-@page "/library/{DocumentId:guid}"
+﻿@page "/library/{DocumentId:guid}"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -189,7 +189,7 @@
     private async Task DeleteAsync()
     {
         if (Worlds.Current is null || _document is null) return;
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete document?",
             $"Remove \"{_document.Title}\" from the library? Its file and indexed passages are deleted.",
             yesText: "Delete", cancelText: "Cancel");

@@ -209,7 +209,7 @@ else
             return;
         }
 
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Nest storyline?",
             $"Make \"{drop.Child.Name}\" part of \"{drop.Parent.Name}\"?",
             yesText: "Nest", cancelText: "Cancel");
@@ -237,7 +237,7 @@ else
             return;
         }
 
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Move to top level?",
             $"Detach \"{child.Name}\" from its parent storyline? It becomes a top-level arc.",
             yesText: "Detach", cancelText: "Cancel");

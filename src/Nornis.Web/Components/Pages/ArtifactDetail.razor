@@ -430,7 +430,7 @@
             return;
         }
 
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Merge artifacts?",
             $"Move all facts and relationships from \"{_detail.Name}\" to \"{_mergeTarget.Name}\" and archive \"{_detail.Name}\"? This cannot be undone from the UI.",
             yesText: "Merge", cancelText: "Cancel");
@@ -488,7 +488,7 @@
         if (p.CharacterLinksToClear > 0) parts.Add($"{p.CharacterLinksToClear} character link{(p.CharacterLinksToClear == 1 ? "" : "s")} cleared");
         var detail = parts.Count > 0 ? $"This also removes {string.Join(", ", parts)}. " : "";
 
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Remove from canon?",
             $"Permanently remove \"{p.ArtifactName}\" from the Codex. {detail}Other artifacts are not affected. This cannot be undone.",
             yesText: "Remove", cancelText: "Cancel");
@@ -664,7 +664,7 @@
     // Declared-campaigns editor (storylines, GM). The world's campaigns to pick from, and the
     // selected set seeded from this storyline's own declarations each time it loads.
     private IReadOnlyList<CampaignDto> _campaigns = [];
-    private IEnumerable<Guid> _selectedCampaignIds = [];
+    private IReadOnlyCollection<Guid> _selectedCampaignIds = [];
     private bool _campaignsBusy;
     private string? _campaignsError;
 

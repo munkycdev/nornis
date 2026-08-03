@@ -163,7 +163,7 @@ else
     private async Task DeleteAsync(LibraryDocumentDto doc)
     {
         if (Worlds.Current is null) return;
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete document?",
             $"Remove \"{doc.Title}\" from the library? Its file and indexed passages are deleted.",
             yesText: "Delete", cancelText: "Cancel");

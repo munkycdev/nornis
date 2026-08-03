@@ -1,4 +1,4 @@
-@inject NornisApiClient Api
+﻿@inject NornisApiClient Api
 @inject IJSRuntime JS
 
 @* Checkbox picker for a world export. The server packages the selected data types into
@@ -47,7 +47,7 @@
 
 @code {
     [CascadingParameter]
-    private MudDialogInstance MudDialog { get; set; } = default!;
+    private IMudDialogInstance MudDialog { get; set; } = default!;
 
     [Parameter] public Guid WorldId { get; set; }
 

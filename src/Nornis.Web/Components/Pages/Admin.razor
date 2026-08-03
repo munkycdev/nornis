@@ -23,15 +23,15 @@ else if (!Worlds.IsGm)
 }
 else
 {
-    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pt-4"
+    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true"
              Color="Color.Transparent" SliderColor="Color.Secondary">
-        <MudTabPanel Text="Settings" Icon="@Icons.Material.Outlined.Tune">
+        <MudTabPanel PanelClass="pt-4" Text="Settings" Icon="@Icons.Material.Outlined.Tune">
             <WorldSettingsPanel />
         </MudTabPanel>
-        <MudTabPanel Text="Costs" Icon="@Icons.Material.Outlined.Paid">
+        <MudTabPanel PanelClass="pt-4" Text="Costs" Icon="@Icons.Material.Outlined.Paid">
             <CostsPanel />
         </MudTabPanel>
-        <MudTabPanel Text="Processing" Icon="@Icons.Material.Outlined.Sync">
+        <MudTabPanel PanelClass="pt-4" Text="Processing" Icon="@Icons.Material.Outlined.Sync">
             <ProcessingQueuePanel />
         </MudTabPanel>
     </MudTabs>

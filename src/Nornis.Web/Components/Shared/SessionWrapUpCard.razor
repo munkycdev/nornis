@@ -1,4 +1,4 @@
-@inject NornisApiClient Api
+﻿@inject NornisApiClient Api
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
 
@@ -293,7 +293,7 @@
             config.Action = "Undo";
             config.ActionColor = Color.Inherit;
             config.VisibleStateDuration = 10000;
-            config.Onclick = _ => UndoCloseAsync(q);
+            config.OnClick = _ => UndoCloseAsync(q);
         });
     }
 

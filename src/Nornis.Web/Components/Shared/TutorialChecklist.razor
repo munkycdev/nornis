@@ -1,4 +1,4 @@
-@implements IDisposable
+﻿@implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject Nornis.Web.State.AuthSessionState AuthSession
@@ -298,7 +298,7 @@
 
     private async Task DismissAsync()
     {
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Dismiss the tutorial?",
             "It goes away for good — it won't come back on this or any other world.",
             yesText: "Dismiss", cancelText: "Keep it");

@@ -62,7 +62,7 @@
 @code {
     private static readonly string[] Kinds = ["Sourcebook", "Map", "Handout", "Other"];
 
-    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = null!;
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
 
     private readonly string _inputId = $"nornis-upload-{Guid.NewGuid():N}";
     private string _title = string.Empty;

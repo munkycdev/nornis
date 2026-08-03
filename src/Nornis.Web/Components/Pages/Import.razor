@@ -810,7 +810,7 @@ else
 
         var remaining = _session.Items.Count(i => i.State is not ("Done" or "Skipped"));
 
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Finish without stopping?",
             $"Nornis will read the remaining {remaining} note{(remaining == 1 ? "" : "s")} back to back and "
                 + "accept every proposal into your record without showing you any of them. Anything it "
