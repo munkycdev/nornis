@@ -134,7 +134,7 @@ public class SourceLocationsEndpointTests
         var player = await (await _scenario.PlayerClient.GetAsync(Route(session.Id)))
             .Content.ReadFromJsonAsync<List<LinkedLocationResponse>>();
 
-        Assert.That(gm!.Select(l => l.Name), Is.EquivalentTo(new[] { "Black Harbor", "Smuggler's Cove" }));
-        Assert.That(player!.Select(l => l.Name), Is.EquivalentTo(new[] { "Black Harbor" }));
+        Assert.That(gm!.Select(l => l.Name), Is.EquivalentTo(["Black Harbor", "Smuggler's Cove"]));
+        Assert.That(player!.Select(l => l.Name), Is.EquivalentTo(["Black Harbor"]));
     }
 }

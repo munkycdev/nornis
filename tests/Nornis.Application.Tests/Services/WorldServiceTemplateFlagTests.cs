@@ -129,7 +129,7 @@ public class WorldServiceTemplateFlagTests
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value!.Select(w => w.World.Name),
-            Is.EqualTo(new[] { "Aldenmoor", "Vespergale Reach (template master)" }),
+            Is.EqualTo(["Aldenmoor", "Vespergale Reach (template master)"]),
             "templates stay in the list — grouping is a UI concern — and order is stable");
         Assert.That(result.Value!.Single(w => w.World.IsTemplate).World.Id, Is.EqualTo(_world.Id));
     }

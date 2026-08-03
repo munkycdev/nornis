@@ -235,8 +235,8 @@ public class SourceLocationServiceTests
         var asPlayer = await _sut.ListLocationsAsync(_session.Id, WorldId, OwnerId, WorldRole.Player, CancellationToken.None);
         var asGm = await _sut.ListLocationsAsync(_session.Id, WorldId, OwnerId, WorldRole.GM, CancellationToken.None);
 
-        Assert.That(asPlayer.Value!.Select(l => l.ArtifactId), Is.EquivalentTo(new[] { party.Id }));
-        Assert.That(asGm.Value!.Select(l => l.ArtifactId), Is.EquivalentTo(new[] { party.Id, secret.Id }));
+        Assert.That(asPlayer.Value!.Select(l => l.ArtifactId), Is.EquivalentTo([party.Id]));
+        Assert.That(asGm.Value!.Select(l => l.ArtifactId), Is.EquivalentTo([party.Id, secret.Id]));
     }
 
     [Test]

@@ -121,7 +121,7 @@ public class UserRepositoryAddableTests : IntegrationTestBase
 
         var addable = await Repository.ListAddableToWorldAsync(worldId, $"wood_{tag}", NoCap);
 
-        Assert.That(addable.Select(u => u.Id), Is.EqualTo(new[] { target }));
+        Assert.That(addable.Select(u => u.Id), Is.EqualTo([target]));
     }
 
     [Test]
@@ -154,7 +154,7 @@ public class UserRepositoryAddableTests : IntegrationTestBase
 
         var addable = await Repository.ListAddableToWorldAsync(worldId, search, NoCap);
 
-        Assert.That(addable.Select(u => u.Username), Is.SupersetOf(new[] { $"alice-{tag}", $"bob-{tag}" }));
+        Assert.That(addable.Select(u => u.Username), Is.SupersetOf([$"alice-{tag}", $"bob-{tag}"]));
     }
 
     [Test]
@@ -195,6 +195,6 @@ public class UserRepositoryAddableTests : IntegrationTestBase
         var addable = await Repository.ListAddableToWorldAsync(worldId, tag, NoCap);
         var names = addable.Select(u => u.Username).ToList();
 
-        Assert.That(names, Is.EqualTo(new[] { $"{tag}-adam", $"{tag}-mabel", $"{tag}-zed" }));
+        Assert.That(names, Is.EqualTo([$"{tag}-adam", $"{tag}-mabel", $"{tag}-zed"]));
     }
 }

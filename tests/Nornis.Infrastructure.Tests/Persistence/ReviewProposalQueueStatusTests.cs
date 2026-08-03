@@ -91,7 +91,7 @@ public class ReviewProposalQueueStatusTests : IntegrationTestBase
         var (proposals, hasMore) = await _repository.ListReviewQueueAsync(
             _worldId, [_sourceId], filterByBatchId: null, limit: 50);
 
-        Assert.That(proposals.Select(p => p.Id), Is.EquivalentTo(new[] { pending, edited }));
+        Assert.That(proposals.Select(p => p.Id), Is.EquivalentTo([pending, edited]));
         Assert.That(proposals.Select(p => p.Id), Does.Not.Contain(accepted));
         Assert.That(proposals.Select(p => p.Id), Does.Not.Contain(rejected));
         Assert.That(hasMore, Is.False);
@@ -106,7 +106,7 @@ public class ReviewProposalQueueStatusTests : IntegrationTestBase
 
         var open = await _repository.ListPendingByWorldAsync(_worldId);
 
-        Assert.That(open.Select(p => p.Id), Is.EquivalentTo(new[] { pending, edited }));
+        Assert.That(open.Select(p => p.Id), Is.EquivalentTo([pending, edited]));
     }
 
     [Test]
@@ -119,7 +119,7 @@ public class ReviewProposalQueueStatusTests : IntegrationTestBase
         var (other, _) = await _repository.ListReviewQueueAsync(
             _worldId, [_sourceId], filterByBatchId: Guid.NewGuid(), limit: 50);
 
-        Assert.That(matching.Select(p => p.Id), Is.EquivalentTo(new[] { edited }));
+        Assert.That(matching.Select(p => p.Id), Is.EquivalentTo([edited]));
         Assert.That(other, Is.Empty);
     }
 

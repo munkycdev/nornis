@@ -191,7 +191,7 @@ public class ContinuityAuditServiceTests
         var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.Value!.Findings, Has.Count.EqualTo(1));
-        Assert.That(result.Value.Findings[0].Evidence, Is.EqualTo(new[] { FactRef }));
+        Assert.That(result.Value.Findings[0].Evidence, Is.EqualTo([FactRef]));
     }
 
     [Test]
@@ -379,7 +379,7 @@ public class ContinuityAuditServiceTests
 
         Assert.That(_ai.LastRequest!.UserMessage, Does.Not.Contain("The Sunken Quarter"));
         Assert.That(result.Value!.Findings, Has.Count.EqualTo(1));
-        Assert.That(result.Value.Findings[0].Evidence, Is.EqualTo(new[] { FactRef }));
+        Assert.That(result.Value.Findings[0].Evidence, Is.EqualTo([FactRef]));
     }
 
     [Test]

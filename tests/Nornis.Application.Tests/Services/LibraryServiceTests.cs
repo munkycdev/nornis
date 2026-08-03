@@ -207,7 +207,7 @@ public class LibraryServiceTests
 
         var result = await _sut.ListAsync(WorldId, WorldRole.Player, CancellationToken.None);
 
-        Assert.That(result.Value!.Select(d => d.Title), Is.EquivalentTo(new[] { "Party book" }));
+        Assert.That(result.Value!.Select(d => d.Title), Is.EquivalentTo(["Party book"]));
     }
 
     [Test]
@@ -331,7 +331,7 @@ public class LibraryServiceTests
 
         // The point of the flip: the party shelf now carries it.
         var asPlayer = await _sut.ListAsync(WorldId, WorldRole.Player, CancellationToken.None);
-        Assert.That(asPlayer.Value!.Select(d => d.Title), Is.EquivalentTo(new[] { "Forbidden Depths" }));
+        Assert.That(asPlayer.Value!.Select(d => d.Title), Is.EquivalentTo(["Forbidden Depths"]));
     }
 
     [Test]

@@ -124,7 +124,7 @@ public class ArtifactServiceTests
 
         var result = await _service.ListAsync(query, CancellationToken.None);
 
-        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(new[] { "Silver Key", "Black Harbor" }));
+        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(["Silver Key", "Black Harbor"]));
     }
 
     [Test]
@@ -192,7 +192,7 @@ public class ArtifactServiceTests
         var result = await _service.ListAsync(query, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(new[] { "Captain Voss" }),
+        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(["Captain Voss"]),
             "a merge leftover must not be published to the anonymous public world page");
     }
 
@@ -209,7 +209,7 @@ public class ArtifactServiceTests
 
         var result = await _service.ListAsync(query, CancellationToken.None);
 
-        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(new[] { "Captain Voss (duplicate)" }),
+        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(["Captain Voss (duplicate)"]),
             "excluding Archived by default must not remove the ability to ask for them");
     }
 
@@ -225,7 +225,7 @@ public class ArtifactServiceTests
             _worldId, Guid.Empty, WorldRole.Observer, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.Nodes.Select(n => n.Name), Is.EqualTo(new[] { "Captain Voss" }));
+        Assert.That(result.Value!.Nodes.Select(n => n.Name), Is.EqualTo(["Captain Voss"]));
     }
 
     [Test]
@@ -240,7 +240,7 @@ public class ArtifactServiceTests
         var result = await _service.GetGraphAsync(
             _worldId, Guid.Empty, WorldRole.Observer, CancellationToken.None);
 
-        Assert.That(result.Value!.Nodes.Select(n => n.Name), Is.EqualTo(new[] { "Captain Voss" }),
+        Assert.That(result.Value!.Nodes.Select(n => n.Name), Is.EqualTo(["Captain Voss"]),
             "the archived filter must not have displaced the visibility filter");
     }
 
@@ -435,7 +435,7 @@ public class ArtifactServiceTests
         var result = await _service.GetDetailAsync(artifact.Id, _worldId, _tavrinUserId, WorldRole.Player, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.PlayedBy, Is.EqualTo(new[] { "Dave" }));
+        Assert.That(result.Value!.PlayedBy, Is.EqualTo(["Dave"]));
     }
 
     [Test]

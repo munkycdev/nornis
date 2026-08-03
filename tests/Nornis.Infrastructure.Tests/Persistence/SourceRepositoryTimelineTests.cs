@@ -113,7 +113,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
         var result = await repo.ListTimelineBeforeAsync(
             world.Id, null, Day15, Day15, PartyFilter, 10);
 
-        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "S2", "S1" }));
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(["S2", "S1"]));
     }
 
     [Test]
@@ -129,7 +129,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
         var result = await repo.ListTimelineBeforeAsync(
             world.Id, null, Day10, Day10.AddMinutes(10), PartyFilter, 10);
 
-        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Uploaded first" }));
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(["Uploaded first"]));
     }
 
     [Test]
@@ -142,7 +142,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
         var result = await repo.ListTimelineBeforeAsync(
             world.Id, null, Day15, Day15, PartyFilter, 10);
 
-        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Imported wiki page" }));
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(["Imported wiki page"]));
     }
 
     [Test]
@@ -158,7 +158,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
         var result = await repo.ListTimelineBeforeAsync(
             world.Id, null, Day15, Day15, PartyFilter, 10);
 
-        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Legacy transcript" }));
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(["Legacy transcript"]));
     }
 
     [Test]
@@ -175,7 +175,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
         var result = await repo.ListTimelineBeforeAsync(
             world.Id, mine.Id, Day15, Day15, PartyFilter, 10);
 
-        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Mine", "Untagged" }));
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(["Mine", "Untagged"]));
     }
 
     [Test]
@@ -191,7 +191,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
         var result = await repo.ListTimelineBeforeAsync(
             world.Id, null, Day15, Day15, PartyFilter, 10);
 
-        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Party session" }));
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(["Party session"]));
     }
 
     [Test]
@@ -206,7 +206,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
         var result = await repo.ListTimelineBeforeAsync(
             world.Id, null, Day20, Day20, PartyFilter, 2);
 
-        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "S3", "S2" }));
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(["S3", "S2"]));
     }
 
     // ------------------------------------------------- Replay queue (After) --
@@ -222,7 +222,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
 
         var result = await repo.ListExtractableAfterAsync(world.Id, Day10, Day10, 10);
 
-        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Later A", "Later B" }));
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(["Later A", "Later B"]));
     }
 
     [Test]
@@ -236,7 +236,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
         var result = await repo.ListExtractableAfterAsync(
             world.Id, Day10, Day10.AddMinutes(10), 10);
 
-        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Uploaded after pivot" }));
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(["Uploaded after pivot"]));
     }
 
     [Test]
@@ -256,7 +256,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
 
         var result = await repo.ListExtractableAfterAsync(world.Id, Day10, Day10, 10);
 
-        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Failed but retryable" }));
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(["Failed but retryable"]));
     }
 
     [Test]
@@ -276,7 +276,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
         var result = await repo.ListExtractableAfterAsync(world.Id, Day10, Day10, 10);
 
         Assert.That(result.Select(s => s.Title),
-            Is.EqualTo(new[] { "Session", "GM prep", "Lore PDF", "Region map", "Scanned page" }));
+            Is.EqualTo(["Session", "GM prep", "Lore PDF", "Region map", "Scanned page"]));
     }
 
     [Test]
@@ -292,7 +292,7 @@ public class SourceRepositoryTimelineTests : IntegrationTestBase
 
         var result = await repo.ListExtractableAfterAsync(world.Id, Day10, Day10, 10);
 
-        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Undated GM note" }));
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(["Undated GM note"]));
     }
 
     [Test]

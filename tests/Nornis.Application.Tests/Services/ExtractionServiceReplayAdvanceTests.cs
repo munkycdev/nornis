@@ -111,7 +111,7 @@ public class ExtractionServiceReplayAdvanceTests
 
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
-        Assert.That(_advancer.Calls, Is.EqualTo(new[] { (WorldId, source.Id) }));
+        Assert.That(_advancer.Calls, Is.EqualTo([(WorldId, source.Id)]));
     }
 
     [Test]
@@ -154,6 +154,6 @@ public class ExtractionServiceReplayAdvanceTests
 
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
-        Assert.That(_advancer.Calls, Is.EqualTo(new[] { (WorldId, source.Id) }));
+        Assert.That(_advancer.Calls, Is.EqualTo([(WorldId, source.Id)]));
     }
 }

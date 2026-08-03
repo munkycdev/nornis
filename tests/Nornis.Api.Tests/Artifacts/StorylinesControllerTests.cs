@@ -35,7 +35,7 @@ public class StorylinesControllerTests
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         var storylines = await response.Content.ReadFromJsonAsync<List<ArtifactListItemResponse>>();
         Assert.That(storylines, Is.Not.Null);
-        Assert.That(storylines!.Select(s => s.Id), Is.EquivalentTo(new[] { caravan.Id, prophecy.Id }));
+        Assert.That(storylines!.Select(s => s.Id), Is.EquivalentTo([caravan.Id, prophecy.Id]));
         Assert.That(storylines!.All(s => s.Type == "Storyline"), Is.True);
     }
 
@@ -53,7 +53,7 @@ public class StorylinesControllerTests
             $"/api/worlds/{scenario.World.Id}/storylines?status=Resolved");
 
         var storylines = await response.Content.ReadFromJsonAsync<List<ArtifactListItemResponse>>();
-        Assert.That(storylines!.Select(s => s.Id), Is.EqualTo(new[] { resolved.Id }));
+        Assert.That(storylines!.Select(s => s.Id), Is.EqualTo([resolved.Id]));
     }
 
     [Test]

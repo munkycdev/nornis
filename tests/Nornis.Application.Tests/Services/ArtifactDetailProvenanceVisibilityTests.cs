@@ -86,7 +86,7 @@ public class ArtifactDetailProvenanceVisibilityTests
     {
         var quotes = await QuotesFor(_gmId, WorldRole.GM);
 
-        Assert.That(quotes, Is.EquivalentTo(new[] { GmQuote, PrivateQuote, PartyQuote }));
+        Assert.That(quotes, Is.EquivalentTo([GmQuote, PrivateQuote, PartyQuote]));
     }
 
     [Test]
@@ -96,7 +96,7 @@ public class ArtifactDetailProvenanceVisibilityTests
     {
         var quotes = await QuotesFor(_playerId, WorldRole.Player);
 
-        Assert.That(quotes, Is.EquivalentTo(new[] { PartyQuote }));
+        Assert.That(quotes, Is.EquivalentTo([PartyQuote]));
         Assert.That(quotes, Does.Not.Contain(GmQuote), "a GM note's excerpt must not reach a player");
         Assert.That(quotes, Does.Not.Contain(PrivateQuote), "nor another player's private note");
     }
@@ -108,7 +108,7 @@ public class ArtifactDetailProvenanceVisibilityTests
     {
         var quotes = await QuotesFor(Guid.NewGuid(), WorldRole.Observer);
 
-        Assert.That(quotes, Is.EquivalentTo(new[] { PartyQuote }));
+        Assert.That(quotes, Is.EquivalentTo([PartyQuote]));
     }
 
     [Test]
@@ -119,7 +119,7 @@ public class ArtifactDetailProvenanceVisibilityTests
         // The public world page reads through this same method as Observer/Guid.Empty.
         var quotes = await QuotesFor(AnonymousUserId, WorldRole.Observer);
 
-        Assert.That(quotes, Is.EquivalentTo(new[] { PartyQuote }));
+        Assert.That(quotes, Is.EquivalentTo([PartyQuote]));
         Assert.That(quotes, Does.Not.Contain(GmQuote));
         Assert.That(quotes, Does.Not.Contain(PrivateQuote));
     }
@@ -133,7 +133,7 @@ public class ArtifactDetailProvenanceVisibilityTests
 
         var quotes = await QuotesFor(AnonymousUserId, WorldRole.Observer);
 
-        Assert.That(quotes, Is.EquivalentTo(new[] { PartyQuote }));
+        Assert.That(quotes, Is.EquivalentTo([PartyQuote]));
     }
 
     [Test]
@@ -141,7 +141,7 @@ public class ArtifactDetailProvenanceVisibilityTests
     {
         var quotes = await QuotesFor(_otherPlayerId, WorldRole.Player);
 
-        Assert.That(quotes, Is.EquivalentTo(new[] { PrivateQuote, PartyQuote }));
+        Assert.That(quotes, Is.EquivalentTo([PrivateQuote, PartyQuote]));
     }
 
     [Test]
@@ -160,7 +160,7 @@ public class ArtifactDetailProvenanceVisibilityTests
 
         var quotes = await QuotesFor(_gmId, WorldRole.GM);
 
-        Assert.That(quotes, Is.EquivalentTo(new[] { GmQuote, PrivateQuote, PartyQuote }));
+        Assert.That(quotes, Is.EquivalentTo([GmQuote, PrivateQuote, PartyQuote]));
     }
 
     [Test]
@@ -196,7 +196,7 @@ public class ArtifactDetailProvenanceVisibilityTests
         var playerQuotes = await QuotesFor(_playerId, WorldRole.Player);
         var gmQuotes = await QuotesFor(_gmId, WorldRole.GM);
 
-        Assert.That(playerQuotes, Is.EquivalentTo(new[] { PartyQuote }),
+        Assert.That(playerQuotes, Is.EquivalentTo([PartyQuote]),
             "the fact is visible but its GM-authored excerpt is not");
         Assert.That(gmQuotes, Has.Count.EqualTo(4));
     }

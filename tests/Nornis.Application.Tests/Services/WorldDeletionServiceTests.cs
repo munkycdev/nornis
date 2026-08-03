@@ -70,7 +70,7 @@ public class WorldDeletionServiceTests
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(_worlds.Worlds, Is.Empty);
-        Assert.That(_blobs.DeletedPrefixes, Is.EqualTo(new[] { $"worlds/{_world.Id}/" }));
+        Assert.That(_blobs.DeletedPrefixes, Is.EqualTo([$"worlds/{_world.Id}/"]));
         Assert.That(_blobs.Blobs, Is.Empty);
     }
 

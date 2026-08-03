@@ -116,7 +116,7 @@ public class PublicControllerTests
         var hiddenDetail = await _anonymous.GetAsync($"/api/public/worlds/black-harbor/artifacts/{hidden.Id}");
         var visibleDetail = await _anonymous.GetAsync($"/api/public/worlds/black-harbor/artifacts/{visible.Id}");
 
-        Assert.That(list!.Select(a => a.Id), Is.EquivalentTo(new[] { visible.Id }));
+        Assert.That(list!.Select(a => a.Id), Is.EquivalentTo([visible.Id]));
         Assert.That(hiddenDetail.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
         Assert.That(visibleDetail.StatusCode, Is.EqualTo(HttpStatusCode.OK));
     }
@@ -199,7 +199,7 @@ public class PublicControllerTests
             "/api/public/worlds/black-harbor/sources");
         var journalDetail = await _anonymous.GetAsync($"/api/public/worlds/black-harbor/sources/{journalId}");
 
-        Assert.That(list!.Select(s => s.Id), Is.SupersetOf(new[] { sessionId, importedId }));
+        Assert.That(list!.Select(s => s.Id), Is.SupersetOf([sessionId, importedId]));
         Assert.That(list!.Select(s => s.Id), Does.Not.Contain(journalId),
             "only SessionNote and ImportedNote appear in the public list");
         Assert.That(journalDetail.StatusCode, Is.EqualTo(HttpStatusCode.OK),

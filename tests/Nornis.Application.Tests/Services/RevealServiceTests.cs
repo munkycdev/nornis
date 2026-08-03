@@ -174,7 +174,7 @@ public class RevealServiceTests
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value!.IsClosed, Is.False);
-        Assert.That(result.Value.MissingArtifactIds, Is.EqualTo(new[] { harbor.Id }));
+        Assert.That(result.Value.MissingArtifactIds, Is.EqualTo([harbor.Id]));
         // Nothing applied.
         Assert.That(CurrentFact(fact.Id).Visibility, Is.EqualTo(VisibilityScope.GMOnly));
         Assert.That(_sourceRepo.Sources, Is.Empty);
@@ -209,7 +209,7 @@ public class RevealServiceTests
         var result = await _sut.RevealAsync(Command(relationships: [link.Id]), CancellationToken.None);
 
         Assert.That(result.Value!.IsClosed, Is.False);
-        Assert.That(result.Value.MissingArtifactIds, Is.EqualTo(new[] { key.Id }));
+        Assert.That(result.Value.MissingArtifactIds, Is.EqualTo([key.Id]));
         Assert.That(CurrentRelationship(link.Id).Visibility, Is.EqualTo(VisibilityScope.GMOnly));
     }
 

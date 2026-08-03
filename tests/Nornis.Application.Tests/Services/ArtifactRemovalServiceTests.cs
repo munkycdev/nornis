@@ -238,16 +238,16 @@ public class ArtifactRemovalServiceTests
         Assert.That(result.IsSuccess, Is.True);
 
         // The target is gone; the two related artifacts survive.
-        Assert.That(_artifactRepository.Artifacts.Select(a => a.Id), Is.EquivalentTo(new[] { _harborId, _lodgeId }));
+        Assert.That(_artifactRepository.Artifacts.Select(a => a.Id), Is.EquivalentTo([_harborId, _lodgeId]));
 
         // Only Voss's facts go; Harbor's fact survives.
-        Assert.That(_factRepository.Facts.Select(f => f.Id), Is.EquivalentTo(new[] { _harborFact }));
+        Assert.That(_factRepository.Facts.Select(f => f.Id), Is.EquivalentTo([_harborFact]));
 
         // Both relationships touching Voss go; the Harbor–Lodge relationship survives.
-        Assert.That(_relationshipRepository.Relationships.Select(r => r.Id), Is.EquivalentTo(new[] { _relForeign }));
+        Assert.That(_relationshipRepository.Relationships.Select(r => r.Id), Is.EquivalentTo([_relForeign]));
 
         // Voss's pin goes; Harbor's pin survives.
-        Assert.That(_mapPlacemarkRepository.Placemarks.Select(p => p.Id), Is.EquivalentTo(new[] { _harborPin }));
+        Assert.That(_mapPlacemarkRepository.Placemarks.Select(p => p.Id), Is.EquivalentTo([_harborPin]));
 
         // Provenance for the deleted entities is gone; the Harbor ref survives.
         Assert.That(_referenceRepository.References, Has.Count.EqualTo(1));

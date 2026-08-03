@@ -37,7 +37,7 @@ public class ArtifactsControllerTests
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         var artifacts = await response.Content.ReadFromJsonAsync<List<ArtifactListItemResponse>>();
         Assert.That(artifacts, Is.Not.Null);
-        Assert.That(artifacts!.Select(a => a.Id), Is.EqualTo(new[] { voss.Id }));
+        Assert.That(artifacts!.Select(a => a.Id), Is.EqualTo([voss.Id]));
     }
 
     [Test]
@@ -55,7 +55,7 @@ public class ArtifactsControllerTests
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         var artifacts = await response.Content.ReadFromJsonAsync<List<ArtifactListItemResponse>>();
-        Assert.That(artifacts!.Select(a => a.Id), Is.EqualTo(new[] { caravan.Id }));
+        Assert.That(artifacts!.Select(a => a.Id), Is.EqualTo([caravan.Id]));
         Assert.That(artifacts![0].Type, Is.EqualTo("Storyline"));
     }
 
@@ -73,7 +73,7 @@ public class ArtifactsControllerTests
             $"/api/worlds/{scenario.World.Id}/artifacts?status=Resolved");
 
         var artifacts = await response.Content.ReadFromJsonAsync<List<ArtifactListItemResponse>>();
-        Assert.That(artifacts!.Select(a => a.Id), Is.EqualTo(new[] { resolved.Id }));
+        Assert.That(artifacts!.Select(a => a.Id), Is.EqualTo([resolved.Id]));
     }
 
     [Test]
@@ -199,8 +199,8 @@ public class ArtifactsControllerTests
         var detail = await response.Content.ReadFromJsonAsync<ArtifactDetailResponse>();
         Assert.That(detail, Is.Not.Null);
         Assert.That(detail!.Name, Is.EqualTo("Captain Voss"));
-        Assert.That(detail.Facts.Select(f => f.Id), Is.EqualTo(new[] { fact.Id }));
-        Assert.That(detail.Relationships.Select(r => r.Id), Is.EqualTo(new[] { rel.Id }));
+        Assert.That(detail.Facts.Select(f => f.Id), Is.EqualTo([fact.Id]));
+        Assert.That(detail.Relationships.Select(r => r.Id), Is.EqualTo([rel.Id]));
         Assert.That(detail.ConnectedArtifacts.Select(c => c.Name), Does.Contain("Black Harbor"));
         Assert.That(detail.SourceReferences.Select(s => s.TargetId), Does.Contain(fact.Id));
 

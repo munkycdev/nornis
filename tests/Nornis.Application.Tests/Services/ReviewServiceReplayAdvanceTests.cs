@@ -106,7 +106,7 @@ public class ReviewServiceReplayAdvanceTests
         await _service.AcceptProposalAsync(
             new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM), CancellationToken.None);
 
-        Assert.That(_advancer.Calls, Is.EqualTo(new[] { (_worldId, _source.Id) }));
+        Assert.That(_advancer.Calls, Is.EqualTo([(_worldId, _source.Id)]));
     }
 
     [Test]

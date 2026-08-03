@@ -190,7 +190,7 @@ public class ImportSessionServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(info.Items.Select(i => i.Title), Is.EqualTo(new[] { "Session 1", "Session 2" }));
+            Assert.That(info.Items.Select(i => i.Title), Is.EqualTo(["Session 1", "Session 2"]));
             Assert.That(info.Items.Select(i => i.State),
                 Is.All.EqualTo(ImportItemState.Waiting));
             // Held, not queued: nothing is read until the GM starts the walk.
@@ -231,7 +231,7 @@ public class ImportSessionServiceTests
             WorldId, session.Id, reversed, GmId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-        Assert.That(result.Value!.Items.Select(i => i.Title), Is.EqualTo(new[] { "Session 2", "Session 1" }));
+        Assert.That(result.Value!.Items.Select(i => i.Title), Is.EqualTo(["Session 2", "Session 1"]));
     }
 
     [Test]
@@ -268,7 +268,7 @@ public class ImportSessionServiceTests
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         Assert.That(result.Value!.Items.Select(i => i.Title),
-            Is.EqualTo(new[] { "Session 1", "Session 3", "Session 2" }));
+            Is.EqualTo(["Session 1", "Session 3", "Session 2"]));
     }
 
     [Test]
@@ -774,10 +774,10 @@ public class ImportSessionServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(view.Items.Select(i => i.Title), Is.EqualTo(new[] { "Kastor prep", "Yndaros prep" }),
+            Assert.That(view.Items.Select(i => i.Title), Is.EqualTo(["Kastor prep", "Yndaros prep"]),
                 "staged sources are appended in story order, whatever order they were chosen in");
             Assert.That(view.Items.Select(i => i.State),
-                Is.EqualTo(new[] { ImportItemState.Waiting, ImportItemState.Waiting }));
+                Is.EqualTo([ImportItemState.Waiting, ImportItemState.Waiting]));
             Assert.That(view.SettledCount, Is.EqualTo(0));
             Assert.That(view.CurrentItemId, Is.EqualTo(view.Items[0].Id));
         });
@@ -797,7 +797,7 @@ public class ImportSessionServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(started.IsSuccess, Is.True, started.Error?.Message);
-            Assert.That(_reprocess.Commands.Select(c => c.SourceId), Is.EqualTo(new[] { existing.Id }),
+            Assert.That(_reprocess.Commands.Select(c => c.SourceId), Is.EqualTo([existing.Id]),
                 "the existing source went through reprocess, not mark-ready");
             Assert.That(started.Value!.Items[0].State, Is.EqualTo(ImportItemState.Extracting));
         });
@@ -827,7 +827,7 @@ public class ImportSessionServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(advanced.IsSuccess, Is.True, advanced.Error?.Message);
-            Assert.That(_reprocess.Commands.Select(c => c.SourceId), Is.EqualTo(new[] { first.Id, second.Id }));
+            Assert.That(_reprocess.Commands.Select(c => c.SourceId), Is.EqualTo([first.Id, second.Id]));
             Assert.That(advanced.Value!.Items[0].State, Is.EqualTo(ImportItemState.Done));
             Assert.That(advanced.Value!.Items[1].State, Is.EqualTo(ImportItemState.Extracting));
         });

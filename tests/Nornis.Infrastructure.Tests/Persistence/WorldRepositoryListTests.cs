@@ -67,7 +67,7 @@ public class WorldRepositoryListTests : IntegrationTestBase
         var worlds = await repository.ListByUserAsync(userId);
 
         Assert.That(worlds.Select(w => w.Name),
-            Is.EqualTo(new[] { "Aldenmoor", "Brackwater Deep", "Vespergale Reach" }));
+            Is.EqualTo(["Aldenmoor", "Brackwater Deep", "Vespergale Reach"]));
     }
 
     [Test]

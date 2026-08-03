@@ -159,7 +159,7 @@ public class CanonKindAndLimitTests
         var result = await _service.GetCanonAsync(Query(), CancellationToken.None);
 
         Assert.That(result.Value!.Select(e => e.Kind),
-            Is.EquivalentTo(new[] { CanonEntryKind.Fact, CanonEntryKind.Relationship }));
+            Is.EquivalentTo([CanonEntryKind.Fact, CanonEntryKind.Relationship]));
     }
 
     // ------------------------------------------------------------------ limits
@@ -209,7 +209,7 @@ public class CanonKindAndLimitTests
 
         var result = await _service.GetCanonAsync(Query(factLimit: 2), CancellationToken.None);
 
-        Assert.That(result.Value!.Select(e => e.Label), Is.EqualTo(new[] { "newest", "middle" }));
+        Assert.That(result.Value!.Select(e => e.Label), Is.EqualTo(["newest", "middle"]));
     }
 
     // ------------------------------------------------------------------ cap vs filters
@@ -228,7 +228,7 @@ public class CanonKindAndLimitTests
             Query(WorldRole.Player, factLimit: 2), CancellationToken.None);
 
         Assert.That(asPlayer.Value!.Select(e => e.Label),
-            Is.EqualTo(new[] { "visible-1", "visible-2" }),
+            Is.EqualTo(["visible-1", "visible-2"]),
             "a Player must get their two newest VISIBLE facts, not two empty slots");
     }
 
@@ -242,7 +242,7 @@ public class CanonKindAndLimitTests
         var asPlayer = await _service.GetCanonAsync(
             Query(WorldRole.Player, factLimit: 2), CancellationToken.None);
 
-        Assert.That(asPlayer.Value!.Select(e => e.Label), Is.EqualTo(new[] { "party" }));
+        Assert.That(asPlayer.Value!.Select(e => e.Label), Is.EqualTo(["party"]));
     }
 
     [Test]

@@ -30,6 +30,14 @@ jobs:
       - run: dotnet restore Nornis.sln
       - run: dotnet build Nornis.sln --no-restore
 
+      # The format gate also runs here, not only on pull requests. Twice now a dependency
+      # bump has widened an analyzer's reach and turned main red without anything noticing:
+      # ci.yml is `on: pull_request`, so a push to main never runs it, and the break only
+      # surfaces on whichever PR opens next. Deploy must not wait on formatting, so this
+      # lives in the workflow that already runs the full suite on push.
+      - name: Format check
+        run: dotnet format --verify-no-changes --no-restore
+
       - name: Test with coverage
         run: >
           dotnet test Nornis.sln --no-build

@@ -209,14 +209,14 @@ public class ImportSessionsControllerTests
         var reordered = await _gm.PutAsJsonAsync(
             $"{Base}/{session.Id}/items/order", new ReorderImportItemsRequest(reversed));
         var afterOrder = (await reordered.Content.ReadFromJsonAsync<ImportSessionResponse>())!;
-        Assert.That(afterOrder.Items.Select(i => i.Title), Is.EqualTo(new[] { "Session 2", "Session 1" }));
+        Assert.That(afterOrder.Items.Select(i => i.Title), Is.EqualTo(["Session 2", "Session 1"]));
 
         // Plain DELETE excludes the note from the run and nothing more. This is the default
         // because most removals are "not in this batch", not "destroy my note".
         var excludedSourceId = afterOrder.Items[0].SourceId;
         var removed = await _gm.DeleteAsync($"{Base}/{session.Id}/items/{afterOrder.Items[0].Id}");
         var afterRemove = (await removed.Content.ReadFromJsonAsync<ImportSessionResponse>())!;
-        Assert.That(afterRemove.Items.Select(i => i.Title), Is.EqualTo(new[] { "Session 1" }));
+        Assert.That(afterRemove.Items.Select(i => i.Title), Is.EqualTo(["Session 1"]));
 
         using (var scope = _factory.Services.CreateScope())
         {

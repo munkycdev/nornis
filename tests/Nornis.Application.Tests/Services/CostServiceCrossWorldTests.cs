@@ -109,7 +109,7 @@ public class CostServiceCrossWorldTests
         Assert.That(result.Value, Has.Count.EqualTo(2));
 
         var worldNames = result.Value!.Select(c => c.WorldName).OrderBy(n => n).ToList();
-        Assert.That(worldNames, Is.EqualTo(new[] { "Black Harbor Investigation", "Silver Key Mystery" }));
+        Assert.That(worldNames, Is.EqualTo(["Black Harbor Investigation", "Silver Key Mystery"]));
 
         // Verify IDs match the correct names
         var blackHarbor = result.Value!.First(c => c.WorldId == BlackHarborWorldId);

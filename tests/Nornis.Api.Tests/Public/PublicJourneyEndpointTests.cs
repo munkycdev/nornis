@@ -175,7 +175,7 @@ public class PublicJourneyEndpointTests
         var response = await _anonymous.GetAsync($"/api/public/worlds/{Slug}/journey");
 
         var journey = await response.Content.ReadFromJsonAsync<JourneyResponse>();
-        Assert.That(journey!.Stops.Select(s => s.Title), Is.EqualTo(new[] { "Arrival" }));
+        Assert.That(journey!.Stops.Select(s => s.Title), Is.EqualTo(["Arrival"]));
         Assert.That(await response.Content.ReadAsStringAsync(), Does.Not.Contain("betrayal"));
     }
 

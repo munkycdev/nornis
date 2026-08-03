@@ -109,7 +109,7 @@ public class WorldMemberSearchAddableTests
         var result = await Search(_gmId, "mira");
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.Select(u => u.Username), Is.EqualTo(new[] { "mira_kell" }));
+        Assert.That(result.Value!.Select(u => u.Username), Is.EqualTo(["mira_kell"]));
     }
 
     // ------------------------------------------------------------------ what may be asked
@@ -161,7 +161,7 @@ public class WorldMemberSearchAddableTests
     {
         var result = await Search(_gmId, "  mira  ");
 
-        Assert.That(result.Value!.Select(u => u.Username), Is.EqualTo(new[] { "mira_kell" }));
+        Assert.That(result.Value!.Select(u => u.Username), Is.EqualTo(["mira_kell"]));
     }
 
     [Test]

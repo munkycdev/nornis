@@ -200,13 +200,13 @@ public class LoremasterServiceCitationParsingTests
         var citations = LoremasterService.ParseCitations(responseText, _context);
 
         Assert.That(citations, Has.Count.EqualTo(4));
-        Assert.That(citations.Select(c => c.Type), Is.EquivalentTo(new[]
-        {
+        Assert.That(citations.Select(c => c.Type), Is.EquivalentTo(
+        [
             CitationType.Artifact,
             CitationType.Fact,
             CitationType.Relationship,
             CitationType.Source
-        }));
+        ]));
     }
 
     [Test]

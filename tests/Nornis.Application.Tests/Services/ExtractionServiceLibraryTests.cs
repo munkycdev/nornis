@@ -160,7 +160,7 @@ public class ExtractionServiceLibraryTests
 
         await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
-        Assert.That(_retriever.LastAllowedScopes, Is.EquivalentTo(new[] { VisibilityScope.PartyVisible }));
+        Assert.That(_retriever.LastAllowedScopes, Is.EquivalentTo([VisibilityScope.PartyVisible]));
     }
 
     [Test]
@@ -174,7 +174,7 @@ public class ExtractionServiceLibraryTests
         await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
         Assert.That(_retriever.LastAllowedScopes,
-            Is.EquivalentTo(new[] { VisibilityScope.PartyVisible, VisibilityScope.GMOnly }));
+            Is.EquivalentTo([VisibilityScope.PartyVisible, VisibilityScope.GMOnly]));
     }
 
     [Test]

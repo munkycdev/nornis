@@ -164,6 +164,6 @@ public class UserProvisioningCacheTests
             .Select(u => u.Auth0SubjectId)
             .ToListAsync();
 
-        Assert.That(subs, Is.EquivalentTo(new[] { "auth0|cache-interleave-a", "auth0|cache-interleave-b" }));
+        Assert.That(subs, Is.EquivalentTo(["auth0|cache-interleave-a", "auth0|cache-interleave-b"]));
     }
 }

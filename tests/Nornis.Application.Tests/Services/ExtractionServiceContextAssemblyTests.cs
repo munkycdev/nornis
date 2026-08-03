@@ -426,7 +426,7 @@ public class ExtractionServiceContextAssemblyTests
             "Archived artifacts must not appear in extraction context via name-matching");
         Assert.That(contextIds, Does.Not.Contain(archivedRecent.Id),
             "Archived artifacts must not appear in extraction context via recency");
-        Assert.That(contextIds, Is.EquivalentTo(new[] { active.Id }));
+        Assert.That(contextIds, Is.EquivalentTo([active.Id]));
     }
 
     [Test]
@@ -495,7 +495,7 @@ public class ExtractionServiceContextAssemblyTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         var context = _aiClient.Requests[0].ExistingArtifacts.Single(a => a.Id == artifact.Id);
-        Assert.That(context.Facts.Select(f => f.Predicate), Is.EquivalentTo(new[] { "public fact" }));
+        Assert.That(context.Facts.Select(f => f.Predicate), Is.EquivalentTo(["public fact"]));
     }
 
     [Test]
@@ -519,7 +519,7 @@ public class ExtractionServiceContextAssemblyTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         var context = _aiClient.Requests[0].ExistingArtifacts.Single(a => a.Id == artifact.Id);
-        Assert.That(context.Facts.Select(f => f.Predicate), Is.EquivalentTo(new[] { "known fact" }));
+        Assert.That(context.Facts.Select(f => f.Predicate), Is.EquivalentTo(["known fact"]));
     }
 
     [Test]
@@ -545,7 +545,7 @@ public class ExtractionServiceContextAssemblyTests
 
         var context = _aiClient.Requests[0].ExistingArtifacts.Single(a => a.Id == artifact.Id);
         Assert.That(context.Facts.Select(f => f.Predicate),
-            Is.EquivalentTo(new[] { "public fact", "gm secret", "hidden truth" }));
+            Is.EquivalentTo(["public fact", "gm secret", "hidden truth"]));
     }
 
     [Test]
@@ -572,7 +572,7 @@ public class ExtractionServiceContextAssemblyTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         var context = _aiClient.Requests[0].ExistingArtifacts.Single(a => a.Id == artifact.Id);
-        Assert.That(context.Facts.Select(f => f.Predicate), Is.EquivalentTo(new[] { "party a", "party b" }));
+        Assert.That(context.Facts.Select(f => f.Predicate), Is.EquivalentTo(["party a", "party b"]));
     }
 
     [Test]
