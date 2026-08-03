@@ -12,61 +12,19 @@ using Nornis.Application.Validation;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using NUnit.Framework;
+using static Nornis.Application.Tests.Properties.ReviewPropertySupport;
 
 namespace Nornis.Application.Tests.Properties;
 
 /// <summary>
-/// Property-based tests for ReviewService covering visibility, authorization,
-/// not-found semantics, accept transitions, and CreateArtifact acceptance.
-/// Uses FsCheck.NUnit with custom Arbitraries and in-memory fakes.
+/// Who can see a proposal, who may act on it, and what visibility the entity it creates inherits.
+/// The not-found-rather-than-forbidden rule lives here too: it is a visibility decision, not an
+/// error-handling one.
 /// </summary>
 [TestFixture]
 [Category("Feature: review-proposal-workflow")]
-public class ReviewServicePropertyTests
+public class ProposalAccessProperties
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
-    };
-
-    #region Helpers
-
-    /// <summary>
-    /// The shared harness plus this file's seeding. Both builders used to inline the same
-    /// thirty-five lines of construction that four other files also carried; only the seeding
-    /// below was ever specific to these properties.
-    /// </summary>
-    private static ReviewHarness SeededWithFakes(ReviewScenario scenario)
-    {
-        var harness = ReviewHarness.WithFakeApplicator();
-        harness.SourceRepo.Seed(scenario.Sources);
-        foreach (var batch in scenario.Batches)
-        {
-            harness.BatchRepo.CreateAsync(batch).GetAwaiter().GetResult();
-        }
-        foreach (var proposal in scenario.Proposals)
-        {
-            harness.ProposalRepo.CreateAsync(proposal).GetAwaiter().GetResult();
-        }
-        return harness;
-    }
-
-    /// <summary>
-    /// The real validator and applicator, for the properties whose subject is what a payload
-    /// turns into rather than how ReviewService routes it.
-    /// </summary>
-    private static ReviewHarness SeededWithRealApplicator(ProposalWithContext ctx)
-    {
-        var harness = ReviewHarness.WithRealApplicator();
-        harness.SourceRepo.Seed(ctx.Source);
-        harness.BatchRepo.CreateAsync(ctx.Batch).GetAwaiter().GetResult();
-        harness.ProposalRepo.CreateAsync(ctx.Proposal).GetAwaiter().GetResult();
-        return harness;
-    }
-
-    #endregion
-
     #region Property 1: Visibility Filtering
 
     /// <summary>
@@ -290,181 +248,162 @@ public class ReviewServicePropertyTests
 
     #endregion
 
-    #region Property 4: Accept Transitions Status and Sets Metadata
+    #region Property 20: Accepted Entity Visibility Defaults
 
     /// <summary>
-    /// Property 4: Accept Transitions Status and Sets Metadata
+    /// Property 20: Accepted Entity Visibility Defaults
     ///
-    /// For any proposal with Status Pending or Edited that is accepted by an authorized reviewer,
-    /// the proposal's Status SHALL transition to Accepted, ReviewedAt SHALL be set to approximately
-    /// the current UTC timestamp, and ReviewedByUserId SHALL be set to the acting user's Id.
+    /// Generate proposals without visibility in ProposedValueJson; accept; assert entity inherits
+    /// source VisibilityScope; generate proposals with explicit visibility; assert entity uses
+    /// specified value.
     ///
-    /// **Validates: Requirements 2.1**
+    /// **Validates: Requirements 7.5**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
-    [Description("Feature: review-proposal-workflow, Property 4: Accept Transitions Status and Sets Metadata")]
-    public Property Accept_transitions_status_and_sets_metadata(ProposalWithContext ctx)
+    [Description("Feature: review-proposal-workflow, Property 20: Accepted Entity Inherits Source Visibility When Not Specified")]
+    public Property Accepted_entity_inherits_source_visibility_when_not_specified(VisibilityScope sourceVisibility)
     {
-        var harness = SeededWithRealApplicator(ctx);
-        var (service, proposalRepo) = (harness.Service, harness.ProposalRepo);
+        var ctx = ReviewHarness.WithRealApplicator();
 
-        var before = DateTimeOffset.UtcNow;
+        var userId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
+        var source = new Source
+        {
+            Id = Guid.NewGuid(),
+            WorldId = worldId,
+            Type = SourceType.SessionNote,
+            Title = "Test Source",
+            Body = "Content",
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
+            CreatedByUserId = userId,
+            Visibility = sourceVisibility,
+            ProcessingStatus = SourceProcessingStatus.Processed
+        };
+        var batch = new ReviewBatch
+        {
+            Id = Guid.NewGuid(),
+            WorldId = worldId,
+            SourceId = source.Id,
+            Status = ReviewBatchStatus.InReview,
+            CreatedAt = source.CreatedAt.AddMinutes(5)
+        };
+        ctx.SourceRepo.Seed(source);
+        ctx.BatchRepo.CreateAsync(batch).GetAwaiter().GetResult();
 
-        var command = new AcceptProposalCommand(
-            ctx.Proposal.Id,
-            ctx.WorldId,
-            ctx.OwnerUserId,
-            WorldRole.GM);
+        // Create a proposal WITHOUT visibility in ProposedValueJson
+        var payloadWithoutVisibility = JsonSerializer.Serialize(new
+        {
+            name = "Captain Voss",
+            type = "Character",
+            summary = "A harbor captain"
+        }, JsonOptions);
 
-        var result = service.AcceptProposalAsync(command, CancellationToken.None).GetAwaiter().GetResult();
+        var proposal = new ReviewProposal
+        {
+            Id = Guid.NewGuid(),
+            ReviewBatchId = batch.Id,
+            ChangeType = ReviewChangeType.CreateArtifact,
+            TargetType = ReviewTargetType.Artifact,
+            TargetId = null,
+            ProposedValueJson = payloadWithoutVisibility,
+            Rationale = "No visibility specified",
+            Confidence = 0.8m,
+            Status = ReviewProposalStatus.Pending,
+            CreatedAt = batch.CreatedAt.AddMinutes(1)
+        };
+        ctx.ProposalRepo.CreateAsync(proposal).GetAwaiter().GetResult();
 
-        var after = DateTimeOffset.UtcNow;
+        var result = ctx.Service.AcceptProposalAsync(
+            new AcceptProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
+            CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
-        {
-            return false.Label($"Accept failed unexpectedly: {result.Error!.Code} - {result.Error!.Message}");
-        }
-
-        var updatedProposal = proposalRepo.Proposals.First(p => p.Id == ctx.Proposal.Id);
-
-        var statusCorrect = updatedProposal.Status == ReviewProposalStatus.Accepted;
-        var reviewedAtSet = updatedProposal.ReviewedAt.HasValue
-            && updatedProposal.ReviewedAt.Value >= before
-            && updatedProposal.ReviewedAt.Value <= after;
-        var reviewedByCorrect = updatedProposal.ReviewedByUserId == ctx.OwnerUserId;
-
-        // Also verify result DTO matches
-        var resultStatusCorrect = result.Value!.Status == ReviewProposalStatus.Accepted;
-        var resultReviewedByCorrect = result.Value!.ReviewedByUserId == ctx.OwnerUserId;
-
-        return statusCorrect
-            .Label($"Proposal status should be Accepted, got {updatedProposal.Status}")
-            .And(reviewedAtSet
-                .Label("ReviewedAt should be set to approximately current UTC"))
-            .And(reviewedByCorrect
-                .Label($"ReviewedByUserId should be {ctx.OwnerUserId}, got {updatedProposal.ReviewedByUserId}"))
-            .And(resultStatusCorrect
-                .Label("Result DTO status should be Accepted"))
-            .And(resultReviewedByCorrect
-                .Label("Result DTO ReviewedByUserId should match acting user"));
-    }
-
-    #endregion
-
-    #region Property 5: CreateArtifact Acceptance Creates Correct Artifact
-
-    /// <summary>
-    /// Property 5: CreateArtifact Acceptance Creates Correct Artifact
-    ///
-    /// For any valid CreateArtifact proposal with well-formed ProposedValueJson containing Name, Type,
-    /// Summary, Visibility, and Confidence fields, acceptance SHALL create an Artifact with those field
-    /// values, WorldId from the ReviewBatch, Status Active, and CreatedAt/UpdatedAt set to the
-    /// current UTC timestamp. The proposal's TargetId SHALL be updated to the newly created Artifact's Id.
-    ///
-    /// **Validates: Requirements 2.2, 9.1**
-    /// </summary>
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
-    [Description("Feature: review-proposal-workflow, Property 5: CreateArtifact Acceptance Creates Correct Artifact")]
-    public Property CreateArtifact_acceptance_creates_correct_artifact(ProposalWithContext ctx)
-    {
-        var harness = SeededWithRealApplicator(ctx);
-        var (service, proposalRepo, artifactRepo, sourceRefRepo) =
-            (harness.Service, harness.ProposalRepo, harness.ArtifactRepo, harness.SourceRefRepo);
-
-        var before = DateTimeOffset.UtcNow;
-
-        var command = new AcceptProposalCommand(
-            ctx.Proposal.Id,
-            ctx.WorldId,
-            ctx.OwnerUserId,
-            WorldRole.GM);
-
-        var result = service.AcceptProposalAsync(command, CancellationToken.None).GetAwaiter().GetResult();
-
-        var after = DateTimeOffset.UtcNow;
-
-        if (!result.IsSuccess)
-        {
             return false.Label($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
-        }
 
-        // Parse the payload to get expected values
-        var payload = JsonSerializer.Deserialize<CreateArtifactPayloadDto>(
-            ctx.Proposal.ProposedValueJson, JsonOptions);
+        // Assert entity inherits source visibility
+        var artifact = ctx.ArtifactRepo.Artifacts.FirstOrDefault();
+        if (artifact is null)
+            return false.Label("No artifact created");
 
-        if (payload is null)
-            return false.Label("Failed to parse ProposedValueJson for assertion");
+        var inheritsSourceVisibility = artifact.Visibility == sourceVisibility;
 
-        // Find the created artifact
-        var artifacts = artifactRepo.Artifacts;
-        if (artifacts.Count != 1)
-            return false.Label($"Expected exactly 1 artifact created, got {artifacts.Count}");
-
-        var artifact = artifacts[0];
-
-        // Verify proposal TargetId updated
-        var updatedProposal = proposalRepo.Proposals.First(p => p.Id == ctx.Proposal.Id);
-        var targetIdUpdated = updatedProposal.TargetId == artifact.Id;
-
-        // Verify artifact fields match payload
-        var nameCorrect = artifact.Name == payload.Name;
-
-        var typeCorrect = Enum.TryParse<ArtifactType>(payload.Type, ignoreCase: true, out var expectedType)
-            && artifact.Type == expectedType;
-
-        var summaryCorrect = artifact.Summary == payload.Summary;
-
-        // Visibility: uses payload value if valid, else defaults to source visibility
-        VisibilityScope expectedVisibility;
-        if (payload.Visibility is not null
-            && Enum.TryParse<VisibilityScope>(payload.Visibility, ignoreCase: true, out var parsedVis))
-        {
-            expectedVisibility = parsedVis;
-        }
-        else
-        {
-            expectedVisibility = ctx.Source.Visibility;
-        }
-        var visibilityCorrect = artifact.Visibility == expectedVisibility;
-
-        var confidenceCorrect = artifact.Confidence == payload.Confidence;
-        var worldIdCorrect = artifact.WorldId == ctx.WorldId;
-        var statusCorrect = artifact.Status == ArtifactStatus.Active;
-
-        var createdAtCorrect = artifact.CreatedAt >= before && artifact.CreatedAt <= after;
-        var updatedAtCorrect = artifact.UpdatedAt >= before && artifact.UpdatedAt <= after;
-
-        return targetIdUpdated
-            .Label($"Proposal TargetId should be {artifact.Id}, got {updatedProposal.TargetId}")
-            .And(nameCorrect
-                .Label($"Artifact Name should be '{payload.Name}', got '{artifact.Name}'"))
-            .And(typeCorrect
-                .Label($"Artifact Type should be '{payload.Type}', got '{artifact.Type}'"))
-            .And(summaryCorrect
-                .Label($"Artifact Summary mismatch"))
-            .And(visibilityCorrect
-                .Label($"Artifact Visibility should be {expectedVisibility}, got {artifact.Visibility}"))
-            .And(confidenceCorrect
-                .Label($"Artifact Confidence should be {payload.Confidence}, got {artifact.Confidence}"))
-            .And(worldIdCorrect
-                .Label($"Artifact WorldId should be {ctx.WorldId}, got {artifact.WorldId}"))
-            .And(statusCorrect
-                .Label($"Artifact Status should be Active, got {artifact.Status}"))
-            .And(createdAtCorrect
-                .Label("Artifact CreatedAt should be approximately current UTC"))
-            .And(updatedAtCorrect
-                .Label("Artifact UpdatedAt should be approximately current UTC"));
+        return inheritsSourceVisibility.Label(
+            $"Artifact should inherit source visibility {sourceVisibility}, got {artifact.Visibility}");
     }
 
-    /// <summary>
-    /// DTO for deserializing CreateArtifact payloads in assertions.
-    /// </summary>
-    private record CreateArtifactPayloadDto(
-        string Name,
-        string Type,
-        string? Summary,
-        string? Visibility,
-        decimal? Confidence);
+    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [Description("Feature: review-proposal-workflow, Property 20: Accepted Entity Uses Explicit Visibility When Specified")]
+    public Property Accepted_entity_uses_explicit_visibility_when_specified(
+        VisibilityScope sourceVisibility, VisibilityScope explicitVisibility)
+    {
+        var ctx = ReviewHarness.WithRealApplicator();
+
+        var userId = Guid.NewGuid();
+        var worldId = Guid.NewGuid();
+        var source = new Source
+        {
+            Id = Guid.NewGuid(),
+            WorldId = worldId,
+            Type = SourceType.SessionNote,
+            Title = "Test Source",
+            Body = "Content",
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
+            CreatedByUserId = userId,
+            Visibility = sourceVisibility,
+            ProcessingStatus = SourceProcessingStatus.Processed
+        };
+        var batch = new ReviewBatch
+        {
+            Id = Guid.NewGuid(),
+            WorldId = worldId,
+            SourceId = source.Id,
+            Status = ReviewBatchStatus.InReview,
+            CreatedAt = source.CreatedAt.AddMinutes(5)
+        };
+        ctx.SourceRepo.Seed(source);
+        ctx.BatchRepo.CreateAsync(batch).GetAwaiter().GetResult();
+
+        // Create a proposal WITH explicit visibility in ProposedValueJson
+        var payloadWithVisibility = JsonSerializer.Serialize(new
+        {
+            name = "Silver Key",
+            type = "Item",
+            summary = "A mysterious key",
+            visibility = explicitVisibility.ToString()
+        }, JsonOptions);
+
+        var proposal = new ReviewProposal
+        {
+            Id = Guid.NewGuid(),
+            ReviewBatchId = batch.Id,
+            ChangeType = ReviewChangeType.CreateArtifact,
+            TargetType = ReviewTargetType.Artifact,
+            TargetId = null,
+            ProposedValueJson = payloadWithVisibility,
+            Rationale = "Explicit visibility",
+            Confidence = 0.8m,
+            Status = ReviewProposalStatus.Pending,
+            CreatedAt = batch.CreatedAt.AddMinutes(1)
+        };
+        ctx.ProposalRepo.CreateAsync(proposal).GetAwaiter().GetResult();
+
+        var result = ctx.Service.AcceptProposalAsync(
+            new AcceptProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
+            CancellationToken.None).GetAwaiter().GetResult();
+
+        if (!result.IsSuccess)
+            return false.Label($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
+
+        // Assert entity uses explicit visibility
+        var artifact = ctx.ArtifactRepo.Artifacts.FirstOrDefault();
+        if (artifact is null)
+            return false.Label("No artifact created");
+
+        var usesExplicitVisibility = artifact.Visibility == explicitVisibility;
+
+        return usesExplicitVisibility.Label(
+            $"Artifact should use explicit visibility {explicitVisibility}, got {artifact.Visibility}");
+    }
 
     #endregion
 }

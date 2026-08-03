@@ -101,9 +101,10 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
      an argument they never read. **The last three bullets closed 2026-08-02** — per-field
      decomposition, attribute padding, consolidation sweep. Net −21 cases across the suite
      and two facts that had no test before (the extraction client's empty-rationale branch,
-     a non-GUID worldId reaching routing). Left: converting those sixteen properties to plain
-     `[Test]`s, and the concern-naming of the four numbered files — both recorded in the
-     scrub doc with reasons, and both still true.
+     a non-GUID worldId reaching routing). **Tier 4 is now fully closed** — the last two
+     leftovers went the same day: the sixteen properties are plain `[Test]`s, and the four
+     numbered files are five fixtures named for what they hold. Tier 5 is all that remains
+     of the scrub, and it is item 18, Fable-held.
 10. Test quality phase 5 (authorization-suite tagging). **Done 2026-08-02** — 303 tests
     tagged, 318 cases, a named CI step that runs even on a red build, and the count charted
     on the dashboard. The enumeration was the work: two broader passes caught pagination and
