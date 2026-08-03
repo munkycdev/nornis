@@ -98,9 +98,13 @@ public class ReviewBatchRepository : IReviewBatchRepository
             .AnyAsync(rb => rb.WorldId == worldId && rb.Kind == kind, cancellationToken);
     }
 
+    /// <summary>
+    /// Tracked rather than <c>DeleteWhereAsync</c>: the ledger detach below and the batch
+    /// removal have to land in one <c>SaveChanges</c>, or a failure between them leaves the
+    /// spend history detached from batches that still exist.
+    /// </summary>
     public async Task DeleteBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default)
     {
-        // Tracked-load delete: the InMemory provider used in tests lacks ExecuteDelete.
         var batches = await _context.ReviewBatches
             .Where(rb => rb.SourceId == sourceId)
             .ToListAsync(cancellationToken);

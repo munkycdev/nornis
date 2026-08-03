@@ -53,19 +53,8 @@ public class ArtifactFactRepository : IArtifactFactRepository
         await _context.SaveAndDetachRangeAsync(facts, cancellationToken);
     }
 
-    public async Task DeleteAsync(Guid factId, CancellationToken cancellationToken = default)
-    {
-        var fact = await _context.ArtifactFacts
-            .FirstOrDefaultAsync(f => f.Id == factId, cancellationToken);
-
-        if (fact is null)
-        {
-            return;
-        }
-
-        _context.ArtifactFacts.Remove(fact);
-        await _context.SaveChangesAsync(cancellationToken);
-    }
+    public Task DeleteAsync(Guid factId, CancellationToken cancellationToken = default) =>
+        _context.DeleteWhereAsync<ArtifactFact>(f => f.Id == factId, cancellationToken);
 
     public async Task<IReadOnlyList<ArtifactFact>> ListByArtifactIdsAsync(
         IReadOnlyList<Guid> artifactIds,

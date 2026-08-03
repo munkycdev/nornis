@@ -41,22 +41,10 @@ public class ArtifactRepository : IArtifactRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task DeleteAsync(Guid artifactId, CancellationToken cancellationToken = default)
-    {
-        // Tracked-load delete: the InMemory provider used in tests lacks ExecuteDelete.
-        // Facts cascade at the database level; the caller guarantees no relationships
-        // or character links remain (see IArtifactRepository).
-        var artifact = await _context.Artifacts
-            .FirstOrDefaultAsync(a => a.Id == artifactId, cancellationToken);
-
-        if (artifact is null)
-        {
-            return;
-        }
-
-        _context.Artifacts.Remove(artifact);
-        await _context.SaveChangesAsync(cancellationToken);
-    }
+    // Facts cascade at the database level; the caller guarantees no relationships or
+    // character links remain (see IArtifactRepository).
+    public Task DeleteAsync(Guid artifactId, CancellationToken cancellationToken = default) =>
+        _context.DeleteWhereAsync<Artifact>(a => a.Id == artifactId, cancellationToken);
 
     public async Task<IReadOnlyList<Artifact>> ListByWorldAsync(Guid worldId, ArtifactType? type = null, CancellationToken cancellationToken = default)
     {

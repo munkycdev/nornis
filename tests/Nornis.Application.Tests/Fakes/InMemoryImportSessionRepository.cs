@@ -39,24 +39,30 @@ public class InMemoryImportSessionRepository : IImportSessionRepository
     public Task UpdateAsync(
         Guid id, ImportSessionStatus status, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
     {
-        var session = _sessions.FirstOrDefault(s => s.Id == id);
-        if (session is not null)
-        {
-            session.Status = status;
-            session.UpdatedAt = updatedAt;
-        }
+        var session = RequiredSession(id);
+        session.Status = status;
+        session.UpdatedAt = updatedAt;
         return Task.CompletedTask;
     }
 
     public Task TouchAsync(Guid id, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
     {
-        var session = _sessions.FirstOrDefault(s => s.Id == id);
-        if (session is not null)
-        {
-            session.UpdatedAt = updatedAt;
-        }
+        RequiredSession(id).UpdatedAt = updatedAt;
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// The scoped writers throw on a missing row because the real repository does — see the
+    /// missing-row contract on <see cref="IImportSessionRepository"/>. A fake that quietly
+    /// no-ops where production throws is how a service passes its tests and fails in the world.
+    /// </summary>
+    private ImportSession RequiredSession(Guid id) =>
+        _sessions.FirstOrDefault(s => s.Id == id)
+            ?? throw new InvalidOperationException($"ImportSession with id '{id}' not found.");
+
+    private ImportSessionItem RequiredItem(Guid itemId) =>
+        _items.FirstOrDefault(i => i.Id == itemId)
+            ?? throw new InvalidOperationException($"ImportSessionItem with id '{itemId}' not found.");
 
     public Task<ImportSessionItem> AddItemAsync(ImportSessionItem item, CancellationToken cancellationToken = default)
     {
@@ -73,11 +79,7 @@ public class InMemoryImportSessionRepository : IImportSessionRepository
     public Task SetItemDispatchedAsync(
         Guid itemId, DateTimeOffset dispatchedAt, CancellationToken cancellationToken = default)
     {
-        var item = _items.FirstOrDefault(i => i.Id == itemId);
-        if (item is not null)
-        {
-            item.DispatchedAt = dispatchedAt;
-        }
+        RequiredItem(itemId).DispatchedAt = dispatchedAt;
         return Task.CompletedTask;
     }
 
@@ -104,11 +106,7 @@ public class InMemoryImportSessionRepository : IImportSessionRepository
 
     public Task SetItemSkippedAsync(Guid itemId, bool skipped, CancellationToken cancellationToken = default)
     {
-        var item = _items.FirstOrDefault(i => i.Id == itemId);
-        if (item is not null)
-        {
-            item.Skipped = skipped;
-        }
+        RequiredItem(itemId).Skipped = skipped;
         return Task.CompletedTask;
     }
 

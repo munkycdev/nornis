@@ -338,6 +338,11 @@ public class SourceRepository : ISourceRepository
         }
     }
 
+    /// <summary>
+    /// Tracked rather than <c>DeleteWhereAsync</c>: the ledger detach below and the row
+    /// removal have to land in one <c>SaveChanges</c>, or a failure between them leaves the
+    /// spend history orphaned from a source that still exists.
+    /// </summary>
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var source = await _context.Sources
@@ -345,7 +350,7 @@ public class SourceRepository : ISourceRepository
 
         if (source is null)
         {
-            throw new InvalidOperationException($"Source with id '{id}' not found.");
+            return;
         }
 
         // The cost ledger outlives the source it references (its FK is NoAction by

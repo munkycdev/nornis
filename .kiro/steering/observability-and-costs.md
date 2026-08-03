@@ -14,9 +14,10 @@
 > "against `/health`". It does not, and never did. `ping-nornis-app` requests
 > `https://nornis.app/welcome` — a static marketing page on the **Web** app — and
 > validates only that it returns 200. `nornis-availability` fires on that test's
-> success rate, so **no alert currently watches the API at all**: a missed migration,
-> a crashed API revision, or a 503 from `/health` leaves the ping green, because
-> `/welcome` renders without the API. Verified against the live resource, not inferred.
+> success rate, so for most of the project's life **no alert watched the API at all**: a
+> missed migration, a crashed API revision, or a 503 from `/health` left the ping green,
+> because `/welcome` renders without the API. Verified against the live resource, not
+> inferred.
 > **Closed the same day.** `ping-nornis-api-health` now pings `https://api.nornis.app/health`
 > from the same two locations every 15 minutes, expecting 200 — and since `/health` answers
 > 503 when a migration is pending, a missed migration finally pages someone.

@@ -90,22 +90,24 @@ public class InMemoryReviewBatchRepository : IReviewBatchRepository
 
     public Task UpdateStatusAsync(Guid id, ReviewBatchStatus status, CancellationToken cancellationToken = default)
     {
-        var batch = _batches.FirstOrDefault(b => b.Id == id);
-        if (batch is not null)
-        {
-            batch.Status = status;
-        }
+        Required(id).Status = status;
         return Task.CompletedTask;
     }
 
     public Task UpdateCompletedAsync(Guid id, DateTimeOffset completedAt, CancellationToken cancellationToken = default)
     {
-        var batch = _batches.FirstOrDefault(b => b.Id == id);
-        if (batch is not null)
-        {
-            batch.Status = ReviewBatchStatus.Completed;
-            batch.CompletedAt = completedAt;
-        }
+        var batch = Required(id);
+        batch.Status = ReviewBatchStatus.Completed;
+        batch.CompletedAt = completedAt;
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// The scoped writers throw on a missing row because the real repository does — see the
+    /// missing-row contract on <see cref="IReviewBatchRepository"/>. A fake that quietly
+    /// no-ops where production throws is how a service passes its tests and fails in the world.
+    /// </summary>
+    private ReviewBatch Required(Guid id) =>
+        _batches.FirstOrDefault(b => b.Id == id)
+            ?? throw new InvalidOperationException($"ReviewBatch with id '{id}' not found.");
 }

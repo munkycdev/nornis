@@ -61,13 +61,6 @@ public class LibraryDocumentRepository : ILibraryDocumentRepository
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        // Tracked delete rather than ExecuteDelete: the InMemory test provider doesn't
-        // support bulk operations, and single-row deletes gain nothing from them.
-        var document = await _context.LibraryDocuments.FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
-        if (document is not null)
-        {
-            _context.LibraryDocuments.Remove(document);
-            await _context.SaveChangesAsync(cancellationToken);
-        }
+        await _context.DeleteWhereAsync<LibraryDocument>(d => d.Id == id, cancellationToken);
     }
 }
