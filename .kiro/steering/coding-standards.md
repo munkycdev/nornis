@@ -1,4 +1,4 @@
-# Coding Standards
+﻿# Coding Standards
 
 > **Amendment (2026-08-02):** the solution layout below still lists `Nornis.Shared` and
 > `Nornis.Shared.Tests`. Both were deleted on 2026-08-01 (`1f21e55`): the project was
@@ -115,6 +115,16 @@ run on InMemory. Use `DeleteWhereAsync` / `SetWhereAsync` rather than hand-writi
 `IsRelational()` branch or calling the bulk API unguarded. The exception is code that is
 relational-only for other reasons (vector columns, explicit transactions) — leave the raw
 call there and say why, so the constraint stays visible.
+
+Applied across every repository as of 2026-08-02. Two deliberate non-candidates, so nobody
+"finishes the job" by converting them:
+
+- `LibraryChunkRepository.ReplaceForDocumentAsync` — relational-only anyway (SqlVector shadow
+  property, explicit transaction), and the raw call says so.
+- `StorylineCampaignRepository.ReplaceForStorylineAsync` — a set reconciliation, not a
+  delete-where. It removes the rows absent from the desired set and adds the rest in one
+  SaveChanges; a bulk delete would split that into two units of work and could not express
+  the predicate anyway.
 
 ## API Layer
 
