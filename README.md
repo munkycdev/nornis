@@ -1,4 +1,4 @@
-<p align="center">
+﻿<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/transparent-logo.png">
     <img src="docs/images/mini-logo.png" alt="Nornis" height="72">
@@ -216,7 +216,7 @@ Infrastructure is provisioned by [`scripts/provision-azure.ps1`](scripts/provisi
 
 | Surface | Answers |
 |---|---|
-| `GET /health` (API) | *Is this deploy broken?* Pending migrations only; names whatever is failing. It backs the Container Apps readiness probe and the deploy poll. No alert watches it — `nornis-availability` pings the Web app's `/welcome`, which renders with the API down. |
+| `GET /health` (API) | *Is this deploy broken?* Pending migrations only; names whatever is failing. Backs the Container Apps readiness probe, the deploy poll, and the `ping-nornis-api-health` availability test. |
 | `GET /status` (API) | *Are the dependencies healthy?* SQL, blob storage, Service Bus, Azure OpenAI, worker heartbeat. Anonymous; names and verdicts only. |
 | <https://status.nornis.app> | Both dashboard faces. Hosted on GitHub Pages, deliberately outside Azure, so it still loads when the system it reports on does not. |
 

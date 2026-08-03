@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 Provisions the Nornis hosting stack on Azure Container Apps.
 
@@ -285,6 +285,11 @@ if ($appInsightsConn) {
 # Other alert rules on appi-nornis (nornis-log-ingestion-spike, nornis-audit-prompt-size,
 # nornis-sb-deadletter, nornis-sql-dtu, nornis-availability) predate this script and are not
 # reproduced here.
+#
+# Nor are the two availability tests (ping-nornis-app on the Web app's /welcome,
+# ping-nornis-api-health on the API's /health). If you ever recreate them, note that
+# nornis-availability splits on the availabilityResult/name dimension — without that split it
+# averages across every test, and one endpoint being down gets diluted by the others being up.
 
 Write-Host ""
 Write-Host "Provisioned. Public hosts:"

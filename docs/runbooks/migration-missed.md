@@ -1,4 +1,4 @@
-# Migration missed
+﻿# Migration missed
 
 ## Symptom
 
@@ -10,10 +10,9 @@ curl -s -w " [%{http_code}]\n" https://api.nornis.app/health
 # {"status":"Unhealthy","failing":["pending-migrations"]} [503]
 ```
 
-**No alert fires for this.** `nornis-availability` watches a ping against the *Web* app's
-`/welcome`, which renders perfectly well while the API is refusing to serve — so the deploy
-run is the only thing that will tell you, and only at the moment of rollout. If a migration
-is missed some other way, nothing is watching.
+`nornis-availability` fires within about fifteen minutes: `ping-nornis-api-health` requests
+this endpoint and expects 200, and a pending migration answers 503. The deploy run catches it
+first if the rollout is what caused it; the alert is what catches it if anything else did.
 
 This is the failure the pending-migrations check exists to catch. Without it, a deploy
 whose migration step was skipped comes up looking fine and then 500s on the first request
