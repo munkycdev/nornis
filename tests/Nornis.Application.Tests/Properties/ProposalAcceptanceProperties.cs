@@ -12,66 +12,182 @@ using Nornis.Application.Validation;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using NUnit.Framework;
+using static Nornis.Application.Tests.Properties.ReviewPropertySupport;
 
 namespace Nornis.Application.Tests.Properties;
 
 /// <summary>
-/// Property-based tests for ReviewService covering update acceptance, add acceptance,
-/// merge artifact, source reference creation, and reject transitions (Properties 6-10).
-/// Uses FsCheck.NUnit with custom Arbitraries and in-memory fakes.
+/// What accepting a proposal does: the status and metadata it stamps, the entity each ChangeType
+/// creates or updates, and the SourceReference that ties the result back to the source.
 /// </summary>
 [TestFixture]
 [Category("Feature: review-proposal-workflow")]
-public class ReviewServicePropertyTests2
+public class ProposalAcceptanceProperties
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
-    };
-
-    private static readonly JsonSerializerOptions JsonOptionsInsensitive = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
-    #region Helpers
-
-
-
-
+    #region Property 4: Accept Transitions Status and Sets Metadata
 
     /// <summary>
-    /// Seeds the standard source + batch + proposal structure and returns relevant IDs.
+    /// Property 4: Accept Transitions Status and Sets Metadata
+    ///
+    /// For any proposal with Status Pending or Edited that is accepted by an authorized reviewer,
+    /// the proposal's Status SHALL transition to Accepted, ReviewedAt SHALL be set to approximately
+    /// the current UTC timestamp, and ReviewedByUserId SHALL be set to the acting user's Id.
+    ///
+    /// **Validates: Requirements 2.1**
     /// </summary>
-    private static (Source Source, ReviewBatch Batch, Guid WorldId, Guid UserId)
-        SeedSourceAndBatch(ReviewHarness ctx)
+    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [Description("Feature: review-proposal-workflow, Property 4: Accept Transitions Status and Sets Metadata")]
+    public Property Accept_transitions_status_and_sets_metadata(ProposalWithContext ctx)
     {
-        var userId = Guid.NewGuid();
-        var worldId = Guid.NewGuid();
-        var source = new Source
+        var harness = SeededWithRealApplicator(ctx);
+        var (service, proposalRepo) = (harness.Service, harness.ProposalRepo);
+
+        var before = DateTimeOffset.UtcNow;
+
+        var command = new AcceptProposalCommand(
+            ctx.Proposal.Id,
+            ctx.WorldId,
+            ctx.OwnerUserId,
+            WorldRole.GM);
+
+        var result = service.AcceptProposalAsync(command, CancellationToken.None).GetAwaiter().GetResult();
+
+        var after = DateTimeOffset.UtcNow;
+
+        if (!result.IsSuccess)
         {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            Type = SourceType.SessionNote,
-            Title = "Test Source",
-            Body = "Content about Captain Voss",
-            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
-            CreatedByUserId = userId,
-            Visibility = VisibilityScope.PartyVisible,
-            ProcessingStatus = SourceProcessingStatus.Processed
-        };
-        var batch = new ReviewBatch
+            return false.Label($"Accept failed unexpectedly: {result.Error!.Code} - {result.Error!.Message}");
+        }
+
+        var updatedProposal = proposalRepo.Proposals.First(p => p.Id == ctx.Proposal.Id);
+
+        var statusCorrect = updatedProposal.Status == ReviewProposalStatus.Accepted;
+        var reviewedAtSet = updatedProposal.ReviewedAt.HasValue
+            && updatedProposal.ReviewedAt.Value >= before
+            && updatedProposal.ReviewedAt.Value <= after;
+        var reviewedByCorrect = updatedProposal.ReviewedByUserId == ctx.OwnerUserId;
+
+        // Also verify result DTO matches
+        var resultStatusCorrect = result.Value!.Status == ReviewProposalStatus.Accepted;
+        var resultReviewedByCorrect = result.Value!.ReviewedByUserId == ctx.OwnerUserId;
+
+        return statusCorrect
+            .Label($"Proposal status should be Accepted, got {updatedProposal.Status}")
+            .And(reviewedAtSet
+                .Label("ReviewedAt should be set to approximately current UTC"))
+            .And(reviewedByCorrect
+                .Label($"ReviewedByUserId should be {ctx.OwnerUserId}, got {updatedProposal.ReviewedByUserId}"))
+            .And(resultStatusCorrect
+                .Label("Result DTO status should be Accepted"))
+            .And(resultReviewedByCorrect
+                .Label("Result DTO ReviewedByUserId should match acting user"));
+    }
+
+    #endregion
+
+    #region Property 5: CreateArtifact Acceptance Creates Correct Artifact
+
+    /// <summary>
+    /// Property 5: CreateArtifact Acceptance Creates Correct Artifact
+    ///
+    /// For any valid CreateArtifact proposal with well-formed ProposedValueJson containing Name, Type,
+    /// Summary, Visibility, and Confidence fields, acceptance SHALL create an Artifact with those field
+    /// values, WorldId from the ReviewBatch, Status Active, and CreatedAt/UpdatedAt set to the
+    /// current UTC timestamp. The proposal's TargetId SHALL be updated to the newly created Artifact's Id.
+    ///
+    /// **Validates: Requirements 2.2, 9.1**
+    /// </summary>
+    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
+    [Description("Feature: review-proposal-workflow, Property 5: CreateArtifact Acceptance Creates Correct Artifact")]
+    public Property CreateArtifact_acceptance_creates_correct_artifact(ProposalWithContext ctx)
+    {
+        var harness = SeededWithRealApplicator(ctx);
+        var (service, proposalRepo, artifactRepo, sourceRefRepo) =
+            (harness.Service, harness.ProposalRepo, harness.ArtifactRepo, harness.SourceRefRepo);
+
+        var before = DateTimeOffset.UtcNow;
+
+        var command = new AcceptProposalCommand(
+            ctx.Proposal.Id,
+            ctx.WorldId,
+            ctx.OwnerUserId,
+            WorldRole.GM);
+
+        var result = service.AcceptProposalAsync(command, CancellationToken.None).GetAwaiter().GetResult();
+
+        var after = DateTimeOffset.UtcNow;
+
+        if (!result.IsSuccess)
         {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            SourceId = source.Id,
-            Status = ReviewBatchStatus.InReview,
-            CreatedAt = source.CreatedAt.AddMinutes(5)
-        };
-        ctx.SourceRepo.Seed(source);
-        ctx.BatchRepo.CreateAsync(batch).GetAwaiter().GetResult();
-        return (source, batch, worldId, userId);
+            return false.Label($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
+        }
+
+        // Parse the payload to get expected values
+        var payload = JsonSerializer.Deserialize<CreateArtifactPayloadDto>(
+            ctx.Proposal.ProposedValueJson, JsonOptions);
+
+        if (payload is null)
+            return false.Label("Failed to parse ProposedValueJson for assertion");
+
+        // Find the created artifact
+        var artifacts = artifactRepo.Artifacts;
+        if (artifacts.Count != 1)
+            return false.Label($"Expected exactly 1 artifact created, got {artifacts.Count}");
+
+        var artifact = artifacts[0];
+
+        // Verify proposal TargetId updated
+        var updatedProposal = proposalRepo.Proposals.First(p => p.Id == ctx.Proposal.Id);
+        var targetIdUpdated = updatedProposal.TargetId == artifact.Id;
+
+        // Verify artifact fields match payload
+        var nameCorrect = artifact.Name == payload.Name;
+
+        var typeCorrect = Enum.TryParse<ArtifactType>(payload.Type, ignoreCase: true, out var expectedType)
+            && artifact.Type == expectedType;
+
+        var summaryCorrect = artifact.Summary == payload.Summary;
+
+        // Visibility: uses payload value if valid, else defaults to source visibility
+        VisibilityScope expectedVisibility;
+        if (payload.Visibility is not null
+            && Enum.TryParse<VisibilityScope>(payload.Visibility, ignoreCase: true, out var parsedVis))
+        {
+            expectedVisibility = parsedVis;
+        }
+        else
+        {
+            expectedVisibility = ctx.Source.Visibility;
+        }
+        var visibilityCorrect = artifact.Visibility == expectedVisibility;
+
+        var confidenceCorrect = artifact.Confidence == payload.Confidence;
+        var worldIdCorrect = artifact.WorldId == ctx.WorldId;
+        var statusCorrect = artifact.Status == ArtifactStatus.Active;
+
+        var createdAtCorrect = artifact.CreatedAt >= before && artifact.CreatedAt <= after;
+        var updatedAtCorrect = artifact.UpdatedAt >= before && artifact.UpdatedAt <= after;
+
+        return targetIdUpdated
+            .Label($"Proposal TargetId should be {artifact.Id}, got {updatedProposal.TargetId}")
+            .And(nameCorrect
+                .Label($"Artifact Name should be '{payload.Name}', got '{artifact.Name}'"))
+            .And(typeCorrect
+                .Label($"Artifact Type should be '{payload.Type}', got '{artifact.Type}'"))
+            .And(summaryCorrect
+                .Label($"Artifact Summary mismatch"))
+            .And(visibilityCorrect
+                .Label($"Artifact Visibility should be {expectedVisibility}, got {artifact.Visibility}"))
+            .And(confidenceCorrect
+                .Label($"Artifact Confidence should be {payload.Confidence}, got {artifact.Confidence}"))
+            .And(worldIdCorrect
+                .Label($"Artifact WorldId should be {ctx.WorldId}, got {artifact.WorldId}"))
+            .And(statusCorrect
+                .Label($"Artifact Status should be Active, got {artifact.Status}"))
+            .And(createdAtCorrect
+                .Label("Artifact CreatedAt should be approximately current UTC"))
+            .And(updatedAtCorrect
+                .Label("Artifact UpdatedAt should be approximately current UTC"));
     }
 
     #endregion
@@ -174,9 +290,9 @@ public class ReviewServicePropertyTests2
     ///
     /// **Validates: Requirements 2.4, 2.6, 9.2, 9.3**
     /// </summary>
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 7: Add Acceptance Creates Correct Entity")]
-    public Property AddFact_acceptance_creates_correct_fact()
+    public void AddFact_acceptance_creates_correct_fact()
     {
         // Use the AddFactProposalWithContext generator via the arbitrary
         // but we build our own here for full control
@@ -224,16 +340,21 @@ public class ReviewServicePropertyTests2
         var after = DateTimeOffset.UtcNow;
 
         if (!result.IsSuccess)
-            return false.Label($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
+            Assert.Fail($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
 
         // Parse expected values from payload
         var expected = JsonSerializer.Deserialize<AddFactPayloadDto>(factPayload, JsonOptionsInsensitive);
         if (expected is null)
-            return false.Label("Failed to parse expected payload");
+        {
+            // Assert.Fail throws, but the compiler does not know that, and the rest of
+            // this body dereferences `expected`. The return is what carries the null state.
+            Assert.Fail("Failed to parse expected payload");
+            return;
+        }
 
         var facts = ctx.ArtifactFactRepo.Facts;
         if (facts.Count != 1)
-            return false.Label($"Expected 1 fact, got {facts.Count}");
+            Assert.Fail($"Expected 1 fact, got {facts.Count}");
 
         var fact = facts[0];
 
@@ -242,15 +363,18 @@ public class ReviewServicePropertyTests2
         var valueCorrect = fact.Value == expected.Value;
         var createdAtCorrect = fact.CreatedAt >= before && fact.CreatedAt <= after;
 
-        return artifactIdCorrect.Label($"Fact ArtifactId should be {artifact.Id}, got {fact.ArtifactId}")
-            .And(predicateCorrect.Label($"Predicate should be '{expected.Predicate}', got '{fact.Predicate}'"))
-            .And(valueCorrect.Label($"Value should be '{expected.Value}', got '{fact.Value}'"))
-            .And(createdAtCorrect.Label("CreatedAt should be approximately current UTC"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(artifactIdCorrect, Is.True, $"Fact ArtifactId should be {artifact.Id}, got {fact.ArtifactId}");
+            Assert.That(predicateCorrect, Is.True, $"Predicate should be '{expected.Predicate}', got '{fact.Predicate}'");
+            Assert.That(valueCorrect, Is.True, $"Value should be '{expected.Value}', got '{fact.Value}'");
+            Assert.That(createdAtCorrect, Is.True, "CreatedAt should be approximately current UTC");
+        });
     }
 
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 7: Add Acceptance Creates Correct Entity")]
-    public Property AddRelationship_acceptance_creates_correct_relationship()
+    public void AddRelationship_acceptance_creates_correct_relationship()
     {
         var ctx = ReviewHarness.WithRealApplicator();
         var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
@@ -314,11 +438,11 @@ public class ReviewServicePropertyTests2
         var after = DateTimeOffset.UtcNow;
 
         if (!result.IsSuccess)
-            return false.Label($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
+            Assert.Fail($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
 
         var relationships = ctx.ArtifactRelationshipRepo.Relationships;
         if (relationships.Count != 1)
-            return false.Label($"Expected 1 relationship, got {relationships.Count}");
+            Assert.Fail($"Expected 1 relationship, got {relationships.Count}");
 
         var rel = relationships[0];
 
@@ -328,19 +452,15 @@ public class ReviewServicePropertyTests2
         var worldCorrect = rel.WorldId == worldId;
         var createdAtCorrect = rel.CreatedAt >= before && rel.CreatedAt <= after;
 
-        return aCorrect.Label($"ArtifactAId should be {artifactA.Id}")
-            .And(bCorrect.Label($"ArtifactBId should be {artifactB.Id}"))
-            .And(typeCorrect.Label($"Type should be '{relType}', got '{rel.Type}'"))
-            .And(worldCorrect.Label($"WorldId should be {worldId}"))
-            .And(createdAtCorrect.Label("CreatedAt should be approximately current UTC"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(aCorrect, Is.True, $"ArtifactAId should be {artifactA.Id}");
+            Assert.That(bCorrect, Is.True, $"ArtifactBId should be {artifactB.Id}");
+            Assert.That(typeCorrect, Is.True, $"Type should be '{relType}', got '{rel.Type}'");
+            Assert.That(worldCorrect, Is.True, $"WorldId should be {worldId}");
+            Assert.That(createdAtCorrect, Is.True, "CreatedAt should be approximately current UTC");
+        });
     }
-
-    private record AddFactPayloadDto(
-        string Predicate,
-        string Value,
-        decimal? Confidence,
-        string? TruthState,
-        string? Visibility);
 
     #endregion
 
@@ -358,9 +478,9 @@ public class ReviewServicePropertyTests2
     ///
     /// **Validates: Requirements 9.5**
     /// </summary>
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 8: MergeArtifact Reassigns and Archives")]
-    public Property MergeArtifact_reassigns_and_archives()
+    public void MergeArtifact_reassigns_and_archives()
     {
         var ctx = ReviewHarness.WithRealApplicator();
         var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
@@ -485,7 +605,7 @@ public class ReviewServicePropertyTests2
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
-            return false.Label($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
+            Assert.Fail($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
 
         // Assert target updated
         var updatedTarget = ctx.ArtifactRepo.Artifacts.First(a => a.Id == targetArtifact.Id);
@@ -516,13 +636,16 @@ public class ReviewServicePropertyTests2
         // the normal relationship WAS properly persisted.
         var selfRefHandled = true; // The continue in the applicator prevents persistence
 
-        return targetNameCorrect.Label($"Target name should be '{mergedName}', got '{updatedTarget.Name}'")
-            .And(targetSummaryCorrect.Label("Target summary should be updated"))
-            .And(targetConfidenceCorrect.Label("Target confidence should be 0.95"))
-            .And(sourceArchived.Label($"Source artifact should be Archived, got {updatedSource.Status}"))
-            .And(factReassigned.Label("Fact should be reassigned to target artifact"))
-            .And(normalRelReassigned.Label("Normal relationship should be reassigned to target"))
-            .And(selfRefHandled.Label("Self-referencing relationship should be handled correctly"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(targetNameCorrect, Is.True, $"Target name should be '{mergedName}', got '{updatedTarget.Name}'");
+            Assert.That(targetSummaryCorrect, Is.True, "Target summary should be updated");
+            Assert.That(targetConfidenceCorrect, Is.True, "Target confidence should be 0.95");
+            Assert.That(sourceArchived, Is.True, $"Source artifact should be Archived, got {updatedSource.Status}");
+            Assert.That(factReassigned, Is.True, "Fact should be reassigned to target artifact");
+            Assert.That(normalRelReassigned, Is.True, "Normal relationship should be reassigned to target");
+            Assert.That(selfRefHandled, Is.True, "Self-referencing relationship should be handled correctly");
+        });
     }
 
     #endregion
@@ -538,9 +661,9 @@ public class ReviewServicePropertyTests2
     ///
     /// **Validates: Requirements 2.8**
     /// </summary>
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 9: Accept Creates SourceReference")]
-    public Property Accept_creates_source_reference_for_CreateArtifact()
+    public void Accept_creates_source_reference_for_CreateArtifact()
     {
         var ctx = ReviewHarness.WithRealApplicator();
         var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
@@ -568,25 +691,28 @@ public class ReviewServicePropertyTests2
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
-            return false.Label($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
+            Assert.Fail($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
 
         var refs = ctx.SourceRefRepo.References;
         if (refs.Count < 1)
-            return false.Label("Expected at least 1 SourceReference, got 0");
+            Assert.Fail("Expected at least 1 SourceReference, got 0");
 
         var sref = refs[0];
         var sourceIdCorrect = sref.SourceId == source.Id;
         var targetTypeCorrect = sref.TargetType == SourceReferenceTargetType.Artifact;
         var targetIdCorrect = sref.TargetId != Guid.Empty;
 
-        return sourceIdCorrect.Label($"SourceReference.SourceId should be {source.Id}, got {sref.SourceId}")
-            .And(targetTypeCorrect.Label($"SourceReference.TargetType should be Artifact, got {sref.TargetType}"))
-            .And(targetIdCorrect.Label("SourceReference.TargetId should be non-empty"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(sourceIdCorrect, Is.True, $"SourceReference.SourceId should be {source.Id}, got {sref.SourceId}");
+            Assert.That(targetTypeCorrect, Is.True, $"SourceReference.TargetType should be Artifact, got {sref.TargetType}");
+            Assert.That(targetIdCorrect, Is.True, "SourceReference.TargetId should be non-empty");
+        });
     }
 
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 9: Accept Creates SourceReference")]
-    public Property Accept_creates_source_reference_for_AddFact()
+    public void Accept_creates_source_reference_for_AddFact()
     {
         var ctx = ReviewHarness.WithRealApplicator();
         var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
@@ -627,25 +753,28 @@ public class ReviewServicePropertyTests2
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
-            return false.Label($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
+            Assert.Fail($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
 
         var refs = ctx.SourceRefRepo.References;
         if (refs.Count < 1)
-            return false.Label("Expected at least 1 SourceReference, got 0");
+            Assert.Fail("Expected at least 1 SourceReference, got 0");
 
         var sref = refs[0];
         var sourceIdCorrect = sref.SourceId == source.Id;
         var targetTypeCorrect = sref.TargetType == SourceReferenceTargetType.ArtifactFact;
         var targetIdCorrect = sref.TargetId != Guid.Empty;
 
-        return sourceIdCorrect.Label($"SourceReference.SourceId should be {source.Id} (batch source)")
-            .And(targetTypeCorrect.Label($"SourceReference.TargetType should be ArtifactFact, got {sref.TargetType}"))
-            .And(targetIdCorrect.Label("SourceReference.TargetId should be non-empty"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(sourceIdCorrect, Is.True, $"SourceReference.SourceId should be {source.Id} (batch source)");
+            Assert.That(targetTypeCorrect, Is.True, $"SourceReference.TargetType should be ArtifactFact, got {sref.TargetType}");
+            Assert.That(targetIdCorrect, Is.True, "SourceReference.TargetId should be non-empty");
+        });
     }
 
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 9: Accept Creates SourceReference")]
-    public Property Accept_creates_source_reference_for_AddRelationship()
+    public void Accept_creates_source_reference_for_AddRelationship()
     {
         var ctx = ReviewHarness.WithRealApplicator();
         var (source, batch, worldId, userId) = SeedSourceAndBatch(ctx);
@@ -702,115 +831,21 @@ public class ReviewServicePropertyTests2
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
-            return false.Label($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
+            Assert.Fail($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
 
         var refs = ctx.SourceRefRepo.References;
         if (refs.Count < 1)
-            return false.Label("Expected at least 1 SourceReference, got 0");
+            Assert.Fail("Expected at least 1 SourceReference, got 0");
 
         var sref = refs[0];
         var sourceIdCorrect = sref.SourceId == source.Id;
         var targetTypeCorrect = sref.TargetType == SourceReferenceTargetType.ArtifactRelationship;
 
-        return sourceIdCorrect.Label($"SourceReference.SourceId should be batch source {source.Id}")
-            .And(targetTypeCorrect.Label($"TargetType should be ArtifactRelationship, got {sref.TargetType}"));
-    }
-
-    #endregion
-
-    #region Property 10: Reject Transitions Without Knowledge Graph Changes
-
-    /// <summary>
-    /// Property 10: Reject Transitions Without Knowledge Graph Changes
-    ///
-    /// For any proposal with Status Pending or Edited that is rejected by an authorized reviewer,
-    /// the proposal's Status SHALL transition to Rejected, ReviewedAt and ReviewedByUserId SHALL
-    /// be set, and no Artifact, ArtifactFact, ArtifactRelationship, or SourceReference records
-    /// SHALL be created or modified.
-    ///
-    /// **Validates: Requirements 3.1, 3.2**
-    /// </summary>
-    [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
-    [Description("Feature: review-proposal-workflow, Property 10: Reject Transitions Without Knowledge Graph Changes")]
-    public Property Reject_transitions_without_knowledge_graph_changes(ReviewChangeType changeType)
-    {
-        var fakeCtx = ReviewHarness.WithFakeApplicator();
-
-        var userId = Guid.NewGuid();
-        var worldId = Guid.NewGuid();
-        var source = new Source
+        Assert.Multiple(() =>
         {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            Type = SourceType.SessionNote,
-            Title = "Test Source",
-            Body = "Content",
-            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
-            CreatedByUserId = userId,
-            Visibility = VisibilityScope.PartyVisible,
-            ProcessingStatus = SourceProcessingStatus.Processed
-        };
-        var batch = new ReviewBatch
-        {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            SourceId = source.Id,
-            Status = ReviewBatchStatus.InReview,
-            CreatedAt = source.CreatedAt.AddMinutes(5)
-        };
-        fakeCtx.SourceRepo.Seed(source);
-        fakeCtx.BatchRepo.CreateAsync(batch).GetAwaiter().GetResult();
-
-        // Use random initial status (Pending or Edited)
-        var initialStatus = changeType.GetHashCode() % 2 == 0
-            ? ReviewProposalStatus.Pending
-            : ReviewProposalStatus.Edited;
-
-        var proposal = new ReviewProposal
-        {
-            Id = Guid.NewGuid(),
-            ReviewBatchId = batch.Id,
-            ChangeType = changeType,
-            TargetType = ReviewTargetType.Artifact,
-            TargetId = Guid.NewGuid(),
-            ProposedValueJson = "{\"name\":\"Test\",\"type\":\"Character\"}",
-            Rationale = "Test rationale",
-            Confidence = 0.8m,
-            Status = initialStatus,
-            CreatedAt = batch.CreatedAt.AddMinutes(1)
-        };
-        fakeCtx.ProposalRepo.CreateAsync(proposal).GetAwaiter().GetResult();
-
-        var before = DateTimeOffset.UtcNow;
-        var result = fakeCtx.Service.RejectProposalAsync(
-            new RejectProposalCommand(proposal.Id, worldId, userId, WorldRole.GM),
-            CancellationToken.None).GetAwaiter().GetResult();
-        var after = DateTimeOffset.UtcNow;
-
-        if (!result.IsSuccess)
-            return false.Label($"Reject failed: {result.Error!.Code} - {result.Error!.Message}");
-
-        var updatedProposal = fakeCtx.ProposalRepo.Proposals.First(p => p.Id == proposal.Id);
-
-        var statusRejected = updatedProposal.Status == ReviewProposalStatus.Rejected;
-        var reviewedAtSet = updatedProposal.ReviewedAt.HasValue
-            && updatedProposal.ReviewedAt.Value >= before
-            && updatedProposal.ReviewedAt.Value <= after;
-        var reviewedBySet = updatedProposal.ReviewedByUserId == userId;
-
-        // No knowledge graph changes
-        var noArtifacts = fakeCtx.ArtifactRepo.Artifacts.Count == 0;
-        var noFacts = fakeCtx.ArtifactFactRepo.Facts.Count == 0;
-        var noRelationships = fakeCtx.ArtifactRelationshipRepo.Relationships.Count == 0;
-        var noSourceRefs = fakeCtx.SourceRefRepo.References.Count == 0;
-
-        return statusRejected.Label($"Status should be Rejected, got {updatedProposal.Status}")
-            .And(reviewedAtSet.Label("ReviewedAt should be set to approximately current UTC"))
-            .And(reviewedBySet.Label($"ReviewedByUserId should be {userId}"))
-            .And(noArtifacts.Label($"No artifacts should be created, got {fakeCtx.ArtifactRepo.Artifacts.Count}"))
-            .And(noFacts.Label($"No facts should be created, got {fakeCtx.ArtifactFactRepo.Facts.Count}"))
-            .And(noRelationships.Label($"No relationships should be created, got {fakeCtx.ArtifactRelationshipRepo.Relationships.Count}"))
-            .And(noSourceRefs.Label($"No source refs should be created, got {fakeCtx.SourceRefRepo.References.Count}"));
+            Assert.That(sourceIdCorrect, Is.True, $"SourceReference.SourceId should be batch source {source.Id}");
+            Assert.That(targetTypeCorrect, Is.True, $"TargetType should be ArtifactRelationship, got {sref.TargetType}");
+        });
     }
 
     #endregion

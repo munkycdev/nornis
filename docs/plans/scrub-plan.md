@@ -342,14 +342,37 @@ the point.
     executions of nothing. Verified by scanning each body for its own parameter rather
     than trusting the audit note. Those now take no argument and declare `MaxTest = 1`,
     which is what they always were.
-  - **Not done: converting those sixteen to plain `[Test]`s.** Their bodies return
-    labelled `Property` conjunctions built with `.Label().And()`, and early-exit with
-    `return false.Label(...)`. Converting means rewriting sixteen assertion bodies by
-    hand, which is a different job from pruning and carries a real risk of quietly
-    changing what is asserted. The signature and `MaxTest = 1` now tell the truth about
-    what they are; the `Property` return type is what is left to remove.
-  - **Not done: merging the four numbered files into concern-named fixtures.** With the
-    factory shared this is now pure file movement, and it would bury the diff above.
+  - ~~**Not done: converting those sixteen to plain `[Test]`s.**~~ **Done 2026-08-02.**
+    The risk named here — quietly changing what is asserted — was handled by never
+    inverting a condition by hand. Signatures went first, which made the compiler
+    enumerate all 36 remaining `return`s inside exactly those sixteen bodies; twenty were
+    early-exit guards, rewritten in place as `if (cond) Assert.Fail(msg);` (`Assert.Fail`
+    throws, so the exit is the same), and sixteen were final `.Label().And()` conjunctions,
+    which became `Assert.Multiple` — the faithful translation, since both evaluate every
+    conjunct and report all failures rather than stopping at the first.
+    - One guard needed its `return` back. `if (expected is null) Assert.Fail(...)` left the
+      compiler thinking `expected` could still be null on the next line, because
+      `Assert.Fail` is not annotated as never-returning. That one carries a comment.
+    - The seventeen genuine `MaxTest = 100` properties live in the same three files and use
+      the same guard idiom, so nothing here was a blind sweep — every edit was scoped to the
+      sixteen by name.
+    - Verified beyond "still green": one converted assertion was inverted on purpose and the
+      test failed with its own message, which is the part a green suite cannot tell you.
+  - ~~**Not done: merging the four numbered files into concern-named fixtures.**~~
+    **Done 2026-08-02**, once the diff it would have buried was merged. Five fixtures now,
+    named for what they hold: `ProposalAccessProperties` (who sees a proposal, who may act
+    on it, what visibility the accepted entity inherits), `ProposalAcceptanceProperties`
+    (what accept does, per ChangeType, plus the SourceReference), `ProposalRejectionAndEdit
+    Properties` (the two paths that must not touch the knowledge graph),
+    `ReviewBatchLifecycleProperties` (batch status as a function of its proposals), and
+    `ReviewQueueProperties` (order and page boundary).
+    - Not quite pure movement, as it turned out: `JsonOptions` was declared byte-identically
+      in all four files, and the other shared members were private to one file each. They
+      are in `ReviewPropertySupport`, imported by `using static`, which is what keeps the
+      call sites unchanged.
+    - The 22 numbered regions map onto the five fixtures as a partition — asserted in the
+      script that did the move, not eyeballed. The set of 33 test-method names is identical
+      before and after, which is the check that a fixture split can silently fail.
   - The newer PropertyTests folder (real `Gen.Elements` + adversarial strings) remains the
     house standard.
 - ~~**Per-field decomposition**~~ **Done 2026-08-02.**
