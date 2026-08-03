@@ -88,10 +88,36 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         };
     }
 
+    /// <summary>
+    /// The three ways the AI client fails, and the only axis the failure tests vary.
+    /// </summary>
+    public enum AiFailure
+    {
+        Timeout,
+        RateLimited,
+        ServiceError
+    }
+
+    private void SetupFailure(AiFailure failure)
+    {
+        switch (failure)
+        {
+            case AiFailure.Timeout:
+                _aiClient.SetupTimeout();
+                break;
+            case AiFailure.RateLimited:
+                _aiClient.SetupRateLimited();
+                break;
+            default:
+                _aiClient.SetupServiceError();
+                break;
+        }
+    }
+
     #region Successful AI call creates AiUsageRecord with Succeeded=true
 
     [Test]
-    public async Task AskAsync_SuccessfulAiCall_CreatesAiUsageRecordWithSucceededTrue()
+    public async Task AskAsync_SuccessfulAiCall_RecordsTheWholeCall()
     {
         SetupKnowledgeContext();
         _aiClient.SetupSuccess(new LoremasterAiResponse
@@ -111,313 +137,81 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
 
         Assert.That(_aiUsageRecordRepository.Records, Has.Count.EqualTo(1));
         var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.Succeeded, Is.True);
-    }
 
-    [Test]
-    public async Task AskAsync_SuccessfulAiCall_RecordHasCorrectWorldId()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupSuccess("Captain Voss is located in Black Harbor.");
-
-        await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.WorldId, Is.EqualTo(WorldId));
-    }
-
-    [Test]
-    public async Task AskAsync_SuccessfulAiCall_RecordHasCorrectUserId()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupSuccess("Captain Voss is located in Black Harbor.");
-
-        await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.UserId, Is.EqualTo(UserId));
-    }
-
-    [Test]
-    public async Task AskAsync_SuccessfulAiCall_RecordHasAskLoremasterOperationType()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupSuccess("Captain Voss is located in Black Harbor.");
-
-        await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.OperationType, Is.EqualTo(AiOperationType.AskLoremaster));
-    }
-
-    [Test]
-    public async Task AskAsync_SuccessfulAiCall_RecordHasCorrectModel()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupSuccess(new LoremasterAiResponse
+        // Every field of the record at once. Billing reads all of them together, so a
+        // gap in any one is the same defect — an unattributable charge.
+        Assert.Multiple(() =>
         {
-            AnswerText = "Captain Voss is a sea captain.",
-            Usage = new AiUsage
-            {
-                InputTokens = 400,
-                OutputTokens = 80,
-                TotalTokens = 480,
-                DurationMs = 500,
-                Model = "gpt-4o"
-            }
+            Assert.That(record.Succeeded, Is.True);
+            Assert.That(record.WorldId, Is.EqualTo(WorldId));
+            Assert.That(record.UserId, Is.EqualTo(UserId));
+            Assert.That(record.OperationType, Is.EqualTo(AiOperationType.AskLoremaster));
+            Assert.That(record.Model, Is.EqualTo("gpt-4o"));
+            Assert.That(record.InputTokens, Is.EqualTo(500));
+            Assert.That(record.OutputTokens, Is.EqualTo(120));
+            Assert.That(record.TotalTokens, Is.EqualTo(620));
+            Assert.That(record.ErrorCode, Is.Null);
         });
-
-        await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.Model, Is.EqualTo("gpt-4o"));
-    }
-
-    [Test]
-    public async Task AskAsync_SuccessfulAiCall_RecordHasCorrectTokenCounts()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupSuccess(new LoremasterAiResponse
-        {
-            AnswerText = "Captain Voss is a sea captain.",
-            Usage = new AiUsage
-            {
-                InputTokens = 500,
-                OutputTokens = 120,
-                TotalTokens = 620,
-                DurationMs = 800,
-                Model = "gpt-4o"
-            }
-        });
-
-        await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.InputTokens, Is.EqualTo(500));
-        Assert.That(record.OutputTokens, Is.EqualTo(120));
-        Assert.That(record.TotalTokens, Is.EqualTo(620));
-    }
-
-    [Test]
-    public async Task AskAsync_SuccessfulAiCall_RecordHasNullErrorCode()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupSuccess("Captain Voss is located in Black Harbor.");
-
-        await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.ErrorCode, Is.Null);
     }
 
     #endregion
 
     #region Failed AI call creates AiUsageRecord with Succeeded=false
 
-    [Test]
-    public async Task AskAsync_AiTimeout_CreatesAiUsageRecordWithSucceededFalse()
+    [TestCase(AiFailure.Timeout, "Timeout")]
+    [TestCase(AiFailure.RateLimited, "RateLimited")]
+    [TestCase(AiFailure.ServiceError, "ServiceError")]
+    public async Task AskAsync_FailedAiCall_StillRecordsTheAttempt(AiFailure failure, string errorCode)
     {
         SetupKnowledgeContext();
-        _aiClient.SetupTimeout();
+        SetupFailure(failure);
 
         await _service.AskAsync(CreateCommand(), CancellationToken.None);
 
         Assert.That(_aiUsageRecordRepository.Records, Has.Count.EqualTo(1));
         var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.Succeeded, Is.False);
-    }
 
-    [Test]
-    public async Task AskAsync_AiTimeout_RecordHasTimeoutErrorCode()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupTimeout();
-
-        await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.ErrorCode, Is.EqualTo("Timeout"));
-    }
-
-    [Test]
-    public async Task AskAsync_AiRateLimit_CreatesAiUsageRecordWithSucceededFalse()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupRateLimited();
-
-        await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        Assert.That(_aiUsageRecordRepository.Records, Has.Count.EqualTo(1));
-        var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.Succeeded, Is.False);
-    }
-
-    [Test]
-    public async Task AskAsync_AiRateLimit_RecordHasRateLimitedErrorCode()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupRateLimited();
-
-        await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.ErrorCode, Is.EqualTo("RateLimited"));
-    }
-
-    [Test]
-    public async Task AskAsync_AiServiceError_CreatesAiUsageRecordWithSucceededFalse()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupServiceError();
-
-        await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        Assert.That(_aiUsageRecordRepository.Records, Has.Count.EqualTo(1));
-        var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.Succeeded, Is.False);
-    }
-
-    [Test]
-    public async Task AskAsync_AiServiceError_RecordHasServiceErrorCode()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupServiceError();
-
-        await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.ErrorCode, Is.EqualTo("ServiceError"));
-    }
-
-    [Test]
-    public async Task AskAsync_FailedAiCall_RecordStillHasCorrectWorldAndUser()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupServiceError();
-
-        await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        var record = _aiUsageRecordRepository.Records[0];
-        Assert.That(record.WorldId, Is.EqualTo(WorldId));
-        Assert.That(record.UserId, Is.EqualTo(UserId));
-        Assert.That(record.OperationType, Is.EqualTo(AiOperationType.AskLoremaster));
+        // A failed call still cost tokens upstream, and it still has to be attributable
+        // to a world and a user — the attribution fields are asserted here, not only on
+        // the success path, because that is where they would quietly go missing.
+        Assert.Multiple(() =>
+        {
+            Assert.That(record.Succeeded, Is.False);
+            Assert.That(record.ErrorCode, Is.EqualTo(errorCode));
+            Assert.That(record.WorldId, Is.EqualTo(WorldId));
+            Assert.That(record.UserId, Is.EqualTo(UserId));
+            Assert.That(record.OperationType, Is.EqualTo(AiOperationType.AskLoremaster));
+        });
     }
 
     #endregion
 
-    #region AI timeout returns 503
+    #region AI failures map to HTTP status, code and message
 
-    [Test]
-    public async Task AskAsync_AiTimeout_Returns503Error()
+    [TestCase(AiFailure.Timeout, 503, "service_unavailable",
+        "The Loremaster is temporarily unavailable. Please try again.")]
+    [TestCase(AiFailure.RateLimited, 429, "rate_limited",
+        "Too many requests. Please try again in a moment.")]
+    [TestCase(AiFailure.ServiceError, 503, "service_unavailable",
+        "The Loremaster is temporarily unavailable. Please try again.")]
+    public async Task AskAsync_AiFailure_ReturnsTheMappedError(
+        AiFailure failure, int status, string code, string message)
     {
         SetupKnowledgeContext();
-        _aiClient.SetupTimeout();
+        SetupFailure(failure);
 
         var result = await _service.AskAsync(CreateCommand(), CancellationToken.None);
 
-        Assert.That(result.IsSuccess, Is.False);
-        Assert.That(result.Error!.StatusCode, Is.EqualTo(503));
-    }
-
-    [Test]
-    public async Task AskAsync_AiTimeout_ReturnsServiceUnavailableCode()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupTimeout();
-
-        var result = await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        Assert.That(result.Error!.Code, Is.EqualTo("service_unavailable"));
-    }
-
-    [Test]
-    public async Task AskAsync_AiTimeout_ReturnsUserFriendlyMessage()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupTimeout();
-
-        var result = await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        Assert.That(result.Error!.Message,
-            Is.EqualTo("The Loremaster is temporarily unavailable. Please try again."));
-    }
-
-    #endregion
-
-    #region AI rate limit returns 429
-
-    [Test]
-    public async Task AskAsync_AiRateLimit_Returns429Error()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupRateLimited();
-
-        var result = await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        Assert.That(result.IsSuccess, Is.False);
-        Assert.That(result.Error!.StatusCode, Is.EqualTo(429));
-    }
-
-    [Test]
-    public async Task AskAsync_AiRateLimit_ReturnsRateLimitedCode()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupRateLimited();
-
-        var result = await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        Assert.That(result.Error!.Code, Is.EqualTo("rate_limited"));
-    }
-
-    [Test]
-    public async Task AskAsync_AiRateLimit_ReturnsRetryMessage()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupRateLimited();
-
-        var result = await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        Assert.That(result.Error!.Message,
-            Is.EqualTo("Too many requests. Please try again in a moment."));
-    }
-
-    #endregion
-
-    #region AI service error returns 503
-
-    [Test]
-    public async Task AskAsync_AiServiceError_Returns503Error()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupServiceError();
-
-        var result = await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        Assert.That(result.IsSuccess, Is.False);
-        Assert.That(result.Error!.StatusCode, Is.EqualTo(503));
-    }
-
-    [Test]
-    public async Task AskAsync_AiServiceError_ReturnsServiceUnavailableCode()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupServiceError();
-
-        var result = await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        Assert.That(result.Error!.Code, Is.EqualTo("service_unavailable"));
-    }
-
-    [Test]
-    public async Task AskAsync_AiServiceError_ReturnsUserFriendlyMessage()
-    {
-        SetupKnowledgeContext();
-        _aiClient.SetupServiceError();
-
-        var result = await _service.AskAsync(CreateCommand(), CancellationToken.None);
-
-        Assert.That(result.Error!.Message,
-            Is.EqualTo("The Loremaster is temporarily unavailable. Please try again."));
+        // Timeout and service error deliberately land on the same triple: the caller
+        // cannot act differently on them, and naming the distinction would leak which
+        // upstream failed.
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.StatusCode, Is.EqualTo(status));
+            Assert.That(result.Error!.Code, Is.EqualTo(code));
+            Assert.That(result.Error!.Message, Is.EqualTo(message));
+        });
     }
 
     #endregion

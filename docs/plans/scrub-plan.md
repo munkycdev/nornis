@@ -352,18 +352,47 @@ the point.
     factory shared this is now pure file movement, and it would bury the diff above.
   - The newer PropertyTests folder (real `Gen.Elements` + adversarial strings) remains the
     house standard.
-- **Per-field decomposition**: LoremasterServiceUsageTrackingAndErrorHandlingTests'
-  seven one-field assertions over the same arrange become one record-fields test; the
-  3×3 error grid becomes one `[TestCase]` over (failure kind, status, code). Same
-  treatment for AzureOpenAiExtractionClientTests' nine 20-line JSON literals differing
-  by one key — one JSON-mutating helper + `[TestCase("changeType")]`, asserting the
-  exception names the offending field.
-- **Attribute padding**: CostsControllerTests' region promising a 403 test that
-  contains only attribute-reflection checks (the behavior is covered by the
-  integration fixture) and the redundant `Received(1)` pass-through beside an
-  exact-argument stub.
-- **Consolidation sweep**: ProposalApplicatorTests' earlier tests inline the 10-line
-  seeding block the file's own mid-file helpers abstract; sweep them onto the helpers.
+- ~~**Per-field decomposition**~~ **Done 2026-08-02.**
+  LoremasterServiceUsageTrackingAndErrorHandlingTests: the seven one-field success
+  assertions are one record-fields test, and the failure tests are two `[TestCase]`
+  sets over a `AiFailure` parameter — one for the usage record, one for the
+  status/code/message triple. Its failure *record* tests got the same treatment as the
+  success block, which the plan named only for the success side; leaving the twin
+  un-collapsed would have been the odd result. 29 cases → 13, same facts.
+  - AzureOpenAiExtractionClientTests: `ValidProposal` plus `ResponseWithout(field)` /
+    `ResponseWith(field, rawJson)`, and every case now asserts the message *names* the
+    offending field rather than only that some `AiParseException` was thrown. Checked
+    against the client first — all five validation branches already interpolate the
+    field name, so this strengthens the assertion without moving the code.
+  - The empty-rationale branch (`rationale.Length == 0`) had no test at all; it costs one
+    `[TestCase]` line now that the arrange is shared, so it has one. 10 tests → 11 cases.
+- ~~**Attribute padding**~~ **Done 2026-08-02, wider than written, and half of it was
+  already true.** The plan named one region; the file had three, all reflection-only —
+  the 403 region, the route-constraint region, and the cross-world region. All seven
+  tests are gone. Each fact they asserted is proved functionally by
+  CostDashboardAuthorizationIntegrationTests, which drives the real pipeline: five
+  non-member 403s, and a non-GM 200-with-empty-list on `/api/costs/by-world` that a
+  world-scoped filter would have turned into a 403.
+  - Except one. Nothing exercised a non-GUID worldId, so deleting
+    `RouteConstraint_RequiresGuidFormat` would have left `{worldId:guid}` unguarded —
+    it was padding standing in for a real behavior. Replaced by an integration test
+    asserting `/api/worlds/not-a-guid/costs/summary` is 404, which fails if the
+    constraint is dropped (binding failure would make it a 400).
+  - The second half — "the redundant `Received(1)` pass-through beside an exact-argument
+    stub" — does not describe this file. Its one `Received(1)` sits beside an
+    `Arg.Any` stub and asserts the exact world, user and role the controller resolved
+    from HttpContext. That is the load-bearing shape, not the redundant one; left alone.
+- ~~**Consolidation sweep**~~ **Done 2026-08-02.** ProposalApplicatorTests' twenty-two
+  inline artifact-seeding blocks now call `SeedArtifact`, widened with the axes they
+  actually varied (visibility, summary, confidence, world). 1,294 lines → 883, 41 tests
+  unchanged and still passing. Two seed-shape changes ride along and are the reason to
+  re-read this if a test here ever fails oddly: the helper backdates timestamps a day
+  (most inline blocks already did), and it defaults `Visibility` to `PartyVisible` where
+  the entity default is `Private`. Thirteen of the twenty-two were taking that `Private`
+  default without asserting anything about it — they act under `VisibilityFilter.All`,
+  so it never mattered, and the suite agrees. The visibility-defaults tests are
+  unaffected either way: they assert the visibility the applicator *assigns* to
+  something it creates, and seed no artifact at all.
 - The "Validates: Requirements N.N" stamps across 73 files go with tier 5's comment
   pass.
 
