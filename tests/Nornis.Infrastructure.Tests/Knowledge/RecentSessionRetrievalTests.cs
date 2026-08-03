@@ -77,7 +77,7 @@ public class RecentSessionRetrievalTests
             "what happened last session", _worldId, Guid.NewGuid(), WorldRole.Player, CancellationToken.None);
 
         Assert.That(context.Sessions.Select(s => s.Title),
-            Is.EqualTo(new[] { "Undated but new", "Mid session", "Old session" }));
+            Is.EqualTo(["Undated but new", "Mid session", "Old session"]));
         Assert.That(context.Sessions[0].Date, Is.EqualTo(now.AddDays(-1)));
     }
 
@@ -94,7 +94,7 @@ public class RecentSessionRetrievalTests
             "what happened last session", _worldId, Guid.NewGuid(), WorldRole.Player, CancellationToken.None);
 
         Assert.That(context.Sessions, Has.Count.EqualTo(2));
-        Assert.That(context.Sessions.Select(s => s.Title), Is.EqualTo(new[] { "Session 0", "Session 1" }));
+        Assert.That(context.Sessions.Select(s => s.Title), Is.EqualTo(["Session 0", "Session 1"]));
     }
 
     [Test]
@@ -110,7 +110,7 @@ public class RecentSessionRetrievalTests
         var context = await CreateRetriever().RetrieveAsync(
             "what happened last session", _worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
-        Assert.That(context.Sessions.Select(s => s.Title), Is.EqualTo(new[] { "Actual session" }));
+        Assert.That(context.Sessions.Select(s => s.Title), Is.EqualTo(["Actual session"]));
     }
 
     [TestCase(WorldRole.Player)]
@@ -127,7 +127,7 @@ public class RecentSessionRetrievalTests
         var context = await CreateRetriever().RetrieveAsync(
             "what happened last session", _worldId, Guid.NewGuid(), role, CancellationToken.None);
 
-        Assert.That(context.Sessions.Select(s => s.Title), Is.EqualTo(new[] { "Party session" }));
+        Assert.That(context.Sessions.Select(s => s.Title), Is.EqualTo(["Party session"]));
     }
 
     [Test]
@@ -141,7 +141,7 @@ public class RecentSessionRetrievalTests
         var context = await CreateRetriever().RetrieveAsync(
             "what happened last session", _worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
-        Assert.That(context.Sessions.Select(s => s.Title), Is.EqualTo(new[] { "Secret session" }));
+        Assert.That(context.Sessions.Select(s => s.Title), Is.EqualTo(["Secret session"]));
     }
 
     [Test]
@@ -159,7 +159,7 @@ public class RecentSessionRetrievalTests
         var context = await CreateRetriever().RetrieveAsync(
             "what happened last session", _worldId, Guid.NewGuid(), WorldRole.Player, CancellationToken.None);
 
-        Assert.That(context.Sessions.Select(s => s.Title), Is.EqualTo(new[] { "Imported session" }));
+        Assert.That(context.Sessions.Select(s => s.Title), Is.EqualTo(["Imported session"]));
     }
 
     [Test]

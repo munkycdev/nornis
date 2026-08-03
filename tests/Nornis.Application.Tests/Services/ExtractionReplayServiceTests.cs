@@ -166,7 +166,7 @@ public class ExtractionReplayServiceTests
         await _sut.TryAdvanceAsync(WorldId, upload.Id, CancellationToken.None);
 
         Assert.That(_reprocess.Commands.Select(c => c.SourceId),
-            Is.EqualTo(new[] { start.Id, gmNote.Id, upload.Id, map.Id }),
+            Is.EqualTo([start.Id, gmNote.Id, upload.Id, map.Id]),
             "the walk visits every type in story order, not just the timeline ones");
     }
 
@@ -180,7 +180,7 @@ public class ExtractionReplayServiceTests
         await _sut.StartAsync(WorldId, start.Id, GmId, WorldRole.GM, CancellationToken.None);
         await _sut.TryAdvanceAsync(WorldId, start.Id, CancellationToken.None);
 
-        Assert.That(_reprocess.Commands.Select(c => c.SourceId), Is.EqualTo(new[] { start.Id, next.Id }),
+        Assert.That(_reprocess.Commands.Select(c => c.SourceId), Is.EqualTo([start.Id, next.Id]),
             "ExtractionEnabled is what holds a source back from a replay, not its type");
     }
 
@@ -292,7 +292,7 @@ public class ExtractionReplayServiceTests
         await _sut.TryAdvanceAsync(WorldId, cursor.Id, CancellationToken.None);
 
         Assert.That(_reprocess.Commands.Select(c => c.SourceId),
-            Is.EqualTo(new[] { stubborn.Id, after.Id }));
+            Is.EqualTo([stubborn.Id, after.Id]));
         Assert.That(_replayRepo.Replays.Single(r => r.Id == replay.Id).CurrentSourceId, Is.EqualTo(after.Id));
     }
 
@@ -322,7 +322,7 @@ public class ExtractionReplayServiceTests
 
         await _sut.TryAdvanceAsync(WorldId, cursor.Id, CancellationToken.None);
 
-        Assert.That(_reprocess.Commands.Select(c => c.SourceId), Is.EqualTo(new[] { eligible.Id }));
+        Assert.That(_reprocess.Commands.Select(c => c.SourceId), Is.EqualTo([eligible.Id]));
     }
 
     [Test]

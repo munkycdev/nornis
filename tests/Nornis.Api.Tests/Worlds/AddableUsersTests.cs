@@ -230,7 +230,7 @@ public class AddableUsersTests
             Assert.That(body, Does.Not.Contain("tavrin@example.com"), "no email may reach the picker");
             Assert.That(body, Does.Contain("Tavrin"), "the username is what the picker needs");
             Assert.That(typeof(UserSummaryResponse).GetProperties().Select(p => p.Name),
-                Is.EquivalentTo(new[] { nameof(UserSummaryResponse.Id), nameof(UserSummaryResponse.Username) }),
+                Is.EquivalentTo([nameof(UserSummaryResponse.Id), nameof(UserSummaryResponse.Username)]),
                 "widening this contract is what would leak; the shape is the guard");
             Assert.That(rows, Is.Not.Empty, "the arrangement only means something if a row came back");
         });

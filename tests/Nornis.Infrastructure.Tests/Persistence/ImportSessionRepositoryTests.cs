@@ -94,7 +94,7 @@ public class ImportSessionRepositoryTests : IntegrationTestBase
 
         var loaded = await _repository.GetByIdAsync(session.Id);
         Assert.That(loaded!.Items.OrderBy(i => i.Position).Select(i => i.Id),
-            Is.EqualTo(new[] { second.Id, first.Id }));
+            Is.EqualTo([second.Id, first.Id]));
     }
 
     [Test]

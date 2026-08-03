@@ -39,7 +39,7 @@ public class CanonControllerTests
         var entries = await response.Content.ReadFromJsonAsync<List<CanonEntryResponse>>();
         Assert.That(entries, Is.Not.Null);
         Assert.That(entries!, Has.Count.EqualTo(2));
-        Assert.That(entries!.Select(e => e.Kind), Is.EquivalentTo(new[] { "Fact", "Relationship" }));
+        Assert.That(entries!.Select(e => e.Kind), Is.EquivalentTo(["Fact", "Relationship"]));
     }
 
     [Test]

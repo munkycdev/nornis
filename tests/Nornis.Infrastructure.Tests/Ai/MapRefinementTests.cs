@@ -31,10 +31,10 @@ public class MapRefinementTests
         var tiles = MapRefinement.PlanTiles(places);
 
         Assert.That(tiles, Has.Count.EqualTo(3));
-        Assert.That(tiles.Select(t => t.Index), Is.EqualTo(new[] { 0, 4, 8 }));
-        Assert.That(tiles[0].PlaceIndices, Is.EqualTo(new[] { 0, 1 }));
-        Assert.That(tiles[1].PlaceIndices, Is.EqualTo(new[] { 2 }));
-        Assert.That(tiles[2].PlaceIndices, Is.EqualTo(new[] { 3 }));
+        Assert.That(tiles.Select(t => t.Index), Is.EqualTo([0, 4, 8]));
+        Assert.That(tiles[0].PlaceIndices, Is.EqualTo([0, 1]));
+        Assert.That(tiles[1].PlaceIndices, Is.EqualTo([2]));
+        Assert.That(tiles[2].PlaceIndices, Is.EqualTo([3]));
     }
 
     [Test]
@@ -95,7 +95,7 @@ public class MapRefinementTests
         var tiles = MapRefinement.PlanTiles([Place("top-left", 0.1m, 0.1m), Place("bottom-right", 0.95m, 0.95m)]);
         var crops = MapRefinement.CropTiles(buffer.ToArray(), tiles);
 
-        Assert.That(crops.Keys, Is.EquivalentTo(new[] { 0, 8 }));
+        Assert.That(crops.Keys, Is.EquivalentTo([0, 8]));
         using var crop = Image.Load(crops[0]);
         // Tile 0 spans 0..(1/3 + margin) of a 300×150 image.
         Assert.That(crop.Width, Is.EqualTo(130));

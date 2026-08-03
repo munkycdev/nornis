@@ -92,7 +92,7 @@ public class StorylineCampaignRepositoryTests : IntegrationTestBase
         await repo.ReplaceForStorylineAsync(storyline.Id, [two.Id, three.Id], user.Id);
 
         var links = await repo.ListByArtifactIdAsync(storyline.Id);
-        Assert.That(links.Select(l => l.CampaignId), Is.EquivalentTo(new[] { two.Id, three.Id }));
+        Assert.That(links.Select(l => l.CampaignId), Is.EquivalentTo([two.Id, three.Id]));
     }
 
     [Test]
@@ -108,7 +108,7 @@ public class StorylineCampaignRepositoryTests : IntegrationTestBase
 
         var links = await repo.ListByArtifactIdsAsync([a.Id]);
 
-        Assert.That(links.Select(l => l.ArtifactId), Is.EqualTo(new[] { a.Id }));
+        Assert.That(links.Select(l => l.ArtifactId), Is.EqualTo([a.Id]));
     }
 
     [Test]

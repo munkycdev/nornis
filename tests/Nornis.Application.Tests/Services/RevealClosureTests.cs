@@ -43,7 +43,7 @@ public class RevealClosureTests
             revealRelationshipEndpoints: [],
             new Dictionary<Guid, VisibilityScope> { [ArtifactA] = VisibilityScope.GMOnly });
 
-        Assert.That(missing, Is.EqualTo(new[] { ArtifactA }));
+        Assert.That(missing, Is.EqualTo([ArtifactA]));
     }
 
     [Test]
@@ -73,7 +73,7 @@ public class RevealClosureTests
                 [ArtifactB] = VisibilityScope.GMOnly
             });
 
-        Assert.That(missing, Is.EqualTo(new[] { ArtifactB }));
+        Assert.That(missing, Is.EqualTo([ArtifactB]));
     }
 
     [Test]
@@ -101,7 +101,7 @@ public class RevealClosureTests
             revealRelationshipEndpoints: [],
             new Dictionary<Guid, VisibilityScope> { [ArtifactA] = VisibilityScope.GMOnly });
 
-        Assert.That(missing, Is.EqualTo(new[] { ArtifactA }));
+        Assert.That(missing, Is.EqualTo([ArtifactA]));
     }
 
     [Test]
@@ -118,6 +118,6 @@ public class RevealClosureTests
                 [ArtifactC] = VisibilityScope.GMOnly
             });
 
-        Assert.That(missing, Is.EqualTo(new[] { ArtifactA, ArtifactB, ArtifactC }));
+        Assert.That(missing, Is.EqualTo([ArtifactA, ArtifactB, ArtifactC]));
     }
 }

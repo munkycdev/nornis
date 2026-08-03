@@ -55,13 +55,13 @@ public class ArtifactServiceSearchTests
         var result = await _service.SearchAsync(Query("voss"), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(new[]
-        {
+        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(
+        [
             "Voss",           // exact name
             "Vossberg Keep",  // name prefix
             "Captain Voss",   // whole word inside name
             "Black Harbor",   // summary only
-        }));
+        ]));
     }
 
     [Test]
@@ -74,11 +74,11 @@ public class ArtifactServiceSearchTests
         var result = await _service.SearchAsync(Query("voss"), CancellationToken.None);
 
         // Both are prefix matches; the shorter, more specific name wins despite being staler.
-        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(new[]
-        {
+        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(
+        [
             "Vossberg",
             "Voss Harbor Authority",
-        }));
+        ]));
     }
 
     [Test]
@@ -90,7 +90,7 @@ public class ArtifactServiceSearchTests
 
         var result = await _service.SearchAsync(Query("voss"), CancellationToken.None);
 
-        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(new[] { "Captain Voss" }));
+        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(["Captain Voss"]));
     }
 
     [Test]
@@ -103,7 +103,7 @@ public class ArtifactServiceSearchTests
 
         var result = await _service.SearchAsync(Query("voss"), CancellationToken.None);
 
-        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(new[] { "Captain Voss" }));
+        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(["Captain Voss"]));
     }
 
     [Test]
@@ -115,7 +115,7 @@ public class ArtifactServiceSearchTests
 
         var result = await _service.SearchAsync(Query("voss"), CancellationToken.None);
 
-        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(new[] { "Captain Voss" }));
+        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(["Captain Voss"]));
     }
 
     [Test]
@@ -145,11 +145,11 @@ public class ArtifactServiceSearchTests
         var result = await _service.SearchAsync(
             Query("voss", _tavrinUserId, WorldRole.Player), CancellationToken.None);
 
-        Assert.That(result.Value!.Select(a => a.Name), Is.EquivalentTo(new[]
-        {
+        Assert.That(result.Value!.Select(a => a.Name), Is.EquivalentTo(
+        [
             "Voss the Captain",
             "Voss Note by Tavrin",
-        }));
+        ]));
     }
 
     [Test]
@@ -165,7 +165,7 @@ public class ArtifactServiceSearchTests
         var result = await _service.SearchAsync(
             Query("voss", _tavrinUserId, WorldRole.Observer), CancellationToken.None);
 
-        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(new[] { "Voss the Captain" }));
+        Assert.That(result.Value!.Select(a => a.Name), Is.EqualTo(["Voss the Captain"]));
     }
 
     [TestCase("")]

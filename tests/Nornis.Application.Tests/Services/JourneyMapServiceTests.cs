@@ -236,7 +236,7 @@ public class JourneyMapServiceTests
         var result = await Run(mapSourceId: null, GmId, WorldRole.GM);
 
         var dates = result.Value!.Stops.Select(s => s.OccurredAt).ToList();
-        Assert.That(dates, Is.EqualTo(new[] { Jan, Feb, Mar }));
+        Assert.That(dates, Is.EqualTo([Jan, Feb, Mar]));
     }
 
     [Test]
@@ -267,7 +267,7 @@ public class JourneyMapServiceTests
         var result = await Run(mapSourceId: null, GmId, WorldRole.GM);
 
         Assert.That(result.Value!.Stops, Has.Count.EqualTo(1));
-        Assert.That(result.Value.Stops[0].VisitedLocationIds, Is.EqualTo(new[] { loc.Id }));
+        Assert.That(result.Value.Stops[0].VisitedLocationIds, Is.EqualTo([loc.Id]));
     }
 
     [Test]
@@ -353,7 +353,7 @@ public class JourneyMapServiceTests
 
         Assert.That(result.Value!.Stops, Has.Count.EqualTo(1));
         Assert.That(result.Value.Stops[0].Title, Is.EqualTo("Imported lore"));
-        Assert.That(result.Value.Stops[0].VisitedLocationIds, Is.EqualTo(new[] { loc.Id }));
+        Assert.That(result.Value.Stops[0].VisitedLocationIds, Is.EqualTo([loc.Id]));
     }
 
     [Test]

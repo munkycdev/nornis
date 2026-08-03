@@ -101,7 +101,7 @@ public class StatusEndpointTests
     {
         var names = CheckNames(await GetStatusAsync());
 
-        Assert.That(names, Is.EquivalentTo(new[] { "azure-openai", "worker-heartbeat" }));
+        Assert.That(names, Is.EquivalentTo(["azure-openai", "worker-heartbeat"]));
     }
 
     [Test]
@@ -124,7 +124,7 @@ public class StatusEndpointTests
         // strings and hostnames leak, so the shape itself is the guard.
         Assert.That(
             check.EnumerateObject().Select(p => p.Name),
-            Is.EquivalentTo(new[] { "name", "status", "durationMs" }));
+            Is.EquivalentTo(["name", "status", "durationMs"]));
     }
 
     [Test]
@@ -204,7 +204,7 @@ public class StatusEndpointTests
             Assert.That(body.GetProperty("status").GetString(), Is.EqualTo("Healthy"));
             Assert.That(
                 body.EnumerateObject().Select(p => p.Name),
-                Is.EquivalentTo(new[] { "status", "failing" }));
+                Is.EquivalentTo(["status", "failing"]));
         });
     }
 
@@ -240,7 +240,7 @@ public class StatusEndpointTests
             Assert.That(body.GetProperty("status").GetString(), Is.EqualTo("Unhealthy"));
             Assert.That(
                 body.GetProperty("failing").EnumerateArray().Select(n => n.GetString()),
-                Is.EquivalentTo(new[] { "deliberately-broken" }));
+                Is.EquivalentTo(["deliberately-broken"]));
 
             // The name is the whole payload. The check's own description is where a
             // connection string would ride out to an anonymous caller.

@@ -145,9 +145,9 @@ public class SourceListProjectionTests : IntegrationTestBase
 
         Assert.Multiple(() =>
         {
-            Assert.That(asGm.Select(s => s.Title), Is.EquivalentTo(new[] { "Party", "GM only", "Player's private" }));
-            Assert.That(asOwner.Select(s => s.Title), Is.EquivalentTo(new[] { "Party", "Player's private" }));
-            Assert.That(asStranger.Select(s => s.Title), Is.EquivalentTo(new[] { "Party" }),
+            Assert.That(asGm.Select(s => s.Title), Is.EquivalentTo(["Party", "GM only", "Player's private"]));
+            Assert.That(asOwner.Select(s => s.Title), Is.EquivalentTo(["Party", "Player's private"]));
+            Assert.That(asStranger.Select(s => s.Title), Is.EquivalentTo(["Party"]),
                 "another player's Private note must not appear in the list");
         });
     }
@@ -178,7 +178,7 @@ public class SourceListProjectionTests : IntegrationTestBase
 
         var result = await _repository.ListSummariesByWorldAsync(_worldId, _gmId, WorldRole.GM);
 
-        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Newest", "Middle", "Oldest" }));
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(["Newest", "Middle", "Oldest"]));
     }
 
     [Test]
@@ -192,8 +192,8 @@ public class SourceListProjectionTests : IntegrationTestBase
 
         Assert.Multiple(() =>
         {
-            Assert.That(inCampaign.Select(s => s.Title), Is.EqualTo(new[] { "In campaign" }));
-            Assert.That(unassigned.Select(s => s.Title), Is.EqualTo(new[] { "Unassigned" }));
+            Assert.That(inCampaign.Select(s => s.Title), Is.EqualTo(["In campaign"]));
+            Assert.That(unassigned.Select(s => s.Title), Is.EqualTo(["Unassigned"]));
         });
     }
 
@@ -226,6 +226,6 @@ public class SourceListProjectionTests : IntegrationTestBase
 
         var result = await _repository.ListSummariesByWorldAsync(_worldId, _gmId, WorldRole.GM);
 
-        Assert.That(result.Select(s => s.Title), Is.EqualTo(new[] { "Ours" }));
+        Assert.That(result.Select(s => s.Title), Is.EqualTo(["Ours"]));
     }
 }

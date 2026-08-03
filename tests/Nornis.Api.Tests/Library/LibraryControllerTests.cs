@@ -127,8 +127,8 @@ public class LibraryControllerTests
         var asGm = await scenario.GmClient.GetFromJsonAsync<List<LibraryDocumentResponse>>(
             $"/api/worlds/{scenario.World.Id}/library");
 
-        Assert.That(asPlayer!.Select(d => d.Title), Is.EquivalentTo(new[] { "Party handout" }));
-        Assert.That(asGm!.Select(d => d.Title), Is.EquivalentTo(new[] { "GM module", "Party handout" }));
+        Assert.That(asPlayer!.Select(d => d.Title), Is.EquivalentTo(["Party handout"]));
+        Assert.That(asGm!.Select(d => d.Title), Is.EquivalentTo(["GM module", "Party handout"]));
     }
 
     [Test]
@@ -171,7 +171,7 @@ public class LibraryControllerTests
 
         var after = await scenario.PlayerClient.GetFromJsonAsync<List<LibraryDocumentResponse>>(
             $"/api/worlds/{scenario.World.Id}/library");
-        Assert.That(after!.Select(d => d.Title), Is.EquivalentTo(new[] { "Forbidden Depths" }));
+        Assert.That(after!.Select(d => d.Title), Is.EquivalentTo(["Forbidden Depths"]));
     }
 
     [Test]

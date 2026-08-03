@@ -193,7 +193,7 @@ public class ExtractionServiceLocationContextTests
         var context = await ExtractAndGetLocationContext(current);
 
         Assert.That(context!.SourceTitle, Is.EqualTo("Session 4"));
-        Assert.That(context.Locations.Select(l => l.Name), Is.EqualTo(new[] { "Black Harbor" }));
+        Assert.That(context.Locations.Select(l => l.Name), Is.EqualTo(["Black Harbor"]));
     }
 
     [Test]
@@ -209,7 +209,7 @@ public class ExtractionServiceLocationContextTests
         var context = await ExtractAndGetLocationContext(current);
 
         Assert.That(context!.SourceTitle, Is.EqualTo("Session 3"));
-        Assert.That(context.Locations.Select(l => l.Name), Is.EqualTo(new[] { "Ironhold" }));
+        Assert.That(context.Locations.Select(l => l.Name), Is.EqualTo(["Ironhold"]));
     }
 
     [Test]
@@ -291,7 +291,7 @@ public class ExtractionServiceLocationContextTests
         var context = await ExtractAndGetLocationContext(current);
 
         Assert.That(context!.SourceTitle, Is.EqualTo("Untagged Session"));
-        Assert.That(context.Locations.Select(l => l.Name), Is.EqualTo(new[] { "Ironhold" }));
+        Assert.That(context.Locations.Select(l => l.Name), Is.EqualTo(["Ironhold"]));
     }
 
     [Test]

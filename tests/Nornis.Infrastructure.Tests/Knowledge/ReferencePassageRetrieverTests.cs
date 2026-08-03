@@ -76,7 +76,7 @@ public class ReferencePassageRetrieverTests
         var passages = await _sut.RetrieveAsync("level 10?", WorldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
         Assert.That(passages.Select(p => p.ChunkId),
-            Is.EqualTo(new[] { before.ChunkId, hit.ChunkId, after.ChunkId }),
+            Is.EqualTo([before.ChunkId, hit.ChunkId, after.ChunkId]),
             "the hit's neighbors arrive with it, in document reading order");
     }
 
@@ -114,7 +114,7 @@ public class ReferencePassageRetrieverTests
 
         var passages = await _sut.RetrieveAsync("q", WorldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
 
-        Assert.That(passages.Select(p => p.ChunkId), Is.EqualTo(new[] { hit.ChunkId }));
+        Assert.That(passages.Select(p => p.ChunkId), Is.EqualTo([hit.ChunkId]));
     }
 
     [Test]
@@ -153,6 +153,6 @@ public class ReferencePassageRetrieverTests
             "ranger", WorldId,
             [VisibilityScope.PartyVisible, VisibilityScope.GMOnly], Guid.NewGuid(), CancellationToken.None);
 
-        Assert.That(passages.Select(p => p.ChunkId), Is.EqualTo(new[] { hit.ChunkId }));
+        Assert.That(passages.Select(p => p.ChunkId), Is.EqualTo([hit.ChunkId]));
     }
 }

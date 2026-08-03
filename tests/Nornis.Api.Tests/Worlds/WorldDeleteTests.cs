@@ -75,7 +75,7 @@ public class WorldDeleteTests
         Assert.That(await db.WorldMembers.CountAsync(), Is.Zero);
         Assert.That(await db.Campaigns.CountAsync(), Is.Zero);
 
-        Assert.That(_factory.BlobStorage.DeletedPrefixes, Is.EqualTo(new[] { $"worlds/{worldId}/" }));
+        Assert.That(_factory.BlobStorage.DeletedPrefixes, Is.EqualTo([$"worlds/{worldId}/"]));
         Assert.That(_factory.BlobStorage.Blobs, Is.Empty);
     }
 

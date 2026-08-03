@@ -96,7 +96,7 @@ public class ReviewServiceBatchOrderingTests
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value!.Failed, Is.Empty);
-        Assert.That(result.Value.Succeeded, Is.EquivalentTo(new[] { fact.Id, create.Id }));
+        Assert.That(result.Value.Succeeded, Is.EquivalentTo([fact.Id, create.Id]));
         Assert.That(fact.Status, Is.EqualTo(ReviewProposalStatus.Accepted));
         Assert.That(create.Status, Is.EqualTo(ReviewProposalStatus.Accepted));
 
@@ -172,7 +172,7 @@ public class ReviewServiceBatchOrderingTests
             CancellationToken.None);
 
         Assert.That(result.Value!.Failed, Is.Empty);
-        Assert.That(result.Value.Succeeded, Is.EquivalentTo(new[] { create.Id, fact.Id }));
+        Assert.That(result.Value.Succeeded, Is.EquivalentTo([create.Id, fact.Id]));
 
         Assert.That(_artifactRepo.Artifacts, Has.Count.EqualTo(1), "the create dedup-bound to canon");
         Assert.That(create.AppliedToExistingArtifact, Is.True);
@@ -240,7 +240,7 @@ public class ReviewServiceBatchOrderingTests
             new BatchAcceptCommand([proposal.Id], _worldId, _gmUserId, WorldRole.GM),
             CancellationToken.None);
 
-        Assert.That(result.Value!.Succeeded, Is.EqualTo(new[] { proposal.Id }));
+        Assert.That(result.Value!.Succeeded, Is.EqualTo([proposal.Id]));
         Assert.That(result.Value.Failed, Is.Empty, "the recovered proposal must leave the failure list");
         Assert.That(applicator.AppliedProposalIds, Has.Count.EqualTo(2),
             "one ordered pass plus one retry — never more");
@@ -260,7 +260,7 @@ public class ReviewServiceBatchOrderingTests
             new BatchAcceptCommand([first.Id, second.Id], _worldId, _gmUserId, WorldRole.GM),
             CancellationToken.None);
 
-        Assert.That(result.Value!.Succeeded, Is.EquivalentTo(new[] { first.Id, second.Id }));
+        Assert.That(result.Value!.Succeeded, Is.EquivalentTo([first.Id, second.Id]));
         Assert.That(result.Value.Succeeded, Is.Unique, "a retried proposal must not be counted twice");
         Assert.That(applicator.AppliedProposalIds.Count(id => id == first.Id), Is.EqualTo(2));
         Assert.That(applicator.AppliedProposalIds.Count(id => id == second.Id), Is.EqualTo(2));
@@ -321,7 +321,7 @@ public class ReviewServiceBatchOrderingTests
             CancellationToken.None);
 
         Assert.That(applicator.AppliedProposalIds,
-            Is.EqualTo(new[] { createA.Id, createB.Id, factA.Id, factB.Id }),
+            Is.EqualTo([createA.Id, createB.Id, factA.Id, factB.Id]),
             "creates first, and the caller's relative order preserved inside each group");
     }
 

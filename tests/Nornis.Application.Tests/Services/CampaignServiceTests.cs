@@ -265,7 +265,7 @@ public class CampaignServiceTests
         var result = await _sut.AssignCharactersAsync(command, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.Select(c => c.Name), Is.EquivalentTo(new[] { "Tavrin", "Jorin" }));
+        Assert.That(result.Value!.Select(c => c.Name), Is.EquivalentTo(["Tavrin", "Jorin"]));
     }
 
     [Test]

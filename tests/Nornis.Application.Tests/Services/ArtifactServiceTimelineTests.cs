@@ -221,7 +221,7 @@ public class ArtifactServiceTimelineTests
 
         var result = await _service.GetStorylineTimelineAsync(_worldId, _gmUserId, WorldRole.GM, CancellationToken.None);
 
-        Assert.That(result.Value!.Lanes.Select(l => l.Name), Is.EqualTo(new[] { "Live arc" }));
+        Assert.That(result.Value!.Lanes.Select(l => l.Name), Is.EqualTo(["Live arc"]));
     }
 
     [Test]
@@ -330,7 +330,7 @@ public class ArtifactServiceTimelineTests
 
         var result = await _service.GetStorylineTimelineAsync(_worldId, _gmUserId, WorldRole.GM, CancellationToken.None);
 
-        Assert.That(result.Value!.Lanes.Select(l => l.Name), Is.EqualTo(new[] { "Short arc", "Long arc" }));
+        Assert.That(result.Value!.Lanes.Select(l => l.Name), Is.EqualTo(["Short arc", "Long arc"]));
     }
 
     [Test]
@@ -399,7 +399,7 @@ public class ArtifactServiceTimelineTests
         var result = await _service.GetStorylineTimelineAsync(_worldId, _gmUserId, WorldRole.GM, CancellationToken.None);
 
         var lane = result.Value!.Lanes.Single();
-        Assert.That(lane.Campaigns.Select(c => c.CampaignId), Is.EquivalentTo(new[] { throne.Id, reckoning.Id }));
+        Assert.That(lane.Campaigns.Select(c => c.CampaignId), Is.EquivalentTo([throne.Id, reckoning.Id]));
         Assert.That(lane.Campaigns.All(c => c.Derived), Is.True);
         Assert.That(lane.Campaigns.Any(c => c.Declared), Is.False);
     }

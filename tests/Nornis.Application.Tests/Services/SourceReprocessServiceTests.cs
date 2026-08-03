@@ -413,11 +413,11 @@ public class SourceReprocessServiceTests
 
         Assert.That(result.IsSuccess, Is.True);
         var preview = result.Value!;
-        Assert.That(preview.ArtifactNamesToDelete, Is.EquivalentTo(new[] { scenario.Orphan.Name }));
-        Assert.That(preview.ArtifactNamesToKeep, Is.EquivalentTo(new[]
-        {
+        Assert.That(preview.ArtifactNamesToDelete, Is.EquivalentTo([scenario.Orphan.Name]));
+        Assert.That(preview.ArtifactNamesToKeep, Is.EquivalentTo(
+        [
             scenario.Shared.Name, scenario.Linked.Name, scenario.Referenced.Name
-        }));
+        ]));
         Assert.That(preview.FactsToDelete, Is.EqualTo(1), "only the fact this source created");
         Assert.That(preview.RelationshipsToDelete, Is.EqualTo(1));
         Assert.That(preview.PendingProposalsToDiscard, Is.EqualTo(1));

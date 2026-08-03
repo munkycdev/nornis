@@ -115,7 +115,7 @@ public class WorldExportTests
             Assert.That(manifest.RootElement.GetProperty("formatVersion").GetInt32(), Is.EqualTo(1));
             var categories = manifest.RootElement.GetProperty("categories").EnumerateArray()
                 .Select(c => c.GetString()).ToList();
-            Assert.That(categories, Is.EquivalentTo(new[] { "Members", "Campaigns", "Sources" }));
+            Assert.That(categories, Is.EquivalentTo(["Members", "Campaigns", "Sources"]));
         }
 
         // Unselected categories stay out of the zip.

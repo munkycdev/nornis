@@ -78,7 +78,7 @@ public class ArtifactServiceCampaignsTests
         Assert.That(result.IsSuccess, Is.True);
         var declared = (await _storylineCampaignRepo.ListByArtifactIdAsync(storyline.Id, CancellationToken.None))
             .Select(l => l.CampaignId);
-        Assert.That(declared, Is.EquivalentTo(new[] { c1.Id, c2.Id }));
+        Assert.That(declared, Is.EquivalentTo([c1.Id, c2.Id]));
     }
 
     [Test]
@@ -94,7 +94,7 @@ public class ArtifactServiceCampaignsTests
         Assert.That(result.IsSuccess, Is.True);
         var declared = (await _storylineCampaignRepo.ListByArtifactIdAsync(storyline.Id, CancellationToken.None))
             .Select(l => l.CampaignId);
-        Assert.That(declared, Is.EqualTo(new[] { c2.Id }));
+        Assert.That(declared, Is.EqualTo([c2.Id]));
     }
 
     [Test]
@@ -161,7 +161,7 @@ public class ArtifactServiceCampaignsTests
         var result = await _service.GetDetailAsync(storyline.Id, _worldId, _gmUserId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.DeclaredCampaigns.Select(c => c.Name), Is.EquivalentTo(new[] { "Alpha", "Beta" }));
+        Assert.That(result.Value!.DeclaredCampaigns.Select(c => c.Name), Is.EquivalentTo(["Alpha", "Beta"]));
     }
 
     [Test]

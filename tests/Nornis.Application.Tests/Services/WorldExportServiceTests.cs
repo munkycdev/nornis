@@ -159,7 +159,7 @@ public class WorldExportServiceTests
         var result = await _sut.ExportAsync(Command([WorldExportCategory.Codex]), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(_reader.LastCategories, Is.EquivalentTo(new[] { WorldExportCategory.Codex }));
+        Assert.That(_reader.LastCategories, Is.EquivalentTo([WorldExportCategory.Codex]));
 
         using var zip = OpenZip(UploadedZipBytes());
         Assert.That(zip.GetEntry("codex.json"), Is.Not.Null);
@@ -174,7 +174,7 @@ public class WorldExportServiceTests
         using var manifest = ReadJsonEntry(zip, "manifest.json");
         var categories = manifest.RootElement.GetProperty("categories").EnumerateArray()
             .Select(c => c.GetString()).ToList();
-        Assert.That(categories, Is.EqualTo(new[] { "Codex" }));
+        Assert.That(categories, Is.EqualTo(["Codex"]));
     }
 
     [Test]
@@ -209,7 +209,7 @@ public class WorldExportServiceTests
         using var manifest = ReadJsonEntry(zip, "manifest.json");
         var missing = manifest.RootElement.GetProperty("missingFiles").EnumerateArray()
             .Select(m => m.GetString()).ToList();
-        Assert.That(missing, Is.EqualTo(new[] { expectedEntry }));
+        Assert.That(missing, Is.EqualTo([expectedEntry]));
     }
 
     [Test]
@@ -253,7 +253,7 @@ public class WorldExportServiceTests
         var result = await _sut.ExportAsync(Command([WorldExportCategory.Members]), CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(_blobs.DeletedPrefixes, Is.EqualTo(new[] { $"worlds/{_world.Id}/exports/" }));
+        Assert.That(_blobs.DeletedPrefixes, Is.EqualTo([$"worlds/{_world.Id}/exports/"]));
         Assert.That(_blobs.Blobs.Keys, Has.None.Contain("stale-export.zip"));
         Assert.That(_blobs.Blobs.ContainsKey($"worlds/{_world.Id}/exports/{result.Value!.FileName}"), Is.True);
     }

@@ -353,13 +353,13 @@ public class ContinuityFixServiceTests
         var drafts = ContinuityFixService.BuildValidatedProposals(
             raw, new ProposalValidator(), [_voss], [_harborFact, _shipFact], [_rel]);
 
-        Assert.That(drafts.Select(d => d.ChangeType), Is.EquivalentTo(new[]
-        {
+        Assert.That(drafts.Select(d => d.ChangeType), Is.EquivalentTo(
+        [
             ReviewChangeType.UpdateFact,
             ReviewChangeType.UpdateArtifact,
             ReviewChangeType.UpdateRelationship,
             ReviewChangeType.AddFact
-        }));
+        ]));
         Assert.That(drafts.Single(d => d.ChangeType == ReviewChangeType.AddFact).TargetId, Is.EqualTo(_voss.Id));
         // Case-insensitive truth state parse normalizes to the canonical enum name.
         Assert.That(drafts.Single(d => d.ChangeType == ReviewChangeType.UpdateFact).ProposedValueJson,

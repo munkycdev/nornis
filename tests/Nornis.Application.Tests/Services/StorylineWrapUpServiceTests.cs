@@ -222,7 +222,7 @@ public class StorylineWrapUpServiceTests
         Assert.That(nest.ChildName, Is.EqualTo("New Arc"));
         Assert.That(nest.ParentName, Is.EqualTo("Busy Arc"));
         Assert.That(view.ParentOptions, Has.Count.EqualTo(3));
-        Assert.That(view.Advanced.Select(a => a.Name), Is.EquivalentTo(new[] { "Busy Arc", "New Arc" }));
+        Assert.That(view.Advanced.Select(a => a.Name), Is.EquivalentTo(["Busy Arc", "New Arc"]));
     }
 
     [Test]

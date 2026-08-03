@@ -154,7 +154,7 @@ public class SourceKnowledgeServiceTests
         var result = await _sut.GetForSourceAsync(WorldId, _source.Id, PlayerId, WorldRole.Player, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.Facts.Select(f => f.Predicate), Is.EqualTo(new[] { "title" }));
+        Assert.That(result.Value!.Facts.Select(f => f.Predicate), Is.EqualTo(["title"]));
     }
 
     [Test]

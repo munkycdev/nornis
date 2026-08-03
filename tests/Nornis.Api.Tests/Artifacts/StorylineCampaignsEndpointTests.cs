@@ -61,7 +61,7 @@ public class StorylineCampaignsEndpointTests
 
         var detail = await scenario.GmClient.GetFromJsonAsync<ArtifactDetailResponse>(
             $"/api/worlds/{scenario.World.Id}/artifacts/{storyline.Id}");
-        Assert.That(detail!.DeclaredCampaigns.Select(c => c.Name), Is.EquivalentTo(new[] { "Alpha", "Beta" }));
+        Assert.That(detail!.DeclaredCampaigns.Select(c => c.Name), Is.EquivalentTo(["Alpha", "Beta"]));
     }
 
     [Test]

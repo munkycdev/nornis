@@ -95,7 +95,7 @@ public class SourceAttributionProjectionTests : IntegrationTestBase
         var result = await _repository.ListAttributionByIdsAsync(
             [party, gmOnly, privateNote, draft], Guid.NewGuid(), WorldRole.Player);
 
-        Assert.That(result.Select(r => r.Id), Is.EqualTo(new[] { party }));
+        Assert.That(result.Select(r => r.Id), Is.EqualTo([party]));
     }
 
     [Test]
@@ -124,7 +124,7 @@ public class SourceAttributionProjectionTests : IntegrationTestBase
 
         var result = await _repository.ListAttributionByIdsAsync([a, b, c], _authorId, WorldRole.GM);
 
-        Assert.That(result.Select(r => r.Title), Is.EquivalentTo(new[] { "A", "B", "C" }));
+        Assert.That(result.Select(r => r.Title), Is.EquivalentTo(["A", "B", "C"]));
     }
 
     [Test]
@@ -161,12 +161,12 @@ public class SourceAttributionProjectionTests : IntegrationTestBase
             .Select(p => p.Name)
             .ToList();
 
-        Assert.That(properties, Is.EquivalentTo(new[]
-        {
+        Assert.That(properties, Is.EquivalentTo(
+        [
             nameof(Domain.Models.SourceAttribution.Id),
             nameof(Domain.Models.SourceAttribution.Title),
             nameof(Domain.Models.SourceAttribution.Visibility),
             nameof(Domain.Models.SourceAttribution.CreatedByUserId),
-        }));
+        ]));
     }
 }

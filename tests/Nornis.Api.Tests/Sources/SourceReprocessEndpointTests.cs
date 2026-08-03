@@ -107,7 +107,7 @@ public class SourceReprocessEndpointTests
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         var preview = await response.Content.ReadFromJsonAsync<ReprocessPreviewResponse>();
-        Assert.That(preview!.ArtifactNamesToDelete, Is.EquivalentTo(new[] { artifact.Name }));
+        Assert.That(preview!.ArtifactNamesToDelete, Is.EquivalentTo([artifact.Name]));
         Assert.That(preview.ArtifactNamesToKeep, Is.Empty);
         Assert.That(preview.FactsToDelete, Is.Zero);
     }

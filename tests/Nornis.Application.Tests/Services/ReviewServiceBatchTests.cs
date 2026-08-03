@@ -143,7 +143,7 @@ public class ReviewServiceBatchTests
         var result = await _service.BatchAcceptAsync(command, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.Succeeded, Is.EquivalentTo(new[] { p1.Id, p2.Id }));
+        Assert.That(result.Value!.Succeeded, Is.EquivalentTo([p1.Id, p2.Id]));
         Assert.That(result.Value.Failed, Is.Empty);
         Assert.That(p1.Status, Is.EqualTo(ReviewProposalStatus.Accepted));
         Assert.That(p2.Status, Is.EqualTo(ReviewProposalStatus.Accepted));
@@ -315,7 +315,7 @@ public class ReviewServiceBatchTests
 
         Assert.That(result.IsSuccess, Is.True);
         // All succeed in request order
-        Assert.That(result.Value!.Succeeded, Is.EqualTo(new[] { p3.Id, p1.Id, p2.Id }));
+        Assert.That(result.Value!.Succeeded, Is.EqualTo([p3.Id, p1.Id, p2.Id]));
     }
 
     #endregion
@@ -377,7 +377,7 @@ public class ReviewServiceBatchTests
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.Succeeded, Is.EquivalentTo(new[] { p1.Id, p2.Id }));
+        Assert.That(result.Value!.Succeeded, Is.EquivalentTo([p1.Id, p2.Id]));
         Assert.That(result.Value.Failed, Is.Empty);
         Assert.That(p1.Status, Is.EqualTo(ReviewProposalStatus.Rejected));
         Assert.That(p2.Status, Is.EqualTo(ReviewProposalStatus.Rejected));
@@ -624,7 +624,7 @@ public class ReviewServiceBatchTests
         var result = await _service.BatchRejectAsync(command, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.Succeeded, Is.EqualTo(new[] { p3.Id, p1.Id, p2.Id }));
+        Assert.That(result.Value!.Succeeded, Is.EqualTo([p3.Id, p1.Id, p2.Id]));
     }
 
     #endregion

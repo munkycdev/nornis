@@ -109,7 +109,7 @@ public class ArtifactNameLookupVisibilityTests : IntegrationTestBase
 
         var matches = await _repository.ListByEquivalentNameAsync(_worldId, Name, PlayerFilter());
 
-        Assert.That(matches.Select(a => a.Id), Is.EqualTo(new[] { expected }));
+        Assert.That(matches.Select(a => a.Id), Is.EqualTo([expected]));
     }
 
     [Test]
@@ -119,7 +119,7 @@ public class ArtifactNameLookupVisibilityTests : IntegrationTestBase
 
         var matches = await _repository.ListByEquivalentNameAsync(_worldId, Name, PlayerFilter());
 
-        Assert.That(matches.Select(a => a.Id), Is.EqualTo(new[] { expected }),
+        Assert.That(matches.Select(a => a.Id), Is.EqualTo([expected]),
             "ownership must be honoured in SQL, or Players lose their own Private artifacts");
     }
 
@@ -132,7 +132,7 @@ public class ArtifactNameLookupVisibilityTests : IntegrationTestBase
 
         var matches = await _repository.ListByEquivalentNameAsync(_worldId, Name, VisibilityFilter.All);
 
-        Assert.That(matches.Select(a => a.Id), Is.EqualTo(new[] { expected }));
+        Assert.That(matches.Select(a => a.Id), Is.EqualTo([expected]));
     }
 
     [Test]
@@ -147,7 +147,7 @@ public class ArtifactNameLookupVisibilityTests : IntegrationTestBase
 
         var matches = await _repository.ListByEquivalentNameAsync(_worldId, Name, PlayerFilter());
 
-        Assert.That(matches.Select(a => a.Id), Is.EqualTo(new[] { visible }));
+        Assert.That(matches.Select(a => a.Id), Is.EqualTo([visible]));
     }
 
     [Test]
@@ -157,7 +157,7 @@ public class ArtifactNameLookupVisibilityTests : IntegrationTestBase
 
         var matches = await _repository.ListByEquivalentNameAsync(_worldId, "captain voss", PlayerFilter());
 
-        Assert.That(matches.Select(a => a.Id), Is.EqualTo(new[] { expected }),
+        Assert.That(matches.Select(a => a.Id), Is.EqualTo([expected]),
             "adding the visibility predicate must not have disturbed the name comparison");
     }
 
@@ -171,7 +171,7 @@ public class ArtifactNameLookupVisibilityTests : IntegrationTestBase
 
         var matches = await _repository.ListByEquivalentNameAsync(_worldId, "Captain  Voss", PlayerFilter());
 
-        Assert.That(matches.Select(a => a.Id), Is.EqualTo(new[] { expected }));
+        Assert.That(matches.Select(a => a.Id), Is.EqualTo([expected]));
     }
 
     [Test]
@@ -182,7 +182,7 @@ public class ArtifactNameLookupVisibilityTests : IntegrationTestBase
 
         var matches = await _repository.ListByEquivalentNameAsync(_worldId, Name, PlayerFilter());
 
-        Assert.That(matches.Select(a => a.Id), Is.EqualTo(new[] { expected }));
+        Assert.That(matches.Select(a => a.Id), Is.EqualTo([expected]));
     }
 
     [Test]

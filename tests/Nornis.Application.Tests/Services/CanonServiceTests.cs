@@ -78,7 +78,7 @@ public class CanonServiceTests
 
         var result = await _service.GetCanonAsync(Query(_keldaUserId, WorldRole.GM), CancellationToken.None);
 
-        Assert.That(result.Value!.Select(e => e.Label), Is.EqualTo(new[] { "new", "old" }));
+        Assert.That(result.Value!.Select(e => e.Label), Is.EqualTo(["new", "old"]));
     }
 
     [Test]
