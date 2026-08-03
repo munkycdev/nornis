@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -187,7 +187,11 @@ public sealed class AzureBlobStorageService : IBlobStorageService
     {
         await EnsureContainerAsync(cancellationToken);
         var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
-        await foreach (var blob in containerClient.GetBlobsAsync(prefix: prefix, cancellationToken: cancellationToken))
+        // Traits and states are explicit since Azure.Storage.Blobs 12.29: the overload with
+        // defaults is gone. None/None is what the defaults were — names only, no metadata, no
+        // snapshots or soft-deleted blobs — and this only ever needs the name to delete by.
+        await foreach (var blob in containerClient.GetBlobsAsync(
+            BlobTraits.None, BlobStates.None, prefix, cancellationToken))
         {
             await containerClient.DeleteBlobIfExistsAsync(blob.Name, cancellationToken: cancellationToken);
         }
