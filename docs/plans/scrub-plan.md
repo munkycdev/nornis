@@ -342,12 +342,22 @@ the point.
     executions of nothing. Verified by scanning each body for its own parameter rather
     than trusting the audit note. Those now take no argument and declare `MaxTest = 1`,
     which is what they always were.
-  - **Not done: converting those sixteen to plain `[Test]`s.** Their bodies return
-    labelled `Property` conjunctions built with `.Label().And()`, and early-exit with
-    `return false.Label(...)`. Converting means rewriting sixteen assertion bodies by
-    hand, which is a different job from pruning and carries a real risk of quietly
-    changing what is asserted. The signature and `MaxTest = 1` now tell the truth about
-    what they are; the `Property` return type is what is left to remove.
+  - ~~**Not done: converting those sixteen to plain `[Test]`s.**~~ **Done 2026-08-02.**
+    The risk named here — quietly changing what is asserted — was handled by never
+    inverting a condition by hand. Signatures went first, which made the compiler
+    enumerate all 36 remaining `return`s inside exactly those sixteen bodies; twenty were
+    early-exit guards, rewritten in place as `if (cond) Assert.Fail(msg);` (`Assert.Fail`
+    throws, so the exit is the same), and sixteen were final `.Label().And()` conjunctions,
+    which became `Assert.Multiple` — the faithful translation, since both evaluate every
+    conjunct and report all failures rather than stopping at the first.
+    - One guard needed its `return` back. `if (expected is null) Assert.Fail(...)` left the
+      compiler thinking `expected` could still be null on the next line, because
+      `Assert.Fail` is not annotated as never-returning. That one carries a comment.
+    - The seventeen genuine `MaxTest = 100` properties live in the same three files and use
+      the same guard idiom, so nothing here was a blind sweep — every edit was scoped to the
+      sixteen by name.
+    - Verified beyond "still green": one converted assertion was inverted on purpose and the
+      test failed with its own message, which is the part a green suite cannot tell you.
   - **Not done: merging the four numbered files into concern-named fixtures.** With the
     factory shared this is now pure file movement, and it would bury the diff above.
   - The newer PropertyTests folder (real `Gen.Elements` + adversarial strings) remains the

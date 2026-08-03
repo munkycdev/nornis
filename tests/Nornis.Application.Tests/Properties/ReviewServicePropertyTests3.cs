@@ -159,9 +159,9 @@ public class ReviewServicePropertyTests3
     ///
     /// **Validates: Requirements 4.2**
     /// </summary>
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 12: Edited Proposals Allow Subsequent Accept")]
-    public Property Edited_proposals_allow_subsequent_accept()
+    public void Edited_proposals_allow_subsequent_accept()
     {
         // Use REAL applicator for accept — the edited JSON must actually work
         var ctx = ReviewHarness.WithRealApplicator();
@@ -216,19 +216,22 @@ public class ReviewServicePropertyTests3
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
-            return false.Label($"Accept of edited proposal failed: {result.Error!.Code} - {result.Error!.Message}");
+            Assert.Fail($"Accept of edited proposal failed: {result.Error!.Code} - {result.Error!.Message}");
 
         var updated = ctx.ProposalRepo.Proposals.First(p => p.Id == proposal.Id);
         var statusAccepted = updated.Status == ReviewProposalStatus.Accepted;
         var artifactCreated = ctx.ArtifactRepo.Artifacts.Count == 1;
 
-        return statusAccepted.Label($"Status should be Accepted, got {updated.Status}")
-            .And(artifactCreated.Label($"Artifact should be created, got {ctx.ArtifactRepo.Artifacts.Count}"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(statusAccepted, Is.True, $"Status should be Accepted, got {updated.Status}");
+            Assert.That(artifactCreated, Is.True, $"Artifact should be created, got {ctx.ArtifactRepo.Artifacts.Count}");
+        });
     }
 
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 12: Edited Proposals Allow Subsequent Reject")]
-    public Property Edited_proposals_allow_subsequent_reject()
+    public void Edited_proposals_allow_subsequent_reject()
     {
         // Use FAKE applicator for reject — no application needed
         var ctx = ReviewHarness.WithFakeApplicator();
@@ -282,7 +285,7 @@ public class ReviewServicePropertyTests3
         var after = DateTimeOffset.UtcNow;
 
         if (!result.IsSuccess)
-            return false.Label($"Reject of edited proposal failed: {result.Error!.Code} - {result.Error!.Message}");
+            Assert.Fail($"Reject of edited proposal failed: {result.Error!.Code} - {result.Error!.Message}");
 
         var updated = ctx.ProposalRepo.Proposals.First(p => p.Id == proposal.Id);
         var statusRejected = updated.Status == ReviewProposalStatus.Rejected;
@@ -291,9 +294,12 @@ public class ReviewServicePropertyTests3
             && updated.ReviewedAt.Value <= after;
         var noArtifacts = ctx.ArtifactRepo.Artifacts.Count == 0;
 
-        return statusRejected.Label($"Status should be Rejected, got {updated.Status}")
-            .And(reviewedAtSet.Label("ReviewedAt should be updated"))
-            .And(noArtifacts.Label("No artifacts should be created on reject"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(statusRejected, Is.True, $"Status should be Rejected, got {updated.Status}");
+            Assert.That(reviewedAtSet, Is.True, "ReviewedAt should be updated");
+            Assert.That(noArtifacts, Is.True, "No artifacts should be created on reject");
+        });
     }
 
     #endregion
@@ -469,9 +475,9 @@ public class ReviewServicePropertyTests3
     ///
     /// **Validates: Requirements 5.3, 5.5**
     /// </summary>
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 14: Batch Partial Failure Reports Correct Partitioning")]
-    public Property Batch_partial_failure_reports_correct_partitioning()
+    public void Batch_partial_failure_reports_correct_partitioning()
     {
         var ctx = ReviewHarness.WithFakeApplicator();
 
@@ -594,7 +600,7 @@ public class ReviewServicePropertyTests3
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
-            return false.Label($"BatchAccept should return success with partitioned results, got error: {result.Error!.Code}");
+            Assert.Fail($"BatchAccept should return success with partitioned results, got error: {result.Error!.Code}");
 
         var batchResult = result.Value!;
 
@@ -612,10 +618,13 @@ public class ReviewServicePropertyTests3
         // Total should partition correctly
         var totalPartitioned = batchResult.Succeeded.Count + batchResult.Failed.Count == 3;
 
-        return validInSucceeded.Label("Valid proposal should be in succeeded list")
-            .And(rejectedInFailed.Label("Rejected proposal should fail with 'conflict'"))
-            .And(nonExistentInFailed.Label("Non-existent proposal should fail with 'not_found'"))
-            .And(totalPartitioned.Label($"Total should be 3, got {batchResult.Succeeded.Count + batchResult.Failed.Count}"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(validInSucceeded, Is.True, "Valid proposal should be in succeeded list");
+            Assert.That(rejectedInFailed, Is.True, "Rejected proposal should fail with 'conflict'");
+            Assert.That(nonExistentInFailed, Is.True, "Non-existent proposal should fail with 'not_found'");
+            Assert.That(totalPartitioned, Is.True, $"Total should be 3, got {batchResult.Succeeded.Count + batchResult.Failed.Count}");
+        });
     }
 
     #endregion
@@ -630,9 +639,9 @@ public class ReviewServicePropertyTests3
     ///
     /// **Validates: Requirements 8.1, 3.6**
     /// </summary>
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 15: First Accept Transitions Batch to InReview")]
-    public Property First_accept_transitions_batch_to_inreview()
+    public void First_accept_transitions_batch_to_inreview()
     {
         var ctx = ReviewHarness.WithFakeApplicator();
 
@@ -698,18 +707,18 @@ public class ReviewServicePropertyTests3
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
-            return false.Label($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
+            Assert.Fail($"Accept failed: {result.Error!.Code} - {result.Error!.Message}");
 
         // Assert batch transitioned to InReview
         var updatedBatch = ctx.BatchRepo.Batches.First(b => b.Id == batch.Id);
         var isInReview = updatedBatch.Status == ReviewBatchStatus.InReview;
 
-        return isInReview.Label($"Batch should be InReview, got {updatedBatch.Status}");
+        Assert.That(isInReview, Is.True, $"Batch should be InReview, got {updatedBatch.Status}");
     }
 
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 15: First Reject Transitions Batch to InReview")]
-    public Property First_reject_transitions_batch_to_inreview()
+    public void First_reject_transitions_batch_to_inreview()
     {
         var ctx = ReviewHarness.WithFakeApplicator();
 
@@ -774,18 +783,18 @@ public class ReviewServicePropertyTests3
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
-            return false.Label($"Reject failed: {result.Error!.Code} - {result.Error!.Message}");
+            Assert.Fail($"Reject failed: {result.Error!.Code} - {result.Error!.Message}");
 
         // Assert batch transitioned to InReview
         var updatedBatch = ctx.BatchRepo.Batches.First(b => b.Id == batch.Id);
         var isInReview = updatedBatch.Status == ReviewBatchStatus.InReview;
 
-        return isInReview.Label($"Batch should be InReview, got {updatedBatch.Status}");
+        Assert.That(isInReview, Is.True, $"Batch should be InReview, got {updatedBatch.Status}");
     }
 
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 15: First Edit Transitions Batch to InReview")]
-    public Property First_edit_transitions_batch_to_inreview()
+    public void First_edit_transitions_batch_to_inreview()
     {
         var ctx = ReviewHarness.WithFakeApplicator();
 
@@ -851,13 +860,13 @@ public class ReviewServicePropertyTests3
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
-            return false.Label($"Edit failed: {result.Error!.Code} - {result.Error!.Message}");
+            Assert.Fail($"Edit failed: {result.Error!.Code} - {result.Error!.Message}");
 
         // Assert batch transitioned to InReview
         var updatedBatch = ctx.BatchRepo.Batches.First(b => b.Id == batch.Id);
         var isInReview = updatedBatch.Status == ReviewBatchStatus.InReview;
 
-        return isInReview.Label($"Batch should be InReview, got {updatedBatch.Status}");
+        Assert.That(isInReview, Is.True, $"Batch should be InReview, got {updatedBatch.Status}");
     }
 
     #endregion

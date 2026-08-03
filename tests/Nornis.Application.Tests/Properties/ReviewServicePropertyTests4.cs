@@ -243,9 +243,9 @@ public class ReviewServicePropertyTests4
     ///
     /// **Validates: Requirements 10.1, 10.2**
     /// </summary>
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 18: Idempotent Accept of Already-Accepted Proposal")]
-    public Property Idempotent_accept_of_already_accepted_proposal()
+    public void Idempotent_accept_of_already_accepted_proposal()
     {
         var ctx = ReviewHarness.WithFakeApplicator();
 
@@ -304,7 +304,7 @@ public class ReviewServicePropertyTests4
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
-            return false.Label($"Idempotent accept failed: {result.Error!.Code} - {result.Error!.Message}");
+            Assert.Fail($"Idempotent accept failed: {result.Error!.Code} - {result.Error!.Message}");
 
         var value = result.Value!;
         var preservedReviewedAt = value.ReviewedAt == originalReviewedAt;
@@ -312,15 +312,18 @@ public class ReviewServicePropertyTests4
         var noNewArtifacts = ctx.ArtifactRepo.Artifacts.Count == artifactCountBefore;
         var noNewSourceRefs = ctx.SourceRefRepo.References.Count == sourceRefCountBefore;
 
-        return preservedReviewedAt.Label($"ReviewedAt should be original {originalReviewedAt}, got {value.ReviewedAt}")
-            .And(preservedReviewedBy.Label($"ReviewedByUserId should be {originalReviewerId}, got {value.ReviewedByUserId}"))
-            .And(noNewArtifacts.Label("No new artifacts should be created"))
-            .And(noNewSourceRefs.Label("No new source references should be created"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(preservedReviewedAt, Is.True, $"ReviewedAt should be original {originalReviewedAt}, got {value.ReviewedAt}");
+            Assert.That(preservedReviewedBy, Is.True, $"ReviewedByUserId should be {originalReviewerId}, got {value.ReviewedByUserId}");
+            Assert.That(noNewArtifacts, Is.True, "No new artifacts should be created");
+            Assert.That(noNewSourceRefs, Is.True, "No new source references should be created");
+        });
     }
 
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 18: Idempotent Reject of Already-Rejected Proposal")]
-    public Property Idempotent_reject_of_already_rejected_proposal()
+    public void Idempotent_reject_of_already_rejected_proposal()
     {
         var ctx = ReviewHarness.WithFakeApplicator();
 
@@ -376,7 +379,7 @@ public class ReviewServicePropertyTests4
             CancellationToken.None).GetAwaiter().GetResult();
 
         if (!result.IsSuccess)
-            return false.Label($"Idempotent reject failed: {result.Error!.Code} - {result.Error!.Message}");
+            Assert.Fail($"Idempotent reject failed: {result.Error!.Code} - {result.Error!.Message}");
 
         var value = result.Value!;
         var preservedReviewedAt = value.ReviewedAt == originalReviewedAt;
@@ -387,10 +390,13 @@ public class ReviewServicePropertyTests4
         var statusUnchanged = updatedProposal.Status == ReviewProposalStatus.Rejected;
         var reviewedAtUnchanged = updatedProposal.ReviewedAt == originalReviewedAt;
 
-        return preservedReviewedAt.Label($"ReviewedAt should be original {originalReviewedAt}, got {value.ReviewedAt}")
-            .And(preservedReviewedBy.Label($"ReviewedByUserId should be {originalReviewerId}, got {value.ReviewedByUserId}"))
-            .And(statusUnchanged.Label("Proposal status should remain Rejected"))
-            .And(reviewedAtUnchanged.Label("Proposal ReviewedAt should remain unchanged"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(preservedReviewedAt, Is.True, $"ReviewedAt should be original {originalReviewedAt}, got {value.ReviewedAt}");
+            Assert.That(preservedReviewedBy, Is.True, $"ReviewedByUserId should be {originalReviewerId}, got {value.ReviewedByUserId}");
+            Assert.That(statusUnchanged, Is.True, "Proposal status should remain Rejected");
+            Assert.That(reviewedAtUnchanged, Is.True, "Proposal ReviewedAt should remain unchanged");
+        });
     }
 
     #endregion
@@ -404,9 +410,9 @@ public class ReviewServicePropertyTests4
     ///
     /// **Validates: Requirements 10.3**
     /// </summary>
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 19: Accept Rejected Proposal Returns Error")]
-    public Property Accept_rejected_proposal_returns_conflict_error()
+    public void Accept_rejected_proposal_returns_conflict_error()
     {
         var ctx = ReviewHarness.WithFakeApplicator();
 
@@ -462,14 +468,17 @@ public class ReviewServicePropertyTests4
         var isConflict = result.Error?.StatusCode == 409;
         var codeIsConflict = result.Error?.Code == "conflict";
 
-        return isError.Label("Should return error when accepting a rejected proposal")
-            .And(isConflict.Label($"Should be 409, got {result.Error?.StatusCode}"))
-            .And(codeIsConflict.Label($"Error code should be 'conflict', got '{result.Error?.Code}'"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(isError, Is.True, "Should return error when accepting a rejected proposal");
+            Assert.That(isConflict, Is.True, $"Should be 409, got {result.Error?.StatusCode}");
+            Assert.That(codeIsConflict, Is.True, $"Error code should be 'conflict', got '{result.Error?.Code}'");
+        });
     }
 
-    [FsCheck.NUnit.Property(MaxTest = 1)]
+    [Test]
     [Description("Feature: review-proposal-workflow, Property 19: Reject Accepted Proposal Returns Error")]
-    public Property Reject_accepted_proposal_returns_conflict_error()
+    public void Reject_accepted_proposal_returns_conflict_error()
     {
         var ctx = ReviewHarness.WithFakeApplicator();
 
@@ -525,9 +534,12 @@ public class ReviewServicePropertyTests4
         var isConflict = result.Error?.StatusCode == 409;
         var codeIsConflict = result.Error?.Code == "conflict";
 
-        return isError.Label("Should return error when rejecting an accepted proposal")
-            .And(isConflict.Label($"Should be 409, got {result.Error?.StatusCode}"))
-            .And(codeIsConflict.Label($"Error code should be 'conflict', got '{result.Error?.Code}'"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(isError, Is.True, "Should return error when rejecting an accepted proposal");
+            Assert.That(isConflict, Is.True, $"Should be 409, got {result.Error?.StatusCode}");
+            Assert.That(codeIsConflict, Is.True, $"Error code should be 'conflict', got '{result.Error?.Code}'");
+        });
     }
 
     #endregion
