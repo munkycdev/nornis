@@ -33,6 +33,18 @@ public class Source
     public SourceProcessingStatus ProcessingStatus { get; set; }
 
     /// <summary>
+    /// When <see cref="ProcessingStatus"/> last changed. Null for rows that predate the
+    /// column and have not moved since.
+    ///
+    /// Exists for one reason: a source can wedge at Queued when its extraction message
+    /// dead-letters, and every route out of that needs to know how long it has been stuck.
+    /// Nothing sets this by hand — the DbContext stamps it whenever the status column is
+    /// actually modified, because a clock a safety gate depends on cannot rely on
+    /// thirty-eight call sites remembering it.
+    /// </summary>
+    public DateTimeOffset? StatusChangedAt { get; set; }
+
+    /// <summary>
     /// Whether processing this source runs AI extraction. When false the source is
     /// stored as part of the record without generating proposals — reference documents,
     /// flavor writing, and other material that shouldn't touch canon.

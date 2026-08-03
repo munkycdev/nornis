@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Nornis.Application.Errors;
 using Nornis.Application.Messaging;
 using Nornis.Application.Models;
@@ -27,11 +27,30 @@ public class SourceService : ISourceService
         [SourceProcessingStatus.Draft] = new() { SourceProcessingStatus.Ready },
         // Ready → Ready lets mark-ready retry a source stranded at Ready (enqueue failure).
         [SourceProcessingStatus.Ready] = new() { SourceProcessingStatus.Queued, SourceProcessingStatus.Ready },
-        [SourceProcessingStatus.Queued] = new() { SourceProcessingStatus.Processing },
+        // Queued → Ready is the way out of the dead-letter wedge, and it is gated on
+        // staleness rather than allowed outright — see StaleQueuedThreshold below.
+        [SourceProcessingStatus.Queued] = new() { SourceProcessingStatus.Processing, SourceProcessingStatus.Ready },
         [SourceProcessingStatus.Processing] = new() { SourceProcessingStatus.Processed, SourceProcessingStatus.Failed },
         [SourceProcessingStatus.Processed] = new(),
         [SourceProcessingStatus.Failed] = new() { SourceProcessingStatus.Ready },
     };
+
+    /// <summary>
+    /// How long a source must sit at Queued before a GM may re-ready it.
+    ///
+    /// Sized against the worst case the queue can produce: five deliveries, each able to hold
+    /// the lock for <c>MaxAutoLockRenewalDuration</c> (5 minutes for extraction) plus up to two
+    /// minutes of <c>RedeliveryBackoff</c> — about thirty-five minutes before the message
+    /// dead-letters. An hour clears that with room for a cold worker scaling from zero and
+    /// pulling an image.
+    ///
+    /// Past this point the message is on the dead-letter queue or gone, so re-enqueueing cannot
+    /// race a live delivery. And if a pathological run *is* somehow still going,
+    /// IX_ReviewBatches_SourceId_Extraction means only one of them commits a batch — which is
+    /// what makes this safe now and did not when this fix was first assessed and declined.
+    /// The cost of being wrong is one wasted extraction, not a duplicated record.
+    /// </summary>
+    public static readonly TimeSpan StaleQueuedThreshold = TimeSpan.FromHours(1);
 
     public SourceService(
         ISourceRepository sourceRepository,
@@ -420,11 +439,23 @@ public class SourceService : ISourceService
             return AppResult<Source>.Fail(new AppError(403, "forbidden", "Only the source creator or a GM can mark this source as ready."));
         }
 
-        // State machine: only Draft, Ready (retry), and Failed can be marked ready
+        // State machine: only Draft, Ready (retry), Failed, and a long-stuck Queued.
         if (!IsValidTransition(source.ProcessingStatus, SourceProcessingStatus.Ready))
         {
             return AppResult<Source>.Fail(new AppError(409, "invalid_transition",
                 $"Cannot transition from {source.ProcessingStatus} to Ready."));
+        }
+
+        // The wedge: a dead-lettered extraction leaves a source Queued with nothing coming for
+        // it, and until now no user-reachable path out. Re-readying it early would be the worse
+        // bug — a second extraction alongside a live one, paying twice — so it waits until the
+        // queue can no longer be holding the message.
+        if (source.ProcessingStatus == SourceProcessingStatus.Queued
+            && !IsStaleQueued(source, DateTimeOffset.UtcNow))
+        {
+            return AppResult<Source>.Fail(new AppError(409, "still_queued",
+                "This source is queued for extraction. If it is still queued in an hour, "
+                + "marking it ready again will retry it."));
         }
 
         // Stored without extraction: "processing" just files the source in the record —
@@ -515,6 +546,14 @@ public class SourceService : ISourceService
 
     private bool CanSeeSource(Source source, Guid userId, WorldRole role) =>
         CanSeePredicate(userId, role)(source);
+
+    /// <summary>
+    /// A source is safely re-readyable once it has been Queued longer than
+    /// <see cref="StaleQueuedThreshold"/>. A null stamp means the row predates the column and
+    /// has not moved since — which is itself older than any threshold, so it qualifies.
+    /// </summary>
+    private static bool IsStaleQueued(Source source, DateTimeOffset now) =>
+        source.StatusChangedAt is not { } changedAt || now - changedAt >= StaleQueuedThreshold;
 
     private static bool IsValidTransition(SourceProcessingStatus current, SourceProcessingStatus target)
     {

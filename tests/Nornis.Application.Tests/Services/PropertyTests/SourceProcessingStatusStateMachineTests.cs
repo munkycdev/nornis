@@ -1,4 +1,4 @@
-using FsCheck;
+﻿using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -32,6 +32,19 @@ public class SourceProcessingStatusStateMachineTests
 {
     /// <summary>
     /// Valid transitions per the state machine definition.
+    ///
+    /// A second copy of SourceService's table, and it drifted the moment production changed:
+    /// Queued → Ready was added on 2026-08-02 as the way out of the dead-letter wedge, and this
+    /// copy still said no. Kept as a copy rather than reaching for the private original,
+    /// because a test that asks the subject what the answer is asserts nothing — but that means
+    /// this list is a claim about intent, and a failure here is a prompt to check which of the
+    /// two is wrong.
+    ///
+    /// Queued → Ready is deliberately absent below even though production allows it, because
+    /// it is *conditional*: only once the source has been stuck past
+    /// <see cref="SourceService.StaleQueuedThreshold"/>. Sources here are seeded freshly queued,
+    /// so the refusal is the correct behaviour — with its own error code. The time rule itself
+    /// is covered by SourceServiceQueuedWedgeTests.
     /// </summary>
     private static readonly Dictionary<SourceProcessingStatus, HashSet<SourceProcessingStatus>> ValidTransitions = new()
     {
@@ -67,6 +80,8 @@ public class SourceProcessingStatusStateMachineTests
             Body = "We questioned Captain Voss in Black Harbor.",
             Visibility = VisibilityScope.PartyVisible,
             ProcessingStatus = scenario.CurrentStatus,
+            // Freshly moved, so a Queued source is inside the wedge threshold rather than past it.
+            StatusChangedAt = DateTimeOffset.UtcNow,
             CreatedByUserId = scenario.ActingUserId,
             CreatedAt = DateTimeOffset.UtcNow.AddDays(-1)
         };
@@ -105,8 +120,14 @@ public class SourceProcessingStatusStateMachineTests
             // All other statuses → Ready are invalid
             Assert.That(result.IsSuccess, Is.False,
                 $"Transition from {scenario.CurrentStatus} to Ready should be rejected (invalid transition).");
-            Assert.That(result.Error!.Code, Is.EqualTo("invalid_transition"),
-                $"Error code should be 'invalid_transition' when attempting from {scenario.CurrentStatus}.");
+
+            // A freshly queued source is refused for a different reason, and says so: the
+            // transition is legal, the source is simply too recent to be considered wedged.
+            var expectedCode = scenario.CurrentStatus == SourceProcessingStatus.Queued
+                ? "still_queued"
+                : "invalid_transition";
+            Assert.That(result.Error!.Code, Is.EqualTo(expectedCode),
+                $"Error code should be '{expectedCode}' when attempting from {scenario.CurrentStatus}.");
             Assert.That(result.Error.StatusCode, Is.EqualTo(409),
                 "Invalid transition should return 409 Conflict.");
 

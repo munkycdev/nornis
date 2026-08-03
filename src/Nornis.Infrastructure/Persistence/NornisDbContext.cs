@@ -44,6 +44,39 @@ public class NornisDbContext : DbContext
 
     public DbSet<OperationalFlag> OperationalFlags => Set<OperationalFlag>();
 
+    /// <summary>
+    /// Stamps <see cref="Source.StatusChangedAt"/> whenever a source's processing status is
+    /// actually modified.
+    ///
+    /// Here rather than at the call sites because there are thirty-eight of them across nine
+    /// services, and the column is what a safety gate reads: the Queued wedge's only route out
+    /// is "has this been stuck long enough that no delivery can still be in flight". One call
+    /// site forgetting to stamp would not fail a test — it would silently make a wedged source
+    /// look fresh forever, which is the bug, restored.
+    ///
+    /// The change tracker knows precisely which property changed, so this stamps on real
+    /// transitions and not on unrelated saves. It cannot see <c>ExecuteUpdate</c>, which
+    /// bypasses tracking entirely — <see cref="Repositories.SourceRepository.TryClaimForExtractionAsync"/>
+    /// sets the column in its own SetProperty for that reason.
+    /// </summary>
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        foreach (var entry in ChangeTracker.Entries<Source>())
+        {
+            var isNewlyQueued = entry.State == EntityState.Added;
+            var statusChanged = entry.State == EntityState.Modified
+                && entry.Property(s => s.ProcessingStatus).IsModified;
+
+            if (isNewlyQueued || statusChanged)
+            {
+                entry.Entity.StatusChangedAt = now;
+            }
+        }
+
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(NornisDbContext).Assembly);
