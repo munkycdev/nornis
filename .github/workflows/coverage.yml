@@ -21,7 +21,7 @@ jobs:
   collect:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -64,7 +64,7 @@ jobs:
       # not because the source is secret (the repo is public) but because a dashboard read
       # at a glance should not be a source dump.
       - name: Attach the full report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: artifacts/coverage/report
@@ -152,4 +152,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
