@@ -1,4 +1,4 @@
-@inject NornisApiClient Api
+﻿@inject NornisApiClient Api
 
 <MudDialog>
     <DialogContent>
@@ -23,7 +23,7 @@
 
 @code {
     [CascadingParameter]
-    private MudDialogInstance MudDialog { get; set; } = default!;
+    private IMudDialogInstance MudDialog { get; set; } = default!;
 
     [Parameter] public Guid WorldId { get; set; }
     [Parameter] public Guid ArtifactId { get; set; }

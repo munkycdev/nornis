@@ -1,4 +1,4 @@
-@page "/profile"
+﻿@page "/profile"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -372,7 +372,7 @@
             _ => (string.Empty, (Func<Task<bool>>)(() => Task.FromResult(false)))
         };
 
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Claim character?", message, yesText: "Claim", cancelText: "Cancel");
         if (confirmed != true)
         {
@@ -499,7 +499,7 @@
 
     private async Task DeleteCharacterAsync(CharacterDto ch)
     {
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete character?",
             $"Delete {ch.Name}? Campaign assignments are removed with it.",
             yesText: "Delete", cancelText: "Cancel");

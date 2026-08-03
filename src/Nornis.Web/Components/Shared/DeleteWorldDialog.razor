@@ -44,7 +44,7 @@
 
 @code {
     [CascadingParameter]
-    private MudDialogInstance MudDialog { get; set; } = default!;
+    private IMudDialogInstance MudDialog { get; set; } = default!;
 
     [Parameter] public Guid WorldId { get; set; }
     [Parameter] public string WorldName { get; set; } = string.Empty;
@@ -67,7 +67,7 @@
         _error = null;
         // The wipe can take a while and can't be canceled client-side once requested —
         // lock the dialog (no backdrop click, no Esc) so it can't be dismissed mid-delete.
-        MudDialog.SetOptions(new DialogOptions { BackdropClick = false, CloseOnEscapeKey = false });
+        await MudDialog.SetOptionsAsync(MudDialog.Options with { BackdropClick = false, CloseOnEscapeKey = false });
 
         var result = await Api.DeleteWorldAsync(WorldId, _typedName.Trim());
 
@@ -76,7 +76,7 @@
         if (!result.IsSuccess)
         {
             _error = result.Error!.Message;
-            MudDialog.SetOptions(new DialogOptions { BackdropClick = true, CloseOnEscapeKey = true });
+            await MudDialog.SetOptionsAsync(MudDialog.Options with { BackdropClick = true, CloseOnEscapeKey = true });
             return;
         }
 

@@ -598,7 +598,7 @@
             return;
         }
 
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Remove this pin?",
             $"Take \"{pin.ArtifactName}\" off this map. The location itself is kept — only the pin is removed.",
             yesText: "Remove pin", cancelText: "Cancel");
@@ -953,7 +953,7 @@
             return;
         }
 
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Reveal to the party?",
             $"Make \"{_source.Title}\" — and anything attached to it, like a map image — visible to the whole party. Knowledge extracted from it keeps its current scope. This can't be undone.",
             yesText: "Reveal", cancelText: "Cancel");
@@ -1125,7 +1125,7 @@
             return ApiResult<SourceDetailDto>.Fail(preview.Error!);
         }
 
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Reprocess this note?",
             BuildReprocessSummary(preview.Value!),
             yesText: "Delete & Reprocess", cancelText: "Cancel");
@@ -1239,7 +1239,7 @@
             return;
         }
 
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Re-run extraction on this note?",
             BuildReRunSummary(preview.Value!),
             yesText: "Delete & Re-run", cancelText: "Cancel");
@@ -1281,7 +1281,7 @@
         }
 
         var total = preview.Value!.TotalSources;
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Re-run the timeline from here?",
             new MarkupString(
                 $"<p style=\"margin: 0 0 0.75em;\"><b>{total}</b> note(s) — this one and every session or imported note after it — " +
@@ -1362,7 +1362,7 @@
             return;
         }
 
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete source?",
             "This permanently removes the source. Artifacts already accepted from it remain.",
             yesText: "Delete", cancelText: "Cancel");

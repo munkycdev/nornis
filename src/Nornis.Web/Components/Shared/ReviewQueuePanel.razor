@@ -1,4 +1,4 @@
-@using System.Text.Json
+﻿@using System.Text.Json
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject IDialogService DialogService
@@ -296,7 +296,7 @@ else
 
     private async Task RejectAsync(ReviewProposal p)
     {
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Reject proposal?",
             "This discards the proposed change. It can't be undone.",
             yesText: "Reject", cancelText: "Cancel");
@@ -372,7 +372,7 @@ else
     private async Task RejectAllAsync()
     {
         var openCount = OpenIds().Count;
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Reject all proposals?",
             $"This discards all {openCount} open proposed changes. It can't be undone.",
             yesText: "Reject all", cancelText: "Cancel");

@@ -1,4 +1,4 @@
-@inject GmNoteWriter Notes
+﻿@inject GmNoteWriter Notes
 
 @* A GM note is an ordinary source of type GMNote, marked ready immediately so extraction
    reads it and proposes updates — including corrections to facts already on the record. *@
@@ -53,7 +53,7 @@
 
 @code {
     [CascadingParameter]
-    private MudDialogInstance MudDialog { get; set; } = default!;
+    private IMudDialogInstance MudDialog { get; set; } = default!;
 
     [Parameter] public Guid WorldId { get; set; }
 

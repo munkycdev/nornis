@@ -1,4 +1,4 @@
-@page "/ask"
+﻿@page "/ask"
 @using System.Text
 @using System.Text.Json
 @implements IDisposable
@@ -360,7 +360,7 @@
         var worldId = Worlds.Current.Id;
         var conversation = _current;
 
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete conversation?",
             $"Remove \"{conversation.Title}\" from your ask history? This cannot be undone.",
             yesText: "Delete", cancelText: "Cancel");

@@ -437,7 +437,7 @@
     private string _campaignName = string.Empty;
     private string? _campaignDescription;
     private string _campaignStatus = "Active";
-    private IEnumerable<Guid> _campaignCharacterIds = [];
+    private IReadOnlyCollection<Guid> _campaignCharacterIds = [];
     private bool _savingCampaign;
     private string? _campaignError;
 
@@ -595,7 +595,7 @@
 
     private async Task DeleteCampaignAsync(CampaignDto c)
     {
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete campaign?",
             $"Delete \"{c.Name}\"? Sources keep their content and revert to no campaign; nothing else is removed.",
             yesText: "Delete", cancelText: "Cancel");
@@ -735,7 +735,7 @@
 
     private async Task RemoveAsync(WorldMember member)
     {
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Remove member?",
             $"Remove {DisplayName(member)} from this world?",
             yesText: "Remove", cancelText: "Cancel");
@@ -857,7 +857,7 @@
 
     private async Task RevokeInviteAsync(WorldInvite invite)
     {
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Revoke invite?",
             "This link will stop working immediately. Anyone who already joined stays a member.",
             yesText: "Revoke", cancelText: "Cancel");
