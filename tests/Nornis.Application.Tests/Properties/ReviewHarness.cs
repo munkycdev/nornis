@@ -1,4 +1,4 @@
-using Nornis.Application.Application;
+﻿using Nornis.Application.Application;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Application.Validation;
@@ -73,7 +73,8 @@ internal sealed record ReviewHarness(
                 harness.SourceRefRepo,
                 new FakeUnitOfWork(),
                 validator,
-                applicatorFor(harness))
+                applicatorFor(harness),
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance)
         };
     }
 }

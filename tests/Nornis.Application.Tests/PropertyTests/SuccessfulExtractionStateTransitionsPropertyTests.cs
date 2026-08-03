@@ -1,10 +1,11 @@
-using FsCheck;
+﻿using FsCheck;
 using FsCheck.Fluent;
 using FsCheck.NUnit;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
+using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -88,7 +89,9 @@ public class SuccessfulExtractionStateTransitionsPropertyTests
             new FakeMapExtractionClient(),
             new FakeAiBudgetGuard(), unitOfWork,
             options,
-            logger);
+            logger,
+            passageRetriever: NoOpReferencePassageRetriever.Instance,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
 
         // Seed source in Queued status with non-empty body
         sourceRepo.Seed(source);
@@ -169,7 +172,9 @@ public class SuccessfulExtractionStateTransitionsPropertyTests
             new FakeMapExtractionClient(),
             new FakeAiBudgetGuard(), unitOfWork,
             options,
-            logger);
+            logger,
+            passageRetriever: NoOpReferencePassageRetriever.Instance,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
 
         // Seed source
         sourceRepo.Seed(source);

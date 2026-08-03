@@ -15,7 +15,25 @@ public record ContinuityAssessmentResponse(
     int Score,
     int EffectiveScore,
     int HeuristicScore,
-    IReadOnlyList<ContinuityFindingResponse> Findings);
+    IReadOnlyList<ContinuityFindingResponse> Findings,
+    ContinuityPenaltyBreakdownResponse Penalty);
+
+/// <summary>
+/// The penalty arithmetic already done, so a client can show its working without owning a
+/// second copy of the severity table, the cap, or the stale-suspension rule.
+/// </summary>
+public record ContinuityPenaltyBreakdownResponse(
+    IReadOnlyList<ContinuityPenaltyLineResponse> Lines,
+    IReadOnlyList<ContinuitySeverityWeightResponse> Scale,
+    int StaleSuspendedCount,
+    int RawPenalty,
+    int CappedPenalty,
+    int Cap,
+    bool IsCapped);
+
+public record ContinuityPenaltyLineResponse(string Severity, int PenaltyEach, int Count, int Subtotal);
+
+public record ContinuitySeverityWeightResponse(string Severity, int PenaltyEach);
 
 public record ContinuityFindingResponse(
     Guid Id,

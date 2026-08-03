@@ -19,7 +19,37 @@ public record ContinuityAssessment(
     int Score,
     int EffectiveScore,
     int HeuristicScore,
-    IReadOnlyList<ContinuityFindingView> Findings);
+    IReadOnlyList<ContinuityFindingView> Findings,
+    ContinuityPenaltyBreakdown Penalty);
+
+/// <summary>
+/// Why the effective score is what it is, arithmetic already done. The Web used to rebuild this
+/// from the findings — its own copy of the severity table, the cap, and the stale-suspension
+/// rule — which put the same policy in two deployables with no compiler or test spanning the
+/// boundary between them. Now the rule has one home and the page renders what it is handed.
+/// </summary>
+public record ContinuityPenaltyBreakdown(
+    IReadOnlyList<ContinuityPenaltyLine> Lines,
+    IReadOnlyList<ContinuitySeverityWeight> Scale,
+    int StaleSuspendedCount,
+    int RawPenalty,
+    int CappedPenalty,
+    int Cap,
+    bool IsCapped)
+{
+    /// <summary>A world with no assessment yet: the scale still applies, nothing has been scored
+    /// against it.</summary>
+    public static ContinuityPenaltyBreakdown None(
+        IReadOnlyList<ContinuitySeverityWeight> scale, int cap) =>
+        new([], scale, 0, 0, 0, cap, false);
+}
+
+/// <summary>One severity's contribution: how much each costs, how many counted, and the product.</summary>
+public record ContinuityPenaltyLine(string Severity, int PenaltyEach, int Count, int Subtotal);
+
+/// <summary>What one finding of a given severity costs — the whole table, including severities
+/// this assessment happens to have none of, so a client can state the rule without knowing it.</summary>
+public record ContinuitySeverityWeight(string Severity, int PenaltyEach);
 
 /// <summary>
 /// A single continuity finding as presented to callers. <see cref="IsStale"/> is derived, never

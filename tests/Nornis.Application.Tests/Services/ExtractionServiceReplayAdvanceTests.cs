@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
+using Nornis.Application.Knowledge;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -70,7 +71,7 @@ public class ExtractionServiceReplayAdvanceTests
             new FakeUnitOfWork(),
             Options.Create(options),
             NullLogger<ExtractionService>.Instance,
-            passageRetriever: null,
+            passageRetriever: NoOpReferencePassageRetriever.Instance,
             replayAdvancer: _advancer);
     }
 

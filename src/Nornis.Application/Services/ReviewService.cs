@@ -33,9 +33,7 @@ public class ReviewService : IReviewService
     private readonly IProposalValidator _proposalValidator;
     private readonly IProposalApplicator _proposalApplicator;
 
-    // Optional so the many existing ReviewService constructions keep compiling; the hosts
-    // register the real advancer. Null means "no replay to advance".
-    private readonly IExtractionReplayAdvancer? _replayAdvancer;
+    private readonly IExtractionReplayAdvancer _replayAdvancer;
 
     private readonly ILogger<ReviewService> _logger;
 
@@ -50,12 +48,14 @@ public class ReviewService : IReviewService
         IUnitOfWork unitOfWork,
         IProposalValidator proposalValidator,
         IProposalApplicator proposalApplicator,
-        IExtractionReplayAdvancer? replayAdvancer = null,
+        // Required, not optional-with-null: defaulting it meant a host that forgot to register
+        // an advancer stalled every replay with nothing to show for it. A caller with no replay
+        // passes NoOpExtractionReplayAdvancer.
+        IExtractionReplayAdvancer replayAdvancer,
         ILogger<ReviewService>? logger = null)
     {
-        // Optional so the sixteen existing construction sites keep compiling; the host
-        // always supplies one, and tests that do not care get the null sink. Mirrors the
-        // replayAdvancer parameter directly above.
+        // The logger stays optional, deliberately. An absent logger costs log lines, not a
+        // feature — which is the whole distinction the parameter above is drawn on.
         _logger = logger ?? NullLogger<ReviewService>.Instance;
         _replayAdvancer = replayAdvancer;
         _reviewProposalRepository = reviewProposalRepository;
@@ -928,7 +928,7 @@ public class ReviewService : IReviewService
             // The last proposal just resolved: if a timeline replay is waiting on this
             // source, it may now advance. Only the extraction batch counts — named sweep
             // batches (Kind != null) are not part of the replay walk. TryAdvance never throws.
-            if (_replayAdvancer is not null && batch.Kind is null)
+            if (batch.Kind is null)
             {
                 await _replayAdvancer.TryAdvanceAsync(batch.WorldId, batch.SourceId, ct);
             }

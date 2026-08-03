@@ -140,7 +140,9 @@ public class ContinuityAuditBackgroundServiceTests
                     Score: 80,
                     EffectiveScore: 80,
                     HeuristicScore: 75,
-                    Findings: [])));
+                    Findings: [],
+                    Penalty: ContinuityPenaltyBreakdown.None(
+                        ContinuityAuditService.SeverityScale, ContinuityAuditService.PenaltyCap))));
 
         await RunOneTickAsync();
 

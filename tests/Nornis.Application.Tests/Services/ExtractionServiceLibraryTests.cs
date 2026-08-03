@@ -72,7 +72,8 @@ public class ExtractionServiceLibraryTests
             new FakeUnitOfWork(),
             options,
             NullLogger<ExtractionService>.Instance,
-            _retriever);
+            _retriever,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
     }
 
     private void SeedSource(VisibilityScope visibility = VisibilityScope.PartyVisible)

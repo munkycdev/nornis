@@ -1,4 +1,4 @@
-using Nornis.Application.Application;
+﻿using Nornis.Application.Application;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
@@ -55,7 +55,8 @@ public class ReviewServiceEditTests
             _sourceRefRepo,
             _unitOfWork,
             _validator,
-            _applicator);
+            _applicator,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
 
         _worldId = Guid.NewGuid();
         _gmUserId = Guid.NewGuid();

@@ -40,14 +40,11 @@ public class ExtractionService : IExtractionService
     private readonly ExtractionOptions _options;
     private readonly ILogger<ExtractionService> _logger;
 
-    // Optional so the many existing ExtractionService constructions keep compiling; the
-    // Worker registers the real retriever. Null means "no library grounding".
-    private readonly IReferencePassageRetriever? _passageRetriever;
+    private readonly IReferencePassageRetriever _passageRetriever;
 
-    // Optional for the same reason. A zero-proposal extraction completes its batch with no
-    // review step, so the replay walk must be nudged from here; batches WITH proposals
-    // advance from the review pipeline instead. Null means "no replay to advance".
-    private readonly IExtractionReplayAdvancer? _replayAdvancer;
+    // A zero-proposal extraction completes its batch with no review step, so the replay walk
+    // must be nudged from here; batches WITH proposals advance from the review pipeline instead.
+    private readonly IExtractionReplayAdvancer _replayAdvancer;
 
     private static readonly string[] ValidChangeTypes =
     [
@@ -83,8 +80,13 @@ public class ExtractionService : IExtractionService
         IUnitOfWork unitOfWork,
         IOptions<ExtractionOptions> options,
         ILogger<ExtractionService> logger,
-        IReferencePassageRetriever? passageRetriever = null,
-        IExtractionReplayAdvancer? replayAdvancer = null)
+        // Required, not optional-with-null. These were defaulted so the many existing
+        // construction sites kept compiling, which meant a host that forgot to register one
+        // lost a feature silently: replays stalled, grounding vanished, nothing said so.
+        // Callers with genuinely no library or no replay pass NoOpReferencePassageRetriever /
+        // NoOpExtractionReplayAdvancer and say it out loud.
+        IReferencePassageRetriever passageRetriever,
+        IExtractionReplayAdvancer replayAdvancer)
     {
         _passageRetriever = passageRetriever;
         _replayAdvancer = replayAdvancer;
@@ -925,14 +927,9 @@ public class ExtractionService : IExtractionService
     }
 
     /// <summary>An empty batch is born Completed — no review will ever touch it, so a
-    /// waiting replay is nudged from here. No-op when no advancer is wired.</summary>
-    private async Task TryAdvanceReplayAsync(Guid worldId, Guid sourceId, CancellationToken ct)
-    {
-        if (_replayAdvancer is not null)
-        {
-            await _replayAdvancer.TryAdvanceAsync(worldId, sourceId, ct);
-        }
-    }
+    /// waiting replay is nudged from here.</summary>
+    private Task TryAdvanceReplayAsync(Guid worldId, Guid sourceId, CancellationToken ct) =>
+        _replayAdvancer.TryAdvanceAsync(worldId, sourceId, ct);
 
     private async Task<IReadOnlyList<ArtifactContext>> AssembleContextAsync(
         Source source, Guid worldId, CancellationToken ct)
@@ -1665,17 +1662,12 @@ public class ExtractionService : IExtractionService
     /// <summary>
     /// Retrieves published-reference passages from the world's Library to ground extraction.
     /// A party-visible source reads only party-visible shelves; a GM-only source may also read
-    /// GM-only shelves. Returns nothing when no retriever is wired or the world has no indexed
-    /// documents in scope — and never throws (the retriever swallows its own failures).
+    /// GM-only shelves. Returns nothing when the world has no indexed documents in scope — and
+    /// never throws (the retriever swallows its own failures).
     /// </summary>
     private async Task<IReadOnlyList<KnowledgePassage>> RetrieveReferencePassagesAsync(
         Source source, Guid worldId, CancellationToken ct)
     {
-        if (_passageRetriever is null)
-        {
-            return [];
-        }
-
         var allowedScopes = source.Visibility == VisibilityScope.GMOnly
             ? new[] { VisibilityScope.PartyVisible, VisibilityScope.GMOnly }
             : [VisibilityScope.PartyVisible];

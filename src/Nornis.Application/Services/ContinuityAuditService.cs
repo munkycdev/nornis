@@ -253,7 +253,8 @@ public class ContinuityAuditService : IContinuityAuditService
         if (assessment is null)
         {
             return AppResult<ContinuityAssessment>.Success(
-                new ContinuityAssessment(false, null, null, null, 0, 0, 0, []));
+                new ContinuityAssessment(false, null, null, null, 0, 0, 0, [],
+                    ContinuityPenaltyBreakdown.None(SeverityScale, PenaltyCap)));
         }
 
         // Effective score uses the current heuristic (always fresh/free) minus penalties for the
@@ -318,6 +319,17 @@ public class ContinuityAuditService : IContinuityAuditService
 
     // ---------------------------------------------------------------- Scoring (deterministic) --
 
+    /// <summary>Ceiling on the total penalty, however many findings are open.</summary>
+    public const int PenaltyCap = 40;
+
+    /// <summary>The severities that carry a penalty, worst first — the order they are listed in.</summary>
+    public static readonly IReadOnlyList<ContinuityFindingSeverity> PenaltySeverities =
+    [
+        ContinuityFindingSeverity.High,
+        ContinuityFindingSeverity.Medium,
+        ContinuityFindingSeverity.Low,
+    ];
+
     /// <summary>Penalty a single open finding contributes, by severity.</summary>
     public static int PenaltyFor(ContinuityFindingSeverity severity) => severity switch
     {
@@ -327,9 +339,44 @@ public class ContinuityAuditService : IContinuityAuditService
         _ => 0
     };
 
-    /// <summary>Total severity-weighted penalty for the open findings, capped at 40.</summary>
+    /// <summary>Total severity-weighted penalty for the open findings, capped.</summary>
     public static int TotalPenalty(IEnumerable<ContinuityFindingSeverity> openSeverities) =>
-        Math.Min(40, openSeverities.Sum(PenaltyFor));
+        Math.Min(PenaltyCap, openSeverities.Sum(PenaltyFor));
+
+    /// <summary>
+    /// The same arithmetic, itemised for display. Returned on the assessment so no other
+    /// deployable has to own a second copy of the severity table or the cap.
+    /// </summary>
+    /// <summary>The whole severity table, for clients that state the rule as well as apply it.</summary>
+    public static readonly IReadOnlyList<ContinuitySeverityWeight> SeverityScale =
+        PenaltySeverities.Select(s => new ContinuitySeverityWeight(s.ToString(), PenaltyFor(s))).ToList();
+
+    public static ContinuityPenaltyBreakdown BuildPenaltyBreakdown(
+        IReadOnlyList<ContinuityFindingSeverity> countedSeverities, int staleSuspendedCount)
+    {
+        var lines = PenaltySeverities
+            .Select(severity => new
+            {
+                Severity = severity,
+                Each = PenaltyFor(severity),
+                Count = countedSeverities.Count(s => s == severity),
+            })
+            .Where(l => l.Count > 0)
+            .Select(l => new ContinuityPenaltyLine(
+                l.Severity.ToString(), l.Each, l.Count, l.Each * l.Count))
+            .ToList();
+
+        var raw = countedSeverities.Sum(PenaltyFor);
+
+        return new ContinuityPenaltyBreakdown(
+            Lines: lines,
+            Scale: SeverityScale,
+            StaleSuspendedCount: staleSuspendedCount,
+            RawPenalty: raw,
+            CappedPenalty: Math.Min(PenaltyCap, raw),
+            Cap: PenaltyCap,
+            IsCapped: raw > PenaltyCap);
+    }
 
     /// <summary>Blended score: heuristic minus capped penalty, floored at 0.</summary>
     public static int BlendScore(int heuristic, IEnumerable<ContinuityFindingSeverity> openSeverities) =>
@@ -628,6 +675,11 @@ public class ContinuityAuditService : IContinuityAuditService
             .Select(p => p.Second)
             .ToList();
 
+        // Open but stale: shown as suspended rather than silently absent, so a GM who edited the
+        // evidence can see why the score did not move.
+        var staleSuspended = list.Zip(views)
+            .Count(p => p.First.Status == ContinuityFindingStatus.Open && p.Second.IsStale);
+
         return new ContinuityAssessment(
             HasData: true,
             AssessmentId: assessment.Id,
@@ -636,7 +688,8 @@ public class ContinuityAuditService : IContinuityAuditService
             Score: assessment.Score,
             EffectiveScore: BlendScore(heuristic, countedSeverities),
             HeuristicScore: heuristic,
-            Findings: visible);
+            Findings: visible,
+            Penalty: BuildPenaltyBreakdown(countedSeverities, staleSuspended));
     }
 
     private static ContinuityFindingView ToFindingView(

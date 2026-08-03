@@ -54,7 +54,8 @@ public class ReviewServiceListQueueTests
             _sourceRefRepo,
             _unitOfWork,
             _validator,
-            _applicator);
+            _applicator,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
 
         _worldId = Guid.NewGuid();
         _keldaUserId = Guid.NewGuid();

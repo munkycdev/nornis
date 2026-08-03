@@ -1,6 +1,7 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
+using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
@@ -158,7 +159,9 @@ public class SourceExtractionOptOutTests
                 MaxFactsPerArtifact = 20,
                 MaxParseRetryAttempts = 2
             }),
-            NullLogger<ExtractionService>.Instance);
+            NullLogger<ExtractionService>.Instance,
+            passageRetriever: NoOpReferencePassageRetriever.Instance,
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
 
         var outcome = await extractionService.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
