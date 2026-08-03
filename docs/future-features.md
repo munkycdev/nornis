@@ -69,9 +69,10 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
    applied. Three of the eleven are deliberately partial and say so in the plan (payload
    cap without extraction-time schema validation; world assertion without the
    parameter-order sweep; wrap-up idempotency without per-step reporting). The twelfth —
-   the Queued wedge — is **assessed and deliberately not attempted**: every route out needs
-   a status timestamp the schema does not have, and the ungated version trades a wedge for
-   double AI spend. The plan spells out what it needs.
+   the Queued wedge — was assessed and deferred on 2026-08-01, then **fixed 2026-08-02**
+   once the extraction batch unique index removed half its objection: a duplicate run can no
+   longer commit a second batch, so the remaining risk is bounded waste. `StatusChangedAt`
+   (additive) plus a one-hour staleness gate. **All twelve done.**
 7. D3 error handling — **done 2026-08-01, all seven items.** Prescribed, mostly mechanical. Includes the D1 leftovers that
    are metering-shaped: the $0-pricing alert (in the shared recorder) and
    failed-attempt usage recording.

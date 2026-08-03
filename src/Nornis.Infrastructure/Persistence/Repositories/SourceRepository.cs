@@ -276,7 +276,12 @@ public class SourceRepository : ISourceRepository
             var affected = await _context.Sources
                 .Where(s => s.Id == id && s.ProcessingStatus == SourceProcessingStatus.Queued)
                 .ExecuteUpdateAsync(
-                    setters => setters.SetProperty(s => s.ProcessingStatus, SourceProcessingStatus.Processing),
+                    setters => setters
+                        .SetProperty(s => s.ProcessingStatus, SourceProcessingStatus.Processing)
+                        // ExecuteUpdate bypasses the change tracker, so the DbContext's stamp
+                        // never sees this one. Missing it would leave a source that is genuinely
+                        // Processing wearing the timestamp of when it was Queued.
+                        .SetProperty(s => s.StatusChangedAt, DateTimeOffset.UtcNow),
                     cancellationToken);
 
             return affected == 1;

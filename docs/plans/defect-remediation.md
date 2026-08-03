@@ -1,4 +1,4 @@
-# Defect remediation
+﻿# Defect remediation
 
 > Part of the Nornis backlog. This file is a spec, not authorization: execute only
 > through the Execution order in `docs/future-features.md`, which holds sequencing,
@@ -146,8 +146,33 @@ changes that item's priority, not its shape.
     have no status filter**; they are now simply never handed a dangling row by merge.
     Any row left over from a merge *before* this fix is still out there and still
     counted.
-- **Dead-lettered extraction wedges the source at Queued forever.** **Not fixed — the
-  obvious fix is a trap. Read this before attempting it (assessed 2026-08-01).**
+- ~~**Dead-lettered extraction wedges the source at Queued forever.**~~ **Fixed 2026-08-02**
+  along the route the assessment recommended: `StatusChangedAt` (additive) plus a
+  staleness-gated `Queued → Ready`, threshold one hour.
+  - **The assessment's own objection had expired.** It rejected the ungated version because a
+    second extraction alongside a live one costs double AI spend *and* produces two batches.
+    The batch half is gone — `IX_ReviewBatches_SourceId_Extraction` landed the same day, so
+    only one run can commit. What is left is bounded waste, not a corrupted record, and an
+    hour makes even that unlikely: five deliveries × (5 min lock + 2 min backoff) is ~35
+    minutes to dead-letter, so past an hour nothing can still be in flight.
+  - **The timestamp is stamped by the DbContext, not by callers.** Thirty-eight sites change a
+    source's status across nine services. A clock that a safety gate reads cannot depend on
+    all of them remembering — one omission would not fail anything loudly, it would just make
+    a wedged source look permanently fresh, which is the bug restored. `SaveChangesAsync`
+    stamps on a modified status property; `TryClaimForExtractionAsync` carries its own
+    `SetProperty` because `ExecuteUpdate` bypasses the change tracker entirely. Verified by
+    disabling the stamp and watching the test fail.
+  - A null stamp counts as stale, which is what lets sources already wedged when this shipped
+    get out.
+  - Two tests elsewhere had to move. `Source_Has_Expected_Property_Count` was a census of the
+    same species tier 4 deleted three of — it failed because a column was added, which is all
+    it can ever detect. And the state-machine property test keeps a *second copy* of
+    `ValidTransitions`, so it drifted the instant production changed; it now records that it is
+    a claim about intent rather than a mirror, and expects the distinct `still_queued` refusal
+    for a source that is legally transitionable but too recent.
+
+- **(original assessment)** Dead-lettered extraction wedges the source at Queued forever.
+  **The obvious fix is a trap (assessed 2026-08-01).**
   - `ValidTransitions` has `Queued → { Processing }` only, so neither route out works:
     - **Staleness-gated `Queued → Ready`** needs a clock, and there is none. `Source` has
       no `UpdatedAt`, and `UpdateProcessingStatusAsync` writes the status column without
