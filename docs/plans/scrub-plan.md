@@ -262,10 +262,27 @@ Same decision made two or three ways across sibling files. Pick once, apply ever
   twenty-four would have spread it — the number is the safe thing to change and the *name*
   is the breaking one. Removed from the three; the invariant is stated once, on
   `EnumDefinitionTests`, which is what actually enforces the names.
-- **InMemory-provider strategy**: three answers today (tracked-load-always,
-  `Database.IsRelational()` branch, unconditional ExecuteDelete that would throw).
-  Generalize the IsRelational helper and apply it; also collapse SourceRepository's
-  four copy-paste single-column mutators onto one private `MutateAsync(id, apply, ct)`.
+- ~~**InMemory-provider strategy**~~ **Done 2026-08-02.** `DeleteWhereAsync` /
+  `SetWhereAsync` take the branch once; `SourceRepository`'s four copy-paste mutators
+  collapsed onto `MutateAsync`. Seven of the sites were the third answer — an unguarded bulk
+  call that would simply throw if a test reached one. Campaign deletion was one, and it was a
+  guaranteed 500 in any InMemory-backed test; nothing reached it, which is why it survived
+  looking like the guarded calls around it.
+  - **Two deliberate non-candidates**, named in `coding-standards.md` so nobody converts them
+    later: `LibraryChunkRepository.ReplaceForDocumentAsync` (relational-only regardless — a
+    SqlVector shadow property and an explicit transaction) and
+    `StorylineCampaignRepository.ReplaceForStorylineAsync` (a set reconciliation, not a
+    delete-where; a bulk delete would split one unit of work into two and could not express
+    the predicate).
+  - **Where to find the second half in the log.** The first pass — the helpers, the
+    contract, `MutateAsync` — is `4415543`. Converting the remaining eight repositories and
+    pushing the missing-row contract into the in-memory fakes (a `Required(id)` helper, so a
+    fake can no longer disagree with production about what is possible) landed in **`571e71b`,
+    whose message is about a documentation tense fix**. That commit was a `git add -A` over a
+    shared working tree that held a second session's uncommitted work, and it swept the lot in.
+    Recorded here rather than rewritten: the commits were already built, deployed, and
+    referenced by sha in `coverage-history`, and a misleading message is cheaper to annotate
+    than published history is to rewrite.
 - ~~**DI constructor null-guards**~~ **Done 2026-08-01.** All 26 removed across 13 files.
   Two of them were load-bearing for nullable flow analysis rather than for null-checking —
   `_options = options?.Value ?? throw …` — so dropping the throw left a `?.` the compiler
