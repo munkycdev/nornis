@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="10.0.1" />
-    <PackageReference Include="bunit" Version="2.8.6" />
+    <PackageReference Include="bunit" Version="2.9.0" />
     <!-- bUnit 2.7.2 pulls AngleSharp 1.4.0, which carries a moderate advisory
          (GHSA-pgww-w46g-26qg) and NU1902 is an error here. Pin the patched line. -->
     <PackageReference Include="AngleSharp" Version="1.7.0" />
