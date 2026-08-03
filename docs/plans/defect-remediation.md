@@ -452,20 +452,43 @@ changes that item's priority, not its shape.
 
 ## D4 — hardening and design debt
 
-- **Embeddings are the one AI path with no application timeout**
-  (`AzureOpenAiEmbeddingClient.cs:18-23`; SDK default ≈ 7 min worst case per batch,
-  inside user-facing Ask and against the worker's lock ceiling). Fix: the linked
-  timeout-CTS pattern all nine chat clients already use.
-- **Azure SDK internal retries stack beneath the designed backoff ladder** (default 3
-  per delivery × 5 deliveries — the near-instant re-request behavior
-  `RedeliveryBackoff` was written to eliminate, happening below its sight line). Fix:
-  set `MaxRetries` explicitly (0-1); classification + backoff own retry policy.
+- ~~**Embeddings are the one AI path with no application timeout**~~ **Done 2026-08-03.**
+  `Library:AiTimeoutSeconds` (60) and the linked-CTS shape from
+  `AzureOpenAiCallExecutor`. It throws `AiTimeoutException` rather than letting the raw
+  cancellation out, because `TransientFailureClassifier` reads those two oppositely — a
+  timeout retries, an `OperationCanceledException` is the caller's decision and does not,
+  so the raw one would have permanently failed a library document for being slow.
+  The worker's `_lockRenewalNote` now cites the bound; it previously had none to cite.
+- ~~**Azure SDK internal retries stack beneath the designed backoff ladder**~~
+  **Done 2026-08-03**, and not with one number. `AzureOpenAiClientFactory` names the two
+  cases the spec's "0-1" was covering:
+  - `RetriesOwnedByBackoff` (0) for both worker clients. The queue redelivery *is* the
+    ladder, and three SDK attempts inside each of five deliveries is fifteen calls for
+    what `RedeliveryBackoff` spaced out as five.
+  - `RetriesForUserFacingCall` (1) for the API. A synchronous Ask has no redelivery
+    behind it, so the multiplication that makes retries dangerous in the worker cannot
+    happen — and with zero, a single blip becomes an error the user sees rather than an
+    answer. "Classification + backoff own retry policy" only describes the worker; the
+    API has neither.
 - **The AI budget is check-then-act** — N concurrent runs at budget-ε each buy a full
   call. Overshoot is bounded by worker concurrency; either accept as a documented
   soft cap or insert a provisional usage row inside the check.
-- **Zero means opposite things in the two budget caps**: world daily budget `<= 0` →
-  guard *off*; public Ask monthly `<= 0` → feature *blocked* — same class. Fix: null
-  inherits, 0 blocks, both.
+- ~~**Zero means opposite things in the two budget caps**~~ **Done 2026-08-03, and it was
+  narrower than written.** `AiBudgetOptions.DailyWorldBudgetUsd` is `decimal?` now: null —
+  and only null — means no ceiling, and zero falls through to be exceeded by any spend at
+  all, which is the reading the public-Ask cap already gave it.
+  - The write path was checked before assuming a live bypass, and there isn't one:
+    `WorldService.cs:128` is the *only* write to `World.DailyAiBudgetUsd` and it rejects
+    anything under $0.01, clearing sets null, and no import path writes the column. So a
+    world-level zero was unreachable, and the old `<= 0` arm could only fire from
+    configuration, where "zero disables the guard" was documented and deliberate.
+  - What was actually wrong is worth keeping straight: one literal meaning "no ceiling"
+    in one cap and "switched off" in the other, in the same file, with nothing but the
+    validator standing between that and a spend guard that fails open. The fix is that
+    the two now read alike and a zero from any future route fails closed.
+  - `ZeroBudget_DisablesGuard` asserted the old behaviour and is gone; the two halves of
+    the new rule are asserted separately, plus that a world's own ceiling still wins when
+    the configured default is "none".
 - **The validator accepts what the applicator silently reinterprets**: a GM typo like
   truthState `"Flase"` is coerced to Likely with no error; unparseable Status is
   dropped. Fix with scrub **1.7**: reject unknown enum strings at the validator.

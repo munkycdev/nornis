@@ -269,9 +269,10 @@ var loremasterModel = builder.Configuration["Loremaster:AiModel"];
 if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<resource>"))
 {
     var aiKey = builder.Configuration["Loremaster:AiKey"] ?? string.Empty;
-    var openAiClient = new Azure.AI.OpenAI.AzureOpenAIClient(
+    var openAiClient = Nornis.Infrastructure.Ai.AzureOpenAiClientFactory.Create(
         new Uri(loremasterEndpoint),
-        new System.ClientModel.ApiKeyCredential(aiKey));
+        new System.ClientModel.ApiKeyCredential(aiKey),
+        Nornis.Infrastructure.Ai.AzureOpenAiClientFactory.RetriesForUserFacingCall);
     builder.Services.AddSingleton(openAiClient.GetChatClient(loremasterModel ?? "gpt-4o"));
     builder.Services.AddScoped<ILoremasterAiClient, AzureOpenAiLoremasterClient>();
     builder.Services.AddScoped<IAuditAiClient, AzureOpenAiAuditClient>();
