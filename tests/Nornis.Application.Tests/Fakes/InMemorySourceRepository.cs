@@ -214,12 +214,9 @@ public class InMemorySourceRepository : ISourceRepository
 
     public Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default)
     {
-        var source = _sources.FirstOrDefault(s => s.Id == id);
-        if (source is not null)
-        {
-            _statusTransitions.Add((id, source.ProcessingStatus, status));
-            source.ProcessingStatus = status;
-        }
+        var source = Required(id);
+        _statusTransitions.Add((id, source.ProcessingStatus, status));
+        source.ProcessingStatus = status;
         return Task.CompletedTask;
     }
 
@@ -260,29 +257,30 @@ public class InMemorySourceRepository : ISourceRepository
 
     public Task UpdateVisibilityAsync(Guid id, VisibilityScope visibility, CancellationToken cancellationToken = default)
     {
-        var source = _sources.FirstOrDefault(s => s.Id == id);
-        if (source is not null)
-        {
-            source.Visibility = visibility;
-        }
+        Required(id).Visibility = visibility;
         return Task.CompletedTask;
     }
 
     public Task UpdateBodyAsync(Guid id, string body, CancellationToken cancellationToken = default)
     {
-        var source = _sources.FirstOrDefault(s => s.Id == id)
-            ?? throw new InvalidOperationException($"Source with id '{id}' not found.");
-        source.Body = body;
+        Required(id).Body = body;
         return Task.CompletedTask;
     }
 
     public Task UpdateDerivedTextAsync(Guid id, string? derivedText, CancellationToken cancellationToken = default)
     {
-        var source = _sources.FirstOrDefault(s => s.Id == id)
-            ?? throw new InvalidOperationException($"Source with id '{id}' not found.");
-        source.DerivedText = derivedText;
+        Required(id).DerivedText = derivedText;
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// The scoped writers throw on a missing row because the real repository does — see the
+    /// missing-row contract on <see cref="ISourceRepository"/>. A fake that quietly no-ops
+    /// where production throws is how a service passes its tests and fails in the world.
+    /// </summary>
+    private Source Required(Guid id) =>
+        _sources.FirstOrDefault(s => s.Id == id)
+            ?? throw new InvalidOperationException($"Source with id '{id}' not found.");
 
     public Task<Source> UpdateAsync(Source source, CancellationToken cancellationToken = default)
     {

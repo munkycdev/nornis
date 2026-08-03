@@ -40,10 +40,6 @@ public class ImportSessionRepository : IImportSessionRepository
                 cancellationToken);
     }
 
-    // The writes below are tracked saves rather than ExecuteUpdate/ExecuteDelete: those are
-    // relational-only, and the API integration tests run this context on the in-memory
-    // provider. The rows are single and small, so nothing is lost.
-
     public async Task UpdateAsync(
         Guid id, ImportSessionStatus status, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
     {
@@ -87,17 +83,8 @@ public class ImportSessionRepository : IImportSessionRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task DeleteItemAsync(Guid itemId, CancellationToken cancellationToken = default)
-    {
-        var item = await _context.ImportSessionItems.FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);
-        if (item is null)
-        {
-            return;
-        }
-
-        _context.ImportSessionItems.Remove(item);
-        await _context.SaveChangesAsync(cancellationToken);
-    }
+    public Task DeleteItemAsync(Guid itemId, CancellationToken cancellationToken = default) =>
+        _context.DeleteWhereAsync<ImportSessionItem>(i => i.Id == itemId, cancellationToken);
 
     public async Task SetItemPositionsAsync(
         IReadOnlyList<(Guid ItemId, int Position)> positions, CancellationToken cancellationToken = default)

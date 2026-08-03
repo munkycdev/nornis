@@ -46,12 +46,6 @@ public class SourceAttachmentRepository : ISourceAttachmentRepository
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        // Tracked-load delete: the InMemory provider used in tests lacks ExecuteDelete.
-        var attachment = await _context.SourceAttachments.FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
-        if (attachment is not null)
-        {
-            _context.SourceAttachments.Remove(attachment);
-            await _context.SaveChangesAsync(cancellationToken);
-        }
+        await _context.DeleteWhereAsync<SourceAttachment>(a => a.Id == id, cancellationToken);
     }
 }

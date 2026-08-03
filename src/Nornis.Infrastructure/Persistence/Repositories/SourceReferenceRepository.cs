@@ -76,50 +76,15 @@ public class SourceReferenceRepository : ISourceReferenceRepository
         return counts.ToDictionary(c => c.SourceId, c => c.Count);
     }
 
-    public async Task DeleteBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default)
-    {
-        // Tracked-load delete: the InMemory provider used in tests lacks ExecuteDelete.
-        var references = await _context.SourceReferences
-            .Where(sr => sr.SourceId == sourceId)
-            .ToListAsync(cancellationToken);
+    public Task DeleteBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default) =>
+        _context.DeleteWhereAsync<SourceReference>(sr => sr.SourceId == sourceId, cancellationToken);
 
-        if (references.Count == 0)
-        {
-            return;
-        }
+    public Task DeleteByTargetAsync(SourceReferenceTargetType targetType, Guid targetId, CancellationToken cancellationToken = default) =>
+        _context.DeleteWhereAsync<SourceReference>(
+            sr => sr.TargetType == targetType && sr.TargetId == targetId, cancellationToken);
 
-        _context.SourceReferences.RemoveRange(references);
-        await _context.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task DeleteByTargetAsync(SourceReferenceTargetType targetType, Guid targetId, CancellationToken cancellationToken = default)
-    {
-        var references = await _context.SourceReferences
-            .Where(sr => sr.TargetType == targetType && sr.TargetId == targetId)
-            .ToListAsync(cancellationToken);
-
-        if (references.Count == 0)
-        {
-            return;
-        }
-
-        _context.SourceReferences.RemoveRange(references);
-        await _context.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task DeleteBySourceAndTargetAsync(Guid sourceId, SourceReferenceTargetType targetType, Guid targetId, CancellationToken cancellationToken = default)
-    {
-        // Tracked-load delete: the InMemory provider used in tests lacks ExecuteDelete.
-        var references = await _context.SourceReferences
-            .Where(sr => sr.SourceId == sourceId && sr.TargetType == targetType && sr.TargetId == targetId)
-            .ToListAsync(cancellationToken);
-
-        if (references.Count == 0)
-        {
-            return;
-        }
-
-        _context.SourceReferences.RemoveRange(references);
-        await _context.SaveChangesAsync(cancellationToken);
-    }
+    public Task DeleteBySourceAndTargetAsync(Guid sourceId, SourceReferenceTargetType targetType, Guid targetId, CancellationToken cancellationToken = default) =>
+        _context.DeleteWhereAsync<SourceReference>(
+            sr => sr.SourceId == sourceId && sr.TargetType == targetType && sr.TargetId == targetId,
+            cancellationToken);
 }

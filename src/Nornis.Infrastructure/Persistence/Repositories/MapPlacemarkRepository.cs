@@ -59,49 +59,15 @@ public class MapPlacemarkRepository : IMapPlacemarkRepository
         await _context.SaveAndDetachRangeAsync(placemarks, cancellationToken);
     }
 
-    public async Task DeleteAsync(Guid placemarkId, CancellationToken cancellationToken = default)
-    {
-        var placemark = await _context.MapPlacemarks
-            .FirstOrDefaultAsync(p => p.Id == placemarkId, cancellationToken);
+    public Task DeleteAsync(Guid placemarkId, CancellationToken cancellationToken = default) =>
+        _context.DeleteWhereAsync<MapPlacemark>(p => p.Id == placemarkId, cancellationToken);
 
-        if (placemark is null)
-        {
-            return;
-        }
+    public Task DeleteByArtifactAsync(Guid artifactId, CancellationToken cancellationToken = default) =>
+        _context.DeleteWhereAsync<MapPlacemark>(p => p.ArtifactId == artifactId, cancellationToken);
 
-        _context.MapPlacemarks.Remove(placemark);
-        await _context.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task DeleteByArtifactAsync(Guid artifactId, CancellationToken cancellationToken = default)
-    {
-        // Tracked-load delete: the InMemory provider used in tests lacks ExecuteDelete.
-        var placemarks = await _context.MapPlacemarks
-            .Where(p => p.ArtifactId == artifactId)
-            .ToListAsync(cancellationToken);
-
-        if (placemarks.Count == 0)
-        {
-            return;
-        }
-
-        _context.MapPlacemarks.RemoveRange(placemarks);
-        await _context.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task DeleteBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default)
-    {
-        var placemarks = await _context.MapPlacemarks
-            .Where(p => _context.SourceAttachments
-                .Any(a => a.Id == p.SourceAttachmentId && a.SourceId == sourceId))
-            .ToListAsync(cancellationToken);
-
-        if (placemarks.Count == 0)
-        {
-            return;
-        }
-
-        _context.MapPlacemarks.RemoveRange(placemarks);
-        await _context.SaveChangesAsync(cancellationToken);
-    }
+    public Task DeleteBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default) =>
+        _context.DeleteWhereAsync<MapPlacemark>(
+            p => _context.SourceAttachments
+                .Any(a => a.Id == p.SourceAttachmentId && a.SourceId == sourceId),
+            cancellationToken);
 }
