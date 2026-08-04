@@ -496,18 +496,7 @@ else
         }
     }
 
-    private async Task SelectWorldAsync(Guid worldId)
-    {
-        Worlds.Select(worldId);
-        try
-        {
-            await JS.InvokeVoidAsync("localStorage.setItem", WorldState.StorageKey, worldId.ToString());
-        }
-        catch
-        {
-            // Best-effort persist.
-        }
-    }
+    private Task SelectWorldAsync(Guid worldId) => Worlds.SelectAsync(worldId);
 
     private void OnWorldsChanged() => InvokeAsync(async () =>
     {

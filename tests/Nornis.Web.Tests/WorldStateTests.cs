@@ -12,7 +12,11 @@ public class WorldStateTests
     private static WorldState CreateState() =>
         CreateState(new StubApiHandler());
 
-    private static WorldState CreateState(HttpMessageHandler handler, string? storedWorldId = null)
+    private static WorldState CreateState(HttpMessageHandler handler, string? storedWorldId = null) =>
+        CreateState(handler, out _, storedWorldId);
+
+    private static WorldState CreateState(
+        HttpMessageHandler handler, out FakeJsRuntime js, string? storedWorldId = null)
     {
         var viewAs = new ViewAsState();
         var client = new NornisApiClient(
@@ -20,7 +24,8 @@ public class WorldStateTests
             viewAs,
             new ActivitySignal(),
             new AuthSessionState());
-        return new WorldState(client, viewAs, new FakeJsRuntime { StoredWorldId = storedWorldId });
+        js = new FakeJsRuntime { StoredWorldId = storedWorldId };
+        return new WorldState(client, viewAs, js);
     }
 
     [Test]
@@ -199,11 +204,62 @@ public class WorldStateTests
         await state.EnsureSelectionRestoredAsync();
 
         state.SetViewingAsPlayer(true);
-        state.Select(handler.SecondWorldId);
+        await state.SelectAsync(handler.SecondWorldId);
 
         Assert.That(state.ViewingAsPlayer, Is.False);
         Assert.That(state.EffectiveRole, Is.EqualTo("GM"));
     }
+
+    #region Selecting remembers
+
+    [Test]
+    public async Task SelectAsync_RemembersTheChoiceForTheNextLoad()
+    {
+        var handler = new StubApiHandler();
+        var state = CreateState(handler, out var js);
+        await state.EnsureSelectionRestoredAsync();
+
+        await state.SelectAsync(handler.SecondWorldId);
+
+        // Persisting used to live in the nav menu's own wrapper, so the three callers that were
+        // not the nav menu — accepting an invite, creating a first world, finishing onboarding —
+        // selected a world for the session and handed back the old one on the next full load.
+        Assert.That(js.LastWriteTo(WorldState.StorageKey), Is.EqualTo(handler.SecondWorldId.ToString()));
+    }
+
+    [Test]
+    public async Task SelectAsync_ReSelectingTheCurrentWorld_StillWritesIt()
+    {
+        var handler = new StubApiHandler();
+        var state = CreateState(handler, out var js);
+        await state.EnsureSelectionRestoredAsync();
+        Assert.That(state.Current!.Id, Is.EqualTo(handler.WorldId), "starts on the first world");
+
+        await state.SelectAsync(handler.WorldId);
+
+        // Re-selecting is how a caller repairs a saved value that is missing or stale — which is
+        // exactly the state a first-ever world lands in. Returning early on "no change" would
+        // make that repair impossible.
+        Assert.That(js.LastWriteTo(WorldState.StorageKey), Is.EqualTo(handler.WorldId.ToString()));
+    }
+
+    [Test]
+    public async Task SelectAsync_AWorldTheUserIsNotIn_ChangesAndRemembersNothing()
+    {
+        var handler = new StubApiHandler();
+        var state = CreateState(handler, out var js);
+        await state.EnsureSelectionRestoredAsync();
+
+        await state.SelectAsync(Guid.NewGuid());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(state.Current!.Id, Is.EqualTo(handler.WorldId));
+            Assert.That(js.LastWriteTo(WorldState.StorageKey), Is.Null);
+        });
+    }
+
+    #endregion
 
     // ------------------------------------------------------- boot / restore --
 
@@ -264,7 +320,7 @@ public class WorldStateTests
         await state.EnsureSelectionRestoredAsync();
 
         // A second entry point (another layout render) must not refetch or reselect.
-        state.Select(handler.WorldId);
+        await state.SelectAsync(handler.WorldId);
         await state.EnsureSelectionRestoredAsync();
 
         Assert.That(state.Current!.Id, Is.EqualTo(handler.WorldId));
@@ -289,7 +345,7 @@ public class WorldStateTests
 
         // Switch away while the first world's assessment is still in flight. Select clears
         // the score and starts a load for the new world, which this handler 404s.
-        state.Select(handler.SecondWorldId);
+        await state.SelectAsync(handler.SecondWorldId);
 
         handler.Release();
         await inFlight;
@@ -402,14 +458,35 @@ public class WorldStateTests
     }
 
     /// <summary>Answers the localStorage.getItem call WorldState's restore makes.</summary>
+    /// <summary>
+    /// Stands in for localStorage. Writes are recorded rather than ignored: the previous version
+    /// cast every return to the stored id, so a void call like setItem threw and was swallowed by
+    /// the caller's best-effort catch — which would have let a test claim the selection persisted
+    /// when nothing had been written at all.
+    /// </summary>
     private sealed class FakeJsRuntime : Microsoft.JSInterop.IJSRuntime
     {
-        public string? StoredWorldId { get; init; }
+        public string? StoredWorldId { get; set; }
 
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) =>
-            ValueTask.FromResult((TValue)(object?)StoredWorldId!);
+        public List<(string Identifier, object?[] Args)> Calls { get; } = [];
+
+        public string? LastWriteTo(string key) => Calls
+            .Where(c => c.Identifier == "localStorage.setItem"
+                && c.Args.Length > 0 && (c.Args[0] as string) == key)
+            .Select(c => c.Args.ElementAtOrDefault(1) as string)
+            .LastOrDefault();
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
+        {
+            Calls.Add((identifier, args ?? []));
+            return identifier switch
+            {
+                "localStorage.getItem" => ValueTask.FromResult((TValue)(object?)StoredWorldId!),
+                _ => ValueTask.FromResult(default(TValue)!),
+            };
+        }
 
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) =>
-            ValueTask.FromResult((TValue)(object?)StoredWorldId!);
+            InvokeAsync<TValue>(identifier, args);
     }
 }

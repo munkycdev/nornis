@@ -45,6 +45,30 @@ public class LibraryChunkRepository : ILibraryChunkRepository
         await transaction.CommitAsync(cancellationToken);
     }
 
+    public async Task AppendForDocumentAsync(
+        IReadOnlyList<LibraryChunkWrite> chunks,
+        CancellationToken cancellationToken = default)
+    {
+        foreach (var write in chunks)
+        {
+            _context.LibraryChunks.Add(write.Chunk);
+            // Shadow property, same as the replace above — set through the change tracker.
+            _context.Entry(write.Chunk)
+                .Property(LibraryChunkConfiguration.EmbeddingProperty)
+                .CurrentValue = new SqlVector<float>(write.Embedding);
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Detach what was just written. Left tracked, the change tracker would accumulate every
+        // chunk of the document across batches and hold exactly the memory this method exists
+        // to bound.
+        foreach (var write in chunks)
+        {
+            _context.Entry(write.Chunk).State = EntityState.Detached;
+        }
+    }
+
     public Task DeleteForDocumentAsync(Guid documentId, CancellationToken cancellationToken = default) =>
         // Unlike the replace above, this one is reachable from the API's InMemory tests —
         // deleting a document deletes its chunks.

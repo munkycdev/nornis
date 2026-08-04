@@ -3,6 +3,7 @@
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
+@inject AskHistoryStore History
 @inject IJSRuntime JS
 
 @* Compact ask-the-Loremaster panel for page rails — quick questions mid-session without
@@ -229,21 +230,10 @@
     /// </summary>
     private async Task SaveToHistoryAsync(Guid worldId, AskConversation conversation)
     {
-        try
-        {
-            var key = LoremasterDisplay.StorageKey(worldId);
-            var json = await JS.InvokeAsync<string?>("localStorage.getItem", key);
-            var conversations = string.IsNullOrWhiteSpace(json)
-                ? []
-                : JsonSerializer.Deserialize<List<AskConversation>>(json) ?? [];
-            conversations.RemoveAll(c => c.Id == conversation.Id);
-            conversations.Add(conversation);
-            await JS.InvokeVoidAsync("localStorage.setItem", key, JsonSerializer.Serialize(conversations));
-        }
-        catch
-        {
-            // Persistence is best-effort; the thread still lives in the panel.
-        }
+        var conversations = await History.LoadAsync(worldId);
+        conversations.RemoveAll(c => c.Id == conversation.Id);
+        conversations.Add(conversation);
+        await History.SaveAsync(worldId, conversations);
     }
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;

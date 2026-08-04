@@ -53,6 +53,15 @@ public class InMemoryLibraryDocumentRepository : ILibraryDocumentRepository
         _documents.RemoveAll(d => d.Id == id);
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyList<LibraryDocument>> ListAbandonedPendingUploadsAsync(
+        DateTimeOffset createdBefore, int limit, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<LibraryDocument>>(
+            _documents
+                .Where(d => d.Status == LibraryDocumentStatus.PendingUpload && d.CreatedAt < createdBefore)
+                .OrderBy(d => d.CreatedAt)
+                .Take(limit)
+                .ToList());
 }
 
 public class InMemoryLibraryChunkRepository : ILibraryChunkRepository
@@ -75,6 +84,32 @@ public class InMemoryLibraryChunkRepository : ILibraryChunkRepository
         WritesByDocument.Remove(documentId);
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Accumulates into the same per-document list the replace path fills, so a test can assert
+    /// on the finished set either way — and <see cref="AppendBatchSizes"/> records the shape of
+    /// how it got there, which is the point of the batched path.
+    /// </summary>
+    public Task AppendForDocumentAsync(
+        IReadOnlyList<LibraryChunkWrite> chunks, CancellationToken cancellationToken = default)
+    {
+        if (chunks.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        AppendBatchSizes.Add(chunks.Count);
+        var documentId = chunks[0].Chunk.DocumentId;
+        var existing = WritesByDocument.TryGetValue(documentId, out var current)
+            ? current.ToList()
+            : [];
+        existing.AddRange(chunks);
+        WritesByDocument[documentId] = existing;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>How many chunks each append carried, in order.</summary>
+    public List<int> AppendBatchSizes { get; } = [];
 
     public Task<IReadOnlyList<LibraryChunkHit>> SearchAsync(
         Guid worldId, float[] queryEmbedding, IReadOnlyList<VisibilityScope> allowedVisibilities, int topK,

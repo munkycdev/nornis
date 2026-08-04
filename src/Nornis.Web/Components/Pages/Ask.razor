@@ -5,6 +5,7 @@
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject AskState AskState
+@inject AskHistoryStore History
 @inject IJSRuntime JS
 @inject IDialogService DialogService
 
@@ -221,36 +222,14 @@
         StateHasChanged();
     }
 
-    private async Task LoadHistoryAsync()
-    {
-        try
-        {
-            var json = await JS.InvokeAsync<string?>("localStorage.getItem", LoremasterDisplay.StorageKey(Worlds.Current?.Id));
-            _conversations = string.IsNullOrWhiteSpace(json)
-                ? []
-                : JsonSerializer.Deserialize<List<AskConversation>>(json) ?? [];
-        }
-        catch
-        {
-            _conversations = [];
-        }
-    }
+    private async Task LoadHistoryAsync() =>
+        _conversations = await History.LoadAsync(Worlds.Current?.Id);
 
     /// <summary>
     /// Takes the world explicitly rather than reading <c>Worlds.Current</c>: the caller knows
     /// which world's history this list is, and that is not a question to re-ask after an await.
     /// </summary>
-    private async Task SaveHistoryAsync(Guid worldId)
-    {
-        try
-        {
-            await JS.InvokeVoidAsync("localStorage.setItem", LoremasterDisplay.StorageKey(worldId), JsonSerializer.Serialize(_conversations));
-        }
-        catch
-        {
-            // Persistence is best-effort; ignore storage failures.
-        }
-    }
+    private Task SaveHistoryAsync(Guid worldId) => History.SaveAsync(worldId, _conversations);
 
     private async Task OnKeyUp(KeyboardEventArgs e)
     {

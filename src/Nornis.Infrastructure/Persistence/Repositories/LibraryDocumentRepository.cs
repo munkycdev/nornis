@@ -63,4 +63,17 @@ public class LibraryDocumentRepository : ILibraryDocumentRepository
     {
         await _context.DeleteWhereAsync<LibraryDocument>(d => d.Id == id, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<LibraryDocument>> ListAbandonedPendingUploadsAsync(
+        DateTimeOffset createdBefore,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.LibraryDocuments
+            .AsNoTracking()
+            .Where(d => d.Status == LibraryDocumentStatus.PendingUpload && d.CreatedAt < createdBefore)
+            .OrderBy(d => d.CreatedAt)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+    }
 }

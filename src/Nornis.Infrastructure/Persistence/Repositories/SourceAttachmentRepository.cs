@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Persistence.Repositories;
@@ -47,5 +48,18 @@ public class SourceAttachmentRepository : ISourceAttachmentRepository
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await _context.DeleteWhereAsync<SourceAttachment>(a => a.Id == id, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<SourceAttachment>> ListAbandonedPendingUploadsAsync(
+        DateTimeOffset createdBefore,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.SourceAttachments
+            .AsNoTracking()
+            .Where(a => a.Status == SourceAttachmentStatus.PendingUpload && a.CreatedAt < createdBefore)
+            .OrderBy(a => a.CreatedAt)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
     }
 }

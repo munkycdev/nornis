@@ -12,6 +12,20 @@ public interface ILibraryChunkRepository
         IReadOnlyList<LibraryChunkWrite> chunks,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Adds one batch of chunks to a document already being reindexed. The batched half of
+    /// <see cref="ReplaceForDocumentAsync"/>, for the indexing pipeline: it deletes once with
+    /// <see cref="DeleteForDocumentAsync"/> and then appends batch by batch, so peak memory is
+    /// one batch of embeddings rather than every embedding in the document at once.
+    /// <para>
+    /// Safe to leave half-written because <see cref="SearchAsync"/> only reads chunks whose
+    /// document is Indexed, and a document reaches that status after the last batch lands.
+    /// </para>
+    /// </summary>
+    Task AppendForDocumentAsync(
+        IReadOnlyList<LibraryChunkWrite> chunks,
+        CancellationToken cancellationToken = default);
+
     Task DeleteForDocumentAsync(Guid documentId, CancellationToken cancellationToken = default);
 
     /// <summary>Nearest chunks to the question across the world's Indexed documents within

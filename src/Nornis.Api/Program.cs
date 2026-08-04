@@ -264,6 +264,11 @@ builder.Services.Configure<ContinuityAuditOptions>(builder.Configuration.GetSect
 builder.Services.Configure<ContinuityOptions>(builder.Configuration.GetSection(ContinuityOptions.SectionName));
 builder.Services.AddHostedService<ContinuityAuditBackgroundService>();
 
+// Abandoned uploads: rows whose blob never arrived, swept on a slower tick.
+builder.Services.Configure<UploadSweepOptions>(builder.Configuration.GetSection(UploadSweepOptions.SectionName));
+builder.Services.AddScoped<IPendingUploadSweeper, PendingUploadSweeper>();
+builder.Services.AddHostedService<PendingUploadSweepBackgroundService>();
+
 var loremasterEndpoint = builder.Configuration["Loremaster:AiEndpoint"];
 var loremasterModel = builder.Configuration["Loremaster:AiModel"];
 if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<resource>"))

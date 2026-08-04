@@ -97,7 +97,7 @@
         var joined = result.Value!;
         // Pull the newly-joined world into the sidebar and make it current.
         await Worlds.ReloadAsync();
-        Worlds.Select(joined.WorldId);
+        await Worlds.SelectAsync(joined.WorldId);
 
         Snackbar.Add(
             joined.AlreadyMember

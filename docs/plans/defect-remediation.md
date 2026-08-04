@@ -537,13 +537,32 @@ changes that item's priority, not its shape.
   null` — the value reserved for normal source extraction (currently masked because
   merge batches are born Completed). Fix: `proposal.Accept(userId, now)` on the
   entity, one shared synthetic-batch writer, and a named merge Kind.
-- **Smaller items**: Ask history grows localStorage without bound and fails silently
-  at quota (cap + one-time snackbar); accepting an invite doesn't persist the world
-  selection, so the next full load restores the old world; abandoned PendingUpload
-  rows and their blobs are never swept; the indexing pipeline holds an entire
-  document's PDF + text + chunks + embeddings in RAM at once (incremental chunk
-  writes, or lower the indexable cap); `WorldState.EnsureLoadedAsync` caches a failed
-  first load if a future caller passes a CancellationToken — a loaded gun, note only.
+- ~~**Smaller items**~~ **All four done 2026-08-03.** Two were wider than written, and both
+  widenings are the same shape: the defect was named at one call site when it belonged to
+  the thing being called.
+  - **Ask history** is now `AskHistoryStore` — the one place that touches that key, since
+    both Ask surfaces wrote and did it two different ways. Capped at 50 conversations per
+    world, newest kept; a write that still will not fit sheds half and retries; the user is
+    told once per session if anything was actually dropped. Once, because a full store fails
+    on every question and a snackbar per question is worse than the silence it replaced.
+  - **The invite** was three bugs, not one. Persisting lived in the nav menu's own wrapper,
+    so accepting an invite, creating a first world, and finishing onboarding all selected a
+    world for the session and handed back the old one on the next load. `Select` is
+    `SelectAsync` and persists — selecting and remembering are one act. It also writes on a
+    re-select of the current world, which is how a caller repairs a missing saved value.
+  - **Abandoned uploads**: `PendingUploadSweeper` plus a 6-hourly tick in the API, over both
+    halves of the SAS handshake. Blob first and row second, and the row stays if the blob
+    will not go — the other order strands the blob permanently, because once the row is gone
+    nothing remembers the path. Age is the only thing separating an abandoned upload from
+    one in flight, hence 24h.
+  - **Indexing memory**: chunks are written batch by batch instead of accumulated. A
+    1536-float embedding is ~6 KB, so a large PDF held hundreds of megabytes of vectors on
+    top of the text — with an uploaded file at the size cap as the input. Peak is now one
+    batch. Safe to leave half-written because `SearchAsync` only reads chunks whose document
+    is `Indexed`, and the status flips after the last batch. The page text is scoped and
+    dropped too; it was a second full copy of the document held alive to be counted once.
+  - Not done, and still note only: `WorldState.EnsureLoadedAsync` caches a failed first load
+    if a future caller passes a CancellationToken. Nothing passes one today.
 
 ## What the scan verified as sound
 

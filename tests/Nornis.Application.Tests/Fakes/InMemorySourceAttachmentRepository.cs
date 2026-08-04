@@ -1,4 +1,5 @@
 using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Tests.Fakes;
@@ -47,4 +48,13 @@ public class InMemorySourceAttachmentRepository : ISourceAttachmentRepository
         _attachments.RemoveAll(a => a.Id == id);
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyList<SourceAttachment>> ListAbandonedPendingUploadsAsync(
+        DateTimeOffset createdBefore, int limit, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<SourceAttachment>>(
+            _attachments
+                .Where(a => a.Status == SourceAttachmentStatus.PendingUpload && a.CreatedAt < createdBefore)
+                .OrderBy(a => a.CreatedAt)
+                .Take(limit)
+                .ToList());
 }

@@ -150,6 +150,7 @@ builder.Services.AddScoped<Nornis.Web.State.WorldState>();
 builder.Services.AddScoped<Nornis.Web.State.ActivitySignal>();
 builder.Services.AddScoped<Nornis.Web.State.OnboardingState>();
 builder.Services.AddScoped<Nornis.Web.State.AskState>();
+builder.Services.AddScoped<Nornis.Web.State.AskHistoryStore>();
 builder.Services.AddScoped<Nornis.Web.State.ViewAsState>();
 builder.Services.AddScoped<Nornis.Web.State.AuthSessionState>();
 builder.Services.AddScoped<Nornis.Web.State.GmNoteContext>();

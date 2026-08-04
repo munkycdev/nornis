@@ -24,4 +24,15 @@ public interface ILibraryDocumentRepository
     Task<LibraryDocument> UpdateAsync(LibraryDocument document, CancellationToken cancellationToken = default);
 
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Rows still awaiting a blob that never arrived, oldest first. A PendingUpload row is the
+    /// half of the SAS handshake the server owns; if the browser never PUTs the bytes — closed
+    /// tab, dead connection, abandoned picker — nothing ever completes it and the row is
+    /// invisible to every listing while still counting against the world forever.
+    /// </summary>
+    Task<IReadOnlyList<LibraryDocument>> ListAbandonedPendingUploadsAsync(
+        DateTimeOffset createdBefore,
+        int limit,
+        CancellationToken cancellationToken = default);
 }
