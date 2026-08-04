@@ -100,7 +100,9 @@ if (builder.Environment.IsDevelopment())
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
     {
-        options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+        // OpenAPI.NET v2 (which Swashbuckle 10 depends on) flattened its model namespace:
+        // OpenApiInfo lives in Microsoft.OpenApi, not Microsoft.OpenApi.Models.
+        options.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo
         {
             Title = "Nornis API",
             Version = "v1",
