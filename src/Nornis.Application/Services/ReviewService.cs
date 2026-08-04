@@ -367,9 +367,7 @@ public class ReviewService : IReviewService
             matchedExisting = applyResult.Value!.MatchedExistingArtifact;
 
             var now = DateTimeOffset.UtcNow;
-            proposal.Status = ReviewProposalStatus.Accepted;
-            proposal.ReviewedAt = now;
-            proposal.ReviewedByUserId = command.ActingUserId;
+            proposal.Accept(command.ActingUserId, now);
             await _reviewProposalRepository.UpdateAsync(proposal, ct);
 
             await transaction.CommitAsync(ct);
@@ -505,9 +503,7 @@ public class ReviewService : IReviewService
         }
 
         var now = DateTimeOffset.UtcNow;
-        proposal.Status = ReviewProposalStatus.Rejected;
-        proposal.ReviewedAt = now;
-        proposal.ReviewedByUserId = command.ActingUserId;
+        proposal.Reject(command.ActingUserId, now);
         await _reviewProposalRepository.UpdateAsync(proposal, ct);
 
         await UpdateBatchLifecycleAsync(batch.Id, ct);
@@ -544,11 +540,8 @@ public class ReviewService : IReviewService
 
         proposal.ProposedValueJson = command.NewProposedValueJson;
 
-        // Update proposal: Status=Edited, ReviewedAt=UtcNow, ReviewedByUserId
         var now = DateTimeOffset.UtcNow;
-        proposal.Status = ReviewProposalStatus.Edited;
-        proposal.ReviewedAt = now;
-        proposal.ReviewedByUserId = command.ActingUserId;
+        proposal.MarkEdited(command.ActingUserId, now);
 
         await _reviewProposalRepository.UpdateAsync(proposal, ct);
 
@@ -701,9 +694,7 @@ public class ReviewService : IReviewService
             }
 
             var now = DateTimeOffset.UtcNow;
-            proposal.Status = ReviewProposalStatus.Accepted;
-            proposal.ReviewedAt = now;
-            proposal.ReviewedByUserId = command.ActingUserId;
+            proposal.Accept(command.ActingUserId, now);
             await _reviewProposalRepository.UpdateAsync(proposal, ct);
 
             await transaction.CommitAsync(ct);
@@ -777,9 +768,7 @@ public class ReviewService : IReviewService
             }
 
             var now = DateTimeOffset.UtcNow;
-            proposal.Status = ReviewProposalStatus.Rejected;
-            proposal.ReviewedAt = now;
-            proposal.ReviewedByUserId = command.ActingUserId;
+            proposal.Reject(command.ActingUserId, now);
             await _reviewProposalRepository.UpdateAsync(proposal, ct);
 
             succeeded.Add(proposalId);
