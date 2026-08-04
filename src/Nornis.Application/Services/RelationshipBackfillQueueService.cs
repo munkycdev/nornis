@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Errors;
 using Nornis.Application.Messaging;
+using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
 
@@ -49,7 +50,7 @@ public class RelationshipBackfillQueueService : IRelationshipBackfillQueueServic
 
         foreach (var source in eligible)
         {
-            if (await _reviewBatchRepository.ExistsForSourceAsync(source.Id, RelationshipBackfillService.BatchKind, ct))
+            if (await _reviewBatchRepository.ExistsForSourceAsync(source.Id, ReviewBatchKinds.RelationshipBackfill, ct))
             {
                 alreadySwept++;
                 continue;

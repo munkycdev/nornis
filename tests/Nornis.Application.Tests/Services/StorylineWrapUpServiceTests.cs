@@ -55,17 +55,16 @@ public class StorylineWrapUpServiceTests
     {
         var reader = new StorylineDevelopmentReader(
             _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo, _sourceRepo);
+        var batchWriter = new SyntheticBatchWriter(
+            _sourceRepo, _batchRepo, _proposalRepo, _sourceRefRepo, _applicator, new FakeUnitOfWork());
         return new StorylineWrapUpService(
             reader,
             Options.Create(new ContinuityOptions { StaleThresholdSessions = staleThreshold, RecentSessionWindow = recentWindow }),
             _artifactRepo,
             _proposalRepo,
-            _batchRepo,
-            _sourceRepo,
-            _applicator,
+            batchWriter,
             _reviewService,
             _artifactService,
-            new FakeUnitOfWork(),
             NullLogger<StorylineWrapUpService>.Instance);
     }
 
@@ -295,7 +294,7 @@ public class StorylineWrapUpServiceTests
         Assert.That(result.Value.BatchId, Is.Not.Null);
 
         var batch = _batchRepo.Batches.Single();
-        Assert.That(batch.Kind, Is.EqualTo(StorylineWrapUpService.BatchKind));
+        Assert.That(batch.Kind, Is.EqualTo(ReviewBatchKinds.SessionWrapUp));
 
         var proposal = _proposalRepo.Proposals.Single();
         Assert.That(proposal.ChangeType, Is.EqualTo(ReviewChangeType.UpdateArtifact));

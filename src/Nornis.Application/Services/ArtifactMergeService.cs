@@ -11,38 +11,17 @@ namespace Nornis.Application.Services;
 
 public class ArtifactMergeService : IArtifactMergeService
 {
-    /// <summary>
-    /// Names the batch a merge mints, like every other synthetic batch does. It was left null,
-    /// which is the value reserved for a source's own extraction batch — and the filtered unique
-    /// index that enforces "one extraction batch per source" keys off exactly that. Nothing
-    /// collides today, because each merge builds its own source and no extraction is ever
-    /// enqueued for it, but the index and this batch were reading the same null two ways.
-    /// </summary>
-    public const string BatchKind = "ArtifactMerge";
-
     private readonly IArtifactRepository _artifactRepository;
-    private readonly ISourceRepository _sourceRepository;
-    private readonly IReviewBatchRepository _reviewBatchRepository;
-    private readonly IReviewProposalRepository _reviewProposalRepository;
-    private readonly IProposalApplicator _proposalApplicator;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly SyntheticBatchWriter _batchWriter;
     private readonly ILogger<ArtifactMergeService> _logger;
 
     public ArtifactMergeService(
         IArtifactRepository artifactRepository,
-        ISourceRepository sourceRepository,
-        IReviewBatchRepository reviewBatchRepository,
-        IReviewProposalRepository reviewProposalRepository,
-        IProposalApplicator proposalApplicator,
-        IUnitOfWork unitOfWork,
+        SyntheticBatchWriter batchWriter,
         ILogger<ArtifactMergeService> logger)
     {
         _artifactRepository = artifactRepository;
-        _sourceRepository = sourceRepository;
-        _reviewBatchRepository = reviewBatchRepository;
-        _reviewProposalRepository = reviewProposalRepository;
-        _proposalApplicator = proposalApplicator;
-        _unitOfWork = unitOfWork;
+        _batchWriter = batchWriter;
         _logger = logger;
     }
 
@@ -76,77 +55,38 @@ public class ArtifactMergeService : IArtifactMergeService
             return AppResult<Guid>.Fail(new AppError(404, "not_found", "Target artifact not found."));
         }
 
-        var now = DateTimeOffset.UtcNow;
-
         // Provenance: the merge is an ordinary accepted MergeArtifact proposal, tied to
         // a synthetic source recording who folded what into what.
-        var source = new Source
-        {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            Type = SourceType.GMNote,
-            Title = $"Artifact merge — {duplicate.Name} → {target.Name} — {now:yyyy-MM-dd}".Truncate(200),
-            Body = $"GM merged duplicate artifact \"{duplicate.Name}\" ({duplicate.Id}) into \"{target.Name}\" ({target.Id}).",
-            Visibility = VisibilityScope.GMOnly,
-            ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedAt = now,
-            CreatedByUserId = actingUserId
-        };
-
-        await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
-        try
-        {
-            await _sourceRepository.CreateAsync(source, ct);
-
-            var batch = new ReviewBatch
+        var written = await _batchWriter.WriteAcceptedAsync(
+            new SyntheticSourceSpec
             {
-                Id = Guid.NewGuid(),
                 WorldId = worldId,
-                SourceId = source.Id,
-                Kind = BatchKind,
-                Status = ReviewBatchStatus.Completed,
-                CreatedAt = now,
-                CompletedAt = now
-            };
-            await _reviewBatchRepository.CreateAsync(batch, ct);
+                ActingUserId = actingUserId,
+                Title = $"Artifact merge — {duplicate.Name} → {target.Name} — {DateTimeOffset.UtcNow:yyyy-MM-dd}".Truncate(200),
+                Body = $"GM merged duplicate artifact \"{duplicate.Name}\" ({duplicate.Id}) into \"{target.Name}\" ({target.Id})."
+            },
+            ReviewBatchKinds.ArtifactMerge,
+            [
+                new SyntheticProposalSpec
+                {
+                    ChangeType = ReviewChangeType.MergeArtifact,
+                    TargetType = ReviewTargetType.Artifact,
+                    TargetId = target.Id,
+                    ProposedValueJson = $$"""{"sourceArtifactId":"{{duplicate.Id}}"}""",
+                    Rationale = "GM-initiated merge of duplicate artifact."
+                }
+            ],
+            ct);
 
-            var proposal = new ReviewProposal
-            {
-                Id = Guid.NewGuid(),
-                ReviewBatchId = batch.Id,
-                ChangeType = ReviewChangeType.MergeArtifact,
-                TargetType = ReviewTargetType.Artifact,
-                TargetId = target.Id,
-                ProposedValueJson = $$"""{"sourceArtifactId":"{{duplicate.Id}}"}""",
-                Rationale = "GM-initiated merge of duplicate artifact.",
-                Status = ReviewProposalStatus.Pending,
-                CreatedAt = now
-            };
-            await _reviewProposalRepository.CreateAsync(proposal, ct);
-
-            // GM-gated above (role != GM is rejected), so resolution is unrestricted.
-            var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, source, VisibilityFilter.All, ct);
-            if (!applyResult.IsSuccess)
-            {
-                await transaction.RollbackAsync(ct);
-                return AppResult<Guid>.Fail(applyResult.Error!);
-            }
-
-            proposal.Accept(actingUserId, now);
-            await _reviewProposalRepository.UpdateAsync(proposal, ct);
-
-            await transaction.CommitAsync(ct);
-
-            _logger.LogInformation(
-                "Artifact merged. WorldId={WorldId}, Duplicate={DuplicateId}, Target={TargetId}, User={UserId}",
-                worldId, duplicate.Id, target.Id, actingUserId);
-
-            return AppResult<Guid>.Success(target.Id);
-        }
-        catch
+        if (!written.IsSuccess)
         {
-            await transaction.RollbackAsync(ct);
-            throw;
+            return AppResult<Guid>.Fail(written.Error!);
         }
+
+        _logger.LogInformation(
+            "Artifact merged. WorldId={WorldId}, Duplicate={DuplicateId}, Target={TargetId}, User={UserId}",
+            worldId, duplicate.Id, target.Id, actingUserId);
+
+        return AppResult<Guid>.Success(target.Id);
     }
 }

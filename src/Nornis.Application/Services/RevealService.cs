@@ -27,10 +27,7 @@ public class RevealService : IRevealService
     private readonly IArtifactFactRepository _factRepository;
     private readonly IArtifactRelationshipRepository _relationshipRepository;
     private readonly ISourceRepository _sourceRepository;
-    private readonly IReviewBatchRepository _reviewBatchRepository;
-    private readonly IReviewProposalRepository _reviewProposalRepository;
-    private readonly IProposalApplicator _proposalApplicator;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly SyntheticBatchWriter _batchWriter;
     private readonly ILogger<RevealService> _logger;
 
     // Optional so existing constructions keep compiling; hosts register them. Used only to
@@ -43,10 +40,7 @@ public class RevealService : IRevealService
         IArtifactFactRepository factRepository,
         IArtifactRelationshipRepository relationshipRepository,
         ISourceRepository sourceRepository,
-        IReviewBatchRepository reviewBatchRepository,
-        IReviewProposalRepository reviewProposalRepository,
-        IProposalApplicator proposalApplicator,
-        IUnitOfWork unitOfWork,
+        SyntheticBatchWriter batchWriter,
         ILogger<RevealService> logger,
         IWorldRepository? worldRepository = null,
         ITutorialProgressRepository? tutorialProgressRepository = null)
@@ -55,10 +49,7 @@ public class RevealService : IRevealService
         _factRepository = factRepository;
         _relationshipRepository = relationshipRepository;
         _sourceRepository = sourceRepository;
-        _reviewBatchRepository = reviewBatchRepository;
-        _reviewProposalRepository = reviewProposalRepository;
-        _proposalApplicator = proposalApplicator;
-        _unitOfWork = unitOfWork;
+        _batchWriter = batchWriter;
         _logger = logger;
         _worldRepository = worldRepository;
         _tutorialProgressRepository = tutorialProgressRepository;
@@ -219,94 +210,56 @@ public class RevealService : IRevealService
             return AppResult<RevealResult>.Success(new RevealResult(null, 0, 0, 0, 0, []));
         }
 
-        // Provenance + apply, all in one transaction.
-        var now = DateTimeOffset.UtcNow;
-        var source = new Source
-        {
-            Id = Guid.NewGuid(),
-            WorldId = command.WorldId,
-            Type = SourceType.Reveal,
-            Title = $"Reveal — {now:yyyy-MM-dd}",
-            Body = BuildBody(command.Note, artifactsToReveal, factsToReveal.Count, relationshipsToReveal.Count, corrections.Count),
-            Visibility = VisibilityScope.PartyVisible,
-            ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedAt = now,
-            CreatedByUserId = command.ActingUserId
-        };
+        // Provenance + apply, all in one transaction inside the writer. A reveal's
+        // synthetic source is the one the party can see — the reveal IS the party-facing
+        // record, which is why it is not the default GMOnly GMNote.
+        var specs = new List<SyntheticProposalSpec>();
+        specs.AddRange(artifactsToReveal.Select(artifact => RevealSpec(
+            ReviewChangeType.UpdateArtifact, ReviewTargetType.Artifact, artifact.Id, RevealVisibilityJson, "Revealed to the party.")));
+        specs.AddRange(factsToReveal.Select(fact => RevealSpec(
+            ReviewChangeType.UpdateFact, ReviewTargetType.ArtifactFact, fact.Id, RevealVisibilityJson, "Revealed to the party.")));
+        specs.AddRange(relationshipsToReveal.Select(relationship => RevealSpec(
+            ReviewChangeType.UpdateRelationship, ReviewTargetType.ArtifactRelationship, relationship.Id, RevealVisibilityJson, "Revealed to the party.")));
+        specs.AddRange(corrections.Select(correction => RevealSpec(
+            ReviewChangeType.UpdateFact, ReviewTargetType.ArtifactFact, correction.FactId,
+            $$"""{"truthState":"{{correction.TruthState}}"}""", "Corrected on reveal.")));
 
-        var batch = new ReviewBatch
-        {
-            Id = Guid.NewGuid(),
-            WorldId = command.WorldId,
-            SourceId = source.Id,
-            Status = ReviewBatchStatus.Completed,
-            Kind = "Reveal",
-            CreatedAt = now,
-            CompletedAt = now
-        };
-
-        await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
-        try
-        {
-            await _sourceRepository.CreateAsync(source, ct);
-            await _reviewBatchRepository.CreateAsync(batch, ct);
-
-            foreach (var artifact in artifactsToReveal)
+        var written = await _batchWriter.WriteAcceptedAsync(
+            new SyntheticSourceSpec
             {
-                if (await ApplyAsync(batch, source, ReviewChangeType.UpdateArtifact, ReviewTargetType.Artifact,
-                        artifact.Id, RevealVisibilityJson, "Revealed to the party.", command.ActingUserId, now, ct) is { } error)
-                {
-                    await transaction.RollbackAsync(ct);
-                    return AppResult<RevealResult>.Fail(error);
-                }
-            }
+                WorldId = command.WorldId,
+                ActingUserId = command.ActingUserId,
+                Type = SourceType.Reveal,
+                Title = $"Reveal — {DateTimeOffset.UtcNow:yyyy-MM-dd}",
+                Body = BuildBody(command.Note, artifactsToReveal, factsToReveal.Count, relationshipsToReveal.Count, corrections.Count),
+                Visibility = VisibilityScope.PartyVisible
+            },
+            ReviewBatchKinds.Reveal,
+            specs,
+            ct);
 
-            foreach (var fact in factsToReveal)
-            {
-                if (await ApplyAsync(batch, source, ReviewChangeType.UpdateFact, ReviewTargetType.ArtifactFact,
-                        fact.Id, RevealVisibilityJson, "Revealed to the party.", command.ActingUserId, now, ct) is { } error)
-                {
-                    await transaction.RollbackAsync(ct);
-                    return AppResult<RevealResult>.Fail(error);
-                }
-            }
-
-            foreach (var relationship in relationshipsToReveal)
-            {
-                if (await ApplyAsync(batch, source, ReviewChangeType.UpdateRelationship, ReviewTargetType.ArtifactRelationship,
-                        relationship.Id, RevealVisibilityJson, "Revealed to the party.", command.ActingUserId, now, ct) is { } error)
-                {
-                    await transaction.RollbackAsync(ct);
-                    return AppResult<RevealResult>.Fail(error);
-                }
-            }
-
-            foreach (var correction in corrections)
-            {
-                var json = $$"""{"truthState":"{{correction.TruthState}}"}""";
-                if (await ApplyAsync(batch, source, ReviewChangeType.UpdateFact, ReviewTargetType.ArtifactFact,
-                        correction.FactId, json, "Corrected on reveal.", command.ActingUserId, now, ct) is { } error)
-                {
-                    await transaction.RollbackAsync(ct);
-                    return AppResult<RevealResult>.Fail(error);
-                }
-            }
-
-            await transaction.CommitAsync(ct);
-        }
-        catch
+        if (!written.IsSuccess)
         {
-            await transaction.RollbackAsync(ct);
-            throw;
+            return AppResult<RevealResult>.Fail(written.Error!);
         }
 
         _logger.LogInformation(
             "Reveal applied. WorldId={WorldId}, Artifacts={Artifacts}, Facts={Facts}, Relationships={Relationships}, Corrections={Corrections}, BatchId={BatchId}, User={UserId}",
-            command.WorldId, artifactsToReveal.Count, factsToReveal.Count, relationshipsToReveal.Count, corrections.Count, batch.Id, command.ActingUserId);
+            command.WorldId, artifactsToReveal.Count, factsToReveal.Count, relationshipsToReveal.Count, corrections.Count, written.Value!.BatchId, command.ActingUserId);
 
         return AppResult<RevealResult>.Success(new RevealResult(
-            batch.Id, artifactsToReveal.Count, factsToReveal.Count, relationshipsToReveal.Count, corrections.Count, []));
+            written.Value.BatchId, artifactsToReveal.Count, factsToReveal.Count, relationshipsToReveal.Count, corrections.Count, []));
     }
+
+    private static SyntheticProposalSpec RevealSpec(
+        ReviewChangeType changeType, ReviewTargetType targetType, Guid targetId, string proposedValueJson, string rationale) => new()
+        {
+            ChangeType = changeType,
+            TargetType = targetType,
+            TargetId = targetId,
+            ProposedValueJson = proposedValueJson,
+            Rationale = rationale
+        };
 
     public async Task<AppResult<RevealSourceResult>> RevealSourceAsync(
         Guid worldId, Guid sourceId, Guid actingUserId, WorldRole role, CancellationToken ct)
@@ -389,42 +342,6 @@ public class RevealService : IRevealService
         {
             _logger.LogWarning(ex, "Could not record the tutorial reveal step for world {WorldId}", worldId);
         }
-    }
-
-    /// <summary>
-    /// Creates a Pending <c>Update*</c> proposal, applies it through the real applicator (which
-    /// flips visibility / truth state and stamps party-visible provenance), and accept-stamps it.
-    /// Returns the applicator's error to roll the reveal back, or null on success.
-    /// </summary>
-    private async Task<AppError?> ApplyAsync(
-        ReviewBatch batch, Source source, ReviewChangeType changeType, ReviewTargetType targetType,
-        Guid targetId, string proposedValueJson, string rationale, Guid actingUserId,
-        DateTimeOffset now, CancellationToken ct)
-    {
-        var proposal = new ReviewProposal
-        {
-            Id = Guid.NewGuid(),
-            ReviewBatchId = batch.Id,
-            ChangeType = changeType,
-            TargetType = targetType,
-            TargetId = targetId,
-            ProposedValueJson = proposedValueJson,
-            Rationale = rationale,
-            Status = ReviewProposalStatus.Pending,
-            CreatedAt = now
-        };
-        await _reviewProposalRepository.CreateAsync(proposal, ct);
-
-        // GM-gated by the callers of this helper, so resolution is unrestricted.
-        var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, source, VisibilityFilter.All, ct);
-        if (!applyResult.IsSuccess)
-        {
-            return applyResult.Error;
-        }
-
-        proposal.Accept(actingUserId, now);
-        await _reviewProposalRepository.UpdateAsync(proposal, ct);
-        return null;
     }
 
     private static AppError? PrivateGuard(VisibilityScope visibility, string kind, Guid id) =>

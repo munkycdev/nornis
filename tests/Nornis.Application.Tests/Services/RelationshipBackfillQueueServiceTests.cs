@@ -74,7 +74,7 @@ public class RelationshipBackfillQueueServiceTests
             Id = Guid.NewGuid(),
             WorldId = WorldId,
             SourceId = swept.Id,
-            Kind = RelationshipBackfillService.BatchKind,
+            Kind = ReviewBatchKinds.RelationshipBackfill,
             Status = ReviewBatchStatus.Completed,
             CreatedAt = DateTimeOffset.UtcNow
         });

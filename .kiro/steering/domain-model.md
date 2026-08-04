@@ -1,5 +1,18 @@
 # Domain Model
 
+> **Amendment (2026-08-04):** two shapes below have drifted from the tree; the tree is
+> the authority on both.
+>
+> - `ReviewBatch` carries a `Kind: string?` the schema below omits. Null means "the
+>   source's own extraction batch" — the filtered unique index enforcing
+>   one-extraction-batch-per-source keys on it — and every synthetic batch names its
+>   producer with a constant from `ReviewBatchKinds` (SessionWrapUp, ArtifactMerge,
+>   Reveal, ContinuityFix, StorylineRetrospective, RelationshipBackfill). Sweeps also use
+>   it as their per-source idempotency key. Synthetic batches are written only through
+>   `SyntheticBatchWriter`.
+> - `ReviewChangeType` gained `AddPlacemark` (and `ReviewTargetType` resolution for it)
+>   with map extraction; the enum list below predates maps.
+
 ## Core Mental Model
 
 Nornis is built around three layers:

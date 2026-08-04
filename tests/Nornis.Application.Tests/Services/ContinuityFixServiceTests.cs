@@ -61,10 +61,13 @@ public class ContinuityFixServiceTests
             }
         });
 
+        var batchWriter = new SyntheticBatchWriter(
+            _sourceRepo, _batchRepo, _proposalRepo, _sourceRefRepo,
+            new FakeProposalApplicator(), _unitOfWork);
+
         _service = new ContinuityFixService(
             _budgetGuard, _assessmentRepo, _artifactRepo, _factRepo, _relationshipRepo,
-            _sourceRepo, _batchRepo, _proposalRepo, _sourceRefRepo,
-            new ProposalValidator(), _ai, TestUsageRecorder.Wrap(_usageRepo), _unitOfWork, options);
+            batchWriter, new ProposalValidator(), _ai, TestUsageRecorder.Wrap(_usageRepo), options);
 
         _worldId = Guid.NewGuid();
         _userId = Guid.NewGuid();
@@ -259,7 +262,7 @@ public class ContinuityFixServiceTests
         Assert.That(source.CreatedByUserId, Is.EqualTo(_userId));
 
         var batch = _batchRepo.Batches.Single(b => b.Id == draft.BatchId);
-        Assert.That(batch.Kind, Is.EqualTo(ContinuityFixService.BatchKind));
+        Assert.That(batch.Kind, Is.EqualTo(ReviewBatchKinds.ContinuityFix));
         Assert.That(batch.Status, Is.EqualTo(ReviewBatchStatus.Pending));
         Assert.That(batch.SourceId, Is.EqualTo(source.Id));
 

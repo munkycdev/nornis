@@ -51,9 +51,11 @@ public class RevealServiceTests
         _sut = BuildService(_applicator);
     }
 
-    private RevealService BuildService(IProposalApplicator applicator) =>
-        new(_artifactRepo, _factRepo, _relationshipRepo, _sourceRepo, _batchRepo, _proposalRepo,
-            applicator, new FakeUnitOfWork(), NullLogger<RevealService>.Instance);
+    private RevealService BuildService(IProposalApplicator applicator, FakeUnitOfWork? unitOfWork = null) =>
+        new(_artifactRepo, _factRepo, _relationshipRepo, _sourceRepo,
+            new SyntheticBatchWriter(_sourceRepo, _batchRepo, _proposalRepo, _referenceRepo,
+                applicator, unitOfWork ?? new FakeUnitOfWork()),
+            NullLogger<RevealService>.Instance);
 
     // ---- authorization ----
 
@@ -315,9 +317,7 @@ public class RevealServiceTests
     {
         var artifact = SeedArtifact("Black Harbor", VisibilityScope.GMOnly);
         var uow = new FakeUnitOfWork();
-        var sut = new RevealService(
-            _artifactRepo, _factRepo, _relationshipRepo, _sourceRepo, _batchRepo, _proposalRepo,
-            new FailingApplicator(), uow, NullLogger<RevealService>.Instance);
+        var sut = BuildService(new FailingApplicator(), uow);
 
         var result = await sut.RevealAsync(Command(artifacts: [artifact.Id]), CancellationToken.None);
 
