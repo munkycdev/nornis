@@ -14,4 +14,14 @@ public interface ISourceAttachmentRepository
     Task<SourceAttachment> UpdateAsync(SourceAttachment attachment, CancellationToken cancellationToken = default);
 
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Rows still awaiting a blob that never arrived, oldest first. The mirror of
+    /// <see cref="ILibraryDocumentRepository.ListAbandonedPendingUploadsAsync"/>: both halves of
+    /// the SAS handshake leak the same way when the browser never completes its half.
+    /// </summary>
+    Task<IReadOnlyList<SourceAttachment>> ListAbandonedPendingUploadsAsync(
+        DateTimeOffset createdBefore,
+        int limit,
+        CancellationToken cancellationToken = default);
 }

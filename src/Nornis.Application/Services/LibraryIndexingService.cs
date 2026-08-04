@@ -84,13 +84,23 @@ public class LibraryIndexingService : ILibraryIndexingService
         var totalTokens = 0;
         try
         {
-            IReadOnlyList<PdfPageText> pages;
-            await using (var stream = await _blobStorage.OpenReadAsync(document.BlobPath, ct))
+            IReadOnlyList<TextChunk> chunks;
+            int pageCount;
             {
-                pages = await _pdfTextExtractor.ExtractPagesAsync(stream, ct);
+                IReadOnlyList<PdfPageText> pages;
+                await using (var stream = await _blobStorage.OpenReadAsync(document.BlobPath, ct))
+                {
+                    pages = await _pdfTextExtractor.ExtractPagesAsync(stream, ct);
+                }
+
+                chunks = LibraryTextChunker.Chunk(pages, _options.MaxChunkChars, _options.OverlapChars);
+
+                // Only the count outlives this block. Held for the whole embedding loop below
+                // just to be read once at the end, the page text was a second full copy of the
+                // document's text sitting beside the chunks.
+                pageCount = pages.Count;
             }
 
-            var chunks = LibraryTextChunker.Chunk(pages, _options.MaxChunkChars, _options.OverlapChars);
             if (chunks.Count == 0)
             {
                 return await FailAsync(document, "no_text",
@@ -98,13 +108,24 @@ public class LibraryIndexingService : ILibraryIndexingService
             }
 
             var now = DateTimeOffset.UtcNow;
-            var writes = new List<LibraryChunkWrite>(chunks.Count);
+            var writtenChunks = 0;
+
+            // The old shape accumulated every chunk AND its embedding in one list and wrote at
+            // the end. A 1536-float vector is ~6 KB, so a large document held hundreds of
+            // megabytes of embeddings on top of the text — with an uploaded PDF at the size cap
+            // as the input, that was a member with an OOM switch for the worker.
+            //
+            // Deleting once up front keeps the replace semantics: from here to the status write
+            // below, the document has no complete chunk set. Nothing reads it either — SearchAsync
+            // only sees chunks whose document is Indexed, which this one is not yet.
+            await _chunkRepository.DeleteForDocumentAsync(document.Id, ct);
 
             foreach (var batch in chunks.Chunk(_options.EmbedBatchSize))
             {
                 var result = await _embeddingClient.EmbedAsync(batch.Select(c => c.Text).ToList(), ct);
                 totalTokens += result.InputTokens;
 
+                var writes = new List<LibraryChunkWrite>(batch.Length);
                 for (var i = 0; i < batch.Length; i++)
                 {
                     writes.Add(new LibraryChunkWrite(
@@ -120,13 +141,17 @@ public class LibraryIndexingService : ILibraryIndexingService
                         },
                         result.Embeddings[i]));
                 }
+
+                await _chunkRepository.AppendForDocumentAsync(writes, ct);
+                writtenChunks += writes.Count;
             }
 
-            await _chunkRepository.ReplaceForDocumentAsync(document.Id, writes, ct);
-
+            // This is the commit point: until the status flips, the chunks written above are
+            // invisible to retrieval, so a failure part way through leaves a document that reads
+            // as un-indexed rather than as one with half its passages.
             document.Status = LibraryDocumentStatus.Indexed;
-            document.ChunkCount = writes.Count;
-            document.PageCount = pages.Count;
+            document.ChunkCount = writtenChunks;
+            document.PageCount = pageCount;
             document.ErrorMessage = null;
             document.UpdatedAt = DateTimeOffset.UtcNow;
             await _documentRepository.UpdateAsync(document, ct);
@@ -134,9 +159,9 @@ public class LibraryIndexingService : ILibraryIndexingService
             await TrackUsageAsync(document, totalTokens, (int)stopwatch.ElapsedMilliseconds, succeeded: true, ct);
 
             _logger.LogInformation("Indexed library document {DocumentId}: {Pages} pages, {Chunks} chunks, {Tokens} tokens",
-                document.Id, pages.Count, writes.Count, totalTokens);
+                document.Id, pageCount, writtenChunks, totalTokens);
 
-            return ExtractionOutcome.Succeeded(Guid.Empty, writes.Count);
+            return ExtractionOutcome.Succeeded(Guid.Empty, writtenChunks);
         }
         catch (Exception ex) when (TransientFailureClassifier.IsTransient(ex))
         {

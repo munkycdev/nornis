@@ -161,4 +161,32 @@ public class LibraryIndexingServiceTests
         Assert.That(_embeddings.Batches.Count, Is.GreaterThan(1), "chunks embed in batches");
         Assert.That(_embeddings.Batches.All(b => b.Count <= 3), Is.True);
     }
+
+    [Test]
+    public async Task Process_WritesEachBatchAsItGoes_RatherThanHoldingThemAll()
+    {
+        var doc = SeedIndexingDocument();
+        var options = new LibraryOptions { MaxChunkChars = 50, OverlapChars = 0, EmbedBatchSize = 3 };
+        _sut = new LibraryIndexingService(_documents, _chunks, _blobs, _pdf, _embeddings,
+            new FakeAiBudgetGuard(), TestUsageRecorder.Wrap(_usage, library: options), Options.Create(options),
+            NullLogger<LibraryIndexingService>.Instance);
+        _pdf.Pages.Add(new PdfPageText(1, string.Join("\n\n", Enumerable.Range(1, 10).Select(i => $"Paragraph {i} with words."))));
+
+        var outcome = await _sut.ProcessIndexingAsync(doc.Id, WorldId, CancellationToken.None);
+
+        // A 1536-float embedding is ~6 KB. Accumulating every one of them before a single write
+        // is what made a large PDF an out-of-memory switch for the worker; the fix is that peak
+        // memory is one batch, and this is the only externally visible sign of it.
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
+            Assert.That(_chunks.AppendBatchSizes, Has.Count.GreaterThan(1),
+                "chunks are written batch by batch, not once at the end");
+            Assert.That(_chunks.AppendBatchSizes.All(size => size <= 3), Is.True,
+                "no write is larger than one embedding batch");
+            Assert.That(_chunks.AppendBatchSizes.Sum(),
+                Is.EqualTo(_documents.Documents.Single().ChunkCount),
+                "and every chunk still lands");
+        });
+    }
 }

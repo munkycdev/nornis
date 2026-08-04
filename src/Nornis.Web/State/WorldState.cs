@@ -178,10 +178,26 @@ public class WorldState
         await EnsureContinuityLoadedAsync(ct);
     }
 
-    public void Select(Guid worldId)
+    /// <summary>
+    /// Selects a world and remembers it for the next full load.
+    ///
+    /// <para>
+    /// Persisting lives here rather than at the call site, which is where it used to live — in
+    /// the nav menu's own wrapper. Three of the four callers therefore did not persist at all:
+    /// accepting an invite, creating a first world, and finishing onboarding each selected the
+    /// new world for the session and then handed the user back their previous world on the next
+    /// full load. Selecting and remembering are one act.
+    /// </para>
+    /// </summary>
+    public async Task SelectAsync(Guid worldId)
     {
         var match = Worlds.FirstOrDefault(c => c.Id == worldId);
-        if (match is not null && match.Id != Current?.Id)
+        if (match is null)
+        {
+            return;
+        }
+
+        if (match.Id != Current?.Id)
         {
             Current = match;
             // Player view is a per-world peek; switching worlds returns to the real role.
@@ -190,6 +206,17 @@ public class WorldState
             ContinuityError = null;
             Changed?.Invoke();
             _ = LoadContinuityAsync();
+        }
+
+        // Written even when the selection did not change: a re-select is how a caller repairs a
+        // saved value that is missing or stale, and an early return would swallow that.
+        try
+        {
+            await _js.InvokeVoidAsync("localStorage.setItem", StorageKey, worldId.ToString());
+        }
+        catch
+        {
+            // Best-effort persist; the selection still holds for this session.
         }
     }
 

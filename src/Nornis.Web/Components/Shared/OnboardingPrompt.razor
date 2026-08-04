@@ -94,7 +94,7 @@
 
         _visible = false;
         await Worlds.ReloadAsync();
-        Worlds.Select(result.Value!.Id);
+        await Worlds.SelectAsync(result.Value!.Id);
     }
 
     private async Task CreateBlankAsync()
@@ -106,7 +106,7 @@
         {
             _visible = false;
             await Worlds.ReloadAsync();
-            Worlds.Select(created.Id);
+            await Worlds.SelectAsync(created.Id);
         }
     }
 
