@@ -62,30 +62,55 @@ public class ExtractionServiceContextAssemblyTests
         _sut = CreateService();
     }
 
-    private ExtractionService CreateService() => new(
-        _sourceRepository,
-        new InMemoryCampaignRepository(),
-        _reviewBatchRepository,
-        _reviewProposalRepository,
-        _sourceReferenceRepository,
-        TestUsageRecorder.Wrap(_aiUsageRecordRepository),
-        _artifactRepository,
-        _artifactFactRepository,
-        _relationshipRepository,
-        new InMemorySourceAttachmentRepository(),
-        new InMemoryMapPlacemarkRepository(),
-        new FakeBlobStorageService(),
-        new FakePdfTextExtractor(),
-        _aiClient,
-        new FakeHandwritingTranscriptionClient(),
-        new FakeImageReadingClient(),
-        new FakeMapExtractionClient(),
-        new FakeAiBudgetGuard(),
-        _unitOfWork,
-        Options.Create(_options),
-        NullLogger<ExtractionService>.Instance,
+    private ExtractionService CreateService()
+    {
+        var usageRecorder = TestUsageRecorder.Wrap(_aiUsageRecordRepository);
+        var options = Options.Create(_options);
+        var budgetGuard = new FakeAiBudgetGuard();
+        var attachmentRepository = new InMemorySourceAttachmentRepository();
+        var blobStorage = new FakeBlobStorageService();
+        var mapPipeline = new MapExtractionPipeline(
+            attachmentRepository,
+            new InMemoryMapPlacemarkRepository(),
+            _artifactRepository,
+            blobStorage,
+            new FakeMapExtractionClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<MapExtractionPipeline>.Instance);
+        var textDerivation = new SourceTextDerivation(
+            _sourceRepository,
+            attachmentRepository,
+            blobStorage,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<SourceTextDerivation>.Instance);
+
+        return new ExtractionService(
+            _sourceRepository,
+            new InMemoryCampaignRepository(),
+            _reviewBatchRepository,
+            _reviewProposalRepository,
+            _sourceReferenceRepository,
+            usageRecorder,
+            _artifactRepository,
+            _artifactFactRepository,
+            _relationshipRepository,
+            _aiClient,
+            mapPipeline,
+            textDerivation,
+            budgetGuard,
+            _unitOfWork,
+            options,
+            NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
             replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+    }
 
     private Source CreateQueuedSource(
         string body = "Captain Voss met the party in Black Harbor.",

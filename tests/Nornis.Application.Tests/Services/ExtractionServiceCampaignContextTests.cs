@@ -52,27 +52,50 @@ public partial class ExtractionServiceCampaignContextTests
             }
         };
 
+        var usageRecorder = TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository());
+        var optionsWrapper = Options.Create(options);
+        var budgetGuard = new FakeAiBudgetGuard();
+        var artifactRepository = new InMemoryArtifactRepository();
+        var attachmentRepository = new InMemorySourceAttachmentRepository();
+        var blobStorage = new FakeBlobStorageService();
+        var mapPipeline = new MapExtractionPipeline(
+            attachmentRepository,
+            new InMemoryMapPlacemarkRepository(),
+            artifactRepository,
+            blobStorage,
+            new FakeMapExtractionClient(),
+            budgetGuard,
+            usageRecorder,
+            optionsWrapper,
+            NullLogger<MapExtractionPipeline>.Instance);
+        var textDerivation = new SourceTextDerivation(
+            _sourceRepository,
+            attachmentRepository,
+            blobStorage,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            budgetGuard,
+            usageRecorder,
+            optionsWrapper,
+            NullLogger<SourceTextDerivation>.Instance);
+
         _sut = new ExtractionService(
             _sourceRepository,
             _campaignRepository,
             new InMemoryReviewBatchRepository(),
             new InMemoryReviewProposalRepository(),
             new InMemorySourceReferenceRepository(),
-            TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository()),
-            new InMemoryArtifactRepository(),
+            usageRecorder,
+            artifactRepository,
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
-            new InMemorySourceAttachmentRepository(),
-            new InMemoryMapPlacemarkRepository(),
-            new FakeBlobStorageService(),
-            new FakePdfTextExtractor(),
             _aiClient,
-            new FakeHandwritingTranscriptionClient(),
-            new FakeImageReadingClient(),
-            new FakeMapExtractionClient(),
-            new FakeAiBudgetGuard(),
+            mapPipeline,
+            textDerivation,
+            budgetGuard,
             new FakeUnitOfWork(),
-            Options.Create(options),
+            optionsWrapper,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
             replayAdvancer: NoOpExtractionReplayAdvancer.Instance);

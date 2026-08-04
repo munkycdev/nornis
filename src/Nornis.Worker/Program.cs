@@ -141,6 +141,8 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<IAiBudgetGuard, AiBudgetGuard>();
 
         // Extraction service
+        services.AddScoped<MapExtractionPipeline>();
+        services.AddScoped<SourceTextDerivation>();
         services.AddScoped<IExtractionService, ExtractionService>();
 
         // Timeline replay: a zero-proposal extraction completes with no review step, so

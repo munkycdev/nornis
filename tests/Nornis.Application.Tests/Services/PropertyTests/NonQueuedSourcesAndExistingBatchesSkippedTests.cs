@@ -57,25 +57,48 @@ public class NonQueuedSourcesAndExistingBatchesSkippedTests
             }
         });
 
+        var usageRecorder = TestUsageRecorder.Wrap(usageRepo);
+        var attachmentRepo = new InMemorySourceAttachmentRepository();
+        var blobStorage = new FakeBlobStorageService();
+        var budgetGuard = new FakeAiBudgetGuard();
+
+        var mapPipeline = new MapExtractionPipeline(
+            attachmentRepo,
+            new InMemoryMapPlacemarkRepository(),
+            artifactRepo,
+            blobStorage,
+            new FakeMapExtractionClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<MapExtractionPipeline>.Instance);
+
+        var textDerivation = new SourceTextDerivation(
+            sourceRepo,
+            attachmentRepo,
+            blobStorage,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<SourceTextDerivation>.Instance);
+
         return new ExtractionService(
             sourceRepo,
             new InMemoryCampaignRepository(),
             batchRepo,
             proposalRepo,
             sourceRefRepo,
-            TestUsageRecorder.Wrap(usageRepo),
+            usageRecorder,
             artifactRepo,
             factRepo,
             new InMemoryArtifactRelationshipRepository(),
-            new InMemorySourceAttachmentRepository(),
-            new InMemoryMapPlacemarkRepository(),
-            new FakeBlobStorageService(),
-            new FakePdfTextExtractor(),
             aiClient,
-            new FakeHandwritingTranscriptionClient(),
-            new FakeImageReadingClient(),
-            new FakeMapExtractionClient(),
-            new FakeAiBudgetGuard(), unitOfWork,
+            mapPipeline,
+            textDerivation,
+            budgetGuard, unitOfWork,
             options,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,

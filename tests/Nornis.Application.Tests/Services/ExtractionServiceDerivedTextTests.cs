@@ -62,27 +62,47 @@ public class ExtractionServiceDerivedTextTests
             }
         };
 
+        var usageRecorder = TestUsageRecorder.Wrap(_usageRepo);
+        var optionsWrapper = Options.Create(options);
+        var artifactRepository = new InMemoryArtifactRepository();
+        var mapPipeline = new MapExtractionPipeline(
+            _attachmentRepo,
+            new InMemoryMapPlacemarkRepository(),
+            artifactRepository,
+            _blob,
+            new FakeMapExtractionClient(),
+            _budget,
+            usageRecorder,
+            optionsWrapper,
+            NullLogger<MapExtractionPipeline>.Instance);
+        var textDerivation = new SourceTextDerivation(
+            _sourceRepo,
+            _attachmentRepo,
+            _blob,
+            _pdf,
+            new FakeHandwritingTranscriptionClient(),
+            _imageClient,
+            _budget,
+            usageRecorder,
+            optionsWrapper,
+            NullLogger<SourceTextDerivation>.Instance);
+
         _sut = new ExtractionService(
             _sourceRepo,
             new InMemoryCampaignRepository(),
             _batchRepo,
             new InMemoryReviewProposalRepository(),
             new InMemorySourceReferenceRepository(),
-            TestUsageRecorder.Wrap(_usageRepo),
-            new InMemoryArtifactRepository(),
+            usageRecorder,
+            artifactRepository,
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
-            _attachmentRepo,
-            new InMemoryMapPlacemarkRepository(),
-            _blob,
-            _pdf,
             _aiClient,
-            new FakeHandwritingTranscriptionClient(),
-            _imageClient,
-            new FakeMapExtractionClient(),
+            mapPipeline,
+            textDerivation,
             _budget,
             new FakeUnitOfWork(),
-            Options.Create(options),
+            optionsWrapper,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
             replayAdvancer: NoOpExtractionReplayAdvancer.Instance);

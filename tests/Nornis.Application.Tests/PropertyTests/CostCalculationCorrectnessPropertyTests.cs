@@ -66,25 +66,49 @@ public class CostCalculationCorrectnessPropertyTests
 
         var logger = NullLogger<ExtractionService>.Instance;
 
+        var usageRecorder = TestUsageRecorder.Wrap(aiUsageRecordRepo, extraction: options.Value);
+        var budgetGuard = new FakeAiBudgetGuard();
+        var attachmentRepo = new InMemorySourceAttachmentRepository();
+        var blobStorage = new FakeBlobStorageService();
+
+        var mapPipeline = new MapExtractionPipeline(
+            attachmentRepo,
+            new InMemoryMapPlacemarkRepository(),
+            artifactRepo,
+            blobStorage,
+            new FakeMapExtractionClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<MapExtractionPipeline>.Instance);
+
+        var textDerivation = new SourceTextDerivation(
+            sourceRepo,
+            attachmentRepo,
+            blobStorage,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<SourceTextDerivation>.Instance);
+
         var service = new ExtractionService(
             sourceRepo,
             new InMemoryCampaignRepository(),
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,
-            TestUsageRecorder.Wrap(aiUsageRecordRepo, extraction: options.Value),
+            usageRecorder,
             artifactRepo,
             artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),
-            new InMemorySourceAttachmentRepository(),
-            new InMemoryMapPlacemarkRepository(),
-            new FakeBlobStorageService(),
-            new FakePdfTextExtractor(),
             fakeAiClient,
-            new FakeHandwritingTranscriptionClient(),
-            new FakeImageReadingClient(),
-            new FakeMapExtractionClient(),
-            new FakeAiBudgetGuard(), unitOfWork,
+            mapPipeline,
+            textDerivation,
+            budgetGuard,
+            unitOfWork,
             options,
             logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,

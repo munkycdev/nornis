@@ -75,30 +75,55 @@ public class ExtractionServiceLocationContextTests
         });
     }
 
-    private ExtractionService CreateSut() => new(
-        _sourceRepository,
-        new InMemoryCampaignRepository(),
-        new InMemoryReviewBatchRepository(),
-        new InMemoryReviewProposalRepository(),
-        _referenceRepository,
-        TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository()),
-        _artifactRepository,
-        new InMemoryArtifactFactRepository(),
-        new InMemoryArtifactRelationshipRepository(),
-        new InMemorySourceAttachmentRepository(),
-        new InMemoryMapPlacemarkRepository(),
-        new FakeBlobStorageService(),
-        new FakePdfTextExtractor(),
-        _aiClient,
-        new FakeHandwritingTranscriptionClient(),
-        new FakeImageReadingClient(),
-        new FakeMapExtractionClient(),
-        new FakeAiBudgetGuard(),
-        new FakeUnitOfWork(),
-        Options.Create(_options),
-        NullLogger<ExtractionService>.Instance,
+    private ExtractionService CreateSut()
+    {
+        var usageRecorder = TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository());
+        var options = Options.Create(_options);
+        var budgetGuard = new FakeAiBudgetGuard();
+        var attachmentRepository = new InMemorySourceAttachmentRepository();
+        var blobStorage = new FakeBlobStorageService();
+        var mapPipeline = new MapExtractionPipeline(
+            attachmentRepository,
+            new InMemoryMapPlacemarkRepository(),
+            _artifactRepository,
+            blobStorage,
+            new FakeMapExtractionClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<MapExtractionPipeline>.Instance);
+        var textDerivation = new SourceTextDerivation(
+            _sourceRepository,
+            attachmentRepository,
+            blobStorage,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<SourceTextDerivation>.Instance);
+
+        return new ExtractionService(
+            _sourceRepository,
+            new InMemoryCampaignRepository(),
+            new InMemoryReviewBatchRepository(),
+            new InMemoryReviewProposalRepository(),
+            _referenceRepository,
+            usageRecorder,
+            _artifactRepository,
+            new InMemoryArtifactFactRepository(),
+            new InMemoryArtifactRelationshipRepository(),
+            _aiClient,
+            mapPipeline,
+            textDerivation,
+            budgetGuard,
+            new FakeUnitOfWork(),
+            options,
+            NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
             replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+    }
 
     private Source SeedSource(
         string title,
