@@ -146,22 +146,24 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
 
 Small things noticed in passing, too small for a plan file, parked against the item
 that already opens the right file. None is ever urgent; all of them rot if left
-unwritten. The first two are open; the two below them are closed and kept for the record.
+unwritten. Only the sign-in one is open; the rest are closed and kept for the record.
 
-- **ImageSharp 4 needs a licence key to build at all.** Dependabot PR #30 (3.1.12 → 4.0.0)
-  was taken as far as a build and stopped there: v4 added a build-time licence check, and
-  without `$(SixLaborsLicenseKey)`, `$(SixLaborsLicenseFile)` or a `sixlabors.lic` in the
-  workspace, the *compile* fails — not a warning, not a runtime nag.
+- ~~**ImageSharp 4 needs a licence key to build at all.**~~ **Decided 2026-08-03: stay on
+  3.1.x.** Dependabot PR #30 (3.1.12 → 4.0.0) was taken as far as a build and stopped
+  there: v4 added a build-time licence check, and without `$(SixLaborsLicenseKey)`,
+  `$(SixLaborsLicenseFile)` or a `sixlabors.lic` in the workspace, the *compile* fails —
+  not a warning, not a runtime nag.
   - The Six Labors Split License grants Apache-2.0-style terms under 1M USD annual gross
-    revenue, so Nornis almost certainly qualifies for free use. v4 enforces regardless: free
-    use still needs a key obtained from sixlabors.com, which means an account and then a
-    secret in CI as well as on every dev machine.
-  - Three ways out, and picking one is a call about money and hosting, not code: get the
-    key and wire it through Actions and local builds; stay on 3.1.x, which is still
-    receiving releases (3.1.12 landed 2025-10-29); or drop the dependency, which is smaller
-    than it sounds — the entire usage is `Image.Load`, `Clone(c => c.Crop(...))` and
-    `SaveAsPng` in `MapRefinement.CropTiles`.
-  - PR #30 is deliberately left open rather than closed, so the decision keeps surfacing.
+    revenue, and this project qualifies. v4 enforces regardless: free use still needs a key
+    from sixlabors.com, which means an account plus a secret in Actions and on every dev
+    machine. 3.1.x carries the same terms without the enforcement and is still maintained
+    (3.1.12 shipped 2025-10-29), so the decision costs nothing today.
+  - The major is now ignored in `dependabot.yml` — patches and minors on the 3.1 line still
+    come through, so this pin does not cost security updates. PR #30 closed.
+  - What would reopen it: the 3.1 line going unmaintained, or revenue approaching the
+    threshold. The exit is cheaper than it looks — the whole dependency is `Image.Load`,
+    `Clone(c => c.Crop(...))` and `SaveAsPng` in `MapRefinement.CropTiles`, over PNG and
+    JPEG only, and SkiaSharp (MIT, no threshold) covers all four operations.
 - **Nothing exercises real sign-in.** 3,127 tests and not one of them authenticates.
   The API's dev-auth bypass stands in for Auth0 everywhere, so every test — including
   all 318 cases in the authorization suite — starts from an identity the test handed
