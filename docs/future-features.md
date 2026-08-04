@@ -125,8 +125,14 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
 
 **Hold for Fable:**
 
-12. Test quality phase 4 (coverage floors) — timing-gated anyway on two weeks of
-    phase-2 history; setting the floors is a judgment call.
+12. Test quality phase 4 (coverage floors) — **the mechanism landed 2026-08-03**;
+    `coverage-thresholds.json` plus `scripts/coverage-gate.ps1`, running on PRs and on
+    main with every floor null and therefore report-only. What is left is the judgment
+    call it was always gated on: picking the numbers, once ~two weeks of history exists
+    (collection started 2026-08-01, so around 2026-08-15). `-Suggest` proposes a floor two
+    points under what the current run observed, and says so — the history on the
+    `coverage-history` branch is what the number should actually be read against. Turning
+    the gate on is editing a number.
 13. W1 accept-time summary maintenance — the review-vs-trusted policy decision and
     the summary prompt are the work.
 14. W3 world digest — product and prompt design; two-rendering visibility judgment.

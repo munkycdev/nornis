@@ -117,9 +117,24 @@ dashboard was being built anyway and the data was already in the merged Cobertur
 
 ## Phase 4 — floors where logic lives
 
-- After ~two weeks of `history.json`: per-assembly line and branch floors for
-  `Nornis.Domain` and `Nornis.Application` only, in a checked-in
-  `coverage-thresholds.json`. CI (PR and main) fails below floor.
+- **Mechanism done 2026-08-03; the numbers are still open.** `coverage-thresholds.json`
+  and `scripts/coverage-gate.ps1` exist and run on PRs and on main. Every floor is
+  `null`, which the gate reports and passes — so opening the gate is editing a number,
+  not building a feature, and the timing gate below is the only thing left.
+  - Split this way on purpose: the mechanism is mechanical and the floors are a judgment
+    call about a trend, and holding the first hostage to the second left neither done.
+  - `-Suggest` prints each floor as it would be two points under what was just observed,
+    for use against `history.json` rather than against a single run.
+  - An assembly named in the thresholds file but absent from the report fails the gate
+    rather than being skipped. A rename or a dropped test project would otherwise switch
+    the gate off silently and leave a green tick behind — which is worse than no gate.
+  - `scripts/coverage.ps1` now also emits `JsonSummary`. CI asked for it and the local
+    script did not, so the gate could not be run on a dev machine at all — including
+    `-Suggest`, which exists to be run by a person.
+- Still open: after ~two weeks of `history.json`, set per-assembly line and branch floors
+  for `Nornis.Domain` and `Nornis.Application` only. Collection started 2026-08-01, so
+  the window opens around 2026-08-15; three days of history mostly measures whatever was
+  being worked on that week.
 - Floors start a couple of points below observed reality; ratcheting up is a normal
   PR when the trend holds. Never ratchet down without a written why.
 - Explicitly never: a solution-wide aggregate gate, floors on

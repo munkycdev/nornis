@@ -57,6 +57,13 @@ jobs:
             -verbosity:Warning
           cat artifacts/coverage/report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
 
+      # The same floors the PR gate applies, on main. A PR gate alone would let a
+      # direct push — or a merge whose base moved underneath it — land below a floor
+      # and stay there unnoticed until the next PR blamed the wrong change.
+      - name: Coverage floors
+        shell: pwsh
+        run: ./scripts/coverage-gate.ps1
+
       # Risk-weighted, where the coverage percentage above is not: this ranks methods by
       # complexity against coverage, so an uncovered visibility branch and an uncovered
       # DTO mapper stop looking like the same emergency. The list is the test-writing
