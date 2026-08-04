@@ -1045,7 +1045,19 @@ public class ExtractionService : IExtractionService
         // right place even when this note never names it.
         var recentLocations = await AssembleRecentLocationContextAsync(source, worldId, ct);
 
-        var request = BuildExtractionRequest(source, campaign, context, referencePassages, recentLocations);
+        var extractionRequest = BuildExtractionRequest(source, campaign, context, referencePassages, recentLocations);
+
+        // Application owns the prompt text; the client receives finished strings and keeps
+        // only transport, timeout, and parse — the same seam the five prompt-in/JSON-out
+        // clients already use.
+        var request = new AiPromptRequest
+        {
+            SystemPrompt = ExtractionPromptBuilder.BuildSystemPrompt(extractionRequest),
+            UserMessage = ExtractionPromptBuilder.BuildUserMessage(extractionRequest),
+            Model = _options.AiModel,
+            TimeoutSeconds = _options.AiTimeoutSeconds
+        };
+
         var maxAttempts = 1 + _options.MaxParseRetryAttempts; // initial + retries
 
         AiExtractionResponse? lastResponse = null;

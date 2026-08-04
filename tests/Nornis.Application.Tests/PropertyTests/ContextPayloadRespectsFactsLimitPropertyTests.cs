@@ -7,6 +7,7 @@ using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Services;
+using Nornis.Application.Tests.Ai;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Application.Tests.Generators;
 using Nornis.Domain.Entities;
@@ -160,7 +161,8 @@ public class ContextPayloadRespectsFactsLimitPropertyTests
                 if (request is null)
                     return false.Label("AI client should have been called");
 
-                var contextArtifact = request.ExistingArtifacts
+                var parsed = ExtractionPromptReader.Parse(request.UserMessage);
+                var contextArtifact = parsed.ExistingArtifacts
                     .FirstOrDefault(a => a.Id == artifact.Id);
 
                 if (contextArtifact is null)

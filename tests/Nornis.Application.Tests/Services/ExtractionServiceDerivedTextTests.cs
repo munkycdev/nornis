@@ -5,6 +5,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
+using Nornis.Application.Tests.Ai;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -126,6 +127,9 @@ public class ExtractionServiceDerivedTextTests
         });
     }
 
+    private ParsedExtractionPrompt Prompt() =>
+        ExtractionPromptReader.Parse(_aiClient.Requests.Single().UserMessage);
+
     private void ConfigureAiEmpty() => _aiClient.SetupSuccess(new AiExtractionResponse
     {
         Proposals = [],
@@ -159,7 +163,7 @@ public class ExtractionServiceDerivedTextTests
         // the reference, so we verify the separation via DerivedText + the AI request below.
 
         // Extraction ran on typed body + derived text composed in memory.
-        var request = _aiClient.Requests.Single();
+        var request = Prompt();
         Assert.That(request.SourceBody, Does.Contain("My notes."));
         Assert.That(request.SourceBody, Does.Contain("The siege of Kastor."));
         Assert.That(request.SourceBody, Does.Contain("House Voss sigil."));
@@ -191,7 +195,7 @@ public class ExtractionServiceDerivedTextTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(_imageClient.CallCount, Is.Zero, "no vision call — derivation is idempotent on redelivery");
-        var request = _aiClient.Requests.Single();
+        var request = Prompt();
         Assert.That(request.SourceBody, Does.Contain("Already derived."));
     }
 

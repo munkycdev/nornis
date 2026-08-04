@@ -7,6 +7,7 @@ using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Services;
+using Nornis.Application.Tests.Ai;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Application.Tests.Generators;
 using Nornis.Domain.Entities;
@@ -44,11 +45,13 @@ public class ContextAssemblyMergeDedupOrderingLimitPropertyTests
                     .GetAwaiter().GetResult();
 
                 var request = fakeAiClient.Requests.FirstOrDefault();
+                if (request is null)
+                    return false.Label("AI should have been called");
 
-                return (request is not null)
-                    .Label("AI should have been called")
-                    .And((request!.ExistingArtifacts.Count <= MaxArtifactContextCount)
-                        .Label($"Context should be at most {MaxArtifactContextCount} but was {request.ExistingArtifacts.Count}"));
+                var parsed = ExtractionPromptReader.Parse(request.UserMessage);
+
+                return (parsed.ExistingArtifacts.Count <= MaxArtifactContextCount)
+                    .Label($"Context should be at most {MaxArtifactContextCount} but was {parsed.ExistingArtifacts.Count}");
             });
     }
 
@@ -70,7 +73,8 @@ public class ContextAssemblyMergeDedupOrderingLimitPropertyTests
                 if (request is null)
                     return false.Label("AI should have been called");
 
-                var ids = request.ExistingArtifacts.Select(a => a.Id).ToList();
+                var parsed = ExtractionPromptReader.Parse(request.UserMessage);
+                var ids = parsed.ExistingArtifacts.Select(a => a.Id).ToList();
                 var distinctIds = ids.Distinct().ToList();
 
                 return (ids.Count == distinctIds.Count)
@@ -96,7 +100,8 @@ public class ContextAssemblyMergeDedupOrderingLimitPropertyTests
                 if (request is null)
                     return false.Label("AI should have been called");
 
-                var contextIds = request.ExistingArtifacts.Select(a => a.Id).ToList();
+                var parsed = ExtractionPromptReader.Parse(request.UserMessage);
+                var contextIds = parsed.ExistingArtifacts.Select(a => a.Id).ToList();
 
                 // Find the last index of any name-matched artifact in the context
                 var lastNameMatchedIndex = -1;

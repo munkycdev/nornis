@@ -5,6 +5,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
+using Nornis.Application.Tests.Ai;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -109,6 +110,9 @@ public partial class ExtractionServiceCampaignContextTests
         return source;
     }
 
+    private ParsedExtractionPrompt Prompt() =>
+        ExtractionPromptReader.Parse(_aiClient.Requests[0].UserMessage);
+
     [Test]
     public async Task ProcessExtractionAsync_SourceWithCampaign_PassesCampaignToAiRequest()
     {
@@ -128,8 +132,9 @@ public partial class ExtractionServiceCampaignContextTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(_aiClient.Requests, Has.Count.EqualTo(1));
-        Assert.That(_aiClient.Requests[0].CampaignName, Is.EqualTo("Rise of Tiamat"));
-        Assert.That(_aiClient.Requests[0].CampaignStatus, Is.EqualTo("Active"));
+        var prompt = Prompt();
+        Assert.That(prompt.CampaignName, Is.EqualTo("Rise of Tiamat"));
+        Assert.That(prompt.CampaignStatus, Is.EqualTo("Active"));
     }
 
     [Test]
@@ -140,7 +145,7 @@ public partial class ExtractionServiceCampaignContextTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(_aiClient.Requests, Has.Count.EqualTo(1));
-        Assert.That(_aiClient.Requests[0].CampaignName, Is.Null);
+        Assert.That(Prompt().CampaignName, Is.Null);
     }
 
     [Test]
@@ -152,6 +157,6 @@ public partial class ExtractionServiceCampaignContextTests
         var outcome = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
-        Assert.That(_aiClient.Requests[0].CampaignName, Is.Null);
+        Assert.That(Prompt().CampaignName, Is.Null);
     }
 }

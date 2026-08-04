@@ -5,6 +5,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
+using Nornis.Application.Tests.Ai;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -92,6 +93,9 @@ public class ExtractionServiceLibraryTests
         });
     }
 
+    private ParsedExtractionPrompt Prompt() =>
+        ExtractionPromptReader.Parse(_aiClient.Requests[0].UserMessage);
+
     private static KnowledgePassage Passage(string title = "Player's Handbook", int page = 42) => new()
     {
         ChunkId = Guid.NewGuid(),
@@ -136,8 +140,9 @@ public class ExtractionServiceLibraryTests
 
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
         Assert.That(_aiClient.Requests, Has.Count.EqualTo(1));
-        Assert.That(_aiClient.Requests[0].ReferencePassages, Has.Count.EqualTo(1));
-        Assert.That(_aiClient.Requests[0].ReferencePassages[0].DocumentTitle, Is.EqualTo("Player's Handbook"));
+        var prompt = Prompt();
+        Assert.That(prompt.ReferencePassages, Has.Count.EqualTo(1));
+        Assert.That(prompt.ReferencePassages[0].DocumentTitle, Is.EqualTo("Player's Handbook"));
     }
 
     [Test]
@@ -148,7 +153,7 @@ public class ExtractionServiceLibraryTests
 
         await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
-        Assert.That(_aiClient.Requests[0].ReferencePassages, Is.Empty);
+        Assert.That(Prompt().ReferencePassages, Is.Empty);
     }
 
     [Test]

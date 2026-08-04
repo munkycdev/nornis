@@ -5,6 +5,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
+using Nornis.Application.Tests.Ai;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -157,12 +158,12 @@ public class ExtractionServiceLocationContextTests
             CreatedAt = DateTimeOffset.UtcNow
         });
 
-    private async Task<RecentLocationContext?> ExtractAndGetLocationContext(Source source)
+    private async Task<ParsedLocationContext?> ExtractAndGetLocationContext(Source source)
     {
         var outcome = await CreateSut().ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
         Assert.That(_aiClient.Requests, Has.Count.EqualTo(1));
-        return _aiClient.Requests[0].RecentLocations;
+        return ExtractionPromptReader.Parse(_aiClient.Requests[0].UserMessage).RecentLocations;
     }
 
     [Test]
@@ -177,7 +178,7 @@ public class ExtractionServiceLocationContextTests
 
         Assert.That(context, Is.Not.Null);
         Assert.That(context!.SourceTitle, Is.EqualTo("Session 4"));
-        Assert.That(context.OccurredAt, Is.EqualTo(Day10));
+        Assert.That(context.OccurredAtDate, Is.EqualTo(DateOnly.FromDateTime(Day10.Date)));
         Assert.That(context.Locations, Has.Count.EqualTo(1));
         Assert.That(context.Locations[0].Id, Is.EqualTo(harbor.Id));
         Assert.That(context.Locations[0].Name, Is.EqualTo("Black Harbor"));

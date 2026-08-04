@@ -8,6 +8,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
+using Nornis.Application.Tests.Ai;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Application.Tests.Generators;
 using Nornis.Domain.Entities;
@@ -156,8 +157,8 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
 
                 // Assert: the AI request's ExistingArtifacts only contains artifacts the
                 // source's readers may see — the same policy the service applies.
-                var request = fakeAiClient.Requests.Single();
-                var contextArtifactNames = request.ExistingArtifacts.Select(a => a.Name).ToList();
+                var parsed = ExtractionPromptReader.Parse(fakeAiClient.Requests.Single().UserMessage);
+                var contextArtifactNames = parsed.ExistingArtifacts.Select(a => a.Name).ToList();
 
                 var filter = Nornis.Domain.Models.VisibilityFilter.ForSourceContext(sourceVisibility, creatorUserId);
 
@@ -326,8 +327,8 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                     .GetAwaiter().GetResult();
 
                 // Assert: every artifact in context has a permitted visibility
-                var request = fakeAiClient.Requests.Single();
-                var contextArtifactNames = request.ExistingArtifacts.Select(a => a.Name).ToHashSet();
+                var parsed = ExtractionPromptReader.Parse(fakeAiClient.Requests.Single().UserMessage);
+                var contextArtifactNames = parsed.ExistingArtifacts.Select(a => a.Name).ToHashSet();
 
                 // Check that no artifact the source's readers may not see leaked into context
                 var forbiddenArtifacts = artifacts
