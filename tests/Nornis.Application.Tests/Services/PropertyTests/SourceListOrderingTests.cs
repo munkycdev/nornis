@@ -15,8 +15,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 ///
 /// For any world with one or more visible sources, listing sources should return them
 /// ordered by CreatedAt descending (most recent first).
-///
-/// **Validates: Requirements 5.4**
 /// </summary>
 [TestFixture]
 [Category("Feature: world-sources, Property 12: List Ordering")]

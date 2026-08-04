@@ -17,8 +17,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any string that is null, empty, composed entirely of whitespace, or longer than 200 characters,
 /// both source creation and source update operations should reject the input with a validation error
 /// without modifying any stored data.
-///
-/// **Validates: Requirements 1.5, 3.4**
 /// </summary>
 [TestFixture]
 [Category("Feature: world-sources, Property 2: Invalid Titles Are Rejected")]

@@ -21,8 +21,6 @@ namespace Nornis.Application.Tests.PropertyTests;
 /// For any artifact included in the context that has more than MaxFactsPerArtifact facts,
 /// the context payload SHALL include exactly MaxFactsPerArtifact facts for that artifact
 /// ordered by UpdatedAt descending, and each fact SHALL include its Predicate and Value.
-///
-/// **Validates: Requirements 4.4**
 /// </summary>
 [TestFixture]
 [Category("Feature: async-source-extraction, Property 8: Context Payload Respects Facts Limit")]

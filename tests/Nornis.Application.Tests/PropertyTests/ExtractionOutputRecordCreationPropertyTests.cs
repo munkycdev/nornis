@@ -26,8 +26,6 @@ namespace Nornis.Application.Tests.PropertyTests;
 /// 0.00–1.00, Status=Pending), and exactly N SourceReference records (each with
 /// TargetType=ReviewProposal, TargetId=the proposal's Id, and SourceId=the extraction
 /// source's Id).
-///
-/// **Validates: Requirements 7.1, 7.2, 7.3, 7.4**
 /// </summary>
 [TestFixture]
 [Category("Feature: async-source-extraction, Property 13: Extraction Output Record Creation")]

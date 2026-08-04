@@ -17,8 +17,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// the result SHALL contain exactly one entry per distinct key value that has at least one
 /// matching record. The sum of OperationCount across all groups SHALL equal the total count
 /// of matching records. No group SHALL have an OperationCount of zero.
-///
-/// **Validates: Requirements 4.1, 5.1, 6.1, 6.2, 7.1, 7.2**
 /// </summary>
 [TestFixture]
 [Category("Feature: cost-dashboard, Property 4: Grouping produces correct partitions")]

@@ -23,8 +23,6 @@ namespace Nornis.Application.Tests.PropertyTests;
 /// changeType not in allowed values, rationale exceeding 500 characters, confidence outside 0.0–1.0,
 /// or proposals exceeding 50), the ExtractionService SHALL NOT create a ReviewBatch and SHALL
 /// classify the result as a non-transient failure.
-///
-/// **Validates: Requirements 5.5, 7.6**
 /// </summary>
 [TestFixture]
 [Category("Feature: async-source-extraction, Property 10: Invalid AI Responses Are Treated as Failures")]

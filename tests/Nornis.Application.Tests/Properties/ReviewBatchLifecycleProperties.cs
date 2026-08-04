@@ -32,8 +32,6 @@ public class ReviewBatchLifecycleProperties
     ///
     /// Generate batch of 1–50 unique pending proposal Ids; batch accept/reject; assert each
     /// processed following single-proposal logic in request order.
-    ///
-    /// **Validates: Requirements 5.1, 5.2, 5.6**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
     [Description("Feature: review-proposal-workflow, Property 13: Batch Accept Processes Each Proposal Correctly")]
@@ -193,8 +191,6 @@ public class ReviewBatchLifecycleProperties
     /// Generate batch with mix of valid, unauthorized, non-existent, wrong-status, and
     /// invisible proposals; assert succeeded/failed lists correctly partition with accurate
     /// error reasons.
-    ///
-    /// **Validates: Requirements 5.3, 5.5**
     /// </summary>
     [Test]
     [Description("Feature: review-proposal-workflow, Property 14: Batch Partial Failure Reports Correct Partitioning")]
@@ -357,8 +353,6 @@ public class ReviewBatchLifecycleProperties
     ///
     /// Generate ReviewBatch in Pending status; review first proposal (accept/reject/edit);
     /// assert batch Status transitions to InReview.
-    ///
-    /// **Validates: Requirements 8.1, 3.6**
     /// </summary>
     [Test]
     [Description("Feature: review-proposal-workflow, Property 15: First Accept Transitions Batch to InReview")]
@@ -599,8 +593,6 @@ public class ReviewBatchLifecycleProperties
     ///
     /// Generate ReviewBatch in InReview with all-but-one proposals terminal;
     /// bring last proposal to terminal; assert batch Status=Completed and CompletedAt set.
-    ///
-    /// **Validates: Requirements 8.2**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
     [Description("Feature: review-proposal-workflow, Property 16: All Proposals Terminal Transitions Batch to Completed")]
@@ -709,8 +701,6 @@ public class ReviewBatchLifecycleProperties
     ///
     /// Generate batch with some Pending or Edited proposals remaining;
     /// assert batch Status is NOT Completed.
-    ///
-    /// **Validates: Requirements 8.3**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
     [Description("Feature: review-proposal-workflow, Property 17: Batch Not Completed While Non-Terminal Proposals Remain")]
@@ -794,8 +784,6 @@ public class ReviewBatchLifecycleProperties
     ///
     /// Accept an already-Accepted proposal; assert success with original ReviewedAt/ReviewedByUserId,
     /// no new entities; reject an already-Rejected proposal; assert success without state changes.
-    ///
-    /// **Validates: Requirements 10.1, 10.2**
     /// </summary>
     [Test]
     [Description("Feature: review-proposal-workflow, Property 18: Idempotent Accept of Already-Accepted Proposal")]
@@ -961,8 +949,6 @@ public class ReviewBatchLifecycleProperties
     /// Property 19: Cross-State Terminal Transition Error
     ///
     /// Accept a Rejected proposal; assert error; reject an Accepted proposal; assert error.
-    ///
-    /// **Validates: Requirements 10.3**
     /// </summary>
     [Test]
     [Description("Feature: review-proposal-workflow, Property 19: Accept Rejected Proposal Returns Error")]

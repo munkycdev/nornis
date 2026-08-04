@@ -576,11 +576,19 @@ public class SourceService : ISourceService
         return null;
     }
 
+    /// <summary>
+    /// Ceiling on a source body. Also the ceiling on the body extraction composes from a typed
+    /// body plus derived text — one constant rather than two equal literals and a comment asking
+    /// the reader to keep them in step.
+    /// </summary>
+    internal const int MaxBodyChars = 100_000;
+
     internal static AppError? ValidateBody(string? body)
     {
-        if (body is not null && body.Length > 100_000)
+        if (body is not null && body.Length > MaxBodyChars)
         {
-            return new AppError(400, "validation_error", "Source body must not exceed 100,000 characters.");
+            return new AppError(400, "validation_error",
+                $"Source body must not exceed {MaxBodyChars:N0} characters.");
         }
 
         return null;

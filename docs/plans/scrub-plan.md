@@ -425,15 +425,32 @@ The razor: a comment earns its place by teaching the system (an invariant, an op
 reality, a cross-boundary contract), not by narrating the code's relationship to other
 code. "Mirrors X" is legitimate exactly when no compiler can enforce the sameness.
 
-- **Delete**: same-assembly sameness-narrators ("identical to MapViewService's gate",
-  "parity with LoremasterService", the three "Mirrors IAuditAiClient" headers) — most
-  die mechanically with tier 1, since the refactor removes the code they annotate;
-  justify-to-reviewer parentheticals; numbered spec-step comments ("// 5. Empty body
-  short-circuit"); "Validates: Requirements N.N" stamps in tests.
+- ~~**Delete**~~ **Done 2026-08-03.**
+  - 110 "Validates: Requirements N.N" stamps across 74 test files, with the 86 spacer
+    doc-lines they left behind. Two of them read "amended by …", which looked like it
+    carried something — both said in a stamp what the prose directly above already said.
+  - Numbered spec-step comments: 19 that narrated the line beneath them are gone
+    (`// 9. Return LoremasterAnswer` above `return new LoremasterAnswer(...)`), and 30 that
+    taught something kept the sentence and lost the number. The numbering had already
+    drifted — ExtractionService carried two `// 3.`s — which is the argument in miniature.
+  - The three "Mirrors IAuditAiClient" headers had already died with tier 1's refactor, as
+    this bullet predicted. Three same-assembly parity clauses remained; each wrapped a real
+    invariant, so the invariant was kept and the parity clause dropped.
+  - `ExtractionService.MaxComposedBodyChars` was the exception. Its comment said "Matches
+    SourceService.ValidateBody", and by this tier's own razor that is only legitimate when no
+    compiler can enforce the sameness — here one can. `SourceService.MaxBodyChars` is now the
+    single constant both use, and the comment is unnecessary rather than deleted.
+  - `Program.cs`'s numbered middleware list stayed. It is headed "Middleware pipeline order"
+    and the ordering is correctness-critical: there the numbers are the content.
 - **Keep untouched**: boundary mirrors — Contracts.cs's client-owned API mirrors
   (separate deployables), ArtifactGraph's JS color/status mirrors (C#↔JS),
-  WorldMemory's server penalty-constant mirrors (client↔server), RedeliveryBackoff's
-  MaxDeliveryCount note (code↔infrastructure) — and every invariant/incident comment.
+  RedeliveryBackoff's MaxDeliveryCount note (code↔infrastructure) — and every
+  invariant/incident comment.
+  - *Amended 2026-08-03:* this list used to include "WorldMemory's server penalty-constant
+    mirrors (client↔server)". That mirror no longer exists — D4's scoring item moved the
+    penalty table, cap and stale-suspension rule onto the assessment DTO, so the page renders
+    what it is handed. Left recorded rather than silently dropped, because anyone running this
+    tier would otherwise go looking for it.
 - **Open decision, not started until it's made**: whether to compress the essayistic
   register (em-dash aphorisms, counterfactual framing) in the surviving comments.
   ~11% of comment lines carry it. It is also the register of the README and commit

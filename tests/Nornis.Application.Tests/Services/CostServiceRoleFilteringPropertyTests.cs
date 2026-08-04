@@ -17,8 +17,6 @@ namespace Nornis.Application.Tests.Services;
 /// requests cost data, the aggregated result SHALL include only records where UserId matches the
 /// requesting user. When a GM requests cost data, the result SHALL include records from all users
 /// in the world.
-///
-/// **Validates: Requirements 2.1, 2.2, 2.3, 2.4, 5.3, 6.5, 7.5**
 /// </summary>
 [TestFixture]
 [Category("Feature: cost-dashboard, Property 1: Role-based record filtering")]

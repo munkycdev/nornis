@@ -132,12 +132,12 @@ public class ContinuityAuditService : IContinuityAuditService
                 "Only GMs can run continuity assessments."));
         }
 
-        // 0. Daily AI budget gate — the audit reads the whole record into a prompt.
+        // Daily AI budget gate — the audit reads the whole record into a prompt.
         var budgetError = await _budgetGuard.CheckAsync(worldId, ct);
         if (budgetError is not null)
             return AppResult<ContinuityAssessment>.Fail(budgetError);
 
-        // 1. Heuristic base score (the fast/free tier we blend against). A failed read used
+        // Heuristic base score (the fast/free tier we blend against). A failed read used
         // to fall through as 0, which is indistinguishable from "this record is in ruins" —
         // and the audit would then spend a paid AI call blending against a fiction. Fail the
         // run instead: no score at all is honest, a fabricated zero is not.
@@ -149,7 +149,7 @@ public class ContinuityAuditService : IContinuityAuditService
 
         var heuristic = heuristicResult.Value!.OverallScore;
 
-        // 2. Load the full GM-scoped record. Archived artifacts (merge leftovers) are dead
+        // Load the full GM-scoped record. Archived artifacts (merge leftovers) are dead
         // weight for a continuity read and stay out of the prompt.
         var artifacts = (await _artifactRepository.ListByWorldAsync(worldId, null, ct))
             .Where(a => a.Status != ArtifactStatus.Archived)
@@ -181,7 +181,9 @@ public class ContinuityAuditService : IContinuityAuditService
         var recordText = FormatWorldRecord(artifacts, facts, relationships, sourceRefs, sources);
         var recordLookup = BuildRecordLookup(artifacts, facts, relationships);
 
-        // 3. Call the AI. Track usage on success and failure alike (parity with LoremasterService).
+        // Usage is recorded whether the call succeeds or fails: a failed audit still spent
+        // tokens, and a budget guard that only sees successes is a budget guard that can be
+        // walked past by failing.
         var request = new AiPromptRequest
         {
             SystemPrompt = SystemPrompt,
@@ -209,7 +211,7 @@ public class ContinuityAuditService : IContinuityAuditService
 
         await TrackUsageAsync(worldId, userId, response, true, null, ct);
 
-        // 4. Validate, apply the world's dismissal registry, persist. A dismissal is a GM
+        // Validate, apply the world's dismissal registry, persist. A dismissal is a GM
         // decision about an issue, not about one assessment run — when the model re-detects a
         // finding the GM already dismissed, it arrives dismissed instead of re-opening the
         // argument, however many runs later.

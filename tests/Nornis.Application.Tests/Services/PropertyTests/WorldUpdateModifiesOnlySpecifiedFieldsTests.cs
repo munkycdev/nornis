@@ -18,8 +18,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// provided by a GM, after update, the specified fields should reflect the new values,
 /// unspecified fields should remain unchanged, and UpdatedAt should be later than or equal
 /// to the previous UpdatedAt.
-///
-/// **Validates: Requirements 4.1, 4.5**
 /// </summary>
 [TestFixture]
 [Category("Feature: auth-and-worlds, Property 6: World Update Modifies Only Specified Fields")]

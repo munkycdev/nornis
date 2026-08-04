@@ -542,22 +542,18 @@ public class ReviewService : IReviewService
             return AppResult<EditProposalResult>.Fail(validationResult.Error!);
         }
 
-        // 9. Replace ProposedValueJson on proposal
         proposal.ProposedValueJson = command.NewProposedValueJson;
 
-        // 10. Update proposal: Status=Edited, ReviewedAt=UtcNow, ReviewedByUserId
+        // Update proposal: Status=Edited, ReviewedAt=UtcNow, ReviewedByUserId
         var now = DateTimeOffset.UtcNow;
         proposal.Status = ReviewProposalStatus.Edited;
         proposal.ReviewedAt = now;
         proposal.ReviewedByUserId = command.ActingUserId;
 
-        // 11. Save proposal via UpdateAsync
         await _reviewProposalRepository.UpdateAsync(proposal, ct);
 
-        // 12. Update batch lifecycle (Pending→InReview on first edit)
         await UpdateBatchLifecycleAsync(proposal.ReviewBatchId, ct);
 
-        // 13. Return EditProposalResult
         return AppResult<EditProposalResult>.Success(
             new EditProposalResult(
                 proposal.Id,

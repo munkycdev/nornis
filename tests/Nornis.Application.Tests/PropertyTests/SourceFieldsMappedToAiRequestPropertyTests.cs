@@ -21,8 +21,6 @@ namespace Nornis.Application.Tests.PropertyTests;
 /// SHALL contain the source's Body, Title, Type name, and Visibility name. If the source's
 /// OccurredAt is non-null, the request SHALL include it; if OccurredAt is null, the request's
 /// OccurredAt SHALL be null.
-///
-/// **Validates: Requirements 3.3**
 /// </summary>
 [TestFixture]
 [Category("Feature: async-source-extraction, Property 6: Source Fields Correctly Mapped to AI Request")]

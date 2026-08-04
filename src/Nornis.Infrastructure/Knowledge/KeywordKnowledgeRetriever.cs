@@ -43,15 +43,13 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
         // Owner-aware filter: a Player's Private scope covers only their own rows.
         var filter = VisibilityFilter.ForRole(role, userId);
 
-        // 1. Name-matched artifacts
         var nameMatched = await _artifactRepository.ListByNamesInTextAsync(
             worldId, question, filter, ct);
 
-        // 2. Recent artifacts
         var recent = await _artifactRepository.ListRecentByWorldAsync(
             worldId, filter, _options.MaxRetrievalCount, ct);
 
-        // 3. Merge and deduplicate (name-matched first, then recent), cap at MaxRetrievalCount
+        // Merge and deduplicate (name-matched first, then recent), cap at MaxRetrievalCount
         var artifacts = MergeAndDeduplicate(nameMatched, recent, _options.MaxRetrievalCount);
 
         // Recent sessions ground time-anchored questions ("what happened last session?").
@@ -74,8 +72,8 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
 
         var artifactIds = artifacts.Select(a => a.Id).ToList();
 
-        // 4. Load facts filtered by visibility. Hidden truth state is GM-only regardless of
-        // the visibility scope on the fact itself (parity with CanonService).
+        // Hidden truth state is GM-only regardless of the visibility scope on the fact itself:
+        // a fact can be PartyVisible and still be something the party does not know yet.
         var isGm = role == WorldRole.GM;
         var allFacts = await _artifactFactRepository.ListByArtifactIdsAsync(
             artifactIds, filter, _options.MaxFactsPerArtifact, ct);
@@ -85,13 +83,12 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
             .Where(f => isGm || f.TruthState != TruthState.Hidden)
             .ToList();
 
-        // 5. Load relationships filtered by visibility, with the same Hidden gate
+        // Load relationships filtered by visibility, with the same Hidden gate
         var relationships = (await _artifactRelationshipRepository.ListByArtifactIdsAsync(
                 artifactIds, filter, ct))
             .Where(r => isGm || r.TruthState != TruthState.Hidden)
             .ToList();
 
-        // 6. Load source references for fact and relationship IDs
         var factIds = filteredFacts.Select(f => f.Id).ToList();
         var relationshipIds = relationships.Select(r => r.Id).ToList();
         var targetIds = factIds.Concat(relationshipIds).ToList();

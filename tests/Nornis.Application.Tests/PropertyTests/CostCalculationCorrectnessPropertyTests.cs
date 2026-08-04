@@ -21,8 +21,6 @@ namespace Nornis.Application.Tests.PropertyTests;
 /// For any AI response with InputTokens and OutputTokens and a configured ModelPricing
 /// with InputPerMillionTokensUsd and OutputPerMillionTokensUsd, the EstimatedCostUsd
 /// SHALL equal (InputTokens × InputPerMillionTokensUsd / 1,000,000) + (OutputTokens × OutputPerMillionTokensUsd / 1,000,000).
-///
-/// **Validates: Requirements 6.2**
 /// </summary>
 [TestFixture]
 [Category("Feature: async-source-extraction, Property 12: Cost Calculation Correctness")]

@@ -16,8 +16,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 ///
 /// For any user who is not a WorldMember of a given world, accessing any world-scoped
 /// endpoint for that world should return HTTP 403 Forbidden, regardless of whether the world exists.
-///
-/// **Validates: Requirements 8.1, 8.2, 8.5**
 /// </summary>
 [TestFixture]
 [Category("Feature: auth-and-worlds, Property 9: Non-Member Access Denied")]

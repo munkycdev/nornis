@@ -16,8 +16,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any set of sources in a world and any world member, listing sources should return exactly
 /// the subset of sources the member is authorized to see: GMs see all sources; Players see PartyVisible
 /// sources plus their own Private sources; Observers see only PartyVisible sources.
-///
-/// **Validates: Requirements 5.1, 5.2, 5.3**
 /// </summary>
 [TestFixture]
 [Category("Feature: world-sources, Property 6: Visibility Enforcement on List")]

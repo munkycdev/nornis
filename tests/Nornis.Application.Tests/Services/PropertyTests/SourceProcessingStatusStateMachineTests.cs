@@ -23,8 +23,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// Since MarkReadyAsync is the only public transition method, this test validates:
 /// - MarkReadyAsync succeeds from Draft (and Ready as a retry; Failed re-entry is covered by the map)
 /// - MarkReadyAsync from any non-Draft status returns "invalid_transition" error
-///
-/// **Validates: Requirements 8.1, 8.2, 8.3, 8.4**
 /// </summary>
 [TestFixture]
 [Category("Feature: world-sources, Property 9: Processing Status State Machine")]

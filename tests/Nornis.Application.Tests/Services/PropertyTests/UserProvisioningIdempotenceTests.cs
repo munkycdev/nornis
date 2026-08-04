@@ -13,8 +13,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any existing User with a given Auth0SubjectId, invoking user provisioning multiple times
 /// with that same subject identifier should always return the same User record without creating
 /// duplicates or modifying the existing record.
-///
-/// **Validates: Requirements 2.1, 2.3**
 /// </summary>
 [TestFixture]
 [Category("Feature: auth-and-worlds, Property 1: User Provisioning Idempotence")]

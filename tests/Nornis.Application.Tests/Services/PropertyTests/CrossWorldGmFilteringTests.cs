@@ -16,8 +16,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any user who is a member of multiple worlds with varying roles,
 /// the by-world breakdown SHALL include only those worlds where the user holds
 /// the GM role. Worlds where the user is a Player or Observer SHALL not appear.
-///
-/// **Validates: Requirements 4.2**
 /// </summary>
 [TestFixture]
 [Category("Feature: cost-dashboard, Property 6: Cross-world GM filtering")]

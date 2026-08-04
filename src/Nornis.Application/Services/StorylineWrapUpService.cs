@@ -236,7 +236,7 @@ public class StorylineWrapUpService : IStorylineWrapUpService
             }
         }
 
-        // 1. Closures — one synthetic source + batch, applied and accepted (confirm-and-apply).
+        // Closures — one synthetic source + batch, applied and accepted (confirm-and-apply).
         Guid? batchId = null;
         var closed = 0;
         if (command.Closures.Count > 0)

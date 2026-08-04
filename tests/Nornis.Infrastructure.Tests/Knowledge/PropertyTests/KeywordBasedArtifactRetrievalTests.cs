@@ -19,8 +19,6 @@ namespace Nornis.Infrastructure.Tests.Knowledge.PropertyTests;
 /// For any question text containing the exact name of an artifact in the world (case-insensitive),
 /// the knowledge retriever SHALL include that artifact in the retrieved context, provided the
 /// artifact's visibility is permitted for the requesting user's role.
-///
-/// **Validates: Requirements 4.1**
 /// </summary>
 [TestFixture]
 [Category("Feature: ask-loremaster, Property 3: Keyword-Based Artifact Retrieval")]

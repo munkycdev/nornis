@@ -16,8 +16,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 ///
 /// For any existing source and any world member who is neither the source's creator nor a GM,
 /// attempting to update, delete, or mark-ready that source should be denied with a forbidden error.
-///
-/// **Validates: Requirements 1.8, 3.2, 4.2, 6.3**
 /// </summary>
 [TestFixture]
 [Category("Feature: world-sources, Property 4: Only Creator or GM Can Mutate a Source")]

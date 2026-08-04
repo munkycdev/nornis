@@ -92,7 +92,7 @@ public class RevealService : IRevealService
             return null;
         }
 
-        // 1. Artifacts to promote (GMOnly only; already-PartyVisible are no-ops, Private rejected).
+        // Artifacts to promote (GMOnly only; already-PartyVisible are no-ops, Private rejected).
         var artifactsToReveal = new List<Artifact>();
         foreach (var id in command.ArtifactIds.Distinct())
         {
@@ -115,7 +115,7 @@ public class RevealService : IRevealService
             }
         }
 
-        // 2. Facts to promote; each needs its parent artifact visible (closure).
+        // Facts to promote; each needs its parent artifact visible (closure).
         var factsToReveal = new List<ArtifactFact>();
         var factParentIds = new List<Guid>();
         foreach (var id in command.FactIds.Distinct())
@@ -143,7 +143,7 @@ public class RevealService : IRevealService
             }
         }
 
-        // 3. Relationships to promote; each needs both endpoint artifacts visible (closure).
+        // Relationships to promote; each needs both endpoint artifacts visible (closure).
         var relationshipsToReveal = new List<ArtifactRelationship>();
         foreach (var id in command.RelationshipIds.Distinct())
         {
@@ -172,7 +172,7 @@ public class RevealService : IRevealService
             }
         }
 
-        // 4. Corrections: existing facts to re-truth-state as the reveal supersedes them.
+        // Corrections: existing facts to re-truth-state as the reveal supersedes them.
         var corrections = new List<FactCorrection>();
         foreach (var correction in command.Corrections)
         {
@@ -199,7 +199,7 @@ public class RevealService : IRevealService
             corrections.Add(correction);
         }
 
-        // 5. Closure: reject an incomplete set whole, returning the missing dependencies so the
+        // Closure: reject an incomplete set whole, returning the missing dependencies so the
         //    GM can confirm the expanded scope — never silently reveal more than asked.
         var missing = RevealClosure.MissingArtifactDependencies(
             artifactsToReveal.Select(a => a.Id).ToList(),
@@ -212,14 +212,14 @@ public class RevealService : IRevealService
             return AppResult<RevealResult>.Success(new RevealResult(null, 0, 0, 0, 0, missing));
         }
 
-        // 6. Nothing to do (all no-ops) — idempotent success, no batch minted.
+        // Nothing to do (all no-ops) — idempotent success, no batch minted.
         if (artifactsToReveal.Count == 0 && factsToReveal.Count == 0
             && relationshipsToReveal.Count == 0 && corrections.Count == 0)
         {
             return AppResult<RevealResult>.Success(new RevealResult(null, 0, 0, 0, 0, []));
         }
 
-        // 7. Provenance + apply, all in one transaction.
+        // Provenance + apply, all in one transaction.
         var now = DateTimeOffset.UtcNow;
         var source = new Source
         {

@@ -14,8 +14,6 @@ namespace Nornis.Infrastructure.Tests.Persistence.PropertyTests;
 /// For any artifact that participates in relationships (as either ArtifactAId or ArtifactBId),
 /// listing relationships for that artifact should return all relationships where the artifact
 /// appears on either side, regardless of position.
-///
-/// **Validates: Requirements 7.6**
 /// </summary>
 [TestFixture]
 public class BidirectionalRelationshipQueryTests : IntegrationTestBase

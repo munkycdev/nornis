@@ -12,8 +12,6 @@ namespace Nornis.Infrastructure.Tests.Persistence.PropertyTests;
 /// For any valid domain entity that has been persisted, modifying a mutable property
 /// and calling the repository update method, then retrieving the entity by ID,
 /// should reflect the modified value.
-///
-/// **Validates: Requirements 7.5**
 /// </summary>
 [TestFixture]
 public class UpdatePersistenceTests : IntegrationTestBase

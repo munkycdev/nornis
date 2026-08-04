@@ -33,8 +33,6 @@ public class ProposalRejectionAndEditProperties
     /// the proposal's Status SHALL transition to Rejected, ReviewedAt and ReviewedByUserId SHALL
     /// be set, and no Artifact, ArtifactFact, ArtifactRelationship, or SourceReference records
     /// SHALL be created or modified.
-    ///
-    /// **Validates: Requirements 3.1, 3.2**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
     [Description("Feature: review-proposal-workflow, Property 10: Reject Transitions Without Knowledge Graph Changes")]
@@ -130,8 +128,6 @@ public class ProposalRejectionAndEditProperties
     /// the entire ProposedValueJson with the submitted value, transition Status to Edited,
     /// set ReviewedAt and ReviewedByUserId, and SHALL NOT create or modify any Artifact,
     /// ArtifactFact, ArtifactRelationship, or SourceReference.
-    ///
-    /// **Validates: Requirements 4.1, 4.6**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
     [Description("Feature: review-proposal-workflow, Property 11: Edit Replaces JSON Without Mutating Knowledge Graph")]
@@ -237,8 +233,6 @@ public class ProposalRejectionAndEditProperties
     /// For any proposal with Status Edited, both acceptance (following Requirement 2 logic
     /// with the edited ProposedValueJson) and rejection (following Requirement 3 logic)
     /// SHALL succeed.
-    ///
-    /// **Validates: Requirements 4.2**
     /// </summary>
     [Test]
     [Description("Feature: review-proposal-workflow, Property 12: Edited Proposals Allow Subsequent Accept")]

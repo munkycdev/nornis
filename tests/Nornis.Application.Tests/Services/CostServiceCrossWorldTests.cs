@@ -9,8 +9,6 @@ namespace Nornis.Application.Tests.Services;
 
 /// <summary>
 /// Unit tests for CostService cross-world functionality (GetByWorldAsync).
-///
-/// Validates: Requirements 4.1, 4.2, 4.3
 /// </summary>
 [TestFixture]
 public class CostServiceCrossWorldTests

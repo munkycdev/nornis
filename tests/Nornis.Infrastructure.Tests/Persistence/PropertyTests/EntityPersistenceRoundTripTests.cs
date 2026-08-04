@@ -11,8 +11,6 @@ namespace Nornis.Infrastructure.Tests.Persistence.PropertyTests;
 /// <summary>
 /// Property-based tests verifying that all domain entities can be persisted and
 /// retrieved with all scalar properties (including enum values) intact.
-/// 
-/// **Validates: Requirements 5.4, 7.4**
 /// </summary>
 [TestFixture]
 public class EntityPersistenceRoundTripTests : IntegrationTestBase

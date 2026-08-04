@@ -122,7 +122,6 @@ public class ExtractionService : IExtractionService
             "Starting extraction for SourceId={SourceId}, WorldId={WorldId}",
             sourceId, worldId);
 
-        // 1. Retrieve source
         var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
 
         if (source is null)
@@ -149,7 +148,7 @@ public class ExtractionService : IExtractionService
                 "The message's world does not match the source's world.");
         }
 
-        // 2. Extraction opt-out: a queued message for a source stored without extraction
+        // Extraction opt-out: a queued message for a source stored without extraction
         //    (flag toggled after enqueue) must not extract. File it instead of leaving it
         //    claimed by the pipeline.
         if (!source.ExtractionEnabled)
@@ -164,7 +163,7 @@ public class ExtractionService : IExtractionService
             return ExtractionOutcome.SkippedIdempotent("Source is stored without extraction.");
         }
 
-        // 3. Idempotency: check the ReviewBatch first — its presence proves extraction
+        // Idempotency: check the ReviewBatch first — its presence proves extraction
         //    completed even when a crash landed before the final status write.
         var existingBatch = await _reviewBatchRepository.GetBySourceIdAsync(sourceId, ct);
 
@@ -189,7 +188,7 @@ public class ExtractionService : IExtractionService
                 $"ReviewBatch already exists in {existingBatch.Status} status.");
         }
 
-        // 3. Idempotency: only Queued sources start extraction — except Processing with
+        // Idempotency: only Queued sources start extraction — except Processing with
         //    no batch, which is a run that crashed mid-extraction (the message was
         //    redelivered after a worker restart) and must be resumed, not skipped.
         if (source.ProcessingStatus == SourceProcessingStatus.Processing)
@@ -207,7 +206,7 @@ public class ExtractionService : IExtractionService
                 $"Source is in {source.ProcessingStatus} status, not Queued.");
         }
 
-        // 4. Claim: Queued → Processing, and only from Queued. The check above and this write
+        // Claim: Queued → Processing, and only from Queued. The check above and this write
         //    used to be a read followed by an unconditional update, which two deliveries of the
         //    same message could both pass — losing the race now costs nothing, because the loser
         //    stops here, before the first paid call. The Processing branch above is a crashed
@@ -267,7 +266,6 @@ public class ExtractionService : IExtractionService
             source.Body = ComposeEffectiveBody(source.Body, source.DerivedText);
         }
 
-        // 5. Empty body short-circuit
         if (string.IsNullOrWhiteSpace(source.Body))
         {
             _logger.LogInformation(
@@ -277,7 +275,7 @@ public class ExtractionService : IExtractionService
             return await HandleEmptyBodyAsync(source, worldId, ct);
         }
 
-        // 6. Daily AI budget gate. The message is completed (not redelivered) and the
+        // Daily AI budget gate. The message is completed (not redelivered) and the
         // source fails visibly — the GM can retry from the UI once the budget resets.
         var budgetError = await _budgetGuard.CheckAsync(worldId, ct);
         if (budgetError is not null)
@@ -289,10 +287,8 @@ public class ExtractionService : IExtractionService
             return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
         }
 
-        // 7. Context assembly
         var context = await AssembleContextAsync(source, worldId, ct);
 
-        // 8. AI invocation with parse retry
         return await InvokeAiWithRetriesAsync(source, worldId, context, ct);
     }
 
@@ -694,9 +690,7 @@ public class ExtractionService : IExtractionService
         _ => $"A {kind.Replace('_', ' ')} marked on the map."
     };
 
-    /// <summary>Matches SourceService.ValidateBody — the composed prompt body honors the
-    /// same ceiling the typed body does.</summary>
-    private const int MaxComposedBodyChars = 100_000;
+    private const int MaxComposedBodyChars = SourceService.MaxBodyChars;
 
     private static string ComposeEffectiveBody(string? body, string derivedText)
     {

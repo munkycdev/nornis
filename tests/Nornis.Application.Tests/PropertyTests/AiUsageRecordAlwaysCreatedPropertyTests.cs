@@ -23,8 +23,6 @@ namespace Nornis.Application.Tests.PropertyTests;
 /// and passes idempotency checks), an AiUsageRecord SHALL be created with the correct
 /// WorldId, SourceId, OperationType=SourceExtraction, Model name, and DurationMs ≥ 0
 /// — regardless of whether the AI call succeeds or fails.
-///
-/// **Validates: Requirements 6.1, 6.3**
 /// </summary>
 [TestFixture]
 [Category("Feature: async-source-extraction, Property 11: AiUsageRecord Always Created")]

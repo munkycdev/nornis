@@ -10,7 +10,6 @@ namespace Nornis.Api.Tests.Worlds;
 /// <summary>
 /// Integration tests for GET /api/worlds/{worldId}/sources/{sourceId}
 /// covering visibility enforcement, role-based access, and authorization.
-/// Validates: Requirements 2.1–2.7, 9.1–9.4, 10.1, 10.2
 /// </summary>
 [TestFixture]
 public class SourceGetTests
@@ -33,7 +32,6 @@ public class SourceGetTests
 
     /// <summary>
     /// A GM can retrieve any source regardless of visibility scope.
-    /// Validates: Requirements 2.1, 2.7
     /// </summary>
     [Test]
     public async Task GmCanGetPrivateSourceCreatedByAnotherUser()
@@ -63,7 +61,6 @@ public class SourceGetTests
 
     /// <summary>
     /// A GM can retrieve a GMOnly source.
-    /// Validates: Requirements 2.1, 2.7
     /// </summary>
     [Test]
     [Category("Authorization")]
@@ -94,7 +91,6 @@ public class SourceGetTests
 
     /// <summary>
     /// A Player can retrieve a PartyVisible source.
-    /// Validates: Requirements 2.1, 2.4, 9.3
     /// </summary>
     [Test]
     public async Task PlayerCanGetPartyVisibleSource()
@@ -128,7 +124,6 @@ public class SourceGetTests
 
     /// <summary>
     /// A Player can retrieve their own Private source.
-    /// Validates: Requirements 2.1, 9.1
     /// </summary>
     [Test]
     public async Task PlayerCanGetOwnPrivateSource()
@@ -158,7 +153,6 @@ public class SourceGetTests
 
     /// <summary>
     /// A Player cannot retrieve another user's Private source — returns 404 (not 403).
-    /// Validates: Requirements 2.2, 9.1, 9.4
     /// </summary>
     [Test]
     [Category("Authorization")]
@@ -184,7 +178,6 @@ public class SourceGetTests
 
     /// <summary>
     /// A Player cannot retrieve a GMOnly source — returns 404 (not 403).
-    /// Validates: Requirements 2.3, 9.2, 9.4
     /// </summary>
     [Test]
     [Category("Authorization")]
@@ -210,7 +203,6 @@ public class SourceGetTests
 
     /// <summary>
     /// An Observer can retrieve a PartyVisible source.
-    /// Validates: Requirements 2.4, 9.3
     /// </summary>
     [Test]
     public async Task ObserverCanGetPartyVisibleSource()
@@ -242,7 +234,6 @@ public class SourceGetTests
 
     /// <summary>
     /// An Observer cannot retrieve a Private source — returns 404.
-    /// Validates: Requirements 2.2, 9.1, 9.4
     /// </summary>
     [Test]
     [Category("Authorization")]
@@ -268,7 +259,6 @@ public class SourceGetTests
 
     /// <summary>
     /// An Observer cannot retrieve a GMOnly source — returns 404.
-    /// Validates: Requirements 2.3, 9.2, 9.4
     /// </summary>
     [Test]
     [Category("Authorization")]
@@ -294,7 +284,6 @@ public class SourceGetTests
 
     /// <summary>
     /// Requesting a non-existent source returns 404.
-    /// Validates: Requirements 2.5
     /// </summary>
     [Test]
     public async Task NonExistentSource_Returns404()
@@ -312,7 +301,6 @@ public class SourceGetTests
 
     /// <summary>
     /// A non-member of the world cannot access source endpoints — returns 403.
-    /// Validates: Requirements 2.6, 10.1, 10.2
     /// </summary>
     [Test]
     [Category("Authorization")]

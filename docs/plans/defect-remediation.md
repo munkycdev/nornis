@@ -489,9 +489,12 @@ changes that item's priority, not its shape.
   - `ZeroBudget_DisablesGuard` asserted the old behaviour and is gone; the two halves of
     the new rule are asserted separately, plus that a world's own ceiling still wins when
     the configured default is "none".
-- **The validator accepts what the applicator silently reinterprets**: a GM typo like
-  truthState `"Flase"` is coerced to Likely with no error; unparseable Status is
-  dropped. Fix with scrub **1.7**: reject unknown enum strings at the validator.
+- ~~**The validator accepts what the applicator silently reinterprets**~~ **Done
+  2026-08-01 via scrub 1.7**, recorded here 2026-08-03 — it was struck through in
+  `future-features.md` on the day and this bullet was never updated to match, so the plan
+  file has been reading as open ever since. Original: a GM typo like truthState `"Flase"` is
+  coerced to Likely with no error; unparseable Status is dropped. Fix: reject unknown enum
+  strings at the validator.
 - **ExtractionService is a four-pipeline god class** (1,696 lines, 21 constructor
   dependencies) whose size is already warping API decisions — the nullable-dependency
   hack exists, per its own comment, because the constructions were too numerous to

@@ -15,8 +15,6 @@ namespace Nornis.Api.Tests.Integration;
 /// cross-world endpoint. These tests exercise the full HTTP pipeline: JWT validation,
 /// UserProvisioningMiddleware, WorldMemberActionFilter, CostService role filtering,
 /// and response assembly.
-///
-/// Validates: Requirements 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 4.2
 /// </summary>
 [TestFixture]
 public class CostDashboardAuthorizationIntegrationTests

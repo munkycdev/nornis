@@ -18,8 +18,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any string that is empty, composed entirely of whitespace, or exceeds 2000 characters,
 /// the LoremasterService SHALL reject the question and return a validation error without
 /// invoking the AI client or the knowledge retriever.
-///
-/// **Validates: Requirements 2.2**
 /// </summary>
 [TestFixture]
 [Category("Feature: ask-loremaster, Property 1: Invalid Questions Are Rejected")]

@@ -16,8 +16,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any set of AiUsageRecords and any date range [startDate, endDate], the aggregation SHALL
 /// include exactly those records where CreatedAt >= startDate AND CreatedAt <= endDate. Records
 /// outside the range SHALL be excluded.
-///
-/// **Validates: Requirements 3.2, 3.3, 3.4, 3.5, 5.4, 6.4, 7.4, 8.2, 8.3**
 /// </summary>
 [TestFixture]
 [Category("Feature: cost-dashboard, Property 3: Date range filtering correctness")]

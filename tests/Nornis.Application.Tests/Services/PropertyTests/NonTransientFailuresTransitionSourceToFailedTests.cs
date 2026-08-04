@@ -22,8 +22,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any source in Queued status where a non-transient error occurs (parse failure after retries
 /// exhausted, validation failure, or malformed AI structured output), the ExtractionService SHALL
 /// transition the source ProcessingStatus to Failed and return a NonTransientFailure outcome.
-///
-/// **Validates: Requirements 1.7, 10.1, 10.3**
 /// </summary>
 [TestFixture]
 [Category("Feature: async-source-extraction, Property 3: Non-Transient Failures Transition Source to Failed")]

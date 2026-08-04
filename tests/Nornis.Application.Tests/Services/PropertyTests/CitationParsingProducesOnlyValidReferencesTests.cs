@@ -15,8 +15,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// SHALL only contain Citation objects whose reference IDs match items present in the
 /// retrieved knowledge context. Markers referencing unknown IDs SHALL be silently excluded
 /// from the citations list.
-///
-/// **Validates: Requirements 7.1, 7.3**
 /// </summary>
 [TestFixture]
 [Category("Feature: ask-loremaster, Property 8: Citation Parsing Produces Only Valid References")]

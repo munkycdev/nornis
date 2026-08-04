@@ -16,8 +16,6 @@ namespace Nornis.Api.Tests.Integration;
 /// Integration tests for LoremasterController authorization and role-based visibility filtering.
 /// These tests exercise the full HTTP pipeline: JWT validation, WorldMemberActionFilter,
 /// knowledge retrieval with visibility filtering, and response assembly.
-///
-/// Validates: Requirements 1.1, 1.2, 1.3, 3.1, 3.2, 3.3, 3.4
 /// </summary>
 [TestFixture]
 public class LoremasterAuthorizationIntegrationTests

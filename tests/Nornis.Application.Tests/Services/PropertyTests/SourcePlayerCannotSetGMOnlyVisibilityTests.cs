@@ -17,8 +17,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any source creation or update request where the acting user has role Player and the requested
 /// VisibilityScope is GMOnly, the service should reject the request with a validation error without
 /// modifying any stored data.
-///
-/// **Validates: Requirements 1.9, 3.6, 9.5**
 /// </summary>
 [TestFixture]
 [Category("Feature: world-sources, Property 3: Players Cannot Set GMOnly Visibility")]

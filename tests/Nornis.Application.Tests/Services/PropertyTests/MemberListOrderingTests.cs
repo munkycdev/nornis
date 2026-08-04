@@ -14,8 +14,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 ///
 /// For any world with N members (N ≥ 1), listing members should return exactly N entries
 /// where each entry's JoinedAt is less than or equal to the next entry's JoinedAt (ascending order).
-///
-/// **Validates: Requirements 6.1, 6.4**
 /// </summary>
 [TestFixture]
 public class MemberListOrderingTests

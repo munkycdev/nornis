@@ -19,7 +19,6 @@ namespace Nornis.Application.Tests.Services;
 public class WorldMemberServicePropertyTests
 {
     /// <summary>
-    /// Validates: Requirements 4.2, 5.2
     ///
     /// Property 7: Non-GM Operations Are Denied
     /// For any world member with role Player or Observer, attempting to update world settings,

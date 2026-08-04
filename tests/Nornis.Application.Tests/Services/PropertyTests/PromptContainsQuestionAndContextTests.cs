@@ -18,8 +18,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 ///
 /// For any valid question and non-empty knowledge context, the prompt sent to the AI client
 /// SHALL contain the original question text and at least one artifact name from the retrieved context.
-///
-/// **Validates: Requirements 5.1**
 /// </summary>
 [TestFixture]
 [Category("Feature: ask-loremaster, Property 6: Prompt Contains Question and Context")]

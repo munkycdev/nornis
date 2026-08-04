@@ -18,8 +18,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any authenticated user, listing their worlds should return exactly the set of worlds
 /// where a WorldMember record exists for that user — no more, no less — with each entry
 /// including the user's WorldRole in that world.
-///
-/// **Validates: Requirements 7.1, 7.2, 7.3**
 /// </summary>
 [TestFixture]
 [Category("Feature: auth-and-worlds, Property 11: World Listing Completeness and Exclusivity")]

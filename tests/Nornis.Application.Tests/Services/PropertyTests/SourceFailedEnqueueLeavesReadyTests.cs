@@ -17,8 +17,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any source in Draft status where the extraction queue client fails, marking the source as ready
 /// should leave the ProcessingStatus at Ready (not Queued) and return an error indicating the enqueue
 /// operation failed.
-///
-/// **Validates: Requirements 7.3**
 /// </summary>
 [TestFixture]
 [Category("Feature: world-sources, Property 11: Failed Enqueue Leaves Source at Ready")]

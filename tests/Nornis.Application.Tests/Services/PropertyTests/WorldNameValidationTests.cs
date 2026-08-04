@@ -18,8 +18,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any string that is null, empty, composed entirely of whitespace, or longer than 100 characters,
 /// both world creation and world update operations should reject the input with a validation error
 /// (status 400).
-///
-/// **Validates: Requirements 3.3, 4.6**
 /// </summary>
 [TestFixture]
 [Category("Feature: auth-and-worlds, Property 5: World Name Validation Rejects Invalid Names")]

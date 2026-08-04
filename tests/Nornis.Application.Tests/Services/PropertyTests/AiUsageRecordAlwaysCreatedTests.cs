@@ -21,8 +21,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// an AiUsageRecord SHALL be created with OperationType=AskLoremaster, the correct WorldId,
 /// UserId, Model, InputTokens, OutputTokens, TotalTokens, EstimatedCostUsd, DurationMs,
 /// and Succeeded flag — regardless of whether the AI call succeeds or fails.
-///
-/// **Validates: Requirements 9.1, 9.2, 9.3**
 /// </summary>
 [TestFixture]
 [Category("Feature: ask-loremaster, Property 10: AiUsageRecord Always Created")]
