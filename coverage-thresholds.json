@@ -1,0 +1,17 @@
+{
+  "_note": "Per-assembly coverage floors, enforced by scripts/coverage-gate.ps1 on PRs and on main. A null floor is not enforced — the assembly is reported and passed. Setting a number is the whole act of turning the gate on for that assembly, and it is deliberately the only thing anyone has to edit.",
+  "_scope": "Domain and Application only, per the plan. Api, Web, Worker and Infrastructure are report-only forever unless that is revisited in writing: their coverage is dominated by wiring and by code whose value is not proven by line count. There is deliberately no solution-wide aggregate floor — an aggregate lets a collapse in one assembly hide behind a rise in another.",
+  "_settingThem": "Floors start a couple of points BELOW observed reality, so ordinary variance does not fail an unrelated PR. Ratcheting up when a trend holds is a normal PR. Never ratchet down without writing why in the same commit. The observed range is in history.json on the coverage-history branch; scripts/coverage-gate.ps1 -Suggest prints it against the current floors.",
+  "_timing": "Left null on purpose as of 2026-08-03. The plan gates floor-setting on roughly two weeks of history and collection started 2026-08-01, so the numbers are not yet trustworthy — three days of history mostly measures what was being worked on. The mechanism ships now so that opening the gate later is editing a number rather than building a feature.",
+
+  "assemblies": {
+    "Nornis.Domain": {
+      "line": null,
+      "branch": null
+    },
+    "Nornis.Application": {
+      "line": null,
+      "branch": null
+    }
+  }
+}

@@ -79,10 +79,13 @@ if (-not $coverageFiles) { throw 'No coverage files produced — nothing to repo
 
 Write-Host '== Merging into an HTML report…'
 dotnet tool restore | Out-Null
+# JsonSummary is what scripts/coverage-gate.ps1 and the CI history append both read. CI
+# asked for it and this did not, so the gate could not be run on a dev machine at all —
+# including its -Suggest mode, which exists precisely to be run by a person.
 dotnet reportgenerator `
     "-reports:$(Join-Path $rawDir '**/coverage.cobertura.xml')" `
     "-targetdir:$reportDir" `
-    '-reporttypes:Html;Cobertura' `
+    '-reporttypes:Html;Cobertura;JsonSummary' `
     '-title:Nornis coverage' `
     -verbosity:Warning
 if ($LASTEXITCODE -ne 0) { throw 'reportgenerator failed' }
