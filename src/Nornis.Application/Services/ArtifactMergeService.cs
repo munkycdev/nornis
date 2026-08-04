@@ -132,9 +132,7 @@ public class ArtifactMergeService : IArtifactMergeService
                 return AppResult<Guid>.Fail(applyResult.Error!);
             }
 
-            proposal.Status = ReviewProposalStatus.Accepted;
-            proposal.ReviewedAt = now;
-            proposal.ReviewedByUserId = actingUserId;
+            proposal.Accept(actingUserId, now);
             await _reviewProposalRepository.UpdateAsync(proposal, ct);
 
             await transaction.CommitAsync(ct);

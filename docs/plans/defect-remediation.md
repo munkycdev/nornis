@@ -535,11 +535,23 @@ changes that item's priority, not its shape.
   text — lives in the vendor adapter. Converge on the string seam (an
   Application-side extraction prompt builder; the client keeps transport, timeout,
   parse). Extends scrub **1.5**.
-- **The review-provenance invariant is hand-assembled in eight services**, and one
-  divergence already exists: `ArtifactMergeService` creates batches with `Kind =
-  null` — the value reserved for normal source extraction (currently masked because
-  merge batches are born Completed). Fix: `proposal.Accept(userId, now)` on the
-  entity, one shared synthetic-batch writer, and a named merge Kind.
+- **The review-provenance invariant is hand-assembled in eight services** — **two of the
+  three fixes done, the writer still open.**
+  - ~~A named merge Kind~~ **done 2026-08-03.** `ArtifactMergeService` was minting batches
+    with `Kind = null`, the value reserved for a source's own extraction batch — which the
+    filtered unique index added in item 6 keys off exactly. Checked rather than assumed:
+    each merge builds its own synthetic source and no extraction is ever enqueued for it,
+    so nothing collided. But the index and the batch were reading the same null two ways.
+  - ~~`proposal.Accept(userId, now)` on the entity~~ **done 2026-08-03.** Status, reviewer
+    and timestamp are one fact, and they were assigned separately at eight call sites
+    across four services — eight chances to write two of the three. Now `Accept`, `Reject`
+    and `MarkEdited`, sharing one private body, with time passed in as it is on
+    `WorldInvite.CanBeRedeemed`. No divergence was found in the eight; this makes the
+    pairing structural rather than repeated.
+  - **Still open: one shared synthetic-batch writer.** Seven services build a `ReviewBatch`
+    by hand, and unlike the stamp they genuinely differ — kind, status at birth, and what
+    the accompanying proposal carries. That is a carving decision, not a sweep, and it is
+    the piece that unblocks W4.
 - ~~**Smaller items**~~ **All four done 2026-08-03.** Two were wider than written, and both
   widenings are the same shape: the defect was named at one call site when it belonged to
   the thing being called.

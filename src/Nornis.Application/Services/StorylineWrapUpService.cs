@@ -396,9 +396,7 @@ public class StorylineWrapUpService : IStorylineWrapUpService
                     return AppResult<Guid>.Fail(applyResult.Error!);
                 }
 
-                proposal.Status = ReviewProposalStatus.Accepted;
-                proposal.ReviewedAt = now;
-                proposal.ReviewedByUserId = command.ActingUserId;
+                proposal.Accept(command.ActingUserId, now);
                 await _reviewProposalRepository.UpdateAsync(proposal, ct);
             }
 

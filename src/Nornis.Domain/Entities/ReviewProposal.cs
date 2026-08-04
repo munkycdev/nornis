@@ -41,6 +41,41 @@ public class ReviewProposal
 
     public byte[] RowVersion { get; set; } = [];
 
+    /// <summary>Accepted by <paramref name="reviewerId"/> at <paramref name="at"/>.</summary>
+    public void Accept(Guid reviewerId, DateTimeOffset at) =>
+        Decide(ReviewProposalStatus.Accepted, reviewerId, at);
+
+    /// <summary>Rejected by <paramref name="reviewerId"/> at <paramref name="at"/>.</summary>
+    public void Reject(Guid reviewerId, DateTimeOffset at) =>
+        Decide(ReviewProposalStatus.Rejected, reviewerId, at);
+
+    /// <summary>
+    /// Marks an edit by <paramref name="reviewerId"/>. Named for what it records rather than
+    /// what it does — the new <see cref="ProposedValueJson"/> is set by the caller, and this
+    /// only stamps who changed it and when.
+    /// </summary>
+    public void MarkEdited(Guid reviewerId, DateTimeOffset at) =>
+        Decide(ReviewProposalStatus.Edited, reviewerId, at);
+
+    /// <summary>
+    /// The review-provenance invariant, in one place. Status, reviewer and timestamp are one
+    /// fact — a resolved proposal with no reviewer is a proposal that decided itself — and
+    /// they were assembled by hand at eight call sites across seven services, which is eight
+    /// chances to write two fields of the three.
+    /// <para>
+    /// Private, and reachable only through the three outcomes above, so no caller can stamp a
+    /// review onto a status that is not a decision. Time comes in as a parameter, as it does
+    /// on <see cref="WorldInvite.CanBeRedeemed"/>: an entity that reads the clock is an entity
+    /// that cannot be tested at a chosen moment.
+    /// </para>
+    /// </summary>
+    private void Decide(ReviewProposalStatus outcome, Guid reviewerId, DateTimeOffset at)
+    {
+        Status = outcome;
+        ReviewedAt = at;
+        ReviewedByUserId = reviewerId;
+    }
+
     // Navigation properties
     public ReviewBatch ReviewBatch { get; set; } = null!;
 }
