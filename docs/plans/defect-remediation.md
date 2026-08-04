@@ -495,12 +495,25 @@ changes that item's priority, not its shape.
   file has been reading as open ever since. Original: a GM typo like truthState `"Flase"` is
   coerced to Likely with no error; unparseable Status is dropped. Fix: reject unknown enum
   strings at the validator.
-- **ExtractionService is a four-pipeline god class** (1,696 lines, 21 constructor
-  dependencies) whose size is already warping API decisions — the nullable-dependency
-  hack exists, per its own comment, because the constructions were too numerous to
-  update. Fix: extract a MapExtractionPipeline and SourceTextDerivation
-  (transcription + attachment derivation) as owned collaborators plus the shared
-  usage recorder from scrub **1.4**; keep the orchestrating state machine.
+- ~~**ExtractionService is a four-pipeline god class**~~ **Done 2026-08-04** (branch
+  `d4-carving`), and the prescription needed one correction before it could be executed:
+  "keep the orchestrating state machine" assumed the state machine was in the orchestrator
+  to keep, and it was not — Failed/Queued writes were scattered through all four pipelines
+  at ~15 call sites, so a literal extraction would have smeared source status transitions
+  across three files. The carve therefore moves the work and repatriates the transitions:
+  MapExtractionPipeline and SourceTextDerivation return verdicts and never write status
+  (the map pipeline holds no source repository at all, so the type system enforces it;
+  derivation keeps its content writes — the persist-before-continue that protects paid
+  vision calls), and `ApplyFailureStatusAsync` is the whole post-claim state machine in
+  one method. Map persistence stays with the orchestrator so a map batch and a text batch
+  commit through the same code. 21 → 18 constructor dependencies with seven gone outright;
+  1,710 lines → 1,154 + 388 + 364. Every pre-existing behavioral suite passed with zero
+  assertion changes, which is what proves the move preserved behavior.
+  Original: (1,696 lines, 21 constructor dependencies) whose size is already warping API
+  decisions — the nullable-dependency hack exists, per its own comment, because the
+  constructions were too numerous to update. Fix: extract a MapExtractionPipeline and
+  SourceTextDerivation (transcription + attachment derivation) as owned collaborators plus
+  the shared usage recorder from scrub **1.4**; keep the orchestrating state machine.
 - ~~**The Web re-implements the continuity scoring it renders**~~ **Done 2026-08-03.**
   `ContinuityAssessment` carries a `ContinuityPenaltyBreakdown` — per-severity lines, the
   stale-suspended count, raw and capped totals, the cap itself, and whether it bit — built
@@ -530,11 +543,17 @@ changes that item's priority, not its shape.
   applied, and the Worker already uses the correct non-HTTP idiom
   (`ExtractionOutcome`). Fix if desired: a semantic error-kind enum mapped once in
   Api — mechanical and wire-compatible; do it with scrub **1.1** or not at all.
-- **The prompt seam has two owners**: five clients receive Application-built prompt
-  strings; extraction's system prompt — the product's most consequential business
-  text — lives in the vendor adapter. Converge on the string seam (an
-  Application-side extraction prompt builder; the client keeps transport, timeout,
-  parse). Extends scrub **1.5**.
+- ~~**The prompt seam has two owners**~~ **Done 2026-08-04** (branch `d4-carving`).
+  `ExtractionPromptBuilder` owns both prompt texts in Application; `IAiExtractionClient`
+  takes the same `AiPromptRequest` the other five clients take; the adapter keeps
+  transport, timeout, and parse. The structured-output schema stays with the adapter on
+  purpose — it is the parse contract, and the prompt's Output Format section describes it
+  rather than owning it. The thirty-odd typed assertions on the old request shape were
+  preserved through one test-side `ExtractionPromptReader` that parses the rendering back
+  into typed context, so the tests got end-to-end rather than weaker. Original: five
+  clients receive Application-built prompt strings; extraction's system prompt — the
+  product's most consequential business text — lives in the vendor adapter. Converge on
+  the string seam. Extends scrub **1.5**.
 - **The review-provenance invariant is hand-assembled in eight services** — **two of the
   three fixes done, the writer still open.**
   - ~~A named merge Kind~~ **done 2026-08-03.** `ArtifactMergeService` was minting batches
@@ -548,10 +567,16 @@ changes that item's priority, not its shape.
     and `MarkEdited`, sharing one private body, with time passed in as it is on
     `WorldInvite.CanBeRedeemed`. No divergence was found in the eight; this makes the
     pairing structural rather than repeated.
-  - **Still open: one shared synthetic-batch writer.** Seven services build a `ReviewBatch`
-    by hand, and unlike the stamp they genuinely differ — kind, status at birth, and what
-    the accompanying proposal carries. That is a carving decision, not a sweep, and it is
-    the piece that unblocks W4.
+  - ~~One shared synthetic-batch writer~~ **done 2026-08-04** (branch `d4-carving`), and
+    the carving decision resolved as: six services share `SyntheticBatchWriter` (accepted /
+    pending / sweep verbs matching the three genuine shapes), and ExtractionService's three
+    sites are deliberately NOT clients — an extraction batch is one-per-source through the
+    conditional-insert verb the filtered unique index backs, and folding it in would trade
+    that enforced invariant for surface uniformity. Two latent defects died in passing: the
+    retrospective's Kind-null batches (now `StorylineRetrospective`; old rows stay, still
+    safe) and the scattered Kind vocabulary (now `ReviewBatchKinds` in Domain; the one
+    mirror that must remain is ReviewQueuePanel's literal across the Web deploy boundary).
+    W4 gets `WritePendingAsync` for free, which is what this item was blocking.
 - ~~**Smaller items**~~ **All four done 2026-08-03.** Two were wider than written, and both
   widenings are the same shape: the defect was named at one call site when it belonged to
   the thing being called.
