@@ -10,8 +10,6 @@ namespace Nornis.Application.Tests.Services;
 
 /// <summary>
 /// Unit tests for CostService date range validation and aggregation behavior.
-///
-/// **Validates: Requirements 8.2, 8.3, 8.4, 8.5, 8.6**
 /// </summary>
 [TestFixture]
 public class CostServiceDateRangeAndAggregationTests

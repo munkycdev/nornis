@@ -35,8 +35,6 @@ public class ProposalAccessProperties
     /// - GM sees all pending proposals regardless of source author or visibility
     /// - Player sees only pending proposals from sources the Player created
     /// - Observer sees zero proposals
-    ///
-    /// **Validates: Requirements 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 7.1, 7.2, 7.3**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
     [Description("Feature: review-proposal-workflow, Property 1: Visibility Filtering")]
@@ -104,8 +102,6 @@ public class ProposalAccessProperties
     /// - GM is always authorized regardless of source author
     /// - Player is authorized only if the source was created by that Player
     /// - Observer is always denied with 403
-    ///
-    /// **Validates: Requirements 6.1, 6.2, 6.3, 6.4**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
     [Description("Feature: review-proposal-workflow, Property 2: Authorization Enforcement")]
@@ -173,8 +169,6 @@ public class ProposalAccessProperties
     /// For any proposal that a user cannot see due to visibility rules,
     /// any review operation SHALL respond with a not-found error (404)
     /// rather than a forbidden error (403).
-    ///
-    /// **Validates: Requirements 3.5, 7.4, 7.6**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
     [Description("Feature: review-proposal-workflow, Property 3: Invisible Proposals Treated as Not-Found")]
@@ -256,8 +250,6 @@ public class ProposalAccessProperties
     /// Generate proposals without visibility in ProposedValueJson; accept; assert entity inherits
     /// source VisibilityScope; generate proposals with explicit visibility; assert entity uses
     /// specified value.
-    ///
-    /// **Validates: Requirements 7.5**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
     [Description("Feature: review-proposal-workflow, Property 20: Accepted Entity Inherits Source Visibility When Not Specified")]

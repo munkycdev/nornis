@@ -23,8 +23,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// or any source that already has a ReviewBatch in Pending, InReview, or Completed status,
 /// processing the extraction message SHALL return a Skipped outcome without creating new ReviewBatch,
 /// ReviewProposal, or AiUsageRecord records, and without modifying the source's ProcessingStatus.
-///
-/// **Validates: Requirements 1.4, 2.1, 2.2**
 /// </summary>
 [TestFixture]
 [Category("Feature: async-source-extraction, Property 2: Non-Queued Sources and Existing Batches Are Skipped")]

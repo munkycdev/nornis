@@ -20,8 +20,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// permitted for that role: GMs see PartyVisible + GMOnly + own Private; Players see PartyVisible +
 /// own Private; Observers see only PartyVisible. Private items owned by a different user SHALL never
 /// be included regardless of role.
-///
-/// **Validates: Requirements 3.1, 3.2, 3.3, 3.4**
 /// </summary>
 [TestFixture]
 [Category("Feature: ask-loremaster, Property 2: Visibility Filter Correctness")]

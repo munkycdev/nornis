@@ -16,8 +16,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any source with ProcessingStatus of Queued or Processing, any delete request
 /// (regardless of whether the actor is the creator or a GM) should be rejected with an
 /// error indicating the source cannot be deleted while being processed.
-///
-/// **Validates: Requirements 4.3**
 /// </summary>
 [TestFixture]
 [Category("Feature: world-sources, Property 8: Processing Status Guards on Delete")]

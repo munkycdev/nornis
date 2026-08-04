@@ -13,8 +13,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any valid claims tuple (sub, nickname, email) where no User exists for that sub,
 /// provisioning should create a User with Auth0SubjectId equal to sub, Username equal to
 /// nickname (or sub if nickname is absent), and Email equal to email.
-///
-/// **Validates: Requirements 2.2**
 /// </summary>
 [TestFixture]
 [Category("Feature: auth-and-worlds, Property 2: User Provisioning Creates Correct User from Claims")]

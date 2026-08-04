@@ -17,8 +17,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any world with N artifacts (where N exceeds the configured MaxRetrievalCount),
 /// the knowledge retriever SHALL return at most MaxRetrievalCount artifacts, with no artifact
 /// appearing more than once.
-///
-/// **Validates: Requirements 4.5**
 /// </summary>
 [TestFixture]
 [Category("Feature: ask-loremaster, Property 5: Retrieval Count Cap")]

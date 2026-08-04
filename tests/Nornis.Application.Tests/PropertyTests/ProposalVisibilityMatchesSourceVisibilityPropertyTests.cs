@@ -24,8 +24,6 @@ namespace Nornis.Application.Tests.PropertyTests;
 /// ReviewProposal's visibility within ProposedValueJson SHALL match the source's
 /// VisibilityScope — Private sources produce only Private proposals, GMOnly sources
 /// produce only GMOnly proposals, and PartyVisible sources produce only PartyVisible proposals.
-///
-/// **Validates: Requirements 8.1, 8.2**
 /// </summary>
 [TestFixture]
 [Category("Feature: async-source-extraction, Property 14: Proposal Visibility Always Matches Source Visibility")]

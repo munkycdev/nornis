@@ -17,8 +17,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// optional GameSystem) and authenticated user, creating a world should return a World with the
 /// provided Name, Description, and GameSystem, a non-empty Id, CreatedByUserId equal to the acting
 /// user's Id, and CreatedAt/UpdatedAt set to approximately the current time.
-///
-/// **Validates: Requirements 3.1, 3.4, 3.5, 3.6**
 /// </summary>
 [TestFixture]
 [Category("Feature: auth-and-worlds, Property 3: World Creation Field Mapping")]

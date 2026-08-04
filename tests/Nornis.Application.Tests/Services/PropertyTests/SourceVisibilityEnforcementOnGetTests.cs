@@ -17,8 +17,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// the source details if and only if the member can see it according to visibility rules
 /// (PartyVisible: all members; Private: creator or GM; GMOnly: GM only).
 /// When visibility denies access, the response should be not-found (not forbidden).
-///
-/// **Validates: Requirements 2.2, 2.3, 2.4, 2.7, 9.1, 9.2, 9.3, 9.4**
 /// </summary>
 [TestFixture]
 [Category("Feature: world-sources, Property 5: Visibility Enforcement on Get")]

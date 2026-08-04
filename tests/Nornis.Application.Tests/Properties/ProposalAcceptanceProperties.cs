@@ -32,8 +32,6 @@ public class ProposalAcceptanceProperties
     /// For any proposal with Status Pending or Edited that is accepted by an authorized reviewer,
     /// the proposal's Status SHALL transition to Accepted, ReviewedAt SHALL be set to approximately
     /// the current UTC timestamp, and ReviewedByUserId SHALL be set to the acting user's Id.
-    ///
-    /// **Validates: Requirements 2.1**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
     [Description("Feature: review-proposal-workflow, Property 4: Accept Transitions Status and Sets Metadata")]
@@ -94,8 +92,6 @@ public class ProposalAcceptanceProperties
     /// Summary, Visibility, and Confidence fields, acceptance SHALL create an Artifact with those field
     /// values, WorldId from the ReviewBatch, Status Active, and CreatedAt/UpdatedAt set to the
     /// current UTC timestamp. The proposal's TargetId SHALL be updated to the newly created Artifact's Id.
-    ///
-    /// **Validates: Requirements 2.2, 9.1**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
     [Description("Feature: review-proposal-workflow, Property 5: CreateArtifact Acceptance Creates Correct Artifact")]
@@ -201,8 +197,6 @@ public class ProposalAcceptanceProperties
     /// where the TargetId references an existing entity, acceptance SHALL update only the
     /// fields specified in ProposedValueJson (non-null values) and set UpdatedAt to the
     /// current UTC timestamp, leaving unspecified fields unchanged.
-    ///
-    /// **Validates: Requirements 2.3, 2.5, 2.7**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
     [Description("Feature: review-proposal-workflow, Property 6: Update Acceptance Updates Existing Entity")]
@@ -287,8 +281,6 @@ public class ProposalAcceptanceProperties
     /// fields from ProposedValueJson. For any valid AddRelationship proposal where both
     /// ArtifactAId and ArtifactBId reference existing Artifacts, acceptance SHALL create
     /// an ArtifactRelationship with the specified fields.
-    ///
-    /// **Validates: Requirements 2.4, 2.6, 9.2, 9.3**
     /// </summary>
     [Test]
     [Description("Feature: review-proposal-workflow, Property 7: Add Acceptance Creates Correct Entity")]
@@ -475,8 +467,6 @@ public class ProposalAcceptanceProperties
     /// target Artifact, reassign all ArtifactRelationships from the source Artifact to the
     /// target Artifact (removing any that would become self-referencing), and set the source
     /// Artifact's Status to Archived.
-    ///
-    /// **Validates: Requirements 9.5**
     /// </summary>
     [Test]
     [Description("Feature: review-proposal-workflow, Property 8: MergeArtifact Reassigns and Archives")]
@@ -658,8 +648,6 @@ public class ProposalAcceptanceProperties
     /// For any accepted proposal (regardless of ChangeType), a SourceReference SHALL be
     /// created with SourceId equal to the ReviewBatch's SourceId, TargetType corresponding
     /// to the entity type created/updated, and TargetId equal to the entity Id.
-    ///
-    /// **Validates: Requirements 2.8**
     /// </summary>
     [Test]
     [Description("Feature: review-proposal-workflow, Property 9: Accept Creates SourceReference")]

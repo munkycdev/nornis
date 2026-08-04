@@ -11,6 +11,15 @@ namespace Nornis.Application.Services;
 
 public class ArtifactMergeService : IArtifactMergeService
 {
+    /// <summary>
+    /// Names the batch a merge mints, like every other synthetic batch does. It was left null,
+    /// which is the value reserved for a source's own extraction batch — and the filtered unique
+    /// index that enforces "one extraction batch per source" keys off exactly that. Nothing
+    /// collides today, because each merge builds its own source and no extraction is ever
+    /// enqueued for it, but the index and this batch were reading the same null two ways.
+    /// </summary>
+    public const string BatchKind = "ArtifactMerge";
+
     private readonly IArtifactRepository _artifactRepository;
     private readonly ISourceRepository _sourceRepository;
     private readonly IReviewBatchRepository _reviewBatchRepository;
@@ -94,6 +103,7 @@ public class ArtifactMergeService : IArtifactMergeService
                 Id = Guid.NewGuid(),
                 WorldId = worldId,
                 SourceId = source.Id,
+                Kind = BatchKind,
                 Status = ReviewBatchStatus.Completed,
                 CreatedAt = now,
                 CompletedAt = now

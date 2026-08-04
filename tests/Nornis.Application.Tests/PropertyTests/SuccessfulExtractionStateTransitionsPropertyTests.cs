@@ -23,8 +23,6 @@ namespace Nornis.Application.Tests.PropertyTests;
 /// a valid response with one or more proposals, the ExtractionService SHALL transition
 /// the source through Queued → Processing → Processed, and the final source status
 /// SHALL be Processed.
-///
-/// **Validates: Requirements 1.1, 1.2**
 /// </summary>
 [TestFixture]
 [Category("Feature: async-source-extraction, Property 1: Successful Extraction State Transitions")]

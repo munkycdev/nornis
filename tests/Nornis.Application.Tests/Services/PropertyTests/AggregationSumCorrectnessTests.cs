@@ -17,8 +17,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// TotalInputTokens equal to the sum of all matching records' InputTokens, TotalOutputTokens equal
 /// to the sum of OutputTokens, TotalTokens equal to the sum of TotalTokens, TotalEstimatedCostUsd
 /// equal to the sum of EstimatedCostUsd, and OperationCount equal to the count of matching records.
-///
-/// **Validates: Requirements 3.6, 9.2, 9.3, 10.2**
 /// </summary>
 [TestFixture]
 [Category("Feature: cost-dashboard, Property 2: Aggregation sum correctness")]

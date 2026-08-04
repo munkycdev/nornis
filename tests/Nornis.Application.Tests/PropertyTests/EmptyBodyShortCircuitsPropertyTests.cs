@@ -22,8 +22,6 @@ namespace Nornis.Application.Tests.PropertyTests;
 /// of whitespace characters, the ExtractionService SHALL skip AI invocation, create
 /// a ReviewBatch with Status=Completed and zero ReviewProposal records, and transition
 /// the source ProcessingStatus to Processed.
-///
-/// **Validates: Requirements 3.2**
 /// </summary>
 [TestFixture]
 public class EmptyBodyShortCircuitsPropertyTests

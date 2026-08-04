@@ -13,7 +13,6 @@ namespace Nornis.Api.Tests.Reviews;
 
 /// <summary>
 /// Integration tests for ReviewsController authorization and world membership enforcement.
-/// Validates: Requirements 6.5, 6.6, 12.1–12.6
 /// </summary>
 [TestFixture]
 public class ReviewsControllerAuthorizationTests
@@ -96,7 +95,6 @@ public class ReviewsControllerAuthorizationTests
     /// <summary>
     /// All review endpoints require world membership via WorldMemberActionFilter.
     /// A non-member should get 403 for every endpoint.
-    /// Validates: Requirements 12.1, 12.2
     /// </summary>
     [Test]
     [Category("Authorization")]
@@ -215,7 +213,6 @@ public class ReviewsControllerAuthorizationTests
 
     /// <summary>
     /// When the worldId route parameter is not a valid GUID, the API returns 404.
-    /// Validates: Requirement 12.5
     /// </summary>
     [Test]
     public async Task ListProposals_InvalidWorldIdFormat_Returns404()
@@ -250,7 +247,6 @@ public class ReviewsControllerAuthorizationTests
     /// <summary>
     /// When a review endpoint references a world that does not exist, 
     /// the API returns 403 (indistinguishable from non-member).
-    /// Validates: Requirement 12.4
     /// </summary>
     [Test]
     [Category("Authorization")]
@@ -284,7 +280,6 @@ public class ReviewsControllerAuthorizationTests
     /// <summary>
     /// When the request does not contain a valid JWT, the API returns 401 before
     /// any membership check executes.
-    /// Validates: Requirement 12.6
     /// </summary>
     [Test]
     [Category("Authorization")]
@@ -383,7 +378,6 @@ public class ReviewsControllerAuthorizationTests
     /// Since Observers have zero visibility (IsSourceVisibleToUser always returns false),
     /// the visibility check triggers before the role-based authorization check,
     /// yielding a 404 not-found rather than 403.
-    /// Validates: Requirements 6.4, 7.4
     /// </summary>
     [Test]
     public async Task AcceptProposal_Observer_Returns404_DueToVisibility()
@@ -450,7 +444,6 @@ public class ReviewsControllerAuthorizationTests
     /// <summary>
     /// The API derives user identity from the JWT sub claim, not from client-provided values.
     /// A valid GM should be able to accept when properly authenticated.
-    /// Validates: Requirements 6.5, 12.3
     /// </summary>
     [Test]
     [Category("Authorization")]

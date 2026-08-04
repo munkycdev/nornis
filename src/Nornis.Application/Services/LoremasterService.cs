@@ -122,7 +122,6 @@ public partial class LoremasterService : ILoremasterService
         AskLoremasterCommand command,
         CancellationToken ct)
     {
-        // 1. Validate input
         var validationError = ValidateQuestion(command.Question);
         if (validationError is not null)
             return AppResult<LoremasterAnswer>.Fail(validationError);
@@ -132,7 +131,7 @@ public partial class LoremasterService : ILoremasterService
         if (budgetError is not null)
             return AppResult<LoremasterAnswer>.Fail(budgetError);
 
-        // 2. Retrieve knowledge. Follow-up questions often name artifacts only in earlier
+        // Retrieve knowledge. Follow-up questions often name artifacts only in earlier
         // exchanges ("what about his brother?"), so the conversation context participates
         // in name matching alongside the question itself.
         KnowledgeContext context;
@@ -193,13 +192,10 @@ public partial class LoremasterService : ILoremasterService
                 new AppError(500, "internal_error", "Something went wrong. Please try again."));
         }
 
-        // 3. Build prompt
         var request = BuildPrompt(command.Question, context, command.ConversationContext);
 
-        // 4. Calculate confidence
         var confidence = DetermineConfidence(context);
 
-        // 5. Call AI
         var stopwatch = Stopwatch.StartNew();
         LoremasterAiResponse? aiResponse = null;
         try
@@ -243,16 +239,12 @@ public partial class LoremasterService : ILoremasterService
                 new AppError(503, "service_unavailable", "The Loremaster is temporarily unavailable. Please try again."));
         }
 
-        // 6. Parse citations from response
         var citations = ParseCitations(aiResponse.AnswerText, context);
 
-        // 7. Assemble caveats
         var caveats = AssembleCaveats(context);
 
-        // 8. Create AiUsageRecord with success
         await TrackUsageAsync(command, aiResponse, stopwatch.Elapsed, true, null, ct);
 
-        // 9. Return LoremasterAnswer
         return AppResult<LoremasterAnswer>.Success(new LoremasterAnswer
         {
             AnswerText = aiResponse.AnswerText,

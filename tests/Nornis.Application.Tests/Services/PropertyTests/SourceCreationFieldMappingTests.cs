@@ -18,8 +18,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// return a Source with: the provided Title, Type, Visibility, Body, Uri, OccurredAt correctly stored;
 /// ProcessingStatus set to Draft; CreatedByUserId matching the acting user; CreatedAt set to approximately
 /// the current UTC time; and a non-empty Id.
-///
-/// **Validates: Requirements 1.1, 1.2, 1.3, 1.4**
 /// </summary>
 [TestFixture]
 [Category("Feature: world-sources, Property 1: Source Creation Field Mapping")]

@@ -31,8 +31,6 @@ public class ReviewQueueProperties
     /// Generate proposals with random timestamps across multiple batches; list queue;
     /// assert proposals ordered by CreatedAt ascending within each batch,
     /// batches ordered by CreatedAt ascending.
-    ///
-    /// **Validates: Requirements 1.8**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 100)]
     [Description("Feature: review-proposal-workflow, Property 21: Review Queue Ordering")]
@@ -148,8 +146,6 @@ public class ReviewQueueProperties
     ///
     /// Generate >200 matching proposals; list queue; assert exactly 200 returned with
     /// HasMore=true; generate ≤200; assert HasMore=false.
-    ///
-    /// **Validates: Requirements 1.11**
     /// </summary>
     [FsCheck.NUnit.Property(Arbitrary = [typeof(ReviewArbitraries)], MaxTest = 5)]
     [Description("Feature: review-proposal-workflow, Property 22: Review Queue Pagination Over 200")]

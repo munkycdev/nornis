@@ -15,7 +15,6 @@ namespace Nornis.Infrastructure.Tests.Persistence.PropertyTests;
 /// if two concurrent modifications are attempted against the same row version, the second save should
 /// fail with a concurrency exception.
 ///
-/// **Validates: Requirements 6.9**
 ///
 /// Uses a ConcurrencyTestDbContext that configures RowVersion as IsConcurrencyToken with
 /// ValueGeneratedNever, enabling proper concurrency detection on SQLite.

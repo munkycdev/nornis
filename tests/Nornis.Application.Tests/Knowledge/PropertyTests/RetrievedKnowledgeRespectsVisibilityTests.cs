@@ -18,8 +18,6 @@ namespace Nornis.Application.Tests.Knowledge.PropertyTests;
 /// and ArtifactRelationships loaded into the knowledge context SHALL have a visibility scope
 /// permitted for the requesting user's role. No fact or relationship with a disallowed visibility
 /// SHALL appear in the context.
-///
-/// **Validates: Requirements 4.2, 4.3**
 /// </summary>
 [TestFixture]
 [Category("Feature: ask-loremaster, Property 4: Retrieved Knowledge Respects Visibility")]

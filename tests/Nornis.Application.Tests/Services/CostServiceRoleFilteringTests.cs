@@ -11,8 +11,6 @@ namespace Nornis.Application.Tests.Services;
 /// Unit tests for CostService role-based filtering behavior.
 /// Verifies that GM sees all users' records, while Player and Observer
 /// see only their own data.
-///
-/// **Validates: Requirements 2.1, 2.2, 2.3, 2.4**
 /// </summary>
 [TestFixture]
 public class CostServiceRoleFilteringTests

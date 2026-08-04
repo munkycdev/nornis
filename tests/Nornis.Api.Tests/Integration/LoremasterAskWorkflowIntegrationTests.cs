@@ -19,8 +19,6 @@ namespace Nornis.Api.Tests.Integration;
 /// These tests exercise the complete pipeline: authentication, world membership,
 /// knowledge retrieval, AI invocation (via fake), citation parsing, confidence
 /// calculation, usage tracking, and response serialization.
-///
-/// Validates: Requirements 2.1, 2.2, 5.1, 8.1, 8.2, 9.1, 10.1
 /// </summary>
 [TestFixture]
 public class LoremasterAskWorkflowIntegrationTests

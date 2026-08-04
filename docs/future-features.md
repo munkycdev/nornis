@@ -135,7 +135,10 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
 16. D4 architectural items — ExtractionService split, prompt-seam convergence,
     shared synthetic-batch writer (which unblocks W4), AppError error-kind enum.
 17. W4 Ask file-back — small, but waits on the D4 writer.
-18. Scrub tier 5 comment pass — pure editorial judgment.
+18. Scrub tier 5 comment pass — **the enumerated deletes are done 2026-08-03**; what is
+    left is the one bullet that was always the judgment call: whether to compress the
+    essayistic register in the surviving comments. The scrub doc notes that if that voice
+    is staying — it is also the README's and the commit history's — the bullet is a no-op.
 19. Test quality phase 6 (qualitative audits) — after tier 4's pruning, so we never
     grade tests scheduled for deletion.
 
@@ -143,7 +146,22 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
 
 Small things noticed in passing, too small for a plan file, parked against the item
 that already opens the right file. None is ever urgent; all of them rot if left
-unwritten. Both entries below are now closed, kept for the record.
+unwritten. The first is open; the two below it are closed and kept for the record.
+
+- **Nothing exercises real sign-in.** 3,127 tests and not one of them authenticates.
+  The API's dev-auth bypass stands in for Auth0 everywhere, so every test — including
+  all 318 cases in the authorization suite — starts from an identity the test handed
+  itself. What that suite proves is that *authorization* is enforced once an identity
+  exists. Whether Auth0 issues one, whether the JWT validates against the real issuer
+  and audience, whether `UserProvisioningMiddleware` maps claims to the right Nornis
+  user — none of that has a test, and a break in it takes the whole product down for
+  everyone at once rather than degrading.
+  - Not a gap a unit test closes. It wants either a smoke test against the deployed
+    stack with a real token (which needs a service-principal identity and a place to
+    keep its secret) or an Auth0 test tenant. Both are decisions, not chores, which is
+    why this is written down rather than done.
+  - Recorded 2026-08-03, having been raised in passing twice without ever landing
+    anywhere. That is precisely the failure mode this section exists to prevent.
 
 - ~~**Node 20 action deprecation**~~ **(handled 2026-08-01 by item 4; finished
   2026-08-02.)** Item 4 took `actions/checkout`, `azure/login` and

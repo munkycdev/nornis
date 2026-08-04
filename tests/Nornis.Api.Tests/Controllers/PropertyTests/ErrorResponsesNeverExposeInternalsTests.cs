@@ -15,8 +15,6 @@ namespace Nornis.Api.Tests.Controllers.PropertyTests;
 /// For any error that occurs during the Ask pipeline (AI failure, retrieval failure,
 /// unexpected exception), the error response returned to the client SHALL never contain
 /// stack traces, internal exception messages, AI prompt content, or retrieved knowledge content.
-///
-/// **Validates: Requirements 10.4**
 /// </summary>
 [TestFixture]
 [Category("Feature: ask-loremaster, Property 12: Error Responses Never Expose Internals")]

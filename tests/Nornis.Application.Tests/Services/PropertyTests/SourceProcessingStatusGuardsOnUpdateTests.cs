@@ -22,8 +22,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// Processed sources allow metadata edits, but body and visibility changes are
 /// rejected — a body change must go through the reprocess flow instead
 /// (see SourceReprocessService).
-///
-/// **Validates: Requirements 3.3, amended by source-reprocess**
 /// </summary>
 [TestFixture]
 [Category("Feature: world-sources, Property 7: Processing Status Guards on Update")]

@@ -13,8 +13,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any pair of WorldRoles (actualRole, requiredRole), access to an operation
 /// requiring requiredRole should be granted if and only if actualRole.Rank >= requiredRole.Rank,
 /// using the hierarchy GM (3) > Player (2) > Observer (1).
-///
-/// **Validates: Requirements 8.3, 8.4**
 /// </summary>
 [TestFixture]
 public class RoleHierarchyEnforcementTests

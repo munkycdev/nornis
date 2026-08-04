@@ -17,8 +17,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any source in Draft status where the acting user is the creator or a GM, marking the source as ready
 /// should: place an extraction message on the queue containing the Source Id and World Id, and transition
 /// the ProcessingStatus to Queued.
-///
-/// **Validates: Requirements 6.1, 7.1, 7.2**
 /// </summary>
 [TestFixture]
 [Category("Feature: world-sources, Property 10: Mark Ready Enqueues and Transitions to Queued")]

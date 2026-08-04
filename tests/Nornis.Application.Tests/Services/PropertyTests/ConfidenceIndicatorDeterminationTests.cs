@@ -16,8 +16,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// retrieved, Medium when at least 1 confirmed/likely fact exists or at least 2 total facts
 /// exist, and High when at least 3 confirmed/likely facts plus relationships plus source
 /// references exist. The result SHALL always be one of High, Medium, or Low.
-///
-/// **Validates: Requirements 8.4**
 /// </summary>
 [TestFixture]
 [Category("Feature: ask-loremaster, Property 9: Confidence Indicator Determination")]

@@ -16,8 +16,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 ///
 /// For any successfully created world, the creating user should be a WorldMember
 /// of that world with the GM role.
-///
-/// **Validates: Requirements 3.2**
 /// </summary>
 [TestFixture]
 public class WorldCreatorBecomesGmTests

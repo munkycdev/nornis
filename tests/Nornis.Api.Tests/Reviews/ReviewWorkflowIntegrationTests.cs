@@ -16,8 +16,6 @@ namespace Nornis.Api.Tests.Reviews;
 /// End-to-end integration tests for the full review proposal workflow through HTTP.
 /// These tests exercise the complete request pipeline: authentication, world membership,
 /// review service logic, knowledge graph mutations, and response serialization.
-/// 
-/// Validates: Requirements 1.1, 2.1, 3.1, 4.1, 5.1, 7.4, 10.1, 10.3, 11.1
 /// </summary>
 [TestFixture]
 public class ReviewWorkflowIntegrationTests

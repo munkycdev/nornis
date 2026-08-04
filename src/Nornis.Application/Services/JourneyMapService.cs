@@ -41,7 +41,7 @@ public class JourneyMapService : IJourneyMapService
         var allSources = await _sourceRepository.ListByWorldAsync(worldId, cancellationToken: ct);
         var canSeeSource = SourceVisibilityRule.Compile(userId, role);
 
-        // 1. Resolve the canvas — the map image + its caller-visible pins — via MapViewService.
+        // Resolve the canvas — the map image + its caller-visible pins — via MapViewService.
         MapView canvas;
         if (mapSourceId is { } requested)
         {
@@ -93,7 +93,7 @@ public class JourneyMapService : IJourneyMapService
         var pinnedSet = locations.Select(l => l.ArtifactId).ToHashSet();
         var filter = VisibilityFilter.ForRole(role, userId);
 
-        // 2. The timeline is the world's play record: every caller-visible session and imported
+        // The timeline is the world's play record: every caller-visible session and imported
         //    note (never a map, upload, reveal, or GM aside). Dated ones become stops in
         //    OccurredAt order; undated ones can't be placed but are counted, so their absence is
         //    visible rather than silent.
@@ -120,7 +120,7 @@ public class JourneyMapService : IJourneyMapService
             .ThenBy(s => s.Id)
             .ToList();
 
-        // 3. Walk each stop's references once: the pins it touched are its visits (deduped —
+        // Walk each stop's references once: the pins it touched are its visits (deduped —
         //    Property 5), and the caller-visible artifacts it introduced or advanced are its
         //    highlights. FirstSeen marks the earliest stop referencing an artifact (a location's
         //    "first visit"). A stop that touched no mapped place keeps an empty visit list.

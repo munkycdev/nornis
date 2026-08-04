@@ -17,8 +17,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// SHALL return a validation error (HTTP 400) with error code "invalid_date_range". For any pair
 /// where startDate is before or equal to endDate, the service SHALL proceed with aggregation
 /// successfully.
-///
-/// **Validates: Requirements 8.4, 8.5**
 /// </summary>
 [TestFixture]
 [Category("Feature: cost-dashboard, Property 5: Date range validation")]

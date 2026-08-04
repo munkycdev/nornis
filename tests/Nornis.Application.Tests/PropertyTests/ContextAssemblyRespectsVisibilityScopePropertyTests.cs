@@ -24,8 +24,6 @@ namespace Nornis.Application.Tests.PropertyTests;
 /// Private sources include only Private artifacts OWNED BY THE SOURCE'S CREATOR;
 /// GMOnly sources include GMOnly and PartyVisible artifacts;
 /// PartyVisible sources include only PartyVisible artifacts.
-///
-/// **Validates: Requirements 4.5, amended by the Private ownership policy**
 /// </summary>
 [TestFixture]
 [Category("Feature: async-source-extraction, Property 9: Context Assembly Respects Visibility Scope")]

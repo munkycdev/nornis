@@ -22,8 +22,6 @@ namespace Nornis.Application.Tests.PropertyTests;
 /// the assembled context SHALL contain at most MaxArtifactContextCount artifacts, with
 /// name-matched artifacts appearing before recently-updated artifacts, and no artifact
 /// appearing more than once in the list.
-///
-/// **Validates: Requirements 4.1, 4.2, 4.3**
 /// </summary>
 [TestFixture]
 [Category("Feature: async-source-extraction, Property 7: Context Assembly Merge, Dedup, Ordering, and Limit")]

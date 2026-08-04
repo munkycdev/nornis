@@ -30,7 +30,6 @@ public class WorldScopedAuthorizationTests
 
     /// <summary>
     /// A non-member accessing a world-scoped endpoint should receive 403 Forbidden.
-    /// Validates: Requirements 8.1, 8.2
     /// </summary>
     [Test]
     [Category("Authorization")]
@@ -65,7 +64,6 @@ public class WorldScopedAuthorizationTests
     /// <summary>
     /// A non-member accessing a world-scoped endpoint for a non-existent world
     /// should receive 403 Forbidden, NOT 404 (to avoid leaking world existence).
-    /// Validates: Requirements 8.2, 8.5
     /// </summary>
     [Test]
     [Category("Authorization")]
@@ -94,7 +92,6 @@ public class WorldScopedAuthorizationTests
     /// (but the membership record does) should receive 404 Not Found.
     /// This tests Req 8.6: members get 404 for non-existent worlds.
     /// We seed a membership record without a corresponding world in the worlds table.
-    /// Validates: Requirements 8.6
     /// </summary>
     [Test]
     public async Task Member_AccessingNonExistentWorld_Returns404()

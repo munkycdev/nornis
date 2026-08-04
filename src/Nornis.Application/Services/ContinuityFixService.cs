@@ -136,7 +136,7 @@ public class ContinuityFixService : IContinuityFixService
                 "Only GMs can draft continuity fixes."));
         }
 
-        // 0. The finding must exist, belong to this world, and still be worth fixing.
+        // The finding must exist, belong to this world, and still be worth fixing.
         var finding = await _assessmentRepository.GetFindingByIdAsync(findingId, ct);
         if (finding is null || finding.HealthAssessment.WorldId != worldId)
         {
@@ -154,7 +154,7 @@ public class ContinuityFixService : IContinuityFixService
         if (budgetError is not null)
             return AppResult<ContinuityFixDraft>.Fail(budgetError);
 
-        // 1. Load the record slice around the finding: every cited item, the artifacts that own
+        // Load the record slice around the finding: every cited item, the artifacts that own
         // or anchor them, and those artifacts' full facts and relationships — the fixer needs
         // the surroundings to judge which side of a contradiction the record supports.
         var (artifacts, facts, relationships) = await LoadFindingContextAsync(finding, ct);
@@ -166,7 +166,8 @@ public class ContinuityFixService : IContinuityFixService
 
         var userMessage = BuildUserMessage(finding, artifacts, facts, relationships);
 
-        // 2. Call the AI. Track usage on success and failure alike (parity with the audit).
+        // Usage is recorded whether the call succeeds or fails — a failed draft still spent
+        // tokens, and only recorded spend reaches the budget guard.
         var request = new AiPromptRequest
         {
             SystemPrompt = SystemPrompt,
@@ -194,7 +195,7 @@ public class ContinuityFixService : IContinuityFixService
 
         await TrackUsageAsync(worldId, actingUserId, response, true, null, ct);
 
-        // 3. Validate + persist. An empty draft is a valid outcome — no batch is created.
+        // Validate + persist. An empty draft is a valid outcome — no batch is created.
         var drafts = BuildValidatedProposals(
             response.Proposals, _proposalValidator, artifacts, facts, relationships);
         if (drafts.Count == 0)

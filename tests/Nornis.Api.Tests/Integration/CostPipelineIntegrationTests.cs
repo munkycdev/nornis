@@ -14,8 +14,6 @@ namespace Nornis.Api.Tests.Integration;
 /// Integration tests for the full cost request pipeline: controller → service → repository → in-memory DB.
 /// These tests exercise the HTTP pipeline with seeded AiUsageRecords, verifying correct aggregation,
 /// grouping, date filtering, and response shapes.
-///
-/// Validates: Requirements 3.1, 3.6, 5.1, 6.1, 7.1, 8.2, 8.3, 9.2, 9.3, 10.2
 /// </summary>
 [TestFixture]
 public class CostPipelineIntegrationTests

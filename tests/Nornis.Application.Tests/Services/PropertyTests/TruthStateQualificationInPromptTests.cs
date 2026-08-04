@@ -14,8 +14,6 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// For any knowledge context containing facts or relationships with TruthState of Rumor
 /// or Disputed, the formatted context block in the prompt SHALL include the truth state
 /// label alongside those items, enabling the AI to qualify claims appropriately.
-///
-/// **Validates: Requirements 6.2**
 /// </summary>
 [TestFixture]
 [Category("Feature: ask-loremaster, Property 7: Truth State Qualification in Prompt")]
