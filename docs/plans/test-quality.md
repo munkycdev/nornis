@@ -181,9 +181,19 @@ dashboard was being built anyway and the data was already in the merged Cobertur
 
 ## Phase 6 — qualitative audits
 
-- Baseline audit with the `dotnet-test` plugin (`test-quality-auditor` agent,
-  `grade-tests`, anti-patterns, smells, gap analysis) → `docs/test-quality-baseline.md`:
-  per-test letter grades, findings, gaps against the priority areas.
+- ~~Baseline audit~~ **Done 2026-08-03** → [test-quality-baseline.md](../test-quality-baseline.md).
+  Run with the audit skills directly rather than the `test-quality-auditor` agent.
+  - Verdict: no Critical findings — every automated Critical hit was a false positive, and
+    the baseline records which, so the next audit does not re-raise them. One High (four
+    constructor tests asserting only `Is.Not.Null`), fixed the same day. Four Medium/Low,
+    consciously accepted with reasons.
+  - Two of the plan's four listed techniques were deliberately skipped and the baseline says
+    so: per-test letter grades (`grade-tests` is built for a curated set — the changed files
+    in a PR — not for 2,556 methods), and `test-smell-detection` (the academic catalogue,
+    which is meant to be asked for by name; the pragmatic anti-pattern set was used instead).
+  - The finding worth carrying: this month's real defects were not missing tests inside a
+    priority area. They were rules living in two places, and behaviour nothing exercised at
+    all. Line coverage cannot see either, which is why this layer is not a percentage.
 - Run it **after** the scrub plan's tier 4 lands — grading tests already scheduled
   for deletion wastes the audit.
 - Per-PR: `grade-tests` on changed test files when a PR touches priority areas —
