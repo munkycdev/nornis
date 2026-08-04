@@ -18,6 +18,24 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # ImageSharp 4 added a build-time licence check: with no key, no licence file and
+      # no sixlabors.lic in the workspace, the compile fails outright. The split licence
+      # grants free use under 1M USD annual gross revenue and this project qualifies, but
+      # v4 enforces regardless — free use still needs a key from sixlabors.com, which
+      # means an account plus a secret in Actions and on every dev machine.
+      #
+      # Decided 2026-08-03 to stay on 3.1.x, which is maintained (3.1.12 shipped
+      # 2025-10-29) and carries the same licence terms without the enforcement. Patches
+      # and minors still come through; only the major is ignored, so this pin does not
+      # cost security updates on the 3.1 line.
+      #
+      # To revisit: either take a key, or drop the dependency — the whole usage is
+      # Image.Load, Clone(c => c.Crop(...)) and SaveAsPng in MapRefinement.CropTiles,
+      # and SkiaSharp is MIT with no threshold to re-check as this grows.
+      - dependency-name: SixLabors.ImageSharp
+        update-types:
+          - version-update:semver-major
     commit-message:
       prefix: "deps"
 
