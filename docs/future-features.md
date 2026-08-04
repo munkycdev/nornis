@@ -145,8 +145,12 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
     left is the one bullet that was always the judgment call: whether to compress the
     essayistic register in the surviving comments. The scrub doc notes that if that voice
     is staying — it is also the README's and the commit history's — the bullet is a no-op.
-19. Test quality phase 6 (qualitative audits) — after tier 4's pruning, so we never
-    grade tests scheduled for deletion.
+19. Test quality phase 6 (qualitative audits) — **baseline done 2026-08-03**, once tier 4
+    closed and unblocked it → [test-quality-baseline.md](test-quality-baseline.md). No
+    Critical findings; the one High was fixed the same day and the rest are accepted with
+    reasons. What remains is the ongoing half: `grade-tests` on changed files when a PR
+    touches a priority area, and a re-audit diffed against this baseline after each feature
+    wave. Both are on-demand and never blocking, by design.
 
 ## Riders
 

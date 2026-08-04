@@ -78,66 +78,31 @@ public class ServiceBusExtractionProcessorTests
             Throws.TypeOf<ArgumentException>());
     }
 
-    [Test]
-    public async Task Constructor_ConfiguresPeekLockMode_ProcessorCreatedSuccessfully()
+    /// <summary>
+    /// Every combination the worker actually constructs, in one test, because "it did not
+    /// throw" is the only fact available and one test establishes it.
+    ///
+    /// <para>
+    /// This was four tests — peek-lock mode, MaxConcurrentCalls, MaxAutoLockRenewalDuration,
+    /// and the default set — each asserting <c>Is.Not.Null</c> on the processor. Their names
+    /// claimed the options were applied; their bodies could not tell whether the constructor
+    /// forwarded them or discarded them, because the SDK exposes none of it afterwards. Four
+    /// tests reading as four verified options, over one unverifiable fact.
+    /// </para>
+    /// </summary>
+    [TestCase(1, 0, 5, QueueName, Description = "the worker's defaults")]
+    [TestCase(4, 0, 5, QueueName, Description = "raised concurrency")]
+    [TestCase(1, 0, 10, QueueName, Description = "extended lock renewal, as library indexing uses")]
+    [TestCase(1, 0, 5, "source-extraction", Description = "the real queue name")]
+    public async Task Constructor_AcceptsEveryOptionSetTheWorkerUses(
+        int maxConcurrentCalls, int prefetchCount, int lockRenewalMinutes, string queueName)
     {
-        // Peek-lock is configured in the ServiceBusProcessorOptions passed to CreateProcessor.
-        // If construction succeeds without throwing, the options (including ReceiveMode.PeekLock)
-        // were applied. The SDK does not expose the receive mode after construction, but the
-        // implementation explicitly sets ReceiveMode = ServiceBusReceiveMode.PeekLock.
         await using var processor = new ServiceBusExtractionProcessor(
             connectionString: ValidConnectionString,
-            queueName: QueueName,
-            maxConcurrentCalls: 1,
-            prefetchCount: 0,
-            maxAutoLockRenewalDuration: TimeSpan.FromMinutes(5));
-
-        Assert.That(processor, Is.Not.Null);
-    }
-
-    [Test]
-    public async Task Constructor_AcceptsMaxConcurrentCalls_FromOptions()
-    {
-        // The MaxConcurrentCalls value from WorkerOptions is passed to ServiceBusProcessorOptions.
-        // A value of 4 should be accepted without error.
-        await using var processor = new ServiceBusExtractionProcessor(
-            connectionString: ValidConnectionString,
-            queueName: QueueName,
-            maxConcurrentCalls: 4,
-            prefetchCount: 0,
-            maxAutoLockRenewalDuration: TimeSpan.FromMinutes(5));
-
-        Assert.That(processor, Is.Not.Null);
-    }
-
-    [Test]
-    public async Task Constructor_AcceptsMaxAutoLockRenewalDuration_FromOptions()
-    {
-        // The MaxAutoLockRenewalDuration from WorkerOptions is passed to ServiceBusProcessorOptions.
-        // A custom duration of 10 minutes should be accepted without error.
-        var customDuration = TimeSpan.FromMinutes(10);
-
-        await using var processor = new ServiceBusExtractionProcessor(
-            connectionString: ValidConnectionString,
-            queueName: QueueName,
-            maxConcurrentCalls: 1,
-            prefetchCount: 0,
-            maxAutoLockRenewalDuration: customDuration);
-
-        Assert.That(processor, Is.Not.Null);
-    }
-
-    [Test]
-    public async Task Constructor_AcceptsDefaultWorkerOptions_Configuration()
-    {
-        // Matches the default WorkerOptions: MaxConcurrentCalls=1, PrefetchCount=0,
-        // MaxAutoLockRenewalDuration=5 minutes, QueueName="source-extraction"
-        await using var processor = new ServiceBusExtractionProcessor(
-            connectionString: ValidConnectionString,
-            queueName: "source-extraction",
-            maxConcurrentCalls: 1,
-            prefetchCount: 0,
-            maxAutoLockRenewalDuration: TimeSpan.FromMinutes(5));
+            queueName: queueName,
+            maxConcurrentCalls: maxConcurrentCalls,
+            prefetchCount: prefetchCount,
+            maxAutoLockRenewalDuration: TimeSpan.FromMinutes(lockRenewalMinutes));
 
         Assert.That(processor, Is.Not.Null);
     }
