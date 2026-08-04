@@ -12,6 +12,9 @@ them with the same authority Kiro gives them. Nothing in them is advisory.
 **Always** (read before changing anything):
 
 - `coding-standards.md` — how code is written here; the authority on style and idiom.
+- `pre-implementation-checks.md` — five questions to answer before writing a feature, each
+  derived from a defect this codebase shipped. Cheap to run and they catch the structural
+  mistakes, which are the ones that survive review.
 - `domain-model.md` — entities and the deliberate vocabulary (Storyline, Source,
   Artifact, Fact, Relationship, Canon, Reveal). Naming drift is a defect.
 
