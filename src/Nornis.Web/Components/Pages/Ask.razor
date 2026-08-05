@@ -87,6 +87,8 @@
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@LoremasterDisplay.ConfidenceColor(ex.Confidence)">
                                 @ex.Confidence confidence
                             </MudChip>
+                            <MudSpacer />
+                            <AskFileBackButton Exchange="ex" Filed="OnFiledAsync" />
                         </div>
                         <div class="nornis-answer-text">@ex.Answer</div>
                         @foreach (var caveat in ex.Caveats)
@@ -230,6 +232,20 @@
     /// which world's history this list is, and that is not a question to re-ask after an await.
     /// </summary>
     private Task SaveHistoryAsync(Guid worldId) => History.SaveAsync(worldId, _conversations);
+
+    /// <summary>
+    /// Persists the filed-marker the button just set. Skipped after a world switch:
+    /// _conversations now holds the other world's history, and saving it under the filed
+    /// world's key would overwrite that world's conversations wholesale. The filing itself
+    /// already succeeded; only the marker is lost.
+    /// </summary>
+    private async Task OnFiledAsync(Guid worldId)
+    {
+        if (Worlds.Current?.Id == worldId)
+        {
+            await SaveHistoryAsync(worldId);
+        }
+    }
 
     private async Task OnKeyUp(KeyboardEventArgs e)
     {

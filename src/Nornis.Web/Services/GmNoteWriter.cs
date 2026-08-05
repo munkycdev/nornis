@@ -28,14 +28,33 @@ public class GmNoteWriter
     /// What the GM was reading, if the page knew. Prefixed onto the body so extraction can match
     /// the note to that artifact by name.
     /// </param>
-    public async Task<ApiResult<Guid>> SaveAsync(
+    public Task<ApiResult<Guid>> SaveAsync(
         Guid worldId,
         string? subject,
         string text,
         string visibility,
-        CancellationToken ct = default)
+        CancellationToken ct = default) =>
+        CreateAndQueueAsync(worldId, BuildRequest(subject, text, visibility), ct);
+
+    /// <summary>
+    /// Files a Loremaster answer as a GM note and queues it for extraction — the answer's
+    /// synthesis becomes reviewable proposals instead of evaporating with the conversation.
+    /// Always GMOnly: nothing records which visibility scopes grounded an answer (retrieval
+    /// filters by scope and then discards it), so the conservative end of "visibility follows
+    /// grounding" is the only computable one. Reveal is the sanctioned promotion path, and the
+    /// GM can widen individual proposals at review.
+    /// </summary>
+    public Task<ApiResult<Guid>> FileAskAnswerAsync(
+        Guid worldId,
+        string question,
+        string answer,
+        CancellationToken ct = default) =>
+        CreateAndQueueAsync(worldId, BuildAskFileBackRequest(question, answer), ct);
+
+    private async Task<ApiResult<Guid>> CreateAndQueueAsync(
+        Guid worldId, CreateSourceRequest request, CancellationToken ct)
     {
-        var created = await _api.CreateSourceAsync(worldId, BuildRequest(subject, text, visibility), ct);
+        var created = await _api.CreateSourceAsync(worldId, request, ct);
         if (!created.IsSuccess)
         {
             return ApiResult<Guid>.Fail(created.Error!);
@@ -71,4 +90,18 @@ public class GmNoteWriter
             Uri: null,
             OccurredAt: null);
     }
+
+    /// <summary>
+    /// The question rides along in the body because the synthesis only means something
+    /// against what was asked — and it gives extraction the names to match on when the
+    /// answer says "he" and "the harbor" throughout.
+    /// </summary>
+    internal static CreateSourceRequest BuildAskFileBackRequest(string question, string answer) =>
+        new(
+            Title: $"Filed from Ask — {DateTime.Now:yyyy-MM-dd}",
+            Type: "GMNote",
+            Visibility: "GMOnly",
+            Body: $"Asked the Loremaster: {question.Trim()}\n\n{answer.Trim()}",
+            Uri: null,
+            OccurredAt: null);
 }

@@ -100,6 +100,31 @@ per-storyline; nothing renders the state of the *world*.
 
 ## W4 — Ask answers filed back
 
+> **Done 2026-08-05** (branch `w4-ask-fileback`), on the extraction route David confirmed —
+> and two of the bullets below reversed on contact with the tree:
+>
+> - **There is no `AskFileBack` batch Kind, and there must not be.** The filed answer is an
+>   ordinary `GMNote` source created through the ordinary source API and marked ready, so the
+>   batch it yields is the source's *own extraction batch* — the one kind whose null Kind the
+>   filtered unique index and redelivery idempotency key on. A named Kind here would break
+>   both. The "every synthesized batch gets a named Kind" ground rule is satisfied vacuously:
+>   nothing synthesizes a batch, extraction earns one. The Retro/ContinuityFix pattern the
+>   original bullet cited cannot apply anyway — those services hold structured drafts, while
+>   an answer is free text, and the only thing that can turn free text into proposals *is*
+>   extraction.
+> - **The writer dependency dissolved with it.** The route reuses `GmNoteWriter`'s
+>   create-then-mark-ready sequence (now shared between hand-written notes and filed
+>   answers), so W4 touches no Application code at all — it is a Web-only change.
+> - **"Visibility follows grounding" narrowed to "always GMOnly".** Nothing records which
+>   scopes grounded an answer: retrieval filters by visibility and then discards it, and
+>   citations carry no scope. GMOnly is the computable conservative end of the rule; Reveal
+>   is the sanctioned promotion path, and the GM can widen individual proposals at review.
+>   Widening this later means threading visibility through the knowledge-context models.
+> - As predicted, smallest in the set: one shared `AskFileBackButton` on both member Ask
+>   surfaces (page + rail panel), GM-gated and hidden in view-as-player, with a filed-marker
+>   persisted into the localStorage history (nullable member — the store wipes history on
+>   deserialization failure, so additions to those models must never be required).
+
 The gist files good query answers back into the wiki; Ask is currently read-only.
 When an answer synthesizes something not yet recorded — connects two facts, names
 an implication — the synthesis evaporates when the conversation ends.

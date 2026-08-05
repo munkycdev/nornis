@@ -91,6 +91,60 @@ public class GmNoteWriterTests
     }
 
     [Test]
+    public async Task FilingAnAskAnswer_CreatesTheSourceAndQueuesIt()
+    {
+        var (writer, handler) = Build();
+
+        var result = await writer.FileAskAnswerAsync(WorldId, "Who hired the raiders?", "The evidence points to Voss.");
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value, Is.EqualTo(handler.NewSourceId));
+        Assert.That(handler.MarkedReadySourceId, Is.EqualTo(handler.NewSourceId),
+            "an answer that is never marked ready is never read, and proposes nothing");
+    }
+
+    [Test]
+    public async Task AFiledAnswer_IsAlwaysAGmOnlyGmNote()
+    {
+        // Nothing records which visibility scopes grounded an answer — retrieval filters by
+        // scope and then discards it — so the filed source takes the conservative end of
+        // "visibility follows grounding". Reveal is the promotion path if it turns out to
+        // be party knowledge.
+        var (writer, handler) = Build();
+
+        await writer.FileAskAnswerAsync(WorldId, "Who hired the raiders?", "Voss.");
+
+        var root = handler.CreatedBody!.RootElement;
+        Assert.That(root.GetProperty("type").GetString(), Is.EqualTo("GMNote"));
+        Assert.That(root.GetProperty("visibility").GetString(), Is.EqualTo("GMOnly"));
+    }
+
+    [Test]
+    public void AFiledAnswer_CarriesTheQuestionWithTheAnswer()
+    {
+        // The synthesis only means something against what was asked — and the question is
+        // where the names live when the answer says "he" and "the harbor" throughout.
+        var request = GmNoteWriter.BuildAskFileBackRequest(
+            "  Who hired the raiders?  ", "  The evidence points to Voss.  ");
+
+        Assert.That(request.Body,
+            Is.EqualTo("Asked the Loremaster: Who hired the raiders?\n\nThe evidence points to Voss."));
+        Assert.That(request.Title, Does.StartWith("Filed from Ask — "));
+    }
+
+    [Test]
+    public async Task AFiledAnswerThatSavedButCouldNotQueue_SaysSo()
+    {
+        // Same partial-failure contract as a hand-written note: the text is safe as a draft.
+        var (writer, _) = Build(readyStatus: HttpStatusCode.BadGateway);
+
+        var result = await writer.FileAskAnswerAsync(WorldId, "Q?", "A.");
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Message, Does.Contain("draft"));
+    }
+
+    [Test]
     public async Task AFailedCreate_DoesNotQueueAnything()
     {
         var (writer, handler) = Build(createStatus: HttpStatusCode.BadRequest);

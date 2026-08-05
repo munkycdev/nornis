@@ -140,7 +140,11 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
     judgment.
 16. D4 architectural items — ExtractionService split, prompt-seam convergence,
     shared synthetic-batch writer (which unblocks W4), AppError error-kind enum.
-17. W4 Ask file-back — small, but waits on the D4 writer.
+17. W4 Ask file-back — small, but waits on the D4 writer. **Done 2026-08-05** on
+    `w4-ask-fileback` (branched from main — the writer dependency dissolved: the answer
+    files as an ordinary GMNote source through the ordinary source API, so the reviewable
+    batch is the source's own extraction batch and W4 is Web-only; the plan file records
+    the two reversals, including why an `AskFileBack` batch Kind must not exist).
 18. Scrub tier 5 comment pass — **the enumerated deletes are done 2026-08-03**; what is
     left is the one bullet that was always the judgment call: whether to compress the
     essayistic register in the surviving comments. The scrub doc notes that if that voice

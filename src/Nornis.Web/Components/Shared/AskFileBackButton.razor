@@ -1,0 +1,80 @@
+@inject WorldState Worlds
+@inject GmNoteWriter NoteWriter
+@inject ISnackbar Snackbar
+@implements IDisposable
+
+@* Files a Loremaster answer back into the record: the answer becomes an ordinary GMOnly
+   GM-note source, queued through normal extraction, so its synthesis turns into reviewable
+   proposals instead of evaporating with the conversation. GM-only, and hidden for a GM
+   viewing as a player — same discipline as GmNoteButton, and subscribed to Worlds.Changed
+   for the same reason: the view-as toggle changes no world id, so the host page may not
+   re-render on it. *@
+@if (Worlds.Current is not null && Worlds.IsGm)
+{
+    @if (Exchange.FiledSourceId is { } filedSourceId)
+    {
+        <MudTooltip Text="Filed — view the source">
+            <MudIconButton Icon="@Icons.Material.Filled.CheckCircle"
+                           Size="Size.Small"
+                           Color="Color.Success"
+                           Href="@($"/sources/{filedSourceId}")"
+                           aria-label="Filed as a source" />
+        </MudTooltip>
+    }
+    else
+    {
+        <MudTooltip Text="File this answer as a GM note — Nornis reads it and proposes updates">
+            <MudIconButton Icon="@Icons.Material.Filled.NoteAdd"
+                           Size="Size.Small"
+                           OnClick="FileAsync"
+                           Disabled="_filing"
+                           aria-label="File this answer" />
+        </MudTooltip>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public AskExchange Exchange { get; set; } = default!;
+
+    /// <summary>
+    /// Raised with the world the answer was filed under, after the exchange is marked. The
+    /// owner persists its history — and must check the world still matches before writing,
+    /// because a filing takes long enough to switch worlds in.
+    /// </summary>
+    [Parameter] public EventCallback<Guid> Filed { get; set; }
+
+    private bool _filing;
+
+    protected override void OnInitialized() => Worlds.Changed += OnWorldsChanged;
+
+    private void OnWorldsChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task FileAsync()
+    {
+        if (Worlds.Current is null || _filing)
+        {
+            return;
+        }
+
+        // Captured before the await: the filing belongs to this world even if the GM
+        // switches mid-flight.
+        var worldId = Worlds.Current.Id;
+        _filing = true;
+
+        var result = await NoteWriter.FileAskAnswerAsync(worldId, Exchange.Question, Exchange.Answer);
+
+        _filing = false;
+        if (result.IsSuccess)
+        {
+            Exchange.FiledSourceId = result.Value;
+            Snackbar.Add("Filed — proposals will appear in the review queue shortly.", Severity.Success);
+            await Filed.InvokeAsync(worldId);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    public void Dispose() => Worlds.Changed -= OnWorldsChanged;
+}
