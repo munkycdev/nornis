@@ -4,6 +4,7 @@ using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
+using Nornis.Application.Application;
 using Nornis.Application.Configuration;
 using Nornis.Application.Services;
 using Nornis.Application.Storage;
@@ -140,6 +141,8 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<IAiBudgetGuard, AiBudgetGuard>();
 
         // Extraction service
+        services.AddScoped<MapExtractionPipeline>();
+        services.AddScoped<SourceTextDerivation>();
         services.AddScoped<IExtractionService, ExtractionService>();
 
         // Timeline replay: a zero-proposal extraction completes with no review step, so
@@ -155,7 +158,13 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<IExtractionReplayService, ExtractionReplayService>();
         services.AddScoped<IExtractionReplayAdvancer>(sp => sp.GetRequiredService<IExtractionReplayService>());
 
-        // Relationship backfill sweep (same queue, ExtractionKind.RelationshipBackfill messages)
+        // Relationship backfill sweep (same queue, ExtractionKind.RelationshipBackfill messages).
+        // The sweep writes through SyntheticBatchWriter, whose accepted verb carries the
+        // proposal applicator — unused on the worker's paths, but registered so the one
+        // writer stays whole instead of being carved along host lines.
+        services.AddScoped<IWorldMemberRepository, WorldMemberRepository>();
+        services.AddScoped<IProposalApplicator, ProposalApplicator>();
+        services.AddScoped<SyntheticBatchWriter>();
         services.AddScoped<IRelationshipBackfillAiClient, AzureOpenAiRelationshipBackfillClient>();
         services.AddScoped<IRelationshipBackfillService, RelationshipBackfillService>();
 

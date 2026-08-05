@@ -213,11 +213,11 @@ public class TutorialService : ITutorialService
                 return await _proposalRepository.AnyDecidedByWorldAsync(world.Id, ct);
 
             case TutorialSteps.RevealSecret:
-                // Case-sensitive where the old in-memory check was not. Kind is written by
-                // RevealService as the literal "Reveal" and never user-supplied, so this matches
-                // the same rows — and a SQL-side comparison keeps it a single indexed predicate
-                // rather than a full scan.
-                return await _batchRepository.AnyOfKindAsync(world.Id, "Reveal", ct);
+                // Case-sensitive where the old in-memory check was not. Kind is never
+                // user-supplied, so this matches the same rows RevealService writes — and a
+                // SQL-side comparison keeps it a single indexed predicate rather than a
+                // full scan.
+                return await _batchRepository.AnyOfKindAsync(world.Id, ReviewBatchKinds.Reveal, ct);
 
             default:
                 return false;

@@ -29,9 +29,6 @@ public class ContinuityFixService : IContinuityFixService
     /// <summary>Proposals accepted per draft are capped to keep the batch reviewable.</summary>
     public const int MaxProposals = 10;
 
-    /// <summary>Batch kind marking drafts produced by this service.</summary>
-    public const string BatchKind = "ContinuityFix";
-
     public const string SystemPrompt = """
         You are the Continuity Fixer for Nornis, a tabletop RPG world memory system. You receive
         ONE continuity finding — a contradiction, dangling thread, stale storyline, timeline
@@ -83,14 +80,10 @@ public class ContinuityFixService : IContinuityFixService
     private readonly IArtifactRepository _artifactRepository;
     private readonly IArtifactFactRepository _factRepository;
     private readonly IArtifactRelationshipRepository _relationshipRepository;
-    private readonly ISourceRepository _sourceRepository;
-    private readonly IReviewBatchRepository _reviewBatchRepository;
-    private readonly IReviewProposalRepository _reviewProposalRepository;
-    private readonly ISourceReferenceRepository _sourceReferenceRepository;
+    private readonly SyntheticBatchWriter _batchWriter;
     private readonly IProposalValidator _proposalValidator;
     private readonly IContinuityFixAiClient _aiClient;
     private readonly IAiUsageRecorder _usageRecorder;
-    private readonly IUnitOfWork _unitOfWork;
     private readonly LoremasterOptions _options;
 
     public ContinuityFixService(
@@ -99,14 +92,10 @@ public class ContinuityFixService : IContinuityFixService
         IArtifactRepository artifactRepository,
         IArtifactFactRepository factRepository,
         IArtifactRelationshipRepository relationshipRepository,
-        ISourceRepository sourceRepository,
-        IReviewBatchRepository reviewBatchRepository,
-        IReviewProposalRepository reviewProposalRepository,
-        ISourceReferenceRepository sourceReferenceRepository,
+        SyntheticBatchWriter batchWriter,
         IProposalValidator proposalValidator,
         IContinuityFixAiClient aiClient,
         IAiUsageRecorder usageRecorder,
-        IUnitOfWork unitOfWork,
         IOptions<LoremasterOptions> options)
     {
         _budgetGuard = budgetGuard;
@@ -114,14 +103,10 @@ public class ContinuityFixService : IContinuityFixService
         _artifactRepository = artifactRepository;
         _factRepository = factRepository;
         _relationshipRepository = relationshipRepository;
-        _sourceRepository = sourceRepository;
-        _reviewBatchRepository = reviewBatchRepository;
-        _reviewProposalRepository = reviewProposalRepository;
-        _sourceReferenceRepository = sourceReferenceRepository;
+        _batchWriter = batchWriter;
         _proposalValidator = proposalValidator;
         _aiClient = aiClient;
         _usageRecorder = usageRecorder;
-        _unitOfWork = unitOfWork;
         _options = options.Value;
     }
 
@@ -389,16 +374,14 @@ public class ContinuityFixService : IContinuityFixService
     // ------------------------------------------------------------------------- Persistence --
 
     /// <summary>
-    /// Persists the drafts the way StorylineRetrospectiveService does: a synthesized GM-only
-    /// provenance source, a Pending batch marked with <see cref="BatchKind"/>, one Pending
-    /// proposal per draft, and a source reference per proposal — all in one transaction.
+    /// Persists the drafts through the shared writer: a synthesized GM-only provenance
+    /// source, a Pending batch marked with its kind, one Pending proposal per draft, and a
+    /// source reference per proposal — all in one transaction.
     /// </summary>
     private async Task<(Guid BatchId, Guid SourceId)> PersistDraftsAsync(
         Guid worldId, Guid actingUserId, ContinuityFinding finding,
         IReadOnlyList<DraftProposal> drafts, CancellationToken ct)
     {
-        var now = DateTimeOffset.UtcNow;
-
         var body = new StringBuilder();
         body.AppendLine($"AI-drafted fix for continuity finding ({finding.Category}, {finding.Severity}):");
         body.AppendLine(finding.Summary);
@@ -409,71 +392,28 @@ public class ContinuityFixService : IContinuityFixService
             body.AppendLine($"- {draft.ChangeType}: {draft.Rationale}");
         }
 
-        var source = new Source
-        {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            Type = SourceType.GMNote,
-            Title = $"Continuity fix — {finding.Summary.Truncate(80, ellipsis: true)}",
-            Body = body.ToString(),
-            Visibility = VisibilityScope.GMOnly,
-            ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedAt = now,
-            CreatedByUserId = actingUserId
-        };
-
-        await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
-        try
-        {
-            await _sourceRepository.CreateAsync(source, ct);
-
-            var batch = new ReviewBatch
+        var written = await _batchWriter.WritePendingAsync(
+            new SyntheticSourceSpec
             {
-                Id = Guid.NewGuid(),
                 WorldId = worldId,
-                SourceId = source.Id,
-                Status = ReviewBatchStatus.Pending,
-                Kind = BatchKind,
-                CreatedAt = now
-            };
-            await _reviewBatchRepository.CreateAsync(batch, ct);
-
-            foreach (var draft in drafts)
+                ActingUserId = actingUserId,
+                Title = $"Continuity fix — {finding.Summary.Truncate(80, ellipsis: true)}",
+                Body = body.ToString()
+            },
+            ReviewBatchKinds.ContinuityFix,
+            drafts.Select(draft => new SyntheticProposalSpec
             {
-                var proposal = new ReviewProposal
-                {
-                    Id = Guid.NewGuid(),
-                    ReviewBatchId = batch.Id,
-                    ChangeType = draft.ChangeType,
-                    TargetType = draft.TargetType,
-                    TargetId = draft.TargetId,
-                    ProposedValueJson = draft.ProposedValueJson,
-                    Rationale = draft.Rationale,
-                    Confidence = draft.Confidence,
-                    Status = ReviewProposalStatus.Pending,
-                    CreatedAt = now
-                };
-                await _reviewProposalRepository.CreateAsync(proposal, ct);
+                ChangeType = draft.ChangeType,
+                TargetType = draft.TargetType,
+                TargetId = draft.TargetId,
+                ProposedValueJson = draft.ProposedValueJson,
+                Rationale = draft.Rationale,
+                Confidence = draft.Confidence,
+                ReferenceNotes = $"Drafted fix for finding: {finding.Summary.Truncate(200, ellipsis: true)}"
+            }).ToList(),
+            ct);
 
-                await _sourceReferenceRepository.CreateAsync(new SourceReference
-                {
-                    Id = Guid.NewGuid(),
-                    SourceId = source.Id,
-                    TargetType = SourceReferenceTargetType.ReviewProposal,
-                    TargetId = proposal.Id,
-                    Notes = $"Drafted fix for finding: {finding.Summary.Truncate(200, ellipsis: true)}",
-                    CreatedAt = now
-                }, ct);
-            }
-
-            await transaction.CommitAsync(ct);
-            return (batch.Id, source.Id);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(ct);
-            throw;
-        }
+        return (written.BatchId, written.SourceId);
     }
 
     // ----------------------------------------------------------------------------- Shared --

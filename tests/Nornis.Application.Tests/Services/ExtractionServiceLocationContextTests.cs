@@ -5,6 +5,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
+using Nornis.Application.Tests.Ai;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -74,30 +75,55 @@ public class ExtractionServiceLocationContextTests
         });
     }
 
-    private ExtractionService CreateSut() => new(
-        _sourceRepository,
-        new InMemoryCampaignRepository(),
-        new InMemoryReviewBatchRepository(),
-        new InMemoryReviewProposalRepository(),
-        _referenceRepository,
-        TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository()),
-        _artifactRepository,
-        new InMemoryArtifactFactRepository(),
-        new InMemoryArtifactRelationshipRepository(),
-        new InMemorySourceAttachmentRepository(),
-        new InMemoryMapPlacemarkRepository(),
-        new FakeBlobStorageService(),
-        new FakePdfTextExtractor(),
-        _aiClient,
-        new FakeHandwritingTranscriptionClient(),
-        new FakeImageReadingClient(),
-        new FakeMapExtractionClient(),
-        new FakeAiBudgetGuard(),
-        new FakeUnitOfWork(),
-        Options.Create(_options),
-        NullLogger<ExtractionService>.Instance,
+    private ExtractionService CreateSut()
+    {
+        var usageRecorder = TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository());
+        var options = Options.Create(_options);
+        var budgetGuard = new FakeAiBudgetGuard();
+        var attachmentRepository = new InMemorySourceAttachmentRepository();
+        var blobStorage = new FakeBlobStorageService();
+        var mapPipeline = new MapExtractionPipeline(
+            attachmentRepository,
+            new InMemoryMapPlacemarkRepository(),
+            _artifactRepository,
+            blobStorage,
+            new FakeMapExtractionClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<MapExtractionPipeline>.Instance);
+        var textDerivation = new SourceTextDerivation(
+            _sourceRepository,
+            attachmentRepository,
+            blobStorage,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<SourceTextDerivation>.Instance);
+
+        return new ExtractionService(
+            _sourceRepository,
+            new InMemoryCampaignRepository(),
+            new InMemoryReviewBatchRepository(),
+            new InMemoryReviewProposalRepository(),
+            _referenceRepository,
+            usageRecorder,
+            _artifactRepository,
+            new InMemoryArtifactFactRepository(),
+            new InMemoryArtifactRelationshipRepository(),
+            _aiClient,
+            mapPipeline,
+            textDerivation,
+            budgetGuard,
+            new FakeUnitOfWork(),
+            options,
+            NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
             replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+    }
 
     private Source SeedSource(
         string title,
@@ -157,12 +183,12 @@ public class ExtractionServiceLocationContextTests
             CreatedAt = DateTimeOffset.UtcNow
         });
 
-    private async Task<RecentLocationContext?> ExtractAndGetLocationContext(Source source)
+    private async Task<ParsedLocationContext?> ExtractAndGetLocationContext(Source source)
     {
         var outcome = await CreateSut().ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
         Assert.That(_aiClient.Requests, Has.Count.EqualTo(1));
-        return _aiClient.Requests[0].RecentLocations;
+        return ExtractionPromptReader.Parse(_aiClient.Requests[0].UserMessage).RecentLocations;
     }
 
     [Test]
@@ -177,7 +203,7 @@ public class ExtractionServiceLocationContextTests
 
         Assert.That(context, Is.Not.Null);
         Assert.That(context!.SourceTitle, Is.EqualTo("Session 4"));
-        Assert.That(context.OccurredAt, Is.EqualTo(Day10));
+        Assert.That(context.OccurredAtDate, Is.EqualTo(DateOnly.FromDateTime(Day10.Date)));
         Assert.That(context.Locations, Has.Count.EqualTo(1));
         Assert.That(context.Locations[0].Id, Is.EqualTo(harbor.Id));
         Assert.That(context.Locations[0].Name, Is.EqualTo("Black Harbor"));

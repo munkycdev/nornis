@@ -23,20 +23,15 @@ namespace Nornis.Application.Services;
 /// </summary>
 public class StorylineWrapUpService : IStorylineWrapUpService
 {
-    public const string BatchKind = "SessionWrapUp";
-
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly StorylineDevelopmentReader _reader;
     private readonly ContinuityOptions _options;
     private readonly IArtifactRepository _artifactRepository;
     private readonly IReviewProposalRepository _reviewProposalRepository;
-    private readonly IReviewBatchRepository _reviewBatchRepository;
-    private readonly ISourceRepository _sourceRepository;
-    private readonly IProposalApplicator _proposalApplicator;
+    private readonly SyntheticBatchWriter _batchWriter;
     private readonly IReviewService _reviewService;
     private readonly IArtifactService _artifactService;
-    private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<StorylineWrapUpService> _logger;
 
     public StorylineWrapUpService(
@@ -44,24 +39,18 @@ public class StorylineWrapUpService : IStorylineWrapUpService
         IOptions<ContinuityOptions> options,
         IArtifactRepository artifactRepository,
         IReviewProposalRepository reviewProposalRepository,
-        IReviewBatchRepository reviewBatchRepository,
-        ISourceRepository sourceRepository,
-        IProposalApplicator proposalApplicator,
+        SyntheticBatchWriter batchWriter,
         IReviewService reviewService,
         IArtifactService artifactService,
-        IUnitOfWork unitOfWork,
         ILogger<StorylineWrapUpService> logger)
     {
         _reader = reader;
         _options = options.Value;
         _artifactRepository = artifactRepository;
         _reviewProposalRepository = reviewProposalRepository;
-        _reviewBatchRepository = reviewBatchRepository;
-        _sourceRepository = sourceRepository;
-        _proposalApplicator = proposalApplicator;
+        _batchWriter = batchWriter;
         _reviewService = reviewService;
         _artifactService = artifactService;
-        _unitOfWork = unitOfWork;
         _logger = logger;
     }
 
@@ -333,8 +322,6 @@ public class StorylineWrapUpService : IStorylineWrapUpService
             return AppResult<Guid>.Success(Guid.Empty);
         }
 
-        var now = DateTimeOffset.UtcNow;
-
         var body = new StringBuilder();
         body.AppendLine($"Session wrap-up closures ({targets.Count}):");
         foreach (var (closure, artifact) in targets)
@@ -342,71 +329,29 @@ public class StorylineWrapUpService : IStorylineWrapUpService
             body.AppendLine($"- {artifact.Name} → {closure.Status}");
         }
 
-        var source = new Source
-        {
-            Id = Guid.NewGuid(),
-            WorldId = command.WorldId,
-            Type = SourceType.GMNote,
-            Title = $"Session wrap-up — {now:yyyy-MM-dd}",
-            Body = body.ToString(),
-            Visibility = VisibilityScope.GMOnly,
-            ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedAt = now,
-            CreatedByUserId = command.ActingUserId
-        };
-
-        await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
-        try
-        {
-            await _sourceRepository.CreateAsync(source, ct);
-
-            var batch = new ReviewBatch
+        // GM-gated above (role != GM is rejected), so the accepted shape's unrestricted
+        // resolution is safe.
+        var written = await _batchWriter.WriteAcceptedAsync(
+            new SyntheticSourceSpec
             {
-                Id = Guid.NewGuid(),
                 WorldId = command.WorldId,
-                SourceId = source.Id,
-                Kind = BatchKind,
-                Status = ReviewBatchStatus.Completed,
-                CreatedAt = now,
-                CompletedAt = now
-            };
-            await _reviewBatchRepository.CreateAsync(batch, ct);
-
-            foreach (var (closure, artifact) in targets)
+                ActingUserId = command.ActingUserId,
+                Title = $"Session wrap-up — {DateTimeOffset.UtcNow:yyyy-MM-dd}",
+                Body = body.ToString()
+            },
+            ReviewBatchKinds.SessionWrapUp,
+            targets.Select(t => new SyntheticProposalSpec
             {
-                var proposal = new ReviewProposal
-                {
-                    Id = Guid.NewGuid(),
-                    ReviewBatchId = batch.Id,
-                    ChangeType = ReviewChangeType.UpdateArtifact,
-                    TargetType = ReviewTargetType.Artifact,
-                    TargetId = artifact.Id,
-                    ProposedValueJson = $$"""{"status":"{{closure.Status}}"}""",
-                    Rationale = "GM closed this storyline during the session wrap-up.",
-                    Status = ReviewProposalStatus.Pending,
-                    CreatedAt = now
-                };
-                await _reviewProposalRepository.CreateAsync(proposal, ct);
+                ChangeType = ReviewChangeType.UpdateArtifact,
+                TargetType = ReviewTargetType.Artifact,
+                TargetId = t.Artifact.Id,
+                ProposedValueJson = $$"""{"status":"{{t.Closure.Status}}"}""",
+                Rationale = "GM closed this storyline during the session wrap-up."
+            }).ToList(),
+            ct);
 
-                // GM-gated above (role != GM is rejected), so resolution is unrestricted.
-                var applyResult = await _proposalApplicator.ApplyAsync(proposal, batch, source, VisibilityFilter.All, ct);
-                if (!applyResult.IsSuccess)
-                {
-                    await transaction.RollbackAsync(ct);
-                    return AppResult<Guid>.Fail(applyResult.Error!);
-                }
-
-                proposal.Accept(command.ActingUserId, now);
-                await _reviewProposalRepository.UpdateAsync(proposal, ct);
-            }
-
-            await transaction.CommitAsync(ct);
-            return AppResult<Guid>.Success(batch.Id);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(ct);
-            throw;
-        }
+        return written.IsSuccess
+            ? AppResult<Guid>.Success(written.Value!.BatchId)
+            : AppResult<Guid>.Fail(written.Error!);
     }
 }

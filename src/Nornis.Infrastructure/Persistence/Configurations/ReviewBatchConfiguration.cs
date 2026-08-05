@@ -34,9 +34,12 @@ public class ReviewBatchConfiguration : IEntityTypeConfiguration<ReviewBatch>
         // The filter is GetBySourceIdAsync's predicate, character for character, and it has to
         // be: an index that forbids more than the query treats as blocking would forbid
         // reprocessing after a Canceled batch, which that method allows on purpose. Kind IS NULL
-        // is what "extraction batch" means; merge and retrospective batches are also Kind-null
-        // but each mints its own synthetic source, so they hold one row apiece and never meet
-        // this filter twice.
+        // is what "extraction batch" means — and since SyntheticBatchWriter required every
+        // synthetic batch to name its kind (the retrospective was the last Kind-null holdout,
+        // safe only because its synthetic source is never extracted), new rows under this
+        // filter are extraction batches alone. Old retrospective/merge rows from before their
+        // kinds existed remain Kind-null in place; each sits on its own synthetic source, so
+        // they still never meet this filter twice.
         //
         // Verified against production before shipping — zero sources held two — because a unique
         // index added over existing duplicates fails its migration and takes the deploy with it.

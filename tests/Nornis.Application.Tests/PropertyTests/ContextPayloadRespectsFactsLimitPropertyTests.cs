@@ -7,6 +7,7 @@ using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Services;
+using Nornis.Application.Tests.Ai;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Application.Tests.Generators;
 using Nornis.Domain.Entities;
@@ -122,25 +123,49 @@ public class ContextPayloadRespectsFactsLimitPropertyTests
 
                 var logger = NullLogger<ExtractionService>.Instance;
 
+                var usageRecorder = TestUsageRecorder.Wrap(aiUsageRecordRepo);
+                var budgetGuard = new FakeAiBudgetGuard();
+                var attachmentRepo = new InMemorySourceAttachmentRepository();
+                var blobStorage = new FakeBlobStorageService();
+
+                var mapPipeline = new MapExtractionPipeline(
+                    attachmentRepo,
+                    new InMemoryMapPlacemarkRepository(),
+                    artifactRepo,
+                    blobStorage,
+                    new FakeMapExtractionClient(),
+                    budgetGuard,
+                    usageRecorder,
+                    options,
+                    NullLogger<MapExtractionPipeline>.Instance);
+
+                var textDerivation = new SourceTextDerivation(
+                    sourceRepo,
+                    attachmentRepo,
+                    blobStorage,
+                    new FakePdfTextExtractor(),
+                    new FakeHandwritingTranscriptionClient(),
+                    new FakeImageReadingClient(),
+                    budgetGuard,
+                    usageRecorder,
+                    options,
+                    NullLogger<SourceTextDerivation>.Instance);
+
                 var service = new ExtractionService(
                     sourceRepo,
                     new InMemoryCampaignRepository(),
                     reviewBatchRepo,
                     reviewProposalRepo,
                     sourceReferenceRepo,
-                    TestUsageRecorder.Wrap(aiUsageRecordRepo),
+                    usageRecorder,
                     artifactRepo,
                     artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),
-                    new InMemorySourceAttachmentRepository(),
-                    new InMemoryMapPlacemarkRepository(),
-                    new FakeBlobStorageService(),
-                    new FakePdfTextExtractor(),
                     fakeAiClient,
-                    new FakeHandwritingTranscriptionClient(),
-                    new FakeImageReadingClient(),
-                    new FakeMapExtractionClient(),
-                    new FakeAiBudgetGuard(), unitOfWork,
+                    mapPipeline,
+                    textDerivation,
+                    budgetGuard,
+                    unitOfWork,
                     options,
                     logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
@@ -160,7 +185,8 @@ public class ContextPayloadRespectsFactsLimitPropertyTests
                 if (request is null)
                     return false.Label("AI client should have been called");
 
-                var contextArtifact = request.ExistingArtifacts
+                var parsed = ExtractionPromptReader.Parse(request.UserMessage);
+                var contextArtifact = parsed.ExistingArtifacts
                     .FirstOrDefault(a => a.Id == artifact.Id);
 
                 if (contextArtifact is null)

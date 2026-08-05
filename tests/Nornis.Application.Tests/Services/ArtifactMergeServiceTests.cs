@@ -37,21 +37,26 @@ public class ArtifactMergeServiceTests
         _batchRepo = new InMemoryReviewBatchRepository();
         _proposalRepo = new InMemoryReviewProposalRepository();
 
+        var referenceRepo = new InMemorySourceReferenceRepository();
         var applicator = new ProposalApplicator(
             _artifactRepo,
             _factRepo,
             _relationshipRepo,
-            new InMemorySourceReferenceRepository(),
+            referenceRepo,
             new InMemorySourceAttachmentRepository(), new InMemoryMapPlacemarkRepository(),
             new InMemoryWorldMemberRepository());
 
-        _sut = new ArtifactMergeService(
-            _artifactRepo,
+        var batchWriter = new SyntheticBatchWriter(
             _sourceRepo,
             _batchRepo,
             _proposalRepo,
+            referenceRepo,
             applicator,
-            new FakeUnitOfWork(),
+            new FakeUnitOfWork());
+
+        _sut = new ArtifactMergeService(
+            _artifactRepo,
+            batchWriter,
             NullLogger<ArtifactMergeService>.Instance);
     }
 
@@ -168,6 +173,6 @@ public class ArtifactMergeServiceTests
         // A null Kind means "this source's own extraction batch", and the filtered unique index
         // that enforces one-extraction-batch-per-source keys off exactly that. A merge batch is
         // a synthetic batch like the wrap-up and backfill ones, and says so.
-        Assert.That(_batchRepo.Batches.Single().Kind, Is.EqualTo(ArtifactMergeService.BatchKind));
+        Assert.That(_batchRepo.Batches.Single().Kind, Is.EqualTo(ReviewBatchKinds.ArtifactMerge));
     }
 }

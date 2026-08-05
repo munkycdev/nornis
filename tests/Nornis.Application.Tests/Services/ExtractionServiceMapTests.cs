@@ -65,27 +65,46 @@ public class ExtractionServiceMapTests
             }
         };
 
+        var usageRecorder = TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository());
+        var optionsWrapper = Options.Create(options);
+        var mapPipeline = new MapExtractionPipeline(
+            _attachmentRepo,
+            _placemarkRepo,
+            _artifactRepo,
+            _blob,
+            _mapClient,
+            _budget,
+            usageRecorder,
+            optionsWrapper,
+            NullLogger<MapExtractionPipeline>.Instance);
+        var textDerivation = new SourceTextDerivation(
+            _sourceRepo,
+            _attachmentRepo,
+            _blob,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            _budget,
+            usageRecorder,
+            optionsWrapper,
+            NullLogger<SourceTextDerivation>.Instance);
+
         _sut = new ExtractionService(
             _sourceRepo,
             new InMemoryCampaignRepository(),
             _batchRepo,
             _proposalRepo,
             new InMemorySourceReferenceRepository(),
-            TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository()),
+            usageRecorder,
             _artifactRepo,
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
-            _attachmentRepo,
-            _placemarkRepo,
-            _blob,
-            new FakePdfTextExtractor(),
             new FakeAiExtractionClient(),
-            new FakeHandwritingTranscriptionClient(),
-            new FakeImageReadingClient(),
-            _mapClient,
+            mapPipeline,
+            textDerivation,
             _budget,
             new FakeUnitOfWork(),
-            Options.Create(options),
+            optionsWrapper,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
             replayAdvancer: NoOpExtractionReplayAdvancer.Instance);

@@ -6,6 +6,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
+using Nornis.Application.Tests.Ai;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Application.Tests.Generators;
 using Nornis.Domain.Entities;
@@ -65,25 +66,49 @@ public class SourceFieldsMappedToAiRequestPropertyTests
 
         var logger = NullLogger<ExtractionService>.Instance;
 
+        var usageRecorder = TestUsageRecorder.Wrap(aiUsageRecordRepo);
+        var budgetGuard = new FakeAiBudgetGuard();
+        var attachmentRepo = new InMemorySourceAttachmentRepository();
+        var blobStorage = new FakeBlobStorageService();
+
+        var mapPipeline = new MapExtractionPipeline(
+            attachmentRepo,
+            new InMemoryMapPlacemarkRepository(),
+            artifactRepo,
+            blobStorage,
+            new FakeMapExtractionClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<MapExtractionPipeline>.Instance);
+
+        var textDerivation = new SourceTextDerivation(
+            sourceRepo,
+            attachmentRepo,
+            blobStorage,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<SourceTextDerivation>.Instance);
+
         var service = new ExtractionService(
             sourceRepo,
             new InMemoryCampaignRepository(),
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,
-            TestUsageRecorder.Wrap(aiUsageRecordRepo),
+            usageRecorder,
             artifactRepo,
             artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),
-            new InMemorySourceAttachmentRepository(),
-            new InMemoryMapPlacemarkRepository(),
-            new FakeBlobStorageService(),
-            new FakePdfTextExtractor(),
             fakeAiClient,
-            new FakeHandwritingTranscriptionClient(),
-            new FakeImageReadingClient(),
-            new FakeMapExtractionClient(),
-            new FakeAiBudgetGuard(), unitOfWork,
+            mapPipeline,
+            textDerivation,
+            budgetGuard,
+            unitOfWork,
             options,
             logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
@@ -103,22 +128,23 @@ public class SourceFieldsMappedToAiRequestPropertyTests
         Assert.That(fakeAiClient.Requests, Has.Count.EqualTo(1),
             "Exactly one AI call should be made for a source with non-empty body.");
 
-        var request = fakeAiClient.Requests[0];
+        var parsed = ExtractionPromptReader.Parse(fakeAiClient.Requests[0].UserMessage);
 
-        Assert.That(request.SourceBody, Is.EqualTo(source.Body),
-            "ExtractionRequest.SourceBody should match the source's Body.");
+        // Boundary newlines on the body are consumed by the prompt's section framing, so compare trimmed.
+        Assert.That(parsed.SourceBody, Is.EqualTo(source.Body!.Trim('\n')),
+            "The prompt's Source Content section should match the source's Body.");
 
-        Assert.That(request.SourceTitle, Is.EqualTo(source.Title),
-            "ExtractionRequest.SourceTitle should match the source's Title.");
+        Assert.That(parsed.SourceTitle, Is.EqualTo(source.Title),
+            "The prompt's Title line should match the source's Title.");
 
-        Assert.That(request.SourceType, Is.EqualTo(source.Type.ToString()),
-            "ExtractionRequest.SourceType should match the source's Type name.");
+        Assert.That(parsed.SourceType, Is.EqualTo(source.Type.ToString()),
+            "The prompt's Type line should match the source's Type name.");
 
-        Assert.That(request.SourceVisibility, Is.EqualTo(source.Visibility.ToString()),
-            "ExtractionRequest.SourceVisibility should match the source's Visibility name.");
+        Assert.That(parsed.SourceVisibility, Is.EqualTo(source.Visibility.ToString()),
+            "The prompt's Visibility line should match the source's Visibility name.");
 
-        Assert.That(request.OccurredAt, Is.EqualTo(source.OccurredAt),
-            "ExtractionRequest.OccurredAt should match the source's OccurredAt (including null).");
+        Assert.That(parsed.OccurredAt, Is.EqualTo(source.OccurredAt),
+            "The prompt's Occurred At line should match the source's OccurredAt (including null).");
     }
 
     [FsCheck.NUnit.Property(
@@ -163,25 +189,49 @@ public class SourceFieldsMappedToAiRequestPropertyTests
 
         var logger = NullLogger<ExtractionService>.Instance;
 
+        var usageRecorder = TestUsageRecorder.Wrap(aiUsageRecordRepo);
+        var budgetGuard = new FakeAiBudgetGuard();
+        var attachmentRepo = new InMemorySourceAttachmentRepository();
+        var blobStorage = new FakeBlobStorageService();
+
+        var mapPipeline = new MapExtractionPipeline(
+            attachmentRepo,
+            new InMemoryMapPlacemarkRepository(),
+            artifactRepo,
+            blobStorage,
+            new FakeMapExtractionClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<MapExtractionPipeline>.Instance);
+
+        var textDerivation = new SourceTextDerivation(
+            sourceRepo,
+            attachmentRepo,
+            blobStorage,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<SourceTextDerivation>.Instance);
+
         var service = new ExtractionService(
             sourceRepo,
             new InMemoryCampaignRepository(),
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,
-            TestUsageRecorder.Wrap(aiUsageRecordRepo),
+            usageRecorder,
             artifactRepo,
             artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),
-            new InMemorySourceAttachmentRepository(),
-            new InMemoryMapPlacemarkRepository(),
-            new FakeBlobStorageService(),
-            new FakePdfTextExtractor(),
             fakeAiClient,
-            new FakeHandwritingTranscriptionClient(),
-            new FakeImageReadingClient(),
-            new FakeMapExtractionClient(),
-            new FakeAiBudgetGuard(), unitOfWork,
+            mapPipeline,
+            textDerivation,
+            budgetGuard,
+            unitOfWork,
             options,
             logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
@@ -196,10 +246,10 @@ public class SourceFieldsMappedToAiRequestPropertyTests
 
         // Assert
         Assert.That(fakeAiClient.Requests, Has.Count.EqualTo(1));
-        var request = fakeAiClient.Requests[0];
+        var parsed = ExtractionPromptReader.Parse(fakeAiClient.Requests[0].UserMessage);
 
-        Assert.That(request.OccurredAt, Is.Null,
-            "ExtractionRequest.OccurredAt should be null when source OccurredAt is null.");
+        Assert.That(parsed.OccurredAt, Is.Null,
+            "The prompt should carry no Occurred At line when source OccurredAt is null.");
     }
 
     [FsCheck.NUnit.Property(
@@ -244,25 +294,49 @@ public class SourceFieldsMappedToAiRequestPropertyTests
 
         var logger = NullLogger<ExtractionService>.Instance;
 
+        var usageRecorder = TestUsageRecorder.Wrap(aiUsageRecordRepo);
+        var budgetGuard = new FakeAiBudgetGuard();
+        var attachmentRepo = new InMemorySourceAttachmentRepository();
+        var blobStorage = new FakeBlobStorageService();
+
+        var mapPipeline = new MapExtractionPipeline(
+            attachmentRepo,
+            new InMemoryMapPlacemarkRepository(),
+            artifactRepo,
+            blobStorage,
+            new FakeMapExtractionClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<MapExtractionPipeline>.Instance);
+
+        var textDerivation = new SourceTextDerivation(
+            sourceRepo,
+            attachmentRepo,
+            blobStorage,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<SourceTextDerivation>.Instance);
+
         var service = new ExtractionService(
             sourceRepo,
             new InMemoryCampaignRepository(),
             reviewBatchRepo,
             reviewProposalRepo,
             sourceReferenceRepo,
-            TestUsageRecorder.Wrap(aiUsageRecordRepo),
+            usageRecorder,
             artifactRepo,
             artifactFactRepo,
             new InMemoryArtifactRelationshipRepository(),
-            new InMemorySourceAttachmentRepository(),
-            new InMemoryMapPlacemarkRepository(),
-            new FakeBlobStorageService(),
-            new FakePdfTextExtractor(),
             fakeAiClient,
-            new FakeHandwritingTranscriptionClient(),
-            new FakeImageReadingClient(),
-            new FakeMapExtractionClient(),
-            new FakeAiBudgetGuard(), unitOfWork,
+            mapPipeline,
+            textDerivation,
+            budgetGuard,
+            unitOfWork,
             options,
             logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
@@ -277,12 +351,12 @@ public class SourceFieldsMappedToAiRequestPropertyTests
 
         // Assert
         Assert.That(fakeAiClient.Requests, Has.Count.EqualTo(1));
-        var request = fakeAiClient.Requests[0];
+        var parsed = ExtractionPromptReader.Parse(fakeAiClient.Requests[0].UserMessage);
 
-        Assert.That(request.OccurredAt, Is.Not.Null,
-            "ExtractionRequest.OccurredAt should not be null when source OccurredAt is set.");
+        Assert.That(parsed.OccurredAt, Is.Not.Null,
+            "The prompt's Occurred At line should be present when source OccurredAt is set.");
 
-        Assert.That(request.OccurredAt, Is.EqualTo(source.OccurredAt),
-            "ExtractionRequest.OccurredAt should match source OccurredAt value.");
+        Assert.That(parsed.OccurredAt, Is.EqualTo(source.OccurredAt),
+            "The prompt's Occurred At line should match source OccurredAt value.");
     }
 }

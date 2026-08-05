@@ -22,7 +22,7 @@ public partial class ExtractionServiceCampaignContextTests
         var outcome = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
-        Assert.That(_aiClient.Requests[0].SourceBody, Is.EqualTo("Heading to [[Kastor]]"));
+        Assert.That(Prompt().SourceBody, Is.EqualTo("Heading to [[Kastor]]"));
     }
 
     [Test]
@@ -33,7 +33,7 @@ public partial class ExtractionServiceCampaignContextTests
 
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
-        Assert.That(_aiClient.Requests[0].SourceBody, Does.Contain("[[[["),
+        Assert.That(Prompt().SourceBody, Does.Contain("[[[["),
             "only ImportedNote sources are normalized");
     }
 }

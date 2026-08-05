@@ -19,41 +19,29 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
 
     private readonly IArtifactRepository _artifactRepository;
     private readonly IArtifactFactRepository _factRepository;
-    private readonly ISourceRepository _sourceRepository;
-    private readonly IReviewBatchRepository _reviewBatchRepository;
-    private readonly IReviewProposalRepository _reviewProposalRepository;
-    private readonly ISourceReferenceRepository _sourceReferenceRepository;
+    private readonly SyntheticBatchWriter _batchWriter;
     private readonly IAiUsageRecorder _usageRecorder;
     private readonly IRetrospectiveAiClient _aiClient;
     private readonly IAiBudgetGuard _budgetGuard;
-    private readonly IUnitOfWork _unitOfWork;
     private readonly LoremasterOptions _options;
     private readonly ILogger<StorylineRetrospectiveService> _logger;
 
     public StorylineRetrospectiveService(
         IArtifactRepository artifactRepository,
         IArtifactFactRepository factRepository,
-        ISourceRepository sourceRepository,
-        IReviewBatchRepository reviewBatchRepository,
-        IReviewProposalRepository reviewProposalRepository,
-        ISourceReferenceRepository sourceReferenceRepository,
+        SyntheticBatchWriter batchWriter,
         IAiUsageRecorder usageRecorder,
         IRetrospectiveAiClient aiClient,
         IAiBudgetGuard budgetGuard,
-        IUnitOfWork unitOfWork,
         IOptions<LoremasterOptions> options,
         ILogger<StorylineRetrospectiveService> logger)
     {
         _artifactRepository = artifactRepository;
         _factRepository = factRepository;
-        _sourceRepository = sourceRepository;
-        _reviewBatchRepository = reviewBatchRepository;
-        _reviewProposalRepository = reviewProposalRepository;
-        _sourceReferenceRepository = sourceReferenceRepository;
+        _batchWriter = batchWriter;
         _usageRecorder = usageRecorder;
         _aiClient = aiClient;
         _budgetGuard = budgetGuard;
-        _unitOfWork = unitOfWork;
         _options = options.Value;
         _logger = logger;
     }
@@ -146,8 +134,6 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
         IReadOnlyDictionary<Guid, Artifact> storylineById,
         CancellationToken ct)
     {
-        var now = DateTimeOffset.UtcNow;
-
         // Provenance: the retrospective itself becomes a source, so accepted status
         // changes cite what was assessed and when.
         var body = new StringBuilder();
@@ -157,70 +143,33 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
             body.AppendLine($"- {storyline.Name}");
         }
 
-        var source = new Source
-        {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            Type = SourceType.GMNote,
-            Title = $"Storyline Retrospective — {now:yyyy-MM-dd}",
-            Body = body.ToString(),
-            Visibility = VisibilityScope.GMOnly,
-            ProcessingStatus = SourceProcessingStatus.Processed,
-            CreatedAt = now,
-            CreatedByUserId = actingUserId
-        };
-
-        await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
-        try
-        {
-            await _sourceRepository.CreateAsync(source, ct);
-
-            var batch = new ReviewBatch
+        // The batch was Kind-null from this service's first day — the value reserved for a
+        // source's own extraction batch, which the replay-advance gate and the filtered
+        // unique index both key on. Nothing collided (the synthetic source is never
+        // extracted), but the writer requires every sweep to name itself, so this one
+        // finally does.
+        var written = await _batchWriter.WritePendingAsync(
+            new SyntheticSourceSpec
             {
-                Id = Guid.NewGuid(),
                 WorldId = worldId,
-                SourceId = source.Id,
-                Status = ReviewBatchStatus.Pending,
-                CreatedAt = now
-            };
-            await _reviewBatchRepository.CreateAsync(batch, ct);
-
-            foreach (var (verdict, status, storylineId) in closures)
+                ActingUserId = actingUserId,
+                Title = $"Storyline Retrospective — {DateTimeOffset.UtcNow:yyyy-MM-dd}",
+                Body = body.ToString()
+            },
+            ReviewBatchKinds.StorylineRetrospective,
+            closures.Select(c => new SyntheticProposalSpec
             {
-                var proposal = new ReviewProposal
-                {
-                    Id = Guid.NewGuid(),
-                    ReviewBatchId = batch.Id,
-                    ChangeType = ReviewChangeType.UpdateArtifact,
-                    TargetType = ReviewTargetType.Artifact,
-                    TargetId = storylineId,
-                    ProposedValueJson = $$"""{"status":"{{status}}"}""",
-                    Rationale = verdict.Rationale.Truncate(500),
-                    Confidence = verdict.Confidence,
-                    Status = ReviewProposalStatus.Pending,
-                    CreatedAt = now
-                };
-                await _reviewProposalRepository.CreateAsync(proposal, ct);
+                ChangeType = ReviewChangeType.UpdateArtifact,
+                TargetType = ReviewTargetType.Artifact,
+                TargetId = c.Ok,
+                ProposedValueJson = $$"""{"status":"{{c.Status}}"}""",
+                Rationale = c.Verdict.Rationale.Truncate(500),
+                Confidence = c.Verdict.Confidence,
+                ReferenceNotes = $"Retrospective verdict for {storylineById[c.Ok].Name}"
+            }).ToList(),
+            ct);
 
-                await _sourceReferenceRepository.CreateAsync(new SourceReference
-                {
-                    Id = Guid.NewGuid(),
-                    SourceId = source.Id,
-                    TargetType = SourceReferenceTargetType.ReviewProposal,
-                    TargetId = proposal.Id,
-                    Notes = $"Retrospective verdict for {storylineById[storylineId].Name}",
-                    CreatedAt = now
-                }, ct);
-            }
-
-            await transaction.CommitAsync(ct);
-            return batch.Id;
-        }
-        catch
-        {
-            await transaction.RollbackAsync(ct);
-            throw;
-        }
+        return written.BatchId;
     }
 
     private static ArtifactStatus? MapVerdict(string verdict) => verdict switch

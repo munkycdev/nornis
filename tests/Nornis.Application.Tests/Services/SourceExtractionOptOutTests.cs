@@ -131,34 +131,59 @@ public class SourceExtractionOptOutTests
         // mid-flight must not extract.
         var source = SeedSource(SourceProcessingStatus.Queued);
 
+        var usageRecorder = TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository());
+        var extractionOptions = Options.Create(new ExtractionOptions
+        {
+            AiModel = "gpt-4o",
+            AiEndpoint = "https://test.openai.azure.com/",
+            MaxArtifactContextCount = 50,
+            MaxFactsPerArtifact = 20,
+            MaxParseRetryAttempts = 2
+        });
+        var attachmentRepo = new InMemorySourceAttachmentRepository();
+        var blobStorage = new FakeBlobStorageService();
+        var budgetGuard = new FakeAiBudgetGuard();
+        var artifactRepo = new InMemoryArtifactRepository();
+
+        var mapPipeline = new MapExtractionPipeline(
+            attachmentRepo,
+            new InMemoryMapPlacemarkRepository(),
+            artifactRepo,
+            blobStorage,
+            new FakeMapExtractionClient(),
+            budgetGuard,
+            usageRecorder,
+            extractionOptions,
+            NullLogger<MapExtractionPipeline>.Instance);
+
+        var textDerivation = new SourceTextDerivation(
+            _sourceRepo,
+            attachmentRepo,
+            blobStorage,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            budgetGuard,
+            usageRecorder,
+            extractionOptions,
+            NullLogger<SourceTextDerivation>.Instance);
+
         var extractionService = new ExtractionService(
             _sourceRepo,
             new InMemoryCampaignRepository(),
             _batchRepo,
             new InMemoryReviewProposalRepository(),
             new InMemorySourceReferenceRepository(),
-            TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository()),
-            new InMemoryArtifactRepository(),
+            usageRecorder,
+            artifactRepo,
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
-            new InMemorySourceAttachmentRepository(),
-            new InMemoryMapPlacemarkRepository(),
-            new FakeBlobStorageService(),
-            new FakePdfTextExtractor(),
             new FakeAiExtractionClient(),
-            new FakeHandwritingTranscriptionClient(),
-            new FakeImageReadingClient(),
-            new FakeMapExtractionClient(),
-            new FakeAiBudgetGuard(),
+            mapPipeline,
+            textDerivation,
+            budgetGuard,
             new FakeUnitOfWork(),
-            Options.Create(new ExtractionOptions
-            {
-                AiModel = "gpt-4o",
-                AiEndpoint = "https://test.openai.azure.com/",
-                MaxArtifactContextCount = 50,
-                MaxFactsPerArtifact = 20,
-                MaxParseRetryAttempts = 2
-            }),
+            extractionOptions,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
             replayAdvancer: NoOpExtractionReplayAdvancer.Instance);

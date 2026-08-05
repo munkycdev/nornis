@@ -58,27 +58,49 @@ public class ExtractionServiceTranscriptionTests
             }
         };
 
+        var usageRecorder = TestUsageRecorder.Wrap(_aiUsageRecordRepository, extraction: options);
+        var extractionOptions = Options.Create(options);
+        var artifactRepository = new InMemoryArtifactRepository();
+
+        var mapPipeline = new MapExtractionPipeline(
+            _attachmentRepository,
+            new InMemoryMapPlacemarkRepository(),
+            artifactRepository,
+            _blobStorage,
+            new FakeMapExtractionClient(),
+            _budgetGuard,
+            usageRecorder,
+            extractionOptions,
+            NullLogger<MapExtractionPipeline>.Instance);
+
+        var textDerivation = new SourceTextDerivation(
+            _sourceRepository,
+            _attachmentRepository,
+            _blobStorage,
+            new FakePdfTextExtractor(),
+            _transcriptionClient,
+            new FakeImageReadingClient(),
+            _budgetGuard,
+            usageRecorder,
+            extractionOptions,
+            NullLogger<SourceTextDerivation>.Instance);
+
         _sut = new ExtractionService(
             _sourceRepository,
             new InMemoryCampaignRepository(),
             _reviewBatchRepository,
             new InMemoryReviewProposalRepository(),
             new InMemorySourceReferenceRepository(),
-            TestUsageRecorder.Wrap(_aiUsageRecordRepository, extraction: options),
-            new InMemoryArtifactRepository(),
+            usageRecorder,
+            artifactRepository,
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
-            _attachmentRepository,
-            new InMemoryMapPlacemarkRepository(),
-            _blobStorage,
-            new FakePdfTextExtractor(),
             _aiClient,
-            _transcriptionClient,
-            new FakeImageReadingClient(),
-            new FakeMapExtractionClient(),
+            mapPipeline,
+            textDerivation,
             _budgetGuard,
             new FakeUnitOfWork(),
-            Options.Create(options),
+            extractionOptions,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
             replayAdvancer: NoOpExtractionReplayAdvancer.Instance);

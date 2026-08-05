@@ -67,26 +67,50 @@ public class ExtractionServiceUsageTrackingTests
             }
         };
 
+        var usageRecorder = TestUsageRecorder.Wrap(_usageRepo, extraction: opts);
+        var extractionOptions = Options.Create(opts);
+        var attachmentRepo = new InMemorySourceAttachmentRepository();
+        var blobStorage = new FakeBlobStorageService();
+        var budgetGuard = new FakeAiBudgetGuard();
+
+        var mapPipeline = new MapExtractionPipeline(
+            attachmentRepo,
+            new InMemoryMapPlacemarkRepository(),
+            _artifactRepo,
+            blobStorage,
+            new FakeMapExtractionClient(),
+            budgetGuard,
+            usageRecorder,
+            extractionOptions,
+            NullLogger<MapExtractionPipeline>.Instance);
+
+        var textDerivation = new SourceTextDerivation(
+            _sourceRepo,
+            attachmentRepo,
+            blobStorage,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            budgetGuard,
+            usageRecorder,
+            extractionOptions,
+            NullLogger<SourceTextDerivation>.Instance);
+
         return new ExtractionService(
             _sourceRepo,
             new InMemoryCampaignRepository(),
             _batchRepo,
             _proposalRepo,
             _sourceRefRepo,
-            TestUsageRecorder.Wrap(_usageRepo, extraction: opts),
+            usageRecorder,
             _artifactRepo,
             _factRepo,
             new InMemoryArtifactRelationshipRepository(),
-            new InMemorySourceAttachmentRepository(),
-            new InMemoryMapPlacemarkRepository(),
-            new FakeBlobStorageService(),
-            new FakePdfTextExtractor(),
             _aiClient,
-            new FakeHandwritingTranscriptionClient(),
-            new FakeImageReadingClient(),
-            new FakeMapExtractionClient(),
-            new FakeAiBudgetGuard(), _unitOfWork,
-            Options.Create(opts),
+            mapPipeline,
+            textDerivation,
+            budgetGuard, _unitOfWork,
+            extractionOptions,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
             replayAdvancer: NoOpExtractionReplayAdvancer.Instance);

@@ -7,7 +7,6 @@ using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
-using Nornis.Application.Storage;
 using Nornis.Application.Validation;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -27,14 +26,9 @@ public class ExtractionService : IExtractionService
     private readonly IArtifactRepository _artifactRepository;
     private readonly IArtifactFactRepository _artifactFactRepository;
     private readonly IArtifactRelationshipRepository _artifactRelationshipRepository;
-    private readonly ISourceAttachmentRepository _sourceAttachmentRepository;
-    private readonly IMapPlacemarkRepository _mapPlacemarkRepository;
-    private readonly IBlobStorageService _blobStorage;
-    private readonly IPdfTextExtractor _pdfTextExtractor;
     private readonly IAiExtractionClient _aiExtractionClient;
-    private readonly IHandwritingTranscriptionClient _transcriptionClient;
-    private readonly IImageReadingClient _imageReadingClient;
-    private readonly IMapExtractionClient _mapExtractionClient;
+    private readonly MapExtractionPipeline _mapExtractionPipeline;
+    private readonly SourceTextDerivation _sourceTextDerivation;
     private readonly IAiBudgetGuard _budgetGuard;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ExtractionOptions _options;
@@ -68,14 +62,9 @@ public class ExtractionService : IExtractionService
         IArtifactRepository artifactRepository,
         IArtifactFactRepository artifactFactRepository,
         IArtifactRelationshipRepository artifactRelationshipRepository,
-        ISourceAttachmentRepository sourceAttachmentRepository,
-        IMapPlacemarkRepository mapPlacemarkRepository,
-        IBlobStorageService blobStorage,
-        IPdfTextExtractor pdfTextExtractor,
         IAiExtractionClient aiExtractionClient,
-        IHandwritingTranscriptionClient transcriptionClient,
-        IImageReadingClient imageReadingClient,
-        IMapExtractionClient mapExtractionClient,
+        MapExtractionPipeline mapExtractionPipeline,
+        SourceTextDerivation sourceTextDerivation,
         IAiBudgetGuard budgetGuard,
         IUnitOfWork unitOfWork,
         IOptions<ExtractionOptions> options,
@@ -90,13 +79,8 @@ public class ExtractionService : IExtractionService
     {
         _passageRetriever = passageRetriever;
         _replayAdvancer = replayAdvancer;
-        _sourceAttachmentRepository = sourceAttachmentRepository;
-        _mapPlacemarkRepository = mapPlacemarkRepository;
-        _blobStorage = blobStorage;
-        _pdfTextExtractor = pdfTextExtractor;
-        _transcriptionClient = transcriptionClient;
-        _imageReadingClient = imageReadingClient;
-        _mapExtractionClient = mapExtractionClient;
+        _mapExtractionPipeline = mapExtractionPipeline;
+        _sourceTextDerivation = sourceTextDerivation;
         _budgetGuard = budgetGuard;
         _sourceRepository = sourceRepository;
         _campaignRepository = campaignRepository;
@@ -220,12 +204,27 @@ public class ExtractionService : IExtractionService
             return ExtractionOutcome.SkippedIdempotent("Another run already claimed this source.");
         }
 
+        var outcome = await RunClaimedExtractionAsync(source, worldId, ct);
+        return await ApplyFailureStatusAsync(source.Id, outcome, ct);
+    }
+
+    /// <summary>
+    /// The claimed source's route through the four pipelines: transcription and attachment
+    /// derivation (owned by <see cref="SourceTextDerivation"/>), the map path (owned by
+    /// <see cref="MapExtractionPipeline"/>), and the text extraction this class keeps.
+    /// The collaborators return verdicts and never touch ProcessingStatus — every
+    /// transition an outcome implies is applied by <see cref="ApplyFailureStatusAsync"/>,
+    /// so the state machine lives in one method instead of twenty call sites.
+    /// </summary>
+    private async Task<ExtractionOutcome> RunClaimedExtractionAsync(
+        Source source, Guid worldId, CancellationToken ct)
+    {
         // 4b. Handwritten notes arrive as page images; vision transcription produces the
         // body here, then the normal pipeline continues. The transcription is persisted,
         // so a redelivered message sees a non-empty body and skips this step.
         if (source.Type == SourceType.HandwrittenNotes && string.IsNullOrWhiteSpace(source.Body))
         {
-            var transcriptionOutcome = await TranscribeHandwrittenAsync(source, worldId, ct);
+            var transcriptionOutcome = await _sourceTextDerivation.TranscribeHandwrittenAsync(source, worldId, ct);
             if (transcriptionOutcome is not null)
             {
                 return transcriptionOutcome;
@@ -234,10 +233,24 @@ public class ExtractionService : IExtractionService
 
         // 4c. Map sources take their own extraction path: place names + positions from
         // the map image become artifact/placemark proposals. Typed notes ride along as
-        // naming context; they are not separately extracted.
+        // naming context; they are not separately extracted. Persistence stays here — a
+        // map batch and a text batch commit through the same code.
         if (source.Type == SourceType.Map)
         {
-            return await ProcessMapExtractionAsync(source, worldId, ct);
+            var mapResult = await _mapExtractionPipeline.ExtractAsync(source, worldId, ct);
+            if (mapResult.Failure is not null)
+            {
+                return mapResult.Failure;
+            }
+
+            if (mapResult.Response is null)
+            {
+                // A map source without a map image has nothing to extract — file it with
+                // an empty completed batch, mirroring blank handwriting pages.
+                return await HandleEmptyBodyAsync(source, worldId, ct);
+            }
+
+            return await HandleSuccessfulResponseAsync(source, worldId, mapResult.Response, ct, AiOperationType.MapExtraction);
         }
 
         // 4d. Image/Upload sources derive text from their files (PDF text, file
@@ -245,7 +258,7 @@ public class ExtractionService : IExtractionService
         // extraction so a redelivered message never re-buys the vision call.
         if (source.Type is SourceType.Image or SourceType.Upload && source.DerivedText is null)
         {
-            var derivationOutcome = await DeriveAttachmentTextAsync(source, worldId, ct);
+            var derivationOutcome = await _sourceTextDerivation.DeriveAttachmentTextAsync(source, worldId, ct);
             if (derivationOutcome is not null)
             {
                 return derivationOutcome;
@@ -263,14 +276,14 @@ public class ExtractionService : IExtractionService
         // Compose typed notes + derived text in memory only: Body stays the user's.
         if (!string.IsNullOrWhiteSpace(source.DerivedText))
         {
-            source.Body = ComposeEffectiveBody(source.Body, source.DerivedText);
+            source.Body = SourceTextDerivation.ComposeEffectiveBody(source.Body, source.DerivedText);
         }
 
         if (string.IsNullOrWhiteSpace(source.Body))
         {
             _logger.LogInformation(
                 "Source body is empty, creating completed batch with zero proposals. SourceId={SourceId}",
-                sourceId);
+                source.Id);
 
             return await HandleEmptyBodyAsync(source, worldId, ct);
         }
@@ -282,8 +295,7 @@ public class ExtractionService : IExtractionService
         {
             _logger.LogWarning(
                 "Extraction blocked by AI budget. SourceId={SourceId}, WorldId={WorldId}",
-                sourceId, worldId);
-            await _sourceRepository.UpdateProcessingStatusAsync(sourceId, SourceProcessingStatus.Failed, ct);
+                source.Id, worldId);
             return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
         }
 
@@ -293,593 +305,29 @@ public class ExtractionService : IExtractionService
     }
 
     /// <summary>
-    /// Vision-transcribes a handwritten source's page images into its Body. Returns null
-    /// to continue the normal pipeline (transcription succeeded, or there were no pages
-    /// and the empty-body path should handle it), or a terminal outcome on failure.
+    /// The post-claim state machine, in one place. A transient failure puts the source
+    /// back to Queued: the message is abandoned for redelivery, and the idempotency check
+    /// skips any source that is not Queued — leaving it at Processing would turn every
+    /// retry into a silent no-op. A non-transient failure marks it Failed so the problem
+    /// surfaces in the UI. Success writes Processed beside its batch commit and a skipped
+    /// run writes nothing at all — the concurrent winner owns the status (see
+    /// <see cref="LostTheBatchRace"/>) — which is why those two arms are absent here.
     /// </summary>
-    private async Task<ExtractionOutcome?> TranscribeHandwrittenAsync(Source source, Guid worldId, CancellationToken ct)
+    private async Task<ExtractionOutcome> ApplyFailureStatusAsync(
+        Guid sourceId, ExtractionOutcome outcome, CancellationToken ct)
     {
-        var pages = (await _sourceAttachmentRepository.ListBySourceAsync(source.Id, ct))
-            .Where(a => a.Kind == SourceAttachmentKind.PageImage && a.Status == SourceAttachmentStatus.Stored)
-            .ToList();
-
-        if (pages.Count == 0)
+        switch (outcome.Type)
         {
-            return null; // nothing to transcribe — the empty-body short-circuit takes it
-        }
-
-        // Transcription is an AI spend of its own; gate it like extraction.
-        var budgetError = await _budgetGuard.CheckAsync(worldId, ct);
-        if (budgetError is not null)
-        {
-            _logger.LogWarning(
-                "Handwriting transcription blocked by AI budget. SourceId={SourceId}, WorldId={WorldId}",
-                source.Id, worldId);
-            await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
-            return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
-        }
-
-        var images = new List<TranscriptionPage>(pages.Count);
-        foreach (var page in pages)
-        {
-            try
-            {
-                await using var stream = await _blobStorage.OpenReadAsync(page.BlobPath, ct);
-                using var buffer = new MemoryStream();
-                await stream.CopyToAsync(buffer, ct);
-                images.Add(new TranscriptionPage(buffer.ToArray(), page.ContentType));
-            }
-            catch (FileNotFoundException)
-            {
-                _logger.LogError(
-                    "Page image blob missing for handwritten source. SourceId={SourceId}, BlobPath={BlobPath}",
-                    source.Id, page.BlobPath);
-                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
-                return ExtractionOutcome.NonTransient(ErrorCategories.ValidationFailure,
-                    $"Page image '{page.FileName}' is missing from storage.");
-            }
-        }
-
-        HandwritingTranscriptionResponse response;
-        try
-        {
-            response = await _transcriptionClient.TranscribeAsync(new HandwritingTranscriptionRequest
-            {
-                Pages = images,
-                Model = _options.AiModel,
-                TimeoutSeconds = _options.AiTimeoutSeconds
-            }, ct);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (TimeoutException ex)
-        {
-            await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.Timeout, ct);
-            return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
-        }
-        catch (Exception ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
-        {
-            _logger.LogError(ex, "Permanent transcription failure. SourceId={SourceId}", source.Id);
-            await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.AiCallFailure, ct);
-            await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
-            return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
-        }
-        catch (Exception ex) when (ex is AiHttpException or HttpRequestException)
-        {
-            _logger.LogWarning(ex, "Transient transcription failure. SourceId={SourceId}", source.Id);
-            await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.TransientError, ct);
-            return await TransientOutcomeAsync(source, ErrorCategories.TransientError, ex.Message, ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected transcription failure. SourceId={SourceId}", source.Id);
-            await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.AiCallFailure, ct);
-            await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
-            return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
-        }
-
-        await TrackTranscriptionUsageAsync(source, worldId, response, true, null, ct);
-
-        if (string.IsNullOrWhiteSpace(response.Markdown))
-        {
-            // Blank pages: nothing to extract — let the empty-body path close it out.
-            _logger.LogInformation(
-                "Transcription produced no text. SourceId={SourceId}, Pages={Pages}", source.Id, pages.Count);
-            return null;
-        }
-
-        // Persist before continuing: extraction may still fail and retry, and the
-        // transcription must not be re-bought on redelivery.
-        await _sourceRepository.UpdateBodyAsync(source.Id, response.Markdown, ct);
-        source.Body = response.Markdown;
-
-        _logger.LogInformation(
-            "Handwriting transcribed. SourceId={SourceId}, Pages={Pages}, Chars={Chars}",
-            source.Id, pages.Count, response.Markdown.Length);
-
-        return null;
-    }
-
-    private Task TrackTranscriptionUsageAsync(
-        Source source, Guid worldId, HandwritingTranscriptionResponse? response,
-        bool succeeded, string? errorCode, CancellationToken ct) =>
-        _usageRecorder.RecordAsync(
-            worldId, null, AiOperationType.HandwritingTranscription, response?.Usage,
-            succeeded, errorCode, sourceId: source.Id, fallbackModel: _options.AiModel, ct: ct);
-
-    /// <summary>
-    /// Map extraction: reads place names + normalized positions off the map image and
-    /// turns them into review proposals — CreateArtifact (with an embedded placemark
-    /// block) for new places, AddPlacemark for places matching existing Locations.
-    /// </summary>
-    private async Task<ExtractionOutcome> ProcessMapExtractionAsync(Source source, Guid worldId, CancellationToken ct)
-    {
-        var mapAttachment = (await _sourceAttachmentRepository.ListBySourceAsync(source.Id, ct))
-            .FirstOrDefault(a => a.Kind == SourceAttachmentKind.MapImage && a.Status == SourceAttachmentStatus.Stored);
-
-        if (mapAttachment is null)
-        {
-            // A map source without a map image has nothing to extract — file it with an
-            // empty completed batch, mirroring blank handwriting pages.
-            _logger.LogInformation("Map source has no stored map image. SourceId={SourceId}", source.Id);
-            return await HandleEmptyBodyAsync(source, worldId, ct);
-        }
-
-        var budgetError = await _budgetGuard.CheckAsync(worldId, ct);
-        if (budgetError is not null)
-        {
-            _logger.LogWarning(
-                "Map extraction blocked by AI budget. SourceId={SourceId}, WorldId={WorldId}", source.Id, worldId);
-            await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
-            return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
-        }
-
-        byte[] imageBytes;
-        try
-        {
-            await using var stream = await _blobStorage.OpenReadAsync(mapAttachment.BlobPath, ct);
-            using var buffer = new MemoryStream();
-            await stream.CopyToAsync(buffer, ct);
-            imageBytes = buffer.ToArray();
-        }
-        catch (FileNotFoundException)
-        {
-            _logger.LogError(
-                "Map image blob missing. SourceId={SourceId}, BlobPath={BlobPath}", source.Id, mapAttachment.BlobPath);
-            await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
-            return ExtractionOutcome.NonTransient(ErrorCategories.ValidationFailure,
-                "The map image is missing from storage.");
-        }
-
-        // Existing Locations the source's readers may see — the model matches against
-        // these instead of proposing duplicates.
-        var existingLocations = await _artifactRepository.ListByTypeAsync(
-            worldId, ArtifactType.Location,
-            VisibilityFilter.ForSourceContext(source.Visibility, source.CreatedByUserId), ct);
-
-        var request = new MapExtractionRequest
-        {
-            ImageBytes = imageBytes,
-            MediaType = mapAttachment.ContentType,
-            SourceTitle = source.Title,
-            SourceBody = source.Body,
-            ExistingLocations = existingLocations.Select(a => new MapLocationContext(a.Id, a.Name)).ToList(),
-            Model = _options.AiModel,
-            TimeoutSeconds = _options.AiTimeoutSeconds,
-            RefinePositions = _options.MapRefinePositions
-        };
-
-        var maxAttempts = 1 + _options.MaxParseRetryAttempts;
-        string? lastError = null;
-
-        for (var attempt = 1; attempt <= maxAttempts; attempt++)
-        {
-            try
-            {
-                var response = await _mapExtractionClient.ExtractAsync(request, ct);
-
-                var proposals = await BuildMapProposalsAsync(source, mapAttachment, existingLocations, response, ct);
-
-                var synthesized = new AiExtractionResponse
-                {
-                    Proposals = proposals,
-                    Usage = response.Usage
-                };
-
-                return await HandleSuccessfulResponseAsync(source, worldId, synthesized, ct, AiOperationType.MapExtraction);
-            }
-            catch (AiParseException ex)
-            {
-                lastError = ex.Message;
-                _logger.LogWarning(ex,
-                    "Map extraction parse failed on attempt {Attempt}/{MaxAttempts}. SourceId={SourceId}",
-                    attempt, maxAttempts, source.Id);
-
-                await RecordAttemptUsageAsync(
-                    source, worldId, ex.Usage, ErrorCategories.ParseFailure, ct,
-                    AiOperationType.MapExtraction);
-            }
-            catch (AiTimeoutException ex)
-            {
-                await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.Timeout, ct);
-                return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
-            }
-            catch (TimeoutException ex)
-            {
-                await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.Timeout, ct);
-                return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
-            }
-            catch (Exception ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
-            {
-                _logger.LogError(ex, "Permanent map extraction failure. SourceId={SourceId}", source.Id);
-                await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.AiCallFailure, ct);
-                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
-                return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
-            }
-            catch (Exception ex) when (ex is AiHttpException or HttpRequestException)
-            {
-                _logger.LogWarning(ex, "Transient map extraction failure. SourceId={SourceId}", source.Id);
-                await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.TransientError, ct);
-                return await TransientOutcomeAsync(source, ErrorCategories.TransientError, ex.Message, ct);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Non-transient map extraction failure. SourceId={SourceId}", source.Id);
-                await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.AiCallFailure, ct);
-                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
-                return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
-            }
-        }
-
-        _logger.LogError("Map extraction parse retries exhausted. SourceId={SourceId}, Error={Error}", source.Id, lastError);
-        await TrackVisionUsageAsync(source, worldId, AiOperationType.MapExtraction, null, false, ErrorCategories.ParseFailure, ct);
-        await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
-        return ExtractionOutcome.NonTransient(ErrorCategories.ParseFailure,
-            $"Map extraction failed after {_options.MaxParseRetryAttempts} retries: {lastError}");
-    }
-
-    /// <summary>Turns extracted places into review proposals: hallucination-filtered,
-    /// range-clamped, deduped, capped, and matched against existing Locations.</summary>
-    private async Task<IReadOnlyList<ExtractionProposal>> BuildMapProposalsAsync(
-        Source source, SourceAttachment mapAttachment, IReadOnlyList<Artifact> existingLocations,
-        MapExtractionResponse response, CancellationToken ct)
-    {
-        const int maxPlaces = 100;
-
-        var byId = existingLocations.ToDictionary(a => a.Id);
-        var byName = existingLocations
-            .GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
-
-        var proposals = new List<ExtractionProposal>();
-        var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var place in response.Places)
-        {
-            if (proposals.Count >= maxPlaces)
-            {
-                _logger.LogWarning(
-                    "Map extraction returned more than {Max} places; extras dropped. SourceId={SourceId}",
-                    maxPlaces, source.Id);
+            case OutcomeType.TransientFailure:
+                await _sourceRepository.UpdateProcessingStatusAsync(sourceId, SourceProcessingStatus.Queued, ct);
                 break;
-            }
-
-            var name = place.Name?.Trim() ?? string.Empty;
-            if (name.Length is 0 or > 200 || !seenNames.Add(name))
-            {
-                continue;
-            }
-
-            // A hallucinated position is worse than a missing pin.
-            if (place.X is < 0m or > 1m || place.Y is < 0m or > 1m)
-            {
-                continue;
-            }
-
-            var confidence = place.Confidence is >= 0m and <= 1m ? place.Confidence : null;
-
-            // Match: model-supplied id (must exist in the offered context — anything else
-            // is a hallucination), else unique exact name.
-            Artifact? matched = null;
-            var ambiguous = false;
-            if (place.ExistingArtifactId is { } id && byId.TryGetValue(id, out var byIdMatch))
-            {
-                matched = byIdMatch;
-            }
-            else if (byName.TryGetValue(name, out var candidates))
-            {
-                if (candidates.Count == 1)
-                {
-                    matched = candidates[0];
-                }
-                else
-                {
-                    ambiguous = true;
-                }
-            }
-
-            if (matched is not null)
-            {
-                // Already pinned on this map: nothing to propose (re-extraction hygiene).
-                if (await _mapPlacemarkRepository.GetByAttachmentAndArtifactAsync(mapAttachment.Id, matched.Id, ct) is not null)
-                {
-                    continue;
-                }
-
-                proposals.Add(new ExtractionProposal
-                {
-                    ChangeType = "AddPlacemark",
-                    TargetType = "Artifact",
-                    TargetId = matched.Id,
-                    ProposedValue = new Dictionary<string, object?>
-                    {
-                        ["artifactId"] = matched.Id,
-                        ["attachmentId"] = mapAttachment.Id,
-                        ["x"] = place.X,
-                        ["y"] = place.Y,
-                        ["label"] = name,
-                        ["confidence"] = confidence
-                    },
-                    Rationale = $"'{name}' on the map matches the existing location '{matched.Name}'.",
-                    Confidence = confidence,
-                    Quote = name
-                });
-            }
-            else if (ambiguous)
-            {
-                // Several artifacts share the name — the applicator surfaces the
-                // ambiguity to the reviewer, same as name-referenced facts.
-                proposals.Add(new ExtractionProposal
-                {
-                    ChangeType = "AddPlacemark",
-                    TargetType = "Artifact",
-                    TargetId = null,
-                    ProposedValue = new Dictionary<string, object?>
-                    {
-                        ["artifactName"] = name,
-                        ["attachmentId"] = mapAttachment.Id,
-                        ["x"] = place.X,
-                        ["y"] = place.Y,
-                        ["label"] = name,
-                        ["confidence"] = confidence
-                    },
-                    Rationale = $"'{name}' on the map matches more than one existing location by name.",
-                    Confidence = confidence,
-                    Quote = name
-                });
-            }
-            else
-            {
-                proposals.Add(new ExtractionProposal
-                {
-                    ChangeType = "CreateArtifact",
-                    TargetType = "Artifact",
-                    ProposedValue = new Dictionary<string, object?>
-                    {
-                        ["name"] = name,
-                        ["type"] = "Location",
-                        ["summary"] = KindToSummary(place.Kind),
-                        ["mapPlacemark"] = new Dictionary<string, object?>
-                        {
-                            ["attachmentId"] = mapAttachment.Id,
-                            ["x"] = place.X,
-                            ["y"] = place.Y,
-                            ["label"] = name
-                        }
-                    },
-                    Rationale = $"Labeled on the map \"{source.Title}\".",
-                    Confidence = confidence,
-                    Quote = name
-                });
-            }
+            case OutcomeType.NonTransientFailure:
+                await _sourceRepository.UpdateProcessingStatusAsync(sourceId, SourceProcessingStatus.Failed, ct);
+                break;
         }
 
-        return proposals;
+        return outcome;
     }
-
-    private static string? KindToSummary(string? kind) => kind switch
-    {
-        null or "" or "other" => null,
-        "body_of_water" => "A body of water marked on the map.",
-        _ => $"A {kind.Replace('_', ' ')} marked on the map."
-    };
-
-    private const int MaxComposedBodyChars = SourceService.MaxBodyChars;
-
-    private static string ComposeEffectiveBody(string? body, string derivedText)
-    {
-        var composed = string.IsNullOrWhiteSpace(body)
-            ? derivedText
-            : $"{body}\n\n{derivedText}";
-
-        return composed.Length <= MaxComposedBodyChars
-            ? composed
-            : composed[..MaxComposedBodyChars];
-    }
-
-    /// <summary>
-    /// Derives text from an Image/Upload source's attachments: PDF text via PdfPig,
-    /// text files read verbatim, and one batched vision read over the images. Returns
-    /// null to continue the pipeline (derived text persisted, or nothing to derive),
-    /// or a terminal outcome on failure.
-    /// </summary>
-    private async Task<ExtractionOutcome?> DeriveAttachmentTextAsync(Source source, Guid worldId, CancellationToken ct)
-    {
-        var files = (await _sourceAttachmentRepository.ListBySourceAsync(source.Id, ct))
-            .Where(a => a.Kind is SourceAttachmentKind.ImageFile or SourceAttachmentKind.Document)
-            .Where(a => a.Status == SourceAttachmentStatus.Stored)
-            .OrderBy(a => a.Ord)
-            .ToList();
-
-        if (files.Count == 0)
-        {
-            return null; // nothing to derive — typed body (or the empty-body path) decides
-        }
-
-        var sections = new List<(int Ord, string Text)>();
-        var images = new List<ImageToRead>();
-        var firstImageOrd = int.MaxValue;
-
-        foreach (var file in files)
-        {
-            try
-            {
-                if (string.Equals(file.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase))
-                {
-                    await using var stream = await _blobStorage.OpenReadAsync(file.BlobPath, ct);
-                    IReadOnlyList<PdfPageText> pdfPages;
-                    try
-                    {
-                        pdfPages = await _pdfTextExtractor.ExtractPagesAsync(stream, ct);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex,
-                            "PDF text extraction failed. SourceId={SourceId}, File={FileName}", source.Id, file.FileName);
-                        await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
-                        return ExtractionOutcome.NonTransient(ErrorCategories.ValidationFailure,
-                            $"Could not extract text from '{file.FileName}' — is it a digital (non-scanned) PDF?");
-                    }
-
-                    var text = string.Join("\n\n", pdfPages.Select(p => p.Text)).Trim();
-                    if (text.Length > 0)
-                    {
-                        sections.Add((file.Ord, $"### Extracted from {file.FileName}\n\n{text}"));
-                    }
-                }
-                else if (file.ContentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase))
-                {
-                    await using var stream = await _blobStorage.OpenReadAsync(file.BlobPath, ct);
-                    using var reader = new StreamReader(stream);
-                    var text = (await reader.ReadToEndAsync(ct)).Trim();
-                    if (text.Length > 0)
-                    {
-                        sections.Add((file.Ord, $"### Extracted from {file.FileName}\n\n{text}"));
-                    }
-                }
-                else if (file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-                {
-                    await using var stream = await _blobStorage.OpenReadAsync(file.BlobPath, ct);
-                    using var buffer = new MemoryStream();
-                    await stream.CopyToAsync(buffer, ct);
-                    images.Add(new ImageToRead(buffer.ToArray(), file.ContentType, file.FileName));
-                    firstImageOrd = Math.Min(firstImageOrd, file.Ord);
-                }
-            }
-            catch (FileNotFoundException)
-            {
-                _logger.LogError(
-                    "Attachment blob missing. SourceId={SourceId}, BlobPath={BlobPath}", source.Id, file.BlobPath);
-                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
-                return ExtractionOutcome.NonTransient(ErrorCategories.ValidationFailure,
-                    $"File '{file.FileName}' is missing from storage.");
-            }
-        }
-
-        if (images.Count > 0)
-        {
-            // Vision is an AI spend of its own; gate it like extraction.
-            var budgetError = await _budgetGuard.CheckAsync(worldId, ct);
-            if (budgetError is not null)
-            {
-                _logger.LogWarning(
-                    "Image reading blocked by AI budget. SourceId={SourceId}, WorldId={WorldId}", source.Id, worldId);
-                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
-                return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
-            }
-
-            ImageReadingResponse response;
-            try
-            {
-                response = await _imageReadingClient.ReadAsync(new ImageReadingRequest
-                {
-                    Images = images,
-                    Model = _options.AiModel,
-                    TimeoutSeconds = _options.AiTimeoutSeconds
-                }, ct);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (TimeoutException ex)
-            {
-                await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading, null, false, ErrorCategories.Timeout, ct);
-                return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
-            }
-            catch (Exception ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
-            {
-                _logger.LogError(ex, "Permanent image reading failure. SourceId={SourceId}", source.Id);
-                await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading, null, false, ErrorCategories.AiCallFailure, ct);
-                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
-                return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
-            }
-            catch (Exception ex) when (ex is AiHttpException or HttpRequestException)
-            {
-                _logger.LogWarning(ex, "Transient image reading failure. SourceId={SourceId}", source.Id);
-                await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading, null, false, ErrorCategories.TransientError, ct);
-                return await TransientOutcomeAsync(source, ErrorCategories.TransientError, ex.Message, ct);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected image reading failure. SourceId={SourceId}", source.Id);
-                await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading, null, false, ErrorCategories.AiCallFailure, ct);
-                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
-                return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
-            }
-
-            await TrackVisionUsageAsync(source, worldId, AiOperationType.ImageReading,
-                response.Usage, true, null, ct);
-
-            if (!string.IsNullOrWhiteSpace(response.Markdown))
-            {
-                // The client already emits "## {filename}" sections per image.
-                sections.Add((firstImageOrd, response.Markdown.Trim()));
-            }
-        }
-
-        var derived = string.Join("\n\n", sections.OrderBy(s => s.Ord).Select(s => s.Text)).Trim();
-        if (derived.Length == 0)
-        {
-            return null; // blank files — the empty-body path (or the typed body) takes it
-        }
-
-        // Keep the composed prompt within the body ceiling; typed notes win the budget.
-        var available = MaxComposedBodyChars - (source.Body?.Length ?? 0) - 2;
-        const string truncationMarker = "\n\n[Extracted content truncated]";
-        if (available <= truncationMarker.Length)
-        {
-            derived = "[Extracted content omitted — the typed body already fills the source]";
-        }
-        else if (derived.Length > available)
-        {
-            derived = derived[..(available - truncationMarker.Length)] + truncationMarker;
-        }
-
-        // Persist before extracting: extraction may fail and retry, and the derivation
-        // (especially the vision read) must not be re-bought on redelivery.
-        await _sourceRepository.UpdateDerivedTextAsync(source.Id, derived, ct);
-        source.DerivedText = derived;
-
-        _logger.LogInformation(
-            "Attachment text derived. SourceId={SourceId}, Files={Files}, Chars={Chars}",
-            source.Id, files.Count, derived.Length);
-
-        return null;
-    }
-
-    private Task TrackVisionUsageAsync(
-        Source source, Guid worldId, AiOperationType operationType, AiUsage? usage,
-        bool succeeded, string? errorCode, CancellationToken ct) =>
-        _usageRecorder.RecordAsync(
-            worldId, null, operationType, usage,
-            succeeded, errorCode, sourceId: source.Id, fallbackModel: _options.AiModel, ct: ct);
 
     private async Task<ExtractionOutcome> HandleEmptyBodyAsync(
         Source source, Guid worldId, CancellationToken ct)
@@ -1045,7 +493,19 @@ public class ExtractionService : IExtractionService
         // right place even when this note never names it.
         var recentLocations = await AssembleRecentLocationContextAsync(source, worldId, ct);
 
-        var request = BuildExtractionRequest(source, campaign, context, referencePassages, recentLocations);
+        var extractionRequest = BuildExtractionRequest(source, campaign, context, referencePassages, recentLocations);
+
+        // Application owns the prompt text; the client receives finished strings and keeps
+        // only transport, timeout, and parse — the same seam the five prompt-in/JSON-out
+        // clients already use.
+        var request = new AiPromptRequest
+        {
+            SystemPrompt = ExtractionPromptBuilder.BuildSystemPrompt(extractionRequest),
+            UserMessage = ExtractionPromptBuilder.BuildUserMessage(extractionRequest),
+            Model = _options.AiModel,
+            TimeoutSeconds = _options.AiTimeoutSeconds
+        };
+
         var maxAttempts = 1 + _options.MaxParseRetryAttempts; // initial + retries
 
         AiExtractionResponse? lastResponse = null;
@@ -1091,13 +551,13 @@ public class ExtractionService : IExtractionService
             catch (AiTimeoutException ex)
             {
                 await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.Timeout, ct);
-                return await TransientOutcomeAsync(source, ErrorCategories.Timeout, ex.Message, ct);
+                return ExtractionOutcome.Transient(ErrorCategories.Timeout, ex.Message);
             }
             catch (TaskCanceledException) when (!ct.IsCancellationRequested)
             {
                 // Timeout — transient failure
                 await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.Timeout, ct);
-                return await TransientOutcomeAsync(source, ErrorCategories.Timeout, "AI call timed out.", ct);
+                return ExtractionOutcome.Transient(ErrorCategories.Timeout, "AI call timed out.");
             }
             catch (Exception ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
             {
@@ -1106,7 +566,6 @@ public class ExtractionService : IExtractionService
                 _logger.LogError(ex,
                     "Permanent AI request failure. SourceId={SourceId}", source.Id);
                 await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.AiCallFailure, ct);
-                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
                 return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
             }
             catch (Exception ex) when (ex is AiHttpException or HttpRequestException)
@@ -1115,7 +574,7 @@ public class ExtractionService : IExtractionService
                 _logger.LogWarning(ex,
                     "Network error during AI call. SourceId={SourceId}", source.Id);
                 await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.TransientError, ct);
-                return await TransientOutcomeAsync(source, ErrorCategories.TransientError, ex.Message, ct);
+                return ExtractionOutcome.Transient(ErrorCategories.TransientError, ex.Message);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -1126,7 +585,7 @@ public class ExtractionService : IExtractionService
                 _logger.LogWarning(ex,
                     "Transient error during AI call. SourceId={SourceId}", source.Id);
                 await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.TransientError, ct);
-                return await TransientOutcomeAsync(source, ErrorCategories.TransientError, ex.Message, ct);
+                return ExtractionOutcome.Transient(ErrorCategories.TransientError, ex.Message);
             }
             catch (Exception ex)
             {
@@ -1134,7 +593,6 @@ public class ExtractionService : IExtractionService
                 _logger.LogError(ex,
                     "Non-transient AI call failure. SourceId={SourceId}", source.Id);
                 await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.AiCallFailure, ct);
-                await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
                 return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
             }
         }
@@ -1145,7 +603,6 @@ public class ExtractionService : IExtractionService
             source.Id, lastError);
 
         await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.ParseFailure, ct);
-        await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
         return ExtractionOutcome.NonTransient(ErrorCategories.ParseFailure,
             $"AI response validation failed after {_options.MaxParseRetryAttempts} retries: {lastError}");
     }
@@ -1195,7 +652,6 @@ public class ExtractionService : IExtractionService
             _logger.LogError(ex,
                 "Failed to persist proposals atomically. SourceId={SourceId}", source.Id);
             await TrackUsageAsync(source, worldId, response, false, ErrorCategories.ValidationFailure, ct, operationType: operationType);
-            await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Failed, ct);
             return ExtractionOutcome.NonTransient(ErrorCategories.ValidationFailure,
                 "Failed to persist proposals: " + ex.Message);
         }
@@ -1695,15 +1151,4 @@ public class ExtractionService : IExtractionService
     // Retry classification lives in TransientFailureClassifier — one definition shared with
     // library indexing, deciding on typed status codes rather than substrings of the message.
 
-    /// <summary>
-    /// A transient failure must put the source back to Queued: the message is abandoned for
-    /// redelivery, and the idempotency check skips any source that is not Queued — leaving the
-    /// status at Processing would turn every retry into a silent no-op.
-    /// </summary>
-    private async Task<ExtractionOutcome> TransientOutcomeAsync(
-        Source source, string category, string message, CancellationToken ct)
-    {
-        await _sourceRepository.UpdateProcessingStatusAsync(source.Id, SourceProcessingStatus.Queued, ct);
-        return ExtractionOutcome.Transient(category, message);
-    }
 }

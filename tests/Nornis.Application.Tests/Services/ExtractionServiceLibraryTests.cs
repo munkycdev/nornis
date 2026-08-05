@@ -5,6 +5,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
+using Nornis.Application.Tests.Ai;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -50,25 +51,47 @@ public class ExtractionServiceLibraryTests
             }
         });
 
+        var usageRecorder = TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository());
+        var budgetGuard = new FakeAiBudgetGuard();
+        var artifactRepository = new InMemoryArtifactRepository();
+        var attachmentRepository = new InMemorySourceAttachmentRepository();
+        var blobStorage = new FakeBlobStorageService();
+        var mapPipeline = new MapExtractionPipeline(
+            attachmentRepository,
+            new InMemoryMapPlacemarkRepository(),
+            artifactRepository,
+            blobStorage,
+            new FakeMapExtractionClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<MapExtractionPipeline>.Instance);
+        var textDerivation = new SourceTextDerivation(
+            _sourceRepo,
+            attachmentRepository,
+            blobStorage,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<SourceTextDerivation>.Instance);
+
         _sut = new ExtractionService(
             _sourceRepo,
             new InMemoryCampaignRepository(),
             new InMemoryReviewBatchRepository(),
             new InMemoryReviewProposalRepository(),
             new InMemorySourceReferenceRepository(),
-            TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository()),
-            new InMemoryArtifactRepository(),
+            usageRecorder,
+            artifactRepository,
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
-            new InMemorySourceAttachmentRepository(),
-            new InMemoryMapPlacemarkRepository(),
-            new FakeBlobStorageService(),
-            new FakePdfTextExtractor(),
             _aiClient,
-            new FakeHandwritingTranscriptionClient(),
-            new FakeImageReadingClient(),
-            new FakeMapExtractionClient(),
-            new FakeAiBudgetGuard(),
+            mapPipeline,
+            textDerivation,
+            budgetGuard,
             new FakeUnitOfWork(),
             options,
             NullLogger<ExtractionService>.Instance,
@@ -91,6 +114,9 @@ public class ExtractionServiceLibraryTests
             CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-10)
         });
     }
+
+    private ParsedExtractionPrompt Prompt() =>
+        ExtractionPromptReader.Parse(_aiClient.Requests[0].UserMessage);
 
     private static KnowledgePassage Passage(string title = "Player's Handbook", int page = 42) => new()
     {
@@ -136,8 +162,9 @@ public class ExtractionServiceLibraryTests
 
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
         Assert.That(_aiClient.Requests, Has.Count.EqualTo(1));
-        Assert.That(_aiClient.Requests[0].ReferencePassages, Has.Count.EqualTo(1));
-        Assert.That(_aiClient.Requests[0].ReferencePassages[0].DocumentTitle, Is.EqualTo("Player's Handbook"));
+        var prompt = Prompt();
+        Assert.That(prompt.ReferencePassages, Has.Count.EqualTo(1));
+        Assert.That(prompt.ReferencePassages[0].DocumentTitle, Is.EqualTo("Player's Handbook"));
     }
 
     [Test]
@@ -148,7 +175,7 @@ public class ExtractionServiceLibraryTests
 
         await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
 
-        Assert.That(_aiClient.Requests[0].ReferencePassages, Is.Empty);
+        Assert.That(Prompt().ReferencePassages, Is.Empty);
     }
 
     [Test]

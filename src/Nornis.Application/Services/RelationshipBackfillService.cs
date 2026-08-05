@@ -18,13 +18,12 @@ namespace Nornis.Application.Services;
 /// (Event→Storyline) and "PartOf" (Storyline→Storyline) links. Re-reads one processed
 /// source per message and proposes only those two link types against artifacts that
 /// already exist — it never creates artifacts, so there is no duplicate-artifact risk.
-/// Each source gets its own review batch (Kind = <see cref="BatchKind"/>) so accepted
+/// Each source gets its own review batch (Kind = <see cref="ReviewBatchKinds.RelationshipBackfill"/>) so accepted
 /// links carry provenance to the original dated session and light up the timeline at the
 /// right spot; the batch is also the per-source idempotency key.
 /// </summary>
 public class RelationshipBackfillService : IRelationshipBackfillService
 {
-    public const string BatchKind = "RelationshipBackfill";
     public const string AdvancesRelationshipType = "Advances";
 
     private static readonly JsonSerializerOptions PayloadJsonOptions = new()
@@ -37,12 +36,10 @@ public class RelationshipBackfillService : IRelationshipBackfillService
     private readonly IArtifactRepository _artifactRepository;
     private readonly IArtifactRelationshipRepository _relationshipRepository;
     private readonly IReviewBatchRepository _reviewBatchRepository;
-    private readonly IReviewProposalRepository _reviewProposalRepository;
-    private readonly ISourceReferenceRepository _sourceReferenceRepository;
+    private readonly SyntheticBatchWriter _batchWriter;
     private readonly IAiUsageRecorder _usageRecorder;
     private readonly IRelationshipBackfillAiClient _aiClient;
     private readonly IAiBudgetGuard _budgetGuard;
-    private readonly IUnitOfWork _unitOfWork;
     private readonly ExtractionOptions _options;
     private readonly ILogger<RelationshipBackfillService> _logger;
 
@@ -51,12 +48,10 @@ public class RelationshipBackfillService : IRelationshipBackfillService
         IArtifactRepository artifactRepository,
         IArtifactRelationshipRepository relationshipRepository,
         IReviewBatchRepository reviewBatchRepository,
-        IReviewProposalRepository reviewProposalRepository,
-        ISourceReferenceRepository sourceReferenceRepository,
+        SyntheticBatchWriter batchWriter,
         IAiUsageRecorder usageRecorder,
         IRelationshipBackfillAiClient aiClient,
         IAiBudgetGuard budgetGuard,
-        IUnitOfWork unitOfWork,
         IOptions<ExtractionOptions> options,
         ILogger<RelationshipBackfillService> logger)
     {
@@ -64,12 +59,10 @@ public class RelationshipBackfillService : IRelationshipBackfillService
         _artifactRepository = artifactRepository;
         _relationshipRepository = relationshipRepository;
         _reviewBatchRepository = reviewBatchRepository;
-        _reviewProposalRepository = reviewProposalRepository;
-        _sourceReferenceRepository = sourceReferenceRepository;
+        _batchWriter = batchWriter;
         _usageRecorder = usageRecorder;
         _aiClient = aiClient;
         _budgetGuard = budgetGuard;
-        _unitOfWork = unitOfWork;
         _options = options.Value;
         _logger = logger;
     }
@@ -78,7 +71,7 @@ public class RelationshipBackfillService : IRelationshipBackfillService
     {
         // Idempotency: one backfill batch per source, ever. A redelivered or re-queued
         // message for a swept source is a no-op.
-        if (await _reviewBatchRepository.ExistsForSourceAsync(sourceId, BatchKind, ct))
+        if (await _reviewBatchRepository.ExistsForSourceAsync(sourceId, ReviewBatchKinds.RelationshipBackfill, ct))
         {
             return ExtractionOutcome.SkippedIdempotent("A relationship backfill batch already exists for this source.");
         }
@@ -110,7 +103,7 @@ public class RelationshipBackfillService : IRelationshipBackfillService
 
         if (string.IsNullOrWhiteSpace(source.Body))
         {
-            var emptyBatchId = await CreateBatchWithProposalsAsync(source, worldId, [], ct);
+            var emptyBatchId = await CreateBatchWithProposalsAsync(source, [], ct);
             return ExtractionOutcome.Succeeded(emptyBatchId, 0);
         }
 
@@ -128,7 +121,7 @@ public class RelationshipBackfillService : IRelationshipBackfillService
         var candidates = await LoadCandidatesAsync(source, worldId, ct);
         if (candidates.Storylines.Count == 0)
         {
-            var noLanesBatchId = await CreateBatchWithProposalsAsync(source, worldId, [], ct);
+            var noLanesBatchId = await CreateBatchWithProposalsAsync(source, [], ct);
             return ExtractionOutcome.Succeeded(noLanesBatchId, 0);
         }
 
@@ -176,7 +169,7 @@ public class RelationshipBackfillService : IRelationshipBackfillService
         Guid batchId;
         try
         {
-            batchId = await CreateBatchWithProposalsAsync(source, worldId, accepted, ct);
+            batchId = await CreateBatchWithProposalsAsync(source, accepted, ct);
         }
         catch (Exception ex)
         {
@@ -330,79 +323,30 @@ public class RelationshipBackfillService : IRelationshipBackfillService
     // -------------------------------------------------------------------- Persist --
 
     private async Task<Guid> CreateBatchWithProposalsAsync(
-        Source source, Guid worldId, IReadOnlyList<ResolvedLink> links, CancellationToken ct)
+        Source source, IReadOnlyList<ResolvedLink> links, CancellationToken ct)
     {
-        var now = DateTimeOffset.UtcNow;
-
-        var batch = new ReviewBatch
+        // Zero links still writes: the Completed batch marks the source swept, and the
+        // kind is the sweep's per-source idempotency key.
+        var specs = links.Select(link => new SyntheticProposalSpec
         {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            SourceId = source.Id,
-            Kind = BatchKind,
-            Status = links.Count == 0 ? ReviewBatchStatus.Completed : ReviewBatchStatus.Pending,
-            CreatedAt = now,
-            CompletedAt = links.Count == 0 ? now : null
-        };
-
-        if (links.Count == 0)
-        {
-            // Zero proposals still gets a (Completed) batch: it marks the source swept.
-            await _reviewBatchRepository.CreateAsync(batch, ct);
-            return batch.Id;
-        }
-
-        await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
-        try
-        {
-            await _reviewBatchRepository.CreateAsync(batch, ct);
-
-            foreach (var link in links)
+            ChangeType = ReviewChangeType.AddRelationship,
+            TargetType = ReviewTargetType.ArtifactRelationship,
+            ProposedValueJson = JsonSerializer.Serialize(new
             {
-                var payload = new
-                {
-                    artifactAId = link.ArtifactA.Id,
-                    artifactBId = link.ArtifactB.Id,
-                    type = link.Type,
-                    description = link.Description,
-                    truthState = nameof(TruthState.Confirmed),
-                    visibility = source.Visibility.ToString(),
-                    confidence = link.Confidence
-                };
+                artifactAId = link.ArtifactA.Id,
+                artifactBId = link.ArtifactB.Id,
+                type = link.Type,
+                description = link.Description,
+                truthState = nameof(TruthState.Confirmed),
+                visibility = source.Visibility.ToString(),
+                confidence = link.Confidence
+            }, PayloadJsonOptions),
+            Rationale = link.Rationale.Truncate(500),
+            Confidence = link.Confidence,
+            ReferenceQuote = link.Quote is null ? null : link.Quote.Truncate(300)
+        }).ToList();
 
-                var proposal = new ReviewProposal
-                {
-                    Id = Guid.NewGuid(),
-                    ReviewBatchId = batch.Id,
-                    ChangeType = ReviewChangeType.AddRelationship,
-                    TargetType = ReviewTargetType.ArtifactRelationship,
-                    ProposedValueJson = JsonSerializer.Serialize(payload, PayloadJsonOptions),
-                    Rationale = link.Rationale.Truncate(500),
-                    Confidence = link.Confidence,
-                    Status = ReviewProposalStatus.Pending,
-                    CreatedAt = now
-                };
-                await _reviewProposalRepository.CreateAsync(proposal, ct);
-
-                await _sourceReferenceRepository.CreateAsync(new SourceReference
-                {
-                    Id = Guid.NewGuid(),
-                    SourceId = source.Id,
-                    TargetType = SourceReferenceTargetType.ReviewProposal,
-                    TargetId = proposal.Id,
-                    Quote = link.Quote is null ? null : link.Quote.Truncate(300),
-                    CreatedAt = now
-                }, ct);
-            }
-
-            await transaction.CommitAsync(ct);
-            return batch.Id;
-        }
-        catch
-        {
-            await transaction.RollbackAsync(ct);
-            throw;
-        }
+        return await _batchWriter.WriteSweepAsync(source, ReviewBatchKinds.RelationshipBackfill, specs, ct);
     }
 
     // -------------------------------------------------------------------- Prompts --

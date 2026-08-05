@@ -5,6 +5,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
+using Nornis.Application.Tests.Ai;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -29,6 +30,8 @@ public class ExtractionServiceContextAssemblyTests
     private ExtractionService _sut = null!;
 
     private static readonly Guid WorldId = Guid.NewGuid();
+
+    private ParsedExtractionPrompt Prompt(int index = 0) => ExtractionPromptReader.Parse(_aiClient.Requests[index].UserMessage);
 
     [SetUp]
     public void SetUp()
@@ -59,30 +62,55 @@ public class ExtractionServiceContextAssemblyTests
         _sut = CreateService();
     }
 
-    private ExtractionService CreateService() => new(
-        _sourceRepository,
-        new InMemoryCampaignRepository(),
-        _reviewBatchRepository,
-        _reviewProposalRepository,
-        _sourceReferenceRepository,
-        TestUsageRecorder.Wrap(_aiUsageRecordRepository),
-        _artifactRepository,
-        _artifactFactRepository,
-        _relationshipRepository,
-        new InMemorySourceAttachmentRepository(),
-        new InMemoryMapPlacemarkRepository(),
-        new FakeBlobStorageService(),
-        new FakePdfTextExtractor(),
-        _aiClient,
-        new FakeHandwritingTranscriptionClient(),
-        new FakeImageReadingClient(),
-        new FakeMapExtractionClient(),
-        new FakeAiBudgetGuard(),
-        _unitOfWork,
-        Options.Create(_options),
-        NullLogger<ExtractionService>.Instance,
+    private ExtractionService CreateService()
+    {
+        var usageRecorder = TestUsageRecorder.Wrap(_aiUsageRecordRepository);
+        var options = Options.Create(_options);
+        var budgetGuard = new FakeAiBudgetGuard();
+        var attachmentRepository = new InMemorySourceAttachmentRepository();
+        var blobStorage = new FakeBlobStorageService();
+        var mapPipeline = new MapExtractionPipeline(
+            attachmentRepository,
+            new InMemoryMapPlacemarkRepository(),
+            _artifactRepository,
+            blobStorage,
+            new FakeMapExtractionClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<MapExtractionPipeline>.Instance);
+        var textDerivation = new SourceTextDerivation(
+            _sourceRepository,
+            attachmentRepository,
+            blobStorage,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            budgetGuard,
+            usageRecorder,
+            options,
+            NullLogger<SourceTextDerivation>.Instance);
+
+        return new ExtractionService(
+            _sourceRepository,
+            new InMemoryCampaignRepository(),
+            _reviewBatchRepository,
+            _reviewProposalRepository,
+            _sourceReferenceRepository,
+            usageRecorder,
+            _artifactRepository,
+            _artifactFactRepository,
+            _relationshipRepository,
+            _aiClient,
+            mapPipeline,
+            textDerivation,
+            budgetGuard,
+            _unitOfWork,
+            options,
+            NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
             replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+    }
 
     private Source CreateQueuedSource(
         string body = "Captain Voss met the party in Black Harbor.",
@@ -176,8 +204,8 @@ public class ExtractionServiceContextAssemblyTests
 
         // Assert: The AI client should receive at most 5 artifacts in context
         Assert.That(_aiClient.Requests, Has.Count.EqualTo(1));
-        var request = _aiClient.Requests[0];
-        Assert.That(request.ExistingArtifacts.Count, Is.LessThanOrEqualTo(5));
+        var prompt = Prompt();
+        Assert.That(prompt.ExistingArtifacts.Count, Is.LessThanOrEqualTo(5));
     }
 
     [Test]
@@ -206,8 +234,8 @@ public class ExtractionServiceContextAssemblyTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: Name-matched (Captain Voss, Silver Key) should come first
-        var request = _aiClient.Requests[0];
-        var contextNames = request.ExistingArtifacts.Select(a => a.Name).ToList();
+        var prompt = Prompt();
+        var contextNames = prompt.ExistingArtifacts.Select(a => a.Name).ToList();
 
         Assert.That(contextNames, Has.Count.EqualTo(5));
         // Name-matched artifacts should be at the start
@@ -241,8 +269,8 @@ public class ExtractionServiceContextAssemblyTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: No duplicates — each artifact should appear exactly once
-        var request = _aiClient.Requests[0];
-        var contextIds = request.ExistingArtifacts.Select(a => a.Id).ToList();
+        var prompt = Prompt();
+        var contextIds = prompt.ExistingArtifacts.Select(a => a.Id).ToList();
 
         Assert.That(contextIds, Is.Unique, "Context should not contain duplicate artifacts");
         Assert.That(contextIds, Does.Contain(voss.Id));
@@ -276,9 +304,9 @@ public class ExtractionServiceContextAssemblyTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: Only Private artifacts should appear in context
-        var request = _aiClient.Requests[0];
-        Assert.That(request.ExistingArtifacts.Count, Is.EqualTo(1));
-        Assert.That(request.ExistingArtifacts[0].Id, Is.EqualTo(privateArtifact.Id));
+        var prompt = Prompt();
+        Assert.That(prompt.ExistingArtifacts.Count, Is.EqualTo(1));
+        Assert.That(prompt.ExistingArtifacts[0].Id, Is.EqualTo(privateArtifact.Id));
     }
 
     [Test]
@@ -304,8 +332,8 @@ public class ExtractionServiceContextAssemblyTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: GMOnly and PartyVisible artifacts, but not Private
-        var request = _aiClient.Requests[0];
-        var contextIds = request.ExistingArtifacts.Select(a => a.Id).ToList();
+        var prompt = Prompt();
+        var contextIds = prompt.ExistingArtifacts.Select(a => a.Id).ToList();
         Assert.That(contextIds, Does.Contain(gmArtifact.Id));
         Assert.That(contextIds, Does.Contain(partyArtifact.Id));
         Assert.That(contextIds, Does.Not.Contain(privateArtifact.Id));
@@ -334,9 +362,9 @@ public class ExtractionServiceContextAssemblyTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: Only PartyVisible artifacts
-        var request = _aiClient.Requests[0];
-        Assert.That(request.ExistingArtifacts.Count, Is.EqualTo(1));
-        Assert.That(request.ExistingArtifacts[0].Id, Is.EqualTo(partyArtifact.Id));
+        var prompt = Prompt();
+        Assert.That(prompt.ExistingArtifacts.Count, Is.EqualTo(1));
+        Assert.That(prompt.ExistingArtifacts[0].Id, Is.EqualTo(partyArtifact.Id));
     }
 
     [Test]
@@ -374,8 +402,8 @@ public class ExtractionServiceContextAssemblyTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: Only 3 facts should appear in context
-        var request = _aiClient.Requests[0];
-        var artifactContext = request.ExistingArtifacts.Single(a => a.Id == artifact.Id);
+        var prompt = Prompt();
+        var artifactContext = prompt.ExistingArtifacts.Single(a => a.Id == artifact.Id);
         Assert.That(artifactContext.Facts.Count, Is.EqualTo(3));
     }
 
@@ -395,7 +423,7 @@ public class ExtractionServiceContextAssemblyTests
         // Assert: Service proceeds successfully, AI is called with empty context
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
         Assert.That(_aiClient.Requests, Has.Count.EqualTo(1));
-        Assert.That(_aiClient.Requests[0].ExistingArtifacts, Is.Empty);
+        Assert.That(Prompt().ExistingArtifacts, Is.Empty);
     }
 
     [Test]
@@ -423,8 +451,8 @@ public class ExtractionServiceContextAssemblyTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         // Assert: only the active artifact appears in context
-        var request = _aiClient.Requests[0];
-        var contextIds = request.ExistingArtifacts.Select(a => a.Id).ToList();
+        var prompt = Prompt();
+        var contextIds = prompt.ExistingArtifacts.Select(a => a.Id).ToList();
         Assert.That(contextIds, Does.Not.Contain(archivedNameMatched.Id),
             "Archived artifacts must not appear in extraction context via name-matching");
         Assert.That(contextIds, Does.Not.Contain(archivedRecent.Id),
@@ -497,7 +525,7 @@ public class ExtractionServiceContextAssemblyTests
 
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
-        var context = _aiClient.Requests[0].ExistingArtifacts.Single(a => a.Id == artifact.Id);
+        var context = Prompt().ExistingArtifacts.Single(a => a.Id == artifact.Id);
         Assert.That(context.Facts.Select(f => f.Predicate), Is.EquivalentTo(["public fact"]));
     }
 
@@ -521,7 +549,7 @@ public class ExtractionServiceContextAssemblyTests
 
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
-        var context = _aiClient.Requests[0].ExistingArtifacts.Single(a => a.Id == artifact.Id);
+        var context = Prompt().ExistingArtifacts.Single(a => a.Id == artifact.Id);
         Assert.That(context.Facts.Select(f => f.Predicate), Is.EquivalentTo(["known fact"]));
     }
 
@@ -546,7 +574,7 @@ public class ExtractionServiceContextAssemblyTests
 
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
-        var context = _aiClient.Requests[0].ExistingArtifacts.Single(a => a.Id == artifact.Id);
+        var context = Prompt().ExistingArtifacts.Single(a => a.Id == artifact.Id);
         Assert.That(context.Facts.Select(f => f.Predicate),
             Is.EquivalentTo(["public fact", "gm secret", "hidden truth"]));
     }
@@ -574,7 +602,7 @@ public class ExtractionServiceContextAssemblyTests
 
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
-        var context = _aiClient.Requests[0].ExistingArtifacts.Single(a => a.Id == artifact.Id);
+        var context = Prompt().ExistingArtifacts.Single(a => a.Id == artifact.Id);
         Assert.That(context.Facts.Select(f => f.Predicate), Is.EquivalentTo(["party a", "party b"]));
     }
 
@@ -605,9 +633,9 @@ public class ExtractionServiceContextAssemblyTests
 
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
-        var request = _aiClient.Requests[0];
-        var childContext = request.ExistingArtifacts.Single(a => a.Name == "Kastor Watch Investigation");
-        var parentContext = request.ExistingArtifacts.Single(a => a.Name == "Kastor Crisis");
+        var prompt = Prompt();
+        var childContext = prompt.ExistingArtifacts.Single(a => a.Name == "Kastor Watch Investigation");
+        var parentContext = prompt.ExistingArtifacts.Single(a => a.Name == "Kastor Crisis");
         Assert.That(childContext.PartOfName, Is.EqualTo("Kastor Crisis"));
         Assert.That(parentContext.PartOfName, Is.Null);
     }

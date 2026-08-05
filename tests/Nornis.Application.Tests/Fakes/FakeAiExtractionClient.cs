@@ -4,14 +4,14 @@ namespace Nornis.Application.Tests.Fakes;
 
 public class FakeAiExtractionClient : IAiExtractionClient
 {
-    private readonly List<ExtractionRequest> _requests = [];
+    private readonly List<AiPromptRequest> _requests = [];
     private readonly Queue<Func<AiExtractionResponse>> _script = new();
     private AiExtractionResponse? _successResponse;
     private Exception? _transientException;
     private bool _parseFailure;
     private int _callCount;
 
-    public IReadOnlyList<ExtractionRequest> Requests => _requests.AsReadOnly();
+    public IReadOnlyList<AiPromptRequest> Requests => _requests.AsReadOnly();
     public int CallCount => _callCount;
 
     /// <summary>
@@ -60,7 +60,7 @@ public class FakeAiExtractionClient : IAiExtractionClient
     /// </summary>
     public Func<Task>? OnCall { get; set; }
 
-    public async Task<AiExtractionResponse> ExtractAsync(ExtractionRequest request, CancellationToken ct)
+    public async Task<AiExtractionResponse> ExtractAsync(AiPromptRequest request, CancellationToken ct)
     {
         _requests.Add(request);
         _callCount++;
@@ -73,7 +73,7 @@ public class FakeAiExtractionClient : IAiExtractionClient
         return await ExtractCoreAsync(request);
     }
 
-    private Task<AiExtractionResponse> ExtractCoreAsync(ExtractionRequest request)
+    private Task<AiExtractionResponse> ExtractCoreAsync(AiPromptRequest request)
     {
         if (_script.Count > 0)
         {

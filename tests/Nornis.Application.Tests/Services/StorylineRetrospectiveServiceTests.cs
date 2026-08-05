@@ -54,17 +54,21 @@ public class StorylineRetrospectiveServiceTests
             }
         };
 
-        _sut = new StorylineRetrospectiveService(
-            _artifactRepo,
-            _factRepo,
+        var batchWriter = new SyntheticBatchWriter(
             _sourceRepo,
             _batchRepo,
             _proposalRepo,
             _sourceRefRepo,
+            new FakeProposalApplicator(),
+            new FakeUnitOfWork());
+
+        _sut = new StorylineRetrospectiveService(
+            _artifactRepo,
+            _factRepo,
+            batchWriter,
             TestUsageRecorder.Wrap(_usageRepo, loremaster: options),
             _aiClient,
             _budgetGuard,
-            new FakeUnitOfWork(),
             Options.Create(options),
             NullLogger<StorylineRetrospectiveService>.Instance);
     }

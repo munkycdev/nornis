@@ -5,6 +5,7 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
+using Nornis.Application.Tests.Ai;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -51,27 +52,50 @@ public partial class ExtractionServiceCampaignContextTests
             }
         };
 
+        var usageRecorder = TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository());
+        var optionsWrapper = Options.Create(options);
+        var budgetGuard = new FakeAiBudgetGuard();
+        var artifactRepository = new InMemoryArtifactRepository();
+        var attachmentRepository = new InMemorySourceAttachmentRepository();
+        var blobStorage = new FakeBlobStorageService();
+        var mapPipeline = new MapExtractionPipeline(
+            attachmentRepository,
+            new InMemoryMapPlacemarkRepository(),
+            artifactRepository,
+            blobStorage,
+            new FakeMapExtractionClient(),
+            budgetGuard,
+            usageRecorder,
+            optionsWrapper,
+            NullLogger<MapExtractionPipeline>.Instance);
+        var textDerivation = new SourceTextDerivation(
+            _sourceRepository,
+            attachmentRepository,
+            blobStorage,
+            new FakePdfTextExtractor(),
+            new FakeHandwritingTranscriptionClient(),
+            new FakeImageReadingClient(),
+            budgetGuard,
+            usageRecorder,
+            optionsWrapper,
+            NullLogger<SourceTextDerivation>.Instance);
+
         _sut = new ExtractionService(
             _sourceRepository,
             _campaignRepository,
             new InMemoryReviewBatchRepository(),
             new InMemoryReviewProposalRepository(),
             new InMemorySourceReferenceRepository(),
-            TestUsageRecorder.Wrap(new InMemoryAiUsageRecordRepository()),
-            new InMemoryArtifactRepository(),
+            usageRecorder,
+            artifactRepository,
             new InMemoryArtifactFactRepository(),
             new InMemoryArtifactRelationshipRepository(),
-            new InMemorySourceAttachmentRepository(),
-            new InMemoryMapPlacemarkRepository(),
-            new FakeBlobStorageService(),
-            new FakePdfTextExtractor(),
             _aiClient,
-            new FakeHandwritingTranscriptionClient(),
-            new FakeImageReadingClient(),
-            new FakeMapExtractionClient(),
-            new FakeAiBudgetGuard(),
+            mapPipeline,
+            textDerivation,
+            budgetGuard,
             new FakeUnitOfWork(),
-            Options.Create(options),
+            optionsWrapper,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
             replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
@@ -109,6 +133,9 @@ public partial class ExtractionServiceCampaignContextTests
         return source;
     }
 
+    private ParsedExtractionPrompt Prompt() =>
+        ExtractionPromptReader.Parse(_aiClient.Requests[0].UserMessage);
+
     [Test]
     public async Task ProcessExtractionAsync_SourceWithCampaign_PassesCampaignToAiRequest()
     {
@@ -128,8 +155,9 @@ public partial class ExtractionServiceCampaignContextTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(_aiClient.Requests, Has.Count.EqualTo(1));
-        Assert.That(_aiClient.Requests[0].CampaignName, Is.EqualTo("Rise of Tiamat"));
-        Assert.That(_aiClient.Requests[0].CampaignStatus, Is.EqualTo("Active"));
+        var prompt = Prompt();
+        Assert.That(prompt.CampaignName, Is.EqualTo("Rise of Tiamat"));
+        Assert.That(prompt.CampaignStatus, Is.EqualTo("Active"));
     }
 
     [Test]
@@ -140,7 +168,7 @@ public partial class ExtractionServiceCampaignContextTests
         await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(_aiClient.Requests, Has.Count.EqualTo(1));
-        Assert.That(_aiClient.Requests[0].CampaignName, Is.Null);
+        Assert.That(Prompt().CampaignName, Is.Null);
     }
 
     [Test]
@@ -152,6 +180,6 @@ public partial class ExtractionServiceCampaignContextTests
         var outcome = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 
         Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
-        Assert.That(_aiClient.Requests[0].CampaignName, Is.Null);
+        Assert.That(Prompt().CampaignName, Is.Null);
     }
 }

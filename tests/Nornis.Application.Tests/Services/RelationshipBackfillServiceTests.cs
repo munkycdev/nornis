@@ -56,17 +56,23 @@ public class RelationshipBackfillServiceTests
             }
         };
 
+        var batchWriter = new SyntheticBatchWriter(
+            _sourceRepository,
+            _reviewBatchRepository,
+            _reviewProposalRepository,
+            _sourceReferenceRepository,
+            new FakeProposalApplicator(),
+            new FakeUnitOfWork());
+
         _sut = new RelationshipBackfillService(
             _sourceRepository,
             _artifactRepository,
             _relationshipRepository,
             _reviewBatchRepository,
-            _reviewProposalRepository,
-            _sourceReferenceRepository,
+            batchWriter,
             TestUsageRecorder.Wrap(_aiUsageRecordRepository, extraction: options),
             _aiClient,
             _budgetGuard,
-            new FakeUnitOfWork(),
             Options.Create(options),
             NullLogger<RelationshipBackfillService>.Instance);
     }
@@ -144,7 +150,7 @@ public class RelationshipBackfillServiceTests
             Id = Guid.NewGuid(),
             WorldId = WorldId,
             SourceId = source.Id,
-            Kind = RelationshipBackfillService.BatchKind,
+            Kind = ReviewBatchKinds.RelationshipBackfill,
             Status = ReviewBatchStatus.Completed,
             CreatedAt = DateTimeOffset.UtcNow
         });
@@ -208,7 +214,7 @@ public class RelationshipBackfillServiceTests
         Assert.That(_aiClient.CallCount, Is.Zero);
 
         var batch = _reviewBatchRepository.Batches.Single();
-        Assert.That(batch.Kind, Is.EqualTo(RelationshipBackfillService.BatchKind));
+        Assert.That(batch.Kind, Is.EqualTo(ReviewBatchKinds.RelationshipBackfill));
         Assert.That(batch.Status, Is.EqualTo(ReviewBatchStatus.Completed));
 
         // A second run now skips.
@@ -245,7 +251,7 @@ public class RelationshipBackfillServiceTests
         Assert.That(result.Type, Is.EqualTo(OutcomeType.Success));
         Assert.That(result.ProposalCount, Is.Zero);
         Assert.That(_aiClient.CallCount, Is.Zero);
-        Assert.That(_reviewBatchRepository.Batches.Single().Kind, Is.EqualTo(RelationshipBackfillService.BatchKind));
+        Assert.That(_reviewBatchRepository.Batches.Single().Kind, Is.EqualTo(ReviewBatchKinds.RelationshipBackfill));
     }
 
     [Test]
@@ -262,7 +268,7 @@ public class RelationshipBackfillServiceTests
         Assert.That(result.ProposalCount, Is.EqualTo(1));
 
         var batch = _reviewBatchRepository.Batches.Single();
-        Assert.That(batch.Kind, Is.EqualTo(RelationshipBackfillService.BatchKind));
+        Assert.That(batch.Kind, Is.EqualTo(ReviewBatchKinds.RelationshipBackfill));
         Assert.That(batch.Status, Is.EqualTo(ReviewBatchStatus.Pending));
         Assert.That(batch.SourceId, Is.EqualTo(source.Id), "provenance must anchor to the original source");
 

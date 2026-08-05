@@ -250,6 +250,7 @@ builder.Services.AddScoped<IRelationshipBackfillQueueService, RelationshipBackfi
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddSingleton<IProposalValidator, ProposalValidator>();
 builder.Services.AddScoped<IProposalApplicator, ProposalApplicator>();
+builder.Services.AddScoped<SyntheticBatchWriter>();
 builder.Services.AddScoped<ICostService, CostService>();
 
 // Loremaster service registrations
