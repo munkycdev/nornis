@@ -87,6 +87,8 @@
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@LoremasterDisplay.ConfidenceColor(ex.Confidence)">
                                 @ex.Confidence
                             </MudChip>
+                            <MudSpacer />
+                            <AskFileBackButton Exchange="ex" Filed="OnFiledAsync" />
                         </div>
                         <div class="nornis-lm-answer-text">@ex.Answer</div>
                         @foreach (var caveat in ex.Caveats)
@@ -219,6 +221,20 @@
             _error = result.Error!.Message;
         }
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// Persists the filed-marker the button just set. Skipped after a world switch:
+    /// OnWorldChanged has already replaced _conversation with a fresh thread, and upserting
+    /// that empty thread under the filed world's key would plant a blank conversation in its
+    /// history. The filing itself already succeeded; only the marker is lost.
+    /// </summary>
+    private async Task OnFiledAsync(Guid worldId)
+    {
+        if (worldId == _worldId)
+        {
+            await SaveToHistoryAsync(worldId, _conversation);
+        }
     }
 
     /// <summary>

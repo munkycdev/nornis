@@ -140,13 +140,17 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
     judgment.
 16. D4 architectural items — ExtractionService split, prompt-seam convergence,
     shared synthetic-batch writer (which unblocks W4), AppError error-kind enum.
-    **Three of four done 2026-08-04** on `d4-carving` (unmerged, three commits — one per
-    item; the defect-remediation plan records each decision, including where the split's
-    prescription was corrected: the state machine had to be *repatriated*, not kept).
-    Item 17 is unblocked. **AppError is deliberately untouched** — its own spec said "do
-    it with scrub 1.1 or not at all", 1.1 shipped without it, and nobody ever chose the
+    **Three of four done 2026-08-04** on `d4-carving` (merged 2026-08-05, three commits —
+    one per item; the defect-remediation plan records each decision, including where the
+    split's prescription was corrected: the state machine had to be *repatriated*, not
+    kept). Item 17 is unblocked. **AppError is deliberately untouched** — its own spec said
+    "do it with scrub 1.1 or not at all", 1.1 shipped without it, and nobody ever chose the
     "not at all"; that choice belongs to David, not to this session.
-17. W4 Ask file-back — small, but waits on the D4 writer.
+17. W4 Ask file-back — small, but waits on the D4 writer. **Done 2026-08-05** on
+    `w4-ask-fileback` (branched from main — the writer dependency dissolved: the answer
+    files as an ordinary GMNote source through the ordinary source API, so the reviewable
+    batch is the source's own extraction batch and W4 is Web-only; the plan file records
+    the two reversals, including why an `AskFileBack` batch Kind must not exist).
 18. Scrub tier 5 comment pass — **the enumerated deletes are done 2026-08-03**; what is
     left is the one bullet that was always the judgment call: whether to compress the
     essayistic register in the surviving comments. The scrub doc notes that if that voice

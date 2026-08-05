@@ -19,6 +19,13 @@ public class AskExchange
     public string Confidence { get; set; } = string.Empty;
     public List<AskCitation> Citations { get; set; } = [];
     public List<string> Caveats { get; set; } = [];
+
+    /// <summary>
+    /// The GM-note source this answer was filed back as, when it was. Nullable and last, like
+    /// any addition to these models must be: AskHistoryStore.LoadAsync returns [] on any
+    /// deserialization failure, so a required member here would silently wipe saved history.
+    /// </summary>
+    public Guid? FiledSourceId { get; set; }
 }
 
 public class AskConversation
