@@ -4,6 +4,7 @@ using Microsoft.Data.SqlTypes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nornis.Infrastructure.Persistence;
 
@@ -12,9 +13,11 @@ using Nornis.Infrastructure.Persistence;
 namespace Nornis.Infrastructure.Migrations
 {
     [DbContext(typeof(NornisDbContext))]
-    partial class NornisDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260806152207_AddWorldDigests")]
+    partial class AddWorldDigests
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -126,9 +129,6 @@ namespace Nornis.Infrastructure.Migrations
                     b.Property<string>("Summary")
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
-
-                    b.Property<DateTimeOffset?>("SummaryRefreshedAt")
-                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -1244,9 +1244,6 @@ namespace Nornis.Infrastructure.Migrations
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
-
-                    b.Property<bool>("SummaryReviewRequired")
-                        .HasColumnType("bit");
 
                     b.Property<bool>("TutorialEnabled")
                         .HasColumnType("bit");

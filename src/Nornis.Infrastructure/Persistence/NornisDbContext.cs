@@ -30,6 +30,8 @@ public class NornisDbContext : DbContext
     public DbSet<ReviewProposal> ReviewProposals => Set<ReviewProposal>();
     public DbSet<AiUsageRecord> AiUsageRecords => Set<AiUsageRecord>();
     public DbSet<HealthAssessment> HealthAssessments => Set<HealthAssessment>();
+
+    public DbSet<WorldDigest> WorldDigests => Set<WorldDigest>();
     public DbSet<ContinuityFinding> ContinuityFindings => Set<ContinuityFinding>();
     public DbSet<ContinuityDismissal> ContinuityDismissals => Set<ContinuityDismissal>();
     public DbSet<LibraryDocument> LibraryDocuments => Set<LibraryDocument>();

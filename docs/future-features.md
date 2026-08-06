@@ -142,6 +142,12 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
     `AddSummaryMaintenance` (additive) — apply before the deploy.** The plan file records
     the decisions.
 14. W3 world digest — product and prompt design; two-rendering visibility judgment.
+    **Done 2026-08-05** on `w3-world-digest`: the judgment resolved as two separately-scoped
+    generation passes (the plan file records why its own one-pass bullet was reversed — the
+    party pass reads the Observer-floor record, since an instruction to withhold is not a
+    guarantee), fixed text for a party-empty world, shared audit formatter and caps, one
+    upserted row per world on the Home rail. Auto-trigger deferred; GM-invoked only.
+    **Carries migration `AddWorldDigests` (additive) — apply before the deploy.**
 15. W2 duplicate sweep — after D2's merge fix lands; prompt/candidate-quality
     judgment.
 16. D4 architectural items — ExtractionService split, prompt-seam convergence,

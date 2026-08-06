@@ -17,5 +17,6 @@ public enum AiOperationType
 
     /// <summary>Naming a demo world at creation. Small, but the only AI call that used to
     /// leave no trace in the ledger at all.</summary>
-    WorldNaming
+    WorldNaming,
+    WorldDigest
 }
