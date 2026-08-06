@@ -54,7 +54,8 @@ public class ReviewServiceAcceptTests
             _unitOfWork,
             _validator,
             _applicator,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            summaryRefreshQueue: NoOpArtifactSummaryRefreshQueue.Instance);
 
         _worldId = Guid.NewGuid();
         _gmUserId = Guid.NewGuid();

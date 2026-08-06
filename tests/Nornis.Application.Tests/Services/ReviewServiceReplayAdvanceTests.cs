@@ -44,7 +44,8 @@ public class ReviewServiceReplayAdvanceTests
             new FakeUnitOfWork(),
             new FakeProposalValidator(),
             new FakeProposalApplicator(),
-            _advancer);
+            _advancer,
+            NoOpArtifactSummaryRefreshQueue.Instance);
 
         _worldId = Guid.NewGuid();
         _gmUserId = Guid.NewGuid();

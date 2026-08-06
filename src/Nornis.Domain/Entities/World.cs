@@ -39,6 +39,14 @@ public class World
     public decimal? PublicAskMonthlyBudgetUsd { get; set; }
 
     /// <summary>
+    /// Routes accept-time summary refreshes through review instead of the default trusted
+    /// write. Off by default: a refreshed summary restates already-accepted knowledge, and
+    /// most GMs will not want a review round per restatement — but the gate is theirs to
+    /// want (see the 2026-08-05 amendment in ai-extraction.md).
+    /// </summary>
+    public bool SummaryReviewRequired { get; set; }
+
+    /// <summary>
     /// True for worlds instantiated from the demo template. Demo worlds are excluded from
     /// usage metrics and can be cut off from public access wholesale via the
     /// DemoWorlds:PublicAccessEnabled kill switch.

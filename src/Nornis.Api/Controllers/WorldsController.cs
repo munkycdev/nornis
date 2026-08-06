@@ -95,6 +95,7 @@ public class WorldsController : ControllerBase
             PublicAccessEnabled: c.World.PublicAccessEnabled,
             DailyAiBudgetUsd: c.World.DailyAiBudgetUsd,
             PublicAskMonthlyBudgetUsd: c.World.PublicAskMonthlyBudgetUsd,
+            SummaryReviewRequired: c.World.SummaryReviewRequired,
             IsDemo: c.World.IsDemo,
             TutorialEnabled: c.World.TutorialEnabled,
             IsTemplate: c.World.IsTemplate)).ToList();
@@ -145,6 +146,7 @@ public class WorldsController : ControllerBase
             PublicAccessEnabled: request.PublicAccessEnabled,
             PublicAskMonthlyBudgetUsd: request.PublicAskMonthlyBudgetUsd,
             ClearPublicAskBudget: request.ClearPublicAskBudget,
+            SummaryReviewRequired: request.SummaryReviewRequired,
             IsTemplate: request.IsTemplate);
 
         var result = await _worldService.UpdateAsync(command, ct);
@@ -246,6 +248,7 @@ public class WorldsController : ControllerBase
             PublicSlug: world.PublicSlug,
             PublicAccessEnabled: world.PublicAccessEnabled,
             PublicAskMonthlyBudgetUsd: world.PublicAskMonthlyBudgetUsd,
+            SummaryReviewRequired: world.SummaryReviewRequired,
             IsDemo: world.IsDemo,
             TutorialEnabled: world.TutorialEnabled,
             IsTemplate: world.IsTemplate);

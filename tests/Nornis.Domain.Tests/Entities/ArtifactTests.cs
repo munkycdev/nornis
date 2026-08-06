@@ -119,6 +119,8 @@ public class ArtifactTests
     public void Artifact_Has_Expected_Property_Count()
     {
         var properties = _type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        Assert.That(properties, Has.Length.EqualTo(15));
+        // 16th: SummaryRefreshedAt — provenance stamp and staleness gate for the accept-time
+        // summary refresh (W1); null means the refresh has never run for this artifact.
+        Assert.That(properties, Has.Length.EqualTo(16));
     }
 }

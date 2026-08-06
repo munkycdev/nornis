@@ -27,4 +27,14 @@ public class NoOpExtractionQueueClient : IExtractionQueueClient
 
         return Task.CompletedTask;
     }
+
+    public Task SendSummaryRefreshAsync(Guid artifactId, Guid worldId, DateTimeOffset requestedAt, CancellationToken ct)
+    {
+        _logger.LogWarning(
+            "[DEV] Summary refresh skipped (no Service Bus). ArtifactId={ArtifactId}, WorldId={WorldId}.",
+            artifactId,
+            worldId);
+
+        return Task.CompletedTask;
+    }
 }

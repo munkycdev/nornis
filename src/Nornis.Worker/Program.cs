@@ -168,6 +168,12 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<IRelationshipBackfillAiClient, AzureOpenAiRelationshipBackfillClient>();
         services.AddScoped<IRelationshipBackfillService, RelationshipBackfillService>();
 
+        // Accept-time summary maintenance (same queue, ExtractionKind.SummaryRefresh
+        // messages). Uses the worker's extraction ChatClient and ExtractionOptions —
+        // whose ModelPricing the usage recorder resolves, so the spend prices correctly.
+        services.AddScoped<IArtifactSummaryAiClient, AzureOpenAiArtifactSummaryClient>();
+        services.AddScoped<IArtifactSummaryService, ArtifactSummaryService>();
+
         // Service Bus extraction processor
         services.AddSingleton<ServiceBusExtractionProcessor>(sp =>
         {

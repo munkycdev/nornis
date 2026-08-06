@@ -56,6 +56,21 @@ public class InMemoryArtifactRepository : IArtifactRepository
         return Task.FromResult(artifact);
     }
 
+    public Task UpdateSummaryAsync(Guid id, string? summary, DateTimeOffset refreshedAt, CancellationToken cancellationToken = default)
+    {
+        var artifact = _artifacts.FirstOrDefault(a => a.Id == id)
+            ?? throw new InvalidOperationException($"{nameof(Artifact)} with id '{id}' not found.");
+
+        if (summary is not null)
+        {
+            artifact.Summary = summary;
+            artifact.UpdatedAt = refreshedAt;
+        }
+
+        artifact.SummaryRefreshedAt = refreshedAt;
+        return Task.CompletedTask;
+    }
+
     public Task DeleteAsync(Guid artifactId, CancellationToken cancellationToken = default)
     {
         _artifacts.RemoveAll(a => a.Id == artifactId);

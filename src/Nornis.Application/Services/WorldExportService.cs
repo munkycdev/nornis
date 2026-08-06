@@ -149,6 +149,7 @@ public class WorldExportService : IWorldExportService
             world.PublicAccessEnabled,
             world.DailyAiBudgetUsd,
             world.PublicAskMonthlyBudgetUsd,
+            world.SummaryReviewRequired,
         }, ct);
 
         if (categories.Contains(WorldExportCategory.Members))

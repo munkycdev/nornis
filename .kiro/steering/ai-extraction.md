@@ -6,6 +6,29 @@ AI may propose changes. AI must not silently mutate accepted world knowledge.
 
 All accepted artifact, fact, and relationship changes must come from user review actions or explicit trusted system operations.
 
+> **Amendment (2026-08-05) — the summary refresh is a trusted system operation.** W1
+> (accept-time summary maintenance) regenerates `Artifact.Summary` after accepted changes,
+> and the policy decision its plan required is recorded here: the refresh runs under this
+> rule's own trusted-operation carve-out, not through review. A summary is derived
+> presentation over already-accepted facts and relationships — every claim it can make has
+> already passed the gate once, and routing restatements back through review would roughly
+> double review traffic to approve prose. The boundaries that keep "trusted" honest:
+>
+> - **Input is scope-filtered.** The generator reads only facts and relationships visible
+>   at the artifact's own visibility (the same `ForSourceContext` gate extraction uses,
+>   including the Hidden-truth-state rule) — a PartyVisible artifact's summary regenerated
+>   from GM-only material would surface it to every player who can see the page.
+> - **An explicit summary always wins.** An accepted proposal that carries a summary is
+>   the reviewer choosing that text; the refresh never runs against an artifact whose
+>   summary the same accept explicitly set.
+> - **Provenance is recorded** on every refresh: an `AiUsageRecord` under the (previously
+>   dormant) `ArtifactSummary` operation type, and `Artifact.SummaryRefreshedAt`.
+> - **A per-world setting opts back into review** (`World.SummaryReviewRequired`, default
+>   off): with it on, the refresh files a Pending `UpdateArtifact` proposal through
+>   `SyntheticBatchWriter` (batch kind `SummaryRefresh`) instead of writing directly.
+> - Budget-guarded and worker-side like every other AI call; never inline in the accept
+>   request.
+
 ## Extraction Goal
 
 Given a source, extract proposed updates to the world knowledge graph.

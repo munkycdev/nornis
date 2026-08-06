@@ -74,7 +74,8 @@ internal sealed record ReviewHarness(
                 new FakeUnitOfWork(),
                 validator,
                 applicatorFor(harness),
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance)
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            summaryRefreshQueue: NoOpArtifactSummaryRefreshQueue.Instance)
         };
     }
 }

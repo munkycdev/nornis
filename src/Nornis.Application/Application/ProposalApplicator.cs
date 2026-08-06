@@ -151,7 +151,13 @@ public class ProposalApplicator : IProposalApplicator
         // insert: everything above can still fail the apply and roll the artifact back.
         RememberCreatedArtifact(artifact);
 
-        return AppResult<ApplyResult>.Success(new ApplyResult(artifact.Id, SourceReferenceTargetType.Artifact));
+        return AppResult<ApplyResult>.Success(new ApplyResult(artifact.Id, SourceReferenceTargetType.Artifact)
+        {
+            // A birth summary is the reviewer's accepted text; born without one, the
+            // refresh fills the hole from the facts accepted alongside it.
+            SummaryRefreshCandidates = payload.Summary is null ? [artifact.Id] : [],
+            SummaryPinnedArtifactIds = payload.Summary is null ? [] : [artifact.Id]
+        });
     }
 
     /// <summary>
@@ -489,7 +495,16 @@ public class ProposalApplicator : IProposalApplicator
 
         await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, artifact.Id, proposal.Id, ct);
 
-        return AppResult<ApplyResult>.Success(new ApplyResult(artifact.Id, SourceReferenceTargetType.Artifact));
+        return AppResult<ApplyResult>.Success(new ApplyResult(artifact.Id, SourceReferenceTargetType.Artifact)
+        {
+            // Name and status shape what a summary says; visibility and confidence shape
+            // who sees it, and report nothing.
+            SummaryRefreshCandidates =
+                payload.Summary is null && (payload.Name is not null || payload.Status is not null)
+                    ? [artifact.Id]
+                    : [],
+            SummaryPinnedArtifactIds = payload.Summary is null ? [] : [artifact.Id]
+        });
     }
 
     private async Task<AppResult<ApplyResult>> ApplyMergeArtifact(
@@ -601,7 +616,13 @@ public class ProposalApplicator : IProposalApplicator
 
         await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.Artifact, targetArtifact.Id, proposal.Id, ct);
 
-        return AppResult<ApplyResult>.Success(new ApplyResult(targetArtifact.Id, SourceReferenceTargetType.Artifact));
+        return AppResult<ApplyResult>.Success(new ApplyResult(targetArtifact.Id, SourceReferenceTargetType.Artifact)
+        {
+            // The target absorbed the duplicate's facts and relationships whether or not
+            // the payload touched a field; the archived duplicate needs no summary again.
+            SummaryRefreshCandidates = payload.Summary is null ? [targetArtifact.Id] : [],
+            SummaryPinnedArtifactIds = payload.Summary is null ? [] : [targetArtifact.Id]
+        });
     }
 
     private async Task<AppResult<ApplyResult>> ApplyAddFact(
@@ -652,7 +673,10 @@ public class ProposalApplicator : IProposalApplicator
 
         await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactFact, fact.Id, proposal.Id, ct);
 
-        return AppResult<ApplyResult>.Success(new ApplyResult(fact.Id, SourceReferenceTargetType.ArtifactFact));
+        return AppResult<ApplyResult>.Success(new ApplyResult(fact.Id, SourceReferenceTargetType.ArtifactFact)
+        {
+            SummaryRefreshCandidates = [artifact.Id]
+        });
     }
 
     private async Task<AppResult<ApplyResult>> ApplyUpdateFact(
@@ -698,7 +722,12 @@ public class ProposalApplicator : IProposalApplicator
 
         await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactFact, fact.Id, proposal.Id, ct);
 
-        return AppResult<ApplyResult>.Success(new ApplyResult(fact.Id, SourceReferenceTargetType.ArtifactFact));
+        return AppResult<ApplyResult>.Success(new ApplyResult(fact.Id, SourceReferenceTargetType.ArtifactFact)
+        {
+            SummaryRefreshCandidates = payload.Value is not null || payload.TruthState is not null
+                ? [fact.ArtifactId]
+                : []
+        });
     }
 
     private async Task<AppResult<ApplyResult>> ApplyAddRelationship(
@@ -754,6 +783,7 @@ public class ProposalApplicator : IProposalApplicator
 
             if (existingLinks.FirstOrDefault() is { } current)
             {
+                var previousParentId = current.ArtifactBId;
                 current.ArtifactBId = artifactB.Id;
                 current.Description = payload.Description ?? current.Description;
                 current.Confidence = payload.Confidence ?? current.Confidence;
@@ -764,7 +794,14 @@ public class ProposalApplicator : IProposalApplicator
 
                 await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactRelationship, current.Id, proposal.Id, ct);
 
-                return AppResult<ApplyResult>.Success(new ApplyResult(current.Id, SourceReferenceTargetType.ArtifactRelationship));
+                return AppResult<ApplyResult>.Success(new ApplyResult(current.Id, SourceReferenceTargetType.ArtifactRelationship)
+                {
+                    // A PartOf move stales three summaries: the child, the new parent, and
+                    // the parent it just left.
+                    SummaryRefreshCandidates = previousParentId == artifactB.Id
+                        ? [artifactA.Id, artifactB.Id]
+                        : [artifactA.Id, artifactB.Id, previousParentId]
+                });
             }
         }
 
@@ -787,7 +824,10 @@ public class ProposalApplicator : IProposalApplicator
 
             await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactRelationship, duplicate.Id, proposal.Id, ct);
 
-            return AppResult<ApplyResult>.Success(new ApplyResult(duplicate.Id, SourceReferenceTargetType.ArtifactRelationship));
+            return AppResult<ApplyResult>.Success(new ApplyResult(duplicate.Id, SourceReferenceTargetType.ArtifactRelationship)
+            {
+                SummaryRefreshCandidates = [artifactA.Id, artifactB.Id]
+            });
         }
 
         var relationship = new ArtifactRelationship
@@ -810,7 +850,10 @@ public class ProposalApplicator : IProposalApplicator
 
         await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactRelationship, relationship.Id, proposal.Id, ct);
 
-        return AppResult<ApplyResult>.Success(new ApplyResult(relationship.Id, SourceReferenceTargetType.ArtifactRelationship));
+        return AppResult<ApplyResult>.Success(new ApplyResult(relationship.Id, SourceReferenceTargetType.ArtifactRelationship)
+        {
+            SummaryRefreshCandidates = [artifactA.Id, artifactB.Id]
+        });
     }
 
     private async Task<AppResult<ApplyResult>> ApplyUpdateRelationship(
@@ -864,7 +907,13 @@ public class ProposalApplicator : IProposalApplicator
 
         await CreateSourceReference(batch.SourceId, SourceReferenceTargetType.ArtifactRelationship, relationship.Id, proposal.Id, ct);
 
-        return AppResult<ApplyResult>.Success(new ApplyResult(relationship.Id, SourceReferenceTargetType.ArtifactRelationship));
+        return AppResult<ApplyResult>.Success(new ApplyResult(relationship.Id, SourceReferenceTargetType.ArtifactRelationship)
+        {
+            SummaryRefreshCandidates =
+                payload.Type is not null || payload.Description is not null || payload.TruthState is not null
+                    ? [relationship.ArtifactAId, relationship.ArtifactBId]
+                    : []
+        });
     }
 
     /// <summary>

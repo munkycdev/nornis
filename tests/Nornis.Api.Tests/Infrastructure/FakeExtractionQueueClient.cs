@@ -17,6 +17,11 @@ public class FakeExtractionQueueClient : IExtractionQueueClient
     public IReadOnlyList<(Guid SourceId, Guid WorldId)> SentMessages => _sentMessages.AsReadOnly();
 
     /// <summary>
+    /// All summary-refresh requests sent through this client.
+    /// </summary>
+    public List<(Guid ArtifactId, Guid WorldId, DateTimeOffset RequestedAt)> SummaryRefreshes { get; } = [];
+
+    /// <summary>
     /// Configures the client to throw an InvalidOperationException on the next send,
     /// simulating an Azure Service Bus failure for 502 Bad Gateway tests.
     /// </summary>
@@ -31,6 +36,7 @@ public class FakeExtractionQueueClient : IExtractionQueueClient
     public void Reset()
     {
         _sentMessages.Clear();
+        SummaryRefreshes.Clear();
         _shouldFail = false;
     }
 
@@ -42,6 +48,17 @@ public class FakeExtractionQueueClient : IExtractionQueueClient
         }
 
         _sentMessages.Add((sourceId, worldId));
+        return Task.CompletedTask;
+    }
+
+    public Task SendSummaryRefreshAsync(Guid artifactId, Guid worldId, DateTimeOffset requestedAt, CancellationToken ct)
+    {
+        if (_shouldFail)
+        {
+            throw new InvalidOperationException("Simulated queue failure.");
+        }
+
+        SummaryRefreshes.Add((artifactId, worldId, requestedAt));
         return Task.CompletedTask;
     }
 }

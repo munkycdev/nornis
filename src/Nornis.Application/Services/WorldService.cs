@@ -185,6 +185,11 @@ public class WorldService : IWorldService
             world.PublicAccessEnabled = command.PublicAccessEnabled.Value;
         }
 
+        if (command.SummaryReviewRequired is not null)
+        {
+            world.SummaryReviewRequired = command.SummaryReviewRequired.Value;
+        }
+
         if (command.IsTemplate is not null)
         {
             world.IsTemplate = command.IsTemplate.Value;

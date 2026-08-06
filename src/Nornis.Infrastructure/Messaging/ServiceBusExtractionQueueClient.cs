@@ -26,9 +26,14 @@ public class ServiceBusExtractionQueueClient : IExtractionQueueClient, IAsyncDis
         _sender = new Lazy<ServiceBusSender>(() => _serviceBusClient.CreateSender(QueueName));
     }
 
-    public async Task SendExtractionMessageAsync(Guid sourceId, Guid worldId, CancellationToken ct, ExtractionKind kind = ExtractionKind.Extraction)
+    public Task SendExtractionMessageAsync(Guid sourceId, Guid worldId, CancellationToken ct, ExtractionKind kind = ExtractionKind.Extraction) =>
+        SendAsync(new ExtractionMessage(sourceId, worldId, kind), ct);
+
+    public Task SendSummaryRefreshAsync(Guid artifactId, Guid worldId, DateTimeOffset requestedAt, CancellationToken ct) =>
+        SendAsync(new ExtractionMessage(Guid.Empty, worldId, ExtractionKind.SummaryRefresh, artifactId, requestedAt), ct);
+
+    private async Task SendAsync(ExtractionMessage message, CancellationToken ct)
     {
-        var message = new ExtractionMessage(sourceId, worldId, kind);
         var json = JsonSerializer.Serialize(message);
 
         var serviceBusMessage = new ServiceBusMessage(json)

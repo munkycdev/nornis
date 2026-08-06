@@ -81,7 +81,8 @@ public class ReviewServiceBatchOrderingTests
             _proposalRepo, _batchRepo, _sourceRepo, _artifactRepo, _factRepo,
             relationshipRepo, sourceRefRepo, new FakeUnitOfWork(),
             new ProposalValidator(), applicator,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            summaryRefreshQueue: NoOpArtifactSummaryRefreshQueue.Instance);
     }
 
     [Test]
@@ -330,7 +331,8 @@ public class ReviewServiceBatchOrderingTests
         new(_proposalRepo, _batchRepo, _sourceRepo, _artifactRepo, _factRepo,
             new InMemoryArtifactRelationshipRepository(), new InMemorySourceReferenceRepository(),
             new FakeUnitOfWork(), new ProposalValidator(), applicator,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            summaryRefreshQueue: NoOpArtifactSummaryRefreshQueue.Instance);
 
     private async Task<ReviewProposal> SeedAsync(ReviewProposal proposal)
     {

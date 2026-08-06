@@ -10,4 +10,5 @@ public record UpdateWorldRequest(
     bool? PublicAccessEnabled = null,
     decimal? PublicAskMonthlyBudgetUsd = null,
     bool ClearPublicAskBudget = false,
+    bool? SummaryReviewRequired = null,
     bool? IsTemplate = null);

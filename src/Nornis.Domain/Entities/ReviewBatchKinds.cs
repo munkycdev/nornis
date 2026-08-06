@@ -17,4 +17,5 @@ public static class ReviewBatchKinds
     public const string ContinuityFix = "ContinuityFix";
     public const string StorylineRetrospective = "StorylineRetrospective";
     public const string RelationshipBackfill = "RelationshipBackfill";
+    public const string SummaryRefresh = "SummaryRefresh";
 }
