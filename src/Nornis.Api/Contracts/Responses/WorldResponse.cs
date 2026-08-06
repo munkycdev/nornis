@@ -13,6 +13,7 @@ public record WorldResponse(
     string? PublicSlug = null,
     bool PublicAccessEnabled = false,
     decimal? PublicAskMonthlyBudgetUsd = null,
+    bool SummaryReviewRequired = false,
     bool IsDemo = false,
     bool TutorialEnabled = false,
     bool IsTemplate = false);

@@ -34,6 +34,7 @@ public class ReviewService : IReviewService
     private readonly IProposalApplicator _proposalApplicator;
 
     private readonly IExtractionReplayAdvancer _replayAdvancer;
+    private readonly IArtifactSummaryRefreshQueue _summaryRefreshQueue;
 
     private readonly ILogger<ReviewService> _logger;
 
@@ -52,12 +53,15 @@ public class ReviewService : IReviewService
         // an advancer stalled every replay with nothing to show for it. A caller with no replay
         // passes NoOpExtractionReplayAdvancer.
         IExtractionReplayAdvancer replayAdvancer,
+        // Same contract: hosts and tests with no queue pass NoOpArtifactSummaryRefreshQueue.
+        IArtifactSummaryRefreshQueue summaryRefreshQueue,
         ILogger<ReviewService>? logger = null)
     {
         // The logger stays optional, deliberately. An absent logger costs log lines, not a
         // feature — which is the whole distinction the parameter above is drawn on.
         _logger = logger ?? NullLogger<ReviewService>.Instance;
         _replayAdvancer = replayAdvancer;
+        _summaryRefreshQueue = summaryRefreshQueue;
         _reviewProposalRepository = reviewProposalRepository;
         _reviewBatchRepository = reviewBatchRepository;
         _sourceRepository = sourceRepository;
@@ -343,6 +347,8 @@ public class ReviewService : IReviewService
 
         // Begin transaction
         var matchedExisting = false;
+        IReadOnlyList<Guid> summaryCandidates = [];
+        IReadOnlyList<Guid> summaryPinned = [];
         await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
         try
         {
@@ -365,6 +371,8 @@ public class ReviewService : IReviewService
             }
 
             matchedExisting = applyResult.Value!.MatchedExistingArtifact;
+            summaryCandidates = applyResult.Value.SummaryRefreshCandidates;
+            summaryPinned = applyResult.Value.SummaryPinnedArtifactIds;
 
             var now = DateTimeOffset.UtcNow;
             proposal.Accept(command.ActingUserId, now);
@@ -398,6 +406,12 @@ public class ReviewService : IReviewService
 
         // Batch lifecycle OUTSIDE transaction
         await UpdateBatchLifecycleAsync(batch.Id, ct);
+
+        var refresh = summaryCandidates.Except(summaryPinned).ToList();
+        if (refresh.Count > 0)
+        {
+            await _summaryRefreshQueue.TryEnqueueAsync(command.WorldId, refresh, ct);
+        }
 
         return AppResult<AcceptProposalResult>.Success(new AcceptProposalResult(
             proposal.Id, proposal.Status, proposal.ReviewedAt!.Value, proposal.ReviewedByUserId!.Value,
@@ -568,6 +582,13 @@ public class ReviewService : IReviewService
         var failed = new List<BatchFailureDetail>();
         var affectedBatchIds = new HashSet<Guid>();
 
+        // Coalesced across the whole accept: one refresh request per artifact no matter how
+        // many proposals touched it — and pinned subtracts from the whole set, because an
+        // explicit summary in proposal 3 must also cancel the refresh proposals 1 and 2
+        // asked for on the same artifact.
+        var summaryCandidates = new HashSet<Guid>();
+        var summaryPinned = new HashSet<Guid>();
+
         // A batch accept is nearly always 50 proposals from ONE extraction, so the batch and its
         // source were being re-read up to 50 times each. Both are immutable for the duration of
         // this operation — nothing here writes to either — so they are read once and reused.
@@ -580,7 +601,9 @@ public class ReviewService : IReviewService
 
         foreach (var proposalId in await OrderCreatesFirstAsync(uniqueIds, ct))
         {
-            var failure = await TryAcceptOneAsync(proposalId, command, succeeded, affectedBatchIds, batches, sources, ct);
+            var failure = await TryAcceptOneAsync(
+                proposalId, command, succeeded, affectedBatchIds, batches, sources,
+                summaryCandidates, summaryPinned, ct);
             if (failure is not null)
                 failed.Add(failure);
         }
@@ -596,7 +619,9 @@ public class ReviewService : IReviewService
 
         foreach (var proposalId in retryIds)
         {
-            var failure = await TryAcceptOneAsync(proposalId, command, succeeded, affectedBatchIds, batches, sources, ct);
+            var failure = await TryAcceptOneAsync(
+                proposalId, command, succeeded, affectedBatchIds, batches, sources,
+                summaryCandidates, summaryPinned, ct);
 
             // Only a success changes anything: the proposal moves out of failed. A second
             // failure keeps the detail already recorded.
@@ -608,6 +633,12 @@ public class ReviewService : IReviewService
         foreach (var batchId in affectedBatchIds)
         {
             await UpdateBatchLifecycleAsync(batchId, ct);
+        }
+
+        summaryCandidates.ExceptWith(summaryPinned);
+        if (summaryCandidates.Count > 0)
+        {
+            await _summaryRefreshQueue.TryEnqueueAsync(command.WorldId, summaryCandidates, ct);
         }
 
         return AppResult<BatchOperationResult>.Success(new BatchOperationResult(succeeded, failed));
@@ -652,6 +683,8 @@ public class ReviewService : IReviewService
         HashSet<Guid> affectedBatchIds,
         Dictionary<Guid, ReviewBatch> batches,
         Dictionary<Guid, Source> sources,
+        HashSet<Guid> summaryCandidates,
+        HashSet<Guid> summaryPinned,
         CancellationToken ct)
     {
         var loadResult = await LoadAuthorizedProposalAsync(
@@ -698,6 +731,10 @@ public class ReviewService : IReviewService
             await _reviewProposalRepository.UpdateAsync(proposal, ct);
 
             await transaction.CommitAsync(ct);
+
+            // After the commit, so a rolled-back apply leaves no refresh request behind.
+            summaryCandidates.UnionWith(applyResult.Value!.SummaryRefreshCandidates);
+            summaryPinned.UnionWith(applyResult.Value.SummaryPinnedArtifactIds);
         }
         catch (ConcurrencyConflictException ex)
         {

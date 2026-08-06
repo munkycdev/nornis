@@ -9,6 +9,9 @@ public class FakeExtractionQueueClient : IExtractionQueueClient
 
     public IReadOnlyList<(Guid SourceId, Guid WorldId, ExtractionKind Kind)> SentMessages => _sentMessages.AsReadOnly();
 
+    /// <summary>All summary-refresh requests sent through this client.</summary>
+    public List<(Guid ArtifactId, Guid WorldId, DateTimeOffset RequestedAt)> SummaryRefreshes { get; } = [];
+
     /// <summary>Invoked at the moment of send — lets tests observe state mid-enqueue.</summary>
     public Action<Guid, Guid>? OnSend { get; set; }
 
@@ -27,6 +30,17 @@ public class FakeExtractionQueueClient : IExtractionQueueClient
         }
 
         _sentMessages.Add((sourceId, worldId, kind));
+        return Task.CompletedTask;
+    }
+
+    public Task SendSummaryRefreshAsync(Guid artifactId, Guid worldId, DateTimeOffset requestedAt, CancellationToken ct)
+    {
+        if (_shouldFail)
+        {
+            throw new InvalidOperationException("Simulated queue failure.");
+        }
+
+        SummaryRefreshes.Add((artifactId, worldId, requestedAt));
         return Task.CompletedTask;
     }
 }

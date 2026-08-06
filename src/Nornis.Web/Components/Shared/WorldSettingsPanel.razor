@@ -32,6 +32,13 @@
                                  Placeholder="server default" Min="0.01m" Max="100m" Step="0.5m"
                                  HelperText="Cap on this world's AI spend per day (extraction, Loremaster, audits). Leave empty to use the server default."
                                  Variant="Variant.Outlined" Class="mb-3" />
+                <MudSwitch T="bool" @bind-Value="_summaryReviewRequired" Color="Color.Secondary"
+                           Label="Review summary updates" Class="mb-1" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-3">
+                    After you accept changes, Nornis refreshes the affected artifacts' summaries
+                    automatically. Turn this on to route those refreshed summaries through the
+                    review queue instead.
+                </MudText>
                 <MudSwitch T="bool" @bind-Value="_isTemplate" Color="Color.Secondary"
                            Label="Template master" Class="mb-1" />
                 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-3">
@@ -365,6 +372,7 @@
     private string? _publicSlug;
     private bool _publicAccessEnabled;
     private decimal? _publicAskMonthlyBudget;
+    private bool _summaryReviewRequired;
     private bool _isTemplate;
     private bool _savingWorld;
     private string? _worldError;
@@ -628,6 +636,7 @@
             _publicSlug = c.PublicSlug;
             _publicAccessEnabled = c.PublicAccessEnabled;
             _publicAskMonthlyBudget = c.PublicAskMonthlyBudgetUsd;
+            _summaryReviewRequired = c.SummaryReviewRequired;
             _isTemplate = c.IsTemplate;
             _loadedWorldId = c.Id;
         }
@@ -670,6 +679,7 @@
                 PublicAccessEnabled: _publicAccessEnabled,
                 PublicAskMonthlyBudgetUsd: _publicAskMonthlyBudget,
                 ClearPublicAskBudget: _publicAskMonthlyBudget is null,
+                SummaryReviewRequired: _summaryReviewRequired,
                 IsTemplate: _isTemplate));
 
         _savingWorld = false;

@@ -116,6 +116,8 @@ public class WorldTests
         // 19th: ContinuityAuditClaimedAt — infrastructure coordination, not world state. It
         // exists so two API hosts cannot both pay for the same automatic assessment; nothing
         // user-facing should read it.
-        Assert.That(properties, Has.Length.EqualTo(19));
+        // 20th: SummaryReviewRequired — the per-world gate routing accept-time summary
+        // refreshes through review instead of the trusted direct write (W1).
+        Assert.That(properties, Has.Length.EqualTo(20));
     }
 }

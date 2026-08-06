@@ -15,6 +15,13 @@ public interface IArtifactRepository
     Task<Artifact> UpdateAsync(Artifact artifact, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The summary refresh's scoped write: the regenerated text (null: leave the text —
+    /// the review route stamps without writing) and the SummaryRefreshedAt provenance
+    /// stamp, without clobbering columns a concurrent accept may be editing.
+    /// </summary>
+    Task UpdateSummaryAsync(Guid id, string? summary, DateTimeOffset refreshedAt, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Hard-deletes an artifact. Facts cascade at the database level; callers must ensure
     /// no relationships remain (their FK is Restrict) and clear character links first.
     /// </summary>

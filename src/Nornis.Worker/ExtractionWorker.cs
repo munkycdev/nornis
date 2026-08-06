@@ -73,7 +73,15 @@ public sealed class ExtractionWorker : BackgroundService
         try
         {
             message = JsonSerializer.Deserialize<ExtractionMessage>(args.Message.Body.ToString());
-            if (message is null || message.SourceId == Guid.Empty || message.WorldId == Guid.Empty)
+
+            // Kind-aware validation: a summary refresh is about an artifact and carries an
+            // empty SourceId by design — gating it on SourceId would silently swallow every
+            // refresh at the door.
+            if (message is null
+                || message.WorldId == Guid.Empty
+                || (message.Kind == ExtractionKind.SummaryRefresh
+                    ? message.ArtifactId is null || message.ArtifactId == Guid.Empty
+                    : message.SourceId == Guid.Empty))
             {
                 _logger.LogError(
                     "Deserialization returned null or invalid message. CorrelationId={CorrelationId}, Body={MessageBody}",
@@ -97,9 +105,10 @@ public sealed class ExtractionWorker : BackgroundService
         }
 
         _logger.LogInformation(
-            "Processing extraction message. CorrelationId={CorrelationId}, SourceId={SourceId}, WorldId={WorldId}, Kind={Kind}",
+            "Processing extraction message. CorrelationId={CorrelationId}, SourceId={SourceId}, ArtifactId={ArtifactId}, WorldId={WorldId}, Kind={Kind}",
             correlationId,
             message.SourceId,
+            message.ArtifactId,
             message.WorldId,
             message.Kind);
 
@@ -109,11 +118,19 @@ public sealed class ExtractionWorker : BackgroundService
             // and messages may process concurrently — they must never share a context.
             await using var scope = _scopeFactory.CreateAsyncScope();
 
-            var outcome = message.Kind == ExtractionKind.RelationshipBackfill
-                ? await scope.ServiceProvider.GetRequiredService<IRelationshipBackfillService>()
-                    .ProcessBackfillAsync(message.SourceId, message.WorldId, args.CancellationToken)
-                : await scope.ServiceProvider.GetRequiredService<IExtractionService>()
-                    .ProcessExtractionAsync(message.SourceId, message.WorldId, args.CancellationToken);
+            var outcome = message.Kind switch
+            {
+                ExtractionKind.RelationshipBackfill => await scope.ServiceProvider
+                    .GetRequiredService<IRelationshipBackfillService>()
+                    .ProcessBackfillAsync(message.SourceId, message.WorldId, args.CancellationToken),
+                ExtractionKind.SummaryRefresh => await scope.ServiceProvider
+                    .GetRequiredService<IArtifactSummaryService>()
+                    .RefreshAsync(message.ArtifactId!.Value, message.WorldId, message.RequestedAt, args.CancellationToken),
+                // Default, not an arm per kind: an old worker receiving a newer kind routes
+                // here too, which is why new kinds must reach the worker before any sender.
+                _ => await scope.ServiceProvider.GetRequiredService<IExtractionService>()
+                    .ProcessExtractionAsync(message.SourceId, message.WorldId, args.CancellationToken)
+            };
 
             stopwatch.Stop();
 

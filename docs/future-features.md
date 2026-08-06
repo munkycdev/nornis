@@ -134,7 +134,13 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
     `coverage-history` branch is what the number should actually be read against. Turning
     the gate on is editing a number.
 13. W1 accept-time summary maintenance — the review-vs-trusted policy decision and
-    the summary prompt are the work.
+    the summary prompt are the work. **Done 2026-08-05** on `w1-summary-maintenance`:
+    trusted operation per ai-extraction.md's dated amendment, per-world review opt-in,
+    applicator-reported refresh candidates with explicit summaries pinning, prompt-level
+    visibility scoping (the leak-surface tests assert on the captured prompt), and the
+    `SummaryRefresh` message kind on the existing queue. **Carries migration
+    `AddSummaryMaintenance` (additive) — apply before the deploy.** The plan file records
+    the decisions.
 14. W3 world digest — product and prompt design; two-rendering visibility judgment.
 15. W2 duplicate sweep — after D2's merge fix lands; prompt/candidate-quality
     judgment.

@@ -10,6 +10,7 @@ public record WorldListItemResponse(
     bool PublicAccessEnabled = false,
     decimal? DailyAiBudgetUsd = null,
     decimal? PublicAskMonthlyBudgetUsd = null,
+    bool SummaryReviewRequired = false,
     bool IsDemo = false,
     bool TutorialEnabled = false,
     bool IsTemplate = false);

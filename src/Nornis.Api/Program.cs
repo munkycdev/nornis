@@ -248,6 +248,8 @@ builder.Services.AddScoped<IStorylineContinuityService, StorylineContinuityServi
 builder.Services.AddScoped<IStorylineWrapUpService, StorylineWrapUpService>();
 builder.Services.AddScoped<IRelationshipBackfillQueueService, RelationshipBackfillQueueService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
+// Works over whichever IExtractionQueueClient the host has (real or the dev NoOp).
+builder.Services.AddScoped<IArtifactSummaryRefreshQueue, ArtifactSummaryRefreshQueue>();
 builder.Services.AddSingleton<IProposalValidator, ProposalValidator>();
 builder.Services.AddScoped<IProposalApplicator, ProposalApplicator>();
 builder.Services.AddScoped<SyntheticBatchWriter>();

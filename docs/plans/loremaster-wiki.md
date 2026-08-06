@@ -37,6 +37,41 @@ Ground rules:
 
 ## W1 — accept-time summary maintenance
 
+> **Done 2026-08-05** (branch `w1-summary-maintenance`). The policy decision this item was
+> gated on is made and recorded where the spec asked — ai-extraction.md's 2026-08-05
+> amendment: **trusted operation**, with provenance (an `ArtifactSummary` usage row +
+> `Artifact.SummaryRefreshedAt`) and a per-world `SummaryReviewRequired` opt-back-into-review
+> that files the fresh summary as a Pending proposal through the writer (batch kind
+> `SummaryRefresh`). Beyond the spec's bullets, four decisions worth the record:
+>
+> - **The affected-artifact set comes from the applicator, not from payload re-parsing.**
+>   `ApplyResult` now reports `SummaryRefreshCandidates` per arm — the one place that truth
+>   exists (a merge stales its *target*; a PartOf move stales child, new parent, and the
+>   parent it left; visibility/confidence-only changes report nothing) — plus
+>   `SummaryPinnedArtifactIds`: an accepted proposal that *carries* a summary is the
+>   reviewer choosing that text, and it cancels the refresh for that artifact across the
+>   whole accept.
+> - **Both accept paths trigger**, not just batch accept — a summary's freshness must not
+>   depend on which button the GM clicked. Requests are coalesced per accept, and a
+>   `RequestedAt` staleness gate against `SummaryRefreshedAt` collapses queued duplicates
+>   into cheap skips instead of re-bought generations.
+> - **The generation context is scoped to the artifact's own audience** (the ForSourceContext
+>   gate, hidden-truths only for GM-only artifacts, and relationship lines dropped whole when
+>   the far endpoint is invisible). The single Summary column forces this: the page is
+>   rendered to everyone who can see the artifact, so the prompt is the leak surface — the
+>   authorization tests assert on the captured prompt itself.
+> - **Same queue, new kind**: `ExtractionKind.SummaryRefresh` rides the existing
+>   source-extraction queue with an honest nullable `ArtifactId` on the message (the worker's
+>   validation gate is kind-aware; smuggling the id through SourceId would have corrupted
+>   every log line). The worker prices the call through ExtractionOptions — LoremasterOptions
+>   is not configured worker-side, and an unknown model meters at $0.
+>
+> Known scope edge, recorded not fixed: accepted-shape writer operations (merge, wrap-up)
+> apply through `SyntheticBatchWriter`, not `ReviewService`, so they do not yet trigger a
+> refresh; the next review-queue accept touching those artifacts heals it. Migration
+> `AddSummaryMaintenance` (additive: `Worlds.SummaryReviewRequired`,
+> `Artifacts.SummaryRefreshedAt`) must be applied before the deploy that carries this.
+
 The gist's core loop is "ingest updates the relevant wiki pages." Nornis ingests
 into facts and relationships, but `Artifact.Summary` — the page — only changes
 when a proposal happens to carry one. `AiOperationType.ArtifactSummary` is

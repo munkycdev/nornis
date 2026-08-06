@@ -66,6 +66,20 @@ public class ArtifactRepository : IArtifactRepository
         return artifact;
     }
 
+    public async Task UpdateSummaryAsync(Guid id, string? summary, DateTimeOffset refreshedAt, CancellationToken cancellationToken = default)
+    {
+        var artifact = await _context.LoadForUpdateAsync<Artifact>(id, cancellationToken);
+
+        if (summary is not null)
+        {
+            artifact.Summary = summary;
+            artifact.UpdatedAt = refreshedAt;
+        }
+
+        artifact.SummaryRefreshedAt = refreshedAt;
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Artifact>> ListByEquivalentNameAsync(Guid worldId, string name, VisibilityFilter filter, CancellationToken cancellationToken = default)
     {
         // World, status and visibility stay in SQL — the visibility predicate in particular

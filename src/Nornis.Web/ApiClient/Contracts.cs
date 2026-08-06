@@ -14,6 +14,7 @@ public record WorldSummary(
     string? PublicSlug = null,
     bool PublicAccessEnabled = false,
     decimal? PublicAskMonthlyBudgetUsd = null,
+    bool SummaryReviewRequired = false,
     bool IsDemo = false,
     bool TutorialEnabled = false,
     bool IsTemplate = false);
@@ -33,6 +34,7 @@ public record UpdateWorldRequest(
     bool? PublicAccessEnabled = null,
     decimal? PublicAskMonthlyBudgetUsd = null,
     bool ClearPublicAskBudget = false,
+    bool? SummaryReviewRequired = null,
     bool? IsTemplate = null);
 
 public record WorldMember(

@@ -39,4 +39,23 @@ public interface IProposalApplicator
 public record ApplyResult(
     Guid EntityId,
     SourceReferenceTargetType TargetType,
-    bool MatchedExistingArtifact = false);
+    bool MatchedExistingArtifact = false)
+{
+    /// <summary>
+    /// Artifacts whose summary-relevant content this apply changed — the input to the
+    /// accept-time summary refresh. Each arm reports what it actually touched, which is the
+    /// one place that truth exists: for fact and relationship changes <see cref="EntityId"/>
+    /// is the fact/relationship, not the owner; a merge stales its target; a PartOf move
+    /// stales the child, the new parent, and the parent it left. Pure visibility and
+    /// confidence changes report nothing — they alter who sees the record, not what a
+    /// summary would say.
+    /// </summary>
+    public IReadOnlyList<Guid> SummaryRefreshCandidates { get; init; } = [];
+
+    /// <summary>
+    /// Artifacts whose summary this apply set explicitly. The reviewer chose that text, so
+    /// the refresh must not immediately restate it — a pinned artifact is subtracted from
+    /// the accept's whole refresh set, not just this proposal's.
+    /// </summary>
+    public IReadOnlyList<Guid> SummaryPinnedArtifactIds { get; init; } = [];
+}
