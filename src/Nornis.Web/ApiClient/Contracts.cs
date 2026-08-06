@@ -585,6 +585,18 @@ public record ContinuityEvidenceItem(
     bool Missing);
 
 /// <summary>
+/// The maintained world digest, rendered by the API for the caller's role: GMs get
+/// <see cref="Content"/> = the GM digest plus <see cref="PartyPreview"/> = the party recap;
+/// everyone else gets <see cref="Content"/> = the party recap and no preview. When the world
+/// has never been digested, <see cref="HasData"/> is false.
+/// </summary>
+public record WorldDigest(
+    bool HasData,
+    DateTimeOffset? GeneratedAt,
+    string? Content,
+    string? PartyPreview);
+
+/// <summary>
 /// Result of drafting a fix for a finding: 0 proposals means the fixer had nothing concrete
 /// to propose and no review batch was created.
 /// </summary>

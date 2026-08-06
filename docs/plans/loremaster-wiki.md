@@ -82,6 +82,32 @@ change type, `ArtifactMergeService`); only the sweep that feeds it is missing.
 
 ## W3 — the world digest (the gist's `index.md`)
 
+> **Done 2026-08-05** (branch `w3-world-digest`), with the two-rendering bullet reversed on
+> its own plan's ground rules:
+>
+> - **"Two renderings from one generation pass" became two scoped passes.** The visibility
+>   law above says nothing derived from GMOnly/Private material may surface at a wider
+>   scope — and a party recap produced by a pass whose context held GM material is derived
+>   from it, whatever the output says. Asking the model to withhold is an instruction;
+>   scoping the context is a guarantee (the same principle W1 shipped the day before, with
+>   the same prompt-is-the-leak-surface tests). The party pass reads the **Observer-floor**
+>   record — PartyVisible only, nobody's Private notes, Hidden truth states dropped,
+>   relationships only between mutually visible endpoints, quotes only from visible
+>   sources — because the recap renders to every member. Cost doubles on a GM-invoked,
+>   infrequent call; that is the price of the guarantee.
+> - **A party-empty world gets fixed text, not a third of a hallucination**: when the
+>   Observer-floor record has no artifacts, the recap is a constant line and the second
+>   pass is never bought — a generation over nothing could only invent.
+> - Both passes share `ContinuityAuditService.FormatWorldRecord` and its caps, as the
+>   grounding bullet asked — the two features cannot drift apart on what "the record" means.
+> - One `WorldDigests` row per world (unique index, upsert, last-write-wins on the GM
+>   double-click race), shown with its age. New `AiOperationType.WorldDigest`, one usage
+>   row per pass. Surfaced as a Home rail card: GM sees digest + refresh + a "what players
+>   see" preview; players see the recap.
+> - **The auto-after-N-accepted-batches trigger is deferred**, GM-invoked only for now —
+>   the eligibility/claim machinery the audit uses is the template when wanted.
+> - Carries migration `AddWorldDigests` (additive, one CreateTable) — apply before deploy.
+
 One maintained world-level synthesis: active storylines and their momentum,
 recent movements, open questions. Storyline retrospectives and wrap-ups exist
 per-storyline; nothing renders the state of the *world*.

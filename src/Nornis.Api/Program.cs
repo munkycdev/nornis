@@ -195,6 +195,7 @@ builder.Services.AddSingleton<IAiPauseGate>(sp => new AiPauseGate(
     new ScopedOperationalFlagReader(sp.GetRequiredService<IServiceScopeFactory>()),
     sp.GetRequiredService<ILogger<AiPauseGate>>()));
 builder.Services.AddScoped<IHealthAssessmentRepository, HealthAssessmentRepository>();
+builder.Services.AddScoped<IWorldDigestRepository, WorldDigestRepository>();
 builder.Services.AddScoped<IContinuityDismissalRepository, ContinuityDismissalRepository>();
 builder.Services.AddScoped<ILibraryDocumentRepository, LibraryDocumentRepository>();
 builder.Services.AddScoped<ILibraryChunkRepository, LibraryChunkRepository>();
@@ -241,6 +242,7 @@ builder.Services.AddScoped<IRevealService, RevealService>();
 builder.Services.AddScoped<ICanonService, CanonService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<IContinuityAuditService, ContinuityAuditService>();
+builder.Services.AddScoped<IWorldDigestService, WorldDigestService>();
 builder.Services.AddScoped<IContinuityFixService, ContinuityFixService>();
 builder.Services.AddScoped<IStorylineRetrospectiveService, StorylineRetrospectiveService>();
 builder.Services.AddScoped<StorylineDevelopmentReader>();
@@ -286,6 +288,7 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
     builder.Services.AddScoped<IAuditAiClient, AzureOpenAiAuditClient>();
     builder.Services.AddScoped<IContinuityFixAiClient, AzureOpenAiContinuityFixClient>();
     builder.Services.AddScoped<IRetrospectiveAiClient, AzureOpenAiRetrospectiveClient>();
+    builder.Services.AddScoped<IWorldDigestAiClient, AzureOpenAiWorldDigestClient>();
     builder.Services.AddScoped<IWorldNameGenerator, AzureOpenAiWorldNameGenerator>();
 
     // Library passage retrieval reuses the same account with the embedding deployment.
@@ -308,6 +311,9 @@ else
     builder.Services.AddScoped<IRetrospectiveAiClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable storyline retrospectives."));
+    builder.Services.AddScoped<IWorldDigestAiClient>(sp =>
+        throw new InvalidOperationException(
+            "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable the world digest."));
     builder.Services.AddScoped<IEmbeddingClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable library passage retrieval."));

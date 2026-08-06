@@ -606,6 +606,16 @@ public class NornisApiClient
     public Task<ApiResult<DraftFixResult>> DraftFindingFixAsync(Guid worldId, Guid findingId, CancellationToken ct = default) =>
         PostAsync<object?, DraftFixResult>($"/api/worlds/{worldId}/health/findings/{findingId}/draft-fix", null, ct);
 
+    // ---------------------------------------------------------------- World digest --
+
+    /// <summary>The stored digest, rendered for the caller's role. Any member.</summary>
+    public Task<ApiResult<WorldDigest>> GetWorldDigestAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<WorldDigest>($"/api/worlds/{worldId}/digest", ct);
+
+    /// <summary>GM-only: regenerates both renderings (two AI calls; can take ~30-60s).</summary>
+    public Task<ApiResult<WorldDigest>> GenerateWorldDigestAsync(Guid worldId, CancellationToken ct = default) =>
+        PostAsync<object?, WorldDigest>($"/api/worlds/{worldId}/digest/generate", null, ct);
+
     // ----------------------------------------------------------------------- Costs --
 
     public Task<ApiResult<TimePeriodSummary>> GetCostSummaryAsync(Guid worldId, CancellationToken ct = default) =>

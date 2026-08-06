@@ -1,0 +1,165 @@
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+@implements IDisposable
+
+@* The world digest: the maintained "state of the world" page. Everyone gets a rendering —
+   the GM their digest, players the party recap — so the card itself is for every member;
+   only the generate/refresh/preview affordances are GM-gated (through Worlds.IsGm, so a GM
+   previewing as a player loses them along with the GM content). *@
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+    <div class="nornis-card-header">
+        <span class="nornis-card-title">World digest</span>
+        <MudTooltip Text="An LLM-maintained synthesis of the record: active storylines, recent movements, open questions.">
+            <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Color="Color.Tertiary" Size="Size.Small" />
+        </MudTooltip>
+    </div>
+
+    @if (_loading)
+    {
+        <LoadingRows Rows="3" />
+    }
+    else if (_digest is { HasData: true } d)
+    {
+        <div class="nornis-digest-body">@MarkdownRenderer.ToHtml(d.Content)</div>
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1">
+            Generated @RelativeTime.Ago(d.GeneratedAt!.Value)
+        </MudText>
+
+        @if (Worlds.IsGm)
+        {
+            <MudButton Variant="Variant.Text" Size="Size.Small" Class="mt-1"
+                       EndIcon="@(_previewOpen ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                       OnClick="() => _previewOpen = !_previewOpen"
+                       aria-label="What players see">
+                What players see
+            </MudButton>
+            @if (_previewOpen)
+            {
+                <div class="nornis-digest-body nornis-digest-preview">@MarkdownRenderer.ToHtml(d.PartyPreview)</div>
+            }
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       Disabled="_generating" OnClick="GenerateAsync" Class="nornis-ai-run"
+                       aria-label="Refresh digest">
+                @(_generating ? "Generating…" : "Refresh")
+            </MudButton>
+            @if (_generating)
+            {
+                <div class="nornis-ai-running"><MudProgressLinear Indeterminate="true" Color="Color.Primary" /></div>
+            }
+        }
+    }
+    else if (Worlds.IsGm)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">No digest yet.</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.AutoAwesome"
+                   Disabled="_generating" OnClick="GenerateAsync" Class="nornis-ai-run"
+                   aria-label="Generate digest">
+            @(_generating ? "Generating…" : "Generate digest")
+        </MudButton>
+        @if (_generating)
+        {
+            <div class="nornis-ai-running"><MudProgressLinear Indeterminate="true" Color="Color.Primary" /></div>
+        }
+    }
+    else
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">No recap yet.</MudText>
+    }
+</MudPaper>
+
+@code {
+    private WorldDigest? _digest;
+    private bool _loading;
+    private bool _generating;
+    private bool _previewOpen;
+
+    // What the current _digest was fetched for. The view-as toggle changes no world id but
+    // does change what the API returns (GM digest vs party recap), so both are part of the key.
+    private Guid _loadedWorldId;
+    private bool _loadedAsGm;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldsChanged;
+        await LoadAsync();
+    }
+
+    private void OnWorldsChanged() => InvokeAsync(async () =>
+    {
+        if (Worlds.Current?.Id != _loadedWorldId || Worlds.IsGm != _loadedAsGm)
+        {
+            await LoadAsync();
+        }
+        else
+        {
+            StateHasChanged();
+        }
+    });
+
+    private async Task LoadAsync()
+    {
+        _loadedWorldId = Worlds.Current?.Id ?? Guid.Empty;
+        _loadedAsGm = Worlds.IsGm;
+        _previewOpen = false;
+
+        if (Worlds.Current is null)
+        {
+            _digest = null;
+            StateHasChanged();
+            return;
+        }
+
+        var worldId = Worlds.Current.Id;
+        _loading = true;
+        StateHasChanged();
+
+        var result = await Api.GetWorldDigestAsync(worldId);
+
+        // Switching worlds mid-flight: let the reload that switch triggered own the card.
+        if (_loadedWorldId != worldId)
+        {
+            return;
+        }
+
+        _digest = result.IsSuccess ? result.Value : null;
+        _loading = false;
+        StateHasChanged();
+    }
+
+    // Kicks off a regeneration — two AI calls back to back, so this can take ~30-60s.
+    private async Task GenerateAsync()
+    {
+        if (Worlds.Current is null || _generating)
+        {
+            return;
+        }
+
+        var worldId = Worlds.Current.Id;
+        _generating = true;
+        StateHasChanged();
+
+        var result = await Api.GenerateWorldDigestAsync(worldId);
+        _generating = false;
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error?.Message ?? "The digest could not be generated.", Severity.Error);
+            StateHasChanged();
+            return;
+        }
+
+        // Only push if the user hasn't switched worlds while the generation ran.
+        if (Worlds.Current?.Id == worldId)
+        {
+            _digest = result.Value;
+        }
+        StateHasChanged();
+    }
+
+    public void Dispose() => Worlds.Changed -= OnWorldsChanged;
+}

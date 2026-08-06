@@ -4,6 +4,7 @@ using Microsoft.Data.SqlTypes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nornis.Infrastructure.Persistence;
 
@@ -12,9 +13,11 @@ using Nornis.Infrastructure.Persistence;
 namespace Nornis.Infrastructure.Migrations
 {
     [DbContext(typeof(NornisDbContext))]
-    partial class NornisDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260806152207_AddWorldDigests")]
+    partial class AddWorldDigests
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
