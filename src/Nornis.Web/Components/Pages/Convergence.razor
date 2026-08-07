@@ -83,12 +83,18 @@ else
         </MudText>
     }
 
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+        Rings are drawn against the strongest candidate in this world; the number is its
+        readiness out of 100.
+    </MudText>
+
     <MudPaper Elevation="0" Class="nornis-card">
         @foreach (var candidate in _gauge.Candidates)
         {
             <div class="nornis-convergence-row">
-                <div class="nornis-convergence-score">
-                    <MudProgressCircular Value="@candidate.Score" Min="0" Max="100"
+                <div class="nornis-convergence-score"
+                     title="@($"Readiness {candidate.Score} of 100. The ring is drawn against the strongest candidate here.")">
+                    <MudProgressCircular Value="@ConvergenceDisplay.RelativeFill(candidate.Score, TopScore)" Min="0" Max="100"
                                          Color="@ConvergenceDisplay.ScoreColor(candidate.Score)" Size="Size.Medium" StrokeWidth="4" />
                     <span class="nornis-convergence-score-value">@candidate.Score</span>
                 </div>
@@ -120,6 +126,9 @@ else
 
 @code {
     private ConvergenceDto? _gauge;
+
+    /// <summary>The strongest candidate on show; the ring fills against it.</summary>
+    private int TopScore => _gauge?.Candidates.Count > 0 ? _gauge.Candidates.Max(c => c.Score) : 0;
     private string? _error;
     private Guid? _busyId;
     private bool _narrating;

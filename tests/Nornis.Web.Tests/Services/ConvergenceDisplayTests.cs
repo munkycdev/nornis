@@ -85,6 +85,62 @@ public class ConvergenceDisplayTests
         });
     }
 
+    #region RelativeFill
+
+    [Test]
+    public void RelativeFill_DrawsTheStrongestCandidateFull()
+    {
+        // The whole point: on a page where 31 is the best there is, 31 must read as the best
+        // there is. A real world capped every score near a third and the page read as "none of
+        // this matters".
+        Assert.That(ConvergenceDisplay.RelativeFill(31, 31), Is.EqualTo(100));
+    }
+
+    [Test]
+    public void RelativeFill_ScalesTheRestAgainstIt()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ConvergenceDisplay.RelativeFill(21, 31), Is.EqualTo(68));
+            Assert.That(ConvergenceDisplay.RelativeFill(12, 31), Is.EqualTo(39));
+            Assert.That(ConvergenceDisplay.RelativeFill(2, 31), Is.EqualTo(6));
+        });
+    }
+
+    [Test]
+    public void RelativeFill_KeepsTheOrderTheScoreGave()
+    {
+        int[] scores = [31, 31, 21, 18, 12, 2];
+        var fills = scores.Select(x => ConvergenceDisplay.RelativeFill(x, 31)).ToList();
+
+        Assert.That(fills.Zip(fills.Skip(1)).All(p => p.First >= p.Second), Is.True,
+            "rescaling may not reorder what the score decided");
+    }
+
+    [TestCase(0, 0)]
+    [TestCase(0, 40)]
+    [TestCase(15, 0)]
+    public void RelativeFill_IsZeroWhenThereIsNothingToScaleAgainst(int score, int topScore)
+    {
+        // A gauge whose best candidate scores nothing must not draw a full ring for it — that
+        // is the lie normalising the number would have told.
+        Assert.That(ConvergenceDisplay.RelativeFill(score, topScore), Is.Zero);
+    }
+
+    [Test]
+    public void ScoreColor_StaysAbsoluteSoAWeakFieldStaysMuted()
+    {
+        // Full ring, muted colour: "the best thing available, and it is not urgent".
+        Assert.Multiple(() =>
+        {
+            Assert.That(ConvergenceDisplay.RelativeFill(31, 31), Is.EqualTo(100));
+            Assert.That(ConvergenceDisplay.ScoreColor(31), Is.EqualTo(MudBlazor.Color.Secondary));
+            Assert.That(ConvergenceDisplay.ScoreColor(75), Is.EqualTo(MudBlazor.Color.Primary));
+        });
+    }
+
+    #endregion
+
     private static ConvergenceCandidateDto Candidate(
         int daysHidden = 30,
         int partyVisibleFactsOnAnchor = 3,
