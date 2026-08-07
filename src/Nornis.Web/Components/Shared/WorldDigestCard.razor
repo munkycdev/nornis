@@ -10,7 +10,7 @@
 
 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
     <div class="nornis-card-header">
-        <span class="nornis-card-title">World digest</span>
+        <span class="nornis-card-title">World Digest</span>
         <MudTooltip Text="An LLM-maintained synthesis of the record: active storylines, recent movements, open questions.">
             <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Color="Color.Tertiary" Size="Size.Small" />
         </MudTooltip>
@@ -22,7 +22,7 @@
     }
     else if (_digest is { HasData: true } d)
     {
-        <div class="nornis-digest-body">@MarkdownRenderer.ToHtml(d.Content)</div>
+        <div class="nornis-digest-body nornis-markdown">@MarkdownRenderer.ToHtml(d.Content)</div>
         <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1">
             Generated @RelativeTime.Ago(d.GeneratedAt!.Value)
         </MudText>
@@ -37,7 +37,7 @@
             </MudButton>
             @if (_previewOpen)
             {
-                <div class="nornis-digest-body nornis-digest-preview">@MarkdownRenderer.ToHtml(d.PartyPreview)</div>
+                <div class="nornis-digest-body nornis-digest-preview nornis-markdown">@MarkdownRenderer.ToHtml(d.PartyPreview)</div>
             }
 
             <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
