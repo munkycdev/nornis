@@ -107,6 +107,35 @@ public class ConvergenceEndpointTests
     }
 
     [Test]
+    [Category("Authorization")]
+    public async Task Narrate_AsPlayer_Returns403()
+    {
+        await SeedHiddenFactAsync();
+
+        var response = await _scenario.PlayerClient.PostAsync($"{Url}/narrate", content: null);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
+    public async Task Narrate_WithNoAiConfigured_StillReturnsTheRanking()
+    {
+        // The test host has no Azure OpenAI, so this exercises the no-op narration client —
+        // the path Requirement 7.4 exists for. A ranking without sentences beats an error.
+        var (_, factId) = await SeedHiddenFactAsync();
+
+        var response = await _scenario.GmClient.PostAsync($"{Url}/narrate", content: null);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var gauge = await response.Content.ReadFromJsonAsync<ConvergenceResponse>();
+        Assert.Multiple(() =>
+        {
+            Assert.That(gauge!.Candidates.Single().Id, Is.EqualTo(factId));
+            Assert.That(gauge.Candidates.Single().Rationale, Is.Null);
+        });
+    }
+
+    [Test]
     public async Task Get_AsGm_RanksTheHiddenFact()
     {
         var (artifactId, factId) = await SeedHiddenFactAsync();

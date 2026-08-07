@@ -85,6 +85,12 @@ public sealed record ConvergenceCandidate
 
     /// <summary>0–100, matching the continuity score's convention.</summary>
     public required int Score { get; init; }
+
+    /// <summary>
+    /// The why-now, when a GM has asked for one. Null is the ordinary state: the ranking stands
+    /// on its components, and this only ever decorates it.
+    /// </summary>
+    public string? Rationale { get; init; }
 }
 
 /// <summary>

@@ -18,5 +18,9 @@ public enum AiOperationType
     /// <summary>Naming a demo world at creation. Small, but the only AI call that used to
     /// leave no trace in the ledger at all.</summary>
     WorldNaming,
-    WorldDigest
+    WorldDigest,
+
+    /// <summary>Writing the why-now beside a convergence candidate. Annotates a ranking
+    /// the system already computed; it never produces one.</summary>
+    ConvergenceNarration
 }

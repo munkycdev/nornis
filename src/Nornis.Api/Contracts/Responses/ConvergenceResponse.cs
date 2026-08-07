@@ -33,7 +33,8 @@ public record ConvergenceCandidateResponse(
     DateTimeOffset CreatedAt,
     IReadOnlyList<Guid> MissingArtifactIds,
     ConvergenceComponentsResponse Components,
-    int Score);
+    int Score,
+    string? Rationale);
 
 /// <summary>
 /// <paramref name="AssessmentId"/> is null when the world has never been assessed — the same

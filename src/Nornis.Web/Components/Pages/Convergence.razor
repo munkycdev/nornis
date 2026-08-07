@@ -16,7 +16,21 @@
         <MudText Typo="Typo.h4" Class="nornis-serif">Convergence</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">What the table is ready to learn.</MudText>
     </div>
-    @if (_gauge is not null)
+    @if (_gauge is { Candidates.Count: > 0 })
+    {
+        <div class="d-flex gap-2">
+            <MudButton Variant="Variant.Text" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.AutoAwesome"
+                       Disabled="_narrating" OnClick="NarrateAsync">
+                @(_narrating ? "Reading…" : "Why now?")
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.Refresh" OnClick="LoadAsync">
+                Recheck
+            </MudButton>
+        </div>
+    }
+    else if (_gauge is not null)
     {
         <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                    StartIcon="@Icons.Material.Outlined.Refresh" OnClick="LoadAsync">
@@ -82,6 +96,10 @@ else
                 <div class="nornis-convergence-body">
                     <MudText Typo="Typo.subtitle2">@candidate.AnchorName</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">@candidate.Description</MudText>
+                    @if (candidate.Rationale is not null)
+                    {
+                        <MudText Typo="Typo.body2" Class="nornis-convergence-why">@candidate.Rationale</MudText>
+                    }
                     <div class="nornis-convergence-chips">
                         @foreach (var phrase in ConvergenceDisplay.Phrases(candidate))
                         {
@@ -104,6 +122,42 @@ else
     private ConvergenceDto? _gauge;
     private string? _error;
     private Guid? _busyId;
+    private bool _narrating;
+
+    private async Task NarrateAsync()
+    {
+        if (Worlds.Current is null || _narrating)
+        {
+            return;
+        }
+
+        _narrating = true;
+        StateHasChanged();
+
+        var result = await Api.NarrateConvergenceAsync(Worlds.Current.Id);
+        _narrating = false;
+
+        if (result.IsSuccess)
+        {
+            var narrated = result.Value!.Candidates.Any(c => c.Rationale is not null);
+            _gauge = result.Value!;
+
+            // The API answers with the ranking either way, so a silent swap would look like a
+            // button that does nothing. Say when there was nothing to add.
+            if (!narrated)
+            {
+                Snackbar.Add(
+                    "No notes came back — the AI budget may be spent, or AI is not configured for this world.",
+                    Severity.Info);
+            }
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+
+        StateHasChanged();
+    }
 
     protected override async Task OnInitializedAsync()
     {

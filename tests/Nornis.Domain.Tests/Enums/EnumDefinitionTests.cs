@@ -116,7 +116,7 @@ public class EnumDefinitionTests
     {
         AssertEnumHasExactValues<AiOperationType>(
             "SourceExtraction", "ArtifactSummary", "AskLoremaster", "SourceExtractionRepair", "ContinuityAudit", "StorylineRetrospective", "Embedding", "RelationshipBackfill", "HandwritingTranscription", "ImageReading", "MapExtraction", "ContinuityFix", "WorldNaming",
-            "WorldDigest");
+            "WorldDigest", "ConvergenceNarration");
     }
 
 

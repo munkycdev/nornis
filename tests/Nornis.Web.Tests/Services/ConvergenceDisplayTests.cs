@@ -112,5 +112,6 @@ public class ConvergenceDisplayTests
             SelfContainment: 1.0,
             StorylineState: 0.0,
             ContradictionPressure: contradictionSeverity is null ? null : 1.0),
-        Score: 55);
+        Score: 55,
+        Rationale: null);
 }

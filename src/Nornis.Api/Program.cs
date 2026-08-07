@@ -242,6 +242,7 @@ builder.Services.AddScoped<IRevealService, RevealService>();
 // Registered ahead of its endpoint (feature 21, phase C): the read model is complete and the
 // wiring is the part that gets forgotten between phases.
 builder.Services.AddScoped<IConvergenceGaugeService, ConvergenceGaugeService>();
+builder.Services.AddScoped<IConvergenceNarrationService, ConvergenceNarrationService>();
 builder.Services.AddScoped<ICanonService, CanonService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<IContinuityAuditService, ContinuityAuditService>();
@@ -294,6 +295,7 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
     builder.Services.AddScoped<IContinuityFixAiClient, AzureOpenAiContinuityFixClient>();
     builder.Services.AddScoped<IRetrospectiveAiClient, AzureOpenAiRetrospectiveClient>();
     builder.Services.AddScoped<IWorldDigestAiClient, AzureOpenAiWorldDigestClient>();
+    builder.Services.AddScoped<IConvergenceNarrationClient, AzureOpenAiConvergenceNarrationClient>();
     builder.Services.AddScoped<IWorldNameGenerator, AzureOpenAiWorldNameGenerator>();
 
     // Library passage retrieval reuses the same account with the embedding deployment.
@@ -322,6 +324,11 @@ else
     builder.Services.AddScoped<IEmbeddingClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable library passage retrieval."));
+
+    // Narration degrades for the same reason naming does, and one more: it decorates the
+    // convergence ranking rather than producing it, and a throwing stub would take the
+    // ranking down with the sentence beside it.
+    builder.Services.AddScoped<IConvergenceNarrationClient, NoOpConvergenceNarrationClient>();
 
     // Unlike the throwing stubs above, demo world naming degrades gracefully: no AI means
     // fallback names, not a broken demo creation flow.

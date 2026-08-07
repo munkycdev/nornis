@@ -3,7 +3,7 @@
 Ordered so the scoring function is provable before anything queries it, and the read model is
 provable before any pixels. Phase 1 ships independently of Phase 2.
 
-**Status: phases A–D built 2026-08-06** — the score, the read model, the endpoint, and the page. Phase E (narrated ordering) remains.
+**Status: phases A–E built 2026-08-06** — the score, the read model, the endpoint, the page, and narrated ordering. Only D5 (live verification behind Auth0) is outstanding, and it is blocked on the sign-in rider.
 
 Two things the build changed from the plan, recorded here rather than silently:
 
@@ -16,6 +16,11 @@ Phases C and D added three more corrections:
 - **The design doc's `404` for a non-member world was wrong.** `WorldMemberActionFilter` answers `403` regardless of whether the world exists, which is a stronger guarantee — the status cannot be used to probe for a world. Corrected in the design doc with the original struck through.
 - **`RevealDialog` had no pre-selection parameter**, as flagged before the phase began. It takes one now, and the matching rule lives in `RevealPreselection` rather than in a lifecycle method: it is the contract between two features, and it drops an id that has stopped being GM-only since the gauge was read.
 - **The bUnit tests for that hand-off were deleted rather than kept.** `MudDialog` renders nothing without a cascading dialog instance, so the rendered tree had no checkboxes at all — the positive test failed and the two negative ones were passing on an empty document. Testing the extracted rule directly is both honest and stronger; the phrases have their own unit tests for the same reason.
+
+Phase E made one structural decision the spec did not anticipate:
+
+- **Narration lives in its own service, and its client degrades instead of throwing.** Every other AI client is registered as a stub that throws when Azure OpenAI is unconfigured. Doing that here would have poisoned the gauge itself — the client would be a constructor dependency of the thing whose whole value is the mechanical ranking, so an unconfigured host would lose the ranking along with the sentence that decorates it. `ConvergenceNarrationService` is separate so `ConvergenceGaugeService` never depends on AI configuration at all, and `NoOpConvergenceNarrationClient` follows `NoOpWorldNameGenerator`'s precedent. Requirement 7.4's "unavailable" case is therefore a real code path, covered by a test that runs against the API host, which has no AI configured.
+- **A no-op returns a null usage, not a zero one.** A call that never happened must not leave a row in the spend ledger.
 
 ## Phase A — The score (pure, no I/O)
 
@@ -66,12 +71,12 @@ Phases C and D added three more corrections:
 
 ## Phase E — Narrated ordering (Req 7)
 
-- [ ] E1. `IConvergenceNarrationClient` at the prompt seam: Application owns the prompt text,
+- [x] E1. `IConvergenceNarrationClient` at the prompt seam: Application owns the prompt text,
   the adapter owns transport, timeout, and parse.
-- [ ] E2. Budget gate and usage recording, matching the other AI paths.
-- [ ] E3. Annotation applied over the top N without reordering; failure and budget exhaustion
+- [x] E2. Budget gate and usage recording, matching the other AI paths.
+- [x] E3. Annotation applied over the top N without reordering; failure and budget exhaustion
   fall back to the unannotated ranking (Req 7.4).
-- [ ] E4. Tests: the captured prompt carries only GM-scoped material (leak-surface pattern), the
+- [x] E4. Tests: the captured prompt carries only GM-scoped material (leak-surface pattern), the
   ranking is unchanged by annotation, and an exhausted budget still returns candidates.
 
 ## Out of scope
