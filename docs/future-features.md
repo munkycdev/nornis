@@ -71,6 +71,25 @@ ReportGenerator two copies of each project. Merging identical reports is idempot
 no number was ever wrong — but the globs are now precise and the artifact is half the
 size.
 
+**Second pass, same day.** Infrastructure.Tests got the same `Parallelizable(Fixtures)`
+treatment once its isolation was checked rather than assumed — `IntegrationTestBase`
+opens a `DataSource=:memory:` connection per instance and a `:memory:` database belongs
+to its connection alone, and nothing in the project mutates environment variables, writes
+to disk, or holds mutable statics. 46s → 29s; full suite 47.7s → 36.9s locally. NuGet
+package caching went into a composite action at `.github/actions/setup-dotnet` rather
+than four copies of setup-plus-cache across two workflows — a cold restore is ~15s
+against ~3s warm.
+
+**Deliberately not done: compiling once and feeding the image build.** The obvious
+remaining waste is that the test job compiles the solution and the docker job compiles it
+again (~95s) — but the two run *in parallel*, and the docker job is not on the critical
+path (95s against the test job's ~110s). Having docker consume the test job's output
+makes it *depend* on that job, which turns two overlapping jobs into a chain: roughly
+145s of test-plus-publish, then ~40s of image assembly, then the rollout — about 75s
+worse than leaving the duplication in place. It is a runner-minutes optimization wearing
+a wall-clock disguise. Worth revisiting only if the test job ever drops below the image
+build, which would make docker the constraint.
+
 **Opus-ready, in order:**
 
 1. Test quality phase 1 — coverage collection + local report. Config and scripts only.
