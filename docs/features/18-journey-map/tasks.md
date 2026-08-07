@@ -5,8 +5,22 @@ over one auto-picked map) ships independently of Phase 2 (designated world map +
 Tests accompany each service/endpoint per repo rules; visibility and read-model shape are the
 priority coverage.
 
-**Status:** Not started. Phase 1 = requirements 1–6; Phase 2 = the Out-of-Scope refinements
-(designated world map, relationship-expanded visits).
+**Status: shipped July 2026** — corrected 2026-08-06, when this file still read "Not started"
+against a feature that had been live for two weeks. What is in the tree:
+
+- **Phase B and C built.** `JourneyMapService` / `IJourneyMapService`, `JourneyResponse` and its
+  nested DTOs, and `JourneyController` at `api/worlds/{worldId:guid}/journey`. Covered by
+  `JourneyMapServiceTests`, `JourneyEndpointTests`, and `PublicJourneyEndpointTests`.
+- **Phase D built, in a different place than planned.** `JourneyMap.razor` is a shared
+  component rendered on **Timeline** and on the public world's timeline. There is no `/journey`
+  page and no Journey nav entry; the nav entry that exists is **Locations** (feature 19).
+- **Phase A not done.** The date-axis math still lives in `StorylineTimelineChart.razor`; it was
+  never extracted into a shared helper.
+- **Phase E not done.** `World.PrimaryMapAttachmentId` does not exist, so map selection is still
+  the auto-pick heuristic, and visits are not relationship-expanded.
+
+The checkboxes below are the original plan and were not kept current. This status is the
+authority; the boxes record what was intended.
 
 ## Phase A — Shared calendar axis (Phase 1 foundation, Req 6.3)
 

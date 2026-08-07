@@ -71,6 +71,7 @@ public class SyntheticBatchWriter
     private readonly IReviewProposalRepository _reviewProposalRepository;
     private readonly ISourceReferenceRepository _sourceReferenceRepository;
     private readonly IProposalApplicator _proposalApplicator;
+    private readonly IArtifactSummaryRefreshQueue _summaryRefreshQueue;
     private readonly IUnitOfWork _unitOfWork;
 
     public SyntheticBatchWriter(
@@ -79,6 +80,7 @@ public class SyntheticBatchWriter
         IReviewProposalRepository reviewProposalRepository,
         ISourceReferenceRepository sourceReferenceRepository,
         IProposalApplicator proposalApplicator,
+        IArtifactSummaryRefreshQueue summaryRefreshQueue,
         IUnitOfWork unitOfWork)
     {
         _sourceRepository = sourceRepository;
@@ -86,6 +88,7 @@ public class SyntheticBatchWriter
         _reviewProposalRepository = reviewProposalRepository;
         _sourceReferenceRepository = sourceReferenceRepository;
         _proposalApplicator = proposalApplicator;
+        _summaryRefreshQueue = summaryRefreshQueue;
         _unitOfWork = unitOfWork;
     }
 
@@ -108,6 +111,13 @@ public class SyntheticBatchWriter
         var source = BuildSource(sourceSpec, now);
         var batch = BuildBatch(source, kind, ReviewBatchStatus.Completed, now, completedAt: now);
 
+        // Coalesced across the batch's proposals, then requested once after the commit —
+        // the same shape the review queue's accept uses, and for the same reason: a merge
+        // that folds three artifacts into one should ask for one refresh apiece, not one
+        // per proposal, and should ask for none at all if the write rolls back.
+        var summaryCandidates = new HashSet<Guid>();
+        var summaryPinned = new HashSet<Guid>();
+
         await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
         try
         {
@@ -128,18 +138,34 @@ public class SyntheticBatchWriter
                     return AppResult<SyntheticBatchWritten>.Fail(applyResult.Error!);
                 }
 
+                summaryCandidates.UnionWith(applyResult.Value!.SummaryRefreshCandidates);
+                summaryPinned.UnionWith(applyResult.Value.SummaryPinnedArtifactIds);
+
                 proposal.Accept(sourceSpec.ActingUserId, now);
                 await _reviewProposalRepository.UpdateAsync(proposal, ct);
             }
 
             await transaction.CommitAsync(ct);
-            return AppResult<SyntheticBatchWritten>.Success(new SyntheticBatchWritten(batch.Id, source.Id));
         }
         catch
         {
             await transaction.RollbackAsync(ct);
             throw;
         }
+
+        // Outside the transaction: the queue is best-effort and must not be able to fail a
+        // write that already committed. The applicator reports these on every arm, but until
+        // now only the review queue's accept read them — so a GM merging, revealing or
+        // wrapping up changed an artifact's content and left its summary describing the
+        // world before the change, with nothing to correct it until some later accept
+        // happened to touch the same artifact through the queue.
+        var refresh = summaryCandidates.Except(summaryPinned).ToList();
+        if (refresh.Count > 0)
+        {
+            await _summaryRefreshQueue.TryEnqueueAsync(sourceSpec.WorldId, refresh, ct);
+        }
+
+        return AppResult<SyntheticBatchWritten>.Success(new SyntheticBatchWritten(batch.Id, source.Id));
     }
 
     /// <summary>

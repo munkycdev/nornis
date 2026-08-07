@@ -21,6 +21,7 @@ public class StorylineWrapUpServiceTests
     private InMemorySourceReferenceRepository _sourceRefRepo = null!;
     private InMemorySourceRepository _sourceRepo = null!;
     private InMemoryReviewBatchRepository _batchRepo = null!;
+    private FakeArtifactSummaryRefreshQueue _summaryRefreshQueue = null!;
     private InMemoryReviewProposalRepository _proposalRepo = null!;
     private FakeProposalApplicator _applicator = null!;
     private FakeReviewService _reviewService = null!;
@@ -34,6 +35,7 @@ public class StorylineWrapUpServiceTests
     [SetUp]
     public void SetUp()
     {
+        _summaryRefreshQueue = new FakeArtifactSummaryRefreshQueue();
         _artifactRepo = new InMemoryArtifactRepository();
         _factRepo = new InMemoryArtifactFactRepository();
         _relationshipRepo = new InMemoryArtifactRelationshipRepository();
@@ -56,7 +58,8 @@ public class StorylineWrapUpServiceTests
         var reader = new StorylineDevelopmentReader(
             _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo, _sourceRepo);
         var batchWriter = new SyntheticBatchWriter(
-            _sourceRepo, _batchRepo, _proposalRepo, _sourceRefRepo, _applicator, new FakeUnitOfWork());
+            _sourceRepo, _batchRepo, _proposalRepo, _sourceRefRepo, _applicator,
+            _summaryRefreshQueue, new FakeUnitOfWork());
         return new StorylineWrapUpService(
             reader,
             Options.Create(new ContinuityOptions { StaleThresholdSessions = staleThreshold, RecentSessionWindow = recentWindow }),

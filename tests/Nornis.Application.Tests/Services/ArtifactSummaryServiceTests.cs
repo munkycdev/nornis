@@ -59,7 +59,8 @@ public class ArtifactSummaryServiceTests
 
         var writer = new SyntheticBatchWriter(
             _sourceRepository, _batchRepository, _proposalRepository,
-            new InMemorySourceReferenceRepository(), new FakeProposalApplicator(), new FakeUnitOfWork());
+            new InMemorySourceReferenceRepository(), new FakeProposalApplicator(),
+            NoOpArtifactSummaryRefreshQueue.Instance, new FakeUnitOfWork());
 
         _service = new ArtifactSummaryService(
             _artifactRepository,

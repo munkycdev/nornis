@@ -16,6 +16,7 @@ public class SyntheticBatchWriterTests
     private InMemorySourceReferenceRepository _referenceRepository = null!;
     private FakeProposalApplicator _applicator = null!;
     private FakeUnitOfWork _unitOfWork = null!;
+    private FakeArtifactSummaryRefreshQueue _summaryRefreshQueue = null!;
     private SyntheticBatchWriter _writer = null!;
 
     private static readonly Guid WorldId = Guid.NewGuid();
@@ -24,6 +25,7 @@ public class SyntheticBatchWriterTests
     [SetUp]
     public void SetUp()
     {
+        _summaryRefreshQueue = new FakeArtifactSummaryRefreshQueue();
         _sourceRepository = new InMemorySourceRepository();
         _batchRepository = new InMemoryReviewBatchRepository();
         _proposalRepository = new InMemoryReviewProposalRepository();
@@ -32,7 +34,7 @@ public class SyntheticBatchWriterTests
         _unitOfWork = new FakeUnitOfWork();
         _writer = new SyntheticBatchWriter(
             _sourceRepository, _batchRepository, _proposalRepository,
-            _referenceRepository, _applicator, _unitOfWork);
+            _referenceRepository, _applicator, _summaryRefreshQueue, _unitOfWork);
     }
 
     private static SyntheticSourceSpec SourceSpec() => new()
@@ -96,6 +98,50 @@ public class SyntheticBatchWriterTests
         Assert.That(_referenceRepository.References, Is.Empty,
             "an accepted batch records no references — the accepted proposal is the record");
         Assert.That(_unitOfWork.Transactions.Single().Committed, Is.True);
+    }
+
+    [Test]
+    public async Task WriteAccepted_CoalescesSummaryRefreshRequestsAcrossTheBatch()
+    {
+        var artifactId = Guid.NewGuid();
+        _applicator.ConfigureSuccess(summaryCandidates: [artifactId]);
+
+        await _writer.WriteAcceptedAsync(
+            SourceSpec(), ReviewBatchKinds.ArtifactMerge, [ProposalSpec(), ProposalSpec()], CancellationToken.None);
+
+        // Two proposals naming the same artifact are one event, not two: the batch asks
+        // once, matching the review queue's accept.
+        Assert.That(_summaryRefreshQueue.Requests, Has.Count.EqualTo(1));
+        Assert.That(_summaryRefreshQueue.Requests[0].WorldId, Is.EqualTo(WorldId));
+        Assert.That(_summaryRefreshQueue.Requests[0].ArtifactIds, Is.EquivalentTo([artifactId]));
+    }
+
+    [Test]
+    public async Task WriteAccepted_DoesNotRefreshAnArtifactWhoseSummaryWasWrittenExplicitly()
+    {
+        var artifactId = Guid.NewGuid();
+        _applicator.ConfigureSuccess(summaryCandidates: [artifactId], summaryPinned: [artifactId]);
+
+        await _writer.WriteAcceptedAsync(
+            SourceSpec(), ReviewBatchKinds.ArtifactMerge, [ProposalSpec()], CancellationToken.None);
+
+        // A pinned summary is one the proposal set on purpose; regenerating it would throw
+        // away what the GM just accepted.
+        Assert.That(_summaryRefreshQueue.Requests, Is.Empty);
+    }
+
+    [Test]
+    public async Task WriteAccepted_ApplyFailure_RequestsNoRefresh()
+    {
+        _applicator.ConfigureSuccess(summaryCandidates: [Guid.NewGuid()]);
+        _applicator.ConfigureFailure("boom", "Apply failed.");
+
+        var result = await _writer.WriteAcceptedAsync(
+            SourceSpec(), ReviewBatchKinds.ArtifactMerge, [ProposalSpec()], CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(_summaryRefreshQueue.Requests, Is.Empty,
+            "the write rolled back, so nothing became stale");
     }
 
     [Test]

@@ -135,6 +135,15 @@ public class ContinuityFixService : IContinuityFixService
                 new AppError(409, "finding_not_open", "Only open findings can be drafted against."));
         }
 
+        // A drafted fix leaves the finding Open — it is proposed, not applied — so nothing
+        // above stops a second click, and each one used to mint another pending batch of the
+        // same proposals for the GM to wade through.
+        if (finding.FixBatchId is not null)
+        {
+            return AppResult<ContinuityFixDraft>.Fail(new AppError(409, "fix_already_drafted",
+                "A fix for this finding is already waiting in the review queue."));
+        }
+
         // A duplicate's fix is a merge, and a merge needs exactly two things: which pair,
         // and which of them survives. The finding already names the pair, and the survivor is
         // a counting question. So this branch buys nothing from the model — and buying a
@@ -516,6 +525,12 @@ public class ContinuityFixService : IContinuityFixService
                 ReferenceNotes = $"Drafted fix for finding: {finding.Summary.Truncate(200, ellipsis: true)}"
             }).ToList(),
             ct);
+
+        // Stamped here rather than in each branch: both the AI path and the duplicate-merge
+        // path land on this method, and a mark the caller has to remember is one a later
+        // third branch will forget.
+        finding.FixBatchId = written.BatchId;
+        await _assessmentRepository.UpdateFindingAsync(finding, ct);
 
         return (written.BatchId, written.SourceId);
     }

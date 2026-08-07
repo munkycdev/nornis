@@ -27,12 +27,19 @@ public class FakeProposalApplicator : IProposalApplicator
             new AppError(400, code, message));
     }
 
-    public void ConfigureSuccess(Guid? entityId = null)
+    public void ConfigureSuccess(
+        Guid? entityId = null,
+        IReadOnlyList<Guid>? summaryCandidates = null,
+        IReadOnlyList<Guid>? summaryPinned = null)
     {
         _nextResult = AppResult<ApplyResult>.Success(
             new ApplyResult(
                 entityId ?? Guid.NewGuid(),
-                SourceReferenceTargetType.Artifact));
+                SourceReferenceTargetType.Artifact)
+            {
+                SummaryRefreshCandidates = summaryCandidates ?? [],
+                SummaryPinnedArtifactIds = summaryPinned ?? []
+            });
     }
 
     /// <summary>

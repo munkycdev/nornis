@@ -66,10 +66,12 @@ claim keeps a link back to the sentence in the source that produced it.
 | **Review** | Every AI suggestion lands in a queue with its confidence, its source, and its rationale. Accept, edit the values first, or reject — individually or in dependency-safe bulk. |
 | **Codex** | Browse everything the world knows as cards, a collapsible tree, or a live force-directed graph. Every artifact shows its facts, truth states, relationships, open questions, and source excerpts. |
 | **Ask the Loremaster** | Ask your world questions in plain language. Answers are grounded strictly in your accepted record plus your indexed library, every claim cited, with a confidence rating — and it says so when it doesn't know. |
-| **Timeline & journey** | Storylines laid out over the real session calendar, and the party's trail across a map walked session by session. |
-| **Secrets & reveals** | Everything carries a scope — Private, GM only, or Party visible. When the fiction discloses a secret, the GM ticks exactly what the party now learns; Nornis checks the reveal leaves no dangling references. One-way, by design. |
+| **Timeline, journey & locations** | Storylines laid out over the real session calendar, the party's trail across a map walked session by session, and the reverse view — pick a place, get every session that visited it. |
+| **World digest** | A short read on where the world stands, on the dashboard, written twice: the full record for GMs, and a party version drawn only from what the party can see. |
+| **Secrets & reveals** | Everything carries a scope — Private, GM only, or Party visible. When the fiction discloses a secret, the GM ticks exactly what the party now learns; Nornis checks the reveal leaves no dangling references. One-way. |
 | **Library** | Upload sourcebooks, maps, and handouts. PDFs are indexed into passages so the Loremaster can quote them with page citations. |
-| **Continuity health** | A read on how coherent the record is — contradictions, dangling threads, stale storylines — each finding with a severity and a jump to the artifact. |
+| **Continuity health** | A read on how coherent the record is — contradictions, dangling threads, stale storylines, timeline conflicts, summary drift, and duplicates — each finding with a severity, a jump to the artifact, and most drafting into a reviewable fix. |
+| **Onboarding** | A demo world of five already-extracted sessions plus a sixth left as raw notes, and a two-chapter checklist that detects its own completion from actual state. Dismissable permanently. |
 | **Sharing** | Invite players by link with a role. Optionally give the world a public address for a read-only, party-visible-only view. |
 | **Cost visibility** | Every AI call is metered by operation, model, and user, against a per-world daily budget. |
 
