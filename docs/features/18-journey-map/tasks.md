@@ -14,8 +14,14 @@ against a feature that had been live for two weeks. What is in the tree:
 - **Phase D built, in a different place than planned.** `JourneyMap.razor` is a shared
   component rendered on **Timeline** and on the public world's timeline. There is no `/journey`
   page and no Journey nav entry; the nav entry that exists is **Locations** (feature 19).
-- **Phase A not done.** The date-axis math still lives in `StorylineTimelineChart.razor`; it was
-  never extracted into a shared helper.
+- **Phase A done 2026-08-06.** `TimeAxis` in `Nornis.Web/Services` now holds the month-tick
+  loop — which was byte-for-byte identical in `StorylineTimelineChart.razor` and
+  `JourneyMap.razor` — plus the span floor and the percent projection. Both components call
+  it; the chart's `X()` is untouched, so the extraction is a pure move. Deliberately left
+  behind: each component's padding rule, since the timeline pads a fixed number of days and
+  the journey pads a proportion of its span. Those are different answers to different
+  questions, not a duplicate. Tested for the first time, at the edges the two components
+  actually hit — a collapsed single-session range and an inverted one.
 - **Phase E not done.** `World.PrimaryMapAttachmentId` does not exist, so map selection is still
   the auto-pick heuristic, and visits are not relationship-expanded.
 
@@ -24,10 +30,10 @@ authority; the boxes record what was intended.
 
 ## Phase A — Shared calendar axis (Phase 1 foundation, Req 6.3)
 
-- [ ] A1. Extract the date-axis math from `StorylineTimelineChart` (`MinDate`/`MaxDate`/
+- [x] A1. Extract the date-axis math from `StorylineTimelineChart` (`MinDate`/`MaxDate`/
   `SpanDays`/`PxPerDay`/`X(date)`, month ticks) into a small reusable helper both the storyline
   timeline and the journey scrubber call — no behavior change to the existing chart.
-- [ ] A2. Unit-test the helper in isolation (date→x monotonic, month-tick generation, single-
+- [x] A2. Unit-test the helper in isolation (date→x monotonic, month-tick generation, single-
   session and empty ranges).
 
 ## Phase B — JourneyMapService + read model (Requirements 1–5)

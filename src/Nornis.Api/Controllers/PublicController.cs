@@ -21,7 +21,8 @@ namespace Nornis.Api.Controllers;
 /// GM-defined public slug. Every read runs as <see cref="WorldRole.Observer"/> with a
 /// sentinel user id — Observer scoping is exactly "PartyVisible, no Hidden truths", so
 /// the existing services enforce the whole policy. Unknown slugs and disabled worlds
-/// return identical 404s (no existence oracle). No Library, no Ask, no mutations.
+/// return identical 404s (no existence oracle). No Library and no mutations; anonymous Ask is
+/// the one exception, gated by the GM's per-world monthly cap below.
 /// </summary>
 [ApiController]
 [AllowAnonymous]

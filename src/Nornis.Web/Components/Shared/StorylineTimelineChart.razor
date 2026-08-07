@@ -395,7 +395,7 @@ else
     private DateTimeOffset MaxDate =>
         (Data.Sessions.Count > 0 ? Data.Sessions[^1].OccurredAt : DateTimeOffset.UtcNow).AddDays(PadDays);
 
-    private double SpanDays => Math.Max(1, (MaxDate - MinDate).TotalDays);
+    private double SpanDays => TimeAxis.SpanDays(MinDate, MaxDate);
 
     private double PxPerDay => Math.Max(MinPxPerDay, MinPlotWidth / SpanDays);
 
@@ -410,18 +410,7 @@ else
 
     private static int RowCenterY(Row row) => row.Top + row.Height / 2;
 
-    private IEnumerable<DateTimeOffset> MonthTicks
-    {
-        get
-        {
-            var tick = new DateTimeOffset(MinDate.Year, MinDate.Month, 1, 0, 0, 0, MinDate.Offset).AddMonths(1);
-            while (tick <= MaxDate)
-            {
-                yield return tick;
-                tick = tick.AddMonths(1);
-            }
-        }
-    }
+    private IEnumerable<DateTimeOffset> MonthTicks => TimeAxis.MonthTicks(MinDate, MaxDate);
 
     private string StatusColor(string status) =>
         StatusColors.FirstOrDefault(s => s.Status == status).Color ?? "#9AA5B1";
