@@ -73,10 +73,12 @@ foreach ($project in $testProjects) {
     $output | Write-Host
 }
 
-# One level down — each project reports into its own subdirectory. Not -Recurse: the
-# coverage engine writes every cobertura a second time under <host>/In/<machine>/, and a
-# recursive sweep hands ReportGenerator a duplicate of each project.
-$coverageFiles = Get-ChildItem (Join-Path $rawDir '*') -Filter '*.cobertura.xml' -ErrorAction SilentlyContinue
+# One level down — each project reports into its own subdirectory. A path wildcard, not
+# -Filter: `Get-ChildItem <dir>/* -Filter *.cobertura.xml` matches the subdirectory names
+# rather than their contents and silently finds nothing, which is how this script shipped
+# broken on 2026-08-06. CI never noticed because it globs with ReportGenerator directly and
+# never calls this file.
+$coverageFiles = Get-ChildItem -Path (Join-Path $rawDir '*/*.cobertura.xml') -ErrorAction SilentlyContinue
 if (-not $coverageFiles) { throw 'No coverage files produced — nothing to report.' }
 
 Write-Host '== Merging into an HTML report…'
