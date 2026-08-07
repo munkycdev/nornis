@@ -457,6 +457,14 @@ public class NornisApiClient
     public Task<ApiResult<ConvergenceDto>> NarrateConvergenceAsync(Guid worldId, CancellationToken ct = default) =>
         PostAsync<object?, ConvergenceDto>($"/api/worlds/{worldId}/convergence/narrate", null, ct);
 
+    /// <summary>What this member has been told since they last looked. Every member may read it.</summary>
+    public Task<ApiResult<LearnedDto>> GetLearnedAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<LearnedDto>($"/api/worlds/{worldId}/learned", ct);
+
+    /// <summary>Advances this member's marker. Never backwards.</summary>
+    public Task<ApiResult<object?>> MarkLearnedSeenAsync(Guid worldId, DateTimeOffset seenThrough, CancellationToken ct = default) =>
+        PostAsync<MarkLearnedSeenBody, object?>($"/api/worlds/{worldId}/learned/seen", new MarkLearnedSeenBody(seenThrough), ct);
+
     /// <summary>GM-only: the world's hidden material, ranked by how ready it is to be revealed.</summary>
     public Task<ApiResult<ConvergenceDto>> GetConvergenceAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<ConvergenceDto>($"/api/worlds/{worldId}/convergence", ct);

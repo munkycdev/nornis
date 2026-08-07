@@ -909,3 +909,27 @@ public record ConvergenceDto(
     Guid? AssessmentId,
     int TotalCandidates,
     IReadOnlyList<ConvergenceCandidateDto> Candidates);
+
+// ------------------------------------------------------------ what you learned --
+
+public record LearnedElementDto(Guid Id, string Kind, string Name, string? Detail);
+
+/// <summary><c>GmNote</c> is the GM's own words, never the composed source body.</summary>
+public record LearnedEntryDto(
+    Guid SourceId,
+    DateTimeOffset OccurredAt,
+    string? GmNote,
+    IReadOnlyList<LearnedElementDto> Elements);
+
+/// <summary>
+/// <c>HasMore</c> is a paging fact about disclosures this reader may see — never a hint that
+/// anything is hidden.
+/// </summary>
+public record LearnedDto(
+    Guid WorldId,
+    DateTimeOffset GeneratedAt,
+    DateTimeOffset? SeenThrough,
+    bool HasMore,
+    IReadOnlyList<LearnedEntryDto> Entries);
+
+public record MarkLearnedSeenBody(DateTimeOffset SeenThrough);

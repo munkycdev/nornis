@@ -3,53 +3,69 @@
 Ordered so the marker's contract and the no-leak property are provable before any pixels.
 Phase 1 ships independently of Phases 2 and 3.
 
-**Status:** Not started. Phase 1 = requirements 1–3; Phase 2 = requirement 4; Phase 3 =
-requirement 5.
+**Status: phases A–D built 2026-08-06.** The marker, the read model, the endpoints, and the
+page. Phases E (the unseen count) and F (the wider delta) remain, as does D5.
+
+What the build changed from the spec:
+
+- **The GM's note needed somewhere structural to live.** It existed only inside the composed
+  source body, and recovering it by splitting that string would have made the composition
+  format and a parse format two copies of one rule. `Source.RevealNote` now holds it;
+  `RevealService` fills it; historical reveals are null, which is honest.
+- **Party-visible-but-`Hidden` facts are not "learned".** A reveal can raise visibility while
+  leaving the truth state Hidden, and the party then sees the shape of a claim without its
+  truth. Counting that as learned would be the view's first lie.
+- **Mark-seen uses the newest rendered entry's date, not `now`.** Marking to `now` would also
+  close anything revealed between the page loading and the button being pressed.
+- **Navigate-away marking (D2's second half) was deliberately not built.** A fire-and-forget
+  call from `Dispose` can outlive the scope it needs, and the explicit button satisfies what
+  D2 is actually for — not losing the list to an interruption. Recorded rather than done
+  quietly.
 
 ## Phase A — The marker (Req 3)
 
-- [ ] A1. `WorldMember.LearnedSeenAt` (nullable `DateTimeOffset`) + additive migration.
+- [x] A1. `WorldMember.LearnedSeenAt` (nullable `DateTimeOffset`) + additive migration.
   **Apply to prod before the deploy that carries it.**
-- [ ] A2. Repository support for reading and advancing one member's marker.
-- [ ] A3. Advance-only semantics: `Math.Max` against the current value, future timestamps
+- [x] A2. Repository support for reading and advancing one member's marker.
+- [x] A3. Advance-only semantics: `Math.Max` against the current value, future timestamps
   clamped to now.
-- [ ] A4. Tests for Properties 4 and 6 — the marker only moves forward, and one member's
+- [x] A4. Tests for Properties 4 and 6 — the marker only moves forward, and one member's
   marking never touches another's.
 
 ## Phase B — The read model (Req 1, 2)
 
-- [ ] B1. Models: `LearnedDigest`, `LearnedEntry`, and the resolved element shapes.
-- [ ] B2. `ILearnedDigestService.GetAsync` — party-visible `SourceType.Reveal` sources newer
+- [x] B1. Models: `LearnedDigest`, `LearnedEntry`, and the resolved element shapes.
+- [x] B2. `ILearnedDigestService.GetAsync` — party-visible `SourceType.Reveal` sources newer
   than the marker, read at `VisibilityFilter.ForRole`, newest first, capped.
-- [ ] B3. Resolve each reveal's accepted proposals back to artifacts, facts, and relationships;
+- [x] B3. Resolve each reveal's accepted proposals back to artifacts, facts, and relationships;
   drop what is no longer visible or has been archived.
-- [ ] B4. Drop an entry whose elements all resolved away (Req 2.3), and render the GM's note
+- [x] B4. Drop an entry whose elements all resolved away (Req 2.3), and render the GM's note
   rather than the composed source body (Req 2.4).
-- [ ] B5. Null marker takes the bounded first view; `HasMore` reports truncation.
-- [ ] B6. **Property 3 first**: two worlds identical in party-visible material but differing
+- [x] B5. Null marker takes the bounded first view; `HasMore` reports truncation.
+- [x] B6. **Property 3 first**: two worlds identical in party-visible material but differing
   arbitrarily in hidden material produce byte-identical views. This is the one that catches a
   well-meant "and 3 more" years from now.
-- [ ] B7. Property tests for Properties 1, 2, and 5.
-- [ ] B8. Service tests seeding through `RevealService` where practical, so the read model is
+- [x] B7. Property tests for Properties 1, 2, and 5.
+- [x] B8. Service tests seeding through `RevealService` where practical, so the read model is
   tested against what the writer actually produces.
 
 ## Phase C — API (Req 1, 3)
 
-- [ ] C1. `LearnedResponse` and nested DTOs.
-- [ ] C2. `GET /api/worlds/{worldId:guid}/learned` and
+- [x] C1. `LearnedResponse` and nested DTOs.
+- [x] C2. `GET /api/worlds/{worldId:guid}/learned` and
   `POST /api/worlds/{worldId:guid}/learned/seen`, both behind `WorldMemberActionFilter`.
-- [ ] C3. Authorization tests — non-member 403 regardless of world existence, Player and
+- [x] C3. Authorization tests — non-member 403 regardless of world existence, Player and
   Observer both allowed, one member's mark-seen invisible to another. Tagged
   `TestCategory=Authorization`.
 
 ## Phase D — The page (Req 1, 2)
 
-- [ ] D1. A page listing entries newest first: date, the GM's note set apart, promoted
+- [x] D1. A page listing entries newest first: date, the GM's note set apart, promoted
   elements linking into the codex.
-- [ ] D2. Mark seen on dismiss or navigate-away, not on load.
-- [ ] D3. Nav entry, visible to every member.
-- [ ] D4. Empty state that reads as "nothing new", never as "nothing left".
-- [ ] D5. Live-app verification behind Auth0 — same rider as features 16, 17, and 21.
+- [x] D2. Mark seen on dismiss, not on load. Navigate-away marking not built — see above.
+- [x] D3. Nav entry, visible to every member.
+- [x] D4. Empty state that reads as "nothing new", never as "nothing left".
+- [ ] D5. Live-app verification behind Auth0 — same rider as features 16, 17, and 21. **Not run.**
 
 ## Phase E — The unseen count (Req 4)
 
