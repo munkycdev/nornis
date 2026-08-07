@@ -216,3 +216,17 @@ established: the test's subject is what the prompt contains, not what the model 
    latency dashboards.
 5. **Weights.** The initial constants are a starting guess, not a finding. They want one real
    world's worth of use before anyone defends a number.
+
+   **Answered 2026-08-06, against a real world.** Vespergale Reach returned 38 candidates
+   scoring 31 down to 2. The arithmetic explains it: every candidate was 12 days old, so
+   dormancy contributed almost nothing, and the world had no contradiction findings, so the
+   heaviest signal (0.40) contributed zero everywhere — capping the achievable score near 31.
+   The ordering was right; the magnitude read as "none of this matters".
+
+   The fix was display, not weights. `ConvergenceDisplay.RelativeFill` draws each ring
+   against the strongest candidate on show, so the top row is full, while the number stays
+   absolute and the colour stays keyed to it. Normalising the *number* was the tempting
+   version and the wrong one: it would show 100 for the best candidate of a world where
+   nothing is ready. A full ring in a muted colour is the honest reading — best available,
+   not urgent. The weights themselves are unchanged and still want a world with
+   contradictions in it before anyone defends them.
