@@ -90,91 +90,10 @@ else
                 <SessionWrapUpCard WorldId="Worlds.Current.Id" />
             }
 
-            @if (_loading)
-            {
-                <LoadingRows Rows="4" />
-            }
-            else
-            {
-                <div class="nornis-triptych">
-                    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-                        <div class="nornis-card-header">
-                            <span class="nornis-card-title">Active Storylines</span>
-                            <a href="/timeline" class="nornis-viewall">View all <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" /></a>
-                        </div>
-                        @if (_storylines.Count == 0)
-                        {
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">No storylines yet.</MudText>
-                        }
-                        @foreach (var item in _storylines)
-                        {
-                            <a href="@($"/artifacts/{item.Id}")" class="nornis-list-row nornis-list-link">
-                                <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /></div>
-                                <div class="nornis-list-body">
-                                    <div class="nornis-list-title">
-                                        <ArtifactTip Name="@item.Name" Summary="@item.Summary" />
-                                    </div>
-                                    <div class="nornis-list-sub">@item.Status</div>
-                                </div>
-                                @if (item.Status == "Dormant")
-                                {
-                                    <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Color="Color.Warning" Size="Size.Small" />
-                                }
-                            </a>
-                        }
-                    </MudPaper>
-
-                    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-                        <div class="nornis-card-header">
-                            <span class="nornis-card-title">Canon Updates</span>
-                        </div>
-                        @if (_canonFacts.Count == 0)
-                        {
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">No canon yet.</MudText>
-                        }
-                        @foreach (var fact in _canonFacts)
-                        {
-                            <a href="@($"/artifacts/{fact.ArtifactId}")" class="nornis-list-row nornis-list-link">
-                                <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Article" Size="Size.Small" /></div>
-                                <div class="nornis-list-body">
-                                    <div class="nornis-list-title">@fact.ArtifactName</div>
-                                    <div class="nornis-list-sub">@fact.Label@(fact.Detail is null ? "" : $": {fact.Detail}")</div>
-                                </div>
-                                <span class="nornis-list-meta">@RelativeTime.Ago(fact.UpdatedAt)</span>
-                            </a>
-                        }
-                    </MudPaper>
-
-                    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-                        <div class="nornis-card-header">
-                            <span class="nornis-card-title">Recent Codex Activity</span>
-                            <a href="/artifacts" class="nornis-viewall">View all <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" /></a>
-                        </div>
-                        @if (_recentArtifacts.Count == 0)
-                        {
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">The codex is empty so far.</MudText>
-                        }
-                        @foreach (var item in _recentArtifacts)
-                        {
-                            <a href="@($"/artifacts/{item.Id}")" class="nornis-list-row nornis-list-link">
-                                <div class="nornis-list-thumb"><MudIcon Icon="@ArtifactTypeDisplay.Icon(item.Type)" Size="Size.Small" /></div>
-                                <div class="nornis-list-body">
-                                    <div class="nornis-list-title">
-                                        <ArtifactTip Name="@item.Name" Summary="@item.Summary" />
-                                    </div>
-                                    <div class="nornis-list-sub">@item.Type · updated @RelativeTime.Ago(item.UpdatedAt)</div>
-                                </div>
-                                <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Color="Color.Tertiary" />
-                            </a>
-                        }
-                    </MudPaper>
-                </div>
-            }
+            <WorldDigestCard />
         </div>
 
         <div class="nornis-rail">
-            <WorldDigestCard />
-
             @if (_showAiAssessment)
             {
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
@@ -286,14 +205,10 @@ else
 }
 
 @code {
-    private bool _loading;
 
     // Ask the Loremaster — hands the typed question to the /ask conversation page.
     private string _question = string.Empty;
 
-    private IReadOnlyList<ArtifactListItem> _storylines = [];
-    private IReadOnlyList<ArtifactListItem> _recentArtifacts = [];
-    private IReadOnlyList<CanonEntry> _canonFacts = [];
     private IReadOnlyList<CanonEntry> _canonRelationships = [];
     private IReadOnlyList<ReviewProposal> _proposals = [];
 
@@ -391,40 +306,28 @@ else
 
         var id = Worlds.Current.Id;
         _dashboardWorldId = id;
-        _loading = true;
         StateHasChanged();
 
-        var storylinesTask = Api.GetStorylinesAsync(id);
-        var artifactsTask = Api.GetArtifactsAsync(id);
-        // One narrow ask, not two. The dashboard renders three of each kind, and asking per-kind
-        // in a single request keeps the payload small without paying for a second artifact load —
-        // that load dominates the endpoint's cost, so two requests were a net loss on the server
-        // even though the responses were tiny.
+        // Only the relationships are rendered now that the Canon Updates card is gone, but the
+        // request still asks for three facts: factLimit is a cap, and 0 is the kind of value that
+        // reads as "no limit" somewhere down the stack. Three unused rows cost less than guessing
+        // at a sentinel — see the third pre-implementation check.
         var canonTask = Api.GetCanonAsync(id, factLimit: 3, relationshipLimit: 3);
         var reviewTask = Api.GetReviewQueueAsync(id);
         var suggestionsTask = Api.GetAskSuggestionsAsync(id);
-        await Task.WhenAll(storylinesTask, artifactsTask, canonTask, reviewTask, suggestionsTask);
-
-        _storylines = (storylinesTask.Result.Value ?? []).Take(10).ToList();
+        await Task.WhenAll(canonTask, reviewTask, suggestionsTask);
 
         var suggestions = suggestionsTask.Result.Value;
         _suggestions = suggestions is { Count: > 0 }
             ? suggestions.Select(x => x.Text).ToList()
             : DefaultSuggestions;
 
-        _recentArtifacts = (artifactsTask.Result.Value ?? [])
-            .Where(a => a.Type != "Storyline")
-            .Take(4)
-            .ToList();
-
         // Already capped per kind by the request, so no client-side Take is needed.
         var canon = canonTask.Result.Value ?? [];
-        _canonFacts = canon.Where(c => c.Kind == "Fact").ToList();
         _canonRelationships = canon.Where(c => c.Kind == "Relationship").ToList();
 
         _proposals = reviewTask.Result.Value?.Proposals ?? [];
 
-        _loading = false;
         StateHasChanged();
 
         // Shared per-world fetch in WorldState (no-op if the sidebar already loaded it).
