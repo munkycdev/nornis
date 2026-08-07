@@ -216,6 +216,16 @@ build, which would make docker the constraint.
     the deploy unless `deploy` is made to need the coverage job. A floor that gates
     nothing and is checked after the fact is a trend line. That is a legitimate choice;
     it should just be the chosen one rather than the one that happened by default.
+    **Done 2026-08-07 — floors set.** Domain 96.8 line / 95.6 branch, Application 92.4 /
+    82.2: two points under the *minimum* observed on the current engine, not under the
+    latest run. Set earlier than the ~two-week plan because the wait was for evidence of
+    volatility and the evidence already existed — across 78 recorded runs and both engines
+    the largest movement in any of these four numbers is 0.4 points, and the 2-point margin
+    is five times that. The engine change reset the absolute values but not the volatility,
+    and volatility is what a floor has to survive. `enforcement` stays `alert`: a floor that
+    has never been seen failing is a claim, so the first thing to learn is whether it fires
+    under ordinary work. The PR-gate hole above is still the thing to settle before
+    flipping to `gate`.
 13. W1 accept-time summary maintenance — the review-vs-trusted policy decision and
     the summary prompt are the work. **Done 2026-08-05** on `w1-summary-maintenance`:
     trusted operation per ai-extraction.md's dated amendment, per-world review opt-in,
