@@ -408,30 +408,11 @@
         }
     }
 
-    private double Pct(DateTimeOffset date)
-    {
-        var total = (MaxDate - MinDate).TotalDays;
-        if (total <= 0)
-        {
-            return 50;
-        }
-        return Math.Clamp((date - MinDate).TotalDays / total * 100.0, 0, 100);
-    }
+    private double Pct(DateTimeOffset date) => TimeAxis.Percent(date, MinDate, MaxDate);
 
     private double CurrentPct => CurrentStop is { } s ? Pct(s.OccurredAt) : 0;
 
-    private IEnumerable<DateTimeOffset> MonthTicks
-    {
-        get
-        {
-            var tick = new DateTimeOffset(MinDate.Year, MinDate.Month, 1, 0, 0, 0, MinDate.Offset).AddMonths(1);
-            while (tick <= MaxDate)
-            {
-                yield return tick;
-                tick = tick.AddMonths(1);
-            }
-        }
-    }
+    private IEnumerable<DateTimeOffset> MonthTicks => TimeAxis.MonthTicks(MinDate, MaxDate);
 
     private string RangeLabel =>
         $"{Data.Stops[0].OccurredAt.ToString("MMM yyyy", CultureInfo.InvariantCulture)} – {Data.Stops[^1].OccurredAt.ToString("MMM yyyy", CultureInfo.InvariantCulture)}";
