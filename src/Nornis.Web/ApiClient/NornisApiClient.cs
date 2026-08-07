@@ -453,6 +453,10 @@ public class NornisApiClient
     public Task<ApiResult<ArtifactDetailDto>> GetArtifactAsync(Guid worldId, Guid artifactId, CancellationToken ct = default) =>
         GetAsync<ArtifactDetailDto>($"/api/worlds/{worldId}/artifacts/{artifactId}", ct);
 
+    /// <summary>GM-only: the world's hidden material, ranked by how ready it is to be revealed.</summary>
+    public Task<ApiResult<ConvergenceDto>> GetConvergenceAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<ConvergenceDto>($"/api/worlds/{worldId}/convergence", ct);
+
     /// <summary>GM-only: what removing this artifact from canon would delete.</summary>
     public Task<ApiResult<ArtifactRemovalPreview>> GetArtifactRemovalPreviewAsync(Guid worldId, Guid artifactId, CancellationToken ct = default) =>
         GetAsync<ArtifactRemovalPreview>($"/api/worlds/{worldId}/artifacts/{artifactId}/removal-preview", ct);

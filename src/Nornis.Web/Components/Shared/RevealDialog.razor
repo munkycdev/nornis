@@ -75,6 +75,13 @@
 
     [Parameter] public ArtifactDetailDto Detail { get; set; } = default!;
 
+    /// <summary>
+    /// Ticked on open. The convergence gauge sends the candidate it suggested so the GM lands on
+    /// the decision rather than on a blank checklist; everything else stays unticked, because a
+    /// suggestion that pre-selects its neighbours is making a choice the GM did not.
+    /// </summary>
+    [Parameter] public IReadOnlyCollection<Guid>? PreselectedIds { get; set; }
+
     private bool _revealArtifact;
     private readonly HashSet<Guid> _facts = [];
     private readonly HashSet<Guid> _relationships = [];
@@ -83,6 +90,15 @@
     private IReadOnlyList<Guid> _missing = [];
     private bool _busy;
     private string? _error;
+
+    protected override void OnInitialized()
+    {
+        var preselected = RevealPreselection.Match(Detail, PreselectedIds);
+
+        _revealArtifact = preselected.Artifact;
+        _facts.UnionWith(preselected.FactIds);
+        _relationships.UnionWith(preselected.RelationshipIds);
+    }
 
     private bool ArtifactIsGmOnly => Detail.Visibility == "GMOnly";
 

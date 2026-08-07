@@ -180,7 +180,11 @@ component is reported unavailable, and the ordering is still total.
 ## Error Handling
 
 - Non-GM → `403 insufficient_role`.
-- Unknown or non-member world → `404`, matching the rest of the world-scoped API.
+- ~~Unknown or non-member world → `404`, matching the rest of the world-scoped API.~~
+  **Corrected 2026-08-06 during phase C:** this was wrong about the house convention.
+  `WorldMemberActionFilter` answers a non-member `403` *regardless of whether the world exists*,
+  so the status cannot be used to probe for one — a stronger guarantee than the 404 written
+  here. The endpoint inherits it by carrying the filter.
 - No candidates → `200` with an empty list. An empty gauge is a fact about the world, not an
   error.
 - Phase 2 AI failure or budget exhaustion → `200` with the mechanical ranking and no
