@@ -18,6 +18,13 @@ env:
   RESOURCE_GROUP: rg-nornis
 
 jobs:
+  # Everything a push to main does, in one run. Coverage used to be its own workflow, which
+  # meant every push built the solution twice and ran all 3,210 tests twice — once to gate
+  # the rollout, once to produce a coverage file — on the same commit. The job graph gives
+  # what the split was protecting: `deploy` needs only test and build, so report generation
+  # can never hold up a rollout, and `coverage` reads the artifact the test job already
+  # produced instead of re-running anything.
+  #
   # Tests and image builds run in parallel; only the rollout below is gated on tests.
   # Images pushed for a failing commit are tagged but never deployed.
   test:
@@ -29,17 +36,45 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet restore Nornis.sln
       - run: dotnet build Nornis.sln --no-restore
+
+      # The only run of the suite on a push to main. Coverage is collected here rather than
+      # by a second workflow running the same tests again — the coverage job below reports
+      # on this artifact instead of rebuilding and re-running to produce its own copy.
       - run: >
           dotnet test --solution Nornis.sln --no-build
-          --report-trx --results-directory artifacts/test-results
+          --report-trx
+          --coverage --coverage-output-format cobertura
+          --coverage-settings codecoverage.runsettings
+          --results-directory artifacts/test-results
 
-      # TRX earns its keep on a red run, so upload it regardless of the step above.
+      # TRX earns its keep on a red run, so upload it regardless of the step above. This
+      # is also the coverage job's input, which is why it is not conditional on success.
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results
-          path: artifacts/test-results
+          # Named formats, not the whole directory: the coverage engine also writes each
+          # cobertura a second time under <host>/In/<machine>/, so uploading the tree ships
+          # every report twice and hands the next glob a duplicate of each project.
+          path: |
+            artifacts/test-results/*.trx
+            artifacts/test-results/*.cobertura.xml
           retention-days: 30
+
+  # Formatting is verified on pushes to main, not only on pull requests: ci.yml is
+  # `on: pull_request`, so a push to main never ran it and a dependency bump that widened
+  # an analyzer's reach could turn main red with nothing noticing until the next PR blamed
+  # the wrong change. Its own job, and deploy does not need it — a rollout must never wait
+  # on formatting.
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore Nornis.sln
+      - run: dotnet format Nornis.sln --verify-no-changes --no-restore
 
   build:
     runs-on: ubuntu-latest
@@ -160,3 +195,157 @@ jobs:
             echo ''
             echo '```'
           } >> $GITHUB_STEP_SUMMARY
+
+  # Reports on the suite the test job already ran; it builds nothing and runs no tests.
+  # `deploy` above does not list this job, so a coverage failure can never hold up a
+  # rollout — the guarantee the separate Coverage workflow used to buy by being separate.
+  # It does colour this run red, which is the deliberate trade: the deploy job's own status
+  # is the "did we ship" signal, and a floor breach or a broken report should be visible
+  # rather than filed away in a workflow nobody opens.
+  coverage:
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: write # append to the coverage-history branch
+      actions: read # download the test job's artifact
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: test-results
+          path: artifacts/coverage/raw
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - run: dotnet tool restore
+
+      - name: Generate reports
+        run: |
+          dotnet reportgenerator \
+            "-reports:artifacts/coverage/raw/*.cobertura.xml" \
+            "-targetdir:artifacts/coverage/report" \
+            "-reporttypes:Html;Cobertura;MarkdownSummaryGithub;JsonSummary" \
+            "-title:Nornis coverage" \
+            -verbosity:Warning
+          cat artifacts/coverage/report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      # The same floors the PR gate applies, on main. A PR gate alone would let a
+      # direct push — or a merge whose base moved underneath it — land below a floor
+      # and stay there unnoticed until the next PR blamed the wrong change.
+      - name: Coverage floors
+        shell: pwsh
+        run: ./scripts/coverage-gate.ps1
+
+      # Risk-weighted, where the coverage percentage above is not: this ranks methods by
+      # complexity against coverage, so an uncovered visibility branch and an uncovered
+      # DTO mapper stop looking like the same emergency. The list is the test-writing
+      # backlog. Never a gate — see the steering doc.
+      - name: CRAP hotspots
+        shell: pwsh
+        run: |
+          ./scripts/crap-report.ps1
+          Get-Content artifacts/coverage/crap.md | Add-Content $env:GITHUB_STEP_SUMMARY
+
+      # The exposure decision, enforced here rather than trusted: the full report embeds
+      # annotated source and stays an artifact. The published site gets aggregates only —
+      # not because the source is secret (the repo is public) but because a dashboard read
+      # at a glance should not be a source dump.
+      - name: Attach the full report
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: artifacts/coverage/report
+          retention-days: 30
+
+      # The authorization suite's size, charted beside coverage because it answers a
+      # different question: not what fraction of the code is exercised, but how much of a
+      # deliberately enumerated surface is nailed down. The count only goes up — every
+      # [auth]-flagged change adds to it — so a flat line is the signal, not a healthy number.
+      #
+      # Counted out of the TRX the tests already wrote. This used to re-run the suite under
+      # `--filter TestCategory=Authorization` purely to count what came back — a third
+      # execution of tests that had already run twice. The category is recorded per test in
+      # the TRX, so the filter run bought nothing the artifact did not already hold.
+      - name: Count the authorization suite
+        run: |
+          # grep over the XML rather than parsing it — the element is stable, and this step
+          # must never be the thing that fails the run.
+          count=$(grep -ho '<TestCategoryItem TestCategory="Authorization"' \
+            artifacts/coverage/raw/*.trx 2>/dev/null | wc -l | tr -d ' ')
+          echo "AUTH_SUITE_COUNT=${count:-0}" >> "$GITHUB_ENV"
+          echo "Authorization suite: ${count:-0} tests" >> "$GITHUB_STEP_SUMMARY"
+
+      # One file, one commit, no checkout dance: read the existing history straight out of
+      # the remote branch, append, and write a new commit with plumbing. The branch is an
+      # orphan and stays a single file, so nothing here needs a working tree.
+      - name: Append to the coverage history
+        run: |
+          entry=$(jq -c \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg sha "${GITHUB_SHA:0:7}" \
+            --argjson auth "${AUTH_SUITE_COUNT:-0}" '
+            {
+              date: $date,
+              sha: $sha,
+              authorizationTests: $auth,
+              line: .summary.linecoverage,
+              branch: .summary.branchcoverage,
+              assemblies: [.coverage.assemblies[] | {name: .name, line: .coverage, branch: .branchcoverage}]
+            }' artifacts/coverage/report/Summary.json)
+
+          # commit-tree writes a commit object directly, so it needs an identity just as
+          # `git commit` would — the runner has none by default.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git fetch origin coverage-history 2>/dev/null; then
+            git show FETCH_HEAD:history.json > old.json
+            parent="-p FETCH_HEAD"
+          else
+            echo '[]' > old.json
+            parent=""
+          fi
+
+          jq --argjson e "$entry" '. + [$e]' old.json > history.json
+
+          blob=$(git hash-object -w history.json)
+          tree=$(printf '100644 blob %s\thistory.json\n' "$blob" | git mktree)
+          # shellcheck disable=SC2086
+          commit=$(git commit-tree "$tree" $parent -m "Coverage for ${GITHUB_SHA:0:7}")
+          git push origin "$commit:refs/heads/coverage-history"
+
+      - name: Assemble the dashboard
+        run: |
+          mkdir -p _site
+          # Everything in ci/pages, not a list of extensions — the brand assets are part
+          # of the site, and a glob that names types silently drops whatever it forgot.
+          cp -r ci/pages/. _site/
+          cp history.json _site/history.json
+          # Method names only — no source, no line numbers. Consistent with the full
+          # report staying an artifact.
+          cp artifacts/coverage/crap.json _site/crap.json
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  # Split from coverage so a Pages misconfiguration cannot cost the run its history append
+  # or its report artifact. Needs Settings → Pages → Source: GitHub Actions; until that is
+  # set, this job is the only part that fails.
+  publish:
+    needs: coverage
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

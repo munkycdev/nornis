@@ -45,6 +45,32 @@ across this boundary (David accepted the reset — see item 12); and MTP fails a
 that matches zero filtered tests where VSTest warned, so the Authorization steps carry
 `--ignore-exit-code 8` for Worker.Tests, which has no authorization surface.
 
+**2026-08-07 — the pipeline was doing the same work three times.** A push to main ran
+the full suite twice (deploy.yml to gate the rollout, coverage.yml to produce a coverage
+file) and the authorization subset a third time, purely to count it. Three fixes, in
+order of what they bought:
+
+- **Api.Tests ran serially.** NUnit does not parallelize unless told to, and all 56
+  fixtures build a `WebApplicationFactory` host per test — 476 integration tests at a
+  ~200ms floor each, single file, three minutes of every pipeline, and a fifth of a
+  second added permanently by every new one. `[assembly: Parallelizable(ParallelScope.Fixtures)]`
+  takes it to 26s. Fixture scope, not test scope: each fixture already owns its factory
+  and a GUID-named database so fixtures cannot see each other, while tests inside one
+  keep the declaration order they were written against. Full suite 2m01s → 52s.
+- **Coverage stopped re-running the suite.** deploy.yml's test job emits cobertura
+  beside its TRX, and the coverage job reads that artifact. The two workflows became
+  one: `deploy` needs only test and build, so reporting still cannot hold up a rollout —
+  the guarantee the separate workflow existed to provide, now expressed as a job graph.
+  Formatting moved to its own non-gating job for the same reason.
+- **The authorization count came out of the TRX**, which records the category per test,
+  instead of a third `--filter TestCategory=Authorization` run. Verified identical: 324.
+
+Also fixed in passing: the coverage engine writes every cobertura twice (flat, and again
+under `<host>/In/<machine>/`), so the `**/*.cobertura.xml` globs were feeding
+ReportGenerator two copies of each project. Merging identical reports is idempotent, so
+no number was ever wrong — but the globs are now precise and the artifact is half the
+size.
+
 **Opus-ready, in order:**
 
 1. Test quality phase 1 — coverage collection + local report. Config and scripts only.
@@ -136,6 +162,17 @@ that matches zero filtered tests where VSTest warned, so the Authorization steps
     authenticates to prod.
 
 **Hold for Fable:**
+
+> **2026-08-07 — the model split is retired; read this heading as "not yet decided".**
+> The sorting rule at the top of this file assigned judgment work to Fable and mechanical
+> work to Opus. That rule did not survive contact with how the work actually went: Opus
+> executed W2's destructive merge guards and its asymmetric prompt bar, and has run every
+> item since. Nothing below is waiting on a model, and treating the heading as a gate cost
+> a session's worth of items being reported as blocked when they were not. What each one
+> actually waits on: **item 12** waits on *data* — two weeks of coverage history on the new
+> engine, which is a calendar, not a decision. **Item 18**, **AppError**, and the budget
+> guard wait on *David*, because they are product and taste calls rather than engineering
+> ones. **O3** waits on being attended, because it touches prod credentials.
 
 12. Test quality phase 4 (coverage floors) — **the mechanism landed 2026-08-03**;
     `coverage-thresholds.json` plus `scripts/coverage-gate.ps1`, running on PRs and on

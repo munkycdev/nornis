@@ -73,7 +73,10 @@ foreach ($project in $testProjects) {
     $output | Write-Host
 }
 
-$coverageFiles = Get-ChildItem $rawDir -Recurse -Filter '*.cobertura.xml' -ErrorAction SilentlyContinue
+# One level down — each project reports into its own subdirectory. Not -Recurse: the
+# coverage engine writes every cobertura a second time under <host>/In/<machine>/, and a
+# recursive sweep hands ReportGenerator a duplicate of each project.
+$coverageFiles = Get-ChildItem (Join-Path $rawDir '*') -Filter '*.cobertura.xml' -ErrorAction SilentlyContinue
 if (-not $coverageFiles) { throw 'No coverage files produced — nothing to report.' }
 
 Write-Host '== Merging into an HTML report…'
@@ -82,7 +85,7 @@ dotnet tool restore | Out-Null
 # asked for it and this did not, so the gate could not be run on a dev machine at all —
 # including its -Suggest mode, which exists precisely to be run by a person.
 dotnet reportgenerator `
-    "-reports:$(Join-Path $rawDir '**/*.cobertura.xml')" `
+    "-reports:$(Join-Path $rawDir '*/*.cobertura.xml')" `
     "-targetdir:$reportDir" `
     '-reporttypes:Html;Cobertura;JsonSummary' `
     '-title:Nornis coverage' `
