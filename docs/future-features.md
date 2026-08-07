@@ -186,6 +186,17 @@ size.
     Coverage engine, which counts auto-properties coverlet skipped — pre-06 history is
     not comparable. David accepted the reset; read the floors against history observed
     on the new engine only, which restarts the ~two-week clock from 2026-08-06.
+    **2026-08-07: a breach is an alert, not a gate** — `enforcement` in
+    `coverage-thresholds.json`, set to `alert`. Two knobs rather than one: null-vs-number
+    decides whether an assembly is *measured*, alert-vs-gate decides whether missing it
+    *stops work*, because "we want to know" and "we want to be stopped" are different
+    appetites and coverage is the metric where conflating them teaches people to route
+    around the pipeline. Flipping to `gate` is a one-word edit. One thing to weigh when
+    deciding: `ci.yml` is `on: pull_request` and this repo pushes straight to main — no
+    work item since W1 has opened a PR — so floors will only ever be evaluated *after*
+    the deploy unless `deploy` is made to need the coverage job. A floor that gates
+    nothing and is checked after the fact is a trend line. That is a legitimate choice;
+    it should just be the chosen one rather than the one that happened by default.
 13. W1 accept-time summary maintenance — the review-vs-trusted policy decision and
     the summary prompt are the work. **Done 2026-08-05** on `w1-summary-maintenance`:
     trusted operation per ai-extraction.md's dated amendment, per-world review opt-in,
