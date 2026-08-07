@@ -67,10 +67,11 @@
 
         <span class="nornis-editor-toolbar-sep"></span>
 
-        <MudMenu Dense="true" AnchorOrigin="Origin.BottomLeft">
+        <MudMenu Dense="true" AnchorOrigin="Origin.BottomLeft" @ref="_tableMenu">
             <ActivatorContent>
                 <MudTooltip Text="Table">
-                    <MudIconButton Icon="@Icons.Material.Filled.TableChart" Size="Size.Small" aria-label="Table" />
+                    <MudIconButton Icon="@Icons.Material.Filled.TableChart" Size="Size.Small" aria-label="Table"
+                                   OnClick="@(() => _tableMenu!.OpenMenuAsync(EventArgs.Empty))" />
                 </MudTooltip>
             </ActivatorContent>
             <ChildContent>
@@ -89,6 +90,8 @@
 </div>
 
 @code {
+    private MudMenu? _tableMenu;
+
     /// <summary>Markdown to load into the editor on first render.</summary>
     [Parameter] public string? InitialMarkdown { get; set; }
 

@@ -56,11 +56,13 @@
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_detail.Type</MudChip>
                     @if (Worlds.IsGm)
                     {
-                        <MudMenu Dense="true">
+                        <MudMenu Dense="true" @ref="_statusMenu">
                             <ActivatorContent>
                                 <MudTooltip Text="Change status">
+                                    @* ActivatorContent gets no click of its own in MudBlazor 9. *@
                                     <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ArtifactTypeDisplay.StatusColor(_detail.Status)"
-                                             Icon="@Icons.Material.Filled.ArrowDropDown">@_detail.Status</MudChip>
+                                             Icon="@Icons.Material.Filled.ArrowDropDown"
+                                             OnClick="@(() => _statusMenu!.OpenMenuAsync(EventArgs.Empty))">@_detail.Status</MudChip>
                                 </MudTooltip>
                             </ActivatorContent>
                             <ChildContent>
@@ -375,6 +377,8 @@
 </div>
 
 @code {
+    private MudMenu? _statusMenu;
+
     [Parameter] public Guid ArtifactId { get; set; }
 
     private bool _loading;

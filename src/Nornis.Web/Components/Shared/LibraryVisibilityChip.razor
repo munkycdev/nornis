@@ -7,11 +7,13 @@
 
 @if (Worlds.IsGm)
 {
-    <MudMenu Dense="true">
+    <MudMenu Dense="true" @ref="_menu">
         <ActivatorContent>
             <MudTooltip Text="Change who can see this">
+                @* ActivatorContent gets no click of its own in MudBlazor 9. *@
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@ChipColor"
-                         Icon="@Icons.Material.Filled.ArrowDropDown" Disabled="_saving">@Label</MudChip>
+                         Icon="@Icons.Material.Filled.ArrowDropDown" Disabled="_saving"
+                         OnClick="@(() => _menu!.OpenMenuAsync(EventArgs.Empty))">@Label</MudChip>
             </MudTooltip>
         </ActivatorContent>
         <ChildContent>
@@ -26,6 +28,8 @@ else if (IsGmOnly)
 }
 
 @code {
+    private MudMenu? _menu;
+
     [Parameter, EditorRequired] public LibraryDocumentDto Document { get; set; } = null!;
 
     /// <summary>Raised after a successful change so the page can reload its copy.</summary>

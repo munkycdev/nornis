@@ -4,9 +4,13 @@
     <div class="nornis-brand-tagline">Your world, remembered.</div>
 </a>
 
-<MudMenu AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter" Class="nornis-world-menu">
+@* MudBlazor 9 does not wire a click onto ActivatorContent — only the Label form renders a
+   button that opens itself. Any menu with custom activator content has to open itself, so the
+   @ref and the @onclick below are what make this clickable at all. *@
+<MudMenu AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter" Class="nornis-world-menu" @ref="_worldMenu">
     <ActivatorContent>
-        <div class="nornis-world @(Worlds.ViewingAsPlayer ? "nornis-world-viewas" : null)">
+        <div class="nornis-world @(Worlds.ViewingAsPlayer ? "nornis-world-viewas" : null)"
+             @onclick="OpenWorldMenuAsync">
             <MudIcon Icon="@Icons.Material.Outlined.Terrain" Class="nornis-world-icon" />
             <div class="flex-grow-1">
                 <div class="nornis-world-name">@(Worlds.Current?.Name ?? "No world")</div>
@@ -209,6 +213,11 @@ else
 @inject IJSRuntime JS
 
 @code {
+    private MudMenu? _worldMenu;
+
+    private Task OpenWorldMenuAsync() =>
+        _worldMenu?.OpenMenuAsync(EventArgs.Empty) ?? Task.CompletedTask;
+
     [Parameter]
     public EventCallback OnCollapse { get; set; }
 
