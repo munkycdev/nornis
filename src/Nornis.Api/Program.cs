@@ -239,6 +239,9 @@ builder.Services.AddScoped<IArtifactRemovalService, ArtifactRemovalService>();
 builder.Services.AddScoped<ISourceKnowledgeService, SourceKnowledgeService>();
 builder.Services.AddScoped<IFactRemovalService, FactRemovalService>();
 builder.Services.AddScoped<IRevealService, RevealService>();
+// Registered ahead of its endpoint (feature 21, phase C): the read model is complete and the
+// wiring is the part that gets forgotten between phases.
+builder.Services.AddScoped<IConvergenceGaugeService, ConvergenceGaugeService>();
 builder.Services.AddScoped<ICanonService, CanonService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<IContinuityAuditService, ContinuityAuditService>();
