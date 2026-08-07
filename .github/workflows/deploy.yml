@@ -31,9 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: 10.0.x
+      - uses: ./.github/actions/setup-dotnet
       - run: dotnet restore Nornis.sln
       - run: dotnet build Nornis.sln --no-restore
 
@@ -70,9 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: 10.0.x
+      - uses: ./.github/actions/setup-dotnet
       - run: dotnet restore Nornis.sln
       - run: dotnet format Nornis.sln --verify-no-changes --no-restore
 
@@ -218,9 +214,7 @@ jobs:
           name: test-results
           path: artifacts/coverage/raw
 
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: '10.0.x'
+      - uses: ./.github/actions/setup-dotnet
 
       - run: dotnet tool restore
 

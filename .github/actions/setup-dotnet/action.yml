@@ -1,0 +1,22 @@
+name: Set up .NET
+description: >
+  The SDK plus a warm NuGet cache. Four jobs across two workflows need both, and a cold
+  restore is 15s against roughly 3s warm — worth caching, but not worth four copies of the
+  same two steps drifting apart. Requires the repo to be checked out first.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: '10.0.x'
+
+    # Keyed on the files that decide what gets restored — every project file, the two
+    # Directory.Build.props that inject shared PackageReferences, and the tool manifest.
+    # restore-keys means a dependency bump warms from the previous cache and re-downloads
+    # only what actually changed, rather than starting from nothing.
+    - uses: actions/cache@v6
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props', 'tests/Directory.Build.props', '.config/dotnet-tools.json') }}
+        restore-keys: nuget-${{ runner.os }}-
