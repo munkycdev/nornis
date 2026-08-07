@@ -98,6 +98,32 @@ accepted facts") was never built. The audit's SummaryDrift category exists to
 
 ## W2 — whole-world duplicate sweep
 
+> **Done 2026-08-06** (branch `w2-duplicate-sweep`; judgment by Fable, execution finished
+> per the handoff spec in docs/plans/w2-handoff.md). The sixth category landed with three
+> decisions the spec's one bullet didn't spell out:
+>
+> - **The fix path buys nothing from the model.** A duplicate's merge needs the pair (the
+>   finding's own evidence) and a survivor (a counting question: more facts +
+>   relationships wins, tie to the older entry — the create-dedup path's "the original
+>   wins" — then Id). Asking a model for a fact we can count is spend without
+>   information, and it adds the one error that matters here: direction reversed. No AI
+>   call, no budget gate, and the rationale states the direction and why.
+> - **The prompt's bar is asymmetric by design.** Every other category is advisory; this
+>   one's fix archives an artifact. The prompt carries concrete negative examples (shared
+>   surnames, place-vs-faction, parent-vs-child, cross-type pairs) and the instruction
+>   that ambiguity means silence.
+> - **The applicator grew the guards this feature makes urgent** — self-merge (which
+>   deleted every relationship before archiving the artifact, reachable via an edited
+>   proposal) and archived-either-side. Cross-type merges stay allowed at the system
+>   level while the audit never proposes them: the AI's rule is stricter than the
+>   permission, deliberately. A schema↔enum drift test now spans the seam no compiler
+>   does — demonstrated red before green.
+>
+> Phase 2 (embedding candidate pairs) unbuilt, as the spec allowed — revisit if candidate
+> quality disappoints. Known gap recorded, not fixed: draft-fix has no idempotency mark
+> on the finding, so repeated clicks mint repeated Pending batches; pre-existing for all
+> categories, now slightly more consequential. No migration.
+
 Dedup runs only at ingest, against name-matched context — "Voss" and "Captain
 Voss" created three sessions apart survive forever, and no audit category looks
 for them. The machinery to *act* on duplicates exists end to end (`MergeArtifact`

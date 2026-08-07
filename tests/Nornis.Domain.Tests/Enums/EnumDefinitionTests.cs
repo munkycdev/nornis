@@ -134,6 +134,14 @@ public class EnumDefinitionTests
 
 
     [Test]
+    public void ContinuityFindingCategory_HasExpectedValues()
+    {
+        AssertEnumHasExactValues<ContinuityFindingCategory>(
+            "Contradiction", "DanglingThread", "StaleStoryline", "TimelineConflict",
+            "SummaryDrift", "DuplicateArtifact");
+    }
+
+    [Test]
     public void InviteStatus_HasExpectedValues()
     {
         AssertEnumHasExactValues<InviteStatus>("Active", "Revoked", "Expired", "Exhausted");

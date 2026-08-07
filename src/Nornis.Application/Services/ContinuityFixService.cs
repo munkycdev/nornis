@@ -135,6 +135,17 @@ public class ContinuityFixService : IContinuityFixService
                 new AppError(409, "finding_not_open", "Only open findings can be drafted against."));
         }
 
+        // A duplicate's fix is a merge, and a merge needs exactly two things: which pair,
+        // and which of them survives. The finding already names the pair, and the survivor is
+        // a counting question. So this branch buys nothing from the model — and buying a
+        // payload whose every field is already known would only add a way to get the
+        // direction backwards, which is the one error here that costs a piece of the record.
+        // No AI call, so no budget gate either.
+        if (finding.Category == ContinuityFindingCategory.DuplicateArtifact)
+        {
+            return await DraftDuplicateMergeAsync(worldId, actingUserId, finding, ct);
+        }
+
         var budgetError = await _budgetGuard.CheckAsync(worldId, ct);
         if (budgetError is not null)
             return AppResult<ContinuityFixDraft>.Fail(budgetError);
@@ -192,6 +203,99 @@ public class ContinuityFixService : IContinuityFixService
 
         return AppResult<ContinuityFixDraft>.Success(
             new ContinuityFixDraft(batchId, sourceId, drafts.Count));
+    }
+
+    // -------------------------------------------------------------------- Duplicate merge --
+
+    /// <summary>
+    /// Drafts the merge a DuplicateArtifact finding implies, without an AI call: the pair
+    /// comes from the finding's own evidence, and the direction is computed.
+    ///
+    /// The rule for which artifact survives is "the one carrying more of the record" — facts
+    /// plus relationships — because merging into the richer entry moves fewer rows and keeps
+    /// the better-established artifact's id in every reference that already points at it.
+    /// Ties go to the older entry, matching the create-dedup path's "the original wins", and
+    /// then to Id so the same pair always resolves the same way.
+    /// </summary>
+    private async Task<AppResult<ContinuityFixDraft>> DraftDuplicateMergeAsync(
+        Guid worldId, Guid actingUserId, ContinuityFinding finding, CancellationToken ct)
+    {
+        var (artifacts, facts, relationships) = await LoadFindingContextAsync(finding, ct);
+
+        // Exactly two live artifacts, both still mergeable. A pair that has since been merged
+        // (or half-deleted) leaves one side archived or missing, and the honest answer is to
+        // re-run rather than draft against a world that moved.
+        var pair = DeserializeEvidence(finding.EvidenceJson)
+            .Select(refId => ContinuityAuditService.TryParseRef(
+                ContinuityAuditService.NormalizeRefId(refId), out var kind, out var id) && kind == "artifact"
+                    ? id
+                    : (Guid?)null)
+            .Where(id => id is not null)
+            .Select(id => id!.Value)
+            .Distinct()
+            .Select(id => artifacts.FirstOrDefault(a => a.Id == id))
+            .Where(a => a is not null && a.Status != ArtifactStatus.Archived)
+            .Select(a => a!)
+            .ToList();
+
+        if (pair.Count != 2)
+        {
+            return AppResult<ContinuityFixDraft>.Fail(new AppError(409, "evidence_gone",
+                "A duplicate fix needs both artifacts, and this finding no longer cites two live ones. Re-run the assessment instead."));
+        }
+
+        int Weight(Artifact a) =>
+            facts.Count(f => f.ArtifactId == a.Id)
+            + relationships.Count(r => r.ArtifactAId == a.Id || r.ArtifactBId == a.Id);
+
+        var keep = pair
+            .OrderByDescending(Weight)
+            .ThenBy(a => a.CreatedAt)
+            .ThenBy(a => a.Id)
+            .First();
+        var fold = pair.Single(a => a.Id != keep.Id);
+
+        var payloadJson = JsonSerializer.Serialize(
+            new MergeArtifactPayload(fold.Id, null, null, null, null), PayloadJson);
+
+        // Through the same validator the review queue enforces: a code-built payload should
+        // never fail it, and if it ever does, that is the shape drifting, not a bad draft.
+        if (!_proposalValidator.ValidateProposedValue(payloadJson, ReviewChangeType.MergeArtifact).IsSuccess)
+        {
+            return AppResult<ContinuityFixDraft>.Fail(new AppError(500, "invalid_draft",
+                "The merge draft could not be validated."));
+        }
+
+        var draft = new DraftProposal(
+            ReviewChangeType.MergeArtifact,
+            ReviewTargetType.Artifact,
+            keep.Id,
+            payloadJson,
+            BuildMergeRationale(keep, fold, Weight(keep), Weight(fold)),
+            Confidence: null);
+
+        var (batchId, sourceId) = await PersistDraftsAsync(worldId, actingUserId, finding, [draft], ct);
+
+        return AppResult<ContinuityFixDraft>.Success(new ContinuityFixDraft(batchId, sourceId, 1));
+    }
+
+    /// <summary>
+    /// The reviewer's whole decision is "is this really one entity, and is it being folded the
+    /// right way", so the rationale states the direction and why it went that way — and calls
+    /// out a type mismatch, which is the shape a wrong pair most often takes.
+    /// </summary>
+    internal static string BuildMergeRationale(Artifact keep, Artifact fold, int keepWeight, int foldWeight)
+    {
+        var reason = keepWeight == foldWeight
+            ? "both carry the same amount of record, so the older entry is kept"
+            : $"it carries more of the record ({keepWeight} facts and relationships against {foldWeight})";
+
+        var note = keep.Type == fold.Type
+            ? string.Empty
+            : $" These are typed differently ({fold.Type} against {keep.Type}) — accept only if one of them was typed wrong.";
+
+        return $"\"{fold.Name}\" and \"{keep.Name}\" look like the same entity recorded twice. "
+            + $"Keeping \"{keep.Name}\" because {reason}; the other's facts, relationships and map pins move across and it is archived.{note}";
     }
 
     // ------------------------------------------------------------------------ Context load --

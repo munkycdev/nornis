@@ -195,6 +195,43 @@ public class ContinuityAuditServiceTests
     }
 
     [Test]
+    public async Task RunAssessment_DuplicateArtifactFinding_RoundTripsWithBothArtifactRefs()
+    {
+        // A duplicate finding is only actionable as a pair — the fix path reads BOTH
+        // artifact refs back out of the persisted evidence to draft the merge, so neither
+        // may be dropped between the model's answer and the record.
+        var twin = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = ArtifactType.Character,
+            Name = "Cpt. Voss",
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _artifactRepo.Seed(twin);
+        var twinRef = $"artifact:{twin.Id}";
+
+        _ai.SetupFindings(Finding(
+            category: "DuplicateArtifact",
+            summary: "Captain Voss and Cpt. Voss look like the same character recorded twice.",
+            evidence: [ArtifactRef, twinRef]));
+
+        var result = await _service.RunAssessmentAsync(_worldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        var finding = result.Value!.Findings.Single();
+        Assert.That(finding.Category, Is.EqualTo(nameof(ContinuityFindingCategory.DuplicateArtifact)));
+        Assert.That(finding.Evidence, Is.EqualTo([ArtifactRef, twinRef]));
+
+        var persisted = _assessmentRepo.Findings.Single();
+        Assert.That(persisted.Category, Is.EqualTo(ContinuityFindingCategory.DuplicateArtifact));
+        Assert.That(persisted.EvidenceJson, Does.Contain(_voss.Id.ToString()).And.Contain(twin.Id.ToString()));
+    }
+
+    [Test]
     public async Task RunAssessment_CapsAcceptedFindingsAt20()
     {
         var many = Enumerable.Range(0, 25).Select(_ => Finding(severity: "Low", evidence: [FactRef])).ToArray();

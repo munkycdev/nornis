@@ -527,6 +527,33 @@ public class ProposalApplicator : IProposalApplicator
             return AppResult<ApplyResult>.Fail(new AppError(404, "source_artifact_not_found", "Source artifact for merge not found."));
         var sourceArtifact = sourceResolution.Value!;
 
+        // Both merge paths converge here — the GM's merge button (through
+        // ArtifactMergeService) and an accepted MergeArtifact proposal — so this is where the
+        // rules about what may be merged have to live. ArtifactMergeService blocked the
+        // self-merge for its own callers; the proposal path did not, and a self-merge is not
+        // a no-op: the artifact ARCHIVES ITSELF below, disappearing from canon with all its
+        // facts still attached to it. An edited proposal could reach it.
+        if (sourceArtifact.Id == targetArtifact.Id)
+        {
+            return AppResult<ApplyResult>.Fail(new AppError(400, "invalid_merge",
+                "An artifact cannot be merged into itself."));
+        }
+
+        // An archived artifact is retired canon: merging INTO one moves live facts somewhere
+        // nothing reads, and merging FROM one re-archives an artifact whose facts have already
+        // moved. Either way the proposal was drafted against a world that has since changed —
+        // most likely someone merged this pair already.
+        if (targetArtifact.Status == ArtifactStatus.Archived || sourceArtifact.Status == ArtifactStatus.Archived)
+        {
+            return AppResult<ApplyResult>.Fail(new AppError(400, "invalid_merge",
+                "Archived artifacts cannot take part in a merge; this pair may already have been merged."));
+        }
+
+        // Deliberately NOT guarded: a cross-TYPE merge. Extraction mistypes an artifact often
+        // enough that folding a mistyped twin into the right one is real cleanup, and the type
+        // is the thing being corrected. The duplicate audit will not PROPOSE one (see
+        // ContinuityAuditService's DuplicateArtifact rules) — the AI's rule is stricter than
+        // the system's permission, which is the deliberate split, not an oversight.
 
         // Update target artifact fields from payload
         if (payload.Name is not null)

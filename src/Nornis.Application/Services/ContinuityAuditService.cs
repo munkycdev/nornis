@@ -63,6 +63,28 @@ public class ContinuityAuditService : IContinuityAuditService
           connect to — load-bearing but going nowhere.
         - TimelineConflict: events whose OccurredAt ordering contradicts what the facts imply.
         - SummaryDrift: an artifact whose summary no longer matches the facts now attached to it.
+        - DuplicateArtifact: two artifacts in the record that are the SAME entity written down
+          twice — "Voss" and "Captain Voss" created three sessions apart, the same tavern
+          entered once by name and once by description. Cite exactly two artifact refs, the
+          pair, and nothing else.
+
+        ## Duplicates — a higher bar than the rest
+        Every other finding costs a GM ten seconds of reading when it is wrong. A duplicate is
+        acted on by MERGING, which archives one artifact and moves its facts, relationships and
+        map pins onto the other, so a wrong one costs a piece of the record. Propose one only
+        when the two entries would be indistinguishable to someone who knew the world well.
+        These are NOT duplicates, however similar the names look:
+        - Two characters who share a surname, a title, or a first name — families and ranks
+          repeat ("Captain Voss" and "Mira Voss", two different Captains).
+        - A place and the group named after it (the port "Black Harbor" and the cartel
+          "Black Harbor"), or an item and the inn that hangs its sign.
+        - A parent and a child, a ship and its captain, an order and its founder.
+        - Two artifacts of different types, unless the facts make plain that one of them was
+          simply typed wrong.
+        - Two entries the record itself distinguishes anywhere — if any fact, relationship or
+          quote treats them as separate, they are separate.
+        When the record is merely ambiguous, say nothing: an unmerged duplicate is a tidy-up
+        the GM can do later, a wrong merge is not.
 
         ## Grounding rules — non-negotiable
         - Assess ONLY the record provided below. Do not invent problems, entities, or connections.
@@ -85,7 +107,7 @@ public class ContinuityAuditService : IContinuityAuditService
         ## Output
         Respond with a JSON object matching the schema: a "findings" array (0 to 20 items). Each
         finding has category (one of Contradiction, DanglingThread, StaleStoryline, TimelineConflict,
-        SummaryDrift), severity (High, Medium, Low), summary (one sentence), suggestedAction (a short
+        SummaryDrift, DuplicateArtifact), severity (High, Medium, Low), summary (one sentence), suggestedAction (a short
         concrete next step, or null), evidence (array of ref ids from the record), and artifactRef
         (a single ref id or null).
         """;
