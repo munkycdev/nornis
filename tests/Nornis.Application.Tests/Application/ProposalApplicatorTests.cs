@@ -400,6 +400,116 @@ public class ProposalApplicatorTests
         Assert.That(merged.Confidence, Is.EqualTo(0.95m));
     }
 
+    [Test]
+    public async Task MergeArtifact_SelfMerge_FailsAndLeavesRelationshipsAndStatusIntact()
+    {
+        // An edited proposal can point a merge at itself. Pre-guard, this path walked the
+        // artifact's relationships and then archived it — so a bare returns-an-error
+        // assertion is not enough; the record must be provably untouched.
+        var artifact = SeedArtifact("Captain Voss");
+        var other = SeedArtifact("Black Harbor", ArtifactType.Location);
+
+        var relationship = new ArtifactRelationship
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            ArtifactAId = artifact.Id,
+            ArtifactBId = other.Id,
+            Type = "LocatedIn",
+            TruthState = TruthState.Likely,
+            Visibility = VisibilityScope.PartyVisible,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
+            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1)
+        };
+        _relationshipRepo.Seed(relationship);
+
+        var payload = new MergeArtifactPayload(artifact.Id, null, null, null, null);
+        var proposal = MakeProposal(ReviewChangeType.MergeArtifact, payload, artifact.Id);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, VisibilityFilter.All, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
+        Assert.That(result.Error.Code, Is.EqualTo("invalid_merge"));
+
+        var survivingRel = _relationshipRepo.Relationships.Single(r => r.Id == relationship.Id);
+        Assert.That(survivingRel.ArtifactAId, Is.EqualTo(artifact.Id));
+        Assert.That(survivingRel.ArtifactBId, Is.EqualTo(other.Id));
+        Assert.That(_artifactRepo.Artifacts.Single(a => a.Id == artifact.Id).Status,
+            Is.EqualTo(ArtifactStatus.Active),
+            "a rejected self-merge must not archive the artifact");
+    }
+
+    [Test]
+    public async Task MergeArtifact_IntoArchivedTarget_FailsAndFactsDoNotMove()
+    {
+        // Merging INTO retired canon moves live facts somewhere nothing reads — most
+        // likely the pair was already merged and this proposal is stale.
+        var target = SeedArtifact("Captain Voss");
+        target.Status = ArtifactStatus.Archived;
+        var duplicate = SeedArtifact("Cpt. Voss");
+
+        var fact = SeedFact(duplicate.Id, TruthState.Confirmed);
+
+        var payload = new MergeArtifactPayload(duplicate.Id, null, null, null, null);
+        var proposal = MakeProposal(ReviewChangeType.MergeArtifact, payload, target.Id);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, VisibilityFilter.All, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
+        Assert.That(result.Error.Code, Is.EqualTo("invalid_merge"));
+        Assert.That(_factRepo.Facts.Single(f => f.Id == fact.Id).ArtifactId, Is.EqualTo(duplicate.Id),
+            "facts must not move onto an archived target");
+        Assert.That(_artifactRepo.Artifacts.Single(a => a.Id == duplicate.Id).Status,
+            Is.EqualTo(ArtifactStatus.Active));
+    }
+
+    [Test]
+    public async Task MergeArtifact_FromArchivedSource_Fails()
+    {
+        // Merging FROM an archived artifact re-archives one whose facts already moved.
+        var target = SeedArtifact("Captain Voss");
+        var duplicate = SeedArtifact("Cpt. Voss");
+        duplicate.Status = ArtifactStatus.Archived;
+
+        var payload = new MergeArtifactPayload(duplicate.Id, null, null, null, null);
+        var proposal = MakeProposal(ReviewChangeType.MergeArtifact, payload, target.Id);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, VisibilityFilter.All, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
+        Assert.That(result.Error.Code, Is.EqualTo("invalid_merge"));
+        Assert.That(_artifactRepo.Artifacts.Single(a => a.Id == target.Id).Name,
+            Is.EqualTo("Captain Voss"), "the target must be untouched by a rejected merge");
+    }
+
+    [Test]
+    public async Task MergeArtifact_CrossType_Succeeds()
+    {
+        // Deliberately permitted: extraction mistypes artifacts, and folding a mistyped
+        // twin into the right one is real cleanup — the type is the thing being corrected.
+        // The duplicate audit will never PROPOSE a cross-type merge; the AI's rule is
+        // stricter than the system's permission, and this pins the permission half.
+        var target = SeedArtifact("Black Harbor", ArtifactType.Location);
+        var mistyped = SeedArtifact("Black Harbor", ArtifactType.Faction);
+
+        var fact = SeedFact(mistyped.Id, TruthState.Confirmed);
+
+        var payload = new MergeArtifactPayload(mistyped.Id, null, null, null, null);
+        var proposal = MakeProposal(ReviewChangeType.MergeArtifact, payload, target.Id);
+
+        var result = await _applicator.ApplyAsync(proposal, _batch, _source, VisibilityFilter.All, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_factRepo.Facts.Single(f => f.Id == fact.Id).ArtifactId, Is.EqualTo(target.Id));
+        Assert.That(_artifactRepo.Artifacts.Single(a => a.Id == mistyped.Id).Status,
+            Is.EqualTo(ArtifactStatus.Archived));
+        Assert.That(_artifactRepo.Artifacts.Single(a => a.Id == target.Id).Type,
+            Is.EqualTo(ArtifactType.Location), "the surviving artifact keeps its own type");
+    }
+
     #endregion
 
     #region AddFact

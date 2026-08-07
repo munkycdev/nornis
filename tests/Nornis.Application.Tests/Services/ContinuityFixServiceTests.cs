@@ -135,7 +135,8 @@ public class ContinuityFixServiceTests
 
     private ContinuityFinding SeedFinding(
         Guid worldId, IReadOnlyList<string> evidence,
-        ContinuityFindingStatus status = ContinuityFindingStatus.Open)
+        ContinuityFindingStatus status = ContinuityFindingStatus.Open,
+        ContinuityFindingCategory category = ContinuityFindingCategory.Contradiction)
     {
         var assessment = new HealthAssessment
         {
@@ -149,7 +150,7 @@ public class ContinuityFixServiceTests
         {
             Id = Guid.NewGuid(),
             HealthAssessmentId = assessment.Id,
-            Category = ContinuityFindingCategory.Contradiction,
+            Category = category,
             Severity = ContinuityFindingSeverity.High,
             Summary = "Voss is in two places at once.",
             SuggestedAction = "Reconcile the location facts.",
@@ -408,5 +409,150 @@ public class ContinuityFixServiceTests
             raw, new ProposalValidator(), [_voss], [], []);
 
         Assert.That(drafts, Has.Count.EqualTo(ContinuityFixService.MaxProposals));
+    }
+
+    // -------------------------------------------------------------- Duplicate merge branch --
+
+    /// <summary>
+    /// One member of a duplicate pair: an active artifact whose merge weight is set by
+    /// <paramref name="factCount"/> and whose age is set by <paramref name="createdAt"/> —
+    /// the two axes the survivor rule ranks on.
+    /// </summary>
+    private Artifact SeedPairArtifact(
+        string name,
+        ArtifactType type = ArtifactType.Character,
+        DateTimeOffset? createdAt = null,
+        int factCount = 0)
+    {
+        var created = createdAt ?? DateTimeOffset.UtcNow.AddDays(-2);
+        var artifact = new Artifact
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = type,
+            Name = name,
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedAt = created,
+            UpdatedAt = created
+        };
+        _artifactRepo.Seed(artifact);
+        for (var i = 0; i < factCount; i++)
+        {
+            _factRepo.Seed(Fact(artifact.Id, $"detail-{i}", $"value-{i}"));
+        }
+
+        return artifact;
+    }
+
+    private ContinuityFinding SeedDuplicateFinding(Artifact a, Artifact b) =>
+        SeedFinding(_worldId, [$"artifact:{a.Id}", $"artifact:{b.Id}"],
+            category: ContinuityFindingCategory.DuplicateArtifact);
+
+    [Test]
+    public async Task DraftFix_Duplicate_DraftsTheMergeWithoutAnAiCallOrBudgetGate()
+    {
+        var a = SeedPairArtifact("Karvosti", factCount: 2);
+        var b = SeedPairArtifact("Karvosthi");
+        var finding = SeedDuplicateFinding(a, b);
+
+        // The stronger form of "the budget guard is not consulted": an exhausted budget
+        // must not block this branch, because it spends nothing.
+        _budgetGuard.Exceeded = true;
+
+        var result = await _service.DraftFixAsync(_worldId, finding.Id, _userId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_ai.CallCount, Is.EqualTo(0), "a duplicate's merge is computed, never bought");
+        Assert.That(result.Value!.ProposalCount, Is.EqualTo(1));
+
+        var batch = _batchRepo.Batches.Single(x => x.Id == result.Value.BatchId);
+        Assert.That(batch.Kind, Is.EqualTo(ReviewBatchKinds.ContinuityFix));
+        Assert.That(batch.Status, Is.EqualTo(ReviewBatchStatus.Pending));
+
+        var proposal = _proposalRepo.Proposals.Single();
+        Assert.That(proposal.ChangeType, Is.EqualTo(ReviewChangeType.MergeArtifact));
+        Assert.That(proposal.Status, Is.EqualTo(ReviewProposalStatus.Pending));
+    }
+
+    [Test]
+    public async Task DraftFix_Duplicate_KeepsTheRicherArtifact()
+    {
+        // The richer entry wins even against an older twin — weight outranks age.
+        var rich = SeedPairArtifact("Karvosti", factCount: 3);
+        var poor = SeedPairArtifact("Karvosthi", createdAt: DateTimeOffset.UtcNow.AddDays(-30), factCount: 1);
+        var finding = SeedDuplicateFinding(rich, poor);
+
+        var result = await _service.DraftFixAsync(_worldId, finding.Id, _userId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        var proposal = _proposalRepo.Proposals.Single();
+        Assert.That(proposal.TargetId, Is.EqualTo(rich.Id));
+        Assert.That(proposal.ProposedValueJson, Does.Contain($"\"sourceArtifactId\":\"{poor.Id}\""));
+    }
+
+    [Test]
+    public async Task DraftFix_Duplicate_TieGoesToTheOlder()
+    {
+        // Equal weight: the older entry is the original, matching the create-dedup rule.
+        var older = SeedPairArtifact("Karvosti", createdAt: DateTimeOffset.UtcNow.AddDays(-30), factCount: 1);
+        var newer = SeedPairArtifact("Karvosthi", createdAt: DateTimeOffset.UtcNow.AddDays(-1), factCount: 1);
+        var finding = SeedDuplicateFinding(newer, older);
+
+        var result = await _service.DraftFixAsync(_worldId, finding.Id, _userId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        var proposal = _proposalRepo.Proposals.Single();
+        Assert.That(proposal.TargetId, Is.EqualTo(older.Id));
+        Assert.That(proposal.ProposedValueJson, Does.Contain($"\"sourceArtifactId\":\"{newer.Id}\""));
+    }
+
+    [Test]
+    public async Task DraftFix_Duplicate_EvidenceGoneWhenAPairMemberIsArchivedOrMissing()
+    {
+        // One side archived means the pair was most likely merged already — drafting
+        // against the survivor and a ghost would re-litigate a settled merge.
+        var live = SeedPairArtifact("Karvosti");
+        var merged = SeedPairArtifact("Karvosthi");
+        merged.Status = ArtifactStatus.Archived;
+        var finding = SeedDuplicateFinding(live, merged);
+
+        var result = await _service.DraftFixAsync(_worldId, finding.Id, _userId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(409));
+        Assert.That(result.Error.Code, Is.EqualTo("evidence_gone"));
+        Assert.That(_batchRepo.Batches, Is.Empty);
+        Assert.That(_sourceRepo.Sources, Is.Empty);
+        Assert.That(_proposalRepo.Proposals, Is.Empty);
+    }
+
+    [Test]
+    public async Task DraftFix_Duplicate_CrossTypePair_RationaleWarnsTheReviewer()
+    {
+        // The system permits a cross-type merge (mistyped twins are real), but the
+        // reviewer must be told the pair disagrees on what kind of thing it is.
+        var character = SeedPairArtifact("Karvosti", factCount: 1);
+        var location = SeedPairArtifact("Karvosti", type: ArtifactType.Location);
+        var finding = SeedDuplicateFinding(character, location);
+
+        var result = await _service.DraftFixAsync(_worldId, finding.Id, _userId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_proposalRepo.Proposals.Single().Rationale, Does.Contain("typed differently"));
+    }
+
+    [Test]
+    public void BuildMergeRationale_StatesDirectionAndTheReasonForIt()
+    {
+        var keep = SeedPairArtifact("Karvosti");
+        var fold = SeedPairArtifact("Karvosthi");
+
+        var richer = ContinuityFixService.BuildMergeRationale(keep, fold, 3, 1);
+        Assert.That(richer, Does.Contain("Keeping \"Karvosti\""));
+        Assert.That(richer, Does.Contain("3 facts and relationships against 1"));
+
+        var tie = ContinuityFixService.BuildMergeRationale(keep, fold, 2, 2);
+        Assert.That(tie, Does.Contain("the older entry is kept"));
     }
 }

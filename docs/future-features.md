@@ -149,7 +149,10 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
     upserted row per world on the Home rail. Auto-trigger deferred; GM-invoked only.
     **Carries migration `AddWorldDigests` (additive) — apply before the deploy.**
 15. W2 duplicate sweep — after D2's merge fix lands; prompt/candidate-quality
-    judgment.
+    judgment. **Done 2026-08-06** on `w2-duplicate-sweep` (Fable judgment, execution per
+    docs/plans/w2-handoff.md — see the plan file's dated note for the three decisions;
+    the applicator's missing self-merge/archived guards were fixed as the callee-owned
+    defect this feature made urgent). No migration.
 16. D4 architectural items — ExtractionService split, prompt-seam convergence,
     shared synthetic-batch writer (which unblocks W4), AppError error-kind enum.
     **Three of four done 2026-08-04** on `d4-carving` (merged 2026-08-05, three commits —

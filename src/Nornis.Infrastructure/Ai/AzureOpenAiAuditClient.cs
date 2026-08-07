@@ -58,7 +58,7 @@ public class AzureOpenAiAuditClient : IAuditAiClient
                     "properties": {
                       "category": {
                         "type": "string",
-                        "enum": ["Contradiction", "DanglingThread", "StaleStoryline", "TimelineConflict", "SummaryDrift"]
+                        "enum": ["Contradiction", "DanglingThread", "StaleStoryline", "TimelineConflict", "SummaryDrift", "DuplicateArtifact"]
                       },
                       "severity": {
                         "type": "string",

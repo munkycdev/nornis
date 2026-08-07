@@ -130,6 +130,28 @@ public class ArtifactMergeServiceTests
     }
 
     [Test]
+    public async Task MergeAsync_ArchivedTarget_IsRejectedByTheApplicatorGuard()
+    {
+        // The merge service itself never inspects Status — the archived-either-side rule
+        // lives in ProposalApplicator.ApplyMergeArtifact, where both merge paths converge.
+        // This pins that the GM button path really is covered by that guard.
+        var duplicate = SeedArtifact("Karvosthi");
+        var target = SeedArtifact("Karvosti");
+        target.Status = ArtifactStatus.Archived;
+        SeedFact(duplicate.Id, "region", "Davokar");
+
+        var result = await _sut.MergeAsync(WorldId, duplicate.Id, target.Id, GmUserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
+        Assert.That(result.Error.Code, Is.EqualTo("invalid_merge"));
+        Assert.That(_factRepo.Facts.Single().ArtifactId, Is.EqualTo(duplicate.Id),
+            "facts must not move onto an archived target");
+        Assert.That(_artifactRepo.Artifacts.Single(a => a.Id == duplicate.Id).Status,
+            Is.EqualTo(ArtifactStatus.Active));
+    }
+
+    [Test]
     public async Task MergeAsync_MovesFactsArchivesDuplicateAndRecordsProvenance()
     {
         var duplicate = SeedArtifact("Karvosthi");
