@@ -76,8 +76,15 @@ public class RelationshipBackfillService : IRelationshipBackfillService
             return ExtractionOutcome.SkippedIdempotent("A relationship backfill batch already exists for this source.");
         }
 
+        // The world is checked, not trusted: the message carries the source and the world
+        // separately, and everything after this point reads the world's side of the pair —
+        // the candidate artifacts to link against, the budget to spend, and the account the
+        // spend is metered to. A message whose two halves disagree would propose links from
+        // one world's session text to another world's artifacts and bill a third party for
+        // the call. Not-found rather than a distinct failure: from outside this world, a
+        // source belonging to another one does not exist.
         var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
-        if (source is null)
+        if (source is null || source.WorldId != worldId)
         {
             return ExtractionOutcome.NonTransient(Ai.ErrorCategories.SourceNotFound, "Source not found.");
         }

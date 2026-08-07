@@ -63,7 +63,7 @@ public class ContinuityFixServiceTests
 
         var batchWriter = new SyntheticBatchWriter(
             _sourceRepo, _batchRepo, _proposalRepo, _sourceRefRepo,
-            new FakeProposalApplicator(), _unitOfWork);
+            new FakeProposalApplicator(), NoOpArtifactSummaryRefreshQueue.Instance, _unitOfWork);
 
         _service = new ContinuityFixService(
             _budgetGuard, _assessmentRepo, _artifactRepo, _factRepo, _relationshipRepo,
@@ -448,6 +448,29 @@ public class ContinuityFixServiceTests
     private ContinuityFinding SeedDuplicateFinding(Artifact a, Artifact b) =>
         SeedFinding(_worldId, [$"artifact:{a.Id}", $"artifact:{b.Id}"],
             category: ContinuityFindingCategory.DuplicateArtifact);
+
+    [Test]
+    public async Task DraftFix_Twice_RejectsTheSecondAndMintsOneBatch()
+    {
+        var a = SeedPairArtifact("Karvosti", factCount: 2);
+        var b = SeedPairArtifact("Karvosthi");
+        var finding = SeedDuplicateFinding(a, b);
+
+        var first = await _service.DraftFixAsync(_worldId, finding.Id, _userId, WorldRole.GM, CancellationToken.None);
+        Assert.That(first.IsSuccess, Is.True);
+
+        // A drafted fix leaves the finding Open — it is proposed, not applied — so the
+        // open-status gate lets a second click straight through to a second batch of the
+        // same proposals.
+        var second = await _service.DraftFixAsync(_worldId, finding.Id, _userId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(second.IsSuccess, Is.False);
+        Assert.That(second.Error!.StatusCode, Is.EqualTo(409));
+        Assert.That(second.Error.Code, Is.EqualTo("fix_already_drafted"));
+        Assert.That(_batchRepo.Batches.Count(x => x.Kind == ReviewBatchKinds.ContinuityFix), Is.EqualTo(1));
+        Assert.That(_proposalRepo.Proposals, Has.Count.EqualTo(1),
+            "the review queue should hold one merge to decide, not two identical ones");
+    }
 
     [Test]
     public async Task DraftFix_Duplicate_DraftsTheMergeWithoutAnAiCallOrBudgetGate()

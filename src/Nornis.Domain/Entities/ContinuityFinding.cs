@@ -34,6 +34,14 @@ public class ContinuityFinding
 
     public ContinuityFindingStatus Status { get; set; }
 
+    /// <summary>
+    /// The review batch a fix was drafted into, once one has been. A finding stays Open
+    /// while its drafted fix waits in the queue — the fix is proposed, not applied — so
+    /// status cannot answer "has this already been drafted against", and without an answer
+    /// every click of Draft fix minted another pending batch of the same proposals.
+    /// </summary>
+    public Guid? FixBatchId { get; set; }
+
     // Navigation properties
     public HealthAssessment HealthAssessment { get; set; } = null!;
 }

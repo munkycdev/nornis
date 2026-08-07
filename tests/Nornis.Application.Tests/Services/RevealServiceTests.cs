@@ -28,6 +28,7 @@ public class RevealServiceTests
     private InMemorySourceRepository _sourceRepo = null!;
     private InMemoryReviewBatchRepository _batchRepo = null!;
     private InMemoryReviewProposalRepository _proposalRepo = null!;
+    private FakeArtifactSummaryRefreshQueue _summaryRefreshQueue = null!;
     private InMemorySourceReferenceRepository _referenceRepo = null!;
     private ProposalApplicator _applicator = null!;
     private RevealService _sut = null!;
@@ -35,6 +36,7 @@ public class RevealServiceTests
     [SetUp]
     public void SetUp()
     {
+        _summaryRefreshQueue = new FakeArtifactSummaryRefreshQueue();
         _artifactRepo = new InMemoryArtifactRepository();
         _factRepo = new InMemoryArtifactFactRepository();
         _relationshipRepo = new InMemoryArtifactRelationshipRepository();
@@ -54,7 +56,7 @@ public class RevealServiceTests
     private RevealService BuildService(IProposalApplicator applicator, FakeUnitOfWork? unitOfWork = null) =>
         new(_artifactRepo, _factRepo, _relationshipRepo, _sourceRepo,
             new SyntheticBatchWriter(_sourceRepo, _batchRepo, _proposalRepo, _referenceRepo,
-                applicator, unitOfWork ?? new FakeUnitOfWork()),
+                applicator, _summaryRefreshQueue, unitOfWork ?? new FakeUnitOfWork()),
             NullLogger<RevealService>.Instance);
 
     // ---- authorization ----

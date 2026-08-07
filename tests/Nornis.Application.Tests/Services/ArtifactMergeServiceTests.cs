@@ -25,11 +25,13 @@ public class ArtifactMergeServiceTests
     private InMemorySourceRepository _sourceRepo = null!;
     private InMemoryReviewBatchRepository _batchRepo = null!;
     private InMemoryReviewProposalRepository _proposalRepo = null!;
+    private FakeArtifactSummaryRefreshQueue _summaryRefreshQueue = null!;
     private ArtifactMergeService _sut = null!;
 
     [SetUp]
     public void SetUp()
     {
+        _summaryRefreshQueue = new FakeArtifactSummaryRefreshQueue();
         _artifactRepo = new InMemoryArtifactRepository();
         _factRepo = new InMemoryArtifactFactRepository();
         _relationshipRepo = new InMemoryArtifactRelationshipRepository();
@@ -52,6 +54,7 @@ public class ArtifactMergeServiceTests
             _proposalRepo,
             referenceRepo,
             applicator,
+            _summaryRefreshQueue,
             new FakeUnitOfWork());
 
         _sut = new ArtifactMergeService(
@@ -104,6 +107,38 @@ public class ArtifactMergeServiceTests
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
         Assert.That(_artifactRepo.Artifacts.Single(a => a.Id == duplicate.Id).Status, Is.EqualTo(ArtifactStatus.Active));
+    }
+
+    [Test]
+    public async Task MergeAsync_RequestsASummaryRefreshForTheSurvivor()
+    {
+        // The survivor absorbs the duplicate's facts, so its summary now describes a world
+        // that no longer exists. Before the writer read the applicator's candidates, this
+        // path applied the merge and asked for nothing — the stale summary stood until some
+        // later review-queue accept happened to touch the same artifact.
+        var duplicate = SeedArtifact("Karvosthi");
+        var target = SeedArtifact("Karvosti");
+
+        var result = await _sut.MergeAsync(WorldId, duplicate.Id, target.Id, GmUserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_summaryRefreshQueue.Requests, Has.Count.EqualTo(1));
+        Assert.That(_summaryRefreshQueue.Requests[0].WorldId, Is.EqualTo(WorldId));
+        Assert.That(_summaryRefreshQueue.Requests[0].ArtifactIds, Does.Contain(target.Id),
+            "the artifact that survived the merge is the one whose summary is now wrong");
+    }
+
+    [Test]
+    public async Task MergeAsync_WhenTheMergeFails_RequestsNoRefresh()
+    {
+        // Nothing was written, so nothing is stale. The enqueue sits after the commit for
+        // exactly this case.
+        var duplicate = SeedArtifact("Karvosthi");
+
+        var result = await _sut.MergeAsync(WorldId, duplicate.Id, Guid.NewGuid(), GmUserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(_summaryRefreshQueue.Requests, Is.Empty);
     }
 
     [Test]

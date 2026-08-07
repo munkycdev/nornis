@@ -60,6 +60,7 @@ public class StorylineRetrospectiveServiceTests
             _proposalRepo,
             _sourceRefRepo,
             new FakeProposalApplicator(),
+            NoOpArtifactSummaryRefreshQueue.Instance,
             new FakeUnitOfWork());
 
         _sut = new StorylineRetrospectiveService(

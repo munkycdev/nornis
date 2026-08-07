@@ -62,6 +62,7 @@ public class RelationshipBackfillServiceTests
             _reviewProposalRepository,
             _sourceReferenceRepository,
             new FakeProposalApplicator(),
+            NoOpArtifactSummaryRefreshQueue.Instance,
             new FakeUnitOfWork());
 
         _sut = new RelationshipBackfillService(
@@ -200,6 +201,23 @@ public class RelationshipBackfillServiceTests
         var result = await _sut.ProcessBackfillAsync(Guid.NewGuid(), WorldId, CancellationToken.None);
 
         Assert.That(result.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
+    }
+
+    [Test]
+    public async Task SourceFromAnotherWorld_NonTransient_AndSpendsNothing()
+    {
+        // Everything past the source load reads the world half of the message: the artifacts
+        // to link against, the budget, and the account the call is billed to. A message whose
+        // halves disagree must stop here rather than propose one world's links against
+        // another's record.
+        var source = SeedProcessedSource(body: "The party returned to Karvosti.");
+        source.WorldId = Guid.NewGuid();
+
+        var result = await _sut.ProcessBackfillAsync(source.Id, WorldId, CancellationToken.None);
+
+        Assert.That(result.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
+        Assert.That(_aiClient.CallCount, Is.Zero);
+        Assert.That(_reviewBatchRepository.Batches, Is.Empty, "nothing about the other world's record was touched");
     }
 
     [Test]
