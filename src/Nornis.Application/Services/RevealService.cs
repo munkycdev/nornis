@@ -232,7 +232,10 @@ public class RevealService : IRevealService
                 Type = SourceType.Reveal,
                 Title = $"Reveal — {DateTimeOffset.UtcNow:yyyy-MM-dd}",
                 Body = BuildBody(command.Note, artifactsToReveal, factsToReveal.Count, relationshipsToReveal.Count, corrections.Count),
-                Visibility = VisibilityScope.PartyVisible
+                Visibility = VisibilityScope.PartyVisible,
+                // Also composed into the body above, for the ledger to read. Kept here
+                // structurally so the player-facing view never has to parse it back out.
+                RevealNote = string.IsNullOrWhiteSpace(command.Note) ? null : command.Note.Trim()
             },
             ReviewBatchKinds.Reveal,
             specs,

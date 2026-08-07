@@ -59,6 +59,16 @@ public class Source
     /// </summary>
     public string? DerivedText { get; set; }
 
+    /// <summary>
+    /// The GM's own words to the party when they made a reveal, kept apart from
+    /// <see cref="Body"/>. The body composes those words together with a list of what was
+    /// promoted, and the player-facing view needs the note without that list — recovering it by
+    /// splitting the body would make the composition format and a parsing format two copies of
+    /// one rule. Null on every source that is not a reveal, and on reveals made before this
+    /// existed.
+    /// </summary>
+    public string? RevealNote { get; set; }
+
     // Navigation properties
     public World World { get; set; } = null!;
 
