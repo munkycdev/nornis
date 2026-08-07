@@ -11,4 +11,5 @@ public record SourceActivityResponse(
     int Processing,
     int Failed,
     int PendingProposals,
-    bool PendingProposalsCapped);
+    bool PendingProposalsCapped,
+    int UnseenDisclosures);

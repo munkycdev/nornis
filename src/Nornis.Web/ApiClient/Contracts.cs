@@ -631,7 +631,8 @@ public record SourceActivity(
     int Processing,
     int Failed,
     int PendingProposals,
-    bool PendingProposalsCapped)
+    bool PendingProposalsCapped,
+    int UnseenDisclosures)
 {
     public int InFlight => Ready + Queued + Processing;
 }
@@ -916,6 +917,7 @@ public record LearnedElementDto(Guid Id, string Kind, string Name, string? Detai
 
 /// <summary><c>GmNote</c> is the GM's own words, never the composed source body.</summary>
 public record LearnedEntryDto(
+    string Kind,
     Guid SourceId,
     DateTimeOffset OccurredAt,
     string? GmNote,

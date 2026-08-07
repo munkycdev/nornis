@@ -1,5 +1,19 @@
 namespace Nornis.Application.Models;
 
+/// <summary>
+/// Why something is on this page. What the GM chose to tell the party is not the same event as
+/// what a session note happened to record, and the page must not blur them: one is an act of
+/// disclosure, the other is the record catching up.
+/// </summary>
+public enum LearnedEntryKind
+{
+    /// <summary>A GM deliberately disclosed this.</summary>
+    Disclosed,
+
+    /// <summary>This entered the party's record through ordinary extraction.</summary>
+    Recorded
+}
+
 /// <summary>One thing the party can now see, resolved at the time of reading.</summary>
 public sealed record LearnedElement(Guid Id, string Kind, string Name, string? Detail);
 
@@ -10,6 +24,8 @@ public sealed record LearnedElement(Guid Id, string Kind, string Name, string? D
 /// </summary>
 public sealed record LearnedEntry
 {
+    public required LearnedEntryKind Kind { get; init; }
+
     public required Guid SourceId { get; init; }
     public required DateTimeOffset OccurredAt { get; init; }
     public required string? GmNote { get; init; }

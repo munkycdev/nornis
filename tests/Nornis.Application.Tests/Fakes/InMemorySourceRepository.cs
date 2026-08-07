@@ -81,6 +81,22 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.FromResult(any);
     }
 
+    public Task<int> CountRevealsSinceAsync(
+        Guid worldId, DateTimeOffset? since, Guid requestingUserId, WorldRole role,
+        CancellationToken cancellationToken = default)
+    {
+        // Same shared rule, and the same date expression the real query uses, so this fake
+        // cannot disagree with production about which reveals a reader has left to see.
+        var canSee = SourceVisibilityRule.Compile(requestingUserId, role);
+
+        var count = _sources
+            .Where(s => s.WorldId == worldId && s.Type == SourceType.Reveal)
+            .Where(canSee)
+            .Count(s => since is not { } marker || (s.OccurredAt ?? s.CreatedAt) > marker);
+
+        return Task.FromResult(count);
+    }
+
     public Task<IReadOnlyDictionary<SourceProcessingStatus, int>> CountByStatusAsync(
         Guid worldId, Guid requestingUserId, WorldRole role, CancellationToken cancellationToken = default)
     {

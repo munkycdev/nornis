@@ -3944,3 +3944,10 @@ a.nornis-cite:hover {
 .nornis-learned-element-name {
     font-weight: 500;
 }
+
+.nornis-learned-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}

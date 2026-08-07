@@ -273,11 +273,136 @@ public class LearnedDigestServiceTests
 
     #endregion
 
+    #region The wider delta (phase F)
+
+    [Test]
+    public async Task ASessionsRecordedMaterialAppearsAlongsideDisclosures()
+    {
+        SeedReveal(Now.AddDays(-2), "The letter names him.", SeedArtifact("Captain Voss"));
+        SeedSession(Now.AddDays(-1), SeedArtifact("Black Harbor"));
+
+        var digest = (await Read()).Value!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(digest.Entries, Has.Count.EqualTo(2));
+            Assert.That(digest.Entries[0].Kind, Is.EqualTo(LearnedEntryKind.Recorded), "newest first");
+            Assert.That(digest.Entries[1].Kind, Is.EqualTo(LearnedEntryKind.Disclosed));
+        });
+    }
+
+    [Test]
+    public async Task RecordedMaterialCarriesNoGmNote()
+    {
+        // A session note is the record catching up, not the GM addressing the party. Rendering
+        // its body as a note would put words in their mouth.
+        SeedSession(Now.AddDays(-1), SeedArtifact("Black Harbor"));
+
+        var digest = (await Read()).Value!;
+
+        Assert.That(digest.Entries.Single().GmNote, Is.Null);
+    }
+
+    [Test]
+    public async Task AGmOnlySessionIsInvisibleToThePlayer()
+    {
+        var session = SeedSession(Now.AddDays(-1), SeedArtifact("A private place"));
+        session.Visibility = VisibilityScope.GMOnly;
+
+        var digest = (await Read()).Value!;
+
+        Assert.That(digest.Entries, Is.Empty);
+    }
+
+    [Test]
+    public async Task ASessionWhoseProposalsWereAllRejectedIsDropped()
+    {
+        // It recorded nothing, so there is nothing to have learned from it.
+        var artifact = SeedArtifact("Rejected thing");
+        SeedSession(Now.AddDays(-1), artifact);
+        foreach (var p in _proposalRepo.Proposals)
+        {
+            p.Status = ReviewProposalStatus.Rejected;
+        }
+
+        var digest = (await Read()).Value!;
+
+        Assert.That(digest.Entries, Is.Empty);
+    }
+
+    [Test]
+    public async Task HiddenMaterial_StillChangesNothing_AcrossTheCombinedView()
+    {
+        // Correctness Property 3, re-asserted now that the view carries both kinds (F3).
+        SeedReveal(Now.AddDays(-2), "The letter names him.", SeedArtifact("Captain Voss"));
+        SeedSession(Now.AddDays(-1), SeedArtifact("Black Harbor"));
+
+        var before = Describe((await Read()).Value!);
+
+        for (var i = 0; i < 8; i++)
+        {
+            var secret = SeedArtifact($"Secret {i}", VisibilityScope.GMOnly);
+            SeedFact(secret, $"hidden {i}", VisibilityScope.GMOnly);
+            SeedSession(Now.AddDays(-1), secret).Visibility = VisibilityScope.GMOnly;
+
+            // A GM-only session over material the party CAN see. Without this the property
+            // passes on element filtering alone and never exercises the source gate — which a
+            // red-check proved, so it is here on purpose.
+            SeedSession(Now.AddDays(-1), SeedArtifact($"Known place {i}")).Visibility =
+                VisibilityScope.GMOnly;
+        }
+
+        Assert.That(Describe((await Read()).Value!), Is.EqualTo(before));
+    }
+
+    #endregion
+
+    #region The unseen count (phase E)
+
+    [Test]
+    public async Task CountUnseen_CountsOnlyDisclosures()
+    {
+        SeedReveal(Now.AddDays(-2), "one", SeedArtifact("A"));
+        SeedSession(Now.AddDays(-1), SeedArtifact("B"));
+
+        var count = await _sut.CountUnseenAsync(WorldId, PlayerId, WorldRole.Player, CancellationToken.None);
+
+        // The badge announces that the GM told you something. A session being processed is not
+        // an event the party needs pulling back to the app for.
+        Assert.That(count.Value, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task CountUnseen_IsZeroOnceMarked()
+    {
+        SeedReveal(Now.AddDays(-2), "one", SeedArtifact("A"));
+        Member(PlayerId).LearnedSeenAt = Now;
+
+        var count = await _sut.CountUnseenAsync(WorldId, PlayerId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(count.Value, Is.Zero);
+    }
+
+    [Test]
+    public async Task CountUnseen_NeverPromisesMoreThanTheFirstViewWillShow()
+    {
+        for (var i = 0; i < LearnedDigestService.FirstViewLimit + 6; i++)
+        {
+            SeedReveal(Now.AddDays(-i - 1), $"r{i}", SeedArtifact($"E{i}"));
+        }
+
+        var count = await _sut.CountUnseenAsync(WorldId, PlayerId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(count.Value, Is.EqualTo(LearnedDigestService.FirstViewLimit));
+    }
+
+    #endregion
+
     #region Seeding
 
     private static string Describe(LearnedDigest digest) =>
         string.Join("|", digest.Entries.Select(e =>
-            $"{e.SourceId}:{e.GmNote}:{string.Join(",", e.Elements.Select(x => $"{x.Kind}/{x.Name}/{x.Detail}"))}"))
+            $"{e.Kind}:{e.SourceId}:{e.GmNote}:{string.Join(",", e.Elements.Select(x => $"{x.Kind}/{x.Name}/{x.Detail}"))}"))
         + $"|hasMore={digest.HasMore}";
 
     private WorldMember Member(Guid userId) =>
@@ -359,6 +484,54 @@ public class LearnedDigestServiceTests
         foreach (var artifact in artifacts)
         {
             AttachProposal(source, ReviewTargetType.Artifact, artifact.Id);
+        }
+
+        return source;
+    }
+
+    /// <summary>An ordinary session note and its extraction batch — the null Kind is what
+    /// distinguishes it from every synthetic batch.</summary>
+    private Source SeedSession(DateTimeOffset occurredAt, params Artifact[] artifacts)
+    {
+        var source = new Source
+        {
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Type = SourceType.SessionNote,
+            Title = $"Session — {occurredAt:yyyy-MM-dd}",
+            Body = "We questioned Captain Voss in Black Harbor.",
+            OccurredAt = occurredAt,
+            CreatedAt = occurredAt,
+            CreatedByUserId = GmId,
+            Visibility = VisibilityScope.PartyVisible,
+            ProcessingStatus = SourceProcessingStatus.Processed
+        };
+        _sourceRepo.CreateAsync(source, CancellationToken.None).GetAwaiter().GetResult();
+
+        var batch = new ReviewBatch
+        {
+            Id = Guid.NewGuid(),
+            SourceId = source.Id,
+            Kind = null,
+            Status = ReviewBatchStatus.Completed,
+            CreatedAt = occurredAt
+        };
+        _batchRepo.CreateAsync(batch, CancellationToken.None).GetAwaiter().GetResult();
+
+        foreach (var artifact in artifacts)
+        {
+            _proposalRepo.CreateAsync(new ReviewProposal
+            {
+                Id = Guid.NewGuid(),
+                ReviewBatchId = batch.Id,
+                ChangeType = ReviewChangeType.CreateArtifact,
+                TargetType = ReviewTargetType.Artifact,
+                TargetId = artifact.Id,
+                ProposedValueJson = "{}",
+                Rationale = "Extracted.",
+                Status = ReviewProposalStatus.Accepted,
+                CreatedAt = occurredAt
+            }, CancellationToken.None).GetAwaiter().GetResult();
         }
 
         return source;

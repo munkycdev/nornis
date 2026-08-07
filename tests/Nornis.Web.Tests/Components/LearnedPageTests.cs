@@ -83,6 +83,8 @@ public class LearnedPageTests : BunitContext
             Assert.That(cut.Markup, Does.Contain("The letter you found names the harbourmaster."));
             Assert.That(cut.Markup, Does.Contain("Captain Voss"));
             Assert.That(cut.Markup, Does.Contain("Mark as read"));
+            Assert.That(cut.Markup, Does.Contain("Your GM told you"),
+                "a disclosure and the record catching up are different events");
         }));
     }
 
@@ -119,7 +121,7 @@ public class LearnedPageTests : BunitContext
             {
                 var entries = HasEntries
                     ? $$"""
-                        [{"sourceId":"{{Guid.NewGuid()}}","occurredAt":"2026-08-05T00:00:00+00:00",
+                        [{"kind":"Disclosed","sourceId":"{{Guid.NewGuid()}}","occurredAt":"2026-08-05T00:00:00+00:00",
                           "gmNote":"The letter you found names the harbourmaster.",
                           "elements":[{"id":"{{Guid.NewGuid()}}","kind":"Artifact","name":"Captain Voss","detail":null}]}]
                         """

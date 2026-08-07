@@ -65,6 +65,7 @@ public class LearnedController : ControllerBase
         digest.Entries.Select(ToResponse).ToList());
 
     private static LearnedEntryResponse ToResponse(LearnedEntry entry) => new(
+        entry.Kind.ToString(),
         entry.SourceId,
         entry.OccurredAt,
         entry.GmNote,

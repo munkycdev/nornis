@@ -14,7 +14,7 @@
 <div class="nornis-page-head">
     <div>
         <MudText Typo="Typo.h4" Class="nornis-serif">What you learned</MudText>
-        <MudText Typo="Typo.body2" Color="Color.Secondary">Everything your GM has told the party since you last looked.</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Everything the party has learned since you last looked.</MudText>
     </div>
     @if (_learned is { Entries.Count: > 0 })
     {
@@ -62,9 +62,18 @@ else
     @foreach (var entry in _learned.Entries)
     {
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                @entry.OccurredAt.ToLocalTime().ToString("d MMMM yyyy")
-            </MudText>
+            <div class="nornis-learned-head">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    @entry.OccurredAt.ToLocalTime().ToString("d MMMM yyyy")
+                </MudText>
+                @* What the GM chose to tell you is not the same event as the record catching
+                   up, and the page says which without making the reader work it out. *@
+                <MudChip T="string" Size="Size.Small"
+                         Variant="@(entry.Kind == "Disclosed" ? Variant.Filled : Variant.Outlined)"
+                         Color="@(entry.Kind == "Disclosed" ? Color.Primary : Color.Default)">
+                    @(entry.Kind == "Disclosed" ? "Your GM told you" : "Recorded from a session")
+                </MudChip>
+            </div>
 
             @if (!string.IsNullOrWhiteSpace(entry.GmNote))
             {

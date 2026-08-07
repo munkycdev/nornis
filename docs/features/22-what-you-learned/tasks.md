@@ -3,8 +3,8 @@
 Ordered so the marker's contract and the no-leak property are provable before any pixels.
 Phase 1 ships independently of Phases 2 and 3.
 
-**Status: phases A–D built 2026-08-06.** The marker, the read model, the endpoints, and the
-page. Phases E (the unseen count) and F (the wider delta) remain, as does D5.
+**Status: phases A–F built 2026-08-06.** Only D5 (live verification behind Auth0) is
+outstanding.
 
 What the build changed from the spec:
 
@@ -22,6 +22,27 @@ What the build changed from the spec:
   D2 is actually for — not losing the list to an interruption. Recorded rather than done
   quietly.
 
+Phases E and F, and what they changed:
+
+- **The badge rides the existing activity poll rather than adding a second timer.**
+  `SourceActivity`'s own comment calls it the most frequently requested thing in the system
+  and forbids loading a row it does not count, so the count is a real aggregate
+  (`CountRevealsSinceAsync`) reusing `SourceVisibilityRule` — not the read model. The
+  controller composes the two services, so `SourceService` never learns about a member's
+  marker.
+- **Accepted consequence:** a reveal whose every element has since been archived is counted
+  by the badge and dropped from the page, so the badge can overcount in a case that requires
+  a whole disclosure to be retired. Recorded in the repository method's own comment.
+- **The badge counts disclosures only, not the wider delta.** "Your GM told you something"
+  is worth pulling someone back to the app for; "a session note finished processing" is not.
+- **Phase F reused the resolver rather than joining through SourceReference.** An extraction
+  batch's accepted proposals already name what it put into the record, exactly as a reveal's
+  do — the only difference is the batch Kind, which is null for extraction. One code path
+  now serves both, and the entry carries a Kind so the page can say which.
+- **Property 3 needed strengthening before it covered F.** As first written its hidden noise
+  was GM-only *artifacts*, which the element filter drops regardless — so removing the
+  source-level visibility gate left it green. It now includes a GM-only session over
+  party-visible material, and goes red on exactly that removal.
 ## Phase A — The marker (Req 3)
 
 - [x] A1. `WorldMember.LearnedSeenAt` (nullable `DateTimeOffset`) + additive migration.
@@ -69,15 +90,15 @@ What the build changed from the spec:
 
 ## Phase E — The unseen count (Req 4)
 
-- [ ] E1. `CountUnseenAsync` + `GET /api/worlds/{worldId:guid}/learned/count`.
-- [ ] E2. Nav badge, capped for display the way the review badge caps its own, absent at zero.
-- [ ] E3. Tests: the count obeys the party floor, and zero renders nothing.
+- [x] E1. `CountUnseenAsync` + `GET /api/worlds/{worldId:guid}/learned/count`.
+- [x] E2. Nav badge, capped for display the way the review badge caps its own, absent at zero.
+- [x] E3. Tests: the count obeys the party floor, and zero renders nothing.
 
 ## Phase F — The wider delta (Req 5)
 
-- [ ] F1. Party-visible knowledge arriving through ordinary extraction since the marker.
-- [ ] F2. Kept distinguishable from deliberate reveals in the read model and on the page.
-- [ ] F3. Property 3 re-asserted over the combined view.
+- [x] F1. Party-visible knowledge arriving through ordinary extraction since the marker.
+- [x] F2. Kept distinguishable from deliberate reveals in the read model and on the page.
+- [x] F3. Property 3 re-asserted over the combined view.
 
 ## Out of scope
 
