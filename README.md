@@ -157,13 +157,13 @@ and the AI paths fail with an explicit "not configured" message rather than a cr
 
 ```powershell
 dotnet build Nornis.sln
-dotnet test Nornis.sln
+dotnet test --solution Nornis.sln
 
 # One project
-dotnet test tests/Nornis.Application.Tests/
+dotnet test --project tests/Nornis.Application.Tests/
 
 # One fixture
-dotnet test tests/Nornis.Application.Tests/ --filter "FullyQualifiedName~LibraryServiceTests"
+dotnet test --project tests/Nornis.Application.Tests/ --filter "FullyQualifiedName~LibraryServiceTests"
 ```
 
 Warnings are errors ([`Directory.Build.props`](Directory.Build.props)), so a clean build is

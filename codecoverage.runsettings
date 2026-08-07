@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Coverage collection settings for Microsoft Code Coverage, the engine behind the
+  Microsoft.Testing.Platform coverage flag, shared by scripts/coverage.ps1 and CI. Successor to coverlet.runsettings, ported when the
+  test projects moved to Microsoft.Testing.Platform.
+
+  Coverage here is signal, not a gate — see .kiro/steering/testing-strategy.md and
+  docs/plans/test-quality.md.
+
+  The exclusions all serve one purpose: keep code nobody chooses to write out of the
+  denominator. Hand-written logic is what the number is supposed to describe.
+
+  2026-08-06, on the engine switch: coverlet's SkipAutoProps has NO equivalent here.
+  Entity and DTO auto-properties are back in the denominator, so the numbers shift from
+  every figure recorded before this date and are not comparable across the boundary.
+  Accepted deliberately — the phase-4 floors will be set from history observed on this
+  new basis, not carried over.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <CodeCoverage>
+            <!-- Product assemblies only. The exclude strips the test assemblies that the
+                 include's wildcard would otherwise sweep in alongside the product code. -->
+            <ModulePaths>
+              <Include>
+                <ModulePath>.*Nornis\..*\.dll$</ModulePath>
+              </Include>
+              <Exclude>
+                <ModulePath>.*\.Tests\.dll$</ModulePath>
+              </Exclude>
+            </ModulePaths>
+            <!-- EF-scaffolded migrations: generated en masse, never hand-edited. This
+                 engine filters by function name where coverlet filtered by type, so the
+                 namespace is expressed as a method-name prefix. -->
+            <Functions>
+              <Exclude>
+                <Function>^Nornis\.Infrastructure\.Migrations\..*</Function>
+              </Exclude>
+            </Functions>
+            <!-- Same three as before: tool-generated code, compiler plumbing, and code a
+                 human explicitly opted out in source. -->
+            <Attributes>
+              <Exclude>
+                <Attribute>^System\.CodeDom\.Compiler\.GeneratedCodeAttribute$</Attribute>
+                <Attribute>^System\.Runtime\.CompilerServices\.CompilerGeneratedAttribute$</Attribute>
+                <Attribute>^System\.Diagnostics\.CodeAnalysis\.ExcludeFromCodeCoverageAttribute$</Attribute>
+              </Exclude>
+            </Attributes>
+          </CodeCoverage>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

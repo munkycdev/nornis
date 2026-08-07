@@ -40,9 +40,9 @@ jobs:
 
       - name: Test with coverage
         run: >
-          dotnet test Nornis.sln --no-build
-          --settings coverlet.runsettings
-          --collect:"XPlat Code Coverage"
+          dotnet test --solution Nornis.sln --no-build
+          --coverage --coverage-output-format cobertura
+          --coverage-settings codecoverage.runsettings
           --results-directory artifacts/coverage/raw
 
       - run: dotnet tool restore
@@ -50,7 +50,7 @@ jobs:
       - name: Generate reports
         run: |
           dotnet reportgenerator \
-            "-reports:artifacts/coverage/raw/**/coverage.cobertura.xml" \
+            "-reports:artifacts/coverage/raw/**/*.cobertura.xml" \
             "-targetdir:artifacts/coverage/report" \
             "-reporttypes:Html;Cobertura;MarkdownSummaryGithub;JsonSummary" \
             "-title:Nornis coverage" \
@@ -91,10 +91,12 @@ jobs:
       # [auth]-flagged change adds to it — so a flat line is the signal, not a healthy number.
       - name: Count the authorization suite
         run: |
-          dotnet test --no-build --filter "TestCategory=Authorization" \
-            --logger "trx;LogFilePrefix=auth" --results-directory artifacts/auth || true
-          # LogFilePrefix, not LogFileName: with a fixed name every project overwrites the
-          # same file and the count silently becomes whichever project ran last.
+          # --ignore-exit-code 8: Worker.Tests matches zero authorization tests, which MTP
+          # treats as failure — same reasoning as the authorization step in ci.yml.
+          dotnet test --solution Nornis.sln --no-build --filter "TestCategory=Authorization" \
+            --ignore-exit-code 8 --report-trx --results-directory artifacts/auth || true
+          # The TRX reporter names each file after its test assembly, so the six projects
+          # cannot overwrite one another and the count stays a sum over all of them.
           # grep over the XML rather than parsing it — the attribute is stable, and this
           # step must never be the thing that fails the run.
           count=$(grep -ho 'executed="[0-9]*"' artifacts/auth/*.trx 2>/dev/null \

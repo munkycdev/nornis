@@ -1,0 +1,27 @@
+<Project>
+
+  <!-- The six test projects share one platform identity — NUnit executables on
+       Microsoft.Testing.Platform, with TRX and code-coverage reporting wired in. That
+       identity lives here, once, instead of six times: a seventh test project picks it
+       up by existing, and a platform change is one edit. -->
+
+  <!-- Directory.Build.props does not chain on its own: this file shadows the repo root
+       one, so import it explicitly or the tests lose TargetFramework, Nullable, and
+       TreatWarningsAsErrors. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..'))" />
+
+  <PropertyGroup>
+    <!-- NUnit3TestAdapter 6.x ships the Microsoft.Testing.Platform runner; this turns it
+         on. Test projects become self-contained executables (hence OutputType), which is
+         what lets `dotnet test` in MTP mode — and plain `dotnet run` — execute them
+         without VSTest. -->
+    <EnableNUnitRunner>true</EnableNUnitRunner>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.3.3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.9.0" />
+  </ItemGroup>
+
+</Project>

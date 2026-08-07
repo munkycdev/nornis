@@ -52,11 +52,10 @@ $results = [ordered]@{}
 foreach ($project in $testProjects) {
     $name = $project.BaseName
     Write-Host "-- $name"
-    $output = & dotnet test $project.FullName `
-        --settings (Join-Path $root 'coverlet.runsettings') `
-        --collect:'XPlat Code Coverage' `
-        --results-directory (Join-Path $rawDir $name) `
-        --nologo 2>&1
+    $output = & dotnet test --project $project.FullName `
+        --coverage --coverage-output-format cobertura `
+        --coverage-settings (Join-Path $root 'codecoverage.runsettings') `
+        --results-directory (Join-Path $rawDir $name) 2>&1
     if ($LASTEXITCODE -eq 0) {
         $results[$name] = 'passed'
         continue
@@ -74,7 +73,7 @@ foreach ($project in $testProjects) {
     $output | Write-Host
 }
 
-$coverageFiles = Get-ChildItem $rawDir -Recurse -Filter 'coverage.cobertura.xml' -ErrorAction SilentlyContinue
+$coverageFiles = Get-ChildItem $rawDir -Recurse -Filter '*.cobertura.xml' -ErrorAction SilentlyContinue
 if (-not $coverageFiles) { throw 'No coverage files produced — nothing to report.' }
 
 Write-Host '== Merging into an HTML report…'
@@ -83,7 +82,7 @@ dotnet tool restore | Out-Null
 # asked for it and this did not, so the gate could not be run on a dev machine at all —
 # including its -Suggest mode, which exists precisely to be run by a person.
 dotnet reportgenerator `
-    "-reports:$(Join-Path $rawDir '**/coverage.cobertura.xml')" `
+    "-reports:$(Join-Path $rawDir '**/*.cobertura.xml')" `
     "-targetdir:$reportDir" `
     '-reporttypes:Html;Cobertura;JsonSummary' `
     '-title:Nornis coverage' `

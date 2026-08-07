@@ -24,7 +24,7 @@ lesson is O1's, and it is already on the list: nothing verified the deploy actua
 landed.
 
 **Session bootstrap** (everything else a cold session needs): the bar is a clean
-`dotnet build Nornis.sln` (warnings are errors), full `dotnet test Nornis.sln` green,
+`dotnet build Nornis.sln` (warnings are errors), full `dotnet test --solution Nornis.sln` green,
 and `dotnet format` on touched files (CI verifies). If Api.Tests/Web.Tests binaries
 are file-locked, the local dev servers are running — test the other projects
 individually and say what you could not verify; never kill the servers. Branch per
@@ -32,6 +32,18 @@ work item, merge to main only when asked; a push to main deploys to production.
 Migrations are applied manually before the deploy that needs them
 (`dotnet ef database update --project src/Nornis.Infrastructure --startup-project
 src/Nornis.Api --connection "<prod>"`) and must stay additive.
+
+**2026-08-06 — the test platform moved to Microsoft.Testing.Platform** (branch
+`mtp-reporting`): SDK-10 runner via `global.json`, so the bar's test command is now
+`dotnet test --solution Nornis.sln` (single project: `--project <path>`; the bare
+positional form no longer works). TRX from every deploy run is uploaded as a CI
+artifact, red or green. Coverage collection moved from coverlet to the Microsoft Code
+Coverage engine (`codecoverage.runsettings` replaces `coverlet.runsettings`); the
+gate, dashboard, and history pipeline survived unchanged. Two consequences carried
+deliberately: coverlet's `SkipAutoProps` has no equivalent, so coverage numbers reset
+across this boundary (David accepted the reset — see item 12); and MTP fails a project
+that matches zero filtered tests where VSTest warned, so the Authorization steps carry
+`--ignore-exit-code 8` for Worker.Tests, which has no authorization surface.
 
 **Opus-ready, in order:**
 
@@ -132,7 +144,11 @@ src/Nornis.Api --connection "<prod>"`) and must stay additive.
     (collection started 2026-08-01, so around 2026-08-15). `-Suggest` proposes a floor two
     points under what the current run observed, and says so — the history on the
     `coverage-history` branch is what the number should actually be read against. Turning
-    the gate on is editing a number.
+    the gate on is editing a number. **2026-08-06: the baseline resets.** The MTP
+    migration (see the session-bootstrap note) swapped coverlet for the Microsoft Code
+    Coverage engine, which counts auto-properties coverlet skipped — pre-06 history is
+    not comparable. David accepted the reset; read the floors against history observed
+    on the new engine only, which restarts the ~two-week clock from 2026-08-06.
 13. W1 accept-time summary maintenance — the review-vs-trusted policy decision and
     the summary prompt are the work. **Done 2026-08-05** on `w1-summary-maintenance`:
     trusted operation per ai-extraction.md's dated amendment, per-world review opt-in,
