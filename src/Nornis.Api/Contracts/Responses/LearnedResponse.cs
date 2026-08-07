@@ -7,6 +7,7 @@ public record LearnedElementResponse(Guid Id, string Kind, string Name, string? 
 /// source body, which also lists counts of what was promoted.
 /// </summary>
 public record LearnedEntryResponse(
+    string Kind,
     Guid SourceId,
     DateTimeOffset OccurredAt,
     string? GmNote,

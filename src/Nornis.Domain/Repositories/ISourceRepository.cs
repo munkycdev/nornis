@@ -62,6 +62,22 @@ public interface ISourceRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// How many reveals this reader has not seen. An aggregate, because it feeds the nav badge
+    /// on the most frequently polled endpoint in the system — resolving each reveal to check it
+    /// still has something to show would answer six integers by loading half the world.
+    ///
+    /// The consequence, accepted: a reveal whose every element has since been archived is
+    /// counted here but dropped from the page, so the badge can overcount by one in a case that
+    /// requires a whole disclosure to be retired.
+    /// </summary>
+    Task<int> CountRevealsSinceAsync(
+        Guid worldId,
+        DateTimeOffset? since,
+        Guid requestingUserId,
+        WorldRole role,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// How many sources anywhere are waiting on the extraction worker (Queued or Processing).
     ///
     /// Deliberately unscoped by world, user or visibility, unlike everything else here: it

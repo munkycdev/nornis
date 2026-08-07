@@ -124,6 +124,31 @@ public class SourceRepository : ISourceRepository
         return counts.ToDictionary(c => c.Status, c => c.Count);
     }
 
+    public Task<int> CountRevealsSinceAsync(
+        Guid worldId,
+        DateTimeOffset? since,
+        Guid requestingUserId,
+        WorldRole role,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Sources
+            .AsNoTracking()
+            .Where(s => s.WorldId == worldId && s.Type == SourceType.Reveal)
+            // The shared expression, as CountByStatusAsync uses — the count and the list the
+            // page renders must not be able to disagree about who may see a source.
+            .Where(SourceVisibilityRule.CanSee(requestingUserId, role));
+
+        if (since is { } marker)
+        {
+            // Mirrors LearnedDigestService.SortDate, which no compiler spans: the service reads
+            // in memory and this reads in SQL, and a disagreement would count a reveal the page
+            // does not show.
+            query = query.Where(s => (s.OccurredAt ?? s.CreatedAt) > marker);
+        }
+
+        return query.CountAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<SourceAttribution>> ListAttributionByIdsAsync(
         IReadOnlyList<Guid> ids,
         Guid userId,

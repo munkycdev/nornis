@@ -19,6 +19,13 @@ public interface ILearnedDigestService
     /// <summary>Advances this member's marker. Never backwards, never into the future.</summary>
     Task<AppResult<DateTimeOffset>> MarkSeenAsync(
         Guid worldId, Guid actingUserId, DateTimeOffset seenThrough, CancellationToken ct);
+
+    /// <summary>
+    /// How many disclosures this member has not seen — an aggregate for the nav badge, never
+    /// the full read model. Counts what the reader may see and nothing else.
+    /// </summary>
+    Task<AppResult<int>> CountUnseenAsync(
+        Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct);
 }
 
 public class LearnedDigestService : ILearnedDigestService
@@ -69,8 +76,11 @@ public class LearnedDigestService : ILearnedDigestService
         // enforced by the same mechanism as everywhere else rather than by this remembering to.
         var filter = VisibilityFilter.ForRole(role, actingUserId);
 
-        var reveals = (await _sourceRepository.ListByWorldAsync(worldId, ct))
-            .Where(s => s.Type == SourceType.Reveal)
+        // Both kinds come from the same place: a source the reader may see, newer than their
+        // marker, whose accepted proposals name what it put into the record. A reveal promotes
+        // material that already existed; an extraction introduces new material. Chronological,
+        // because the reader's question is "what happened since I looked", not "what kind".
+        var sources = (await _sourceRepository.ListByWorldAsync(worldId, ct))
             .Where(s => filter.CanSee(s.Visibility, s.CreatedByUserId))
             .Where(s => seenThrough is null || SortDate(s) > seenThrough.Value)
             .OrderByDescending(SortDate)
@@ -78,27 +88,42 @@ public class LearnedDigestService : ILearnedDigestService
             .ToList();
 
         var limit = seenThrough is null ? FirstViewLimit : PageLimit;
-        var hasMore = reveals.Count > limit;
 
         var entries = new List<LearnedEntry>();
-        foreach (var reveal in reveals.Take(limit))
+        var considered = 0;
+
+        foreach (var source in sources)
         {
-            var elements = await ResolveAsync(reveal, filter, ct);
+            if (entries.Count >= limit)
+            {
+                break;
+            }
+
+            considered++;
+            var elements = await ResolveAsync(source, filter, ct);
 
             // An entry whose elements have all been archived or hidden since is dropped rather
             // than rendered empty: "the GM revealed something and it is gone" is exactly the gap
-            // that invites the question this view must not provoke.
-            if (elements.Count > 0)
+            // that invites the question this view must not provoke. The same rule retires a
+            // session note whose every proposal was rejected — it recorded nothing.
+            if (elements.Count == 0)
             {
-                entries.Add(new LearnedEntry
-                {
-                    SourceId = reveal.Id,
-                    OccurredAt = SortDate(reveal),
-                    GmNote = reveal.RevealNote,
-                    Elements = elements
-                });
+                continue;
             }
+
+            entries.Add(new LearnedEntry
+            {
+                Kind = source.Type == SourceType.Reveal
+                    ? LearnedEntryKind.Disclosed
+                    : LearnedEntryKind.Recorded,
+                SourceId = source.Id,
+                OccurredAt = SortDate(source),
+                GmNote = source.Type == SourceType.Reveal ? source.RevealNote : null,
+                Elements = elements
+            });
         }
+
+        var hasMore = sources.Count > considered;
 
         return AppResult<LearnedDigest>.Success(new LearnedDigest
         {
@@ -108,6 +133,21 @@ public class LearnedDigestService : ILearnedDigestService
             Entries = entries,
             HasMore = hasMore
         });
+    }
+
+    public async Task<AppResult<int>> CountUnseenAsync(
+        Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)
+    {
+        var member = await _memberRepository.GetByWorldAndUserAsync(worldId, actingUserId, ct);
+
+        var count = await _sourceRepository.CountRevealsSinceAsync(
+            worldId, member?.LearnedSeenAt, actingUserId, role, ct);
+
+        // A member who has never looked sees a bounded first view, so the badge must not promise
+        // more rows than the page will hand them.
+        var limit = member?.LearnedSeenAt is null ? FirstViewLimit : PageLimit;
+
+        return AppResult<int>.Success(Math.Min(count, limit));
     }
 
     public async Task<AppResult<DateTimeOffset>> MarkSeenAsync(
@@ -142,16 +182,23 @@ public class LearnedDigestService : ILearnedDigestService
     /// party-visible material appears" structural rather than a rule to remember.
     /// </summary>
     private async Task<IReadOnlyList<LearnedElement>> ResolveAsync(
-        Source reveal, VisibilityFilter filter, CancellationToken ct)
+        Source source, VisibilityFilter filter, CancellationToken ct)
     {
-        var batches = await _batchRepository.ListBySourceAsync(reveal.Id, ct);
-        var revealBatch = batches.FirstOrDefault(b => b.Kind == ReviewBatchKinds.Reveal);
-        if (revealBatch is null)
+        var batches = await _batchRepository.ListBySourceAsync(source.Id, ct);
+
+        // A reveal names its batch; an ordinary source's extraction batch is the one with no
+        // kind at all — that null is what the filtered unique index keys on, and it is the
+        // difference between "the GM told you" and "the record caught up".
+        var batch = source.Type == SourceType.Reveal
+            ? batches.FirstOrDefault(b => b.Kind == ReviewBatchKinds.Reveal)
+            : batches.FirstOrDefault(b => b.Kind is null);
+
+        if (batch is null)
         {
             return [];
         }
 
-        var proposals = (await _proposalRepository.ListByReviewBatchAsync(revealBatch.Id, ct))
+        var proposals = (await _proposalRepository.ListByReviewBatchAsync(batch.Id, ct))
             .Where(p => p.Status == ReviewProposalStatus.Accepted && p.TargetId is not null)
             .ToList();
 

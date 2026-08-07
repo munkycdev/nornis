@@ -17,10 +17,12 @@ namespace Nornis.Api.Controllers;
 public class SourcesController : ControllerBase
 {
     private readonly ISourceService _sourceService;
+    private readonly ILearnedDigestService _learnedService;
 
-    public SourcesController(ISourceService sourceService)
+    public SourcesController(ISourceService sourceService, ILearnedDigestService learnedService)
     {
         _sourceService = sourceService;
+        _learnedService = learnedService;
     }
 
     [HttpPost]
@@ -128,13 +130,19 @@ public class SourcesController : ControllerBase
 
         var activity = result.Value!;
 
+        // Composed here rather than inside SourceService: the badge counts belong together on
+        // one poll, but "how many disclosures has this reader not seen" is not a fact about
+        // sources, and SourceService has no business knowing about a member's marker.
+        var unseen = await _learnedService.CountUnseenAsync(worldId, user.Id, member.Role, ct);
+
         return Ok(new SourceActivityResponse(
             Ready: activity.Ready,
             Queued: activity.Queued,
             Processing: activity.Processing,
             Failed: activity.Failed,
             PendingProposals: activity.PendingProposals,
-            PendingProposalsCapped: activity.PendingProposalsCapped));
+            PendingProposalsCapped: activity.PendingProposalsCapped,
+            UnseenDisclosures: unseen.IsSuccess ? unseen.Value : 0));
     }
 
     [HttpGet("{sourceId:guid}")]
