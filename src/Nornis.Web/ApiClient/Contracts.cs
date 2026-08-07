@@ -869,3 +869,42 @@ public record ApiResult<T>(T? Value, ApiError? Error)
     public static ApiResult<T> Ok(T value) => new(value, null);
     public static ApiResult<T> Fail(ApiError error) => new(default, error);
 }
+
+// ------------------------------------------------------------- convergence gauge --
+
+/// <summary>
+/// The observations behind a candidate's score, and what they normalized to. The page renders
+/// phrases from the counts and never recomputes a component — the score arrives decided.
+/// </summary>
+public record ConvergenceComponentsDto(
+    int DaysHidden,
+    int PartyVisibleFactsOnAnchor,
+    int MissingArtifactCount,
+    bool IsSelfContained,
+    string? StorylineStatus,
+    string? ContradictionSeverity,
+    bool ContradictionAssessed,
+    double Dormancy,
+    double AnchorFamiliarity,
+    double SelfContainment,
+    double StorylineState,
+    double? ContradictionPressure);
+
+public record ConvergenceCandidateDto(
+    string Kind,
+    Guid Id,
+    Guid AnchorArtifactId,
+    string AnchorName,
+    string Description,
+    DateTimeOffset CreatedAt,
+    IReadOnlyList<Guid> MissingArtifactIds,
+    ConvergenceComponentsDto Components,
+    int Score);
+
+/// <summary><c>AssessmentId</c> is null when the world has never been assessed.</summary>
+public record ConvergenceDto(
+    Guid WorldId,
+    DateTimeOffset GeneratedAt,
+    Guid? AssessmentId,
+    int TotalCandidates,
+    IReadOnlyList<ConvergenceCandidateDto> Candidates);

@@ -3856,3 +3856,54 @@ a.nornis-cite:hover {
 .nornis-editor-ro .nornis-editor-content .ProseMirror {
     min-height: 0;
 }
+
+/* ---------------------------------------------------------- convergence gauge -- */
+
+.nornis-convergence-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--nornis-rule, rgba(0, 0, 0, 0.08));
+}
+
+.nornis-convergence-row:last-child {
+    border-bottom: none;
+}
+
+.nornis-convergence-score {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+}
+
+/* Centred inside the ring rather than beside it — the number and the arc are one figure. */
+.nornis-convergence-score-value {
+    position: absolute;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.nornis-convergence-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.nornis-convergence-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+@media (max-width: 600px) {
+    .nornis-convergence-row {
+        flex-wrap: wrap;
+    }
+
+    .nornis-convergence-body {
+        flex: 1 1 100%;
+        order: 3;
+    }
+}

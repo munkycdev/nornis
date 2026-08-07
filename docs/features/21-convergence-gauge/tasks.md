@@ -3,13 +3,19 @@
 Ordered so the scoring function is provable before anything queries it, and the read model is
 provable before any pixels. Phase 1 ships independently of Phase 2.
 
-**Status: phases A and B built 2026-08-06** — the score and the read model, with the service registered in DI ahead of its endpoint. Phases C–E remain.
+**Status: phases A–D built 2026-08-06** — the score, the read model, the endpoint, and the page. Phase E (narrated ordering) remains.
 
 Two things the build changed from the plan, recorded here rather than silently:
 
 - **A Private fact marked `TruthState.Hidden` was reaching the candidate set.** Writing the truth-state arm as an alternative to the visibility check let it past Requirement 1.3. The example tests covered Private and Hidden singly and never together; Correctness Property 2 found the pairing on its seventh generated world.
 - **The fact query is bounded by `MaxFactsPerArtifact`, and its truncation runs against this feature.** The repository returns the *newest* facts per artifact while dormancy ranks the *oldest*, so on an artifact holding more facts than the cap the gauge drops exactly the candidates it most wants. Set to 200, which no real artifact should reach. The fix, if one ever does, is a hidden-facts-by-world query rather than a larger number.
 - **`ConvergenceScore` reads no clock.** Days-hidden is passed in, matching the repo's prevailing `DateTimeOffset.UtcNow` idiom rather than introducing a second time abstraction for one service.
+
+Phases C and D added three more corrections:
+
+- **The design doc's `404` for a non-member world was wrong.** `WorldMemberActionFilter` answers `403` regardless of whether the world exists, which is a stronger guarantee — the status cannot be used to probe for a world. Corrected in the design doc with the original struck through.
+- **`RevealDialog` had no pre-selection parameter**, as flagged before the phase began. It takes one now, and the matching rule lives in `RevealPreselection` rather than in a lifecycle method: it is the contract between two features, and it drops an id that has stopped being GM-only since the gauge was read.
+- **The bUnit tests for that hand-off were deleted rather than kept.** `MudDialog` renders nothing without a cascading dialog instance, so the rendered tree had no checkboxes at all — the positive test failed and the two negative ones were passing on an empty document. Testing the extracted rule directly is both honest and stronger; the phrases have their own unit tests for the same reason.
 
 ## Phase A — The score (pure, no I/O)
 
@@ -42,21 +48,21 @@ Two things the build changed from the plan, recorded here rather than silently:
 
 ## Phase C — API (Req 1, 6)
 
-- [ ] C1. `ConvergenceResponse` and its nested DTOs in `Nornis.Api/Contracts/Responses`.
-- [ ] C2. `GET /api/worlds/{worldId:guid}/convergence`.
-- [ ] C3. Controller/authorization tests — non-GM 403, non-member 404, empty gauge 200. Tagged
+- [x] C1. `ConvergenceResponse` and its nested DTOs in `Nornis.Api/Contracts/Responses`.
+- [x] C2. `GET /api/worlds/{worldId:guid}/convergence`.
+- [x] C3. Controller/authorization tests — non-GM 403, non-member 404, empty gauge 200. Tagged
   `TestCategory=Authorization`.
 
 ## Phase D — The page (Req 2, 6)
 
-- [ ] D1. A GM-only page listing candidates highest first, each row rendering the component
+- [x] D1. A GM-only page listing candidates highest first, each row rendering the component
   phrases and the self-contained marker from the read model without recomputation.
-- [ ] D2. Row selection opens the existing reveal dialog with the candidate and its closure
+- [x] D2. Row selection opens the existing reveal dialog with the candidate and its closure
   pre-selected, submitting through `IRevealService.RevealAsync`.
-- [ ] D3. Nav entry, GM-only, alongside the other GM surfaces.
-- [ ] D4. bUnit tests for the row rendering and the pre-filled hand-off.
+- [x] D3. Nav entry, GM-only, alongside the other GM surfaces.
+- [x] D4. bUnit tests for the row rendering and the pre-filled hand-off.
 - [ ] D5. Live-app verification behind Auth0 — carries the same rider as features 16 and 17;
-  not runnable until the sign-in question is settled.
+  not runnable until the sign-in question is settled. **Not run.**
 
 ## Phase E — Narrated ordering (Req 7)
 

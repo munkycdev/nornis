@@ -1,0 +1,183 @@
+@page "/convergence"
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@using Nornis.Web.Services
+
+@* Convergence — the world's hidden material ranked by how ready it is to be revealed. Every
+   number arrives decided by the API; this page renders phrases and hands a row to RevealDialog. *@
+
+<PageTitle>Convergence — Nornis</PageTitle>
+
+<div class="nornis-page-head">
+    <div>
+        <MudText Typo="Typo.h4" Class="nornis-serif">Convergence</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">What the table is ready to learn.</MudText>
+    </div>
+    @if (_gauge is not null)
+    {
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Outlined.Refresh" OnClick="LoadAsync">
+            Recheck
+        </MudButton>
+    }
+</div>
+
+@if (Worlds.Current is null)
+{
+    <NoWorld />
+}
+else if (!Worlds.IsGm)
+{
+    <MudAlert Severity="Severity.Info">The convergence gauge is GM-only.</MudAlert>
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_gauge is null)
+{
+    <LoadingRows Rows="4" />
+}
+else if (_gauge.Candidates.Count == 0)
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+        <MudIcon Icon="@Icons.Material.Outlined.Visibility" Size="Size.Large" Class="nornis-comingsoon-icon" />
+        <MudText Typo="Typo.h5" Class="nornis-serif">Nothing is waiting</MudText>
+        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+            The party knows everything the record holds. Write a GM-only fact or mark a truth
+            hidden, and it will appear here when it is ready to disclose.
+        </MudText>
+    </MudPaper>
+}
+else
+{
+    @if (_gauge.AssessmentId is null)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+            This world has not been assessed, so contradictions are not part of these rankings.
+            Run a continuity assessment to include them.
+        </MudAlert>
+    }
+
+    @if (_gauge.TotalCandidates > _gauge.Candidates.Count)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+            Showing the top @_gauge.Candidates.Count of @_gauge.TotalCandidates.
+        </MudText>
+    }
+
+    <MudPaper Elevation="0" Class="nornis-card">
+        @foreach (var candidate in _gauge.Candidates)
+        {
+            <div class="nornis-convergence-row">
+                <div class="nornis-convergence-score">
+                    <MudProgressCircular Value="@candidate.Score" Min="0" Max="100"
+                                         Color="@ConvergenceDisplay.ScoreColor(candidate.Score)" Size="Size.Medium" StrokeWidth="4" />
+                    <span class="nornis-convergence-score-value">@candidate.Score</span>
+                </div>
+
+                <div class="nornis-convergence-body">
+                    <MudText Typo="Typo.subtitle2">@candidate.AnchorName</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@candidate.Description</MudText>
+                    <div class="nornis-convergence-chips">
+                        @foreach (var phrase in ConvergenceDisplay.Phrases(candidate))
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@phrase</MudChip>
+                        }
+                    </div>
+                </div>
+
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           Disabled="_busyId == candidate.Id"
+                           OnClick="@(() => OpenRevealAsync(candidate))">
+                    Reveal…
+                </MudButton>
+            </div>
+        }
+    </MudPaper>
+}
+
+@code {
+    private ConvergenceDto? _gauge;
+    private string? _error;
+    private Guid? _busyId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
+
+    private async Task LoadAsync()
+    {
+        if (Worlds.Current is null || !Worlds.IsGm)
+        {
+            _gauge = null;
+            _error = null;
+            StateHasChanged();
+            return;
+        }
+
+        _gauge = null;
+        _error = null;
+        StateHasChanged();
+
+        var result = await Api.GetConvergenceAsync(Worlds.Current.Id);
+        if (result.IsSuccess)
+        {
+            _gauge = result.Value!;
+        }
+        else
+        {
+            _error = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    private async Task OpenRevealAsync(ConvergenceCandidateDto candidate)
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _busyId = candidate.Id;
+        StateHasChanged();
+
+        // The dialog is artifact-scoped, so the anchor's detail is what it needs; the candidate
+        // arrives pre-ticked. Its own closure handling then covers whatever must come along,
+        // which is why this does not send MissingArtifactIds separately — one rule, one place.
+        var detail = await Api.GetArtifactAsync(Worlds.Current.Id, candidate.AnchorArtifactId);
+        _busyId = null;
+
+        if (!detail.IsSuccess)
+        {
+            Snackbar.Add(detail.Error!.Message, Severity.Error);
+            StateHasChanged();
+            return;
+        }
+
+        var parameters = new DialogParameters<RevealDialog>
+        {
+            { d => d.Detail, detail.Value! },
+            { d => d.PreselectedIds, new[] { candidate.Id } }
+        };
+
+        var dialog = await DialogService.ShowAsync<RevealDialog>("Reveal to the party", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is RevealOutcome outcome && outcome.Applied)
+        {
+            Snackbar.Add("Revealed to the party.", Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}
