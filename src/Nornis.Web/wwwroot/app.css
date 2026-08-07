@@ -3917,3 +3917,30 @@ a.nornis-cite:hover {
     font-style: italic;
     opacity: 0.9;
 }
+
+/* ------------------------------------------------------------ what you learned -- */
+
+/* The GM's own words, set apart from the record's — a player should be able to tell which
+   is which without reading either. */
+.nornis-learned-note {
+    margin: 8px 0 4px;
+    padding-left: 10px;
+    border-left: 3px solid var(--mud-palette-primary, #6750a4);
+}
+
+.nornis-learned-elements {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.nornis-learned-element {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.nornis-learned-element-name {
+    font-weight: 500;
+}

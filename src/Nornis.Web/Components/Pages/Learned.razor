@@ -1,0 +1,180 @@
+@page "/learned"
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+@using Nornis.Web.Services
+
+@* What you learned — the disclosures a GM has made to the party since this reader last looked.
+   Every member reaches it; it renders at the caller's own visibility, and it says nothing at
+   all about material that has not been disclosed. *@
+
+<PageTitle>What you learned — Nornis</PageTitle>
+
+<div class="nornis-page-head">
+    <div>
+        <MudText Typo="Typo.h4" Class="nornis-serif">What you learned</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Everything your GM has told the party since you last looked.</MudText>
+    </div>
+    @if (_learned is { Entries.Count: > 0 })
+    {
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Outlined.DoneAll"
+                   Disabled="_marking" OnClick="MarkSeenAsync">
+            @(_marking ? "Marking…" : "Mark as read")
+        </MudButton>
+    }
+</div>
+
+@if (Worlds.Current is null)
+{
+    <NoWorld />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_learned is null)
+{
+    <LoadingRows Rows="3" />
+}
+else if (_learned.Entries.Count == 0)
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+        <MudIcon Icon="@Icons.Material.Outlined.MarkEmailRead" Size="Size.Large" Class="nornis-comingsoon-icon" />
+        <MudText Typo="Typo.h5" Class="nornis-serif">Nothing new</MudText>
+        @* "Nothing new", never "nothing left" — this page must not imply anything about what
+           has or has not been withheld. *@
+        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+            You're up to date. When your GM shares something with the party, it will appear here.
+        </MudText>
+    </MudPaper>
+}
+else
+{
+    @if (_learned.HasMore)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+            Showing the most recent @_learned.Entries.Count.
+        </MudText>
+    }
+
+    @foreach (var entry in _learned.Entries)
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                @entry.OccurredAt.ToLocalTime().ToString("d MMMM yyyy")
+            </MudText>
+
+            @if (!string.IsNullOrWhiteSpace(entry.GmNote))
+            {
+                <MudText Typo="Typo.body1" Class="nornis-learned-note">@entry.GmNote</MudText>
+            }
+
+            <div class="nornis-learned-elements">
+                @foreach (var element in entry.Elements)
+                {
+                    <div class="nornis-learned-element">
+                        <MudIcon Icon="@ElementIcon(element.Kind)" Size="Size.Small" />
+                        <div>
+                            @if (element.Kind == "Artifact")
+                            {
+                                <MudLink Href="@($"/artifacts/{element.Id}")">@element.Name</MudLink>
+                            }
+                            else
+                            {
+                                <span class="nornis-learned-element-name">@element.Name</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(element.Detail))
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">@element.Detail</MudText>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </MudPaper>
+    }
+}
+
+@code {
+    private LearnedDto? _learned;
+    private string? _error;
+    private bool _marking;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
+
+    private async Task LoadAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            _learned = null;
+            _error = null;
+            StateHasChanged();
+            return;
+        }
+
+        _learned = null;
+        _error = null;
+        StateHasChanged();
+
+        var result = await Api.GetLearnedAsync(Worlds.Current.Id);
+        if (result.IsSuccess)
+        {
+            _learned = result.Value!;
+        }
+        else
+        {
+            _error = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Explicit, never on load. A reader who opens this page, is interrupted, and comes back
+    /// must still have the list — which is the whole reason the API does not mark on read.
+    /// </summary>
+    private async Task MarkSeenAsync()
+    {
+        if (Worlds.Current is null || _learned is null || _marking)
+        {
+            return;
+        }
+
+        // The newest entry's own date, not "now": marking up to now would also close anything
+        // the GM revealed between this page loading and the button being pressed.
+        var newest = _learned.Entries.Max(e => e.OccurredAt);
+
+        _marking = true;
+        StateHasChanged();
+
+        var result = await Api.MarkLearnedSeenAsync(Worlds.Current.Id, newest);
+        _marking = false;
+
+        if (result.IsSuccess)
+        {
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+            StateHasChanged();
+        }
+    }
+
+    private static string ElementIcon(string kind) => kind switch
+    {
+        "Artifact" => Icons.Material.Outlined.MenuBook,
+        "Fact" => Icons.Material.Outlined.Article,
+        _ => Icons.Material.Outlined.Hub
+    };
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}
