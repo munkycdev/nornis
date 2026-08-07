@@ -3,35 +3,41 @@
 Ordered so the scoring function is provable before anything queries it, and the read model is
 provable before any pixels. Phase 1 ships independently of Phase 2.
 
-**Status:** Not started. Phase 1 = requirements 1–6; Phase 2 = requirement 7.
+**Status: phases A and B built 2026-08-06** — the score and the read model, with the service registered in DI ahead of its endpoint. Phases C–E remain.
+
+Two things the build changed from the plan, recorded here rather than silently:
+
+- **A Private fact marked `TruthState.Hidden` was reaching the candidate set.** Writing the truth-state arm as an alternative to the visibility check let it past Requirement 1.3. The example tests covered Private and Hidden singly and never together; Correctness Property 2 found the pairing on its seventh generated world.
+- **The fact query is bounded by `MaxFactsPerArtifact`, and its truncation runs against this feature.** The repository returns the *newest* facts per artifact while dormancy ranks the *oldest*, so on an artifact holding more facts than the cap the gauge drops exactly the candidates it most wants. Set to 200, which no real artifact should reach. The fix, if one ever does, is a hidden-facts-by-world query rather than a larger number.
+- **`ConvergenceScore` reads no clock.** Days-hidden is passed in, matching the repo's prevailing `DateTimeOffset.UtcNow` idiom rather than introducing a second time abstraction for one service.
 
 ## Phase A — The score (pure, no I/O)
 
-- [ ] A1. `ConvergenceWeights` — the five weights and the familiarity floor as constants in one
+- [x] A1. `ConvergenceWeights` — the five weights and the familiarity floor as constants in one
   place, per Req 2.3.
-- [ ] A2. `ConvergenceScore` — a pure static taking the five component values and returning the
+- [x] A2. `ConvergenceScore` — a pure static taking the five component values and returning the
   total, applying familiarity as a multiplier over the weighted sum.
-- [ ] A3. Unit tests over A2: each component at 0 and 1, saturation boundaries, the familiarity
+- [x] A3. Unit tests over A2: each component at 0 and 1, saturation boundaries, the familiarity
   floor, and the ordering tiebreak (score → `CreatedAt` → `Id`).
-- [ ] A4. Property test for Correctness Property 5 — familiarity gates rather than adds.
+- [x] A4. Property test for Correctness Property 5 — familiarity gates rather than adds.
 
 ## Phase B — Candidate discovery and the read model (Req 1–5)
 
-- [ ] B1. Models in `Nornis.Application`: `ConvergenceGauge`, `ConvergenceCandidate`,
+- [x] B1. Models in `Nornis.Application`: `ConvergenceGauge`, `ConvergenceCandidate`,
   `ConvergenceComponents`, `ConvergenceCandidateKind`.
-- [ ] B2. `IConvergenceGaugeService` / `ConvergenceGaugeService.GetGaugeAsync` — GM gate,
+- [x] B2. `IConvergenceGaugeService` / `ConvergenceGaugeService.GetGaugeAsync` — GM gate,
   candidate query at `VisibilityFilter.All`, excluding `Private` and archived.
-- [ ] B3. Dormancy, anchor familiarity, and storyline-state components from the loaded entities.
-- [ ] B4. Self-containment via `RevealClosure.MissingArtifactDependencies`, called per candidate
+- [x] B3. Dormancy, anchor familiarity, and storyline-state components from the loaded entities.
+- [x] B4. Self-containment via `RevealClosure.MissingArtifactDependencies`, called per candidate
   — reused, not reimplemented (Req 3.3).
-- [ ] B5. Contradiction component from the latest `HealthAssessment`'s Open `Contradiction`
+- [x] B5. Contradiction component from the latest `HealthAssessment`'s Open `Contradiction`
   findings, matched on `ArtifactId` and resolved `EvidenceJson` ids; `null` when no assessment
   exists (Req 4.3).
-- [ ] B6. `ConvergenceGaugeServiceTests`: candidate selection (Private excluded, archived
+- [x] B6. `ConvergenceGaugeServiceTests`: candidate selection (Private excluded, archived
   excluded, already-visible excluded), each component's contribution, and the no-assessment
   path.
-- [ ] B7. Property tests for Correctness Properties 2 and 3.
-- [ ] B8. A test asserting Property 4 — the gauge's reported closure equals `RevealClosure`'s
+- [x] B7. Property tests for Correctness Properties 2 and 3.
+- [x] B8. A test asserting Property 4 — the gauge's reported closure equals `RevealClosure`'s
   for the same candidate.
 
 ## Phase C — API (Req 1, 6)
