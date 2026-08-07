@@ -18,10 +18,14 @@ namespace Nornis.Api.Controllers;
 public class ConvergenceController : ControllerBase
 {
     private readonly IConvergenceGaugeService _gaugeService;
+    private readonly IConvergenceNarrationService _narrationService;
 
-    public ConvergenceController(IConvergenceGaugeService gaugeService)
+    public ConvergenceController(
+        IConvergenceGaugeService gaugeService,
+        IConvergenceNarrationService narrationService)
     {
         _gaugeService = gaugeService;
+        _narrationService = narrationService;
     }
 
     /// <summary>Ranks the world's hidden material. GM-only.</summary>
@@ -32,6 +36,24 @@ public class ConvergenceController : ControllerBase
         var member = HttpContext.GetWorldMember();
 
         var result = await _gaugeService.GetGaugeAsync(worldId, user.Id, member.Role, ct);
+
+        return result.IsSuccess
+            ? Ok(ToResponse(result.Value!))
+            : result.Error!.ToActionResult();
+    }
+
+    /// <summary>
+    /// The same ranking with a sentence of timing beside its top candidates. GM-only, and it
+    /// spends: one AI call, budget-gated. Every failure returns the ranking unannotated rather
+    /// than an error, so this is never a worse answer than the GET.
+    /// </summary>
+    [HttpPost("narrate")]
+    public async Task<IActionResult> Narrate(Guid worldId, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _narrationService.NarrateAsync(worldId, user.Id, member.Role, ct);
 
         return result.IsSuccess
             ? Ok(ToResponse(result.Value!))
@@ -66,5 +88,6 @@ public class ConvergenceController : ControllerBase
             candidate.Components.SelfContainment,
             candidate.Components.StorylineState,
             candidate.Components.ContradictionPressure),
-        candidate.Score);
+        candidate.Score,
+        candidate.Rationale);
 }

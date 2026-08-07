@@ -3907,3 +3907,13 @@ a.nornis-cite:hover {
         order: 3;
     }
 }
+
+/* The AI's sentence, set apart from the record's own words so a GM can tell at a glance
+   which is which. */
+.nornis-convergence-why {
+    margin-top: 4px;
+    padding-left: 8px;
+    border-left: 2px solid var(--mud-palette-primary, #6750a4);
+    font-style: italic;
+    opacity: 0.9;
+}

@@ -453,6 +453,10 @@ public class NornisApiClient
     public Task<ApiResult<ArtifactDetailDto>> GetArtifactAsync(Guid worldId, Guid artifactId, CancellationToken ct = default) =>
         GetAsync<ArtifactDetailDto>($"/api/worlds/{worldId}/artifacts/{artifactId}", ct);
 
+    /// <summary>GM-only: the same ranking with a sentence of timing beside its top rows. Spends.</summary>
+    public Task<ApiResult<ConvergenceDto>> NarrateConvergenceAsync(Guid worldId, CancellationToken ct = default) =>
+        PostAsync<object?, ConvergenceDto>($"/api/worlds/{worldId}/convergence/narrate", null, ct);
+
     /// <summary>GM-only: the world's hidden material, ranked by how ready it is to be revealed.</summary>
     public Task<ApiResult<ConvergenceDto>> GetConvergenceAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<ConvergenceDto>($"/api/worlds/{worldId}/convergence", ct);

@@ -899,7 +899,8 @@ public record ConvergenceCandidateDto(
     DateTimeOffset CreatedAt,
     IReadOnlyList<Guid> MissingArtifactIds,
     ConvergenceComponentsDto Components,
-    int Score);
+    int Score,
+    string? Rationale);
 
 /// <summary><c>AssessmentId</c> is null when the world has never been assessed.</summary>
 public record ConvergenceDto(
