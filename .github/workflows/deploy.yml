@@ -29,7 +29,17 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet restore Nornis.sln
       - run: dotnet build Nornis.sln --no-restore
-      - run: dotnet test Nornis.sln --no-build
+      - run: >
+          dotnet test --solution Nornis.sln --no-build
+          --report-trx --results-directory artifacts/test-results
+
+      # TRX earns its keep on a red run, so upload it regardless of the step above.
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-results
+          path: artifacts/test-results
+          retention-days: 30
 
   build:
     runs-on: ubuntu-latest

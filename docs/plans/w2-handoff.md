@@ -124,7 +124,7 @@ callee-owned defect this feature made urgent). No migration."
 
 ## Task 4 — the bar, then stop
 
-`dotnet build Nornis.sln` (warnings are errors) → `dotnet test Nornis.sln` all green →
+`dotnet build Nornis.sln` (warnings are errors) → `dotnet test --solution Nornis.sln` all green →
 `dotnet format Nornis.sln --verify-no-changes` → clean worktree with explicit restore
 (`git worktree add --detach <tmp> w2-duplicate-sweep`, restore, build, test, format).
 Squash-or-keep: amend the WIP commit or add "W2: execution per handoff spec" on top —

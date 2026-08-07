@@ -24,7 +24,7 @@ docker compose -f compose.local.yaml down   # tear down
 
 ## coverage.ps1
 
-Runs the test projects with coverage collection (`coverlet.runsettings` at the repo
+Runs the test projects with coverage collection (`codecoverage.runsettings` at the repo
 root) and merges the results into a browsable HTML report under `artifacts/coverage/`
 (gitignored). ReportGenerator is pinned in `.config/dotnet-tools.json`, so local and CI
 runs share one version.

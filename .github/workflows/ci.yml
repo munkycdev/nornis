@@ -49,9 +49,9 @@ jobs:
       # from observed history rather than aspiration.
       - name: Test
         run: >
-          dotnet test --no-build
-          --settings coverlet.runsettings
-          --collect:"XPlat Code Coverage"
+          dotnet test --solution Nornis.sln --no-build
+          --coverage --coverage-output-format cobertura
+          --coverage-settings codecoverage.runsettings
           --results-directory artifacts/coverage/raw
 
       - name: Restore tools
@@ -64,7 +64,7 @@ jobs:
         continue-on-error: true
         run: |
           dotnet reportgenerator \
-            "-reports:artifacts/coverage/raw/**/coverage.cobertura.xml" \
+            "-reports:artifacts/coverage/raw/**/*.cobertura.xml" \
             "-targetdir:artifacts/coverage/summary" \
             "-reporttypes:MarkdownSummaryGithub;JsonSummary" \
             -verbosity:Warning
@@ -93,9 +93,14 @@ jobs:
       # still pass" is the first question worth answering about a red build. It re-runs
       # tests the previous step already ran; that is the price of a separate mark, and the
       # suite is a fraction of the whole.
+      # --ignore-exit-code 8: exit 8 is "this project matched zero tests", and Worker.Tests
+      # has no authorization surface — under VSTest that was a warning, under MTP it fails
+      # the run. Only 8 is ignored, so a genuine test failure (exit 2) still goes red. The
+      # residual risk — the category renames and every project matches zero, leaving a green
+      # tick on nothing — is what the coverage workflow's count chart exists to catch.
       - name: Authorization suite
         if: always()
-        run: dotnet test --no-build --filter "TestCategory=Authorization"
+        run: dotnet test --solution Nornis.sln --no-build --filter "TestCategory=Authorization" --ignore-exit-code 8
 
       # A real check since 2026-07-29: the tree was formatted in one mechanical commit and
       # .editorconfig no longer enforces line endings or BOMs (git owns those — the old rules
