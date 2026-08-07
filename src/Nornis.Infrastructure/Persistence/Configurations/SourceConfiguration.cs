@@ -19,6 +19,11 @@ public class SourceConfiguration : IEntityTypeConfiguration<Source>
         builder.Property(s => s.Body)
             .HasColumnType("nvarchar(max)");
 
+        // A GM's note to their party, not a document — bounded like Title rather than
+        // unbounded like Body.
+        builder.Property(s => s.RevealNote)
+            .HasMaxLength(2000);
+
         builder.Property(s => s.Uri)
             .HasMaxLength(2000);
 

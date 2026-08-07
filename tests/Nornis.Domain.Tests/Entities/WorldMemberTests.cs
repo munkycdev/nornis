@@ -77,7 +77,10 @@ public class WorldMemberTests
     [Test]
     public void WorldMember_Has_Expected_Property_Count()
     {
+        // 10 since 2026-08-06: LearnedSeenAt, how far this member has read the world's reveals
+        // (feature 22). The count is deliberately maintained by hand — a property added to a
+        // membership is a property every visibility decision may now depend on.
         var properties = _type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        Assert.That(properties, Has.Length.EqualTo(9));
+        Assert.That(properties, Has.Length.EqualTo(10));
     }
 }

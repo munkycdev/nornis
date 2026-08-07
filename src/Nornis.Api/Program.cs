@@ -243,6 +243,7 @@ builder.Services.AddScoped<IRevealService, RevealService>();
 // wiring is the part that gets forgotten between phases.
 builder.Services.AddScoped<IConvergenceGaugeService, ConvergenceGaugeService>();
 builder.Services.AddScoped<IConvergenceNarrationService, ConvergenceNarrationService>();
+builder.Services.AddScoped<ILearnedDigestService, LearnedDigestService>();
 builder.Services.AddScoped<ICanonService, CanonService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<IContinuityAuditService, ContinuityAuditService>();

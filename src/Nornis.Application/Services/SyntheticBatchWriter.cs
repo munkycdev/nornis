@@ -21,6 +21,9 @@ public sealed record SyntheticSourceSpec
     public required string Body { get; init; }
     public SourceType Type { get; init; } = SourceType.GMNote;
     public VisibilityScope Visibility { get; init; } = VisibilityScope.GMOnly;
+
+    /// <summary>Reveal only: the GM's words to the party, kept out of the composed body.</summary>
+    public string? RevealNote { get; init; }
 }
 
 /// <summary>
@@ -273,6 +276,7 @@ public class SyntheticBatchWriter
         Type = spec.Type,
         Title = spec.Title,
         Body = spec.Body,
+        RevealNote = spec.RevealNote,
         Visibility = spec.Visibility,
         ProcessingStatus = SourceProcessingStatus.Processed,
         CreatedAt = now,
