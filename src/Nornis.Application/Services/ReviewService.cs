@@ -311,16 +311,32 @@ public class ReviewService : IReviewService
 
     public Task<AppResult<AcceptProposalResult>> AcceptProposalAsync(
         AcceptProposalCommand command, CancellationToken ct) =>
-        AcceptProposalCoreAsync(command, allowCascade: true, ct);
+        AcceptProposalCoreAsync(command, CascadeScope.WholeBatch, ct);
 
     /// <summary>
-    /// <paramref name="allowCascade"/>: when a name-referenced accept fails because its
-    /// artifact only exists as a sibling Create proposal, accept those prerequisites and
-    /// retry once — so accept order within a batch never matters to the reviewer. The
-    /// retry and the prerequisites themselves run with cascading off (no loops).
+    /// Which sibling Create proposals an accept may pull in on the reviewer's behalf when the
+    /// payload names an artifact nothing resolves.
+    ///
+    /// <see cref="Selection"/> null means any sibling in the batch — a single accept speaks for
+    /// the whole card. Batch accept passes the ids the reviewer actually ticked: a name whose
+    /// Create is sitting in the same batch unticked is them declining to create it, and neither
+    /// accepting it anyway nor inventing a second artifact for the name is the pipeline's call.
+    /// </summary>
+    private sealed record CascadeScope(IReadOnlySet<Guid>? Selection)
+    {
+        public static CascadeScope WholeBatch { get; } = new((IReadOnlySet<Guid>?)null);
+
+        public bool Permits(Guid proposalId) => Selection is null || Selection.Contains(proposalId);
+    }
+
+    /// <summary>
+    /// <paramref name="cascade"/>: when a name-referenced accept fails because its artifact
+    /// only exists as a sibling Create proposal — or does not exist anywhere — walk the
+    /// recovery ladder and retry once. Null switches that off, and the retry, the
+    /// prerequisites and the creates the ladder makes all run with it null (no loops).
     /// </summary>
     private async Task<AppResult<AcceptProposalResult>> AcceptProposalCoreAsync(
-        AcceptProposalCommand command, bool allowCascade, CancellationToken ct)
+        AcceptProposalCommand command, CascadeScope? cascade, CancellationToken ct)
     {
         var loaded = await LoadAuthorizedProposalAsync(
             command.ProposalId, command.WorldId, command.ActingUserId, command.ActingUserRole, ct);
@@ -362,9 +378,9 @@ public class ReviewService : IReviewService
             {
                 await transaction.RollbackAsync(ct);
 
-                if (allowCascade && applyResult.Error!.Code == "artifact_name_not_found")
+                if (cascade is not null && applyResult.Error!.Code == "artifact_name_not_found")
                 {
-                    return await AcceptWithPrerequisitesAsync(command, proposal, batch, ct);
+                    return await AcceptWithPrerequisitesAsync(command, proposal, batch, cascade, ct);
                 }
 
                 return AppResult<AcceptProposalResult>.Fail(applyResult.Error!);
@@ -419,79 +435,294 @@ public class ReviewService : IReviewService
     }
 
     /// <summary>
-    /// The failed proposal references artifacts by name that don't exist yet. If the same
-    /// batch holds undecided Create proposals for those names, accept them first, then
-    /// retry the original — turning "accept its Create proposal first" from an error the
-    /// reviewer must untangle into something the pipeline just does.
+    /// The proposal names an artifact the apply could not resolve. Rather than handing the
+    /// reviewer a dead end and a payload to hand-edit, work down a ladder per unresolved name:
+    /// the batch's own undecided Create proposal for it, then whatever already looks like it,
+    /// then creating it.
+    ///
+    /// The middle rung stops rather than guesses, and that is the whole shape of this. Binding
+    /// "Kaelen" to canon's "Kaelen Vorr" is a judgment about whether two names are one thing,
+    /// which <see cref="ArtifactNameKey"/> deliberately leaves to a person; so a near match
+    /// becomes a question, and only a name nothing in the world resembles is created outright.
+    /// <see cref="AcceptProposalCommand.CreateMissingArtifact"/> is that person's answer coming
+    /// back.
     /// </summary>
     private async Task<AppResult<AcceptProposalResult>> AcceptWithPrerequisitesAsync(
-        AcceptProposalCommand command, ReviewProposal proposal, ReviewBatch batch, CancellationToken ct)
+        AcceptProposalCommand command, ReviewProposal proposal, ReviewBatch batch,
+        CascadeScope cascade, CancellationToken ct)
     {
+        var resolution = await ResolveMissingReferencesAsync(command, proposal, batch, cascade, ct);
+        if (!resolution.IsSuccess)
+        {
+            return AppResult<AcceptProposalResult>.Fail(resolution.Error!);
+        }
+
+        var retry = await AcceptProposalCoreAsync(command, cascade: null, ct);
+        var created = resolution.Value!;
+
+        return retry.IsSuccess && created.Count > 0
+            ? AppResult<AcceptProposalResult>.Success(retry.Value! with { CreatedMissingArtifactNames = created })
+            : retry;
+    }
+
+    /// <summary>
+    /// Walks the ladder for every artifact name the proposal references, and returns the names
+    /// it had to create. Everything here happens outside the accept's transaction — the caller
+    /// has already rolled that back — so a rung that lands is kept even if a later one fails.
+    /// </summary>
+    private async Task<AppResult<IReadOnlyList<string>>> ResolveMissingReferencesAsync(
+        AcceptProposalCommand command, ReviewProposal proposal, ReviewBatch batch,
+        CascadeScope cascade, CancellationToken ct)
+    {
+        var noWayForward = AppResult<IReadOnlyList<string>>.Fail(new AppError(404, "artifact_name_not_found",
+            "The proposal references an artifact that does not exist and is not proposed in this batch."));
+
         var referenced = ExtractReferencedArtifactNames(proposal.ProposedValueJson);
+        if (referenced.Count == 0)
+        {
+            return noWayForward;
+        }
+
+        // The accepter's own eyes, exactly as the apply used them: a name is "missing" only if
+        // it is missing from what this reviewer may see, or this would resolve names against
+        // artifacts they cannot be told about.
+        var actingFilter = VisibilityFilter.ForRole(command.ActingUserRole, command.ActingUserId);
         var siblings = await _reviewProposalRepository.ListByReviewBatchAsync(batch.Id, ct);
 
-        var prerequisites = siblings
-            .Where(s => s.ChangeType == ReviewChangeType.CreateArtifact
-                && s.Status is ReviewProposalStatus.Pending or ReviewProposalStatus.Edited
-                && ExtractCreateName(s.ProposedValueJson) is { } name
-                && referenced.Contains(name))
-            .ToList();
+        var prerequisites = new List<ReviewProposal>();
+        var missing = new List<string>();
 
-        if (prerequisites.Count == 0)
+        foreach (var name in referenced)
         {
-            // Nothing in the batch can satisfy the reference; surface the original error.
-            return AppResult<AcceptProposalResult>.Fail(new AppError(404, "artifact_name_not_found",
-                "The proposal references an artifact that does not exist and is not proposed in this batch."));
+            // A payload can name two artifacts (a relationship names both ends), and only one
+            // of them need be the problem. Creating the other would mint a duplicate.
+            var existing = await _artifactRepository.ListByEquivalentNameAsync(batch.WorldId, name, actingFilter, ct);
+            if (existing.Count > 0)
+            {
+                continue;
+            }
+
+            // Undecided first: a batch holding both a rejected and a still-open Create for the
+            // same name should follow the open one, not stop at the rejection.
+            var sibling = siblings
+                .Where(s => s.ChangeType == ReviewChangeType.CreateArtifact
+                    && ArtifactNameKey.AreEquivalent(ExtractCreateName(s.ProposedValueJson), name))
+                .OrderBy(s => s.Status is ReviewProposalStatus.Pending or ReviewProposalStatus.Edited ? 0 : 1)
+                .FirstOrDefault();
+
+            if (sibling?.Status is ReviewProposalStatus.Pending or ReviewProposalStatus.Edited)
+            {
+                // A Create for this very name is right there, undecided. Whether this accept
+                // may take it is the scope's business — but either way the ladder goes no
+                // further for this name: creating a second artifact beside a Create the
+                // reviewer is still thinking about is the one outcome nobody asked for.
+                if (!cascade.Permits(sibling.Id))
+                {
+                    return noWayForward;
+                }
+
+                prerequisites.Add(sibling);
+                continue;
+            }
+
+            // The reviewer rejected the Create for this very name. Creating it here would put
+            // back by the side door what they just threw away, so the automatic path stops —
+            // but an explicit CreateMissingArtifact is them changing their mind, out loud.
+            if (sibling?.Status == ReviewProposalStatus.Rejected && !command.CreateMissingArtifact)
+            {
+                return AppResult<IReadOnlyList<string>>.Fail(new AppError(409, "artifact_create_rejected",
+                    $"You rejected the proposal that would have created '{name}'. Point this proposal at an artifact you already have, or reject it too."));
+            }
+
+            missing.Add(name);
+        }
+
+        if (prerequisites.Count == 0 && missing.Count == 0)
+        {
+            return noWayForward;
+        }
+
+        if (missing.Count > 0 && !command.CreateMissingArtifact
+            && await DescribeNearMatchesAsync(batch.WorldId, missing, siblings, actingFilter, ct) is { } didYouMean)
+        {
+            return AppResult<IReadOnlyList<string>>.Fail(new AppError(404, "artifact_name_near_match", didYouMean));
         }
 
         foreach (var prerequisite in prerequisites)
         {
             var prereqResult = await AcceptProposalCoreAsync(
-                command with { ProposalId = prerequisite.Id }, allowCascade: false, ct);
+                command with { ProposalId = prerequisite.Id }, cascade: null, ct);
             if (!prereqResult.IsSuccess)
             {
-                return AppResult<AcceptProposalResult>.Fail(prereqResult.Error!);
+                return AppResult<IReadOnlyList<string>>.Fail(prereqResult.Error!);
             }
         }
 
-        return await AcceptProposalCoreAsync(command, allowCascade: false, ct);
+        foreach (var name in missing)
+        {
+            var createResult = await CreateAndAcceptMissingArtifactAsync(command, proposal, batch, name, ct);
+            if (!createResult.IsSuccess)
+            {
+                return AppResult<IReadOnlyList<string>>.Fail(createResult.Error!);
+            }
+        }
+
+        return AppResult<IReadOnlyList<string>>.Success(missing);
+    }
+
+    /// <summary>
+    /// The "did you mean…" sentence for whichever missing names resemble something the reviewer
+    /// already has or is about to have, or null when none of them do — which is the signal to
+    /// create instead of asking.
+    ///
+    /// Undecided sibling Creates count as things they are about to have. A batch proposing
+    /// "Cascade Character" while one of its facts says "Cascade" is the twin case exactly: the
+    /// name resolves to nothing, canon holds nothing, and creating it would produce the second
+    /// artifact five seconds before the first one exists.
+    ///
+    /// The world's artifacts are read once for all the names; this is the same whole-world read
+    /// the search bar does, and it only happens on the failure path.
+    /// </summary>
+    private async Task<string?> DescribeNearMatchesAsync(
+        Guid worldId,
+        IReadOnlyList<string> missing,
+        IReadOnlyList<ReviewProposal> siblings,
+        VisibilityFilter actingFilter,
+        CancellationToken ct)
+    {
+        var artifacts = await _artifactRepository.ListByWorldAsync(worldId, null, ct);
+
+        var proposedNames = siblings
+            .Where(s => s.ChangeType == ReviewChangeType.CreateArtifact
+                && s.Status is ReviewProposalStatus.Pending or ReviewProposalStatus.Edited)
+            .Select(s => ExtractCreateName(s.ProposedValueJson))
+            .OfType<string>()
+            .ToList();
+
+        var sentences = missing
+            .Select(name => new
+            {
+                Name = name,
+                Candidates = ArtifactNameCandidates.Rank(artifacts, name, actingFilter)
+                    .Select(a => a.Name)
+                    .Concat(proposedNames.Where(p => ArtifactNameCandidates.Resembles(p, name)))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(ArtifactNameCandidates.MaxCandidates)
+                    .ToList()
+            })
+            .Where(x => x.Candidates.Count > 0)
+            .Select(x => $"Nothing in your record is named '{x.Name}'. Did you mean {JoinNames(x.Candidates)}? Point the proposal at one of them, or create '{x.Name}'.")
+            .ToList();
+
+        return sentences.Count == 0 ? null : string.Join(" ", sentences);
+    }
+
+    private static string JoinNames(IEnumerable<string> names)
+    {
+        var list = names.Select(n => $"'{n}'").ToList();
+        return list.Count == 1
+            ? list[0]
+            : $"{string.Join(", ", list.Take(list.Count - 1))} or {list[^1]}";
+    }
+
+    /// <summary>
+    /// Adds a CreateArtifact proposal for a name nothing in the world answers to, and accepts
+    /// it, so the proposal that referenced it has something to attach to.
+    ///
+    /// It goes in as a proposal rather than straight into canon on purpose: the artifact is
+    /// then created by the one apply path, with the dedup, visibility and provenance every
+    /// other accepted Create gets, and the record afterwards says where it came from.
+    ///
+    /// Concept is the type for "we do not know yet" — nothing in a fact or a relationship says
+    /// whether the thing it names is a person or a place, and guessing wrong is worse than
+    /// saying so in the rationale.
+    /// </summary>
+    private async Task<AppResult<Guid>> CreateAndAcceptMissingArtifactAsync(
+        AcceptProposalCommand command, ReviewProposal referrer, ReviewBatch batch, string name, CancellationToken ct)
+    {
+        var created = new ReviewProposal
+        {
+            Id = Guid.NewGuid(),
+            ReviewBatchId = batch.Id,
+            ChangeType = ReviewChangeType.CreateArtifact,
+            TargetType = ReviewTargetType.Artifact,
+            ProposedValueJson = JsonSerializer.Serialize(new
+            {
+                name,
+                type = ArtifactType.Concept.ToString()
+            }),
+            Rationale = $"Added while accepting a {referrer.ChangeType} proposal that referenced '{name}', "
+                + "which was not in your record and looked like nothing already there. "
+                + "Typed as Concept — retype it once you know what it is.",
+            Status = ReviewProposalStatus.Pending,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        await _reviewProposalRepository.CreateAsync(created, ct);
+
+        var accepted = await AcceptProposalCoreAsync(
+            command with { ProposalId = created.Id }, cascade: null, ct);
+
+        return accepted.IsSuccess
+            ? AppResult<Guid>.Success(created.Id)
+            : AppResult<Guid>.Fail(accepted.Error!);
     }
 
     private static HashSet<string> ExtractReferencedArtifactNames(string proposedValueJson)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        try
+        foreach (var key in (string[])["artifactName", "artifactAName", "artifactBName"])
         {
-            using var doc = JsonDocument.Parse(proposedValueJson);
-            foreach (var key in (string[])["artifactName", "artifactAName", "artifactBName"])
+            if (ReadStringProperty(proposedValueJson, key) is { } s)
             {
-                if (doc.RootElement.TryGetProperty(key, out var el)
-                    && el.ValueKind == JsonValueKind.String
-                    && el.GetString() is { } s && !string.IsNullOrWhiteSpace(s))
-                {
-                    names.Add(s.Trim());
-                }
+                names.Add(s);
             }
-        }
-        catch (JsonException)
-        {
-            // Unparseable payloads already failed validation upstream.
         }
 
         return names;
     }
 
-    private static string? ExtractCreateName(string proposedValueJson)
+    private static string? ExtractCreateName(string proposedValueJson) =>
+        ReadStringProperty(proposedValueJson, "name");
+
+    /// <summary>
+    /// One non-empty string out of a proposal payload, matching the property name the way the
+    /// rest of the payload pipeline does: case-insensitively.
+    ///
+    /// That is not politeness. Every other reader of these payloads — the validator, the
+    /// applicator, the queue's target labels — deserializes with
+    /// <see cref="JsonSerializerOptions.PropertyNameCaseInsensitive"/>, so a payload written
+    /// <c>Name</c> rather than <c>name</c> applies perfectly well. Reading it exactly here made
+    /// the recovery ladder silently blind to exactly those payloads, which used to cost a
+    /// pointless error and now would cost a duplicate artifact.
+    /// </summary>
+    private static string? ReadStringProperty(string json, string propertyName)
     {
         try
         {
-            using var doc = JsonDocument.Parse(proposedValueJson);
-            return doc.RootElement.TryGetProperty("name", out var el) && el.ValueKind == JsonValueKind.String
-                ? el.GetString()?.Trim()
-                : null;
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            foreach (var property in doc.RootElement.EnumerateObject())
+            {
+                if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return property.Value.ValueKind == JsonValueKind.String
+                        && property.Value.GetString() is { } s
+                        && !string.IsNullOrWhiteSpace(s)
+                            ? s.Trim()
+                            : null;
+                }
+            }
+
+            return null;
         }
         catch (JsonException)
         {
+            // Unparseable payloads already failed validation upstream.
             return null;
         }
     }
@@ -578,6 +809,7 @@ public class ReviewService : IReviewService
                 new AppError(400, "validation_error", "Batch size must be between 1 and 50 proposals."));
 
         var uniqueIds = command.ProposalIds.Distinct().ToList();
+        var selection = uniqueIds.ToHashSet();
         var succeeded = new List<Guid>();
         var failed = new List<BatchFailureDetail>();
         var affectedBatchIds = new HashSet<Guid>();
@@ -624,9 +856,43 @@ public class ReviewService : IReviewService
                 summaryCandidates, summaryPinned, ct);
 
             // Only a success changes anything: the proposal moves out of failed. A second
-            // failure keeps the detail already recorded.
+            // failure keeps the detail already recorded — unless the name is still the
+            // problem, in which case the single-accept ladder gets its turn: a name canon
+            // has never heard of is created here too, so "Accept all" does not dead-end on
+            // the one proposal whose subject nobody wrote down.
             if (failure is null)
+            {
                 failed.RemoveAll(f => f.ProposalId == proposalId);
+                continue;
+            }
+
+            if (failure.Code != "artifact_name_not_found")
+            {
+                continue;
+            }
+
+            // Self-contained: it runs its own transaction, batch lifecycle and summary
+            // refresh, so nothing about it is threaded back through this loop's tallies.
+            // Scoped to the selection — the ladder may not reach for a Create the reviewer
+            // left unticked, which is the one thing batch accept has always refused to do.
+            var resolved = await AcceptProposalCoreAsync(
+                new AcceptProposalCommand(
+                    proposalId, command.WorldId, command.ActingUserId, command.ActingUserRole),
+                new CascadeScope(selection), ct);
+
+            if (resolved.IsSuccess)
+            {
+                failed.RemoveAll(f => f.ProposalId == proposalId);
+                if (!succeeded.Contains(proposalId))
+                    succeeded.Add(proposalId);
+            }
+            else
+            {
+                // A near match is a better thing to tell the reviewer than "not found", so
+                // the ladder's verdict replaces the original detail.
+                failed.RemoveAll(f => f.ProposalId == proposalId);
+                failed.Add(new BatchFailureDetail(proposalId, resolved.Error!.Code, resolved.Error!.Message));
+            }
         }
 
         // Batch lifecycle OUTSIDE individual transactions

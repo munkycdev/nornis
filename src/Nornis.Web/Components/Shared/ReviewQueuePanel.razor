@@ -246,6 +246,12 @@ else
         var result = await Api.AcceptProposalAsync(Worlds.Current!.Id, p.Id);
         _acting.Remove(p.Id);
 
+        if (!result.IsSuccess && NeedsReferenceResolution(result.Error!.Code))
+        {
+            await ResolveReferenceAsync(p, result.Error!.Message);
+            return;
+        }
+
         if (result.IsSuccess)
         {
             _proposals = _proposals.Where(x => x.Id != p.Id).ToList();
@@ -260,12 +266,50 @@ else
     }
 
     /// <summary>
+    /// The two refusals that are a question rather than a fault: the proposal names an artifact
+    /// the server would not bind on its own, and only the reviewer can say which one it meant.
+    /// </summary>
+    private static bool NeedsReferenceResolution(string code) =>
+        code is "artifact_name_near_match" or "artifact_create_rejected";
+
+    private async Task ResolveReferenceAsync(ReviewProposal p, string message)
+    {
+        var parameters = new DialogParameters
+        {
+            { nameof(ResolveArtifactReferenceDialog.WorldId), Worlds.Current!.Id },
+            { nameof(ResolveArtifactReferenceDialog.ProposalId), p.Id },
+            { nameof(ResolveArtifactReferenceDialog.ProposedValueJson), p.ProposedValueJson },
+            { nameof(ResolveArtifactReferenceDialog.Message), message },
+        };
+
+        var dialog = await DialogService.ShowAsync<ResolveArtifactReferenceDialog>(
+            "Which artifact does this mean?", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is ProposalActionResult accepted)
+        {
+            _proposals = _proposals.Where(x => x.Id != p.Id).ToList();
+            Snackbar.Add(AcceptMessage(p, accepted), Severity.Success);
+        }
+
+        StateHasChanged();
+        await NotifyChangedAsync();
+    }
+
+    /// <summary>
     /// A Create that the server matched to an existing artifact added provenance without
     /// creating anything. Saying "accepted" there reads as a new entry appearing, which is
     /// exactly the confusion the dedup exists to prevent.
     /// </summary>
     private static string AcceptMessage(ReviewProposal p, ProposalActionResult result)
     {
+        // An accept that grew canon by more than the card the reviewer clicked says so first:
+        // the artifact it had to invent is the part they did not ask for.
+        if (result.CreatedMissingArtifactNames is { Count: > 0 } created)
+        {
+            return $"Accepted. Added {string.Join(", ", created.Select(n => $"'{n}'"))} as new artifacts to attach it to.";
+        }
+
         if (!result.MatchedExistingArtifact)
         {
             return "Proposal accepted.";
@@ -417,6 +461,15 @@ else
             {
                 succeeded += result.Value!.Succeeded.Count;
                 failed += result.Value!.Failed.Count;
+
+                // Per-item failures used to be counted and then thrown away, so a run that
+                // stopped on one unresolvable name reported only a number. The reviewer needs
+                // the sentence — for a name the server wants a decision on, it is the whole
+                // instruction for what to do next.
+                if (result.Value!.Failed.Count > 0)
+                {
+                    firstError ??= result.Value!.Failed[0].Message;
+                }
             }
             else
             {

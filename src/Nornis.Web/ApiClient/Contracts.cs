@@ -470,7 +470,10 @@ public record ProposalActionResult(
     Guid? CreatedEntityId,
     // Accept only: the Create bound to an artifact already in canon rather than inserting
     // one, so the feedback should say "matched", not "created".
-    bool MatchedExistingArtifact = false);
+    bool MatchedExistingArtifact = false,
+    // Accept only: artifacts the accept had to create because the proposal named them and
+    // nothing held them. The reviewer hears about canon growing beyond the card they clicked.
+    IReadOnlyList<string>? CreatedMissingArtifactNames = null);
 
 public record BatchOperationResult(
     IReadOnlyList<Guid> Succeeded,

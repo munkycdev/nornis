@@ -17,6 +17,7 @@ public class ReviewProposalQueueStatusTests : IntegrationTestBase
     private Guid _worldId;
     private Guid _sourceId;
     private Guid _batchId;
+    private Guid _gmUserId;
     private ReviewProposalRepository _repository = null!;
 
     [SetUp]
@@ -34,6 +35,7 @@ public class ReviewProposalQueueStatusTests : IntegrationTestBase
         await Context.SaveChangesAsync();
 
         var gmId = Guid.NewGuid();
+        _gmUserId = gmId;
         Context.Users.Add(new User
         {
             Id = gmId,
@@ -160,6 +162,35 @@ public class ReviewProposalQueueStatusTests : IntegrationTestBase
         var counts = await _repository.CountOpenBySourcesAsync([]);
 
         Assert.That(counts, Is.Empty);
+    }
+
+    [Test]
+    public async Task CreatingAProposalAndThenUpdatingIt_IsOneSelfContainedRequest()
+    {
+        // Create left the instance tracked while every other method here reads AsNoTracking
+        // and writes through Update(entity), so the update attached a second instance of the
+        // same key and threw — deterministically, for anything that writes a proposal and
+        // then decides it in one request, which is what a recovery accept does.
+        var proposal = new ReviewProposal
+        {
+            Id = Guid.NewGuid(),
+            ReviewBatchId = _batchId,
+            ChangeType = ReviewChangeType.CreateArtifact,
+            TargetType = ReviewTargetType.Artifact,
+            ProposedValueJson = """{"name":"Ghost","type":"Concept"}""",
+            Status = ReviewProposalStatus.Pending,
+            CreatedAt = DateTimeOffset.UtcNow,
+            RowVersion = []
+        };
+
+        await _repository.CreateAsync(proposal);
+
+        var reloaded = (await _repository.GetByIdAsync(proposal.Id))!;
+        reloaded.Accept(_gmUserId, DateTimeOffset.UtcNow);
+
+        Assert.DoesNotThrowAsync(async () => await _repository.UpdateAsync(reloaded));
+        Assert.That((await _repository.GetByIdAsync(proposal.Id))!.Status,
+            Is.EqualTo(ReviewProposalStatus.Accepted));
     }
 
     private async Task<Guid> SeedProposalAsync(ReviewProposalStatus status)
