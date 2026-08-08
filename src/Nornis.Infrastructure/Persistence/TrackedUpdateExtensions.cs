@@ -27,6 +27,21 @@ internal static class TrackedUpdateExtensions
         context.Entry(entity).State = EntityState.Detached;
     }
 
+    /// <summary>
+    /// The same contract for an insert. An <c>Add</c> leaves the instance tracked too, so a
+    /// request that inserts a row and then updates it — a review accept that has to create the
+    /// artifact a proposal names, and then accepts the Create it just wrote — attaches a
+    /// second instance of the same key and throws.
+    /// </summary>
+    public static async Task AddAndDetachAsync<TEntity>(
+        this NornisDbContext context, TEntity entity, CancellationToken cancellationToken)
+        where TEntity : class
+    {
+        context.Set<TEntity>().Add(entity);
+        await context.SaveChangesAsync(cancellationToken);
+        context.Entry(entity).State = EntityState.Detached;
+    }
+
     public static async Task SaveAndDetachRangeAsync<TEntity>(
         this NornisDbContext context, IReadOnlyList<TEntity> entities, CancellationToken cancellationToken)
         where TEntity : class

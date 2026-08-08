@@ -287,8 +287,12 @@ public class ReviewServiceBatchOrderingTests
     }
 
     [Test]
-    public async Task StillUnresolvable_RetriesOnceAndKeepsTheOriginalError()
+    public async Task NameNothingCanResolve_TerminatesInsteadOfSpinning()
     {
+        // An applicator that fails EVERY apply with the name error — including the apply of
+        // the artifact the recovery ladder creates to fix it. That is the shape a runaway
+        // would take, so the count below is the bound: ordered pass, retry pass, the ladder's
+        // own retry, and the one Create it made. Four, and then it gives up.
         var applicator = new FakeProposalApplicator();
         applicator.ConfigureFailure("artifact_name_not_found", "No such artifact.");
         var service = BuildServiceWith(applicator);
@@ -302,7 +306,66 @@ public class ReviewServiceBatchOrderingTests
         Assert.That(result.Value!.Succeeded, Is.Empty);
         Assert.That(result.Value.Failed, Has.Count.EqualTo(1));
         Assert.That(result.Value.Failed[0].Code, Is.EqualTo("artifact_name_not_found"));
-        Assert.That(applicator.AppliedProposalIds, Has.Count.EqualTo(2), "exactly one retry, then stop");
+        Assert.That(applicator.AppliedProposalIds, Has.Count.EqualTo(4), "the ladder runs once, then stops");
+    }
+
+    #endregion
+
+    #region Unresolvable names
+
+    [Test]
+    public async Task NameInNoBatchAndNoCanon_IsCreatedSoTheBatchCompletes()
+    {
+        // Nobody wrote "Ghost" down and nothing in the world resembles it, so there is no
+        // judgment to make: create it, attach the fact, and let "Accept all" finish.
+        var fact = await SeedAsync(MakeAddFactByName("Ghost", "haunts", "the lighthouse"));
+
+        var result = await _service.BatchAcceptAsync(
+            new BatchAcceptCommand([fact.Id], _worldId, _gmUserId, WorldRole.GM),
+            CancellationToken.None);
+
+        Assert.That(result.Value!.Failed, Is.Empty);
+        Assert.That(result.Value.Succeeded, Is.EqualTo([fact.Id]));
+
+        var artifact = _artifactRepo.Artifacts.Single();
+        Assert.That(artifact.Name, Is.EqualTo("Ghost"));
+        Assert.That(artifact.Type, Is.EqualTo(ArtifactType.Concept), "typed as unknown rather than guessed");
+        Assert.That(_factRepo.Facts.Single().ArtifactId, Is.EqualTo(artifact.Id));
+    }
+
+    [Test]
+    public async Task NameThatResemblesCanon_AsksInsteadOfCreatingATwin()
+    {
+        _artifactRepo.Seed(MakeArtifact("Captain Voss", ArtifactType.Character));
+
+        var fact = await SeedAsync(MakeAddFactByName("Voss", "commands", "the harbor guard"));
+
+        var result = await _service.BatchAcceptAsync(
+            new BatchAcceptCommand([fact.Id], _worldId, _gmUserId, WorldRole.GM),
+            CancellationToken.None);
+
+        Assert.That(result.Value!.Succeeded, Is.Empty);
+        Assert.That(result.Value.Failed[0].Code, Is.EqualTo("artifact_name_near_match"));
+        Assert.That(result.Value.Failed[0].Message, Does.Contain("Captain Voss"));
+        Assert.That(_artifactRepo.Artifacts, Has.Count.EqualTo(1), "no twin of the artifact it might mean");
+    }
+
+    [Test]
+    public async Task UnselectedSiblingCreate_IsNeverPaperedOverWithANewArtifact()
+    {
+        // The reviewer left the Create for this name unticked. Accepting it anyway is the
+        // thing batch accept has always refused; creating a SECOND artifact for the same name
+        // would be worse. The fact simply waits.
+        var fact = await SeedAsync(MakeAddFactByName("Captain Voss", "serves", "the harbor guard"));
+        var unselectedCreate = await SeedAsync(MakeCreate("Captain Voss", "Character"));
+
+        var result = await _service.BatchAcceptAsync(
+            new BatchAcceptCommand([fact.Id], _worldId, _gmUserId, WorldRole.GM),
+            CancellationToken.None);
+
+        Assert.That(result.Value!.Failed[0].Code, Is.EqualTo("artifact_name_not_found"));
+        Assert.That(unselectedCreate.Status, Is.EqualTo(ReviewProposalStatus.Pending));
+        Assert.That(_artifactRepo.Artifacts, Is.Empty);
     }
 
     #endregion
@@ -339,6 +402,20 @@ public class ReviewServiceBatchOrderingTests
         await _proposalRepo.CreateAsync(proposal);
         return proposal;
     }
+
+    private Artifact MakeArtifact(string name, ArtifactType type) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _worldId,
+            Type = type,
+            Name = name,
+            Visibility = VisibilityScope.PartyVisible,
+            Status = ArtifactStatus.Active,
+            CreatedByUserId = _gmUserId,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-3),
+            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-3)
+        };
 
     private ReviewProposal MakeCreate(string name, string type) =>
         MakeProposal(ReviewChangeType.CreateArtifact, ReviewTargetType.Artifact,

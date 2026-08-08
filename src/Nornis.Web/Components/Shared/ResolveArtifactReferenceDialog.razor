@@ -1,0 +1,186 @@
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@inject NornisApiClient Api
+
+@*
+    The server refused an accept because the proposal names an artifact it cannot resolve, and
+    said which artifacts look like it. This is where the reviewer answers: point each name at
+    something already in the record, or say none of them is it and let the name be created.
+
+    Both answers go through endpoints that already exist — edit the payload then accept, or
+    accept with createMissing — so nothing here is a second way to apply a proposal.
+*@
+
+<MudDialog>
+    <DialogContent>
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3">@Message</MudAlert>
+
+        @if (_names.Count == 0)
+        {
+            <MudText Typo="Typo.body2">
+                This proposal doesn't name an artifact that can be repointed. Edit it directly, or reject it.
+            </MudText>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                Search your record for what each name should attach to. Leave one alone to keep it as it is.
+            </MudText>
+
+            @foreach (var field in _names)
+            {
+                <MudAutocomplete T="string"
+                                 Label="@DisplayText.Humanize(field.Key)"
+                                 Value="@field.Value"
+                                 ValueChanged="@(v => _names[field.Key] = v ?? string.Empty)"
+                                 SearchFunc="@SearchAsync"
+                                 CoerceValue="true"
+                                 ResetValueOnEmptyText="false"
+                                 Variant="Variant.Outlined"
+                                 Class="mb-3"
+                                 Immediate="true" />
+            }
+        }
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Disabled="_busy">Cancel</MudButton>
+        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="CreateAndAcceptAsync" Disabled="_busy">
+            Create what's missing
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="AttachAndAcceptAsync"
+                   Disabled="@(_busy || _names.Count == 0 || !Changed())">
+            Attach and accept
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid WorldId { get; set; }
+    [Parameter] public Guid ProposalId { get; set; }
+    [Parameter] public string ProposedValueJson { get; set; } = "{}";
+
+    /// <summary>The server's own sentence — it already names the artifacts it found.</summary>
+    [Parameter] public string Message { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The payload keys that carry an artifact name, and what they currently say. Mirrors the
+    /// keys the server resolves by name; a key the server does not read would be a field the
+    /// reviewer could edit to no effect.
+    /// </summary>
+    private static readonly string[] NameKeys = ["artifactName", "artifactAName", "artifactBName"];
+
+    private readonly Dictionary<string, string> _names = [];
+    private readonly Dictionary<string, string> _original = [];
+    private bool _busy;
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(ProposedValueJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return;
+            }
+
+            foreach (var key in NameKeys)
+            {
+                if (doc.RootElement.TryGetProperty(key, out var el)
+                    && el.ValueKind == JsonValueKind.String
+                    && el.GetString() is { } value
+                    && !string.IsNullOrWhiteSpace(value))
+                {
+                    _names[key] = value;
+                    _original[key] = value;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // An unparseable payload would not have reached an accept; nothing to offer.
+        }
+    }
+
+    private bool Changed() =>
+        _names.Any(n => !string.Equals(n.Value.Trim(), _original[n.Key], StringComparison.Ordinal));
+
+    private async Task<IEnumerable<string>> SearchAsync(string? term, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+        {
+            return [];
+        }
+
+        var result = await Api.SearchArtifactsAsync(WorldId, term, limit: 10, ct);
+        return result.IsSuccess
+            ? result.Value!.Select(a => a.Name).Distinct().ToList()
+            : [];
+    }
+
+    /// <summary>
+    /// Rewrites the names the reviewer changed and accepts. The edit is deliberately kept —
+    /// the record afterwards shows the proposal pointing where they said, not a silent
+    /// rebinding at apply time.
+    /// </summary>
+    private async Task AttachAndAcceptAsync()
+    {
+        JsonObject payload;
+        try
+        {
+            payload = JsonNode.Parse(ProposedValueJson)?.AsObject() ?? [];
+        }
+        catch (JsonException ex)
+        {
+            _error = $"Couldn't read the proposal: {ex.Message}";
+            return;
+        }
+
+        foreach (var (key, value) in _names)
+        {
+            payload[key] = value.Trim();
+        }
+
+        _busy = true;
+        _error = null;
+
+        var edited = await Api.EditProposalAsync(WorldId, ProposalId, payload.ToJsonString());
+        if (!edited.IsSuccess)
+        {
+            _busy = false;
+            _error = edited.Error!.Message;
+            return;
+        }
+
+        await AcceptAsync(createMissing: false);
+    }
+
+    private Task CreateAndAcceptAsync() => AcceptAsync(createMissing: true);
+
+    private async Task AcceptAsync(bool createMissing)
+    {
+        _busy = true;
+        _error = null;
+
+        var accepted = await Api.AcceptProposalAsync(WorldId, ProposalId, createMissing);
+
+        _busy = false;
+        if (!accepted.IsSuccess)
+        {
+            _error = accepted.Error!.Message;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(accepted.Value!));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

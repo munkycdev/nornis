@@ -17,6 +17,11 @@ namespace Nornis.Api.Tests.Controllers;
 /// the prerequisite first and retries. Field-reported 2026-07-26 ("approving the 8
 /// extracted facts failed") — before this, such accepts errored with
 /// "accept its Create proposal first".
+///
+/// The same report came back for names with no sibling Create at all, so the recovery now
+/// continues past that rung: a name resembling something the reviewer has (or is about to
+/// have) becomes a question, and a name resembling nothing is created. End to end here,
+/// because the query flag that carries the reviewer's answer is part of the contract.
 /// </summary>
 [TestFixture]
 public class ReviewAcceptCascadeTests
@@ -110,18 +115,59 @@ public class ReviewAcceptCascadeTests
     }
 
     [Test]
-    public async Task AcceptingFact_WithNoMatchingSiblingCreate_StillFailsCleanly()
+    public async Task AcceptingFact_WithNoMatchingSiblingCreate_CreatesTheNameItReferences()
     {
         var (worldId, createId, factId) = await SeedBatchAsync("Somebody Else Entirely");
 
         var response = await _client.PostAsync($"/api/worlds/{worldId}/reviews/proposals/{factId}/accept", null);
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var body = (await response.Content.ReadFromJsonAsync<AcceptProposalResponse>())!;
+        Assert.That(body.CreatedMissingArtifactNames, Is.EqualTo(["Somebody Else Entirely"]));
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-        Assert.That(db.ReviewProposals.Find(factId)!.Status, Is.EqualTo(ReviewProposalStatus.Pending),
-            "a failed accept leaves the proposal reviewable");
+        Assert.That(db.ReviewProposals.Find(factId)!.Status, Is.EqualTo(ReviewProposalStatus.Accepted));
+        Assert.That(db.Artifacts.Any(a => a.WorldId == worldId && a.Name == "Somebody Else Entirely"), Is.True);
         Assert.That(db.ReviewProposals.Find(createId)!.Status, Is.EqualTo(ReviewProposalStatus.Pending),
             "an unrelated Create must not be swept up by the cascade");
+    }
+
+    [Test]
+    public async Task AcceptingFact_WhoseNameResemblesAnUndecidedSiblingCreate_AsksRatherThanTwinning()
+    {
+        // "Cascade" against the batch's own undecided "Cascade Character". Nothing resolves it
+        // and canon is empty, so the create rung would fire — and produce the second artifact
+        // moments before the first one exists. It asks instead.
+        var (worldId, createId, factId) = await SeedBatchAsync("Cascade");
+
+        var response = await _client.PostAsync($"/api/worlds/{worldId}/reviews/proposals/{factId}/accept", null);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+
+        var error = await response.Content.ReadAsStringAsync();
+        Assert.That(error, Does.Contain("artifact_name_near_match"));
+        Assert.That(error, Does.Contain("Cascade Character"));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        Assert.That(db.Artifacts.Any(a => a.WorldId == worldId), Is.False);
+        Assert.That(db.ReviewProposals.Find(createId)!.Status, Is.EqualTo(ReviewProposalStatus.Pending));
+        Assert.That(db.ReviewProposals.Find(factId)!.Status, Is.EqualTo(ReviewProposalStatus.Pending),
+            "a refused accept leaves the proposal reviewable");
+    }
+
+    [Test]
+    public async Task CreateMissing_CarriesTheReviewersAnswerBackThrough()
+    {
+        var (worldId, _, factId) = await SeedBatchAsync("Cascade");
+
+        var response = await _client.PostAsync(
+            $"/api/worlds/{worldId}/reviews/proposals/{factId}/accept?createMissing=true", null);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        Assert.That(db.Artifacts.Any(a => a.WorldId == worldId && a.Name == "Cascade"), Is.True);
     }
 }

@@ -29,6 +29,35 @@ All accepted artifact, fact, and relationship changes must come from user review
 > - Budget-guarded and worker-side like every other AI call; never inline in the accept
 >   request.
 
+> **Amendment (2026-08-07) — an accept may create the artifact its proposal names.** When a
+> fact or relationship references an artifact by a name nothing resolves, the accept works
+> down a ladder rather than dead-ending: the batch's own undecided Create for that name,
+> then the artifacts that resemble it, then creating it. The last rung grows canon by
+> something the reviewer did not individually approve, which is why it is written down here.
+> What keeps it inside the rule above:
+>
+> - **The reviewer's action is still the only trigger.** Nothing here runs on the extraction
+>   path or in the worker; it happens because a person clicked accept on a proposal that
+>   names the thing.
+> - **Resemblance stops rather than guesses.** Deciding that "Voss" and "Captain Voss" are
+>   one thing belongs to the GM (`ArtifactNameKey` says so, and says why). If anything the
+>   reviewer has — or is about to have, counting undecided sibling Creates — resembles the
+>   name, the accept refuses with `artifact_name_near_match` and lists what it found. Only a
+>   name nothing resembles is created, because there is then no judgment to make.
+>   `CreateMissingArtifact` on the command is the reviewer's answer coming back.
+> - **A rejection is never undone by the side door.** If the batch's Create for that name was
+>   rejected, the automatic path stops (`artifact_create_rejected`); only an explicit
+>   `CreateMissingArtifact` proceeds.
+> - **It goes through review, not around it.** The artifact is created by filing a
+>   CreateArtifact proposal into the same batch and accepting it, so it gets the same apply
+>   path, dedup, visibility and provenance as any other accepted Create, and the record
+>   afterwards says where it came from. It is typed `Concept` — "we do not know yet" — with
+>   the reason in its rationale, because nothing in a fact says whether the thing it names is
+>   a person or a place.
+> - **The reviewer is told.** `AcceptProposalResult.CreatedMissingArtifactNames` carries the
+>   names back and the queue says so: an accept that grew canon past the card on screen must
+>   not do it quietly.
+
 ## Extraction Goal
 
 Given a source, extract proposed updates to the world knowledge graph.

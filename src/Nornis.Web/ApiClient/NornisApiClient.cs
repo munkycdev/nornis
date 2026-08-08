@@ -661,8 +661,15 @@ public class NornisApiClient
     public Task<ApiResult<IReadOnlyList<WorldCost>>> GetCostsByWorldAsync(CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<WorldCost>>("/api/costs/by-world", ct);
 
-    public Task<ApiResult<ProposalActionResult>> AcceptProposalAsync(Guid worldId, Guid proposalId, CancellationToken ct = default) =>
-        PostAsync<object?, ProposalActionResult>($"/api/worlds/{worldId}/reviews/proposals/{proposalId}/accept", null, ct);
+    /// <param name="createMissing">
+    /// Retries an accept the server refused with <c>artifact_name_near_match</c>: the reviewer
+    /// looked at the artifacts resembling the name and none of them is it, so create it.
+    /// </param>
+    public Task<ApiResult<ProposalActionResult>> AcceptProposalAsync(
+        Guid worldId, Guid proposalId, bool createMissing = false, CancellationToken ct = default) =>
+        PostAsync<object?, ProposalActionResult>(
+            $"/api/worlds/{worldId}/reviews/proposals/{proposalId}/accept{Query(("createMissing", createMissing ? "true" : null))}",
+            null, ct);
 
     public Task<ApiResult<ProposalActionResult>> RejectProposalAsync(Guid worldId, Guid proposalId, CancellationToken ct = default) =>
         PostAsync<object?, ProposalActionResult>($"/api/worlds/{worldId}/reviews/proposals/{proposalId}/reject", null, ct);

@@ -53,10 +53,16 @@ public class ReviewsController : ControllerBase
         return Ok(response);
     }
 
+    /// <param name="createMissing">
+    /// Answers the <c>artifact_name_near_match</c> refusal: the reviewer has seen the artifacts
+    /// that resemble the name this proposal references and says none of them is it, so create
+    /// it. Ignored when the accept resolves normally.
+    /// </param>
     [HttpPost("proposals/{proposalId:guid}/accept")]
     public async Task<IActionResult> AcceptProposal(
         Guid worldId,
         Guid proposalId,
+        [FromQuery] bool createMissing,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
@@ -66,7 +72,8 @@ public class ReviewsController : ControllerBase
             ProposalId: proposalId,
             WorldId: worldId,
             ActingUserId: user.Id,
-            ActingUserRole: member.Role);
+            ActingUserRole: member.Role,
+            CreateMissingArtifact: createMissing);
 
         var result = await _reviewService.AcceptProposalAsync(command, ct);
 
@@ -82,7 +89,8 @@ public class ReviewsController : ControllerBase
             ReviewedAt: acceptResult.ReviewedAt,
             ReviewedByUserId: acceptResult.ReviewedByUserId,
             CreatedEntityId: acceptResult.CreatedEntityId,
-            MatchedExistingArtifact: acceptResult.MatchedExistingArtifact);
+            MatchedExistingArtifact: acceptResult.MatchedExistingArtifact,
+            CreatedMissingArtifactNames: acceptResult.CreatedMissingArtifactNames);
 
         return Ok(response);
     }
