@@ -77,8 +77,12 @@ else
                     <MudIconButton Icon="@Icons.Material.Outlined.Download" Size="Size.Small"
                                    OnClick="() => DownloadAsync(doc)" aria-label="Download" />
                 </MudTooltip>
-                @if (CanManage(doc))
+                @if (Worlds.IsGm)
                 {
+                    <MudTooltip Text="Rename">
+                        <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small"
+                                       OnClick="() => RenameAsync(doc)" aria-label="Rename" />
+                    </MudTooltip>
                     <MudTooltip Text="@(doc.Status == "Indexing" ? "Available once indexing finishes" : "Delete")">
                         <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small"
                                        Disabled="@(doc.Status == "Indexing")"
@@ -94,7 +98,6 @@ else
     private bool _loading;
     private string? _error;
     private IReadOnlyList<LibraryDocumentDto> _documents = [];
-    private Guid? _myUserId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -118,20 +121,17 @@ else
         _error = null;
         StateHasChanged();
 
-        var listTask = Api.GetLibraryAsync(Worlds.Current.Id);
-        var meTask = Api.GetMyMembershipAsync(Worlds.Current.Id);
-        await Task.WhenAll(listTask, meTask);
+        var result = await Api.GetLibraryAsync(Worlds.Current.Id);
 
         _loading = false;
-        if (listTask.Result.IsSuccess)
+        if (result.IsSuccess)
         {
-            _documents = listTask.Result.Value!;
+            _documents = result.Value!;
         }
         else
         {
-            _error = listTask.Result.Error!.Message;
+            _error = result.Error!.Message;
         }
-        _myUserId = meTask.Result.Value?.UserId;
         StateHasChanged();
     }
 
@@ -157,6 +157,27 @@ else
         else
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private async Task RenameAsync(LibraryDocumentDto doc)
+    {
+        if (Worlds.Current is null) return;
+
+        var parameters = new DialogParameters<RenameLibraryDocumentDialog>
+        {
+            { d => d.WorldId, Worlds.Current.Id },
+            { d => d.DocumentId, doc.Id },
+            { d => d.CurrentTitle, doc.Title },
+        };
+
+        var dialog = await DialogService.ShowAsync<RenameLibraryDocumentDialog>("Rename document", parameters);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            Snackbar.Add("Document renamed.", Severity.Success);
+            await LoadAsync();
         }
     }
 
@@ -195,10 +216,6 @@ else
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
     }
-
-    // Mirrors the server rule (uploader or GM); the server still enforces it.
-    private bool CanManage(LibraryDocumentDto doc) =>
-        Worlds.IsGm || doc.UploadedByUserId == _myUserId;
 
     private static string KindIcon(string kind) => kind switch
     {

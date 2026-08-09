@@ -20,7 +20,10 @@ public interface ILibraryService
     Task<AppResult<LibraryDocument>> SetVisibilityAsync(
         Guid documentId, Guid worldId, WorldRole role, VisibilityScope visibility, CancellationToken ct);
 
-    Task<AppResult> DeleteAsync(Guid documentId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct);
+    Task<AppResult<LibraryDocument>> RenameAsync(
+        Guid documentId, Guid worldId, WorldRole role, string? title, CancellationToken ct);
+
+    Task<AppResult> DeleteAsync(Guid documentId, Guid worldId, WorldRole role, CancellationToken ct);
 
     Task<AppResult<LibraryDocument>> ReindexAsync(Guid documentId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct);
 }

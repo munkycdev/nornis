@@ -41,7 +41,16 @@
             <div class="d-flex align-center gap-3 mb-2">
                 <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Large" Color="Color.Secondary" />
                 <div class="flex-grow-1">
-                    <MudText Typo="Typo.h5" Class="nornis-serif">@_document.Title</MudText>
+                    <div class="d-flex align-center gap-1">
+                        <MudText Typo="Typo.h5" Class="nornis-serif">@_document.Title</MudText>
+                        @if (Worlds.IsGm)
+                        {
+                            <MudTooltip Text="Rename">
+                                <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small"
+                                               OnClick="RenameAsync" aria-label="Rename document" />
+                            </MudTooltip>
+                        }
+                    </div>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
                         @_document.Kind · @_document.FileName · @DisplayText.FormatSize(_document.SizeBytes)
                         @(_document.PageCount is { } p ? $" · {p} pages" : "")
@@ -80,14 +89,17 @@
                     </MudButton>
                 }
                 <MudSpacer />
-                <MudTooltip Text="@(_document.Status == "Indexing" ? "Available once indexing finishes" : null)">
-                    <MudButton Variant="Variant.Text" Color="Color.Error"
-                               StartIcon="@Icons.Material.Outlined.Delete"
-                               Disabled="@(_document.Status == "Indexing")"
-                               OnClick="DeleteAsync">
-                        Delete
-                    </MudButton>
-                </MudTooltip>
+                @if (Worlds.IsGm)
+                {
+                    <MudTooltip Text="@(_document.Status == "Indexing" ? "Available once indexing finishes" : null)">
+                        <MudButton Variant="Variant.Text" Color="Color.Error"
+                                   StartIcon="@Icons.Material.Outlined.Delete"
+                                   Disabled="@(_document.Status == "Indexing")"
+                                   OnClick="DeleteAsync">
+                            Delete
+                        </MudButton>
+                    </MudTooltip>
+                }
             </div>
         </MudPaper>
     }
@@ -183,6 +195,27 @@
         else
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private async Task RenameAsync()
+    {
+        if (Worlds.Current is null || _document is null) return;
+
+        var parameters = new DialogParameters<RenameLibraryDocumentDialog>
+        {
+            { d => d.WorldId, Worlds.Current.Id },
+            { d => d.DocumentId, _document.Id },
+            { d => d.CurrentTitle, _document.Title },
+        };
+
+        var dialog = await DialogService.ShowAsync<RenameLibraryDocumentDialog>("Rename document", parameters);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false, Data: LibraryDocumentDto renamed })
+        {
+            _document = renamed;
+            Snackbar.Add("Document renamed.", Severity.Success);
         }
     }
 

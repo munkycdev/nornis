@@ -9,8 +9,11 @@
 
 <MudLayout>
     @* Persistent from md up; below that it closes itself and reopens as an overlay from the topbar. *@
+    @* Wider than MudBlazor's 240px default: the world switcher at the top of the drawer is the
+       widest thing in it, and at 240 a world name landed on top of its chevron. *@
     <MudDrawer @bind-Open="_navOpen"
                Fixed="true"
+               Width="272px"
                Elevation="0"
                Variant="DrawerVariant.Responsive"
                Breakpoint="Breakpoint.Md"
@@ -60,7 +63,7 @@
                 <a href="/licenses">Licenses</a>
             </nav>
             <span class="nornis-footer-made">Made with ❤️ by 👨 and 🤖 for people who love 🎲</span>
-            <span class="nornis-footer-version">© @DateTime.UtcNow.Year Nornis · v@(Nornis.Web.AppVersion.Display)</span>
+            <a href="/welcome" class="nornis-footer-version">© @DateTime.UtcNow.Year Nornis · v@(Nornis.Web.AppVersion.Display)</a>
         </footer>
     </MudMainContent>
 </MudLayout>

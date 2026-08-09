@@ -1,0 +1,11 @@
+@page "/"
+@inject NavigationManager Nav
+
+@* The dashboard's URL is /dashboard. Everything that predates the rename still points at
+   "/" — the Auth0 return URL, the public site's "Sign in" button, the brand mark, and every
+   bookmark a member already has — so the root stays a member route and forwards them on.
+   Replaces the history entry: back from the dashboard should leave the app, not bounce. *@
+
+@code {
+    protected override void OnInitialized() => Nav.NavigateTo("/dashboard", replace: true);
+}

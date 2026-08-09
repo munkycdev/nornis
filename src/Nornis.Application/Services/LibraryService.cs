@@ -26,6 +26,8 @@ public class LibraryService : ILibraryService
     /// becomes deletable again.</summary>
     public const int StaleIndexingMinutes = 30;
 
+    public const int MaxTitleLength = 200;
+
     private static readonly FrozenDictionary<string, string> AllowedExtensions =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -74,11 +76,12 @@ public class LibraryService : ILibraryService
             return AppResult<LibraryUploadTicket>.Fail(new AppError(403, "insufficient_role", "Observers cannot upload library documents."));
         }
 
-        var title = command.Title?.Trim();
-        if (string.IsNullOrWhiteSpace(title) || title.Length > 200)
+        var titleResult = NormalizeTitle(command.Title);
+        if (!titleResult.IsSuccess)
         {
-            return AppResult<LibraryUploadTicket>.Fail(new AppError(400, "validation_error", "Title is required and must be at most 200 characters."));
+            return AppResult<LibraryUploadTicket>.Fail(titleResult.Error!);
         }
+        var title = titleResult.Value!;
 
         var extension = Path.GetExtension(command.FileName ?? string.Empty);
         if (string.IsNullOrEmpty(extension) || !AllowedExtensions.TryGetValue(extension, out var expectedContentType))
@@ -269,8 +272,58 @@ public class LibraryService : ILibraryService
         return AppResult<LibraryDocument>.Success(document);
     }
 
-    public async Task<AppResult> DeleteAsync(Guid documentId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)
+    /// <summary>
+    /// GM-only: retitles a document. Nothing else moves — the file, its name in storage, and
+    /// the indexed passages are untouched. This is the label on the shelf, not the book.
+    /// </summary>
+    public async Task<AppResult<LibraryDocument>> RenameAsync(
+        Guid documentId, Guid worldId, WorldRole role, string? title, CancellationToken ct)
     {
+        if (role != WorldRole.GM)
+        {
+            return AppResult<LibraryDocument>.Fail(new AppError(403, "insufficient_role",
+                "Only GMs can rename a library document."));
+        }
+
+        var titleResult = NormalizeTitle(title);
+        if (!titleResult.IsSuccess)
+        {
+            return AppResult<LibraryDocument>.Fail(titleResult.Error!);
+        }
+
+        var result = await GetByIdAsync(documentId, worldId, role, ct);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+
+        var document = result.Value!;
+        // No-op early, for the same reason SetVisibilityAsync does: bumping UpdatedAt for
+        // nothing would reset the stale-Indexing clock that keeps an abandoned row deletable.
+        if (document.Title == titleResult.Value)
+        {
+            return AppResult<LibraryDocument>.Success(document);
+        }
+
+        document.Title = titleResult.Value!;
+        document.UpdatedAt = DateTimeOffset.UtcNow;
+        document = await _documentRepository.UpdateAsync(document, ct);
+
+        return AppResult<LibraryDocument>.Success(document);
+    }
+
+    /// <summary>
+    /// GM-only. Deleting a library document destroys the file and its indexed passages for
+    /// everyone in the world, and a shelf a player can empty is not a shelf the GM can rely
+    /// on mid-session — so uploading no longer carries the right to remove.
+    /// </summary>
+    public async Task<AppResult> DeleteAsync(Guid documentId, Guid worldId, WorldRole role, CancellationToken ct)
+    {
+        if (role != WorldRole.GM)
+        {
+            return AppResult.Fail(new AppError(403, "insufficient_role", "Only GMs can delete a library document."));
+        }
+
         var result = await GetByIdAsync(documentId, worldId, role, ct);
         if (!result.IsSuccess)
         {
@@ -278,10 +331,6 @@ public class LibraryService : ILibraryService
         }
 
         var document = result.Value!;
-        if (role != WorldRole.GM && document.UploadedByUserId != actingUserId)
-        {
-            return AppResult.Fail(new AppError(403, "insufficient_role", "Only the uploader or a GM can delete a library document."));
-        }
 
         // Deleting mid-index races the worker's chunk-insert transaction (lock timeouts,
         // then a worker crash into a vanished row). Refuse until indexing settles — unless
@@ -352,6 +401,19 @@ public class LibraryService : ILibraryService
         }
 
         return AppResult<LibraryDocument>.Success(document);
+    }
+
+    /// <summary>
+    /// The one place a library title is judged. Upload and rename both come through here, so a
+    /// title good enough to shelve a book under cannot be one the GM is then unable to set.
+    /// </summary>
+    private static AppResult<string> NormalizeTitle(string? title)
+    {
+        var normalized = title?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) || normalized.Length > MaxTitleLength
+            ? AppResult<string>.Fail(new AppError(400, "validation_error",
+                $"Title is required and must be at most {MaxTitleLength} characters."))
+            : AppResult<string>.Success(normalized);
     }
 
     /// <summary>

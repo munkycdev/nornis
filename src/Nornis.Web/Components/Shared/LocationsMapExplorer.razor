@@ -13,12 +13,14 @@
         @foreach (var loc in Journey.Locations)
         {
             @* No visible name: the map image already prints it — the pin sits on that
-               printed name, so a label would just double it. Hover/tip carries it instead. *@
+               printed name, so a label would just double it. Hover/tip carries it instead.
+               The tip also carries the visit count, so the gold fill is never the only
+               thing saying this place has a history. *@
             <button type="button"
-                    class="nornis-journey-pin @(loc.ArtifactId == _selectedPinId ? "is-selected" : "")"
+                    class="nornis-journey-pin @(VisitCount(loc) > 0 ? "has-history" : null) @(loc.ArtifactId == _selectedPinId ? "is-selected" : "")"
                     style="left:@Css(loc.X * 100m)%; top:@Css(loc.Y * 100m)%"
-                    data-nornis-tip="@PinName(loc)"
-                    aria-label="@PinName(loc)"
+                    data-nornis-tip="@PinTip(loc)"
+                    aria-label="@PinTip(loc)"
                     @onclick="() => OnPinClick(loc.ArtifactId)">
                 <span class="nornis-journey-pin-dot"></span>
             </button>
@@ -84,7 +86,8 @@
             </div>
             <div class="nornis-journey-ledger-empty">
                 Select a place on the map to trace its history — the dated sessions that visited
-                it, each opening to what they touched.
+                it, each opening to what they touched. Gold pins have a history; pale ones are
+                pinned but unvisited so far.
             </div>
         }
     </aside>
@@ -101,6 +104,13 @@
 
     private JourneyDto? _resetKey;
 
+    /// <summary>
+    /// Dated sessions per place, counted once per journey rather than per pin per render.
+    /// Artifacts hang off the sessions that touched them, so a place with sessions is the same
+    /// place that has artifacts — one count answers both.
+    /// </summary>
+    private Dictionary<Guid, int> _visitCounts = [];
+
     protected override void OnParametersSet()
     {
         // A new journey (world switch, slug change) never keeps the old selection.
@@ -109,8 +119,16 @@
             _resetKey = Journey;
             _selectedPinId = null;
             _collapsedNotes.Clear();
+            _visitCounts = Journey.Stops
+                // Distinct per stop: a session that names a place twice still visited it once.
+                .SelectMany(s => s.VisitedLocationIds.Distinct())
+                .GroupBy(id => id)
+                .ToDictionary(g => g.Key, g => g.Count());
         }
     }
+
+    private int VisitCount(JourneyLocationDto loc) =>
+        _visitCounts.TryGetValue(loc.ArtifactId, out var count) ? count : 0;
 
     private JourneyLocationDto? SelectedLocation =>
         _selectedPinId is { } id ? Journey.Locations.FirstOrDefault(l => l.ArtifactId == id) : null;
@@ -142,6 +160,13 @@
 
     private static string PinName(JourneyLocationDto loc) =>
         string.IsNullOrWhiteSpace(loc.Label) ? loc.Name : loc.Label;
+
+    private string PinTip(JourneyLocationDto loc) => VisitCount(loc) switch
+    {
+        0 => $"{PinName(loc)} — not visited yet",
+        1 => $"{PinName(loc)} — 1 session",
+        var n => $"{PinName(loc)} — {n} sessions",
+    };
 
     private static string Css(decimal value) => value.ToString(CultureInfo.InvariantCulture);
 }

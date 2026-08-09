@@ -1,0 +1,67 @@
+@inject NornisApiClient Api
+
+@* Retitles a library document. The title is the shelf label — the stored file keeps its own
+   name, so nothing here touches the download or the indexed passages. GM-only, and the
+   server says so too. *@
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="_title"
+                      Label="Document title"
+                      Required="true"
+                      Immediate="true"
+                      MaxLength="200"
+                      Variant="Variant.Outlined" />
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="Submit" Disabled="_busy">
+            Rename
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid WorldId { get; set; }
+    [Parameter] public Guid DocumentId { get; set; }
+    [Parameter] public string CurrentTitle { get; set; } = string.Empty;
+
+    private string _title = string.Empty;
+    private bool _busy;
+    private string? _error;
+
+    protected override void OnInitialized() => _title = CurrentTitle;
+
+    private async Task Submit()
+    {
+        if (string.IsNullOrWhiteSpace(_title))
+        {
+            _error = "Document title is required.";
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        var result = await Api.RenameLibraryDocumentAsync(WorldId, DocumentId, _title.Trim());
+
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(result.Value!));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

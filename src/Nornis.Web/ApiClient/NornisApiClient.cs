@@ -431,6 +431,15 @@ public class NornisApiClient
 
     private sealed record SetLibraryVisibilityBody(string Visibility);
 
+    /// <summary>GM-only: retitles a library document.</summary>
+    public Task<ApiResult<LibraryDocumentDto>> RenameLibraryDocumentAsync(
+        Guid worldId, Guid documentId, string title, CancellationToken ct = default) =>
+        PutAsync<RenameLibraryDocumentBody, LibraryDocumentDto>(
+            $"/api/worlds/{worldId}/library/{documentId}/title", new RenameLibraryDocumentBody(title), ct);
+
+    private sealed record RenameLibraryDocumentBody(string Title);
+
+    /// <summary>GM-only: deletes a library document.</summary>
     public Task<ApiResult<bool>> DeleteLibraryDocumentAsync(Guid worldId, Guid documentId, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}/library/{documentId}", ct);
 

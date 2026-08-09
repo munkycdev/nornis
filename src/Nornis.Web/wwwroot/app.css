@@ -231,6 +231,17 @@ html, body {
     text-decoration: underline;
 }
 
+/* The copyright line links to the welcome page. It keeps the quiet version tone rather than
+   taking the footer link colour — it is a way back, not a sixth item in the link row. */
+.nornis-footer a.nornis-footer-version {
+    color: rgba(42, 59, 76, 0.38);
+}
+
+.nornis-footer a.nornis-footer-version:hover {
+    color: rgba(42, 59, 76, 0.85);
+    text-decoration: underline;
+}
+
 .nornis-timeline-legend {
     display: flex;
     flex-wrap: wrap;
@@ -888,6 +899,22 @@ a.nornis-tutorial-step-title:hover {
 .nornis-ask .nornis-ask-input .mud-input-root {
     background-color: var(--mud-palette-surface);
     border-radius: 12px;
+}
+
+/* The send button is a sibling of the field, so nothing makes the two agree on a height by
+   itself — a medium icon button stood 48px against the dense input's 40, and the pair read as
+   two controls that had missed each other.
+
+   Height comes from the field rather than a number: the dense input carries 4px vertical
+   margins, so matching those and stretching leaves the button exactly as tall as the box beside
+   it. Width cannot be borrowed the same way — a row flex item resolves its width before the
+   stretch, so aspect-ratio has no height to work from — hence the padding, which squares a 24px
+   icon against that same 40. */
+.nornis-ask .nornis-ask-send {
+    align-self: stretch;
+    height: auto;
+    margin: 4px 0;
+    padding: 0 8px;
 }
 
 .nornis-suggestions {
@@ -2291,6 +2318,11 @@ a.nornis-cite:hover {
 .nornis-public-footer-version {
     color: var(--mud-palette-text-disabled);
     font-variant-numeric: tabular-nums;
+    text-decoration: none;
+}
+
+.nornis-public-footer-version:hover {
+    color: var(--mud-palette-primary);
 }
 
 /* ------------------------------------------------------------ Ink canvas (/ink) -- */
@@ -3466,6 +3498,12 @@ a.nornis-cite:hover {
    panel is filled and enlarged. Everything else is a plain dark pin. No text label: the map
    image already prints the place name the pin was extracted from. */
 .nornis-journey-pin.is-visited .nornis-journey-pin-dot { box-shadow: 0 0 0 3px #C4A15A, 0 1px 2px rgba(14, 46, 74, 0.45); }
+
+/* The Locations explorer has no scrubber, so its pins say something else: gold means the place
+   has a recorded history (dated sessions, and so the artifacts those sessions touched), navy
+   means it is pinned but nothing has happened there yet. The pin's tip carries the same fact in
+   words — the colour is a summary, never the only telling. */
+.nornis-journey-pin.has-history .nornis-journey-pin-dot { background: #C4A15A; }
 .nornis-journey-pin.is-selected .nornis-journey-pin-dot {
     background: #A9812F;
     transform: scale(1.2);

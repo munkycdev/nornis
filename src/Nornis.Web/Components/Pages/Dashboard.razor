@@ -1,4 +1,4 @@
-﻿@page "/"
+﻿@page "/dashboard"
 @using System.Text.Json
 @implements IDisposable
 @inject WorldState Worlds
@@ -6,7 +6,7 @@
 @inject AskState AskState
 @inject NavigationManager Nav
 
-<PageTitle>Ask the Loremaster — Nornis</PageTitle>
+<PageTitle>Dashboard — Nornis</PageTitle>
 
 <OnboardingPrompt />
 
@@ -21,8 +21,8 @@ else
 
             <MudPaper Elevation="0" Class="nornis-card nornis-hero">
                 <img src="images/mini-logo.png" alt="" class="nornis-hero-mark" />
-                <div class="nornis-hero-title">Ask the Loremaster</div>
-                <div class="nornis-hero-sub">Your world, remembered.</div>
+                <div class="nornis-hero-title">@Worlds.Current.Name</div>
+                <div class="nornis-hero-sub">Ask the Loremaster</div>
 
                 <div class="nornis-ask">
                     <MudTextField T="string"
@@ -36,6 +36,7 @@ else
                     <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
                                    Variant="Variant.Filled"
                                    Color="Color.Primary"
+                                   Class="nornis-ask-send"
                                    OnClick="GoAsk"
                                    aria-label="Ask" />
                 </div>
@@ -94,67 +95,6 @@ else
         </div>
 
         <div class="nornis-rail">
-            @if (_showAiAssessment)
-            {
-                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-                    <div class="nornis-card-header">
-                        <span class="nornis-card-title">Continuity Health</span>
-                        <a href="/world-memory" class="nornis-viewall">How it's scored <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" /></a>
-                        <MudTooltip Text="An LLM reads the record for contradictions, dangling threads, and stale storylines.">
-                            <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Color="Color.Tertiary" Size="Size.Small" />
-                        </MudTooltip>
-                    </div>
-
-                    @if (Worlds.ContinuityLoading)
-                    {
-                        <LoadingRows Rows="3" />
-                    }
-                    else if (Worlds.Continuity is { HasData: true } a)
-                    {
-                        <div class="nornis-ai-summary">
-                            <div class="nornis-ring">
-                                <MudProgressCircular Value="@a.EffectiveScore" Min="0" Max="100"
-                                                     Color="@DisplayText.HealthColor(a.EffectiveScore)" Size="Size.Medium" StrokeWidth="4" />
-                                <span class="nornis-ring-value">@a.EffectiveScore</span>
-                            </div>
-                            <div class="nornis-ai-meta">
-                                <div class="nornis-ai-asof">as of @RelativeTime.Ago(a.CreatedAt!.Value)</div>
-                                <div class="nornis-ai-sub">Heuristic @a.HeuristicScore · @OpenFindingCount(a) open finding@(OpenFindingCount(a) == 1 ? "" : "s")</div>
-                            </div>
-                        </div>
-
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                                   StartIcon="@Icons.Material.Filled.Refresh"
-                                   Disabled="_running" OnClick="RunAssessment" Class="nornis-ai-run">
-                            @(_running ? "Assessing…" : "Run assessment")
-                        </MudButton>
-
-                        @if (_running)
-                        {
-                            <div class="nornis-ai-running"><MudProgressLinear Indeterminate="true" Color="Color.Primary" /></div>
-                        }
-                    }
-                    else
-                    {
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">No AI assessment yet.</MudText>
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                                   StartIcon="@Icons.Material.Filled.AutoAwesome"
-                                   Disabled="_running" OnClick="RunAssessment" Class="nornis-ai-run">
-                            @(_running ? "Assessing…" : "Run assessment")
-                        </MudButton>
-                        @if (_running)
-                        {
-                            <div class="nornis-ai-running"><MudProgressLinear Indeterminate="true" Color="Color.Primary" /></div>
-                        }
-                    }
-
-                    @if ((_assessmentError ?? Worlds.ContinuityError?.Message) is { } assessmentError)
-                    {
-                        <MudText Typo="Typo.body2" Color="Color.Error">@assessmentError</MudText>
-                    }
-                </MudPaper>
-            }
-
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                 <div class="nornis-card-header">
                     <span class="nornis-card-title">Review Queue</span>
@@ -212,11 +152,7 @@ else
     private IReadOnlyList<CanonEntry> _canonRelationships = [];
     private IReadOnlyList<ReviewProposal> _proposals = [];
 
-    // AI-assessed continuity health (GM-only). Read from WorldState — one shared fetch feeds
-    // this card and the sidebar ring. Only "Run assessment" errors are page-local.
-    private bool _running;
-    private string? _assessmentError;
-
+    // The wrap-up card decides what the AI found worth acting on, which is a GM's call.
     private bool _showAiAssessment =>
         Worlds.IsGm;
 
@@ -329,45 +265,7 @@ else
         _proposals = reviewTask.Result.Value?.Proposals ?? [];
 
         StateHasChanged();
-
-        // Shared per-world fetch in WorldState (no-op if the sidebar already loaded it).
-        await Worlds.EnsureContinuityLoadedAsync();
     }
-
-    // Kicks off a fresh assessment. This call runs the LLM and can take ~10-30s.
-    private async Task RunAssessment()
-    {
-        if (Worlds.Current is null || _running)
-        {
-            return;
-        }
-
-        var worldId = Worlds.Current.Id;
-        _running = true;
-        _assessmentError = null;
-        StateHasChanged();
-
-        var result = await Api.RunContinuityAssessmentAsync(worldId);
-        if (result.IsSuccess)
-        {
-            // The card and sidebar ring both read WorldState; the run can take ~30s,
-            // so only push if the user hasn't switched worlds meanwhile.
-            if (Worlds.Current?.Id == worldId)
-            {
-                Worlds.SetContinuity(result.Value);
-            }
-        }
-        else
-        {
-            _assessmentError = result.Error?.Message;
-        }
-
-        _running = false;
-        StateHasChanged();
-    }
-
-    private static int OpenFindingCount(ContinuityAssessment a) =>
-        a.Findings.Count(f => f.Status == "Open");
 
     private static string ProposalName(ReviewProposal p)
     {
