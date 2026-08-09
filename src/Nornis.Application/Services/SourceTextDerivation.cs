@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
@@ -11,20 +11,21 @@ using Nornis.Domain.Repositories;
 namespace Nornis.Application.Services;
 
 /// <summary>
-/// Turns a source's non-text inputs into text the extraction prompt can carry: vision
-/// transcription for handwritten page images, and PDF text / file contents / one batched
-/// vision read for Image and Upload attachments. Owned by <see cref="ExtractionService"/>
-/// and carved out of it — the four-pipeline class had grown to the point where its size
-/// was shaping API decisions.
+/// Turns an Image or Upload source's attachments into text the extraction prompt can carry:
+/// PDF text, file contents, and one batched vision read over the images. Owned by
+/// <see cref="ExtractionService"/> and carved out of it — the four-pipeline class had grown
+/// to the point where its size was shaping API decisions. Handwriting transcription was
+/// carved out again, into <see cref="HandwritingTranscriptionPipeline"/>, when it gained a
+/// caller outside the queue.
 ///
 /// The contract that makes the carve safe: this class writes source CONTENT
-/// (UpdateBodyAsync, UpdateDerivedTextAsync — the persist-before-continue that keeps a
-/// redelivered message from re-buying a vision call) but never source STATUS. A returned
-/// outcome is a verdict, not a transition; ProcessingStatus moves only in the
-/// orchestrator's one mapping, so the state machine stays whole in one file.
+/// (UpdateDerivedTextAsync — the persist-before-continue that keeps a redelivered message
+/// from re-buying a vision call) but never source STATUS. A returned outcome is a verdict,
+/// not a transition; ProcessingStatus moves only in the orchestrator's one mapping, so the
+/// state machine stays whole in one file.
 ///
-/// Both methods return null to mean "continue the pipeline" — text was derived and
-/// persisted, or there was nothing to derive and the empty-body path decides.
+/// Returns null to mean "continue the pipeline" — text was derived and persisted, or there
+/// was nothing to derive and the empty-body path decides.
 /// </summary>
 public class SourceTextDerivation
 {
@@ -32,7 +33,6 @@ public class SourceTextDerivation
     private readonly ISourceAttachmentRepository _sourceAttachmentRepository;
     private readonly IBlobStorageService _blobStorage;
     private readonly IPdfTextExtractor _pdfTextExtractor;
-    private readonly IHandwritingTranscriptionClient _transcriptionClient;
     private readonly IImageReadingClient _imageReadingClient;
     private readonly IAiBudgetGuard _budgetGuard;
     private readonly IAiUsageRecorder _usageRecorder;
@@ -44,7 +44,6 @@ public class SourceTextDerivation
         ISourceAttachmentRepository sourceAttachmentRepository,
         IBlobStorageService blobStorage,
         IPdfTextExtractor pdfTextExtractor,
-        IHandwritingTranscriptionClient transcriptionClient,
         IImageReadingClient imageReadingClient,
         IAiBudgetGuard budgetGuard,
         IAiUsageRecorder usageRecorder,
@@ -55,7 +54,6 @@ public class SourceTextDerivation
         _sourceAttachmentRepository = sourceAttachmentRepository;
         _blobStorage = blobStorage;
         _pdfTextExtractor = pdfTextExtractor;
-        _transcriptionClient = transcriptionClient;
         _imageReadingClient = imageReadingClient;
         _budgetGuard = budgetGuard;
         _usageRecorder = usageRecorder;
@@ -75,112 +73,6 @@ public class SourceTextDerivation
         return composed.Length <= MaxComposedBodyChars
             ? composed
             : composed[..MaxComposedBodyChars];
-    }
-
-    /// <summary>
-    /// Vision-transcribes a handwritten source's page images into its Body. Returns null
-    /// to continue the normal pipeline (transcription succeeded, or there were no pages
-    /// and the empty-body path should handle it), or a terminal outcome on failure.
-    /// </summary>
-    public async Task<ExtractionOutcome?> TranscribeHandwrittenAsync(Source source, Guid worldId, CancellationToken ct)
-    {
-        var pages = (await _sourceAttachmentRepository.ListBySourceAsync(source.Id, ct))
-            .Where(a => a.Kind == SourceAttachmentKind.PageImage && a.Status == SourceAttachmentStatus.Stored)
-            .ToList();
-
-        if (pages.Count == 0)
-        {
-            return null; // nothing to transcribe — the empty-body short-circuit takes it
-        }
-
-        // Transcription is an AI spend of its own; gate it like extraction.
-        var budgetError = await _budgetGuard.CheckAsync(worldId, ct);
-        if (budgetError is not null)
-        {
-            _logger.LogWarning(
-                "Handwriting transcription blocked by AI budget. SourceId={SourceId}, WorldId={WorldId}",
-                source.Id, worldId);
-            return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
-        }
-
-        var images = new List<TranscriptionPage>(pages.Count);
-        foreach (var page in pages)
-        {
-            try
-            {
-                await using var stream = await _blobStorage.OpenReadAsync(page.BlobPath, ct);
-                using var buffer = new MemoryStream();
-                await stream.CopyToAsync(buffer, ct);
-                images.Add(new TranscriptionPage(buffer.ToArray(), page.ContentType));
-            }
-            catch (FileNotFoundException)
-            {
-                _logger.LogError(
-                    "Page image blob missing for handwritten source. SourceId={SourceId}, BlobPath={BlobPath}",
-                    source.Id, page.BlobPath);
-                return ExtractionOutcome.NonTransient(ErrorCategories.ValidationFailure,
-                    $"Page image '{page.FileName}' is missing from storage.");
-            }
-        }
-
-        HandwritingTranscriptionResponse response;
-        try
-        {
-            response = await _transcriptionClient.TranscribeAsync(new HandwritingTranscriptionRequest
-            {
-                Pages = images,
-                Model = _options.AiModel,
-                TimeoutSeconds = _options.AiTimeoutSeconds
-            }, ct);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (TimeoutException ex)
-        {
-            await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.Timeout, ct);
-            return ExtractionOutcome.Transient(ErrorCategories.Timeout, ex.Message);
-        }
-        catch (Exception ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
-        {
-            _logger.LogError(ex, "Permanent transcription failure. SourceId={SourceId}", source.Id);
-            await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.AiCallFailure, ct);
-            return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
-        }
-        catch (Exception ex) when (ex is AiHttpException or HttpRequestException)
-        {
-            _logger.LogWarning(ex, "Transient transcription failure. SourceId={SourceId}", source.Id);
-            await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.TransientError, ct);
-            return ExtractionOutcome.Transient(ErrorCategories.TransientError, ex.Message);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected transcription failure. SourceId={SourceId}", source.Id);
-            await TrackTranscriptionUsageAsync(source, worldId, null, false, ErrorCategories.AiCallFailure, ct);
-            return ExtractionOutcome.NonTransient(ErrorCategories.AiCallFailure, ex.Message);
-        }
-
-        await TrackTranscriptionUsageAsync(source, worldId, response, true, null, ct);
-
-        if (string.IsNullOrWhiteSpace(response.Markdown))
-        {
-            // Blank pages: nothing to extract — let the empty-body path close it out.
-            _logger.LogInformation(
-                "Transcription produced no text. SourceId={SourceId}, Pages={Pages}", source.Id, pages.Count);
-            return null;
-        }
-
-        // Persist before continuing: extraction may still fail and retry, and the
-        // transcription must not be re-bought on redelivery.
-        await _sourceRepository.UpdateBodyAsync(source.Id, response.Markdown, ct);
-        source.Body = response.Markdown;
-
-        _logger.LogInformation(
-            "Handwriting transcribed. SourceId={SourceId}, Pages={Pages}, Chars={Chars}",
-            source.Id, pages.Count, response.Markdown.Length);
-
-        return null;
     }
 
     /// <summary>
@@ -268,7 +160,7 @@ public class SourceTextDerivation
             {
                 _logger.LogWarning(
                     "Image reading blocked by AI budget. SourceId={SourceId}, WorldId={WorldId}", source.Id, worldId);
-                return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
+                return ExtractionOutcome.NonTransient(ErrorCategories.BudgetExceeded, budgetError.Message);
             }
 
             ImageReadingResponse response;
@@ -347,13 +239,6 @@ public class SourceTextDerivation
 
         return null;
     }
-
-    private Task TrackTranscriptionUsageAsync(
-        Source source, Guid worldId, HandwritingTranscriptionResponse? response,
-        bool succeeded, string? errorCode, CancellationToken ct) =>
-        _usageRecorder.RecordAsync(
-            worldId, null, AiOperationType.HandwritingTranscription, response?.Usage,
-            succeeded, errorCode, sourceId: source.Id, fallbackModel: _options.AiModel, ct: ct);
 
     private Task TrackVisionUsageAsync(
         Source source, Guid worldId, AiUsage? usage,

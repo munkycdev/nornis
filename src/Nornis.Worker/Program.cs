@@ -129,8 +129,12 @@ var builder = Host.CreateDefaultBuilder(args)
         // AI extraction client
         services.AddScoped<IAiExtractionClient, AzureOpenAiExtractionClient>();
 
-        // Handwriting transcription (vision) — shares the extraction ChatClient
+        // Handwriting transcription (vision) — shares the extraction ChatClient, so the
+        // settings name the extraction deployment and its priced model.
         services.AddScoped<IHandwritingTranscriptionClient, AzureOpenAiHandwritingTranscriptionClient>();
+        services.AddSingleton(new HandwritingTranscriptionSettings(
+            extractionOptions.AiModel, extractionOptions.AiTimeoutSeconds));
+        services.AddScoped<HandwritingTranscriptionPipeline>();
 
         // Image lore-reading and map extraction (vision) — same ChatClient
         services.AddScoped<IImageReadingClient, AzureOpenAiImageReadingClient>();

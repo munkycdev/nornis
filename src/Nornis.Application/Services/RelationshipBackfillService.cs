@@ -122,7 +122,7 @@ public class RelationshipBackfillService : IRelationshipBackfillService
             _logger.LogWarning(
                 "Relationship backfill blocked by AI budget. SourceId={SourceId}, WorldId={WorldId}",
                 sourceId, worldId);
-            return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
+            return ExtractionOutcome.NonTransient(ErrorCategories.BudgetExceeded, budgetError.Message);
         }
 
         var candidates = await LoadCandidatesAsync(source, worldId, ct);

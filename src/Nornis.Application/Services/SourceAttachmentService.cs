@@ -57,9 +57,6 @@ public class SourceAttachmentService : ISourceAttachmentService
     private static readonly SourceAttachmentKind[] DerivationKinds =
         [SourceAttachmentKind.ImageFile, SourceAttachmentKind.Document, SourceAttachmentKind.MapImage];
 
-    private static readonly SourceProcessingStatus[] MutableStatuses =
-        [SourceProcessingStatus.Draft, SourceProcessingStatus.Ready, SourceProcessingStatus.Failed];
-
     private readonly ISourceRepository _sourceRepository;
     private readonly ISourceAttachmentRepository _attachmentRepository;
     private readonly IBlobStorageService _blobStorage;
@@ -318,34 +315,16 @@ public class SourceAttachmentService : ISourceAttachmentService
     }
 
     /// <summary>
-    /// The write gate shared by request/confirm/delete: source exists in this world, the
-    /// caller is its owner or a GM, and it has not entered the pipeline yet.
+    /// The write gate shared by request/confirm/delete, applied by
+    /// <see cref="SourceWriteGate"/> so transcription enforces the same rule.
     /// </summary>
     private async Task<AppResult<Source>> LoadMutableSourceAsync(
         Guid sourceId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)
     {
-        if (role == WorldRole.Observer)
-        {
-            return AppResult<Source>.Fail(new AppError(403, "insufficient_role", "Observers cannot modify sources."));
-        }
-
         var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
-        if (source is null || source.WorldId != worldId)
-        {
-            return AppResult<Source>.Fail(new AppError(404, "not_found", "Source not found."));
-        }
 
-        if (role != WorldRole.GM && source.CreatedByUserId != actingUserId)
-        {
-            return AppResult<Source>.Fail(new AppError(403, "insufficient_role", "Only the source's creator or a GM can modify its attachments."));
-        }
-
-        if (!MutableStatuses.Contains(source.ProcessingStatus))
-        {
-            return AppResult<Source>.Fail(new AppError(409, "invalid_status",
-                $"Attachments cannot change while the source is {source.ProcessingStatus}."));
-        }
-
-        return AppResult<Source>.Success(source);
+        return SourceWriteGate.Check(source, worldId, actingUserId, role) is { } error
+            ? AppResult<Source>.Fail(error)
+            : AppResult<Source>.Success(source!);
     }
 }

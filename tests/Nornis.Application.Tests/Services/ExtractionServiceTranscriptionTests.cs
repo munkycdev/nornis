@@ -78,12 +78,21 @@ public class ExtractionServiceTranscriptionTests
             _attachmentRepository,
             _blobStorage,
             new FakePdfTextExtractor(),
-            _transcriptionClient,
             new FakeImageReadingClient(),
             _budgetGuard,
             usageRecorder,
             extractionOptions,
             NullLogger<SourceTextDerivation>.Instance);
+
+        var handwritingTranscription = new HandwritingTranscriptionPipeline(
+            _sourceRepository,
+            _attachmentRepository,
+            _blobStorage,
+            _transcriptionClient,
+            _budgetGuard,
+            usageRecorder,
+            new HandwritingTranscriptionSettings(extractionOptions.Value.AiModel, extractionOptions.Value.AiTimeoutSeconds),
+            NullLogger<HandwritingTranscriptionPipeline>.Instance);
 
         _sut = new ExtractionService(
             _sourceRepository,
@@ -98,6 +107,7 @@ public class ExtractionServiceTranscriptionTests
             _aiClient,
             mapPipeline,
             textDerivation,
+            handwritingTranscription,
             _budgetGuard,
             new FakeUnitOfWork(),
             extractionOptions,

@@ -84,12 +84,21 @@ public class ExtractionServiceContextAssemblyTests
             attachmentRepository,
             blobStorage,
             new FakePdfTextExtractor(),
-            new FakeHandwritingTranscriptionClient(),
             new FakeImageReadingClient(),
             budgetGuard,
             usageRecorder,
             options,
             NullLogger<SourceTextDerivation>.Instance);
+
+        var handwritingTranscription = new HandwritingTranscriptionPipeline(
+            _sourceRepository,
+            attachmentRepository,
+            blobStorage,
+            new FakeHandwritingTranscriptionClient(),
+            budgetGuard,
+            usageRecorder,
+            new HandwritingTranscriptionSettings(options.Value.AiModel, options.Value.AiTimeoutSeconds),
+            NullLogger<HandwritingTranscriptionPipeline>.Instance);
 
         return new ExtractionService(
             _sourceRepository,
@@ -104,6 +113,7 @@ public class ExtractionServiceContextAssemblyTests
             _aiClient,
             mapPipeline,
             textDerivation,
+            handwritingTranscription,
             budgetGuard,
             _unitOfWork,
             options,

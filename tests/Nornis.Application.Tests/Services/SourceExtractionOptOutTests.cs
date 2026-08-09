@@ -161,12 +161,21 @@ public class SourceExtractionOptOutTests
             attachmentRepo,
             blobStorage,
             new FakePdfTextExtractor(),
-            new FakeHandwritingTranscriptionClient(),
             new FakeImageReadingClient(),
             budgetGuard,
             usageRecorder,
             extractionOptions,
             NullLogger<SourceTextDerivation>.Instance);
+
+        var handwritingTranscription = new HandwritingTranscriptionPipeline(
+            _sourceRepo,
+            attachmentRepo,
+            blobStorage,
+            new FakeHandwritingTranscriptionClient(),
+            budgetGuard,
+            usageRecorder,
+            new HandwritingTranscriptionSettings(extractionOptions.Value.AiModel, extractionOptions.Value.AiTimeoutSeconds),
+            NullLogger<HandwritingTranscriptionPipeline>.Instance);
 
         var extractionService = new ExtractionService(
             _sourceRepo,
@@ -181,6 +190,7 @@ public class SourceExtractionOptOutTests
             new FakeAiExtractionClient(),
             mapPipeline,
             textDerivation,
+            handwritingTranscription,
             budgetGuard,
             new FakeUnitOfWork(),
             extractionOptions,

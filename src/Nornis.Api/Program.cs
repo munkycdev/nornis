@@ -301,6 +301,18 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
     builder.Services.AddScoped<IConvergenceNarrationClient, AzureOpenAiConvergenceNarrationClient>();
     builder.Services.AddScoped<IWorldNameGenerator, AzureOpenAiWorldNameGenerator>();
 
+    // Handwriting transcription on demand: the capture page reads a photo of notes so the GM
+    // can correct the reading before extraction sees it. Same ChatClient as every other
+    // user-facing call here, so the settings name the SAME deployment — Loremaster:AiModel is
+    // the key Loremaster:ModelPricing is written against, and a name that misses it prices
+    // the call at $0 (see the note in appsettings.json).
+    builder.Services.AddSingleton(new HandwritingTranscriptionSettings(
+        loremasterModel ?? "gpt-4o",
+        builder.Configuration.GetValue<int?>("Transcription:TimeoutSeconds") ?? 90));
+    builder.Services.AddScoped<IHandwritingTranscriptionClient, AzureOpenAiHandwritingTranscriptionClient>();
+    builder.Services.AddScoped<HandwritingTranscriptionPipeline>();
+    builder.Services.AddScoped<ISourceTranscriptionService, SourceTranscriptionService>();
+
     // Library passage retrieval reuses the same account with the embedding deployment.
     var embeddingDeployment = builder.Configuration["Library:EmbeddingDeployment"] ?? "nornis-embed";
     builder.Services.AddSingleton(openAiClient.GetEmbeddingClient(embeddingDeployment));
@@ -327,6 +339,15 @@ else
     builder.Services.AddScoped<IEmbeddingClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable library passage retrieval."));
+    builder.Services.AddScoped<IHandwritingTranscriptionClient>(sp =>
+        throw new InvalidOperationException(
+            "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable handwriting transcription."));
+    // The pipeline and the service still resolve — the throwing client above is what a
+    // transcribe request hits, so it fails with that sentence rather than a DI error naming
+    // a type the caller never asked for.
+    builder.Services.AddSingleton(new HandwritingTranscriptionSettings(string.Empty, 90));
+    builder.Services.AddScoped<HandwritingTranscriptionPipeline>();
+    builder.Services.AddScoped<ISourceTranscriptionService, SourceTranscriptionService>();
 
     // Narration degrades for the same reason naming does, and one more: it decorates the
     // convergence ranking rather than producing it, and a throwing stub would take the

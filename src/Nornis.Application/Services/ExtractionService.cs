@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
@@ -29,6 +29,7 @@ public class ExtractionService : IExtractionService
     private readonly IAiExtractionClient _aiExtractionClient;
     private readonly MapExtractionPipeline _mapExtractionPipeline;
     private readonly SourceTextDerivation _sourceTextDerivation;
+    private readonly HandwritingTranscriptionPipeline _handwritingTranscription;
     private readonly IAiBudgetGuard _budgetGuard;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ExtractionOptions _options;
@@ -65,6 +66,7 @@ public class ExtractionService : IExtractionService
         IAiExtractionClient aiExtractionClient,
         MapExtractionPipeline mapExtractionPipeline,
         SourceTextDerivation sourceTextDerivation,
+        HandwritingTranscriptionPipeline handwritingTranscription,
         IAiBudgetGuard budgetGuard,
         IUnitOfWork unitOfWork,
         IOptions<ExtractionOptions> options,
@@ -81,6 +83,7 @@ public class ExtractionService : IExtractionService
         _replayAdvancer = replayAdvancer;
         _mapExtractionPipeline = mapExtractionPipeline;
         _sourceTextDerivation = sourceTextDerivation;
+        _handwritingTranscription = handwritingTranscription;
         _budgetGuard = budgetGuard;
         _sourceRepository = sourceRepository;
         _campaignRepository = campaignRepository;
@@ -220,14 +223,16 @@ public class ExtractionService : IExtractionService
         Source source, Guid worldId, CancellationToken ct)
     {
         // 4b. Handwritten notes arrive as page images; vision transcription produces the
-        // body here, then the normal pipeline continues. The transcription is persisted,
-        // so a redelivered message sees a non-empty body and skips this step.
-        if (source.Type == SourceType.HandwrittenNotes && string.IsNullOrWhiteSpace(source.Body))
+        // body here, then the normal pipeline continues. A body that already exists — a
+        // redelivered message, or a GM who corrected the reading on the capture page before
+        // sending it — short-circuits inside the derivation, which owns that guard for both
+        // of its callers.
+        if (source.Type == SourceType.HandwrittenNotes)
         {
-            var transcriptionOutcome = await _sourceTextDerivation.TranscribeHandwrittenAsync(source, worldId, ct);
-            if (transcriptionOutcome is not null)
+            var transcription = await _handwritingTranscription.TranscribeAsync(source, worldId, ct);
+            if (transcription.Failure is not null)
             {
-                return transcriptionOutcome;
+                return transcription.Failure;
             }
         }
 
@@ -296,7 +301,7 @@ public class ExtractionService : IExtractionService
             _logger.LogWarning(
                 "Extraction blocked by AI budget. SourceId={SourceId}, WorldId={WorldId}",
                 source.Id, worldId);
-            return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
+            return ExtractionOutcome.NonTransient(ErrorCategories.BudgetExceeded, budgetError.Message);
         }
 
         var context = await AssembleContextAsync(source, worldId, ct);
