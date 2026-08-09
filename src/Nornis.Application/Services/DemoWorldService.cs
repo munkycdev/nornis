@@ -249,13 +249,16 @@ public class DemoWorldService : IDemoWorldService
 
         var rows = new WorldExportData
         {
-            Campaigns = package.Campaigns.Select(c => new Campaign
+            // The package's array order is the order the demo world should read in, so it
+            // becomes the display order directly (1-based, as ReorderAsync writes them).
+            Campaigns = package.Campaigns.Select((c, index) => new Campaign
             {
                 Id = ids.Map(c.Id),
                 WorldId = worldId,
                 Name = c.Name,
                 Description = c.Description,
                 Status = c.Status,
+                SortOrder = index + 1,
                 StartedAt = c.StartedAt + delta,
                 EndedAt = c.EndedAt + delta,
                 CreatedAt = now,

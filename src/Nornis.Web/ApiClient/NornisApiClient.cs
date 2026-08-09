@@ -148,6 +148,18 @@ public class NornisApiClient
         DeleteAsync($"/api/worlds/{worldId}/campaigns/{campaignId}", ct);
 
     /// <summary>Replaces the full set of characters assigned to a campaign.</summary>
+    public Task<ApiResult<CampaignDetailDto>> GetCampaignDetailAsync(Guid worldId, Guid campaignId, CancellationToken ct = default) =>
+        GetAsync<CampaignDetailDto>($"/api/worlds/{worldId}/campaigns/{campaignId}/detail", ct);
+
+    public Task<ApiResult<IReadOnlyList<CampaignDto>>> ReorderCampaignsAsync(
+        Guid worldId, IReadOnlyList<Guid> campaignIds, CancellationToken ct = default) =>
+        PutAsync<ReorderCampaignsRequest, IReadOnlyList<CampaignDto>>(
+            $"/api/worlds/{worldId}/campaigns/reorder", new ReorderCampaignsRequest(campaignIds), ct);
+
+    public Task<ApiResult<CampaignRecapDto>> GenerateCampaignRecapAsync(
+        Guid worldId, Guid campaignId, CancellationToken ct = default) =>
+        PostAsync<object, CampaignRecapDto>($"/api/worlds/{worldId}/campaigns/{campaignId}/recap", new { }, ct);
+
     public Task<ApiResult<IReadOnlyList<CharacterDto>>> AssignCampaignCharactersAsync(
         Guid worldId, Guid campaignId, IReadOnlyCollection<Guid> characterIds, CancellationToken ct = default) =>
         PutAsync<AssignCampaignCharactersRequest, IReadOnlyList<CharacterDto>>(

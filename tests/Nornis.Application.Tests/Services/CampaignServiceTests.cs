@@ -16,6 +16,7 @@ public class CampaignServiceTests
     private InMemoryCampaignRepository _campaignRepository = null!;
     private InMemoryCharacterRepository _characterRepository = null!;
     private InMemorySourceRepository _sourceRepository = null!;
+    private InMemoryCampaignRecapRepository _recapRepository = null!;
     private CampaignService _sut = null!;
 
     [SetUp]
@@ -24,7 +25,8 @@ public class CampaignServiceTests
         _sourceRepository = new InMemorySourceRepository();
         _characterRepository = new InMemoryCharacterRepository();
         _campaignRepository = new InMemoryCampaignRepository(_sourceRepository, _characterRepository);
-        _sut = new CampaignService(_campaignRepository, _characterRepository);
+        _recapRepository = new InMemoryCampaignRecapRepository();
+        _sut = new CampaignService(_campaignRepository, _characterRepository, _sourceRepository, _recapRepository);
     }
 
     private static Campaign CreateCampaign(Guid? worldId = null, string name = "Missing Caravan Arc") => new()

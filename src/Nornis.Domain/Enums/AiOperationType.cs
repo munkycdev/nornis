@@ -20,6 +20,10 @@ public enum AiOperationType
     WorldNaming,
     WorldDigest,
 
+    /// <summary>One campaign's "story so far" — the world digest's campaign-scoped sibling,
+    /// metered separately so a GM can see what recapping a long campaign costs.</summary>
+    CampaignRecap,
+
     /// <summary>Writing the why-now beside a convergence candidate. Annotates a ranking
     /// the system already computed; it never produces one.</summary>
     ConvergenceNarration

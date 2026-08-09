@@ -1,4 +1,5 @@
 using Nornis.Domain.Entities;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Tests.Fakes;
@@ -29,10 +30,57 @@ public class InMemoryCampaignRepository : ICampaignRepository
 
     public void Seed(params Campaign[] campaigns) => _campaigns.AddRange(campaigns);
 
+    /// <summary>
+    /// The rollup the real repository derives in SQL. Tests that need it set it; the default
+    /// is an empty rollup, which is what a campaign whose sources cite nothing would give.
+    /// </summary>
+    public CampaignRollup Rollup { get; set; } = new([], 0);
+
+    /// <summary>The filter the last <see cref="GetRollupAsync"/> ran under, so a test can
+    /// assert the service narrowed to the caller rather than reading as a GM.</summary>
+    public VisibilityFilter? LastRollupFilter { get; private set; }
+
     public Task<Campaign> CreateAsync(Campaign campaign, CancellationToken cancellationToken = default)
     {
+        campaign.SortOrder = _campaigns.Count(c => c.WorldId == campaign.WorldId) == 0
+            ? 1
+            : _campaigns.Where(c => c.WorldId == campaign.WorldId).Max(c => c.SortOrder) + 1;
+
         _campaigns.Add(campaign);
         return Task.FromResult(campaign);
+    }
+
+    public virtual Task<CampaignRollup> GetRollupAsync(
+        Guid worldId, Guid campaignId, VisibilityFilter filter, int limit, CancellationToken cancellationToken = default)
+    {
+        LastRollupFilter = filter;
+
+        return Task.FromResult(new CampaignRollup(
+            Rollup.Artifacts.Take(limit).ToList(),
+            Rollup.TotalCount));
+    }
+
+    public Task<IReadOnlyList<Campaign>> ReorderAsync(
+        Guid worldId, IReadOnlyList<Guid> orderedCampaignIds, CancellationToken cancellationToken = default)
+    {
+        var inWorld = _campaigns.Where(c => c.WorldId == worldId).ToList();
+
+        var position = 1;
+        foreach (var id in orderedCampaignIds)
+        {
+            if (inWorld.FirstOrDefault(c => c.Id == id) is { } named)
+            {
+                named.SortOrder = position++;
+            }
+        }
+
+        var namedIds = orderedCampaignIds.ToHashSet();
+        foreach (var missed in inWorld.Where(c => !namedIds.Contains(c.Id)).OrderByDescending(c => c.CreatedAt))
+        {
+            missed.SortOrder = position++;
+        }
+
+        return Task.FromResult<IReadOnlyList<Campaign>>(inWorld.OrderBy(c => c.SortOrder).ToList());
     }
 
     public Task<Campaign?> GetByIdAsync(Guid campaignId, CancellationToken cancellationToken = default)
@@ -44,7 +92,8 @@ public class InMemoryCampaignRepository : ICampaignRepository
     {
         var campaigns = _campaigns
             .Where(c => c.WorldId == worldId)
-            .OrderByDescending(c => c.CreatedAt)
+            .OrderBy(c => c.SortOrder)
+            .ThenByDescending(c => c.CreatedAt)
             .ToList();
         return Task.FromResult<IReadOnlyList<Campaign>>(campaigns.AsReadOnly());
     }

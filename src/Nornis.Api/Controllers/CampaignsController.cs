@@ -84,6 +84,80 @@ public class CampaignsController : ControllerBase
         return Ok(ToCampaignResponse(result.Value!));
     }
 
+    /// <summary>
+    /// The campaign page's read model. Any member may read it; the service assembles it at
+    /// their visibility, so a player's copy simply holds less.
+    /// </summary>
+    [HttpGet("{campaignId:guid}/detail")]
+    public async Task<IActionResult> GetDetail(Guid worldId, Guid campaignId, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _campaignService.GetDetailAsync(campaignId, worldId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        var detail = result.Value!;
+
+        return Ok(new CampaignDetailResponse(
+            Campaign: ToCampaignResponse(detail.Campaign),
+            Characters: detail.Characters.Select(CharactersController.ToCharacterResponse).ToList(),
+            Artifacts: detail.Rollup.Artifacts
+                .Select(a => new CampaignArtifactResponse(
+                    a.ArtifactId, a.Name, a.Type.ToString(), a.Summary, a.Status.ToString(), a.SourceCount))
+                .ToList(),
+            ArtifactTotalCount: detail.Rollup.TotalCount,
+            RecentSessions: detail.RecentSessions.Select(SourcesController.ToSourceListItemResponse).ToList(),
+            SessionCount: detail.SessionCount,
+            FirstSessionAt: detail.FirstSessionAt,
+            LastSessionAt: detail.LastSessionAt,
+            Recap: ToRecapResponse(detail.Recap)));
+    }
+
+    /// <summary>GM-only. Rewrites the world's campaign display order.</summary>
+    [HttpPut("reorder")]
+    public async Task<IActionResult> Reorder(
+        Guid worldId,
+        [FromBody] ReorderCampaignsRequest request,
+        CancellationToken ct)
+    {
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _campaignService.ReorderAsync(worldId, request.CampaignIds, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        return Ok(result.Value!.Select(ToCampaignResponse).ToList());
+    }
+
+    /// <summary>GM-only. Regenerates both renderings of the campaign's "story so far".</summary>
+    [HttpPost("{campaignId:guid}/recap")]
+    public async Task<IActionResult> GenerateRecap(
+        Guid worldId,
+        Guid campaignId,
+        [FromServices] ICampaignRecapService recapService,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await recapService.GenerateAsync(campaignId, worldId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        return Ok(ToRecapResponse(result.Value!));
+    }
+
     [HttpPut("{campaignId:guid}")]
     public async Task<IActionResult> Update(
         Guid worldId,
@@ -191,6 +265,9 @@ public class CampaignsController : ControllerBase
 
         return Ok(result.Value!.Select(CharactersController.ToCharacterResponse).ToList());
     }
+
+    private static CampaignRecapResponse ToRecapResponse(CampaignRecapView view) =>
+        new(view.HasData, view.GeneratedAt, view.Content, view.PartyPreview);
 
     private static CampaignResponse ToCampaignResponse(Campaign campaign)
     {

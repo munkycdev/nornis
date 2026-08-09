@@ -99,6 +99,17 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
             }
             services.AddScoped<Nornis.Application.Ai.ILoremasterAiClient, FakeLoremasterAiClient>();
 
+            // And again for the digest client, which now serves the campaign recap as well as
+            // the world digest — so an unconfigured host would fail to activate the campaign
+            // endpoints before their role check could refuse anyone.
+            var digestAiDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(Nornis.Application.Ai.IDigestAiClient));
+            if (digestAiDescriptor is not null)
+            {
+                services.Remove(digestAiDescriptor);
+            }
+            services.AddScoped<Nornis.Application.Ai.IDigestAiClient, FakeDigestAiClient>();
+
             // Blob storage is a throwing DI stub when unconfigured — replace with an
             // in-memory fake so Library endpoints are testable.
             var blobDescriptor = services.SingleOrDefault(

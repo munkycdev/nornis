@@ -18,6 +18,19 @@ public class Campaign
 
     public CampaignStatus Status { get; set; }
 
+    /// <summary>
+    /// GM-chosen display position, ascending, tie-broken by newest-first. Governs the
+    /// settings list, the campaign index and the Sources filter — <em>not</em> the storyline
+    /// timeline, whose campaign bands are ordered chronologically by their effective start
+    /// and must stay that way.
+    ///
+    /// Zero means this world has never been reordered: reorder writes every row in the world
+    /// at once with 1-based positions, so a zero is never one campaign's position among
+    /// assigned siblings. A world still at all-zeroes falls back to newest-first, which is
+    /// the order that predates this column.
+    /// </summary>
+    public int SortOrder { get; set; }
+
     public DateTimeOffset? StartedAt { get; set; }
 
     public DateTimeOffset? EndedAt { get; set; }
