@@ -226,23 +226,39 @@ public class LibraryServiceTests
     [Test]
 
     [Category("Authorization")]
-    public async Task Delete_PlayerWhoIsNotUploader_Returns403()
+    public async Task Delete_AsPlayer_Returns403()
     {
         var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexed, "Party book", uploadedBy: GmId);
         _documents.Seed(doc);
 
-        var result = await _sut.DeleteAsync(doc.Id, WorldId, PlayerId, WorldRole.Player, CancellationToken.None);
+        var result = await _sut.DeleteAsync(doc.Id, WorldId, WorldRole.Player, CancellationToken.None);
 
         Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
     }
 
     [Test]
-    public async Task Delete_Uploader_RemovesBlobAndRow()
+    [Category("Authorization")]
+    public async Task Delete_AsUploadingPlayer_Returns403()
     {
+        // Uploading no longer carries the right to remove: the file and its indexed passages
+        // are the whole world's, and a shelf a player can empty is one the GM cannot rely on.
         var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexed, "My handout", uploadedBy: PlayerId);
         _documents.Seed(doc);
 
-        var result = await _sut.DeleteAsync(doc.Id, WorldId, PlayerId, WorldRole.Player, CancellationToken.None);
+        var result = await _sut.DeleteAsync(doc.Id, WorldId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+        Assert.That(_blobs.DeletedPaths, Is.Empty);
+        Assert.That(_documents.Documents, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Delete_AsGm_RemovesBlobAndRow()
+    {
+        var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexed, "Party handout", uploadedBy: PlayerId);
+        _documents.Seed(doc);
+
+        var result = await _sut.DeleteAsync(doc.Id, WorldId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(_blobs.DeletedPaths, Does.Contain(doc.BlobPath));
@@ -256,7 +272,7 @@ public class LibraryServiceTests
         _documents.Seed(doc);
         _blobs.FailDeletes = true;
 
-        var result = await _sut.DeleteAsync(doc.Id, WorldId, GmId, WorldRole.GM, CancellationToken.None);
+        var result = await _sut.DeleteAsync(doc.Id, WorldId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(_documents.Documents, Is.Empty);
@@ -269,7 +285,7 @@ public class LibraryServiceTests
         doc.UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-2);
         _documents.Seed(doc);
 
-        var result = await _sut.DeleteAsync(doc.Id, WorldId, GmId, WorldRole.GM, CancellationToken.None);
+        var result = await _sut.DeleteAsync(doc.Id, WorldId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("indexing_in_progress"));
@@ -284,7 +300,7 @@ public class LibraryServiceTests
         doc.UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-(LibraryService.StaleIndexingMinutes + 5));
         _documents.Seed(doc);
 
-        var result = await _sut.DeleteAsync(doc.Id, WorldId, GmId, WorldRole.GM, CancellationToken.None);
+        var result = await _sut.DeleteAsync(doc.Id, WorldId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(_documents.Documents, Is.Empty);
@@ -381,6 +397,90 @@ public class LibraryServiceTests
     }
 
     [Test]
+    public async Task Rename_AsGm_SetsTheNewTitle()
+    {
+        var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexed, "Untitled scan");
+        _documents.Seed(doc);
+
+        var result = await _sut.RenameAsync(doc.Id, WorldId, WorldRole.GM, "  Tomb of Annihilation  ", CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.Title, Is.EqualTo("Tomb of Annihilation"), "the title is trimmed");
+        Assert.That(_documents.Documents.Single().Title, Is.EqualTo("Tomb of Annihilation"));
+        Assert.That(_blobs.DeletedPaths, Is.Empty, "renaming touches the label, not the file");
+    }
+
+    [TestCase(WorldRole.Player)]
+    [TestCase(WorldRole.Observer)]
+    [Category("Authorization")]
+    public async Task Rename_NonGm_Returns403(WorldRole role)
+    {
+        var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexed, "Party book", uploadedBy: PlayerId);
+        _documents.Seed(doc);
+
+        var result = await _sut.RenameAsync(doc.Id, WorldId, role, "Mine now", CancellationToken.None);
+
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+        Assert.That(_documents.Documents.Single().Title, Is.EqualTo("Party book"),
+            "even the uploader must not retitle a book on the party shelf");
+    }
+
+    [TestCase("")]
+    [TestCase("   ")]
+    [TestCase(null)]
+    public async Task Rename_BlankTitle_Returns400(string? title)
+    {
+        var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexed, "Party book");
+        _documents.Seed(doc);
+
+        var result = await _sut.RenameAsync(doc.Id, WorldId, WorldRole.GM, title, CancellationToken.None);
+
+        Assert.That(result.Error!.Code, Is.EqualTo("validation_error"));
+        Assert.That(_documents.Documents.Single().Title, Is.EqualTo("Party book"));
+    }
+
+    [Test]
+    public async Task Rename_TitleOverTheUploadLimit_Returns400()
+    {
+        // Upload and rename share one rule, so a title too long to shelve a book under is
+        // also one the GM cannot rename it to.
+        var doc = Doc(VisibilityScope.PartyVisible, LibraryDocumentStatus.Indexed, "Party book");
+        _documents.Seed(doc);
+
+        var result = await _sut.RenameAsync(
+            doc.Id, WorldId, WorldRole.GM, new string('x', LibraryService.MaxTitleLength + 1), CancellationToken.None);
+
+        Assert.That(result.Error!.Code, Is.EqualTo("validation_error"));
+    }
+
+    [Test]
+    public async Task Rename_UnknownDocument_Returns404()
+    {
+        var result = await _sut.RenameAsync(Guid.NewGuid(), WorldId, WorldRole.GM, "Ghost book", CancellationToken.None);
+
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
+    [Test]
+    public async Task Rename_ToTheSameTitle_LeavesTheStaleIndexingClockAlone()
+    {
+        // Same reason as the visibility no-op: bumping UpdatedAt resets the 30-minute window
+        // that makes an abandoned Indexing row deletable again.
+        var doc = Doc(VisibilityScope.GMOnly, LibraryDocumentStatus.Indexing, "Wedged book");
+        var untouched = DateTimeOffset.UtcNow.AddMinutes(-(LibraryService.StaleIndexingMinutes + 5));
+        doc.UpdatedAt = untouched;
+        _documents.Seed(doc);
+
+        var result = await _sut.RenameAsync(doc.Id, WorldId, WorldRole.GM, "Wedged book", CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.UpdatedAt, Is.EqualTo(untouched));
+
+        var delete = await _sut.DeleteAsync(doc.Id, WorldId, WorldRole.GM, CancellationToken.None);
+        Assert.That(delete.IsSuccess, Is.True, "the stale row must still be deletable");
+    }
+
+    [Test]
     public async Task SetVisibility_UnknownDocument_Returns404()
     {
         var result = await _sut.SetVisibilityAsync(
@@ -405,7 +505,7 @@ public class LibraryServiceTests
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Value!.UpdatedAt, Is.EqualTo(untouched));
 
-        var delete = await _sut.DeleteAsync(doc.Id, WorldId, GmId, WorldRole.GM, CancellationToken.None);
+        var delete = await _sut.DeleteAsync(doc.Id, WorldId, WorldRole.GM, CancellationToken.None);
         Assert.That(delete.IsSuccess, Is.True, "the stale row must still be deletable");
     }
 

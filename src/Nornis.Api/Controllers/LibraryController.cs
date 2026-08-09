@@ -121,12 +121,25 @@ public class LibraryController : ControllerBase
         return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 
+    /// <summary>GM-only: retitles a document.</summary>
+    [HttpPut("{documentId:guid}/title")]
+    public async Task<IActionResult> Rename(
+        Guid worldId,
+        Guid documentId,
+        [FromBody] RenameLibraryDocumentRequest request,
+        CancellationToken ct)
+    {
+        var member = HttpContext.GetWorldMember();
+        var result = await _libraryService.RenameAsync(documentId, worldId, member.Role, request.Title, ct);
+        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
+    }
+
+    /// <summary>GM-only: removes the document, its file, and its indexed passages.</summary>
     [HttpDelete("{documentId:guid}")]
     public async Task<IActionResult> Delete(Guid worldId, Guid documentId, CancellationToken ct)
     {
-        var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
-        var result = await _libraryService.DeleteAsync(documentId, worldId, user.Id, member.Role, ct);
+        var result = await _libraryService.DeleteAsync(documentId, worldId, member.Role, ct);
         return result.IsSuccess ? NoContent() : result.Error!.ToActionResult();
     }
 

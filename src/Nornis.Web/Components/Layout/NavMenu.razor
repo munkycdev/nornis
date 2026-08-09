@@ -1,4 +1,4 @@
-﻿<a href="/" class="nornis-brand nornis-brand-link" aria-label="Nornis home">
+﻿<a href="/dashboard" class="nornis-brand nornis-brand-link" aria-label="Nornis dashboard">
     <img src="images/logo.png" alt="Nornis" class="nornis-brand-logo" />
     <div class="nornis-brand-name">NORNIS</div>
     <div class="nornis-brand-tagline">Your world, remembered.</div>
@@ -82,7 +82,7 @@
 </MudMenu>
 
 <MudNavMenu>
-    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.ChatBubbleOutline">Ask</MudNavLink>
+    <MudNavLink Href="/dashboard" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.ChatBubbleOutline">Ask</MudNavLink>
     <MudNavLink Href="/capture" Icon="@Icons.Material.Outlined.EditNote">Capture</MudNavLink>
     <MudNavLink Href="/review" Icon="@Icons.Material.Outlined.FactCheck">
         Review
@@ -91,10 +91,7 @@
             <span class="nornis-nav-count">@(_activity.PendingProposalsCapped ? "200+" : _activity.PendingProposals.ToString())</span>
         }
     </MudNavLink>
-    <MudNavLink Href="/artifacts" Icon="@Icons.Material.Outlined.Hub">Codex</MudNavLink>
-    <MudNavLink Href="/timeline" Icon="@Icons.Material.Outlined.Route">Timeline</MudNavLink>
-    <MudNavLink Href="/locations" Icon="@Icons.Material.Outlined.Place">Locations</MudNavLink>
-    <MudNavLink Href="/learned" Icon="@Icons.Material.Outlined.MarkEmailRead">
+    <MudNavLink Href="/learned" Icon="@NornisIcons.NetworkIntelNode">
         What you learned
         @* Absent at zero, per the requirement: a badge reading "0" is a page telling you
            there is nothing, which is exactly the thing this feature must not volunteer. *@
@@ -103,6 +100,9 @@
             <span class="nornis-nav-count" title="new to you">@_activity.UnseenDisclosures</span>
         }
     </MudNavLink>
+    <MudNavLink Href="/artifacts" Icon="@Icons.Material.Outlined.Hub">Codex</MudNavLink>
+    <MudNavLink Href="/timeline" Icon="@Icons.Material.Outlined.Route">Timeline</MudNavLink>
+    <MudNavLink Href="/locations" Icon="@Icons.Material.Outlined.Place">Locations</MudNavLink>
     <MudNavLink Href="/library" Icon="@Icons.Material.Outlined.MenuBook">Library</MudNavLink>
     <MudNavLink Href="/sources" Icon="@Icons.Material.Outlined.Layers">
         Sources
@@ -117,7 +117,7 @@
     </MudNavLink>
     @if (Worlds.IsGm)
     {
-        <MudNavLink Href="/convergence" Icon="@Icons.Material.Outlined.Visibility">Convergence</MudNavLink>
+        <MudNavLink Href="/convergence" Icon="@Icons.Material.Outlined.Merge">Convergence</MudNavLink>
         <MudNavLink Href="/admin" Icon="@Icons.Material.Outlined.Tune">Admin</MudNavLink>
     }
 </MudNavMenu>

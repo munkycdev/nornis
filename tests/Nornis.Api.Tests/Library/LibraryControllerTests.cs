@@ -243,6 +243,60 @@ public class LibraryControllerTests
     }
 
     [Test]
+
+    [Category("Authorization")]
+    public async Task Delete_PlayerDeletingOwnUpload_Returns403()
+    {
+        // An image lands in Stored, so nothing but the role can be refusing this.
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var ticket = await RequestUploadAsync(scenario.PlayerClient, scenario.World.Id,
+            UploadRequest(title: "My handout", fileName: "handout.png", contentType: "image/png", visibility: "PartyVisible"));
+        SimulateBrowserPut(ticket, contentType: "image/png");
+        await scenario.PlayerClient.PostAsync($"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}/confirm", null);
+
+        var response = await scenario.PlayerClient.DeleteAsync(
+            $"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+        Assert.That(_factory.BlobStorage.Blobs, Is.Not.Empty, "the file must survive the refused delete");
+    }
+
+    [Test]
+    public async Task Rename_AsGm_ChangesTheTitle()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var ticket = await RequestUploadAsync(scenario.GmClient, scenario.World.Id, UploadRequest(title: "depths.pdf"));
+        SimulateBrowserPut(ticket);
+        await scenario.GmClient.PostAsync($"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}/confirm", null);
+
+        var response = await scenario.GmClient.PutAsJsonAsync(
+            $"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}/title",
+            new RenameLibraryDocumentRequest("The Forbidden Depths"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var updated = await response.Content.ReadFromJsonAsync<LibraryDocumentResponse>();
+        Assert.That(updated!.Title, Is.EqualTo("The Forbidden Depths"));
+        Assert.That(updated.FileName, Is.EqualTo("depths.pdf"), "the stored file keeps its own name");
+    }
+
+    [Test]
+
+    [Category("Authorization")]
+    public async Task Rename_AsPlayer_Returns403()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var ticket = await RequestUploadAsync(scenario.GmClient, scenario.World.Id, UploadRequest(visibility: "PartyVisible"));
+        SimulateBrowserPut(ticket);
+        await scenario.GmClient.PostAsync($"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}/confirm", null);
+
+        var response = await scenario.PlayerClient.PutAsJsonAsync(
+            $"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}/title",
+            new RenameLibraryDocumentRequest("Mine now"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
     public async Task Delete_WhileIndexing_Returns409()
     {
         // A freshly confirmed PDF is Indexing — deletion must be refused until it settles.

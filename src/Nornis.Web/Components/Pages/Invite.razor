@@ -24,7 +24,7 @@
         else if (_preview is null)
         {
             <MudAlert Severity="Severity.Error" Class="mb-3">@(_error ?? "This invite link is not valid.")</MudAlert>
-            <MudButton Variant="Variant.Text" Href="/">Back to Nornis</MudButton>
+            <MudButton Variant="Variant.Text" Href="/dashboard">Back to Nornis</MudButton>
         }
         else if (_preview.Status == "Active")
         {
@@ -44,14 +44,14 @@
                            OnClick="AcceptAsync" Disabled="_joining">
                     Join @_preview.WorldName
                 </MudButton>
-                <MudButton Variant="Variant.Text" Href="/" Disabled="_joining">Not now</MudButton>
+                <MudButton Variant="Variant.Text" Href="/dashboard" Disabled="_joining">Not now</MudButton>
             </div>
         }
         else
         {
             <MudAlert Severity="Severity.Warning" Class="mb-3">@StatusMessage(_preview.Status)</MudAlert>
             <div class="d-flex justify-center">
-                <MudButton Variant="Variant.Text" Href="/">Back to Nornis</MudButton>
+                <MudButton Variant="Variant.Text" Href="/dashboard">Back to Nornis</MudButton>
             </div>
         }
     </MudPaper>
@@ -105,7 +105,7 @@
                 : $"Welcome to {joined.WorldName}!",
             Severity.Success);
 
-        Nav.NavigateTo("/");
+        Nav.NavigateTo("/dashboard");
     }
 
     private static string RoleLabel(string role) => role == "Observer" ? "Fly on the wall" : role;

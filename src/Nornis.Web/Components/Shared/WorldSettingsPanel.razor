@@ -933,7 +933,7 @@
         {
             Snackbar.Add($"\"{world.Name}\" was permanently deleted.", Severity.Info);
             await Worlds.ReloadAsync();
-            Nav.NavigateTo("/");
+            Nav.NavigateTo("/dashboard");
         }
     }
 
