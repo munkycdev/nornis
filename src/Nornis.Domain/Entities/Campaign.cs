@@ -47,6 +47,4 @@ public class Campaign
     public User CreatedByUser { get; set; } = null!;
 
     public ICollection<CampaignCharacter> CampaignCharacters { get; set; } = [];
-
-    public ICollection<StorylineCampaign> StorylineCampaigns { get; set; } = [];
 }

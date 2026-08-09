@@ -1,4 +1,4 @@
-﻿using Nornis.Application.Services;
+using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -53,8 +53,7 @@ public class ArtifactDetailProvenanceVisibilityTests
         _service = new ArtifactService(
             _artifactRepo, _factRepo, new InMemoryArtifactRelationshipRepository(),
             _sourceRefRepo, _sourceRepo, new InMemoryCharacterRepository(),
-            new InMemoryWorldMemberRepository(), new InMemoryStorylineCampaignRepository(),
-            new InMemoryCampaignRepository());
+            new InMemoryWorldMemberRepository(), new InMemoryCampaignRepository());
 
         _worldId = Guid.NewGuid();
         _gmId = Guid.NewGuid();

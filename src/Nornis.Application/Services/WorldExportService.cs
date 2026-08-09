@@ -187,14 +187,6 @@ public class WorldExportService : IWorldExportService
                     cc.CharacterId,
                     cc.CreatedAt,
                 }),
-                StorylineCampaigns = data.StorylineCampaigns.Select(sc => new
-                {
-                    sc.Id,
-                    sc.ArtifactId,
-                    sc.CampaignId,
-                    sc.CreatedAt,
-                    sc.CreatedByUserId,
-                }),
             }, ct);
         }
 

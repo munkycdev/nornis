@@ -24,9 +24,7 @@ public record TimelineLaneResponse(
 public record TimelineLaneCampaignResponse(
     Guid CampaignId,
     string Name,
-    DateTimeOffset? StartedAt,
-    bool Declared,
-    bool Derived);
+    DateTimeOffset? StartedAt);
 
 public record TimelinePointResponse(
     Guid SourceId,

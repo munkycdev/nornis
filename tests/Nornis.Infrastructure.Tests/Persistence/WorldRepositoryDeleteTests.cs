@@ -18,8 +18,8 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
     /// <summary>Every row id seeded for one world, for pinpoint gone/intact assertions.</summary>
     private sealed record WorldGraph(
         Guid UserId, Guid WorldId, Guid MemberId, Guid InviteId, Guid CampaignId,
-        Guid ArtifactId, Guid StorylineId, Guid CharacterId, Guid CampaignCharacterId,
-        Guid StorylineCampaignId, Guid FactId, Guid RelationshipId, Guid SourceId,
+        Guid ArtifactId, Guid StorylineId, Guid CharacterId, Guid CampaignCharacterId, Guid CampaignRecapId,
+        Guid FactId, Guid RelationshipId, Guid SourceId,
         Guid ExtractionId, Guid ReferenceId, Guid AttachmentId, Guid PlacemarkId,
         Guid BatchId, Guid ProposalId, Guid UsageId, Guid AssessmentId, Guid FindingId,
         Guid DismissalId, Guid DocumentId, Guid ChunkId, Guid ReplayId);
@@ -119,13 +119,15 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
             CharacterId = character.Id,
             CreatedAt = now,
         };
-        var storylineCampaign = new StorylineCampaign
+        var campaignRecap = new CampaignRecap
         {
             Id = Guid.NewGuid(),
-            ArtifactId = storyline.Id,
             CampaignId = campaign.Id,
-            CreatedByUserId = user.Id,
-            CreatedAt = now,
+            GmContentMarkdown = "The Harbourmaster is the traitor.",
+            PartyContentMarkdown = "The caravan is still missing.",
+            Model = "gpt-4o",
+            GeneratedAt = now,
+            GeneratedByUserId = user.Id,
         };
         var fact = new ArtifactFact
         {
@@ -307,7 +309,7 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
 
         Context.AddRange(
             user, world, member, invite, campaign, artifact, storyline, character,
-            campaignCharacter, storylineCampaign, fact, relationship, source, extraction,
+            campaignCharacter, campaignRecap, fact, relationship, source, extraction,
             reference, attachment, placemark, batch, proposal, usage, assessment, finding,
             dismissal, document, chunk, replay);
         Context.SaveChanges();
@@ -315,7 +317,7 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
 
         return new WorldGraph(
             user.Id, world.Id, member.Id, invite.Id, campaign.Id, artifact.Id, storyline.Id,
-            character.Id, campaignCharacter.Id, storylineCampaign.Id, fact.Id, relationship.Id,
+            character.Id, campaignCharacter.Id, campaignRecap.Id, fact.Id, relationship.Id,
             source.Id, extraction.Id, reference.Id, attachment.Id, placemark.Id, batch.Id,
             proposal.Id, usage.Id, assessment.Id, finding.Id, dismissal.Id, document.Id,
             chunk.Id, replay.Id);
@@ -332,7 +334,7 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
         remaining += await Context.Artifacts.CountAsync(x => x.Id == g.ArtifactId || x.Id == g.StorylineId);
         remaining += await Context.Characters.CountAsync(x => x.Id == g.CharacterId);
         remaining += await Context.CampaignCharacters.CountAsync(x => x.Id == g.CampaignCharacterId);
-        remaining += await Context.StorylineCampaigns.CountAsync(x => x.Id == g.StorylineCampaignId);
+        remaining += await Context.CampaignRecaps.CountAsync(x => x.Id == g.CampaignRecapId);
         remaining += await Context.ArtifactFacts.CountAsync(x => x.Id == g.FactId);
         remaining += await Context.ArtifactRelationships.CountAsync(x => x.Id == g.RelationshipId);
         remaining += await Context.Sources.CountAsync(x => x.Id == g.SourceId);

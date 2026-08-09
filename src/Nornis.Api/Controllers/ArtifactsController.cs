@@ -190,38 +190,6 @@ public class ArtifactsController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>
-    /// GM-only: replaces the set of campaigns a storyline is declared to belong to (empty
-    /// clears it). A storyline can span several campaigns; the declaration is unioned with the
-    /// campaigns derived from its sessions on the timeline.
-    /// </summary>
-    [HttpPut("{artifactId:guid}/campaigns")]
-    public async Task<IActionResult> SetCampaigns(
-        Guid worldId,
-        Guid artifactId,
-        [FromBody] SetStorylineCampaignsRequest request,
-        CancellationToken ct)
-    {
-        var user = HttpContext.GetNornisUser();
-        var member = HttpContext.GetWorldMember();
-
-        var command = new SetStorylineCampaignsCommand(
-            ArtifactId: artifactId,
-            WorldId: worldId,
-            ActingUserId: user.Id,
-            ActingUserRole: member.Role,
-            CampaignIds: request.CampaignIds ?? []);
-
-        var result = await _artifactService.SetStorylineCampaignsAsync(command, ct);
-
-        if (!result.IsSuccess)
-        {
-            return result.Error!.ToActionResult();
-        }
-
-        return NoContent();
-    }
-
     /// <summary>GM-only: sets an artifact's lifecycle status.</summary>
     [HttpPut("{artifactId:guid}/status")]
     public async Task<IActionResult> SetStatus(
@@ -371,8 +339,7 @@ public class ArtifactsController : ControllerBase
             Relationships: detail.Relationships.Select(ToRelationshipResponse).ToList(),
             ConnectedArtifacts: detail.ConnectedArtifacts.Select(ToConnectedResponse).ToList(),
             SourceReferences: detail.SourceReferences.Select(r => ToSourceReferenceResponse(r, detail.SourceTitles)).ToList(),
-            PlayedBy: detail.PlayedBy,
-            DeclaredCampaigns: detail.DeclaredCampaigns.Select(c => new DeclaredCampaignResponse(c.Id, c.Name)).ToList());
+            PlayedBy: detail.PlayedBy);
     }
 
     private static ArtifactFactResponse ToFactResponse(ArtifactFact fact)

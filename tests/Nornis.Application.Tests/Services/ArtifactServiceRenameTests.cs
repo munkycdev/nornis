@@ -1,4 +1,4 @@
-﻿using Nornis.Application.Models;
+using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -29,7 +29,6 @@ public class ArtifactServiceRenameTests
             new InMemorySourceRepository(),
             new InMemoryCharacterRepository(),
             new InMemoryWorldMemberRepository(),
-            new InMemoryStorylineCampaignRepository(),
             new InMemoryCampaignRepository());
 
         _worldId = Guid.NewGuid();

@@ -286,15 +286,6 @@ public class DemoWorldService : IDemoWorldService
                 CreatedAt = now,
             }).ToList(),
 
-            StorylineCampaigns = package.StorylineCampaigns.Select(sc => new StorylineCampaign
-            {
-                Id = Guid.NewGuid(),
-                ArtifactId = ids.Map(sc.ArtifactId),
-                CampaignId = ids.Map(sc.CampaignId),
-                CreatedAt = now,
-                CreatedByUserId = userId,
-            }).ToList(),
-
             Sources = sources,
             Attachments = attachments,
 
@@ -409,7 +400,6 @@ public class DemoWorldService : IDemoWorldService
         WorldDoc? World,
         List<CampaignDoc> Campaigns,
         List<CampaignCharacterDoc> CampaignCharacters,
-        List<StorylineCampaignDoc> StorylineCampaigns,
         List<CharacterDoc> Characters,
         List<SourceDoc> Sources,
         List<ExtractionDoc> Extractions,
@@ -431,7 +421,6 @@ public class DemoWorldService : IDemoWorldService
                 World: world,
                 Campaigns: campaigns?.Campaigns ?? [],
                 CampaignCharacters: campaigns?.CampaignCharacters ?? [],
-                StorylineCampaigns: campaigns?.StorylineCampaigns ?? [],
                 Characters: await ReadEntryAsync<List<CharacterDoc>>(zip, "characters.json", ct) ?? [],
                 Sources: sources?.Sources ?? [],
                 Extractions: sources?.Extractions ?? [],
@@ -459,14 +448,12 @@ public class DemoWorldService : IDemoWorldService
     private sealed record WorldDoc(string? Name, string? Description, string? GameSystem);
 
     private sealed record CampaignsDoc(
-        List<CampaignDoc>? Campaigns, List<CampaignCharacterDoc>? CampaignCharacters, List<StorylineCampaignDoc>? StorylineCampaigns);
+        List<CampaignDoc>? Campaigns, List<CampaignCharacterDoc>? CampaignCharacters);
 
     private sealed record CampaignDoc(
         Guid Id, string Name, string? Description, CampaignStatus Status, DateTimeOffset? StartedAt, DateTimeOffset? EndedAt);
 
     private sealed record CampaignCharacterDoc(Guid Id, Guid CampaignId, Guid CharacterId);
-
-    private sealed record StorylineCampaignDoc(Guid Id, Guid ArtifactId, Guid CampaignId);
 
     private sealed record CharacterDoc(Guid Id, Guid WorldMemberId, string Name, string? Description, Guid? ArtifactId);
 

@@ -1,4 +1,4 @@
-﻿using Nornis.Application.Models;
+using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -40,7 +40,7 @@ public class ArtifactServiceTests
         _memberRepo = new InMemoryWorldMemberRepository();
         _service = new ArtifactService(_artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo,
             _sourceRepo, _characterRepo, _memberRepo,
-            new InMemoryStorylineCampaignRepository(), new InMemoryCampaignRepository());
+            new InMemoryCampaignRepository());
 
         _worldId = Guid.NewGuid();
         _otherWorldId = Guid.NewGuid();

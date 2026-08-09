@@ -21,15 +21,15 @@ public record TimelineSession(
 /// One storyline's arc.
 ///
 /// A storyline is world-scoped and can thread through several campaigns, so
-/// <paramref name="Campaigns"/> is the full set it spans — the ones a GM declared plus the
-/// ones its dated sessions actually fall in — ordered by when each opened. The lane is not
-/// bucketed into a single campaign by majority; it is shown spanning them all.
+/// <paramref name="Campaigns"/> is the full set its dated sessions fall in, ordered by when
+/// each opened. The lane is not bucketed into a single campaign by majority; it is shown
+/// spanning them all.
 ///
 /// <paramref name="CampaignName"/>/<paramref name="CampaignStartedAt"/> name the lane's
 /// <em>anchor</em> campaign only: the one whose band the row is drawn in, and by whose
 /// declared start the timeline orders campaign bands. The anchor is the earliest-opening
-/// campaign the lane spans (a GM declaration breaking a tie), never a vote. Both are null
-/// when the lane touches no campaign.
+/// campaign the lane spans, never a vote. Both are null when the lane touches no campaign —
+/// including a lane whose only sessions are undated, which has no campaign to derive.
 /// </summary>
 public record TimelineLane(
     Guid StorylineId,
@@ -42,16 +42,14 @@ public record TimelineLane(
     DateTimeOffset? CampaignStartedAt = null);
 
 /// <summary>
-/// A campaign a storyline lane spans. <paramref name="Declared"/> is a GM-curated membership;
-/// <paramref name="Derived"/> means at least one of the lane's dated sessions falls in it. A
-/// campaign can be either, or both — declared but not yet played, or played but never declared.
+/// A campaign a storyline lane spans, meaning at least one of the lane's dated sessions falls
+/// in it. Derived only: a GM-declared membership used to be unioned in here, and could assert a
+/// campaign the sessions did not agree with.
 /// </summary>
 public record TimelineLaneCampaign(
     Guid CampaignId,
     string Name,
-    DateTimeOffset? StartedAt,
-    bool Declared,
-    bool Derived);
+    DateTimeOffset? StartedAt);
 
 /// <summary>
 /// One session's worth of developments on one storyline. <paramref name="CampaignId"/> is the

@@ -417,12 +417,9 @@ public record ArtifactDetailDto(
     IReadOnlyList<ArtifactRelationshipDto> Relationships,
     IReadOnlyList<ConnectedArtifact> ConnectedArtifacts,
     IReadOnlyList<SourceReferenceDto> SourceReferences,
-    IReadOnlyList<string>? PlayedBy = null,
-    IReadOnlyList<DeclaredCampaignDto>? DeclaredCampaigns = null);
+    IReadOnlyList<string>? PlayedBy = null);
 
 /// <summary>A campaign a storyline is declared to belong to (id + name only).</summary>
-public record DeclaredCampaignDto(Guid Id, string Name);
-
 public record RevealBody(
     IReadOnlyList<Guid> ArtifactIds,
     IReadOnlyList<Guid> FactIds,
@@ -761,9 +758,7 @@ public record TimelineLaneDto(
 public record TimelineLaneCampaignDto(
     Guid CampaignId,
     string Name,
-    DateTimeOffset? StartedAt,
-    bool Declared,
-    bool Derived);
+    DateTimeOffset? StartedAt);
 
 public record TimelinePointDto(
     Guid SourceId,

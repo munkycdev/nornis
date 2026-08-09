@@ -1,5 +1,35 @@
 # Domain Model
 
+> **Amendment (2026-08-09): campaigns are thin in data, first-tier in presentation.**
+> The Campaign section below still reads as if a campaign were only a label on a source,
+> and that framing produced a real gap: campaigns had no page, so nothing showed a GM what
+> a run of play actually contained. A campaign is now somewhere to go — `/campaigns/{id}`,
+> readable by every world member, editable only by a GM.
+>
+> Nothing in the *data* model loosened, and the "do not stamp campaign IDs onto artifacts
+> or facts" rule below is the reason the page works the way it does: its cast, places and
+> artifacts are derived from provenance at read time, so they cannot go stale. Two
+> additions to the schema below:
+>
+> - `Campaign.SortOrder` — a GM-chosen display position. Governs the settings list, the
+>   campaign index and the sources filter; deliberately **not** the storyline timeline,
+>   whose campaign bands stay chronological. Zero means "this world has never been
+>   reordered".
+> - `CampaignRecap` — the generated "story so far", one replaceable row per campaign,
+>   sibling to `WorldDigest` and a read-model for the same reason. The GM's *written*
+>   intro stays on `Campaign.Description`; the two answer different questions. Two
+>   renderings (GM and party) from separately-scoped generation passes, because the
+>   campaign page is one a player opens directly.
+>
+> **`StorylineCampaign` is deleted.** A storyline's campaigns are now derived from the
+> campaigns its dated sessions fall in, full stop — the timeline already unioned derived
+> memberships with declared ones, so cross-campaign arcs were never relying on the
+> declaration. What is genuinely gone: a GM can no longer place a storyline in a campaign
+> *before* a session there references it, and a storyline touched only by undated sources
+> now falls to the timeline's "no dated activity yet" list instead of being rescued into a
+> band by a declaration. If forward-declaration is wanted back, it returns as an explicit
+> *planned* concept, not as a membership that can contradict the sessions.
+
 > **Amendment (2026-08-04):** two shapes below have drifted from the tree; the tree is
 > the authority on both.
 >
