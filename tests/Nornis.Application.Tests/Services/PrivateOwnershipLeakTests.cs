@@ -105,7 +105,7 @@ public class PrivateOwnershipLeakTests
     private ArtifactService CreateArtifactService() => new(
         _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo, _sourceRepo,
         new InMemoryCharacterRepository(), new InMemoryWorldMemberRepository(),
-        new InMemoryStorylineCampaignRepository(), new InMemoryCampaignRepository());
+        new InMemoryCampaignRepository());
 
     private KeywordKnowledgeRetriever CreateRetriever() => new(
         _artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo, _sourceRepo,

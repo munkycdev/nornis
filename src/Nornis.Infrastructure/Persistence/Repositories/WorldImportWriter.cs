@@ -27,7 +27,6 @@ public class WorldImportWriter : IWorldImportWriter
         _context.Campaigns.AddRange(rows.Campaigns);
         _context.Characters.AddRange(rows.Characters);
         _context.CampaignCharacters.AddRange(rows.CampaignCharacters);
-        _context.StorylineCampaigns.AddRange(rows.StorylineCampaigns);
         _context.Sources.AddRange(rows.Sources);
         _context.SourceAttachments.AddRange(rows.Attachments);
         _context.SourceExtractions.AddRange(rows.SourceExtractions);

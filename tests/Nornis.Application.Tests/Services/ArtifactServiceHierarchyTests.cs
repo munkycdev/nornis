@@ -1,4 +1,4 @@
-﻿using Nornis.Application.Models;
+using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -27,7 +27,7 @@ public class ArtifactServiceHierarchyTests
         _service = new ArtifactService(_artifactRepo, _factRepo, _relationshipRepo,
             new InMemorySourceReferenceRepository(), new InMemorySourceRepository(),
             new InMemoryCharacterRepository(), new InMemoryWorldMemberRepository(),
-            new InMemoryStorylineCampaignRepository(), new InMemoryCampaignRepository());
+            new InMemoryCampaignRepository());
 
         _worldId = Guid.NewGuid();
         _gmUserId = Guid.NewGuid();

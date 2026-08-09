@@ -182,9 +182,6 @@ public class CampaignRepository : ICampaignRepository
         await _context.DeleteWhereAsync<CampaignRecap>(
             r => r.CampaignId == campaignId, cancellationToken);
 
-        await _context.DeleteWhereAsync<StorylineCampaign>(
-            sc => sc.CampaignId == campaignId, cancellationToken);
-
         await _context.DeleteWhereAsync<Campaign>(c => c.Id == campaignId, cancellationToken);
     }
 }

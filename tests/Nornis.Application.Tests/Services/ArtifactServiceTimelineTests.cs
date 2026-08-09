@@ -1,4 +1,4 @@
-﻿using Nornis.Application.Services;
+using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -15,7 +15,6 @@ public class ArtifactServiceTimelineTests
     private InMemorySourceReferenceRepository _sourceRefRepo = null!;
     private InMemorySourceRepository _sourceRepo = null!;
     private InMemoryCampaignRepository _campaignRepo = null!;
-    private InMemoryStorylineCampaignRepository _storylineCampaignRepo = null!;
     private ArtifactService _service = null!;
 
     private Guid _worldId;
@@ -30,11 +29,10 @@ public class ArtifactServiceTimelineTests
         _sourceRefRepo = new InMemorySourceReferenceRepository();
         _sourceRepo = new InMemorySourceRepository();
         _campaignRepo = new InMemoryCampaignRepository();
-        _storylineCampaignRepo = new InMemoryStorylineCampaignRepository();
 
         _service = new ArtifactService(_artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo,
             _sourceRepo, new InMemoryCharacterRepository(), new InMemoryWorldMemberRepository(),
-            _storylineCampaignRepo, _campaignRepo);
+            _campaignRepo);
 
         _worldId = Guid.NewGuid();
         _gmUserId = Guid.NewGuid();
@@ -264,11 +262,8 @@ public class ArtifactServiceTimelineTests
 
         var lane = result.Value!.Lanes.Single();
         Assert.That(lane.CampaignName, Is.EqualTo("The Throne of Thorns"));
-        // Derived from the session, not GM-declared.
-        var spanned = lane.Campaigns.Single();
-        Assert.That(spanned.CampaignId, Is.EqualTo(campaign.Id));
-        Assert.That(spanned.Derived, Is.True);
-        Assert.That(spanned.Declared, Is.False);
+        // Derived from the session it was advanced by.
+        Assert.That(lane.Campaigns.Single().CampaignId, Is.EqualTo(campaign.Id));
     }
 
     [Test]
@@ -400,8 +395,6 @@ public class ArtifactServiceTimelineTests
 
         var lane = result.Value!.Lanes.Single();
         Assert.That(lane.Campaigns.Select(c => c.CampaignId), Is.EquivalentTo([throne.Id, reckoning.Id]));
-        Assert.That(lane.Campaigns.All(c => c.Derived), Is.True);
-        Assert.That(lane.Campaigns.Any(c => c.Declared), Is.False);
     }
 
     [Test]
@@ -422,25 +415,26 @@ public class ArtifactServiceTimelineTests
     }
 
     [Test]
-    public async Task Timeline_DeclaredCampaignAppearsEvenWithNoSessions()
+    public async Task Timeline_OnlyShowsCampaignsThisStorylinesSessionsFallIn()
     {
+        // A campaign a GM could once *declare* a storyline into — before any session there
+        // referenced it — no longer appears. Membership is derived from the sessions alone,
+        // so the lane cannot claim an era its own record does not support.
         var storyline = SeedArtifact("Arc");
         var played = SeedCampaign("Played", new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero));
-        var foreshadowed = SeedCampaign("Foreshadowed", new DateTimeOffset(2025, 6, 1, 0, 0, 0, TimeSpan.Zero));
-        _storylineCampaignRepo.Seed(storyline.Id, foreshadowed.Id);
+        var untouched = SeedCampaign("Foreshadowed", new DateTimeOffset(2025, 6, 1, 0, 0, 0, TimeSpan.Zero));
 
         Advance(storyline, played, "Session", new DateTimeOffset(2025, 2, 1, 0, 0, 0, TimeSpan.Zero));
 
         var result = await _service.GetStorylineTimelineAsync(_worldId, _gmUserId, WorldRole.GM, CancellationToken.None);
 
         var lane = result.Value!.Lanes.Single();
-        var declaredOnly = lane.Campaigns.Single(c => c.CampaignId == foreshadowed.Id);
-        Assert.That(declaredOnly.Declared, Is.True);
-        Assert.That(declaredOnly.Derived, Is.False);
 
-        var playedCampaign = lane.Campaigns.Single(c => c.CampaignId == played.Id);
-        Assert.That(playedCampaign.Derived, Is.True);
-        Assert.That(playedCampaign.Declared, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(lane.Campaigns.Select(c => c.CampaignId), Is.EqualTo([played.Id]));
+            Assert.That(lane.Campaigns.Any(c => c.CampaignId == untouched.Id), Is.False);
+        });
     }
 
     [Test]

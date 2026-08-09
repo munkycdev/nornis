@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
@@ -209,7 +209,7 @@ public class StorylinesController : ControllerBase
                     p.Developments.Select(d => new TimelineDevelopmentResponse(d.Kind, d.Text, d.Quote, d.IsOpenQuestion)).ToList(),
                     p.CampaignId)).ToList(),
                 l.ParentStorylineId,
-                l.Campaigns.Select(c => new TimelineLaneCampaignResponse(c.CampaignId, c.Name, c.StartedAt, c.Declared, c.Derived)).ToList(),
+                l.Campaigns.Select(c => new TimelineLaneCampaignResponse(c.CampaignId, c.Name, c.StartedAt)).ToList(),
                 l.CampaignName, l.CampaignStartedAt)).ToList(),
             timeline.Links.Select(x => new TimelineLinkResponse(x.FromStorylineId, x.ToStorylineId, x.Type)).ToList());
 

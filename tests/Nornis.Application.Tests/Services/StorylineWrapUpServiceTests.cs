@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
@@ -47,7 +47,7 @@ public class StorylineWrapUpServiceTests
         _reviewService = new FakeReviewService();
         _artifactService = new ArtifactService(_artifactRepo, _factRepo, _relationshipRepo, _sourceRefRepo,
             _sourceRepo, new InMemoryCharacterRepository(), new InMemoryWorldMemberRepository(),
-            new InMemoryStorylineCampaignRepository(), new InMemoryCampaignRepository());
+            new InMemoryCampaignRepository());
 
         _worldId = Guid.NewGuid();
         _gmUserId = Guid.NewGuid();

@@ -171,8 +171,6 @@ public class WorldRepository : IWorldRepository
         await DeleteAsync(_context.ArtifactRelationships.Where(r => r.WorldId == worldId));
         await DeleteAsync(_context.CampaignCharacters
             .Where(cc => _context.Campaigns.Any(c => c.Id == cc.CampaignId && c.WorldId == worldId)));
-        await DeleteAsync(_context.StorylineCampaigns
-            .Where(sc => _context.Campaigns.Any(c => c.Id == sc.CampaignId && c.WorldId == worldId)));
         await DeleteAsync(_context.CampaignRecaps
             .Where(r => _context.Campaigns.Any(c => c.Id == r.CampaignId && c.WorldId == worldId)));
         await DeleteAsync(_context.Characters.Where(c => c.WorldId == worldId));

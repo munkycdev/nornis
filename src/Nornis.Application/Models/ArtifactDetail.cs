@@ -8,8 +8,6 @@ namespace Nornis.Application.Models;
 /// and the supporting source references. All collections are already visibility-filtered
 /// for the requesting user's role. <paramref name="PlayedBy"/> carries the display names
 /// of members whose Character records link to this artifact (Character artifacts only).
-/// <paramref name="DeclaredCampaigns"/> are the campaigns a GM has declared this storyline
-/// to belong to (Storyline artifacts only; empty otherwise).
 /// </summary>
 public record ArtifactDetail(
     Artifact Artifact,
@@ -18,5 +16,4 @@ public record ArtifactDetail(
     IReadOnlyList<Artifact> ConnectedArtifacts,
     IReadOnlyList<SourceReference> SourceReferences,
     IReadOnlyDictionary<Guid, string> SourceTitles,
-    IReadOnlyList<string> PlayedBy,
-    IReadOnlyList<Campaign> DeclaredCampaigns);
+    IReadOnlyList<string> PlayedBy);

@@ -442,8 +442,7 @@ else
 
     private static string SpanTitle(TimelineLaneDto lane)
     {
-        var lines = (lane.Campaigns ?? []).Select(c =>
-            "• " + c.Name + (c.Declared ? (c.Derived ? " (declared)" : " (declared, no sessions yet)") : ""));
+        var lines = (lane.Campaigns ?? []).Select(c => "• " + c.Name);
         return "Spans campaigns:\n" + string.Join("\n", lines);
     }
 
