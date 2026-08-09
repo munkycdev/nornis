@@ -176,6 +176,12 @@ public class CampaignRepository : ICampaignRepository
         await _context.SetWhereAsync<Source, Guid?>(
             s => s.CampaignId == campaignId, s => s.CampaignId, null, cancellationToken);
 
+        // A world pointing at this campaign as its current one is a dependent like any other,
+        // and here for the same reason the others are: the FK is Restrict, so the delete below
+        // would fail outright rather than quietly leaving a dangling pointer.
+        await _context.SetWhereAsync<World, Guid?>(
+            w => w.CurrentCampaignId == campaignId, w => w.CurrentCampaignId, null, cancellationToken);
+
         await _context.DeleteWhereAsync<CampaignCharacter>(
             cc => cc.CampaignId == campaignId, cancellationToken);
 

@@ -41,5 +41,13 @@ public interface IWorldRepository
     /// campaigns, characters, sources, knowledge, reviews, library, health, replays, and
     /// the world's AI usage ledger. Irreversible; blob cleanup is the caller's job.
     /// </summary>
+    /// <summary>
+    /// Points the world at the campaign it is playing now, or clears the pointer with null.
+    /// A targeted write rather than a load-mutate-save: the world row carries a RowVersion,
+    /// and choosing a campaign should not lose a race with an unrelated settings edit.
+    /// </summary>
+    Task SetCurrentCampaignAsync(
+        Guid worldId, Guid? campaignId, CancellationToken cancellationToken = default);
+
     Task DeleteAsync(Guid worldId, CancellationToken cancellationToken = default);
 }

@@ -1,4 +1,4 @@
-namespace Nornis.Web.ApiClient;
+﻿namespace Nornis.Web.ApiClient;
 
 // Client-owned mirrors of the nornis-api JSON contracts. The Web is a separate deployable,
 // so it owns its view of the wire shape rather than referencing the API's types. Enum-valued
@@ -17,7 +17,9 @@ public record WorldSummary(
     bool SummaryReviewRequired = false,
     bool IsDemo = false,
     bool TutorialEnabled = false,
-    bool IsTemplate = false);
+    bool IsTemplate = false,
+    // The campaign this world is playing now; null when none is. What a capture defaults to.
+    Guid? CurrentCampaignId = null);
 
 public record CreateWorldRequest(
     string Name,

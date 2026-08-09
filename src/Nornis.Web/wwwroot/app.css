@@ -3869,18 +3869,18 @@ a.nornis-cite:hover {
     cursor: pointer;
 }
 
-/* Capture's page-image picker, one affordance per device.
+/* Capture's page-image picker.
  *
- * A camera button and a file box are the same dialog wherever the OS will not hand over a
- * camera — `capture` is advertised by desktop browsers and ignored by them — so offering
- * both there is two identical controls whose labels disagree about what they do. The pointer
- * media feature is the honest test: it asks how the thing is being touched rather than what
- * the user agent claims to be, and it is the same signal the rest of the sheet sizes hit
- * targets by.
+ * Choosing photos is the same labelled button everywhere; only the camera is device-specific,
+ * because `capture` is advertised by desktop browsers and ignored by them — a camera button
+ * on a laptop opens the ordinary file dialog under a label that cannot deliver on it. The
+ * pointer media feature is the honest test for that: it asks how the thing is being touched
+ * rather than what the user agent claims to be, and it is the same signal the rest of the
+ * sheet sizes hit targets by.
  *
- * Offscreen, never display:none. Each hidden input is opened by a <label for> pointing at
- * it, and iOS will not present a picker for an input that was never laid out — which is the
- * same reason the page stopped trying to open one from script. */
+ * Offscreen, never display:none. Each input is opened by a <label for> pointing at it, and
+ * iOS will not present a picker for an input that was never laid out — which is the same
+ * reason the page stopped trying to open one from script. */
 .nornis-pick-offscreen {
     position: absolute;
     width: 1px;
@@ -3890,21 +3890,6 @@ a.nornis-cite:hover {
     opacity: 0;
     overflow: hidden;
     clip-path: inset(50%);
-}
-
-/* The library input is the visible file box on a mouse and the camera button's quiet
- * neighbour on a touch screen — one element, because both are the same picker. */
-@media (pointer: coarse) {
-    .nornis-pick-box {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        border: 0;
-        opacity: 0;
-        overflow: hidden;
-        clip-path: inset(50%);
-    }
 }
 
 /* The ways in sit together as one set, same size and same style, whichever way they run. */

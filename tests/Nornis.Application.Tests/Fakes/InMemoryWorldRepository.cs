@@ -49,6 +49,18 @@ public class InMemoryWorldRepository : IWorldRepository
         return Task.FromResult(world);
     }
 
+    public Task SetCurrentCampaignAsync(
+        Guid worldId, Guid? campaignId, CancellationToken cancellationToken = default)
+    {
+        var world = _worlds.FirstOrDefault(w => w.Id == worldId);
+        if (world is not null)
+        {
+            world.CurrentCampaignId = campaignId;
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task<IReadOnlyList<World>> ListByUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         IEnumerable<World> worlds;

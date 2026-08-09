@@ -40,9 +40,31 @@
                     <MudText Typo="Typo.h5" Class="nornis-serif">@c.Name</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">@PlayedSpan()</MudText>
                 </div>
+                @* Which campaign the world is playing now decides what a capture files itself
+                   under, so it is worth saying on the page rather than only in settings. *@
+                @if (IsCurrent)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                             Icon="@Icons.Material.Filled.PlayArrow">Current</MudChip>
+                }
+                else if (Worlds.IsGm && c.Status == "Active")
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.PlayArrow"
+                               OnClick="MakeCurrentAsync" Disabled="_settingCurrent">
+                        Play this one
+                    </MudButton>
+                }
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
                          Color="@StatusColor(c.Status)">@c.Status</MudChip>
             </div>
+
+            @if (IsCurrent)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 d-block">
+                    New sessions and notes are filed under this campaign unless you say otherwise.
+                </MudText>
+            }
 
             @* The GM's written intro: what this campaign is. Its generated sibling below says
                what has happened in it — the two go stale at different rates, which is why
@@ -250,6 +272,35 @@
     private bool _loading = true;
     private bool _generating;
     private bool _previewOpen;
+    private bool _settingCurrent;
+
+    private bool IsCurrent => Worlds.Current?.CurrentCampaignId == CampaignId;
+
+    /// <summary>
+    /// Points the world at this campaign. Reloads world state rather than patching a local
+    /// copy: the capture form reads the same pointer to default its campaign, and a page that
+    /// only updated its own badge would leave the next capture filing under the old one.
+    /// </summary>
+    private async Task MakeCurrentAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _settingCurrent = true;
+        var result = await Api.SetCurrentCampaignAsync(Worlds.Current.Id, CampaignId);
+        _settingCurrent = false;
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+            return;
+        }
+
+        await Worlds.ReloadAsync();
+        Snackbar.Add($"Now playing {result.Value!.Name}. New notes file here.", Severity.Success);
+    }
 
     protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
 

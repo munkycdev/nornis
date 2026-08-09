@@ -137,6 +137,36 @@ public class CampaignsController : ControllerBase
         return Ok(result.Value!.Select(ToCampaignResponse).ToList());
     }
 
+    /// <summary>
+    /// GM-only. Makes this the campaign the world is playing now, which is what new captures
+    /// default to. Refused for a campaign that is not Active.
+    /// </summary>
+    [HttpPut("{campaignId:guid}/current")]
+    public async Task<IActionResult> SetCurrent(Guid worldId, Guid campaignId, CancellationToken ct)
+    {
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _campaignService.SetCurrentAsync(campaignId, worldId, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        return Ok(ToCampaignResponse(result.Value!));
+    }
+
+    /// <summary>GM-only. Leaves the world with no current campaign.</summary>
+    [HttpDelete("current")]
+    public async Task<IActionResult> ClearCurrent(Guid worldId, CancellationToken ct)
+    {
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _campaignService.ClearCurrentAsync(worldId, member.Role, ct);
+
+        return result.IsSuccess ? NoContent() : result.Error!.ToActionResult();
+    }
+
     /// <summary>GM-only. Regenerates both renderings of the campaign's "story so far".</summary>
     [HttpPost("{campaignId:guid}/recap")]
     public async Task<IActionResult> GenerateRecap(

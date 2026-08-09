@@ -1,4 +1,4 @@
-using Nornis.Application.Errors;
+﻿using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -13,17 +13,20 @@ public class CampaignService : ICampaignService
     private readonly ICharacterRepository _characterRepository;
     private readonly ISourceRepository _sourceRepository;
     private readonly ICampaignRecapRepository _recapRepository;
+    private readonly IWorldRepository _worldRepository;
 
     public CampaignService(
         ICampaignRepository campaignRepository,
         ICharacterRepository characterRepository,
         ISourceRepository sourceRepository,
-        ICampaignRecapRepository recapRepository)
+        ICampaignRecapRepository recapRepository,
+        IWorldRepository worldRepository)
     {
         _campaignRepository = campaignRepository;
         _characterRepository = characterRepository;
         _sourceRepository = sourceRepository;
         _recapRepository = recapRepository;
+        _worldRepository = worldRepository;
     }
 
     public async Task<AppResult<Campaign>> CreateAsync(CreateCampaignCommand command, CancellationToken ct)
@@ -62,6 +65,19 @@ public class CampaignService : ICampaignService
         };
 
         campaign = await _campaignRepository.CreateAsync(campaign, ct);
+
+        // A world with nothing current adopts its first active campaign. Almost every world
+        // runs one campaign at a time, and asking those GMs to go and declare the obvious
+        // would leave the common case defaulting to "no campaign" — which is the state this
+        // whole pointer exists to stop being the default.
+        if (campaign.Status == CampaignStatus.Active)
+        {
+            var world = await _worldRepository.GetByIdAsync(command.WorldId, ct);
+            if (world is not null && world.CurrentCampaignId is null)
+            {
+                await _worldRepository.SetCurrentCampaignAsync(command.WorldId, campaign.Id, ct);
+            }
+        }
 
         return AppResult<Campaign>.Success(campaign);
     }
@@ -214,7 +230,61 @@ public class CampaignService : ICampaignService
         campaign.UpdatedAt = DateTimeOffset.UtcNow;
         campaign = await _campaignRepository.UpdateAsync(campaign, ct);
 
+        // "Current" means the run of play in progress, so a campaign that has been completed
+        // or archived cannot stay it. Clearing here rather than reading around it later keeps
+        // one meaning for the pointer: whatever it names is Active.
+        if (campaign.Status != CampaignStatus.Active)
+        {
+            var world = await _worldRepository.GetByIdAsync(command.WorldId, ct);
+            if (world?.CurrentCampaignId == campaign.Id)
+            {
+                await _worldRepository.SetCurrentCampaignAsync(command.WorldId, null, ct);
+            }
+        }
+
         return AppResult<Campaign>.Success(campaign);
+    }
+
+    public async Task<AppResult<Campaign>> SetCurrentAsync(
+        Guid campaignId, Guid worldId, WorldRole role, CancellationToken ct)
+    {
+        if (role != WorldRole.GM)
+        {
+            return AppResult<Campaign>.Fail(new AppError(403, "insufficient_role",
+                "Only GMs can choose the current campaign."));
+        }
+
+        var campaign = await _campaignRepository.GetByIdAsync(campaignId, ct);
+
+        if (campaign is null || campaign.WorldId != worldId)
+        {
+            return AppResult<Campaign>.Fail(new AppError(404, "not_found", "Campaign not found."));
+        }
+
+        // The pointer's one invariant: whatever it names is Active. Refusing here is the only
+        // reason readers never have to check the status of the campaign it hands them.
+        if (campaign.Status != CampaignStatus.Active)
+        {
+            return AppResult<Campaign>.Fail(new AppError(409, "campaign_not_active",
+                $"'{campaign.Name}' is {campaign.Status}. Only an active campaign can be the current one."));
+        }
+
+        await _worldRepository.SetCurrentCampaignAsync(worldId, campaignId, ct);
+
+        return AppResult<Campaign>.Success(campaign);
+    }
+
+    public async Task<AppResult> ClearCurrentAsync(Guid worldId, WorldRole role, CancellationToken ct)
+    {
+        if (role != WorldRole.GM)
+        {
+            return AppResult.Fail(new AppError(403, "insufficient_role",
+                "Only GMs can choose the current campaign."));
+        }
+
+        await _worldRepository.SetCurrentCampaignAsync(worldId, null, ct);
+
+        return AppResult.Success();
     }
 
     public async Task<AppResult> DeleteAsync(Guid campaignId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)

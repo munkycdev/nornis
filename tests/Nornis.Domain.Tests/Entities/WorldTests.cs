@@ -118,6 +118,10 @@ public class WorldTests
         // user-facing should read it.
         // 20th: SummaryReviewRequired — the per-world gate routing accept-time summary
         // refreshes through review instead of the trusted direct write (W1).
-        Assert.That(properties, Has.Length.EqualTo(20));
+        // 21st–22nd: CurrentCampaignId and its CurrentCampaign navigation — the campaign this
+        // world is playing now, which is what a new capture defaults to. On World rather than
+        // as a flag on Campaign so "one current per world" is structural; see the 2026-08-09
+        // amendment in domain-model.md.
+        Assert.That(properties, Has.Length.EqualTo(22));
     }
 }

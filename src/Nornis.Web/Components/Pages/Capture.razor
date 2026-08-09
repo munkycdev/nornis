@@ -71,12 +71,10 @@ else
                     }
                     else
                     {
-                        @* One way in per device, chosen by CSS rather than by asking the
-                           browser what it is. A camera button and a file picker are the same
-                           dialog on a laptop — `capture` is ignored there — so showing both
-                           puts two identical controls side by side under labels that disagree.
-                           Touch gets the camera (plus a quiet route to the photo library);
-                           mouse gets the file box, which also takes a drag-and-drop.
+                        @* Choosing photos is the same button on every device; only the camera
+                           is device-specific, because `capture` is advertised by desktop
+                           browsers and ignored by them — a camera button on a laptop opens the
+                           ordinary file dialog under a label that cannot deliver on it.
 
                            These are LABELS, not buttons that call into script. A file picker
                            may only open while the user's gesture is still live, and on Blazor
@@ -102,7 +100,6 @@ else
                                     Take a photo
                                 </MudButton>
                                 <MudButton HtmlTag="label" for="@_libraryInputId"
-                                           Class="nornis-pick-touch"
                                            Variant="Variant.Outlined" Color="Color.Primary"
                                            StartIcon="@Icons.Material.Filled.PhotoLibrary" Disabled="_busy">
                                     Choose photos
@@ -316,12 +313,12 @@ else
     private bool ShowEditor => !IsHandwritten || _transcribed;
 
     /// <summary>
-    /// The file box goes quiet on touch only for handwriting, which is the one type with
-    /// labels standing in for it. Marking it unconditionally would leave a phone attaching a
-    /// map or a PDF with no visible control at all.
+    /// Handwriting has labelled buttons standing in for the file box on every device, so its
+    /// input is never the visible control. The other types have no such buttons — hiding the
+    /// box for them would leave a map or a PDF with no way to attach anything at all.
     /// </summary>
     private string FilePickerClass =>
-        IsHandwritten ? "nornis-upload-input nornis-pick-box mb-2" : "nornis-upload-input mb-2";
+        IsHandwritten ? "nornis-pick-offscreen" : "nornis-upload-input mb-2";
 
     private string EditorPlaceholder =>
         _transcribed ? "Fix anything Nornis misread — names especially."
@@ -342,11 +339,15 @@ else
             if (campaigns.IsSuccess)
             {
                 _campaigns = campaigns.Value!;
-                // Preselect when exactly one campaign is active — the common case.
-                var active = _campaigns.Where(c => c.Status == "Active").ToList();
-                if (active.Count == 1)
+
+                // The world says which campaign it is playing; this form does not guess. It
+                // used to infer "the only active one", which was right for one campaign and
+                // gave up for two — and giving up meant filing a session under no campaign at
+                // all. Null here is a world with none chosen, and stays "No campaign".
+                var current = Worlds.Current.CurrentCampaignId;
+                if (current is not null && _campaigns.Any(c => c.Id == current))
                 {
-                    _campaignId = active[0].Id;
+                    _campaignId = current;
                 }
             }
         }

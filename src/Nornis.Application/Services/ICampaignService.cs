@@ -27,6 +27,18 @@ public interface ICampaignService
 
     Task<AppResult<Campaign>> UpdateAsync(UpdateCampaignCommand command, CancellationToken ct);
 
+    /// <summary>
+    /// GM-only. Makes this the campaign the world is playing now — the one a capture belongs
+    /// to unless the GM says otherwise. Refuses a campaign that is not Active, which is what
+    /// lets every reader trust that the world's current campaign is a live one.
+    /// </summary>
+    Task<AppResult<Campaign>> SetCurrentAsync(
+        Guid campaignId, Guid worldId, WorldRole role, CancellationToken ct);
+
+    /// <summary>GM-only. Leaves the world with no current campaign, so captures default to
+    /// none until one is chosen again.</summary>
+    Task<AppResult> ClearCurrentAsync(Guid worldId, WorldRole role, CancellationToken ct);
+
     Task<AppResult> DeleteAsync(Guid campaignId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct);
 
     /// <summary>
