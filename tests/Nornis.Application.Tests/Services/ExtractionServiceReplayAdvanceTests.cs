@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
@@ -70,12 +70,21 @@ public class ExtractionServiceReplayAdvanceTests
             attachmentRepository,
             blobStorage,
             new FakePdfTextExtractor(),
-            new FakeHandwritingTranscriptionClient(),
             new FakeImageReadingClient(),
             budgetGuard,
             usageRecorder,
             optionsWrapper,
             NullLogger<SourceTextDerivation>.Instance);
+
+        var handwritingTranscription = new HandwritingTranscriptionPipeline(
+            _sourceRepository,
+            attachmentRepository,
+            blobStorage,
+            new FakeHandwritingTranscriptionClient(),
+            budgetGuard,
+            usageRecorder,
+            new HandwritingTranscriptionSettings(optionsWrapper.Value.AiModel, optionsWrapper.Value.AiTimeoutSeconds),
+            NullLogger<HandwritingTranscriptionPipeline>.Instance);
 
         _sut = new ExtractionService(
             _sourceRepository,
@@ -90,6 +99,7 @@ public class ExtractionServiceReplayAdvanceTests
             _aiClient,
             mapPipeline,
             textDerivation,
+            handwritingTranscription,
             budgetGuard,
             new FakeUnitOfWork(),
             optionsWrapper,

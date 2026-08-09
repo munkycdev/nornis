@@ -146,6 +146,11 @@ public record CreateSourceRequest(
     Guid? CampaignId = null,
     bool ExtractionEnabled = true);
 
+// Mirrors Nornis.Api TranscribeSourceResponse: the vision reading of a handwritten
+// source's page images, already persisted as its body. Empty means the pages held no
+// readable handwriting.
+public record TranscribeSourceResponse(string Markdown);
+
 // Mirrors Nornis.Api UpdateSourceRequest: every field is optional and only non-null
 // fields are applied server-side (partial update).
 public record UpdateSourceRequest(

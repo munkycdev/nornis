@@ -78,12 +78,21 @@ public class NonQueuedSourcesAndExistingBatchesSkippedTests
             attachmentRepo,
             blobStorage,
             new FakePdfTextExtractor(),
-            new FakeHandwritingTranscriptionClient(),
             new FakeImageReadingClient(),
             budgetGuard,
             usageRecorder,
             options,
             NullLogger<SourceTextDerivation>.Instance);
+
+        var handwritingTranscription = new HandwritingTranscriptionPipeline(
+            sourceRepo,
+            attachmentRepo,
+            blobStorage,
+            new FakeHandwritingTranscriptionClient(),
+            budgetGuard,
+            usageRecorder,
+            new HandwritingTranscriptionSettings(options.Value.AiModel, options.Value.AiTimeoutSeconds),
+            NullLogger<HandwritingTranscriptionPipeline>.Instance);
 
         return new ExtractionService(
             sourceRepo,
@@ -98,6 +107,7 @@ public class NonQueuedSourcesAndExistingBatchesSkippedTests
             aiClient,
             mapPipeline,
             textDerivation,
+            handwritingTranscription,
             budgetGuard, unitOfWork,
             options,
             NullLogger<ExtractionService>.Instance,

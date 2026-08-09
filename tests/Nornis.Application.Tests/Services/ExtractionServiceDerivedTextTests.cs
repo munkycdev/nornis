@@ -80,12 +80,21 @@ public class ExtractionServiceDerivedTextTests
             _attachmentRepo,
             _blob,
             _pdf,
-            new FakeHandwritingTranscriptionClient(),
             _imageClient,
             _budget,
             usageRecorder,
             optionsWrapper,
             NullLogger<SourceTextDerivation>.Instance);
+
+        var handwritingTranscription = new HandwritingTranscriptionPipeline(
+            _sourceRepo,
+            _attachmentRepo,
+            _blob,
+            new FakeHandwritingTranscriptionClient(),
+            _budget,
+            usageRecorder,
+            new HandwritingTranscriptionSettings(optionsWrapper.Value.AiModel, optionsWrapper.Value.AiTimeoutSeconds),
+            NullLogger<HandwritingTranscriptionPipeline>.Instance);
 
         _sut = new ExtractionService(
             _sourceRepo,
@@ -100,6 +109,7 @@ public class ExtractionServiceDerivedTextTests
             _aiClient,
             mapPipeline,
             textDerivation,
+            handwritingTranscription,
             _budget,
             new FakeUnitOfWork(),
             optionsWrapper,

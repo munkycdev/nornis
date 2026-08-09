@@ -136,7 +136,7 @@ public class ArtifactSummaryService : IArtifactSummaryService
             // after the budget resets, so nothing is wedged behind a spent cap.
             _logger.LogWarning(
                 "Summary refresh blocked by AI budget. ArtifactId={ArtifactId}, WorldId={WorldId}", artifactId, worldId);
-            return ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message);
+            return ExtractionOutcome.NonTransient(ErrorCategories.BudgetExceeded, budgetError.Message);
         }
 
         var request = new AiPromptRequest

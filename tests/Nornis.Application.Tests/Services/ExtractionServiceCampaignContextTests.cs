@@ -73,12 +73,21 @@ public partial class ExtractionServiceCampaignContextTests
             attachmentRepository,
             blobStorage,
             new FakePdfTextExtractor(),
-            new FakeHandwritingTranscriptionClient(),
             new FakeImageReadingClient(),
             budgetGuard,
             usageRecorder,
             optionsWrapper,
             NullLogger<SourceTextDerivation>.Instance);
+
+        var handwritingTranscription = new HandwritingTranscriptionPipeline(
+            _sourceRepository,
+            attachmentRepository,
+            blobStorage,
+            new FakeHandwritingTranscriptionClient(),
+            budgetGuard,
+            usageRecorder,
+            new HandwritingTranscriptionSettings(optionsWrapper.Value.AiModel, optionsWrapper.Value.AiTimeoutSeconds),
+            NullLogger<HandwritingTranscriptionPipeline>.Instance);
 
         _sut = new ExtractionService(
             _sourceRepository,
@@ -93,6 +102,7 @@ public partial class ExtractionServiceCampaignContextTests
             _aiClient,
             mapPipeline,
             textDerivation,
+            handwritingTranscription,
             budgetGuard,
             new FakeUnitOfWork(),
             optionsWrapper,

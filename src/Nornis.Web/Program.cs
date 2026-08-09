@@ -137,6 +137,13 @@ builder.Services.AddTransient<BearerTokenHandler>();
 builder.Services.AddHttpClient<NornisApiClient>(client =>
 {
     client.BaseAddress = new Uri(apiBaseUrl);
+
+    // Longer than the 100s default for one endpoint's sake: handwriting transcription is a
+    // vision call over several photographed pages, and the API gives it 90s
+    // (Transcription:TimeoutSeconds) before returning a 503 that tells the user to try
+    // again. At the default the client would give up first and report "could not reach the
+    // API" — the same wait ending in a worse sentence.
+    client.Timeout = TimeSpan.FromSeconds(120);
 })
     // The default handler sets AutomaticDecompression to None, so this client never sent
     // Accept-Encoding and the API's compression would have been dead weight on this leg.

@@ -204,6 +204,16 @@ public class NornisApiClient
     public Task<ApiResult<SourceDetailDto>> MarkSourceReadyAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         PostAsync<object?, SourceDetailDto>($"/api/worlds/{worldId}/sources/{sourceId}/ready", null, ct);
 
+    /// <summary>
+    /// Reads the handwriting in a source's page images and returns the transcription, which
+    /// the server has already stored as the source's body. Slow by nature — a vision call
+    /// over several photographs — which is why this client's timeout is what it is.
+    /// </summary>
+    public Task<ApiResult<TranscribeSourceResponse>> TranscribeSourceAsync(
+        Guid worldId, Guid sourceId, CancellationToken ct = default) =>
+        PostAsync<object?, TranscribeSourceResponse>(
+            $"/api/worlds/{worldId}/sources/{sourceId}/transcribe", null, ct);
+
     /// <summary>GM-only: reveals a GM-only source (and its attachments, e.g. a map image) to the party.</summary>
     public Task<ApiResult<SourceDetailDto>> RevealSourceAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
         PostAsync<object?, SourceDetailDto>($"/api/worlds/{worldId}/sources/{sourceId}/reveal", null, ct);

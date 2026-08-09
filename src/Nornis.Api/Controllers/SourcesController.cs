@@ -480,6 +480,36 @@ public class SourcesController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Reads the source's handwritten page images and returns the transcription, persisting
+    /// it as the body so the GM can correct it before sending the source for extraction.
+    /// Synchronous on purpose: the caller is standing there with the notebook, and a
+    /// transcription nobody is waiting to check is just extraction with extra steps.
+    /// </summary>
+    [HttpPost("{sourceId:guid}/transcribe")]
+    public async Task<IActionResult> Transcribe(
+        Guid worldId, Guid sourceId,
+        [FromServices] ISourceTranscriptionService transcriptionService, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var command = new TranscribeSourceCommand(
+            SourceId: sourceId,
+            WorldId: worldId,
+            ActingUserId: user.Id,
+            ActingUserRole: member.Role);
+
+        var result = await transcriptionService.TranscribeAsync(command, ct);
+
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        return Ok(new TranscribeSourceResponse(result.Value!.Markdown));
+    }
+
     // ------------------------------------------------------------- Attachments --
     // Blob-backed files on a source (handwritten page images, ink documents), using the
     // same SAS handshake as the Library: request-upload → browser PUT → confirm.

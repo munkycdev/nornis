@@ -101,7 +101,7 @@ public class MapExtractionPipeline
             _logger.LogWarning(
                 "Map extraction blocked by AI budget. SourceId={SourceId}, WorldId={WorldId}", source.Id, worldId);
             return MapExtractionResult.Failed(
-                ExtractionOutcome.NonTransient("BudgetExceeded", budgetError.Message));
+                ExtractionOutcome.NonTransient(ErrorCategories.BudgetExceeded, budgetError.Message));
         }
 
         byte[] imageBytes;

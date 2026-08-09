@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +22,7 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
     private readonly string _databaseName = Guid.NewGuid().ToString();
     private readonly FakeExtractionQueueClient _fakeExtractionQueueClient = new();
     private readonly FakeBlobStorageService _fakeBlobStorage = new();
+    private readonly FakeHandwritingTranscriptionClient _fakeTranscription = new();
 
     /// <summary>
     /// The fake extraction queue client used by this factory instance.
@@ -30,6 +31,10 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
     public FakeExtractionQueueClient ExtractionQueueClient => _fakeExtractionQueueClient;
 
     public FakeBlobStorageService BlobStorage => _fakeBlobStorage;
+
+    /// <summary>The transcription client behind POST /sources/{id}/transcribe. Tests set its
+    /// markdown or make it throw to exercise the endpoint's blank and failure paths.</summary>
+    public FakeHandwritingTranscriptionClient Transcription => _fakeTranscription;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -109,6 +114,17 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
                 services.Remove(digestAiDescriptor);
             }
             services.AddScoped<Nornis.Application.Ai.IDigestAiClient, FakeDigestAiClient>();
+
+            // And the handwriting client, for the same reason: it is a throwing stub when
+            // unconfigured, and the transcribe endpoint resolves it while activating the
+            // action — so an authorization test would assert 500 instead of 403.
+            var transcriptionDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(Nornis.Application.Ai.IHandwritingTranscriptionClient));
+            if (transcriptionDescriptor is not null)
+            {
+                services.Remove(transcriptionDescriptor);
+            }
+            services.AddSingleton<Nornis.Application.Ai.IHandwritingTranscriptionClient>(_fakeTranscription);
 
             // Blob storage is a throwing DI stub when unconfigured — replace with an
             // in-memory fake so Library endpoints are testable.

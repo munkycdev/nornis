@@ -1,10 +1,10 @@
-@page "/capture"
+﻿@page "/capture"
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
-@implements IDisposable
+@implements IAsyncDisposable
 
 <PageTitle>Capture — Nornis</PageTitle>
 
@@ -59,16 +59,45 @@ else
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
                         @plan.Hint
                     </MudText>
-                    @if (plan.Multiple)
+
+                    @if (_transcribed)
                     {
-                        <InputFile id="@_pagesInputId" OnChange="OnPagesSelected" multiple
-                                   class="nornis-upload-input mb-2" accept="@plan.Accept" />
+                        @* Photographs are done with: the reading is in the editor below, and
+                           picking new ones now would leave the source carrying page images
+                           the text no longer came from. Retake is the way back. *@
+                        <MudAlert Severity="Severity.Success" Dense="true" Class="mb-3">
+                            <div class="d-flex align-center justify-space-between gap-3">
+                                <span>@($"Read {_pageFiles.Count} {(_pageFiles.Count == 1 ? "page" : "pages")}. Check the text below before saving.")</span>
+                                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Inherit"
+                                           StartIcon="@Icons.Material.Filled.Replay"
+                                           OnClick="RetakeAsync" Disabled="_busy">
+                                    Retake
+                                </MudButton>
+                            </div>
+                        </MudAlert>
                     }
                     else
                     {
-                        <InputFile id="@_pagesInputId" OnChange="OnPagesSelected"
-                                   class="nornis-upload-input mb-2" accept="@plan.Accept" />
+                        @if (_type == "HandwrittenNotes")
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mb-2"
+                                       StartIcon="@Icons.Material.Filled.PhotoCamera"
+                                       OnClick="() => PickPagesAsync(useCamera: true)" Disabled="_busy">
+                                Take a photo
+                            </MudButton>
+                        }
+                        @if (plan.Multiple)
+                        {
+                            <InputFile id="@_pagesInputId" OnChange="OnPagesSelected" multiple
+                                       class="nornis-upload-input mb-2" accept="@plan.Accept" />
+                        }
+                        else
+                        {
+                            <InputFile id="@_pagesInputId" OnChange="OnPagesSelected"
+                                       class="nornis-upload-input mb-2" accept="@plan.Accept" />
+                        }
                     }
+
                     @if (_pageFiles.Count > 0)
                     {
                         <div class="mb-3">
@@ -82,21 +111,43 @@ else
                             }
                         </div>
                     }
-                    @if (_busy && _pageFiles.Count > 0)
+                    @if (_busy && _pageFiles.Count > 0 && !_reading)
                     {
                         <MudProgressLinear Value="@_uploadProgress" Color="Color.Primary" Class="mb-2" />
                         <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
                             Uploading file @(_uploadingIndex + 1) of @_pageFiles.Count…
                         </MudText>
                     }
+
+                    @if (_type == "HandwrittenNotes" && !_transcribed && _pageFiles.Count > 0)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mb-3"
+                                   StartIcon="@Icons.Material.Filled.AutoAwesome"
+                                   OnClick="TranscribeAsync" Disabled="_busy">
+                            @(_reading ? "Reading the handwriting…" : "Read the handwriting")
+                        </MudButton>
+                        @if (_reading)
+                        {
+                            <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="mb-2" />
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3 d-block">
+                                This takes a moment — Nornis is reading every page before you check it.
+                            </MudText>
+                        }
+                    }
                 }
-                @if (_type != "HandwrittenNotes")
+
+                @if (ShowEditor)
                 {
+                    @if (_transcribed && _transcriptionWasBlank)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
+                            Nornis found no readable handwriting on those pages. Type the notes
+                            yourself, or retake the photos in better light.
+                        </MudAlert>
+                    }
                     <div class="mb-3">
-                        <NotesEditor @ref="_editor"
-                                     Placeholder="@(FilePlanForType is null
-                                         ? "Paste session notes, a journal entry, a transcript… Type # for a heading, - for a list, **bold**."
-                                         : "Optional notes to go with the file(s) — context, captions, what to look for.")" />
+                        <NotesEditor @ref="_editor" InitialMarkdown="@_transcription"
+                                     Placeholder="@EditorPlaceholder" />
                     </div>
                 }
 
@@ -182,6 +233,36 @@ else
     private bool _busy;
     private string? _error;
 
+    // ------------------------------------------------ Read-before-extract (handwriting) --
+    // A handwritten source is saved as a draft, transcribed, corrected, and only then sent
+    // for extraction — so the words that become canon are the ones the GM approved rather
+    // than the ones a vision model guessed. The other types still go straight through and
+    // are read during processing.
+
+    /// <summary>The draft this page is editing, once one exists. Null until the first save
+    /// or the first transcription — both of which need a row to hang attachments off, and
+    /// must therefore use the same one rather than each creating its own.</summary>
+    private Guid? _sourceId;
+
+    private bool _pagesUploaded;
+    private bool _reading;
+    private bool _transcribed;
+    private bool _transcriptionWasBlank;
+    private string? _transcription;
+
+    private bool IsHandwritten => _type == "HandwrittenNotes";
+
+    /// <summary>
+    /// Handwriting gets its editor only once there is a reading to correct; every other type
+    /// has it from the start, for the notes themselves or as context for a file.
+    /// </summary>
+    private bool ShowEditor => !IsHandwritten || _transcribed;
+
+    private string EditorPlaceholder =>
+        _transcribed ? "Fix anything Nornis misread — names especially."
+        : FilePlanForType is null ? "Paste session notes, a journal entry, a transcript… Type # for a heading, - for a list, **bold**."
+        : "Optional notes to go with the file(s) — context, captions, what to look for.";
+
     protected override async Task OnInitializedAsync()
     {
         if (!string.IsNullOrWhiteSpace(Type) && SourceTypeDisplay.IsCaptureOption(Type))
@@ -208,17 +289,18 @@ else
 
     // ----------------------------------------------------------- File attachments --
 
-    private sealed record PendingPage(string Name, long Size, string Type);
-
     /// <summary>Per-type file behavior: attachment kind, multiplicity, accepted extensions.</summary>
     private sealed record FilePlan(string Kind, bool Multiple, string Accept, string Hint);
 
     private FilePlan? FilePlanForType => _type switch
     {
-        "HandwrittenNotes" => new("PageImage", true, ".png,.jpg,.jpeg,.webp",
-            "Write directly in Nornis with the canvas above — or add photos / page exports of notes "
-            + "written elsewhere, in reading order. Either way, Nornis transcribes the handwriting "
-            + "and pulls artifacts from the transcription."),
+        // accept is image/* rather than a list of extensions: on a phone that is what puts
+        // the camera in the picker, and whatever comes back — HEIC included — is re-encoded
+        // to JPEG in the browser before the API is asked for an upload ticket.
+        "HandwrittenNotes" => new("PageImage", true, "image/*",
+            "Photograph the pages in reading order — or write directly in Nornis with the canvas "
+            + "above. Nornis reads the handwriting and shows you the text to correct before "
+            + "anything reaches your world record."),
         "Image" => new("ImageFile", true, ".png,.jpg,.jpeg,.webp,.gif",
             "Nornis reads the image(s) for lore — people, places, things — and combines that with any notes you type."),
         "Upload" => new("Document", true, ".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.gif",
@@ -229,17 +311,49 @@ else
     };
 
     private readonly string _pagesInputId = $"nornis-pages-{Guid.NewGuid():N}";
-    private List<PendingPage> _pageFiles = [];
+    private List<PickedFile> _pageFiles = [];
     private int _uploadingIndex;
     private int _uploadProgress;
     private DotNetObjectReference<Capture>? _selfRef;
 
-    private void OnPagesSelected(InputFileChangeEventArgs e)
+    /// <summary>The ceiling on pages in one source, and the same number the browser bounds
+    /// its re-encoded copies by — it holds a JPEG per page in memory until upload.</summary>
+    private const int MaxPageFiles = 50;
+
+    /// <summary>
+    /// What a page image is re-encoded to before upload. A phone shoots twelve megapixels of
+    /// HEIC; the API accepts neither the format nor, comfortably, the size, and the same
+    /// pixels are billed as vision input. Handwriting stays legible far below what the camera
+    /// produces, so this is the quality the transcription needs rather than the quality the
+    /// camera offers.
+    /// </summary>
+    private const int PageMaxEdgePixels = 2048;
+
+    private const double PageJpegQuality = 0.85;
+
+    private async Task PickPagesAsync(bool useCamera) =>
+        await JS.InvokeVoidAsync("nornisUpload.pick", _pagesInputId, useCamera);
+
+    private async Task OnPagesSelected(InputFileChangeEventArgs e)
     {
-        var max = FilePlanForType is { Multiple: false } ? 1 : 50;
+        var max = FilePlanForType is { Multiple: false } ? 1 : MaxPageFiles;
+
+        if (IsHandwritten)
+        {
+            // Re-encode first, then describe: the upload ticket is minted against a file name,
+            // size and content type, and it must describe the bytes that will actually be PUT
+            // rather than the HEIC the camera handed over.
+            var prepared = await JS.InvokeAsync<PickedFile[]>(
+                "nornisUpload.prepareImages", _pagesInputId, max, PageMaxEdgePixels, PageJpegQuality);
+            _pageFiles = [.. prepared];
+            _pagesUploaded = false;
+            return;
+        }
+
         _pageFiles = e.GetMultipleFiles(max)
-            .Select(f => new PendingPage(f.Name, f.Size, f.ContentType))
+            .Select(f => new PickedFile(f.Name, f.Size, f.ContentType))
             .ToList();
+        _pagesUploaded = false;
     }
 
     [JSInvokable]
@@ -286,7 +400,238 @@ else
         return null;
     }
 
-    public void Dispose() => _selfRef?.Dispose();
+    public async ValueTask DisposeAsync()
+    {
+        _selfRef?.Dispose();
+
+        try
+        {
+            await JS.InvokeVoidAsync("nornisUpload.release", _pagesInputId);
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit already gone — the browser dropped the re-encoded pages with the page.
+        }
+    }
+
+    /// <summary>
+    /// The stored body's next value, and whether to clear it. Null-and-don't-clear means
+    /// "leave what is there": a handwritten source before its reading has no editor on
+    /// screen at all, and treating an absent editor like an emptied one would wipe the
+    /// transcription the next step is about to write.
+    /// </summary>
+    private async Task<(string? Body, bool Clear)> ReadEditorAsync()
+    {
+        if (_editor is null || !_editor.Initialized)
+        {
+            return (null, false);
+        }
+
+        var markdown = await _editor.GetMarkdownAsync();
+        return (markdown, markdown is null);
+    }
+
+    private DateTimeOffset? OccurredAtUtc =>
+        // SpecifyKind: picker dates are Kind.Local, and DateTimeOffset's ctor throws
+        // when the kind's implied offset disagrees with the one supplied.
+        _occurredAt.HasValue
+            ? new DateTimeOffset(DateTime.SpecifyKind(_occurredAt.Value, DateTimeKind.Utc), TimeSpan.Zero)
+            : null;
+
+    /// <summary>
+    /// Creates the draft on first call and updates it on every call after, returning its id.
+    /// One row for the whole page: transcribing needs somewhere to hang page images, saving
+    /// needs somewhere to put the corrected text, and two rows would leave the photographs
+    /// and the words that came out of them on different sources.
+    /// </summary>
+    private async Task<Guid?> EnsureSourceAsync()
+    {
+        var worldId = Worlds.Current!.Id;
+        var (body, clearBody) = await ReadEditorAsync();
+
+        if (_sourceId is { } existing)
+        {
+            var updated = await Api.UpdateSourceAsync(worldId, existing, new UpdateSourceRequest(
+                Title: _title.Trim(),
+                Body: body,
+                ClearBody: clearBody,
+                Uri: string.IsNullOrWhiteSpace(_uri) ? null : _uri,
+                ClearUri: string.IsNullOrWhiteSpace(_uri),
+                OccurredAt: OccurredAtUtc,
+                ClearOccurredAt: OccurredAtUtc is null,
+                Type: _type,
+                Visibility: _visibility,
+                CampaignId: _campaignId,
+                ClearCampaign: _campaignId is null,
+                ExtractionEnabled: _extractionEnabled));
+
+            if (!updated.IsSuccess)
+            {
+                _error = updated.Error!.Message;
+                return null;
+            }
+
+            return existing;
+        }
+
+        var created = await Api.CreateSourceAsync(worldId, new CreateSourceRequest(
+            _title.Trim(),
+            _type,
+            _visibility,
+            body,
+            string.IsNullOrWhiteSpace(_uri) ? null : _uri,
+            OccurredAtUtc,
+            _campaignId,
+            _extractionEnabled));
+
+        if (!created.IsSuccess)
+        {
+            _error = created.Error!.Message;
+            return null;
+        }
+
+        _sourceId = created.Value!.Id;
+        return _sourceId;
+    }
+
+    /// <summary>Uploads the selected pages once. Both transcribing and saving need them in
+    /// storage, and whichever happens first is the one that pays for it.</summary>
+    private async Task<string?> EnsurePagesUploadedAsync(Guid worldId, Guid sourceId, string kind)
+    {
+        if (_pagesUploaded || _pageFiles.Count == 0)
+        {
+            return null;
+        }
+
+        var uploadError = await UploadFilesAsync(worldId, sourceId, kind);
+        _pagesUploaded = uploadError is null;
+        return uploadError;
+    }
+
+    private string MissingFilesMessage => _type switch
+    {
+        "HandwrittenNotes" => "Add at least one photo or image of your handwritten notes.",
+        "Map" => "Add the map image.",
+        _ => "Add at least one file — or switch the type to Session Note for text-only capture.",
+    };
+
+    /// <summary>
+    /// Reads the photographed pages and puts the transcription in the editor for correction.
+    /// The source is left a draft: nothing reaches extraction until the GM sends it.
+    /// </summary>
+    private async Task TranscribeAsync()
+    {
+        if (Worlds.Current is null || FilePlanForType is not { } plan)
+        {
+            return;
+        }
+
+        if (_pageFiles.Count == 0)
+        {
+            _error = MissingFilesMessage;
+            return;
+        }
+
+        // The draft is created here, and Title is required to create a source at all — so ask
+        // for it now rather than after a paid vision call has nowhere to land.
+        if (string.IsNullOrWhiteSpace(_title))
+        {
+            _error = "Title is required before Nornis can read the pages.";
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        var sourceId = await EnsureSourceAsync();
+        if (sourceId is null)
+        {
+            _busy = false;
+            return;
+        }
+
+        var uploadError = await EnsurePagesUploadedAsync(Worlds.Current.Id, sourceId.Value, plan.Kind);
+        if (uploadError is not null)
+        {
+            _busy = false;
+            _error = $"Saved as a draft, but a photo did not reach storage: {uploadError}";
+            return;
+        }
+
+        _reading = true;
+        StateHasChanged();
+
+        var read = await Api.TranscribeSourceAsync(Worlds.Current.Id, sourceId.Value);
+
+        _reading = false;
+        _busy = false;
+
+        if (!read.IsSuccess)
+        {
+            _error = read.Error!.Message;
+            return;
+        }
+
+        _transcription = read.Value!.Markdown;
+        _transcriptionWasBlank = string.IsNullOrWhiteSpace(_transcription);
+        _transcribed = true;
+    }
+
+    /// <summary>
+    /// Throws the reading away along with the photographs it came from. The stored body has
+    /// to go too: it is the guard that stops the pipeline transcribing again, so leaving it
+    /// behind would extract text attributed to pages that are no longer there.
+    /// </summary>
+    private async Task RetakeAsync()
+    {
+        if (Worlds.Current is null || _sourceId is not { } sourceId)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        var attachments = await Api.GetSourceAttachmentsAsync(Worlds.Current.Id, sourceId);
+        if (!attachments.IsSuccess)
+        {
+            _busy = false;
+            _error = attachments.Error!.Message;
+            return;
+        }
+
+        foreach (var page in attachments.Value!.Where(a => a.Kind == "PageImage"))
+        {
+            var deleted = await Api.DeleteSourceAttachmentAsync(Worlds.Current.Id, sourceId, page.Id);
+            if (!deleted.IsSuccess)
+            {
+                _busy = false;
+                _error = deleted.Error!.Message;
+                return;
+            }
+        }
+
+        var cleared = await Api.UpdateSourceAsync(
+            Worlds.Current.Id, sourceId, new UpdateSourceRequest(ClearBody: true));
+
+        _busy = false;
+
+        if (!cleared.IsSuccess)
+        {
+            _error = cleared.Error!.Message;
+            return;
+        }
+
+        _transcribed = false;
+        _transcriptionWasBlank = false;
+        _transcription = null;
+        _pageFiles = [];
+        _pagesUploaded = false;
+        // The editor is about to leave the render tree with the reading it was holding.
+        _editor = null;
+
+        await JS.InvokeVoidAsync("nornisUpload.release", _pagesInputId);
+    }
 
     private async Task SaveAsync(bool process)
     {
@@ -301,50 +646,26 @@ else
             return;
         }
 
-        var isHandwritten = _type == "HandwrittenNotes";
         var filePlan = FilePlanForType;
-        if (filePlan is not null && _pageFiles.Count == 0)
+        if (filePlan is not null && _pageFiles.Count == 0 && !_transcribed)
         {
-            _error = _type switch
-            {
-                "HandwrittenNotes" => "Add at least one page image of your handwritten notes.",
-                "Map" => "Add the map image.",
-                _ => "Add at least one file — or switch the type to Session Note for text-only capture.",
-            };
+            _error = MissingFilesMessage;
             return;
         }
 
         _busy = true;
         _error = null;
 
-        var body = isHandwritten || _editor is null || !_editor.Initialized
-            ? null
-            : await _editor.GetMarkdownAsync();
-
-        var request = new CreateSourceRequest(
-            _title.Trim(),
-            _type,
-            _visibility,
-            body,
-            string.IsNullOrWhiteSpace(_uri) ? null : _uri,
-            // SpecifyKind: picker dates are Kind.Local, and DateTimeOffset's ctor throws
-            // when the kind's implied offset disagrees with the one supplied.
-            _occurredAt.HasValue ? new DateTimeOffset(DateTime.SpecifyKind(_occurredAt.Value, DateTimeKind.Utc), TimeSpan.Zero) : null,
-            _campaignId,
-            _extractionEnabled);
-
-        var created = await Api.CreateSourceAsync(Worlds.Current.Id, request);
-
-        if (!created.IsSuccess)
+        var sourceId = await EnsureSourceAsync();
+        if (sourceId is null)
         {
             _busy = false;
-            _error = created.Error!.Message;
             return;
         }
 
-        if (filePlan is not null && _pageFiles.Count > 0)
+        if (filePlan is not null)
         {
-            var uploadError = await UploadFilesAsync(Worlds.Current.Id, created.Value!.Id, filePlan.Kind);
+            var uploadError = await EnsurePagesUploadedAsync(Worlds.Current.Id, sourceId.Value, filePlan.Kind);
             if (uploadError is not null)
             {
                 _busy = false;
@@ -355,7 +676,7 @@ else
 
         if (process)
         {
-            var ready = await Api.MarkSourceReadyAsync(Worlds.Current.Id, created.Value!.Id);
+            var ready = await Api.MarkSourceReadyAsync(Worlds.Current.Id, sourceId.Value);
             if (!ready.IsSuccess)
             {
                 _busy = false;
