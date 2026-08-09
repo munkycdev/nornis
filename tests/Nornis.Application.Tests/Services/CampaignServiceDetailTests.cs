@@ -1,4 +1,4 @@
-using Nornis.Application.Services;
+﻿using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -26,6 +26,7 @@ public class CampaignServiceDetailTests
     private InMemoryCharacterRepository _characterRepository = null!;
     private InMemorySourceRepository _sourceRepository = null!;
     private InMemoryCampaignRecapRepository _recapRepository = null!;
+    private InMemoryWorldRepository _worldRepository = null!;
     private CampaignService _sut = null!;
 
     [SetUp]
@@ -35,7 +36,9 @@ public class CampaignServiceDetailTests
         _characterRepository = new InMemoryCharacterRepository();
         _campaignRepository = new InMemoryCampaignRepository(_sourceRepository, _characterRepository);
         _recapRepository = new InMemoryCampaignRecapRepository();
-        _sut = new CampaignService(_campaignRepository, _characterRepository, _sourceRepository, _recapRepository);
+        _worldRepository = new InMemoryWorldRepository();
+        _sut = new CampaignService(_campaignRepository, _characterRepository, _sourceRepository, _recapRepository,
+            _worldRepository);
     }
 
     private Campaign SeedCampaign(Guid? worldId = null, string name = "The Missing Caravan")

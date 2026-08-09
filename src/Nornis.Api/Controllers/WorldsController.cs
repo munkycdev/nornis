@@ -98,7 +98,8 @@ public class WorldsController : ControllerBase
             SummaryReviewRequired: c.World.SummaryReviewRequired,
             IsDemo: c.World.IsDemo,
             TutorialEnabled: c.World.TutorialEnabled,
-            IsTemplate: c.World.IsTemplate)).ToList();
+            IsTemplate: c.World.IsTemplate,
+            CurrentCampaignId: c.World.CurrentCampaignId)).ToList();
 
         return Ok(response);
     }
@@ -251,6 +252,7 @@ public class WorldsController : ControllerBase
             SummaryReviewRequired: world.SummaryReviewRequired,
             IsDemo: world.IsDemo,
             TutorialEnabled: world.TutorialEnabled,
-            IsTemplate: world.IsTemplate);
+            IsTemplate: world.IsTemplate,
+            CurrentCampaignId: world.CurrentCampaignId);
     }
 }

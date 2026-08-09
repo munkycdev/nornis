@@ -1,4 +1,4 @@
-namespace Nornis.Api.Contracts.Responses;
+﻿namespace Nornis.Api.Contracts.Responses;
 
 public record WorldListItemResponse(
     Guid Id,
@@ -13,4 +13,7 @@ public record WorldListItemResponse(
     bool SummaryReviewRequired = false,
     bool IsDemo = false,
     bool TutorialEnabled = false,
-    bool IsTemplate = false);
+    bool IsTemplate = false,
+    /// <summary>The campaign the world is playing now; null when none is. Carried on the world
+    /// so the capture form can default to it without a second round trip.</summary>
+    Guid? CurrentCampaignId = null);

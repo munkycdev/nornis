@@ -67,13 +67,13 @@ public class CaptureHandwritingTests : BunitContext
     [TearDown]
     public async Task TearDown() => await DisposeAsync();
 
-    private async Task<IRenderedComponent<Capture>> RenderCaptureAsync()
+    private async Task<IRenderedComponent<Capture>> RenderCaptureAsync(string type = "HandwrittenNotes")
     {
         var worlds = Services.GetRequiredService<WorldState>();
         await worlds.EnsureSelectionRestoredAsync();
 
         // Type arrives from the query string, the way the dashboard's capture tiles link in.
-        Services.GetRequiredService<NavigationManager>().NavigateTo("/capture?type=HandwrittenNotes");
+        Services.GetRequiredService<NavigationManager>().NavigateTo($"/capture?type={type}");
         return Render<Capture>();
     }
 
@@ -161,7 +161,38 @@ public class CaptureHandwritingTests : BunitContext
         Assert.That(cut.Find($"#{CameraInputId(cut)}").GetAttribute("class"),
             Does.Contain("nornis-pick-offscreen"));
         Assert.That(cut.Find($"#{LibraryInputId(cut)}").GetAttribute("class"),
-            Does.Contain("nornis-pick-box"));
+            Does.Contain("nornis-pick-offscreen"),
+            "the library route is a labelled button on every device now, so its input is "
+            + "never the visible control");
+    }
+
+    [Test]
+    public async Task TheCampaign_DefaultsToTheOneTheWorldIsPlaying()
+    {
+        // The form does not guess. It used to infer "the only active campaign", which was right
+        // for one and gave up for two — and giving up meant filing a session under no campaign.
+        var cut = await RenderCaptureAsync("SessionNote");
+        EnterTitle(cut, "Session 4 notes");
+
+        await cut.InvokeAsync(() => FindButton(cut, "Save draft")!.ClickAsync(new()));
+
+        Assert.That(_handler.CreatedCampaignIds, Has.Count.EqualTo(1));
+        Assert.That(_handler.CreatedCampaignIds[0], Is.EqualTo(_handler.CurrentCampaignId));
+    }
+
+    [Test]
+    public async Task NoCurrentCampaign_FilesUnderNone_RatherThanPickingOne()
+    {
+        // Two active campaigns and nothing chosen is exactly the case the world-level pointer
+        // exists for: a wrong campaign on a source is worse than none.
+        _handler.CurrentCampaignId = null;
+        var cut = await RenderCaptureAsync("SessionNote");
+        EnterTitle(cut, "Session 4 notes");
+
+        await cut.InvokeAsync(() => FindButton(cut, "Save draft")!.ClickAsync(new()));
+
+        Assert.That(_handler.CreatedCampaignIds, Has.Count.EqualTo(1));
+        Assert.That(_handler.CreatedCampaignIds[0], Is.Null);
     }
 
     [Test]
@@ -307,6 +338,12 @@ public class CaptureHandwritingTests : BunitContext
 
         public int CreateCount { get; private set; }
         public List<string?> CreatedUris { get; } = [];
+        public List<Guid?> CreatedCampaignIds { get; } = [];
+
+        /// <summary>What the world reports as the campaign it is playing now.</summary>
+        public Guid? CurrentCampaignId { get; set; } = Guid.NewGuid();
+
+        public Guid OtherCampaignId { get; } = Guid.NewGuid();
         public Guid? TranscribedSourceId { get; private set; }
         public Guid? MarkedReadySourceId { get; private set; }
         public List<string?> UpdatedBodies { get; } = [];
@@ -321,16 +358,27 @@ public class CaptureHandwritingTests : BunitContext
 
             if (path == "/api/worlds")
             {
+                var current = CurrentCampaignId is { } id ? $"\"{id}\"" : "null";
                 return Json(HttpStatusCode.OK,
                     $$"""
                     [{"id":"{{WorldId}}","name":"Vespergale Reach","description":null,
-                      "gameSystem":null,"myRole":"GM"}]
+                      "gameSystem":null,"myRole":"GM","currentCampaignId":{{current}}}]
                     """);
             }
 
             if (path == $"/api/worlds/{WorldId}/campaigns")
             {
-                return Json(HttpStatusCode.OK, "[]");
+                return Json(HttpStatusCode.OK,
+                    $$"""
+                    [{"id":"{{CurrentCampaignId ?? OtherCampaignId}}","worldId":"{{WorldId}}",
+                      "name":"Vespergale Reach","description":null,"status":"Active",
+                      "startedAt":null,"endedAt":null,"createdAt":"2026-01-01T00:00:00+00:00",
+                      "updatedAt":"2026-01-01T00:00:00+00:00","createdByUserId":"{{Guid.Empty}}"},
+                     {"id":"{{OtherCampaignId}}","worldId":"{{WorldId}}",
+                      "name":"Black Harbor Nights","description":null,"status":"Active",
+                      "startedAt":null,"endedAt":null,"createdAt":"2026-01-01T00:00:00+00:00",
+                      "updatedAt":"2026-01-01T00:00:00+00:00","createdByUserId":"{{Guid.Empty}}"}]
+                    """);
             }
 
             if (path == root && request.Method == HttpMethod.Post)
@@ -338,6 +386,10 @@ public class CaptureHandwritingTests : BunitContext
                 CreateCount++;
                 var created = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct)).RootElement;
                 CreatedUris.Add(created.TryGetProperty("uri", out var u) ? u.GetString() : null);
+                CreatedCampaignIds.Add(
+                    created.TryGetProperty("campaignId", out var cid) && cid.ValueKind != JsonValueKind.Null
+                        ? cid.GetGuid()
+                        : null);
                 return Json(HttpStatusCode.Created, SourceJson());
             }
 

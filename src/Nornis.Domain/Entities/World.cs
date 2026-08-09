@@ -47,6 +47,21 @@ public class World
     public bool SummaryReviewRequired { get; set; }
 
     /// <summary>
+    /// The campaign this world is playing now — what a capture belongs to unless the GM says
+    /// otherwise. A fact about the table rather than a per-user preference, which is why it
+    /// lives here beside the world's other settings: a player filing session notes should file
+    /// them into the same run of play the GM is running.
+    ///
+    /// Null means no campaign is current: a world with no campaigns yet, one whose current
+    /// campaign stopped being Active, or a GM who cleared it. It never means "unknown" — the
+    /// capture form reads null as "no campaign" and does not guess, because a wrong campaign
+    /// on a source is worse than none. Deleting the named campaign, or moving it out of
+    /// Active, collapses into the same null; <see cref="Nornis.Domain.Enums.CampaignStatus"/>
+    /// and this pointer are kept honest by CampaignService, the only writer.
+    /// </summary>
+    public Guid? CurrentCampaignId { get; set; }
+
+    /// <summary>
     /// True for worlds instantiated from the demo template. Demo worlds are excluded from
     /// usage metrics and can be cut off from public access wholesale via the
     /// DemoWorlds:PublicAccessEnabled kill switch.
@@ -88,4 +103,6 @@ public class World
     public ICollection<WorldMember> WorldMembers { get; set; } = [];
 
     public ICollection<Campaign> Campaigns { get; set; } = [];
+
+    public Campaign? CurrentCampaign { get; set; }
 }

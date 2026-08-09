@@ -49,5 +49,15 @@ public class WorldConfiguration : IEntityTypeConfiguration<World>
             .WithMany()
             .HasForeignKey(c => c.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Restrict, not SetNull, and deliberately: Campaign.WorldId already cascades from
+        // here, so a second cascade back would give SQL Server two paths between the same
+        // two tables and it refuses the schema outright. CampaignService clears this pointer
+        // before deleting the campaign it names — which it has to do anyway, since the same
+        // clearing is what a campaign leaving Active needs.
+        builder.HasOne(c => c.CurrentCampaign)
+            .WithMany()
+            .HasForeignKey(c => c.CurrentCampaignId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

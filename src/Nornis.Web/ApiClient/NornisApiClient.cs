@@ -156,6 +156,19 @@ public class NornisApiClient
         PutAsync<ReorderCampaignsRequest, IReadOnlyList<CampaignDto>>(
             $"/api/worlds/{worldId}/campaigns/reorder", new ReorderCampaignsRequest(campaignIds), ct);
 
+    /// <summary>
+    /// GM-only: makes this the campaign the world is playing now, which is what new captures
+    /// default to. Refused for a campaign that is not Active.
+    /// </summary>
+    public Task<ApiResult<CampaignDto>> SetCurrentCampaignAsync(
+        Guid worldId, Guid campaignId, CancellationToken ct = default) =>
+        PutAsync<object, CampaignDto>(
+            $"/api/worlds/{worldId}/campaigns/{campaignId}/current", new { }, ct);
+
+    /// <summary>GM-only: leaves the world with no current campaign.</summary>
+    public Task<ApiResult<bool>> ClearCurrentCampaignAsync(Guid worldId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/campaigns/current", ct);
+
     public Task<ApiResult<CampaignRecapDto>> GenerateCampaignRecapAsync(
         Guid worldId, Guid campaignId, CancellationToken ct = default) =>
         PostAsync<object, CampaignRecapDto>($"/api/worlds/{worldId}/campaigns/{campaignId}/recap", new { }, ct);

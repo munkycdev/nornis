@@ -101,6 +101,11 @@ public class WorldRepository : IWorldRepository
         return true;
     }
 
+    public Task SetCurrentCampaignAsync(
+        Guid worldId, Guid? campaignId, CancellationToken cancellationToken = default) =>
+        _context.SetWhereAsync<World, Guid?>(
+            w => w.Id == worldId, w => w.CurrentCampaignId, campaignId, cancellationToken);
+
     public async Task DeleteAsync(Guid worldId, CancellationToken cancellationToken = default)
     {
         // ExecuteDelete needs a relational provider; the API integration tests run on

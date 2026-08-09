@@ -1,5 +1,33 @@
 # Domain Model
 
+> **Amendment (2026-08-09): a world names the campaign it is playing now.**
+> `World.CurrentCampaignId` — nullable, pointing at one of the world's own campaigns. The
+> capture form defaults a new source to it, which is the whole reason it exists: the form
+> used to infer "the only active campaign", which was correct for one campaign and gave up
+> entirely for two — and giving up meant filing a session under no campaign at all.
+>
+> It lives on **World**, not as a flag on Campaign: "exactly one current per world" is then
+> structural rather than an invariant a uniqueness filter has to defend. And it is a fact
+> about the table rather than a per-user preference — a player filing session notes should
+> file them into the run of play the GM is running — which is why it sits beside the world's
+> other settings and not in anyone's localStorage.
+>
+> Two rules keep it honest, both owned by `CampaignService`, its only writer:
+>
+> - **Whatever it names is Active.** Setting a Completed or Archived campaign is refused, and
+>   a current campaign that leaves Active clears the pointer. Readers therefore never have to
+>   re-check the status of the campaign they are handed.
+> - **A world adopts its first active campaign** without being asked, and a second campaign
+>   does not steal the position. Worlds with several active campaigns and no choice made stay
+>   null, which is exactly the case nothing could have inferred.
+>
+> Null means "no campaign is current", never "unknown": the capture form reads it as *No
+> campaign* and does not guess, because a wrong campaign on a source is worse than none.
+> Deleting the named campaign collapses into the same null — the foreign key is **Restrict**
+> rather than SetNull, because Campaigns already cascade from Worlds and SQL Server refuses a
+> second path between the same two tables, so `CampaignRepository.DeleteAsync` detaches the
+> pointer alongside the sources and characters it already detaches.
+
 > **Amendment (2026-08-09): campaigns are thin in data, first-tier in presentation.**
 > The Campaign section below still reads as if a campaign were only a label on a source,
 > and that framing produced a real gap: campaigns had no page, so nothing showed a GM what
@@ -172,7 +200,9 @@ Notes:
 
 - Campaigns carry no membership and no permissions; world membership governs access.
 - `StartedAt`/`EndedAt` are real-world dates describing when the campaign was played.
-- Deleting a campaign must not delete knowledge: sources fall back to "no campaign" (`SET NULL`).
+- Deleting a campaign must not delete knowledge: sources fall back to "no campaign" (`SET NULL`),
+  and a world naming it as current falls back to none (see the 2026-08-09 amendment).
+- Which campaign a world is *playing* is on `World.CurrentCampaignId`, not here.
 
 ## Character
 
