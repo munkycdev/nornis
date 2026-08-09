@@ -3878,19 +3878,62 @@ a.nornis-cite:hover {
  * the user agent claims to be, and it is the same signal the rest of the sheet sizes hit
  * targets by.
  *
- * Both routes drive the one hidden input, so the upload path still has a single file list to
- * index. Hiding it with display:none keeps it clickable from script; the buttons are the
- * labelled controls a keyboard or screen reader reaches. */
+ * Offscreen, never display:none. Each hidden input is opened by a <label for> pointing at
+ * it, and iOS will not present a picker for an input that was never laid out — which is the
+ * same reason the page stopped trying to open one from script. */
+.nornis-pick-offscreen {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+
+/* The library input is the visible file box on a mouse and the camera button's quiet
+ * neighbour on a touch screen — one element, because both are the same picker. */
 @media (pointer: coarse) {
-    .nornis-pick-pointer {
+    .nornis-pick-box {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        border: 0;
+        opacity: 0;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+}
+
+/* The ways in sit together as one set, same size and same style, whichever way they run. */
+.nornis-pick-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Stacked on touch, full width each. Three of these labels come to ~490px and the card gives
+ * them under 300, so side by side would mean either ragged wrapping or tiles too narrow to
+ * hold their own captions. Stacked, they stay equal, legible, and thumb-sized. */
+@media (pointer: coarse) {
+    .nornis-pick-row {
+        flex-direction: column;
+    }
+}
+
+/* Two classes, so this beats MudBlazor's own single-class display on the button. */
+@media not all and (pointer: coarse) {
+    .nornis-pick-row .nornis-pick-touch {
         display: none;
     }
 }
 
-@media not all and (pointer: coarse) {
-    .nornis-pick-touch {
-        display: none;
-    }
+/* A label carries no disabled state of its own, so nothing stops a tap on one mid-upload
+ * from opening the picker again. Mud has painted it as disabled; make that true. */
+.mud-button-root.mud-disabled {
+    pointer-events: none;
 }
 
 /* Book citations (Loremaster passage refs) get a small book glyph. */

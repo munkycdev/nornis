@@ -31,7 +31,7 @@ else
                               Class="mb-3" />
 
                 <div class="d-flex gap-3 mb-3">
-                    <MudSelect @bind-Value="_type" Label="Type" Variant="Variant.Outlined" Class="flex-grow-1">
+                    <MudSelect @bind-Value="SelectedType" Label="Type" Variant="Variant.Outlined" Class="flex-grow-1">
                         @foreach (var (value, label) in SourceTypeDisplay.CaptureOptions)
                         {
                             <MudSelectItem Value="@value">@label</MudSelectItem>
@@ -49,13 +49,6 @@ else
                 {
                     @* Files go straight to blob via the SAS handshake; the worker derives
                        text (transcription / vision read / PDF text) before extraction. *@
-                    @if (_type == "HandwrittenNotes")
-                    {
-                        <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mb-3"
-                                   StartIcon="@Icons.Material.Filled.Draw" Href="/capture/ink">
-                            Open ink canvas
-                        </MudButton>
-                    }
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
                         @plan.Hint
                     </MudText>
@@ -83,29 +76,54 @@ else
                            dialog on a laptop — `capture` is ignored there — so showing both
                            puts two identical controls side by side under labels that disagree.
                            Touch gets the camera (plus a quiet route to the photo library);
-                           mouse gets the file box, which also takes a drag-and-drop. *@
+                           mouse gets the file box, which also takes a drag-and-drop.
+
+                           These are LABELS, not buttons that call into script. A file picker
+                           may only open while the user's gesture is still live, and on Blazor
+                           Server a click handler answers from the other end of a SignalR round
+                           trip — by which point Safari has stopped listening, so the button did
+                           nothing at all on iOS. A label opens its own input natively, in the
+                           gesture, before any of that. *@
                         @if (IsHandwritten)
                         {
-                            <div class="nornis-pick-touch">
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mb-2"
-                                           StartIcon="@Icons.Material.Filled.PhotoCamera"
-                                           OnClick="() => PickPagesAsync(useCamera: true)" Disabled="_busy">
+                            @* Three ways to hand over the same thing, so they read as peers:
+                               one style, one size, side by side where there is room and stacked
+                               full-width on a phone where there is not. Writing by hand is
+                               offered on every device; the two picker routes belong to touch. *@
+                            <div class="nornis-pick-row mb-3">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.Draw" Href="/capture/ink">
+                                    Write by hand
+                                </MudButton>
+                                <MudButton HtmlTag="label" for="@_cameraInputId"
+                                           Class="nornis-pick-touch"
+                                           Variant="Variant.Outlined" Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.PhotoCamera" Disabled="_busy">
                                     Take a photo
                                 </MudButton>
-                                <MudButton Variant="Variant.Text" Color="Color.Primary" Class="mb-2 ml-1"
-                                           OnClick="() => PickPagesAsync(useCamera: false)" Disabled="_busy">
-                                    Choose existing photos
+                                <MudButton HtmlTag="label" for="@_libraryInputId"
+                                           Class="nornis-pick-touch"
+                                           Variant="Variant.Outlined" Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.PhotoLibrary" Disabled="_busy">
+                                    Choose photos
                                 </MudButton>
                             </div>
+
+                            @* Camera-only, and never the visible control — its label is. The
+                               `capture` hint lives in the markup because that is the only way it
+                               can be set before the picker opens. *@
+                            <InputFile id="@_cameraInputId" multiple capture="environment"
+                                       OnChange="@(e => OnPagesSelected(e, _cameraInputId))"
+                                       class="nornis-pick-offscreen" accept="@plan.Accept" />
                         }
                         @if (plan.Multiple)
                         {
-                            <InputFile id="@_pagesInputId" OnChange="OnPagesSelected" multiple
-                                       class="@FilePickerClass" accept="@plan.Accept" />
+                            <InputFile id="@_libraryInputId" OnChange="@(e => OnPagesSelected(e, _libraryInputId))"
+                                       multiple class="@FilePickerClass" accept="@plan.Accept" />
                         }
                         else
                         {
-                            <InputFile id="@_pagesInputId" OnChange="OnPagesSelected"
+                            <InputFile id="@_libraryInputId" OnChange="@(e => OnPagesSelected(e, _libraryInputId))"
                                        class="@FilePickerClass" accept="@plan.Accept" />
                         }
                     }
@@ -163,11 +181,17 @@ else
                     </div>
                 }
 
-                <MudTextField @bind-Value="_uri"
-                              Label="Link (optional)"
-                              Placeholder="https://…"
-                              Variant="Variant.Outlined"
-                              Class="mb-3" />
+                @* A Web Link source is the one whose subject IS a URL. On every other type the
+                   field asked for something the extraction pipeline never reads, which is worth
+                   fewer inputs between a GM and a saved note. *@
+                @if (IsWebLink)
+                {
+                    <MudTextField @bind-Value="_uri"
+                                  Label="Link"
+                                  Placeholder="https://…"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-3" />
+                }
 
                 <MudDatePicker @bind-Date="_occurredAt"
                                Label="When it happened (optional)"
@@ -264,6 +288,27 @@ else
 
     private bool IsHandwritten => _type == "HandwrittenNotes";
 
+    private bool IsWebLink => _type == "WebLink";
+
+    /// <summary>
+    /// The type, plus the one thing that has to happen when it changes: a link typed for a Web
+    /// Link source is dropped on the way out of that type. The field is gone from the form by
+    /// then, and saving a URL the GM can no longer see or delete is worse than losing it.
+    /// </summary>
+    private string SelectedType
+    {
+        get => _type;
+        set
+        {
+            _type = value;
+
+            if (!IsWebLink)
+            {
+                _uri = null;
+            }
+        }
+    }
+
     /// <summary>
     /// Handwriting gets its editor only once there is a reading to correct; every other type
     /// has it from the start, for the notes themselves or as context for a file.
@@ -271,12 +316,12 @@ else
     private bool ShowEditor => !IsHandwritten || _transcribed;
 
     /// <summary>
-    /// The file box hides itself on touch only for handwriting, which is the one type with
-    /// buttons standing in for it. Marking it unconditionally would leave a phone attaching a
+    /// The file box goes quiet on touch only for handwriting, which is the one type with
+    /// labels standing in for it. Marking it unconditionally would leave a phone attaching a
     /// map or a PDF with no visible control at all.
     /// </summary>
     private string FilePickerClass =>
-        IsHandwritten ? "nornis-upload-input nornis-pick-pointer mb-2" : "nornis-upload-input mb-2";
+        IsHandwritten ? "nornis-upload-input nornis-pick-box mb-2" : "nornis-upload-input mb-2";
 
     private string EditorPlaceholder =>
         _transcribed ? "Fix anything Nornis misread — names especially."
@@ -317,10 +362,12 @@ else
         // accept is image/* rather than a list of extensions: on a phone that is what puts
         // the camera in the picker, and whatever comes back — HEIC included — is re-encoded
         // to JPEG in the browser before the API is asked for an upload ticket.
+        // No "above" or "below": which of the three routes a device shows, and where, is the
+        // stylesheet's business now.
         "HandwrittenNotes" => new("PageImage", true, "image/*",
-            "Photograph the pages in reading order — or write directly in Nornis with the canvas "
-            + "above. Nornis reads the handwriting and shows you the text to correct before "
-            + "anything reaches your world record."),
+            "Photograph the pages in reading order, or write them out by hand in Nornis. Either "
+            + "way Nornis reads the handwriting and shows you the text to correct before anything "
+            + "reaches your world record."),
         "Image" => new("ImageFile", true, ".png,.jpg,.jpeg,.webp,.gif",
             "Nornis reads the image(s) for lore — people, places, things — and combines that with any notes you type."),
         "Upload" => new("Document", true, ".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.gif",
@@ -330,7 +377,12 @@ else
         _ => null,
     };
 
-    private readonly string _pagesInputId = $"nornis-pages-{Guid.NewGuid():N}";
+    // Two inputs rather than one, because `capture` has to be on the element before the
+    // picker opens and only markup can guarantee that. Which one the files came from decides
+    // whose re-encoded blobs get uploaded, so the choice is remembered rather than assumed.
+    private readonly string _cameraInputId = $"nornis-pages-camera-{Guid.NewGuid():N}";
+    private readonly string _libraryInputId = $"nornis-pages-library-{Guid.NewGuid():N}";
+    private string? _activeInputId;
     private List<PickedFile> _pageFiles = [];
     private int _uploadingIndex;
     private int _uploadProgress;
@@ -351,12 +403,10 @@ else
 
     private const double PageJpegQuality = 0.85;
 
-    private async Task PickPagesAsync(bool useCamera) =>
-        await JS.InvokeVoidAsync("nornisUpload.pick", _pagesInputId, useCamera);
-
-    private async Task OnPagesSelected(InputFileChangeEventArgs e)
+    private async Task OnPagesSelected(InputFileChangeEventArgs e, string inputId)
     {
         var max = FilePlanForType is { Multiple: false } ? 1 : MaxPageFiles;
+        _activeInputId = inputId;
 
         if (IsHandwritten)
         {
@@ -364,7 +414,7 @@ else
             // size and content type, and it must describe the bytes that will actually be PUT
             // rather than the HEIC the camera handed over.
             var prepared = await JS.InvokeAsync<PickedFile[]>(
-                "nornisUpload.prepareImages", _pagesInputId, max, PageMaxEdgePixels, PageJpegQuality);
+                "nornisUpload.prepareImages", inputId, max, PageMaxEdgePixels, PageJpegQuality);
             _pageFiles = [.. prepared];
             _pagesUploaded = false;
             return;
@@ -404,7 +454,7 @@ else
             }
 
             var sent = await JS.InvokeAsync<bool>("nornisUpload.sendAt",
-                _pagesInputId, i, ticket.Value!.UploadUrl, ticket.Value.Attachment.ContentType, _selfRef);
+                _activeInputId, i, ticket.Value!.UploadUrl, ticket.Value.Attachment.ContentType, _selfRef);
             if (!sent)
             {
                 return $"File {i + 1} never reached storage. Try again.";
@@ -426,7 +476,8 @@ else
 
         try
         {
-            await JS.InvokeVoidAsync("nornisUpload.release", _pagesInputId);
+            await JS.InvokeVoidAsync("nornisUpload.release", _cameraInputId);
+            await JS.InvokeVoidAsync("nornisUpload.release", _libraryInputId);
         }
         catch (JSDisconnectedException)
         {
@@ -650,7 +701,8 @@ else
         // The editor is about to leave the render tree with the reading it was holding.
         _editor = null;
 
-        await JS.InvokeVoidAsync("nornisUpload.release", _pagesInputId);
+        await JS.InvokeVoidAsync("nornisUpload.release", _cameraInputId);
+        await JS.InvokeVoidAsync("nornisUpload.release", _libraryInputId);
     }
 
     private async Task SaveAsync(bool process)
