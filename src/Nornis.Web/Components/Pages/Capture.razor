@@ -78,23 +78,35 @@ else
                     }
                     else
                     {
-                        @if (_type == "HandwrittenNotes")
+                        @* One way in per device, chosen by CSS rather than by asking the
+                           browser what it is. A camera button and a file picker are the same
+                           dialog on a laptop — `capture` is ignored there — so showing both
+                           puts two identical controls side by side under labels that disagree.
+                           Touch gets the camera (plus a quiet route to the photo library);
+                           mouse gets the file box, which also takes a drag-and-drop. *@
+                        @if (IsHandwritten)
                         {
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mb-2"
-                                       StartIcon="@Icons.Material.Filled.PhotoCamera"
-                                       OnClick="() => PickPagesAsync(useCamera: true)" Disabled="_busy">
-                                Take a photo
-                            </MudButton>
+                            <div class="nornis-pick-touch">
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mb-2"
+                                           StartIcon="@Icons.Material.Filled.PhotoCamera"
+                                           OnClick="() => PickPagesAsync(useCamera: true)" Disabled="_busy">
+                                    Take a photo
+                                </MudButton>
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" Class="mb-2 ml-1"
+                                           OnClick="() => PickPagesAsync(useCamera: false)" Disabled="_busy">
+                                    Choose existing photos
+                                </MudButton>
+                            </div>
                         }
                         @if (plan.Multiple)
                         {
                             <InputFile id="@_pagesInputId" OnChange="OnPagesSelected" multiple
-                                       class="nornis-upload-input mb-2" accept="@plan.Accept" />
+                                       class="@FilePickerClass" accept="@plan.Accept" />
                         }
                         else
                         {
                             <InputFile id="@_pagesInputId" OnChange="OnPagesSelected"
-                                       class="nornis-upload-input mb-2" accept="@plan.Accept" />
+                                       class="@FilePickerClass" accept="@plan.Accept" />
                         }
                     }
 
@@ -257,6 +269,14 @@ else
     /// has it from the start, for the notes themselves or as context for a file.
     /// </summary>
     private bool ShowEditor => !IsHandwritten || _transcribed;
+
+    /// <summary>
+    /// The file box hides itself on touch only for handwriting, which is the one type with
+    /// buttons standing in for it. Marking it unconditionally would leave a phone attaching a
+    /// map or a PDF with no visible control at all.
+    /// </summary>
+    private string FilePickerClass =>
+        IsHandwritten ? "nornis-upload-input nornis-pick-pointer mb-2" : "nornis-upload-input mb-2";
 
     private string EditorPlaceholder =>
         _transcribed ? "Fix anything Nornis misread — names especially."

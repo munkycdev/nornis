@@ -116,6 +116,26 @@ public class CaptureHandwritingTests : BunitContext
     }
 
     [Test]
+    public async Task TheTwoWaysIn_DifferOnlyInWhetherTheyAskForTheCamera()
+    {
+        // Both drive the same hidden input, so the upload path keeps one file list to index.
+        // Which of them a device shows is CSS's business (pointer: coarse); what has to hold
+        // here is that they are not the same call — a camera button that forgot its flag is
+        // just a second file picker.
+        var cut = await RenderCaptureAsync();
+
+        await cut.InvokeAsync(() => FindButton(cut, "Take a photo")!.ClickAsync(new()));
+        await cut.InvokeAsync(() => FindButton(cut, "Choose existing photos")!.ClickAsync(new()));
+
+        var picks = JSInterop.Invocations["nornisUpload.pick"];
+        Assert.That(picks, Has.Count.EqualTo(2));
+        Assert.That(picks[0].Arguments[1], Is.True, "the camera button asks for the camera");
+        Assert.That(picks[1].Arguments[1], Is.False, "the library button must not");
+        Assert.That(picks[0].Arguments[0], Is.EqualTo(picks[1].Arguments[0]),
+            "same input, so sendAt indexes one list");
+    }
+
+    [Test]
     public async Task WithAPhotoPicked_TheReadButtonAppears_ButStillNoEditor()
     {
         var cut = await RenderCaptureAsync();

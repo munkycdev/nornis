@@ -3869,6 +3869,30 @@ a.nornis-cite:hover {
     cursor: pointer;
 }
 
+/* Capture's page-image picker, one affordance per device.
+ *
+ * A camera button and a file box are the same dialog wherever the OS will not hand over a
+ * camera — `capture` is advertised by desktop browsers and ignored by them — so offering
+ * both there is two identical controls whose labels disagree about what they do. The pointer
+ * media feature is the honest test: it asks how the thing is being touched rather than what
+ * the user agent claims to be, and it is the same signal the rest of the sheet sizes hit
+ * targets by.
+ *
+ * Both routes drive the one hidden input, so the upload path still has a single file list to
+ * index. Hiding it with display:none keeps it clickable from script; the buttons are the
+ * labelled controls a keyboard or screen reader reaches. */
+@media (pointer: coarse) {
+    .nornis-pick-pointer {
+        display: none;
+    }
+}
+
+@media not all and (pointer: coarse) {
+    .nornis-pick-touch {
+        display: none;
+    }
+}
+
 /* Book citations (Loremaster passage refs) get a small book glyph. */
 .nornis-cite-book {
     gap: 5px;
