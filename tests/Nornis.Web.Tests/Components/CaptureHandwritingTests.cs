@@ -80,16 +80,23 @@ public class CaptureHandwritingTests : BunitContext
     private static bool HasEditor(IRenderedComponent<Capture> cut) =>
         cut.FindAll(".nornis-editor").Count > 0;
 
+    private static string CameraInputId(IRenderedComponent<Capture> cut) =>
+        cut.FindAll("input[type=file]").First(i => i.HasAttribute("capture")).Id!;
+
+    private static string LibraryInputId(IRenderedComponent<Capture> cut) =>
+        cut.FindAll("input[type=file]").First(i => !i.HasAttribute("capture")).Id!;
+
+    /// <summary>The picker routes render as labels, not buttons, so match on either.</summary>
     private static IElement? FindButton(IRenderedComponent<Capture> cut, string text) =>
-        cut.FindAll("button").FirstOrDefault(b => b.TextContent.Contains(text));
+        cut.FindAll("button, label").FirstOrDefault(b => b.TextContent.Contains(text));
 
     /// <summary>
-    /// Selects a photo. The page does not read the bytes Blazor hands it for handwriting — it
-    /// asks the browser to re-encode the camera's output first — so the content here only has
-    /// to exist; the mocked prepareImages is what describes the upload.
+    /// Takes a photo through the camera input. The page does not read the bytes Blazor hands
+    /// it for handwriting — it asks the browser to re-encode the camera's output first — so
+    /// the content here only has to exist; the mocked prepareImages describes the upload.
     /// </summary>
     private static void PickPhoto(IRenderedComponent<Capture> cut) =>
-        cut.FindComponent<InputFile>().UploadFiles(
+        cut.FindComponents<InputFile>()[0].UploadFiles(
             InputFileContent.CreateFromText("pretend HEIC", "IMG_0042.HEIC", contentType: "image/heic"));
 
     private static async Task ReadAsync(IRenderedComponent<Capture> cut) =>
@@ -116,23 +123,68 @@ public class CaptureHandwritingTests : BunitContext
     }
 
     [Test]
-    public async Task TheTwoWaysIn_DifferOnlyInWhetherTheyAskForTheCamera()
+    public async Task BothWaysIn_AreLabelsWiredToRealInputs_OneOfThemTheCamera()
     {
-        // Both drive the same hidden input, so the upload path keeps one file list to index.
-        // Which of them a device shows is CSS's business (pointer: coarse); what has to hold
-        // here is that they are not the same call — a camera button that forgot its flag is
-        // just a second file picker.
+        // This is the iOS bug, pinned. The camera used to be a button whose click handler
+        // called input.click() through a JS interop hop — and on Blazor Server that hop is a
+        // SignalR round trip, so the gesture was over by the time it landed and Safari
+        // silently declined to open anything. A <label for> opens its input inside the
+        // gesture, with no script in the path at all.
         var cut = await RenderCaptureAsync();
 
-        await cut.InvokeAsync(() => FindButton(cut, "Take a photo")!.ClickAsync(new()));
-        await cut.InvokeAsync(() => FindButton(cut, "Choose existing photos")!.ClickAsync(new()));
+        var inputs = cut.FindComponents<InputFile>();
+        Assert.That(inputs, Has.Count.EqualTo(2), "one input per route: capture cannot be toggled late");
 
-        var picks = JSInterop.Invocations["nornisUpload.pick"];
-        Assert.That(picks, Has.Count.EqualTo(2));
-        Assert.That(picks[0].Arguments[1], Is.True, "the camera button asks for the camera");
-        Assert.That(picks[1].Arguments[1], Is.False, "the library button must not");
-        Assert.That(picks[0].Arguments[0], Is.EqualTo(picks[1].Arguments[0]),
-            "same input, so sendAt indexes one list");
+        var camera = cut.Find($"#{CameraInputId(cut)}");
+        var library = cut.Find($"#{LibraryInputId(cut)}");
+        Assert.That(camera.GetAttribute("capture"), Is.EqualTo("environment"),
+            "the hint has to be in the markup — nothing can set it once the picker is opening");
+        Assert.That(library.HasAttribute("capture"), Is.False, "the library route must not force the camera");
+
+        // Every Mud field renders a label too, so ask only about the two that matter.
+        Assert.That(cut.FindAll($"label[for='{camera.Id}']"), Has.Count.EqualTo(1),
+            "the camera route is a label pointing at the camera input");
+        Assert.That(cut.FindAll($"label[for='{library.Id}']"), Has.Count.EqualTo(1),
+            "the library route is a label pointing at the library input");
+
+        Assert.That(cut.Markup, Does.Not.Contain("nornisUpload.pick"),
+            "no scripted click: that is the thing that did nothing on iOS");
+    }
+
+    [Test]
+    public async Task NeitherHiddenInput_IsRemovedFromLayout()
+    {
+        // display:none inputs cannot be opened by their label on iOS, so the hiding is done
+        // by moving them offscreen. A regression here looks exactly like the original bug.
+        var cut = await RenderCaptureAsync();
+
+        Assert.That(cut.Find($"#{CameraInputId(cut)}").GetAttribute("class"),
+            Does.Contain("nornis-pick-offscreen"));
+        Assert.That(cut.Find($"#{LibraryInputId(cut)}").GetAttribute("class"),
+            Does.Contain("nornis-pick-box"));
+    }
+
+    [Test]
+    public async Task TheLinkField_BelongsToWebLinkSourcesOnly_AndDoesNotFollowATypeChange()
+    {
+        var cut = await RenderCaptureAsync();
+        Assert.That(cut.FindAll("input[placeholder='https://…']"), Is.Empty,
+            "handwritten notes have no URL to file");
+
+        // Switch to Web Link, type one, then leave — the field goes away with the type, and a
+        // URL the GM can no longer see or delete must not be saved against the source.
+        var typeField = cut.FindComponent<MudBlazor.MudSelect<string>>();
+        await cut.InvokeAsync(() => typeField.Instance.ValueChanged.InvokeAsync("WebLink"));
+        cut.Find("input[placeholder='https://…']").Change("https://example.com/lore");
+
+        await cut.InvokeAsync(() => typeField.Instance.ValueChanged.InvokeAsync("SessionNote"));
+        Assert.That(cut.FindAll("input[placeholder='https://…']"), Is.Empty);
+
+        EnterTitle(cut, "Session 4 notes");
+        await cut.InvokeAsync(() => FindButton(cut, "Save draft")!.ClickAsync(new()));
+
+        Assert.That(_handler.CreatedUris, Has.Count.EqualTo(1));
+        Assert.That(_handler.CreatedUris[0], Is.Null, "the link left with the type that owned it");
     }
 
     [Test]
@@ -254,6 +306,7 @@ public class CaptureHandwritingTests : BunitContext
         public HttpStatusCode TranscribeStatus { get; set; } = HttpStatusCode.OK;
 
         public int CreateCount { get; private set; }
+        public List<string?> CreatedUris { get; } = [];
         public Guid? TranscribedSourceId { get; private set; }
         public Guid? MarkedReadySourceId { get; private set; }
         public List<string?> UpdatedBodies { get; } = [];
@@ -283,6 +336,8 @@ public class CaptureHandwritingTests : BunitContext
             if (path == root && request.Method == HttpMethod.Post)
             {
                 CreateCount++;
+                var created = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct)).RootElement;
+                CreatedUris.Add(created.TryGetProperty("uri", out var u) ? u.GetString() : null);
                 return Json(HttpStatusCode.Created, SourceJson());
             }
 

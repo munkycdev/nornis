@@ -105,26 +105,11 @@
             prepared.delete(inputId);
         },
 
-        /// Opens an input's picker, asking the OS for the camera when useCamera is set.
-        /// One input driven two ways rather than two inputs, so the upload path keeps a
-        /// single file list to index. iOS honours `capture` by opening the camera directly;
-        /// a browser that ignores it shows its ordinary picker, which offers the camera one
-        /// tap further in — worth having either way, because the alternative is asking
-        /// someone at a table to find their notes in a file dialog.
-        pick(inputId, useCamera) {
-            const input = document.getElementById(inputId);
-            if (!input) {
-                return;
-            }
-
-            if (useCamera) {
-                input.setAttribute('capture', 'environment');
-            } else {
-                input.removeAttribute('capture');
-            }
-
-            input.click();
-        },
+        // Nothing here opens a picker. That used to live in a pick() helper the page called
+        // through a click handler, which on Blazor Server means a SignalR round trip — and a
+        // file picker may only open while the user's gesture is still live, so Safari ignored
+        // it and the camera button did nothing on iOS. The page uses <label for> now, which
+        // opens the input natively inside the gesture. Do not reintroduce a scripted click.
 
         /// PUTs the selected file to the SAS URL. Reports progress (0-100) via
         /// dotnetRef.OnUploadProgress and resolves true/false for success.
