@@ -321,6 +321,38 @@ public record UpdateCharacterRequest(
 public record AssignCampaignCharactersRequest(
     IReadOnlyCollection<Guid> CharacterIds);
 
+// Mirrors Nornis.Api ReorderCampaignsRequest.
+public record ReorderCampaignsRequest(IReadOnlyList<Guid> CampaignIds);
+
+// Mirrors Nornis.Api CampaignDetailResponse: everything the campaign page shows, already
+// narrowed to what the caller may see.
+public record CampaignDetailDto(
+    CampaignDto Campaign,
+    IReadOnlyList<CharacterDto> Characters,
+    IReadOnlyList<CampaignArtifactDto> Artifacts,
+    int ArtifactTotalCount,
+    IReadOnlyList<SourceListItem> RecentSessions,
+    int SessionCount,
+    DateTimeOffset? FirstSessionAt,
+    DateTimeOffset? LastSessionAt,
+    CampaignRecapDto Recap);
+
+// Mirrors Nornis.Api CampaignArtifactResponse.
+public record CampaignArtifactDto(
+    Guid Id,
+    string Name,
+    string Type,
+    string? Summary,
+    string Status,
+    int SourceCount);
+
+// Mirrors Nornis.Api CampaignRecapResponse.
+public record CampaignRecapDto(
+    bool HasData,
+    DateTimeOffset? GeneratedAt,
+    string? Content,
+    string? PartyPreview);
+
 public record ArtifactListItem(
     Guid Id,
     Guid WorldId,

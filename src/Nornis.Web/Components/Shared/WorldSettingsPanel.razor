@@ -112,11 +112,30 @@
                 {
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">No campaigns yet.</MudText>
                 }
-                @foreach (var c in _campaigns)
+                @for (var i = 0; i < _campaigns.Count; i++)
                 {
+                    var c = _campaigns[i];
+                    var index = i;
                     <div class="nornis-member-row">
+                        @* Move buttons rather than drag: this list is keyboard-reachable, and
+                           the reorder is a whole-world write either way. *@
+                        @if (_isGm && _campaigns.Count > 1)
+                        {
+                            <div class="d-flex flex-column">
+                                <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp" Size="Size.Small"
+                                               Disabled="@(index == 0 || _reordering)"
+                                               OnClick="() => MoveCampaignAsync(index, -1)"
+                                               aria-label="@($"Move {c.Name} up")" />
+                                <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown" Size="Size.Small"
+                                               Disabled="@(index == _campaigns.Count - 1 || _reordering)"
+                                               OnClick="() => MoveCampaignAsync(index, 1)"
+                                               aria-label="@($"Move {c.Name} down")" />
+                            </div>
+                        }
                         <div class="nornis-list-body">
-                            <div class="nornis-list-title">@c.Name</div>
+                            <div class="nornis-list-title">
+                                <a href="@($"/campaigns/{c.Id}")" class="nornis-link">@c.Name</a>
+                            </div>
                             <div class="nornis-list-sub">
                                 @CampaignDates(c)
                                 @if (CampaignCharacterNames(c) is { Length: > 0 } names)
@@ -438,6 +457,7 @@
     private bool _loadingCampaigns;
     private string? _campaignsError;
     private IReadOnlyList<CampaignDto> _campaigns = [];
+    private bool _reordering;
     private string _newCampaignName = string.Empty;
     private bool _addingCampaign;
     private string? _addCampaignError;
@@ -529,6 +549,43 @@
     private string CampaignCharacterNames(CampaignDto c) =>
         string.Join(", ", _characters.Where(ch => ch.CampaignIds.Contains(c.Id)).Select(ch => ch.Name));
 
+    /// <summary>
+    /// Moves one campaign a step and sends the whole resulting order. The server rewrites
+    /// every position in the world, so sending the list is not wasteful — it is the unit the
+    /// write actually operates on.
+    /// </summary>
+    private async Task MoveCampaignAsync(int index, int delta)
+    {
+        var target = index + delta;
+        if (Worlds.Current is null || target < 0 || target >= _campaigns.Count)
+        {
+            return;
+        }
+
+        var reordered = _campaigns.ToList();
+        (reordered[index], reordered[target]) = (reordered[target], reordered[index]);
+
+        // Optimistic: the list redraws under the cursor immediately, and a failure below
+        // replaces it with whatever the server actually holds.
+        _campaigns = reordered;
+        _reordering = true;
+
+        var result = await Api.ReorderCampaignsAsync(Worlds.Current.Id, reordered.Select(c => c.Id).ToList());
+        _reordering = false;
+
+        if (result.IsSuccess)
+        {
+            _campaigns = result.Value!;
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+            await LoadCampaignsAndCharactersAsync();
+        }
+
+        StateHasChanged();
+    }
+
     private async Task AddCampaignAsync()
     {
         _addCampaignError = null;
@@ -544,7 +601,9 @@
 
         if (result.IsSuccess)
         {
-            _campaigns = _campaigns.Prepend(result.Value!).ToList();
+            // Last, matching where the repository positions it — prepending here would show
+            // an order the next load contradicts.
+            _campaigns = _campaigns.Append(result.Value!).ToList();
             _newCampaignName = string.Empty;
             Snackbar.Add("Campaign created.", Severity.Success);
         }

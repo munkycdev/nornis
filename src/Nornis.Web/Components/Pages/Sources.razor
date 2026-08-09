@@ -119,6 +119,14 @@ else
 }
 
 @code {
+    /// <summary>
+    /// Preselects the campaign filter, so a campaign page can hand off to "all its sources".
+    /// A campaign from another world simply filters to nothing — the server scopes the query
+    /// by world regardless.
+    /// </summary>
+    [SupplyParameterFromQuery(Name = "campaign")]
+    public Guid? CampaignQuery { get; set; }
+
     private bool _loading;
     private string? _error;
     private IReadOnlyList<SourceListItem> _sources = [];
@@ -141,6 +149,7 @@ else
     {
         Worlds.Changed += OnWorldChanged;
         await Worlds.EnsureLoadedAsync();
+        _campaignFilter = CampaignQuery?.ToString() ?? string.Empty;
         // Independent reads: the filter list and the list it filters. Serially, the page waits
         // for the sum of two round trips to show anything.
         await Task.WhenAll(LoadCampaignsAsync(), LoadSourcesAsync());

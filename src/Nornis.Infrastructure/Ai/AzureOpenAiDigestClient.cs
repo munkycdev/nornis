@@ -5,23 +5,23 @@ using OpenAI.Chat;
 
 namespace Nornis.Infrastructure.Ai;
 
-public class AzureOpenAiWorldDigestClient : IWorldDigestAiClient
+public class AzureOpenAiDigestClient : IDigestAiClient
 {
     // options: empty apart from the schema — see AzureOpenAiExtractionClient.
     // MaxOutputTokenCount serialises as max_tokens, which these deployments reject.
 
     private readonly ChatClient _chatClient;
-    private readonly ILogger<AzureOpenAiWorldDigestClient> _logger;
+    private readonly ILogger<AzureOpenAiDigestClient> _logger;
 
-    public AzureOpenAiWorldDigestClient(
+    public AzureOpenAiDigestClient(
         ChatClient chatClient,
-        ILogger<AzureOpenAiWorldDigestClient> logger)
+        ILogger<AzureOpenAiDigestClient> logger)
     {
         _chatClient = chatClient;
         _logger = logger;
     }
 
-    public async Task<WorldDigestAiResponse> GenerateAsync(AiPromptRequest request, CancellationToken ct)
+    public async Task<DigestAiResponse> GenerateAsync(AiPromptRequest request, CancellationToken ct)
     {
         var completionOptions = new ChatCompletionOptions
         {
@@ -47,7 +47,7 @@ public class AzureOpenAiWorldDigestClient : IWorldDigestAiClient
                 };
             }
 
-            return new WorldDigestAiResponse
+            return new DigestAiResponse
             {
                 DigestMarkdown = digest,
                 Usage = usage

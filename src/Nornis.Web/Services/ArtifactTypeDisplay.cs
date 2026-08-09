@@ -20,6 +20,12 @@ public static class ArtifactTypeDisplay
         _ => Icons.Material.Outlined.Description,
     };
 
+    /// <summary>
+    /// The type as a group heading. Every <c>ArtifactType</c> pluralizes with a bare "s";
+    /// this exists so the next one that does not has somewhere to be handled.
+    /// </summary>
+    public static string Plural(string? type) => $"{type ?? "Other"}s";
+
     /// <summary>Artifact status chips: Active green, Dormant amber, Resolved blue.</summary>
     public static Color StatusColor(string status) => status switch
     {

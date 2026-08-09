@@ -2,6 +2,7 @@ using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -10,11 +11,19 @@ public class CampaignService : ICampaignService
 {
     private readonly ICampaignRepository _campaignRepository;
     private readonly ICharacterRepository _characterRepository;
+    private readonly ISourceRepository _sourceRepository;
+    private readonly ICampaignRecapRepository _recapRepository;
 
-    public CampaignService(ICampaignRepository campaignRepository, ICharacterRepository characterRepository)
+    public CampaignService(
+        ICampaignRepository campaignRepository,
+        ICharacterRepository characterRepository,
+        ISourceRepository sourceRepository,
+        ICampaignRecapRepository recapRepository)
     {
         _campaignRepository = campaignRepository;
         _characterRepository = characterRepository;
+        _sourceRepository = sourceRepository;
+        _recapRepository = recapRepository;
     }
 
     public async Task<AppResult<Campaign>> CreateAsync(CreateCampaignCommand command, CancellationToken ct)
@@ -73,6 +82,82 @@ public class CampaignService : ICampaignService
     {
         var campaigns = await _campaignRepository.ListByWorldAsync(worldId, ct);
         return AppResult<IReadOnlyList<Campaign>>.Success(campaigns);
+    }
+
+    /// <summary>
+    /// How many evidenced artifacts the page carries. The rollup over a long campaign can run
+    /// to the whole codex; the page wants the cast, not the census, and reports the total it
+    /// was cut from so a short list never reads as a complete one.
+    /// </summary>
+    public const int MaxRollupArtifacts = 120;
+
+    /// <summary>How many sessions the page lists. The full count is reported alongside.</summary>
+    public const int MaxRecentSessions = 25;
+
+    public async Task<AppResult<CampaignDetail>> GetDetailAsync(
+        Guid campaignId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)
+    {
+        var campaign = await _campaignRepository.GetByIdAsync(campaignId, ct);
+
+        if (campaign is null || campaign.WorldId != worldId)
+        {
+            return AppResult<CampaignDetail>.Fail(new AppError(404, "not_found", "Campaign not found."));
+        }
+
+        var filter = VisibilityFilter.ForRole(role, actingUserId);
+
+        var characters = await _characterRepository.ListByCampaignAsync(campaignId, ct);
+        var rollup = await _campaignRepository.GetRollupAsync(worldId, campaignId, filter, MaxRollupArtifacts, ct);
+
+        // The sources list view's own query, campaign-scoped: visibility already applied in
+        // SQL, and no Body/DerivedText columns for a page that shows neither.
+        var sessions = await _sourceRepository.ListSummariesByWorldAsync(
+            worldId, actingUserId, role, campaignId, cancellationToken: ct);
+
+        var dated = sessions.Select(s => s.OccurredAt).OfType<DateTimeOffset>().ToList();
+
+        var recap = await _recapRepository.GetByCampaignAsync(campaignId, ct);
+
+        return AppResult<CampaignDetail>.Success(new CampaignDetail(
+            campaign,
+            characters,
+            rollup,
+            sessions.Take(MaxRecentSessions).ToList(),
+            sessions.Count,
+            dated.Count > 0 ? dated.Min() : null,
+            dated.Count > 0 ? dated.Max() : null,
+            CampaignRecapView.From(recap, role)));
+    }
+
+    public async Task<AppResult<IReadOnlyList<Campaign>>> ReorderAsync(
+        Guid worldId, IReadOnlyList<Guid> orderedCampaignIds, WorldRole role, CancellationToken ct)
+    {
+        if (role != WorldRole.GM)
+        {
+            return AppResult<IReadOnlyList<Campaign>>.Fail(
+                new AppError(403, "insufficient_role", "Only GMs can reorder campaigns."));
+        }
+
+        // Ids from another world would silently do nothing in the repository; refusing is
+        // the honest answer, and it catches a client sending a stale world's order.
+        var worldCampaignIds = (await _campaignRepository.ListByWorldAsync(worldId, ct))
+            .Select(c => c.Id)
+            .ToHashSet();
+
+        if (orderedCampaignIds.Any(id => !worldCampaignIds.Contains(id)))
+        {
+            return AppResult<IReadOnlyList<Campaign>>.Fail(new AppError(400, "invalid_campaign",
+                "One or more campaigns do not exist in this world."));
+        }
+
+        if (orderedCampaignIds.Distinct().Count() != orderedCampaignIds.Count)
+        {
+            return AppResult<IReadOnlyList<Campaign>>.Fail(new AppError(400, "validation_error",
+                "The campaign order must not repeat a campaign."));
+        }
+
+        var reordered = await _campaignRepository.ReorderAsync(worldId, orderedCampaignIds, ct);
+        return AppResult<IReadOnlyList<Campaign>>.Success(reordered);
     }
 
     public async Task<AppResult<Campaign>> UpdateAsync(UpdateCampaignCommand command, CancellationToken ct)

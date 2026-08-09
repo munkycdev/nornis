@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
+using Nornis.Application.Knowledge;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
@@ -45,11 +46,9 @@ public class WorldDigestService : IWorldDigestService
 {
     private readonly IWorldDigestRepository _digestRepository;
     private readonly IArtifactRepository _artifactRepository;
-    private readonly IArtifactFactRepository _artifactFactRepository;
-    private readonly IArtifactRelationshipRepository _artifactRelationshipRepository;
-    private readonly ISourceReferenceRepository _sourceReferenceRepository;
     private readonly ISourceRepository _sourceRepository;
-    private readonly IWorldDigestAiClient _aiClient;
+    private readonly IRecordAssembler _recordAssembler;
+    private readonly IDigestAiClient _aiClient;
     private readonly IAiBudgetGuard _budgetGuard;
     private readonly IAiUsageRecorder _usageRecorder;
     private readonly LoremasterOptions _options;
@@ -57,21 +56,17 @@ public class WorldDigestService : IWorldDigestService
     public WorldDigestService(
         IWorldDigestRepository digestRepository,
         IArtifactRepository artifactRepository,
-        IArtifactFactRepository artifactFactRepository,
-        IArtifactRelationshipRepository artifactRelationshipRepository,
-        ISourceReferenceRepository sourceReferenceRepository,
         ISourceRepository sourceRepository,
-        IWorldDigestAiClient aiClient,
+        IRecordAssembler recordAssembler,
+        IDigestAiClient aiClient,
         IAiBudgetGuard budgetGuard,
         IAiUsageRecorder usageRecorder,
         IOptions<LoremasterOptions> options)
     {
         _digestRepository = digestRepository;
         _artifactRepository = artifactRepository;
-        _artifactFactRepository = artifactFactRepository;
-        _artifactRelationshipRepository = artifactRelationshipRepository;
-        _sourceReferenceRepository = sourceReferenceRepository;
         _sourceRepository = sourceRepository;
+        _recordAssembler = recordAssembler;
         _aiClient = aiClient;
         _budgetGuard = budgetGuard;
         _usageRecorder = usageRecorder;
@@ -167,13 +162,10 @@ public class WorldDigestService : IWorldDigestService
             ? new WorldDigestView(true, digest.GeneratedAt, digest.GmContentMarkdown, digest.PartyContentMarkdown)
             : new WorldDigestView(true, digest.GeneratedAt, digest.PartyContentMarkdown, null);
 
-    private sealed record AssembledRecord(string Text, int ArtifactCount);
-
     /// <summary>
-    /// One audience's view of the record, formatted through the audit's own formatter and
-    /// caps so the two features cannot drift apart on what "the record" means. The filter
-    /// does the authorization work; the endpoint check does the rest — a relationship row
-    /// can be party-visible while one of its ends is not, and naming that end would leak it.
+    /// The whole world at one audience's visibility: every unarchived artifact they may see,
+    /// every source they may read. <see cref="IRecordAssembler"/> decides what may then be
+    /// said about that scope.
     /// </summary>
     private async Task<AssembledRecord> AssembleRecordAsync(
         Guid worldId, VisibilityFilter filter, bool includeHiddenTruths, CancellationToken ct)
@@ -183,38 +175,11 @@ public class WorldDigestService : IWorldDigestService
             .Where(a => filter.CanSee(a.Visibility, a.CreatedByUserId))
             .ToList();
 
-        var artifactIds = artifacts.Select(a => a.Id).ToList();
-        var visibleIds = artifactIds.ToHashSet();
-
-        var facts = (await _artifactFactRepository.ListByArtifactIdsAsync(
-                artifactIds, filter, ContinuityAuditService.MaxFactsPerArtifactInAudit, ct))
-            .Where(f => f.TruthState != TruthState.False)
-            .Where(f => includeHiddenTruths || f.TruthState != TruthState.Hidden)
-            .ToList();
-
-        var relationships = (await _artifactRelationshipRepository.ListByArtifactIdsAsync(artifactIds, filter, ct))
-            .Where(r => r.TruthState != TruthState.False)
-            .Where(r => includeHiddenTruths || r.TruthState != TruthState.Hidden)
-            .Where(r => visibleIds.Contains(r.ArtifactAId) && visibleIds.Contains(r.ArtifactBId))
-            .ToList();
-
-        var targetIds = artifactIds
-            .Concat(facts.Select(f => f.Id))
-            .Concat(relationships.Select(r => r.Id))
-            .ToList();
-        var references = await _sourceReferenceRepository.ListByTargetIdsAsync(targetIds, ct);
-
         var sources = (await _sourceRepository.ListByWorldAsync(worldId, ct))
             .Where(s => filter.CanSee(s.Visibility, s.CreatedByUserId))
             .ToList();
 
-        // Quotes ride on their source's visibility: a reference row whose source fell out
-        // of this audience's view carries a quote that audience must not read.
-        var visibleSourceIds = sources.Select(s => s.Id).ToHashSet();
-        references = references.Where(r => visibleSourceIds.Contains(r.SourceId)).ToList();
-
-        var text = ContinuityAuditService.FormatWorldRecord(artifacts, facts, relationships, references, sources);
-        return new AssembledRecord(text, artifacts.Count);
+        return await _recordAssembler.AssembleAsync(artifacts, sources, filter, includeHiddenTruths, ct);
     }
 
     /// <summary>One rendering: one AI call, metered on both paths, audit-shaped errors.</summary>
@@ -229,7 +194,7 @@ public class WorldDigestService : IWorldDigestService
             TimeoutSeconds = _options.AiTimeoutSeconds
         };
 
-        WorldDigestAiResponse response;
+        DigestAiResponse response;
         try
         {
             response = await _aiClient.GenerateAsync(request, ct);

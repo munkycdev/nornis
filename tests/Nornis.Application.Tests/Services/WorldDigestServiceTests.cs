@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
+using Nornis.Application.Knowledge;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -24,7 +25,7 @@ public class WorldDigestServiceTests
     private InMemorySourceReferenceRepository _referenceRepository = null!;
     private InMemorySourceRepository _sourceRepository = null!;
     private InMemoryAiUsageRecordRepository _usageRepository = null!;
-    private FakeWorldDigestAiClient _aiClient = null!;
+    private FakeDigestAiClient _aiClient = null!;
     private FakeAiBudgetGuard _budgetGuard = null!;
     private WorldDigestService _service = null!;
 
@@ -41,16 +42,14 @@ public class WorldDigestServiceTests
         _referenceRepository = new InMemorySourceReferenceRepository();
         _sourceRepository = new InMemorySourceRepository();
         _usageRepository = new InMemoryAiUsageRecordRepository();
-        _aiClient = new FakeWorldDigestAiClient();
+        _aiClient = new FakeDigestAiClient();
         _budgetGuard = new FakeAiBudgetGuard();
 
         _service = new WorldDigestService(
             _digestRepository,
             _artifactRepository,
-            _factRepository,
-            _relationshipRepository,
-            _referenceRepository,
             _sourceRepository,
+            new RecordAssembler(_factRepository, _relationshipRepository, _referenceRepository),
             _aiClient,
             _budgetGuard,
             TestUsageRecorder.Wrap(_usageRepository),

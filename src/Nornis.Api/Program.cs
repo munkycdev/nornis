@@ -1,4 +1,4 @@
-﻿using Azure.Messaging.ServiceBus;
+using Azure.Messaging.ServiceBus;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
@@ -172,6 +172,7 @@ builder.Services.AddScoped<IWorldRepository, WorldRepository>();
 builder.Services.AddScoped<IWorldMemberRepository, WorldMemberRepository>();
 builder.Services.AddScoped<IWorldInviteRepository, WorldInviteRepository>();
 builder.Services.AddScoped<ICampaignRepository, CampaignRepository>();
+builder.Services.AddScoped<ICampaignRecapRepository, CampaignRecapRepository>();
 builder.Services.AddScoped<ICharacterRepository, CharacterRepository>();
 builder.Services.AddScoped<IStorylineCampaignRepository, StorylineCampaignRepository>();
 builder.Services.AddScoped<ISourceRepository, SourceRepository>();
@@ -248,6 +249,8 @@ builder.Services.AddScoped<ICanonService, CanonService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<IContinuityAuditService, ContinuityAuditService>();
 builder.Services.AddScoped<IWorldDigestService, WorldDigestService>();
+builder.Services.AddScoped<IRecordAssembler, RecordAssembler>();
+builder.Services.AddScoped<ICampaignRecapService, CampaignRecapService>();
 builder.Services.AddScoped<IContinuityFixService, ContinuityFixService>();
 builder.Services.AddScoped<IStorylineRetrospectiveService, StorylineRetrospectiveService>();
 builder.Services.AddScoped<StorylineDevelopmentReader>();
@@ -295,7 +298,7 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
     builder.Services.AddScoped<IAuditAiClient, AzureOpenAiAuditClient>();
     builder.Services.AddScoped<IContinuityFixAiClient, AzureOpenAiContinuityFixClient>();
     builder.Services.AddScoped<IRetrospectiveAiClient, AzureOpenAiRetrospectiveClient>();
-    builder.Services.AddScoped<IWorldDigestAiClient, AzureOpenAiWorldDigestClient>();
+    builder.Services.AddScoped<IDigestAiClient, AzureOpenAiDigestClient>();
     builder.Services.AddScoped<IConvergenceNarrationClient, AzureOpenAiConvergenceNarrationClient>();
     builder.Services.AddScoped<IWorldNameGenerator, AzureOpenAiWorldNameGenerator>();
 
@@ -319,7 +322,7 @@ else
     builder.Services.AddScoped<IRetrospectiveAiClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable storyline retrospectives."));
-    builder.Services.AddScoped<IWorldDigestAiClient>(sp =>
+    builder.Services.AddScoped<IDigestAiClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable the world digest."));
     builder.Services.AddScoped<IEmbeddingClient>(sp =>

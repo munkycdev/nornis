@@ -2,13 +2,13 @@ using Nornis.Application.Ai;
 
 namespace Nornis.Application.Tests.Fakes;
 
-public class FakeWorldDigestAiClient : IWorldDigestAiClient
+public class FakeDigestAiClient : IDigestAiClient
 {
     public string DigestToReturn { get; set; } = "## Active storylines\n- The Missing Caravan is advancing.";
     public Exception? ExceptionToThrow { get; set; }
     public List<AiPromptRequest> Requests { get; } = [];
 
-    public Task<WorldDigestAiResponse> GenerateAsync(AiPromptRequest request, CancellationToken ct)
+    public Task<DigestAiResponse> GenerateAsync(AiPromptRequest request, CancellationToken ct)
     {
         Requests.Add(request);
 
@@ -17,7 +17,7 @@ public class FakeWorldDigestAiClient : IWorldDigestAiClient
             throw ExceptionToThrow;
         }
 
-        return Task.FromResult(new WorldDigestAiResponse
+        return Task.FromResult(new DigestAiResponse
         {
             DigestMarkdown = DigestToReturn,
             Usage = new AiUsage

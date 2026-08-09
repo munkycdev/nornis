@@ -1,0 +1,362 @@
+@page "/campaigns/{CampaignId:guid}"
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+
+@* A campaign's own page. Every member may read it — a campaign is a place to look, not an
+   authorization boundary — and the server assembles it at the caller's visibility, so a
+   player's copy simply holds less. Only the editing affordances are GM-gated here; the
+   server refuses regardless. *@
+
+<PageTitle>@(_detail?.Campaign.Name ?? "Campaign") — Nornis</PageTitle>
+
+<div>
+    <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text"
+               Color="Color.Default" Href="/settings" Class="mb-3">
+        Campaigns
+    </MudButton>
+
+    @if (Worlds.Current is null)
+    {
+        <NoWorld />
+    }
+    else if (_loading)
+    {
+        <LoadingRows Rows="4" />
+    }
+    else if (_detail is null)
+    {
+        <MudAlert Severity="Severity.Warning">This campaign doesn't exist or you can't see it.</MudAlert>
+    }
+    else
+    {
+        var c = _detail.Campaign;
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
+            <div class="d-flex align-center gap-3">
+                <MudIcon Icon="@Icons.Material.Outlined.AutoStories" Size="Size.Large" Color="Color.Secondary" />
+                <div class="flex-grow-1">
+                    <MudText Typo="Typo.h5" Class="nornis-serif">@c.Name</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@PlayedSpan()</MudText>
+                </div>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                         Color="@StatusColor(c.Status)">@c.Status</MudChip>
+            </div>
+
+            @* The GM's written intro: what this campaign is. Its generated sibling below says
+               what has happened in it — the two go stale at different rates, which is why
+               they are separate fields rather than one. *@
+            @if (!string.IsNullOrWhiteSpace(c.Description))
+            {
+                <div class="nornis-markdown mt-3">@MarkdownRenderer.ToHtml(c.Description)</div>
+            }
+            else if (Worlds.IsGm)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-3">
+                    No introduction yet — add one in
+                    <MudLink Href="/settings">world settings</MudLink> to say what this campaign is about.
+                </MudText>
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
+            <div class="nornis-card-header">
+                <span class="nornis-card-title">The story so far</span>
+                <MudTooltip Text="An LLM-written recap of this campaign's record: what happened, where things stand, what is still open.">
+                    <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Color="Color.Tertiary" Size="Size.Small" />
+                </MudTooltip>
+            </div>
+
+            @if (_detail.Recap is { HasData: true } recap)
+            {
+                <div class="nornis-digest-body nornis-markdown">@MarkdownRenderer.ToHtml(recap.Content)</div>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1">
+                    Generated @RelativeTime.Ago(recap.GeneratedAt!.Value)
+                </MudText>
+
+                @if (Worlds.IsGm)
+                {
+                    <MudButton Variant="Variant.Text" Size="Size.Small" Class="mt-1"
+                               EndIcon="@(_previewOpen ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                               OnClick="() => _previewOpen = !_previewOpen"
+                               aria-label="What players see">
+                        What players see
+                    </MudButton>
+                    @if (_previewOpen)
+                    {
+                        <div class="nornis-digest-body nornis-digest-preview nornis-markdown">
+                            @MarkdownRenderer.ToHtml(recap.PartyPreview)
+                        </div>
+                    }
+                }
+            }
+            else if (Worlds.IsGm)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">No recap yet.</MudText>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    No recap has been written for this campaign yet.
+                </MudText>
+            }
+
+            @if (Worlds.IsGm)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@(_detail.Recap.HasData ? Icons.Material.Filled.Refresh : Icons.Material.Filled.AutoAwesome)"
+                           Disabled="_generating" OnClick="GenerateRecapAsync" Class="nornis-ai-run"
+                           aria-label="Generate campaign recap">
+                    @(_generating ? "Generating…" : _detail.Recap.HasData ? "Refresh" : "Generate recap")
+                </MudButton>
+                @if (_generating)
+                {
+                    <div class="nornis-ai-running"><MudProgressLinear Indeterminate="true" Color="Color.Primary" /></div>
+                }
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
+            <div class="nornis-card-header">
+                <span class="nornis-card-title">Cast</span>
+            </div>
+            @if (_detail.Characters.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    No characters assigned. A GM can assign them in
+                    <MudLink Href="/settings">world settings</MudLink>.
+                </MudText>
+            }
+            else
+            {
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var ch in _detail.Characters)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                 Icon="@Icons.Material.Outlined.Person"
+                                 Href="@(ch.ArtifactId is { } aid ? $"/artifacts/{aid}" : null)">@ch.Name</MudChip>
+                    }
+                </div>
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
+            <div class="nornis-card-header">
+                <span class="nornis-card-title">What this campaign touched</span>
+                <MudTooltip Text="Derived from the campaign's own sources — nothing is assigned by hand, so nothing goes stale.">
+                    <MudIcon Icon="@Icons.Material.Outlined.Info" Color="Color.Secondary" Size="Size.Small" />
+                </MudTooltip>
+            </div>
+
+            @if (_detail.Artifacts.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Nothing yet. Once this campaign's sources are processed, what they mention appears here.
+                </MudText>
+            }
+            else
+            {
+                <MudTabs Elevation="0" Rounded="false" ApplyEffectsToContainer="true">
+                    @foreach (var group in GroupedArtifacts())
+                    {
+                        <MudTabPanel Text="@($"{group.Label} ({group.Items.Count})")">
+                            <div class="d-flex flex-column gap-1">
+                                @foreach (var a in group.Items)
+                                {
+                                    <a href="@($"/artifacts/{a.Id}")" class="nornis-list-row nornis-link">
+                                        <div class="nornis-list-thumb">
+                                            <MudIcon Icon="@ArtifactTypeDisplay.Icon(a.Type)" Size="Size.Small" />
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-center gap-2">
+                                                <span class="nornis-list-title">@a.Name</span>
+                                                <span class="nornis-graph-dot"
+                                                      style="background:var(--mud-palette-tertiary)"></span>
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                    @a.SourceCount @(a.SourceCount == 1 ? "session" : "sessions")
+                                                </MudText>
+                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(a.Summary))
+                                            {
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                    @DisplayText.Truncate(a.Summary, 160)
+                                                </MudText>
+                                            }
+                                        </div>
+                                    </a>
+                                }
+                            </div>
+                        </MudTabPanel>
+                    }
+                </MudTabs>
+
+                @if (_detail.ArtifactTotalCount > _detail.Artifacts.Count)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">
+                        Showing the @_detail.Artifacts.Count most-cited of @_detail.ArtifactTotalCount.
+                    </MudText>
+                }
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <div class="nornis-card-header">
+                <span class="nornis-card-title">Sessions</span>
+                <MudLink Href="@($"/sources?campaign={CampaignId}")" Typo="Typo.caption">All sources</MudLink>
+            </div>
+
+            @if (_detail.RecentSessions.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    No sources have been filed under this campaign yet.
+                </MudText>
+            }
+            else
+            {
+                <div class="d-flex flex-column gap-1">
+                    @foreach (var s in _detail.RecentSessions)
+                    {
+                        <a href="@($"/sources/{s.Id}")" class="nornis-list-row nornis-link">
+                            <div class="nornis-list-thumb">
+                                <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" />
+                            </div>
+                            <div class="flex-grow-1">
+                                <span class="nornis-list-title">@s.Title</span>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block">
+                                    @SourceTypeDisplay.Label(s.Type)
+                                    @(s.OccurredAt is { } o ? $" · {o:yyyy-MM-dd}" : "")
+                                </MudText>
+                            </div>
+                        </a>
+                    }
+                </div>
+
+                @if (_detail.SessionCount > _detail.RecentSessions.Count)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">
+                        Showing @_detail.RecentSessions.Count of @_detail.SessionCount.
+                    </MudText>
+                }
+            }
+        </MudPaper>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid CampaignId { get; set; }
+
+    private CampaignDetailDto? _detail;
+    private bool _loading = true;
+    private bool _generating;
+    private bool _previewOpen;
+
+    protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+
+    private async void OnWorldChanged()
+    {
+        // The page is scoped to one world's campaign; switching worlds makes it meaningless.
+        await LoadAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            _loading = false;
+            return;
+        }
+
+        _loading = true;
+        _previewOpen = false;
+
+        var worldId = Worlds.Current.Id;
+        var campaignId = CampaignId;
+        var result = await Api.GetCampaignDetailAsync(worldId, campaignId);
+
+        // A slower earlier load must not overwrite a newer one, and must not paint another
+        // world's campaign onto this page.
+        if (Worlds.Current?.Id != worldId || CampaignId != campaignId)
+        {
+            return;
+        }
+
+        _detail = result.IsSuccess ? result.Value : null;
+        _loading = false;
+    }
+
+    private async Task GenerateRecapAsync()
+    {
+        if (Worlds.Current is null || _detail is null)
+        {
+            return;
+        }
+
+        _generating = true;
+        var result = await Api.GenerateCampaignRecapAsync(Worlds.Current.Id, CampaignId);
+        _generating = false;
+
+        if (result.IsSuccess)
+        {
+            _detail = _detail with { Recap = result.Value! };
+            Snackbar.Add("Recap generated.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private string PlayedSpan()
+    {
+        var c = _detail!.Campaign;
+
+        var declared = (c.StartedAt, c.EndedAt) switch
+        {
+            ({ } s, { } e) => $"Played {s:yyyy-MM-dd} – {e:yyyy-MM-dd}",
+            ({ } s, null) => $"Began {s:yyyy-MM-dd}",
+            (null, { } e) => $"Ended {e:yyyy-MM-dd}",
+            _ => null
+        };
+
+        // Sessions are the lived record; declared dates are what a GM typed. Show the
+        // declared span when there is one and fall back to what actually happened.
+        var observed = (_detail.FirstSessionAt, _detail.LastSessionAt) switch
+        {
+            ({ } f, { } l) when f != l => $"{f:yyyy-MM-dd} – {l:yyyy-MM-dd}",
+            ({ } f, _) => $"{f:yyyy-MM-dd}",
+            _ => null
+        };
+
+        var sessions = _detail.SessionCount == 1 ? "1 session" : $"{_detail.SessionCount} sessions";
+
+        return (declared ?? observed) is { } span ? $"{span} · {sessions}" : sessions;
+    }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Active" => Color.Success,
+        "Completed" => Color.Info,
+        _ => Color.Default
+    };
+
+    private sealed record ArtifactGroup(string Label, IReadOnlyList<CampaignArtifactDto> Items);
+
+    /// <summary>
+    /// Grouped by type, most-populated group first, so a campaign's dominant shape — a cast
+    /// of characters, or a tour of places — leads. Order within a group is the server's
+    /// ranking (most-cited first) and is left alone.
+    /// </summary>
+    private IReadOnlyList<ArtifactGroup> GroupedArtifacts() =>
+        _detail!.Artifacts
+            .GroupBy(a => a.Type)
+            .Select(g => new ArtifactGroup(ArtifactTypeDisplay.Plural(g.Key), g.ToList()))
+            .OrderByDescending(g => g.Items.Count)
+            .ThenBy(g => g.Label)
+            .ToList();
+}
