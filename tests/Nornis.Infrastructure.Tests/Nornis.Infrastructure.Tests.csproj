@@ -14,7 +14,7 @@
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     <PackageReference Include="FsCheck" Version="3.3.4" />
     <PackageReference Include="FsCheck.NUnit" Version="3.3.4" />
-    <PackageReference Include="NSubstitute" Version="6.0.0" />
+    <PackageReference Include="NSubstitute" Version="6.1.0" />
   </ItemGroup>
 
   <ItemGroup>
