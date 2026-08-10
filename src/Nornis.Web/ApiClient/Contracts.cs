@@ -327,7 +327,17 @@ public record CharacterDossierDto(
     string? Sheet = null,
     bool SheetSharedWithParty = false,
     bool CanEditSheet = false,
-    bool CanShareSheet = false);
+    bool CanShareSheet = false,
+    IReadOnlyList<CharacterSnapshotDto>? Snapshots = null);
+
+public record CharacterSnapshotDto(
+    Guid Id,
+    Guid SourceId,
+    string SourceTitle,
+    DateTimeOffset AsOf,
+    string? Note);
+
+public record AttachCharacterSnapshotRequest(Guid SourceId, DateTimeOffset AsOf, string? Note = null);
 
 public record UpdateCharacterSheetRequest(string? Sheet);
 

@@ -42,6 +42,26 @@ public interface ICharacterService
         bool sharedWithParty,
         CancellationToken ct);
 
+    /// <summary>Attaches an existing source as a dated snapshot of the sheet. Owner or GM.</summary>
+    Task<AppResult<CharacterSheetSnapshot>> AttachSnapshotAsync(
+        Guid characterId,
+        Guid worldId,
+        Guid sourceId,
+        DateTimeOffset asOf,
+        string? note,
+        Guid actingUserId,
+        WorldRole role,
+        CancellationToken ct);
+
+    /// <summary>Detaches a snapshot. The source is kept. Owner or GM.</summary>
+    Task<AppResult> DetachSnapshotAsync(
+        Guid characterId,
+        Guid worldId,
+        Guid snapshotId,
+        Guid actingUserId,
+        WorldRole role,
+        CancellationToken ct);
+
     Task<AppResult<Character>> UpdateAsync(UpdateCharacterCommand command, CancellationToken ct);
 
     /// <summary>

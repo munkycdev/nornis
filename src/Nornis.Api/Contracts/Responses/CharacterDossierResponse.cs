@@ -1,4 +1,4 @@
-namespace Nornis.Api.Contracts.Responses;
+﻿namespace Nornis.Api.Contracts.Responses;
 
 /// <param name="Record">
 /// Absent both when the character is unlinked and when the reader may not see the artifact
@@ -13,7 +13,15 @@ public record CharacterDossierResponse(
     string? Sheet,
     bool SheetSharedWithParty,
     bool CanEditSheet,
-    bool CanShareSheet);
+    bool CanShareSheet,
+    IReadOnlyList<CharacterSnapshotResponse> Snapshots);
+
+public record CharacterSnapshotResponse(
+    Guid Id,
+    Guid SourceId,
+    string SourceTitle,
+    DateTimeOffset AsOf,
+    string? Note);
 
 public record CharacterRecordResponse(
     Guid ArtifactId,

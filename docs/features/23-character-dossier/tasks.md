@@ -3,8 +3,8 @@
 Ordered so the visibility properties are provable before any pixels, and so each phase ships
 alone. Phase A needs no migration; B and C add one each; D is optional and may never be built.
 
-**Status: Phases A and B built 2026-08-09.** A1–A8 and B1–B8 done; A9 half-done and
-half-declined (below).
+**Status: Phases A, B and C built 2026-08-09.** A1–A8, B1–B8 and C1–C8 done; A9 half-done
+and half-declined (below). Phase D remains unbuilt and optional.
 
 What the build changed from the spec:
 
@@ -59,6 +59,30 @@ Phase B, and what it changed:
   file it claims to scan actually resolves, because a renamed folder would otherwise turn it
   green forever — which is precisely the "guard that could not fire" defect.
 
+Phase C, and what it changed:
+
+- **Snapshot visibility reuses `ISourceRepository.ListAttributionByIdsAsync`.** It is the same
+  projected, SQL-applied `SourceVisibilityRule` that decides which provenance rows an artifact
+  page may show — so a snapshot is readable exactly when its source is, without this feature
+  writing a rule at all. Ids that no longer resolve are absent, which fails closed.
+- **`MaxSnapshots` lives on the entity**, for the same reason `MaxSheetChars` does.
+- **Attach returns 204, not the created snapshot.** A snapshot only means anything with its
+  source's title beside it, and that title is resolved through the *reader's* visibility on the
+  dossier. Returning a titleless half of one would have been a second, worse shape of the same
+  thing — so the caller reloads.
+- **Detach is idempotent and quiet about other characters' rows.** A snapshot id belonging to
+  another character is "not there" for this caller; both cases return success and neither
+  deletes anything, matching the repository contract's rule that deleting what is absent does
+  nothing.
+- **Both Phase C guards were watched failing.** Removing the explicit snapshot cleanup made
+  `CharacterDeleteSnapshotCleanupTests` fail with `SQLite Error 19: FOREIGN KEY constraint
+  failed` — exactly the symptom its own comment predicts, and the reason the test is at the
+  database level rather than the service level. Removing the visibility filter failed
+  `GetDossierAsync_SnapshotsFollowTheirSourcesVisibility`.
+- **Requirement 5 holds by construction:** no extraction path, prompt, or schema was added.
+  A snapshot is an ordinary source and reaches extraction, if at all, the way every source
+  does.
+
 ## Phase A — The record
 
 - [x] A1. `CharacterRecordProjector`: group an `ArtifactDetail`'s connected artifacts by
@@ -100,19 +124,19 @@ Phase B, and what it changed:
 
 ## Phase C — Sheet snapshots
 
-- [ ] C1. `CharacterSheetSnapshot` entity + configuration: unique `(CharacterId, SourceId)`,
+- [x] C1. `CharacterSheetSnapshot` entity + configuration: unique `(CharacterId, SourceId)`,
       `Snapshot → Source` Cascade, `Snapshot → Character` NoAction.
-- [ ] C2. `CharacterRepository.DeleteAsync` removes snapshot rows explicitly, following the
+- [x] C2. `CharacterRepository.DeleteAsync` removes snapshot rows explicitly, following the
       `CampaignRepository.DeleteAsync` precedent. Test it, since no cascade will.
-- [ ] C3. Migration.
-- [ ] C4. `AttachSnapshotAsync` / `DetachSnapshotAsync`: same-world check, actor-readable source
+- [x] C3. Migration.
+- [x] C4. `AttachSnapshotAsync` / `DetachSnapshotAsync`: same-world check, actor-readable source
       check (same 400 for both failures), `MaxSnapshots = 50` refused not truncated.
-- [ ] C5. Snapshot listing filtered by the *source's* visibility for the reader — Property 5.
+- [x] C5. Snapshot listing filtered by the *source's* visibility for the reader — Property 5.
       Test that a `Private` source attached by another member is invisible.
-- [ ] C6. Endpoints, contracts, client.
-- [ ] C7. Snapshots panel: newest-first by `AsOf`, source link, attach picker over existing
+- [x] C6. Endpoints, contracts, client.
+- [x] C7. Snapshots panel: newest-first by `AsOf`, source link, attach picker over existing
       world sources, detach with confirmation that says the source is kept.
-- [ ] C8. Verify Requirement 5 holds by inspection: no extraction path was added.
+- [x] C8. Verify Requirement 5 holds by inspection: no extraction path was added.
 
 ## Phase D — Unreconciled items (optional)
 
@@ -125,7 +149,9 @@ Phase B, and what it changed:
 ## Verification
 
 - [x] V1. Build, `dotnet format --verify-no-changes`, and `./scripts/coverage-gate.ps1` green
-      for Phase A (2026-08-09). Application 1847, Api 516, Web 185 tests pass; all four
-      coverage floors met. Re-run per phase.
+      through Phase C (2026-08-09). Application 1874, Api 516, Web 185, Domain 626,
+      Infrastructure 309 pass; all four coverage floors met.
 - [ ] V2. Live-app check behind Auth0: dossier as GM and as a second Player in the same world,
-      confirming the sheet gate and the indistinguishability property with real data.
+      confirming the sheet gate and the indistinguishability property with real data. **Not
+      run.** Both migrations are additive, so applying them does not open the destructive-change
+      health window.

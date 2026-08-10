@@ -13,6 +13,8 @@ public class CharacterService : ICharacterService
     private readonly IWorldMemberRepository _worldMemberRepository;
     private readonly IArtifactRepository _artifactRepository;
     private readonly ICampaignRepository _campaignRepository;
+    private readonly ICharacterSheetSnapshotRepository _snapshotRepository;
+    private readonly ISourceRepository _sourceRepository;
     private readonly IArtifactService _artifactService;
 
     public CharacterService(
@@ -20,12 +22,16 @@ public class CharacterService : ICharacterService
         IWorldMemberRepository worldMemberRepository,
         IArtifactRepository artifactRepository,
         ICampaignRepository campaignRepository,
+        ICharacterSheetSnapshotRepository snapshotRepository,
+        ISourceRepository sourceRepository,
         IArtifactService artifactService)
     {
         _characterRepository = characterRepository;
         _worldMemberRepository = worldMemberRepository;
         _artifactRepository = artifactRepository;
         _campaignRepository = campaignRepository;
+        _snapshotRepository = snapshotRepository;
+        _sourceRepository = sourceRepository;
         _artifactService = artifactService;
     }
 
@@ -146,7 +152,8 @@ public class CharacterService : ICharacterService
             Sheet: canReadSheet ? character.Sheet : null,
             SheetSharedWithParty: canEditSheet && character.SheetSharedWithParty,
             CanEditSheet: canEditSheet,
-            CanShareSheet: isOwner);
+            CanShareSheet: isOwner,
+            Snapshots: await ResolveSnapshotsAsync(characterId, actingUserId, role, ct));
 
         return AppResult<CharacterDossier>.Success(dossier);
     }
@@ -178,6 +185,153 @@ public class CharacterService : ICharacterService
         var detail = await _artifactService.GetDetailAsync(artifactId, worldId, actingUserId, role, ct);
 
         return detail.IsSuccess ? CharacterRecordProjector.Project(detail.Value!) : null;
+    }
+
+    /// <summary>
+    /// The character's sheet snapshots, limited to those whose source this reader may read.
+    ///
+    /// Visibility comes from <c>ListAttributionByIdsAsync</c> — the same projected, SQL-applied
+    /// <c>SourceVisibilityRule</c> that decides which provenance rows an artifact page may show.
+    /// A snapshot is a source wearing a date, so it is readable exactly when its source is, and
+    /// this feature contributes no second rule for the same bytes. Ids that no longer resolve
+    /// are simply absent, which fails closed.
+    /// </summary>
+    private async Task<IReadOnlyList<CharacterSnapshotView>> ResolveSnapshotsAsync(
+        Guid characterId,
+        Guid actingUserId,
+        WorldRole role,
+        CancellationToken ct)
+    {
+        var snapshots = await _snapshotRepository.ListByCharacterAsync(characterId, ct);
+
+        if (snapshots.Count == 0)
+        {
+            return [];
+        }
+
+        var attributions = await _sourceRepository.ListAttributionByIdsAsync(
+            snapshots.Select(s => s.SourceId).Distinct().ToList(), actingUserId, role, ct);
+
+        var titles = attributions.ToDictionary(a => a.Id, a => a.Title);
+
+        return snapshots
+            .Where(s => titles.ContainsKey(s.SourceId))
+            .Select(s => new CharacterSnapshotView(
+                Id: s.Id,
+                SourceId: s.SourceId,
+                SourceTitle: titles[s.SourceId],
+                AsOf: s.AsOf,
+                Note: s.Note))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Attaches an existing source to the character as a dated snapshot of its sheet.
+    ///
+    /// Every rejection below answers with the same 400, so probing ids cannot distinguish
+    /// "no such source", "another world's source" and "a source you may not read".
+    /// </summary>
+    public async Task<AppResult<CharacterSheetSnapshot>> AttachSnapshotAsync(
+        Guid characterId,
+        Guid worldId,
+        Guid sourceId,
+        DateTimeOffset asOf,
+        string? note,
+        Guid actingUserId,
+        WorldRole role,
+        CancellationToken ct)
+    {
+        var character = await _characterRepository.GetByIdAsync(characterId, ct);
+
+        if (character is null || character.WorldId != worldId)
+        {
+            return AppResult<CharacterSheetSnapshot>.Fail(new AppError(404, "not_found", "Character not found."));
+        }
+
+        var ownershipError = await CheckOwnershipAsync(character, actingUserId, role, ct);
+        if (ownershipError is not null)
+        {
+            return AppResult<CharacterSheetSnapshot>.Fail(ownershipError);
+        }
+
+        var invalidSource = new AppError(400, "invalid_source",
+            "The snapshot must be a source in this world that you can read.");
+
+        var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
+        if (source is null || source.WorldId != worldId)
+        {
+            return AppResult<CharacterSheetSnapshot>.Fail(invalidSource);
+        }
+
+        var readable = await _sourceRepository.ListAttributionByIdsAsync([sourceId], actingUserId, role, ct);
+        if (readable.Count == 0)
+        {
+            return AppResult<CharacterSheetSnapshot>.Fail(invalidSource);
+        }
+
+        var existing = await _snapshotRepository.ListByCharacterAsync(characterId, ct);
+
+        if (existing.Any(s => s.SourceId == sourceId))
+        {
+            return AppResult<CharacterSheetSnapshot>.Fail(new AppError(400, "already_attached",
+                "That source is already attached to this character."));
+        }
+
+        if (existing.Count >= CharacterSheetSnapshot.MaxSnapshots)
+        {
+            return AppResult<CharacterSheetSnapshot>.Fail(new AppError(400, "validation_error",
+                $"A character may keep {CharacterSheetSnapshot.MaxSnapshots} sheet snapshots. "
+                + "Detach one before adding another."));
+        }
+
+        var snapshot = await _snapshotRepository.CreateAsync(new CharacterSheetSnapshot
+        {
+            Id = Guid.NewGuid(),
+            CharacterId = characterId,
+            SourceId = sourceId,
+            AsOf = asOf,
+            Note = string.IsNullOrWhiteSpace(note) ? null : note,
+            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedByUserId = actingUserId
+        }, ct);
+
+        return AppResult<CharacterSheetSnapshot>.Success(snapshot);
+    }
+
+    /// <summary>
+    /// Detaches a snapshot. The source itself is untouched — the ledger remains the record.
+    /// </summary>
+    public async Task<AppResult> DetachSnapshotAsync(
+        Guid characterId,
+        Guid worldId,
+        Guid snapshotId,
+        Guid actingUserId,
+        WorldRole role,
+        CancellationToken ct)
+    {
+        var character = await _characterRepository.GetByIdAsync(characterId, ct);
+
+        if (character is null || character.WorldId != worldId)
+        {
+            return AppResult.Fail(new AppError(404, "not_found", "Character not found."));
+        }
+
+        var ownershipError = await CheckOwnershipAsync(character, actingUserId, role, ct);
+        if (ownershipError is not null)
+        {
+            return AppResult.Fail(ownershipError);
+        }
+
+        var snapshot = await _snapshotRepository.GetByIdAsync(snapshotId, ct);
+
+        // A snapshot belonging to another character is "not there" for this caller, and delete
+        // is idempotent by the repository contract, so both collapse to success.
+        if (snapshot is not null && snapshot.CharacterId == characterId)
+        {
+            await _snapshotRepository.DeleteAsync(snapshotId, ct);
+        }
+
+        return AppResult.Success();
     }
 
     /// <summary>

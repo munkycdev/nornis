@@ -18,6 +18,8 @@ public class CharacterServiceTests
     private InMemoryCampaignRepository _campaignRepository = null!;
     private InMemoryArtifactFactRepository _factRepository = null!;
     private InMemoryArtifactRelationshipRepository _relationshipRepository = null!;
+    private InMemoryCharacterSheetSnapshotRepository _snapshotRepository = null!;
+    private InMemorySourceRepository _sourceRepository = null!;
     private CharacterService _sut = null!;
 
     private WorldMember _gm = null!;
@@ -34,18 +36,20 @@ public class CharacterServiceTests
         _campaignRepository = new InMemoryCampaignRepository();
         _factRepository = new InMemoryArtifactFactRepository();
         _relationshipRepository = new InMemoryArtifactRelationshipRepository();
+        _snapshotRepository = new InMemoryCharacterSheetSnapshotRepository();
+        _sourceRepository = new InMemorySourceRepository();
 
         // A real ArtifactService over the same repositories, not a stub. The dossier's whole
         // visibility contract is that it inherits this service's filtering, and a stub that
         // returned whatever the test wanted would prove exactly nothing about that.
         var artifactService = new ArtifactService(
             _artifactRepository, _factRepository, _relationshipRepository,
-            new InMemorySourceReferenceRepository(), new InMemorySourceRepository(),
+            new InMemorySourceReferenceRepository(), _sourceRepository,
             _characterRepository, _memberRepository, _campaignRepository);
 
         _sut = new CharacterService(
             _characterRepository, _memberRepository, _artifactRepository,
-            _campaignRepository, artifactService);
+            _campaignRepository, _snapshotRepository, _sourceRepository, artifactService);
 
         _gm = await AddMember(WorldRole.GM, "Dave");
         _player = await AddMember(WorldRole.Player, "Tavrin's player");
@@ -890,6 +894,226 @@ public class CharacterServiceTests
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+    }
+
+    // ------------------------------------------------------------ Sheet snapshots --
+
+    private Source SeedSource(
+        WorldMember creator,
+        string title = "Tavrin's sheet, session 6",
+        VisibilityScope visibility = VisibilityScope.PartyVisible,
+        Guid? worldId = null)
+    {
+        var source = new Source
+        {
+            Id = Guid.NewGuid(),
+            WorldId = worldId ?? WorldId,
+            Type = SourceType.HandwrittenNotes,
+            Title = title,
+            Visibility = visibility,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedByUserId = creator.UserId
+        };
+        _sourceRepository.Seed(source);
+        return source;
+    }
+
+    private static readonly DateTimeOffset AsOf = new(2026, 7, 1, 0, 0, 0, TimeSpan.Zero);
+
+    [Test]
+    public async Task AttachSnapshotAsync_OwnerAttachesReadableSource()
+    {
+        var character = SeedCharacter(_player);
+        var source = SeedSource(_player);
+
+        var result = await _sut.AttachSnapshotAsync(
+            character.Id, WorldId, source.Id, AsOf, "after the level-up", _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_snapshotRepository.Snapshots, Has.Count.EqualTo(1));
+        Assert.That(result.Value!.AsOf, Is.EqualTo(AsOf));
+    }
+
+    [Test]
+    [Category("Authorization")]
+    public async Task AttachSnapshotAsync_OtherPlayer_Returns403()
+    {
+        var character = SeedCharacter(_player);
+        var source = SeedSource(_otherPlayer);
+
+        var result = await _sut.AttachSnapshotAsync(
+            character.Id, WorldId, source.Id, AsOf, null, _otherPlayer.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+    }
+
+    /// <summary>
+    /// A missing source, another world's source, and a source above the caller's visibility
+    /// must be one answer. Distinguishing them turns the endpoint into an id oracle.
+    /// </summary>
+    [Test]
+    [Category("Authorization")]
+    public async Task AttachSnapshotAsync_UnusableSources_ShareOneError()
+    {
+        var character = SeedCharacter(_player);
+        var otherWorld = SeedSource(_player, worldId: Guid.NewGuid());
+        var gmOnly = SeedSource(_gm, "GM prep", VisibilityScope.GMOnly);
+
+        var missing = await _sut.AttachSnapshotAsync(
+            character.Id, WorldId, Guid.NewGuid(), AsOf, null, _player.UserId, WorldRole.Player, CancellationToken.None);
+        var foreign = await _sut.AttachSnapshotAsync(
+            character.Id, WorldId, otherWorld.Id, AsOf, null, _player.UserId, WorldRole.Player, CancellationToken.None);
+        var hidden = await _sut.AttachSnapshotAsync(
+            character.Id, WorldId, gmOnly.Id, AsOf, null, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(missing.Error!.Code, Is.EqualTo("invalid_source"));
+            Assert.That(foreign.Error!.Code, Is.EqualTo(missing.Error!.Code));
+            Assert.That(hidden.Error!.Code, Is.EqualTo(missing.Error!.Code));
+            Assert.That(hidden.Error!.Message, Is.EqualTo(missing.Error!.Message));
+        });
+    }
+
+    [Test]
+    public async Task AttachSnapshotAsync_SameSourceTwice_IsRefused()
+    {
+        var character = SeedCharacter(_player);
+        var source = SeedSource(_player);
+
+        await _sut.AttachSnapshotAsync(character.Id, WorldId, source.Id, AsOf, null, _player.UserId, WorldRole.Player, CancellationToken.None);
+        var second = await _sut.AttachSnapshotAsync(character.Id, WorldId, source.Id, AsOf, null, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(second.IsSuccess, Is.False);
+        Assert.That(_snapshotRepository.Snapshots, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task AttachSnapshotAsync_BeyondTheCap_IsRefusedNotEvicted()
+    {
+        var character = SeedCharacter(_player);
+
+        for (var i = 0; i < CharacterSheetSnapshot.MaxSnapshots; i++)
+        {
+            _snapshotRepository.Seed(new CharacterSheetSnapshot
+            {
+                Id = Guid.NewGuid(),
+                CharacterId = character.Id,
+                SourceId = Guid.NewGuid(),
+                AsOf = AsOf,
+                CreatedAt = DateTimeOffset.UtcNow,
+                CreatedByUserId = _player.UserId
+            });
+        }
+
+        var source = SeedSource(_player);
+        var result = await _sut.AttachSnapshotAsync(
+            character.Id, WorldId, source.Id, AsOf, null, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
+            Assert.That(_snapshotRepository.Snapshots, Has.Count.EqualTo(CharacterSheetSnapshot.MaxSnapshots),
+                "the oldest must not be evicted to make room — that deletes the history this feature is for");
+        });
+    }
+
+    /// <summary>
+    /// Property 5: a snapshot is readable exactly when its source is, and this feature adds no
+    /// second rule for the same bytes.
+    /// </summary>
+    [Test]
+    [Category("Authorization")]
+    public async Task GetDossierAsync_SnapshotsFollowTheirSourcesVisibility()
+    {
+        var character = SeedCharacter(_player);
+        var open = SeedSource(_player, "Sheet, session 6");
+        var hidden = SeedSource(_gm, "GM's copy", VisibilityScope.GMOnly);
+
+        await _sut.AttachSnapshotAsync(character.Id, WorldId, open.Id, AsOf, null, _player.UserId, WorldRole.Player, CancellationToken.None);
+        await _sut.AttachSnapshotAsync(character.Id, WorldId, hidden.Id, AsOf, null, _gm.UserId, WorldRole.GM, CancellationToken.None);
+
+        var asPlayer = await _sut.GetDossierAsync(character.Id, WorldId, _otherPlayer.UserId, WorldRole.Player, CancellationToken.None);
+        var asGm = await _sut.GetDossierAsync(character.Id, WorldId, _gm.UserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(asPlayer.Value!.Snapshots.Select(s => s.SourceTitle),
+                Is.EquivalentTo(["Sheet, session 6"]));
+            Assert.That(asGm.Value!.Snapshots, Has.Count.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public async Task DetachSnapshotAsync_RemovesTheAttachmentAndKeepsTheSource()
+    {
+        var character = SeedCharacter(_player);
+        var source = SeedSource(_player);
+        var attached = await _sut.AttachSnapshotAsync(
+            character.Id, WorldId, source.Id, AsOf, null, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        var result = await _sut.DetachSnapshotAsync(
+            character.Id, WorldId, attached.Value!.Id, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(_snapshotRepository.Snapshots, Is.Empty);
+            Assert.That(_sourceRepository.Sources.Any(s => s.Id == source.Id), Is.True,
+                "detaching must never delete the source — the ledger stays the record");
+        });
+    }
+
+    [Test]
+    [Category("Authorization")]
+    public async Task DetachSnapshotAsync_OtherPlayer_Returns403()
+    {
+        var character = SeedCharacter(_player);
+        var source = SeedSource(_player);
+        var attached = await _sut.AttachSnapshotAsync(
+            character.Id, WorldId, source.Id, AsOf, null, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        var result = await _sut.DetachSnapshotAsync(
+            character.Id, WorldId, attached.Value!.Id, _otherPlayer.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+        Assert.That(_snapshotRepository.Snapshots, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task DetachSnapshotAsync_AnotherCharactersSnapshot_LeavesItAlone()
+    {
+        var mine = SeedCharacter(_player, "Tavrin");
+        var theirs = SeedCharacter(_otherPlayer, "Jorin");
+        var source = SeedSource(_otherPlayer);
+        var attached = await _sut.AttachSnapshotAsync(
+            theirs.Id, WorldId, source.Id, AsOf, null, _otherPlayer.UserId, WorldRole.Player, CancellationToken.None);
+
+        var result = await _sut.DetachSnapshotAsync(
+            mine.Id, WorldId, attached.Value!.Id, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True, "not-there and not-yours are both idempotent success");
+        Assert.That(_snapshotRepository.Snapshots, Has.Count.EqualTo(1), "and neither may delete another's row");
+    }
+
+    [Test]
+    public async Task GetDossierAsync_SnapshotsAreNewestFirst()
+    {
+        var character = SeedCharacter(_player);
+        var older = SeedSource(_player, "session 4");
+        var newer = SeedSource(_player, "session 9");
+
+        await _sut.AttachSnapshotAsync(character.Id, WorldId, older.Id, AsOf, null, _player.UserId, WorldRole.Player, CancellationToken.None);
+        await _sut.AttachSnapshotAsync(character.Id, WorldId, newer.Id, AsOf.AddMonths(2), null, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        var result = await _sut.GetDossierAsync(character.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(result.Value!.Snapshots.Select(s => s.SourceTitle),
+            Is.EqualTo(["session 9", "session 4"]).AsCollection);
     }
 
     [Test]

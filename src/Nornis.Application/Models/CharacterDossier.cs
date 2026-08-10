@@ -30,7 +30,20 @@ public record CharacterDossier(
     string? Sheet,
     bool SheetSharedWithParty,
     bool CanEditSheet,
-    bool CanShareSheet);
+    bool CanShareSheet,
+    IReadOnlyList<CharacterSnapshotView> Snapshots);
+
+/// <summary>
+/// One attached sheet photograph, as this reader may see it. Snapshots whose source the
+/// reader may not read are absent entirely rather than rendered without a title — the title
+/// is not the sensitive part, the existence of the source is.
+/// </summary>
+public record CharacterSnapshotView(
+    Guid Id,
+    Guid SourceId,
+    string SourceTitle,
+    DateTimeOffset AsOf,
+    string? Note);
 
 /// <summary>
 /// The linked artifact as this reader may see it. Every element here arrived already

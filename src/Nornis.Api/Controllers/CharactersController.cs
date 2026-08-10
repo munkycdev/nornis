@@ -180,7 +180,58 @@ public class CharactersController : ControllerBase
             Sheet: dossier.Sheet,
             SheetSharedWithParty: dossier.SheetSharedWithParty,
             CanEditSheet: dossier.CanEditSheet,
-            CanShareSheet: dossier.CanShareSheet));
+            CanShareSheet: dossier.CanShareSheet,
+            Snapshots: dossier.Snapshots.Select(s => new CharacterSnapshotResponse(
+                Id: s.Id,
+                SourceId: s.SourceId,
+                SourceTitle: s.SourceTitle,
+                AsOf: s.AsOf,
+                Note: s.Note)).ToList()));
+    }
+
+    [HttpPost("{characterId:guid}/snapshots")]
+    public async Task<IActionResult> AttachSnapshot(
+        Guid worldId,
+        Guid characterId,
+        [FromBody] AttachCharacterSnapshotRequest request,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _characterService.AttachSnapshotAsync(
+            characterId, worldId, request.SourceId, request.AsOf, request.Note, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        // No body: a snapshot is only meaningful with its source's title beside it, and that
+        // title is resolved through the reader's visibility on the dossier. Returning a
+        // titleless half of one here would be a second, worse shape of the same thing.
+        return NoContent();
+    }
+
+    [HttpDelete("{characterId:guid}/snapshots/{snapshotId:guid}")]
+    public async Task<IActionResult> DetachSnapshot(
+        Guid worldId,
+        Guid characterId,
+        Guid snapshotId,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _characterService.DetachSnapshotAsync(
+            characterId, worldId, snapshotId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        return NoContent();
     }
 
     [HttpPut("{characterId:guid}/sheet")]

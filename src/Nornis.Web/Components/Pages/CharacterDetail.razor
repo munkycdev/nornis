@@ -133,6 +133,91 @@
             </MudPaper>
         }
 
+        var snapshots = _dossier.Snapshots ?? [];
+
+        @if (_dossier.CanEditSheet || snapshots.Count > 0)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
+                <div class="d-flex align-center gap-2 mb-2">
+                    <MudIcon Icon="@Icons.Material.Outlined.PhotoCamera" Size="Size.Small" Color="Color.Secondary" />
+                    <MudText Typo="Typo.subtitle1" Class="nornis-serif flex-grow-1">Sheet snapshots</MudText>
+                    @if (_dossier.CanEditSheet && !_attaching)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text"
+                                   StartIcon="@Icons.Material.Filled.Add" OnClick="BeginAttachAsync">
+                            Attach
+                        </MudButton>
+                    }
+                </div>
+
+                @if (_attaching)
+                {
+                    <MudSelect T="Guid?" @bind-Value="_attachSourceId" Label="Source" Variant="Variant.Outlined"
+                               Margin="Margin.Dense" Class="mb-2">
+                        @foreach (var s in _attachableSources)
+                        {
+                            <MudSelectItem T="Guid?" Value="@((Guid?)s.Id)">@s.Title</MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    <MudDatePicker @bind-Date="_attachAsOf" Label="The sheet as it stood on"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+
+                    <MudTextField @bind-Value="_attachNote" Label="Note (optional)" MaxLength="500"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+
+                    <div class="d-flex gap-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                   OnClick="AttachSnapshotAsync"
+                                   Disabled="@(_attachSourceId is null || _savingSnapshot)">Attach</MudButton>
+                        <MudButton Variant="Variant.Text" Size="Size.Small"
+                                   OnClick="@(() => _attaching = false)">Cancel</MudButton>
+                    </div>
+
+                    @if (_snapshotError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_snapshotError</MudAlert>
+                    }
+                }
+
+                @if (snapshots.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        No snapshots yet. Photograph the paper sheet as a source, then attach it here.
+                    </MudText>
+                }
+                else
+                {
+                    @foreach (var snap in snapshots)
+                    {
+                        <div class="nornis-member-row">
+                            <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" Color="Color.Secondary" />
+                            <div class="nornis-list-body">
+                                <div class="nornis-list-title">
+                                    <a href="@($"/sources/{snap.SourceId}")" class="nornis-link">@snap.SourceTitle</a>
+                                </div>
+                                <div class="nornis-list-sub">
+                                    <span>As of @snap.AsOf.ToString("d MMM yyyy")</span>
+                                    @if (!string.IsNullOrWhiteSpace(snap.Note))
+                                    {
+                                        <span> · @snap.Note</span>
+                                    }
+                                </div>
+                            </div>
+                            @if (_dossier.CanEditSheet)
+                            {
+                                <MudTooltip Text="Detach — the source itself is kept">
+                                    <MudIconButton Icon="@Icons.Material.Filled.LinkOff" Size="Size.Small"
+                                                   OnClick="() => DetachSnapshotAsync(snap.Id)"
+                                                   aria-label="Detach snapshot" />
+                                </MudTooltip>
+                            }
+                        </div>
+                    }
+                }
+            </MudPaper>
+        }
+
         @if (_dossier.Record is null)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
@@ -263,6 +348,76 @@
 
         _editingSheet = false;
         _sheetEditor = null;
+        await LoadAsync();
+    }
+
+    private bool _attaching;
+    private bool _savingSnapshot;
+    private string? _snapshotError;
+    private Guid? _attachSourceId;
+    private DateTime? _attachAsOf = DateTime.UtcNow.Date;
+    private string? _attachNote;
+    private IReadOnlyList<SourceListItem> _attachableSources = [];
+
+    private async Task BeginAttachAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _snapshotError = null;
+        _attachSourceId = null;
+        _attaching = true;
+
+        // The picker offers what the reader may already see; the server refuses anything else.
+        var sources = await Api.GetSourcesAsync(Worlds.Current.Id);
+        _attachableSources = sources.IsSuccess ? sources.Value! : [];
+    }
+
+    private async Task AttachSnapshotAsync()
+    {
+        if (Worlds.Current is null || _attachSourceId is not { } sourceId)
+        {
+            return;
+        }
+
+        var asOf = new DateTimeOffset(
+            DateTime.SpecifyKind(_attachAsOf ?? DateTime.UtcNow.Date, DateTimeKind.Utc), TimeSpan.Zero);
+
+        _savingSnapshot = true;
+        _snapshotError = null;
+        var result = await Api.AttachCharacterSnapshotAsync(
+            Worlds.Current.Id, CharacterId, sourceId, asOf, _attachNote);
+        _savingSnapshot = false;
+
+        if (!result.IsSuccess)
+        {
+            _snapshotError = result.Error!.Message;
+            return;
+        }
+
+        _attaching = false;
+        _attachNote = null;
+        await LoadAsync();
+    }
+
+    private async Task DetachSnapshotAsync(Guid snapshotId)
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        var result = await Api.DetachCharacterSnapshotAsync(Worlds.Current.Id, CharacterId, snapshotId);
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+            return;
+        }
+
+        Snackbar.Add("Snapshot detached. The source is still in the ledger.", Severity.Success);
         await LoadAsync();
     }
 
