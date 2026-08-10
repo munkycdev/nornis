@@ -1,4 +1,4 @@
-using Nornis.Application.Errors;
+﻿using Nornis.Application.Errors;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
@@ -133,11 +133,20 @@ public class CharacterService : ICharacterService
 
         var record = await ResolveRecordAsync(character, worldId, actingUserId, role, ct);
 
+        var actingMember = members.FirstOrDefault(m => m.UserId == actingUserId);
+        var isOwner = actingMember is not null && actingMember.Id == character.WorldMemberId;
+        var canEditSheet = isOwner || role == WorldRole.GM;
+        var canReadSheet = canEditSheet || character.SheetSharedWithParty;
+
         var dossier = new CharacterDossier(
             Character: character,
             OwnerDisplayName: owner is null ? "Unassigned" : MemberDisplayName.For(owner),
             CampaignNames: campaignNames,
-            Record: record);
+            Record: record,
+            Sheet: canReadSheet ? character.Sheet : null,
+            SheetSharedWithParty: canEditSheet && character.SheetSharedWithParty,
+            CanEditSheet: canEditSheet,
+            CanShareSheet: isOwner);
 
         return AppResult<CharacterDossier>.Success(dossier);
     }
@@ -169,6 +178,91 @@ public class CharacterService : ICharacterService
         var detail = await _artifactService.GetDetailAsync(artifactId, worldId, actingUserId, role, ct);
 
         return detail.IsSuccess ? CharacterRecordProjector.Project(detail.Value!) : null;
+    }
+
+    /// <summary>
+    /// Replaces the character's written sheet. Owner or GM, via the same ownership rule that
+    /// governs renaming and deleting.
+    ///
+    /// Over-length input is refused, never truncated. Empty-after-trim is normalised to null so
+    /// "never written" and "deliberately cleared" have one representation rather than two that
+    /// render identically and compare differently.
+    /// </summary>
+    public async Task<AppResult<Character>> UpdateSheetAsync(
+        Guid characterId,
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole role,
+        string? sheet,
+        CancellationToken ct)
+    {
+        if (sheet is not null && sheet.Length > Character.MaxSheetChars)
+        {
+            return AppResult<Character>.Fail(new AppError(400, "validation_error",
+                $"A character sheet must be {Character.MaxSheetChars} characters or fewer."));
+        }
+
+        var character = await _characterRepository.GetByIdAsync(characterId, ct);
+
+        if (character is null || character.WorldId != worldId)
+        {
+            return AppResult<Character>.Fail(new AppError(404, "not_found", "Character not found."));
+        }
+
+        var ownershipError = await CheckOwnershipAsync(character, actingUserId, role, ct);
+        if (ownershipError is not null)
+        {
+            return AppResult<Character>.Fail(ownershipError);
+        }
+
+        character.Sheet = string.IsNullOrWhiteSpace(sheet) ? null : sheet;
+        character.SheetUpdatedAt = DateTimeOffset.UtcNow;
+        character.UpdatedAt = character.SheetUpdatedAt.Value;
+        character = await _characterRepository.UpdateAsync(character, ct);
+
+        return AppResult<Character>.Success(character);
+    }
+
+    /// <summary>
+    /// Shares the sheet with the world, or stops sharing it.
+    ///
+    /// Owner only — deliberately a narrower rule than <see cref="CheckOwnershipAsync"/>, which
+    /// lets a GM manage any character. A GM may read a player's sheet; deciding who else reads
+    /// it is not theirs to make.
+    /// </summary>
+    public async Task<AppResult<Character>> SetSheetSharingAsync(
+        Guid characterId,
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole role,
+        bool sharedWithParty,
+        CancellationToken ct)
+    {
+        if (role == WorldRole.Observer)
+        {
+            return AppResult<Character>.Fail(new AppError(403, "insufficient_role", "Observers cannot share sheets."));
+        }
+
+        var character = await _characterRepository.GetByIdAsync(characterId, ct);
+
+        if (character is null || character.WorldId != worldId)
+        {
+            return AppResult<Character>.Fail(new AppError(404, "not_found", "Character not found."));
+        }
+
+        var actingMember = await _worldMemberRepository.GetByWorldAndUserAsync(worldId, actingUserId, ct);
+
+        if (actingMember is null || actingMember.Id != character.WorldMemberId)
+        {
+            return AppResult<Character>.Fail(new AppError(403, "forbidden",
+                "Only the player who owns this character can decide who reads its sheet."));
+        }
+
+        character.SheetSharedWithParty = sharedWithParty;
+        character.UpdatedAt = DateTimeOffset.UtcNow;
+        character = await _characterRepository.UpdateAsync(character, ct);
+
+        return AppResult<Character>.Success(character);
     }
 
     public async Task<AppResult<IReadOnlyList<Character>>> ListByWorldAsync(Guid worldId, CancellationToken ct)

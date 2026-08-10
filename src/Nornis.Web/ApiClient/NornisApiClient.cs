@@ -200,6 +200,14 @@ public class NornisApiClient
     public Task<ApiResult<CharacterDossierDto>> GetCharacterDossierAsync(Guid worldId, Guid characterId, CancellationToken ct = default) =>
         GetAsync<CharacterDossierDto>($"/api/worlds/{worldId}/characters/{characterId}/dossier", ct);
 
+    public Task<ApiResult<CharacterDto>> UpdateCharacterSheetAsync(Guid worldId, Guid characterId, string? sheet, CancellationToken ct = default) =>
+        PutAsync<UpdateCharacterSheetRequest, CharacterDto>(
+            $"/api/worlds/{worldId}/characters/{characterId}/sheet", new UpdateCharacterSheetRequest(sheet), ct);
+
+    public Task<ApiResult<CharacterDto>> SetCharacterSheetSharingAsync(Guid worldId, Guid characterId, bool sharedWithParty, CancellationToken ct = default) =>
+        PutAsync<SetCharacterSheetSharingRequest, CharacterDto>(
+            $"/api/worlds/{worldId}/characters/{characterId}/sheet/sharing", new SetCharacterSheetSharingRequest(sharedWithParty), ct);
+
     // -------------------------------------------------------------------- Sources --
 
     /// <summary>Lightweight activity counts for navigation badges.</summary>

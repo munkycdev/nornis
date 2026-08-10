@@ -311,7 +311,8 @@ public record CharacterDto(
     Guid? ArtifactId,
     IReadOnlyList<Guid> CampaignIds,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    DateTimeOffset? SheetUpdatedAt = null);
 
 /// <param name="Record">
 /// Null both when the character is unlinked and when the reader may not see the artifact it
@@ -322,7 +323,15 @@ public record CharacterDossierDto(
     CharacterDto Character,
     string OwnerDisplayName,
     IReadOnlyList<string> CampaignNames,
-    CharacterRecordDto? Record);
+    CharacterRecordDto? Record,
+    string? Sheet = null,
+    bool SheetSharedWithParty = false,
+    bool CanEditSheet = false,
+    bool CanShareSheet = false);
+
+public record UpdateCharacterSheetRequest(string? Sheet);
+
+public record SetCharacterSheetSharingRequest(bool SharedWithParty);
 
 public record CharacterRecordDto(
     Guid ArtifactId,

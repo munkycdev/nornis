@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
+@inject ISnackbar Snackbar
 @using Nornis.Web.Services
 
 @* A character's own page: who plays them, where they have played, and what the record knows
@@ -62,6 +63,75 @@
                 </div>
             }
         </MudPaper>
+
+        @if (_dossier.CanEditSheet || _dossier.Sheet is not null)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
+                <div class="d-flex align-center gap-2 mb-2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" Color="Color.Secondary" />
+                    <MudText Typo="Typo.subtitle1" Class="nornis-serif flex-grow-1">Their sheet</MudText>
+
+                    @if (_dossier.CanShareSheet)
+                    {
+                        <MudTooltip Text="@(_dossier.SheetSharedWithParty
+                                            ? "Everyone in this world can read this sheet"
+                                            : "Only you and the GM can read this sheet")">
+                            <MudSwitch T="bool" Value="_dossier.SheetSharedWithParty"
+                                       ValueChanged="SetSharingAsync" Color="Color.Primary"
+                                       Disabled="_sharing" Label="Share with the world" />
+                        </MudTooltip>
+                    }
+                    else if (_dossier.SheetSharedWithParty)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                 Icon="@Icons.Material.Outlined.Visibility">Shared</MudChip>
+                    }
+
+                    @if (_dossier.CanEditSheet && !_editingSheet)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                       OnClick="BeginEditSheet" aria-label="Edit sheet" />
+                    }
+                </div>
+
+                @if (_editingSheet)
+                {
+                    <NotesEditor @ref="_sheetEditor" InitialMarkdown="@_dossier.Sheet"
+                                 Placeholder="Equipment, spells, notes — whatever you'd write on the paper…" />
+
+                    <div class="d-flex gap-2 mt-3">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                   OnClick="SaveSheetAsync" Disabled="_savingSheet">Save</MudButton>
+                        <MudButton Variant="Variant.Text" Size="Size.Small"
+                                   OnClick="@(() => _editingSheet = false)">Cancel</MudButton>
+                    </div>
+
+                    @if (_sheetError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_sheetError</MudAlert>
+                    }
+                }
+                else if (string.IsNullOrWhiteSpace(_dossier.Sheet))
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Nothing written down yet.
+                        <MudLink OnClick="BeginEditSheet">Start a sheet</MudLink> — it's yours, and
+                        Nornis won't try to understand it.
+                    </MudText>
+                }
+                else
+                {
+                    <div class="nornis-markdown">@MarkdownRenderer.ToHtml(_dossier.Sheet)</div>
+
+                    @if (_dossier.Character.SheetUpdatedAt is { } updated)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
+                            Updated @RelativeTime.Ago(updated)
+                        </MudText>
+                    }
+                }
+            </MudPaper>
+        }
 
         @if (_dossier.Record is null)
         {
@@ -155,6 +225,66 @@
 
     private CharacterDossierDto? _dossier;
     private bool _loading = true;
+
+    private NotesEditor? _sheetEditor;
+    private bool _editingSheet;
+    private bool _savingSheet;
+    private bool _sharing;
+    private string? _sheetError;
+
+    private void BeginEditSheet()
+    {
+        _sheetError = null;
+        _editingSheet = true;
+    }
+
+    private async Task SaveSheetAsync()
+    {
+        if (Worlds.Current is null || _dossier is null)
+        {
+            return;
+        }
+
+        // The editor holds the live text; _dossier.Sheet is only the value it was seeded with.
+        var sheet = _sheetEditor is null || !_sheetEditor.Initialized
+            ? _dossier.Sheet
+            : await _sheetEditor.GetMarkdownAsync();
+
+        _savingSheet = true;
+        _sheetError = null;
+        var result = await Api.UpdateCharacterSheetAsync(Worlds.Current.Id, CharacterId, sheet);
+        _savingSheet = false;
+
+        if (!result.IsSuccess)
+        {
+            _sheetError = result.Error!.Message;
+            return;
+        }
+
+        _editingSheet = false;
+        _sheetEditor = null;
+        await LoadAsync();
+    }
+
+    private async Task SetSharingAsync(bool shared)
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _sharing = true;
+        var result = await Api.SetCharacterSheetSharingAsync(Worlds.Current.Id, CharacterId, shared);
+        _sharing = false;
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+            return;
+        }
+
+        await LoadAsync();
+    }
 
     protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
 

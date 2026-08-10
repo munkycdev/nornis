@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
@@ -176,7 +176,53 @@ public class CharactersController : ControllerBase
                 Groups: dossier.Record.Groups.Select(g => new CharacterRecordGroupResponse(
                     Type: g.Type.ToString(),
                     Artifacts: g.Artifacts.Select(ArtifactsController.ToConnectedResponse).ToList(),
-                    TotalCount: g.TotalCount)).ToList())));
+                    TotalCount: g.TotalCount)).ToList()),
+            Sheet: dossier.Sheet,
+            SheetSharedWithParty: dossier.SheetSharedWithParty,
+            CanEditSheet: dossier.CanEditSheet,
+            CanShareSheet: dossier.CanShareSheet));
+    }
+
+    [HttpPut("{characterId:guid}/sheet")]
+    public async Task<IActionResult> UpdateSheet(
+        Guid worldId,
+        Guid characterId,
+        [FromBody] UpdateCharacterSheetRequest request,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _characterService.UpdateSheetAsync(
+            characterId, worldId, user.Id, member.Role, request.Sheet, ct);
+
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        return Ok(ToCharacterResponse(result.Value!));
+    }
+
+    [HttpPut("{characterId:guid}/sheet/sharing")]
+    public async Task<IActionResult> SetSheetSharing(
+        Guid worldId,
+        Guid characterId,
+        [FromBody] SetCharacterSheetSharingRequest request,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _characterService.SetSheetSharingAsync(
+            characterId, worldId, user.Id, member.Role, request.SharedWithParty, ct);
+
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        return Ok(ToCharacterResponse(result.Value!));
     }
 
     internal static CharacterResponse ToCharacterResponse(Character character)
@@ -189,6 +235,7 @@ public class CharactersController : ControllerBase
             Description: character.Description,
             ArtifactId: character.ArtifactId,
             CampaignIds: character.CampaignCharacters.Select(cc => cc.CampaignId).ToList(),
+            SheetUpdatedAt: character.SheetUpdatedAt,
             CreatedAt: character.CreatedAt,
             UpdatedAt: character.UpdatedAt);
     }

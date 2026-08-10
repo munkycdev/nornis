@@ -12,11 +12,25 @@ namespace Nornis.Application.Models;
 /// the reader may not see. The two must stay indistinguishable: a distinguishable "linked but
 /// hidden" state tells a player that a GM-only artifact exists bearing their character's name.
 /// </param>
+/// <param name="Sheet">
+/// The player's written sheet, or null when this reader may not read it — which also covers
+/// the case where none was ever written. A reader who gets null cannot tell the two apart,
+/// and nothing in the product needs them to.
+/// </param>
+/// <param name="SheetSharedWithParty">
+/// Only meaningful to a reader who may edit; false for everyone else. Someone reading a
+/// shared sheet knows it is shared because they can read it, and someone who cannot read it
+/// has no business knowing whether one exists to share.
+/// </param>
 public record CharacterDossier(
     Character Character,
     string OwnerDisplayName,
     IReadOnlyList<string> CampaignNames,
-    CharacterRecord? Record);
+    CharacterRecord? Record,
+    string? Sheet,
+    bool SheetSharedWithParty,
+    bool CanEditSheet,
+    bool CanShareSheet);
 
 /// <summary>
 /// The linked artifact as this reader may see it. Every element here arrived already

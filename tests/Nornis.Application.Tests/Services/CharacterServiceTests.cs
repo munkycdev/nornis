@@ -623,9 +623,9 @@ public class CharacterServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(owner.Value!.Record!.Facts.Select(f => f.Predicate), Is.EquivalentTo(new[] { "carries" }));
+            Assert.That(owner.Value!.Record!.Facts.Select(f => f.Predicate), Is.EquivalentTo(["carries"]));
             Assert.That(gm.Value!.Record!.Facts.Select(f => f.Predicate),
-                Is.EquivalentTo(new[] { "carries", "true name" }));
+                Is.EquivalentTo(["carries", "true name"]));
         });
     }
 
@@ -646,7 +646,7 @@ public class CharacterServiceTests
         var items = result.Value!.Record!.Groups.Single(g => g.Type == ArtifactType.Item);
         Assert.Multiple(() =>
         {
-            Assert.That(items.Artifacts.Select(a => a.Name), Is.EquivalentTo(new[] { "Silver Key" }));
+            Assert.That(items.Artifacts.Select(a => a.Name), Is.EquivalentTo(["Silver Key"]));
             Assert.That(items.TotalCount, Is.EqualTo(1), "TotalCount must count only what the reader may see.");
         });
     }
@@ -684,6 +684,214 @@ public class CharacterServiceTests
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
     }
 
+    // -------------------------------------------------------------- Written sheet --
+
+    private async Task<Character> SeedSheet(WorldMember owner, string text, bool shared = false)
+    {
+        var character = SeedCharacter(owner);
+        character.Sheet = text;
+        character.SheetSharedWithParty = shared;
+        return await _characterRepository.UpdateAsync(character, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// The read gate. An unshared sheet is its owner's and the GM's; nobody else gets the text.
+    /// </summary>
+    [Test]
+    [Category("Authorization")]
+    public async Task GetDossierAsync_UnsharedSheet_IsHiddenFromOtherMembers()
+    {
+        var character = await SeedSheet(_player, "AC 16, Silver Key, owes Voss a favour");
+
+        var owner = await _sut.GetDossierAsync(character.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+        var gm = await _sut.GetDossierAsync(character.Id, WorldId, _gm.UserId, WorldRole.GM, CancellationToken.None);
+        var other = await _sut.GetDossierAsync(character.Id, WorldId, _otherPlayer.UserId, WorldRole.Player, CancellationToken.None);
+        var observer = await _sut.GetDossierAsync(character.Id, WorldId, _observer.UserId, WorldRole.Observer, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(owner.Value!.Sheet, Is.EqualTo("AC 16, Silver Key, owes Voss a favour"));
+            Assert.That(gm.Value!.Sheet, Is.EqualTo("AC 16, Silver Key, owes Voss a favour"));
+            Assert.That(other.Value!.Sheet, Is.Null);
+            Assert.That(observer.Value!.Sheet, Is.Null);
+        });
+    }
+
+    [Test]
+    [Category("Authorization")]
+    public async Task GetDossierAsync_SharedSheet_IsReadableByTheWholeWorld()
+    {
+        var character = await SeedSheet(_player, "Silver Key, ashen cloak", shared: true);
+
+        var other = await _sut.GetDossierAsync(character.Id, WorldId, _otherPlayer.UserId, WorldRole.Player, CancellationToken.None);
+        var observer = await _sut.GetDossierAsync(character.Id, WorldId, _observer.UserId, WorldRole.Observer, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(other.Value!.Sheet, Is.EqualTo("Silver Key, ashen cloak"));
+            Assert.That(observer.Value!.Sheet, Is.EqualTo("Silver Key, ashen cloak"));
+        });
+    }
+
+    /// <summary>
+    /// A reader who cannot read the sheet has no business learning whether one exists to share,
+    /// so the sharing flag is reported only to readers who may edit.
+    /// </summary>
+    [Test]
+    [Category("Authorization")]
+    public async Task GetDossierAsync_SharingFlagIsOnlyMeaningfulToEditors()
+    {
+        var character = await SeedSheet(_player, "private notes", shared: false);
+
+        var other = await _sut.GetDossierAsync(character.Id, WorldId, _otherPlayer.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(other.Value!.SheetSharedWithParty, Is.False);
+            Assert.That(other.Value!.CanEditSheet, Is.False);
+            Assert.That(other.Value!.CanShareSheet, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task GetDossierAsync_OnlyTheOwnerMayShare()
+    {
+        var character = SeedCharacter(_player);
+
+        var owner = await _sut.GetDossierAsync(character.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+        var gm = await _sut.GetDossierAsync(character.Id, WorldId, _gm.UserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(owner.Value!.CanShareSheet, Is.True);
+            Assert.That(gm.Value!.CanEditSheet, Is.True, "a GM may edit any character's sheet");
+            Assert.That(gm.Value!.CanShareSheet, Is.False, "but a GM does not decide who else reads it");
+        });
+    }
+
+    [Test]
+    public async Task UpdateSheetAsync_OwnerWritesSheet()
+    {
+        var character = SeedCharacter(_player);
+
+        var result = await _sut.UpdateSheetAsync(
+            character.Id, WorldId, _player.UserId, WorldRole.Player, "Level 4, Silver Key", CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.Sheet, Is.EqualTo("Level 4, Silver Key"));
+        Assert.That(result.Value!.SheetUpdatedAt, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task UpdateSheetAsync_GmMayWriteAnothersSheet()
+    {
+        var character = SeedCharacter(_player);
+
+        var result = await _sut.UpdateSheetAsync(
+            character.Id, WorldId, _gm.UserId, WorldRole.GM, "GM correction", CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+    }
+
+    [Test]
+    [Category("Authorization")]
+    public async Task UpdateSheetAsync_OtherPlayer_Returns403()
+    {
+        var character = SeedCharacter(_player);
+
+        var result = await _sut.UpdateSheetAsync(
+            character.Id, WorldId, _otherPlayer.UserId, WorldRole.Player, "not mine", CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+    }
+
+    [TestCase("")]
+    [TestCase("   ")]
+    [TestCase(null)]
+    public async Task UpdateSheetAsync_EmptyInput_NormalizesToNull(string? input)
+    {
+        var character = await SeedSheet(_player, "something");
+
+        var result = await _sut.UpdateSheetAsync(
+            character.Id, WorldId, _player.UserId, WorldRole.Player, input, CancellationToken.None);
+
+        Assert.That(result.Value!.Sheet, Is.Null,
+            "never-written and deliberately-cleared must have one representation, not two");
+    }
+
+    [Test]
+    public async Task UpdateSheetAsync_OverLength_IsRefusedNotTruncated()
+    {
+        var character = SeedCharacter(_player);
+        var tooLong = new string('x', Character.MaxSheetChars + 1);
+
+        var result = await _sut.UpdateSheetAsync(
+            character.Id, WorldId, _player.UserId, WorldRole.Player, tooLong, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
+            Assert.That(_characterRepository.Characters.Single().Sheet, Is.Null,
+                "a refused write must leave the stored sheet untouched");
+        });
+    }
+
+    [Test]
+    public async Task UpdateSheetAsync_AtTheLimit_IsAccepted()
+    {
+        var character = SeedCharacter(_player);
+        var atLimit = new string('x', Character.MaxSheetChars);
+
+        var result = await _sut.UpdateSheetAsync(
+            character.Id, WorldId, _player.UserId, WorldRole.Player, atLimit, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+    }
+
+    [Test]
+    public async Task SetSheetSharingAsync_OwnerShares()
+    {
+        var character = await SeedSheet(_player, "shared soon");
+
+        var result = await _sut.SetSheetSharingAsync(
+            character.Id, WorldId, _player.UserId, WorldRole.Player, true, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.SheetSharedWithParty, Is.True);
+    }
+
+    [Test]
+    [Category("Authorization")]
+    public async Task SetSheetSharingAsync_Gm_Returns403()
+    {
+        var character = await SeedSheet(_player, "the GM may read this but not publish it");
+
+        var result = await _sut.SetSheetSharingAsync(
+            character.Id, WorldId, _gm.UserId, WorldRole.GM, true, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+            Assert.That(_characterRepository.Characters.Single().SheetSharedWithParty, Is.False);
+        });
+    }
+
+    [Test]
+    [Category("Authorization")]
+    public async Task SetSheetSharingAsync_Observer_Returns403()
+    {
+        var character = SeedCharacter(_observer);
+
+        var result = await _sut.SetSheetSharingAsync(
+            character.Id, WorldId, _observer.UserId, WorldRole.Observer, true, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+    }
+
     [Test]
     public async Task GetDossierAsync_NamesOwnerAndCampaigns()
     {
@@ -708,7 +916,7 @@ public class CharacterServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(result.Value!.OwnerDisplayName, Is.EqualTo("Tavrin's player"));
-            Assert.That(result.Value!.CampaignNames, Is.EquivalentTo(new[] { "Vespergale Reach" }));
+            Assert.That(result.Value!.CampaignNames, Is.EquivalentTo(["Vespergale Reach"]));
         });
     }
 }

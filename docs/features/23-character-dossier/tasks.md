@@ -3,7 +3,8 @@
 Ordered so the visibility properties are provable before any pixels, and so each phase ships
 alone. Phase A needs no migration; B and C add one each; D is optional and may never be built.
 
-**Status: Phase A built 2026-08-09.** A1–A8 done; A9 half-done and half-declined (below).
+**Status: Phases A and B built 2026-08-09.** A1–A8 and B1–B8 done; A9 half-done and
+half-declined (below).
 
 What the build changed from the spec:
 
@@ -33,6 +34,31 @@ What the build changed from the spec:
   collection from its own assignments, exactly as EF's `Include` does. Fixed by going through
   `ReplaceCampaignAssignmentsAsync` — the API the production code actually uses.
 
+Phase B, and what it changed:
+
+- **`MaxSheetChars` lives on the `Character` entity, not on `CharacterService`.** The design
+  put it on the service, but Infrastructure needs it too for the column's `HasMaxLength` and
+  cannot reference Application. On the entity, in Domain, both sides read the same constant and
+  the compiler enforces the sameness — so the "mirrors X" comment the EF configuration would
+  otherwise have needed does not exist.
+- **`CanShareSheet` added to the read model.** The design listed only `CanEditSheet`, which
+  cannot express the rule it also states: a GM may edit any character's sheet but does not
+  decide who else reads it. Two capabilities, two flags.
+- **`SheetSharedWithParty` is reported only to readers who may edit.** Otherwise a member who
+  cannot read the sheet still learns whether one exists to be shared. Same instinct as Phase A's
+  indistinguishability property, applied to a smaller thing.
+- **`SheetUpdatedAt` surfaced rather than merely stored.** "Is this sheet still current?" is
+  the question a paper table actually has, and a column written but never read is one nobody
+  will trust later.
+- **Both guards were seen failing, and the second attempt mattered.** The read-gate sabotage
+  worked first time. The isolation guard's first sabotage silently did not apply — the string
+  being replaced did not exist — so the run that "passed" proved nothing. Re-planted properly,
+  it failed and named `LoremasterService.cs`. A guard whose sabotage does not land is
+  indistinguishable from a guard that works.
+- **`CharacterSheetIsolationTests` carries its own self-check.** It asserts every directory and
+  file it claims to scan actually resolves, because a renamed folder would otherwise turn it
+  green forever — which is precisely the "guard that could not fire" defect.
+
 ## Phase A — The record
 
 - [x] A1. `CharacterRecordProjector`: group an `ArtifactDetail`'s connected artifacts by
@@ -56,19 +82,19 @@ What the build changed from the spec:
 
 ## Phase B — The written sheet
 
-- [ ] B1. Migration: `Character.Sheet`, `SheetSharedWithParty` (default false), `SheetUpdatedAt`.
-- [ ] B2. XML comment on `Sheet` stating it is uninterpreted and must never reach an AI path,
+- [x] B1. Migration: `Character.Sheet`, `SheetSharedWithParty` (default false), `SheetUpdatedAt`.
+- [x] B2. XML comment on `Sheet` stating it is uninterpreted and must never reach an AI path,
       so a future author has to delete a sentence to break Property 4.
-- [ ] B3. `MaxSheetChars = 20_000` on `CharacterService`; refuse over-length, do not truncate;
+- [x] B3. `MaxSheetChars = 20_000` on `CharacterService`; refuse over-length, do not truncate;
       normalize empty-after-trim to null.
-- [ ] B4. `UpdateSheetAsync` and `SetSheetSharingAsync`, both through `CheckOwnershipAsync`;
+- [x] B4. `UpdateSheetAsync` and `SetSheetSharingAsync`, both through `CheckOwnershipAsync`;
       sharing is owner-only, reading is owner + GM + (party when shared).
-- [ ] B5. **Prove the read gate.** Test: another Player reading an unshared sheet gets null, not
+- [x] B5. **Prove the read gate.** Test: another Player reading an unshared sheet gets null, not
       text. Write the permissive version first and watch it fail.
-- [ ] B6. Sheet endpoints + contracts + client methods.
-- [ ] B7. Sheet panel in `CharacterDetail.razor` using `NotesEditor` and `MarkdownRenderer`;
+- [x] B6. Sheet endpoints + contracts + client methods.
+- [x] B7. Sheet panel in `CharacterDetail.razor` using `NotesEditor` and `MarkdownRenderer`;
       "start a sheet" empty state; share toggle visible only to the owner.
-- [ ] B8. Property 4 guard: a test asserting no AI-path type references `Character.Sheet`.
+- [x] B8. Property 4 guard: a test asserting no AI-path type references `Character.Sheet`.
       Mechanical, and the only kind of guard that survives a refactor by someone who has not
       read this document.
 

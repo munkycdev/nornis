@@ -9,7 +9,11 @@ public record CharacterDossierResponse(
     CharacterResponse Character,
     string OwnerDisplayName,
     IReadOnlyList<string> CampaignNames,
-    CharacterRecordResponse? Record);
+    CharacterRecordResponse? Record,
+    string? Sheet,
+    bool SheetSharedWithParty,
+    bool CanEditSheet,
+    bool CanShareSheet);
 
 public record CharacterRecordResponse(
     Guid ArtifactId,

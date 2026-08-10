@@ -24,6 +24,24 @@ public interface ICharacterService
         WorldRole role,
         CancellationToken ct);
 
+    /// <summary>Replaces the written sheet. Owner or GM.</summary>
+    Task<AppResult<Character>> UpdateSheetAsync(
+        Guid characterId,
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole role,
+        string? sheet,
+        CancellationToken ct);
+
+    /// <summary>Shares the written sheet with the world, or stops. Owning member only.</summary>
+    Task<AppResult<Character>> SetSheetSharingAsync(
+        Guid characterId,
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole role,
+        bool sharedWithParty,
+        CancellationToken ct);
+
     Task<AppResult<Character>> UpdateAsync(UpdateCharacterCommand command, CancellationToken ct);
 
     /// <summary>
