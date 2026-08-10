@@ -3,25 +3,56 @@
 Ordered so the visibility properties are provable before any pixels, and so each phase ships
 alone. Phase A needs no migration; B and C add one each; D is optional and may never be built.
 
+**Status: Phase A built 2026-08-09.** A1–A8 done; A9 half-done and half-declined (below).
+
+What the build changed from the spec:
+
+- **`GetDetailAsync` does not bound anything.** The design's "what is unbounded" table claimed
+  facts and relationships were "bounded by that service's own limits". They are not — it
+  returns every visible row. The projector now caps facts at `MaxFacts = 60` and reports
+  `TotalFactCount` alongside, the same shape the per-group cap already used. Recorded rather
+  than quietly fixed, because the table asserted something untrue about another component.
+- **`ArtifactDetail.PlayedBy` was not widened to carry character ids**, so A9's second half —
+  linking from an artifact back to the characters playing it — is not built. `PublicController`
+  serves the same `GetDetailAsync` to anonymous readers, and putting character ids on that path
+  to save a convenience click is a bad trade. If the link is wanted, it needs a separate
+  authenticated resolution, not a wider shared model.
+- **`MemberDisplayName` extracted.** The display-name rule was inline in `ArtifactService` and
+  differently inline in `CostService`; the dossier needed a third. The public-safe form (id
+  fallback, never the username) is now one place. `CostService` deliberately keeps its own —
+  it is GM-only and never public — and the helper says so, so the next reader does not
+  "finish the job" by unifying them and leaking usernames onto the public world page.
+- **`ArtifactsController.ToFactResponse` and `ToConnectedResponse` widened to `internal`**
+  rather than growing a second copy of the same mapping in `CharactersController`.
+- **The sabotage run happened and caught more than it was aimed at.** Widening the reader's
+  role and returning a distinguishable empty record failed three tests, not two:
+  `GroupsOnlyVisibleConnections` also went red, naming the GM-only Cursed Dagger that had
+  leaked into a player's item list.
+- **One test was wrong before the code was.** `GetDossierAsync_NamesOwnerAndCampaigns` seeded
+  `CampaignCharacters` by mutating the entity; the in-memory repository rebuilds that
+  collection from its own assignments, exactly as EF's `Include` does. Fixed by going through
+  `ReplaceCampaignAssignmentsAsync` — the API the production code actually uses.
+
 ## Phase A — The record
 
-- [ ] A1. `CharacterRecordProjector`: group an `ArtifactDetail`'s connected artifacts by
+- [x] A1. `CharacterRecordProjector`: group an `ArtifactDetail`'s connected artifacts by
       `ArtifactType`, cap each group at `MaxPerGroup = 24`, report `TotalCount` above the cap.
       Pure function over an already-filtered detail — no repository access.
-- [ ] A2. `CharacterDossier`, `CharacterRecord`, `CharacterRecordGroup` read models.
-- [ ] A3. `CharacterService.GetDossierAsync` composing `ArtifactService.GetDetailAsync`.
+- [x] A2. `CharacterDossier`, `CharacterRecord`, `CharacterRecordGroup` read models.
+- [x] A3. `CharacterService.GetDossierAsync` composing `ArtifactService.GetDetailAsync`.
       Swallow its 404/403 into `Record: null`.
-- [ ] A4. **Prove Property 3 before A5.** Test: dossier for a character linked to a `GMOnly`
+- [x] A4. **Prove Property 3 before A5.** Test: dossier for a character linked to a `GMOnly`
       artifact, read as Player, equals the dossier for an unlinked character. Break it first by
       returning a distinguishable empty record, watch it fail, then fix.
-- [ ] A5. **Prove Property 2.** Test: a `GMOnly` fact on the linked artifact is absent for the
+- [x] A5. **Prove Property 2.** Test: a `GMOnly` fact on the linked artifact is absent for the
       owning Player. Invert the assertion, confirm it fails naming the fact, restore.
-- [ ] A6. `GET /worlds/{worldId}/characters/{characterId}/dossier` on the existing controller;
+- [x] A6. `GET /worlds/{worldId}/characters/{characterId}/dossier` on the existing controller;
       `CharacterDossierResponse` contract; `NornisApiClient` method + DTO.
-- [ ] A7. Role matrix tests: Owner, GM, other Player, Observer all read; none mutate.
-- [ ] A8. `CharacterDetail.razor` at `/characters/{characterId:guid}` — header, campaigns,
+- [x] A7. Role matrix tests: Owner, GM, other Player, Observer all read; none mutate.
+- [x] A8. `CharacterDetail.razor` at `/characters/{characterId:guid}` — header, campaigns,
       grouped record with per-group "showing N of M" where capped.
-- [ ] A9. Link in from `Profile.razor` character rows and `ArtifactDetail`'s `PlayedBy` names.
+- [x] A9a. Link in from `Profile.razor` character rows.
+- [ ] A9b. Link back from `ArtifactDetail`'s `PlayedBy` names — declined, see above.
 
 ## Phase B — The written sheet
 
@@ -67,6 +98,8 @@ alone. Phase A needs no migration; B and C add one each; D is optional and may n
 
 ## Verification
 
-- [ ] V1. Build, `dotnet format --verify-no-changes`, and `./scripts/coverage-gate.ps1` green.
+- [x] V1. Build, `dotnet format --verify-no-changes`, and `./scripts/coverage-gate.ps1` green
+      for Phase A (2026-08-09). Application 1847, Api 516, Web 185 tests pass; all four
+      coverage floors met. Re-run per phase.
 - [ ] V2. Live-app check behind Auth0: dossier as GM and as a second Player in the same world,
       confirming the sheet gate and the indistinguishability property with real data.

@@ -342,7 +342,7 @@ public class ArtifactsController : ControllerBase
             PlayedBy: detail.PlayedBy);
     }
 
-    private static ArtifactFactResponse ToFactResponse(ArtifactFact fact)
+    internal static ArtifactFactResponse ToFactResponse(ArtifactFact fact)
     {
         return new ArtifactFactResponse(
             Id: fact.Id,
@@ -369,7 +369,7 @@ public class ArtifactsController : ControllerBase
             Visibility: relationship.Visibility.ToString());
     }
 
-    private static ConnectedArtifactResponse ToConnectedResponse(Artifact artifact)
+    internal static ConnectedArtifactResponse ToConnectedResponse(Artifact artifact)
     {
         return new ConnectedArtifactResponse(
             Id: artifact.Id,

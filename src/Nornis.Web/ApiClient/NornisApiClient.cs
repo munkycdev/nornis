@@ -197,6 +197,9 @@ public class NornisApiClient
     public Task<ApiResult<CharacterDto>> ClaimCharacterAsync(Guid worldId, Guid characterId, CancellationToken ct = default) =>
         PostAsync<object?, CharacterDto>($"/api/worlds/{worldId}/characters/{characterId}/claim", null, ct);
 
+    public Task<ApiResult<CharacterDossierDto>> GetCharacterDossierAsync(Guid worldId, Guid characterId, CancellationToken ct = default) =>
+        GetAsync<CharacterDossierDto>($"/api/worlds/{worldId}/characters/{characterId}/dossier", ct);
+
     // -------------------------------------------------------------------- Sources --
 
     /// <summary>Lightweight activity counts for navigation badges.</summary>

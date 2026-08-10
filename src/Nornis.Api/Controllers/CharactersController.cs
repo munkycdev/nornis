@@ -148,6 +148,37 @@ public class CharactersController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("{characterId:guid}/dossier")]
+    public async Task<IActionResult> GetDossier(Guid worldId, Guid characterId, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _characterService.GetDossierAsync(characterId, worldId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        var dossier = result.Value!;
+
+        return Ok(new CharacterDossierResponse(
+            Character: ToCharacterResponse(dossier.Character),
+            OwnerDisplayName: dossier.OwnerDisplayName,
+            CampaignNames: dossier.CampaignNames,
+            Record: dossier.Record is null ? null : new CharacterRecordResponse(
+                ArtifactId: dossier.Record.ArtifactId,
+                ArtifactName: dossier.Record.ArtifactName,
+                Summary: dossier.Record.Summary,
+                Facts: dossier.Record.Facts.Select(ArtifactsController.ToFactResponse).ToList(),
+                TotalFactCount: dossier.Record.TotalFactCount,
+                Groups: dossier.Record.Groups.Select(g => new CharacterRecordGroupResponse(
+                    Type: g.Type.ToString(),
+                    Artifacts: g.Artifacts.Select(ArtifactsController.ToConnectedResponse).ToList(),
+                    TotalCount: g.TotalCount)).ToList())));
+    }
+
     internal static CharacterResponse ToCharacterResponse(Character character)
     {
         return new CharacterResponse(

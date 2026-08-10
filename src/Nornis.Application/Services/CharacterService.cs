@@ -1,4 +1,5 @@
 using Nornis.Application.Errors;
+using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -11,15 +12,21 @@ public class CharacterService : ICharacterService
     private readonly ICharacterRepository _characterRepository;
     private readonly IWorldMemberRepository _worldMemberRepository;
     private readonly IArtifactRepository _artifactRepository;
+    private readonly ICampaignRepository _campaignRepository;
+    private readonly IArtifactService _artifactService;
 
     public CharacterService(
         ICharacterRepository characterRepository,
         IWorldMemberRepository worldMemberRepository,
-        IArtifactRepository artifactRepository)
+        IArtifactRepository artifactRepository,
+        ICampaignRepository campaignRepository,
+        IArtifactService artifactService)
     {
         _characterRepository = characterRepository;
         _worldMemberRepository = worldMemberRepository;
         _artifactRepository = artifactRepository;
+        _campaignRepository = campaignRepository;
+        _artifactService = artifactService;
     }
 
     public async Task<AppResult<Character>> CreateAsync(CreateCharacterCommand command, CancellationToken ct)
@@ -97,6 +104,71 @@ public class CharacterService : ICharacterService
         }
 
         return AppResult<Character>.Success(character);
+    }
+
+    public async Task<AppResult<CharacterDossier>> GetDossierAsync(
+        Guid characterId,
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole role,
+        CancellationToken ct)
+    {
+        var character = await _characterRepository.GetByIdAsync(characterId, ct);
+
+        if (character is null || character.WorldId != worldId)
+        {
+            return AppResult<CharacterDossier>.Fail(new AppError(404, "not_found", "Character not found."));
+        }
+
+        var members = await _worldMemberRepository.ListByWorldAsync(worldId, ct);
+        var owner = members.FirstOrDefault(m => m.Id == character.WorldMemberId);
+
+        var campaigns = await _campaignRepository.ListByWorldAsync(worldId, ct);
+        var campaignNames = character.CampaignCharacters
+            .Select(cc => campaigns.FirstOrDefault(c => c.Id == cc.CampaignId))
+            .Where(c => c is not null)
+            .Select(c => c!.Name)
+            .OrderBy(name => name)
+            .ToList();
+
+        var record = await ResolveRecordAsync(character, worldId, actingUserId, role, ct);
+
+        var dossier = new CharacterDossier(
+            Character: character,
+            OwnerDisplayName: owner is null ? "Unassigned" : MemberDisplayName.For(owner),
+            CampaignNames: campaignNames,
+            Record: record);
+
+        return AppResult<CharacterDossier>.Success(dossier);
+    }
+
+    /// <summary>
+    /// The linked artifact as this reader may see it, or null.
+    ///
+    /// <c>GetDetailAsync</c> answers 404 both for an artifact that is gone and for one above
+    /// the reader's visibility, and this collapses that into the same null an unlinked
+    /// character produces. The collapse is the feature, not a shortcut: any observable
+    /// difference between "no link" and "a link you may not follow" discloses that a GM-only
+    /// artifact exists bearing this character's name.
+    ///
+    /// The reader's own role is passed through unchanged. Owning a character must not widen
+    /// what its owner may see of the artifact behind it.
+    /// </summary>
+    private async Task<CharacterRecord?> ResolveRecordAsync(
+        Character character,
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole role,
+        CancellationToken ct)
+    {
+        if (character.ArtifactId is not { } artifactId)
+        {
+            return null;
+        }
+
+        var detail = await _artifactService.GetDetailAsync(artifactId, worldId, actingUserId, role, ct);
+
+        return detail.IsSuccess ? CharacterRecordProjector.Project(detail.Value!) : null;
     }
 
     public async Task<AppResult<IReadOnlyList<Character>>> ListByWorldAsync(Guid worldId, CancellationToken ct)

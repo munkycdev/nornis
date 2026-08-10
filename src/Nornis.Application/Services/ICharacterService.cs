@@ -13,6 +13,17 @@ public interface ICharacterService
 
     Task<AppResult<IReadOnlyList<Character>>> ListByWorldAsync(Guid worldId, CancellationToken ct);
 
+    /// <summary>
+    /// The character as a place to go: its owner, its campaigns, and the linked artifact's
+    /// record filtered to <paramref name="role"/>. Readable by every world member.
+    /// </summary>
+    Task<AppResult<CharacterDossier>> GetDossierAsync(
+        Guid characterId,
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole role,
+        CancellationToken ct);
+
     Task<AppResult<Character>> UpdateAsync(UpdateCharacterCommand command, CancellationToken ct);
 
     /// <summary>

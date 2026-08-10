@@ -77,7 +77,12 @@ question exists to catch.
 | Sheet text | `MaxSheetChars = 20_000`, server-enforced, refused not truncated | `CharacterService` |
 | Snapshots per character | `MaxSnapshots = 50`, attaching the 51st is refused with a message | `CharacterService` |
 | Connected artifacts per group | `MaxPerGroup = 24`, remainder reachable via `/artifacts/{id}` | `CharacterRecordProjector` |
-| Facts / relationships loaded | Bounded by `ArtifactService.GetDetailAsync`'s own limits | elsewhere, by that service |
+| Facts displayed | `MaxFacts = 60`, with `TotalFactCount` reported alongside | `CharacterRecordProjector` |
+
+*Corrected during the Phase A build:* this table originally claimed facts and relationships
+were "bounded by `GetDetailAsync`'s own limits". They are not — that method returns every row
+the reader may see. Saying which X bounds a thing is only worth doing if the claim is checked,
+and this one was not until the projector needed a number.
 
 Refusing rather than truncating is deliberate for the first two: a silently truncated sheet is
 data loss on a field whose entire purpose is being the player's own record.

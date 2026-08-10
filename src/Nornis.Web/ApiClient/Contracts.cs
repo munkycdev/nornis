@@ -313,6 +313,30 @@ public record CharacterDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
 
+/// <param name="Record">
+/// Null both when the character is unlinked and when the reader may not see the artifact it
+/// links to. The UI must render those two cases identically; anything else discloses that a
+/// GM-only artifact exists bearing this character's name.
+/// </param>
+public record CharacterDossierDto(
+    CharacterDto Character,
+    string OwnerDisplayName,
+    IReadOnlyList<string> CampaignNames,
+    CharacterRecordDto? Record);
+
+public record CharacterRecordDto(
+    Guid ArtifactId,
+    string ArtifactName,
+    string? Summary,
+    IReadOnlyList<ArtifactFactDto> Facts,
+    int TotalFactCount,
+    IReadOnlyList<CharacterRecordGroupDto> Groups);
+
+public record CharacterRecordGroupDto(
+    string Type,
+    IReadOnlyList<ConnectedArtifact> Artifacts,
+    int TotalCount);
+
 public record CreateCharacterRequest(
     string Name,
     string? Description = null,

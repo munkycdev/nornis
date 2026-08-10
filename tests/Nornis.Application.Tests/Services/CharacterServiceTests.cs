@@ -15,6 +15,9 @@ public class CharacterServiceTests
     private InMemoryCharacterRepository _characterRepository = null!;
     private InMemoryWorldMemberRepository _memberRepository = null!;
     private InMemoryArtifactRepository _artifactRepository = null!;
+    private InMemoryCampaignRepository _campaignRepository = null!;
+    private InMemoryArtifactFactRepository _factRepository = null!;
+    private InMemoryArtifactRelationshipRepository _relationshipRepository = null!;
     private CharacterService _sut = null!;
 
     private WorldMember _gm = null!;
@@ -28,7 +31,21 @@ public class CharacterServiceTests
         _characterRepository = new InMemoryCharacterRepository();
         _memberRepository = new InMemoryWorldMemberRepository();
         _artifactRepository = new InMemoryArtifactRepository();
-        _sut = new CharacterService(_characterRepository, _memberRepository, _artifactRepository);
+        _campaignRepository = new InMemoryCampaignRepository();
+        _factRepository = new InMemoryArtifactFactRepository();
+        _relationshipRepository = new InMemoryArtifactRelationshipRepository();
+
+        // A real ArtifactService over the same repositories, not a stub. The dossier's whole
+        // visibility contract is that it inherits this service's filtering, and a stub that
+        // returned whatever the test wanted would prove exactly nothing about that.
+        var artifactService = new ArtifactService(
+            _artifactRepository, _factRepository, _relationshipRepository,
+            new InMemorySourceReferenceRepository(), new InMemorySourceRepository(),
+            _characterRepository, _memberRepository, _campaignRepository);
+
+        _sut = new CharacterService(
+            _characterRepository, _memberRepository, _artifactRepository,
+            _campaignRepository, artifactService);
 
         _gm = await AddMember(WorldRole.GM, "Dave");
         _player = await AddMember(WorldRole.Player, "Tavrin's player");
@@ -228,14 +245,15 @@ public class CharacterServiceTests
     private Artifact SeedArtifact(
         ArtifactType type = ArtifactType.Character,
         VisibilityScope visibility = VisibilityScope.PartyVisible,
-        Guid? worldId = null)
+        Guid? worldId = null,
+        string? name = null)
     {
         var artifact = new Artifact
         {
             Id = Guid.NewGuid(),
             WorldId = worldId ?? WorldId,
             Type = type,
-            Name = "Tavrin (record)",
+            Name = name ?? "Tavrin (record)",
             Visibility = visibility,
             Status = ArtifactStatus.Active,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -502,5 +520,195 @@ public class CharacterServiceTests
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+    }
+
+    // ------------------------------------------------------------------ Dossier --
+
+    private void SeedFact(Artifact artifact, string predicate, string value, VisibilityScope visibility)
+    {
+        _factRepository.Seed(new ArtifactFact
+        {
+            Id = Guid.NewGuid(),
+            ArtifactId = artifact.Id,
+            Predicate = predicate,
+            Value = value,
+            TruthState = TruthState.Confirmed,
+            Visibility = visibility,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+    }
+
+    private void SeedRelationship(Artifact a, Artifact b, VisibilityScope visibility)
+    {
+        _relationshipRepository.Seed(new ArtifactRelationship
+        {
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            ArtifactAId = a.Id,
+            ArtifactBId = b.Id,
+            Type = "Carries",
+            TruthState = TruthState.Confirmed,
+            Visibility = visibility,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+    }
+
+    private Character SeedLinkedCharacter(WorldMember owner, Artifact artifact, string name = "Tavrin")
+    {
+        var character = SeedCharacter(owner, name);
+        character.ArtifactId = artifact.Id;
+        return character;
+    }
+
+    /// <summary>
+    /// Property 3. A link the reader may not follow must be indistinguishable from no link at
+    /// all, or the page announces that a GM-only artifact exists bearing this character's name.
+    /// </summary>
+    [Test]
+    [Category("Authorization")]
+    public async Task GetDossierAsync_HiddenLink_IsIndistinguishableFromNoLink()
+    {
+        var hidden = SeedArtifact(visibility: VisibilityScope.GMOnly);
+        SeedFact(hidden, "true name", "Tavrin Ashgrave", VisibilityScope.GMOnly);
+        var linked = SeedLinkedCharacter(_player, hidden, "Tavrin");
+        var unlinked = SeedCharacter(_player, "Jorin");
+
+        var linkedResult = await _sut.GetDossierAsync(
+            linked.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+        var unlinkedResult = await _sut.GetDossierAsync(
+            unlinked.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(linkedResult.IsSuccess, Is.True);
+            Assert.That(unlinkedResult.IsSuccess, Is.True);
+            Assert.That(linkedResult.Value!.Record, Is.Null);
+            Assert.That(unlinkedResult.Value!.Record, Is.Null);
+        });
+    }
+
+    [Test]
+    [Category("Authorization")]
+    public async Task GetDossierAsync_HiddenLink_IsVisibleToGm()
+    {
+        var hidden = SeedArtifact(visibility: VisibilityScope.GMOnly);
+        var character = SeedLinkedCharacter(_player, hidden);
+
+        var result = await _sut.GetDossierAsync(
+            character.Id, WorldId, _gm.UserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.Value!.Record, Is.Not.Null);
+        Assert.That(result.Value!.Record!.ArtifactId, Is.EqualTo(hidden.Id));
+    }
+
+    /// <summary>
+    /// Property 2. Owning the character must not widen what its owner may see of the artifact
+    /// behind it — the reader's own role governs, and nothing else.
+    /// </summary>
+    [Test]
+    [Category("Authorization")]
+    public async Task GetDossierAsync_OwnershipDoesNotWidenVisibility()
+    {
+        var artifact = SeedArtifact();
+        SeedFact(artifact, "carries", "the Silver Key", VisibilityScope.PartyVisible);
+        SeedFact(artifact, "true name", "Tavrin Ashgrave", VisibilityScope.GMOnly);
+        var character = SeedLinkedCharacter(_player, artifact);
+
+        var owner = await _sut.GetDossierAsync(
+            character.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+        var gm = await _sut.GetDossierAsync(
+            character.Id, WorldId, _gm.UserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(owner.Value!.Record!.Facts.Select(f => f.Predicate), Is.EquivalentTo(new[] { "carries" }));
+            Assert.That(gm.Value!.Record!.Facts.Select(f => f.Predicate),
+                Is.EquivalentTo(new[] { "carries", "true name" }));
+        });
+    }
+
+    [Test]
+    [Category("Authorization")]
+    public async Task GetDossierAsync_GroupsOnlyVisibleConnections()
+    {
+        var artifact = SeedArtifact();
+        var key = SeedArtifact(ArtifactType.Item, name: "Silver Key");
+        var dagger = SeedArtifact(ArtifactType.Item, VisibilityScope.GMOnly, name: "Cursed Dagger");
+        SeedRelationship(artifact, key, VisibilityScope.PartyVisible);
+        SeedRelationship(artifact, dagger, VisibilityScope.GMOnly);
+        var character = SeedLinkedCharacter(_player, artifact);
+
+        var result = await _sut.GetDossierAsync(
+            character.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        var items = result.Value!.Record!.Groups.Single(g => g.Type == ArtifactType.Item);
+        Assert.Multiple(() =>
+        {
+            Assert.That(items.Artifacts.Select(a => a.Name), Is.EquivalentTo(new[] { "Silver Key" }));
+            Assert.That(items.TotalCount, Is.EqualTo(1), "TotalCount must count only what the reader may see.");
+        });
+    }
+
+    [Test]
+    [TestCase(WorldRole.GM)]
+    [TestCase(WorldRole.Player)]
+    [TestCase(WorldRole.Observer)]
+    [Category("Authorization")]
+    public async Task GetDossierAsync_EveryRoleMayRead(WorldRole role)
+    {
+        var character = SeedCharacter(_player);
+        var reader = role switch
+        {
+            WorldRole.GM => _gm,
+            WorldRole.Observer => _observer,
+            _ => _otherPlayer
+        };
+
+        var result = await _sut.GetDossierAsync(
+            character.Id, WorldId, reader.UserId, role, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+    }
+
+    [Test]
+    public async Task GetDossierAsync_OtherWorld_Returns404()
+    {
+        var character = SeedCharacter(_player);
+
+        var result = await _sut.GetDossierAsync(
+            character.Id, Guid.NewGuid(), _gm.UserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
+    [Test]
+    public async Task GetDossierAsync_NamesOwnerAndCampaigns()
+    {
+        var campaign = new Campaign
+        {
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Name = "Vespergale Reach",
+            Status = CampaignStatus.Active,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _campaignRepository.Seed(campaign);
+
+        var character = SeedCharacter(_player);
+        await _characterRepository.ReplaceCampaignAssignmentsAsync(
+            campaign.Id, [character.Id], CancellationToken.None);
+
+        var result = await _sut.GetDossierAsync(
+            character.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value!.OwnerDisplayName, Is.EqualTo("Tavrin's player"));
+            Assert.That(result.Value!.CampaignNames, Is.EquivalentTo(new[] { "Vespergale Reach" }));
+        });
     }
 }
