@@ -3212,6 +3212,34 @@ a.nornis-cite:hover {
     cursor: col-resize;
 }
 
+/* --------------------------------------------------- World digest body --- */
+
+/* The digest is section headings over dense multi-line bullets, not prose, and it
+   lives inside a card whose own title is 1.25rem — so its headings step down below
+   the card title and the list items get the breathing room the shared markdown
+   rhythm doesn't give them. */
+.nornis-digest-body h1 { font-size: 1.15rem; }
+.nornis-digest-body h2 { font-size: 1.05rem; }
+.nornis-digest-body h3 { font-size: 1rem; }
+
+.nornis-digest-body h1, .nornis-digest-body h2, .nornis-digest-body h3 {
+    margin: 1.5em 0 0.6em;
+}
+
+.nornis-digest-body h1:first-child,
+.nornis-digest-body h2:first-child,
+.nornis-digest-body h3:first-child {
+    margin-top: 0;
+}
+
+.nornis-digest-body li {
+    margin-bottom: 0.5em;
+}
+
+.nornis-digest-body li:last-child {
+    margin-bottom: 0;
+}
+
 /* ---------------------------------------------- Loremaster rail panel --- */
 
 /* Stays in view while writing long notes; falls back into flow when the
