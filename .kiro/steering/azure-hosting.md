@@ -8,6 +8,16 @@
 > second environment exists). Deployment is `.github/workflows/deploy.yml`. The AKS
 > plan below remains the scale-up path if Container Apps is ever outgrown.
 
+> **Amendment (2026-09-07):** images live in **GitHub Container Registry**
+> (`ghcr.io/munkycdev/nornis-{api,web,worker}`), not ACR. `acrnornis` was deleted in the
+> September cost pass: the repo is public, so its packages are public and GHCR hosts them
+> for nothing, where ACR Basic was $5/month — a sixth of the whole bill — and within a few
+> deploys of its 10 GB ceiling. The container apps pull anonymously, so the `AcrPull` role
+> and the registry credential are gone too; `id-nornis-apps` remains, holding no roles,
+> as the identity the operational-hardening plan intends to give Blob and Service Bus
+> access to. Read "Azure Container Registry" below as GHCR. Everything else in the July
+> amendment stands.
+
 ## Hosting Target
 
 Nornis will be hosted on Azure Kubernetes Service.

@@ -14,13 +14,10 @@ permissions:
   contents: read
 
 env:
-  ACR: acrnornis
-  # Images are moving from ACR to GitHub Container Registry: the repo is public, so GHCR
-  # hosts them for nothing, where ACR Basic was a sixth of the Azure bill. This commit is
-  # the first half of the cutover — every image is pushed to both registries and the
-  # rollout still pulls from ACR — because a package's first push lands private and the
-  # container apps cannot pull it until it is made public. The second half switches the
-  # rollout to GHCR and drops ACR.
+  # GitHub Container Registry, not ACR (since 2026-09-07). The repo is public, so its
+  # packages are public and the container apps pull them anonymously; GHCR hosts them for
+  # nothing where ACR Basic was a sixth of the Azure bill. The build job needs no Azure
+  # login at all now — only the rollout talks to Azure.
   GHCR: ghcr.io/${{ github.repository_owner }}
   RESOURCE_GROUP: rg-nornis
 
@@ -84,19 +81,8 @@ jobs:
     permissions:
       contents: read
       packages: write # push to GHCR
-      id-token: write # Azure OIDC login, for the ACR push
     steps:
       - uses: actions/checkout@v7
-
-      - name: Azure login (OIDC)
-        uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: ACR login
-        run: az acr login --name "$ACR"
 
       - name: GHCR login
         uses: docker/login-action@v3
@@ -115,8 +101,6 @@ jobs:
           for svc in api web worker; do
             docker buildx build \
               --target "$svc" \
-              --tag "$ACR.azurecr.io/nornis-$svc:${{ github.sha }}" \
-              --tag "$ACR.azurecr.io/nornis-$svc:main-latest" \
               --tag "$GHCR/nornis-$svc:${{ github.sha }}" \
               --tag "$GHCR/nornis-$svc:main-latest" \
               --build-arg IMAGE_SOURCE="${{ github.server_url }}/${{ github.repository }}" \
@@ -150,7 +134,7 @@ jobs:
             az containerapp update \
               --name "ca-nornis-$svc" \
               --resource-group "$RESOURCE_GROUP" \
-              --image "$ACR.azurecr.io/nornis-$svc:${{ github.sha }}" \
+              --image "$GHCR/nornis-$svc:${{ github.sha }}" \
               -o none &
             pids+=($!)
           done

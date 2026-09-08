@@ -3,14 +3,18 @@
 Provisions the Nornis hosting stack on Azure Container Apps.
 
 Creates (idempotently): resource group, Log Analytics, Container Apps environment,
-Azure Container Registry, and the three container apps (api, web, worker). Reads
-secrets from the Api/Worker .NET user-secrets stores — never echoes them.
+and the three container apps (api, web, worker). Reads secrets from the Api/Worker
+.NET user-secrets stores — never echoes them.
 
 Deviation from .kiro/steering/azure-hosting.md (AKS): MVP hosts on Container Apps —
-same containers + ACR, no cluster to operate, scale-to-zero worker via a KEDA
-Service Bus scaler. Revisit AKS if/when scale demands it.
+same containers, no cluster to operate, scale-to-zero worker via a KEDA Service Bus
+scaler. Revisit AKS if/when scale demands it.
 
-Prereqs: az CLI logged in; images pushed to ACR (deploy workflow or az acr build);
+Images come from GitHub Container Registry, not ACR (since 2026-09-07). The repo is public,
+so its packages are public and the apps pull them anonymously — no registry credential, no
+pull identity, and no registry resource to pay for. ACR Basic was a sixth of the Azure bill.
+
+Prereqs: az CLI logged in; images pushed to GHCR by the deploy workflow;
 Auth0:ClientSecret present in the Nornis.Web user-secrets store (see below).
 
 Auth0 (reproduced since 2026-07-29 — this used to be the one thing the script could not
@@ -27,7 +31,8 @@ as the auth0-client-secret secret on the live ca-nornis-web app.
 param(
     [string]$ResourceGroup = "rg-nornis",
     [string]$Location = "westus",
-    [string]$Acr = "acrnornis",
+    # Public packages of the public repo. The deploy workflow pushes here; nothing else does.
+    [string]$Registry = "ghcr.io/munkycdev",
     [string]$Environment = "cae-nornis",
     [string]$LogAnalytics = "log-nornis",
     [string]$ServiceBusRg = "rg-nornis",
@@ -69,10 +74,6 @@ $logKey = az monitor log-analytics workspace get-shared-keys -g $ResourceGroup -
 Write-Host "== Container Apps environment"
 az containerapp env create --name $Environment --resource-group $ResourceGroup `
     --location $Location --logs-workspace-id $logId --logs-workspace-key $logKey -o none
-
-Write-Host "== Container registry"
-az acr create --name $Acr --resource-group $ResourceGroup --sku Basic --admin-enabled false -o none
-$acrServer = az acr show -n $Acr --query loginServer -o tsv
 
 Write-Host "== Service Bus queues"
 # Both queues must exist before the worker starts: a missing queue throws
@@ -126,14 +127,12 @@ if (-not $appInsightsConn) {
     Write-Warning "Application Insights component '$AppInsights' not found in $ResourceGroup - apps will start with telemetry disabled."
 }
 
-# A user-assigned identity shared by the apps for AcrPull keeps registry creds out of config.
-Write-Host "== Managed identity for image pulls"
+# A user-assigned identity shared by the apps. It existed to pull from ACR; with the images
+# on GHCR it holds no role assignments, and stays because it is the identity the plan in
+# docs/plans/operational-hardening.md intends to hand Blob and Service Bus access to.
+Write-Host "== Managed identity"
 az identity create --name id-nornis-apps --resource-group $ResourceGroup -o none
 $identityId = az identity show -g $ResourceGroup -n id-nornis-apps --query id -o tsv
-$identityPrincipal = az identity show -g $ResourceGroup -n id-nornis-apps --query principalId -o tsv
-$acrId = az acr show -n $Acr --query id -o tsv
-az role assignment create --assignee-object-id $identityPrincipal `
-    --assignee-principal-type ServicePrincipal --role AcrPull --scope $acrId -o none
 
 # ASPNETCORE_ENVIRONMENT=Production, matching the live apps (verified 2026-07-27). The script
 # used to set Development, which would have silently downgraded a running deployment on the next
@@ -171,9 +170,8 @@ if ($appInsightsConn) {
 }
 
 az containerapp create --name ca-nornis-api --resource-group $ResourceGroup `
-    --environment $Environment --registry-server $acrServer --registry-identity $identityId `
-    --user-assigned $identityId `
-    --image "$acrServer/nornis-api:$ImageTag" --target-port 8080 --ingress external `
+    --environment $Environment --user-assigned $identityId `
+    --image "$Registry/nornis-api:$ImageTag" --target-port 8080 --ingress external `
     --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi `
     --secrets @apiSecrets `
     --env-vars @apiEnv -o none
@@ -201,9 +199,8 @@ if ($appInsightsConn) {
     $webEnv     += "APPLICATIONINSIGHTS_CONNECTION_STRING=secretref:appi-conn"
 }
 az containerapp create --name ca-nornis-web --resource-group $ResourceGroup `
-    --environment $Environment --registry-server $acrServer --registry-identity $identityId `
-    --user-assigned $identityId `
-    --image "$acrServer/nornis-web:$ImageTag" --target-port 8080 --ingress external `
+    --environment $Environment --user-assigned $identityId `
+    --image "$Registry/nornis-web:$ImageTag" --target-port 8080 --ingress external `
     --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi `
     --secrets @webSecrets `
     --env-vars @webEnv -o none
@@ -238,9 +235,8 @@ if ($appInsightsConn) {
 }
 
 az containerapp create --name ca-nornis-worker --resource-group $ResourceGroup `
-    --environment $Environment --registry-server $acrServer --registry-identity $identityId `
-    --user-assigned $identityId `
-    --image "$acrServer/nornis-worker:$ImageTag" `
+    --environment $Environment --user-assigned $identityId `
+    --image "$Registry/nornis-worker:$ImageTag" `
     --min-replicas 0 --max-replicas 1 --cpu 0.25 --memory 0.5Gi `
     --secrets @workerSecrets `
     --env-vars @workerEnv `
