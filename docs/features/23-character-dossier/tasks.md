@@ -151,7 +151,35 @@ Phase C, and what it changed:
 - [x] V1. Build, `dotnet format --verify-no-changes`, and `./scripts/coverage-gate.ps1` green
       through Phase C (2026-08-09). Application 1874, Api 516, Web 185, Domain 626,
       Infrastructure 309 pass; all four coverage floors met.
-- [ ] V2. Live-app check behind Auth0: dossier as GM and as a second Player in the same world,
-      confirming the sheet gate and the indistinguishability property with real data. **Not
-      run.** Both migrations are additive, so applying them does not open the destructive-change
-      health window.
+- [x] V2. Live-app check: dossier as GM and as a second Player in the same world, confirming
+      the sheet gate and the indistinguishability property with real data. **Run 2026-09-07**
+      against the production database through the dev-auth bypass, with a synthetic Player
+      (`dev|v2-player-check`) invited into Ruins of Symbaroum and Vespergale Reach and removed
+      afterwards. Both migrations applied beforehand; being additive, they did not open the
+      destructive-change health window and the deployed API stayed healthy.
+
+      What held: Fera's unshared sheet rendered for the GM and was absent for the Player, with
+      no sheet section at all and `sheetSharedWithParty` reported false. Ugma's shared sheet
+      rendered for the Player with no share toggle. A snapshot of a party-visible source
+      listed for both readers. Two GM-owned characters in Vespergale Reach, one linked to the
+      GM-only Castellan Maren Voss and one unlinked, rendered identical pages to the Player.
+
+      What the run found, not fixed here:
+
+      - **`character.artifactId` is on the dossier for every reader.** The two Vespergale
+        dossiers differed in exactly one field: the linked one carried the GM-only artifact's
+        id. The pages are indistinguishable; the JSON is not. The exposure predates this
+        feature — `CharacterResponse` has always carried `ArtifactId`, and the character list
+        serves it to every member — so the dossier inherited it. The Property 3 tests compare
+        `Record` and never the character envelope, which is the detection gap: an
+        indistinguishability test has to compare the whole response, not the part the author
+        was thinking about.
+      - **C7's "detach with confirmation" is a toast, not a confirmation.** Detach fires on
+        the first click and the toast says the source is kept. The rule is stated; it is just
+        stated after the fact.
+      - **Copy drift:** the share toggle reads "Share with the world" where the design says
+        party, and the unlinked-character message tells a non-owner to "link one from your
+        profile", which they cannot do.
+
+      Left behind: the synthetic user row (`v2player`), since there is no user-delete path;
+      and one consumed use on the Symbaroum Player invite link.
