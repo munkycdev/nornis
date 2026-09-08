@@ -7,7 +7,13 @@ using MudBlazor.Services;
 using Nornis.Web.ApiClient;
 using Nornis.Web.Authentication;
 using Nornis.Web.Components;
+using OpenTelemetry.Instrumentation.AspNetCore;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
+
+// Web owns no dependencies, so its liveness endpoint is a constant answer; the path is named
+// once because the mapping and the telemetry filter below both have to agree on it.
+const string healthPath = "/health";
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,7 +29,14 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNEC
             // static-file request, so it is the noisiest of the three.
             options.SamplingRatio = builder.Configuration.GetValue<float?>("Telemetry:SamplingRatio") ?? 0.10f;
             options.EnableTraceBasedLogsSampler = true;
-        });
+        })
+        // Same reasoning as the API: the HTTP client instruments fan out per connection and
+        // were the largest table in the workspace. Web's client is the typed one to the API.
+        .WithMetrics(metrics => metrics.AddView("http.client.*", MetricStreamConfiguration.Drop));
+
+    // The readiness probe's /health every ten seconds, dropped at the source — see the API.
+    builder.Services.Configure<AspNetCoreTraceInstrumentationOptions>(options =>
+        options.Filter = httpContext => !httpContext.Request.Path.StartsWithSegments(healthPath));
 }
 
 // Blazor Web App with interactive server rendering (per architecture decision).
@@ -214,7 +227,7 @@ app.UseAntiforgery();
 // Liveness only. Web is a UI shell over the API and owns no dependencies of its own, so
 // anything it could probe would be reporting on the API's behalf — which /status already
 // does, better. This exists so the platform has something to ping.
-app.MapGet("/health", () => Results.Json(new { status = "Healthy" })).AllowAnonymous();
+app.MapGet(healthPath, () => Results.Json(new { status = "Healthy" })).AllowAnonymous();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

@@ -29,6 +29,35 @@
 > `availabilityResult/name`, so each test is judged alone and the notification names which one
 > is down.
 
+> **Amendment (2026-09-07):** a cost pass over the subscription. The bill had settled at
+> about $31/month and two-thirds of it was fixed cost that did no work:
+>
+> - **Both availability tests now run from one location** (`us-ca-sjc-azr`), not two.
+>   Standard web test executions were the largest single line on the bill at $6.45/month;
+>   this halves it. The trade is that one failed ping trips `nornis-availability` with no
+>   second location to corroborate — acceptable for a system with one operator.
+> - **Log ingestion was a flat 180 MB/day regardless of traffic**, about 5.5 GB/month
+>   against a 5 GB free grant, and nearly all of it was the readiness probe: /health every
+>   ten seconds, each running three EF queries for the pending-migrations check, each query
+>   logged twice at Information (console line + App Insights trace, both outside the request
+>   sampler) and once more as a SQL dependency span. The HTTP client connection metrics
+>   added ~2 GB/month on top. Four changes in code: EF Core logs at Warning in production
+>   (API `appsettings.json`); the `http.client.*` instruments are dropped by a metrics view
+>   in all three hosts; /health is filtered out of request tracing in API and Web; and
+>   `PendingMigrationsHealthCheck` remembers an up-to-date schema for the process via
+>   `MigrationStateMemo`, so the database is asked until it says yes and never again.
+>   Expected volume afterwards is under 1 GB/month. The 0.5 GB daily cap and the ingestion
+>   spike alert stay as the backstop.
+> - **Images moved from ACR to GitHub Container Registry** (see `azure-hosting.md`).
+> - **The two gpt-5.4 deployments moved from DataZoneStandard to GlobalStandard.** Nothing
+>   in Nornis needs the data-zone residency guarantee, and Global is the cheaper meter.
+>
+> Not done, and why: web and api stay at one warm replica each (~$10/month idle). Scaling
+> to zero only pays if every ping test also goes — each ping wakes a replica for five
+> minutes at eight times the idle rate — and the cold start would land on the public demo
+> world and shared Ask links. SQL Basic is already the floor for a database that is probed
+> constantly, so serverless auto-pause would never engage.
+
 ## Observability Tool
 
 Use DataDog for logs, metrics, traces, and dashboards.

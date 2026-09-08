@@ -10,21 +10,29 @@ namespace Nornis.Infrastructure.Persistence;
 /// table. This turns that silent gap into a failing /health, which the readiness probe and
 /// the deploy poll both read — so the rollout stops instead of a user finding it.
 ///
-/// Nothing alerts on it between deploys: `nornis-availability` pings the Web app, not this.
+/// The database is asked only until it answers "up to date"; after that the answer comes from
+/// <see cref="MigrationStateMemo"/>, which explains why it is safe to stop asking.
 /// </summary>
 public class PendingMigrationsHealthCheck : IHealthCheck
 {
     private readonly NornisDbContext _context;
+    private readonly MigrationStateMemo _memo;
 
-    public PendingMigrationsHealthCheck(NornisDbContext context)
+    public PendingMigrationsHealthCheck(NornisDbContext context, MigrationStateMemo memo)
     {
         _context = context;
+        _memo = memo;
     }
 
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
+        if (_memo.UpToDate)
+        {
+            return HealthCheckResult.Healthy("Database schema is up to date.");
+        }
+
         // Test hosts run on non-relational providers with no concept of migrations.
         if (!_context.Database.IsRelational())
         {
@@ -33,9 +41,13 @@ public class PendingMigrationsHealthCheck : IHealthCheck
 
         var pending = (await _context.Database.GetPendingMigrationsAsync(cancellationToken)).ToList();
 
-        return pending.Count == 0
-            ? HealthCheckResult.Healthy("Database schema is up to date.")
-            : HealthCheckResult.Unhealthy(
+        if (pending.Count > 0)
+        {
+            return HealthCheckResult.Unhealthy(
                 $"Database is missing {pending.Count} migration(s): {string.Join(", ", pending)}");
+        }
+
+        _memo.MarkUpToDate();
+        return HealthCheckResult.Healthy("Database schema is up to date.");
     }
 }
