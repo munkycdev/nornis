@@ -11,6 +11,11 @@
 > rollout), not the five-file layout suggested below; there is one environment
 > (prod), deployed automatically from main.
 
+> **Amendment (2026-09-07):** "pushes images to ACR" above now reads GitHub Container
+> Registry. The build job logs into `ghcr.io` with `GITHUB_TOKEN` and needs no Azure
+> credential at all; only the rollout job authenticates to Azure. See `azure-hosting.md`
+> for why.
+
 ## Tooling
 
 Use GitHub Actions for CI/CD.

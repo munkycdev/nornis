@@ -2,7 +2,8 @@
 
 ## provision-azure.ps1
 
-Provisions the Azure environment (Container Apps, ACR, SQL, Service Bus). See
+Provisions the Azure environment (Container Apps, SQL, Service Bus; images come from
+GitHub Container Registry). See
 `.kiro/steering/azure-hosting.md` for the intended architecture and the deliberate
 amendments made during provisioning.
 
