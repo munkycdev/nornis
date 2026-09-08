@@ -25,6 +25,7 @@ using Nornis.Infrastructure.Persistence;
 using Nornis.Infrastructure.Persistence.Repositories;
 using Nornis.Infrastructure.Storage;
 using Nornis.Infrastructure.Telemetry;
+using OpenTelemetry.Instrumentation.AspNetCore;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 
@@ -50,7 +51,23 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNEC
             options.SamplingRatio = builder.Configuration.GetValue<float?>("Telemetry:SamplingRatio") ?? 0.10f;
             options.EnableTraceBasedLogsSampler = true;
         })
-        .WithMetrics(metrics => metrics.AddMeter(AiUsageMetrics.MeterName));
+        .WithMetrics(metrics => metrics
+            .AddMeter(AiUsageMetrics.MeterName)
+            // The distro's HTTP client instruments (open connections, active requests, queue
+            // time, connection duration) carry the peer address and port as dimensions, so a
+            // connection pool fans each one out into a row per connection per export — the
+            // largest table in the workspace, at ~2 GB a month across the hosts, describing
+            // nothing anyone has looked at. Server-side request duration is kept; it is the
+            // one the dashboards read. Wildcard views match on the instrument name.
+            .AddView("http.client.*", MetricStreamConfiguration.Drop));
+
+    // The readiness probe hits /health every ten seconds. Sampling already thins those
+    // requests, but a tenth of 8,600 a day is still the largest request name in the table
+    // by an order of magnitude, and the answer it records — 200, every time — is one the
+    // probe itself acts on. Drop the span at the source. Failures are still visible: the
+    // deploy gate reads the response, and the probe going red restarts the replica.
+    builder.Services.Configure<AspNetCoreTraceInstrumentationOptions>(options =>
+        options.Filter = httpContext => !httpContext.Request.Path.StartsWithSegments(StatusEndpoint.HealthPath));
 }
 
 // Authentication and authorization (Auth0 JWT with FallbackPolicy = RequireAuthenticatedUser)
@@ -122,6 +139,9 @@ if (builder.Environment.IsDevelopment())
 //
 // (Endpoint, page and nav all say "status". In Nornis vocabulary "health" already means a
 // world's continuity health — see HealthController — and the product keeps that word.)
+// The memo is the one piece of state the liveness family holds: see MigrationStateMemo for
+// why an up-to-date schema is remembered for the process and a pending one never is.
+builder.Services.AddSingleton<MigrationStateMemo>();
 var healthChecks = builder.Services.AddHealthChecks()
     .AddCheck<PendingMigrationsHealthCheck>("pending-migrations", tags: [StatusEndpoint.LivenessTag])
     .AddCheck<WorkerHeartbeatHealthCheck>("worker-heartbeat", failureStatus: null,
@@ -531,7 +551,7 @@ app.MapControllers();
 
 // Unchanged in meaning, now explicit about it: the predicate pins /health to the liveness
 // family, so adding a dependency probe below can never widen what /health reports on.
-app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+app.MapHealthChecks(StatusEndpoint.HealthPath, new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
     AllowCachingResponses = false,
     Predicate = registration => registration.Tags.Contains(StatusEndpoint.LivenessTag),

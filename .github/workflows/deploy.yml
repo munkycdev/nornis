@@ -14,7 +14,11 @@ permissions:
   contents: read
 
 env:
-  ACR: acrnornis
+  # GitHub Container Registry, not ACR (since 2026-09-07). The repo is public, so its
+  # packages are public and the container apps pull them anonymously; GHCR hosts them for
+  # nothing where ACR Basic was a sixth of the Azure bill. The build job needs no Azure
+  # login at all now — only the rollout talks to Azure.
+  GHCR: ghcr.io/${{ github.repository_owner }}
   RESOURCE_GROUP: rg-nornis
 
 jobs:
@@ -74,18 +78,18 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # push to GHCR
     steps:
       - uses: actions/checkout@v7
 
-      - name: Azure login (OIDC)
-        uses: azure/login@v3
+      - name: GHCR login
+        uses: docker/login-action@v3
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: ACR login
-        run: az acr login --name "$ACR"
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/setup-buildx-action@v4
 
@@ -97,8 +101,8 @@ jobs:
           for svc in api web worker; do
             docker buildx build \
               --target "$svc" \
-              --tag "$ACR.azurecr.io/nornis-$svc:${{ github.sha }}" \
-              --tag "$ACR.azurecr.io/nornis-$svc:main-latest" \
+              --tag "$GHCR/nornis-$svc:${{ github.sha }}" \
+              --tag "$GHCR/nornis-$svc:main-latest" \
               --build-arg IMAGE_SOURCE="${{ github.server_url }}/${{ github.repository }}" \
               --build-arg IMAGE_REVISION="${{ github.sha }}" \
               --build-arg BUILD_NUMBER="${{ github.run_number }}" \
@@ -130,7 +134,7 @@ jobs:
             az containerapp update \
               --name "ca-nornis-$svc" \
               --resource-group "$RESOURCE_GROUP" \
-              --image "$ACR.azurecr.io/nornis-$svc:${{ github.sha }}" \
+              --image "$GHCR/nornis-$svc:${{ github.sha }}" \
               -o none &
             pids+=($!)
           done

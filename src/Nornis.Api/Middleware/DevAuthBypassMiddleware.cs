@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Nornis.Api.Extensions;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Repositories;
 
@@ -35,7 +36,7 @@ public class DevAuthBypassMiddleware
     {
         // Skip for the health endpoint and the public read-only API — the latter must
         // stay genuinely anonymous locally or the public path can't be exercised in dev.
-        if (context.Request.Path.StartsWithSegments("/health")
+        if (context.Request.Path.StartsWithSegments(StatusEndpoint.HealthPath)
             || context.Request.Path.StartsWithSegments("/api/public"))
         {
             await _next(context);

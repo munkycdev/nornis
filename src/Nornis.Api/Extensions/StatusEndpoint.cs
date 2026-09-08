@@ -11,6 +11,14 @@ public static class StatusEndpoint
 {
     public const string CorsPolicyName = "status-dashboard";
 
+    /// <summary>
+    /// Where /health lives. Three things agree on it — the endpoint mapping, the dev-auth
+    /// bypass that must let the probe through, and the telemetry filter that keeps the probe
+    /// out of the request table — and none of them can be told by a compiler that the others
+    /// moved. Not the path of /status, which has only the one caller.
+    /// </summary>
+    public const string HealthPath = "/health";
+
     /// <summary>Tag marking a check as a dependency probe, so it lands on /status and never on /health.</summary>
     public const string DependencyTag = "deps";
 

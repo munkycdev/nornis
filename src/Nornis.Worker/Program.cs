@@ -45,7 +45,13 @@ var builder = Host.CreateDefaultBuilder(args)
                     options.SamplingRatio = configuration.GetValue<float?>("Telemetry:SamplingRatio") ?? 1.0f;
                     options.EnableTraceBasedLogsSampler = true;
                 })
-                .WithMetrics(metrics => metrics.AddMeter(AiUsageMetrics.MeterName));
+                .WithMetrics(metrics => metrics
+                    .AddMeter(AiUsageMetrics.MeterName)
+                    // See the note in Nornis.Api/Program.cs: the HTTP client instruments are
+                    // dropped in every host, and the worker is no exception even though it
+                    // scales to zero — the same connection-pool dimensions would fan out here
+                    // the moment an extraction ran.
+                    .AddView("http.client.*", MetricStreamConfiguration.Drop));
         }
 
         // The worker hosts two independent queue processors. A fault in one — most plausibly a
