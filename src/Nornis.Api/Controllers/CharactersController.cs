@@ -47,17 +47,19 @@ public class CharactersController : ControllerBase
         }
 
         var character = result.Value!;
-        return CreatedAtAction(nameof(GetById), new { worldId, characterId = character.Id }, ToCharacterResponse(character));
+        return CreatedAtAction(nameof(GetById), new { worldId, characterId = character.Id }, await ToCharacterResponseAsync(character, ct));
     }
 
     [HttpGet]
     public async Task<IActionResult> List(Guid worldId, [FromQuery] bool mine, CancellationToken ct)
     {
-        var result = await _characterService.ListByWorldAsync(worldId, ct);
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _characterService.ListByWorldAsync(worldId, user.Id, member.Role, ct);
 
         if (result.IsSuccess && mine)
         {
-            var member = HttpContext.GetWorldMember();
             return Ok(result.Value!
                 .Where(c => c.WorldMemberId == member.Id)
                 .Select(ToCharacterResponse)
@@ -75,7 +77,10 @@ public class CharactersController : ControllerBase
     [HttpGet("{characterId:guid}")]
     public async Task<IActionResult> GetById(Guid worldId, Guid characterId, CancellationToken ct)
     {
-        var result = await _characterService.GetByIdAsync(characterId, worldId, ct);
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _characterService.GetByIdAsync(characterId, worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -112,7 +117,7 @@ public class CharactersController : ControllerBase
             return result.Error!.ToActionResult();
         }
 
-        return Ok(ToCharacterResponse(result.Value!));
+        return Ok(await ToCharacterResponseAsync(result.Value!, ct));
     }
 
     /// <summary>Transfers ownership of the character to the calling member.</summary>
@@ -129,7 +134,7 @@ public class CharactersController : ControllerBase
             return result.Error!.ToActionResult();
         }
 
-        return Ok(ToCharacterResponse(result.Value!));
+        return Ok(await ToCharacterResponseAsync(result.Value!, ct));
     }
 
     [HttpDelete("{characterId:guid}")]
@@ -252,7 +257,7 @@ public class CharactersController : ControllerBase
             return result.Error!.ToActionResult();
         }
 
-        return Ok(ToCharacterResponse(result.Value!));
+        return Ok(await ToCharacterResponseAsync(result.Value!, ct));
     }
 
     [HttpPut("{characterId:guid}/sheet/sharing")]
@@ -273,10 +278,24 @@ public class CharactersController : ControllerBase
             return result.Error!.ToActionResult();
         }
 
-        return Ok(ToCharacterResponse(result.Value!));
+        return Ok(await ToCharacterResponseAsync(result.Value!, ct));
     }
 
-    internal static CharacterResponse ToCharacterResponse(Character character)
+    /// <summary>
+    /// A mutation's result leaves through the same reader projection as every read, so the
+    /// actor is told no more about the character they just changed than a fresh GET would
+    /// tell them. There is no entity-to-response mapping in this controller on purpose.
+    /// </summary>
+    private async Task<CharacterResponse> ToCharacterResponseAsync(Character character, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var views = await _characterService.ProjectForReaderAsync([character], character.WorldId, user.Id, member.Role, ct);
+        return ToCharacterResponse(views[0]);
+    }
+
+    internal static CharacterResponse ToCharacterResponse(CharacterView character)
     {
         return new CharacterResponse(
             Id: character.Id,
@@ -285,7 +304,7 @@ public class CharactersController : ControllerBase
             Name: character.Name,
             Description: character.Description,
             ArtifactId: character.ArtifactId,
-            CampaignIds: character.CampaignCharacters.Select(cc => cc.CampaignId).ToList(),
+            CampaignIds: character.CampaignIds,
             SheetUpdatedAt: character.SheetUpdatedAt,
             CreatedAt: character.CreatedAt,
             UpdatedAt: character.UpdatedAt);

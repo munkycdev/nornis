@@ -23,7 +23,7 @@ namespace Nornis.Application.Models;
 /// has no business knowing whether one exists to share.
 /// </param>
 public record CharacterDossier(
-    Character Character,
+    CharacterView Character,
     string OwnerDisplayName,
     IReadOnlyList<string> CampaignNames,
     CharacterRecord? Record,

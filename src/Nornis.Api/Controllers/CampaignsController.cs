@@ -89,7 +89,11 @@ public class CampaignsController : ControllerBase
     /// their visibility, so a player's copy simply holds less.
     /// </summary>
     [HttpGet("{campaignId:guid}/detail")]
-    public async Task<IActionResult> GetDetail(Guid worldId, Guid campaignId, CancellationToken ct)
+    public async Task<IActionResult> GetDetail(
+        Guid worldId,
+        Guid campaignId,
+        [FromServices] ICharacterService characterService,
+        CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
@@ -102,10 +106,11 @@ public class CampaignsController : ControllerBase
         }
 
         var detail = result.Value!;
+        var characters = await characterService.ProjectForReaderAsync(detail.Characters, worldId, user.Id, member.Role, ct);
 
         return Ok(new CampaignDetailResponse(
             Campaign: ToCampaignResponse(detail.Campaign),
-            Characters: detail.Characters.Select(CharactersController.ToCharacterResponse).ToList(),
+            Characters: characters.Select(CharactersController.ToCharacterResponse).ToList(),
             Artifacts: detail.Rollup.Artifacts
                 .Select(a => new CampaignArtifactResponse(
                     a.ArtifactId, a.Name, a.Type.ToString(), a.Summary, a.Status.ToString(), a.SourceCount))
@@ -255,14 +260,17 @@ public class CampaignsController : ControllerBase
             return campaignResult.Error!.ToActionResult();
         }
 
-        var result = await characterService.ListByWorldAsync(worldId, ct);
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await characterService.ListByWorldAsync(worldId, user.Id, member.Role, ct);
         if (!result.IsSuccess)
         {
             return result.Error!.ToActionResult();
         }
 
         var assigned = result.Value!
-            .Where(c => c.CampaignCharacters.Any(cc => cc.CampaignId == campaignId))
+            .Where(c => c.CampaignIds.Contains(campaignId))
             .Select(CharactersController.ToCharacterResponse)
             .ToList();
 
@@ -274,6 +282,7 @@ public class CampaignsController : ControllerBase
         Guid worldId,
         Guid campaignId,
         [FromBody] AssignCampaignCharactersRequest request,
+        [FromServices] ICharacterService characterService,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
@@ -293,7 +302,8 @@ public class CampaignsController : ControllerBase
             return result.Error!.ToActionResult();
         }
 
-        return Ok(result.Value!.Select(CharactersController.ToCharacterResponse).ToList());
+        var assigned = await characterService.ProjectForReaderAsync(result.Value!, worldId, user.Id, member.Role, ct);
+        return Ok(assigned.Select(CharactersController.ToCharacterResponse).ToList());
     }
 
     private static CampaignRecapResponse ToRecapResponse(CampaignRecapView view) =>

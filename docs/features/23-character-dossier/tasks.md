@@ -164,16 +164,26 @@ Phase C, and what it changed:
       listed for both readers. Two GM-owned characters in Vespergale Reach, one linked to the
       GM-only Castellan Maren Voss and one unlinked, rendered identical pages to the Player.
 
-      What the run found, not fixed here:
+      What the run found:
 
-      - **`character.artifactId` is on the dossier for every reader.** The two Vespergale
-        dossiers differed in exactly one field: the linked one carried the GM-only artifact's
-        id. The pages are indistinguishable; the JSON is not. The exposure predates this
-        feature — `CharacterResponse` has always carried `ArtifactId`, and the character list
-        serves it to every member — so the dossier inherited it. The Property 3 tests compare
-        `Record` and never the character envelope, which is the detection gap: an
-        indistinguishability test has to compare the whole response, not the part the author
-        was thinking about.
+      - **`character.artifactId` was on the dossier for every reader — fixed 2026-09-08.** The
+        two Vespergale dossiers differed in exactly one field: the linked one carried the
+        GM-only artifact's id. The pages were indistinguishable; the JSON was not. The exposure
+        predated this feature — `CharacterResponse` had always carried `ArtifactId`, and the
+        character list served it to every member — so the dossier inherited it. The Property 3
+        test compared `Record` and never the character envelope, which was the detection gap.
+
+        The fix: characters now leave the Application layer as `CharacterView`, projected for
+        the reader by `CharacterService.ProjectForReaderAsync`. `ArtifactId` is null unless the
+        reader's own `VisibilityFilter` admits the artifact (a dangling id fails closed to
+        unlinked, GM included); `SheetUpdatedAt` is null unless the reader passes the sheet's
+        read gate, since a timestamp on a sheet you cannot open tells you one exists to share.
+        Every character response — list, single read, dossier envelope, campaign detail and
+        assignment, and every mutation's echo — goes through the one projection; the controller
+        has no entity-to-response mapping left. The Property 3 test now serializes and compares
+        the whole dossier with only identity fields normalized, so the next field added to it is
+        covered without anyone remembering to add it. Sabotage (serve the raw id) failed four
+        service tests and the new wire-level API test.
       - **C7's "detach with confirmation" is a toast, not a confirmation.** Detach fires on
         the first click and the toast says the source is kept. The rule is stated; it is just
         stated after the fact.

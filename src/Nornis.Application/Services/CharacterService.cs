@@ -3,6 +3,7 @@ using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -100,16 +101,22 @@ public class CharacterService : ICharacterService
         return AppResult<Character>.Success(character);
     }
 
-    public async Task<AppResult<Character>> GetByIdAsync(Guid characterId, Guid worldId, CancellationToken ct)
+    public async Task<AppResult<CharacterView>> GetByIdAsync(
+        Guid characterId,
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole role,
+        CancellationToken ct)
     {
         var character = await _characterRepository.GetByIdAsync(characterId, ct);
 
         if (character is null || character.WorldId != worldId)
         {
-            return AppResult<Character>.Fail(new AppError(404, "not_found", "Character not found."));
+            return AppResult<CharacterView>.Fail(new AppError(404, "not_found", "Character not found."));
         }
 
-        return AppResult<Character>.Success(character);
+        var views = await ProjectForReaderAsync([character], worldId, actingUserId, role, ct);
+        return AppResult<CharacterView>.Success(views[0]);
     }
 
     public async Task<AppResult<CharacterDossier>> GetDossierAsync(
@@ -140,12 +147,21 @@ public class CharacterService : ICharacterService
         var record = await ResolveRecordAsync(character, worldId, actingUserId, role, ct);
 
         var actingMember = members.FirstOrDefault(m => m.UserId == actingUserId);
-        var isOwner = actingMember is not null && actingMember.Id == character.WorldMemberId;
+        var isOwner = IsOwner(character, actingMember);
         var canEditSheet = isOwner || role == WorldRole.GM;
-        var canReadSheet = canEditSheet || character.SheetSharedWithParty;
+        var canReadSheet = CanReadSheet(character, actingMember, role);
+
+        // The envelope goes through the same projection as the list, so the two paths cannot
+        // drift in what they disclose. Visible-artifact resolution is the one query the
+        // projection needs; here it is the record already resolved above.
+        var view = ToView(
+            character,
+            actingMember,
+            role,
+            artifactVisible: record is not null);
 
         var dossier = new CharacterDossier(
-            Character: character,
+            Character: view,
             OwnerDisplayName: owner is null ? "Unassigned" : MemberDisplayName.For(owner),
             CampaignNames: campaignNames,
             Record: record,
@@ -419,10 +435,15 @@ public class CharacterService : ICharacterService
         return AppResult<Character>.Success(character);
     }
 
-    public async Task<AppResult<IReadOnlyList<Character>>> ListByWorldAsync(Guid worldId, CancellationToken ct)
+    public async Task<AppResult<IReadOnlyList<CharacterView>>> ListByWorldAsync(
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole role,
+        CancellationToken ct)
     {
         var characters = await _characterRepository.ListByWorldAsync(worldId, ct);
-        return AppResult<IReadOnlyList<Character>>.Success(characters);
+        var views = await ProjectForReaderAsync(characters, worldId, actingUserId, role, ct);
+        return AppResult<IReadOnlyList<CharacterView>>.Success(views);
     }
 
     public async Task<AppResult<Character>> UpdateAsync(UpdateCharacterCommand command, CancellationToken ct)
@@ -538,6 +559,71 @@ public class CharacterService : ICharacterService
 
         return AppResult.Success();
     }
+
+    public async Task<IReadOnlyList<CharacterView>> ProjectForReaderAsync(
+        IReadOnlyList<Character> characters,
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole role,
+        CancellationToken ct)
+    {
+        if (characters.Count == 0)
+        {
+            return [];
+        }
+
+        var actingMember = await _worldMemberRepository.GetByWorldAndUserAsync(worldId, actingUserId, ct);
+
+        // One batch lookup for every linked artifact, then the reader's own filter over it —
+        // the same VisibilityFilter the artifact queries apply in SQL, applied here in memory
+        // to a handful of rows. An id that resolves to nothing (deleted, or somehow in another
+        // world) is treated as invisible, which fails closed to "unlinked".
+        var linkedIds = characters
+            .Where(c => c.ArtifactId is not null)
+            .Select(c => c.ArtifactId!.Value)
+            .Distinct()
+            .ToList();
+
+        var filter = VisibilityFilter.ForRole(role, actingUserId);
+        var visibleArtifactIds = linkedIds.Count == 0
+            ? new HashSet<Guid>()
+            : (await _artifactRepository.ListByIdsAsync(linkedIds, ct))
+                .Where(a => a.WorldId == worldId && filter.CanSee(a.Visibility, a.CreatedByUserId))
+                .Select(a => a.Id)
+                .ToHashSet();
+
+        return characters
+            .Select(c => ToView(
+                c,
+                actingMember,
+                role,
+                artifactVisible: c.ArtifactId is { } id && visibleArtifactIds.Contains(id)))
+            .ToList();
+    }
+
+    private static CharacterView ToView(Character character, WorldMember? actingMember, WorldRole role, bool artifactVisible) =>
+        new(
+            Id: character.Id,
+            WorldId: character.WorldId,
+            WorldMemberId: character.WorldMemberId,
+            Name: character.Name,
+            Description: character.Description,
+            ArtifactId: artifactVisible ? character.ArtifactId : null,
+            CampaignIds: character.CampaignCharacters.Select(cc => cc.CampaignId).ToList(),
+            SheetUpdatedAt: CanReadSheet(character, actingMember, role) ? character.SheetUpdatedAt : null,
+            CreatedAt: character.CreatedAt,
+            UpdatedAt: character.UpdatedAt);
+
+    private static bool IsOwner(Character character, WorldMember? actingMember) =>
+        actingMember is not null && actingMember.Id == character.WorldMemberId;
+
+    /// <summary>
+    /// The sheet's read gate: its owner, the GM, and the party once the owner has shared it.
+    /// Everything that says anything about the sheet — its text, its timestamp, whether it
+    /// is shared — is gated by this one rule, so there is one place for it to be wrong.
+    /// </summary>
+    private static bool CanReadSheet(Character character, WorldMember? actingMember, WorldRole role) =>
+        role == WorldRole.GM || IsOwner(character, actingMember) || character.SheetSharedWithParty;
 
     /// <summary>
     /// A member may manage their own characters; GMs may manage any character in the world.

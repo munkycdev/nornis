@@ -9,9 +9,34 @@ public interface ICharacterService
 {
     Task<AppResult<Character>> CreateAsync(CreateCharacterCommand command, CancellationToken ct);
 
-    Task<AppResult<Character>> GetByIdAsync(Guid characterId, Guid worldId, CancellationToken ct);
+    /// <summary>The character as <paramref name="actingUserId"/> may be told about it — see <see cref="CharacterView"/>.</summary>
+    Task<AppResult<CharacterView>> GetByIdAsync(
+        Guid characterId,
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole role,
+        CancellationToken ct);
 
-    Task<AppResult<IReadOnlyList<Character>>> ListByWorldAsync(Guid worldId, CancellationToken ct);
+    /// <summary>Every character in the world, each as <paramref name="actingUserId"/> may be told about it.</summary>
+    Task<AppResult<IReadOnlyList<CharacterView>>> ListByWorldAsync(
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole role,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Reduces characters to what <paramref name="actingUserId"/> may be told about them. The
+    /// read paths above already apply this; it is public so a mutation's result — the entity
+    /// the caller just changed — leaves through the same gate before it is shown to anyone,
+    /// including the actor. Claiming a character does not widen what its new owner may see
+    /// of the artifact behind it.
+    /// </summary>
+    Task<IReadOnlyList<CharacterView>> ProjectForReaderAsync(
+        IReadOnlyList<Character> characters,
+        Guid worldId,
+        Guid actingUserId,
+        WorldRole role,
+        CancellationToken ct);
 
     /// <summary>
     /// The character as a place to go: its owner, its campaigns, and the linked artifact's

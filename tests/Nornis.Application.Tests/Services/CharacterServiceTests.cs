@@ -1,4 +1,5 @@
-﻿using Nornis.Application.Models;
+﻿using Nornis.Application.Errors;
+using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -569,6 +570,13 @@ public class CharacterServiceTests
     /// <summary>
     /// Property 3. A link the reader may not follow must be indistinguishable from no link at
     /// all, or the page announces that a GM-only artifact exists bearing this character's name.
+    ///
+    /// Compared as the <em>whole</em> dossier, serialized, with only the identity fields that
+    /// legitimately differ (id, name, timestamps) made equal first. An earlier version of this
+    /// test compared <c>Record</c> alone and passed for a month while the character envelope
+    /// carried the hidden artifact's id — the pages were indistinguishable and the JSON was
+    /// not. Whatever field is added to the dossier next is covered by this test without anyone
+    /// remembering to add it.
     /// </summary>
     [Test]
     [Category("Authorization")]
@@ -580,16 +588,130 @@ public class CharacterServiceTests
         var unlinked = SeedCharacter(_player, "Jorin");
 
         var linkedResult = await _sut.GetDossierAsync(
-            linked.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+            linked.Id, WorldId, _otherPlayer.UserId, WorldRole.Player, CancellationToken.None);
         var unlinkedResult = await _sut.GetDossierAsync(
-            unlinked.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+            unlinked.Id, WorldId, _otherPlayer.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(linkedResult.IsSuccess, Is.True);
+        Assert.That(unlinkedResult.IsSuccess, Is.True);
+
+        var target = unlinkedResult.Value!;
+        var normalized = linkedResult.Value! with
+        {
+            Character = linkedResult.Value!.Character with
+            {
+                Id = target.Character.Id,
+                Name = target.Character.Name,
+                CreatedAt = target.Character.CreatedAt,
+                UpdatedAt = target.Character.UpdatedAt
+            }
+        };
+
+        Assert.That(
+            System.Text.Json.JsonSerializer.Serialize(normalized),
+            Is.EqualTo(System.Text.Json.JsonSerializer.Serialize(target)));
+    }
+
+    /// <summary>
+    /// The same property on the plainer read paths. The list and the single read predate the
+    /// dossier and served the entity's <c>ArtifactId</c> to every member; the dossier inherited
+    /// the leak from them, so the fix has to hold here or it holds nowhere.
+    /// </summary>
+    [Test]
+    [Category("Authorization")]
+    public async Task ListByWorldAsync_HiddenLink_ReadsAsUnlinked_ExceptToTheGm()
+    {
+        var hidden = SeedArtifact(visibility: VisibilityScope.GMOnly);
+        var shown = SeedArtifact(visibility: VisibilityScope.PartyVisible);
+        var secret = SeedLinkedCharacter(_player, hidden, "Tavrin");
+        var open = SeedLinkedCharacter(_player, shown, "Jorin");
+
+        var asOwner = await _sut.ListByWorldAsync(WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+        var asOther = await _sut.ListByWorldAsync(WorldId, _otherPlayer.UserId, WorldRole.Player, CancellationToken.None);
+        var asObserver = await _sut.ListByWorldAsync(WorldId, _observer.UserId, WorldRole.Observer, CancellationToken.None);
+        var asGm = await _sut.ListByWorldAsync(WorldId, _gm.UserId, WorldRole.GM, CancellationToken.None);
+
+        Guid? LinkOf(AppResult<IReadOnlyList<CharacterView>> result, Guid characterId) =>
+            result.Value!.Single(c => c.Id == characterId).ArtifactId;
 
         Assert.Multiple(() =>
         {
-            Assert.That(linkedResult.IsSuccess, Is.True);
-            Assert.That(unlinkedResult.IsSuccess, Is.True);
-            Assert.That(linkedResult.Value!.Record, Is.Null);
-            Assert.That(unlinkedResult.Value!.Record, Is.Null);
+            // Property 2 again: owning the character does not widen what its owner may see.
+            Assert.That(LinkOf(asOwner, secret.Id), Is.Null);
+            Assert.That(LinkOf(asOther, secret.Id), Is.Null);
+            Assert.That(LinkOf(asObserver, secret.Id), Is.Null);
+            Assert.That(LinkOf(asGm, secret.Id), Is.EqualTo(hidden.Id));
+
+            Assert.That(LinkOf(asOwner, open.Id), Is.EqualTo(shown.Id));
+            Assert.That(LinkOf(asObserver, open.Id), Is.EqualTo(shown.Id));
+        });
+    }
+
+    [Test]
+    [Category("Authorization")]
+    public async Task GetByIdAsync_HiddenLink_ReadsAsUnlinked()
+    {
+        var hidden = SeedArtifact(visibility: VisibilityScope.GMOnly);
+        var character = SeedLinkedCharacter(_player, hidden);
+
+        var asPlayer = await _sut.GetByIdAsync(character.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+        var asGm = await _sut.GetByIdAsync(character.Id, WorldId, _gm.UserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(asPlayer.Value!.ArtifactId, Is.Null);
+            Assert.That(asGm.Value!.ArtifactId, Is.EqualTo(hidden.Id));
+        });
+    }
+
+    /// <summary>
+    /// A link to an artifact that no longer resolves fails closed to "unlinked" for everyone,
+    /// GM included — the same answer the dossier's record gives for it.
+    /// </summary>
+    [Test]
+    public async Task GetByIdAsync_DanglingLink_ReadsAsUnlinked()
+    {
+        var character = SeedCharacter(_player);
+        character.ArtifactId = Guid.NewGuid();
+
+        var asGm = await _sut.GetByIdAsync(character.Id, WorldId, _gm.UserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(asGm.Value!.ArtifactId, Is.Null);
+    }
+
+    /// <summary>
+    /// The sheet's timestamp obeys the sheet's read gate. A reader who may not open the sheet
+    /// must not learn from its timestamp that one exists to be shared — the disclosure
+    /// <c>SheetSharedWithParty</c> already declines to make.
+    /// </summary>
+    [Test]
+    [Category("Authorization")]
+    public async Task ListByWorldAsync_SheetTimestamp_FollowsTheSheetReadGate()
+    {
+        var character = await SeedSheet(_player, "AC 16");
+        character.SheetUpdatedAt = DateTimeOffset.UtcNow;
+        await _characterRepository.UpdateAsync(character, CancellationToken.None);
+
+        DateTimeOffset? StampFor(AppResult<IReadOnlyList<CharacterView>> result) =>
+            result.Value!.Single(c => c.Id == character.Id).SheetUpdatedAt;
+
+        var unsharedOwner = StampFor(await _sut.ListByWorldAsync(WorldId, _player.UserId, WorldRole.Player, CancellationToken.None));
+        var unsharedGm = StampFor(await _sut.ListByWorldAsync(WorldId, _gm.UserId, WorldRole.GM, CancellationToken.None));
+        var unsharedOther = StampFor(await _sut.ListByWorldAsync(WorldId, _otherPlayer.UserId, WorldRole.Player, CancellationToken.None));
+        var unsharedObserver = StampFor(await _sut.ListByWorldAsync(WorldId, _observer.UserId, WorldRole.Observer, CancellationToken.None));
+
+        character.SheetSharedWithParty = true;
+        await _characterRepository.UpdateAsync(character, CancellationToken.None);
+
+        var sharedOther = StampFor(await _sut.ListByWorldAsync(WorldId, _otherPlayer.UserId, WorldRole.Player, CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(unsharedOwner, Is.Not.Null);
+            Assert.That(unsharedGm, Is.Not.Null);
+            Assert.That(unsharedOther, Is.Null);
+            Assert.That(unsharedObserver, Is.Null);
+            Assert.That(sharedOther, Is.Not.Null);
         });
     }
 
