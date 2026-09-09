@@ -14,7 +14,14 @@ public record CharacterDossierResponse(
     bool SheetSharedWithParty,
     bool CanEditSheet,
     bool CanShareSheet,
-    IReadOnlyList<CharacterSnapshotResponse> Snapshots);
+    IReadOnlyList<CharacterSnapshotResponse> Snapshots,
+    IReadOnlyList<UnreconciledItemResponse> UnreconciledItems);
+
+/// <summary>An item the visible record connects to the character that the readable sheet never names.</summary>
+public record UnreconciledItemResponse(
+    Guid ArtifactId,
+    string Name,
+    string Type);
 
 public record CharacterSnapshotResponse(
     Guid Id,

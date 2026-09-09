@@ -191,7 +191,11 @@ public class CharactersController : ControllerBase
                 SourceId: s.SourceId,
                 SourceTitle: s.SourceTitle,
                 AsOf: s.AsOf,
-                Note: s.Note)).ToList()));
+                Note: s.Note)).ToList(),
+            UnreconciledItems: dossier.UnreconciledItems.Select(u => new UnreconciledItemResponse(
+                ArtifactId: u.ArtifactId,
+                Name: u.Name,
+                Type: u.Type.ToString())).ToList()));
     }
 
     [HttpPost("{characterId:guid}/snapshots")]

@@ -130,6 +130,32 @@
                             Updated @RelativeTime.Ago(updated)
                         </MudText>
                     }
+
+                    @* An observation, with nothing to click but the items themselves. The
+                       server compared names as plain text and nothing more, so the copy
+                       promises nothing more: the thing may well be on the paper under another
+                       name, and this page will never edit the sheet to say otherwise. *@
+                    var unreconciled = _dossier.UnreconciledItems ?? [];
+                    @if (unreconciled.Count > 0)
+                    {
+                        <MudDivider Class="my-3" />
+                        <div class="d-flex align-center gap-2 mb-1">
+                            <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Size="Size.Small" Color="Color.Secondary" />
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                The record connects @(unreconciled.Count == 1 ? "an item" : $"{unreconciled.Count} items")
+                                to this character that the sheet doesn't mention — perhaps written under another name,
+                                perhaps not written down yet.
+                            </MudText>
+                        </div>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var item in unreconciled)
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                         Icon="@ArtifactTypeDisplay.Icon(item.Type)"
+                                         Href="@($"/artifacts/{item.ArtifactId}")">@item.Name</MudChip>
+                            }
+                        </div>
+                    }
                 }
             </MudPaper>
         }
