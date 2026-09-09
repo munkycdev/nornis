@@ -1,3 +1,4 @@
+using Azure.Messaging.ServiceBus;
 using Nornis.Infrastructure.Messaging;
 using NUnit.Framework;
 
@@ -13,12 +14,14 @@ public class ServiceBusExtractionProcessorTests
 
     private const string QueueName = "source-extraction";
 
+    private static ServiceBusClient Client() => new(ValidConnectionString);
+
     [Test]
-    public void Constructor_ThrowsArgumentException_WhenConnectionStringIsNull()
+    public void Constructor_ThrowsArgumentNullException_WhenClientIsNull()
     {
         Assert.That(
             () => new ServiceBusExtractionProcessor(
-                connectionString: null!,
+                client: null!,
                 queueName: QueueName,
                 maxConcurrentCalls: 1,
                 prefetchCount: 0,
@@ -27,37 +30,11 @@ public class ServiceBusExtractionProcessorTests
     }
 
     [Test]
-    public void Constructor_ThrowsArgumentException_WhenConnectionStringIsEmpty()
-    {
-        Assert.That(
-            () => new ServiceBusExtractionProcessor(
-                connectionString: string.Empty,
-                queueName: QueueName,
-                maxConcurrentCalls: 1,
-                prefetchCount: 0,
-                maxAutoLockRenewalDuration: TimeSpan.FromMinutes(5)),
-            Throws.TypeOf<ArgumentException>());
-    }
-
-    [Test]
-    public void Constructor_ThrowsArgumentException_WhenConnectionStringIsWhitespace()
-    {
-        Assert.That(
-            () => new ServiceBusExtractionProcessor(
-                connectionString: "   ",
-                queueName: QueueName,
-                maxConcurrentCalls: 1,
-                prefetchCount: 0,
-                maxAutoLockRenewalDuration: TimeSpan.FromMinutes(5)),
-            Throws.TypeOf<ArgumentException>());
-    }
-
-    [Test]
     public void Constructor_ThrowsArgumentException_WhenQueueNameIsNull()
     {
         Assert.That(
             () => new ServiceBusExtractionProcessor(
-                connectionString: ValidConnectionString,
+                client: Client(),
                 queueName: null!,
                 maxConcurrentCalls: 1,
                 prefetchCount: 0,
@@ -70,8 +47,21 @@ public class ServiceBusExtractionProcessorTests
     {
         Assert.That(
             () => new ServiceBusExtractionProcessor(
-                connectionString: ValidConnectionString,
+                client: Client(),
                 queueName: string.Empty,
+                maxConcurrentCalls: 1,
+                prefetchCount: 0,
+                maxAutoLockRenewalDuration: TimeSpan.FromMinutes(5)),
+            Throws.TypeOf<ArgumentException>());
+    }
+
+    [Test]
+    public void Constructor_ThrowsArgumentException_WhenQueueNameIsWhitespace()
+    {
+        Assert.That(
+            () => new ServiceBusExtractionProcessor(
+                client: Client(),
+                queueName: "   ",
                 maxConcurrentCalls: 1,
                 prefetchCount: 0,
                 maxAutoLockRenewalDuration: TimeSpan.FromMinutes(5)),
@@ -98,7 +88,7 @@ public class ServiceBusExtractionProcessorTests
         int maxConcurrentCalls, int prefetchCount, int lockRenewalMinutes, string queueName)
     {
         await using var processor = new ServiceBusExtractionProcessor(
-            connectionString: ValidConnectionString,
+            client: Client(),
             queueName: queueName,
             maxConcurrentCalls: maxConcurrentCalls,
             prefetchCount: prefetchCount,
@@ -113,7 +103,7 @@ public class ServiceBusExtractionProcessorTests
         // StartProcessingAsync should throw InvalidOperationException when called without
         // registering ProcessMessageAsync and ProcessErrorAsync handlers first.
         await using var processor = new ServiceBusExtractionProcessor(
-            connectionString: ValidConnectionString,
+            client: Client(),
             queueName: QueueName,
             maxConcurrentCalls: 1,
             prefetchCount: 0,
@@ -131,7 +121,7 @@ public class ServiceBusExtractionProcessorTests
         // This is important for graceful shutdown in BackgroundService.StopAsync when
         // the service is stopped before it fully starts.
         await using var processor = new ServiceBusExtractionProcessor(
-            connectionString: ValidConnectionString,
+            client: Client(),
             queueName: QueueName,
             maxConcurrentCalls: 1,
             prefetchCount: 0,
@@ -142,20 +132,24 @@ public class ServiceBusExtractionProcessorTests
             Throws.Nothing);
     }
 
+    /// <summary>
+    /// The processor owns the client it is handed: disposing the processor disposes the
+    /// client, so a second dispose of the client is a no-op rather than a fault.
+    /// </summary>
     [Test]
-    public async Task DisposeAsync_CanBeCalledSafely()
+    public async Task DisposeAsync_DisposesTheClientItOwns()
     {
-        // DisposeAsync should clean up resources without throwing.
+        var client = Client();
         var processor = new ServiceBusExtractionProcessor(
-            connectionString: ValidConnectionString,
+            client: client,
             queueName: QueueName,
             maxConcurrentCalls: 1,
             prefetchCount: 0,
             maxAutoLockRenewalDuration: TimeSpan.FromMinutes(5));
 
-        Assert.That(
-            async () => await processor.DisposeAsync(),
-            Throws.Nothing);
+        await processor.DisposeAsync();
+
+        Assert.That(client.IsClosed, Is.True);
     }
 
     [Test]

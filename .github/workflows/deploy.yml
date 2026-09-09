@@ -113,9 +113,10 @@ jobs:
           done
 
   # EF migrations are applied manually, before pushing a commit that needs them:
-  #   dotnet ef database update --project src/Nornis.Infrastructure \
-  #     --startup-project src/Nornis.Api --connection "<prod connection string>"
-  # They must stay additive — the old revision keeps serving until the rollout below.
+  #   dotnet ef database update --project src/Nornis.Infrastructure --startup-project src/Nornis.Api
+  # (the design-time factory reads the API's user secrets, which hold the password-less prod
+  # connection string; the developer's az login is the credential). They must stay additive —
+  # the old revision keeps serving until the rollout below.
   deploy:
     runs-on: ubuntu-latest
     needs: [test, build]

@@ -3,8 +3,15 @@
 Provisions the Nornis hosting stack on Azure Container Apps.
 
 Creates (idempotently): resource group, Log Analytics, Container Apps environment,
-and the three container apps (api, web, worker). Reads secrets from the Api/Worker
-.NET user-secrets stores — never echoes them.
+and the three container apps (api, web, worker). Reads the remaining secrets — the AI keys
+and the Auth0 client secret — from the .NET user-secrets stores and never echoes them.
+
+Since 2026-09-08 (O3) the apps reach SQL, Blob Storage and Service Bus as their own
+system-assigned managed identities: config carries endpoints, not connection strings, and
+this script grants the data-plane roles. The one step it cannot do is create the SQL
+contained users, which needs the server's Entra admin — run scripts/sql-identity-users.cs
+for that (see its header). KEDA reads queue depth as the shared user-assigned identity
+id-nornis-apps, which holds Service Bus Data Owner for exactly that.
 
 Deviation from .kiro/steering/azure-hosting.md (AKS): MVP hosts on Container Apps —
 same containers, no cluster to operate, scale-to-zero worker via a KEDA Service Bus
@@ -39,6 +46,12 @@ param(
     [string]$ServiceBusNamespace = "sb-nornis-dev",
     [string]$Queue = "source-extraction",
     [string]$LibraryQueue = "library-indexing",
+    # The data stores the apps reach as themselves. Endpoints, not secrets.
+    [string]$SqlServerFqdn = "sql-chronicis-dev.database.windows.net",
+    [string]$SqlDatabase = "nornis-db",
+    [string]$StorageAccount = "stchronicis",
+    [string]$StorageRg = "rg-nornis",
+    [string]$BlobContainer = "nornis-library",
     [string]$AppInsights = "appi-nornis",
     [string]$ImageTag = "bootstrap",
     # Auth0 tenant wiring. None of these are secrets — the client secret is the only one, and
@@ -87,36 +100,32 @@ foreach ($q in @($Queue, $LibraryQueue)) {
         --max-delivery-count 5 --lock-duration PT1M --default-message-time-to-live P14D -o none
 }
 
-Write-Host "== Service Bus scaler policy (KEDA needs Manage to read queue depth)"
-# One rule per queue — KEDA authenticates per scale rule, and the worker scales to zero, so
-# the library queue needs its own or an uploaded PDF never wakes the worker.
-foreach ($q in @($Queue, $LibraryQueue)) {
-    az servicebus queue authorization-rule create --resource-group $ServiceBusRg `
-        --namespace-name $ServiceBusNamespace --queue-name $q `
-        --name keda-scaler --rights Manage Listen Send -o none
-}
+# No shared-access policies are created: nothing authenticates to the namespace with a key
+# any more. The apps use their identities and KEDA uses id-nornis-apps (roles granted below).
 
 Write-Host "== Collecting secrets (values are never printed)"
-$sqlConn        = Get-UserSecret "src/Nornis.Api"    "ConnectionStrings:DefaultConnection"
-$sbSend         = Get-UserSecret "src/Nornis.Api"    "AzureServiceBus:ConnectionString"
-$sbListen       = Get-UserSecret "src/Nornis.Worker" "ServiceBus:ConnectionString"
 $loreKey        = Get-UserSecret "src/Nornis.Api"    "Loremaster:AiKey"
 $loreEndpoint   = Get-UserSecret "src/Nornis.Api"    "Loremaster:AiEndpoint"
 $extractKey     = Get-UserSecret "src/Nornis.Worker" "Extraction:AiApiKey"
 $extractEndpoint= Get-UserSecret "src/Nornis.Worker" "Extraction:AiEndpoint"
-# Library indexing reads uploaded PDFs from blob storage. Without this the worker still runs
-# (blob registration is lazy) but every indexing message fails.
-$blobConn       = Get-UserSecret "src/Nornis.Api"    "BlobStorage:ConnectionString"
 # Without this the web app cannot complete a login; without the API's Auth0 env vars below,
 # the API rejects every token. Both halves have to travel together.
 $auth0WebSecret = Get-UserSecret "src/Nornis.Web"    "Auth0:ClientSecret"
 
-# KEDA authenticates against a single connection string; the scaler rule on $Queue carries
-# Manage over the whole namespace path it was issued for, and both scale rules reference the
-# same secret, so one lookup is enough.
-$sbManage = az servicebus queue authorization-rule keys list --resource-group $ServiceBusRg `
-    --namespace-name $ServiceBusNamespace --queue-name $Queue --name keda-scaler `
-    --query primaryConnectionString -o tsv
+# The three data stores, as endpoints. SQL is a connection string in form only: no password,
+# and Authentication=Active Directory Default makes SqlClient present the process's managed
+# identity (or, on a workstation, the developer's az login). Blob and Service Bus are reached
+# the same way through AzureClients in Nornis.Infrastructure.
+$sqlConn = "Server=tcp:$SqlServerFqdn,1433;Initial Catalog=$SqlDatabase;Authentication=Active Directory Default;Encrypt=True;"
+$sbNamespaceHost = "$ServiceBusNamespace.servicebus.windows.net"
+$blobServiceUri = "https://$StorageAccount.blob.core.windows.net/"
+$sbScope = az servicebus namespace show -g $ServiceBusRg -n $ServiceBusNamespace --query id -o tsv
+$blobScope = (az storage account show -g $StorageRg -n $StorageAccount --query id -o tsv) + "/blobServices/default/containers/$BlobContainer"
+
+function Grant-Role([string]$principalId, [string]$role, [string]$scope) {
+    az role assignment create --assignee-object-id $principalId --assignee-principal-type ServicePrincipal `
+        --role $role --scope $scope -o none
+}
 
 # Telemetry is opt-in by connection string — all three apps no-op without it. The component is
 # not created here (it long predates this script); look it up and warn rather than fail, so a
@@ -127,12 +136,14 @@ if (-not $appInsightsConn) {
     Write-Warning "Application Insights component '$AppInsights' not found in $ResourceGroup - apps will start with telemetry disabled."
 }
 
-# A user-assigned identity shared by the apps. It existed to pull from ACR; with the images
-# on GHCR it holds no role assignments, and stays because it is the identity the plan in
-# docs/plans/operational-hardening.md intends to hand Blob and Service Bus access to.
+# The user-assigned identity shared by the apps. It once pulled from ACR; now it exists for
+# one thing — KEDA reads queue depth as it — and holds Service Bus Data Owner for that. The
+# apps themselves use their own system-assigned identities, granted below, so the API never
+# carries the Manage right KEDA needs.
 Write-Host "== Managed identity"
 az identity create --name id-nornis-apps --resource-group $ResourceGroup -o none
 $identityId = az identity show -g $ResourceGroup -n id-nornis-apps --query id -o tsv
+Grant-Role (az identity show -g $ResourceGroup -n id-nornis-apps --query principalId -o tsv) "Azure Service Bus Data Owner" $sbScope
 
 # ASPNETCORE_ENVIRONMENT=Production, matching the live apps (verified 2026-07-27). The script
 # used to set Development, which would have silently downgraded a running deployment on the next
@@ -145,18 +156,15 @@ $identityId = az identity show -g $ResourceGroup -n id-nornis-apps --query id -o
 # alone by setting Development.
 Write-Host "== API app"
 $apiSecrets = @(
-    "sql-conn=$sqlConn"
-    "sb-send=$sbSend"
     "lore-key=$loreKey"
-    "blob-conn=$blobConn"
 )
 $apiEnv = @(
     "ASPNETCORE_ENVIRONMENT=Production"
-    "ConnectionStrings__DefaultConnection=secretref:sql-conn"
-    "AzureServiceBus__ConnectionString=secretref:sb-send"
+    "ConnectionStrings__DefaultConnection=$sqlConn"
+    "AzureServiceBus__FullyQualifiedNamespace=$sbNamespaceHost"
     "Loremaster__AiKey=secretref:lore-key"
     "Loremaster__AiEndpoint=$loreEndpoint"
-    "BlobStorage__ConnectionString=secretref:blob-conn"
+    "BlobStorage__ServiceUri=$blobServiceUri"
     "AiBudget__DailyWorldBudgetUsd=2"
     # JWT validation. Without these the API rejects every token — and because the fallback
     # policy requires authentication on everything, that is the whole API, not one endpoint.
@@ -170,11 +178,14 @@ if ($appInsightsConn) {
 }
 
 az containerapp create --name ca-nornis-api --resource-group $ResourceGroup `
-    --environment $Environment --user-assigned $identityId `
+    --environment $Environment --system-assigned --user-assigned $identityId `
     --image "$Registry/nornis-api:$ImageTag" --target-port 8080 --ingress external `
     --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi `
     --secrets @apiSecrets `
     --env-vars @apiEnv -o none
+$apiPrincipal = az containerapp show -g $ResourceGroup -n ca-nornis-api --query identity.principalId -o tsv
+Grant-Role $apiPrincipal "Storage Blob Data Contributor" $blobScope
+Grant-Role $apiPrincipal "Azure Service Bus Data Sender" $sbScope
 
 $apiFqdn = az containerapp show -g $ResourceGroup -n ca-nornis-api --query properties.configuration.ingress.fqdn -o tsv
 
@@ -211,18 +222,14 @@ Write-Host "== Worker app (scale-to-zero on queue depth)"
 # Secrets and env vars are built as arrays so the Application Insights entry can be omitted
 # when the component is absent, rather than injecting an empty connection string.
 $workerSecrets = @(
-    "sql-conn=$sqlConn"
-    "sb-listen=$sbListen"
-    "sb-manage=$sbManage"
     "extract-key=$extractKey"
-    "blob-conn=$blobConn"
 )
 $workerEnv = @(
-    "ConnectionStrings__DefaultConnection=secretref:sql-conn"
-    "ServiceBus__ConnectionString=secretref:sb-listen"
+    "ConnectionStrings__DefaultConnection=$sqlConn"
+    "ServiceBus__FullyQualifiedNamespace=$sbNamespaceHost"
     "Extraction__AiApiKey=secretref:extract-key"
     "Extraction__AiEndpoint=$extractEndpoint"
-    "BlobStorage__ConnectionString=secretref:blob-conn"
+    "BlobStorage__ServiceUri=$blobServiceUri"
     # Deliberate overrides of the appsettings defaults, matching the live app. The 180s AI
     # timeout in particular is load-bearing: vision reads and large extractions exceed the
     # 60s default, and dropping back to it reintroduces spurious transient failures.
@@ -234,15 +241,23 @@ if ($appInsightsConn) {
     $workerEnv     += "APPLICATIONINSIGHTS_CONNECTION_STRING=secretref:appi-conn"
 }
 
+# The scale rules authenticate as id-nornis-apps (--scale-rule-identity), so no Manage-level
+# connection string is stored on the app. Preview flag in the containerapp extension as of
+# 1.3.0b1; the namespace metadata is what an identity-authenticated rule needs instead of a
+# connection.
 az containerapp create --name ca-nornis-worker --resource-group $ResourceGroup `
-    --environment $Environment --user-assigned $identityId `
+    --environment $Environment --system-assigned --user-assigned $identityId `
     --image "$Registry/nornis-worker:$ImageTag" `
     --min-replicas 0 --max-replicas 1 --cpu 0.25 --memory 0.5Gi `
     --secrets @workerSecrets `
     --env-vars @workerEnv `
     --scale-rule-name queue-depth --scale-rule-type azure-servicebus `
-    --scale-rule-metadata "queueName=$Queue" "messageCount=1" `
-    --scale-rule-auth "connection=sb-manage" -o none
+    --scale-rule-metadata "queueName=$Queue" "namespace=$ServiceBusNamespace" "messageCount=1" `
+    --scale-rule-identity $identityId -o none
+$workerPrincipal = az containerapp show -g $ResourceGroup -n ca-nornis-worker --query identity.principalId -o tsv
+Grant-Role $workerPrincipal "Storage Blob Data Contributor" $blobScope
+Grant-Role $workerPrincipal "Azure Service Bus Data Sender" $sbScope
+Grant-Role $workerPrincipal "Azure Service Bus Data Receiver" $sbScope
 
 # `containerapp create` accepts a single scale rule, so the library queue's rule is added in a
 # follow-up update. Without it the worker — at min-replicas 0 — never wakes for an uploaded
@@ -250,8 +265,13 @@ az containerapp create --name ca-nornis-worker --resource-group $ResourceGroup `
 Write-Host "== Worker scale rule for the library queue"
 az containerapp update --name ca-nornis-worker --resource-group $ResourceGroup `
     --scale-rule-name library-queue-depth --scale-rule-type azure-servicebus `
-    --scale-rule-metadata "queueName=$LibraryQueue" "messageCount=1" `
-    --scale-rule-auth "connection=sb-manage" -o none
+    --scale-rule-metadata "queueName=$LibraryQueue" "namespace=$ServiceBusNamespace" "messageCount=1" `
+    --scale-rule-identity $identityId -o none
+
+Write-Host "== SQL users for the identities"
+Write-Host "   Not done here: creating contained users needs the server's Entra admin. Run"
+Write-Host "   dotnet run scripts/sql-identity-users.cs -- ca-nornis-api=<appId> ca-nornis-worker=<appId>"
+Write-Host "   (app ids: az ad sp show --id <principalId> --query appId -o tsv)."
 
 # An AI call that the deployment rejects fails before spending a token, so nothing degrades —
 # the feature simply stops. On 2026-07-27 an unsupported `max_tokens` parameter took every AI

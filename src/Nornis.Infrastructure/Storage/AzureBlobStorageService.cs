@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -12,23 +12,39 @@ namespace Nornis.Infrastructure.Storage;
 /// Azure Blob Storage implementation, ported from Chronicis's BlobStorageService and
 /// pointed at the shared stchronicis account with Nornis's own container. Registered as
 /// a singleton: BlobServiceClient is thread-safe and the container-exists check runs once.
+///
+/// Takes the client rather than a connection string so that how the process authenticates
+/// is decided once, in <c>AzureClients</c>, and not again here. The one place that difference
+/// shows is SAS: an account key can sign a SAS locally, an identity cannot, so under an
+/// identity the SAS is signed with a user delegation key fetched from the service instead.
 /// </summary>
 public sealed class AzureBlobStorageService : IBlobStorageService
 {
     public const string DefaultContainerName = "nornis-library";
+
+    /// <summary>
+    /// How long a fetched user delegation key is asked to live. Every SAS this service signs
+    /// expires within minutes, so one key covers many SAS; refreshed while it still has
+    /// comfortably more life than the longest SAS it will sign.
+    /// </summary>
+    private static readonly TimeSpan DelegationKeyLifetime = TimeSpan.FromHours(1);
+    private static readonly TimeSpan DelegationKeyRefreshMargin = TimeSpan.FromMinutes(20);
 
     private readonly BlobServiceClient _blobServiceClient;
     private readonly ILogger<AzureBlobStorageService> _logger;
     private readonly string _containerName;
 
     public AzureBlobStorageService(
-        string connectionString,
+        BlobServiceClient blobServiceClient,
         string containerName,
         ILogger<AzureBlobStorageService> logger)
     {
+        ArgumentNullException.ThrowIfNull(blobServiceClient);
+        ArgumentException.ThrowIfNullOrWhiteSpace(containerName);
+
         _logger = logger;
         _containerName = containerName;
-        _blobServiceClient = new BlobServiceClient(connectionString);
+        _blobServiceClient = blobServiceClient;
 
         // Container creation used to happen right here, synchronously, in the constructor.
         // Two problems, both real: it blocked a DI resolution on a network round trip, and it
@@ -40,6 +56,9 @@ public sealed class AzureBlobStorageService : IBlobStorageService
 
     private readonly SemaphoreSlim _containerGate = new(1, 1);
     private bool _containerReady;
+
+    private readonly SemaphoreSlim _delegationKeyGate = new(1, 1);
+    private UserDelegationKey? _delegationKey;
 
     /// <summary>
     /// Ensures the container exists, once per process, on the first operation that needs it.
@@ -99,14 +118,14 @@ public sealed class AzureBlobStorageService : IBlobStorageService
     {
         var sasBuilder = CreateSasBuilder(blobPath);
         sasBuilder.SetPermissions(BlobSasPermissions.Create | BlobSasPermissions.Write);
-        return Task.FromResult(GenerateSasUrl(blobPath, sasBuilder));
+        return GenerateSasUrlAsync(blobPath, sasBuilder, cancellationToken);
     }
 
     public Task<string> GenerateDownloadSasUrlAsync(string blobPath, CancellationToken cancellationToken = default)
     {
         var sasBuilder = CreateSasBuilder(blobPath);
         sasBuilder.SetPermissions(BlobSasPermissions.Read);
-        return Task.FromResult(GenerateSasUrl(blobPath, sasBuilder));
+        return GenerateSasUrlAsync(blobPath, sasBuilder, cancellationToken);
     }
 
     /// <remarks>
@@ -209,8 +228,57 @@ public sealed class AzureBlobStorageService : IBlobStorageService
         ExpiresOn = DateTimeOffset.UtcNow.AddMinutes(15),
     };
 
-    private string GenerateSasUrl(string blobPath, BlobSasBuilder sasBuilder) =>
-        GetBlobClient(blobPath).GenerateSasUri(sasBuilder).ToString();
+    /// <summary>
+    /// A shared-key client signs the SAS itself. An identity client cannot — there is no key
+    /// in the process — so it signs with a user delegation key the service issues to the
+    /// identity, which is scoped to what that identity may do and expires on its own. The
+    /// browser sees the same shape of URL either way.
+    /// </summary>
+    private async Task<string> GenerateSasUrlAsync(string blobPath, BlobSasBuilder sasBuilder, CancellationToken cancellationToken)
+    {
+        var blobClient = GetBlobClient(blobPath);
+
+        if (blobClient.CanGenerateSasUri)
+        {
+            return blobClient.GenerateSasUri(sasBuilder).ToString();
+        }
+
+        var key = await GetDelegationKeyAsync(sasBuilder.ExpiresOn, cancellationToken);
+        var uri = new BlobUriBuilder(blobClient.Uri)
+        {
+            Sas = sasBuilder.ToSasQueryParameters(key, _blobServiceClient.AccountName)
+        };
+        return uri.ToUri().ToString();
+    }
+
+    private async Task<UserDelegationKey> GetDelegationKeyAsync(DateTimeOffset mustOutlive, CancellationToken cancellationToken)
+    {
+        var current = _delegationKey;
+        if (current is not null && current.SignedExpiresOn > mustOutlive + DelegationKeyRefreshMargin)
+        {
+            return current;
+        }
+
+        await _delegationKeyGate.WaitAsync(cancellationToken);
+        try
+        {
+            current = _delegationKey;
+            if (current is not null && current.SignedExpiresOn > mustOutlive + DelegationKeyRefreshMargin)
+            {
+                return current;
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            var fresh = await _blobServiceClient.GetUserDelegationKeyAsync(
+                now.AddMinutes(-5), now + DelegationKeyLifetime, cancellationToken);
+            _delegationKey = fresh.Value;
+            return fresh.Value;
+        }
+        finally
+        {
+            _delegationKeyGate.Release();
+        }
+    }
 
     private static string SanitizeFileName(string fileName)
     {

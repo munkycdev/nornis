@@ -10,6 +10,7 @@ using Nornis.Application.Services;
 using Nornis.Application.Storage;
 using Nornis.Domain.Repositories;
 using Nornis.Infrastructure.Ai;
+using Nornis.Infrastructure.Configuration;
 using Nornis.Infrastructure.Messaging;
 using Nornis.Infrastructure.Persistence;
 using Nornis.Infrastructure.Persistence.Repositories;
@@ -79,9 +80,10 @@ var builder = Host.CreateDefaultBuilder(args)
             throw new InvalidOperationException(
                 "Required configuration 'Extraction:AiEndpoint' is missing. The worker cannot start without an AI endpoint configured.");
 
-        if (string.IsNullOrWhiteSpace(workerOptions?.ConnectionString))
+        if (workerOptions?.IsConfigured != true)
             throw new InvalidOperationException(
-                "Required configuration 'ServiceBus:ConnectionString' is missing. The worker cannot start without a Service Bus connection string configured.");
+                "Required Service Bus configuration is missing. The worker cannot start without a queue to listen to. "
+                + AzureClients.NotConfiguredHint("ServiceBus:ConnectionString", "ServiceBus:FullyQualifiedNamespace"));
 
         // DbContext registration (SQL Server)
         services.AddDbContext<NornisDbContext>(options =>
@@ -158,11 +160,16 @@ var builder = Host.CreateDefaultBuilder(args)
         // Timeline replay: a zero-proposal extraction completes with no review step, so
         // the worker itself must be able to advance the walk — which cascades and requeues
         // the next source. That needs the reprocess service and a real queue sender.
+        // Each client is built by the one rule in AzureClients (connection string for the
+        // emulator, endpoint plus managed identity in Azure). The guard above already proved
+        // one of the two is set, so a null here cannot happen and is treated as the bug it
+        // would be.
+        static Azure.Messaging.ServiceBus.ServiceBusClient CreateServiceBusClient(WorkerOptions options) =>
+            AzureClients.TryCreateServiceBusClient(options.ConnectionString, options.FullyQualifiedNamespace)
+            ?? throw new InvalidOperationException("Service Bus configuration vanished between the startup guard and client creation.");
+
         services.AddSingleton(sp =>
-        {
-            var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
-            return new Azure.Messaging.ServiceBus.ServiceBusClient(options.ConnectionString);
-        });
+            CreateServiceBusClient(sp.GetRequiredService<IOptions<WorkerOptions>>().Value));
         services.AddSingleton<Nornis.Application.Messaging.IExtractionQueueClient, ServiceBusExtractionQueueClient>();
         services.AddScoped<ISourceReprocessService, SourceReprocessService>();
         services.AddScoped<IExtractionReplayService, ExtractionReplayService>();
@@ -189,7 +196,7 @@ var builder = Host.CreateDefaultBuilder(args)
         {
             var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
             return new ServiceBusExtractionProcessor(
-                options.ConnectionString,
+                CreateServiceBusClient(options),
                 options.QueueName,
                 options.MaxConcurrentCalls,
                 options.PrefetchCount,
@@ -209,12 +216,14 @@ var builder = Host.CreateDefaultBuilder(args)
         // factory that throws only if something actually resolves it, mirroring the API
         // (src/Nornis.Api/Program.cs). Indexing then fails per-message with a clear error while
         // extraction keeps running.
-        var blobConnectionString = configuration["BlobStorage:ConnectionString"];
-        if (!string.IsNullOrWhiteSpace(blobConnectionString))
+        var blobServiceClient = AzureClients.TryCreateBlobServiceClient(
+            configuration["BlobStorage:ConnectionString"],
+            configuration["BlobStorage:ServiceUri"]);
+        if (blobServiceClient is not null)
         {
             services.AddSingleton<IBlobStorageService>(sp =>
                 new AzureBlobStorageService(
-                    blobConnectionString,
+                    blobServiceClient,
                     configuration["BlobStorage:ContainerName"] ?? AzureBlobStorageService.DefaultContainerName,
                     sp.GetRequiredService<ILogger<AzureBlobStorageService>>()));
         }
@@ -222,7 +231,7 @@ var builder = Host.CreateDefaultBuilder(args)
         {
             services.AddSingleton<IBlobStorageService>(_ =>
                 throw new InvalidOperationException(
-                    "Blob storage is not configured. Set 'BlobStorage:ConnectionString' to enable library indexing."));
+                    "Blob storage is not configured. " + AzureClients.NotConfiguredHint("BlobStorage:ConnectionString", "BlobStorage:ServiceUri")));
         }
 
         // Embedding client shares the extraction endpoint/key with the nornis-embed deployment.
@@ -247,7 +256,7 @@ var builder = Host.CreateDefaultBuilder(args)
         {
             var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
             return new ServiceBusExtractionProcessor(
-                options.ConnectionString,
+                CreateServiceBusClient(options),
                 ServiceBusLibraryIndexingQueueClient.QueueName,
                 options.MaxConcurrentCalls,
                 options.PrefetchCount,

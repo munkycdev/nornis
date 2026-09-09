@@ -117,6 +117,30 @@ the backstop. A message that exhausts retries today vanishes silently.
 
 ## O3 — managed identity sweep
 
+> **Done 2026-09-08**, unattended, on David's instruction. What was built differs from the
+> three bullets below in two places worth recording:
+>
+> - **System-assigned identities per app, not the shared `id-nornis-apps`.** The shared
+>   identity was the obvious vehicle — it was already attached to all three apps — but KEDA
+>   needs Manage-level rights to read queue depth, and giving those to an identity the API
+>   also carries would hand the API the exact right `ServiceBusQueueHealthCheck` exists to
+>   avoid. So the apps authenticate as themselves (API: Blob Data Contributor on the
+>   container, Service Bus Data Sender; worker: the same plus Receiver) and `id-nornis-apps`
+>   became the KEDA identity alone, with Service Bus Data Owner.
+> - **SQL first, not last.** The bullet ordered Blob and Service Bus before SQL as the harder
+>   one. It was the easiest: `Microsoft.Data.SqlClient` already carried Azure.Identity, so the
+>   change is a connection string with no password and `Authentication=Active Directory
+>   Default`, and the code did not move. What SQL did need was a server Entra admin (none
+>   existed; David's account now is) and contained users created by that admin — the one
+>   step provisioning cannot do for itself, so it is a script of its own
+>   (`scripts/sql-identity-users.cs`), using the SID form because the server has no identity
+>   of its own to read the directory with.
+>
+> The "config becomes endpoints, not secrets" bullet held exactly: the rule lives once in
+> `AzureClients`, and the connection-string form stays for the emulator stack. SAS signing
+> under an identity uses a user delegation key. Local dev works through `az login`, which
+> is why David holds the same data-plane roles the apps do.
+
 SQL, blob, and Service Bus all authenticate by connection string in config. The
 deploy pipeline already uses OIDC; extend the pattern to runtime.
 

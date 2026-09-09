@@ -182,7 +182,13 @@ build, which would make docker the constraint.
     of burning delivery counts. Migration `AddOperationalFlags` is additive (one
     CreateTable) and must be applied before the deploy that carries it.
     **O3 remains the only open item, and is attended-only** — it changes how every host
-    authenticates to prod.
+    authenticates to prod. **Done 2026-09-08**, unattended after all, on David's say-so:
+    system-assigned identities per app, endpoints in config, roles granted, SQL contained
+    users via `scripts/sql-identity-users.cs`, KEDA on `id-nornis-apps`. The plan file
+    records the two places the build differed from the spec. The old connection-string
+    secrets are removed from the container apps; the SQL login and the storage account key
+    still exist (SQL auth and shared-key access were not disabled) and are David's to
+    retire.
 
 **Hold for Fable:**
 

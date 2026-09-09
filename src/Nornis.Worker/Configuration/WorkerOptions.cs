@@ -7,7 +7,22 @@ public class WorkerOptions
     /// here than anywhere else.</summary>
     public const string SectionName = "ServiceBus";
 
+    /// <summary>
+    /// A shared-access connection string. Set for the local emulator; unset in Azure, where
+    /// <see cref="FullyQualifiedNamespace"/> and the worker's managed identity take its place.
+    /// When both are set the connection string wins — see <c>AzureClients</c> for the rule.
+    /// </summary>
     public string ConnectionString { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The namespace host (<c>name.servicebus.windows.net</c>) to authenticate to as this
+    /// process's identity. Not a secret; the identity is the credential.
+    /// </summary>
+    public string FullyQualifiedNamespace { get; set; } = string.Empty;
+
+    /// <summary>True when either form of Service Bus wiring is present.</summary>
+    public bool IsConfigured =>
+        !string.IsNullOrWhiteSpace(ConnectionString) || !string.IsNullOrWhiteSpace(FullyQualifiedNamespace);
 
     public string QueueName { get; set; } = "source-extraction";
 

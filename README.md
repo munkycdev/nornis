@@ -203,9 +203,17 @@ the commit that needs them, and **must stay additive** so the old revision keeps
 through the rollout:
 
 ```powershell
-dotnet ef database update --project src/Nornis.Infrastructure `
-    --startup-project src/Nornis.Api --connection "<prod>"
+dotnet ef database update --project src/Nornis.Infrastructure --startup-project src/Nornis.Api
 ```
+
+The design-time factory reads the API's user secrets. Set `ConnectionStrings:DefaultConnection`
+there to the production server and database with `Authentication=Active Directory Default` and
+no password: your `az login` is then the credential, and it must be the SQL server's Entra admin
+(or a contained user). If Visual Studio is signed in as a different account it sits ahead of the
+CLI in the credential chain and the login fails — pin the chain with
+`AZURE_TOKEN_CREDENTIALS=AzureCliCredential`, which `.claude/launch.json` already does for the
+local API. Since 2026-09-08 the deployed apps reach SQL, Blob Storage and Service Bus the same
+way, as their managed identities — see `.kiro/steering/azure-hosting.md`.
 
 Miss that step and `/health` returns 503 until it is run — see
 [`docs/runbooks/migration-missed.md`](docs/runbooks/migration-missed.md).
