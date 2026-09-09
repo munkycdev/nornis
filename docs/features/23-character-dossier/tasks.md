@@ -140,11 +140,29 @@ Phase C, and what it changed:
 
 ## Phase D — Unreconciled items (optional)
 
-- [ ] D1. Plain case-insensitive name-presence test of record artifacts against the sheet text,
+**Built 2026-09-08.** `Knowledge.UnreconciledItems.Find(record, sheetText)` is the whole rule:
+one pure function fed the reader's already-filtered record and the sheet as the reader may
+read it, so it has no way to see anything either gate withheld. Two decisions the spec left
+open, made here rather than polled:
+
+- **Items only.** Requirement 6.1 says "artifacts"; the user story says "the record says I
+  picked something up". Nobody writes every location they have stood in on a sheet, so
+  reconciling all types would have been the noise D3 says to delete. `ObservedTypes` is a
+  named constant with a test pinning it, so widening it is a visible product decision.
+- **No sheet means no observation.** "Everything is missing from a blank page" is true and
+  useless, and a reader who may not open the sheet gets the same null — so the observation
+  can never say anything about a sheet the reader cannot read. Empty in, empty out.
+
+Bounded by the record's own per-group cap, since it reads only what the record chose to show.
+The page renders it under the sheet as a sentence and a row of chips linking to the items;
+nothing else is clickable and nothing writes.
+
+- [x] D1. Plain case-insensitive name-presence test of record artifacts against the sheet text,
       over what the reader may see.
-- [ ] D2. Render as an observation with no action attached; never modifies the sheet.
+- [x] D2. Render as an observation with no action attached; never modifies the sheet.
 - [ ] D3. If it proves noisy, delete it rather than tune it. Tuning is how a text search becomes
-      a parser, and a parser is the rules engine this feature exists to avoid.
+      a parser, and a parser is the rules engine this feature exists to avoid. **Open by
+      nature** — this is the standing instruction for whoever next finds it noisy.
 
 ## Verification
 

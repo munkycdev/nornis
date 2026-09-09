@@ -160,16 +160,21 @@ public class CharacterService : ICharacterService
             role,
             artifactVisible: record is not null);
 
+        var readableSheet = canReadSheet ? character.Sheet : null;
+
         var dossier = new CharacterDossier(
             Character: view,
             OwnerDisplayName: owner is null ? "Unassigned" : MemberDisplayName.For(owner),
             CampaignNames: campaignNames,
             Record: record,
-            Sheet: canReadSheet ? character.Sheet : null,
+            Sheet: readableSheet,
             SheetSharedWithParty: canEditSheet && character.SheetSharedWithParty,
             CanEditSheet: canEditSheet,
             CanShareSheet: isOwner,
-            Snapshots: await ResolveSnapshotsAsync(characterId, actingUserId, role, ct));
+            Snapshots: await ResolveSnapshotsAsync(characterId, actingUserId, role, ct),
+            // Fed the filtered record and the gated sheet, so it cannot say anything the two
+            // gates above did not already allow.
+            UnreconciledItems: UnreconciledItems.Find(record, readableSheet));
 
         return AppResult<CharacterDossier>.Success(dossier);
     }

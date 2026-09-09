@@ -22,6 +22,11 @@ namespace Nornis.Application.Models;
 /// shared sheet knows it is shared because they can read it, and someone who cannot read it
 /// has no business knowing whether one exists to share.
 /// </param>
+/// <param name="UnreconciledItems">
+/// Items the visible record connects to this character that the sheet, as this reader may
+/// read it, never names. Empty whenever <paramref name="Sheet"/> is null, so it can say
+/// nothing about a sheet the reader cannot open. See <c>Knowledge.UnreconciledItems</c>.
+/// </param>
 public record CharacterDossier(
     CharacterView Character,
     string OwnerDisplayName,
@@ -31,7 +36,11 @@ public record CharacterDossier(
     bool SheetSharedWithParty,
     bool CanEditSheet,
     bool CanShareSheet,
-    IReadOnlyList<CharacterSnapshotView> Snapshots);
+    IReadOnlyList<CharacterSnapshotView> Snapshots,
+    IReadOnlyList<UnreconciledItem> UnreconciledItems);
+
+/// <summary>An item the record has and the sheet does not mention. An observation, not a task.</summary>
+public record UnreconciledItem(Guid ArtifactId, string Name, ArtifactType Type);
 
 /// <summary>
 /// One attached sheet photograph, as this reader may see it. Snapshots whose source the

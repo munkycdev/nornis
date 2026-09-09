@@ -777,6 +777,37 @@ public class CharacterServiceTests
         });
     }
 
+    /// <summary>
+    /// Requirement 6.4. The observation is computed from the filtered record and the gated
+    /// sheet, so a GM-only item the owner cannot see is not "missing from their sheet" — it is
+    /// not there at all. And a reader who cannot open the sheet gets no observation, since an
+    /// observation about a sheet you cannot read would be a second way of reading it.
+    /// </summary>
+    [Test]
+    [Category("Authorization")]
+    public async Task GetDossierAsync_UnreconciledItems_ObeyBothGates()
+    {
+        var artifact = SeedArtifact();
+        var key = SeedArtifact(ArtifactType.Item, name: "Silver Key");
+        var dagger = SeedArtifact(ArtifactType.Item, VisibilityScope.GMOnly, name: "Cursed Dagger");
+        SeedRelationship(artifact, key, VisibilityScope.PartyVisible);
+        SeedRelationship(artifact, dagger, VisibilityScope.GMOnly);
+        var character = SeedLinkedCharacter(_player, artifact);
+        character.Sheet = "Equipment: rope, rations. Nothing shiny yet.";
+        await _characterRepository.UpdateAsync(character, CancellationToken.None);
+
+        var owner = await _sut.GetDossierAsync(character.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+        var gm = await _sut.GetDossierAsync(character.Id, WorldId, _gm.UserId, WorldRole.GM, CancellationToken.None);
+        var other = await _sut.GetDossierAsync(character.Id, WorldId, _otherPlayer.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(owner.Value!.UnreconciledItems.Select(u => u.Name), Is.EquivalentTo(["Silver Key"]));
+            Assert.That(gm.Value!.UnreconciledItems.Select(u => u.Name), Is.EquivalentTo(["Silver Key", "Cursed Dagger"]));
+            Assert.That(other.Value!.UnreconciledItems, Is.Empty, "no readable sheet, no observation");
+        });
+    }
+
     [Test]
     [TestCase(WorldRole.GM)]
     [TestCase(WorldRole.Player)]

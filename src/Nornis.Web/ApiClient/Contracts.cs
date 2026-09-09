@@ -328,7 +328,13 @@ public record CharacterDossierDto(
     bool SheetSharedWithParty = false,
     bool CanEditSheet = false,
     bool CanShareSheet = false,
-    IReadOnlyList<CharacterSnapshotDto>? Snapshots = null);
+    IReadOnlyList<CharacterSnapshotDto>? Snapshots = null,
+    IReadOnlyList<UnreconciledItemDto>? UnreconciledItems = null);
+
+public record UnreconciledItemDto(
+    Guid ArtifactId,
+    string Name,
+    string Type);
 
 public record CharacterSnapshotDto(
     Guid Id,
