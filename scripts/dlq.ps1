@@ -3,13 +3,16 @@
 Peek, resubmit or purge dead-lettered messages. Companion to
 docs/runbooks/dead-letter-queue.md, which until now sent you to the portal.
 
-Speaks the Service Bus REST API over a SAS token rather than loading the .NET SDK,
-because a script that needs Azure.Messaging.ServiceBus and its half-dozen transitive
-assemblies resolved out of the NuGet cache is a script that breaks on the machine you
-reach for it from. This needs pwsh and nothing else.
+Speaks the Service Bus REST API rather than loading the .NET SDK, because a script that
+needs Azure.Messaging.ServiceBus and its half-dozen transitive assemblies resolved out of
+the NuGet cache is a script that breaks on the machine you reach for it from. This needs
+pwsh and az and nothing else.
 
-Credentials come from the worker's `sb-manage` secret via az, so running this needs your
-own Azure login — the same rights you would need to do it in the portal. Nothing in the
+Authenticates as you: a bearer token from your own `az login`, minted for the Service Bus
+audience. Since O3 (2026-09-08) no shared-access key exists for this — the apps reach the
+namespace as their managed identities and so does this script, as yours. You need the
+Azure Service Bus Data Owner role on the namespace (receiving from a dead-letter queue and
+sending back to the live one are both data-plane rights); David holds it. Nothing in the
 running system gains access it did not already have.
 
 .PARAMETER Action
@@ -20,6 +23,9 @@ source-extraction (default) or library-indexing.
 
 .PARAMETER Count
 How many messages to act on. Default 10.
+
+.PARAMETER Namespace
+The Service Bus namespace name. Default sb-nornis-dev.
 
 .EXAMPLE
 ./scripts/dlq.ps1                                  # look
@@ -35,48 +41,23 @@ param(
 
     [int]$Count = 10,
 
-    [string]$ConnectionString
+    [string]$Namespace = 'sb-nornis-dev'
 )
 
 $ErrorActionPreference = 'Stop'
 
-if (-not $ConnectionString) {
-    Write-Host '== Reading the sb-manage secret from ca-nornis-worker…'
-    $ConnectionString = az containerapp secret show `
-        --name ca-nornis-worker --resource-group rg-nornis `
-        --secret-name sb-manage --query value -o tsv
-    if ($LASTEXITCODE -ne 0 -or -not $ConnectionString) {
-        throw 'Could not read the sb-manage secret. Are you logged in with `az login`?'
-    }
+Write-Host '== Minting a Service Bus token from your az login…'
+$token = az account get-access-token --resource 'https://servicebus.azure.net/' --query accessToken -o tsv
+if ($LASTEXITCODE -ne 0 -or -not $token) {
+    throw 'Could not get a Service Bus token. Are you logged in with `az login`?'
 }
 
-# Endpoint=sb://<ns>.servicebus.windows.net/;SharedAccessKeyName=<name>;SharedAccessKey=<key>
-$parts = @{}
-foreach ($segment in $ConnectionString -split ';') {
-    $name, $value = $segment -split '=', 2
-    if ($name) { $parts[$name.Trim()] = $value }
-}
-$namespaceHost = ([uri]$parts['Endpoint']).Host
-$keyName = $parts['SharedAccessKeyName']
-$key = $parts['SharedAccessKey']
-$base = "https://$namespaceHost"
-
-function New-SasToken([string]$resourceUri) {
-    $expiry = [DateTimeOffset]::UtcNow.AddMinutes(20).ToUnixTimeSeconds()
-    $encoded = [uri]::EscapeDataString($resourceUri)
-    $hmac = [System.Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($key))
-    try {
-        $signature = [Convert]::ToBase64String(
-            $hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes("$encoded`n$expiry")))
-    }
-    finally { $hmac.Dispose() }
-    "SharedAccessSignature sr=$encoded&sig=$([uri]::EscapeDataString($signature))&se=$expiry&skn=$keyName"
-}
+$base = "https://$Namespace.servicebus.windows.net"
 
 # Single quotes throughout: '$DeadLetterQueue' would interpolate as a PowerShell variable
 # in double quotes and silently address the live queue instead of its dead-letter side.
 $dlqPath = $Queue + '/$DeadLetterQueue'
-$headers = @{ Authorization = New-SasToken "$base/$Queue" }
+$headers = @{ Authorization = "Bearer $token" }
 
 function Receive-Locked {
     # POST to .../messages/head is peek-lock: the message stays put, reserved, until it is

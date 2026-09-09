@@ -80,9 +80,10 @@ See [docs/runbooks/ai-paused.md](../docs/runbooks/ai-paused.md).
 ## dlq.ps1
 
 Peek, resubmit or purge dead-lettered messages — the companion to
-docs/runbooks/dead-letter-queue.md. Speaks the Service Bus REST API over a SAS token, so
-it needs pwsh and nothing else. Credentials come from the sb-manage secret via your own
-az login; the running system gains no access.
+docs/runbooks/dead-letter-queue.md. Speaks the Service Bus REST API with a bearer token
+minted from your own `az login` (you need Azure Service Bus Data Owner on the namespace),
+so it needs pwsh and az and nothing else. There is no shared-access key to read any more;
+the running system gains no access.
 
 Peek is non-destructive and holds its locks through the walk, so it reports a true count
 and leaves the queue as it found it.

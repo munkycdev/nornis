@@ -42,9 +42,10 @@ content-filter rejection just dead-letters it again.
 
 ## Remedy
 
-`scripts/dlq.ps1` does all three moves. It reads the `sb-manage` secret through your own
-`az login`, so it needs the rights you would need in the portal and grants the running
-system nothing.
+`scripts/dlq.ps1` does all three moves. It authenticates as you, with a token from your own
+`az login` (Azure Service Bus Data Owner on the namespace), so it needs the rights you would
+need in the portal and grants the running system nothing — there is no shared-access key
+left to read since O3.
 
 ```powershell
 ./scripts/dlq.ps1                                        # peek — non-destructive
