@@ -3,6 +3,7 @@
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 @using Nornis.Web.Services
 
 @* A character's own page: who plays them, where they have played, and what the record knows
@@ -74,11 +75,11 @@
                     @if (_dossier.CanShareSheet)
                     {
                         <MudTooltip Text="@(_dossier.SheetSharedWithParty
-                                            ? "Everyone in this world can read this sheet"
+                                            ? "The whole party can read this sheet"
                                             : "Only you and the GM can read this sheet")">
                             <MudSwitch T="bool" Value="_dossier.SheetSharedWithParty"
                                        ValueChanged="SetSharingAsync" Color="Color.Primary"
-                                       Disabled="_sharing" Label="Share with the world" />
+                                       Disabled="_sharing" Label="Share with the party" />
                         </MudTooltip>
                     }
                     else if (_dossier.SheetSharedWithParty)
@@ -221,9 +222,15 @@
         @if (_dossier.Record is null)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                @* Only the owner can follow the instruction, so only the owner gets it. A
+                   character linked to a record the reader may not see arrives here too, and
+                   this sentence must read the same for it as for one that was never linked. *@
                 <MudText Typo="Typo.body2" Color="Color.Secondary">
-                    This character isn't linked to a world record. Link one from your profile to see
-                    what the sources say about them.
+                    This character isn't linked to a world record.
+                    @if (_dossier.CanShareSheet)
+                    {
+                        <text> Link one from your profile to see what the sources say about them.</text>
+                    }
                 </MudText>
             </MudPaper>
         }
@@ -405,6 +412,18 @@
     private async Task DetachSnapshotAsync(Guid snapshotId)
     {
         if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        // The rule worth stating before the click, not after it: detaching removes the
+        // attachment and never the source. Someone who thinks they are deleting a photograph
+        // should learn otherwise while they can still change their mind.
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Detach snapshot?",
+            "Detach this photograph from the sheet? The source itself stays in the ledger.",
+            yesText: "Detach", cancelText: "Keep");
+        if (confirmed != true)
         {
             return;
         }

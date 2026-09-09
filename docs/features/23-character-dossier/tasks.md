@@ -184,12 +184,15 @@ Phase C, and what it changed:
         the whole dossier with only identity fields normalized, so the next field added to it is
         covered without anyone remembering to add it. Sabotage (serve the raw id) failed four
         service tests and the new wire-level API test.
-      - **C7's "detach with confirmation" is a toast, not a confirmation.** Detach fires on
-        the first click and the toast says the source is kept. The rule is stated; it is just
-        stated after the fact.
-      - **Copy drift:** the share toggle reads "Share with the world" where the design says
-        party, and the unlinked-character message tells a non-owner to "link one from your
-        profile", which they cannot do.
+      - **C7's "detach with confirmation" was a toast, not a confirmation — fixed 2026-09-08.**
+        Detach fired on the first click and the toast said the source is kept. It now asks
+        first ("Detach" / "Keep"), stating the rule while the reader can still change their
+        mind; the toast remains as the receipt.
+      - **Copy drift — fixed 2026-09-08.** The share toggle read "Share with the world" where
+        the design says party; it and its tooltip now say party. The unlinked-character
+        message told a non-owner to "link one from your profile", which they cannot do; the
+        instruction now appears only for the owner, and the sentence every other reader sees
+        is the same for a hidden link as for no link.
 
       Left behind: the synthetic user row (`v2player`), since there is no user-delete path;
       and one consumed use on the Symbaroum Player invite link.
