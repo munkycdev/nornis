@@ -31,7 +31,8 @@ individually and say what you could not verify; never kill the servers. Branch p
 work item, merge to main only when asked; a push to main deploys to production.
 Migrations are applied manually before the deploy that needs them
 (`dotnet ef database update --project src/Nornis.Infrastructure --startup-project
-src/Nornis.Api --connection "<prod>"`) and must stay additive.
+src/Nornis.Api` — no `--connection` since 2026-08-09; the design-time factory reads the
+API's user secrets, which point at prod) and must stay additive.
 
 **2026-08-06 — the test platform moved to Microsoft.Testing.Platform** (branch
 `mtp-reporting`): SDK-10 runner via `global.json`, so the bar's test command is now
@@ -137,7 +138,10 @@ build, which would make docker the constraint.
    confirm, Ask world-switch bleed, concurrent-extraction claim. Sharp specs, but
    auth- and concurrency-critical: **whatever model runs these, the independent
    review rule applies before merge.** If uncomfortable on Opus, these are the first
-   thing Fable does on return.
+   thing Fable does on return. **All four done** — recorded 2026-09-08, a month late:
+   reveal-corrections `PrivateGuard` (`90cc717`), upload-size re-validation at confirm
+   (`7474e24`), the Ask world-switch bleed (`6f7f6ea`), the conditional extraction claim
+   (`d4a6e83`). The tier-3 auth seams they were gated with merged as `e2c0bae`.
 9. Scrub tier 3 convention unification, then tier 4 test pruning — mechanical sweeps;
    the doc names each decision. **Both largely done 2026-08-02.**
    - Tier 3 merged in three passes: the mechanical conventions (one GM test, `SectionName`
@@ -225,7 +229,11 @@ build, which would make docker the constraint.
     and volatility is what a floor has to survive. `enforcement` stays `alert`: a floor that
     has never been seen failing is a claim, so the first thing to learn is whether it fires
     under ordinary work. The PR-gate hole above is still the thing to settle before
-    flipping to `gate`.
+    flipping to `gate`. **Retired 2026-09-08.** It never fired. David's call: the
+    implementations are proving themselves through review, sabotage-tested guards and live
+    checks, and a percentage standing guard over that is ceremony. Thresholds file, gate
+    script and both CI steps removed; coverage stays a signal (summary, dashboard, CRAP).
+    The plan file carries the dated note.
 13. W1 accept-time summary maintenance — the review-vs-trusted policy decision and
     the summary prompt are the work. **Done 2026-08-05** on `w1-summary-maintenance`:
     trusted operation per ai-extraction.md's dated amendment, per-world review opt-in,
@@ -253,7 +261,8 @@ build, which would make docker the constraint.
     split's prescription was corrected: the state machine had to be *repatriated*, not
     kept). Item 17 is unblocked. **AppError is deliberately untouched** — its own spec said
     "do it with scrub 1.1 or not at all", 1.1 shipped without it, and nobody ever chose the
-    "not at all"; that choice belongs to David, not to this session.
+    "not at all"; that choice belongs to David, not to this session. **Chosen 2026-09-08:
+    not at all.** Closed.
 17. W4 Ask file-back — small, but waits on the D4 writer. **Done 2026-08-05** on
     `w4-ask-fileback` (branched from main — the writer dependency dissolved: the answer
     files as an ordinary GMNote source through the ordinary source API, so the reviewable
@@ -274,7 +283,8 @@ build, which would make docker the constraint.
 
 Small things noticed in passing, too small for a plan file, parked against the item
 that already opens the right file. None is ever urgent; all of them rot if left
-unwritten. Only the sign-in one is open; the rest are closed and kept for the record.
+unwritten. All are closed and kept for the record; the sign-in one closed as a decision
+rather than as work.
 
 - ~~**ImageSharp 4 needs a licence key to build at all.**~~ **Decided 2026-08-03: stay on
   3.1.x.** Dependabot PR #30 (3.1.12 → 4.0.0) was taken as far as a build and stopped
@@ -306,6 +316,9 @@ unwritten. Only the sign-in one is open; the rest are closed and kept for the re
     why this is written down rather than done.
   - Recorded 2026-08-03, having been raised in passing twice without ever landing
     anywhere. That is precisely the failure mode this section exists to prevent.
+  - **Decided 2026-09-08: accepted as is.** David chose not to pursue either option. The
+    gap is real and the note stays so nobody re-discovers it; it is closed as a decision,
+    not as work.
 
 - ~~**Node 20 action deprecation**~~ **(handled 2026-08-01 by item 4; finished
   2026-08-02.)** Item 4 took `actions/checkout`, `azure/login` and

@@ -67,17 +67,10 @@ jobs:
             -verbosity:Warning
           cat artifacts/coverage/summary/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
 
-      # Phase 4: floors on Domain and Application, and nothing else. Unlike the summary
-      # above this one is allowed to fail the run — that is the entire point of it — but
-      # only for an assembly whose floor is actually set, and none are yet. Until a number
-      # goes into coverage-thresholds.json this step passes and reports, which is what
-      # makes turning it on later a one-line edit rather than a change to CI.
-      #
-      # Not `if: always()`: a run whose tests failed has coverage numbers that mean
-      # nothing, and failing it a second time for a floor would bury the real cause.
-      - name: Coverage floors
-        shell: pwsh
-        run: ./scripts/coverage-gate.ps1 -SummaryPath artifacts/coverage/summary/Summary.json
+      # There is deliberately no coverage floor step here. Floors ran from 2026-08-07 to
+      # 2026-09-08 and never fired; David retired them on the grounds that the
+      # implementations were proving themselves without a percentage standing guard.
+      # Coverage stays a signal — the summary above, the dashboard, the CRAP list.
 
       # Phase 5 of the test-quality plan: the authorization suite as its own green mark
       # rather than a share of a coverage percentage. The steering doc enumerates the surface

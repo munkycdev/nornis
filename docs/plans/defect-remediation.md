@@ -37,13 +37,13 @@ changes that item's priority, not its shape.
   Fix = scrub **1.2**, promoted from cleanliness to leak closure. (Note:
   `ReviewService.IsSourceVisibleToUser` looks like a seventh copy but is a different,
   correct rule — review authorization; rename it rather than "fixing" it.)
-- **[auth] Reveal corrections skip the Private guard.** `RevealService.cs:175-191`:
+- ~~**[auth] Reveal corrections skip the Private guard.**~~ **Fixed** (`90cc717`): the corrections loop runs `PrivateGuard` like the other three steps. *(original diagnosis)* `RevealService.cs:175-191`:
   steps 1-3 all apply `PrivateGuard`; the corrections step does not, and runs under
   `VisibilityFilter.All` — a correction naming a player's Private fact flips its truth
   state and files a PartyVisible reveal as its provenance, violating the class's own
   "never touches Private knowledge" contract. Fix: `PrivateGuard` in the corrections
   loop.
-- **Concurrent duplicate extraction commits two batches for one source.** Idempotency
+- ~~**Concurrent duplicate extraction commits two batches for one source.**~~ **Fixed** (`d4a6e83`): `SourceRepository.TryClaimForExtractionAsync` is the conditional claim, over the filtered unique index that landed with item 6. *(original diagnosis)* Idempotency
   is gated on batch-existence plus an unconditional status write
   (`ExtractionService.cs:148-192`, `SourceRepository.cs:253-265`; Source has no
   RowVersion), and lock-lost redelivery (a transcription+extraction run crossing
@@ -52,7 +52,7 @@ changes that item's priority, not its shape.
   `ReviewBatches(SourceId) WHERE Kind IS NULL` (additive) so the second commit fails
   into the existing Skipped path, plus a conditional claim
   (`UPDATE … WHERE Status='Queued'`, rows-affected as the gate).
-- **Upload size caps never check the actual blob.** Caps validate the client's
+- ~~**Upload size caps never check the actual blob.**~~ **Fixed** (`7474e24`): both confirm sites re-validate the blob's real size and delete an oversized upload. *(original diagnosis)* Caps validate the client's
   *declared* `SizeBytes` (`LibraryService.cs:90`, `SourceAttachmentService.cs:205-215`),
   then a Create|Write SAS is issued and `ConfirmUploadAsync` stores the real size
   without comparing it (`LibraryService.cs:146-153`). Downstream pipelines buffer
@@ -67,7 +67,7 @@ changes that item's priority, not its shape.
   options file even documents the failure mode. Fix: warn once per unknown model,
   alert on Succeeded-with-tokens-but-zero-cost, consider a conservative fallback
   price. Folds into scrub **1.4**'s usage recorder.
-- **Ask contaminates the other world's saved history on mid-flight world switch.**
+- ~~**Ask contaminates the other world's saved history on mid-flight world switch.**~~ **Fixed** (`6f7f6ea`): conversation and storage key are captured before the await in both `Ask.razor` and `LoremasterPanel.razor`. *(original diagnosis)*
   `Ask.razor:292-313` re-reads `_current` after the await; `OnWorldChanged` has
   replaced it, so world A's Q&A is appended to world B's conversation and persisted
   under B's storage key (NRE variant when B has no conversations).
