@@ -18,6 +18,23 @@
 > access to. Read "Azure Container Registry" below as GHCR. Everything else in the July
 > amendment stands.
 
+> **Amendment (2026-09-08):** the API and worker reach **SQL, Blob Storage and Service Bus
+> as their own system-assigned managed identities** (O3 in the operational-hardening plan).
+> Configuration carries endpoints — a password-less SQL connection string with
+> `Authentication=Active Directory Default`, `BlobStorage:ServiceUri`, and
+> `AzureServiceBus:FullyQualifiedNamespace` / `ServiceBus:FullyQualifiedNamespace` — and the
+> rule that turns them into clients lives once, in `Nornis.Infrastructure/Configuration/AzureClients.cs`:
+> a connection string wins if one is set (the local emulator stack still needs them),
+> otherwise the endpoint is reached as the process's identity, otherwise the resource is
+> not configured. Roles: each app has Storage Blob Data Contributor on the `nornis-library`
+> container and Service Bus Data Sender (the worker also Receiver) on the namespace, and a
+> contained SQL user with read/write (`scripts/sql-identity-users.cs`; the server's Entra
+> admin is David). KEDA reads queue depth as the shared user-assigned `id-nornis-apps`,
+> which holds Service Bus Data Owner for exactly that, so the API never carries Manage.
+> SAS URLs for browser uploads are signed with a user delegation key. The only remaining
+> app secrets are the two Azure OpenAI keys and the Auth0 client secret. Read "Secrets"
+> below in that light.
+
 ## Hosting Target
 
 Nornis will be hosted on Azure Kubernetes Service.

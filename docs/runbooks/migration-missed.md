@@ -30,16 +30,15 @@ produces exactly this.
 schema. Ask the database instead:
 
 ```bash
-CONN=$(dotnet user-secrets list --project src/Nornis.Api \
-  | grep '^ConnectionStrings:DefaultConnection' | cut -d' ' -f3-)
-
 dotnet ef migrations list \
-  --project src/Nornis.Infrastructure --startup-project src/Nornis.Api \
-  --connection "$CONN"
+  --project src/Nornis.Infrastructure --startup-project src/Nornis.Api
 ```
 
-Anything marked `(Pending)` is the answer. Never echo `$CONN` — it carries the SQL
-password.
+The design-time factory reads the API's user secrets. With the connection string in its
+password-less form (`Authentication=Active Directory Default`) your `az login` is the
+credential, so be logged in as the server's Entra admin, and set
+`AZURE_TOKEN_CREDENTIALS=AzureCliCredential` if Visual Studio's account gets in first (the
+symptom is "Pending status not shown"). Anything marked `(Pending)` is the answer.
 
 If nothing is pending, this is not your problem: `/health` is only ever Unhealthy for
 pending migrations, so a 503 with a clean migration list means the check itself could not
@@ -52,8 +51,7 @@ by policy, so the running code tolerates the new schema.
 
 ```bash
 dotnet ef database update \
-  --project src/Nornis.Infrastructure --startup-project src/Nornis.Api \
-  --connection "$CONN"
+  --project src/Nornis.Infrastructure --startup-project src/Nornis.Api
 ```
 
 The window between deploy and migration is genuinely an outage for anything touching the
@@ -74,8 +72,8 @@ passes.
 
 Apply migrations **before** pushing, not after. The sequence that avoids this entirely:
 
-1. `dotnet ef migrations list --connection "$CONN"` — confirm what is pending
-2. `dotnet ef database update --connection "$CONN"` — apply it
+1. `dotnet ef migrations list` (with the two `--project` flags above) — confirm what is pending
+2. `dotnet ef database update` — apply it
 3. `curl https://api.nornis.app/health` — old code, new schema, still Healthy
 4. Push
 

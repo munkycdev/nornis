@@ -1,4 +1,4 @@
-using System.ClientModel;
+﻿using System.ClientModel;
 using Azure.AI.OpenAI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -49,9 +49,10 @@ public class ConfigurationValidationTests
                     throw new InvalidOperationException(
                         "Required configuration 'Extraction:AiEndpoint' is missing. The worker cannot start without an AI endpoint configured.");
 
-                if (string.IsNullOrWhiteSpace(workerOptions?.ConnectionString))
+                if (workerOptions?.IsConfigured != true)
                     throw new InvalidOperationException(
-                        "Required configuration 'ServiceBus:ConnectionString' is missing. The worker cannot start without a Service Bus connection string configured.");
+                        "Required Service Bus configuration is missing. The worker cannot start without a queue to listen to. "
+                        + Nornis.Infrastructure.Configuration.AzureClients.NotConfiguredHint("ServiceBus:ConnectionString", "ServiceBus:FullyQualifiedNamespace"));
             });
     }
 
@@ -88,18 +89,36 @@ public class ConfigurationValidationTests
     }
 
     [Test]
-    public void MissingServiceBusConnectionString_FailsFastWithClearError()
+    public void MissingServiceBusWiring_FailsFastNamingBothForms()
     {
         var config = new Dictionary<string, string?>
         {
             ["Extraction:AiModel"] = "gpt-4o",
             ["Extraction:AiEndpoint"] = "https://test.openai.azure.com/",
-            // ConnectionString intentionally missing
+            // Neither ServiceBus:ConnectionString nor ServiceBus:FullyQualifiedNamespace
         };
 
         var ex = Assert.Throws<InvalidOperationException>(() => CreateHostBuilderWithConfig(config).Build());
 
         Assert.That(ex!.Message, Does.Contain("ServiceBus:ConnectionString"));
+        Assert.That(ex.Message, Does.Contain("ServiceBus:FullyQualifiedNamespace"));
         Assert.That(ex.Message, Does.Contain("missing"));
+    }
+
+    /// <summary>
+    /// The identity form alone satisfies the guard: in Azure the worker carries no Service Bus
+    /// secret at all, only the namespace it authenticates to as itself.
+    /// </summary>
+    [Test]
+    public void NamespaceAlone_SatisfiesTheServiceBusGuard()
+    {
+        var config = new Dictionary<string, string?>
+        {
+            ["Extraction:AiModel"] = "gpt-4o",
+            ["Extraction:AiEndpoint"] = "https://test.openai.azure.com/",
+            ["ServiceBus:FullyQualifiedNamespace"] = "test.servicebus.windows.net"
+        };
+
+        Assert.That(() => CreateHostBuilderWithConfig(config).Build(), Throws.Nothing);
     }
 }

@@ -19,6 +19,7 @@ using Nornis.Application.Storage;
 using Nornis.Application.Validation;
 using Nornis.Domain.Repositories;
 using Nornis.Infrastructure.Ai;
+using Nornis.Infrastructure.Configuration;
 using Nornis.Infrastructure.Knowledge;
 using Nornis.Infrastructure.Messaging;
 using Nornis.Infrastructure.Persistence;
@@ -160,17 +161,34 @@ if (!string.IsNullOrWhiteSpace(sqlConnectionString))
         tags: [StatusEndpoint.DependencyTag], timeout: StatusEndpoint.ProbeTimeout);
 }
 
-var statusBlobConnectionString = builder.Configuration["BlobStorage:ConnectionString"];
-if (!string.IsNullOrWhiteSpace(statusBlobConnectionString))
+// Blob and Service Bus clients are built once, here, by the one rule in AzureClients: a
+// connection string if there is one, otherwise an endpoint authenticated as this process's
+// identity, otherwise not configured. The probes below and the service registrations further
+// down share these instances, so a probe can never be green on a credential the app is not
+// actually using.
+var blobContainerName = builder.Configuration["BlobStorage:ContainerName"] ?? AzureBlobStorageService.DefaultContainerName;
+var blobServiceClient = AzureClients.TryCreateBlobServiceClient(
+    builder.Configuration["BlobStorage:ConnectionString"],
+    builder.Configuration["BlobStorage:ServiceUri"]);
+var serviceBusClient = AzureClients.TryCreateServiceBusClient(
+    builder.Configuration["AzureServiceBus:ConnectionString"],
+    builder.Configuration["AzureServiceBus:FullyQualifiedNamespace"]);
+
+if (blobServiceClient is not null)
 {
+    builder.Services.AddSingleton(blobServiceClient);
+    // The container, not the account: reading service-level properties is a control-plane
+    // right the data-plane roles the identity holds do not include, so an account-level
+    // probe would report the storage the app uses every day as unreachable.
     healthChecks.AddAzureBlobStorage(
-        _ => new Azure.Storage.Blobs.BlobServiceClient(statusBlobConnectionString),
+        sp => sp.GetRequiredService<Azure.Storage.Blobs.BlobServiceClient>(),
+        _ => new HealthChecks.Azure.Storage.Blobs.AzureBlobStorageHealthCheckOptions { ContainerName = blobContainerName },
         name: "blob-storage",
         tags: [StatusEndpoint.DependencyTag],
         timeout: StatusEndpoint.ProbeTimeout);
 }
 
-if (!string.IsNullOrWhiteSpace(builder.Configuration["AzureServiceBus:ConnectionString"]))
+if (serviceBusClient is not null)
 {
     // The extraction queue specifically, not the namespace: a queue that has gone missing
     // is the failure that silently strands every source, and a namespace-level ping would
@@ -380,11 +398,10 @@ else
     builder.Services.AddScoped<IWorldNameGenerator, NoOpWorldNameGenerator>();
 }
 
-// Azure Service Bus and extraction queue
-var serviceBusConnectionString = builder.Configuration["AzureServiceBus:ConnectionString"];
-if (!string.IsNullOrEmpty(serviceBusConnectionString))
+// Azure Service Bus and extraction queue (the client itself was built beside the probes above)
+if (serviceBusClient is not null)
 {
-    builder.Services.AddSingleton(new ServiceBusClient(serviceBusConnectionString));
+    builder.Services.AddSingleton(serviceBusClient);
     builder.Services.AddSingleton<IExtractionQueueClient, ServiceBusExtractionQueueClient>();
     builder.Services.AddSingleton<ILibraryIndexingQueueClient, ServiceBusLibraryIndexingQueueClient>();
 }
@@ -399,20 +416,19 @@ else
 builder.Services.Configure<LibraryOptions>(builder.Configuration.GetSection(LibraryOptions.SectionName));
 builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<IReferencePassageRetriever, ReferencePassageRetriever>();
-var blobConnectionString = builder.Configuration["BlobStorage:ConnectionString"];
-if (!string.IsNullOrEmpty(blobConnectionString))
+if (blobServiceClient is not null)
 {
     builder.Services.AddSingleton<IBlobStorageService>(sp =>
         new AzureBlobStorageService(
-            blobConnectionString,
-            builder.Configuration["BlobStorage:ContainerName"] ?? AzureBlobStorageService.DefaultContainerName,
+            sp.GetRequiredService<Azure.Storage.Blobs.BlobServiceClient>(),
+            blobContainerName,
             sp.GetRequiredService<ILogger<AzureBlobStorageService>>()));
 }
 else
 {
     builder.Services.AddSingleton<IBlobStorageService>(sp =>
         throw new InvalidOperationException(
-            "Blob storage is not configured. Set 'BlobStorage:ConnectionString' to enable the Library."));
+            "Blob storage is not configured. " + AzureClients.NotConfiguredHint("BlobStorage:ConnectionString", "BlobStorage:ServiceUri")));
 }
 
 // MVC action filter for world-scoped endpoints

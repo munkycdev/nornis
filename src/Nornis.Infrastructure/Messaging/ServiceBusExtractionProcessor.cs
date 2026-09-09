@@ -7,6 +7,10 @@ namespace Nornis.Infrastructure.Messaging;
 /// source-extraction queue. Configures peek-lock mode, concurrency, prefetch,
 /// and lock renewal from constructor parameters. Exposes lifecycle methods
 /// suitable for BackgroundService start/stop.
+///
+/// Owns the client it is handed and disposes it: each processor gets its own so that the
+/// two queues' connections fail and recover independently. How that client authenticates is
+/// decided in <c>AzureClients</c>, not here.
 /// </summary>
 public sealed class ServiceBusExtractionProcessor : IAsyncDisposable
 {
@@ -14,16 +18,16 @@ public sealed class ServiceBusExtractionProcessor : IAsyncDisposable
     private readonly ServiceBusProcessor _processor;
 
     public ServiceBusExtractionProcessor(
-        string connectionString,
+        ServiceBusClient client,
         string queueName,
         int maxConcurrentCalls,
         int prefetchCount,
         TimeSpan maxAutoLockRenewalDuration)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        ArgumentNullException.ThrowIfNull(client);
         ArgumentException.ThrowIfNullOrWhiteSpace(queueName);
 
-        _client = new ServiceBusClient(connectionString);
+        _client = client;
 
         var options = new ServiceBusProcessorOptions
         {
