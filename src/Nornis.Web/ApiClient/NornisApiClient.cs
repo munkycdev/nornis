@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 
 namespace Nornis.Web.ApiClient;
@@ -196,6 +196,24 @@ public class NornisApiClient
     /// <summary>Transfers ownership of an existing character to the calling member.</summary>
     public Task<ApiResult<CharacterDto>> ClaimCharacterAsync(Guid worldId, Guid characterId, CancellationToken ct = default) =>
         PostAsync<object?, CharacterDto>($"/api/worlds/{worldId}/characters/{characterId}/claim", null, ct);
+
+    public Task<ApiResult<CharacterDossierDto>> GetCharacterDossierAsync(Guid worldId, Guid characterId, CancellationToken ct = default) =>
+        GetAsync<CharacterDossierDto>($"/api/worlds/{worldId}/characters/{characterId}/dossier", ct);
+
+    public Task<ApiResult<CharacterDto>> UpdateCharacterSheetAsync(Guid worldId, Guid characterId, string? sheet, CancellationToken ct = default) =>
+        PutAsync<UpdateCharacterSheetRequest, CharacterDto>(
+            $"/api/worlds/{worldId}/characters/{characterId}/sheet", new UpdateCharacterSheetRequest(sheet), ct);
+
+    public Task<ApiResult<CharacterDto>> SetCharacterSheetSharingAsync(Guid worldId, Guid characterId, bool sharedWithParty, CancellationToken ct = default) =>
+        PutAsync<SetCharacterSheetSharingRequest, CharacterDto>(
+            $"/api/worlds/{worldId}/characters/{characterId}/sheet/sharing", new SetCharacterSheetSharingRequest(sharedWithParty), ct);
+
+    public Task<ApiResult<bool>> AttachCharacterSnapshotAsync(Guid worldId, Guid characterId, Guid sourceId, DateTimeOffset asOf, string? note, CancellationToken ct = default) =>
+        PostNoContentAsync($"/api/worlds/{worldId}/characters/{characterId}/snapshots",
+            new AttachCharacterSnapshotRequest(sourceId, asOf, note), ct);
+
+    public Task<ApiResult<bool>> DetachCharacterSnapshotAsync(Guid worldId, Guid characterId, Guid snapshotId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/characters/{characterId}/snapshots/{snapshotId}", ct);
 
     // -------------------------------------------------------------------- Sources --
 

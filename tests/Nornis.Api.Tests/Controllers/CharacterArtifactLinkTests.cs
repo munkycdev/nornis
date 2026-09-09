@@ -129,4 +129,48 @@ public class CharacterArtifactLinkTests
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
     }
+
+    /// <summary>
+    /// A GM links a player's character to a GM-only artifact. On the wire, every character
+    /// endpoint must then read to the player exactly as an unlinked character does — the list,
+    /// the single read, the dossier envelope, and the response to the player's own edit. The
+    /// GM still sees the link. This is the property the live check found missing in the JSON
+    /// while the page had it right.
+    /// </summary>
+    [Test]
+    [Category("Authorization")]
+    public async Task HiddenLink_IsAbsentFromEveryCharacterResponse_ForThePlayer()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var character = await CreateCharacterAsync(scenario.PlayerClient, scenario.World.Id);
+        var artifact = await KnowledgeTestHelpers.CreateTestArtifactAsync(
+            _factory, scenario.World.Id, "Secret Twin", type: ArtifactType.Character,
+            visibility: VisibilityScope.GMOnly);
+        var basePath = $"/api/worlds/{scenario.World.Id}/characters";
+
+        var linked = await scenario.GmClient.PutAsJsonAsync(
+            $"{basePath}/{character.Id}", new { artifactId = artifact.Id });
+        Assert.That(linked.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That((await linked.Content.ReadFromJsonAsync<CharacterResponse>())!.ArtifactId, Is.EqualTo(artifact.Id),
+            "the GM who made the link sees it");
+
+        var listed = await scenario.PlayerClient.GetFromJsonAsync<List<CharacterResponse>>(basePath);
+        var single = await scenario.PlayerClient.GetFromJsonAsync<CharacterResponse>($"{basePath}/{character.Id}");
+        var dossier = await scenario.PlayerClient.GetFromJsonAsync<CharacterDossierResponse>($"{basePath}/{character.Id}/dossier");
+        var renamed = await scenario.PlayerClient.PutAsJsonAsync(
+            $"{basePath}/{character.Id}", new { name = "Tavrin Ashgrave" });
+        Assert.That(renamed.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var ownEdit = await renamed.Content.ReadFromJsonAsync<CharacterResponse>();
+        var asGm = await scenario.GmClient.GetFromJsonAsync<CharacterResponse>($"{basePath}/{character.Id}");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(listed!.Single(c => c.Id == character.Id).ArtifactId, Is.Null, "list");
+            Assert.That(single!.ArtifactId, Is.Null, "single read");
+            Assert.That(dossier!.Character.ArtifactId, Is.Null, "dossier envelope");
+            Assert.That(dossier.Record, Is.Null, "dossier record");
+            Assert.That(ownEdit!.ArtifactId, Is.Null, "own edit");
+            Assert.That(asGm!.ArtifactId, Is.EqualTo(artifact.Id), "GM read");
+        });
+    }
 }

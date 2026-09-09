@@ -472,9 +472,7 @@ public class ArtifactService : IArtifactService
         return linkedCharacters
             .Select(c => members.FirstOrDefault(m => m.Id == c.WorldMemberId))
             .Where(m => m is not null)
-            .Select(m => !string.IsNullOrWhiteSpace(m!.DisplayName)
-                ? m.DisplayName!
-                : $"User {m.UserId.ToString()[..8]}")
+            .Select(m => MemberDisplayName.For(m!))
             .Distinct()
             .ToList();
     }

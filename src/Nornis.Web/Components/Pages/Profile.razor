@@ -63,7 +63,9 @@
                     <div class="nornis-member-row">
                         <MudAvatar Color="Color.Tertiary" Size="Size.Small">@ch.Name[..1].ToUpperInvariant()</MudAvatar>
                         <div class="nornis-list-body">
-                            <div class="nornis-list-title">@ch.Name</div>
+                            <div class="nornis-list-title">
+                                <a href="@($"/characters/{ch.Id}")" class="nornis-link">@ch.Name</a>
+                            </div>
                             <div class="nornis-list-sub">
                                 @if (CharacterCampaignNames(ch) is { Length: > 0 } campaigns)
                                 {

@@ -311,7 +311,50 @@ public record CharacterDto(
     Guid? ArtifactId,
     IReadOnlyList<Guid> CampaignIds,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    DateTimeOffset? SheetUpdatedAt = null);
+
+/// <param name="Record">
+/// Null both when the character is unlinked and when the reader may not see the artifact it
+/// links to. The UI must render those two cases identically; anything else discloses that a
+/// GM-only artifact exists bearing this character's name.
+/// </param>
+public record CharacterDossierDto(
+    CharacterDto Character,
+    string OwnerDisplayName,
+    IReadOnlyList<string> CampaignNames,
+    CharacterRecordDto? Record,
+    string? Sheet = null,
+    bool SheetSharedWithParty = false,
+    bool CanEditSheet = false,
+    bool CanShareSheet = false,
+    IReadOnlyList<CharacterSnapshotDto>? Snapshots = null);
+
+public record CharacterSnapshotDto(
+    Guid Id,
+    Guid SourceId,
+    string SourceTitle,
+    DateTimeOffset AsOf,
+    string? Note);
+
+public record AttachCharacterSnapshotRequest(Guid SourceId, DateTimeOffset AsOf, string? Note = null);
+
+public record UpdateCharacterSheetRequest(string? Sheet);
+
+public record SetCharacterSheetSharingRequest(bool SharedWithParty);
+
+public record CharacterRecordDto(
+    Guid ArtifactId,
+    string ArtifactName,
+    string? Summary,
+    IReadOnlyList<ArtifactFactDto> Facts,
+    int TotalFactCount,
+    IReadOnlyList<CharacterRecordGroupDto> Groups);
+
+public record CharacterRecordGroupDto(
+    string Type,
+    IReadOnlyList<ConnectedArtifact> Artifacts,
+    int TotalCount);
 
 public record CreateCharacterRequest(
     string Name,

@@ -1,4 +1,4 @@
-namespace Nornis.Api.Contracts.Responses;
+﻿namespace Nornis.Api.Contracts.Responses;
 
 public record CharacterResponse(
     Guid Id,
@@ -8,5 +8,6 @@ public record CharacterResponse(
     string? Description,
     Guid? ArtifactId,
     IReadOnlyList<Guid> CampaignIds,
+    DateTimeOffset? SheetUpdatedAt,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);

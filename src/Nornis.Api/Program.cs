@@ -1,4 +1,4 @@
-using Azure.Messaging.ServiceBus;
+﻿using Azure.Messaging.ServiceBus;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
@@ -194,6 +194,7 @@ builder.Services.AddScoped<IWorldInviteRepository, WorldInviteRepository>();
 builder.Services.AddScoped<ICampaignRepository, CampaignRepository>();
 builder.Services.AddScoped<ICampaignRecapRepository, CampaignRecapRepository>();
 builder.Services.AddScoped<ICharacterRepository, CharacterRepository>();
+builder.Services.AddScoped<ICharacterSheetSnapshotRepository, CharacterSheetSnapshotRepository>();
 builder.Services.AddScoped<ISourceRepository, SourceRepository>();
 builder.Services.AddScoped<ISourceAttachmentRepository, SourceAttachmentRepository>();
 builder.Services.AddScoped<IReviewProposalRepository, ReviewProposalRepository>();

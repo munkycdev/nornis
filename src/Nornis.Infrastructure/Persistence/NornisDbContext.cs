@@ -1,4 +1,4 @@
-using Microsoft.Data.SqlTypes;
+﻿using Microsoft.Data.SqlTypes;
 using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Infrastructure.Persistence.Configurations;
@@ -18,6 +18,7 @@ public class NornisDbContext : DbContext
     public DbSet<Campaign> Campaigns => Set<Campaign>();
     public DbSet<Character> Characters => Set<Character>();
     public DbSet<CampaignCharacter> CampaignCharacters => Set<CampaignCharacter>();
+    public DbSet<CharacterSheetSnapshot> CharacterSheetSnapshots => Set<CharacterSheetSnapshot>();
     public DbSet<CampaignRecap> CampaignRecaps => Set<CampaignRecap>();
     public DbSet<Source> Sources => Set<Source>();
     public DbSet<SourceAttachment> SourceAttachments => Set<SourceAttachment>();

@@ -19,6 +19,12 @@ public class CharacterConfiguration : IEntityTypeConfiguration<Character>
         builder.Property(c => c.Description)
             .HasMaxLength(2000);
 
+        builder.Property(c => c.Sheet)
+            .HasMaxLength(Character.MaxSheetChars);
+
+        builder.Property(c => c.SheetUpdatedAt)
+            .HasColumnType("datetimeoffset");
+
         builder.Property(c => c.CreatedAt)
             .HasColumnType("datetimeoffset");
 

@@ -1,0 +1,481 @@
+@page "/characters/{CharacterId:guid}"
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+@using Nornis.Web.Services
+
+@* A character's own page: who plays them, where they have played, and what the record knows
+   about the person behind them.
+
+   The record here is assembled by the server at the caller's visibility, so a player's copy
+   simply holds less — and a character linked to an artifact the reader may not see arrives
+   identical to one that was never linked at all. Rendering those two differently would tell a
+   player that a GM-only artifact exists bearing their character's name, so this page has one
+   empty state for both and no branch that could grow a second. *@
+
+<PageTitle>@(_dossier?.Character.Name ?? "Character") — Nornis</PageTitle>
+
+<div>
+    <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text"
+               Color="Color.Default" Href="/profile" Class="mb-3">
+        Characters
+    </MudButton>
+
+    @if (Worlds.Current is null)
+    {
+        <NoWorld />
+    }
+    else if (_loading)
+    {
+        <LoadingRows Rows="4" />
+    }
+    else if (_dossier is null)
+    {
+        <MudAlert Severity="Severity.Warning">This character doesn't exist or you can't see it.</MudAlert>
+    }
+    else
+    {
+        var ch = _dossier.Character;
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
+            <div class="d-flex align-center gap-3">
+                <MudIcon Icon="@Icons.Material.Outlined.Person" Size="Size.Large" Color="Color.Secondary" />
+                <div class="flex-grow-1">
+                    <MudText Typo="Typo.h5" Class="nornis-serif">@ch.Name</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Played by @_dossier.OwnerDisplayName</MudText>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(ch.Description))
+            {
+                <MudText Typo="Typo.body1" Class="mt-3">@ch.Description</MudText>
+            }
+
+            @if (_dossier.CampaignNames.Count > 0)
+            {
+                <div class="d-flex flex-wrap gap-1 mt-3">
+                    @foreach (var name in _dossier.CampaignNames)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                 Icon="@Icons.Material.Outlined.AutoStories">@name</MudChip>
+                    }
+                </div>
+            }
+        </MudPaper>
+
+        @if (_dossier.CanEditSheet || _dossier.Sheet is not null)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
+                <div class="d-flex align-center gap-2 mb-2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" Color="Color.Secondary" />
+                    <MudText Typo="Typo.subtitle1" Class="nornis-serif flex-grow-1">Their sheet</MudText>
+
+                    @if (_dossier.CanShareSheet)
+                    {
+                        <MudTooltip Text="@(_dossier.SheetSharedWithParty
+                                            ? "Everyone in this world can read this sheet"
+                                            : "Only you and the GM can read this sheet")">
+                            <MudSwitch T="bool" Value="_dossier.SheetSharedWithParty"
+                                       ValueChanged="SetSharingAsync" Color="Color.Primary"
+                                       Disabled="_sharing" Label="Share with the world" />
+                        </MudTooltip>
+                    }
+                    else if (_dossier.SheetSharedWithParty)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                 Icon="@Icons.Material.Outlined.Visibility">Shared</MudChip>
+                    }
+
+                    @if (_dossier.CanEditSheet && !_editingSheet)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                       OnClick="BeginEditSheet" aria-label="Edit sheet" />
+                    }
+                </div>
+
+                @if (_editingSheet)
+                {
+                    <NotesEditor @ref="_sheetEditor" InitialMarkdown="@_dossier.Sheet"
+                                 Placeholder="Equipment, spells, notes — whatever you'd write on the paper…" />
+
+                    <div class="d-flex gap-2 mt-3">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                   OnClick="SaveSheetAsync" Disabled="_savingSheet">Save</MudButton>
+                        <MudButton Variant="Variant.Text" Size="Size.Small"
+                                   OnClick="@(() => _editingSheet = false)">Cancel</MudButton>
+                    </div>
+
+                    @if (_sheetError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_sheetError</MudAlert>
+                    }
+                }
+                else if (string.IsNullOrWhiteSpace(_dossier.Sheet))
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Nothing written down yet.
+                        <MudLink OnClick="BeginEditSheet">Start a sheet</MudLink> — it's yours, and
+                        Nornis won't try to understand it.
+                    </MudText>
+                }
+                else
+                {
+                    <div class="nornis-markdown">@MarkdownRenderer.ToHtml(_dossier.Sheet)</div>
+
+                    @if (_dossier.Character.SheetUpdatedAt is { } updated)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
+                            Updated @RelativeTime.Ago(updated)
+                        </MudText>
+                    }
+                }
+            </MudPaper>
+        }
+
+        var snapshots = _dossier.Snapshots ?? [];
+
+        @if (_dossier.CanEditSheet || snapshots.Count > 0)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
+                <div class="d-flex align-center gap-2 mb-2">
+                    <MudIcon Icon="@Icons.Material.Outlined.PhotoCamera" Size="Size.Small" Color="Color.Secondary" />
+                    <MudText Typo="Typo.subtitle1" Class="nornis-serif flex-grow-1">Sheet snapshots</MudText>
+                    @if (_dossier.CanEditSheet && !_attaching)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text"
+                                   StartIcon="@Icons.Material.Filled.Add" OnClick="BeginAttachAsync">
+                            Attach
+                        </MudButton>
+                    }
+                </div>
+
+                @if (_attaching)
+                {
+                    <MudSelect T="Guid?" @bind-Value="_attachSourceId" Label="Source" Variant="Variant.Outlined"
+                               Margin="Margin.Dense" Class="mb-2">
+                        @foreach (var s in _attachableSources)
+                        {
+                            <MudSelectItem T="Guid?" Value="@((Guid?)s.Id)">@s.Title</MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    <MudDatePicker @bind-Date="_attachAsOf" Label="The sheet as it stood on"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+
+                    <MudTextField @bind-Value="_attachNote" Label="Note (optional)" MaxLength="500"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+
+                    <div class="d-flex gap-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                   OnClick="AttachSnapshotAsync"
+                                   Disabled="@(_attachSourceId is null || _savingSnapshot)">Attach</MudButton>
+                        <MudButton Variant="Variant.Text" Size="Size.Small"
+                                   OnClick="@(() => _attaching = false)">Cancel</MudButton>
+                    </div>
+
+                    @if (_snapshotError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_snapshotError</MudAlert>
+                    }
+                }
+
+                @if (snapshots.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        No snapshots yet. Photograph the paper sheet as a source, then attach it here.
+                    </MudText>
+                }
+                else
+                {
+                    @foreach (var snap in snapshots)
+                    {
+                        <div class="nornis-member-row">
+                            <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" Color="Color.Secondary" />
+                            <div class="nornis-list-body">
+                                <div class="nornis-list-title">
+                                    <a href="@($"/sources/{snap.SourceId}")" class="nornis-link">@snap.SourceTitle</a>
+                                </div>
+                                <div class="nornis-list-sub">
+                                    <span>As of @snap.AsOf.ToString("d MMM yyyy")</span>
+                                    @if (!string.IsNullOrWhiteSpace(snap.Note))
+                                    {
+                                        <span> · @snap.Note</span>
+                                    }
+                                </div>
+                            </div>
+                            @if (_dossier.CanEditSheet)
+                            {
+                                <MudTooltip Text="Detach — the source itself is kept">
+                                    <MudIconButton Icon="@Icons.Material.Filled.LinkOff" Size="Size.Small"
+                                                   OnClick="() => DetachSnapshotAsync(snap.Id)"
+                                                   aria-label="Detach snapshot" />
+                                </MudTooltip>
+                            }
+                        </div>
+                    }
+                }
+            </MudPaper>
+        }
+
+        @if (_dossier.Record is null)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    This character isn't linked to a world record. Link one from your profile to see
+                    what the sources say about them.
+                </MudText>
+            </MudPaper>
+        }
+        else
+        {
+            var record = _dossier.Record;
+
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
+                <div class="d-flex align-center gap-2 mb-2">
+                    <MudText Typo="Typo.subtitle1" Class="nornis-serif flex-grow-1">What the record knows</MudText>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" EndIcon="@Icons.Material.Filled.OpenInNew"
+                               Href="@($"/artifacts/{record.ArtifactId}")">
+                        @record.ArtifactName
+                    </MudButton>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(record.Summary))
+                {
+                    <MudText Typo="Typo.body2" Class="mb-3">@record.Summary</MudText>
+                }
+
+                @if (record.Facts.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Nothing has been recorded about them yet.
+                    </MudText>
+                }
+                else
+                {
+                    <MudList T="string" Dense="true">
+                        @foreach (var fact in record.Facts)
+                        {
+                            <MudListItem T="string" Icon="@Icons.Material.Outlined.Notes">
+                                <MudText Typo="Typo.body2">
+                                    <strong>@fact.Predicate:</strong> @fact.Value
+                                </MudText>
+                            </MudListItem>
+                        }
+                    </MudList>
+
+                    @if (record.TotalFactCount > record.Facts.Count)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Showing @record.Facts.Count of @record.TotalFactCount.
+                            <MudLink Href="@($"/artifacts/{record.ArtifactId}")">See all</MudLink>
+                        </MudText>
+                    }
+                }
+            </MudPaper>
+
+            @foreach (var group in record.Groups)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
+                    <div class="d-flex align-center gap-2 mb-2">
+                        <MudIcon Icon="@ArtifactTypeDisplay.Icon(group.Type)" Size="Size.Small" Color="Color.Secondary" />
+                        <MudText Typo="Typo.subtitle2" Class="flex-grow-1">
+                            @ArtifactTypeDisplay.Plural(group.Type)
+                        </MudText>
+                        @if (group.TotalCount > group.Artifacts.Count)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @group.Artifacts.Count of @group.TotalCount
+                            </MudText>
+                        }
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-1">
+                        @foreach (var artifact in group.Artifacts)
+                        {
+                            <ArtifactTip Name="@artifact.Name" Summary="@artifact.Summary">
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                         Href="@($"/artifacts/{artifact.Id}")">@artifact.Name</MudChip>
+                            </ArtifactTip>
+                        }
+                    </div>
+                </MudPaper>
+            }
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public Guid CharacterId { get; set; }
+
+    private CharacterDossierDto? _dossier;
+    private bool _loading = true;
+
+    private NotesEditor? _sheetEditor;
+    private bool _editingSheet;
+    private bool _savingSheet;
+    private bool _sharing;
+    private string? _sheetError;
+
+    private void BeginEditSheet()
+    {
+        _sheetError = null;
+        _editingSheet = true;
+    }
+
+    private async Task SaveSheetAsync()
+    {
+        if (Worlds.Current is null || _dossier is null)
+        {
+            return;
+        }
+
+        // The editor holds the live text; _dossier.Sheet is only the value it was seeded with.
+        var sheet = _sheetEditor is null || !_sheetEditor.Initialized
+            ? _dossier.Sheet
+            : await _sheetEditor.GetMarkdownAsync();
+
+        _savingSheet = true;
+        _sheetError = null;
+        var result = await Api.UpdateCharacterSheetAsync(Worlds.Current.Id, CharacterId, sheet);
+        _savingSheet = false;
+
+        if (!result.IsSuccess)
+        {
+            _sheetError = result.Error!.Message;
+            return;
+        }
+
+        _editingSheet = false;
+        _sheetEditor = null;
+        await LoadAsync();
+    }
+
+    private bool _attaching;
+    private bool _savingSnapshot;
+    private string? _snapshotError;
+    private Guid? _attachSourceId;
+    private DateTime? _attachAsOf = DateTime.UtcNow.Date;
+    private string? _attachNote;
+    private IReadOnlyList<SourceListItem> _attachableSources = [];
+
+    private async Task BeginAttachAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _snapshotError = null;
+        _attachSourceId = null;
+        _attaching = true;
+
+        // The picker offers what the reader may already see; the server refuses anything else.
+        var sources = await Api.GetSourcesAsync(Worlds.Current.Id);
+        _attachableSources = sources.IsSuccess ? sources.Value! : [];
+    }
+
+    private async Task AttachSnapshotAsync()
+    {
+        if (Worlds.Current is null || _attachSourceId is not { } sourceId)
+        {
+            return;
+        }
+
+        var asOf = new DateTimeOffset(
+            DateTime.SpecifyKind(_attachAsOf ?? DateTime.UtcNow.Date, DateTimeKind.Utc), TimeSpan.Zero);
+
+        _savingSnapshot = true;
+        _snapshotError = null;
+        var result = await Api.AttachCharacterSnapshotAsync(
+            Worlds.Current.Id, CharacterId, sourceId, asOf, _attachNote);
+        _savingSnapshot = false;
+
+        if (!result.IsSuccess)
+        {
+            _snapshotError = result.Error!.Message;
+            return;
+        }
+
+        _attaching = false;
+        _attachNote = null;
+        await LoadAsync();
+    }
+
+    private async Task DetachSnapshotAsync(Guid snapshotId)
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        var result = await Api.DetachCharacterSnapshotAsync(Worlds.Current.Id, CharacterId, snapshotId);
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+            return;
+        }
+
+        Snackbar.Add("Snapshot detached. The source is still in the ledger.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private async Task SetSharingAsync(bool shared)
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _sharing = true;
+        var result = await Api.SetCharacterSheetSharingAsync(Worlds.Current.Id, CharacterId, shared);
+        _sharing = false;
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+
+    private async void OnWorldChanged()
+    {
+        // The page is scoped to one world's character; switching worlds makes it meaningless.
+        await LoadAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            _loading = false;
+            return;
+        }
+
+        _loading = true;
+
+        var worldId = Worlds.Current.Id;
+        var characterId = CharacterId;
+        var result = await Api.GetCharacterDossierAsync(worldId, characterId);
+
+        // A slower earlier load must not overwrite a newer one, and must not paint another
+        // world's character onto this page.
+        if (Worlds.Current?.Id != worldId || CharacterId != characterId)
+        {
+            return;
+        }
+
+        _dossier = result.IsSuccess ? result.Value : null;
+        _loading = false;
+    }
+}

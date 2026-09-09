@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Repositories;
 
@@ -56,7 +56,10 @@ public class CharacterRepository : ICharacterRepository
 
     public async Task DeleteAsync(Guid characterId, CancellationToken cancellationToken = default)
     {
-        // Campaign assignments cascade from the character in the database.
+        // Campaign assignments cascade from the character in the database. Sheet snapshots do
+        // not: their character FK is NO ACTION because Sources already own the only cascade
+        // path into that table, so they are removed here or not at all.
+        await _context.DeleteWhereAsync<CharacterSheetSnapshot>(s => s.CharacterId == characterId, cancellationToken);
         await _context.DeleteWhereAsync<Character>(c => c.Id == characterId, cancellationToken);
     }
 

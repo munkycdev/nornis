@@ -1,5 +1,17 @@
 # Domain Model
 
+> **Amendment (2026-08-09): the Character↔Artifact link is built, not future.**
+> The Character section below closes by calling the link between a member's `Character` and the
+> AI-extracted `Artifact` of type `Character` "a future feature, not MVP". It shipped:
+> `Character.ArtifactId` is a nullable FK, `CharacterService.ValidateArtifactLinkAsync` guards
+> it (same-world, `Type == Character`, and non-GMs refused `GMOnly` targets behind a single
+> undifferentiated error so probing ids reveals nothing), and `ArtifactDetail.PlayedBy` reads it
+> in the artifact→character direction.
+>
+> Null still means "not linked" and nothing more. The link is optional in both directions and
+> carries no authorization of its own — owning a character that links to an artifact does not
+> widen what its owner may see of that artifact.
+
 > **Amendment (2026-08-09): a world names the campaign it is playing now.**
 > `World.CurrentCampaignId` — nullable, pointing at one of the world's own campaigns. The
 > capture form defaults a new source to it, which is the whole reason it exists: the form

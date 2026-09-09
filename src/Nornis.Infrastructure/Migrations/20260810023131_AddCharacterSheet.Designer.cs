@@ -4,6 +4,7 @@ using Microsoft.Data.SqlTypes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nornis.Infrastructure.Persistence;
 
@@ -12,9 +13,11 @@ using Nornis.Infrastructure.Persistence;
 namespace Nornis.Infrastructure.Migrations
 {
     [DbContext(typeof(NornisDbContext))]
-    partial class NornisDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260810023131_AddCharacterSheet")]
+    partial class AddCharacterSheet
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -436,41 +439,6 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasIndex("WorldMemberId");
 
                     b.ToTable("Characters", (string)null);
-                });
-
-            modelBuilder.Entity("Nornis.Domain.Entities.CharacterSheetSnapshot", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("AsOf")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid>("CharacterId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid>("CreatedByUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<Guid>("SourceId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SourceId");
-
-                    b.HasIndex("CharacterId", "SourceId")
-                        .IsUnique();
-
-                    b.ToTable("CharacterSheetSnapshots", (string)null);
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.ContinuityDismissal", b =>
@@ -1624,25 +1592,6 @@ namespace Nornis.Infrastructure.Migrations
                     b.Navigation("World");
 
                     b.Navigation("WorldMember");
-                });
-
-            modelBuilder.Entity("Nornis.Domain.Entities.CharacterSheetSnapshot", b =>
-                {
-                    b.HasOne("Nornis.Domain.Entities.Character", "Character")
-                        .WithMany()
-                        .HasForeignKey("CharacterId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("Nornis.Domain.Entities.Source", "Source")
-                        .WithMany()
-                        .HasForeignKey("SourceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Character");
-
-                    b.Navigation("Source");
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.ContinuityDismissal", b =>
