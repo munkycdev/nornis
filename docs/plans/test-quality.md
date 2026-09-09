@@ -117,6 +117,15 @@ dashboard was being built anyway and the data was already in the merged Cobertur
 
 ## Phase 4 — floors where logic lives
 
+> **Retired 2026-09-08.** The floors were set on 2026-08-07 (Domain 96.8/95.6, Application
+> 92.4/82.2, enforcement `alert`) and in a month of ordinary work never fired — the four
+> numbers moved within a point. David retired them rather than flip to `gate`: the
+> implementations were proving themselves through review, sabotage-tested guards and the
+> live checks, and a percentage standing guard over that was ceremony. `coverage-thresholds.json`,
+> `scripts/coverage-gate.ps1` and both CI steps are gone. What stays is everything below
+> this phase that treats coverage as a signal: the summary, the dashboard and its history,
+> the CRAP list. The text below is kept as the record of what was built and why.
+
 - **Mechanism done 2026-08-03; the numbers are still open.** `coverage-thresholds.json`
   and `scripts/coverage-gate.ps1` exist and run on PRs and on main. Every floor is
   `null`, which the gate reports and passes — so opening the gate is editing a number,

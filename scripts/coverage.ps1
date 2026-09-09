@@ -83,9 +83,8 @@ if (-not $coverageFiles) { throw 'No coverage files produced — nothing to repo
 
 Write-Host '== Merging into an HTML report…'
 dotnet tool restore | Out-Null
-# JsonSummary is what scripts/coverage-gate.ps1 and the CI history append both read. CI
-# asked for it and this did not, so the gate could not be run on a dev machine at all —
-# including its -Suggest mode, which exists precisely to be run by a person.
+# JsonSummary is what the CI history append reads; emitting it here too keeps the local
+# run and the pipeline producing the same artifacts.
 dotnet reportgenerator `
     "-reports:$(Join-Path $rawDir '*/*.cobertura.xml')" `
     "-targetdir:$reportDir" `
