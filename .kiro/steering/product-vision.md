@@ -17,6 +17,20 @@
 > digital PDFs yield per-page text through PdfPig. Read that bullet as "no OCR engine", not as
 > "nothing derives text from files".
 
+> **Amendment (2026-09-09):** the Player need "Ask what their character knows" is
+> **indefinitely deferred** — David's decision, made on purpose rather than left to lapse.
+> Features 17, 21, 22 and 23 each deferred its prerequisite, per-character visibility, because
+> the party is one audience in the visibility model (Private, GMOnly, PartyVisible) and a
+> character-scoped answer needs a fourth boundary that does not exist as data: what this
+> character has witnessed or been told. Getting that data means either the GM tags knowledge
+> per character at every reveal, which is bookkeeping every session, or Nornis infers it from
+> provenance and campaign membership, which is a heuristic that will be wrong at the table in
+> ways players notice. For a group that hears everything at the table anyway, it solves a
+> problem the players do not have. The line stays below as the record of what was promised;
+> the prerequisite stays in those four features' deferred lists, where anyone reopening this
+> should start. What would reopen it: a world with more than one party, or players who
+> genuinely play apart.
+
 ## Purpose
 
 Nornis is a memory engine for tabletop roleplaying worlds. It helps players and GMs capture what happened, transform those sources into structured world knowledge, and consult that knowledge through an AI Loremaster.
