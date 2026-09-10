@@ -34,21 +34,24 @@ public class CharacterConfiguration : IEntityTypeConfiguration<Character>
         builder.HasIndex(c => c.WorldId);
 
         // Restrict (NO ACTION) to avoid a second cascade path from Worlds; characters
-        // are removed through the WorldMember cascade, which always covers them.
+        // are removed through the Player cascade (Worlds→Players→Characters), which always
+        // covers them.
         builder.HasOne(c => c.World)
             .WithMany()
             .HasForeignKey(c => c.WorldId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(c => c.WorldMember)
-            .WithMany(m => m.Characters)
-            .HasForeignKey(c => c.WorldMemberId)
+        builder.HasIndex(c => c.PlayerId);
+
+        builder.HasOne(c => c.Player)
+            .WithMany(p => p.Characters)
+            .HasForeignKey(c => c.PlayerId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(c => c.ArtifactId);
 
         // ClientSetNull (NO ACTION in SQL) — a SET NULL here would add a second cascade
-        // path into Characters (Worlds→Artifacts→Characters vs Worlds→Members→Characters),
+        // path into Characters (Worlds→Artifacts→Characters vs Worlds→Players→Characters),
         // which SQL Server rejects. Artifacts are never hard-deleted (merge archives them),
         // so the constraint never fires in practice.
         builder.HasOne(c => c.Artifact)

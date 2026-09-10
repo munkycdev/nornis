@@ -36,7 +36,7 @@ public class CharactersController : ControllerBase
             ActingUserId: user.Id,
             ActingUserRole: member.Role,
             Description: request.Description,
-            ForWorldMemberId: request.WorldMemberId,
+            ForPlayerId: request.PlayerId,
             ArtifactId: request.ArtifactId);
 
         var result = await _characterService.CreateAsync(command, ct);
@@ -56,15 +56,7 @@ public class CharactersController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        var result = await _characterService.ListByWorldAsync(worldId, user.Id, member.Role, ct);
-
-        if (result.IsSuccess && mine)
-        {
-            return Ok(result.Value!
-                .Where(c => c.WorldMemberId == member.Id)
-                .Select(ToCharacterResponse)
-                .ToList());
-        }
+        var result = await _characterService.ListByWorldAsync(worldId, user.Id, member.Role, ct, mineOnly: mine);
 
         if (!result.IsSuccess)
         {
@@ -120,7 +112,7 @@ public class CharactersController : ControllerBase
         return Ok(await ToCharacterResponseAsync(result.Value!, ct));
     }
 
-    /// <summary>Transfers ownership of the character to the calling member.</summary>
+    /// <summary>Moves the character to the calling member's own player.</summary>
     [HttpPost("{characterId:guid}/claim")]
     public async Task<IActionResult> Claim(Guid worldId, Guid characterId, CancellationToken ct)
     {
@@ -170,7 +162,7 @@ public class CharactersController : ControllerBase
 
         return Ok(new CharacterDossierResponse(
             Character: ToCharacterResponse(dossier.Character),
-            OwnerDisplayName: dossier.OwnerDisplayName,
+            PlayerName: dossier.PlayerName,
             CampaignNames: dossier.CampaignNames,
             Record: dossier.Record is null ? null : new CharacterRecordResponse(
                 ArtifactId: dossier.Record.ArtifactId,
@@ -304,7 +296,8 @@ public class CharactersController : ControllerBase
         return new CharacterResponse(
             Id: character.Id,
             WorldId: character.WorldId,
-            WorldMemberId: character.WorldMemberId,
+            PlayerId: character.PlayerId,
+            PlayerName: character.PlayerName,
             Name: character.Name,
             Description: character.Description,
             ArtifactId: character.ArtifactId,

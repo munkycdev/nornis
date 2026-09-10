@@ -3,8 +3,8 @@ using Nornis.Domain.Enums;
 namespace Nornis.Application.Models;
 
 /// <summary>
-/// Creates a character owned by the acting member, or — GM only — by the member
-/// identified by <paramref name="ForWorldMemberId"/>.
+/// Creates a character for the acting member's own player, or — GM only — for the player
+/// identified by <paramref name="ForPlayerId"/>, who need not be on Nornis.
 /// </summary>
 public record CreateCharacterCommand(
     Guid WorldId,
@@ -12,5 +12,5 @@ public record CreateCharacterCommand(
     Guid ActingUserId,
     WorldRole ActingUserRole,
     string? Description = null,
-    Guid? ForWorldMemberId = null,
+    Guid? ForPlayerId = null,
     Guid? ArtifactId = null);

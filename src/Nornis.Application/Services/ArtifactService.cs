@@ -447,9 +447,10 @@ public class ArtifactService : IArtifactService
     }
 
     /// <summary>
-    /// Reverse lookup from a Character artifact to the members playing it: any Character
-    /// record linking to this artifact names its owner. Non-Character artifacts skip the
-    /// queries entirely.
+    /// Reverse lookup from a Character artifact to the players playing it: any Character
+    /// record linking to this artifact names its player — a member by their display name, a
+    /// player who is not on Nornis by the name the GM gave them. Non-Character artifacts skip
+    /// the queries entirely.
     /// </summary>
     private async Task<IReadOnlyList<string>> ResolvePlayedByAsync(Artifact artifact, CancellationToken ct)
     {
@@ -470,9 +471,8 @@ public class ArtifactService : IArtifactService
         var members = await _worldMemberRepository.ListByWorldAsync(artifact.WorldId, ct);
 
         return linkedCharacters
-            .Select(c => members.FirstOrDefault(m => m.Id == c.WorldMemberId))
-            .Where(m => m is not null)
-            .Select(m => MemberDisplayName.For(m!))
+            .Where(c => c.Player is not null)
+            .Select(c => PlayerDisplayName.For(c.Player, members))
             .Distinct()
             .ToList();
     }

@@ -192,10 +192,19 @@ public class WorldExportService : IWorldExportService
 
         if (categories.Contains(WorldExportCategory.Characters))
         {
+            await WriteJsonEntryAsync(zip, "players.json", data.Players.Select(p => new
+            {
+                p.Id,
+                p.WorldMemberId,
+                p.Name,
+                p.CreatedAt,
+                p.UpdatedAt,
+            }), ct);
+
             await WriteJsonEntryAsync(zip, "characters.json", data.Characters.Select(c => new
             {
                 c.Id,
-                c.WorldMemberId,
+                c.PlayerId,
                 c.Name,
                 c.Description,
                 c.ArtifactId,

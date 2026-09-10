@@ -29,7 +29,7 @@ namespace Nornis.Application.Models;
 /// </param>
 public record CharacterDossier(
     CharacterView Character,
-    string OwnerDisplayName,
+    string PlayerName,
     IReadOnlyList<string> CampaignNames,
     CharacterRecord? Record,
     string? Sheet,

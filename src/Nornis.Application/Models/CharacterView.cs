@@ -19,10 +19,16 @@ namespace Nornis.Application.Models;
 /// cannot open tells them a sheet exists to be shared, which is the disclosure
 /// <c>CharacterDossier.SheetSharedWithParty</c> already declines to make.
 /// </param>
+/// <param name="PlayerName">
+/// Whose character this is, as the Party page would say it — resolved by <c>PlayerDisplayName</c>,
+/// so a player who is not on Nornis reads by the name the GM gave them and a member reads by
+/// their own. World-public, like the Party page itself.
+/// </param>
 public record CharacterView(
     Guid Id,
     Guid WorldId,
-    Guid WorldMemberId,
+    Guid PlayerId,
+    string PlayerName,
     string Name,
     string? Description,
     Guid? ArtifactId,

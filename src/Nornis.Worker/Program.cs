@@ -107,6 +107,7 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<IArtifactRelationshipRepository, ArtifactRelationshipRepository>();
         services.AddScoped<IMapPlacemarkRepository, MapPlacemarkRepository>();
         services.AddScoped<ICharacterRepository, CharacterRepository>();
+        services.AddScoped<IPlayerRepository, PlayerRepository>();
         services.AddScoped<IExtractionReplayRepository, ExtractionReplayRepository>();
         services.AddScoped<IImportSessionRepository, ImportSessionRepository>();
         services.AddScoped<IWorkerHeartbeatRepository, WorkerHeartbeatRepository>();

@@ -14,6 +14,8 @@ public class WorldExportData
 
     public IReadOnlyList<CampaignCharacter> CampaignCharacters { get; init; } = [];
 
+    public IReadOnlyList<Player> Players { get; init; } = [];
+
     public IReadOnlyList<Character> Characters { get; init; } = [];
 
     public IReadOnlyList<Source> Sources { get; init; } = [];

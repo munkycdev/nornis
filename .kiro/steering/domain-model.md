@@ -12,6 +12,27 @@
 > carries no authorization of its own — owning a character that links to an artifact does not
 > widen what its owner may see of that artifact.
 
+> **Amendment (2026-09-10): characters belong to players, not memberships.** Feature 25
+> adds `Player` — a person who plays in a world, with a name and an optional link to one
+> `WorldMember` — and moves `Character.WorldMemberId` to `Character.PlayerId`. A player linked
+> to a membership is that member; an unlinked player is someone at the table who is not on
+> Nornis (Henry, who plays every week and chose not to sign up), and their characters exist
+> anyway. Every membership has exactly one linked player from creation (`WorldMembership.Create`
+> is the one place a membership is built; `MemberPlayerScanTests` holds it), and removing a
+> member unlinks the player rather than deleting the characters. A player confers no rights:
+> the member its player is linked to is a character's steward, and while there is none the GM
+> stands in (`CharacterService.IsSteward`, the one predicate). The `WorldMember` and
+> `Character` sections below predate this; read `WorldMemberId` there as `PlayerId`.
+>
+> ```csharp
+> Player
+> - Id: Guid
+> - WorldId: Guid
+> - WorldMemberId: Guid?     // null = not on Nornis, nothing else; unique per world when set
+> - Name: string             // the GM's name for an unlinked player; unread while linked
+> - CreatedAt, UpdatedAt
+> ```
+
 > **Amendment (2026-08-09): a world names the campaign it is playing now.**
 > `World.CurrentCampaignId` — nullable, pointing at one of the world's own campaigns. The
 > capture form defaults a new source to it, which is the whole reason it exists: the form

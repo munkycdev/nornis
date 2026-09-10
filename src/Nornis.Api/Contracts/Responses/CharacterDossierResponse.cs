@@ -7,7 +7,7 @@
 /// </param>
 public record CharacterDossierResponse(
     CharacterResponse Character,
-    string OwnerDisplayName,
+    string PlayerName,
     IReadOnlyList<string> CampaignNames,
     CharacterRecordResponse? Record,
     string? Sheet,

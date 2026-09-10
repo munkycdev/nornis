@@ -166,14 +166,7 @@ public class WorldInviteService : IWorldInviteService
                 new AppError(409, "conflict", "This invite was just used by someone else. Please try again."));
         }
 
-        var member = new WorldMember
-        {
-            Id = Guid.NewGuid(),
-            WorldId = invite.WorldId,
-            UserId = userId,
-            Role = invite.Role,
-            JoinedAt = DateTimeOffset.UtcNow
-        };
+        var member = WorldMembership.Create(invite.WorldId, userId, invite.Role, DateTimeOffset.UtcNow);
         await _memberRepository.CreateAsync(member, ct);
 
         return AppResult<InviteRedemption>.Success(

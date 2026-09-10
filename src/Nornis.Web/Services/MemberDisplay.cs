@@ -13,7 +13,10 @@ public static class MemberDisplay
     public static string Name(WorldMember m) =>
         !string.IsNullOrWhiteSpace(m.DisplayName) ? m.DisplayName! : $"User {m.UserId.ToString()[..8]}";
 
-    public static string Initial(WorldMember m) => Name(m)[..1].ToUpperInvariant();
+    public static string Initial(WorldMember m) => Initial(Name(m));
+
+    /// <summary>The avatar letter for any resolved name — a member's or a player's.</summary>
+    public static string Initial(string name) => string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
 
     /// <summary>Observers are "Fly on the wall" in the UI; the internal role name stays Observer.</summary>
     public static string RoleLabel(string role) => role == "Observer" ? "Fly on the wall" : role;

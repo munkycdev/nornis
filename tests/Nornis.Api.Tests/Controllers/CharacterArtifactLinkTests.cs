@@ -90,7 +90,7 @@ public class CharacterArtifactLinkTests
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         var claimed = await response.Content.ReadFromJsonAsync<CharacterResponse>();
-        Assert.That(claimed!.WorldMemberId, Is.Not.EqualTo(character.WorldMemberId));
+        Assert.That(claimed!.PlayerId, Is.Not.EqualTo(character.PlayerId));
 
         // The player's mine=true list now includes it.
         var mine = await scenario.PlayerClient.GetFromJsonAsync<List<CharacterResponse>>(

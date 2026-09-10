@@ -60,6 +60,15 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
             Role = WorldRole.GM,
             JoinedAt = now,
         };
+        var player = new Player
+        {
+            Id = Guid.NewGuid(),
+            WorldId = world.Id,
+            WorldMemberId = member.Id,
+            Name = "Dave",
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
         var invite = new WorldInvite
         {
             Id = Guid.NewGuid(),
@@ -106,7 +115,7 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
         {
             Id = Guid.NewGuid(),
             WorldId = world.Id,
-            WorldMemberId = member.Id,
+            PlayerId = player.Id,
             Name = "Tavrin",
             ArtifactId = artifact.Id,
             CreatedAt = now,
@@ -308,7 +317,7 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
         };
 
         Context.AddRange(
-            user, world, member, invite, campaign, artifact, storyline, character,
+            user, world, member, player, invite, campaign, artifact, storyline, character,
             campaignCharacter, campaignRecap, fact, relationship, source, extraction,
             reference, attachment, placemark, batch, proposal, usage, assessment, finding,
             dismissal, document, chunk, replay);

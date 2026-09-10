@@ -48,14 +48,7 @@ public class WorldService : IWorldService
 
         world = await _worldRepository.CreateAsync(world, ct);
 
-        var member = new WorldMember
-        {
-            Id = Guid.NewGuid(),
-            WorldId = world.Id,
-            UserId = command.CreatingUserId,
-            Role = WorldRole.GM,
-            JoinedAt = now
-        };
+        var member = WorldMembership.Create(world.Id, command.CreatingUserId, WorldRole.GM, now);
 
         await _worldMemberRepository.CreateAsync(member, ct);
 

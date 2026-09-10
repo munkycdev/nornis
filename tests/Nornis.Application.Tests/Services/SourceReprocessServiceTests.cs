@@ -244,7 +244,7 @@ public class SourceReprocessServiceTests
         {
             Id = Guid.NewGuid(),
             WorldId = WorldId,
-            WorldMemberId = Guid.NewGuid(),
+            PlayerId = Guid.NewGuid(),
             Name = "Tavrin",
             ArtifactId = linked.Id,
             CreatedAt = DateTimeOffset.UtcNow,

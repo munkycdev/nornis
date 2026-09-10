@@ -1,3 +1,4 @@
+using Nornis.Application.Services;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 
@@ -40,14 +41,6 @@ public static class HttpContextExtensions
             return member;
         }
 
-        return new WorldMember
-        {
-            Id = member.Id,
-            WorldId = member.WorldId,
-            UserId = member.UserId,
-            Role = WorldRole.Player,
-            DisplayName = member.DisplayName,
-            JoinedAt = member.JoinedAt,
-        };
+        return WorldMembership.AsRole(member, WorldRole.Player);
     }
 }
