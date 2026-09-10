@@ -4196,3 +4196,63 @@ a.nornis-cite:hover {
     color: var(--mud-palette-text-secondary);
 }
 .nornis-switcher-foot .nornis-kbd { margin-right: 4px; }
+
+/* ------------------------------------------------------- Feature 24 · the page template -- */
+
+.nornis-entity { display: flex; flex-direction: column; gap: 16px; }
+.nornis-entity-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 24px;
+    align-items: start;
+}
+.nornis-entity-body { min-width: 0; }
+.nornis-entity-rail {
+    position: sticky;
+    top: 16px;
+    min-width: 0;
+}
+@media (max-width: 959.98px) {
+    .nornis-entity-columns { grid-template-columns: minmax(0, 1fr); }
+    .nornis-entity-rail { position: static; }
+}
+
+.nornis-rail { display: flex; flex-direction: column; gap: 16px; }
+.nornis-rail-section {
+    padding: 14px 16px;
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 12px;
+    background: var(--mud-palette-surface);
+}
+.nornis-rail-title {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+    margin-bottom: 6px;
+}
+.nornis-rail-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 30px;
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-primary);
+}
+.nornis-rail-value { color: var(--mud-palette-text-secondary); text-align: right; }
+.nornis-rail-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 30px;
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-primary);
+    text-decoration: none;
+}
+.nornis-rail-link:hover { color: var(--mud-palette-secondary); }
+.nornis-rail-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nornis-rail-more { display: inline-block; margin-top: 4px; font-size: 0.78rem; }
+.nornis-rail-loremaster { padding: 0; border: 0; background: transparent; }
+.nornis-rail-loremaster .nornis-lm { margin: 0; }

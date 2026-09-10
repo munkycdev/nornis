@@ -1,0 +1,73 @@
+@* The context rail's content: counted rows ("Mentioned in 12 sources"), a short list of what
+   this thing connects to, whatever the page adds, and the Loremaster. Everything it shows
+   comes from the page's own already-loaded, visibility-filtered detail — the page builds the
+   model from what it has, so a rail count can never exceed what the body may show. *@
+
+<div class="nornis-rail">
+    @if (Rows.Count > 0)
+    {
+        <div class="nornis-rail-section">
+            <div class="nornis-rail-title">@RowsTitle</div>
+            @foreach (var row in Rows)
+            {
+                <div class="nornis-rail-row">
+                    @if (row.Href is not null)
+                    {
+                        <a href="@row.Href" class="nornis-link">@row.Label</a>
+                    }
+                    else
+                    {
+                        <span>@row.Label</span>
+                    }
+                    <span class="nornis-rail-value">@row.Value</span>
+                </div>
+            }
+        </div>
+    }
+
+    @if (Related.Count > 0)
+    {
+        <div class="nornis-rail-section">
+            <div class="nornis-rail-title">@RelatedTitle</div>
+            @foreach (var link in Related)
+            {
+                <a href="@link.Href" class="nornis-rail-link">
+                    <MudIcon Icon="@link.Icon" Size="Size.Small" Color="Color.Secondary" />
+                    <span>@link.Label</span>
+                </a>
+            }
+            @if (RelatedMoreHref is not null)
+            {
+                <a href="@RelatedMoreHref" class="nornis-rail-more">See all</a>
+            }
+        </div>
+    }
+
+    @if (ChildContent is not null)
+    {
+        <div class="nornis-rail-section">@ChildContent</div>
+    }
+
+    @if (ShowLoremaster)
+    {
+        <div class="nornis-rail-section nornis-rail-loremaster">
+            <LoremasterPanel />
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>A counted row: "Sources — 12". The label links when there is somewhere to go.</summary>
+    public sealed record RailRow(string Label, string Value, string? Href = null);
+
+    /// <summary>A related thing, with the icon of its kind.</summary>
+    public sealed record RailLink(string Icon, string Label, string Href);
+
+    [Parameter] public string RowsTitle { get; set; } = "Mentioned in";
+    [Parameter] public IReadOnlyList<RailRow> Rows { get; set; } = [];
+    [Parameter] public string RelatedTitle { get; set; } = "Connected";
+    [Parameter] public IReadOnlyList<RailLink> Related { get; set; } = [];
+    [Parameter] public string? RelatedMoreHref { get; set; }
+    [Parameter] public bool ShowLoremaster { get; set; } = true;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

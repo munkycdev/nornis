@@ -7,14 +7,11 @@
 @inject IJSRuntime JS
 @inject IDialogService DialogService
 @inject GmNoteContext NoteContext
+@inject BreadcrumbState Crumbs
 
 <PageTitle>@(_detail?.Name ?? "Artifact") — Nornis</PageTitle>
 
 <div class="nornis-detail-page">
-    <MudButton OnClick="GoBackAsync" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2">
-        Back
-    </MudButton>
-
     @if (Worlds.Current is null)
     {
         <NoWorld />
@@ -39,6 +36,8 @@
     }
     else if (_detail is not null)
     {
+        <EntityPage>
+        <Header>
         <div class="nornis-detail-head">
             <div class="nornis-list-thumb"><MudIcon Icon="@ArtifactTypeDisplay.Icon(_detail.Type)" /></div>
             <div>
@@ -92,6 +91,8 @@
                 </div>
             </div>
         </div>
+        </Header>
+        <Body>
 
         @if (Worlds.IsGm && ArtifactFindings.Count > 0)
         {
@@ -337,6 +338,11 @@
             </MudPaper>
         }
 
+        </Body>
+        <Rail>
+            <ContextRail Rows="@RailRows" Related="@RailRelated" RelatedTitle="Connected" />
+        </Rail>
+        </EntityPage>
     }
 </div>
 
@@ -666,6 +672,21 @@
 
     private void OnWorldChanged() => InvokeAsync(LoadAsync);
 
+    // The rail is built from the detail the page already rendered, so its counts can never
+    // exceed what the body may show (feature 24, Property 1).
+    private IReadOnlyList<ContextRail.RailRow> RailRows => _detail is null ? [] :
+    [
+        new("Sources", _detail.SourceReferences.Count.ToString()),
+        new("Facts", _detail.Facts.Count.ToString()),
+        new("Relationships", _detail.Relationships.Count.ToString()),
+    ];
+
+    private IReadOnlyList<ContextRail.RailLink> RailRelated => _detail is null ? [] :
+        _detail.ConnectedArtifacts
+            .Take(8)
+            .Select(c => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(c.Type), c.Name, $"/artifacts/{c.Id}"))
+            .ToList();
+
     private async Task LoadAsync()
     {
         // Released up front, not just on the way out: until this load lands there is no
@@ -702,6 +723,10 @@
         if (result.IsSuccess)
         {
             _detail = result.Value!;
+            Crumbs.Set($"/artifacts/{_detail.Id}",
+                new Crumb("Codex", "/artifacts"),
+                new Crumb(ArtifactTypeDisplay.Plural(_detail.Type), "/artifacts"),
+                new Crumb(_detail.Name));
         }
         else if (result.Error!.Code == "not_found")
         {

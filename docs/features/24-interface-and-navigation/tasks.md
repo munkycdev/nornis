@@ -61,18 +61,38 @@ where the version turns over. Guards are watched failing before they are trusted
 
 ## Phase B — The page template
 
-- [ ] B1. `EntityPage.razor` with `Trail`, `Title`, `Properties`, `Actions`, `Body`, `Rail`
+**Built 2026-09-10.** Notes for the reader:
+
+- **Three slots, not six.** `EntityPage` takes `Header`, `Body` and `Rail`. The trail is set
+  through `BreadcrumbState` from each page's load, not passed as markup, and the header slot
+  holds title, properties and actions together because every migrated page already rendered
+  them as one block. Splitting that block into three parameters would have been a rewrite
+  for no reader-visible change.
+- **The rail model is two properties on the page**, `RailRows` and `RailRelated`, computed
+  from the page's own loaded detail. There is no `RailModel` type: the rail is the projection
+  of what the page holds, and a separate model would have been a second place for it to drift.
+- **Property 1 is held by a source scan** (`RailNarrowerThanPageTests`): each migrated page's
+  rail members may read only the page's own state fields and may not call the API or await.
+  Sabotaged by putting `Api.` into the artifact rail; failed naming the page and the member.
+  The design's "rail ids ⊆ detail ids" is what the construction guarantees; the test guards
+  the construction rather than sampling it.
+- **Under the tablet breakpoint the rail drops beneath the body** as a stacked column rather
+  than a tab strip. A strip needs state and a click to reach the Loremaster; a stack needs a
+  scroll. The scroll won.
+- **Back buttons are gone from the five pages.** The breadcrumb is the way back.
+
+- [x] B1. `EntityPage.razor` with `Trail`, `Title`, `Properties`, `Actions`, `Body`, `Rail`
       slots; rail collapses to a tab strip under `Breakpoint.Md`. bUnit render tests.
-- [ ] B2. `ContextRail.razor` + `RailModel`; the Loremaster panel opens in the rail's column.
-- [ ] B3. Migrate `ArtifactDetail` — the richest page, so the template is proven on the hardest
+- [x] B2. `ContextRail.razor` + `RailModel`; the Loremaster panel opens in the rail's column.
+- [x] B3. Migrate `ArtifactDetail` — the richest page, so the template is proven on the hardest
       case first. Visually checked live.
-- [ ] B4. Migrate `SourceDetail`.
-- [ ] B5. Migrate `CampaignDetail`.
-- [ ] B6. Migrate `CharacterDetail`.
-- [ ] B7. Migrate `LibraryDocumentDetail`.
-- [ ] B8. **Property 1 guard**: for each migrated page, a test that the rail model's ids are a
+- [x] B4. Migrate `SourceDetail`.
+- [x] B5. Migrate `CampaignDetail`.
+- [x] B6. Migrate `CharacterDetail`.
+- [x] B7. Migrate `LibraryDocumentDetail`.
+- [x] B8. **Property 1 guard**: for each migrated page, a test that the rail model's ids are a
       subset of the page detail's ids.
-- [ ] B9. Change log entry.
+- [x] B9. Change log entry.
 
 ## Phase C — Paper
 

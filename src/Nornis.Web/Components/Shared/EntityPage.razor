@@ -1,0 +1,25 @@
+@* The one frame every entity page is built on (feature 24, phase B): a full-width header,
+   then the body beside a context rail. The rail is the backlinks panel — what cites this,
+   what connects to it, what changed — and the Loremaster's handle, in the same place on every
+   page; under the tablet breakpoint it drops beneath the body as a strip. Pages fill the three
+   slots and never rebuild the frame. *@
+
+<div class="nornis-entity">
+    @if (Header is not null)
+    {
+        <div class="nornis-entity-header">@Header</div>
+    }
+    <div class="nornis-entity-columns">
+        <div class="nornis-entity-body">@Body</div>
+        @if (Rail is not null)
+        {
+            <aside class="nornis-entity-rail" aria-label="Context">@Rail</aside>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? Header { get; set; }
+    [Parameter] public RenderFragment? Body { get; set; }
+    [Parameter] public RenderFragment? Rail { get; set; }
+}
