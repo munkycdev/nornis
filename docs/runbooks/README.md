@@ -1,4 +1,4 @@
-﻿# Runbooks
+# Runbooks
 
 One doc per nameable failure mode. Each answers the same four questions in the same
 order: what you saw, how to confirm it, what to do, and how to know it worked.
