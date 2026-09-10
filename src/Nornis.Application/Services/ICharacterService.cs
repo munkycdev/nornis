@@ -101,5 +101,12 @@ public interface ICharacterService
     /// </summary>
     Task<AppResult<Character>> ClaimAsync(Guid characterId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct);
 
+    /// <summary>
+    /// Moves a character to another player at the table — the GM correcting who plays whom, or
+    /// a member handing their character on. Steward or GM. The character itself is untouched:
+    /// its sheet keeps its sharing setting, since that is the character's, not the player's.
+    /// </summary>
+    Task<AppResult<Character>> MoveToPlayerAsync(Guid characterId, Guid worldId, Guid playerId, Guid actingUserId, WorldRole role, CancellationToken ct);
+
     Task<AppResult> DeleteAsync(Guid characterId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct);
 }

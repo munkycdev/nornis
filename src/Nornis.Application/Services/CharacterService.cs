@@ -559,6 +559,44 @@ public class CharacterService : ICharacterService
         return AppResult<Character>.Success(character);
     }
 
+    public async Task<AppResult<Character>> MoveToPlayerAsync(Guid characterId, Guid worldId, Guid playerId, Guid actingUserId, WorldRole role, CancellationToken ct)
+    {
+        if (role == WorldRole.Observer)
+        {
+            return AppResult<Character>.Fail(new AppError(403, "insufficient_role", "Observers cannot move characters."));
+        }
+
+        var character = await _characterRepository.GetByIdAsync(characterId, ct);
+
+        if (character is null || character.WorldId != worldId)
+        {
+            return AppResult<Character>.Fail(new AppError(404, "not_found", "Character not found."));
+        }
+
+        var stewardshipError = await CheckStewardshipAsync(character, actingUserId, role, ct);
+        if (stewardshipError is not null)
+        {
+            return AppResult<Character>.Fail(stewardshipError);
+        }
+
+        var target = await _playerRepository.GetByIdAsync(playerId, ct);
+        if (target is null || target.WorldId != worldId)
+        {
+            return AppResult<Character>.Fail(new AppError(400, "invalid_player", "The target player does not belong to this world."));
+        }
+
+        if (character.PlayerId == target.Id)
+        {
+            return AppResult<Character>.Success(character);
+        }
+
+        character.PlayerId = target.Id;
+        character.UpdatedAt = DateTimeOffset.UtcNow;
+        character = await _characterRepository.UpdateAsync(character, ct);
+
+        return AppResult<Character>.Success(character);
+    }
+
     public async Task<AppResult> DeleteAsync(Guid characterId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)
     {
         if (role == WorldRole.Observer)
