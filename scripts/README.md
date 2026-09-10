@@ -7,6 +7,21 @@ GitHub Container Registry). See
 `.kiro/steering/azure-hosting.md` for the intended architecture and the deliberate
 amendments made during provisioning.
 
+## sql-identity-users.cs
+
+The one provisioning step `provision-azure.ps1` cannot do for itself: creating the contained
+database users through which the container apps reach `nornis-db` as their managed
+identities, and granting them read and write. Needs the SQL server's Entra admin's `az login`;
+mints its own token and stores nothing. Idempotent.
+
+```powershell
+dotnet run scripts/sql-identity-users.cs -- ca-nornis-api=<appId> ca-nornis-worker=<appId>
+```
+
+The app ids come from `az ad sp show --id <principalId> --query appId -o tsv`. The SID form
+is used rather than `FROM EXTERNAL PROVIDER` because the server has no identity of its own
+to read the directory with; the header explains.
+
 ## start-local.ps1 + compose.local.yaml
 
 Full local stack: SQL Server and the Azure Service Bus emulator in Docker
