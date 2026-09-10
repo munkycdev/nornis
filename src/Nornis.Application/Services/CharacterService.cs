@@ -12,6 +12,7 @@ public class CharacterService : ICharacterService
 {
     private readonly ICharacterRepository _characterRepository;
     private readonly IWorldMemberRepository _worldMemberRepository;
+    private readonly IPlayerRepository _playerRepository;
     private readonly IArtifactRepository _artifactRepository;
     private readonly ICampaignRepository _campaignRepository;
     private readonly ICharacterSheetSnapshotRepository _snapshotRepository;
@@ -21,6 +22,7 @@ public class CharacterService : ICharacterService
     public CharacterService(
         ICharacterRepository characterRepository,
         IWorldMemberRepository worldMemberRepository,
+        IPlayerRepository playerRepository,
         IArtifactRepository artifactRepository,
         ICampaignRepository campaignRepository,
         ICharacterSheetSnapshotRepository snapshotRepository,
@@ -29,6 +31,7 @@ public class CharacterService : ICharacterService
     {
         _characterRepository = characterRepository;
         _worldMemberRepository = worldMemberRepository;
+        _playerRepository = playerRepository;
         _artifactRepository = artifactRepository;
         _campaignRepository = campaignRepository;
         _snapshotRepository = snapshotRepository;
@@ -55,22 +58,23 @@ public class CharacterService : ICharacterService
             return AppResult<Character>.Fail(new AppError(404, "not_found", "World membership not found."));
         }
 
-        var ownerMemberId = actingMember.Id;
+        var ownPlayer = await _playerRepository.GetOrCreateByMemberAsync(actingMember, ct);
+        var playerId = ownPlayer.Id;
 
-        if (command.ForWorldMemberId is not null && command.ForWorldMemberId != actingMember.Id)
+        if (command.ForPlayerId is not null && command.ForPlayerId != ownPlayer.Id)
         {
             if (command.ActingUserRole != WorldRole.GM)
             {
-                return AppResult<Character>.Fail(new AppError(403, "forbidden", "Only GMs can create characters for other members."));
+                return AppResult<Character>.Fail(new AppError(403, "forbidden", "Only GMs can create characters for other players."));
             }
 
-            var targetMembers = await _worldMemberRepository.ListByWorldAsync(command.WorldId, ct);
-            if (targetMembers.All(m => m.Id != command.ForWorldMemberId))
+            var target = await _playerRepository.GetByIdAsync(command.ForPlayerId.Value, ct);
+            if (target is null || target.WorldId != command.WorldId)
             {
-                return AppResult<Character>.Fail(new AppError(400, "invalid_member", "The target member does not belong to this world."));
+                return AppResult<Character>.Fail(new AppError(400, "invalid_player", "The target player does not belong to this world."));
             }
 
-            ownerMemberId = command.ForWorldMemberId.Value;
+            playerId = target.Id;
         }
 
         if (command.ArtifactId is { } artifactId)
@@ -88,7 +92,7 @@ public class CharacterService : ICharacterService
         {
             Id = Guid.NewGuid(),
             WorldId = command.WorldId,
-            WorldMemberId = ownerMemberId,
+            PlayerId = playerId,
             Name = command.Name.Trim(),
             Description = command.Description,
             ArtifactId = command.ArtifactId,
@@ -134,7 +138,7 @@ public class CharacterService : ICharacterService
         }
 
         var members = await _worldMemberRepository.ListByWorldAsync(worldId, ct);
-        var owner = members.FirstOrDefault(m => m.Id == character.WorldMemberId);
+        var player = await _playerRepository.GetByIdAsync(character.PlayerId, ct);
 
         var campaigns = await _campaignRepository.ListByWorldAsync(worldId, ct);
         var campaignNames = character.CampaignCharacters
@@ -147,15 +151,17 @@ public class CharacterService : ICharacterService
         var record = await ResolveRecordAsync(character, worldId, actingUserId, role, ct);
 
         var actingMember = members.FirstOrDefault(m => m.UserId == actingUserId);
-        var isOwner = IsOwner(character, actingMember);
-        var canEditSheet = isOwner || role == WorldRole.GM;
-        var canReadSheet = CanReadSheet(character, actingMember, role);
+        var isSteward = IsSteward(player, actingMember, role);
+        var canEditSheet = isSteward || role == WorldRole.GM;
+        var canReadSheet = CanReadSheet(character, player, actingMember, role);
 
         // The envelope goes through the same projection as the list, so the two paths cannot
         // drift in what they disclose. Visible-artifact resolution is the one query the
         // projection needs; here it is the record already resolved above.
         var view = ToView(
             character,
+            player,
+            PlayerNameFor(player, members),
             actingMember,
             role,
             artifactVisible: record is not null);
@@ -164,13 +170,13 @@ public class CharacterService : ICharacterService
 
         var dossier = new CharacterDossier(
             Character: view,
-            OwnerDisplayName: owner is null ? "Unassigned" : MemberDisplayName.For(owner),
+            PlayerName: PlayerNameFor(player, members),
             CampaignNames: campaignNames,
             Record: record,
             Sheet: readableSheet,
             SheetSharedWithParty: canEditSheet && character.SheetSharedWithParty,
             CanEditSheet: canEditSheet,
-            CanShareSheet: isOwner,
+            CanShareSheet: isSteward,
             Snapshots: await ResolveSnapshotsAsync(characterId, actingUserId, role, ct),
             // Fed the filtered record and the gated sheet, so it cannot say anything the two
             // gates above did not already allow.
@@ -269,7 +275,7 @@ public class CharacterService : ICharacterService
             return AppResult<CharacterSheetSnapshot>.Fail(new AppError(404, "not_found", "Character not found."));
         }
 
-        var ownershipError = await CheckOwnershipAsync(character, actingUserId, role, ct);
+        var ownershipError = await CheckStewardshipAsync(character, actingUserId, role, ct);
         if (ownershipError is not null)
         {
             return AppResult<CharacterSheetSnapshot>.Fail(ownershipError);
@@ -337,7 +343,7 @@ public class CharacterService : ICharacterService
             return AppResult.Fail(new AppError(404, "not_found", "Character not found."));
         }
 
-        var ownershipError = await CheckOwnershipAsync(character, actingUserId, role, ct);
+        var ownershipError = await CheckStewardshipAsync(character, actingUserId, role, ct);
         if (ownershipError is not null)
         {
             return AppResult.Fail(ownershipError);
@@ -356,8 +362,8 @@ public class CharacterService : ICharacterService
     }
 
     /// <summary>
-    /// Replaces the character's written sheet. Owner or GM, via the same ownership rule that
-    /// governs renaming and deleting.
+    /// Replaces the character's written sheet. Steward or GM, via the same rule that governs
+    /// renaming and deleting.
     ///
     /// Over-length input is refused, never truncated. Empty-after-trim is normalised to null so
     /// "never written" and "deliberately cleared" have one representation rather than two that
@@ -384,7 +390,7 @@ public class CharacterService : ICharacterService
             return AppResult<Character>.Fail(new AppError(404, "not_found", "Character not found."));
         }
 
-        var ownershipError = await CheckOwnershipAsync(character, actingUserId, role, ct);
+        var ownershipError = await CheckStewardshipAsync(character, actingUserId, role, ct);
         if (ownershipError is not null)
         {
             return AppResult<Character>.Fail(ownershipError);
@@ -401,9 +407,10 @@ public class CharacterService : ICharacterService
     /// <summary>
     /// Shares the sheet with the world, or stops sharing it.
     ///
-    /// Owner only — deliberately a narrower rule than <see cref="CheckOwnershipAsync"/>, which
-    /// lets a GM manage any character. A GM may read a player's sheet; deciding who else reads
-    /// it is not theirs to make.
+    /// The steward only — deliberately narrower than <see cref="CheckStewardshipAsync"/>, which
+    /// lets a GM manage any character. A GM may read a member's sheet; deciding who else reads
+    /// it is not theirs to make. For a player who is not on Nornis there is no member to
+    /// decide, and the GM stands in.
     /// </summary>
     public async Task<AppResult<Character>> SetSheetSharingAsync(
         Guid characterId,
@@ -426,11 +433,12 @@ public class CharacterService : ICharacterService
         }
 
         var actingMember = await _worldMemberRepository.GetByWorldAndUserAsync(worldId, actingUserId, ct);
+        var player = await _playerRepository.GetByIdAsync(character.PlayerId, ct);
 
-        if (actingMember is null || actingMember.Id != character.WorldMemberId)
+        if (!IsSteward(player, actingMember, role))
         {
             return AppResult<Character>.Fail(new AppError(403, "forbidden",
-                "Only the player who owns this character can decide who reads its sheet."));
+                "Only the player whose character this is can decide who reads its sheet."));
         }
 
         character.SheetSharedWithParty = sharedWithParty;
@@ -444,9 +452,18 @@ public class CharacterService : ICharacterService
         Guid worldId,
         Guid actingUserId,
         WorldRole role,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool mineOnly = false)
     {
         var characters = await _characterRepository.ListByWorldAsync(worldId, ct);
+
+        if (mineOnly)
+        {
+            var actingMember = await _worldMemberRepository.GetByWorldAndUserAsync(worldId, actingUserId, ct);
+            var own = actingMember is null ? null : await _playerRepository.GetOrCreateByMemberAsync(actingMember, ct);
+            characters = own is null ? [] : characters.Where(c => c.PlayerId == own.Id).ToList();
+        }
+
         var views = await ProjectForReaderAsync(characters, worldId, actingUserId, role, ct);
         return AppResult<IReadOnlyList<CharacterView>>.Success(views);
     }
@@ -465,7 +482,7 @@ public class CharacterService : ICharacterService
             return AppResult<Character>.Fail(new AppError(404, "not_found", "Character not found."));
         }
 
-        var ownershipError = await CheckOwnershipAsync(character, command.ActingUserId, command.ActingUserRole, ct);
+        var ownershipError = await CheckStewardshipAsync(character, command.ActingUserId, command.ActingUserRole, ct);
         if (ownershipError is not null)
         {
             return AppResult<Character>.Fail(ownershipError);
@@ -528,12 +545,14 @@ public class CharacterService : ICharacterService
             return AppResult<Character>.Fail(new AppError(404, "not_found", "World membership not found."));
         }
 
-        if (character.WorldMemberId == actingMember.Id)
+        var own = await _playerRepository.GetOrCreateByMemberAsync(actingMember, ct);
+
+        if (character.PlayerId == own.Id)
         {
             return AppResult<Character>.Success(character);
         }
 
-        character.WorldMemberId = actingMember.Id;
+        character.PlayerId = own.Id;
         character.UpdatedAt = DateTimeOffset.UtcNow;
         character = await _characterRepository.UpdateAsync(character, ct);
 
@@ -554,7 +573,7 @@ public class CharacterService : ICharacterService
             return AppResult.Fail(new AppError(404, "not_found", "Character not found."));
         }
 
-        var ownershipError = await CheckOwnershipAsync(character, actingUserId, role, ct);
+        var ownershipError = await CheckStewardshipAsync(character, actingUserId, role, ct);
         if (ownershipError is not null)
         {
             return AppResult.Fail(ownershipError);
@@ -578,6 +597,8 @@ public class CharacterService : ICharacterService
         }
 
         var actingMember = await _worldMemberRepository.GetByWorldAndUserAsync(worldId, actingUserId, ct);
+        var members = await _worldMemberRepository.ListByWorldAsync(worldId, ct);
+        var players = (await _playerRepository.ListByWorldAsync(worldId, ct)).ToDictionary(p => p.Id);
 
         // One batch lookup for every linked artifact, then the reader's own filter over it —
         // the same VisibilityFilter the artifact queries apply in SQL, applied here in memory
@@ -598,42 +619,72 @@ public class CharacterService : ICharacterService
                 .ToHashSet();
 
         return characters
-            .Select(c => ToView(
-                c,
-                actingMember,
-                role,
-                artifactVisible: c.ArtifactId is { } id && visibleArtifactIds.Contains(id)))
+            .Select(c =>
+            {
+                var player = players.GetValueOrDefault(c.PlayerId);
+                return ToView(
+                    c,
+                    player,
+                    PlayerNameFor(player, members),
+                    actingMember,
+                    role,
+                    artifactVisible: c.ArtifactId is { } id && visibleArtifactIds.Contains(id));
+            })
             .ToList();
     }
 
-    private static CharacterView ToView(Character character, WorldMember? actingMember, WorldRole role, bool artifactVisible) =>
+    private static CharacterView ToView(
+        Character character,
+        Player? player,
+        string playerName,
+        WorldMember? actingMember,
+        WorldRole role,
+        bool artifactVisible) =>
         new(
             Id: character.Id,
             WorldId: character.WorldId,
-            WorldMemberId: character.WorldMemberId,
+            PlayerId: character.PlayerId,
+            PlayerName: playerName,
             Name: character.Name,
             Description: character.Description,
             ArtifactId: artifactVisible ? character.ArtifactId : null,
             CampaignIds: character.CampaignCharacters.Select(cc => cc.CampaignId).ToList(),
-            SheetUpdatedAt: CanReadSheet(character, actingMember, role) ? character.SheetUpdatedAt : null,
+            SheetUpdatedAt: CanReadSheet(character, player, actingMember, role) ? character.SheetUpdatedAt : null,
             CreatedAt: character.CreatedAt,
             UpdatedAt: character.UpdatedAt);
 
-    private static bool IsOwner(Character character, WorldMember? actingMember) =>
-        actingMember is not null && actingMember.Id == character.WorldMemberId;
+    /// <summary>
+    /// A player row that cannot be resolved names nobody rather than throwing: the FK makes it
+    /// impossible in the database, and the in-memory fakes should not need to seed one to read
+    /// a character back.
+    /// </summary>
+    private static string PlayerNameFor(Player? player, IReadOnlyList<WorldMember> members) =>
+        player is null ? "Unassigned" : PlayerDisplayName.For(player, members);
 
     /// <summary>
-    /// The sheet's read gate: its owner, the GM, and the party once the owner has shared it.
-    /// Everything that says anything about the sheet — its text, its timestamp, whether it
+    /// The one rule for who may act on a character: the member its player is linked to, or —
+    /// while the player is not on Nornis and there is no such member — any GM, who stands in
+    /// for a player who is not here. Every ownership decision in this service goes through
+    /// here; <c>CharacterServiceTests</c> holds that by widening it and watching two tests fail.
+    /// </summary>
+    private static bool IsSteward(Player? player, WorldMember? actingMember, WorldRole role) =>
+        player?.WorldMemberId is { } linkedMemberId
+            ? actingMember is not null && actingMember.Id == linkedMemberId
+            : role == WorldRole.GM;
+
+    /// <summary>
+    /// The sheet's read gate: its steward, the GM, and the party once the steward has shared
+    /// it. Everything that says anything about the sheet — its text, its timestamp, whether it
     /// is shared — is gated by this one rule, so there is one place for it to be wrong.
     /// </summary>
-    private static bool CanReadSheet(Character character, WorldMember? actingMember, WorldRole role) =>
-        role == WorldRole.GM || IsOwner(character, actingMember) || character.SheetSharedWithParty;
+    private static bool CanReadSheet(Character character, Player? player, WorldMember? actingMember, WorldRole role) =>
+        role == WorldRole.GM || IsSteward(player, actingMember, role) || character.SheetSharedWithParty;
 
     /// <summary>
-    /// A member may manage their own characters; GMs may manage any character in the world.
+    /// A member may manage their own player's characters; GMs may manage any character in
+    /// the world.
     /// </summary>
-    private async Task<AppError?> CheckOwnershipAsync(Character character, Guid actingUserId, WorldRole role, CancellationToken ct)
+    private async Task<AppError?> CheckStewardshipAsync(Character character, Guid actingUserId, WorldRole role, CancellationToken ct)
     {
         if (role == WorldRole.GM)
         {
@@ -641,10 +692,11 @@ public class CharacterService : ICharacterService
         }
 
         var actingMember = await _worldMemberRepository.GetByWorldAndUserAsync(character.WorldId, actingUserId, ct);
+        var player = await _playerRepository.GetByIdAsync(character.PlayerId, ct);
 
-        if (actingMember is null || character.WorldMemberId != actingMember.Id)
+        if (!IsSteward(player, actingMember, role))
         {
-            return new AppError(403, "forbidden", "Only the owning member or a GM can manage this character.");
+            return new AppError(403, "forbidden", "Only the player whose character this is, or a GM, can manage it.");
         }
 
         return null;

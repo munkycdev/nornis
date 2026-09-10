@@ -164,14 +164,9 @@ public class DemoWorldService : IDemoWorldService
             TutorialEnabled = command.TutorialEnabled,
         };
 
-        var member = new WorldMember
-        {
-            Id = Guid.NewGuid(),
-            WorldId = worldId,
-            UserId = userId,
-            Role = WorldRole.GM,
-            JoinedAt = now,
-        };
+        // Carries its player; every packaged character is that player's, since a template
+        // knows no table but the one it is materialised for.
+        var member = WorldMembership.Create(worldId, userId, WorldRole.GM, now);
 
         // One old→new map across every entity space: ids are globally unique GUIDs, so a
         // single dictionary also catches template corruption (duplicate ids) at build time.
@@ -270,7 +265,7 @@ public class DemoWorldService : IDemoWorldService
             {
                 Id = ids.Map(c.Id),
                 WorldId = worldId,
-                WorldMemberId = member.Id,
+                PlayerId = member.Player!.Id,
                 Name = c.Name,
                 Description = c.Description,
                 ArtifactId = c.ArtifactId is { } aid ? ids.Map(aid) : null,
@@ -455,7 +450,9 @@ public class DemoWorldService : IDemoWorldService
 
     private sealed record CampaignCharacterDoc(Guid Id, Guid CampaignId, Guid CharacterId);
 
-    private sealed record CharacterDoc(Guid Id, Guid WorldMemberId, string Name, string? Description, Guid? ArtifactId);
+    // No player or member on the wire: packages written before players (and after) both attach
+    // every character to the demo member, and unknown JSON fields are ignored either way.
+    private sealed record CharacterDoc(Guid Id, string Name, string? Description, Guid? ArtifactId);
 
     private sealed record SourcesDoc(List<SourceDoc>? Sources, List<ExtractionDoc>? Extractions, List<ReferenceDoc>? References);
 

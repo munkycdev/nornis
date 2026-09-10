@@ -1,9 +1,10 @@
 namespace Nornis.Domain.Entities;
 
 /// <summary>
-/// A playable identity owned by a world member. A member may have any number of
-/// characters, and a character may participate in any number of campaigns. Distinct
-/// from the AI-extracted Artifact of type Character.
+/// A playable identity belonging to a <see cref="Player"/> — a person at the table, who may or
+/// may not be a member. A player may have any number of characters, and a character may
+/// participate in any number of campaigns. Distinct from the AI-extracted Artifact of type
+/// Character.
 /// </summary>
 public class Character
 {
@@ -18,7 +19,7 @@ public class Character
 
     public Guid WorldId { get; set; }
 
-    public Guid WorldMemberId { get; set; }
+    public Guid PlayerId { get; set; }
 
     public string Name { get; set; } = string.Empty;
 
@@ -65,7 +66,7 @@ public class Character
     // Navigation properties
     public World World { get; set; } = null!;
 
-    public WorldMember WorldMember { get; set; } = null!;
+    public Player Player { get; set; } = null!;
 
     public Artifact? Artifact { get; set; }
 

@@ -54,14 +54,7 @@ public class WorldMemberService : IWorldMemberService
         }
 
         // Create the membership
-        var member = new WorldMember
-        {
-            Id = Guid.NewGuid(),
-            WorldId = command.WorldId,
-            UserId = command.TargetUserId,
-            Role = command.Role,
-            JoinedAt = DateTimeOffset.UtcNow
-        };
+        var member = WorldMembership.Create(command.WorldId, command.TargetUserId, command.Role, DateTimeOffset.UtcNow);
 
         var created = await _memberRepository.CreateAsync(member, ct);
         return AppResult<WorldMember>.Success(created);

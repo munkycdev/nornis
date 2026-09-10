@@ -397,18 +397,9 @@ public class ArtifactServiceTests
         return source.Id;
     }
 
-    private async Task<WorldMember> SeedMember(string? displayName)
-    {
-        return await _memberRepo.CreateAsync(new WorldMember
-        {
-            Id = Guid.NewGuid(),
-            WorldId = _worldId,
-            UserId = Guid.NewGuid(),
-            Role = WorldRole.Player,
-            DisplayName = displayName,
-            JoinedAt = DateTimeOffset.UtcNow
-        });
-    }
+    /// <summary>A membership the way the app makes one: with the player its characters belong to.</summary>
+    private async Task<WorldMember> SeedMember(string? displayName) =>
+        await _memberRepo.CreateAsync(WorldMembership.Create(_worldId, Guid.NewGuid(), WorldRole.Player, DateTimeOffset.UtcNow, displayName));
 
     private void SeedLinkedCharacter(WorldMember owner, Guid artifactId, string name = "Ugma")
     {
@@ -416,7 +407,8 @@ public class ArtifactServiceTests
         {
             Id = Guid.NewGuid(),
             WorldId = _worldId,
-            WorldMemberId = owner.Id,
+            PlayerId = owner.Player!.Id,
+            Player = owner.Player,
             Name = name,
             ArtifactId = artifactId,
             CreatedAt = DateTimeOffset.UtcNow,

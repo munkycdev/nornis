@@ -3,7 +3,8 @@
 public record CharacterResponse(
     Guid Id,
     Guid WorldId,
-    Guid WorldMemberId,
+    Guid PlayerId,
+    string PlayerName,
     string Name,
     string? Description,
     Guid? ArtifactId,

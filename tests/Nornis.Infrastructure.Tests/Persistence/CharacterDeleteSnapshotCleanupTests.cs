@@ -65,11 +65,22 @@ public class CharacterDeleteSnapshotCleanupTests : IntegrationTestBase
         };
         Context.WorldMembers.Add(member);
 
-        _character = new Character
+        var player = new Player
         {
             Id = Guid.NewGuid(),
             WorldId = world.Id,
             WorldMemberId = member.Id,
+            Name = "Tavrin's player",
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        Context.Players.Add(player);
+
+        _character = new Character
+        {
+            Id = Guid.NewGuid(),
+            WorldId = world.Id,
+            PlayerId = player.Id,
             Name = "Tavrin",
             CreatedAt = now,
             UpdatedAt = now

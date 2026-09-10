@@ -302,10 +302,24 @@ public record UpdateCampaignRequest(
     DateTimeOffset? StartedAt = null,
     DateTimeOffset? EndedAt = null);
 
+public record PlayerDto(
+    Guid Id,
+    Guid WorldId,
+    string Name,
+    Guid? WorldMemberId,
+    string? Role);
+
+public record CreatePlayerRequest(string Name);
+
+public record RenamePlayerRequest(string Name);
+
+public record LinkPlayerRequest(Guid WorldMemberId);
+
 public record CharacterDto(
     Guid Id,
     Guid WorldId,
-    Guid WorldMemberId,
+    Guid PlayerId,
+    string PlayerName,
     string Name,
     string? Description,
     Guid? ArtifactId,
@@ -321,7 +335,7 @@ public record CharacterDto(
 /// </param>
 public record CharacterDossierDto(
     CharacterDto Character,
-    string OwnerDisplayName,
+    string PlayerName,
     IReadOnlyList<string> CampaignNames,
     CharacterRecordDto? Record,
     string? Sheet = null,
@@ -365,7 +379,7 @@ public record CharacterRecordGroupDto(
 public record CreateCharacterRequest(
     string Name,
     string? Description = null,
-    Guid? WorldMemberId = null,
+    Guid? PlayerId = null,
     Guid? ArtifactId = null);
 
 public record UpdateCharacterRequest(

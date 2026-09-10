@@ -32,5 +32,9 @@ public class WorldMember
 
     public User User { get; set; } = null!;
 
-    public ICollection<Character> Characters { get; set; } = [];
+    /// <summary>
+    /// The person at the table this membership is. Every membership has one from creation
+    /// (<c>WorldMembership.Create</c>); characters hang off it, not off the membership.
+    /// </summary>
+    public Player? Player { get; set; }
 }

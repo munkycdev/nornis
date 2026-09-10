@@ -42,7 +42,7 @@
                 <MudIcon Icon="@Icons.Material.Outlined.Person" Size="Size.Large" Color="Color.Secondary" />
                 <div class="flex-grow-1">
                     <MudText Typo="Typo.h5" Class="nornis-serif">@ch.Name</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Played by @_dossier.OwnerDisplayName</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Played by @_dossier.PlayerName</MudText>
                 </div>
             </div>
 
@@ -515,7 +515,7 @@
                 return [];
             }
 
-            var rows = new List<ContextRail.RailRow> { new("Played by", _dossier.OwnerDisplayName) };
+            var rows = new List<ContextRail.RailRow> { new("Played by", _dossier.PlayerName) };
             if (_dossier.Record is { } record)
             {
                 rows.Add(new("Facts", record.TotalFactCount.ToString()));

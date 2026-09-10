@@ -33,6 +33,7 @@ public class CharacterRepository : ICharacterRepository
         return await _context.Characters
             .AsNoTracking()
             .Include(c => c.CampaignCharacters)
+            .Include(c => c.Player)
             .Where(c => c.WorldId == worldId)
             .OrderBy(c => c.Name)
             .ToListAsync(cancellationToken);

@@ -47,7 +47,7 @@ public class CampaignServiceTests
     {
         Id = Guid.NewGuid(),
         WorldId = worldId ?? WorldId,
-        WorldMemberId = Guid.NewGuid(),
+        PlayerId = Guid.NewGuid(),
         Name = name,
         CreatedAt = DateTimeOffset.UtcNow,
         UpdatedAt = DateTimeOffset.UtcNow

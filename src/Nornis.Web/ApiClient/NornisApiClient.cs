@@ -181,6 +181,33 @@ public class NornisApiClient
 
     // ----------------------------------------------------------------- Characters --
 
+    // -------------------------------------------------------------------- Players --
+
+    public Task<ApiResult<IReadOnlyList<PlayerDto>>> GetPlayersAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<PlayerDto>>($"/api/worlds/{worldId}/players", ct);
+
+    public Task<ApiResult<PlayerDto>> GetMyPlayerAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<PlayerDto>($"/api/worlds/{worldId}/players/me", ct);
+
+    public Task<ApiResult<PlayerDto>> CreatePlayerAsync(Guid worldId, string name, CancellationToken ct = default) =>
+        PostAsync<CreatePlayerRequest, PlayerDto>($"/api/worlds/{worldId}/players", new CreatePlayerRequest(name), ct);
+
+    public Task<ApiResult<PlayerDto>> RenamePlayerAsync(Guid worldId, Guid playerId, string name, CancellationToken ct = default) =>
+        PutAsync<RenamePlayerRequest, PlayerDto>($"/api/worlds/{worldId}/players/{playerId}", new RenamePlayerRequest(name), ct);
+
+    public Task<ApiResult<bool>> DeletePlayerAsync(Guid worldId, Guid playerId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/players/{playerId}", ct);
+
+    /// <summary>Takes an unlinked player as yourself: their characters become yours and the player row is gone.</summary>
+    public Task<ApiResult<PlayerDto>> ClaimPlayerAsync(Guid worldId, Guid playerId, CancellationToken ct = default) =>
+        PostAsync<object?, PlayerDto>($"/api/worlds/{worldId}/players/{playerId}/claim", null, ct);
+
+    /// <summary>GM: links an unlinked player to a member, with the same effect as that member claiming it.</summary>
+    public Task<ApiResult<PlayerDto>> LinkPlayerAsync(Guid worldId, Guid playerId, Guid worldMemberId, CancellationToken ct = default) =>
+        PutAsync<LinkPlayerRequest, PlayerDto>($"/api/worlds/{worldId}/players/{playerId}/member", new LinkPlayerRequest(worldMemberId), ct);
+
+    // ----------------------------------------------------------------- Characters --
+
     public Task<ApiResult<IReadOnlyList<CharacterDto>>> GetCharactersAsync(Guid worldId, bool mine = false, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<CharacterDto>>($"/api/worlds/{worldId}/characters{(mine ? "?mine=true" : "")}", ct);
 
@@ -193,7 +220,7 @@ public class NornisApiClient
     public Task<ApiResult<bool>> DeleteCharacterAsync(Guid worldId, Guid characterId, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}/characters/{characterId}", ct);
 
-    /// <summary>Transfers ownership of an existing character to the calling member.</summary>
+    /// <summary>Moves an existing character to the calling member's own player.</summary>
     public Task<ApiResult<CharacterDto>> ClaimCharacterAsync(Guid worldId, Guid characterId, CancellationToken ct = default) =>
         PostAsync<object?, CharacterDto>($"/api/worlds/{worldId}/characters/{characterId}/claim", null, ct);
 

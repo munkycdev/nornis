@@ -176,7 +176,7 @@ public class ArtifactRemovalServiceTests
         {
             Id = id,
             WorldId = WorldId,
-            WorldMemberId = Guid.NewGuid(),
+            PlayerId = Guid.NewGuid(),
             Name = "Tavrin",
             ArtifactId = artifactId,
             CreatedAt = DateTimeOffset.UtcNow,

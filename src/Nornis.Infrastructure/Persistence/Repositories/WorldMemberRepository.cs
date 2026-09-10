@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Nornis.Application.Services;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
@@ -37,10 +38,26 @@ public class WorldMemberRepository : IWorldMemberRepository
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Removes the membership and leaves its player at the table: the player is unlinked, not
+    /// deleted, and keeps every character. The player takes the member's name as it was at
+    /// this moment (the one name rule, <see cref="MemberDisplayName"/>), since that is the
+    /// last thing the table knew them as. Done here because the FK cannot SET NULL on its own
+    /// (see PlayerConfiguration) and this is the one place a membership is removed.
+    /// </summary>
     public async Task RemoveAsync(WorldMember member, CancellationToken cancellationToken = default)
     {
+        var player = await _context.Players.FirstOrDefaultAsync(p => p.WorldMemberId == member.Id, cancellationToken);
+        if (player is not null)
+        {
+            player.WorldMemberId = null;
+            player.Name = MemberDisplayName.For(member);
+            player.UpdatedAt = DateTimeOffset.UtcNow;
+        }
+
         _context.WorldMembers.Remove(member);
         await _context.SaveChangesAsync(cancellationToken);
+        _context.ChangeTracker.Clear();
     }
 
     public async Task<WorldMember> UpdateAsync(WorldMember member, CancellationToken cancellationToken = default)

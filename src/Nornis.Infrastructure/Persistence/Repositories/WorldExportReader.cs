@@ -41,6 +41,8 @@ public class WorldExportReader : IWorldExportReader
                 .Where(cc => _context.Campaigns.Any(c => c.Id == cc.CampaignId && c.WorldId == worldId))
                 .OrderBy(cc => cc.CreatedAt)),
 
+            Players = await LoadAsync(WorldExportCategory.Characters, _context.Players
+                .Where(p => p.WorldId == worldId).OrderBy(p => p.CreatedAt)),
             Characters = await LoadAsync(WorldExportCategory.Characters, _context.Characters
                 .Where(c => c.WorldId == worldId).OrderBy(c => c.CreatedAt)),
 

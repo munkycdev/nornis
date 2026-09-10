@@ -179,6 +179,7 @@ public class WorldRepository : IWorldRepository
         await DeleteAsync(_context.CampaignRecaps
             .Where(r => _context.Campaigns.Any(c => c.Id == r.CampaignId && c.WorldId == worldId)));
         await DeleteAsync(_context.Characters.Where(c => c.WorldId == worldId));
+        await DeleteAsync(_context.Players.Where(p => p.WorldId == worldId));
         await DeleteAsync(_context.Artifacts.Where(a => a.WorldId == worldId));
 
         // Sources before Campaigns (Source.CampaignId is Restrict), then the shell.

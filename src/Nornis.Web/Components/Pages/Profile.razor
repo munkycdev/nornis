@@ -165,6 +165,30 @@
                     </MudButton>
                 </div>
             </MudPaper>
+
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">Claim a player</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    If the GM added you to the party before you signed up, you are on the
+                    <a href="/party" class="nornis-link">Party</a> page under your own name with no
+                    account behind it. Claim that player and every character they play becomes yours.
+                </MudText>
+                <div class="nornis-add-member">
+                    <MudAutocomplete T="PlayerDto" @bind-Value="_claimPlayer"
+                                     SearchFunc="SearchUnlinkedPlayersAsync" ToStringFunc="@(p => p?.Name)"
+                                     Label="Player" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                                     Clearable="true" ResetValueOnEmptyText="true" Class="flex-grow-1">
+                        <ItemTemplate Context="p">
+                            <span>@p.Name</span>
+                            <span class="nornis-list-meta ml-2">@PlayerCharacterSummary(p)</span>
+                        </ItemTemplate>
+                    </MudAutocomplete>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.HowToReg"
+                               OnClick="ClaimPlayerAsync" Disabled="_claiming || _claimPlayer is null">
+                        That's me
+                    </MudButton>
+                </div>
+            </MudPaper>
         }
     }
 
@@ -217,7 +241,9 @@
         _error = null;
         _characterArtifacts = null;
         _allCharacters = null;
+        _players = null;
         _claimTarget = null;
+        _claimPlayer = null;
         _editingCharacterId = null;
         StateHasChanged();
 
@@ -304,14 +330,11 @@
     private ClaimOption? _claimTarget;
     private bool _claiming;
 
-    // All characters + members, fetched lazily the first time the claim picker searches.
+    // All characters, fetched lazily the first time a claim picker searches. Each carries its
+    // player's resolved name, so there is no member lookup here.
     private IReadOnlyList<CharacterDto>? _allCharacters;
-    private IReadOnlyList<WorldMember> _members = [];
-
-    private string OwnerName(Guid worldMemberId) =>
-        _members.FirstOrDefault(m => m.Id == worldMemberId) is { } m
-            ? (!string.IsNullOrWhiteSpace(m.DisplayName) ? m.DisplayName! : $"User {m.UserId.ToString()[..8]}")
-            : "another member";
+    private IReadOnlyList<PlayerDto>? _players;
+    private PlayerDto? _claimPlayer;
 
     private async Task<IEnumerable<ClaimOption>> SearchClaimableAsync(string value, CancellationToken ct)
     {
@@ -320,26 +343,18 @@
             return [];
         }
 
-        if (_allCharacters is null)
-        {
-            var allTask = Api.GetCharactersAsync(Worlds.Current.Id);
-            var membersTask = Api.GetMembersAsync(Worlds.Current.Id);
-            var all = await allTask;
-            var members = await membersTask;
-            _allCharacters = all.IsSuccess ? all.Value! : [];
-            _members = members.IsSuccess ? members.Value! : [];
-        }
+        await EnsureTableLoadedAsync();
 
         var artifacts = await EnsureCharacterArtifactsAsync();
 
         var mine = _characters.Select(c => c.Id).ToHashSet();
-        var records = _allCharacters
+        var records = (_allCharacters ?? [])
             .Where(c => !mine.Contains(c.Id))
-            .Select(c => new ClaimOption(c.Name, $"played by {OwnerName(c.WorldMemberId)}", c, null));
+            .Select(c => new ClaimOption(c.Name, $"played by {c.PlayerName}", c, null));
 
         // Artifacts already linked to any Character record are someone's — claim the
         // record instead, so the same character never shows up twice.
-        var linkedArtifactIds = _allCharacters
+        var linkedArtifactIds = (_allCharacters ?? [])
             .Where(c => c.ArtifactId is not null)
             .Select(c => c.ArtifactId!.Value)
             .ToHashSet();
@@ -364,7 +379,7 @@
         var (message, action) = target switch
         {
             { Record: { } record } => (
-                $"Take over \"{record.Name}\"? It is currently played by {OwnerName(record.WorldMemberId)}.",
+                $"Take over \"{record.Name}\"? It is currently played by {record.PlayerName}.",
                 (Func<Task<bool>>)(async () =>
                 {
                     var result = await Api.ClaimCharacterAsync(Worlds.Current.Id, record.Id);
@@ -410,6 +425,72 @@
         }
         else
         {
+            StateHasChanged();
+        }
+    }
+
+    private async Task EnsureTableLoadedAsync()
+    {
+        if (Worlds.Current is null || (_allCharacters is not null && _players is not null))
+        {
+            return;
+        }
+
+        var allTask = Api.GetCharactersAsync(Worlds.Current.Id);
+        var playersTask = Api.GetPlayersAsync(Worlds.Current.Id);
+        var all = await allTask;
+        var players = await playersTask;
+        _allCharacters = all.IsSuccess ? all.Value! : [];
+        _players = players.IsSuccess ? players.Value! : [];
+    }
+
+    private string PlayerCharacterSummary(PlayerDto player)
+    {
+        var names = (_allCharacters ?? []).Where(c => c.PlayerId == player.Id).Select(c => c.Name).OrderBy(n => n).ToList();
+        return names.Count == 0 ? "no characters yet" : $"plays {string.Join(", ", names)}";
+    }
+
+    private async Task<IEnumerable<PlayerDto>> SearchUnlinkedPlayersAsync(string value, CancellationToken ct)
+    {
+        await EnsureTableLoadedAsync();
+        return (_players ?? [])
+            .Where(p => p.WorldMemberId is null)
+            .Where(p => string.IsNullOrWhiteSpace(value) || p.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(p => p.Name)
+            .Take(15);
+    }
+
+    private async Task ClaimPlayerAsync()
+    {
+        if (Worlds.Current is null || _claimPlayer is null)
+        {
+            return;
+        }
+
+        var target = _claimPlayer;
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "That's you?", $"\"{target.Name}\" {PlayerCharacterSummary(target)}. Everything they play becomes yours, and the name goes.",
+            yesText: "Yes, that's me", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _claiming = true;
+        var result = await Api.ClaimPlayerAsync(Worlds.Current.Id, target.Id);
+        _claiming = false;
+
+        if (result.IsSuccess)
+        {
+            Snackbar.Add($"You are {target.Name} at this table now.", Severity.Success);
+            _claimPlayer = null;
+            _allCharacters = null;
+            _players = null;
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add($"Could not claim: {result.Error!.Message}", Severity.Error);
             StateHasChanged();
         }
     }

@@ -15,6 +15,7 @@ public class CharacterServiceTests
 
     private InMemoryCharacterRepository _characterRepository = null!;
     private InMemoryWorldMemberRepository _memberRepository = null!;
+    private InMemoryPlayerRepository _playerRepository = null!;
     private InMemoryArtifactRepository _artifactRepository = null!;
     private InMemoryCampaignRepository _campaignRepository = null!;
     private InMemoryArtifactFactRepository _factRepository = null!;
@@ -33,6 +34,7 @@ public class CharacterServiceTests
     {
         _characterRepository = new InMemoryCharacterRepository();
         _memberRepository = new InMemoryWorldMemberRepository();
+        _playerRepository = new InMemoryPlayerRepository(_characterRepository);
         _artifactRepository = new InMemoryArtifactRepository();
         _campaignRepository = new InMemoryCampaignRepository();
         _factRepository = new InMemoryArtifactFactRepository();
@@ -49,7 +51,7 @@ public class CharacterServiceTests
             _characterRepository, _memberRepository, _campaignRepository);
 
         _sut = new CharacterService(
-            _characterRepository, _memberRepository, _artifactRepository,
+            _characterRepository, _memberRepository, _playerRepository, _artifactRepository,
             _campaignRepository, _snapshotRepository, _sourceRepository, artifactService);
 
         _gm = await AddMember(WorldRole.GM, "Dave");
@@ -58,24 +60,38 @@ public class CharacterServiceTests
         _observer = await AddMember(WorldRole.Observer, "Fly");
     }
 
-    private Task<WorldMember> AddMember(WorldRole role, string displayName) =>
-        _memberRepository.CreateAsync(new WorldMember
+    /// <summary>A membership the way the app makes one: with its linked player, both persisted.</summary>
+    private async Task<WorldMember> AddMember(WorldRole role, string displayName)
+    {
+        var member = WorldMembership.Create(WorldId, Guid.NewGuid(), role, DateTimeOffset.UtcNow, displayName);
+        await _memberRepository.CreateAsync(member);
+        await _playerRepository.CreateAsync(member.Player!);
+        return member;
+    }
+
+    /// <summary>Someone at the table who is not on Nornis — Henry.</summary>
+    private async Task<Player> AddUnlinkedPlayer(string name)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return await _playerRepository.CreateAsync(new Player
         {
             Id = Guid.NewGuid(),
             WorldId = WorldId,
-            UserId = Guid.NewGuid(),
-            Role = role,
-            DisplayName = displayName,
-            JoinedAt = DateTimeOffset.UtcNow
+            Name = name,
+            CreatedAt = now,
+            UpdatedAt = now,
         });
+    }
 
-    private Character SeedCharacter(WorldMember owner, string name = "Tavrin")
+    private Character SeedCharacter(WorldMember owner, string name = "Tavrin") => SeedCharacter(owner.Player!, name);
+
+    private Character SeedCharacter(Player player, string name)
     {
         var character = new Character
         {
             Id = Guid.NewGuid(),
             WorldId = WorldId,
-            WorldMemberId = owner.Id,
+            PlayerId = player.Id,
             Name = name,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
@@ -94,7 +110,7 @@ public class CharacterServiceTests
         var result = await _sut.CreateAsync(command, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.WorldMemberId, Is.EqualTo(_player.Id));
+        Assert.That(result.Value!.PlayerId, Is.EqualTo(_player.Player!.Id));
         Assert.That(result.Value.Name, Is.EqualTo("Tavrin"));
     }
 
@@ -109,7 +125,7 @@ public class CharacterServiceTests
 
         Assert.That(firstResult.IsSuccess, Is.True);
         Assert.That(secondResult.IsSuccess, Is.True);
-        Assert.That(_characterRepository.Characters.Count(c => c.WorldMemberId == _player.Id), Is.EqualTo(2));
+        Assert.That(_characterRepository.Characters.Count(c => c.PlayerId == _player.Player!.Id), Is.EqualTo(2));
     }
 
     [Test]
@@ -129,12 +145,26 @@ public class CharacterServiceTests
     public async Task CreateAsync_GmCreatesForAnotherMember()
     {
         var command = new CreateCharacterCommand(WorldId, "Jorin", _gm.UserId, WorldRole.GM,
-            ForWorldMemberId: _otherPlayer.Id);
+            ForPlayerId: _otherPlayer.Player!.Id);
 
         var result = await _sut.CreateAsync(command, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.WorldMemberId, Is.EqualTo(_otherPlayer.Id));
+        Assert.That(result.Value!.PlayerId, Is.EqualTo(_otherPlayer.Player!.Id));
+    }
+
+    [Test]
+    public async Task CreateAsync_GmCreatesForSomeoneNotOnNornis()
+    {
+        // Henry plays every week and has no account. Malliano still needs somewhere to be.
+        var henry = await AddUnlinkedPlayer("Henry");
+        var command = new CreateCharacterCommand(WorldId, "Malliano", _gm.UserId, WorldRole.GM,
+            ForPlayerId: henry.Id);
+
+        var result = await _sut.CreateAsync(command, CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.PlayerId, Is.EqualTo(henry.Id));
     }
 
     [Test]
@@ -143,7 +173,7 @@ public class CharacterServiceTests
     public async Task CreateAsync_PlayerCreatesForAnotherMember_Returns403()
     {
         var command = new CreateCharacterCommand(WorldId, "Hijack", _player.UserId, WorldRole.Player,
-            ForWorldMemberId: _otherPlayer.Id);
+            ForPlayerId: _otherPlayer.Player!.Id);
 
         var result = await _sut.CreateAsync(command, CancellationToken.None);
 
@@ -155,7 +185,7 @@ public class CharacterServiceTests
     public async Task CreateAsync_GmForMemberOutsideWorld_Returns400()
     {
         var command = new CreateCharacterCommand(WorldId, "Stranger", _gm.UserId, WorldRole.GM,
-            ForWorldMemberId: Guid.NewGuid());
+            ForPlayerId: Guid.NewGuid());
 
         var result = await _sut.CreateAsync(command, CancellationToken.None);
 
@@ -430,7 +460,7 @@ public class CharacterServiceTests
         var result = await _sut.ClaimAsync(character.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.WorldMemberId, Is.EqualTo(_player.Id));
+        Assert.That(result.Value!.PlayerId, Is.EqualTo(_player.Player!.Id));
     }
 
     [Test]
@@ -442,7 +472,7 @@ public class CharacterServiceTests
         var result = await _sut.ClaimAsync(character.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value!.WorldMemberId, Is.EqualTo(_player.Id));
+        Assert.That(result.Value!.PlayerId, Is.EqualTo(_player.Player!.Id));
         Assert.That(result.Value.UpdatedAt, Is.EqualTo(before));
     }
 
@@ -1292,8 +1322,64 @@ public class CharacterServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.Value!.OwnerDisplayName, Is.EqualTo("Tavrin's player"));
+            Assert.That(result.Value!.PlayerName, Is.EqualTo("Tavrin's player"));
             Assert.That(result.Value!.CampaignNames, Is.EquivalentTo(["Vespergale Reach"]));
         });
+    }
+
+    // ------------------------------------------------------------- Stewardship --
+    // Feature 25: a character whose player is not on Nornis has no member to answer for it,
+    // so the GM does — sheet, sharing, snapshots, renaming, deleting. Another member is a
+    // stranger to it exactly as they are to any other member's character. Sabotaged by widening
+    // IsSteward to "any member": both tests below went red, not one.
+
+    [Test]
+    public async Task UnlinkedPlayersCharacter_GmIsItsSteward()
+    {
+        var henry = await AddUnlinkedPlayer("Henry");
+        var malliano = SeedCharacter(henry, "Malliano");
+
+        var sheet = await _sut.UpdateSheetAsync(malliano.Id, WorldId, _gm.UserId, WorldRole.GM, "Rapier, lute, a grudge.", CancellationToken.None);
+        var shared = await _sut.SetSheetSharingAsync(malliano.Id, WorldId, _gm.UserId, WorldRole.GM, true, CancellationToken.None);
+        var dossier = await _sut.GetDossierAsync(malliano.Id, WorldId, _gm.UserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sheet.IsSuccess, Is.True, "the GM keeps the sheet on Henry's behalf");
+            Assert.That(shared.IsSuccess, Is.True, "and decides who reads it, since Henry cannot");
+            Assert.That(dossier.Value!.CanShareSheet, Is.True);
+            Assert.That(dossier.Value.PlayerName, Is.EqualTo("Henry"));
+        });
+    }
+
+    [Test]
+    public async Task UnlinkedPlayersCharacter_AnotherMemberIsNotItsSteward()
+    {
+        var henry = await AddUnlinkedPlayer("Henry");
+        var malliano = SeedCharacter(henry, "Malliano");
+
+        var sheet = await _sut.UpdateSheetAsync(malliano.Id, WorldId, _player.UserId, WorldRole.Player, "Mine now.", CancellationToken.None);
+        var shared = await _sut.SetSheetSharingAsync(malliano.Id, WorldId, _player.UserId, WorldRole.Player, true, CancellationToken.None);
+        var deleted = await _sut.DeleteAsync(malliano.Id, WorldId, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sheet.Error!.StatusCode, Is.EqualTo(403));
+            Assert.That(shared.Error!.StatusCode, Is.EqualTo(403));
+            Assert.That(deleted.Error!.StatusCode, Is.EqualTo(403));
+        });
+    }
+
+    [Test]
+    public async Task ListByWorldAsync_MineOnly_IsMyPlayersCharacters()
+    {
+        var henry = await AddUnlinkedPlayer("Henry");
+        SeedCharacter(henry, "Malliano");
+        SeedCharacter(_player, "Tavrin");
+        SeedCharacter(_otherPlayer, "Jorin");
+
+        var mine = await _sut.ListByWorldAsync(WorldId, _player.UserId, WorldRole.Player, CancellationToken.None, mineOnly: true);
+
+        Assert.That(mine.Value!.Select(c => c.Name), Is.EquivalentTo(["Tavrin"]));
     }
 }
