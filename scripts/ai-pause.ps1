@@ -12,6 +12,13 @@ Deliberately a script and not a UI. A switch that pauses the product for everyon
 nobody should be able to click by accident, and an operator flipping it is already at a
 terminal.
 
+Authenticates as you. The work happens in scripts/ai-pause.cs, which mints a SQL token
+from your own `az login` and hands it to SqlClient — there is no password to read, parse
+or pass, because since O3 (2026-09-08) nothing reaches nornis-db with one. You need a
+contained user in the database, or to be the server's Entra admin. This wrapper exists
+so the documented invocation is one line from any directory; `dotnet run
+scripts/ai-pause.cs -- status` from the repo root is the same thing.
+
 .PARAMETER Action
 Status (default, read-only), Pause, or Resume.
 
@@ -19,9 +26,11 @@ Status (default, read-only), Pause, or Resume.
 Shown to users when an interactive path refuses, so a pause reads as deliberate rather
 than broken. Required to pause — an unexplained outage is what this exists to avoid.
 
-.PARAMETER ConnectionString
-Overrides the connection string. Defaults to the API's user-secret, the same source the
-migration commands use.
+.PARAMETER Server
+The SQL server host. Defaults to the live one.
+
+.PARAMETER Database
+The database name. Defaults to the live one.
 
 .EXAMPLE
 ./scripts/ai-pause.ps1
@@ -46,81 +55,30 @@ param(
 
     [string]$Reason,
 
-    [string]$ConnectionString
+    [string]$Server = 'sql-chronicis-dev.database.windows.net',
+
+    [string]$Database = 'nornis-db'
 )
 
 $ErrorActionPreference = 'Stop'
 
-if ($Action -eq 'Pause' -and [string]::IsNullOrWhiteSpace($Reason)) {
-    throw "Pausing needs -Reason. It is shown to users, and a pause nobody can explain is indistinguishable from a fault."
+# The -Reason rule is enforced in ai-pause.cs, the one place it lives; this wrapper only
+# forwards. Checking here too would save a compile on the failure path at the cost of two
+# copies of the same sentence.
+$arguments = @($Action.ToLowerInvariant())
+if ($Action -eq 'Pause') { $arguments += $Reason }
+
+# Env, not argv, for the target: it is what the sibling sql-identity-users.cs honours. Restored
+# afterward because a script runs in the caller's session and would otherwise leave them set.
+$previousServer = $env:SQL_SERVER
+$previousDatabase = $env:SQL_DATABASE
+try {
+    $env:SQL_SERVER = $Server
+    $env:SQL_DATABASE = $Database
+    dotnet run (Join-Path $PSScriptRoot 'ai-pause.cs') -- @arguments
+    if ($LASTEXITCODE -ne 0) { throw "ai-pause.cs failed with exit code $LASTEXITCODE." }
 }
-
-if ([string]::IsNullOrWhiteSpace($ConnectionString)) {
-    $secret = dotnet user-secrets list --project src/Nornis.Api |
-        Select-String '^ConnectionStrings:DefaultConnection'
-    if (-not $secret) {
-        throw "No connection string. Pass -ConnectionString, or set the API's user-secret."
-    }
-    $ConnectionString = $secret.ToString() -replace '^ConnectionStrings:DefaultConnection = ', ''
-}
-
-# Parsed rather than passed whole so the password never reaches a process argument list,
-# where it would sit in the command history and in any process listing.
-$parts = @{}
-foreach ($pair in $ConnectionString -split ';') {
-    if ($pair -match '=') {
-        $kv = $pair -split '=', 2
-        $parts[$kv[0].Trim()] = $kv[1].Trim()
-    }
-}
-
-$server = if ($parts['Server']) { $parts['Server'] } else { $parts['Data Source'] }
-$database = if ($parts['Initial Catalog']) { $parts['Initial Catalog'] } else { $parts['Database'] }
-$user = if ($parts['User ID']) { $parts['User ID'] } else { $parts['UID'] }
-$password = if ($parts['Password']) { $parts['Password'] } else { $parts['PWD'] }
-
-$sqlcmd = Get-ChildItem "C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\*\Tools\Binn\sqlcmd.exe" -ErrorAction SilentlyContinue |
-    Select-Object -Last 1
-if (-not $sqlcmd) { $sqlcmd = Get-Command sqlcmd -ErrorAction SilentlyContinue }
-if (-not $sqlcmd) { throw "sqlcmd not found. Install the SQL Server command line utilities." }
-$sqlcmdPath = if ($sqlcmd.FullName) { $sqlcmd.FullName } else { $sqlcmd.Source }
-
-function Invoke-Sql([string]$Query) {
-    & $sqlcmdPath -S $server -d $database -U $user -P $password -Q $Query -h -1 -W
-    if ($LASTEXITCODE -ne 0) { throw "sqlcmd failed with exit code $LASTEXITCODE." }
-}
-
-# The row is upserted rather than inserted: one row per flag is the invariant, and a second
-# row for 'ai-paused' would be a bug rather than a record.
-switch ($Action) {
-    'Pause' {
-        $escaped = $Reason -replace "'", "''"
-        Invoke-Sql @"
-SET NOCOUNT ON;
-MERGE OperationalFlags AS target
-USING (SELECT 'ai-paused' AS Name) AS source ON target.Name = source.Name
-WHEN MATCHED THEN UPDATE SET Enabled = 1, Reason = '$escaped', UpdatedAt = SYSDATETIMEOFFSET()
-WHEN NOT MATCHED THEN INSERT (Name, Enabled, Reason, UpdatedAt)
-    VALUES ('ai-paused', 1, '$escaped', SYSDATETIMEOFFSET());
-"@
-        Write-Output "AI PAUSED: $Reason"
-        Write-Output "Effective within ~90s. Queued work waits in the queue; nothing is dead-lettered."
-    }
-    'Resume' {
-        Invoke-Sql @"
-SET NOCOUNT ON;
-UPDATE OperationalFlags SET Enabled = 0, Reason = NULL, UpdatedAt = SYSDATETIMEOFFSET()
-WHERE Name = 'ai-paused';
-"@
-        Write-Output "AI resumed. Workers restart consuming within ~90s."
-    }
-    'Status' {
-        Invoke-Sql @"
-SET NOCOUNT ON;
-SELECT CASE WHEN Enabled = 1 THEN 'PAUSED: ' + ISNULL(Reason, '(no reason recorded)')
-            ELSE 'running' END + '  (updated ' + CONVERT(varchar, UpdatedAt, 120) + ')'
-FROM OperationalFlags WHERE Name = 'ai-paused';
-"@
-        Write-Output "(no row means running — the flag has never been set)"
-    }
+finally {
+    $env:SQL_SERVER = $previousServer
+    $env:SQL_DATABASE = $previousDatabase
 }

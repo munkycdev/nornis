@@ -75,6 +75,13 @@ stop consuming, so queued work waits in the queue rather than burning delivery c
 toward the dead-letter backstop. A script rather than a UI on purpose: a switch that pauses
 the product for everyone should not be one click away.
 
+The `.ps1` is a thin front door for `ai-pause.cs`, a single-file C# program it runs with
+`dotnet run` (`dotnet run scripts/ai-pause.cs -- status` from the repo root is the same
+thing). Like `sql-identity-users.cs`, it mints a SQL token from your own `az login` and
+hands it to SqlClient: no connection string is read from anywhere and no password exists
+to read. You need a contained user in `nornis-db` or to be the server's Entra admin.
+`-Server` / `-Database` (or `SQL_SERVER` / `SQL_DATABASE`) retarget it.
+
 See [docs/runbooks/ai-paused.md](../docs/runbooks/ai-paused.md).
 
 ## dlq.ps1

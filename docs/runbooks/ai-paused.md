@@ -19,6 +19,12 @@ runbook. Go to [ai-call-failures.md](ai-call-failures.md).
 `running` means nobody paused it and the Degraded row is something else. `PAUSED: <reason>`
 with a timestamp means somebody did, and the reason is the first thing to read.
 
+The script reaches the database as you — a token from your `az login`, minted by
+`scripts/ai-pause.cs`, which the wrapper runs with `dotnet run`. There is no password to
+find or paste; since O3 (2026-09-08) nothing reaches `nornis-db` with one. You need a
+contained user in the database, or to be the server's Entra admin. If it fails before
+printing anything, `az account show` is the first check.
+
 ## Why you would pause
 
 Per-world budgets cap spend over a day. They cannot stop it *now*, and they cannot stop it
