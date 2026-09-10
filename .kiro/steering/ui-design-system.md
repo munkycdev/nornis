@@ -30,6 +30,16 @@
 > the world's own structure instead of a search field. The "Recommended primary navigation"
 > under Navigation below is the 2026-06 sketch; `NavGroups.cs` is what is there.
 
+> **Amendment (2026-09-10): the stonemark's two ornaments are reusable.** `Stonemark.razor`
+> draws the rule-with-diamond from under the logo's N and the branched rune from above it, in
+> secondary ink at reduced opacity — never the accent, which the Nornis 2.0 note below reserves
+> for the action and the active nav icon. Where they sit, and nowhere else without a reason:
+> the rule between every entity page's header and its reading (`EntityPage`), under the title
+> of each prose public page, and short and centred at the foot of the two landing heroes; the
+> rune on the three large empty states (no world, no sources, nothing to review). This is the
+> "subtle cues used sparingly" bullet under Product Vibe made concrete; it is not permission
+> to ornament every card.
+
 > **Amendment (2026-09-10, Nornis 2.0):** the surface is paper (feature 24, phase C). Three of
 > the "Aim for" bullets under Product Vibe no longer hold — *Deep blue sidebar/navigation*,
 > *Restrained aged-gold accents*, and *Clean cards with slightly stronger contrast* — and the

@@ -1,0 +1,26 @@
+@* Two pieces of the logo, lifted off it and used sparingly on the surface: the rule with the
+   diamond that sits under the N, and the branched rune that sits above it — many sources
+   feeding one trunk. Both draw in secondary ink, never the accent: terracotta belongs to the
+   primary action and the active nav icon, and the stonemark keeps its own colour only on the
+   logo itself. Decorative and hidden from assistive technology. *@
+
+@if (Kind == StonemarkKind.Rule)
+{
+    <div class="nornis-rule @Class" role="presentation" aria-hidden="true"><i class="nornis-rule-gem"></i></div>
+}
+else
+{
+    <svg class="nornis-mark-branch @Class" viewBox="0 0 24 40" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <path d="M12 3v34" />
+        <path d="M12 17l-6-6M12 17l6-6" />
+        <path d="M12 27l-6-6M12 27l6-6" />
+    </svg>
+}
+
+@code {
+    [Parameter] public StonemarkKind Kind { get; set; } = StonemarkKind.Rule;
+
+    /// <summary>Extra classes for placement — spacing belongs to the place, not the mark.</summary>
+    [Parameter] public string? Class { get; set; }
+}
