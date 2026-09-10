@@ -140,6 +140,18 @@ the backstop. A message that exhausts retries today vanishes silently.
 > `AzureClients`, and the connection-string form stays for the emulator stack. SAS signing
 > under an identity uses a user delegation key. Local dev works through `az login`, which
 > is why David holds the same data-plane roles the apps do.
+>
+> **Closed out 2026-09-09.** `scripts/ai-pause.ps1` now fronts `scripts/ai-pause.cs` and
+> authenticates as the developer's az login; both API and Worker user secrets carry the
+> password-less string; the synthetic `v2player` user row from the feature-23 live check is
+> deleted. The SQL server is **Entra-only** (`az sql server ad-only-auth enable`), verified
+> against `/status` and `dotnet ef migrations list`. Disabling **shared-key access on
+> `stchronicis`** was blocked by a stale custom domain (`docs.chronicis.app`, whose CNAME no
+> longer exists — Azure re-validates it on any account update) and the permission classifier
+> refused the two commands that clear it; they are David's to run, in this order:
+> `az rest --method patch` on the account with `{"properties":{"customDomain":{"name":""}}}`,
+> then `az storage account update --allow-shared-key-access false`. Nothing in the repo or
+> the deployed apps uses the key any more.
 
 SQL, blob, and Service Bus all authenticate by connection string in config. The
 deploy pipeline already uses OIDC; extend the pattern to runtime.
