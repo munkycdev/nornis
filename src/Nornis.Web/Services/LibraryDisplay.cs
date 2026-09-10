@@ -25,4 +25,13 @@ public static class LibraryDisplay
         "IndexFailed" => Color.Error,
         _ => Color.Default,
     };
+
+    /// <summary>The icon for a document's kind, wherever documents are listed — the Library and the shelf.</summary>
+    public static string KindIcon(string kind) => kind switch
+    {
+        "Sourcebook" => Icons.Material.Outlined.MenuBook,
+        "Map" => Icons.Material.Outlined.Map,
+        "Handout" => Icons.Material.Outlined.Description,
+        _ => Icons.Material.Outlined.InsertDriveFile,
+    };
 }

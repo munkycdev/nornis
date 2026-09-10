@@ -1,0 +1,98 @@
+@page "/shelf/{Code}"
+@layout PublicLayout
+@inject NornisApiClient Api
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+@* The party shelf, opened by a shelf link: the door for the person at the table who is not on
+   Nornis. Anonymous (Pages/Public opts out of the login), and kept out of search engines —
+   this is a link handed to one person, not a page. The API answers every bad code the same
+   way, so the page has one message for all of them. *@
+
+<PageTitle>@(_shelf is null ? "Shelf" : $"{_shelf.WorldName} — shelf") — Nornis</PageTitle>
+<HeadContent>
+    <meta name="robots" content="noindex, nofollow" />
+</HeadContent>
+
+<article class="nornis-public-page">
+    @if (_loading)
+    {
+        <LoadingRows Rows="3" />
+    }
+    else if (_shelf is null)
+    {
+        <div class="nornis-public-notfound">
+            <MudIcon Icon="@Icons.Material.Outlined.LinkOff" Size="Size.Large" Class="nornis-comingsoon-icon" />
+            <MudText Typo="Typo.h5" Class="nornis-serif">This link isn't valid</MudText>
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-2">
+                It may have been mistyped, or the game master has taken it back. Ask them for a new one.
+            </MudText>
+        </div>
+    }
+    else
+    {
+        <div class="nornis-eyebrow">@_shelf.WorldName</div>
+        <h1>The party shelf</h1>
+        <Stonemark Kind="StonemarkKind.Rule" />
+        <p>
+            Shared with <strong>@_shelf.PlayerName</strong>. These are the books, maps and handouts the
+            game master has put on the table for the party. This link is yours — please don't pass it on.
+        </p>
+
+        @if (_shelf.Documents.Count == 0)
+        {
+            <p>Nothing is on the shelf yet.</p>
+        }
+        else
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                @foreach (var doc in _shelf.Documents)
+                {
+                    <div class="nornis-list-row">
+                        <div class="nornis-list-thumb">
+                            <MudIcon Icon="@LibraryDisplay.KindIcon(doc.Kind)" Size="Size.Small" />
+                        </div>
+                        <div class="nornis-list-body">
+                            <div class="nornis-list-title">@doc.Title</div>
+                            <div class="nornis-list-sub">@doc.Kind · @DisplayText.FormatSize(doc.SizeBytes)@(doc.PageCount is { } p ? $" · {p} pages" : "")</div>
+                        </div>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Outlined.Download"
+                                   OnClick="() => DownloadAsync(doc)" Disabled="_busy">Download</MudButton>
+                    </div>
+                }
+            </MudPaper>
+        }
+    }
+</article>
+
+@code {
+    [Parameter] public string Code { get; set; } = string.Empty;
+
+    private bool _loading = true;
+    private bool _busy;
+    private ShelfDto? _shelf;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetShelfAsync(Code);
+        _shelf = result.IsSuccess ? result.Value : null;
+        _loading = false;
+    }
+
+    private async Task DownloadAsync(ShelfDocumentDto doc)
+    {
+        _busy = true;
+        var result = await Api.GetShelfDownloadAsync(Code, doc.Id);
+        _busy = false;
+
+        if (result.IsSuccess)
+        {
+            await JS.InvokeVoidAsync("nornisUpload.open", result.Value!.DownloadUrl);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+}

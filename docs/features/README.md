@@ -37,6 +37,7 @@ simply never used, and it stays unused so that every existing reference keeps it
 | 24 | Interface and navigation — Nornis 2.0 | 2026-09-10 (all four phases) | Theme preference lives in the browser, not on `User`; the player-side live walk (V3) was not run |
 | 25 | Players at the table | 2026-09-10 (all three phases) | The second-identity half of the live claim walk was not run; a member's player name is refreshed only at removal |
 | 26 | Library excerpts | 2026-09-10 | Filing a whole document; re-filing after a re-upload; players filing from the party shelf |
+| 27 | Shelf links | 2026-09-10 | The whole party-visible surface behind a link; expiry; links for members |
 
 Work sequenced outside this folder — the August operations and test-quality backlog — lives in
 [`../future-features.md`](../future-features.md) and `../plans/`. Campaigns' first-tier page

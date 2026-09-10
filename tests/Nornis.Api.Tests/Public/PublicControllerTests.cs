@@ -177,7 +177,7 @@ public class PublicControllerTests
     }
 
     [Test]
-    public async Task PublicSources_ListLimitedToSessionAndImportedNotes_DetailStillReachable()
+    public async Task PublicSources_ListsEveryPartyVisibleType_AndDetailReachable()
     {
         var scenario = await SetupPublicWorldAsync();
 
@@ -199,11 +199,9 @@ public class PublicControllerTests
             "/api/public/worlds/black-harbor/sources");
         var journalDetail = await _anonymous.GetAsync($"/api/public/worlds/black-harbor/sources/{journalId}");
 
-        Assert.That(list!.Select(s => s.Id), Is.SupersetOf([sessionId, importedId]));
-        Assert.That(list!.Select(s => s.Id), Does.Not.Contain(journalId),
-            "only SessionNote and ImportedNote appear in the public list");
-        Assert.That(journalDetail.StatusCode, Is.EqualTo(HttpStatusCode.OK),
-            "party-visible sources of other types stay reachable by direct link (timeline points)");
+        Assert.That(list!.Select(s => s.Id), Is.SupersetOf([sessionId, importedId, journalId]),
+            "every party-visible type is listed — the list says what the detail already serves");
+        Assert.That(journalDetail.StatusCode, Is.EqualTo(HttpStatusCode.OK));
     }
 
     [Test]
