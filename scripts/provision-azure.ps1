@@ -120,7 +120,8 @@ $sqlConn = "Server=tcp:$SqlServerFqdn,1433;Initial Catalog=$SqlDatabase;Authenti
 $sbNamespaceHost = "$ServiceBusNamespace.servicebus.windows.net"
 $blobServiceUri = "https://$StorageAccount.blob.core.windows.net/"
 $sbScope = az servicebus namespace show -g $ServiceBusRg -n $ServiceBusNamespace --query id -o tsv
-$blobScope = (az storage account show -g $StorageRg -n $StorageAccount --query id -o tsv) + "/blobServices/default/containers/$BlobContainer"
+$storageAccountScope = az storage account show -g $StorageRg -n $StorageAccount --query id -o tsv
+$blobScope = $storageAccountScope + "/blobServices/default/containers/$BlobContainer"
 
 function Grant-Role([string]$principalId, [string]$role, [string]$scope) {
     az role assignment create --assignee-object-id $principalId --assignee-principal-type ServicePrincipal `
@@ -185,6 +186,12 @@ az containerapp create --name ca-nornis-api --resource-group $ResourceGroup `
     --env-vars @apiEnv -o none
 $apiPrincipal = az containerapp show -g $ResourceGroup -n ca-nornis-api --query identity.principalId -o tsv
 Grant-Role $apiPrincipal "Storage Blob Data Contributor" $blobScope
+# A user-delegation key (what a SAS is minted from under identity) is an account-level
+# operation: a role scoped to the container cannot ask for one, and the account answers 403
+# AuthorizationPermissionMismatch. Found in production on 2026-09-10, two days after the
+# identity switch, when the map page's journey call was the first to mint a SAS. Delegator
+# carries only that one action; the data it unlocks is still bounded by the container role.
+Grant-Role $apiPrincipal "Storage Blob Delegator" $storageAccountScope
 Grant-Role $apiPrincipal "Azure Service Bus Data Sender" $sbScope
 
 $apiFqdn = az containerapp show -g $ResourceGroup -n ca-nornis-api --query properties.configuration.ingress.fqdn -o tsv
@@ -256,6 +263,7 @@ az containerapp create --name ca-nornis-worker --resource-group $ResourceGroup `
     --scale-rule-identity $identityId -o none
 $workerPrincipal = az containerapp show -g $ResourceGroup -n ca-nornis-worker --query identity.principalId -o tsv
 Grant-Role $workerPrincipal "Storage Blob Data Contributor" $blobScope
+Grant-Role $workerPrincipal "Storage Blob Delegator" $storageAccountScope
 Grant-Role $workerPrincipal "Azure Service Bus Data Sender" $sbScope
 Grant-Role $workerPrincipal "Azure Service Bus Data Receiver" $sbScope
 
