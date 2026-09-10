@@ -300,7 +300,9 @@ public record UpdateCampaignRequest(
     string? Description = null,
     string? Status = null,
     DateTimeOffset? StartedAt = null,
-    DateTimeOffset? EndedAt = null);
+    DateTimeOffset? EndedAt = null,
+    bool ClearStartedAt = false,
+    bool ClearEndedAt = false);
 
 public record PlayerDto(
     Guid Id,

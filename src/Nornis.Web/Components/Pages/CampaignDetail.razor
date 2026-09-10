@@ -4,6 +4,8 @@
 @inject NornisApiClient Api
 @inject ISnackbar Snackbar
 @inject BreadcrumbState Crumbs
+@inject IDialogService DialogService
+@inject NavigationManager Nav
 
 @* A campaign's own page. Every member may read it — a campaign is a place to look, not an
    authorization boundary — and the server assembles it at the caller's visibility, so a
@@ -55,7 +57,45 @@
                 }
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
                          Color="@StatusColor(c.Status)">@c.Status</MudChip>
+                @if (Worlds.IsGm && !_editing)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                   OnClick="BeginEdit" aria-label="Edit campaign" />
+                }
             </div>
+
+            @if (_editing)
+            {
+                @* The campaign's own facts — name, intro, status, dates — edited where they are
+                   read, the way every other page here edits its own thing. *@
+                <div class="mt-3">
+                    <MudTextField @bind-Value="_editName" Label="Name" Required="true" MaxLength="200"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+                    <MudTextField @bind-Value="_editDescription" Label="Introduction" Lines="4"
+                                  HelperText="What this campaign is about, in your own words. Markdown is fine."
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+                    <MudSelect T="string" @bind-Value="_editStatus" Label="Status" Dense="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2">
+                        @foreach (var status in CampaignStatuses)
+                        {
+                            <MudSelectItem Value="@status">@status</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <div class="d-flex flex-wrap gap-2 mb-2">
+                        <MudDatePicker @bind-Date="_editStartedAt" Label="Began" Clearable="true"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" />
+                        <MudDatePicker @bind-Date="_editEndedAt" Label="Ended" Clearable="true"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" />
+                    </div>
+                    @if (_editError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2">@_editError</MudAlert>
+                    }
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                               OnClick="SaveEditAsync" Disabled="_saving" Class="mr-2">Save</MudButton>
+                    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => _editing = false">Cancel</MudButton>
+                </div>
+            }
 
             @if (IsCurrent)
             {
@@ -67,15 +107,18 @@
             @* The GM's written intro: what this campaign is. Its generated sibling below says
                what has happened in it — the two go stale at different rates, which is why
                they are separate fields rather than one. *@
-            @if (!string.IsNullOrWhiteSpace(c.Description))
+            @if (_editing)
+            {
+            }
+            else if (!string.IsNullOrWhiteSpace(c.Description))
             {
                 <div class="nornis-markdown mt-3">@MarkdownRenderer.ToHtml(c.Description)</div>
             }
             else if (Worlds.IsGm)
             {
                 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-3">
-                    No introduction yet — add one in
-                    <MudLink Href="/settings">world settings</MudLink> to say what this campaign is about.
+                    No introduction yet —
+                    <MudLink OnClick="BeginEdit">write one</MudLink> to say what this campaign is about.
                 </MudText>
             }
         </MudPaper>
@@ -142,12 +185,38 @@
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
             <div class="nornis-card-header">
                 <span class="nornis-card-title">Cast</span>
+                @if (Worlds.IsGm && !_editingCast)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                   OnClick="BeginEditCastAsync" aria-label="Edit cast" />
+                }
             </div>
-            @if (_detail.Characters.Count == 0)
+            @if (_editingCast)
+            {
+                @* Every character in the world, whoever plays them; the GM says which were in this run. *@
+                <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_castIds"
+                           Label="Characters in this campaign" Dense="true" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2">
+                    @foreach (var ch in _worldCharacters)
+                    {
+                        <MudSelectItem T="Guid" Value="@ch.Id">@ch.Name (@ch.PlayerName)</MudSelectItem>
+                    }
+                </MudSelect>
+                @if (_castError is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2">@_castError</MudAlert>
+                }
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           OnClick="SaveCastAsync" Disabled="_saving" Class="mr-2">Save</MudButton>
+                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => _editingCast = false">Cancel</MudButton>
+            }
+            else if (_detail.Characters.Count == 0)
             {
                 <MudText Typo="Typo.body2" Color="Color.Secondary">
-                    No characters assigned. A GM can assign them in
-                    <MudLink Href="/settings">world settings</MudLink>.
+                    No characters assigned.
+                    @if (Worlds.IsGm)
+                    {
+                        <MudLink OnClick="BeginEditCastAsync">Choose the cast.</MudLink>
+                    }
                 </MudText>
             }
             else
@@ -267,6 +336,24 @@
                 }
             }
         </MudPaper>
+
+        @if (Worlds.IsGm)
+        {
+            @* Last, and quiet: deleting a campaign removes only the campaign. Sources keep their
+               content and revert to no campaign; the record is untouched. *@
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                <div class="nornis-card-header">
+                    <span class="nornis-card-title">Remove this campaign</span>
+                </div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                    Sources filed under it keep their content and revert to no campaign. Nothing else is removed.
+                </MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Delete" OnClick="DeleteAsync" Disabled="_saving">
+                    Delete campaign
+                </MudButton>
+            </MudPaper>
+        }
         </Body>
         <Rail>
             <ContextRail Rows="@RailRows" Related="@RailRelated" RowsTitle="This campaign" RelatedTitle="Cast" />
@@ -283,6 +370,148 @@
     private bool _generating;
     private bool _previewOpen;
     private bool _settingCurrent;
+
+    private static readonly string[] CampaignStatuses = ["Active", "Completed", "Archived"];
+
+    private bool _editing;
+    private bool _saving;
+    private string _editName = string.Empty;
+    private string? _editDescription;
+    private string _editStatus = "Active";
+    private DateTime? _editStartedAt;
+    private DateTime? _editEndedAt;
+    private string? _editError;
+
+    private bool _editingCast;
+    private IReadOnlyList<CharacterDto> _worldCharacters = [];
+    private IReadOnlyCollection<Guid> _castIds = [];
+    private string? _castError;
+
+    private void BeginEdit()
+    {
+        var c = _detail!.Campaign;
+        _editName = c.Name;
+        _editDescription = c.Description;
+        _editStatus = c.Status;
+        _editStartedAt = c.StartedAt?.UtcDateTime.Date;
+        _editEndedAt = c.EndedAt?.UtcDateTime.Date;
+        _editError = null;
+        _editing = true;
+    }
+
+    /// <summary>
+    /// Sends what changed. A date the GM cleared is said explicitly (ClearStartedAt), because
+    /// the request treats null as "leave it" — the picker cannot tell the two apart on its own.
+    /// </summary>
+    private async Task SaveEditAsync()
+    {
+        if (Worlds.Current is null || _detail is null)
+        {
+            return;
+        }
+
+        var c = _detail.Campaign;
+        _saving = true;
+        _editError = null;
+
+        var request = new UpdateCampaignRequest(
+            Name: _editName,
+            Description: _editDescription ?? string.Empty,
+            Status: _editStatus,
+            StartedAt: AsUtcDate(_editStartedAt),
+            EndedAt: AsUtcDate(_editEndedAt),
+            ClearStartedAt: _editStartedAt is null && c.StartedAt is not null,
+            ClearEndedAt: _editEndedAt is null && c.EndedAt is not null);
+
+        var result = await Api.UpdateCampaignAsync(Worlds.Current.Id, CampaignId, request);
+        _saving = false;
+
+        if (!result.IsSuccess)
+        {
+            _editError = result.Error!.Message;
+            return;
+        }
+
+        _editing = false;
+        Snackbar.Add("Campaign saved.", Severity.Success);
+        // The status may have cleared the world's current-campaign pointer; reload both.
+        await Worlds.ReloadAsync();
+        await LoadAsync();
+    }
+
+    // Picker dates are Kind.Local; DateTimeOffset's ctor throws on a local date with a zero
+    // offset, so the kind is set first (the same line Capture and the character page use).
+    private static DateTimeOffset? AsUtcDate(DateTime? date) =>
+        date is { } d ? new DateTimeOffset(DateTime.SpecifyKind(d.Date, DateTimeKind.Utc), TimeSpan.Zero) : null;
+
+    private async Task BeginEditCastAsync()
+    {
+        if (Worlds.Current is null || _detail is null)
+        {
+            return;
+        }
+
+        var characters = await Api.GetCharactersAsync(Worlds.Current.Id);
+        _worldCharacters = characters.IsSuccess ? characters.Value! : [];
+        _castIds = _detail.Characters.Select(ch => ch.Id).ToList();
+        _castError = characters.IsSuccess ? null : characters.Error!.Message;
+        _editingCast = true;
+    }
+
+    private async Task SaveCastAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _saving = true;
+        _castError = null;
+        var result = await Api.AssignCampaignCharactersAsync(Worlds.Current.Id, CampaignId, _castIds.ToList());
+        _saving = false;
+
+        if (!result.IsSuccess)
+        {
+            _castError = result.Error!.Message;
+            return;
+        }
+
+        _editingCast = false;
+        Snackbar.Add("Cast saved.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (Worlds.Current is null || _detail is null)
+        {
+            return;
+        }
+
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Delete campaign?",
+            $"Delete \"{_detail.Campaign.Name}\"? Sources keep their content and revert to no campaign; nothing else is removed.",
+            yesText: "Delete", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _saving = true;
+        var result = await Api.DeleteCampaignAsync(Worlds.Current.Id, CampaignId);
+        _saving = false;
+
+        if (result.IsSuccess)
+        {
+            Snackbar.Add("Campaign deleted.", Severity.Info);
+            await Worlds.ReloadAsync();
+            Nav.NavigateTo("/campaigns");
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
 
     private bool IsCurrent => Worlds.Current?.CurrentCampaignId == CampaignId;
 
@@ -348,6 +577,8 @@
 
         _loading = true;
         _previewOpen = false;
+        _editing = false;
+        _editingCast = false;
 
         var worldId = Worlds.Current.Id;
         var campaignId = CampaignId;
