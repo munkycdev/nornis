@@ -727,6 +727,10 @@ public record SourceActivity(
 
 public record UserSummaryDto(Guid Id, string Username);
 
+public record JumpDto(IReadOnlyList<JumpGroupDto> Groups);
+public record JumpGroupDto(string Kind, IReadOnlyList<JumpItemDto> Items, int TotalCount);
+public record JumpItemDto(Guid Id, string Name, string? Detail);
+
 public record BackfillQueueResult(
     int QueuedCount,
     int AlreadySweptCount,

@@ -1,11 +1,17 @@
 @inherits LayoutComponentBase
-@implements IDisposable
+@implements IAsyncDisposable
 @inject WorldState Worlds
+@inject BreadcrumbState Crumbs
+@inject QuickSwitcherState Switcher
+@inject WorldMenuState WorldMenu
+@inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <MudThemeProvider Theme="NornisTheme.Theme" IsDarkMode="false" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
+<QuickSwitcher />
 
 <MudLayout>
     @* Persistent from md up; below that it closes itself and reopens as an overlay from the topbar. *@
@@ -31,7 +37,8 @@
                 {
                     <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" OnClick="ToggleNav" aria-label="Show navigation" />
                 }
-                <GlobalSearch />
+                <Breadcrumb OnWorldClick="WorldMenu.Open" />
+                <div class="flex-grow-1"></div>
                 <GmNoteButton />
             </header>
         }
@@ -70,13 +77,64 @@
 
 @code {
     private bool _navOpen = true;
+    private DotNetObjectReference<MainLayout>? _selfRef;
 
     private void ToggleNav() => _navOpen = !_navOpen;
 
-    protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
+    protected override void OnInitialized()
+    {
+        Worlds.Changed += OnWorldChanged;
+        Nav.LocationChanged += OnLocationChanged;
+        // The route default for the first page; a page that knows more replaces it.
+        Crumbs.SetFromRoute(Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0]);
+    }
 
     // The top bar comes and goes with the world selection, so it has to re-render on change.
     private void OnWorldChanged() => InvokeAsync(StateHasChanged);
 
-    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+    // Fires before the new page renders, so the route default lands first and the page's own
+    // trail (set from data it already holds) wins afterwards.
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) =>
+        Crumbs.SetFromRoute(Nav.ToBaseRelativePath(e.Location).Split('?')[0]);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        try
+        {
+            _selfRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("nornisNav.watchQuickSwitcher", _selfRef);
+        }
+        catch
+        {
+            // No JS, no shortcut; the sidebar's search box still opens it.
+        }
+    }
+
+    /// <summary>Ctrl+K (or ⌘K) from anywhere in the member app.</summary>
+    [JSInvokable]
+    public void OpenQuickSwitcher() => Switcher.Open();
+
+    public async ValueTask DisposeAsync()
+    {
+        Worlds.Changed -= OnWorldChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+        try
+        {
+            await JS.InvokeVoidAsync("nornisNav.unwatchQuickSwitcher");
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit already gone — the browser cleaned up with the page.
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerender pass: there was never a JS side to unwatch.
+        }
+        _selfRef?.Dispose();
+    }
 }

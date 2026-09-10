@@ -1,0 +1,24 @@
+@page "/members"
+@inject WorldState Worlds
+@inject BreadcrumbState Crumbs
+
+<PageTitle>Members — Nornis</PageTitle>
+
+<MudText Typo="Typo.h4" Class="nornis-serif">Members</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    Who is at the table, and as what. Invite links live in
+    <a href="/admin" class="nornis-link">settings</a>.
+</MudText>
+
+@if (Worlds.Current is null)
+{
+    <NoWorld />
+}
+else
+{
+    <MembersPanel />
+}
+
+@code {
+    protected override void OnInitialized() => Crumbs.Set("/members", new Crumb("Members"));
+}

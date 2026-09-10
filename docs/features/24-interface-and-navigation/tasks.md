@@ -5,30 +5,59 @@ where the version turns over. Guards are watched failing before they are trusted
 
 ## Phase A — Wayfinding
 
-- [ ] A1. `NavMenu.razor`: groups as data (`NavGroup` records), rendered by one loop; the four
+**Built 2026-09-10.** What the build changed from the spec:
+
+- **Sources stayed in the sidebar.** Requirement 1.1's group list omitted it — an oversight in
+  the spec, since the ledger carries the failed/in-flight badge and is the door to every
+  session. It sits last under World. The requirement is amended in place.
+- **The World Memory ring left the sidebar.** It was a GM-only badge dressed as a gauge; the
+  score has its page (GM › World memory) and the sidebar is quieter for it.
+- **Breadcrumbs are two layers, not one.** The layout sets a route default on every navigation
+  (from `NavGroups.FindByPath`), and a page that knows more replaces it from data it already
+  holds. So every page has a trail without every page writing one; the entity pages get their
+  richer trails as they migrate onto the template in Phase B.
+- **The top-bar artifact search is gone.** The switcher covers it from anywhere; two search
+  boxes would have been one too many. `GlobalSearch.razor` is deleted.
+- **The jump query is a service, not controller code.** `JumpService` composes the five owning
+  services at the reader's role and is tested with substitutes, including the whole-response
+  indistinguishability test. Sabotaged by returning a hidden artifact at the player's role;
+  failed as intended.
+- **The reachability guard counts the switcher's "see all" links as doors** — they are within
+  two clicks of anywhere. The first sabotage (removing Party from the nav) therefore did not
+  fire, correctly; the second (removing World memory, which only the nav reaches) failed the
+  test naming `/world-memory`. A guard whose sabotage does not land is indistinguishable from
+  one that works, so the second run is the one that counts.
+- **Campaigns and Members are moved, not copied.** `CampaignsPanel` and `MembersPanel` are the
+  settings panel's sections lifted whole; the settings tab now points at the pages. The
+  member-name helpers (`MemberDisplay`) became the one place three surfaces read from.
+- **Theme preference (Phase D) will not get a migration.** Applying one to production is a
+  step this session cannot take unattended (see O3's close-out); the preference will live in
+  the browser, per device, which is also where a theme belongs.
+
+- [x] A1. `NavMenu.razor`: groups as data (`NavGroup` records), rendered by one loop; the four
       groups in the required order; `RequiresGm` on the GM group; badges kept. Render tests per
       role.
-- [ ] A2. `Campaigns.razor` at `/campaigns`: current campaign first; GM edit affordances reused
+- [x] A2. `Campaigns.razor` at `/campaigns`: current campaign first; GM edit affordances reused
       from `WorldSettingsPanel`, not copied.
-- [ ] A3. `Party.razor` at `/party`: every member's characters, grouped by member, linked. Reads
+- [x] A3. `Party.razor` at `/party`: every member's characters, grouped by member, linked. Reads
       the already-projected `CharacterView`s — no new visibility logic.
-- [ ] A4. `Members.razor` at `/members`: lifted from `WorldSettingsPanel`; Admin loses the section.
-- [ ] A5. Storylines, Map and Reveal entries pointing at the existing pages; `/storylines` alias
+- [x] A4. `Members.razor` at `/members`: lifted from `WorldSettingsPanel`; Admin loses the section.
+- [x] A5. Storylines, Map and Reveal entries pointing at the existing pages; `/storylines` alias
       kept.
-- [ ] A6. `Breadcrumb.razor` + `BreadcrumbTrail`; every member page supplies its trail from data
+- [x] A6. `Breadcrumb.razor` + `BreadcrumbTrail`; every member page supplies its trail from data
       it already has. Where a page lacks a campaign name, the response gains it.
-- [ ] A7. `JumpController` + `GET /api/worlds/{id}/jump?q=`; role-matrix tests; **the
+- [x] A7. `JumpController` + `GET /api/worlds/{id}/jump?q=`; role-matrix tests; **the
       whole-response indistinguishability test, sabotaged and watched failing first.**
-- [ ] A8. `QuickSwitcher.razor`: `Ctrl+K`, the sidebar search box, debounce, grouped results,
+- [x] A8. `QuickSwitcher.razor`: `Ctrl+K`, the sidebar search box, debounce, grouped results,
       recents in world-scoped `localStorage`, `Ctrl+Enter` reserved for the rail.
-- [ ] A9. The every-name-a-link sweep, page by page; the reachability script re-run and its table
+- [x] A9. The every-name-a-link sweep, page by page; the reachability script re-run and its table
       recorded here.
-- [ ] A10. **The reachability test**: walks every `@page` in `Nornis.Web`, asserts each member
+- [x] A10. **The reachability test**: walks every `@page` in `Nornis.Web`, asserts each member
       route is linked from the nav or another page. Break it by removing a link; watch it name the
       route.
-- [ ] A11. Import gets its door from Capture.
-- [ ] A12. `ui-design-system.md` Navigation section: dated amendment recording the four groups.
-- [ ] A13. Change log entry, written for readers.
+- [x] A11. Import gets its door from Capture.
+- [x] A12. `ui-design-system.md` Navigation section: dated amendment recording the four groups.
+- [x] A13. Change log entry, written for readers.
 
 ## Phase B — The page template
 

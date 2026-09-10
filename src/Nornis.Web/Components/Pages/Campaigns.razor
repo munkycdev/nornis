@@ -1,0 +1,24 @@
+@page "/campaigns"
+@inject WorldState Worlds
+@inject BreadcrumbState Crumbs
+
+<PageTitle>Campaigns — Nornis</PageTitle>
+
+<MudText Typo="Typo.h4" Class="nornis-serif">Campaigns</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    Runs of play within this world. Knowledge belongs to the world; a campaign records when it
+    happened and who was there.
+</MudText>
+
+@if (Worlds.Current is null)
+{
+    <NoWorld />
+}
+else
+{
+    <CampaignsPanel />
+}
+
+@code {
+    protected override void OnInitialized() => Crumbs.Set("/campaigns", new Crumb("Campaigns"));
+}

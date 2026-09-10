@@ -4069,3 +4069,130 @@ a.nornis-cite:hover {
     justify-content: space-between;
     gap: 8px;
 }
+
+/* ------------------------------------------------------------ Feature 24 · wayfinding -- */
+
+/* Sidebar groups: eyebrows in gold, the entries beneath them. */
+.nornis-nav-group {
+    padding: 14px 16px 4px 16px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mud-palette-secondary);
+}
+
+/* The search box that opens the quick switcher, pinned under the world switcher. */
+.nornis-jump {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: calc(100% - 24px);
+    margin: 4px 12px 2px 12px;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--nornis-onnavy-border);
+    background: var(--nornis-onnavy-raised);
+    color: var(--nornis-onnavy-muted);
+    font: 500 0.82rem var(--nornis-sans);
+    cursor: pointer;
+    text-align: left;
+}
+.nornis-jump:hover { color: #FFFDF9; }
+.nornis-jump-label { flex: 1 1 auto; }
+
+.nornis-kbd {
+    font: 500 0.68rem var(--nornis-sans);
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 5px;
+    padding: 1px 5px;
+    color: var(--mud-palette-text-secondary);
+    background: transparent;
+}
+.nornis-kbd-onnavy { border-color: var(--nornis-onnavy-border); color: var(--nornis-onnavy-muted); }
+
+/* Breadcrumb: where the reader is, in the world's own structure. */
+.nornis-crumbs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--mud-palette-text-secondary);
+}
+.nornis-crumb {
+    color: var(--mud-palette-text-secondary);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 240px;
+}
+.nornis-crumb:hover { color: var(--mud-palette-text-primary); }
+.nornis-crumb-world {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+}
+.nornis-crumb-current { color: var(--mud-palette-text-primary); }
+.nornis-crumb-sep { opacity: 0.55; }
+
+/* The quick switcher. */
+.nornis-switcher .mud-dialog { border-radius: 12px; overflow: hidden; }
+.nornis-switcher .mud-dialog-content { padding: 0; }
+.nornis-switcher-box { display: flex; flex-direction: column; min-height: 320px; max-height: 70vh; }
+.nornis-switcher-input {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 56px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--mud-palette-divider);
+}
+.nornis-switcher-results { flex: 1 1 auto; overflow-y: auto; padding: 8px; }
+.nornis-switcher-group {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 12px 4px 12px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+}
+.nornis-switcher-more { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 0.75rem; }
+.nornis-switcher-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--mud-palette-text-primary);
+    font: 400 0.9rem var(--nornis-sans);
+    text-align: left;
+    cursor: pointer;
+}
+.nornis-switcher-row-active { background: var(--mud-palette-background); }
+.nornis-switcher-name { font-weight: 500; }
+.nornis-switcher-detail { color: var(--mud-palette-text-secondary); font-size: 0.8rem; }
+.nornis-switcher-hint { padding: 24px 16px; color: var(--mud-palette-text-secondary); font-size: 0.9rem; }
+.nornis-switcher-foot {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 40px;
+    padding: 0 16px;
+    border-top: 1px solid var(--mud-palette-divider);
+    font-size: 0.75rem;
+    color: var(--mud-palette-text-secondary);
+}
+.nornis-switcher-foot .nornis-kbd { margin-right: 4px; }

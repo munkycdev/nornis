@@ -506,7 +506,11 @@ public class NornisApiClient
         GetAsync<IReadOnlyList<ArtifactListItem>>(
             $"/api/worlds/{worldId}/artifacts{Query(("type", type), ("status", status))}", ct);
 
-    /// <summary>Global artifact search, most relevant first. Backs the top-bar search bar.</summary>
+    /// <summary>The quick switcher's one query: everything the reader may jump to, grouped by kind.</summary>
+    public Task<ApiResult<JumpDto>> JumpAsync(Guid worldId, string term, CancellationToken ct = default) =>
+        GetAsync<JumpDto>($"/api/worlds/{worldId}/jump{Query(("q", term))}", ct);
+
+    /// <summary>Global artifact search, most relevant first.</summary>
     public Task<ApiResult<IReadOnlyList<ArtifactListItem>>> SearchArtifactsAsync(
         Guid worldId, string term, int limit = 10, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<ArtifactListItem>>(

@@ -1,0 +1,45 @@
+@implements IDisposable
+@inject BreadcrumbState Crumbs
+@inject WorldState Worlds
+
+@* Where the reader is, in the world's own structure. The world is always the first crumb and
+   opens the world switcher; the rest come from BreadcrumbState — the route default, or what the
+   page set from data it already had. *@
+@if (Worlds.Current is not null)
+{
+    <nav class="nornis-crumbs" aria-label="Breadcrumb">
+        <button type="button" class="nornis-crumb nornis-crumb-world" @onclick="OpenWorldMenu">@Worlds.Current.Name</button>
+        @foreach (var crumb in Crumbs.Trail)
+        {
+            <span class="nornis-crumb-sep" aria-hidden="true">›</span>
+            @if (crumb.Href is not null)
+            {
+                <a href="@crumb.Href" class="nornis-crumb">@crumb.Label</a>
+            }
+            else
+            {
+                <span class="nornis-crumb nornis-crumb-current" aria-current="page">@crumb.Label</span>
+            }
+        }
+    </nav>
+}
+
+@code {
+    [Parameter] public EventCallback OnWorldClick { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Crumbs.Changed += OnChanged;
+        Worlds.Changed += OnChanged;
+    }
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    private Task OpenWorldMenu() => OnWorldClick.InvokeAsync();
+
+    public void Dispose()
+    {
+        Crumbs.Changed -= OnChanged;
+        Worlds.Changed -= OnChanged;
+    }
+}

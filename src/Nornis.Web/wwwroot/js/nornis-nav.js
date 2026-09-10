@@ -42,6 +42,29 @@ window.nornisNav = {
         }
     },
 
+    // Ctrl+K / Cmd+K opens the quick switcher from anywhere. One listener per circuit: a
+    // re-rendered layout would otherwise stack them and open the dialog twice per press.
+    _switcherHandler: null,
+
+    watchQuickSwitcher(dotNetRef) {
+        this.unwatchQuickSwitcher();
+        const handler = (e) => {
+            if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) {
+                e.preventDefault();
+                dotNetRef.invokeMethodAsync('OpenQuickSwitcher');
+            }
+        };
+        document.addEventListener('keydown', handler);
+        this._switcherHandler = handler;
+    },
+
+    unwatchQuickSwitcher() {
+        if (this._switcherHandler) {
+            document.removeEventListener('keydown', this._switcherHandler);
+            this._switcherHandler = null;
+        }
+    },
+
     // Read once at startup: a tab can already be in the background by the time the circuit is
     // live — restored sessions and ctrl-clicked links both open hidden — and `visibilitychange`
     // only fires on a change, so nothing would tell us until the user came back.

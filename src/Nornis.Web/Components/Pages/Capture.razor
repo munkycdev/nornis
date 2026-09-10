@@ -8,7 +8,13 @@
 
 <PageTitle>Capture — Nornis</PageTitle>
 
-<MudText Typo="Typo.h4" Class="nornis-serif">Tell Nornis what happened</MudText>
+<div class="d-flex align-center gap-3 flex-wrap">
+    <MudText Typo="Typo.h4" Class="nornis-serif flex-grow-1">Tell Nornis what happened</MudText>
+    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+               StartIcon="@Icons.Material.Outlined.DriveFolderUpload" Href="/import">
+        Import a whole vault
+    </MudButton>
+</div>
 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
     Add a source. Nornis reads it and proposes updates to your world record.
 </MudText>
