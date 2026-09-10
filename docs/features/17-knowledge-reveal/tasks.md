@@ -80,12 +80,15 @@ Domain 565, Web 33, Infrastructure 160, Worker 27, Shared 1). Reveal-specific: 3
 
 - [ ] Automatic cross-visibility duplicate detection / reconciliation (manual `ArtifactMergeService`
   is the current fix).
-- [ ] Convergence gauge — ripeness scoring / "what to reveal now" suggestions that call this primitive.
+- [x] Convergence gauge — ripeness scoring / "what to reveal now" suggestions that call this primitive.
+      **Shipped as feature 21 (2026-08-06).**
 - [ ] GM-only structural extraction pass (richer GM-truth authoring).
-- [ ] Per-player / per-character reveal.
+- [ ] Per-player / per-character reveal. **Indefinitely deferred 2026-09-09** — see
+      `product-vision.md`'s dated amendment and `docs/future-features.md` item 20.
 - [ ] Un-reveal / visibility lowering.
 - [ ] `LibraryDocument` reveal.
-- [ ] Player-facing "what you learned" digest / notifications.
+- [x] Player-facing "what you learned" digest / notifications. **Shipped as feature 22
+      (2026-08-06)** — the in-app view; notifications leaving the app stay out of scope there.
 
 ## Decisions (resolved in design)
 

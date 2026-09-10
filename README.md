@@ -68,11 +68,12 @@ claim keeps a link back to the sentence in the source that produced it.
 | **Ask the Loremaster** | Ask your world questions in plain language. Answers are grounded strictly in your accepted record plus your indexed library, every claim cited, with a confidence rating — and it says so when it doesn't know. |
 | **Timeline, journey & locations** | Storylines laid out over the real session calendar, the party's trail across a map walked session by session, and the reverse view — pick a place, get every session that visited it. |
 | **World digest** | A short read on where the world stands, on the dashboard, written twice: the full record for GMs, and a party version drawn only from what the party can see. |
-| **Secrets & reveals** | Everything carries a scope — Private, GM only, or Party visible. When the fiction discloses a secret, the GM ticks exactly what the party now learns; Nornis checks the reveal leaves no dangling references. One-way. |
+| **Secrets & reveals** | Everything carries a scope — Private, GM only, or Party visible. When the fiction discloses a secret, the GM ticks exactly what the party now learns; Nornis checks the reveal leaves no dangling references. One-way. A convergence gauge ranks what the party is ready to learn next, and players get a "what you learned" view of everything disclosed since they last looked. |
+| **Campaigns & characters** | Campaigns are runs of play with their own page — cast, places, and record assembled from what their sessions cite. A character is somewhere to go: what the record knows about them, grouped for reading about a person, beside a free-form sheet Nornis stores but never interprets and dated snapshots of the paper one. |
 | **Library** | Upload sourcebooks, maps, and handouts. PDFs are indexed into passages so the Loremaster can quote them with page citations. |
 | **Continuity health** | A read on how coherent the record is — contradictions, dangling threads, stale storylines, timeline conflicts, summary drift, and duplicates — each finding with a severity, a jump to the artifact, and most drafting into a reviewable fix. |
 | **Onboarding** | A demo world of five already-extracted sessions plus a sixth left as raw notes, and a two-chapter checklist that detects its own completion from actual state. Dismissable permanently. |
-| **Sharing** | Invite players by link with a role. Optionally give the world a public address for a read-only, party-visible-only view. |
+| **Sharing** | Invite players by link with a role. Optionally give the world a public address for a read-only, party-visible-only view, with a public Ask the Loremaster behind a monthly cap the GM sets. |
 | **Cost visibility** | Every AI call is metered by operation, model, and user, against a per-world daily budget. |
 
 Roles are **GM**, **Player**, and **Observer** — and they see genuinely different worlds. A
@@ -232,7 +233,9 @@ Infrastructure is provisioned by [`scripts/provision-azure.ps1`](scripts/provisi
 
 [`docs/runbooks/`](docs/runbooks/README.md) has one doc per nameable failure mode, and every
 Azure alert links to its own from its description. `./scripts/dlq.ps1` peeks, resubmits and
-purges dead-lettered messages.
+purges dead-lettered messages; `./scripts/ai-pause.ps1` stops every paid AI call without a
+redeploy. The apps hold no credentials for SQL, Blob Storage or Service Bus — each reaches
+them as its managed identity, and so do these scripts, as your `az login`.
 
 ---
 
@@ -242,7 +245,7 @@ purges dead-lettered messages.
 src/            Application source (see the table above)
 tests/          One test project per source project
 ci/pages/       The static engineering dashboard published to status.nornis.app
-docs/features/  Per-feature design docs, numbered in build order
+docs/features/  Per-feature design docs, numbered in build order (index in its README)
 docs/plans/     Backlog specs; docs/future-features.md holds the execution order
 docs/runbooks/  One doc per nameable failure mode, linked from every Azure alert
 docs/           Images

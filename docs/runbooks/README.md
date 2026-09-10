@@ -25,7 +25,8 @@ link in the same change — an alert that does not say what to do next is half a
 
 ## Standing facts
 
-Everything lives in resource group `rg-nornis`:
+Everything lives in resource group `rg-nornis`, except the SQL server, which is the last
+Chronicis-named resource and cannot be renamed (`sql-chronicis-dev` in `rg-chronicis-dev`):
 
 | | |
 | --- | --- |
@@ -33,7 +34,7 @@ Everything lives in resource group `rg-nornis`:
 | Web | `ca-nornis-web` → <https://nornis.app> |
 | Worker | `ca-nornis-worker` — no ingress, `minReplicas 0`, wakes on queue depth |
 | Service Bus | `sb-nornis-dev`, queues `source-extraction` and `library-indexing` |
-| Database | `nornis-db` on `sql-chronicis-dev.database.windows.net` (Basic, 5 DTU) |
+| Database | `nornis-db` on `sql-chronicis-dev.database.windows.net` (Basic, 5 DTU; Entra-only — no SQL logins) |
 | Telemetry | `appi-nornis` |
 | Status | <https://status.nornis.app> (GitHub Pages — outside Azure on purpose) |
 
