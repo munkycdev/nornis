@@ -1123,6 +1123,13 @@ public class ExtractionService : IExtractionService
     private async Task<IReadOnlyList<KnowledgePassage>> RetrieveReferencePassagesAsync(
         Source source, Guid worldId, CancellationToken ct)
     {
+        // An excerpt IS the reference: retrieving its own neighbours back would pay an
+        // embedding to show the model what it is already reading.
+        if (source.Type == SourceType.LibraryExcerpt)
+        {
+            return [];
+        }
+
         var allowedScopes = source.Visibility == VisibilityScope.GMOnly
             ? new[] { VisibilityScope.PartyVisible, VisibilityScope.GMOnly }
             : [VisibilityScope.PartyVisible];

@@ -5,8 +5,10 @@ namespace Nornis.Domain.Entities;
 /// <summary>
 /// An immutable uploaded document (sourcebook PDF, map image, handout) living in blob
 /// storage. Deliberately not a <see cref="Source"/>: library documents are reference
-/// material — never extracted into canon, but PDF text is chunked and embedded so the
-/// Loremaster can quote them with page citations.
+/// material. A document as a whole is never extracted into canon; PDF text is chunked and
+/// embedded so the Loremaster can quote it with page citations. What a GM may do is choose
+/// pages and file them as a <see cref="SourceType.LibraryExcerpt"/> — the choosing is the
+/// gate, and from there the excerpt is an ordinary source.
 /// </summary>
 public class LibraryDocument
 {

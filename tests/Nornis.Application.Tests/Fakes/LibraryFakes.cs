@@ -122,6 +122,20 @@ public class InMemoryLibraryChunkRepository : ILibraryChunkRepository
             .Where(c => c.DocumentId == documentId && ords.Contains(c.Ord))
             .OrderBy(c => c.Ord)
             .ToList());
+
+    public Task<IReadOnlyList<LibraryChunkHit>> ListByIdsAsync(
+        Guid documentId, IReadOnlyList<Guid> chunkIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<LibraryChunkHit>>(AllChunks
+            .Where(c => c.DocumentId == documentId && chunkIds.Contains(c.ChunkId))
+            .OrderBy(c => c.Ord)
+            .ToList());
+
+    public Task<IReadOnlyList<LibraryChunkHit>> ListByDocumentPagesAsync(
+        Guid documentId, int pageFrom, int pageTo, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<LibraryChunkHit>>(AllChunks
+            .Where(c => c.DocumentId == documentId && c.Page >= pageFrom && c.Page <= pageTo)
+            .OrderBy(c => c.Ord)
+            .ToList());
 }
 
 public class FakeBlobStorageService : IBlobStorageService

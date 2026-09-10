@@ -61,6 +61,12 @@ public class LibraryDocumentRepository : ILibraryDocumentRepository
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        // Excerpts filed from this document are sources in their own right — their text was
+        // copied at filing — and they outlive it. The FK is Restrict (Worlds already cascades
+        // to both tables), so they are detached here rather than by the database.
+        await _context.SetWhereAsync<Source, Guid?>(
+            s => s.LibraryDocumentId == id, s => s.LibraryDocumentId, null, cancellationToken);
+
         await _context.DeleteWhereAsync<LibraryDocument>(d => d.Id == id, cancellationToken);
     }
 

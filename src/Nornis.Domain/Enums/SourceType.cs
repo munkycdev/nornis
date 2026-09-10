@@ -28,5 +28,13 @@ public enum SourceType
     /// revealed artifact/fact/relationship carries player-visible provenance ("learned via
     /// the reveal") instead of pointing at the GM's private source.
     /// </summary>
-    Reveal
+    Reveal,
+
+    /// <summary>
+    /// Passages of a Library document a GM chose to file as a source — the pages of the
+    /// Player's Guide that are about Thistlehold. The text is copied at filing time and the
+    /// source is extracted like any other, so what the book says can become cited canon
+    /// without the whole book ever being extracted.
+    /// </summary>
+    LibraryExcerpt
 }

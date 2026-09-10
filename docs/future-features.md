@@ -2,7 +2,7 @@
 
 - ~~The campaign management page feels like it breaks our ux patterns. Could we move all of the edits that can be done on the campaigns listing page to the campaign detail page with the exception of campaign sorting, which makes sense to have on the overall listing.~~ Done 2026-09-10: name, introduction, status, dates, cast and deletion live on the campaign page; the list keeps ordering and creation. Dates gained an explicit clear (`ClearStartedAt`/`ClearEndedAt`) since null had meant "leave it".
 - On the campaign detail page, instead of displaying character guids, I'd like to display chips with the name of the characters in the campaign
-- Ask the Loremaster doesn't bring in knowledge from Library items. Could we change that?
+- ~~Ask the Loremaster doesn't bring in knowledge from Library items.~~ It has since the reference-passage retriever shipped; and as of feature 26 (2026-09-10) a GM can file Library pages as an excerpt source so they reach canon, not just Ask.
 - It would be great in an article to be able to link to a topic from the library so that the article could extract information from the library. How might we do that?
 - At narrow widths, things start to get jumbled together. Could you do a pass-through and fix spacing issues?
 - I'd like to do a full sweep through all pages and clean up URL paths. Instead of displaying the guid ID for a given detail page, I'd like to find a way to use a friendly slug instead.

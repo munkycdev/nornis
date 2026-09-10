@@ -1,4 +1,4 @@
-@page "/artifacts/{ArtifactId:guid}"
+﻿@page "/artifacts/{ArtifactId:guid}"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -277,6 +277,20 @@
         @if (Worlds.IsGm)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">Enrich from the library</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                    Does a document in the Library say more about @_detail.Name than the record does?
+                    Find its passages, tick the ones that belong, and file them as a source — what
+                    they say arrives in Review as proposals for this entry.
+                </MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.MenuBook"
+                           OnClick="EnrichFromLibraryAsync">
+                    Enrich from the library…
+                </MudButton>
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">Merge duplicate</div>
                 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
                     Is @_detail.Name a duplicate? Merge it into the real artifact: its facts and
@@ -518,6 +532,44 @@
             if (outcome.RevealedRelationships > 0) parts.Add($"{outcome.RevealedRelationships} relationship{(outcome.RevealedRelationships == 1 ? "" : "s")}");
             Snackbar.Add(parts.Count > 0 ? $"Revealed {string.Join(", ", parts)} to the party." : "Nothing to reveal.", Severity.Success);
             await LoadAsync();
+        }
+    }
+
+    // Enrich from the library (GM): files chosen Library passages as excerpt sources for this
+    // entry. Nothing on this page changes until the proposals are accepted in Review.
+    private async Task EnrichFromLibraryAsync()
+    {
+        if (Worlds.Current is null || _detail is null)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters<EnrichFromLibraryDialog>
+        {
+            { d => d.WorldId, Worlds.Current.Id },
+            { d => d.ArtifactId, _detail.Id },
+            { d => d.ArtifactName, _detail.Name },
+        };
+
+        var dialog = await DialogService.ShowAsync<EnrichFromLibraryDialog>("Enrich from the library", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false, Data: List<LibraryExcerptFiledDto> filed } && filed.Count > 0)
+        {
+            foreach (var excerpt in filed)
+            {
+                var sourceId = excerpt.SourceId;
+                Snackbar.Add($"Filed “{excerpt.Title}” — extraction queued.", Severity.Success, options =>
+                {
+                    options.Action = "Open";
+                    options.OnClick = _ =>
+                    {
+                        Nav.NavigateTo($"/sources/{sourceId}");
+                        return Task.CompletedTask;
+                    };
+                });
+            }
         }
     }
 

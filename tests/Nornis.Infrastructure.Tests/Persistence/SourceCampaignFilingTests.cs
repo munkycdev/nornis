@@ -108,7 +108,7 @@ public class SourceCampaignFilingTests : IntegrationTestBase
         var result = await _repository.ListSummariesByWorldAsync(
             _worldId, _gmId, WorldRole.GM, unassignedOnly: true, occurredFrom: Began, occurredBefore: DayAfterEnd);
 
-        Assert.That(result.Select(s => s.Id), Is.EquivalentTo(new[] { inside, lastEvening }));
+        Assert.That(result.Select(s => s.Id), Is.EquivalentTo([inside, lastEvening]));
     }
 
     [Test]
@@ -125,8 +125,8 @@ public class SourceCampaignFilingTests : IntegrationTestBase
 
         Assert.Multiple(() =>
         {
-            Assert.That(fromOnly.Select(s => s.Id), Is.EqualTo(new[] { late }));
-            Assert.That(beforeOnly.Select(s => s.Id), Is.EqualTo(new[] { early }));
+            Assert.That(fromOnly.Select(s => s.Id), Is.EqualTo([late]));
+            Assert.That(beforeOnly.Select(s => s.Id), Is.EqualTo([early]));
         });
     }
 

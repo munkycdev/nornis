@@ -100,6 +100,40 @@
                 }
             </div>
         </MudPaper>
+
+        @if (Worlds.IsGm && _document.Status == "Indexed")
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">File pages as a source</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                    Choose the pages that are about something in your world and file them as a
+                    source. They go through extraction like a session note, and what they say
+                    arrives in Review as proposals — for the entry you name here, if you name one.
+                </MudText>
+                <div class="d-flex gap-3 align-center flex-wrap">
+                    <MudNumericField T="int?" @bind-Value="_pageFrom" Label="From page" Min="1"
+                                     Max="@(_document.PageCount ?? int.MaxValue)"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 9rem;" />
+                    <MudNumericField T="int?" @bind-Value="_pageTo" Label="To page" Min="1"
+                                     Max="@(_document.PageCount ?? int.MaxValue)"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 9rem;" />
+                    <MudAutocomplete T="ArtifactListItem" @bind-Value="_excerptArtifact"
+                                     SearchFunc="SearchArtifactsAsync"
+                                     ToStringFunc="@(a => a?.Name)"
+                                     Label="For codex entry (optional)" Variant="Variant.Outlined" Dense="true"
+                                     Class="flex-grow-1" Clearable="true" />
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Outlined.PostAdd"
+                               OnClick="FileExcerptAsync" Disabled="@(_filing || _pageFrom is null || _pageTo is null)">
+                        File as source
+                    </MudButton>
+                </div>
+                @if (_excerptError is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_excerptError</MudAlert>
+                }
+            </MudPaper>
+        }
         </Body>
         <Rail>
             <ContextRail Rows="@RailRows" Related="@RailRelated" RowsTitle="This document" />
@@ -255,6 +289,68 @@
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
+    }
+
+    // File pages as a source (GM): a page range of this document becomes an excerpt source,
+    // optionally filed for a codex entry. The server bounds the range; this only asks.
+    private int? _pageFrom;
+    private int? _pageTo;
+    private ArtifactListItem? _excerptArtifact;
+    private bool _filing;
+    private string? _excerptError;
+
+    private async Task<IEnumerable<ArtifactListItem>> SearchArtifactsAsync(string value, CancellationToken ct)
+    {
+        if (Worlds.Current is null)
+        {
+            return [];
+        }
+
+        var result = await Api.GetArtifactsAsync(Worlds.Current.Id, ct: ct);
+        if (!result.IsSuccess)
+        {
+            return [];
+        }
+
+        return result.Value!
+            .Where(a => string.IsNullOrWhiteSpace(value) || a.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(a => a.Name)
+            .Take(15);
+    }
+
+    private async Task FileExcerptAsync()
+    {
+        if (Worlds.Current is null || _document is null || _pageFrom is null || _pageTo is null)
+        {
+            return;
+        }
+
+        _filing = true;
+        _excerptError = null;
+
+        var result = await Api.FileLibraryExcerptAsync(Worlds.Current.Id, _document.Id,
+            new FileLibraryExcerptRequest(null, _pageFrom, _pageTo, _excerptArtifact?.Id));
+
+        _filing = false;
+        if (!result.IsSuccess)
+        {
+            _excerptError = result.Error!.Message;
+            return;
+        }
+
+        var sourceId = result.Value!.SourceId;
+        Snackbar.Add($"Filed “{result.Value.Title}” — extraction queued.", Severity.Success, options =>
+        {
+            options.Action = "Open";
+            options.OnClick = _ =>
+            {
+                Nav.NavigateTo($"/sources/{sourceId}");
+                return Task.CompletedTask;
+            };
+        });
+        _pageFrom = null;
+        _pageTo = null;
+        _excerptArtifact = null;
     }
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;

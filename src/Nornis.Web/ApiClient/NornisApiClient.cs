@@ -537,6 +537,18 @@ public class NornisApiClient
     public Task<ApiResult<LibraryDocumentDto>> ReindexLibraryDocumentAsync(Guid worldId, Guid documentId, CancellationToken ct = default) =>
         PostAsync<object?, LibraryDocumentDto>($"/api/worlds/{worldId}/library/{documentId}/reindex", null, ct);
 
+    /// <summary>GM-only: passages across the GM's shelves matching a codex entry or a free query.</summary>
+    public Task<ApiResult<IReadOnlyList<LibraryExcerptCandidateDto>>> SearchLibraryExcerptsAsync(
+        Guid worldId, SearchLibraryExcerptsRequest request, CancellationToken ct = default) =>
+        PostAsync<SearchLibraryExcerptsRequest, IReadOnlyList<LibraryExcerptCandidateDto>>(
+            $"/api/worlds/{worldId}/library/excerpts/search", request, ct);
+
+    /// <summary>GM-only: files chosen passages of a document as an excerpt source, queued for extraction.</summary>
+    public Task<ApiResult<LibraryExcerptFiledDto>> FileLibraryExcerptAsync(
+        Guid worldId, Guid documentId, FileLibraryExcerptRequest request, CancellationToken ct = default) =>
+        PostAsync<FileLibraryExcerptRequest, LibraryExcerptFiledDto>(
+            $"/api/worlds/{worldId}/library/{documentId}/excerpts", request, ct);
+
     // ------------------------------------------------------------------ Knowledge --
 
     public Task<ApiResult<IReadOnlyList<ArtifactListItem>>> GetArtifactsAsync(

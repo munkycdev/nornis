@@ -104,6 +104,20 @@
 > - `ReviewChangeType` gained `AddPlacemark` (and `ReviewTargetType` resolution for it)
 >   with map extraction; the enum list below predates maps.
 
+> **Amendment (2026-09-10): GM-chosen Library excerpts are extracted; whole documents are
+> not.** The Library was scoped as reference material — indexed for the Loremaster to quote,
+> never extracted into canon — and that stays the rule for a document as a whole. Feature 26
+> adds the exception the rule was missing: a GM may choose pages of an indexed document and
+> file them as a `Source` of type `LibraryExcerpt`, with the passages' text copied into the
+> body and `Source.LibraryDocumentId` / `LibraryPageFrom` / `LibraryPageTo` recording where
+> it came from. From there it is an ordinary source — queued through `MarkReadyAsync`,
+> extracted, reviewed, cited — so the four pages of the Player's Guide about Thistlehold can
+> become cited facts on Thistlehold's entry without anyone typing them. The choosing is the
+> gate: there is no "file the whole book", an excerpt is bounded in passages, and its
+> visibility is the document's shelf. Deleting the document detaches its excerpts rather than
+> removing them; the FK is Restrict for the same cascade-path reason as `Campaign`. The
+> `SourceType` list below predates this; `Nornis.Domain/Enums/SourceType.cs` is the authority.
+
 > **Amendment (2026-09-09): `SourceType` has grown past the list below.** The tree adds
 > `SessionAudio` (a pasted session transcript — no audio is stored or transcribed),
 > `FanFiction`, `Map` (a map image whose extraction reads place names and positions into
