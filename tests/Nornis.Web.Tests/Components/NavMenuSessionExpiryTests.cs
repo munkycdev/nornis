@@ -46,6 +46,8 @@ public class NavMenuSessionExpiryTests : BunitContext
         Services.AddSingleton(_authSession);
         Services.AddSingleton(api);
         Services.AddSingleton(new AuthFeature(false));
+        Services.AddSingleton(new QuickSwitcherState());
+        Services.AddSingleton(new WorldMenuState());
         Services.AddSingleton(sp => new WorldState(api, viewAs, sp.GetRequiredService<IJSRuntime>()));
 
         JSInterop.Mode = JSRuntimeMode.Loose;

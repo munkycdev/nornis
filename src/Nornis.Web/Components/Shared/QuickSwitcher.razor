@@ -1,0 +1,303 @@
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject NavigationManager Nav
+@inject QuickSwitcherState Switcher
+@inject IJSRuntime JS
+
+@* "Type a name, go there." Opened by Ctrl+K from anywhere and by the sidebar's search box.
+   Empty shows the last few things this member opened here, kept per world in localStorage —
+   a per-viewer convenience, not state. Results come from one jump query, each kind already
+   filtered to the reader by the service that owns it. *@
+
+<MudDialog @bind-Visible="_open" Options="_options" Class="nornis-switcher">
+    <DialogContent>
+        <div class="nornis-switcher-box" @onkeydown="OnKeyDown">
+            <div class="nornis-switcher-input">
+                <MudIcon Icon="@Icons.Material.Outlined.Search" Size="Size.Small" Color="Color.Secondary" />
+                <MudTextField @ref="_input" T="string" Value="_term" ValueChanged="OnTermChanged"
+                              Immediate="true" DebounceInterval="150"
+                              Placeholder="Jump to a campaign, character, entry, session or document…"
+                              Variant="Variant.Text" Margin="Margin.Dense" Underline="false"
+                              Class="flex-grow-1" aria-label="Jump to" />
+                <kbd class="nornis-kbd">Esc</kbd>
+            </div>
+
+            <div class="nornis-switcher-results" role="listbox">
+                @if (_loading)
+                {
+                    <div class="nornis-switcher-hint">Searching…</div>
+                }
+                else if (string.IsNullOrWhiteSpace(_term))
+                {
+                    @if (_recents.Count == 0)
+                    {
+                        <div class="nornis-switcher-hint">Things you open from here will be remembered.</div>
+                    }
+                    else
+                    {
+                        <div class="nornis-switcher-group">Recent</div>
+                        @foreach (var (row, i) in _recents.Select((r, i) => (r, i)))
+                        {
+                            <button type="button" class="nornis-switcher-row @(i == _selected ? "nornis-switcher-row-active" : null)"
+                                    role="option" aria-selected="@(i == _selected)"
+                                    @onclick="() => Go(row)" @onmouseenter="() => _selected = i">
+                                <MudIcon Icon="@KindIcon(row.Kind)" Size="Size.Small" Color="Color.Secondary" />
+                                <span class="nornis-switcher-name">@row.Name</span>
+                                <span class="nornis-switcher-detail">@row.Detail</span>
+                            </button>
+                        }
+                    }
+                }
+                else if (_rows.Count == 0)
+                {
+                    <div class="nornis-switcher-hint">Nothing you can see is called that.</div>
+                }
+                else
+                {
+                    string? lastKind = null;
+                    @foreach (var (row, i) in _rows.Select((r, i) => (r, i)))
+                    {
+                        @if (row.Kind != lastKind)
+                        {
+                            lastKind = row.Kind;
+                            var group = _groups.First(g => g.Kind == row.Kind);
+                            <div class="nornis-switcher-group">
+                                @KindLabel(row.Kind)
+                                @if (group.TotalCount > group.Items.Count)
+                                {
+                                    <a href="@KindIndex(row.Kind)" class="nornis-switcher-more" @onclick="Close">@group.Items.Count of @group.TotalCount — see all</a>
+                                }
+                            </div>
+                        }
+                        <button type="button" class="nornis-switcher-row @(i == _selected ? "nornis-switcher-row-active" : null)"
+                                role="option" aria-selected="@(i == _selected)"
+                                @onclick="() => Go(row)" @onmouseenter="() => _selected = i">
+                            <MudIcon Icon="@KindIcon(row.Kind)" Size="Size.Small" Color="Color.Secondary" />
+                            <span class="nornis-switcher-name">@row.Name</span>
+                            <span class="nornis-switcher-detail">@row.Detail</span>
+                        </button>
+                    }
+                }
+            </div>
+
+            <div class="nornis-switcher-foot">
+                <span><kbd class="nornis-kbd">↑</kbd><kbd class="nornis-kbd">↓</kbd> move</span>
+                <span><kbd class="nornis-kbd">Enter</kbd> open</span>
+                <a href="/dashboard" class="nornis-link ml-auto" @onclick="Close">Ask the Loremaster instead ›</a>
+            </div>
+        </div>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    /// <summary>One row, whatever kind it is: what to show and where it goes.</summary>
+    private sealed record Row(string Kind, Guid Id, string Name, string? Detail)
+    {
+        public string Href => Kind switch
+        {
+            "Campaign" => $"/campaigns/{Id}",
+            "Character" => $"/characters/{Id}",
+            "Artifact" => $"/artifacts/{Id}",
+            "Session" => $"/sources/{Id}",
+            "Library" => $"/library/{Id}",
+            _ => "/dashboard",
+        };
+    }
+
+    private const int MaxRecents = 8;
+
+    private readonly DialogOptions _options = new()
+    {
+        NoHeader = true,
+        CloseOnEscapeKey = true,
+        BackdropClick = true,
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true,
+        Position = DialogPosition.TopCenter,
+    };
+
+    private MudTextField<string>? _input;
+    private bool _open;
+    private string _term = string.Empty;
+    private bool _loading;
+    private int _selected;
+    private IReadOnlyList<JumpGroupDto> _groups = [];
+    private IReadOnlyList<Row> _rows = [];
+    private IReadOnlyList<Row> _recents = [];
+    private CancellationTokenSource? _searchCts;
+
+    protected override void OnInitialized() => Switcher.OpenRequested += OnOpenRequested;
+
+    private void OnOpenRequested() => InvokeAsync(OpenAsync);
+
+    private async Task OpenAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _term = string.Empty;
+        _rows = [];
+        _groups = [];
+        _selected = 0;
+        _recents = await LoadRecentsAsync();
+        _open = true;
+        StateHasChanged();
+
+        // The dialog mounts on the next render; focus after it exists.
+        await Task.Yield();
+        if (_input is not null)
+        {
+            await _input.FocusAsync();
+        }
+    }
+
+    private void Close()
+    {
+        _open = false;
+    }
+
+    private async Task OnTermChanged(string value)
+    {
+        _term = value ?? string.Empty;
+        _selected = 0;
+
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var ct = _searchCts.Token;
+
+        if (string.IsNullOrWhiteSpace(_term) || Worlds.Current is null)
+        {
+            _rows = [];
+            _groups = [];
+            _loading = false;
+            return;
+        }
+
+        _loading = true;
+        var result = await Api.JumpAsync(Worlds.Current.Id, _term, ct);
+        if (ct.IsCancellationRequested)
+        {
+            return;
+        }
+
+        _loading = false;
+        if (result.IsSuccess)
+        {
+            _groups = result.Value!.Groups;
+            _rows = _groups.SelectMany(g => g.Items.Select(i => new Row(g.Kind, i.Id, i.Name, i.Detail))).ToList();
+        }
+        else
+        {
+            _groups = [];
+            _rows = [];
+        }
+        StateHasChanged();
+    }
+
+    private IReadOnlyList<Row> Visible => string.IsNullOrWhiteSpace(_term) ? _recents : _rows;
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        var visible = Visible;
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                if (visible.Count > 0) _selected = (_selected + 1) % visible.Count;
+                break;
+            case "ArrowUp":
+                if (visible.Count > 0) _selected = (_selected - 1 + visible.Count) % visible.Count;
+                break;
+            case "Enter":
+                if (visible.Count > 0 && _selected < visible.Count)
+                {
+                    await Go(visible[_selected]);
+                }
+                break;
+        }
+    }
+
+    private async Task Go(Row row)
+    {
+        await RememberAsync(row);
+        _open = false;
+        Nav.NavigateTo(row.Href);
+    }
+
+    // ----------------------------------------------------------------- Recents (per viewer) --
+
+    private string RecentsKey => $"nornis:recent:{Worlds.Current?.Id}";
+
+    private async Task<IReadOnlyList<Row>> LoadRecentsAsync()
+    {
+        try
+        {
+            var raw = await JS.InvokeAsync<string?>("localStorage.getItem", RecentsKey);
+            if (string.IsNullOrEmpty(raw))
+            {
+                return [];
+            }
+            return System.Text.Json.JsonSerializer.Deserialize<List<Row>>(raw) ?? [];
+        }
+        catch
+        {
+            // No storage, or garbage in it: the switcher just has no recents.
+            return [];
+        }
+    }
+
+    private async Task RememberAsync(Row row)
+    {
+        try
+        {
+            var next = new List<Row> { row };
+            next.AddRange(_recents.Where(r => r.Id != row.Id).Take(MaxRecents - 1));
+            _recents = next;
+            await JS.InvokeVoidAsync("localStorage.setItem", RecentsKey, System.Text.Json.JsonSerializer.Serialize(next));
+        }
+        catch
+        {
+            // Best effort; forgetting a recent is not a failure anyone needs to see.
+        }
+    }
+
+    // ----------------------------------------------------------------------- Presentation --
+
+    private static string KindLabel(string kind) => kind switch
+    {
+        "Campaign" => "Campaigns",
+        "Character" => "Characters",
+        "Artifact" => "Codex",
+        "Session" => "Sessions",
+        "Library" => "Library",
+        _ => kind,
+    };
+
+    private static string KindIndex(string kind) => kind switch
+    {
+        "Campaign" => "/campaigns",
+        "Character" => "/party",
+        "Artifact" => "/artifacts",
+        "Session" => "/sources",
+        "Library" => "/library",
+        _ => "/dashboard",
+    };
+
+    private static string KindIcon(string kind) => kind switch
+    {
+        "Campaign" => Icons.Material.Outlined.Flag,
+        "Character" => Icons.Material.Outlined.Person,
+        "Artifact" => Icons.Material.Outlined.Hub,
+        "Session" => Icons.Material.Outlined.Layers,
+        "Library" => Icons.Material.Outlined.MenuBook,
+        _ => Icons.Material.Outlined.Search,
+    };
+
+    public void Dispose()
+    {
+        Switcher.OpenRequested -= OnOpenRequested;
+        _searchCts?.Cancel();
+    }
+}

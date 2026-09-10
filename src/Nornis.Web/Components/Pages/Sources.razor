@@ -107,7 +107,8 @@ else
                 </div>
                 @if (source.CampaignName is not null)
                 {
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary">@source.CampaignName</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary"
+                             Href="@($"/campaigns/{source.CampaignId}")">@source.CampaignName</MudChip>
                 }
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@source.Visibility</MudChip>
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SourceStatusDisplay.StatusColor(source.ProcessingStatus)">

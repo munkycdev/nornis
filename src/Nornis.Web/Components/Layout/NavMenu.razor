@@ -81,78 +81,58 @@
     </ChildContent>
 </MudMenu>
 
+<button type="button" class="nornis-jump" @onclick="Switcher.Open" aria-label="Search or jump to anything">
+    <MudIcon Icon="@Icons.Material.Outlined.Search" Size="Size.Small" />
+    <span class="nornis-jump-label">Search or jump to…</span>
+    <kbd class="nornis-kbd nornis-kbd-onnavy">Ctrl K</kbd>
+</button>
+
+@* The sidebar is data: NavGroups says what is here, for whom, in what order. This loop only
+   renders it, and the reachability test reads the same list. *@
 <MudNavMenu>
-    <MudNavLink Href="/dashboard" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.ChatBubbleOutline">Ask</MudNavLink>
-    <MudNavLink Href="/capture" Icon="@Icons.Material.Outlined.EditNote">Capture</MudNavLink>
-    <MudNavLink Href="/review" Icon="@Icons.Material.Outlined.FactCheck">
-        Review
-        @if (_activity is { PendingProposals: > 0 })
-        {
-            <span class="nornis-nav-count">@(_activity.PendingProposalsCapped ? "200+" : _activity.PendingProposals.ToString())</span>
-        }
-    </MudNavLink>
-    <MudNavLink Href="/learned" Icon="@NornisIcons.NetworkIntelNode">
-        What you learned
-        @* Absent at zero, per the requirement: a badge reading "0" is a page telling you
-           there is nothing, which is exactly the thing this feature must not volunteer. *@
-        @if (_activity is { UnseenDisclosures: > 0 })
-        {
-            <span class="nornis-nav-count" title="new to you">@_activity.UnseenDisclosures</span>
-        }
-    </MudNavLink>
-    <MudNavLink Href="/artifacts" Icon="@Icons.Material.Outlined.Hub">Codex</MudNavLink>
-    <MudNavLink Href="/timeline" Icon="@Icons.Material.Outlined.Route">Timeline</MudNavLink>
-    <MudNavLink Href="/locations" Icon="@Icons.Material.Outlined.Place">Locations</MudNavLink>
-    <MudNavLink Href="/library" Icon="@Icons.Material.Outlined.MenuBook">Library</MudNavLink>
-    <MudNavLink Href="/sources" Icon="@Icons.Material.Outlined.Layers">
-        Sources
-        @if (_activity is { Failed: > 0 })
-        {
-            <span class="nornis-nav-count nornis-nav-count-failed" title="@($"{_activity.Failed} failed")">@_activity.Failed</span>
-        }
-        else if (_activity is { InFlight: > 0 })
-        {
-            <span class="nornis-nav-count" title="processing">@_activity.InFlight</span>
-        }
-    </MudNavLink>
-    @if (Worlds.IsGm)
+    @foreach (var group in NavGroups.All)
     {
-        <MudNavLink Href="/convergence" Icon="@Icons.Material.Outlined.Merge">Convergence</MudNavLink>
-        <MudNavLink Href="/admin" Icon="@Icons.Material.Outlined.Tune">Admin</MudNavLink>
+        @if (group.GmOnly && !Worlds.IsGm)
+        {
+            continue;
+        }
+        <div class="nornis-nav-group">@group.Label</div>
+        @foreach (var item in group.Items)
+        {
+            <MudNavLink Href="@item.Href" Match="@item.Match" Icon="@item.Icon">
+                @item.Label
+                @switch (item.Badge)
+                {
+                    case NavBadge.PendingProposals:
+                        @if (_activity is { PendingProposals: > 0 })
+                        {
+                            <span class="nornis-nav-count">@(_activity.PendingProposalsCapped ? "200+" : _activity.PendingProposals.ToString())</span>
+                        }
+                        break;
+                    case NavBadge.UnseenDisclosures:
+                        @* Absent at zero, per the requirement: a badge reading "0" is a page telling you
+                           there is nothing, which is exactly the thing this feature must not volunteer. *@
+                        @if (_activity is { UnseenDisclosures: > 0 })
+                        {
+                            <span class="nornis-nav-count" title="new to you">@_activity.UnseenDisclosures</span>
+                        }
+                        break;
+                    case NavBadge.SourceActivity:
+                        @if (_activity is { Failed: > 0 })
+                        {
+                            <span class="nornis-nav-count nornis-nav-count-failed" title="@($"{_activity.Failed} failed")">@_activity.Failed</span>
+                        }
+                        else if (_activity is { InFlight: > 0 })
+                        {
+                            <span class="nornis-nav-count" title="processing">@_activity.InFlight</span>
+                        }
+                        break;
+                }
+            </MudNavLink>
+        }
     }
 </MudNavMenu>
 
-@if (Worlds.IsGm)
-{
-<div class="nornis-memory">
-    <div class="nornis-memory-title">World Memory</div>
-    <div class="nornis-memory-row">
-        <div class="nornis-ring">
-            <MudProgressCircular Value="@(Worlds.Continuity?.EffectiveScore ?? 0)" Min="0" Max="100"
-                                 Color="@HealthColor" Size="Size.Medium" StrokeWidth="4" Class="nornis-ring-onnavy" />
-        </div>
-        <div class="nornis-memory-figure">
-            @if (Worlds.Continuity is { HasData: true } a)
-            {
-                <span class="nornis-memory-pct">@a.EffectiveScore%</span>
-                <span class="nornis-memory-state nornis-memory-state-ok">AI assessed</span>
-            }
-            else
-            {
-                <span class="nornis-memory-pct">N/A</span>
-                <span class="nornis-memory-state">Not yet assessed</span>
-            }
-        </div>
-    </div>
-    <MudButton Variant="Variant.Text"
-               Color="Color.Secondary"
-               EndIcon="@Icons.Material.Filled.ArrowForward"
-               Href="/world-memory"
-               Class="nornis-collapse pa-0">
-        View details
-    </MudButton>
-</div>
-}
 
 @if (AuthSession.Expired)
 {
@@ -211,12 +191,17 @@ else
 @inject Nornis.Web.State.AuthSessionState AuthSession
 @inject IDialogService DialogService
 @inject IJSRuntime JS
+@inject QuickSwitcherState Switcher
+@inject WorldMenuState WorldMenu
 
 @code {
     private MudMenu? _worldMenu;
 
     private Task OpenWorldMenuAsync() =>
         _worldMenu?.OpenMenuAsync(EventArgs.Empty) ?? Task.CompletedTask;
+
+    // The breadcrumb's world crumb opens the same menu from across the layout.
+    private void OnWorldMenuRequested() => InvokeAsync(OpenWorldMenuAsync);
 
     [Parameter]
     public EventCallback OnCollapse { get; set; }
@@ -232,6 +217,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         Worlds.Changed += OnWorldsChanged;
+        WorldMenu.OpenRequested += OnWorldMenuRequested;
 
         // The two things that used to leave the badges stale: a change this browser made, and
         // arriving on a page after making one somewhere else.
@@ -523,13 +509,6 @@ else
         StateHasChanged();
     });
 
-    private Color HealthColor => (Worlds.Continuity?.EffectiveScore ?? 0) switch
-    {
-        >= 70 => Color.Success,
-        >= 50 => Color.Warning,
-        _ => Color.Error,
-    };
-
     private void EnterPlayerView() => Worlds.SetViewingAsPlayer(true);
 
     private void ExitPlayerView() => Worlds.SetViewingAsPlayer(false);
@@ -565,6 +544,7 @@ else
         Nav.LocationChanged -= OnLocationChanged;
         AuthSession.Changed -= OnAuthSessionChanged;
         Worlds.Changed -= OnWorldsChanged;
+        WorldMenu.OpenRequested -= OnWorldMenuRequested;
 
         if (_visibilityToken is { } token)
         {

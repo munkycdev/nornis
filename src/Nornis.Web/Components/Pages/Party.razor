@@ -1,0 +1,110 @@
+@page "/party"
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject BreadcrumbState Crumbs
+
+<PageTitle>Party — Nornis</PageTitle>
+
+<MudText Typo="Typo.h4" Class="nornis-serif">Party</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    Everyone at the table, and the characters they play. Your own are managed on
+    <a href="/profile" class="nornis-link">your settings</a>.
+</MudText>
+
+@if (Worlds.Current is null)
+{
+    <NoWorld />
+}
+else if (_loading)
+{
+    <LoadingRows Rows="3" Height="64px" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else
+{
+    @foreach (var member in _members)
+    {
+        var characters = _characters.Where(c => c.WorldMemberId == member.Id).OrderBy(c => c.Name).ToList();
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
+            <div class="d-flex align-center gap-3 mb-2">
+                <MudAvatar Color="Color.Primary" Size="Size.Small">@MemberDisplay.Initial(member)</MudAvatar>
+                <div class="nornis-list-body">
+                    <div class="nornis-list-title">@MemberDisplay.Name(member)</div>
+                    <div class="nornis-list-sub">@MemberDisplay.RoleLabel(member.Role)</div>
+                </div>
+            </div>
+            @if (characters.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">No characters yet.</MudText>
+            }
+            else
+            {
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var ch in characters)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                 Icon="@Icons.Material.Outlined.Person"
+                                 Href="@($"/characters/{ch.Id}")">@ch.Name</MudChip>
+                    }
+                </div>
+            }
+        </MudPaper>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private string? _error;
+    private IReadOnlyList<WorldMember> _members = [];
+    private IReadOnlyList<CharacterDto> _characters = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        Crumbs.Set("/party", new Crumb("Party"));
+        await Worlds.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
+
+    private async Task LoadAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            _loading = false;
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        var membersTask = Api.GetMembersAsync(Worlds.Current.Id);
+        var charactersTask = Api.GetCharactersAsync(Worlds.Current.Id);
+        var members = await membersTask;
+        var characters = await charactersTask;
+
+        _loading = false;
+        if (!members.IsSuccess)
+        {
+            _error = members.Error!.Message;
+        }
+        else
+        {
+            // GM first, then by name, so the table reads the way it sits.
+            _members = members.Value!
+                .OrderBy(m => m.Role == WorldRoles.Gm ? 0 : 1)
+                .ThenBy(m => MemberDisplay.Name(m))
+                .ToList();
+            _characters = characters.IsSuccess ? characters.Value! : [];
+        }
+        StateHasChanged();
+    }
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}

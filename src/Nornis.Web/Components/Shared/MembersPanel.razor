@@ -1,0 +1,246 @@
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+@* The world's members with the GM's controls. Lifted whole from WorldSettingsPanel on
+   2026-09-09 so the Members page could exist without a second copy. Every member may read
+   it; only the GM sees the role select, the remove button and the add-member picker, and
+   the API enforces the same gate regardless of what is rendered. *@
+
+@if (_loadingMembers)
+{
+    <LoadingRows Rows="3" Height="48px" />
+}
+else if (_membersError is not null)
+{
+    <MudAlert Severity="Severity.Error">@_membersError</MudAlert>
+}
+else
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+        @foreach (var m in _members)
+        {
+            <div class="nornis-member-row">
+                <MudAvatar Color="Color.Primary" Size="Size.Small">@MemberDisplay.Initial(m)</MudAvatar>
+                <div class="nornis-list-body">
+                    <div class="nornis-list-title">@MemberDisplay.Name(m)</div>
+                </div>
+                @if (_isGm)
+                {
+                    <MudSelect T="string" Value="m.Role" ValueChanged="(string r) => ChangeRoleAsync(m, r)"
+                               Dense="true" Variant="Variant.Outlined" Class="nornis-role-select" Disabled="@_busyMembers.Contains(m.UserId)">
+                        @foreach (var role in _roles)
+                        {
+                            <MudSelectItem Value="@role">@MemberDisplay.RoleLabel(role)</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudIconButton Icon="@Icons.Material.Filled.PersonRemove" Color="Color.Error" Size="Size.Small"
+                                   OnClick="() => RemoveAsync(m)" Disabled="@_busyMembers.Contains(m.UserId)" aria-label="Remove member" />
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@MemberDisplay.RoleLabel(m.Role)</MudChip>
+                }
+            </div>
+        }
+
+        @if (_isGm)
+        {
+            <div class="nornis-add-member mt-3">
+                <MudAutocomplete T="UserSummaryDto" @bind-Value="_newUser"
+                                 SearchFunc="SearchAddableUsersAsync"
+                                 ToStringFunc="@(u => u?.Username ?? string.Empty)"
+                                 Label="Add member" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                                 Placeholder="Search by username"
+                                 HelperText="@_searchError"
+                                 MinCharacters="2" DebounceInterval="200" MaxItems="10"
+                                 Clearable="true" CoerceText="false" ResetValueOnEmptyText="true"
+                                 Class="flex-grow-1" />
+                <MudSelect T="string" @bind-Value="_newRole" Dense="true" Variant="Variant.Outlined" Class="nornis-role-select">
+                    @foreach (var role in _roles)
+                    {
+                        <MudSelectItem Value="@role">@MemberDisplay.RoleLabel(role)</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
+                           OnClick="AddMemberAsync" Disabled="@(_addingMember || _newUser is null)">
+                    Add
+                </MudButton>
+            </div>
+            @if (_addError is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_addError</MudAlert>
+            }
+        }
+    </MudPaper>
+}
+
+@code {
+    private readonly string[] _roles = [WorldRoles.Gm, WorldRoles.Player, WorldRoles.Observer];
+
+    private bool _isGm => Worlds.IsGm;
+
+    private bool _loadingMembers = true;
+    private string? _membersError;
+    private IReadOnlyList<WorldMember> _members = [];
+    private readonly HashSet<Guid> _busyMembers = [];
+
+    private UserSummaryDto? _newUser;
+    private string? _searchError;
+    private string _newRole = "Player";
+    private bool _addingMember;
+    private string? _addError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
+        await LoadMembersAsync();
+    }
+
+    private void OnWorldChanged() => InvokeAsync(async () =>
+    {
+        // The panel stays mounted across a world switch, so a candidate picked for the previous
+        // world would otherwise still be sitting there — and Add would put them in this one.
+        _newUser = null;
+        _searchError = null;
+        _addError = null;
+        await LoadMembersAsync();
+    });
+
+    /// <summary>
+    /// Candidates for the add-member picker. The server excludes existing members, requires a
+    /// search term and caps the result, so this searches rather than filtering a directory the
+    /// client downloaded — which is what stopped any authenticated caller from reading the whole
+    /// user table in one request.
+    /// </summary>
+    private async Task<IEnumerable<UserSummaryDto>> SearchAddableUsersAsync(string value, CancellationToken ct)
+    {
+        _searchError = null;
+
+        if (Worlds.Current is null)
+        {
+            return [];
+        }
+
+        var result = await Api.GetAddableUsersAsync(Worlds.Current.Id, value, ct);
+
+        if (!result.IsSuccess)
+        {
+            // Returning an empty list on failure reads as "nobody by that name", which is a
+            // different and much more misleading thing than "that did not work".
+            _searchError = result.Error!.Message;
+            return [];
+        }
+
+        return result.Value!;
+    }
+
+    private async Task LoadMembersAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            _members = [];
+            _loadingMembers = false;
+            return;
+        }
+
+        _loadingMembers = true;
+        _membersError = null;
+        StateHasChanged();
+
+        var result = await Api.GetMembersAsync(Worlds.Current.Id);
+
+        _loadingMembers = false;
+        if (result.IsSuccess)
+        {
+            _members = result.Value!;
+        }
+        else
+        {
+            _membersError = result.Error!.Message;
+            _members = [];
+        }
+        StateHasChanged();
+    }
+
+    private async Task ChangeRoleAsync(WorldMember member, string newRole)
+    {
+        if (newRole == member.Role)
+        {
+            return;
+        }
+
+        _busyMembers.Add(member.UserId);
+        var result = await Api.UpdateMemberRoleAsync(Worlds.Current!.Id, member.UserId, newRole);
+        _busyMembers.Remove(member.UserId);
+
+        if (result.IsSuccess)
+        {
+            _members = _members.Select(x => x.UserId == member.UserId ? x with { Role = newRole } : x).ToList();
+            Snackbar.Add($"Role updated to {MemberDisplay.RoleLabel(newRole)}.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private async Task RemoveAsync(WorldMember member)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Remove member?",
+            $"Remove {MemberDisplay.Name(member)} from this world?",
+            yesText: "Remove", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _busyMembers.Add(member.UserId);
+        var result = await Api.RemoveMemberAsync(Worlds.Current!.Id, member.UserId);
+        _busyMembers.Remove(member.UserId);
+
+        if (result.IsSuccess)
+        {
+            _members = _members.Where(x => x.UserId != member.UserId).ToList();
+            Snackbar.Add("Member removed.", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private async Task AddMemberAsync()
+    {
+        _addError = null;
+
+        if (_newUser is null)
+        {
+            return;
+        }
+
+        _addingMember = true;
+        var result = await Api.AddMemberAsync(Worlds.Current!.Id, new AddMemberRequest(_newUser.Id, _newRole));
+        _addingMember = false;
+
+        if (result.IsSuccess)
+        {
+            _members = _members.Append(result.Value!).ToList();
+            _newUser = null;
+            Snackbar.Add("Member added.", Severity.Success);
+        }
+        else
+        {
+            _addError = result.Error!.Message;
+        }
+        StateHasChanged();
+    }
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}

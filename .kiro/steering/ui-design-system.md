@@ -21,6 +21,15 @@
 > Admin sit beside it); the sidebar in `src/Nornis.Web/Components/Layout/` is the authority on
 > what is there today.
 
+> **Amendment (2026-09-10):** the sidebar is now four groups rather than a flat list, as data
+> in `src/Nornis.Web/Navigation/NavGroups.cs` (feature 24, phase A): **Play** — Home, Capture,
+> Review, What you learned; **World** — Codex, Storylines, Timeline, Map, Library, Sources;
+> **Table** — Campaigns, Party, Members; **GM** (GMs only) — Reveal, World memory, Settings. A
+> search box under the world switcher and `Ctrl+K` open a quick switcher that jumps to any
+> campaign, character, entry, session or document by name; the top bar carries a breadcrumb in
+> the world's own structure instead of a search field. The "Recommended primary navigation"
+> under Navigation below is the 2026-06 sketch; `NavGroups.cs` is what is there.
+
 ## Product Vibe
 
 Nornis should feel like a calm, modern world Loremaster with a durable, archival identity.

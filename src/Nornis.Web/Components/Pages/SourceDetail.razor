@@ -53,7 +53,8 @@
                     }
                     @if (_source.CampaignName is not null)
                     {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary">@_source.CampaignName</MudChip>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary"
+                                 Href="@($"/campaigns/{_source.CampaignId}")">@_source.CampaignName</MudChip>
                     }
                 </div>
             </div>
@@ -215,7 +216,7 @@
                 {
                     <div class="nornis-kv">
                         <span class="nornis-kv-key">Campaign</span>
-                        <span class="nornis-kv-value">@_source.CampaignName</span>
+                        <span class="nornis-kv-value"><a href="@($"/campaigns/{_source.CampaignId}")" class="nornis-link">@_source.CampaignName</a></span>
                     </div>
                 }
                 @if (!string.IsNullOrWhiteSpace(_source.Uri))

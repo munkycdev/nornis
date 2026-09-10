@@ -43,8 +43,10 @@ so that features exist for me rather than for whoever knows the URL.
 #### Acceptance Criteria
 
 1. THE sidebar SHALL be grouped as **Play** (Home, Capture, Review, What you learned), **World**
-   (Codex, Storylines, Timeline, Map, Library), **Table** (Campaigns, Party, Members) and, for GMs
-   only, **GM** (Reveal, World memory, Settings), in that order.
+   (Codex, Storylines, Timeline, Map, Library, Sources), **Table** (Campaigns, Party, Members) and,
+   for GMs only, **GM** (Reveal, World memory, Settings), in that order. *(Sources added
+   2026-09-10: the ledger carries the processing badge and is the door to every session; its
+   omission from the first draft was an oversight.)*
 2. THE Review and What-you-learned entries SHALL carry their live counts as badges, as today.
 3. THERE SHALL be a **Campaigns** page listing the world's campaigns with the current campaign
    first, readable by every member; and a **Party** page listing every member's characters with

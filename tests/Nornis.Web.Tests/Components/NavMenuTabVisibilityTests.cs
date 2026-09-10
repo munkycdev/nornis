@@ -47,6 +47,8 @@ public class NavMenuTabVisibilityTests : BunitContext
         Services.AddSingleton(authSession);
         Services.AddSingleton(api);
         Services.AddSingleton(new AuthFeature(false));
+        Services.AddSingleton(new QuickSwitcherState());
+        Services.AddSingleton(new WorldMenuState());
         Services.AddSingleton(sp => new WorldState(api, viewAs, sp.GetRequiredService<IJSRuntime>()));
 
         // Both of these resolve from the provider, so they have to come after every registration —

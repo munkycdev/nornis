@@ -174,6 +174,9 @@ builder.Services.AddScoped<Nornis.Web.State.AskHistoryStore>();
 builder.Services.AddScoped<Nornis.Web.State.ViewAsState>();
 builder.Services.AddScoped<Nornis.Web.State.AuthSessionState>();
 builder.Services.AddScoped<Nornis.Web.State.GmNoteContext>();
+builder.Services.AddScoped<Nornis.Web.State.BreadcrumbState>();
+builder.Services.AddScoped<Nornis.Web.State.QuickSwitcherState>();
+builder.Services.AddScoped<Nornis.Web.State.WorldMenuState>();
 builder.Services.AddScoped<Nornis.Web.Services.GmNoteWriter>();
 
 var app = builder.Build();
