@@ -186,6 +186,14 @@ if (blobServiceClient is not null)
         name: "blob-storage",
         tags: [StatusEndpoint.DependencyTag],
         timeout: StatusEndpoint.ProbeTimeout);
+
+    // And the right the container probe cannot see: minting a SAS needs a delegation key,
+    // an account-level ask. Production sat green for two days with every blob URL 500ing
+    // before this check existed (2026-09-10). Resolved from the container, so it signs
+    // through the same IBlobStorageService the endpoints use.
+    healthChecks.AddCheck<BlobSasHealthCheck>(
+        "blob-sas", failureStatus: null,
+        tags: [StatusEndpoint.DependencyTag], timeout: StatusEndpoint.ProbeTimeout);
 }
 
 if (serviceBusClient is not null)
