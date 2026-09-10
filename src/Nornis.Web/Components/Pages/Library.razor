@@ -55,7 +55,7 @@ else
         @foreach (var doc in _documents)
         {
             <div class="nornis-list-row">
-                <div class="nornis-list-thumb"><MudIcon Icon="@KindIcon(doc.Kind)" Size="Size.Small" /></div>
+                <div class="nornis-list-thumb"><MudIcon Icon="@LibraryDisplay.KindIcon(doc.Kind)" Size="Size.Small" /></div>
                 <div class="nornis-list-body">
                     <a href="@($"/library/{doc.Id}")" class="nornis-list-title nornis-link">@doc.Title</a>
                     <div class="nornis-list-sub">
@@ -216,14 +216,6 @@ else
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
     }
-
-    private static string KindIcon(string kind) => kind switch
-    {
-        "Sourcebook" => Icons.Material.Outlined.MenuBook,
-        "Map" => Icons.Material.Outlined.Map,
-        "Handout" => Icons.Material.Outlined.Description,
-        _ => Icons.Material.Outlined.InsertDriveFile,
-    };
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

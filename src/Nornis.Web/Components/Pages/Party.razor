@@ -5,6 +5,8 @@
 @inject BreadcrumbState Crumbs
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject NavigationManager Nav
 @using Nornis.Web.Services
 
 @* Everyone who plays, whether or not they are on Nornis. A player is a person at the table;
@@ -122,6 +124,51 @@ else
                     </MudButton>
                 </div>
             }
+            @if (IsGm && player.WorldMemberId is null)
+            {
+                @* A door for someone who is not on Nornis: a link that opens the party shelf as
+                   them, and only that. One standing link per player; a new one retires the old. *@
+                <div class="mt-3">
+                    @if (ShelfLinkFor(player.Id) is { } link)
+                    {
+                        <div class="nornis-add-member">
+                            <MudTextField T="string" Value="@ShelfUrl(link)" ReadOnly="true" Label="@($"{player.Name}'s shelf link")"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" />
+                            <MudTooltip Text="Copy link">
+                                <MudIconButton Icon="@Icons.Material.Outlined.ContentCopy" Size="Size.Small"
+                                               OnClick="() => CopyShelfLinkAsync(link)" aria-label="Copy shelf link" />
+                            </MudTooltip>
+                            <MudTooltip Text="@(_qrFor == player.Id ? "Hide QR code" : "Show QR code")">
+                                <MudIconButton Icon="@Icons.Material.Outlined.QrCode2" Size="Size.Small"
+                                               OnClick="() => ToggleQr(player.Id)" aria-label="Show QR code" />
+                            </MudTooltip>
+                            <MudTooltip Text="New link — the old one stops working">
+                                <MudIconButton Icon="@Icons.Material.Outlined.Autorenew" Size="Size.Small" Disabled="_busy"
+                                               OnClick="() => MintShelfLinkAsync(player, rotate: true)" aria-label="New shelf link" />
+                            </MudTooltip>
+                            <MudTooltip Text="Take the link back">
+                                <MudIconButton Icon="@Icons.Material.Outlined.LinkOff" Color="Color.Error" Size="Size.Small" Disabled="_busy"
+                                               OnClick="() => RevokeShelfLinkAsync(player, link)" aria-label="Revoke shelf link" />
+                            </MudTooltip>
+                        </div>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @(link.LastUsedAt is { } used ? $"Opened {RelativeTime.Ago(used)}" : "Never opened")
+                        </MudText>
+                        @if (_qrFor == player.Id)
+                        {
+                            <div class="nornis-shelf-qr">@((MarkupString)QrSvg.For(ShelfUrl(link)))</div>
+                        }
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Outlined.MenuBook" Disabled="_busy"
+                                   OnClick="() => MintShelfLinkAsync(player, rotate: false)">
+                            Give @player.Name a link to the shelf
+                        </MudButton>
+                    }
+                </div>
+            }
         </MudPaper>
     }
 
@@ -157,6 +204,8 @@ else
     private IReadOnlyList<CharacterDto> _characters = [];
     private IReadOnlyList<WorldMember> _members = [];
     private readonly Dictionary<Guid, Guid?> _linkTargets = [];
+    private IReadOnlyList<ShelfLinkDto> _shelfLinks = [];
+    private Guid? _qrFor;
 
     private string _newName = string.Empty;
     private string? _addError;
@@ -191,10 +240,13 @@ else
         var playersTask = Api.GetPlayersAsync(Worlds.Current.Id);
         var charactersTask = Api.GetCharactersAsync(Worlds.Current.Id);
         var membersTask = IsGm ? Api.GetMembersAsync(Worlds.Current.Id) : null;
+        var linksTask = IsGm ? Api.GetShelfLinksAsync(Worlds.Current.Id) : null;
         var players = await playersTask;
         var characters = await charactersTask;
         // Only the GM links, so only the GM needs the accounts to link to.
         _members = membersTask is null ? [] : (await membersTask) is { IsSuccess: true } m ? m.Value! : [];
+        // Likewise the links: only the GM mints them, and the codes are the GM's to see.
+        _shelfLinks = linksTask is null ? [] : (await linksTask) is { IsSuccess: true } l ? l.Value! : [];
 
         _loading = false;
         if (!players.IsSuccess)
@@ -366,6 +418,83 @@ else
 
         _busy = true;
         var result = await Api.DeletePlayerAsync(Worlds.Current.Id, player.Id);
+        _busy = false;
+
+        if (result.IsSuccess)
+        {
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private ShelfLinkDto? ShelfLinkFor(Guid playerId) => _shelfLinks.FirstOrDefault(l => l.PlayerId == playerId);
+
+    private string ShelfUrl(ShelfLinkDto link) => $"{Nav.BaseUri}shelf/{link.Code}";
+
+    private void ToggleQr(Guid playerId) => _qrFor = _qrFor == playerId ? null : playerId;
+
+    private async Task CopyShelfLinkAsync(ShelfLinkDto link)
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", ShelfUrl(link));
+        Snackbar.Add("Shelf link copied.", Severity.Info);
+    }
+
+    /// <summary>Mints a link, or replaces the standing one — after asking, since the old one stops working.</summary>
+    private async Task MintShelfLinkAsync(PlayerDto player, bool rotate)
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        if (rotate)
+        {
+            var confirmed = await DialogService.ShowMessageBoxAsync(
+                "New shelf link?",
+                $"{player.Name}'s current link stops working. Whoever holds it loses the shelf until you send the new one.",
+                yesText: "New link", cancelText: "Cancel");
+            if (confirmed != true)
+            {
+                return;
+            }
+        }
+
+        _busy = true;
+        var result = await Api.CreateShelfLinkAsync(Worlds.Current.Id, player.Id);
+        _busy = false;
+
+        if (result.IsSuccess)
+        {
+            Snackbar.Add($"{player.Name} has a shelf link. Copy it and send it to them.", Severity.Success);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private async Task RevokeShelfLinkAsync(PlayerDto player, ShelfLinkDto link)
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Take the link back?",
+            $"{player.Name}'s shelf link stops working now. You can give them a new one any time.",
+            yesText: "Revoke", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _busy = true;
+        var result = await Api.RevokeShelfLinkAsync(Worlds.Current.Id, link.Id);
         _busy = false;
 
         if (result.IsSuccess)

@@ -214,7 +214,6 @@ public class PublicController : ControllerBase
         var result = await _sourceService.ListSummariesByWorldAsync(world.Id, AnonymousUserId, PublicRole, ct);
         return result.IsSuccess
             ? Ok(result.Value!
-                .Where(s => s.Type is SourceType.SessionNote or SourceType.ImportedNote)
                 .Select(SourcesController.ToSourceListItemResponse)
                 .ToList())
             : PublicNotFound();

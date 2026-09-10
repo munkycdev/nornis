@@ -26,7 +26,7 @@ public class ReachabilityTests
     /// </summary>
     private static readonly HashSet<string> Exempt = new(StringComparer.OrdinalIgnoreCase)
     {
-        "/", "/Error", "/invite/{Code}", "/welcome", "/about", "/features", "/changelog",
+        "/", "/Error", "/invite/{Code}", "/shelf/{Code}", "/welcome", "/about", "/features", "/changelog",
         "/privacy", "/terms", "/licenses", "/canon", "/graph", "/graph/{FocusId:guid}", "/costs", "/settings",
         // /extract is the older alias of /import; the page carries both.
         "/extract",

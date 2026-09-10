@@ -1104,6 +1104,23 @@ a.nornis-tutorial-step-title:hover {
     border-top: 1px solid var(--mud-palette-divider);
 }
 
+/* A shelf link's QR code, held up at the table. White on purpose, whatever the theme: a
+   scanner wants contrast, not the palette. */
+.nornis-shelf-qr {
+    width: 180px;
+    margin-top: 8px;
+    padding: 8px;
+    background: #ffffff;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 10px;
+}
+
+.nornis-shelf-qr svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
 /* A world's whole source list can run to hundreds of rows; the picker scrolls inside the
    card rather than pushing the staged backlog and its Start button off the page. */
 .nornis-scroll-list {

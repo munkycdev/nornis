@@ -323,6 +323,31 @@ public record LinkPlayerRequest(Guid WorldMemberId);
 
 public record MoveCharacterRequest(Guid PlayerId);
 
+/// <summary>A standing shelf link as the GM sees it; the code is the secret.</summary>
+public record ShelfLinkDto(
+    Guid Id,
+    Guid PlayerId,
+    string Code,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? LastUsedAt);
+
+public record CreateShelfLinkRequest(Guid PlayerId);
+
+/// <summary>What a shelf link opens: the party shelf, named for its world and player.</summary>
+public record ShelfDto(
+    string WorldName,
+    string PlayerName,
+    IReadOnlyList<ShelfDocumentDto> Documents);
+
+public record ShelfDocumentDto(
+    Guid Id,
+    string Title,
+    string Kind,
+    string FileName,
+    string ContentType,
+    long SizeBytes,
+    int? PageCount);
+
 public record CharacterDto(
     Guid Id,
     Guid WorldId,

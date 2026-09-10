@@ -7,6 +7,9 @@
 > here — the role model, the visibility model, the AI rules, the secure-development rules —
 > stands as written and is the authority for `[auth]` work.
 
+> **Amendment (2026-09-10):** a third anonymous family, `/api/shelf/{code}/**`, joins the list below,
+> and a "Shelf Links" section at the foot says what it serves and why it is safe. Feature 27.
+
 > **Amendment (2026-08-02): where GM gating lives.** Role checks are enforced in the
 > **application services**, which receive the acting role as a parameter (`ActingUserRole` on
 > a command, or an explicit argument). Controllers resolve membership through
@@ -55,13 +58,14 @@ Authenticated by default.
 
 Anonymous endpoints are forbidden unless explicitly approved.
 
-Allowed anonymous endpoints (updated 2026-08-02):
+Allowed anonymous endpoints (updated 2026-09-10):
 
 ```text
 GET  /health                              liveness — is this deploy broken
 GET  /status                              dependency probes for the ops page
      /api/public/worlds/{slug}/**         the public world surface (below)
 POST /api/public/worlds/{slug}/ask        public Ask, capped per world
+GET  /api/shelf/{code}/**                 the party shelf behind a shelf link (below)
 ```
 
 The `/api/public/**` family is anonymous by design and rate-limited as a group. It serves
@@ -237,3 +241,26 @@ GMs may create invite links. Direct GM addition still exists alongside them.
   invites each answer with their own error rather than a generic refusal.
 - Still not built, and still not wanted without a request: email invitations and Discord
   onboarding integration.
+
+## Shelf Links
+
+> **Added 2026-09-10 (feature 27).**
+
+A GM may mint a shelf link for a player who is not on Nornis — a person at the table with
+no account, and possibly no ability to agree to one. The link opens the world's party shelf,
+the Library as a member with the Player role sees it, and nothing else.
+
+- **The code is the credential.** `/api/shelf/{code}/**` is anonymous and rate-limited with
+  the public family. It serves the shelf and a document's short-lived read URL, both through
+  `LibraryService` acting as `WorldRole.Player`, so the scope rule has one home and a GM-shelf
+  document is unreachable by any id. No Ask, no codex, no write.
+- **Unknown and revoked codes answer one and the same 404.** No existence oracle.
+- **Not output-cached.** A revocation lands on the next request, not at the end of a window.
+- **Minting, listing and revoking are GM-only**, enforced in `ShelfLinkService`. Only a player
+  without a membership can hold one (409 `player_linked` otherwise — a member has the Library
+  page); one standing link per player, enforced by a filtered unique index; minting again
+  rotates; there is no expiry, so revocation is the one control and `LastUsedAt` the visibility.
+- **Closed distribution, not publication.** The page carries `noindex, nofollow`; nothing on the
+  public world links to a shelf; codes are never logged and appear only in GM responses.
+- **A link goes with its player.** The row cascades from `Player`, so the claim-or-link merge of
+  feature 25 retires it with the unlinked row. Not exported with a world.

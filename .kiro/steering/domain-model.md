@@ -1,5 +1,26 @@
 # Domain Model
 
+> **Amendment (2026-09-10): a player without an account can hold a shelf link.** Feature 27
+> adds `ShelfLink` — a capability code minted by a GM for one unlinked `Player`, which opens
+> the world's party shelf (the Library as a member with the Player role sees it) anonymously,
+> and nothing else. At most one standing link per player (`RevokedAt IS NULL`, a filtered
+> unique index); minting again rotates. No expiry: revocation is the one control and
+> `LastUsedAt` the visibility. Only for players with no membership — a member has the Library
+> page — and the row cascades from the player, so feature 25's claim-or-link merge retires it
+> with the unlinked row. Never exported. It confers no rights beyond the shelf, and it carries
+> no world id of its own: the world is the player's.
+>
+> ```csharp
+> ShelfLink
+> - Id: Guid
+> - PlayerId: Guid               // cascade from Player
+> - Code: string                 // ≤ 32, unique; a capability secret, never logged
+> - CreatedByUserId: Guid
+> - CreatedAt: DateTimeOffset
+> - RevokedAt: DateTimeOffset?   // null = standing
+> - LastUsedAt: DateTimeOffset?  // null = never opened
+> ```
+
 > **Amendment (2026-08-09): the Character↔Artifact link is built, not future.**
 > The Character section below closes by calling the link between a member's `Character` and the
 > AI-extracted `Artifact` of type `Character` "a future feature, not MVP". It shipped:

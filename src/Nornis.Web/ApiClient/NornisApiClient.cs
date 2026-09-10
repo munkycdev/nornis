@@ -213,6 +213,26 @@ public class NornisApiClient
     public Task<ApiResult<PlayerDto>> LinkPlayerAsync(Guid worldId, Guid playerId, Guid worldMemberId, CancellationToken ct = default) =>
         PutAsync<LinkPlayerRequest, PlayerDto>($"/api/worlds/{worldId}/players/{playerId}/member", new LinkPlayerRequest(worldMemberId), ct);
 
+    // ---------------------------------------------------------------- Shelf links --
+
+    /// <summary>The world's standing shelf links. GM only — each carries its code.</summary>
+    public Task<ApiResult<IReadOnlyList<ShelfLinkDto>>> GetShelfLinksAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<ShelfLinkDto>>($"/api/worlds/{worldId}/shelf-links", ct);
+
+    /// <summary>Mints a link for a player who is not on Nornis, rotating any standing one.</summary>
+    public Task<ApiResult<ShelfLinkDto>> CreateShelfLinkAsync(Guid worldId, Guid playerId, CancellationToken ct = default) =>
+        PostAsync<CreateShelfLinkRequest, ShelfLinkDto>($"/api/worlds/{worldId}/shelf-links", new CreateShelfLinkRequest(playerId), ct);
+
+    public Task<ApiResult<bool>> RevokeShelfLinkAsync(Guid worldId, Guid linkId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/shelf-links/{linkId}", ct);
+
+    /// <summary>Opens a shelf link. Anonymous — the code is the whole credential.</summary>
+    public Task<ApiResult<ShelfDto>> GetShelfAsync(string code, CancellationToken ct = default) =>
+        GetAsync<ShelfDto>($"/api/shelf/{Uri.EscapeDataString(code)}", ct);
+
+    public Task<ApiResult<LibraryDownloadDto>> GetShelfDownloadAsync(string code, Guid documentId, CancellationToken ct = default) =>
+        GetAsync<LibraryDownloadDto>($"/api/shelf/{Uri.EscapeDataString(code)}/documents/{documentId}/download", ct);
+
     // ----------------------------------------------------------------- Characters --
 
     public Task<ApiResult<IReadOnlyList<CharacterDto>>> GetCharactersAsync(Guid worldId, bool mine = false, CancellationToken ct = default) =>
