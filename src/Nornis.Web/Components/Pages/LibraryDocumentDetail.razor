@@ -6,15 +6,11 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject NavigationManager Nav
+@inject BreadcrumbState Crumbs
 
 <PageTitle>@(_document?.Title ?? "Library") — Nornis</PageTitle>
 
 <div>
-    <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text"
-               Color="Color.Default" Href="/library" Class="mb-3">
-        Library
-    </MudButton>
-
     @if (Worlds.Current is null)
     {
         <NoWorld />
@@ -37,6 +33,8 @@
     }
     else
     {
+        <EntityPage>
+        <Body>
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
             <div class="d-flex align-center gap-3 mb-2">
                 <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Large" Color="Color.Secondary" />
@@ -102,6 +100,11 @@
                 }
             </div>
         </MudPaper>
+        </Body>
+        <Rail>
+            <ContextRail Rows="@RailRows" Related="@RailRelated" RowsTitle="This document" />
+        </Rail>
+        </EntityPage>
     }
 </div>
 
@@ -133,6 +136,16 @@
 
     private void OnWorldChanged() => InvokeAsync(LoadAsync);
 
+    private IReadOnlyList<ContextRail.RailRow> RailRows => _document is null ? [] :
+    [
+        new("Kind", _document.Kind),
+        new("Pages", _document.PageCount?.ToString() ?? "—"),
+        new("Passages", _document.ChunkCount.ToString()),
+        new("Status", _document.Status),
+    ];
+
+    private IReadOnlyList<ContextRail.RailLink> RailRelated => [];
+
     private async Task LoadAsync()
     {
         if (Worlds.Current is null)
@@ -153,6 +166,10 @@
         if (result.IsSuccess)
         {
             _document = result.Value;
+            if (_document is not null)
+            {
+                Crumbs.Set($"/library/{_document.Id}", new Crumb("Library", "/library"), new Crumb(_document.Title));
+            }
         }
         else if (result.Error!.Code == "not_found")
         {

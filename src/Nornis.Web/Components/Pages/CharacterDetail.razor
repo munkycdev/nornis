@@ -1,9 +1,10 @@
-@page "/characters/{CharacterId:guid}"
+﻿@page "/characters/{CharacterId:guid}"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject BreadcrumbState Crumbs
 @using Nornis.Web.Services
 
 @* A character's own page: who plays them, where they have played, and what the record knows
@@ -18,11 +19,6 @@
 <PageTitle>@(_dossier?.Character.Name ?? "Character") — Nornis</PageTitle>
 
 <div>
-    <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text"
-               Color="Color.Default" Href="/profile" Class="mb-3">
-        Characters
-    </MudButton>
-
     @if (Worlds.Current is null)
     {
         <NoWorld />
@@ -38,6 +34,8 @@
     else
     {
         var ch = _dossier.Character;
+        <EntityPage>
+        <Header>
 
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
             <div class="d-flex align-center gap-3">
@@ -64,6 +62,8 @@
                 </div>
             }
         </MudPaper>
+        </Header>
+        <Body>
 
         @if (_dossier.CanEditSheet || _dossier.Sheet is not null)
         {
@@ -160,7 +160,9 @@
             </MudPaper>
         }
 
-        var snapshots = _dossier.Snapshots ?? [];
+        @{
+            var snapshots = _dossier.Snapshots ?? [];
+        }
 
         @if (_dossier.CanEditSheet || snapshots.Count > 0)
         {
@@ -335,6 +337,11 @@
                 </MudPaper>
             }
         }
+        </Body>
+        <Rail>
+            <ContextRail Rows="@RailRows" Related="@RailRelated" RowsTitle="The record" RelatedTitle="Connected" />
+        </Rail>
+        </EntityPage>
     }
 </div>
 
@@ -499,6 +506,36 @@
 
     protected override async Task OnParametersSetAsync() => await LoadAsync();
 
+    private IReadOnlyList<ContextRail.RailRow> RailRows
+    {
+        get
+        {
+            if (_dossier is null)
+            {
+                return [];
+            }
+
+            var rows = new List<ContextRail.RailRow> { new("Played by", _dossier.OwnerDisplayName) };
+            if (_dossier.Record is { } record)
+            {
+                rows.Add(new("Facts", record.TotalFactCount.ToString()));
+                rows.Add(new("Connected", record.Groups.Sum(g => g.TotalCount).ToString()));
+            }
+            if (_dossier.Snapshots is { Count: > 0 } snaps)
+            {
+                rows.Add(new("Snapshots", snaps.Count.ToString()));
+            }
+            return rows;
+        }
+    }
+
+    private IReadOnlyList<ContextRail.RailLink> RailRelated => _dossier?.Record is null ? [] :
+        _dossier.Record.Groups
+            .SelectMany(g => g.Artifacts)
+            .Take(8)
+            .Select(a => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(a.Type), a.Name, $"/artifacts/{a.Id}"))
+            .ToList();
+
     private async Task LoadAsync()
     {
         if (Worlds.Current is null)
@@ -522,5 +559,9 @@
 
         _dossier = result.IsSuccess ? result.Value : null;
         _loading = false;
+        if (_dossier is not null)
+        {
+            Crumbs.Set($"/characters/{_dossier.Character.Id}", new Crumb("Party", "/party"), new Crumb(_dossier.Character.Name));
+        }
     }
 }

@@ -6,14 +6,11 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject NavigationManager Nav
+@inject BreadcrumbState Crumbs
 
 <PageTitle>@(_source?.Title ?? "Source") — Nornis</PageTitle>
 
 <div>
-    <MudButton Href="/sources" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2">
-        Sources
-    </MudButton>
-
     @if (Worlds.Current is null)
     {
         <NoWorld />
@@ -38,6 +35,8 @@
     }
     else if (_source is not null)
     {
+        <EntityPage>
+        <Header>
         <div class="nornis-detail-head">
             <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Description" /></div>
             <div class="flex-grow-1">
@@ -105,6 +104,8 @@
                 </div>
             }
         </div>
+        </Header>
+        <Body>
 
         @if (_replay is not null && _replay.Status == "Active")
         {
@@ -419,6 +420,11 @@
                 </MudPaper>
             }
         }
+        </Body>
+        <Rail>
+            <ContextRail Rows="@RailRows" Related="@RailRelated" RowsTitle="This source" RelatedTitle="Contributed" />
+        </Rail>
+        </EntityPage>
     }
 </div>
 
@@ -702,6 +708,40 @@
 
     private void OnWorldChanged() => InvokeAsync(LoadAsync);
 
+    private IReadOnlyList<ContextRail.RailRow> RailRows
+    {
+        get
+        {
+            if (_source is null)
+            {
+                return [];
+            }
+
+            var rows = new List<ContextRail.RailRow>();
+            if (_source.CampaignName is not null)
+            {
+                rows.Add(new("Campaign", _source.CampaignName, $"/campaigns/{_source.CampaignId}"));
+            }
+            if (_knowledge is not null)
+            {
+                rows.Add(new("Entries", _knowledge.Artifacts.Count.ToString()));
+                rows.Add(new("Facts", _knowledge.Facts.Count.ToString()));
+                rows.Add(new("Relationships", _knowledge.Relationships.Count.ToString()));
+            }
+            if (_attachments.Count > 0)
+            {
+                rows.Add(new("Attachments", _attachments.Count.ToString()));
+            }
+            return rows;
+        }
+    }
+
+    private IReadOnlyList<ContextRail.RailLink> RailRelated => _knowledge is null ? [] :
+        _knowledge.Artifacts
+            .Take(8)
+            .Select(k => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(k.Type), k.Name, $"/artifacts/{k.ArtifactId}"))
+            .ToList();
+
     private async Task LoadAsync()
     {
         if (Worlds.Current is null)
@@ -745,6 +785,10 @@
         if (result.IsSuccess)
         {
             _source = result.Value!;
+            Crumbs.Set($"/sources/{_source.Id}",
+                _source.CampaignId is { } campaignId && _source.CampaignName is not null
+                    ? [new Crumb("Sources", "/sources"), new Crumb(_source.CampaignName, $"/campaigns/{campaignId}"), new Crumb(_source.Title)]
+                    : [new Crumb("Sources", "/sources"), new Crumb(_source.Title)]);
 
             _attachments = [];
             _mapView = null;

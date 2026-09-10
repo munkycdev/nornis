@@ -3,6 +3,7 @@
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject ISnackbar Snackbar
+@inject BreadcrumbState Crumbs
 
 @* A campaign's own page. Every member may read it — a campaign is a place to look, not an
    authorization boundary — and the server assembles it at the caller's visibility, so a
@@ -12,11 +13,6 @@
 <PageTitle>@(_detail?.Campaign.Name ?? "Campaign") — Nornis</PageTitle>
 
 <div>
-    <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text"
-               Color="Color.Default" Href="/settings" Class="mb-3">
-        Campaigns
-    </MudButton>
-
     @if (Worlds.Current is null)
     {
         <NoWorld />
@@ -32,6 +28,8 @@
     else
     {
         var c = _detail.Campaign;
+        <EntityPage>
+        <Header>
 
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
             <div class="d-flex align-center gap-3">
@@ -81,6 +79,8 @@
                 </MudText>
             }
         </MudPaper>
+        </Header>
+        <Body>
 
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
             <div class="nornis-card-header">
@@ -266,6 +266,11 @@
                 }
             }
         </MudPaper>
+        </Body>
+        <Rail>
+            <ContextRail Rows="@RailRows" Related="@RailRelated" RowsTitle="This campaign" RelatedTitle="Cast" />
+        </Rail>
+        </EntityPage>
     }
 </div>
 
@@ -319,6 +324,19 @@
 
     protected override async Task OnParametersSetAsync() => await LoadAsync();
 
+    private IReadOnlyList<ContextRail.RailRow> RailRows => _detail is null ? [] :
+    [
+        new("Cast", _detail.Characters.Count.ToString()),
+        new("Entries", _detail.ArtifactTotalCount.ToString()),
+        new("Sessions", _detail.SessionCount.ToString(), $"/sources?campaign={CampaignId}"),
+    ];
+
+    private IReadOnlyList<ContextRail.RailLink> RailRelated => _detail is null ? [] :
+        _detail.Characters
+            .Take(8)
+            .Select(ch => new ContextRail.RailLink(Icons.Material.Outlined.Person, ch.Name, $"/characters/{ch.Id}"))
+            .ToList();
+
     private async Task LoadAsync()
     {
         if (Worlds.Current is null)
@@ -343,6 +361,10 @@
 
         _detail = result.IsSuccess ? result.Value : null;
         _loading = false;
+        if (_detail is not null)
+        {
+            Crumbs.Set($"/campaigns/{_detail.Campaign.Id}", new Crumb("Campaigns", "/campaigns"), new Crumb(_detail.Campaign.Name));
+        }
     }
 
     private async Task GenerateRecapAsync()
