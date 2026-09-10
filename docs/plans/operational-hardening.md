@@ -151,7 +151,10 @@ the backstop. A message that exhausts retries today vanishes silently.
 > refused the two commands that clear it; they are David's to run, in this order:
 > `az rest --method patch` on the account with `{"properties":{"customDomain":{"name":""}}}`,
 > then `az storage account update --allow-shared-key-access false`. Nothing in the repo or
-> the deployed apps uses the key any more.
+> the deployed apps uses the key any more. **David ran both the same day; shared-key access
+> is off and the custom domain is gone.** O3 is closed in full: no SQL login, no storage
+> key, no Service Bus shared-access policy but the root one, and the three remaining app
+> secrets are the AI keys and the Auth0 client secret.
 
 SQL, blob, and Service Bus all authenticate by connection string in config. The
 deploy pipeline already uses OIDC; extend the pattern to runtime.

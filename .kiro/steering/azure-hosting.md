@@ -34,8 +34,8 @@
 > SAS URLs for browser uploads are signed with a user delegation key. The only remaining
 > app secrets are the two Azure OpenAI keys and the Auth0 client secret. Read "Secrets"
 > below in that light. *(2026-09-09: the SQL server is Entra-only — no SQL logins work at
-> all; shared-key access on the storage account is to be disabled once its dead custom
-> domain is cleared, see the plan file.)*
+> all — and shared-key access on the storage account is off; every path into the three
+> stores is an identity.)*
 
 > **Amendment (2026-09-09):** there is no Key Vault. Nothing provisions one and nothing reads
 > from one; the "Secrets" section below describes a mechanism that was never built. The three
