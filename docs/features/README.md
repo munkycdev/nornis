@@ -35,7 +35,7 @@ simply never used, and it stays unused so that every existing reference keeps it
 | 22 | What you learned | 2026-08-06 | Notifications leaving the app, per-character views, GM audit |
 | 23 | Character dossier | 2026-09-08 (all four phases) | Link back from an artifact's played-by names (declined); D3 is a standing instruction, not work |
 | 24 | Interface and navigation — Nornis 2.0 | 2026-09-10 (all four phases) | Theme preference lives in the browser, not on `User`; the player-side live walk (V3) was not run |
-| 25 | Players at the table | Spec'd 2026-09-10; not built | Three phases A–C; one migration in A, applied by hand |
+| 25 | Players at the table | 2026-09-10 (all three phases) | The second-identity half of the live claim walk was not run; a member's player name is refreshed only at removal |
 
 Work sequenced outside this folder — the August operations and test-quality backlog — lives in
 [`../future-features.md`](../future-features.md) and `../plans/`. Campaigns' first-tier page

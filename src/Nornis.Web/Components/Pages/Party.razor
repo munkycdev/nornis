@@ -96,6 +96,33 @@ else
                     }
                 </div>
             }
+            @if (IsGm && player.WorldMemberId is null)
+            {
+                @* Someone not on Nornis cannot add their own; the GM does it here, on their row. *@
+                <div class="nornis-add-member mt-3">
+                    <MudSelect T="Guid?" Value="@LinkTargetFor(player.Id)" ValueChanged="@((Guid? v) => _linkTargets[player.Id] = v)"
+                               Label="@($"{player.Name} is on Nornis as…")" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                               Clearable="true" Class="flex-grow-1">
+                        @foreach (var m in _members)
+                        {
+                            <MudSelectItem T="Guid?" Value="@((Guid?)m.Id)">@MemberDisplay.Name(m)</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Link"
+                               OnClick="() => LinkAsync(player)" Disabled="_busy || LinkTargetFor(player.Id) is null">
+                        Link
+                    </MudButton>
+                </div>
+                <div class="nornis-add-member mt-3">
+                    <MudTextField Value="@NewCharacterNameFor(player.Id)" ValueChanged="@((string v) => _newCharacterNames[player.Id] = v)"
+                                  T="string" Label="@($"New character for {player.Name}")" MaxLength="200"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" />
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="() => AddCharacterAsync(player)" Disabled="_busy">
+                        Add
+                    </MudButton>
+                </div>
+            }
         </MudPaper>
     }
 
@@ -129,6 +156,8 @@ else
     private string? _error;
     private IReadOnlyList<PlayerDto> _players = [];
     private IReadOnlyList<CharacterDto> _characters = [];
+    private IReadOnlyList<WorldMember> _members = [];
+    private readonly Dictionary<Guid, Guid?> _linkTargets = [];
 
     private string _newName = string.Empty;
     private string? _addError;
@@ -162,8 +191,11 @@ else
 
         var playersTask = Api.GetPlayersAsync(Worlds.Current.Id);
         var charactersTask = Api.GetCharactersAsync(Worlds.Current.Id);
+        var membersTask = IsGm ? Api.GetMembersAsync(Worlds.Current.Id) : null;
         var players = await playersTask;
         var characters = await charactersTask;
+        // Only the GM links, so only the GM needs the accounts to link to.
+        _members = membersTask is null ? [] : (await membersTask) is { IsSuccess: true } m ? m.Value! : [];
 
         _loading = false;
         if (!players.IsSuccess)
@@ -200,6 +232,70 @@ else
         else
         {
             _addError = result.Error!.Message;
+        }
+    }
+
+    private readonly Dictionary<Guid, string> _newCharacterNames = [];
+
+    private string NewCharacterNameFor(Guid playerId) => _newCharacterNames.GetValueOrDefault(playerId, string.Empty);
+
+    private async Task AddCharacterAsync(PlayerDto player)
+    {
+        var name = NewCharacterNameFor(player.Id).Trim();
+        if (Worlds.Current is null || name.Length == 0)
+        {
+            Snackbar.Add("A character needs a name.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        var result = await Api.CreateCharacterAsync(Worlds.Current.Id, new CreateCharacterRequest(name, PlayerId: player.Id));
+        _busy = false;
+
+        if (result.IsSuccess)
+        {
+            _newCharacterNames.Remove(player.Id);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private Guid? LinkTargetFor(Guid playerId) => _linkTargets.GetValueOrDefault(playerId);
+
+    /// <summary>The GM says who this player is on Nornis; the same merge the member's own claim does.</summary>
+    private async Task LinkAsync(PlayerDto player)
+    {
+        if (Worlds.Current is null || LinkTargetFor(player.Id) is not { } memberId)
+        {
+            return;
+        }
+
+        var memberName = _members.FirstOrDefault(m => m.Id == memberId) is { } m ? MemberDisplay.Name(m) : "that member";
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Link this player?",
+            $"{player.Name} is {memberName}? Everything {player.Name} plays becomes {memberName}'s, and the name goes.",
+            yesText: "Link", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _busy = true;
+        var result = await Api.LinkPlayerAsync(Worlds.Current.Id, player.Id, memberId);
+        _busy = false;
+
+        if (result.IsSuccess)
+        {
+            _linkTargets.Remove(player.Id);
+            Snackbar.Add($"{player.Name} is {memberName} now.", Severity.Success);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
         }
     }
 

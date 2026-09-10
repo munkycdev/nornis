@@ -18,7 +18,7 @@ namespace Nornis.Infrastructure.Migrations
     /// SELECT COUNT(*) FROM Characters WHERE PlayerId IS NULL;
     /// SELECT COUNT(*) FROM WorldMembers m LEFT JOIN Players p ON p.WorldMemberId = m.Id WHERE p.Id IS NULL;
     /// </code>
-    /// (The first cannot be non-zero after step 3 succeeds; it is listed so the check is the
+    /// (The first cannot be non-zero after step 4 succeeds; it is listed so the check is the
     /// same before and after.)
     /// </summary>
     public partial class AddPlayers : Migration
@@ -95,7 +95,18 @@ namespace Nornis.Infrastructure.Migrations
                 JOIN Players p ON p.WorldMemberId = c.WorldMemberId;
                 """);
 
-            // 3. The new column becomes the one that matters.
+            // 3. The old cascade goes first: SQL Server refuses a second cascading path into
+            //    Characters (Worlds→WorldMembers→Characters beside Worlds→Players→Characters),
+            //    error 1785, and the first attempt at this migration found that out.
+            migrationBuilder.DropForeignKey(
+                name: "FK_Characters_WorldMembers_WorldMemberId",
+                table: "Characters");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Characters_WorldMemberId",
+                table: "Characters");
+
+            // 4. The new column becomes the one that matters.
             migrationBuilder.AlterColumn<Guid>(
                 name: "PlayerId",
                 table: "Characters",
@@ -118,15 +129,7 @@ namespace Nornis.Infrastructure.Migrations
                 principalColumn: "Id",
                 onDelete: ReferentialAction.Cascade);
 
-            // 4. The old one goes.
-            migrationBuilder.DropForeignKey(
-                name: "FK_Characters_WorldMembers_WorldMemberId",
-                table: "Characters");
-
-            migrationBuilder.DropIndex(
-                name: "IX_Characters_WorldMemberId",
-                table: "Characters");
-
+            // 5. The old column goes.
             migrationBuilder.DropColumn(
                 name: "WorldMemberId",
                 table: "Characters");
@@ -160,6 +163,15 @@ namespace Nornis.Infrastructure.Migrations
                 oldType: "uniqueidentifier",
                 oldNullable: true);
 
+            // The player cascade goes before the member cascade returns, for the reason Up gives.
+            migrationBuilder.DropForeignKey(
+                name: "FK_Characters_Players_PlayerId",
+                table: "Characters");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Characters_PlayerId",
+                table: "Characters");
+
             migrationBuilder.CreateIndex(
                 name: "IX_Characters_WorldMemberId",
                 table: "Characters",
@@ -172,14 +184,6 @@ namespace Nornis.Infrastructure.Migrations
                 principalTable: "WorldMembers",
                 principalColumn: "Id",
                 onDelete: ReferentialAction.Cascade);
-
-            migrationBuilder.DropForeignKey(
-                name: "FK_Characters_Players_PlayerId",
-                table: "Characters");
-
-            migrationBuilder.DropIndex(
-                name: "IX_Characters_PlayerId",
-                table: "Characters");
 
             migrationBuilder.DropColumn(
                 name: "PlayerId",
