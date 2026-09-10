@@ -6,18 +6,20 @@
    ============================================================================ */
 
 :root {
-    --nornis-serif: 'Cormorant Garamond', 'Georgia', serif;
-    --nornis-sans: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --nornis-serif: 'Newsreader', 'Georgia', serif;
+    --nornis-sans: 'IBM Plex Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 
-    /* Translucent overlays used on the dark sidebar (derived, not brand colors). */
-    --nornis-onnavy-raised: rgba(255, 255, 255, 0.06);
-    --nornis-onnavy-border: rgba(255, 255, 255, 0.10);
-    --nornis-onnavy-muted: rgba(183, 193, 206, 0.85);
-    /* Success reads too dark on navy at small sizes; lightened variant for on-navy text. */
-    --nornis-onnavy-success: #6FB98A;
+    /* Translucent overlays used on the tinted sidebar (derived, not brand colours). */
+    --nornis-onside-raised: rgba(28, 31, 36, 0.05);
+    --nornis-onside-border: rgba(28, 31, 36, 0.10);
+    --nornis-onside-muted: #6B7079;
+    --nornis-onside-success: #3F8A5C;
 
-    --nornis-card-shadow: 0 1px 2px rgba(14, 46, 74, 0.05), 0 8px 24px rgba(14, 46, 74, 0.05);
-    --nornis-topo: radial-gradient(120% 100% at 50% 0%, rgba(196, 161, 90, 0.05) 0%, rgba(196, 161, 90, 0) 55%);
+    /* The brand's own gold: the stonemark and the public hero, nowhere in the interface. */
+    --nornis-gold: var(--mud-palette-primary);
+
+    --nornis-card-shadow: 0 1px 2px rgba(28, 31, 36, 0.04), 0 6px 18px rgba(28, 31, 36, 0.04);
+    --nornis-topo: radial-gradient(120% 100% at 50% 0%, rgba(139, 74, 60, 0.05) 0%, rgba(139, 74, 60, 0) 55%);
 }
 
 html, body {
@@ -29,8 +31,8 @@ html, body {
 /* Serif display type for headings and brand — applied via class, never inline. */
 .nornis-serif {
     font-family: var(--nornis-serif);
-    font-weight: 600;
-    letter-spacing: 0.005em;
+    font-weight: 500;
+    letter-spacing: 0;
 }
 
 .nornis-eyebrow {
@@ -61,51 +63,6 @@ html, body {
     padding: 16px 28px;
 }
 
-.nornis-topbar .nornis-search {
-    flex: 1;
-    max-width: 560px;
-    margin: 0 auto;
-}
-
-.nornis-search .mud-input-root {
-    background-color: var(--mud-palette-surface);
-    border-radius: 999px;
-    border: 1px solid var(--mud-palette-lines-default);
-    padding-left: 8px;
-}
-
-/* Search result rows in the top-bar dropdown. */
-.nornis-search-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-}
-
-.nornis-search-item-body {
-    min-width: 0;
-}
-
-.nornis-search-item-title {
-    font-weight: 600;
-    font-size: 0.88rem;
-    color: var(--mud-palette-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.nornis-search-item-sub {
-    font-size: 0.74rem;
-    color: var(--mud-palette-text-secondary);
-}
-
-.nornis-search-empty {
-    padding: 8px 4px;
-    font-size: 0.82rem;
-    color: var(--mud-palette-text-secondary);
-}
-
 .nornis-kbd {
     border: 1px solid var(--mud-palette-lines-default);
     border-radius: 6px;
@@ -114,26 +71,14 @@ html, body {
     color: var(--mud-palette-text-secondary);
 }
 
-.nornis-account {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-}
-
-.nornis-account-name {
-    font-weight: 600;
-    line-height: 1.1;
-    color: var(--mud-palette-text-primary);
-}
-
-.nornis-account-role {
-    font-size: 0.78rem;
-    color: var(--mud-palette-text-secondary);
-    line-height: 1.1;
-}
-
 /* --------------------------------------------------------------- Sidebar -- */
+
+/* The sidebar is a tint of the page behind a hairline, not a block of its own. */
+.nornis-sidebar.mud-drawer,
+.nornis-sidebar .mud-drawer {
+    border-right: 1px solid var(--mud-palette-divider);
+    box-shadow: none;
+}
 
 .nornis-sidebar .mud-drawer-content {
     display: flex;
@@ -164,8 +109,8 @@ html, body {
 .nornis-graph-canvas {
     height: min(72vh, 780px);
     border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 12px;
-    background: #FDFBF7;
+    border-radius: 8px;
+    background: var(--mud-palette-surface);
 }
 
 /* Compact variant for inline embeds (artifact detail Connections). */
@@ -179,17 +124,8 @@ html, body {
     margin: 4px 0;
 }
 
-.nornis-wm-component {
-    margin-bottom: 14px;
-}
-
-.nornis-wm-bar {
-    border-radius: 4px;
-    margin: 4px 0;
-}
-
 .nornis-wm-total {
-    border-top: 1px solid rgba(42, 59, 76, 0.15);
+    border-top: 1px solid rgba(28, 31, 36, 0.15);
     margin-top: 6px;
     padding-top: 8px;
     font-weight: 600;
@@ -213,32 +149,32 @@ html, body {
 }
 
 .nornis-footer-made {
-    color: rgba(42, 59, 76, 0.5);
+    color: rgba(28, 31, 36, 0.5);
 }
 
 .nornis-footer-version {
-    color: rgba(42, 59, 76, 0.38);
+    color: rgba(28, 31, 36, 0.38);
     font-variant-numeric: tabular-nums;
 }
 
 .nornis-footer a {
-    color: rgba(42, 59, 76, 0.5);
+    color: rgba(28, 31, 36, 0.5);
     text-decoration: none;
 }
 
 .nornis-footer a:hover {
-    color: rgba(42, 59, 76, 0.85);
+    color: rgba(28, 31, 36, 0.85);
     text-decoration: underline;
 }
 
 /* The copyright line links to the welcome page. It keeps the quiet version tone rather than
    taking the footer link colour — it is a way back, not a sixth item in the link row. */
 .nornis-footer a.nornis-footer-version {
-    color: rgba(42, 59, 76, 0.38);
+    color: rgba(28, 31, 36, 0.38);
 }
 
 .nornis-footer a.nornis-footer-version:hover {
-    color: rgba(42, 59, 76, 0.85);
+    color: rgba(28, 31, 36, 0.85);
     text-decoration: underline;
 }
 
@@ -253,8 +189,8 @@ html, body {
 .nornis-timeline-scroll {
     overflow-x: auto;
     border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 12px;
-    background: #FDFBF7;
+    border-radius: 8px;
+    background: var(--mud-palette-surface);
 }
 
 .nornis-timeline-wrap {
@@ -274,8 +210,8 @@ html, body {
     position: sticky;
     left: 0;
     z-index: 2;
-    background: #FDFBF7;
-    border-right: 1px solid rgba(42, 59, 76, 0.08);
+    background: var(--mud-palette-surface);
+    border-right: 1px solid rgba(28, 31, 36, 0.08);
 }
 
 .nornis-timeline-band {
@@ -288,8 +224,8 @@ html, body {
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: rgba(42, 59, 76, 0.55);
-    border-top: 1px solid rgba(42, 59, 76, 0.12);
+    color: rgba(28, 31, 36, 0.55);
+    border-top: 1px solid rgba(28, 31, 36, 0.12);
     pointer-events: none;
 }
 
@@ -305,10 +241,10 @@ html, body {
     align-items: center;
     gap: 6px;
     font-size: 0.75rem;
-    color: #2A3B4C;
+    color: var(--mud-palette-text-primary);
     cursor: pointer;
     border-radius: 6px;
-    background: #FDFBF7;
+    background: var(--mud-palette-surface);
 }
 
 .nornis-timeline-label:hover {
@@ -329,7 +265,7 @@ html, body {
     font-size: 0.6rem;
     font-weight: 700;
     letter-spacing: 0.04em;
-    color: rgba(42, 59, 76, 0.6);
+    color: rgba(28, 31, 36, 0.6);
     background: rgba(63, 96, 121, 0.1);
     border-radius: 999px;
     padding: 1px 6px;
@@ -355,12 +291,12 @@ html, body {
     gap: 8px;
     padding: 8px 18px;
     border-radius: 999px;
-    background: #FDFBF7;
+    background: var(--mud-palette-surface);
     border: 2px dashed rgba(63, 96, 121, 0.5);
-    box-shadow: 0 6px 20px rgba(14, 46, 74, 0.16);
+    box-shadow: 0 6px 20px rgba(28, 31, 36, 0.16);
     font-size: 0.8rem;
     font-weight: 600;
-    color: #2A3B4C;
+    color: var(--mud-palette-text-primary);
     pointer-events: none;
 }
 
@@ -372,7 +308,7 @@ html, body {
     border-style: solid;
     border-color: #3F6079;
     background: rgba(63, 96, 121, 0.14);
-    color: #1F3546;
+    color: var(--mud-palette-text-primary);
 }
 
 .nornis-graph-card {
@@ -381,11 +317,6 @@ html, body {
     right: 12px;
     max-width: 260px;
     z-index: 5;
-}
-
-.nornis-graph-focus {
-    min-width: 260px;
-    max-width: 340px;
 }
 
 .nornis-graph-legend {
@@ -458,22 +389,6 @@ html, body {
     background: rgba(0, 0, 0, 0.04);
 }
 
-.nornis-canon-artifact {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-top: 10px;
-    padding: 2px 4px;
-}
-
-.nornis-canon-artifact-name {
-    font-weight: 600;
-}
-
-.nornis-canon-entry {
-    margin-left: 18px;
-}
-
 .nornis-nav-count {
     display: inline-block;
     min-width: 20px;
@@ -483,13 +398,13 @@ html, body {
     font-size: 0.7rem;
     font-weight: 600;
     text-align: center;
-    background: var(--mud-palette-secondary);
-    color: #10263B;
+    background: var(--mud-palette-text-primary);
+    color: var(--mud-palette-background);
 }
 
 .nornis-nav-count-failed {
     background: var(--mud-palette-error);
-    color: #FFFDF9;
+    color: #FFFFFF;
 }
 
 .nornis-brand-logo {
@@ -501,8 +416,8 @@ html, body {
     font-family: var(--nornis-serif);
     font-size: 1.35rem;
     letter-spacing: 0.34em;
-    font-weight: 600;
-    color: #FFFDF9;
+    font-weight: 500;
+    color: var(--mud-palette-text-primary);
     padding-left: 0.34em;
 }
 
@@ -510,7 +425,7 @@ html, body {
     font-size: 0.62rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--mud-palette-secondary);
+    color: var(--mud-palette-text-secondary);
 }
 
 /* World selector card. */
@@ -519,15 +434,15 @@ html, body {
     align-items: center;
     gap: 12px;
     padding: 12px 14px;
-    border-radius: 12px;
-    background-color: var(--nornis-onnavy-raised);
-    border: 1px solid var(--nornis-onnavy-border);
+    border-radius: 8px;
+    background-color: var(--nornis-onside-raised);
+    border: 1px solid var(--nornis-onside-border);
     cursor: pointer;
 }
 
 .nornis-world-name {
     font-weight: 600;
-    color: #FFFDF9;
+    color: var(--mud-palette-text-primary);
     line-height: 1.15;
 }
 
@@ -535,7 +450,7 @@ html, body {
     font-size: 0.66rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--nornis-onnavy-muted);
+    color: var(--nornis-onside-muted);
 }
 
 /* Group heading inside the world switcher menu (e.g. "Templates"). Quiet by design —
@@ -564,8 +479,8 @@ html, body {
     color: var(--mud-palette-drawer-icon);
 }
 
-/* World selector icon sits above the nav; matching the icon tone (not gold)
-   keeps it from outranking the active nav item's gold accent. */
+/* World selector icon sits above the nav; matching the icon tone keeps it from
+   outranking the active nav item's accent. */
 .nornis-world-icon {
     color: var(--mud-palette-drawer-icon);
 }
@@ -579,9 +494,9 @@ html, body {
     font-size: 0.66rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--nornis-onnavy-muted);
+    color: var(--nornis-onside-muted);
     background: none;
-    border: 1px solid var(--nornis-onnavy-border);
+    border: 1px solid var(--nornis-onside-border);
     border-radius: 10px;
     padding: 0 7px;
     line-height: 1.5;
@@ -590,8 +505,8 @@ html, body {
 }
 
 .nornis-role-chip:hover {
-    color: #FFFDF9;
-    border-color: var(--nornis-onnavy-muted);
+    color: var(--mud-palette-text-primary);
+    border-color: var(--nornis-onside-muted);
 }
 
 .nornis-role-chip-static {
@@ -599,8 +514,8 @@ html, body {
 }
 
 .nornis-role-chip-static:hover {
-    color: var(--nornis-onnavy-muted);
-    border-color: var(--nornis-onnavy-border);
+    color: var(--nornis-onside-muted);
+    border-color: var(--nornis-onside-border);
 }
 
 .nornis-role-chip-icon {
@@ -610,21 +525,21 @@ html, body {
 }
 
 .nornis-role-chip-active {
-    color: #A8C8EE;
-    border-color: rgba(120, 170, 230, 0.55);
-    background-color: rgba(90, 140, 200, 0.16);
+    color: var(--mud-palette-tertiary);
+    border-color: rgba(63, 96, 121, 0.45);
+    background-color: rgba(63, 96, 121, 0.10);
     text-transform: none;
     letter-spacing: 0.02em;
 }
 
 .nornis-role-chip-active:hover {
-    color: #FFFDF9;
-    border-color: #A8C8EE;
+    color: var(--mud-palette-text-primary);
+    border-color: var(--mud-palette-tertiary);
 }
 
 .nornis-world-viewas {
-    background-color: rgba(90, 140, 200, 0.14);
-    border-color: rgba(120, 170, 230, 0.55);
+    background-color: rgba(63, 96, 121, 0.10);
+    border-color: rgba(63, 96, 121, 0.45);
 }
 
 /* Onboarding prompt (feature 20 phase C). */
@@ -641,10 +556,10 @@ html, body {
     bottom: 20px;
     z-index: 1200;
     width: 320px;
-    background: #FFFDF9;
+    background: #FFFFFF;
     border: 1px solid rgba(0, 0, 0, 0.12);
-    border-radius: 12px;
-    box-shadow: 0 6px 24px rgba(20, 30, 50, 0.18);
+    border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(28, 31, 36, 0.18);
     overflow: hidden;
 }
 
@@ -658,7 +573,7 @@ html, body {
     gap: 8px;
     padding: 10px 12px;
     cursor: pointer;
-    background: rgba(90, 140, 200, 0.10);
+    background: rgba(63, 96, 121, 0.08);
 }
 
 .nornis-tutorial-title {
@@ -714,74 +629,26 @@ a.nornis-tutorial-step-title:hover {
 }
 
 .nornis-sidebar .mud-nav-link:hover {
-    background-color: var(--nornis-onnavy-raised);
+    background-color: var(--nornis-onside-raised);
 }
 
-/* Extra selector class (.mud-navmenu) raises specificity above MudBlazor's own
-   active-link color rule so the gold accent wins on the navy sidebar. */
+/* The active item: paper behind it, ink for the label, the accent on the icon alone. The
+   extra selector class (.mud-navmenu) raises specificity above MudBlazor's own active-link
+   colour rule; !important beats the equal-specificity colour it sets. */
 .nornis-sidebar .mud-navmenu .mud-nav-link.active {
-    background-color: var(--nornis-onnavy-raised);
-    border: 1px solid var(--nornis-onnavy-border);
-    /* !important beats MudBlazor's own active-link color rule (equal specificity). */
-    color: var(--mud-palette-secondary) !important;
-    box-shadow: inset 3px 0 0 var(--mud-palette-secondary);
+    background-color: var(--mud-palette-background);
+    border: 1px solid var(--mud-palette-divider);
+    color: var(--mud-palette-text-primary) !important;
+    box-shadow: none;
 }
 
 .nornis-sidebar .mud-navmenu .mud-nav-link.active .mud-nav-link-icon {
-    color: var(--mud-palette-secondary) !important;
-}
-
-/* World memory ring card at the foot of the sidebar. */
-.nornis-memory {
-    border-radius: 12px;
-    background-color: var(--nornis-onnavy-raised);
-    border: 1px solid var(--nornis-onnavy-border);
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.nornis-memory-title {
-    font-size: 0.82rem;
-    color: var(--nornis-onnavy-muted);
-}
-
-.nornis-memory-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.nornis-memory-figure {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.05;
-}
-
-.nornis-memory-pct {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #FFFDF9;
-}
-
-.nornis-memory-state {
-    font-size: 0.72rem;
-    color: var(--nornis-onnavy-muted);
-}
-
-.nornis-memory-state-ok {
-    color: var(--nornis-onnavy-success);
+    color: var(--mud-palette-primary) !important;
 }
 
 .nornis-collapse {
-    color: var(--nornis-onnavy-muted);
+    color: var(--nornis-onside-muted);
     justify-content: flex-start;
-}
-
-/* On the navy sidebar, tint the ring track lighter. */
-.nornis-ring-onnavy .mud-progress-circular-circle.mud-progress-circular-background {
-    color: var(--nornis-onnavy-border);
 }
 
 /* ----------------------------------------------------------- Cards / rail -- */
@@ -789,7 +656,7 @@ a.nornis-tutorial-step-title:hover {
 .nornis-card {
     background-color: var(--mud-palette-surface);
     border: 1px solid var(--mud-palette-divider);
-    border-radius: 16px;
+    border-radius: 10px;
     box-shadow: var(--nornis-card-shadow);
 }
 
@@ -821,8 +688,8 @@ a.nornis-tutorial-step-title:hover {
     height: 22px;
     padding: 0 6px;
     border-radius: 999px;
-    background-color: var(--mud-palette-secondary);
-    color: #FFFDF9;
+    background-color: var(--mud-palette-text-primary);
+    color: var(--mud-palette-background);
     font-size: 0.74rem;
     font-weight: 700;
 }
@@ -857,7 +724,6 @@ a.nornis-tutorial-step-title:hover {
 /* ------------------------------------------------------------- Ask hero --- */
 
 .nornis-hero {
-    background-image: var(--nornis-topo);
     text-align: center;
     padding: 34px 32px 30px 32px;
 }
@@ -898,7 +764,7 @@ a.nornis-tutorial-step-title:hover {
 
 .nornis-ask .nornis-ask-input .mud-input-root {
     background-color: var(--mud-palette-surface);
-    border-radius: 12px;
+    border-radius: 8px;
 }
 
 /* The send button is a sibling of the field, so nothing makes the two agree on a height by
@@ -931,7 +797,7 @@ a.nornis-tutorial-step-title:hover {
     gap: 8px;
     text-align: left;
     padding: 12px 14px;
-    border-radius: 12px;
+    border-radius: 8px;
     background-color: var(--mud-palette-surface);
     border: 1px solid var(--mud-palette-divider);
     color: var(--mud-palette-text-secondary);
@@ -940,7 +806,7 @@ a.nornis-tutorial-step-title:hover {
 }
 
 .nornis-suggestion:hover {
-    border-color: var(--mud-palette-secondary);
+    border-color: var(--mud-palette-text-secondary);
 }
 
 @media (max-width: 900px) {
@@ -966,7 +832,7 @@ a.nornis-tutorial-step-title:hover {
     height: 44px;
     border-radius: 999px;
     border: 1px solid var(--mud-palette-divider);
-    color: var(--mud-palette-secondary);
+    color: var(--mud-palette-text-secondary);
 }
 
 .nornis-capture-tiles {
@@ -980,14 +846,14 @@ a.nornis-tutorial-step-title:hover {
     flex-direction: column;
     gap: 6px;
     padding: 14px;
-    border-radius: 12px;
+    border-radius: 8px;
     background-color: var(--mud-palette-surface);
     border: 1px solid var(--mud-palette-divider);
     cursor: pointer;
 }
 
 .nornis-tile:hover {
-    border-color: var(--mud-palette-secondary);
+    border-color: var(--mud-palette-text-secondary);
 }
 
 .nornis-tile-title {
@@ -1104,7 +970,7 @@ a.nornis-tutorial-step-title:hover {
 }
 
 .nornis-list-row.nornis-drag-over {
-    box-shadow: inset 3px 0 0 0 var(--mud-palette-secondary);
+    box-shadow: inset 3px 0 0 0 var(--mud-palette-primary);
     background: var(--mud-palette-action-default-hover);
 }
 
@@ -1151,7 +1017,7 @@ a.nornis-tutorial-step-title:hover {
 .nornis-pacing-detail {
     margin-top: 8px;
     padding: 12px 14px;
-    border-left: 2px solid var(--mud-palette-secondary);
+    border-left: 2px solid var(--mud-palette-lines-default);
     background: var(--mud-palette-action-default-hover);
     border-radius: 0 6px 6px 0;
     font-size: 0.9rem;
@@ -1315,51 +1181,6 @@ span.nornis-list-meta {
 
 .nornis-dot-error { background-color: var(--mud-palette-error); }
 .nornis-dot-warning { background-color: var(--mud-palette-warning); }
-.nornis-dot-success { background-color: var(--mud-palette-success); }
-
-/* Continuity Health metrics. */
-.nornis-health-row {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-}
-
-.nornis-health-figure {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    line-height: 1;
-}
-
-.nornis-health-pct {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--mud-palette-text-primary);
-}
-
-.nornis-health-state {
-    font-size: 0.66rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--mud-palette-success);
-}
-
-.nornis-metric {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 5px 0;
-}
-
-.nornis-metric-label {
-    font-size: 0.86rem;
-    color: var(--mud-palette-text-secondary);
-}
-
-.nornis-metric-value {
-    font-weight: 600;
-    color: var(--mud-palette-text-primary);
-}
 
 .nornis-card-foot {
     margin-top: 14px;
@@ -1416,10 +1237,6 @@ span.nornis-list-meta {
 /* Titles that truncate have to clip their tooltip wrapper too: the wrapper is inline-block, so
    left alone it sizes to the full name and pushes past the row instead of ellipsing. */
 .nornis-wrapup-row .nornis-list-title .mud-tooltip-root,
-.nornis-search-item-title .mud-tooltip-root {
-    max-width: 100%;
-    overflow: hidden;
-}
 
 .nornis-wrapup-peek {
     overflow: hidden;
@@ -1487,99 +1304,12 @@ span.nornis-list-meta {
     }
 }
 
-/* AI-assessed continuity health card. */
-.nornis-ai-summary {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 12px;
-}
-
-.nornis-ai-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.nornis-ai-asof {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--mud-palette-text-primary);
-}
-
-.nornis-ai-sub {
-    font-size: 0.8rem;
-    color: var(--mud-palette-text-secondary);
-}
-
 .nornis-ai-run {
     margin-bottom: 8px;
 }
 
 .nornis-ai-running {
     margin: 8px 0;
-}
-
-.nornis-finding {
-    padding: 10px 0;
-    border-top: 1px solid var(--mud-palette-divider);
-}
-
-.nornis-finding-head {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 4px;
-}
-
-.nornis-chip {
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding: 2px 8px;
-    border-radius: 10px;
-    border: 1px solid var(--mud-palette-divider);
-    color: var(--mud-palette-text-secondary);
-}
-
-.nornis-chip-cat {
-    color: var(--mud-palette-text-primary);
-    background-color: var(--mud-palette-background-grey);
-}
-
-.nornis-chip-high {
-    color: var(--mud-palette-error);
-    border-color: var(--mud-palette-error);
-}
-
-.nornis-chip-medium {
-    color: var(--mud-palette-warning);
-    border-color: var(--mud-palette-warning);
-}
-
-.nornis-chip-low {
-    color: var(--mud-palette-info);
-    border-color: var(--mud-palette-info);
-}
-
-.nornis-finding-head .mud-icon-button {
-    margin-left: auto;
-}
-
-.nornis-finding-summary {
-    font-size: 0.9rem;
-    color: var(--mud-palette-text-primary);
-    margin-bottom: 4px;
-}
-
-.nornis-finding-action {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.82rem;
-    color: var(--mud-palette-text-secondary);
-    margin-bottom: 4px;
 }
 
 /* Ring value overlay (centered % inside a MudProgressCircular). */
@@ -1697,7 +1427,7 @@ span.nornis-list-meta {
 }
 
 .nornis-artifact-card:hover {
-    border-color: var(--mud-palette-secondary);
+    border-color: var(--mud-palette-text-secondary);
 }
 
 .nornis-artifact-card-head {
@@ -1802,13 +1532,15 @@ span.nornis-list-meta {
 }
 
 .nornis-link {
-    color: var(--mud-palette-primary);
-    text-decoration: none;
-    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+    text-decoration: underline;
+    text-decoration-color: var(--mud-palette-lines-inputs);
+    text-underline-offset: 2px;
+    font-weight: 500;
 }
 
 .nornis-link:hover {
-    text-decoration: underline;
+    text-decoration-color: currentColor;
 }
 
 .nornis-source-ref {
@@ -1826,13 +1558,6 @@ span.nornis-list-meta {
     font-style: italic;
     color: var(--mud-palette-text-primary);
     display: block;
-}
-
-.nornis-source-body {
-    /* Content is Markdig-rendered HTML (markdown or legacy plain text) — no pre-wrap;
-       line breaks come through as <br> via soft-break-as-hard rendering. */
-    color: var(--mud-palette-text-primary);
-    line-height: 1.6;
 }
 
 /* --------------------------------------------------------------- Settings -- */
@@ -1998,7 +1723,7 @@ span.nornis-list-meta {
 }
 
 a.nornis-cite:hover {
-    border-color: var(--mud-palette-secondary);
+    border-color: var(--mud-palette-text-secondary);
 }
 
 .nornis-ask-thread {
@@ -2040,17 +1765,13 @@ a.nornis-cite:hover {
 }
 
 .nornis-comingsoon-icon {
-    color: var(--mud-palette-secondary);
+    color: var(--mud-palette-text-secondary);
     margin-bottom: 8px;
 }
 
 .nornis-comingsoon-text {
     max-width: 480px;
     color: var(--mud-palette-text-secondary);
-}
-
-.nornis-measure {
-    max-width: 620px;
 }
 
 /* --------------------------------------------------------------- Skeleton -- */
@@ -2063,7 +1784,7 @@ a.nornis-cite:hover {
 }
 
 .nornis-skeleton-row {
-    border-radius: 12px;
+    border-radius: 8px;
 }
 
 /* ------------------------------------------------------ Keyboard focus ring --- */
@@ -2076,7 +1797,7 @@ a.nornis-cite:hover {
 .nornis-suggestion:focus-visible,
 .nornis-cite:focus-visible,
 .nornis-viewall:focus-visible {
-    outline: 2px solid var(--mud-palette-secondary);
+    outline: 2px solid var(--mud-palette-primary);
     outline-offset: 2px;
     border-radius: 8px;
 }
@@ -2333,7 +2054,7 @@ a.nornis-cite:hover {
     height: 100vh;
     height: 100dvh; /* iOS Safari: track the dynamic viewport */
     overflow: hidden;
-    background-color: #fdfbf7;
+    background-color: var(--mud-palette-surface);
 }
 
 .nornis-ink-bar {
@@ -2373,7 +2094,7 @@ a.nornis-cite:hover {
     border: 1px solid var(--mud-palette-divider);
     border-radius: 8px;
     overflow: hidden;
-    background-color: #fdfbf7;
+    background-color: var(--mud-palette-surface);
 }
 
 /* ---------------------------------------------------- Handwritten page images -- */
@@ -2393,7 +2114,7 @@ a.nornis-cite:hover {
 }
 
 .nornis-page-thumb:hover {
-    border-color: var(--mud-palette-secondary);
+    border-color: var(--mud-palette-text-secondary);
 }
 
 .nornis-page-thumb img {
@@ -2505,7 +2226,7 @@ a.nornis-cite:hover {
     font-family: var(--nornis-serif);
     font-style: italic;
     font-size: 1.05rem;
-    color: var(--mud-palette-secondary);
+    color: var(--nornis-gold);
 }
 
 /* Sample extraction demo. */
@@ -2522,7 +2243,7 @@ a.nornis-cite:hover {
     margin: 0;
     background-color: var(--mud-palette-surface);
     border: 1px solid var(--mud-palette-divider);
-    border-radius: 16px;
+    border-radius: 10px;
     box-shadow: var(--nornis-card-shadow);
     padding: 24px 28px;
 }
@@ -2537,7 +2258,7 @@ a.nornis-cite:hover {
 
 .nornis-landing-arrow {
     text-align: center;
-    color: var(--mud-palette-secondary);
+    color: var(--mud-palette-text-secondary);
 }
 
 .nornis-landing-proposals {
@@ -2565,7 +2286,7 @@ a.nornis-cite:hover {
 }
 
 .nornis-landing-chip .mud-icon-root {
-    color: var(--mud-palette-secondary);
+    color: var(--mud-palette-text-secondary);
 }
 
 .nornis-landing-chip em {
@@ -2603,7 +2324,7 @@ a.nornis-cite:hover {
 .nornis-landing-step {
     background-color: var(--mud-palette-surface);
     border: 1px solid var(--mud-palette-divider);
-    border-radius: 16px;
+    border-radius: 10px;
     box-shadow: var(--nornis-card-shadow);
     padding: 24px;
     text-align: center;
@@ -2615,9 +2336,9 @@ a.nornis-cite:hover {
     justify-content: center;
     width: 46px;
     height: 46px;
-    border-radius: 12px;
-    background-color: var(--mud-palette-primary);
-    color: var(--mud-palette-secondary);
+    border-radius: 8px;
+    background-color: var(--mud-palette-text-primary);
+    color: var(--nornis-gold);
     margin-bottom: 12px;
 }
 
@@ -2649,7 +2370,7 @@ a.nornis-cite:hover {
 .nornis-landing-card {
     background-color: var(--mud-palette-surface);
     border: 1px solid var(--mud-palette-divider);
-    border-radius: 16px;
+    border-radius: 10px;
     box-shadow: var(--nornis-card-shadow);
     padding: 26px 28px;
 }
@@ -2665,7 +2386,7 @@ a.nornis-cite:hover {
 }
 
 .nornis-landing-card .mud-icon-root {
-    color: var(--mud-palette-secondary);
+    color: var(--mud-palette-text-secondary);
 }
 
 .nornis-landing-more {
@@ -2862,7 +2583,7 @@ a.nornis-cite:hover {
 .nornis-features-item {
     background-color: var(--mud-palette-surface);
     border: 1px solid var(--mud-palette-divider);
-    border-radius: 16px;
+    border-radius: 10px;
     box-shadow: var(--nornis-card-shadow);
     padding: 22px 24px;
 }
@@ -2880,7 +2601,7 @@ a.nornis-cite:hover {
 }
 
 .nornis-features-item h3 .mud-icon-root {
-    color: var(--mud-palette-secondary);
+    color: var(--mud-palette-text-secondary);
 }
 
 .nornis-features-item p {
@@ -2911,7 +2632,7 @@ a.nornis-cite:hover {
     border-collapse: collapse;
     background-color: var(--mud-palette-surface);
     border: 1px solid var(--mud-palette-divider);
-    border-radius: 16px;
+    border-radius: 10px;
     box-shadow: var(--nornis-card-shadow);
     overflow: hidden;
 }
@@ -3041,7 +2762,7 @@ a.nornis-cite:hover {
     gap: 2px;
     padding: 4px 8px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    background: #FDFBF7;
+    background: var(--mud-palette-surface);
 }
 
 .nornis-editor-toolbar-sep {
@@ -3099,13 +2820,13 @@ a.nornis-cite:hover {
 
 .nornis-editor-content h1, .nornis-markdown h1 {
     font-size: 1.8rem;
-    border-bottom: 1px solid rgba(196, 161, 90, 0.45);
+    border-bottom: 1px solid var(--mud-palette-lines-inputs);
     padding-bottom: 0.2em;
 }
 
 .nornis-editor-content h2, .nornis-markdown h2 {
     font-size: 1.5rem;
-    border-bottom: 1px solid rgba(196, 161, 90, 0.25);
+    border-bottom: 1px solid var(--mud-palette-lines-default);
     padding-bottom: 0.15em;
 }
 
@@ -3135,7 +2856,7 @@ a.nornis-cite:hover {
 .nornis-editor-content blockquote, .nornis-markdown blockquote {
     margin: 0 0 0.7em;
     padding: 0.2em 0 0.2em 0.9em;
-    border-left: 3px solid rgba(196, 161, 90, 0.55);
+    border-left: 3px solid var(--mud-palette-lines-inputs);
     color: var(--mud-palette-text-secondary);
     font-style: italic;
 }
@@ -3143,13 +2864,13 @@ a.nornis-cite:hover {
 .nornis-editor-content code, .nornis-markdown code {
     font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
     font-size: 0.9em;
-    background: rgba(14, 46, 74, 0.06);
+    background: rgba(28, 31, 36, 0.06);
     border-radius: 3px;
     padding: 0.1em 0.35em;
 }
 
 .nornis-editor-content pre, .nornis-markdown pre {
-    background: rgba(14, 46, 74, 0.06);
+    background: rgba(28, 31, 36, 0.06);
     border-radius: 6px;
     padding: 10px 12px;
     margin: 0 0 0.7em;
@@ -3163,7 +2884,7 @@ a.nornis-cite:hover {
 
 .nornis-editor-content hr, .nornis-markdown hr {
     border: none;
-    border-top: 1px solid rgba(196, 161, 90, 0.45);
+    border-top: 1px solid var(--mud-palette-lines-inputs);
     margin: 1.2em 0;
 }
 
@@ -3184,7 +2905,7 @@ a.nornis-cite:hover {
 }
 
 .nornis-editor-content th, .nornis-markdown th {
-    background: #FDFBF7;
+    background: var(--mud-palette-surface);
     font-weight: 600;
 }
 
@@ -3354,11 +3075,11 @@ a.nornis-cite:hover {
     white-space: nowrap;
     padding: 3px 10px;
     border-radius: 6px;
-    background: #FDFBF7;
+    background: var(--mud-palette-surface);
     border: 1px solid rgba(63, 96, 121, 0.45);
-    box-shadow: 0 4px 14px rgba(14, 46, 74, 0.18);
+    box-shadow: 0 4px 14px rgba(28, 31, 36, 0.18);
     font-size: 0.75rem;
-    color: #2A3B4C;
+    color: var(--mud-palette-text-primary);
 }
 
 /* Fast custom tooltip for [data-nornis-tip] elements (see nornis-timeline.js). */
@@ -3371,12 +3092,12 @@ a.nornis-cite:hover {
     white-space: pre-line;
     padding: 6px 10px;
     border-radius: 6px;
-    background: #FDFBF7;
+    background: var(--mud-palette-surface);
     border: 1px solid rgba(63, 96, 121, 0.45);
-    box-shadow: 0 4px 14px rgba(14, 46, 74, 0.18);
+    box-shadow: 0 4px 14px rgba(28, 31, 36, 0.18);
     font-size: 0.75rem;
     line-height: 1.4;
-    color: #2A3B4C;
+    color: var(--mud-palette-text-primary);
 }
 
 .nornis-tip-bubble.nornis-tip-visible {
@@ -3410,7 +3131,7 @@ a.nornis-cite:hover {
     position: absolute;
     /* Anchor the pin's point at the coordinate. */
     transform: translate(-50%, -100%);
-    filter: drop-shadow(0 1px 2px rgba(14, 46, 74, 0.45));
+    filter: drop-shadow(0 1px 2px rgba(28, 31, 36, 0.45));
     transition: transform 120ms ease;
 }
 
@@ -3446,7 +3167,7 @@ a.nornis-cite:hover {
     cursor: pointer;
     background: #B33A3A;
     color: #FFFFFF;
-    box-shadow: 0 1px 2px rgba(14, 46, 74, 0.45);
+    box-shadow: 0 1px 2px rgba(28, 31, 36, 0.45);
 }
 
 .nornis-map-viewer.is-editable .nornis-map-pin:hover .nornis-map-pin-remove,
@@ -3485,9 +3206,9 @@ a.nornis-cite:hover {
 .nornis-journey-map {
     position: relative;
     overflow: hidden;
-    border-radius: 12px;
-    border: 1px solid rgba(42, 59, 76, 0.16);
-    background: #FDFBF7;
+    border-radius: 8px;
+    border: 1px solid rgba(28, 31, 36, 0.16);
+    background: var(--mud-palette-surface);
     line-height: 0;
     align-self: start;
 }
@@ -3516,37 +3237,37 @@ a.nornis-cite:hover {
     width: 13px;
     height: 13px;
     border-radius: 50%;
-    background: #2A3B4C;
-    border: 2px solid #FDFBF7;
-    box-shadow: 0 1px 2px rgba(14, 46, 74, 0.45);
+    background: var(--mud-palette-text-primary);
+    border: 2px solid var(--mud-palette-surface);
+    box-shadow: 0 1px 2px rgba(28, 31, 36, 0.45);
     transition: transform 120ms ease, background 160ms ease;
 }
 
 /* A visited place (the selected entry touched it) glows gold; the place currently open in the
    panel is filled and enlarged. Everything else is a plain dark pin. No text label: the map
    image already prints the place name the pin was extracted from. */
-.nornis-journey-pin.is-visited .nornis-journey-pin-dot { box-shadow: 0 0 0 3px #C4A15A, 0 1px 2px rgba(14, 46, 74, 0.45); }
+.nornis-journey-pin.is-visited .nornis-journey-pin-dot { box-shadow: 0 0 0 3px var(--mud-palette-primary), 0 1px 2px rgba(28, 31, 36, 0.45); }
 
 /* The Locations explorer has no scrubber, so its pins say something else: gold means the place
    has a recorded history (dated sessions, and so the artifacts those sessions touched), navy
    means it is pinned but nothing has happened there yet. The pin's tip carries the same fact in
    words — the colour is a summary, never the only telling. */
-.nornis-journey-pin.has-history .nornis-journey-pin-dot { background: #C4A15A; }
+.nornis-journey-pin.has-history .nornis-journey-pin-dot { background: var(--mud-palette-primary); }
 .nornis-journey-pin.is-selected .nornis-journey-pin-dot {
-    background: #A9812F;
+    background: #6E392E;
     transform: scale(1.2);
-    box-shadow: 0 0 0 4px rgba(169, 129, 47, 0.32), 0 1px 2px rgba(14, 46, 74, 0.45);
+    box-shadow: 0 0 0 4px rgba(110, 57, 46, 0.32), 0 1px 2px rgba(28, 31, 36, 0.45);
 }
 .nornis-journey-pin:hover .nornis-journey-pin-dot { transform: scale(1.25); }
 .nornis-journey-pin:focus-visible { outline: none; }
-.nornis-journey-pin:focus-visible .nornis-journey-pin-dot { box-shadow: 0 0 0 3px #A9812F, 0 0 0 5px rgba(196, 161, 90, 0.4); }
+.nornis-journey-pin:focus-visible .nornis-journey-pin-dot { box-shadow: 0 0 0 3px #6E392E, 0 0 0 5px rgba(139, 74, 60, 0.4); }
 
 /* Ledger ------------------------------------------------------------------- */
 
 .nornis-journey-ledger {
-    background: #FDFBF7;
-    border: 1px solid rgba(42, 59, 76, 0.14);
-    border-radius: 12px;
+    background: var(--mud-palette-surface);
+    border: 1px solid rgba(28, 31, 36, 0.14);
+    border-radius: 8px;
     padding: 16px 16px 14px;
     box-shadow: var(--nornis-card-shadow);
     display: flex;
@@ -3557,34 +3278,34 @@ a.nornis-cite:hover {
     font-size: 11px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: #A9812F;
+    color: #6E392E;
     font-weight: 600;
 }
 
-.nornis-journey-ledger-eye span { color: rgba(42, 59, 76, 0.55); font-weight: 500; }
+.nornis-journey-ledger-eye span { color: rgba(28, 31, 36, 0.55); font-weight: 500; }
 
 .nornis-journey-ledger-title {
     display: block;
     font-size: 22px;
     line-height: 1.15;
     margin: 6px 0 2px;
-    color: #2A3B4C;
+    color: var(--mud-palette-text-primary);
     text-decoration: none;
 }
 
-.nornis-journey-ledger-title:hover { color: #A9812F; }
+.nornis-journey-ledger-title:hover { color: #6E392E; }
 
 .nornis-journey-ledger-meta {
     font-size: 12.5px;
-    color: rgba(42, 59, 76, 0.6);
+    color: rgba(28, 31, 36, 0.6);
     margin-bottom: 12px;
 }
 
-.nornis-journey-ledger-meta b { color: #2A3B4C; font-weight: 600; }
+.nornis-journey-ledger-meta b { color: var(--mud-palette-text-primary); font-weight: 600; }
 
 .nornis-journey-ledger-empty {
     font-size: 13px;
-    color: rgba(42, 59, 76, 0.6);
+    color: rgba(28, 31, 36, 0.6);
     font-style: italic;
 }
 
@@ -3608,7 +3329,7 @@ a.nornis-cite:hover {
     transition: background 140ms ease;
 }
 
-.nornis-journey-art:hover { background: rgba(42, 59, 76, 0.05); }
+.nornis-journey-art:hover { background: rgba(28, 31, 36, 0.05); }
 
 /* The name is wrapped in ArtifactTip (a MudTooltip); keep its wrapper inline so it flows in
    the row instead of becoming a block that breaks the baseline. */
@@ -3635,8 +3356,8 @@ a.nornis-cite:hover {
 .nornis-journey-chip.type-faction { background: #7A6A86; }
 .nornis-journey-chip.type-storyline { background: #3D6B6B; }
 
-.nornis-journey-hl-name { font-size: 14px; color: #2A3B4C; line-height: 1.35; }
-.nornis-journey-hl-note { font-size: 12px; font-style: italic; color: rgba(42, 59, 76, 0.55); }
+.nornis-journey-hl-name { font-size: 14px; color: var(--mud-palette-text-primary); line-height: 1.35; }
+.nornis-journey-hl-note { font-size: 12px; font-style: italic; color: rgba(28, 31, 36, 0.55); }
 
 /* Place tree (clicking a pin) ---------------------------------------------- */
 
@@ -3644,14 +3365,14 @@ a.nornis-cite:hover {
     float: right;
     background: transparent;
     border: 0;
-    color: rgba(42, 59, 76, 0.5);
+    color: rgba(28, 31, 36, 0.5);
     font-size: 18px;
     line-height: 1;
     cursor: pointer;
     padding: 0 2px;
 }
 
-.nornis-journey-close:hover { color: #A9812F; }
+.nornis-journey-close:hover { color: #6E392E; }
 
 .nornis-journey-tree {
     list-style: none;
@@ -3677,11 +3398,11 @@ a.nornis-cite:hover {
     transition: background 140ms ease;
 }
 
-.nornis-journey-tree-head:hover { background: rgba(42, 59, 76, 0.05); }
+.nornis-journey-tree-head:hover { background: rgba(28, 31, 36, 0.05); }
 
 .nornis-journey-tree-caret {
     flex: none;
-    color: #A9812F;
+    color: #6E392E;
     font-size: 11px;
     line-height: 1.3;
     transition: transform 140ms ease;
@@ -3694,28 +3415,28 @@ a.nornis-cite:hover {
     min-width: 0;
     font-family: var(--nornis-serif);
     font-size: 15px;
-    color: #2A3B4C;
+    color: var(--mud-palette-text-primary);
     line-height: 1.25;
 }
 
 .nornis-journey-tree-date {
     flex: none;
     font-size: 11.5px;
-    color: rgba(42, 59, 76, 0.55);
+    color: rgba(28, 31, 36, 0.55);
 }
 
 .nornis-journey-tree-arts {
     list-style: none;
     margin: 0 0 6px 5px;
     padding: 2px 0 0 16px;
-    border-left: 1px solid rgba(42, 59, 76, 0.12);
+    border-left: 1px solid rgba(28, 31, 36, 0.12);
 }
 
 .nornis-journey-tree-empty {
     padding: 2px 0 6px 29px;
     font-size: 12.5px;
     font-style: italic;
-    color: rgba(42, 59, 76, 0.55);
+    color: rgba(28, 31, 36, 0.55);
 }
 
 /* Scrubber ----------------------------------------------------------------- */
@@ -3728,10 +3449,10 @@ a.nornis-cite:hover {
     right: 0;
     bottom: 0;
     z-index: 20;
-    background: #FDFBF7;
-    border-top: 1px solid rgba(42, 59, 76, 0.16);
+    background: var(--mud-palette-surface);
+    border-top: 1px solid rgba(28, 31, 36, 0.16);
     padding: 12px 28px 12px;
-    box-shadow: 0 -8px 24px rgba(14, 46, 74, 0.10);
+    box-shadow: 0 -8px 24px rgba(28, 31, 36, 0.10);
 }
 
 /* Inside the authenticated app, clear the persistent sidebar from the Md breakpoint up (below
@@ -3754,11 +3475,11 @@ a.nornis-cite:hover {
     font-size: 11px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: rgba(42, 59, 76, 0.6);
+    color: rgba(28, 31, 36, 0.6);
     font-weight: 600;
 }
 
-.nornis-journey-scrub-hint { font-size: 12px; color: #A9812F; }
+.nornis-journey-scrub-hint { font-size: 12px; color: #6E392E; }
 
 .nornis-journey-rail {
     position: relative;
@@ -3774,7 +3495,7 @@ a.nornis-cite:hover {
     right: 0;
     height: 3px;
     border-radius: 3px;
-    background: rgba(42, 59, 76, 0.18);
+    background: rgba(28, 31, 36, 0.18);
 }
 
 .nornis-journey-month {
@@ -3784,7 +3505,7 @@ a.nornis-cite:hover {
     font-size: 10px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: rgba(42, 59, 76, 0.45);
+    color: rgba(28, 31, 36, 0.45);
     pointer-events: none;
 }
 
@@ -3795,7 +3516,7 @@ a.nornis-cite:hover {
     top: 15px;
     height: 40px;
     width: 1px;
-    background: rgba(42, 59, 76, 0.10);
+    background: rgba(28, 31, 36, 0.10);
 }
 
 .nornis-journey-node {
@@ -3805,23 +3526,23 @@ a.nornis-cite:hover {
     width: 13px;
     height: 13px;
     border-radius: 50%;
-    background: #FDFBF7;
-    border: 2px solid rgba(42, 59, 76, 0.3);
+    background: var(--mud-palette-surface);
+    border: 2px solid rgba(28, 31, 36, 0.3);
     cursor: pointer;
     padding: 0;
     transition: width 160ms ease, height 160ms ease, background 160ms ease, border-color 160ms ease;
 }
 
-.nornis-journey-node:hover { border-color: #A9812F; }
-.nornis-journey-node.is-visited { background: #C4A15A; border-color: #A9812F; }
+.nornis-journey-node:hover { border-color: #6E392E; }
+.nornis-journey-node.is-visited { background: var(--mud-palette-primary); border-color: #6E392E; }
 .nornis-journey-node.is-current {
     width: 18px;
     height: 18px;
-    background: #A9812F;
-    border-color: #FDFBF7;
-    box-shadow: 0 0 0 3px rgba(196, 161, 90, 0.3);
+    background: #6E392E;
+    border-color: var(--mud-palette-surface);
+    box-shadow: 0 0 0 3px rgba(139, 74, 60, 0.3);
 }
-.nornis-journey-node:focus-visible { outline: 2px solid #A9812F; outline-offset: 2px; }
+.nornis-journey-node:focus-visible { outline: 2px solid #6E392E; outline-offset: 2px; }
 
 .nornis-journey-playhead {
     position: absolute;
@@ -3837,7 +3558,7 @@ a.nornis-cite:hover {
     top: 14px;
     bottom: 8px;
     width: 2px;
-    background: linear-gradient(#A9812F, rgba(169, 129, 47, 0.15));
+    background: linear-gradient(#6E392E, rgba(110, 57, 46, 0.15));
 }
 
 .nornis-journey-handle {
@@ -3847,8 +3568,8 @@ a.nornis-cite:hover {
     transform: translateX(-50%) rotate(45deg);
     width: 16px;
     height: 16px;
-    background: #C4A15A;
-    border: 1.5px solid #8A6A22;
+    background: var(--mud-palette-primary);
+    border: 1.5px solid #5A2E25;
     border-radius: 3px;
     cursor: grab;
     box-shadow: 0 2px 3px rgba(120, 90, 20, 0.4);
@@ -3856,7 +3577,7 @@ a.nornis-cite:hover {
 }
 
 .nornis-journey-handle:active { cursor: grabbing; }
-.nornis-journey-handle:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(196, 161, 90, 0.5); }
+.nornis-journey-handle:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(139, 74, 60, 0.5); }
 
 .nornis-journey-foot {
     display: flex;
@@ -3865,15 +3586,15 @@ a.nornis-cite:hover {
     gap: 16px;
     margin-top: 10px;
     font-size: 12px;
-    color: rgba(42, 59, 76, 0.6);
+    color: rgba(28, 31, 36, 0.6);
 }
 
-.nornis-journey-legend b { color: #2A3B4C; font-weight: 600; }
+.nornis-journey-legend b { color: var(--mud-palette-text-primary); font-weight: 600; }
 
 .nornis-journey-note {
     margin-left: auto;
     font-style: italic;
-    color: rgba(42, 59, 76, 0.55);
+    color: rgba(28, 31, 36, 0.55);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4072,14 +3793,14 @@ a.nornis-cite:hover {
 
 /* ------------------------------------------------------------ Feature 24 · wayfinding -- */
 
-/* Sidebar groups: eyebrows in gold, the entries beneath them. */
+/* Sidebar groups: quiet eyebrows, the entries beneath them. */
 .nornis-nav-group {
     padding: 14px 16px 4px 16px;
     font-size: 0.68rem;
     font-weight: 600;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--mud-palette-secondary);
+    color: var(--mud-palette-text-secondary);
 }
 
 /* The search box that opens the quick switcher, pinned under the world switcher. */
@@ -4092,14 +3813,14 @@ a.nornis-cite:hover {
     height: 34px;
     padding: 0 10px;
     border-radius: 8px;
-    border: 1px solid var(--nornis-onnavy-border);
-    background: var(--nornis-onnavy-raised);
-    color: var(--nornis-onnavy-muted);
+    border: 1px solid var(--nornis-onside-border);
+    background: var(--nornis-onside-raised);
+    color: var(--nornis-onside-muted);
     font: 500 0.82rem var(--nornis-sans);
     cursor: pointer;
     text-align: left;
 }
-.nornis-jump:hover { color: #FFFDF9; }
+.nornis-jump:hover { color: var(--mud-palette-text-primary); }
 .nornis-jump-label { flex: 1 1 auto; }
 
 .nornis-kbd {
@@ -4110,7 +3831,7 @@ a.nornis-cite:hover {
     color: var(--mud-palette-text-secondary);
     background: transparent;
 }
-.nornis-kbd-onnavy { border-color: var(--nornis-onnavy-border); color: var(--nornis-onnavy-muted); }
+.nornis-kbd-side { border-color: var(--nornis-onside-border); color: var(--nornis-onside-muted); }
 
 /* Breadcrumb: where the reader is, in the world's own structure. */
 .nornis-crumbs {
@@ -4142,7 +3863,7 @@ a.nornis-cite:hover {
 .nornis-crumb-sep { opacity: 0.55; }
 
 /* The quick switcher. */
-.nornis-switcher .mud-dialog { border-radius: 12px; overflow: hidden; }
+.nornis-switcher .mud-dialog { border-radius: 8px; overflow: hidden; }
 .nornis-switcher .mud-dialog-content { padding: 0; }
 .nornis-switcher-box { display: flex; flex-direction: column; min-height: 320px; max-height: 70vh; }
 .nornis-switcher-input {
@@ -4221,8 +3942,8 @@ a.nornis-cite:hover {
 .nornis-rail-section {
     padding: 14px 16px;
     border: 1px solid var(--mud-palette-divider);
-    border-radius: 12px;
-    background: var(--mud-palette-surface);
+    border-radius: 10px;
+    background: var(--mud-palette-background-gray);
 }
 .nornis-rail-title {
     font-size: 0.68rem;
@@ -4251,8 +3972,57 @@ a.nornis-cite:hover {
     color: var(--mud-palette-text-primary);
     text-decoration: none;
 }
-.nornis-rail-link:hover { color: var(--mud-palette-secondary); }
+.nornis-rail-link:hover { text-decoration: underline; }
 .nornis-rail-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nornis-rail-more { display: inline-block; margin-top: 4px; font-size: 0.78rem; }
 .nornis-rail-loremaster { padding: 0; border: 0; background: transparent; }
 .nornis-rail-loremaster .nornis-lm { margin: 0; }
+
+/* ------------------------------------------------------------ Feature 24 · paper -- */
+
+/* The record's own text reads in the serif at a book measure; chrome stays in the sans. */
+.nornis-reading,
+.nornis-markdown,
+.nornis-digest-body,
+.nornis-answer-text,
+.nornis-editor-content {
+    font-family: var(--nornis-serif);
+    font-size: 16px;
+    line-height: 1.55;
+    max-width: 680px;
+}
+
+/* Inside the page template the sections are typographic: a rule between them, no boxes in
+   boxes. nornis-card keeps its box everywhere else (proposals, snapshots, the Home cards). */
+.nornis-entity-header > .mud-paper.nornis-card,
+.nornis-entity-body > .mud-paper.nornis-card {
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--mud-palette-divider);
+    border-radius: 0;
+    box-shadow: none;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.nornis-entity-body > .mud-paper.nornis-card:last-child {
+    border-bottom: 0;
+}
+
+/* MudLink defaults to the primary colour; the accent is not for links. */
+.mud-link.mud-primary-text {
+    color: var(--mud-palette-text-primary);
+}
+
+/* On a phone the trail has no room for the world's name; the crumbs that remain are the
+   page's own place in it. */
+@media (max-width: 599.98px) {
+    .nornis-crumb-world,
+    .nornis-crumb-world + .nornis-crumb-sep {
+        display: none;
+    }
+}
+
+.mud-tabs .mud-tab-slider {
+    background-color: var(--mud-palette-text-primary);
+}

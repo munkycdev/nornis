@@ -30,6 +30,32 @@
 > the world's own structure instead of a search field. The "Recommended primary navigation"
 > under Navigation below is the 2026-06 sketch; `NavGroups.cs` is what is there.
 
+> **Amendment (2026-09-10, Nornis 2.0):** the surface is paper (feature 24, phase C). Three of
+> the "Aim for" bullets under Product Vibe no longer hold — *Deep blue sidebar/navigation*,
+> *Restrained aged-gold accents*, and *Clean cards with slightly stronger contrast* — and the
+> palette under Visual Tokens is superseded twice over. What ships, and what `NornisTheme.cs`
+> pins with tests:
+>
+> | Token | 1.x | 2.0 |
+> | --- | --- | --- |
+> | Page | `#F5F1E9` | `#FAF8F3` |
+> | Sidebar | `#0E2E4A` block | `#F0ECE3` tint behind a `1px #E3DED3` hairline |
+> | Ink | `#16293B` | `#1C1F24` |
+> | Secondary | `#5E6B7A` | `#6B7079` |
+> | Lines | `#E7E0D3` | `#E3DED3` |
+> | Accent | gold `#C4A15A` on badges, active nav, eyebrows, links | terracotta `#8B4A3C` on the primary action and the active nav icon, nowhere else |
+> | Display and reading serif | Cormorant Garamond | Newsreader |
+> | Chrome sans | Inter | IBM Plex Sans |
+> | Radius | 12px, cards 16px | 6px chrome, 10px cards |
+>
+> Gold survives on the stonemark and the public hero, where it is the brand's colour rather
+> than the interface's. Links are ink with an underline. Inside the page template
+> (`EntityPage`) sections are typographic — a rule between them, not a box in a box;
+> `nornis-card` keeps its box for proposals, snapshots and the Home cards. The record's own
+> text (`nornis-reading`, also every markdown surface) reads in Newsreader at 16px on a 680px
+> measure; everything else is Plex. The vibe words — *calm, durable, archival, modern premium
+> software* — still hold, which is the test the change had to pass.
+
 ## Product Vibe
 
 Nornis should feel like a calm, modern world Loremaster with a durable, archival identity.
