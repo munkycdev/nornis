@@ -1,4 +1,4 @@
-using Nornis.Domain.Entities;
+﻿using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
@@ -41,9 +41,12 @@ public class InMemorySourceRepository : ISourceRepository
         WorldRole role,
         Guid? campaignId = null,
         bool unassignedOnly = false,
+        DateTimeOffset? occurredFrom = null,
+        DateTimeOffset? occurredBefore = null,
         CancellationToken cancellationToken = default)
     {
-        // Mirrors the real query: shared visibility rule, same campaign filters, newest first.
+        // Mirrors the real query: shared visibility rule, same campaign filters, same date
+        // bounds (undated never matches a bound), newest first.
         var canSee = SourceVisibilityRule.Compile(requestingUserId, role);
 
         var query = _sources.Where(s => s.WorldId == worldId).Where(canSee);
@@ -55,6 +58,16 @@ public class InMemorySourceRepository : ISourceRepository
         else if (unassignedOnly)
         {
             query = query.Where(s => s.CampaignId is null);
+        }
+
+        if (occurredFrom is not null)
+        {
+            query = query.Where(s => s.OccurredAt >= occurredFrom);
+        }
+
+        if (occurredBefore is not null)
+        {
+            query = query.Where(s => s.OccurredAt < occurredBefore);
         }
 
         var result = query
@@ -226,6 +239,17 @@ public class InMemorySourceRepository : ISourceRepository
                     || ((s.OccurredAt ?? s.CreatedAt) == pivotOccurred && s.CreatedAt > pivotCreated)))
             .OrderBy(s => s.OccurredAt ?? s.CreatedAt)
             .ThenBy(s => s.CreatedAt);
+    }
+
+    public Task FileUnderCampaignAsync(IReadOnlyList<Guid> sourceIds, Guid campaignId, CancellationToken cancellationToken = default)
+    {
+        // Same predicate as the real statement: only sources with no campaign move.
+        foreach (var source in _sources.Where(s => sourceIds.Contains(s.Id) && s.CampaignId is null))
+        {
+            source.CampaignId = campaignId;
+        }
+
+        return Task.CompletedTask;
     }
 
     public Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default)

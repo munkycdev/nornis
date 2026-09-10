@@ -1,4 +1,4 @@
-using Nornis.Application.Errors;
+﻿using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -45,4 +45,12 @@ public interface ICampaignService
     /// Replaces the set of characters assigned to a campaign; returns the resulting characters.
     /// </summary>
     Task<AppResult<IReadOnlyList<Character>>> AssignCharactersAsync(AssignCampaignCharactersCommand command, CancellationToken ct);
+
+    /// <summary>
+    /// GM-only. Files sources that have no campaign under this one — the confirmation of
+    /// what <see cref="GetDetailAsync"/> offered as <see cref="CampaignDetail.UnfiledInSpan"/>.
+    /// Every id must be an unfiled source of this world; a source already filed anywhere,
+    /// this campaign included, is refused rather than moved. Returns how many were filed.
+    /// </summary>
+    Task<AppResult<int>> FileSourcesAsync(FileCampaignSourcesCommand command, CancellationToken ct);
 }

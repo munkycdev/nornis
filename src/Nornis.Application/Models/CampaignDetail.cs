@@ -1,4 +1,4 @@
-using Nornis.Domain.Entities;
+﻿using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
 
@@ -19,7 +19,21 @@ public record CampaignDetail(
     int SessionCount,
     DateTimeOffset? FirstSessionAt,
     DateTimeOffset? LastSessionAt,
-    CampaignRecapView Recap);
+    CampaignRecapView Recap,
+    UnfiledSources UnfiledInSpan);
+
+/// <summary>
+/// Sources filed under no campaign whose events fall inside this campaign's declared dates —
+/// what the page offers the GM to file here. Empty for every reader but a GM (only a GM can
+/// act on it) and for a campaign with no dates (there is no span to fall inside).
+/// <paramref name="TotalCount"/> is how many there are; <paramref name="Items"/> is the
+/// first <see cref="Services.CampaignService.MaxUnfiledOffered"/> of them, so a long
+/// backlog is filed in rounds rather than painted onto one page.
+/// </summary>
+public sealed record UnfiledSources(IReadOnlyList<SourceListItem> Items, int TotalCount)
+{
+    public static readonly UnfiledSources None = new([], 0);
+}
 
 /// <summary>
 /// The generated recap rendered for one reader. Mirrors <c>WorldDigestView</c>, including

@@ -110,6 +110,13 @@ public class CampaignService : ICampaignService
     /// <summary>How many sessions the page lists. The full count is reported alongside.</summary>
     public const int MaxRecentSessions = 25;
 
+    /// <summary>
+    /// How many unfiled sources the page offers at once. A backlog import can leave hundreds
+    /// of dated sources under no campaign; the GM files them a page at a time, and the count
+    /// alongside says how many rounds are left.
+    /// </summary>
+    public const int MaxUnfiledOffered = 50;
+
     public async Task<AppResult<CampaignDetail>> GetDetailAsync(
         Guid campaignId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)
     {
@@ -134,6 +141,10 @@ public class CampaignService : ICampaignService
 
         var recap = await _recapRepository.GetByCampaignAsync(campaignId, ct);
 
+        var unfiled = role == WorldRole.GM
+            ? await ListUnfiledInSpanAsync(campaign, actingUserId, ct)
+            : UnfiledSources.None;
+
         return AppResult<CampaignDetail>.Success(new CampaignDetail(
             campaign,
             characters,
@@ -142,7 +153,78 @@ public class CampaignService : ICampaignService
             sessions.Count,
             dated.Count > 0 ? dated.Min() : null,
             dated.Count > 0 ? dated.Max() : null,
-            CampaignRecapView.From(recap, role)));
+            CampaignRecapView.From(recap, role),
+            unfiled));
+    }
+
+    /// <summary>
+    /// The sources this campaign's dates say belong to it and nobody has filed anywhere.
+    /// Only sources with no campaign: a source filed under another campaign was somebody's
+    /// decision, and a side game run during the main campaign's years is exactly the case
+    /// where the dates alone would get it wrong.
+    /// </summary>
+    private async Task<UnfiledSources> ListUnfiledInSpanAsync(Campaign campaign, Guid gmUserId, CancellationToken ct)
+    {
+        if (campaign.StartedAt is null && campaign.EndedAt is null)
+        {
+            return UnfiledSources.None;
+        }
+
+        var unfiled = await _sourceRepository.ListSummariesByWorldAsync(
+            campaign.WorldId, gmUserId, WorldRole.GM,
+            unassignedOnly: true,
+            occurredFrom: campaign.StartedAt,
+            occurredBefore: DayAfter(campaign.EndedAt),
+            cancellationToken: ct);
+
+        return new UnfiledSources(unfiled.Take(MaxUnfiledOffered).ToList(), unfiled.Count);
+    }
+
+    /// <summary>
+    /// A campaign's end date is a day, and a session played that evening is inside it. The
+    /// stored value is midnight UTC on the day, so as an exclusive bound it would drop the
+    /// last day's sessions; the bound the query gets is the start of the following day.
+    /// </summary>
+    private static DateTimeOffset? DayAfter(DateTimeOffset? endedAt) =>
+        endedAt is { } e ? new DateTimeOffset(e.UtcDateTime.Date.AddDays(1), TimeSpan.Zero) : null;
+
+    public async Task<AppResult<int>> FileSourcesAsync(FileCampaignSourcesCommand command, CancellationToken ct)
+    {
+        if (command.ActingUserRole != WorldRole.GM)
+        {
+            return AppResult<int>.Fail(new AppError(403, "insufficient_role", "Only GMs can file sources under a campaign."));
+        }
+
+        var campaign = await _campaignRepository.GetByIdAsync(command.CampaignId, ct);
+
+        if (campaign is null || campaign.WorldId != command.WorldId)
+        {
+            return AppResult<int>.Fail(new AppError(404, "not_found", "Campaign not found."));
+        }
+
+        var sourceIds = command.SourceIds.Distinct().ToList();
+        if (sourceIds.Count == 0)
+        {
+            return AppResult<int>.Fail(new AppError(400, "validation_error", "Choose at least one source to file."));
+        }
+
+        // Validated against what is unfiled in this world *now*, not against the offer the
+        // page was built from: a source filed elsewhere since is refused, not moved. Read as
+        // the acting GM, whose visibility is the whole world.
+        var unfiled = (await _sourceRepository.ListSummariesByWorldAsync(
+                command.WorldId, command.ActingUserId, WorldRole.GM, unassignedOnly: true, cancellationToken: ct))
+            .Select(s => s.Id)
+            .ToHashSet();
+
+        if (sourceIds.Any(id => !unfiled.Contains(id)))
+        {
+            return AppResult<int>.Fail(new AppError(400, "invalid_source",
+                "One or more sources are not unfiled sources of this world."));
+        }
+
+        await _sourceRepository.FileUnderCampaignAsync(sourceIds, campaign.Id, ct);
+
+        return AppResult<int>.Success(sourceIds.Count);
     }
 
     public async Task<AppResult<IReadOnlyList<Campaign>>> ReorderAsync(

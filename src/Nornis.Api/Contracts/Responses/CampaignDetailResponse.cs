@@ -1,4 +1,4 @@
-namespace Nornis.Api.Contracts.Responses;
+﻿namespace Nornis.Api.Contracts.Responses;
 
 /// <summary>
 /// Everything the campaign page shows, at the caller's visibility. Members of any role may
@@ -14,7 +14,17 @@ public record CampaignDetailResponse(
     int SessionCount,
     DateTimeOffset? FirstSessionAt,
     DateTimeOffset? LastSessionAt,
-    CampaignRecapResponse Recap);
+    CampaignRecapResponse Recap,
+    UnfiledSourcesResponse UnfiledInSpan);
+
+/// <summary>
+/// Sources under no campaign whose date falls inside this campaign's declared dates — what
+/// the page offers a GM to file here. Empty for everyone but a GM, and for an undated
+/// campaign. <paramref name="Items"/> is the first page of <paramref name="TotalCount"/>.
+/// </summary>
+public record UnfiledSourcesResponse(
+    IReadOnlyList<SourceListItemResponse> Items,
+    int TotalCount);
 
 /// <summary>
 /// An artifact this campaign's sources evidence. <paramref name="SourceCount"/> is how many

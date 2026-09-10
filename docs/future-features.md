@@ -1,7 +1,6 @@
 # Execution order
 
 - ~~The campaign management page feels like it breaks our ux patterns. Could we move all of the edits that can be done on the campaigns listing page to the campaign detail page with the exception of campaign sorting, which makes sense to have on the overall listing.~~ Done 2026-09-10: name, introduction, status, dates, cast and deletion live on the campaign page; the list keeps ordering and creation. Dates gained an explicit clear (`ClearStartedAt`/`ClearEndedAt`) since null had meant "leave it".
-- It would be nice to specify dates for a campaign and then Nornis proposes pulling in all sources bounded by those dates to the campaign, as a cleanup measure...
 - On the campaign detail page, instead of displaying character guids, I'd like to display chips with the name of the characters in the campaign
 - Ask the Loremaster doesn't bring in knowledge from Library items. Could we change that?
 - It would be great in an article to be able to link to a topic from the library so that the article could extract information from the library. How might we do that?

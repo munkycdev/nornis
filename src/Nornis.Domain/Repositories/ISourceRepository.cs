@@ -24,12 +24,32 @@ public interface ISourceRepository
     /// <param name="campaignId">When set, only sources in that campaign.</param>
     /// <param name="unassignedOnly">When true, only sources with no campaign. Ignored if
     /// <paramref name="campaignId"/> is set.</param>
+    /// <param name="occurredFrom">When set, only sources whose events happened at or after
+    /// this moment. A source with no <c>OccurredAt</c> never matches a bound: an undated
+    /// source is not "within" any span.</param>
+    /// <param name="occurredBefore">When set, only sources whose events happened strictly
+    /// before this moment — exclusive, so a caller can hand in the start of the day after an
+    /// inclusive end date.</param>
     Task<IReadOnlyList<SourceListItem>> ListSummariesByWorldAsync(
         Guid worldId,
         Guid requestingUserId,
         WorldRole role,
         Guid? campaignId = null,
         bool unassignedOnly = false,
+        DateTimeOffset? occurredFrom = null,
+        DateTimeOffset? occurredBefore = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Files the named sources under a campaign — but only those that have no campaign yet.
+    /// The predicate is the guard: a source filed elsewhere between the offer and the
+    /// confirmation is left where it is rather than moved, because one campaign's cleanup
+    /// must never steal another's sessions. Callers validate the ids beforehand; this
+    /// writes the set in one statement and does not report how many rows it touched.
+    /// </summary>
+    Task FileUnderCampaignAsync(
+        IReadOnlyList<Guid> sourceIds,
+        Guid campaignId,
         CancellationToken cancellationToken = default);
 
     /// <summary>

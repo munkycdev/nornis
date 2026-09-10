@@ -179,6 +179,13 @@ public class NornisApiClient
             $"/api/worlds/{worldId}/campaigns/{campaignId}/characters",
             new AssignCampaignCharactersRequest(characterIds), ct);
 
+    /// <summary>GM-only: files sources that have no campaign under this one.</summary>
+    public Task<ApiResult<FileCampaignSourcesResponse>> FileCampaignSourcesAsync(
+        Guid worldId, Guid campaignId, IReadOnlyList<Guid> sourceIds, CancellationToken ct = default) =>
+        PostAsync<FileCampaignSourcesRequest, FileCampaignSourcesResponse>(
+            $"/api/worlds/{worldId}/campaigns/{campaignId}/file-sources",
+            new FileCampaignSourcesRequest(sourceIds), ct);
+
     // ----------------------------------------------------------------- Characters --
 
     // -------------------------------------------------------------------- Players --
