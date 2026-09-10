@@ -1,12 +1,13 @@
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
-@inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-@* The world's campaigns, current one first, with the GM's edit affordances. Lifted whole from
-   WorldSettingsPanel on 2026-09-09 so the Campaigns page could exist without a second copy —
-   the settings panel now points here. *@
+@* The world's campaigns, current one first. Lifted whole from WorldSettingsPanel on
+   2026-09-09 so the Campaigns page could exist without a second copy. On 2026-09-10 the
+   editing moved to each campaign's own page, where the rest of the app edits things; what
+   stays here is what only makes sense over the whole list — the GM's order — and creation,
+   which has no page to live on yet. *@
 
 @if (_loadingCampaigns)
 {
@@ -62,44 +63,7 @@ else
                 </div>
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
                          Color="@(c.Status == "Active" ? Color.Success : Color.Default)">@c.Status</MudChip>
-                @if (_isGm)
-                {
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                                   OnClick="() => BeginEditCampaign(c)" aria-label="Edit campaign" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
-                                   OnClick="() => DeleteCampaignAsync(c)" aria-label="Delete campaign" />
-                }
             </div>
-            @if (_isGm && _editingCampaignId == c.Id)
-            {
-                <div class="nornis-card-pad mb-2">
-                    <MudTextField @bind-Value="_campaignName" Label="Name" Required="true" MaxLength="200"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
-                    <MudTextField @bind-Value="_campaignDescription" Label="Description" Lines="2"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
-                    <MudSelect T="string" @bind-Value="_campaignStatus" Label="Status" Dense="true"
-                               Variant="Variant.Outlined" Class="mb-2">
-                        @foreach (var status in _campaignStatuses)
-                        {
-                            <MudSelectItem Value="@status">@status</MudSelectItem>
-                        }
-                    </MudSelect>
-                    <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_campaignCharacterIds"
-                               Label="Characters in this campaign" Dense="true" Variant="Variant.Outlined" Class="mb-2">
-                        @foreach (var ch in _characters)
-                        {
-                            <MudSelectItem T="Guid" Value="@ch.Id">@ch.Name</MudSelectItem>
-                        }
-                    </MudSelect>
-                    @if (_campaignError is not null)
-                    {
-                        <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2">@_campaignError</MudAlert>
-                    }
-                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Small"
-                               OnClick="SaveCampaignAsync" Disabled="_savingCampaign" Class="mr-2">Save</MudButton>
-                    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="CancelEditCampaign">Cancel</MudButton>
-                </div>
-            }
         }
 
         @if (_isGm)
@@ -123,7 +87,6 @@ else
 @code {
     private bool _isGm => Worlds.IsGm;
 
-    private readonly string[] _campaignStatuses = ["Active", "Completed", "Archived"];
     private bool _loadingCampaigns = true;
     private string? _campaignsError;
     private IReadOnlyList<CampaignDto> _campaigns = [];
@@ -131,16 +94,8 @@ else
     private string _newCampaignName = string.Empty;
     private bool _addingCampaign;
     private string? _addCampaignError;
-    private Guid? _editingCampaignId;
-    private string _campaignName = string.Empty;
-    private string? _campaignDescription;
-    private string _campaignStatus = "Active";
-    private IReadOnlyCollection<Guid> _campaignCharacterIds = [];
-    private bool _savingCampaign;
-    private string? _campaignError;
 
-    // Characters are managed on each member's /profile page; loaded here only so the
-    // list can name and assign them.
+    // Loaded only so each row can say who plays in it; the cast is edited on the campaign's page.
     private IReadOnlyList<CharacterDto> _characters = [];
 
     protected override async Task OnInitializedAsync()
@@ -269,76 +224,6 @@ else
         else
         {
             _addCampaignError = result.Error!.Message;
-        }
-        StateHasChanged();
-    }
-
-    private void BeginEditCampaign(CampaignDto c)
-    {
-        _editingCampaignId = c.Id;
-        _campaignName = c.Name;
-        _campaignDescription = c.Description;
-        _campaignStatus = c.Status;
-        _campaignCharacterIds = _characters.Where(ch => ch.CampaignIds.Contains(c.Id)).Select(ch => ch.Id).ToList();
-        _campaignError = null;
-    }
-
-    private void CancelEditCampaign() => _editingCampaignId = null;
-
-    private async Task SaveCampaignAsync()
-    {
-        if (_editingCampaignId is not { } campaignId || Worlds.Current is null)
-        {
-            return;
-        }
-
-        _savingCampaign = true;
-        _campaignError = null;
-
-        var update = await Api.UpdateCampaignAsync(Worlds.Current.Id, campaignId,
-            new UpdateCampaignRequest(_campaignName, _campaignDescription, _campaignStatus));
-
-        if (!update.IsSuccess)
-        {
-            _savingCampaign = false;
-            _campaignError = update.Error!.Message;
-            return;
-        }
-
-        var assign = await Api.AssignCampaignCharactersAsync(Worlds.Current.Id, campaignId, _campaignCharacterIds.ToList());
-        _savingCampaign = false;
-
-        if (!assign.IsSuccess)
-        {
-            _campaignError = assign.Error!.Message;
-            return;
-        }
-
-        _editingCampaignId = null;
-        Snackbar.Add("Campaign saved.", Severity.Success);
-        await LoadCampaignsAndCharactersAsync();
-    }
-
-    private async Task DeleteCampaignAsync(CampaignDto c)
-    {
-        var confirmed = await DialogService.ShowMessageBoxAsync(
-            "Delete campaign?",
-            $"Delete \"{c.Name}\"? Sources keep their content and revert to no campaign; nothing else is removed.",
-            yesText: "Delete", cancelText: "Cancel");
-        if (confirmed != true)
-        {
-            return;
-        }
-
-        var result = await Api.DeleteCampaignAsync(Worlds.Current!.Id, c.Id);
-        if (result.IsSuccess)
-        {
-            _campaigns = _campaigns.Where(x => x.Id != c.Id).ToList();
-            Snackbar.Add("Campaign deleted.", Severity.Info);
-        }
-        else
-        {
-            Snackbar.Add(result.Error!.Message, Severity.Error);
         }
         StateHasChanged();
     }

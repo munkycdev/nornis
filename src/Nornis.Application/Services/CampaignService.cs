@@ -211,12 +211,22 @@ public class CampaignService : ICampaignService
             campaign.Status = command.Status.Value;
         }
 
-        if (command.StartedAt is not null)
+        // Null leaves a date alone; clearing is said explicitly, so "unset" and "remove" are
+        // two values rather than one null meaning both.
+        if (command.ClearStartedAt)
+        {
+            campaign.StartedAt = null;
+        }
+        else if (command.StartedAt is not null)
         {
             campaign.StartedAt = command.StartedAt;
         }
 
-        if (command.EndedAt is not null)
+        if (command.ClearEndedAt)
+        {
+            campaign.EndedAt = null;
+        }
+        else if (command.EndedAt is not null)
         {
             campaign.EndedAt = command.EndedAt;
         }

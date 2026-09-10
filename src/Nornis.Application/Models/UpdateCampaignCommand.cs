@@ -11,4 +11,6 @@ public record UpdateCampaignCommand(
     string? Description = null,
     CampaignStatus? Status = null,
     DateTimeOffset? StartedAt = null,
-    DateTimeOffset? EndedAt = null);
+    DateTimeOffset? EndedAt = null,
+    bool ClearStartedAt = false,
+    bool ClearEndedAt = false);

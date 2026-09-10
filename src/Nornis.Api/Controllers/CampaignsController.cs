@@ -222,7 +222,9 @@ public class CampaignsController : ControllerBase
             Description: request.Description,
             Status: status,
             StartedAt: request.StartedAt,
-            EndedAt: request.EndedAt);
+            EndedAt: request.EndedAt,
+            ClearStartedAt: request.ClearStartedAt,
+            ClearEndedAt: request.ClearEndedAt);
 
         var result = await _campaignService.UpdateAsync(command, ct);
 
