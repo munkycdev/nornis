@@ -129,6 +129,23 @@ public class CharactersController : ControllerBase
         return Ok(await ToCharacterResponseAsync(result.Value!, ct));
     }
 
+    /// <summary>Moves the character to another player at the table. Steward or GM.</summary>
+    [HttpPut("{characterId:guid}/player")]
+    public async Task<IActionResult> MoveToPlayer(Guid worldId, Guid characterId, [FromBody] MoveCharacterRequest request, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _characterService.MoveToPlayerAsync(characterId, worldId, request.PlayerId, user.Id, member.Role, ct);
+
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        return Ok(await ToCharacterResponseAsync(result.Value!, ct));
+    }
+
     [HttpDelete("{characterId:guid}")]
     public async Task<IActionResult> Delete(Guid worldId, Guid characterId, CancellationToken ct)
     {

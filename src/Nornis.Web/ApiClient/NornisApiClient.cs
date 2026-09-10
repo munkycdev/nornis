@@ -224,6 +224,10 @@ public class NornisApiClient
     public Task<ApiResult<CharacterDto>> ClaimCharacterAsync(Guid worldId, Guid characterId, CancellationToken ct = default) =>
         PostAsync<object?, CharacterDto>($"/api/worlds/{worldId}/characters/{characterId}/claim", null, ct);
 
+    /// <summary>Moves a character to another player at the table. Steward or GM.</summary>
+    public Task<ApiResult<CharacterDto>> MoveCharacterAsync(Guid worldId, Guid characterId, Guid playerId, CancellationToken ct = default) =>
+        PutAsync<MoveCharacterRequest, CharacterDto>($"/api/worlds/{worldId}/characters/{characterId}/player", new MoveCharacterRequest(playerId), ct);
+
     public Task<ApiResult<CharacterDossierDto>> GetCharacterDossierAsync(Guid worldId, Guid characterId, CancellationToken ct = default) =>
         GetAsync<CharacterDossierDto>($"/api/worlds/{worldId}/characters/{characterId}/dossier", ct);
 

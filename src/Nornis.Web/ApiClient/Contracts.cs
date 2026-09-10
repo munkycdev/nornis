@@ -317,6 +317,8 @@ public record RenamePlayerRequest(string Name);
 
 public record LinkPlayerRequest(Guid WorldMemberId);
 
+public record MoveCharacterRequest(Guid PlayerId);
+
 public record CharacterDto(
     Guid Id,
     Guid WorldId,

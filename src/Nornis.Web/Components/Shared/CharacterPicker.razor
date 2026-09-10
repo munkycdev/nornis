@@ -1,0 +1,112 @@
+@inject WorldState Worlds
+@inject NornisApiClient Api
+
+@* One field for "give this player a character": an existing record at the table (moves or is
+   claimed), a Codex entry of type Character that no record links to yet (a linked record is
+   created from it), or a name nobody has (a fresh record). Every option says where it came
+   from, so Koves the Codex entry and Koves the record never look alike, and a typed name is
+   always offered as "Create", even when something similar exists — two Koves is sometimes
+   right, and a field that hides the option feels like a refusal.
+
+   The picker only chooses; the page acts, because what a pick means differs by page (a GM
+   moving a record on Party, a member claiming one on Your settings). *@
+
+<div class="nornis-add-member">
+    <MudAutocomplete T="CharacterPick" @bind-Value="_pick" @bind-Text="_text"
+                     SearchFunc="SearchAsync" ToStringFunc="@(p => p?.Name)"
+                     Label="@Label" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                     Clearable="true" ResetValueOnEmptyText="true" CoerceText="false"
+                     MaxItems="20" Class="flex-grow-1">
+        <ItemTemplate Context="p">
+            <span>@p.Name</span>
+            <span class="nornis-list-meta ml-2">@p.Origin</span>
+        </ItemTemplate>
+    </MudAutocomplete>
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="ConfirmAsync" Disabled="Busy || _pick is null">
+        Add
+    </MudButton>
+</div>
+
+@code {
+    /// <summary>
+    /// What was chosen. Exactly one of <see cref="Record"/>, <see cref="Artifact"/> or
+    /// <see cref="NewName"/> is set.
+    /// </summary>
+    public sealed record CharacterPick(string Name, string Origin, CharacterDto? Record, ArtifactListItem? Artifact, string? NewName);
+
+    [Parameter] public string Label { get; set; } = "Character";
+
+    /// <summary>Records already belonging to this player are not offered — they are already here.</summary>
+    [Parameter] public Guid? ExcludePlayerId { get; set; }
+
+    [Parameter] public bool Busy { get; set; }
+
+    [Parameter] public EventCallback<CharacterPick> OnPick { get; set; }
+
+    private CharacterPick? _pick;
+    private string? _text;
+    private IReadOnlyList<CharacterDto>? _records;
+    private IReadOnlyList<ArtifactListItem>? _artifacts;
+
+    /// <summary>Forgets what was loaded, so the next search sees the table as it now is.</summary>
+    public void Reset()
+    {
+        _pick = null;
+        _text = null;
+        _records = null;
+        _artifacts = null;
+    }
+
+    private async Task EnsureLoadedAsync()
+    {
+        if (Worlds.Current is null || (_records is not null && _artifacts is not null))
+        {
+            return;
+        }
+
+        var recordsTask = Api.GetCharactersAsync(Worlds.Current.Id);
+        var artifactsTask = Api.GetArtifactsAsync(Worlds.Current.Id, "Character");
+        var records = await recordsTask;
+        var artifacts = await artifactsTask;
+        _records = records.IsSuccess ? records.Value! : [];
+        _artifacts = artifacts.IsSuccess ? artifacts.Value! : [];
+    }
+
+    private async Task<IEnumerable<CharacterPick>> SearchAsync(string? value, CancellationToken ct)
+    {
+        await EnsureLoadedAsync();
+        var text = value?.Trim() ?? string.Empty;
+        bool Matches(string name) => text.Length == 0 || name.Contains(text, StringComparison.OrdinalIgnoreCase);
+
+        var records = (_records ?? [])
+            .Where(r => r.PlayerId != ExcludePlayerId && Matches(r.Name))
+            .Select(r => new CharacterPick(r.Name, $"played by {r.PlayerName}", r, null, null));
+
+        // A Codex entry some record already links to is that record — offer the record, so the
+        // same character never appears twice.
+        var linked = (_records ?? []).Where(r => r.ArtifactId is not null).Select(r => r.ArtifactId!.Value).ToHashSet();
+        var entries = (_artifacts ?? [])
+            .Where(a => !linked.Contains(a.Id) && Matches(a.Name))
+            .Select(a => new CharacterPick(a.Name, "from the Codex", null, a, null));
+
+        var options = records.Concat(entries).OrderBy(o => o.Name).Take(15).ToList();
+        if (text.Length > 0)
+        {
+            options.Add(new CharacterPick($"Create \"{text}\"", "a new character", null, null, text));
+        }
+
+        return options;
+    }
+
+    private async Task ConfirmAsync()
+    {
+        if (_pick is null)
+        {
+            return;
+        }
+
+        var pick = _pick;
+        await OnPick.InvokeAsync(pick);
+    }
+}

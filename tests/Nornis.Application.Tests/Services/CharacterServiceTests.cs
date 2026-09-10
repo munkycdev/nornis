@@ -1382,4 +1382,55 @@ public class CharacterServiceTests
 
         Assert.That(mine.Value!.Select(c => c.Name), Is.EquivalentTo(["Tavrin"]));
     }
+
+
+    // ---------------------------------------------------------------- Move --
+    // A character moves between players at the table without anything about it changing but
+    // whose it is — the GM correcting who plays whom, or a member handing one on.
+
+    [Test]
+    public async Task MoveToPlayerAsync_GmMovesARecordToSomeoneNotOnNornis_KeepingItsSharing()
+    {
+        var henry = await AddUnlinkedPlayer("Henry");
+        var koves = SeedCharacter(_player, "Koves");
+        koves.Sheet = "A grudge.";
+        koves.SheetSharedWithParty = true;
+
+        var result = await _sut.MoveToPlayerAsync(koves.Id, WorldId, henry.Id, _gm.UserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value!.PlayerId, Is.EqualTo(henry.Id));
+            Assert.That(result.Value.SheetSharedWithParty, Is.True, "the sheet's sharing is the character's, not the player's");
+            Assert.That(result.Value.Sheet, Is.EqualTo("A grudge."));
+        });
+    }
+
+    [Test]
+    public async Task MoveToPlayerAsync_StewardMayHandTheirOwnOn_AStrangerMayNot()
+    {
+        var henry = await AddUnlinkedPlayer("Henry");
+        var tavrin = SeedCharacter(_player, "Tavrin");
+
+        var stranger = await _sut.MoveToPlayerAsync(tavrin.Id, WorldId, henry.Id, _otherPlayer.UserId, WorldRole.Player, CancellationToken.None);
+        var steward = await _sut.MoveToPlayerAsync(tavrin.Id, WorldId, henry.Id, _player.UserId, WorldRole.Player, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stranger.Error!.StatusCode, Is.EqualTo(403));
+            Assert.That(steward.IsSuccess, Is.True);
+            Assert.That(steward.Value!.PlayerId, Is.EqualTo(henry.Id));
+        });
+    }
+
+    [Test]
+    public async Task MoveToPlayerAsync_ToAPlayerOutsideTheWorld_Returns400()
+    {
+        var tavrin = SeedCharacter(_player, "Tavrin");
+
+        var result = await _sut.MoveToPlayerAsync(tavrin.Id, WorldId, Guid.NewGuid(), _gm.UserId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
+    }
 }

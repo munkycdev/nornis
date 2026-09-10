@@ -96,9 +96,17 @@ else
                     }
                 </div>
             }
+            @if (IsGm)
+            {
+                @* The GM gives anyone at the table a character: an existing record moves here, a
+                   Codex entry becomes a linked record, a new name becomes a fresh one. *@
+                <div class="mt-3">
+                    <CharacterPicker Label="@($"Character for {player.Name}")" ExcludePlayerId="player.Id" Busy="_busy"
+                                     OnPick="pick => PickForPlayerAsync(player, pick)" />
+                </div>
+            }
             @if (IsGm && player.WorldMemberId is null)
             {
-                @* Someone not on Nornis cannot add their own; the GM does it here, on their row. *@
                 <div class="nornis-add-member mt-3">
                     <MudSelect T="Guid?" Value="@LinkTargetFor(player.Id)" ValueChanged="@((Guid? v) => _linkTargets[player.Id] = v)"
                                Label="@($"{player.Name} is on Nornis as…")" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
@@ -111,15 +119,6 @@ else
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Link"
                                OnClick="() => LinkAsync(player)" Disabled="_busy || LinkTargetFor(player.Id) is null">
                         Link
-                    </MudButton>
-                </div>
-                <div class="nornis-add-member mt-3">
-                    <MudTextField Value="@NewCharacterNameFor(player.Id)" ValueChanged="@((string v) => _newCharacterNames[player.Id] = v)"
-                                  T="string" Label="@($"New character for {player.Name}")" MaxLength="200"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" />
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                               OnClick="() => AddCharacterAsync(player)" Disabled="_busy">
-                        Add
                     </MudButton>
                 </div>
             }
@@ -235,26 +234,48 @@ else
         }
     }
 
-    private readonly Dictionary<Guid, string> _newCharacterNames = [];
-
-    private string NewCharacterNameFor(Guid playerId) => _newCharacterNames.GetValueOrDefault(playerId, string.Empty);
-
-    private async Task AddCharacterAsync(PlayerDto player)
+    /// <summary>
+    /// What a pick means on this page: a record moves to the player (after asking, since it is
+    /// someone else's), a Codex entry becomes a record linked to it, a name becomes a record.
+    /// </summary>
+    private async Task PickForPlayerAsync(PlayerDto player, CharacterPicker.CharacterPick pick)
     {
-        var name = NewCharacterNameFor(player.Id).Trim();
-        if (Worlds.Current is null || name.Length == 0)
+        if (Worlds.Current is null)
         {
-            Snackbar.Add("A character needs a name.", Severity.Warning);
             return;
         }
 
+        var worldId = Worlds.Current.Id;
         _busy = true;
-        var result = await Api.CreateCharacterAsync(Worlds.Current.Id, new CreateCharacterRequest(name, PlayerId: player.Id));
-        _busy = false;
+        ApiResult<CharacterDto> result;
 
+        switch (pick)
+        {
+            case { Record: { } record }:
+                var confirmed = await DialogService.ShowMessageBoxAsync(
+                    "Move this character?",
+                    $"\"{record.Name}\" is played by {record.PlayerName}. Move them to {player.Name}? The sheet and everything on it comes along as it is.",
+                    yesText: "Move", cancelText: "Cancel");
+                if (confirmed != true)
+                {
+                    _busy = false;
+                    return;
+                }
+                result = await Api.MoveCharacterAsync(worldId, record.Id, player.Id);
+                break;
+            case { Artifact: { } artifact }:
+                var description = artifact.Summary is { Length: > 2000 } s ? s[..2000] : artifact.Summary;
+                result = await Api.CreateCharacterAsync(worldId, new CreateCharacterRequest(artifact.Name, description, PlayerId: player.Id, ArtifactId: artifact.Id));
+                break;
+            default:
+                result = await Api.CreateCharacterAsync(worldId, new CreateCharacterRequest(pick.NewName ?? pick.Name, PlayerId: player.Id));
+                break;
+        }
+
+        _busy = false;
         if (result.IsSuccess)
         {
-            _newCharacterNames.Remove(player.Id);
+            Snackbar.Add($"{result.Value!.Name} is {player.Name}'s.", Severity.Success);
             await LoadAsync();
         }
         else
