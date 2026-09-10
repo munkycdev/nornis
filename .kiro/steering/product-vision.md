@@ -1,5 +1,22 @@
 # Product Vision: Nornis
 
+> **Amendment (2026-09-09):** the last Non-Goal below — "No public anonymous world browsing" —
+> was reversed, and the reversal shipped in two parts. Public read-only browsing at `/w/{slug}`
+> landed on 2026-07-16 (c3842ee): a GM enables it per world with a slug, it shows PartyVisible
+> content only with Draft sources excluded, and the Library is not exposed. A public Ask the
+> Loremaster on the same address followed on 2026-07-20 (3ae1895), gated by a per-world monthly
+> USD cap that a GM sets — no cap, no public Ask. Both controls live on the world settings
+> panel, and `security-and-permissions.md` ("Public Sharing") carries the rules.
+>
+> The other non-goals were checked against the tree the same day and hold, with one
+> qualification. **Audio transcription:** not built — the `SessionAudio` capture type takes a
+> pasted transcript, and no audio is stored or sent anywhere. **OCR:** not built — a scanned
+> PDF is refused with "OCR is not supported yet" — but "a simple source extraction placeholder"
+> undersells what is there: handwritten pages are transcribed by a vision model (933fced,
+> 2026-07-16), images on Image/Upload sources are read by one (8dc1927, 2026-07-18), and
+> digital PDFs yield per-page text through PdfPig. Read that bullet as "no OCR engine", not as
+> "nothing derives text from files".
+
 ## Purpose
 
 Nornis is a memory engine for tabletop roleplaying worlds. It helps players and GMs capture what happened, transform those sources into structured world knowledge, and consult that knowledge through an AI Loremaster.

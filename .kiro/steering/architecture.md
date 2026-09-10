@@ -1,5 +1,17 @@
 # Architecture
 
+> **Amendment (2026-09-09):** the Preferred Stack and the three hosting sections below ("AKS
+> Guidance", "Terraform vs Helm", "Environments") describe a platform that was never built.
+> What runs: **Azure Container Apps** (`ca-nornis-{api,web,worker}`), images on **GitHub
+> Container Registry**, **Application Insights via OpenTelemetry** for logs, metrics and traces,
+> and infrastructure provisioned by `scripts/provision-azure.ps1` with the az CLI — Terraform
+> deferred until a second environment exists, and there is one environment, prod, deployed
+> automatically from `main`. There is no Key Vault: the three remaining app secrets are
+> Container Apps secrets, and since 2026-09-08 SQL, Blob Storage and Service Bus are reached as
+> managed identities, so there are no connection secrets to keep. `azure-hosting.md`, `cicd.md`
+> and `observability-and-costs.md` each carry the dated reasoning; the layering, data-access
+> and flow sections of this document are untouched by any of it and stand as written.
+
 ## Preferred Stack
 
 - Language: C#

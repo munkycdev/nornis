@@ -13,6 +13,14 @@
 > place those values are duplicated by hand, because it deploys to GitHub Pages and can
 > never import from the app.
 
+> **Amendment (2026-09-09):** the "Artifacts" entry under Navigation is labelled **Codex** in
+> the shipped UI (e7bcf02, 2026-07-16 — "Adopt Codex for the artifact collection across the
+> app"). The rename is presentation only: the route is still `/artifacts`, the domain term is
+> still Artifact, and nothing in `domain-model.md` changes. The navigation list as a whole is a
+> recommendation the sidebar has since outgrown (Timeline, Locations, Library, Convergence and
+> Admin sit beside it); the sidebar in `src/Nornis.Web/Components/Layout/` is the authority on
+> what is there today.
+
 ## Product Vibe
 
 Nornis should feel like a calm, modern world Loremaster with a durable, archival identity.

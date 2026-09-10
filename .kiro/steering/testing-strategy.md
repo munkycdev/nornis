@@ -1,5 +1,13 @@
 # Testing Strategy
 
+> **Amendment (2026-09-09):** the first Authorization Tests bullet — anonymous requests
+> rejected "except `/health` and approved `/status`" — predates the public surface. Since
+> 2026-07-16 `/api/public/worlds/{slug}/**` is anonymous by design (see the anonymous-endpoint
+> list in `security-and-permissions.md`), so the test to write there is not that it refuses
+> strangers but that it serves them only what a GM published: PartyVisible content of a world
+> with public access enabled, and Ask only under a positive monthly cap. Everything else in that
+> list stands.
+
 ## Test Framework
 
 Use NUnit for all test projects.

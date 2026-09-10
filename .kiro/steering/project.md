@@ -1,5 +1,31 @@
 # Nornis - AI-First World Memory
 
+> **Amendment (2026-09-09):** four lines of the Tech Stack below name tools the system does
+> not use, and the Build & Run section was never filled in. Hosting is **Azure Container Apps**
+> (`ca-nornis-{api,web,worker}`), not AKS; images live in **GitHub Container Registry**
+> (`ghcr.io/munkycdev/nornis-{api,web,worker}`), not ACR; observability is **Application
+> Insights via OpenTelemetry**, not DataDog; and infrastructure is provisioned by
+> `scripts/provision-azure.ps1` with the az CLI, Terraform deferred until a second environment
+> exists. Since 2026-09-08 the API and worker reach SQL, Blob Storage and Service Bus as their
+> own managed identities. Each of those is recorded, with its reasoning, in `azure-hosting.md`,
+> `cicd.md` and `observability-and-costs.md`; this note exists so the summary here stops
+> disagreeing with them.
+>
+> Build & Run, as the tree has it (README.md is canonical):
+>
+> ```powershell
+> dotnet build Nornis.sln
+> dotnet test --solution Nornis.sln                # Microsoft.Testing.Platform runner, per global.json
+> dotnet format --verify-no-changes --no-restore   # the CI format check
+> ```
+>
+> Warnings are errors (`Directory.Build.props`).
+>
+> Two Conventions bullets have also drifted: `.kiro/specs/` is empty — design decisions live in
+> `docs/features/` (per-feature docs, numbered in build order) and `docs/plans/` — and
+> kebab-case holds for scripts, docs and workflows, while C# files and folders follow the .NET
+> convention the whole tree uses (`Controllers/ArtifactsController.cs`).
+
 ## Project Overview
 
 Nornis is an AI-first world memory engine for tabletop roleplaying games. It helps Game Masters and players capture world sources, extract structured world knowledge, review proposed updates, and consult that knowledge through an AI Loremaster.
