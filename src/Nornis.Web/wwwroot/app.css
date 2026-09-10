@@ -2403,6 +2403,68 @@ a.nornis-cite:hover {
     margin-bottom: 26px;
 }
 
+/* ------------------------------------------------------------- Stonemark -- */
+/* The logo's two ornaments, reused on the surface (Stonemark.razor). Secondary ink at reduced
+   opacity so they read as part of the paper, not as chrome; currentColor throughout so the
+   dark palette carries through unchanged. */
+
+.nornis-rule {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--mud-palette-text-secondary);
+    opacity: 0.55;
+}
+
+.nornis-rule::before,
+.nornis-rule::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: currentColor;
+}
+
+.nornis-rule-gem {
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border: 1.5px solid currentColor;
+    transform: rotate(45deg);
+    position: relative;
+}
+
+.nornis-rule-gem::after {
+    content: '';
+    position: absolute;
+    inset: 2.5px;
+    background: currentColor;
+}
+
+/* A short, centred rule — for a hero, where a full-width line would be a fence. */
+.nornis-rule-short {
+    max-width: 220px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.nornis-mark-branch {
+    display: block;
+    width: 22px;
+    height: 36px;
+    color: var(--mud-palette-text-secondary);
+    opacity: 0.7;
+}
+
+/* Where each one sits. */
+.nornis-entity-ornament { margin: -6px 0 2px; }
+.nornis-public-page .nornis-rule { margin: 0 0 24px; }
+.nornis-landing-hero .nornis-rule-short { margin-top: 36px; }
+.nornis-comingsoon-mark {
+    width: 28px;
+    height: 46px;
+    margin-bottom: 10px;
+}
+
 /* ----------------------------------------------------------- Prose pages -- */
 
 .nornis-public-page {
@@ -4006,6 +4068,11 @@ a.nornis-cite:hover {
 }
 
 .nornis-entity-body > .mud-paper.nornis-card:last-child {
+    border-bottom: 0;
+}
+
+/* The header's hairline is the stonemark rule now (EntityPage renders it after the header). */
+.nornis-entity-header > .mud-paper.nornis-card {
     border-bottom: 0;
 }
 
