@@ -23,7 +23,17 @@ What the build changed from the spec, and what it found:
 - **The format gate was already red on `main`** from the previous commit (IDE0300 in three
   test files, two of which the fixer could not rewrite); fixed here so the gate means something
   again.
-- The live walk (V3) is recorded below once done.
+- **Live walk, 2026-09-10, Ruins of Symbaroum as GM** (local API and Web against production,
+  deployed worker): opened Thistlehold — "No facts recorded" — and *Enrich from the library*;
+  the search returned twelve passages (eleven from the Gamemaster's Guide, one from the
+  Player's Guide), five were ticked and filed as two sources, one per document, each titled
+  "Thistlehold — {document}, pp. …" and queued. Both were Processed within a minute. The
+  Gamemaster's Guide excerpt (GM-only, as its shelf) produced proposals of the intended shape:
+  Confirmed facts and relationships aimed at Thistlehold's existing id, and CreateArtifact for
+  Karabbadokk, Nighthome, the Ordo Magica tower and Count Alkantor Argona; one observed-cuddling
+  relationship came back Likely, which is the prompt's hearsay rule doing its job. The source
+  page shows the Library row linking the document with the page range, and the body opens with
+  the filing line. Acceptance was left to the GM.
 
 ## Phase A — The excerpt
 
@@ -55,8 +65,9 @@ What the build changed from the spec, and what it found:
 - [x] V2. Migration applied 2026-09-10 (`AddLibraryExcerptSources`, additive, pre-deploy, with
       `AZURE_TOKEN_CREDENTIALS=AzureCliCredential` — without it the credential probe times out
       and SqlClient reports only "The operation was canceled"); deploy watched below.
-- [ ] V3. Live: file an excerpt from the artifact page and from the document page as GM; the
-      batch reaches Review; the source page shows the document link.
+- [x] V3. Live: filed from the artifact page as GM; both batches reached Review; the source page
+      shows the document link. The document-page range form was built and endpoint-tested but
+      not walked live.
 
 ## Deferred (explicitly not this feature)
 
