@@ -101,7 +101,10 @@ Phase C, and what it changed:
 - [x] A7. Role matrix tests: Owner, GM, other Player, Observer all read; none mutate.
 - [x] A8. `CharacterDetail.razor` at `/characters/{characterId:guid}` — header, campaigns,
       grouped record with per-group "showing N of M" where capped.
-- [x] A9a. Link in from `Profile.razor` character rows.
+- [x] A9a. Link in from `Profile.razor` character rows. **2026-09-09:** the campaign page's
+      cast chips link here too — the profile lists only your own characters, so until then a
+      GM or party member had no way to reach anyone else's page. Member-only surface, so none
+      of A9b's public-page concern applies.
 - [ ] A9b. Link back from `ArtifactDetail`'s `PlayedBy` names — declined, see above.
 
 ## Phase B — The written sheet

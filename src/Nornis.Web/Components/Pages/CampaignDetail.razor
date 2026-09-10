@@ -153,11 +153,15 @@
             else
             {
                 <div class="d-flex flex-wrap gap-2">
+                    @* The character's own page, not the artifact behind it: the page is
+                       readable by every member and links on to the record when the reader
+                       may see it, which the chip cannot know. This is the one member-only
+                       way to reach a character you do not play. *@
                     @foreach (var ch in _detail.Characters)
                     {
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                                  Icon="@Icons.Material.Outlined.Person"
-                                 Href="@(ch.ArtifactId is { } aid ? $"/artifacts/{aid}" : null)">@ch.Name</MudChip>
+                                 Href="@($"/characters/{ch.Id}")">@ch.Name</MudChip>
                     }
                 </div>
             }
