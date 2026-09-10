@@ -96,29 +96,62 @@ where the version turns over. Guards are watched failing before they are trusted
 
 ## Phase C — Paper
 
-- [ ] C1. `NornisTheme.cs`: the 2.0 palette and typography; `app.css` tokens mirrored; theme
+**Built 2026-09-10.** Notes for the reader:
+
+- **The palette is constants on `NornisTheme`** (`Paper`, `Ink`, `Accent`, …) and the theme is
+  built from them, so the design table has one home and `ThemeTests` pins it. MudBlazor's
+  `Typography` carries the two families; headings are Newsreader through the theme, not
+  through a class, though `nornis-serif` stays for the places that opt in below heading level.
+- **`Color.Secondary` was the gold role in 247 places.** Rather than sweep them, the palette's
+  Secondary is now the secondary ink, so every quiet icon and caption went quiet at once and
+  the filled "secondary" buttons on Import read as neutral actions. The stylesheet's own
+  `--mud-palette-secondary` uses were reassigned one by one: hover borders and quiet icons to
+  the secondary ink, the drag marker and the focus ring to the accent, the landing tagline to
+  `--nornis-gold`.
+- **Links are ink with an underline** — `nornis-link` and MudLink both. The accent is on the
+  primary button and the active nav icon; the tabs slider and the journey map's visited
+  markers were the two places that argued, and the slider lost (ink) while the markers kept
+  the accent as data, not chrome.
+- **Cards stopped nesting by one rule, not five migrations.** Inside `EntityPage` a direct
+  `nornis-card` child of the header or body loses its box and gains a rule beneath it. The
+  count of `.nornis-*` selectors in `app.css` went **612 → 573**: forty-seven classes nothing
+  rendered any more (the old top-bar search, the world-memory ring, the canon page, the AI
+  summary block) were deleted with their rules.
+- **The `onnavy` tokens became `onside`** with light values; the on-navy whites and navies
+  hard-coded through the sheet were swept to palette variables, and the topographic wash came
+  off the Ask hero and stayed on the public pages.
+- **`nornis-reading` is applied by selector**, to every markdown surface, the digest, the
+  Loremaster's answer and the editor, rather than by the template's body slot — the body also
+  holds chips, switches and buttons, which stay in Plex.
+- **Public pages, `ci/pages`, licences and the footer version** all follow; the footer reads
+  2.0.x from `Directory.Build.props`. The Welcome hero copy needed no line.
+- **Live check** on the laptop width: Home, Codex entry, Source, Campaign, Character, Library
+  document, Welcome; on the phone width: the character page. The phone trail had no room for
+  the world's name, so on phones the world crumb is hidden.
+
+- [x] C1. `NornisTheme.cs`: the 2.0 palette and typography; `app.css` tokens mirrored; theme
       tests pinning the table in `design.md`.
-- [ ] C2. `App.razor`: Newsreader + IBM Plex Sans; Cormorant and Inter no longer loaded; a test
+- [x] C2. `App.razor`: Newsreader + IBM Plex Sans; Cormorant and Inter no longer loaded; a test
       that asserts exactly the two families.
-- [ ] C3. The sidebar as a tint with a hairline; active item = accent icon + paper background;
+- [x] C3. The sidebar as a tint with a hairline; active item = accent icon + paper background;
       badges in ink.
-- [ ] C4. The accent rule: primary action and active icon only. Links become ink with hover
+- [x] C4. The accent rule: primary action and active icon only. Links become ink with hover
       underline; eyebrows and badges lose gold. Sweep `app.css` for `--mud-palette-secondary`
       uses and reassign each.
-- [ ] C5. `nornis-reading` applied to the record's own text: summaries, facts, sheets, digest,
+- [x] C5. `nornis-reading` applied to the record's own text: summaries, facts, sheets, digest,
       answers. Measure 680px.
-- [ ] C6. Cards stop nesting: the template's sections are typographic; `nornis-card` reserved for
+- [x] C6. Cards stop nesting: the template's sections are typographic; `nornis-card` reserved for
       proposals, snapshots, chips and the Home cards. The count of `nornis-*` overrides in
       `app.css` recorded before and after, and smaller after.
-- [ ] C7. Public pages (Welcome, Features, About, public world) on the same type and palette; the
+- [x] C7. Public pages (Welcome, Features, About, public world) on the same type and palette; the
       topographic wash stays there and comes off member pages.
-- [ ] C8. `ci/pages/` dashboard colours updated by hand, per its note.
-- [ ] C9. `Directory.Build.props`: `MajorVersion` 2, `MinorVersion` 0. The footer reads 2.0.x.
-- [ ] C10. `ui-design-system.md`: dated amendment over "Product Vibe" and "Visual Tokens" with the
+- [x] C8. `ci/pages/` dashboard colours updated by hand, per its note.
+- [x] C9. `Directory.Build.props`: `MajorVersion` 2, `MinorVersion` 0. The footer reads 2.0.x.
+- [x] C10. `ui-design-system.md`: dated amendment over "Product Vibe" and "Visual Tokens" with the
       2.0 table; `product-vision.md` needs nothing — the vibe words ("solid, calm, durable") still
       hold, which is the test.
-- [ ] C11. The 2.0 change-log entry, and a line on Welcome if the hero copy needs one.
-- [ ] C12. Live check: every page walked once in the new surface, on a phone and a laptop.
+- [x] C11. The 2.0 change-log entry, and a line on Welcome if the hero copy needs one.
+- [x] C12. Live check: every page walked once in the new surface, on a phone and a laptop.
 
 ## Phase D — Dark
 

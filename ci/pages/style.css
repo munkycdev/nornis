@@ -15,28 +15,28 @@
 
 :root {
     /* Brand */
-    --primary: #0e2e4a;
-    --gold: #c4a15a;
-    --slate: #5e6b7a;
+    --primary: #1c1f24;
+    --gold: #8b4a3c; /* the accent role; the interface no longer uses gold */
+    --slate: #6b7079;
 
     /* Neutrals */
-    --bg: #f5f1e9;
-    --surface: #fffdf9;
-    --text: #16293b;
-    --text-secondary: #5e6b7a;
-    --divider: #e7e0d3;
+    --bg: #faf8f3;
+    --surface: #ffffff;
+    --text: #1c1f24;
+    --text-secondary: #6b7079;
+    --divider: #e3ded3;
 
     /* Status — the app's muted set, not browser defaults */
     --success: #4e9a6b;
     --warning: #c08a2e;
     --error: #b5533f;
 
-    --serif: 'Cormorant Garamond', Georgia, serif;
-    --sans: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --serif: 'Newsreader', Georgia, serif;
+    --sans: 'IBM Plex Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 
-    --card-shadow: 0 1px 2px rgba(14, 46, 74, 0.05), 0 8px 24px rgba(14, 46, 74, 0.05);
+    --card-shadow: 0 1px 2px rgba(28, 31, 36, 0.04), 0 6px 18px rgba(28, 31, 36, 0.04);
     --topo: radial-gradient(120% 100% at 50% 0%, rgba(196, 161, 90, 0.05) 0%, rgba(196, 161, 90, 0) 55%);
-    --radius: 12px;
+    --radius: 10px;
 }
 
 * {

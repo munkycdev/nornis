@@ -11,7 +11,7 @@
          anywhere but this origin and the Nornis API. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -90,7 +90,7 @@
     <script>
         // Drawn, not styled, so the palette is repeated here. Same values as style.css,
         // which takes them from NornisTheme.cs: gold, success, error, slate, info, primary.
-        const SERIES_COLOURS = ['#c4a15a', '#4e9a6b', '#b5533f', '#5e6b7a', '#3f6079', '#0e2e4a'];
+        const SERIES_COLOURS = ['#8b4a3c', '#4e9a6b', '#b5533f', '#6b7079', '#3f6079', '#1c1f24'];
 
         const pct = (n) => `${Number(n).toFixed(1)}%`;
 
@@ -133,8 +133,8 @@
             const y = (v) => PAD.top + ((100 - v) * (H - PAD.top - PAD.bottom)) / 100;
 
             const gridlines = [0, 25, 50, 75, 100].map((v) =>
-                `<line x1="${PAD.left}" y1="${y(v)}" x2="${W - PAD.right}" y2="${y(v)}" stroke="#e7e0d3"/>
-                 <text x="${PAD.left - 6}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="#5e6b7a">${v}</text>`).join('');
+                `<line x1="${PAD.left}" y1="${y(v)}" x2="${W - PAD.right}" y2="${y(v)}" stroke="#e3ded3"/>
+                 <text x="${PAD.left - 6}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="#6b7079">${v}</text>`).join('');
 
             const series = names.map((name, n) => {
                 const points = history
@@ -146,7 +146,7 @@
                 const legendY = PAD.top + 12 + n * 16;
                 return `<polyline fill="none" stroke="${colour}" stroke-width="2" points="${points}"/>
                         <rect x="${W - PAD.right + 12}" y="${legendY - 8}" width="9" height="9" fill="${colour}"/>
-                        <text x="${W - PAD.right + 26}" y="${legendY}" font-size="11" fill="#16293b">${name.replace('Nornis.', '')}</text>`;
+                        <text x="${W - PAD.right + 26}" y="${legendY}" font-size="11" fill="#1c1f24">${name.replace('Nornis.', '')}</text>`;
             }).join('');
 
             document.getElementById('chart').innerHTML =
