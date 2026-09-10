@@ -47,6 +47,8 @@ public class SourceRepository : ISourceRepository
         WorldRole role,
         Guid? campaignId = null,
         bool unassignedOnly = false,
+        DateTimeOffset? occurredFrom = null,
+        DateTimeOffset? occurredBefore = null,
         CancellationToken cancellationToken = default)
     {
         var query = _context.Sources
@@ -62,6 +64,18 @@ public class SourceRepository : ISourceRepository
         else if (unassignedOnly)
         {
             query = query.Where(s => s.CampaignId == null);
+        }
+
+        // A null OccurredAt compares false against either bound, which is the intended
+        // reading: an undated source is not within any span.
+        if (occurredFrom is not null)
+        {
+            query = query.Where(s => s.OccurredAt >= occurredFrom);
+        }
+
+        if (occurredBefore is not null)
+        {
+            query = query.Where(s => s.OccurredAt < occurredBefore);
         }
 
         // Projected, not Include'd: the campaign name is pulled through the navigation without
@@ -272,6 +286,12 @@ public class SourceRepository : ISourceRepository
     /// but not on wiki/character/lore notes.</summary>
     private static readonly SourceType[] SessionTypes =
         [SourceType.SessionNote, SourceType.Transcript, SourceType.SessionAudio];
+
+    public Task FileUnderCampaignAsync(
+        IReadOnlyList<Guid> sourceIds, Guid campaignId, CancellationToken cancellationToken = default) =>
+        _context.SetWhereAsync<Source, Guid?>(
+            s => sourceIds.Contains(s.Id) && s.CampaignId == null,
+            s => s.CampaignId, campaignId, cancellationToken);
 
     public Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default) =>
         MutateAsync(id, source => source.ProcessingStatus = status, cancellationToken);

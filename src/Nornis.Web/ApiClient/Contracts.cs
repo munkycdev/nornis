@@ -409,7 +409,20 @@ public record CampaignDetailDto(
     int SessionCount,
     DateTimeOffset? FirstSessionAt,
     DateTimeOffset? LastSessionAt,
-    CampaignRecapDto Recap);
+    CampaignRecapDto Recap,
+    UnfiledSourcesDto UnfiledInSpan);
+
+// Mirrors Nornis.Api UnfiledSourcesResponse: sources under no campaign whose date falls
+// inside this campaign's. Items is the first page of TotalCount.
+public record UnfiledSourcesDto(
+    IReadOnlyList<SourceListItem> Items,
+    int TotalCount);
+
+// Mirrors Nornis.Api FileCampaignSourcesRequest.
+public record FileCampaignSourcesRequest(IReadOnlyList<Guid> SourceIds);
+
+// Mirrors Nornis.Api FileCampaignSourcesResponse.
+public record FileCampaignSourcesResponse(int FiledCount);
 
 // Mirrors Nornis.Api CampaignArtifactResponse.
 public record CampaignArtifactDto(

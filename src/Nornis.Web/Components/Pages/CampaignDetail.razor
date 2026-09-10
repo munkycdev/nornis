@@ -1,4 +1,4 @@
-@page "/campaigns/{CampaignId:guid}"
+﻿@page "/campaigns/{CampaignId:guid}"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -124,6 +124,76 @@
         </MudPaper>
         </Header>
         <Body>
+
+        @if (Worlds.IsGm && _detail.UnfiledInSpan.TotalCount > 0)
+        {
+            @* The cleanup the dates make possible: sources filed under no campaign whose own
+               date falls inside this one's. Offered, never done unasked — a side game played
+               during these same years is dated inside them too, and only the GM knows which
+               nights were which. Sources already filed elsewhere are never on this list. *@
+            var unfiled = _detail.UnfiledInSpan;
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
+                <div class="nornis-card-header">
+                    <span class="nornis-card-title">Unfiled sources from these dates</span>
+                    <MudButton Variant="Variant.Text" Size="Size.Small"
+                               EndIcon="@(_unfiledOpen ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                               OnClick="() => _unfiledOpen = !_unfiledOpen"
+                               aria-label="Review unfiled sources">
+                        @(_unfiledOpen ? "Hide" : "Review")
+                    </MudButton>
+                </div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    @(unfiled.TotalCount == 1
+                        ? "One source is dated within this campaign but filed under no campaign. File it here?"
+                        : $"{unfiled.TotalCount} sources are dated within this campaign but filed under no campaign. File them here?")
+                </MudText>
+
+                @if (_unfiledOpen)
+                {
+                    <div class="d-flex flex-column mt-2">
+                        @foreach (var s in unfiled.Items)
+                        {
+                            <div class="d-flex align-center gap-1">
+                                <MudCheckBox T="bool" Dense="true" Size="Size.Small"
+                                             Value="@_fileIds.Contains(s.Id)"
+                                             ValueChanged="@(v => ToggleUnfiled(s.Id, v))"
+                                             aria-label="@($"File {s.Title}")" />
+                                <a href="@($"/sources/{s.Id}")" class="nornis-link flex-grow-1">
+                                    <span class="nornis-list-title">@s.Title</span>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block">
+                                        @SourceTypeDisplay.Label(s.Type)
+                                        @(s.OccurredAt is { } o ? $" · {o:yyyy-MM-dd}" : "")
+                                    </MudText>
+                                </a>
+                            </div>
+                        }
+                    </div>
+
+                    @if (unfiled.TotalCount > unfiled.Items.Count)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1">
+                            The first @unfiled.Items.Count of @unfiled.TotalCount. The rest are offered once these are filed.
+                        </MudText>
+                    }
+
+                    <div class="d-flex align-center gap-2 mt-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Outlined.DriveFileMove"
+                                   OnClick="FileUnfiledAsync" Disabled="_filing || _fileIds.Count == 0">
+                            @(_fileIds.Count == 1 ? "File 1 source here" : $"File {_fileIds.Count} sources here")
+                        </MudButton>
+                        @if (_fileIds.Count < unfiled.Items.Count)
+                        {
+                            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="SelectAllUnfiled">Select all</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => _fileIds.Clear()">Select none</MudButton>
+                        }
+                    </div>
+                }
+            </MudPaper>
+        }
 
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
             <div class="nornis-card-header">
@@ -387,6 +457,57 @@
     private IReadOnlyCollection<Guid> _castIds = [];
     private string? _castError;
 
+    // Stays open across the reload that follows a filing, so a long backlog is filed in
+    // rounds without re-opening the list each time.
+    private bool _unfiledOpen;
+    private bool _filing;
+    private readonly HashSet<Guid> _fileIds = [];
+
+    private void ToggleUnfiled(Guid sourceId, bool file)
+    {
+        if (file)
+        {
+            _fileIds.Add(sourceId);
+        }
+        else
+        {
+            _fileIds.Remove(sourceId);
+        }
+    }
+
+    private void SelectAllUnfiled()
+    {
+        _fileIds.Clear();
+        _fileIds.UnionWith(_detail!.UnfiledInSpan.Items.Select(s => s.Id));
+    }
+
+    /// <summary>
+    /// Files the checked sources under this campaign and reloads: the sessions list, the
+    /// rollup, the span and the offer itself all change with it.
+    /// </summary>
+    private async Task FileUnfiledAsync()
+    {
+        if (Worlds.Current is null || _detail is null || _fileIds.Count == 0)
+        {
+            return;
+        }
+
+        _filing = true;
+        var result = await Api.FileCampaignSourcesAsync(Worlds.Current.Id, CampaignId, _fileIds.ToList());
+        _filing = false;
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+            return;
+        }
+
+        var filed = result.Value!.FiledCount;
+        Snackbar.Add(filed == 1 ? $"Filed 1 source under {_detail.Campaign.Name}." : $"Filed {filed} sources under {_detail.Campaign.Name}.",
+            Severity.Success);
+        await LoadAsync();
+    }
+
     private void BeginEdit()
     {
         var c = _detail!.Campaign;
@@ -596,6 +717,9 @@
         if (_detail is not null)
         {
             Crumbs.Set($"/campaigns/{_detail.Campaign.Id}", new Crumb("Campaigns", "/campaigns"), new Crumb(_detail.Campaign.Name));
+            // Everything offered starts checked: the offer is "file these", and unchecking
+            // is the exception the GM makes.
+            SelectAllUnfiled();
         }
     }
 

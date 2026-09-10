@@ -389,7 +389,7 @@ public class SourceService : ISourceService
         Guid? campaignId = null, bool unassignedOnly = false)
     {
         var items = await _sourceRepository.ListSummariesByWorldAsync(
-            worldId, requestingUserId, role, campaignId, unassignedOnly, ct);
+            worldId, requestingUserId, role, campaignId, unassignedOnly, cancellationToken: ct);
 
         return AppResult<IReadOnlyList<SourceListItem>>.Success(items);
     }

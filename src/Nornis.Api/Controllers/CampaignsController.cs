@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
@@ -120,7 +120,42 @@ public class CampaignsController : ControllerBase
             SessionCount: detail.SessionCount,
             FirstSessionAt: detail.FirstSessionAt,
             LastSessionAt: detail.LastSessionAt,
-            Recap: ToRecapResponse(detail.Recap)));
+            Recap: ToRecapResponse(detail.Recap),
+            UnfiledInSpan: new UnfiledSourcesResponse(
+                detail.UnfiledInSpan.Items.Select(SourcesController.ToSourceListItemResponse).ToList(),
+                detail.UnfiledInSpan.TotalCount)));
+    }
+
+    /// <summary>
+    /// GM-only. Files sources that have no campaign under this one — the confirmation of what
+    /// the detail offered as <c>UnfiledInSpan</c>. A source already filed anywhere is refused,
+    /// not moved.
+    /// </summary>
+    [HttpPost("{campaignId:guid}/file-sources")]
+    public async Task<IActionResult> FileSources(
+        Guid worldId,
+        Guid campaignId,
+        [FromBody] FileCampaignSourcesRequest request,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var command = new FileCampaignSourcesCommand(
+            CampaignId: campaignId,
+            WorldId: worldId,
+            ActingUserId: user.Id,
+            ActingUserRole: member.Role,
+            SourceIds: request.SourceIds);
+
+        var result = await _campaignService.FileSourcesAsync(command, ct);
+
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        return Ok(new FileCampaignSourcesResponse(result.Value));
     }
 
     /// <summary>GM-only. Rewrites the world's campaign display order.</summary>
