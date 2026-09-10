@@ -72,6 +72,65 @@ public class ThemeTests
         });
     }
 
+    private static double Luminance(MudBlazor.Utilities.MudColor c)
+    {
+        static double Channel(byte v)
+        {
+            var s = v / 255.0;
+            return s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
+        }
+
+        return 0.2126 * Channel(c.R) + 0.7152 * Channel(c.G) + 0.0722 * Channel(c.B);
+    }
+
+    /// <summary>WCAG 2 contrast ratio, 1:1 to 21:1.</summary>
+    private static double Contrast(MudBlazor.Utilities.MudColor a, MudBlazor.Utilities.MudColor b)
+    {
+        var l1 = Luminance(a);
+        var l2 = Luminance(b);
+        return (Math.Max(l1, l2) + 0.05) / (Math.Min(l1, l2) + 0.05);
+    }
+
+    private static IEnumerable<TestCaseData> Palettes()
+    {
+        yield return new TestCaseData(NornisTheme.Theme.PaletteLight).SetArgDisplayNames("light");
+        yield return new TestCaseData(NornisTheme.Theme.PaletteDark).SetArgDisplayNames("dark");
+    }
+
+    /// <summary>
+    /// Requirement 6.3: AA for body text in both themes. The pairs are the ones a page is made
+    /// of — text on the page, text on a card, the sidebar's labels on its tint, the primary
+    /// button's label on the button — and the accent as a non-text mark on the page (3:1).
+    /// </summary>
+    [TestCaseSource(nameof(Palettes))]
+    public void EveryTextPair_MeetsAA(MudBlazor.Palette p)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Contrast(p.TextPrimary, p.Background), Is.GreaterThanOrEqualTo(4.5), "ink on page");
+            Assert.That(Contrast(p.TextSecondary, p.Background), Is.GreaterThanOrEqualTo(4.5), "secondary on page");
+            Assert.That(Contrast(p.TextPrimary, p.Surface), Is.GreaterThanOrEqualTo(4.5), "ink on card");
+            Assert.That(Contrast(p.TextSecondary, p.Surface), Is.GreaterThanOrEqualTo(4.5), "secondary on card");
+            Assert.That(Contrast(p.DrawerText, p.DrawerBackground), Is.GreaterThanOrEqualTo(4.5), "sidebar label on tint");
+            Assert.That(Contrast(p.PrimaryContrastText, p.Primary), Is.GreaterThanOrEqualTo(4.5), "button label on accent");
+            Assert.That(Contrast(p.Primary, p.Background), Is.GreaterThanOrEqualTo(3.0), "accent icon on page");
+        });
+    }
+
+    [Test]
+    public void DarkPalette_IsTheDesignTable()
+    {
+        var p = NornisTheme.Theme.PaletteDark;
+        Assert.Multiple(() =>
+        {
+            Assert.That(Hex(p.Background), Is.EqualTo("#151719"), "page");
+            Assert.That(Hex(p.DrawerBackground), Is.EqualTo("#1B1E22"), "sidebar");
+            Assert.That(Hex(p.TextPrimary), Is.EqualTo("#ECE8E0"), "ink");
+            Assert.That(Hex(p.TextSecondary), Is.EqualTo("#9A9FA6"), "secondary");
+            Assert.That(Hex(p.Secondary), Is.EqualTo(Hex(p.TextSecondary)), "no gold role after dark either");
+        });
+    }
+
     [Test]
     public void FontLink_LoadsExactlyTheTwoFamilies()
     {

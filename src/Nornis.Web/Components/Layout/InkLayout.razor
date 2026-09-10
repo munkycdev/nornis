@@ -1,13 +1,33 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@inject ThemeState Theme
 
 @* Chromeless layout for the full-screen ink canvas: no nav rail, no page padding —
    the canvas owns the whole viewport (OneNote-style). *@
 
-<MudThemeProvider Theme="NornisTheme.Theme" IsDarkMode="false" />
+<MudThemeProvider @ref="_themeProvider" Theme="NornisTheme.Theme" IsDarkMode="@Theme.IsDark" ObserveSystemDarkModeChange="false" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<div class="nornis-ink-shell">
+<div class="nornis-ink-shell @(Theme.IsDark ? "nornis-dark" : null)">
     @Body
 </div>
+
+@code {
+    private MudThemeProvider? _themeProvider;
+
+    protected override void OnInitialized() => Theme.Changed += OnThemeChanged;
+
+    private void OnThemeChanged() => InvokeAsync(StateHasChanged);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive)
+        {
+            await MainLayout.ResolveThemeAsync(Theme, _themeProvider);
+        }
+    }
+
+    public void Dispose() => Theme.Changed -= OnThemeChanged;
+}

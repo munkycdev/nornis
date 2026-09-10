@@ -4,16 +4,19 @@
 @inject BreadcrumbState Crumbs
 @inject QuickSwitcherState Switcher
 @inject WorldMenuState WorldMenu
+@inject ThemeState Theme
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<MudThemeProvider Theme="NornisTheme.Theme" IsDarkMode="false" />
+@* The provider takes the resolved answer; the layout feeds the device's preference in and
+   watches it itself, so an explicit choice is never overwritten by a system change. *@
+<MudThemeProvider @ref="_themeProvider" Theme="NornisTheme.Theme" IsDarkMode="@Theme.IsDark" ObserveSystemDarkModeChange="false" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 <QuickSwitcher />
 
-<MudLayout>
+<MudLayout Class="@(Theme.IsDark ? "nornis-dark" : null)">
     @* Persistent from md up; below that it closes itself and reopens as an overlay from the topbar. *@
     @* Wider than MudBlazor's 240px default: the world switcher at the top of the drawer is the
        widest thing in it, and at 240 a world name landed on top of its chevron. *@
@@ -78,12 +81,14 @@
 @code {
     private bool _navOpen = true;
     private DotNetObjectReference<MainLayout>? _selfRef;
+    private MudThemeProvider? _themeProvider;
 
     private void ToggleNav() => _navOpen = !_navOpen;
 
     protected override void OnInitialized()
     {
         Worlds.Changed += OnWorldChanged;
+        Theme.Changed += OnThemeChanged;
         Nav.LocationChanged += OnLocationChanged;
         // The route default for the first page; a page that knows more replaces it.
         Crumbs.SetFromRoute(Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0]);
@@ -91,6 +96,8 @@
 
     // The top bar comes and goes with the world selection, so it has to re-render on change.
     private void OnWorldChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnThemeChanged() => InvokeAsync(StateHasChanged);
 
     // Fires before the new page renders, so the route default lands first and the page's own
     // trail (set from data it already holds) wins afterwards.
@@ -113,6 +120,35 @@
         {
             // No JS, no shortcut; the sidebar's search box still opens it.
         }
+
+        await ResolveThemeAsync(Theme, _themeProvider);
+    }
+
+    /// <summary>
+    /// Loads the saved preference and reports the device's own in, then keeps reporting it.
+    /// Shared with the other layouts; each has its own provider.
+    /// </summary>
+    internal static async Task ResolveThemeAsync(ThemeState theme, MudThemeProvider? provider)
+    {
+        if (provider is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await theme.EnsureLoadedAsync();
+            theme.SetSystem(await provider.GetSystemDarkModeAsync());
+            await provider.WatchSystemDarkModeAsync(dark =>
+            {
+                theme.SetSystem(dark);
+                return Task.CompletedTask;
+            });
+        }
+        catch (JSException)
+        {
+            // No JS: paper it stays.
+        }
     }
 
     /// <summary>Ctrl+K (or ⌘K) from anywhere in the member app.</summary>
@@ -122,6 +158,7 @@
     public async ValueTask DisposeAsync()
     {
         Worlds.Changed -= OnWorldChanged;
+        Theme.Changed -= OnThemeChanged;
         Nav.LocationChanged -= OnLocationChanged;
         try
         {

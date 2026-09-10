@@ -24,6 +24,15 @@ public static class NornisTheme
     public const string Accent = "#8B4A3C";
     public const string Gold = "#C4A15A";
 
+    // The same product after dark: ink and paper trade places, the accent lifts two steps so it
+    // still clears AA against the dark page, and it takes the page colour as its own text.
+    public const string PaperDark = "#151719";
+    public const string SidebarDark = "#1B1E22";
+    public const string InkDark = "#ECE8E0";
+    public const string InkSecondaryDark = "#9A9FA6";
+    public const string LinesDark = "#30343A";
+    public const string AccentDark = "#C0705E";
+
     public static readonly string[] Serif = ["Newsreader", "Georgia", "serif"];
     public static readonly string[] Sans = ["IBM Plex Sans", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"];
 
@@ -72,6 +81,47 @@ public static class NornisTheme
 
             GrayLight = Sidebar,
             GrayLighter = Paper,
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = AccentDark,
+            PrimaryContrastText = PaperDark,
+            Secondary = InkSecondaryDark,
+            Tertiary = "#7FA3BF",
+
+            Black = PaperDark,
+            White = InkDark,
+            Background = PaperDark,
+            BackgroundGray = SidebarDark,
+            Surface = "#1E2126",
+
+            AppbarBackground = PaperDark,
+            AppbarText = InkDark,
+            DrawerBackground = SidebarDark,
+            DrawerText = "#C9C5BD",
+            DrawerIcon = InkSecondaryDark,
+
+            TextPrimary = InkDark,
+            TextSecondary = InkSecondaryDark,
+            TextDisabled = "#6B7079",
+            ActionDefault = InkSecondaryDark,
+            ActionDisabled = "#4A4F57",
+
+            Divider = LinesDark,
+            DividerLight = "#262A2F",
+            LinesDefault = LinesDark,
+            LinesInputs = "#3C4147",
+            TableLines = LinesDark,
+
+            Success = "#6FB98A",
+            Warning = "#D9A24A",
+            Error = "#D46A57",
+            Info = "#7FA3BF",
+
+            GrayLight = SidebarDark,
+            GrayLighter = PaperDark,
+            Dark = "#1E2126",
+            DarkContrastText = InkDark,
         },
         Typography = new Typography
         {
