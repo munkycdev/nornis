@@ -35,6 +35,15 @@
 > app secrets are the two Azure OpenAI keys and the Auth0 client secret. Read "Secrets"
 > below in that light.
 
+> **Amendment (2026-09-09):** there is no Key Vault. Nothing provisions one and nothing reads
+> from one; the "Secrets" section below describes a mechanism that was never built. The three
+> app secrets that remain — the two Azure OpenAI keys and the Auth0 client secret — are
+> **Container Apps secrets**, set by `scripts/provision-azure.ps1` from the .NET user-secrets
+> stores on the operator's machine and referenced from each app's environment as `secretref:`
+> values (the Application Insights connection string travels the same way). The rest of that
+> section's list no longer exists at all: since 2026-09-08 there are no database, Service Bus or
+> Blob credentials to store.
+
 ## Hosting Target
 
 Nornis will be hosted on Azure Kubernetes Service.

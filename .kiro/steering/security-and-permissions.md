@@ -21,6 +21,16 @@
 > A new world-scoped controller without that attribute is an authorization hole, not a
 > performance detail.
 
+> **Amendment (2026-09-09):** "Store secrets in Azure Key Vault" under Secure Development
+> Rules names a service that does not exist in this system. The secrets that remain — two Azure
+> OpenAI keys and the Auth0 client secret — are Container Apps secrets, set by
+> `scripts/provision-azure.ps1` from the operator's .NET user-secrets stores and never
+> committed; SQL, Blob Storage and Service Bus have needed no secret since 2026-09-08, when the
+> apps began reaching them as managed identities (`azure-hosting.md`). The rule's intent —
+> secrets live outside the repo and outside the image — is unchanged. The neighbouring rule,
+> "explicit `AllowAnonymous` only for health/status", reads as "only for the endpoints in the
+> anonymous list above", which the 2026-08-02 amendment already widened.
+
 ## Authentication
 
 Use Auth0 for authentication.

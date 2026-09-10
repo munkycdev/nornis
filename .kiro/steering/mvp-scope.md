@@ -1,5 +1,24 @@
 # MVP Scope
 
+> **Amendment (2026-09-09):** two items below have been overtaken.
+>
+> - **Observability** is Azure Monitor / Application Insights via OpenTelemetry, not DataDog —
+>   the July 2026 amendment atop `observability-and-costs.md` is the record and the reasoning.
+> - **"Public anonymous sharing" is no longer out of scope.** A GM can publish a world read-only
+>   at `/w/{slug}` (c3842ee, 2026-07-16 — PartyVisible content only, Draft sources excluded, no
+>   Library), and can open an anonymous public Ask on it behind a per-world monthly USD cap
+>   (3ae1895, 2026-07-20 — the cap is also the switch). Both toggles sit on the world settings
+>   panel; the rules that make them safe are in `security-and-permissions.md` under "Public
+>   Sharing".
+>
+> Checked the same day and still true as written: audio transcription (the `SessionAudio`
+> capture type takes a pasted transcript; no audio is stored or transcribed) and a sophisticated
+> OCR pipeline (there is no OCR — a scanned PDF is refused with "OCR is not supported yet").
+> "Full document parsing pipeline" is now a matter of degree: `Upload` sources get per-page text
+> from digital PDFs via PdfPig and their images read by a vision model, and Library PDFs are
+> chunked, embedded and cited by page in Ask (aacfe3f, 2026-07-16). That is more than the
+> placeholder this list assumed; do not read the bullet as a description of the tree.
+
 ## MVP Goal
 
 Build the smallest useful version of Nornis that proves the core loop:

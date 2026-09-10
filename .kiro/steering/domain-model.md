@@ -83,6 +83,15 @@
 > - `ReviewChangeType` gained `AddPlacemark` (and `ReviewTargetType` resolution for it)
 >   with map extraction; the enum list below predates maps.
 
+> **Amendment (2026-09-09): `SourceType` has grown past the list below.** The tree adds
+> `SessionAudio` (a pasted session transcript — no audio is stored or transcribed),
+> `FanFiction`, `Map` (a map image whose extraction reads place names and positions into
+> placemarks — the source of the `AddPlacemark` change type the 2026-08-04 note records) and
+> `Reveal` (a synthetic, party-visible provenance record minted by a GM reveal — never captured,
+> never extracted). `JournalEntry` and `Transcript` remain in the enum as legacy: retired from
+> the capture UI, kept for the sources that carry them. `Nornis.Domain/Enums/SourceType.cs` is
+> the authority.
+
 ## Core Mental Model
 
 Nornis is built around three layers:
