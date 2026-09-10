@@ -4,12 +4,26 @@
 @inject NornisApiClient Api
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject ThemeState Theme
 
 <PageTitle>Your settings — Nornis</PageTitle>
 
 <div>
     <MudText Typo="Typo.h4" Class="nornis-serif">Your settings</MudText>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Personal settings for this world.</MudText>
+
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4">
+        <div class="nornis-detail-section-title">Appearance</div>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+            Paper by day, ink by night, or whichever this device is set to. Kept on this device,
+            not on your account.
+        </MudText>
+        <MudRadioGroup T="ThemePreference" Value="Theme.Preference" ValueChanged="SetThemeAsync">
+            <MudRadio T="ThemePreference" Value="ThemePreference.System" Color="Color.Primary">Match this device</MudRadio>
+            <MudRadio T="ThemePreference" Value="ThemePreference.Light" Color="Color.Primary">Light</MudRadio>
+            <MudRadio T="ThemePreference" Value="ThemePreference.Dark" Color="Color.Primary">Dark</MudRadio>
+        </MudRadioGroup>
+    </MudPaper>
 
     @if (Worlds.Current is null)
     {
@@ -176,6 +190,8 @@
     private IReadOnlyList<ArtifactListItem>? _characterArtifacts;
     private ArtifactListItem? _characterArtifact;
     private Guid? _characterOriginalArtifactId;
+
+    private Task SetThemeAsync(ThemePreference preference) => Theme.SetPreferenceAsync(preference);
 
     protected override async Task OnInitializedAsync()
     {

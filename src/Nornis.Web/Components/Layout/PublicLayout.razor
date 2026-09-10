@@ -1,9 +1,10 @@
 @inherits LayoutComponentBase
 
-<MudThemeProvider Theme="NornisTheme.Theme" IsDarkMode="false" />
+@* Public pages follow the device and nothing else: there is no member here to have chosen. *@
+<MudThemeProvider @ref="_themeProvider" Theme="NornisTheme.Theme" @bind-IsDarkMode="_dark" />
 <MudPopoverProvider />
 
-<div class="nornis-public">
+<div class="nornis-public @(_dark ? "nornis-dark" : null)">
     <header class="nornis-public-nav">
         <a href="/welcome" class="nornis-public-brand">
             <img src="images/mini-logo.png" alt="" class="nornis-public-brand-mark" />
@@ -48,3 +49,26 @@
         </div>
     </footer>
 </div>
+
+@code {
+    private MudThemeProvider? _themeProvider;
+    private bool _dark;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive || _themeProvider is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _dark = await _themeProvider.GetSystemDarkModeAsync();
+            StateHasChanged();
+        }
+        catch (JSException)
+        {
+            // No JS: paper.
+        }
+    }
+}

@@ -4026,3 +4026,18 @@ a.nornis-cite:hover {
 .mud-tabs .mud-tab-slider {
     background-color: var(--mud-palette-text-primary);
 }
+
+/* ------------------------------------------------------------- Feature 24 · dark -- */
+
+/* The same tokens read from the ink side. MudBlazor swaps its own palette variables; these
+   are the derived ones the sheet adds. The class sits on the layout root, so dialogs and
+   popovers — rendered outside it — take only the palette, which is enough. */
+.nornis-dark {
+    --nornis-onside-raised: rgba(236, 232, 224, 0.05);
+    --nornis-onside-border: rgba(236, 232, 224, 0.10);
+    --nornis-onside-muted: #9A9FA6;
+    --nornis-onside-success: #6FB98A;
+    --nornis-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.30), 0 6px 18px rgba(0, 0, 0, 0.25);
+    --nornis-topo: none;
+    color-scheme: dark;
+}

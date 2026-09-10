@@ -155,16 +155,41 @@ where the version turns over. Guards are watched failing before they are trusted
 
 ## Phase D — Dark
 
-- [ ] D1. `PaletteDark` in `NornisTheme.cs`; contrast assertions for every text/background pair.
-- [ ] D2. `User.ThemePreference` (nullable; additive migration); `PUT /api/users/me/theme`.
-- [ ] D3. Your settings: light / dark / system; `MudThemeProvider.IsDarkMode` bound; public pages
+**Built 2026-09-10.** Notes for the reader:
+
+- **No migration, no endpoint.** The design put the preference on `User`; it lives in
+  `localStorage` (`nornis:theme`, per device) instead. Half of the reason is that applying a
+  migration to production is a step this session could not take unattended (see O3's
+  close-out). The other half is that it is the better home: a theme belongs to the screen it
+  is read on, and a phone in bed and a laptop at the table can differ. `ThemeState` holds
+  the preference and the device's report and resolves them; the layouts bind the provider
+  to the answer.
+- **The provider's own system-watching is off** (`ObserveSystemDarkModeChange="false"`) and
+  the layout watches through the provider itself, so a device flipping to dark at dusk
+  cannot overwrite a member's explicit "light". Public pages bind straight to the device.
+- **The accent lifts two steps after dark** (`#C0705E`) and takes the dark page as its own
+  text; the design's terracotta was 2.7:1 on `#151719`, short of the 3:1 a non-text mark
+  needs. `ThemeTests` computes WCAG contrast for the seven pairs a page is made of, in both
+  palettes.
+- **One flash on a dark device.** The interactive render is where storage and
+  `prefers-color-scheme` can first be read, so a dark reader sees paper for the prerender
+  before ink arrives. Painting the dark ground earlier would need the palette outside
+  MudBlazor's provider; left as is.
+- **The derived tokens** (`--nornis-onside-*`, the card shadow, the wash) get dark values
+  from a `nornis-dark` class on the layout root. The journey map's hand-set colours were not
+  revisited.
+
+- [x] D1. `PaletteDark` in `NornisTheme.cs`; contrast assertions for every text/background pair.
+- [x] D2. ~~`User.ThemePreference` (nullable; additive migration); `PUT /api/users/me/theme`.~~
+      Replaced: the preference lives in the browser. See the notes.
+- [x] D3. Your settings: light / dark / system; `MudThemeProvider.IsDarkMode` bound; public pages
       on system preference.
-- [ ] D4. Change log entry.
+- [x] D4. Change log entry.
 
 ## Verification
 
-- [ ] V1. Per phase: build, `dotnet test --solution Nornis.sln`, `dotnet format --verify-no-changes`.
-- [ ] V2. After A: the reachability table re-run and pasted here, every route with at least one
+- [x] V1. Per phase: build, `dotnet test --solution Nornis.sln`, `dotnet format --verify-no-changes`.
+- [x] V2. After A: the reachability table re-run and pasted here, every route with at least one
       door.
 - [ ] V3. After C: the live walk (C12) as GM and, through the two-identity recipe, as a Player.
 
