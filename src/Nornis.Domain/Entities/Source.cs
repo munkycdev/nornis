@@ -69,12 +69,28 @@ public class Source
     /// </summary>
     public string? RevealNote { get; set; }
 
+    /// <summary>
+    /// The Library document a <see cref="SourceType.LibraryExcerpt"/> was filed from. Null on
+    /// an excerpt means the document has since been deleted — the excerpt keeps its title and
+    /// text, because the text was copied at filing, not referenced. Always null on every other
+    /// source type.
+    /// </summary>
+    public Guid? LibraryDocumentId { get; set; }
+
+    /// <summary>1-based first page an excerpt covers; set on every excerpt, null elsewhere.</summary>
+    public int? LibraryPageFrom { get; set; }
+
+    /// <summary>1-based last page an excerpt covers, inclusive; set on every excerpt, null elsewhere.</summary>
+    public int? LibraryPageTo { get; set; }
+
     // Navigation properties
     public World World { get; set; } = null!;
 
     public Campaign? Campaign { get; set; }
 
     public User CreatedByUser { get; set; } = null!;
+
+    public LibraryDocument? LibraryDocument { get; set; }
 
     public ICollection<SourceExtraction> SourceExtractions { get; set; } = [];
 }

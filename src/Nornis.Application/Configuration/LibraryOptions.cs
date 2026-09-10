@@ -45,6 +45,13 @@ public class LibraryOptions
     /// <summary>Hard cap on passages sent to the prompt after expansion.</summary>
     public int MaxContextPassages { get; set; } = 12;
 
+    /// <summary>
+    /// Most passages one Library excerpt may carry. Sized so an excerpt at the default chunk
+    /// size stays well under the source body limit, and so that "file the whole book" is not
+    /// something a single request can do — a chapter is filed a range at a time on purpose.
+    /// </summary>
+    public int MaxExcerptChunks { get; set; } = 12;
+
     public int MaxUploadSizeBytes { get; set; } = 209_715_200; // 200 MB, matches Chronicis
 
     public Dictionary<string, ModelPricing> ModelPricing { get; set; } = new()

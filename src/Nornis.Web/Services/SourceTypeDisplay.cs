@@ -39,6 +39,7 @@ public static class SourceTypeDisplay
         ["Transcript"] = "Transcript",
         // System-generated — never captured, shown on the sources ledger as provenance.
         ["Reveal"] = "Reveal",
+        ["LibraryExcerpt"] = "Library Excerpt",
     };
 
     public static string Label(string type) =>

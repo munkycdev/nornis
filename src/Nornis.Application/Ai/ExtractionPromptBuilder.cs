@@ -29,6 +29,26 @@ public static class ExtractionPromptBuilder
               """
             : string.Empty;
 
+        var libraryExcerptSection = request.SourceType == "LibraryExcerpt"
+            ? """
+
+              ## Library Excerpt
+              This source is pages of a published setting document — a player's guide, a
+              gazetteer, a module — that the GM chose deliberately to file as canon for this
+              world. Read it as a description of the world as it is, not as events that happened
+              at the table: there is no session, no party, and nothing here "occurred". The first
+              line of the Source Content is Nornis's own filing line naming the document, the pages,
+              and — when present — the codex entry the excerpt was filed for; it is not part of the
+              document. When a codex entry is named, it appears in the Existing World Artifacts list:
+              direct AddFact and UpdateArtifact proposals at its UUID rather than proposing a new
+              artifact of the same name. Propose CreateArtifact for the places, people, factions,
+              and items the excerpt describes in their own right. Facts the document states as
+              description — a city's ruler, its districts, a guild's trade — are written canon:
+              rate them "Confirmed", not "Likely"; keep "Rumor" and "Disputed" for what the text
+              itself frames as hearsay or contested.
+              """
+            : string.Empty;
+
         var locationContextSection = request.RecentLocations is null
             ? string.Empty
             : """
@@ -142,7 +162,7 @@ public static class ExtractionPromptBuilder
             beside it in the Existing World Artifacts list — setting its truthState to "False"
             (the question is no longer open) alongside whatever new facts record the answer. Do
             not re-propose an open question that already exists.
-            {{importedNotesSection}}{{locationContextSection}}
+            {{importedNotesSection}}{{libraryExcerptSection}}{{locationContextSection}}
             ## Naming Conventions
             - Fact predicates: short lowercase noun phrases — "location", "current owner",
               "occupation", "goal", "denied knowledge of". Reuse an existing predicate from the

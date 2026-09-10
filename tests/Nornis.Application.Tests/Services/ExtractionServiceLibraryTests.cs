@@ -216,6 +216,31 @@ public class ExtractionServiceLibraryTests
     }
 
     [Test]
+    public async Task Extraction_LibraryExcerpt_DoesNotRetrieveReferencePassages()
+    {
+        _sourceRepo.Seed(new Source
+        {
+            Id = SourceId,
+            WorldId = WorldId,
+            Type = SourceType.LibraryExcerpt,
+            Title = "Thistlehold — Player's Guide, pp. 42–45",
+            Body = "Excerpt from “Player's Guide”, pp. 42–45.\n\nThistlehold sits on the river.",
+            Visibility = VisibilityScope.PartyVisible,
+            ProcessingStatus = SourceProcessingStatus.Queued,
+            CreatedByUserId = UserId,
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-10)
+        });
+        _retriever.Passages.Add(Passage());
+        _aiClient.SetupSuccess(SuccessResponse());
+
+        var outcome = await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
+
+        Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
+        Assert.That(_retriever.LastQuestion, Is.Null, "the excerpt is the reference; no embedding is bought");
+        Assert.That(Prompt().ReferencePassages, Is.Empty);
+    }
+
+    [Test]
     public async Task Extraction_RetrievalQuery_IncludesSourceTitle_AndAttributesToSourceCreator()
     {
         SeedSource();

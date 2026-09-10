@@ -1,0 +1,173 @@
+@inject NornisApiClient Api
+
+@* The GM picks the Library passages that are about a codex entry and files them as excerpt
+   sources — one per document — which then go through extraction like any captured note.
+   The search is the Loremaster's own similarity retrieval, run with the entry's name and
+   summary; the GM can search again with their own words. GM-only, and the server says so. *@
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Passages from the Library that look like they are about @ArtifactName. Tick the ones
+            that belong and file them: each document becomes a source, queued for extraction, and
+            what it says arrives in Review as proposals for this entry.
+        </MudText>
+
+        <div class="d-flex gap-2 align-center mb-3">
+            <MudTextField @bind-Value="_query" Label="Search the library for…" Variant="Variant.Outlined"
+                          Margin="Margin.Dense" Immediate="true" Class="flex-grow-1"
+                          OnKeyDown="OnQueryKeyDown" Disabled="_searching" />
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="SearchAsync" Disabled="_searching">
+                Search
+            </MudButton>
+        </div>
+
+        @if (_searching)
+        {
+            <LoadingRows Rows="3" />
+        }
+        else if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+        }
+        else if (_candidates.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Nothing in the Library matched. If no document is indexed yet, upload a PDF on the
+                <a href="/library" class="nornis-link">Library</a> page and come back once it says Indexed.
+            </MudText>
+        }
+        else
+        {
+            @foreach (var group in _candidates.GroupBy(c => c.DocumentId))
+            {
+                var title = group.First().DocumentTitle;
+                <div class="nornis-detail-section-title mt-2">@title</div>
+                @foreach (var candidate in group)
+                {
+                    <div class="d-flex gap-2 align-start mb-2">
+                        <MudCheckBox T="bool" Value="@_selected.Contains(candidate.ChunkId)"
+                                     ValueChanged="@(v => Toggle(candidate.ChunkId, v))" Dense="true" />
+                        <div class="flex-grow-1">
+                            <div class="nornis-list-sub">p. @candidate.Page</div>
+                            <MudText Typo="Typo.body2" Class="nornis-reading" Style="white-space: pre-wrap;">@Snippet(candidate.Text)</MudText>
+                        </div>
+                    </div>
+                }
+            }
+        }
+
+        @if (_fileError is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_fileError</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="FileAsync"
+                   Disabled="@(_filing || _selected.Count == 0)">
+            File as source@(SelectedDocumentCount > 1 ? "s" : "")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid WorldId { get; set; }
+    [Parameter] public Guid ArtifactId { get; set; }
+    [Parameter] public string ArtifactName { get; set; } = string.Empty;
+
+    private string _query = string.Empty;
+    private bool _searching;
+    private bool _filing;
+    private string? _error;
+    private string? _fileError;
+    private IReadOnlyList<LibraryExcerptCandidateDto> _candidates = [];
+    private readonly HashSet<Guid> _selected = [];
+
+    private int SelectedDocumentCount =>
+        _candidates.Where(c => _selected.Contains(c.ChunkId)).Select(c => c.DocumentId).Distinct().Count();
+
+    protected override async Task OnInitializedAsync() => await SearchAsync();
+
+    private async Task OnQueryKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchAsync();
+        }
+    }
+
+    private async Task SearchAsync()
+    {
+        _searching = true;
+        _error = null;
+        _fileError = null;
+        StateHasChanged();
+
+        // The entry itself is the query until the GM types one.
+        var query = string.IsNullOrWhiteSpace(_query) ? null : _query.Trim();
+        var result = await Api.SearchLibraryExcerptsAsync(WorldId, new SearchLibraryExcerptsRequest(ArtifactId, query));
+
+        _searching = false;
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            _candidates = [];
+            return;
+        }
+
+        _candidates = result.Value!;
+        _selected.Clear();
+    }
+
+    private void Toggle(Guid chunkId, bool on)
+    {
+        if (on)
+        {
+            _selected.Add(chunkId);
+        }
+        else
+        {
+            _selected.Remove(chunkId);
+        }
+    }
+
+    private static string Snippet(string text)
+    {
+        const int max = 600;
+        var flat = text.Trim();
+        return flat.Length <= max ? flat : flat[..max].TrimEnd() + "…";
+    }
+
+    private async Task FileAsync()
+    {
+        _filing = true;
+        _fileError = null;
+
+        var filed = new List<LibraryExcerptFiledDto>();
+        foreach (var group in _candidates.Where(c => _selected.Contains(c.ChunkId)).GroupBy(c => c.DocumentId))
+        {
+            var result = await Api.FileLibraryExcerptAsync(WorldId, group.Key,
+                new FileLibraryExcerptRequest(group.Select(c => c.ChunkId).ToList(), null, null, ArtifactId));
+            if (!result.IsSuccess)
+            {
+                // Earlier documents in the loop are already filed; say so rather than hide it.
+                _fileError = filed.Count == 0
+                    ? result.Error!.Message
+                    : $"{result.Error!.Message} ({filed.Count} already filed.)";
+                _filing = false;
+                return;
+            }
+
+            filed.Add(result.Value!);
+        }
+
+        _filing = false;
+        MudDialog.Close(DialogResult.Ok(filed));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

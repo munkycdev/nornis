@@ -227,6 +227,26 @@
                         <a href="@_source.Uri" target="_blank" rel="noopener" class="nornis-link">@_source.Uri</a>
                     </div>
                 }
+                @if (_source.Type == "LibraryExcerpt")
+                {
+                    <div class="nornis-kv">
+                        <span class="nornis-kv-key">Library</span>
+                        <span class="nornis-kv-value">
+                            @if (_source.LibraryDocumentId is { } documentId)
+                            {
+                                <a href="@($"/library/{documentId}")" class="nornis-link">@(_source.LibraryDocumentTitle ?? "Document")</a>
+                            }
+                            else
+                            {
+                                <span>@(_source.LibraryDocumentTitle ?? "A document since removed from the library")</span>
+                            }
+                            @if (_source.LibraryPageFrom is { } from && _source.LibraryPageTo is { } to)
+                            {
+                                <span>, @(from == to ? $"p. {from}" : $"pp. {from}–{to}")</span>
+                            }
+                        </span>
+                    </div>
+                }
             </MudPaper>
 
             @if (_source.Type is "SessionNote" or "ImportedNote")

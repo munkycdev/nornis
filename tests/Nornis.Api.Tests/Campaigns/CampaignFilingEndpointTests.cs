@@ -73,7 +73,7 @@ public class CampaignFilingEndpointTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(toGm!.UnfiledInSpan.Items.Select(s => s.Id), Is.EqualTo(new[] { inside.Id }));
+            Assert.That(toGm!.UnfiledInSpan.Items.Select(s => s.Id), Is.EqualTo([inside.Id]));
             Assert.That(toGm.UnfiledInSpan.TotalCount, Is.EqualTo(1));
             Assert.That(toPlayer!.UnfiledInSpan.Items, Is.Empty);
             Assert.That(toPlayer.UnfiledInSpan.TotalCount, Is.Zero);

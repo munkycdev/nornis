@@ -44,4 +44,19 @@ public interface ILibraryChunkRepository
         Guid documentId,
         IReadOnlyList<int> ords,
         CancellationToken cancellationToken = default);
+
+    /// <summary>The named chunks of one document, in reading order. Ids that belong to
+    /// another document, or to nothing, are simply absent — the caller compares counts.</summary>
+    Task<IReadOnlyList<LibraryChunkHit>> ListByIdsAsync(
+        Guid documentId,
+        IReadOnlyList<Guid> chunkIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>The chunks of one document that start on a page in [pageFrom, pageTo], in
+    /// reading order — a GM filing "pages 42 to 45" as an excerpt.</summary>
+    Task<IReadOnlyList<LibraryChunkHit>> ListByDocumentPagesAsync(
+        Guid documentId,
+        int pageFrom,
+        int pageTo,
+        CancellationToken cancellationToken = default);
 }

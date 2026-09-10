@@ -359,6 +359,34 @@ public class ExtractionPromptBuilderTests
     }
 
     [Test]
+    public void BuildSystemPrompt_LibraryExcerpt_ReadsAsWrittenCanon_ConfirmedByDefault()
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "Excerpt from “Player's Guide”, pp. 42–45, filed for the codex entry “Thistlehold”.\n\nThistlehold sits on the river.",
+            SourceTitle = "Thistlehold — Player's Guide, pp. 42–45",
+            SourceType = "LibraryExcerpt",
+            SourceVisibility = "PartyVisible"
+        };
+
+        var prompt = ExtractionPromptBuilder.BuildSystemPrompt(request);
+
+        Assert.That(prompt, Does.Contain("## Library Excerpt"));
+        Assert.That(prompt, Does.Contain("filing line"));
+        Assert.That(prompt, Does.Contain("rate them \"Confirmed\", not \"Likely\""));
+        Assert.That(prompt, Does.Contain("rather than proposing a new"));
+        Assert.That(prompt, Does.Contain("artifact of the same name"));
+    }
+
+    [Test]
+    public void BuildSystemPrompt_SessionNote_OmitsLibraryExcerptInstructions()
+    {
+        var prompt = ExtractionPromptBuilder.BuildSystemPrompt(DefaultRequest);
+
+        Assert.That(prompt, Does.Not.Contain("## Library Excerpt"));
+    }
+
+    [Test]
     public void BuildSystemPrompt_NonImportedNote_OmitsImportedNotesInstructions()
     {
         var request = new ExtractionRequest

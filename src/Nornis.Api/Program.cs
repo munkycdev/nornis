@@ -426,6 +426,7 @@ else
 // Library: blob storage + document management
 builder.Services.Configure<LibraryOptions>(builder.Configuration.GetSection(LibraryOptions.SectionName));
 builder.Services.AddScoped<ILibraryService, LibraryService>();
+builder.Services.AddScoped<ILibraryExcerptService, LibraryExcerptService>();
 builder.Services.AddScoped<IReferencePassageRetriever, ReferencePassageRetriever>();
 if (blobServiceClient is not null)
 {

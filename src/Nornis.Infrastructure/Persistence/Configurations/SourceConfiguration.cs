@@ -54,6 +54,8 @@ public class SourceConfiguration : IEntityTypeConfiguration<Source>
 
         builder.HasIndex(s => s.CampaignId);
 
+        builder.HasIndex(s => s.LibraryDocumentId);
+
         builder.HasOne(s => s.World)
             .WithMany()
             .HasForeignKey(s => s.WorldId)
@@ -64,6 +66,14 @@ public class SourceConfiguration : IEntityTypeConfiguration<Source>
         builder.HasOne(s => s.Campaign)
             .WithMany()
             .HasForeignKey(s => s.CampaignId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Restrict for the same reason as Campaign: Worlds already cascades to both tables, and
+        // SQL Server refuses a second cascade path. LibraryDocumentRepository.DeleteAsync
+        // detaches the excerpts before the delete, so they outlive the document.
+        builder.HasOne(s => s.LibraryDocument)
+            .WithMany()
+            .HasForeignKey(s => s.LibraryDocumentId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(s => s.CreatedByUser)

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
@@ -646,7 +646,11 @@ public class SourcesController : ControllerBase
             CampaignId: source.CampaignId,
             CampaignName: source.Campaign?.Name,
             ExtractionEnabled: source.ExtractionEnabled,
-            DerivedText: source.DerivedText);
+            DerivedText: source.DerivedText,
+            LibraryDocumentId: source.LibraryDocumentId,
+            LibraryDocumentTitle: source.LibraryDocument?.Title,
+            LibraryPageFrom: source.LibraryPageFrom,
+            LibraryPageTo: source.LibraryPageTo);
     }
 
     internal static SourceListItemResponse ToSourceListItemResponse(SourceListItem source)

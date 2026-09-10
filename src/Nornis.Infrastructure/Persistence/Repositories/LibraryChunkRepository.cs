@@ -87,6 +87,33 @@ public class LibraryChunkRepository : ILibraryChunkRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<LibraryChunkHit>> ListByIdsAsync(
+        Guid documentId,
+        IReadOnlyList<Guid> chunkIds,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.LibraryChunks
+            .AsNoTracking()
+            .Where(c => c.DocumentId == documentId && chunkIds.Contains(c.Id))
+            .OrderBy(c => c.Ord)
+            .Select(c => new LibraryChunkHit(c.Id, c.DocumentId, c.Document.Title, c.Ord, c.Page, c.Text, 0d))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<LibraryChunkHit>> ListByDocumentPagesAsync(
+        Guid documentId,
+        int pageFrom,
+        int pageTo,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.LibraryChunks
+            .AsNoTracking()
+            .Where(c => c.DocumentId == documentId && c.Page >= pageFrom && c.Page <= pageTo)
+            .OrderBy(c => c.Ord)
+            .Select(c => new LibraryChunkHit(c.Id, c.DocumentId, c.Document.Title, c.Ord, c.Page, c.Text, 0d))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<LibraryChunkHit>> SearchAsync(
         Guid worldId,
         float[] queryEmbedding,

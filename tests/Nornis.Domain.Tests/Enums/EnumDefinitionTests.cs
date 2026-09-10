@@ -33,7 +33,7 @@ public class EnumDefinitionTests
         AssertEnumHasExactValues<SourceType>(
             "SessionNote", "JournalEntry", "Transcript", "Upload",
             "Image", "HandwrittenNotes", "WebLink", "GMNote", "ImportedNote",
-            "SessionAudio", "FanFiction", "Map", "Reveal");
+            "SessionAudio", "FanFiction", "Map", "Reveal", "LibraryExcerpt");
     }
 
     [Test]

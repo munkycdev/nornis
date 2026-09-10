@@ -133,7 +133,11 @@ public record SourceDetailDto(
     Guid? CampaignId = null,
     string? CampaignName = null,
     bool ExtractionEnabled = true,
-    string? DerivedText = null);
+    string? DerivedText = null,
+    Guid? LibraryDocumentId = null,
+    string? LibraryDocumentTitle = null,
+    int? LibraryPageFrom = null,
+    int? LibraryPageTo = null);
 
 // Mirrors Nornis.Api LinkedLocationResponse: one Location a session is linked to.
 public record LinkedLocationDto(Guid ArtifactId, string Name, string? Summary);
@@ -896,6 +900,14 @@ public record RequestLibraryUploadRequest(
 public record LibraryUploadTicketDto(LibraryDocumentDto Document, string UploadUrl);
 
 public record LibraryDownloadDto(string DownloadUrl, string FileName, string ContentType, long SizeBytes);
+
+public record SearchLibraryExcerptsRequest(Guid? ArtifactId, string? Query);
+
+public record FileLibraryExcerptRequest(IReadOnlyList<Guid>? ChunkIds, int? PageFrom, int? PageTo, Guid? ArtifactId);
+
+public record LibraryExcerptCandidateDto(Guid ChunkId, Guid DocumentId, string DocumentTitle, int Page, string Text);
+
+public record LibraryExcerptFiledDto(Guid SourceId, string Title, string ProcessingStatus);
 
 public record ExportWorldRequest(IReadOnlyList<string> Categories);
 

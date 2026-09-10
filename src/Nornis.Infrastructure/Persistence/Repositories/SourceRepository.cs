@@ -20,6 +20,11 @@ public class SourceRepository : ISourceRepository
         _context.Sources.Add(source);
         await _context.SaveChangesAsync(cancellationToken);
         await LoadCampaignAsync(source, cancellationToken);
+
+        // Detached for the reason AddAndDetachAsync gives: a request that inserts a source and
+        // then updates it in the same scope — an excerpt filed and marked ready in one call —
+        // would otherwise attach a second instance of the same key and throw.
+        _context.Entry(source).State = EntityState.Detached;
         return source;
     }
 
@@ -38,6 +43,7 @@ public class SourceRepository : ISourceRepository
         return await _context.Sources
             .AsNoTracking()
             .Include(s => s.Campaign)
+            .Include(s => s.LibraryDocument)
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
     }
 

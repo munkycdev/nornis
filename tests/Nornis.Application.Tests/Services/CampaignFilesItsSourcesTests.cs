@@ -109,7 +109,7 @@ public class CampaignFilesItsSourcesTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(offered.Items.Select(s => s.Id), Is.EqualTo(new[] { inside.Id }));
+            Assert.That(offered.Items.Select(s => s.Id), Is.EqualTo([inside.Id]));
             Assert.That(offered.TotalCount, Is.EqualTo(1));
         });
     }
@@ -124,7 +124,7 @@ public class CampaignFilesItsSourcesTests
 
         var offered = await OfferedTo(WorldRole.GM);
 
-        Assert.That(offered.Items.Select(s => s.Id), Is.EquivalentTo(new[] { firstMorning.Id, lastEvening.Id }));
+        Assert.That(offered.Items.Select(s => s.Id), Is.EquivalentTo([firstMorning.Id, lastEvening.Id]));
     }
 
     [Test]
@@ -136,7 +136,7 @@ public class CampaignFilesItsSourcesTests
 
         var offered = await OfferedTo(WorldRole.GM, running);
 
-        Assert.That(offered.Items.Select(s => s.Id), Is.EqualTo(new[] { later.Id }));
+        Assert.That(offered.Items.Select(s => s.Id), Is.EqualTo([later.Id]));
     }
 
     [Test]
@@ -148,7 +148,7 @@ public class CampaignFilesItsSourcesTests
 
         var offered = await OfferedTo(WorldRole.GM, finished);
 
-        Assert.That(offered.Items.Select(s => s.Id), Is.EqualTo(new[] { longAgo.Id }));
+        Assert.That(offered.Items.Select(s => s.Id), Is.EqualTo([longAgo.Id]));
     }
 
     [Test]

@@ -1,4 +1,4 @@
-namespace Nornis.Api.Contracts.Responses;
+﻿namespace Nornis.Api.Contracts.Responses;
 
 public record SourceResponse(
     Guid Id,
@@ -15,4 +15,8 @@ public record SourceResponse(
     Guid? CampaignId = null,
     string? CampaignName = null,
     bool ExtractionEnabled = true,
-    string? DerivedText = null);
+    string? DerivedText = null,
+    Guid? LibraryDocumentId = null,
+    string? LibraryDocumentTitle = null,
+    int? LibraryPageFrom = null,
+    int? LibraryPageTo = null);

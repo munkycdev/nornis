@@ -21,10 +21,12 @@ namespace Nornis.Api.Controllers;
 public class LibraryController : ControllerBase
 {
     private readonly ILibraryService _libraryService;
+    private readonly ILibraryExcerptService _excerptService;
 
-    public LibraryController(ILibraryService libraryService)
+    public LibraryController(ILibraryService libraryService, ILibraryExcerptService excerptService)
     {
         _libraryService = libraryService;
+        _excerptService = excerptService;
     }
 
     [HttpPost("request-upload")]
@@ -150,6 +152,45 @@ public class LibraryController : ControllerBase
         var member = HttpContext.GetWorldMember();
         var result = await _libraryService.ReindexAsync(documentId, worldId, user.Id, member.Role, ct);
         return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
+    }
+
+    /// <summary>GM-only: passages across the GM's shelves that match a codex entry (or a free query).</summary>
+    [HttpPost("excerpts/search")]
+    public async Task<IActionResult> SearchExcerpts(
+        Guid worldId,
+        [FromBody] SearchLibraryExcerptsRequest request,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _excerptService.SearchAsync(
+            new SearchLibraryExcerptsCommand(worldId, user.Id, member.Role, request.ArtifactId, request.Query), ct);
+
+        return result.IsSuccess
+            ? Ok(result.Value!.Select(c => new LibraryExcerptCandidateResponse(c.ChunkId, c.DocumentId, c.DocumentTitle, c.Page, c.Text)).ToList())
+            : result.Error!.ToActionResult();
+    }
+
+    /// <summary>GM-only: files chosen passages of a document as an excerpt source, queued for extraction.</summary>
+    [HttpPost("{documentId:guid}/excerpts")]
+    public async Task<IActionResult> FileExcerpt(
+        Guid worldId,
+        Guid documentId,
+        [FromBody] FileLibraryExcerptRequest request,
+        CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+
+        var result = await _excerptService.FileAsync(
+            new FileLibraryExcerptCommand(
+                worldId, user.Id, member.Role, documentId,
+                request.ChunkIds ?? [], request.PageFrom, request.PageTo, request.ArtifactId), ct);
+
+        return result.IsSuccess
+            ? Ok(new LibraryExcerptFiledResponse(result.Value!.Id, result.Value.Title, result.Value.ProcessingStatus.ToString()))
+            : result.Error!.ToActionResult();
     }
 
     private static LibraryDocumentResponse ToResponse(LibraryDocument d) => new(
