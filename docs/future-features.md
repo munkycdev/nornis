@@ -284,6 +284,13 @@ build, which would make docker the constraint.
     reasons. What remains is the ongoing half: `grade-tests` on changed files when a PR
     touches a priority area, and a re-audit diffed against this baseline after each feature
     wave. Both are on-demand and never blocking, by design.
+20. Character-scoped Loremaster ("ask what my character knows") — **indefinitely deferred,
+    decided 2026-09-09.** The one Player need in `product-vision.md` never delivered, and the
+    prerequisite four features declined in turn (17, 21, 22, 23: per-character visibility).
+    The vision doc carries the dated reasoning; in short, the party is one audience and the
+    fourth boundary this needs does not exist as data. Reopen only for a world with more
+    than one party or players who play apart. Not a rider: it is a product decision, and it
+    sits here so nobody re-derives it.
 
 ## Riders
 
