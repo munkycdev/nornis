@@ -180,11 +180,49 @@
         _available = result.IsSuccess;
         if (result.IsSuccess)
         {
-            _steps = result.Value!.Steps;
-            _loadedWorldId = world.Id;
+            var firstLoadForWorld = _loadedWorldId != world.Id;
+            Take(result.Value!.Steps, world.Id);
+            if (firstLoadForWorld)
+            {
+                await ReportArrivalAsync(world.Id);
+            }
         }
 
         await InvokeAsync(StateHasChanged);
+    }
+
+    // A full page load fires no LocationChanged, so the page a person arrives on counts when the
+    // checklist first loads for their world, or not at all — a bookmark to the Codex is as much a
+    // visit as a click on it. This runs after the world is known: the component mounts outside
+    // the layout's boot gate, before WorldState has loaded anything.
+    private async Task ReportArrivalAsync(Guid worldId)
+    {
+        var path = new Uri(Nav.Uri).AbsolutePath;
+        if (TutorialGuide.StepAt(path, TutorialTrigger.Visit) is { } arrived)
+        {
+            await ReportAsync(worldId, arrived.Key);
+        }
+
+        await ReportLearnedAsPlayerAsync(worldId, path);
+    }
+
+    // A report and a refresh can be in flight together — jumping through the switcher fires the
+    // report and the arrival's refresh a moment apart — and the server may answer the GET first.
+    // Completion is one-way on the server, so a later answer that lacks a step this client has
+    // already seen complete is the older answer; keep the completion. The list shape and order
+    // still come from whatever arrived last, so a redeploy that changes the steps shows through.
+    private void Take(IReadOnlyList<TutorialStepDto> incoming, Guid worldId)
+    {
+        if (_loadedWorldId == worldId)
+        {
+            var known = _steps.Where(s => s.CompletedAt is not null).ToDictionary(s => s.Key, s => s.CompletedAt);
+            incoming = incoming
+                .Select(s => s.CompletedAt is null && known.TryGetValue(s.Key, out var at) ? s with { CompletedAt = at } : s)
+                .ToList();
+        }
+
+        _steps = incoming;
+        _loadedWorldId = worldId;
     }
 
     private void OnWorldsChanged() => InvokeAsync(async () =>
@@ -283,7 +321,7 @@
         var result = await Api.ReportTutorialStepAsync(worldId, stepKey, _cts.Token);
         if (result.IsSuccess)
         {
-            _steps = result.Value!.Steps;
+            Take(result.Value!.Steps, worldId);
             await InvokeAsync(StateHasChanged);
         }
     }
