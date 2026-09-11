@@ -40,10 +40,10 @@
             <Body>
 
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-                <div class="nornis-detail-section-title">The story so far</div>
+                <div class="nornis-detail-section-title">@CampaignDisplay.RecapTitle</div>
                 @if (_detail.Recap.HasData)
                 {
-                    <div class="nornis-digest-body nornis-markdown">@MarkdownRenderer.ToHtml(_detail.Recap.Content)</div>
+                    <div class="nornis-digest-body nornis-markdown">@MarkdownRenderer.ToHtml(CampaignDisplay.RecapBody(_detail.Recap.Content))</div>
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">
                         Written @RelativeTime.Ago(_detail.Recap.GeneratedAt!.Value)
                     </MudText>
