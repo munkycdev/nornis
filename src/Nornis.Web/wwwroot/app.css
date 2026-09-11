@@ -51,6 +51,18 @@ html, body {
     padding-top: 0;
 }
 
+/* The content column is a query container named `page`. Layout that has to give way when
+   room runs out — a header stacking its actions, a rail dropping under the body, a grid
+   losing columns — asks for the column's width, not the viewport's: with the sidebar open
+   a 1000px window leaves the page barely 650px, which is phone-narrow by every rule keyed
+   on the viewport. The public frame is the same container, so the shared templates behave
+   there too. Only what is truly about the window (the drawer, the top bar, the crumbs)
+   stays on a media query. */
+.nornis-page,
+.nornis-public-main {
+    container: page / inline-size;
+}
+
 .nornis-page {
     padding: 20px 28px 40px 28px;
 }
@@ -726,11 +738,14 @@ a.nornis-tutorial-step-title:hover {
     align-items: start;
 }
 
+/* Its own (anonymous) container: the grids inside it size to this column, which the rail
+   beside it has already narrowed by 360px. */
 .nornis-dashboard-main {
     display: flex;
     flex-direction: column;
     gap: 20px;
     min-width: 0;
+    container-type: inline-size;
 }
 
 .nornis-rail {
@@ -739,7 +754,8 @@ a.nornis-tutorial-step-title:hover {
     gap: 20px;
 }
 
-@media (max-width: 1200px) {
+/* Below this the main column would be left with less than the rail has. */
+@container page (max-width: 960px) {
     .nornis-dashboard {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -833,9 +849,17 @@ a.nornis-tutorial-step-title:hover {
     border-color: var(--mud-palette-text-secondary);
 }
 
-@media (max-width: 900px) {
+/* Four across need ~200px each to keep a question on two lines; the nearest container is
+   the dashboard's main column, or the page on Ask. */
+@container (max-width: 800px) {
     .nornis-suggestions {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@container (max-width: 440px) {
+    .nornis-suggestions {
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
@@ -859,9 +883,11 @@ a.nornis-tutorial-step-title:hover {
     color: var(--mud-palette-text-secondary);
 }
 
+/* As many tiles across as fit at a readable width: five on a wide screen, three beside the
+   dashboard rail, one on a phone — no breakpoint needed, so it cannot be caught between two. */
 .nornis-capture-tiles {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 12px;
 }
 
@@ -907,12 +933,6 @@ a.nornis-tutorial-step-title:hover {
     color: var(--mud-palette-text-secondary);
 }
 
-@media (max-width: 960px) {
-    .nornis-capture-tiles {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
 /* --------------------------------------------------- Three lower columns --- */
 
 .nornis-triptych {
@@ -921,7 +941,7 @@ a.nornis-tutorial-step-title:hover {
     gap: 20px;
 }
 
-@media (max-width: 1100px) {
+@container page (max-width: 900px) {
     .nornis-triptych {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -934,21 +954,37 @@ a.nornis-tutorial-step-title:hover {
     margin-bottom: 14px;
 }
 
-/* Standard page header: title block on the left, page actions on the right. Named
-   rather than assembled from utility classes so the phone rules have one place to
-   stack it — packed side by side, the actions push past a narrow viewport. */
+/* Standard page header: title block on the left, page actions on the right. Named rather
+   than assembled from utility classes so it has one place to decide how it gives way.
+
+   It wraps on its own rather than at a breakpoint: the title block keeps at least its basis,
+   the actions never shrink, and when the two no longer share a line the actions drop under
+   the title whole. Pages carry anywhere from one button to a filter and two buttons, so no
+   single width is right for all of them — and squeezed side by side the buttons broke their
+   labels over two lines while the subtitle folded into a column. */
 .nornis-page-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
     margin-bottom: 16px;
 }
 
+.nornis-page-head > :first-child {
+    flex: 1 1 240px;
+    min-width: 0;
+}
+
 .nornis-page-head-actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
+}
+
+.nornis-page-head-actions .mud-button-root {
+    white-space: nowrap;
 }
 
 /* A dense outlined MudBlazor input is 40px tall plus 4px of margin either side, so a
@@ -1349,7 +1385,7 @@ span.nornis-list-meta {
 }
 
 /* Narrow columns can't fit name and buttons side by side — stack instead of squeezing. */
-@media (max-width: 700px) {
+@container page (max-width: 640px) {
     .nornis-wrapup-row {
         flex-wrap: wrap;
     }
@@ -1465,6 +1501,12 @@ span.nornis-list-meta {
     gap: 8px;
 }
 
+/* A toggle group is a fixed set of labels; squeezed as a flex item it clips them ("ECENC")
+   and stacks its icons on each other. It keeps its size and the row around it wraps. */
+.mud-toggle-group {
+    flex: 0 0 auto;
+}
+
 .nornis-artifact-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1515,11 +1557,19 @@ span.nornis-list-meta {
     margin-top: auto;
 }
 
-/* Artifact detail */
+/* Detail page header: thumb, title block, then whatever the page puts beside it (chips, a
+   status, its actions). The title block keeps its basis and the rest wraps under it, so a
+   narrow column never breaks the name over three lines to make room for a button. */
 .nornis-detail-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 16px;
+}
+
+.nornis-detail-title {
+    flex: 1 1 240px;
+    min-width: 0;
 }
 
 .nornis-detail-chips {
@@ -1649,9 +1699,15 @@ span.nornis-list-meta {
     gap: 16px;
 }
 
-@media (max-width: 900px) {
+@container page (max-width: 800px) {
     .nornis-cost-cards {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@container page (max-width: 480px) {
+    .nornis-cost-cards {
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
@@ -1880,6 +1936,7 @@ a.nornis-cite:hover {
 
 /* ------------------------------------------------------------------ Phone --- */
 
+/* The window's own edges: tighter gutters when the viewport is a phone's. */
 @media (max-width: 600px) {
     .nornis-page {
         padding: 12px 16px 32px 16px;
@@ -1889,18 +1946,21 @@ a.nornis-cite:hover {
         padding: 12px 16px;
     }
 
+    /* Dialogs sit outside the page container, so this one keeps the viewport rule. */
+    .mud-dialog .nornis-role-select {
+        max-width: none;
+    }
+}
+
+/* The content column at a phone's width — whether the window is a phone or the sidebar
+   has taken the rest. */
+@container page (max-width: 600px) {
     .nornis-hero {
         padding: 24px 18px 22px 18px;
     }
 
     .nornis-hero-title {
         font-size: 1.9rem;
-    }
-
-    .nornis-cost-cards,
-    .nornis-capture-tiles,
-    .nornis-suggestions {
-        grid-template-columns: minmax(0, 1fr);
     }
 
     /* Let the label own a line so the two pickers can share the next one. */
@@ -1916,24 +1976,18 @@ a.nornis-cite:hover {
     /* Rows that pack controls horizontally need to stack rather than overflow. */
     .nornis-add-member,
     .nornis-member-row,
-    .nornis-proposal-actions,
-    .nornis-page-head,
-    .nornis-page-head-actions {
+    .nornis-proposal-actions {
         flex-wrap: wrap;
     }
 
-    /* The title claims the full width so the actions drop to their own line under it
-       instead of squeezing it to nothing. */
+    /* The header already wraps on its own; this just stops a tall title block centring a
+       lone button beside it. */
     .nornis-page-head {
         align-items: flex-start;
     }
 
-    .nornis-page-head > :first-child {
-        flex: 1 1 100%;
-    }
-
     /* List rows carry a body plus action buttons that won't shrink; without wrapping the
-       buttons crush the body to a few pixels and shove the row past the viewport. */
+       buttons crush the body to a few pixels and shove the row past the column. */
     .nornis-list-row {
         flex-wrap: wrap;
     }
@@ -1958,7 +2012,7 @@ a.nornis-cite:hover {
     margin-top: 24px;
 }
 
-@media (max-width: 600px) {
+@container page (max-width: 600px) {
     /* One column: side by side these wrap to three cramped lines each on a phone.
        Declared after the shared .nornis-suggestions rule so it isn't overridden by it. */
     .nornis-suggestions-ask {
@@ -3087,7 +3141,8 @@ a.nornis-cite:hover {
     top: 16px;
 }
 
-@media (max-width: 1200px) {
+/* Once the dashboard grid has stacked, the rail is below the form and must not stick. */
+@container page (max-width: 960px) {
     .nornis-capture-rail {
         position: static;
     }
@@ -3314,7 +3369,7 @@ a.nornis-cite:hover {
     align-items: start;
 }
 
-@media (max-width: 820px) {
+@container page (max-width: 700px) {
     .nornis-journey-stage {
         grid-template-columns: 1fr;
     }
@@ -3572,11 +3627,14 @@ a.nornis-cite:hover {
     box-shadow: 0 -8px 24px rgba(28, 31, 36, 0.10);
 }
 
-/* Inside the authenticated app, clear the persistent sidebar from the Md breakpoint up (below
-   it the drawer collapses to an overlay and the content is already full width). */
+/* Inside the authenticated app, clear the persistent sidebar while it is open. MudBlazor
+   stamps the layout with the drawer's state, which is the only thing that knows whether the
+   272px is there — the breakpoint alone was wrong both ways: the bar sat 240px in with the
+   sidebar collapsed, and 32px short of it when open. Below Md the drawer is an overlay and
+   the content is already full width. */
 @media (min-width: 961px) {
-    .nornis-main .nornis-journey-scrub {
-        left: 240px;
+    .mud-drawer-open-responsive-md-left .nornis-journey-scrub {
+        left: 272px;
     }
 }
 
@@ -3853,7 +3911,7 @@ a.nornis-cite:hover {
     margin-top: 6px;
 }
 
-@media (max-width: 600px) {
+@container page (max-width: 600px) {
     .nornis-convergence-row {
         flex-wrap: wrap;
     }
@@ -3921,24 +3979,34 @@ a.nornis-cite:hover {
 }
 
 /* The search box that opens the quick switcher, pinned under the world switcher. */
+/* Everything in it stays on one line: the drawer is 272px and never wider, and the label
+   plus the shortcut once folded to two lines each inside the 34px box. The label gives way
+   (ellipsis) before the shortcut does. */
 .nornis-jump {
     display: flex;
     align-items: center;
-    gap: 8px;
-    width: calc(100% - 24px);
-    margin: 4px 12px 2px 12px;
+    gap: 6px;
+    width: calc(100% - 16px);
+    margin: 4px 8px 2px 8px;
     height: 34px;
-    padding: 0 10px;
+    padding: 0 8px;
     border-radius: 8px;
     border: 1px solid var(--nornis-onside-border);
     background: var(--nornis-onside-raised);
     color: var(--nornis-onside-muted);
-    font: 500 0.82rem var(--nornis-sans);
+    font: 500 0.8rem var(--nornis-sans);
     cursor: pointer;
     text-align: left;
 }
 .nornis-jump:hover { color: var(--mud-palette-text-primary); }
-.nornis-jump-label { flex: 1 1 auto; }
+.nornis-jump-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.nornis-jump .nornis-kbd { flex: 0 0 auto; white-space: nowrap; }
 
 .nornis-kbd {
     font: 500 0.68rem var(--nornis-sans);
@@ -4050,7 +4118,8 @@ a.nornis-cite:hover {
     top: 16px;
     min-width: 0;
 }
-@media (max-width: 959.98px) {
+/* Under this the reading column would be narrower than the rail beside it. */
+@container page (max-width: 760px) {
     .nornis-entity-columns { grid-template-columns: minmax(0, 1fr); }
     .nornis-entity-rail { position: static; }
 }
