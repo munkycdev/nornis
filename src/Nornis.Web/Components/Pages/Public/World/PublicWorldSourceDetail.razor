@@ -2,12 +2,12 @@
 @layout PublicLayout
 @inject NornisApiClient Api
 
-<PageTitle>@(_source?.Title ?? "Session") — Nornis</PageTitle>
+<PageTitle>@(_source?.Title ?? "Source") — Nornis</PageTitle>
 
 <PublicWorldFrame Slug="@Slug" Active="sources">
     <ChildContent Context="world">
         <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text"
-                   Color="Color.Default" Href="@($"/w/{Slug}/sources")" Class="mb-3">Sessions</MudButton>
+                   Color="Color.Default" Href="@($"/w/{Slug}/sources")" Class="mb-3">Sources</MudButton>
 
         @if (_loading)
         {
@@ -15,10 +15,12 @@
         }
         else if (_source is null)
         {
-            <MudAlert Severity="Severity.Warning">This chronicle doesn't exist or isn't public.</MudAlert>
+            <MudAlert Severity="Severity.Warning">This source doesn't exist or isn't public.</MudAlert>
         }
         else
         {
+            <EntityPage>
+            <Header>
             <div class="nornis-detail-head">
                 <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Description" /></div>
                 <div class="flex-grow-1">
@@ -29,13 +31,35 @@
                         {
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_source.OccurredAt.Value.LocalDateTime.ToString("d MMM yyyy")</MudChip>
                         }
-                        @if (_source.CampaignName is not null)
+                        @if (_source.CampaignName is not null && _source.CampaignId is { } campaignId)
                         {
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary">@_source.CampaignName</MudChip>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary"
+                                     Href="@($"/w/{Slug}/campaigns/{campaignId}")">@_source.CampaignName</MudChip>
                         }
                     </div>
                 </div>
             </div>
+            </Header>
+            <Body>
+
+            @if (_source.Type == "LibraryExcerpt")
+            {
+                @* Where the passages came from. No link: the Library is not public, and the
+                   document may since have been removed, in which case its title is all that is
+                   left of it. *@
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="nornis-kv">
+                        <span class="nornis-kv-key">Library</span>
+                        <span class="nornis-kv-value">
+                            @(_source.LibraryDocumentTitle ?? "A document since removed from the library")
+                            @if (_source.LibraryPageFrom is { } from && _source.LibraryPageTo is { } to)
+                            {
+                                <span> · @(from == to ? $"p. {from}" : $"pp. {from}–{to}")</span>
+                            }
+                        </span>
+                    </div>
+                </MudPaper>
+            }
 
             @if (!string.IsNullOrWhiteSpace(_source.Body))
             {
@@ -74,6 +98,13 @@
                                       CanRemoveFacts="false"
                                       ArtifactLinkBase="@($"/w/{Slug}/artifacts")" />
             }
+            </Body>
+            <Rail>
+                <ContextRail Rows="@RailRows" Related="@RailRelated" RowsTitle="This source" RelatedTitle="Contributed" ShowLoremaster="false">
+                    <PublicAskLink Slug="@Slug" Enabled="world.AskEnabled" />
+                </ContextRail>
+            </Rail>
+            </EntityPage>
         }
     </ChildContent>
 </PublicWorldFrame>
@@ -122,4 +153,39 @@
         }
     }
 
+    /// <summary>Counted from what the page itself loaded, so the rail can never claim more
+    /// than the body may show.</summary>
+    private IReadOnlyList<ContextRail.RailRow> RailRows
+    {
+        get
+        {
+            if (_source is null)
+            {
+                return [];
+            }
+
+            var rows = new List<ContextRail.RailRow>();
+            if (_source.CampaignName is not null && _source.CampaignId is { } campaignId)
+            {
+                rows.Add(new("Campaign", _source.CampaignName, $"/w/{Slug}/campaigns/{campaignId}"));
+            }
+            if (_knowledge is not null)
+            {
+                rows.Add(new("Entries", _knowledge.Artifacts.Count.ToString()));
+                rows.Add(new("Facts", _knowledge.Facts.Count.ToString()));
+                rows.Add(new("Relationships", _knowledge.Relationships.Count.ToString()));
+            }
+            if (_locations.Count > 0)
+            {
+                rows.Add(new("Locations", _locations.Count.ToString()));
+            }
+            return rows;
+        }
+    }
+
+    private IReadOnlyList<ContextRail.RailLink> RailRelated => _knowledge is null ? [] :
+        _knowledge.Artifacts
+            .Take(8)
+            .Select(k => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(k.Type), k.Name, $"/w/{Slug}/artifacts/{k.ArtifactId}"))
+            .ToList();
 }

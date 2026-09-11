@@ -1,0 +1,195 @@
+@page "/w/{Slug}/campaigns/{CampaignId:guid}"
+@layout PublicLayout
+@inject NornisApiClient Api
+
+<PageTitle>@(_detail?.Campaign.Name ?? "Campaign") — Nornis</PageTitle>
+
+<PublicWorldFrame Slug="@Slug" Active="campaigns">
+    <ChildContent Context="world">
+        <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text"
+                   Color="Color.Default" Href="@($"/w/{Slug}/campaigns")" Class="mb-3">Campaigns</MudButton>
+
+        @if (_loading)
+        {
+            <LoadingRows Rows="3" />
+        }
+        else if (_detail is null)
+        {
+            <MudAlert Severity="Severity.Warning">This campaign doesn't exist or isn't public.</MudAlert>
+        }
+        else
+        {
+            var c = _detail.Campaign;
+            <EntityPage>
+            <Header>
+            <div class="nornis-detail-head">
+                <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.AutoStories" /></div>
+                <div class="flex-grow-1">
+                    <MudText Typo="Typo.h4" Class="nornis-serif">@c.Name</MudText>
+                    <div class="nornis-detail-chips">
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@CampaignDisplay.StatusColor(c.Status)">@c.Status</MudChip>
+                        <span class="nornis-list-meta">@CampaignDisplay.PlayedSpan(c, _detail.FirstSessionAt, _detail.LastSessionAt, _detail.SessionCount)</span>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(c.Description))
+                    {
+                        <div class="nornis-markdown nornis-reading mt-3">@MarkdownRenderer.ToHtml(c.Description)</div>
+                    }
+                </div>
+            </div>
+            </Header>
+            <Body>
+
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">The story so far</div>
+                @if (_detail.Recap.HasData)
+                {
+                    <div class="nornis-digest-body nornis-markdown">@MarkdownRenderer.ToHtml(_detail.Recap.Content)</div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">
+                        Written @RelativeTime.Ago(_detail.Recap.GeneratedAt!.Value)
+                    </MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">No recap has been written for this campaign yet.</MudText>
+                }
+            </MudPaper>
+
+            @if (_detail.Cast.Count > 0)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <div class="nornis-detail-section-title">Cast</div>
+                    <div class="nornis-detail-chips">
+                        @foreach (var ch in _detail.Cast)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                     Icon="@Icons.Material.Outlined.Person"
+                                     title="@($"Played by {ch.PlayerName}")">@ch.Name</MudChip>
+                        }
+                    </div>
+                </MudPaper>
+            }
+
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">What this campaign touched</div>
+                @if (_detail.Artifacts.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Nothing the party knows of yet.</MudText>
+                }
+                else
+                {
+                    <MudTabs Elevation="0" Rounded="false" ApplyEffectsToContainer="true">
+                        @foreach (var group in CampaignDisplay.Group(_detail.Artifacts))
+                        {
+                            <MudTabPanel Text="@($"{group.Label} ({group.Items.Count})")">
+                                <div class="d-flex flex-column gap-1">
+                                    @foreach (var a in group.Items)
+                                    {
+                                        <a href="@($"/w/{Slug}/artifacts/{a.Id}")" class="nornis-list-row nornis-link">
+                                            <div class="nornis-list-thumb">
+                                                <MudIcon Icon="@ArtifactTypeDisplay.Icon(a.Type)" Size="Size.Small" />
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex align-center gap-2">
+                                                    <span class="nornis-list-title">@a.Name</span>
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                        @a.SourceCount @(a.SourceCount == 1 ? "session" : "sessions")
+                                                    </MudText>
+                                                </div>
+                                                @if (!string.IsNullOrWhiteSpace(a.Summary))
+                                                {
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@DisplayText.Truncate(a.Summary, 160)</MudText>
+                                                }
+                                            </div>
+                                        </a>
+                                    }
+                                </div>
+                            </MudTabPanel>
+                        }
+                    </MudTabs>
+
+                    @if (_detail.ArtifactTotalCount > _detail.Artifacts.Count)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">
+                            Showing the @_detail.Artifacts.Count most-cited of @_detail.ArtifactTotalCount.
+                        </MudText>
+                    }
+                }
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <div class="nornis-detail-section-title">Sessions</div>
+                @if (_detail.RecentSessions.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">No sources have been shared from this campaign yet.</MudText>
+                }
+                else
+                {
+                    <div class="d-flex flex-column gap-1">
+                        @foreach (var s in _detail.RecentSessions)
+                        {
+                            <a href="@($"/w/{Slug}/sources/{s.Id}")" class="nornis-list-row nornis-link">
+                                <div class="nornis-list-thumb">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" />
+                                </div>
+                                <div class="flex-grow-1">
+                                    <span class="nornis-list-title">@s.Title</span>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block">
+                                        @SourceTypeDisplay.Label(s.Type)
+                                        @(s.OccurredAt is { } o ? $" · {o:yyyy-MM-dd}" : "")
+                                    </MudText>
+                                </div>
+                            </a>
+                        }
+                    </div>
+                    @if (_detail.SessionCount > _detail.RecentSessions.Count)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">
+                            Showing @_detail.RecentSessions.Count of @_detail.SessionCount.
+                        </MudText>
+                    }
+                }
+            </MudPaper>
+            </Body>
+            <Rail>
+                <ContextRail Rows="@RailRows" RowsTitle="This campaign" ShowLoremaster="false">
+                    <PublicAskLink Slug="@Slug" Enabled="world.AskEnabled" />
+                </ContextRail>
+            </Rail>
+            </EntityPage>
+        }
+    </ChildContent>
+</PublicWorldFrame>
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+    [Parameter] public Guid CampaignId { get; set; }
+
+    private bool _loading = true;
+    private PublicCampaignDetailDto? _detail;
+    private (string Slug, Guid Id)? _loadedKey;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedKey == (Slug, CampaignId))
+        {
+            return;
+        }
+        var key = (Slug, CampaignId);
+        _loadedKey = key;
+        _loading = true;
+        var result = await Api.GetPublicCampaignDetailAsync(Slug, CampaignId);
+        if (_loadedKey != key)
+        {
+            return;
+        }
+        _detail = result.IsSuccess ? result.Value : null;
+        _loading = false;
+    }
+
+    private IReadOnlyList<ContextRail.RailRow> RailRows => _detail is null ? [] :
+    [
+        new("Cast", _detail.Cast.Count.ToString()),
+        new("Entries", _detail.ArtifactTotalCount.ToString()),
+        new("Sessions", _detail.SessionCount.ToString(), $"/w/{Slug}/sources"),
+    ];
+}

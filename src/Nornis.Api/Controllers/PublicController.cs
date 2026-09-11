@@ -154,7 +154,21 @@ public class PublicController : ControllerBase
         }
 
         var result = await _artifactService.GetDetailAsync(artifactId, world.Id, AnonymousUserId, PublicRole, ct);
-        return result.IsSuccess ? Ok(ArtifactsController.ToDetailResponse(result.Value!)) : PublicNotFound();
+        if (!result.IsSuccess)
+        {
+            return PublicNotFound();
+        }
+
+        // Citations of sources the public site does not show are dropped with the source: a
+        // reference is a link, and a link to a 404 says more than it should. Fails closed when
+        // the source is not loaded on the reference.
+        var detail = result.Value!;
+        var shown = detail.SourceReferences
+            .Where(r => r.Source is not null && PublicSurface.ShowsSource(r.Source.Type))
+            .Select(r => r.SourceId)
+            .ToHashSet();
+        var response = ArtifactsController.ToDetailResponse(detail);
+        return Ok(response with { SourceReferences = response.SourceReferences.Where(r => shown.Contains(r.SourceId)).ToList() });
     }
 
     [HttpGet("timeline")]
@@ -214,6 +228,7 @@ public class PublicController : ControllerBase
         var result = await _sourceService.ListSummariesByWorldAsync(world.Id, AnonymousUserId, PublicRole, ct);
         return result.IsSuccess
             ? Ok(result.Value!
+                .Where(s => PublicSurface.ShowsSource(s.Type))
                 .Select(SourcesController.ToSourceListItemResponse)
                 .ToList())
             : PublicNotFound();
@@ -230,8 +245,8 @@ public class PublicController : ControllerBase
             return PublicNotFound();
         }
 
-        var result = await _sourceService.GetByIdAsync(sourceId, world.Id, AnonymousUserId, PublicRole, ct);
-        return result.IsSuccess ? Ok(SourcesController.ToSourceResponse(result.Value!)) : PublicNotFound();
+        var source = await ResolvePublicSourceAsync(world, sourceId, ct);
+        return source is null ? PublicNotFound() : Ok(SourcesController.ToSourceResponse(source));
     }
 
     /// <summary>What a public session contributed to the record — Observer-scoped like every read.</summary>
@@ -245,6 +260,11 @@ public class PublicController : ControllerBase
     {
         var world = await ResolveAsync(slug, ct);
         if (world is null)
+        {
+            return PublicNotFound();
+        }
+
+        if (await ResolvePublicSourceAsync(world, sourceId, ct) is null)
         {
             return PublicNotFound();
         }
@@ -285,10 +305,93 @@ public class PublicController : ControllerBase
             return PublicNotFound();
         }
 
+        if (await ResolvePublicSourceAsync(world, sourceId, ct) is null)
+        {
+            return PublicNotFound();
+        }
+
         var result = await locationService.ListLocationsAsync(sourceId, world.Id, AnonymousUserId, PublicRole, ct);
         return result.IsSuccess
             ? Ok(result.Value!.Select(l => new LinkedLocationResponse(l.ArtifactId, l.Name, l.Summary)).ToList())
             : PublicNotFound();
+    }
+
+    /// <summary>The world's campaigns, in the GM's order — a run of play is party knowledge.</summary>
+    [HttpGet("campaigns")]
+    [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
+    public async Task<IActionResult> ListCampaigns(
+        string slug,
+        [FromServices] ICampaignService campaignService,
+        CancellationToken ct)
+    {
+        var world = await ResolveAsync(slug, ct);
+        if (world is null)
+        {
+            return PublicNotFound();
+        }
+
+        var result = await campaignService.ListByWorldAsync(world.Id, ct);
+        return result.IsSuccess
+            ? Ok(result.Value!.Select(CampaignsController.ToCampaignResponse).ToList())
+            : PublicNotFound();
+    }
+
+    /// <summary>
+    /// A campaign's page for strangers: the party rendering of the recap, the cast by name,
+    /// what it touched within the party's view, and its sessions. Projected into its own shape
+    /// so the GM-only parts of the member response have no field to travel in.
+    /// </summary>
+    [HttpGet("campaigns/{campaignId:guid}/detail")]
+    [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
+    public async Task<IActionResult> GetCampaign(
+        string slug,
+        Guid campaignId,
+        [FromServices] ICampaignService campaignService,
+        [FromServices] ICharacterService characterService,
+        CancellationToken ct)
+    {
+        var world = await ResolveAsync(slug, ct);
+        if (world is null)
+        {
+            return PublicNotFound();
+        }
+
+        var result = await campaignService.GetDetailAsync(campaignId, world.Id, AnonymousUserId, PublicRole, ct);
+        if (!result.IsSuccess)
+        {
+            return PublicNotFound();
+        }
+
+        var detail = result.Value!;
+        var cast = await characterService.ProjectForReaderAsync(detail.Characters, world.Id, AnonymousUserId, PublicRole, ct);
+
+        return Ok(new PublicCampaignDetailResponse(
+            Campaign: CampaignsController.ToCampaignResponse(detail.Campaign),
+            Cast: cast.Select(c => new PublicCampaignCastResponse(c.Id, c.Name, c.PlayerName)).ToList(),
+            Artifacts: detail.Rollup.Artifacts
+                .Select(a => new CampaignArtifactResponse(
+                    a.ArtifactId, a.Name, a.Type.ToString(), a.Summary, a.Status.ToString(), a.SourceCount))
+                .ToList(),
+            ArtifactTotalCount: detail.Rollup.TotalCount,
+            RecentSessions: detail.RecentSessions
+                .Where(s => PublicSurface.ShowsSource(s.Type))
+                .Select(SourcesController.ToSourceListItemResponse)
+                .ToList(),
+            SessionCount: detail.SessionCount,
+            FirstSessionAt: detail.FirstSessionAt,
+            LastSessionAt: detail.LastSessionAt,
+            Recap: new PublicCampaignRecapResponse(detail.Recap.HasData, detail.Recap.GeneratedAt, detail.Recap.Content)));
+    }
+
+    /// <summary>
+    /// The one path from a source id to a public source: visible to an Observer, and of a type
+    /// the public site shows. Every public read that takes a source id starts here, so a
+    /// source that is hidden from the list is hidden from its knowledge and locations too.
+    /// </summary>
+    private async Task<Source?> ResolvePublicSourceAsync(World world, Guid sourceId, CancellationToken ct)
+    {
+        var result = await _sourceService.GetByIdAsync(sourceId, world.Id, AnonymousUserId, PublicRole, ct);
+        return result.IsSuccess && PublicSurface.ShowsSource(result.Value!.Type) ? result.Value : null;
     }
 
     private async Task<World?> ResolveAsync(string slug, CancellationToken ct)

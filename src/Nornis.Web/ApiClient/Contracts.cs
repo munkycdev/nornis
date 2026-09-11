@@ -951,6 +951,22 @@ public record PublicWorldDto(
 /// <summary>A single-shot anonymous ask against a public world.</summary>
 public record PublicAskRequest(string Question);
 
+/// <summary>A campaign as the public world shows it: the party recap, names, what it touched.</summary>
+public record PublicCampaignDetailDto(
+    CampaignDto Campaign,
+    IReadOnlyList<PublicCampaignCastDto> Cast,
+    IReadOnlyList<CampaignArtifactDto> Artifacts,
+    int ArtifactTotalCount,
+    IReadOnlyList<SourceListItem> RecentSessions,
+    int SessionCount,
+    DateTimeOffset? FirstSessionAt,
+    DateTimeOffset? LastSessionAt,
+    PublicCampaignRecapDto Recap);
+
+public record PublicCampaignCastDto(Guid Id, string Name, string PlayerName);
+
+public record PublicCampaignRecapDto(bool HasData, DateTimeOffset? GeneratedAt, string? Content);
+
 // -------------------------------------------------- Onboarding + tutorial (feature 20) --
 
 public record OnboardingStateDto(bool PromptSeen, bool TutorialDismissed);

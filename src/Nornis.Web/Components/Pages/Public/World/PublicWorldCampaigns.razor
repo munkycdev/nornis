@@ -1,0 +1,63 @@
+@page "/w/{Slug}/campaigns"
+@layout PublicLayout
+@inject NornisApiClient Api
+
+<PageTitle>Campaigns — Nornis</PageTitle>
+
+<PublicWorldFrame Slug="@Slug" Active="campaigns">
+    <ChildContent Context="world">
+        @if (_campaigns is null)
+        {
+            <LoadingRows Rows="2" Height="48px" />
+        }
+        else if (_campaigns.Count == 0)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+                <MudIcon Icon="@Icons.Material.Outlined.AutoStories" Size="Size.Large" Class="nornis-comingsoon-icon" />
+                <MudText Typo="Typo.h5" Class="nornis-serif">No campaigns yet</MudText>
+                <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+                    Runs of play will appear here as the game master sets them up.
+                </MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                @foreach (var c in _campaigns)
+                {
+                    <a href="@($"/w/{Slug}/campaigns/{c.Id}")" class="nornis-list-row nornis-list-link">
+                        <div class="nornis-list-thumb">
+                            <MudIcon Icon="@Icons.Material.Outlined.AutoStories" Size="Size.Small" />
+                        </div>
+                        <div class="nornis-list-body">
+                            <div class="nornis-list-title">@c.Name</div>
+                            @if (!string.IsNullOrWhiteSpace(c.Description))
+                            {
+                                <div class="nornis-list-sub">@DisplayText.Truncate(c.Description, 160)</div>
+                            }
+                        </div>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@CampaignDisplay.StatusColor(c.Status)">@c.Status</MudChip>
+                    </a>
+                }
+            </MudPaper>
+        }
+    </ChildContent>
+</PublicWorldFrame>
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    private IReadOnlyList<CampaignDto>? _campaigns;
+    private string? _loadedSlug;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Slug == _loadedSlug)
+        {
+            return;
+        }
+        _loadedSlug = Slug;
+        var result = await Api.GetPublicCampaignsAsync(Slug);
+        _campaigns = result.IsSuccess ? result.Value : [];
+    }
+}

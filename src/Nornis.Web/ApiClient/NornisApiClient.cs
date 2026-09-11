@@ -511,6 +511,12 @@ public class NornisApiClient
     public Task<ApiResult<IReadOnlyList<LinkedLocationDto>>> GetPublicSourceLocationsAsync(string slug, Guid sourceId, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<LinkedLocationDto>>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/sources/{sourceId}/locations", ct);
 
+    public Task<ApiResult<IReadOnlyList<CampaignDto>>> GetPublicCampaignsAsync(string slug, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<CampaignDto>>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/campaigns", ct);
+
+    public Task<ApiResult<PublicCampaignDetailDto>> GetPublicCampaignDetailAsync(string slug, Guid campaignId, CancellationToken ct = default) =>
+        GetAsync<PublicCampaignDetailDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/campaigns/{campaignId}/detail", ct);
+
     /// <summary>Anonymous single-shot Ask the Loremaster against a public world. The API gates it
     /// on the GM's monthly spend cap; failures (disabled, budget spent) come back as the error.</summary>
     public Task<ApiResult<AskAnswer>> AskPublicAsync(string slug, string question, CancellationToken ct = default) =>

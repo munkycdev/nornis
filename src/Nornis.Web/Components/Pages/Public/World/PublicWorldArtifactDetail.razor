@@ -19,14 +19,40 @@
         }
         else
         {
-            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-                <MudText Typo="Typo.h5" Class="nornis-serif">@_detail.Name</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@_detail.Type · @_detail.Status</MudText>
-                @if (!string.IsNullOrWhiteSpace(_detail.Summary))
-                {
-                    <MudText Typo="Typo.body1">@_detail.Summary</MudText>
-                }
-            </MudPaper>
+            @* The member entry page's shape, less the GM controls: the same header, the same
+               rule, the same rail — and the Loremaster's corner points at the overview's Ask. *@
+            <EntityPage>
+            <Header>
+            <div class="nornis-detail-head">
+                <div class="nornis-list-thumb"><MudIcon Icon="@ArtifactTypeDisplay.Icon(_detail.Type)" /></div>
+                <div>
+                    <MudText Typo="Typo.h4" Class="nornis-serif">@_detail.Name</MudText>
+                    <div class="nornis-detail-chips">
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_detail.Type</MudChip>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ArtifactTypeDisplay.StatusColor(_detail.Status)">@_detail.Status</MudChip>
+                        @if (_detail.PlayedBy is { Count: > 0 } players)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary"
+                                     Icon="@Icons.Material.Outlined.Person">
+                                Played by @string.Join(", ", players)
+                            </MudChip>
+                        }
+                        @if (_detail.Confidence is not null)
+                        {
+                            <span class="nornis-list-meta">@($"{_detail.Confidence:P0}") confidence</span>
+                        }
+                    </div>
+                </div>
+            </div>
+            </Header>
+            <Body>
+
+            @if (!string.IsNullOrWhiteSpace(_detail.Summary))
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                    <MudText Typo="Typo.body1" Class="nornis-reading">@_detail.Summary</MudText>
+                </MudPaper>
+            }
 
             @if (OpenQuestions.Count > 0)
             {
@@ -117,6 +143,13 @@
                     }
                 </MudPaper>
             }
+            </Body>
+            <Rail>
+                <ContextRail Rows="@RailRows" Related="@RailRelated" RelatedTitle="Connected" ShowLoremaster="false">
+                    <PublicAskLink Slug="@Slug" Enabled="world.AskEnabled" />
+                </ContextRail>
+            </Rail>
+            </EntityPage>
         }
     </ChildContent>
 </PublicWorldFrame>
@@ -176,4 +209,17 @@
         var otherId = rel.ArtifactAId == ArtifactId ? rel.ArtifactBId : rel.ArtifactAId;
         return _detail?.ConnectedArtifacts.FirstOrDefault(c => c.Id == otherId);
     }
+
+    private IReadOnlyList<ContextRail.RailRow> RailRows => _detail is null ? [] :
+    [
+        new("Sources", _detail.SourceReferences.Count.ToString()),
+        new("Facts", _detail.Facts.Count.ToString()),
+        new("Relationships", _detail.Relationships.Count.ToString()),
+    ];
+
+    private IReadOnlyList<ContextRail.RailLink> RailRelated => _detail is null ? [] :
+        _detail.ConnectedArtifacts
+            .Take(8)
+            .Select(c => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(c.Type), c.Name, $"/w/{Slug}/artifacts/{c.Id}"))
+            .ToList();
 }
