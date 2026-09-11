@@ -35,6 +35,42 @@ public static class CampaignDisplay
         return (declared ?? observed) is { } span ? $"{span} · {sessions}" : sessions;
     }
 
+
+    /// <summary>The title both campaign pages put over the recap.</summary>
+    public const string RecapTitle = "The story so far";
+
+    /// <summary>
+    /// The recap body as the page shows it. The prompt writes the recap in three headed
+    /// sections, and the first is headed with the same words the page puts over the card — so
+    /// that one heading is lifted off, and the other two stay as the structure of the text.
+    /// Matches the heading by its words, ignoring the level and anything after an em-dash.
+    /// </summary>
+    public static string RecapBody(string? markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+        {
+            return string.Empty;
+        }
+
+        var text = markdown.TrimStart();
+        var lineEnd = text.IndexOf('\n');
+        var firstLine = (lineEnd < 0 ? text : text[..lineEnd]).TrimEnd('\r');
+        var heading = firstLine.TrimStart('#');
+        if (heading.Length == firstLine.Length)
+        {
+            return markdown;
+        }
+
+        var dash = heading.IndexOf('—');
+        var words = (dash < 0 ? heading : heading[..dash]).Trim();
+        if (!string.Equals(words, RecapTitle, StringComparison.OrdinalIgnoreCase))
+        {
+            return markdown;
+        }
+
+        return lineEnd < 0 ? string.Empty : text[(lineEnd + 1)..].TrimStart('\r', '\n');
+    }
+
     public static Color StatusColor(string status) => status switch
     {
         "Active" => Color.Success,

@@ -197,7 +197,7 @@
 
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
             <div class="nornis-card-header">
-                <span class="nornis-card-title">The story so far</span>
+                <span class="nornis-card-title">@CampaignDisplay.RecapTitle</span>
                 <MudTooltip Text="An LLM-written recap of this campaign's record: what happened, where things stand, what is still open.">
                     <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Color="Color.Tertiary" Size="Size.Small" />
                 </MudTooltip>
@@ -205,7 +205,7 @@
 
             @if (_detail.Recap is { HasData: true } recap)
             {
-                <div class="nornis-digest-body nornis-markdown">@MarkdownRenderer.ToHtml(recap.Content)</div>
+                <div class="nornis-digest-body nornis-markdown">@MarkdownRenderer.ToHtml(CampaignDisplay.RecapBody(recap.Content))</div>
                 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1">
                     Generated @RelativeTime.Ago(recap.GeneratedAt!.Value)
                 </MudText>
@@ -221,7 +221,7 @@
                     @if (_previewOpen)
                     {
                         <div class="nornis-digest-body nornis-digest-preview nornis-markdown">
-                            @MarkdownRenderer.ToHtml(recap.PartyPreview)
+                            @MarkdownRenderer.ToHtml(CampaignDisplay.RecapBody(recap.PartyPreview))
                         </div>
                     }
                 }
