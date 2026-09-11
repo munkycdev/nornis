@@ -65,7 +65,7 @@ else
                        Clearable="true" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
                 @foreach (var v in ReviewQueueFilter.Visibilities(_proposals))
                 {
-                    <MudSelectItem T="string" Value="@v">@DisplayText.Humanize(v)</MudSelectItem>
+                    <MudSelectItem T="string" Value="@v">@VisibilityDisplay.Label(v)</MudSelectItem>
                 }
             </MudSelect>
             @if (_typeFilter is not null || _visibilityFilter is not null)
