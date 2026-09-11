@@ -16,15 +16,18 @@ public record TutorialChecklist(IReadOnlyList<TutorialStepState> Steps);
 /// </summary>
 public static class TutorialSteps
 {
-    // Chapter 1 — playing in a world (runs in player view).
+    // Chapter 1 — playing in a world (runs in player view). A tour of the World and Table
+    // groups and the quick switcher, ending on the Loremaster.
     public const string SeeAsPlayer = "see-as-player";
     public const string MeetTheCast = "meet-the-cast";
     public const string WalkTheJourney = "walk-the-journey";
     public const string StandSomewhere = "stand-somewhere";
-    public const string VisitCapture = "visit-capture";
+    public const string OpenTheCampaign = "open-the-campaign";
+    public const string JumpAnywhere = "jump-anywhere";
     public const string AskTheLoremaster = "ask-the-loremaster";
 
-    // Chapter 2 — running a campaign.
+    // Chapter 2 — running a campaign. The Play loop: capture, watch, review, reveal, and then
+    // see the reveal land where a player would find it.
     public const string BackToGm = "back-to-gm";
     public const string AddSessionSix = "add-session-six";
     public const string WatchExtraction = "watch-extraction";
@@ -34,13 +37,17 @@ public static class TutorialSteps
 
     public sealed record Definition(string Key, int Chapter, bool ClientReported);
 
+    // Re-cut 2026-09-10 for the grouped sidebar (feature 24): "visit-capture" retired — chapter
+    // two opens on Capture anyway — and the campaign page and the quick switcher added. Rows
+    // cached for the retired key stay in TutorialProgress and are simply never asked for.
     public static readonly IReadOnlyList<Definition> All =
     [
         new(SeeAsPlayer, 1, ClientReported: true),
         new(MeetTheCast, 1, ClientReported: true),
         new(WalkTheJourney, 1, ClientReported: true),
         new(StandSomewhere, 1, ClientReported: true),
-        new(VisitCapture, 1, ClientReported: true),
+        new(OpenTheCampaign, 1, ClientReported: true),
+        new(JumpAnywhere, 1, ClientReported: true),
         new(AskTheLoremaster, 1, ClientReported: false),
         new(BackToGm, 2, ClientReported: true),
         new(AddSessionSix, 2, ClientReported: false),
