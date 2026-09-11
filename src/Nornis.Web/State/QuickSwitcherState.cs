@@ -8,7 +8,12 @@ public sealed class QuickSwitcherState
 {
     public event Action? OpenRequested;
 
+    /// <summary>Someone went somewhere through the switcher. The tutorial listens.</summary>
+    public event Action? Jumped;
+
     public void Open() => OpenRequested?.Invoke();
+
+    public void NotifyJumped() => Jumped?.Invoke();
 }
 
 /// <summary>

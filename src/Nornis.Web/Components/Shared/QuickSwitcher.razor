@@ -223,6 +223,7 @@
     {
         await RememberAsync(row);
         _open = false;
+        Switcher.NotifyJumped();
         Nav.NavigateTo(row.Href);
     }
 

@@ -19,6 +19,13 @@ file, so what follows records what is in it rather than what was planned.
   state on `WorldState`, honoured server-side via `HttpContextExtensions`.
 - [x] **Tests** — `DemoWorldTests` and `TutorialTests` (`Nornis.Api.Tests/Controllers`).
 
+## Since
+
+- **2026-09-10 — the tutorial follows the sidebar.** Re-cut for feature 24's grouped
+  navigation: 13 steps (7 + 6), `TutorialGuide` in `Nornis.Web/Services` as the client's one
+  table, where-lines read from `NavGroups`, and `TutorialGuideTests` as the drift guard. Details
+  in the amendment at the top of `design.md`.
+
 ## Not built
 
 - [ ] More than one template campaign.

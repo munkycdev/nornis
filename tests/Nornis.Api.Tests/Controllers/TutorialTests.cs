@@ -101,23 +101,38 @@ public class TutorialTests
 
         var checklist = await _client.GetFromJsonAsync<TutorialChecklistResponse>($"/api/worlds/{world.Id}/tutorial");
 
-        Assert.That(checklist!.Steps, Has.Count.EqualTo(12));
+        // Re-cut 2026-09-10 for the grouped sidebar: seven steps of playing, six of running.
+        Assert.That(checklist!.Steps, Has.Count.EqualTo(13));
         Assert.That(checklist.Steps.All(s => s.CompletedAt is null), Is.True);
-        Assert.That(checklist.Steps.Count(s => s.Chapter == 1), Is.EqualTo(6));
+        Assert.That(checklist.Steps.Count(s => s.Chapter == 1), Is.EqualTo(7));
         Assert.That(checklist.Steps.Count(s => s.Chapter == 2), Is.EqualTo(6));
     }
 
-    [Test]
-    public async Task Tutorial_ClientReportedStep_CompletesAndSticks()
+    [TestCase("meet-the-cast")]
+    [TestCase("open-the-campaign")]
+    [TestCase("jump-anywhere")]
+    public async Task Tutorial_ClientReportedStep_CompletesAndSticks(string stepKey)
     {
         var world = await CreateDemoWorldAsync();
 
-        var report = await _client.PostAsync($"/api/worlds/{world.Id}/tutorial/steps/meet-the-cast", null);
+        var report = await _client.PostAsync($"/api/worlds/{world.Id}/tutorial/steps/{stepKey}", null);
         Assert.That(report.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
         // Resumable: a later fetch still shows it complete.
         var checklist = await _client.GetFromJsonAsync<TutorialChecklistResponse>($"/api/worlds/{world.Id}/tutorial");
-        Assert.That(checklist!.Steps.Single(s => s.Key == "meet-the-cast").CompletedAt, Is.Not.Null);
+        Assert.That(checklist!.Steps.Single(s => s.Key == stepKey).CompletedAt, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task Tutorial_RetiredStep_IsNotReportable()
+    {
+        // "visit-capture" left the list on 2026-09-10; an older client still sending it gets the
+        // same answer as for any key that was never a step.
+        var world = await CreateDemoWorldAsync();
+
+        var report = await _client.PostAsync($"/api/worlds/{world.Id}/tutorial/steps/visit-capture", null);
+
+        Assert.That(report.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
     }
 
     [Test]

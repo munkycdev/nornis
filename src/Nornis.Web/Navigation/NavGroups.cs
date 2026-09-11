@@ -24,6 +24,9 @@ public sealed record NavItem(
 
 public sealed record NavGroup(string Label, IReadOnlyList<NavItem> Items, bool GmOnly = false);
 
+/// <summary>An entry and the group it sits in.</summary>
+public sealed record NavPlacement(NavGroup Group, NavItem Item);
+
 /// <summary>
 /// The sidebar, as data. One place says what is there, for whom, in what order; the menu
 /// renders it in a loop and the reachability test reads it to know which routes have a door.
@@ -72,13 +75,20 @@ public static class NavGroups
     /// page that has not set its own. Longest matching href wins, so <c>/capture/ink</c> finds
     /// Capture and <c>/artifacts/{id}</c> finds Codex.
     /// </summary>
-    public static NavItem? FindByPath(string path)
+    public static NavItem? FindByPath(string path) => Locate(path)?.Item;
+
+    /// <summary>
+    /// The same lookup, with the group the entry sits in — for anything that says where a page
+    /// is ("World › Map") rather than only what it is called. The tutorial reads its "where" lines
+    /// from here so they follow the sidebar instead of describing a sidebar that has moved.
+    /// </summary>
+    public static NavPlacement? Locate(string path)
     {
         var normalized = "/" + path.Trim('/');
         return All
-            .SelectMany(g => g.Items)
-            .Where(i => normalized == i.Href || normalized.StartsWith(i.Href + "/", StringComparison.Ordinal))
-            .OrderByDescending(i => i.Href.Length)
+            .SelectMany(g => g.Items.Select(i => new NavPlacement(g, i)))
+            .Where(p => normalized == p.Item.Href || normalized.StartsWith(p.Item.Href + "/", StringComparison.Ordinal))
+            .OrderByDescending(p => p.Item.Href.Length)
             .FirstOrDefault();
     }
 }

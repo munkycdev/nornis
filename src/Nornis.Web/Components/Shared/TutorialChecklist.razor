@@ -1,15 +1,20 @@
-﻿@implements IDisposable
+@implements IDisposable
+@using Nornis.Web.Navigation
+@using Nornis.Web.Services
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject Nornis.Web.State.AuthSessionState AuthSession
 @inject OnboardingState Onboarding
+@inject QuickSwitcherState Switcher
 @inject NavigationManager Nav
 @inject IDialogService DialogService
 @inject IJSRuntime JS
 
-@* The demo-world tutorial checklist (feature 20 phase C). Two chapters — playing, then
-   running — completed in any order, detected from real state wherever the server has
-   state to look at. Fully cancellable: Dismiss removes it permanently for this user. *@
+@* The demo-world tutorial checklist (feature 20 phase C; re-cut for the grouped sidebar on
+   2026-09-10). Two chapters — playing, then running — completed in any order, detected from
+   real state wherever the server has state to look at. What each step is called and where it
+   is done comes from TutorialGuide, which reads the "where" off the sidebar's own data. Fully
+   cancellable: Dismiss removes it permanently for this user. *@
 
 @if (Visible)
 {
@@ -47,24 +52,42 @@
                     </div>
                     @foreach (var step in _steps.Where(s => s.Chapter == chapter))
                     {
-                        var meta = StepMeta[step.Key];
-                        <div class="nornis-tutorial-step @(step.CompletedAt is not null ? "nornis-tutorial-step-done" : null)">
-                            <MudIcon Icon="@(step.CompletedAt is not null ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.Circle)"
+                        var guide = TutorialGuide.Find(step.Key);
+                        var done = step.CompletedAt is not null;
+                        var door = guide is null ? null : TutorialGuide.Door(guide);
+                        <div class="nornis-tutorial-step @(done ? "nornis-tutorial-step-done" : null)">
+                            <MudIcon Icon="@(done ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.Circle)"
                                      Size="Size.Small" />
                             <div class="flex-grow-1">
-                                @if (meta.Href is not null && step.CompletedAt is null)
+                                @if (guide?.Href is not null && !done)
                                 {
-                                    <a href="@meta.Href" class="nornis-tutorial-step-title">@meta.Title</a>
+                                    <a href="@guide.Href" class="nornis-tutorial-step-title">@guide.Title</a>
                                 }
                                 else
                                 {
-                                    <span class="nornis-tutorial-step-title">@meta.Title</span>
+                                    <span class="nornis-tutorial-step-title">@(guide?.Title ?? step.Key)</span>
                                 }
-                                @if (step.CompletedAt is null && meta.Hint is not null)
+                                @if (!done && guide is not null)
                                 {
-                                    <div class="nornis-tutorial-step-hint">@meta.Hint</div>
+                                    @* Where it is done, read from the sidebar's own data — never written here. *@
+                                    @if (door is not null)
+                                    {
+                                        <div class="nornis-tutorial-where">
+                                            <span>@door.Group.Label</span>
+                                            <span aria-hidden="true">›</span>
+                                            <span>@door.Item.Label</span>
+                                        </div>
+                                    }
+                                    else if (guide.Trigger == TutorialTrigger.Jump)
+                                    {
+                                        <div class="nornis-tutorial-where">
+                                            <kbd class="nornis-kbd">Ctrl K</kbd>
+                                            <span>or the search box under the world name</span>
+                                        </div>
+                                    }
+                                    <div class="nornis-tutorial-step-hint">@TutorialGuide.HintFor(guide)</div>
                                 }
-                                @if (step.Key == "add-session-six" && step.CompletedAt is null)
+                                @if (step.Key == TutorialGuide.AddSessionSix && !done)
                                 {
                                     <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Secondary"
                                                StartIcon="@Icons.Material.Filled.ContentCopy"
@@ -83,24 +106,6 @@
 }
 
 @code {
-    private sealed record Meta(string Title, string? Href, string? Hint);
-
-    private static readonly Dictionary<string, Meta> StepMeta = new()
-    {
-        ["see-as-player"] = new("See it as a player", null, "Click the GM chip under the world name in the sidebar."),
-        ["meet-the-cast"] = new("Meet the cast", "/artifacts", "Click Codex in the sidebar and browse what Nornis built from the notes."),
-        ["walk-the-journey"] = new("Walk the journey", "/timeline", "Click Timeline in the sidebar and follow the party session by session."),
-        ["stand-somewhere"] = new("Stand somewhere", "/locations", "Click Locations in the sidebar and pick a place on the map."),
-        ["visit-capture"] = new("Capture, mid-session", "/capture", "Click Capture in the sidebar — notes go in here, with the Loremaster right beside them for mid-game questions."),
-        ["ask-the-loremaster"] = new("Ask the Loremaster", "/", "Ask anything the party would know — from Ask in the sidebar, or the Loremaster panel on Capture."),
-        ["back-to-gm"] = new("Return to GM view", null, "Click \"back to GM\" on the sidebar chip — notice what appears."),
-        ["add-session-six"] = new("Add the Session 6 notes", "/capture", "Click Capture, paste the Session 6 notes as a new session, and mark it ready."),
-        ["watch-extraction"] = new("Watch Nornis think", "/sources", "Click Sources and watch the new session process."),
-        ["vet-extraction"] = new("Vet the extraction", "/review", "Click Review and accept or correct at least one proposal."),
-        ["reveal-secret"] = new("Reveal the Castellan's design", "/sources", "Click Sources, open a GM note, and choose Reveal to the party."),
-        ["see-what-they-see"] = new("See what they see", null, "View as player again — the secret is there now."),
-    };
-
     private IReadOnlyList<TutorialStepDto> _steps = [];
     private bool _available;
     private bool _dismissed;
@@ -121,6 +126,7 @@
     {
         Worlds.Changed += OnWorldsChanged;
         Nav.LocationChanged += OnLocationChanged;
+        Switcher.Jumped += OnJumped;
         _lastViewingAsPlayer = Worlds.ViewingAsPlayer;
 
         // This component sits in MainLayout, outside its boot gate, so it renders during the
@@ -207,17 +213,23 @@
 
         if (viewingAsPlayer)
         {
-            await ReportAsync(world.Id, "see-as-player");
-            if (Completed("reveal-secret"))
-            {
-                await ReportAsync(world.Id, "see-what-they-see");
-            }
+            await ReportAsync(world.Id, TutorialGuide.SeeAsPlayer);
+            // Already standing on What you learned when the view flips counts as opening it.
+            await ReportLearnedAsPlayerAsync(world.Id, new Uri(Nav.Uri).AbsolutePath);
         }
-        else if (Completed("see-as-player"))
+        else if (Completed(TutorialGuide.SeeAsPlayer))
         {
-            await ReportAsync(world.Id, "back-to-gm");
+            await ReportAsync(world.Id, TutorialGuide.BackToGm);
         }
     }
+
+    private void OnJumped() => InvokeAsync(async () =>
+    {
+        if (Visible && Worlds.Current is { } world)
+        {
+            await ReportAsync(world.Id, TutorialGuide.JumpAnywhere);
+        }
+    });
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
@@ -227,20 +239,12 @@
         }
 
         var path = new Uri(e.Location).AbsolutePath;
-        var stepKey = path switch
-        {
-            var p when p.StartsWith("/artifacts", StringComparison.OrdinalIgnoreCase) => "meet-the-cast",
-            var p when p.StartsWith("/timeline", StringComparison.OrdinalIgnoreCase) => "walk-the-journey",
-            var p when p.StartsWith("/locations", StringComparison.OrdinalIgnoreCase) => "stand-somewhere",
-            var p when p.StartsWith("/capture", StringComparison.OrdinalIgnoreCase) => "visit-capture",
-            _ => null,
-        };
 
         _ = InvokeAsync(async () =>
         {
-            if (stepKey is not null)
+            if (TutorialGuide.StepAt(path, TutorialTrigger.Visit) is { } visited)
             {
-                await ReportAsync(world.Id, stepKey);
+                await ReportAsync(world.Id, visited.Key);
             }
 
             // The state-detected steps only tick when the checklist is fetched, and
@@ -248,7 +252,22 @@
             // "Add the Session 6 notes" is checked by the time submitting from Capture
             // lands on Sources, instead of waiting out the next poll.
             await RefreshAsync();
+
+            // After the refresh, so a reveal made moments ago on another page is known here.
+            await ReportLearnedAsPlayerAsync(world.Id, path);
         });
+    }
+
+    // The chapter-two closer: a reveal has been made, and the GM opens What you learned the way
+    // a player would find it. The server guards the order too; this check only spares it a 409.
+    private async Task ReportLearnedAsPlayerAsync(Guid worldId, string path)
+    {
+        if (Worlds.ViewingAsPlayer
+            && Completed(TutorialGuide.RevealSecret)
+            && TutorialGuide.StepAt(path, TutorialTrigger.LearnedAsPlayer) is { } closer)
+        {
+            await ReportAsync(worldId, closer.Key);
+        }
     }
 
     private bool Completed(string key) =>
@@ -320,5 +339,6 @@
         _cts.Dispose();
         Worlds.Changed -= OnWorldsChanged;
         Nav.LocationChanged -= OnLocationChanged;
+        Switcher.Jumped -= OnJumped;
     }
 }

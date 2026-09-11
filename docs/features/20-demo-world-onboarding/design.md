@@ -1,5 +1,21 @@
 # Design Document
 
+> **Amendment (2026-09-10):** the step table under *Tutorial checklist* below is the July list,
+> and its hints were prose — "Click Locations in the sidebar" — that outlived the sidebar they
+> described once feature 24 grouped it and relabelled Locations as Map. Re-cut the same day:
+> chapter one tours the World and Table groups and the quick switcher — *Open the campaign*
+> (`/campaigns`) and *Jump to anything* (a jump through the switcher) are new, and *See where
+> notes go in* is gone, since chapter two opens on Capture anyway; chapter two's reveal step
+> leads to the Reveal page (`/convergence`, which ranks the demo's GM-only material) with the
+> source-reveal path kept as the alternative, and *See what they see* now completes on opening
+> What you learned (`/learned`) in player view — where the disclosure sits with the GM's note —
+> rather than on the toggle alone. Thirteen steps, 7 + 6. Structurally, where a step is done is
+> no longer written into the checklist: `TutorialGuide` (Web) looks each step's page up in
+> `NavGroups` at render time and prints "World › Map", hints name pages by route and are
+> expanded the same way, and `TutorialGuideTests` asserts every step's page has a door and that
+> steps done in player view never lead into the GM group. `TutorialProgress` rows cached for the
+> retired key are left in place and never asked for.
+
 ## Overview
 
 Three deliverables, built in dependency order:
