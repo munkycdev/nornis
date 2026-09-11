@@ -1104,6 +1104,20 @@ a.nornis-tutorial-step-title:hover {
     border-top: 1px solid var(--mud-palette-divider);
 }
 
+/* ---------------------------------------------------------------- Review filters -- */
+
+.nornis-review-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.nornis-review-filters .mud-select {
+    flex: 0 1 220px;
+}
+
 /* A shelf link's QR code, held up at the table. White on purpose, whatever the theme: a
    scanner wants contrast, not the palette. */
 .nornis-shelf-qr {
