@@ -887,7 +887,7 @@ a.nornis-tutorial-step-title:hover {
    dashboard rail, one on a phone — no breakpoint needed, so it cannot be caught between two. */
 .nornis-capture-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 12px;
 }
 
@@ -906,6 +906,10 @@ a.nornis-tutorial-step-title:hover {
     border-color: var(--mud-palette-text-secondary);
 }
 
+/* The label beside the icon is a bare text run, so it becomes an anonymous flex item that
+   cannot be told to shrink; "Handwritten" is a single word wider than a 130px tile allowed
+   and it left the box. The grid's minimum keeps that from happening; this is the backstop
+   that breaks the word rather than lets it out. */
 .nornis-tile-title {
     display: flex;
     align-items: center;
@@ -913,6 +917,8 @@ a.nornis-tutorial-step-title:hover {
     font-weight: 600;
     color: var(--mud-palette-text-primary);
     font-size: 0.9rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .nornis-tile-sub {
@@ -3980,16 +3986,18 @@ a.nornis-cite:hover {
 
 /* The search box that opens the quick switcher, pinned under the world switcher. */
 /* Everything in it stays on one line: the drawer is 272px and never wider, and the label
-   plus the shortcut once folded to two lines each inside the 34px box. The label gives way
-   (ellipsis) before the shortcut does. */
+   plus the shortcut once folded to two lines each inside the 34px box. It spans the same
+   width as the world switcher above it — inset a further 12px a side, the label and the
+   shortcut only fit when the font renders at exactly the width measured on one machine.
+   The label gives way (ellipsis) before the shortcut does. */
 .nornis-jump {
     display: flex;
     align-items: center;
     gap: 6px;
-    width: calc(100% - 16px);
-    margin: 4px 8px 2px 8px;
+    width: calc(100% - 12px);
+    margin: 8px 6px 2px 6px;
     height: 34px;
-    padding: 0 8px;
+    padding: 0 10px;
     border-radius: 8px;
     border: 1px solid var(--nornis-onside-border);
     background: var(--nornis-onside-raised);
