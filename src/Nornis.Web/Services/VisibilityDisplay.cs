@@ -4,4 +4,13 @@ namespace Nornis.Web.Services;
 public static class VisibilityDisplay
 {
     public static readonly string[] Scopes = ["PartyVisible", "GMOnly", "Private"];
+
+    /// <summary>How a scope reads on screen: "GM only", not the identifier.</summary>
+    public static string Label(string scope) => scope switch
+    {
+        "PartyVisible" => "Party visible",
+        "GMOnly" => "GM only",
+        "Private" => "Private",
+        _ => scope,
+    };
 }
