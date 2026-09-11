@@ -49,6 +49,40 @@ else
         </MudAlert>
     }
 
+    @if (SourceIdFilter is null)
+    {
+        @* Narrowing what is on screen. Options come from what is loaded, so the pickers never
+           offer a choice that would empty the list for no reason. *@
+        <div class="nornis-review-filters">
+            <MudSelect T="string" @bind-Value="_typeFilter" Label="Type" Placeholder="All types"
+                       Clearable="true" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
+                @foreach (var t in ReviewQueueFilter.Types(_proposals))
+                {
+                    <MudSelectItem T="string" Value="@t">@DisplayText.Humanize(t)</MudSelectItem>
+                }
+            </MudSelect>
+            <MudSelect T="string" @bind-Value="_visibilityFilter" Label="Visibility" Placeholder="All"
+                       Clearable="true" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
+                @foreach (var v in ReviewQueueFilter.Visibilities(_proposals))
+                {
+                    <MudSelectItem T="string" Value="@v">@DisplayText.Humanize(v)</MudSelectItem>
+                }
+            </MudSelect>
+            @if (_typeFilter is not null || _visibilityFilter is not null)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">@Visible.Count of @_proposals.Count</MudText>
+            }
+        </div>
+    }
+
+    @if (Visible.Count == 0)
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad d-flex align-center gap-3">
+            <MudText Typo="Typo.body1" Color="Color.Secondary">Nothing matches these filters.</MudText>
+            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearFilters">Show everything</MudButton>
+        </MudPaper>
+    }
+
     @if (OpenIds().Count > 0)
     {
         <div class="d-flex gap-2 mb-4 align-center">
@@ -73,7 +107,7 @@ else
     }
 
     <div class="nornis-proposals">
-        @foreach (var p in _proposals)
+        @foreach (var p in Visible)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                 <div class="nornis-proposal-head">
@@ -173,6 +207,12 @@ else
     private bool _batchAccepting;
     private int _batchTotal;
     private Guid? _loadedFilter;
+    private string? _typeFilter;
+    private string? _visibilityFilter;
+
+    /// <summary>The queue as narrowed on screen. Accept all and Reject all act on this, not on
+    /// everything loaded — a filter is a statement about what the GM is deciding right now.</summary>
+    private IReadOnlyList<ReviewProposal> Visible => ReviewQueueFilter.Apply(_proposals, _typeFilter, _visibilityFilter);
     private bool _loadedOnce;
 
     protected override async Task OnParametersSetAsync()
@@ -321,22 +361,7 @@ else
             : $"Matched existing '{name}' — no duplicate created.";
     }
 
-    private static string? PayloadName(string json)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.ValueKind == JsonValueKind.Object
-                && doc.RootElement.TryGetProperty("name", out var el)
-                && el.ValueKind == JsonValueKind.String
-                    ? el.GetString()
-                    : null;
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
+    private static string? PayloadName(string json) => ReviewQueueFilter.PayloadString(json, "name");
 
     private async Task RejectAsync(ReviewProposal p)
     {
@@ -373,7 +398,7 @@ else
     private static bool IsOpen(ReviewProposal p) => p.Status is "Pending" or "Edited";
 
     private List<Guid> OpenIds() =>
-        _proposals.Where(IsOpen).Select(p => p.Id).ToList();
+        Visible.Where(IsOpen).Select(p => p.Id).ToList();
 
     /// <summary>
     /// Batch order matters: the server processes ids sequentially, and facts or relationships
@@ -383,7 +408,7 @@ else
     /// dependants.
     /// </summary>
     private List<Guid> OpenIdsInDependencyOrder() =>
-        _proposals
+        Visible
             .Where(IsOpen)
             .OrderBy(p => p.ChangeType switch
             {
@@ -574,6 +599,12 @@ else
         changeType.StartsWith("Merge") ? Color.Warning :
         changeType == "AddPlacemark" ? Color.Tertiary :
         Color.Default;
+
+    private void ClearFilters()
+    {
+        _typeFilter = null;
+        _visibilityFilter = null;
+    }
 
     /// <summary>How many proposals are currently on screen — the host's count badge.</summary>
     public int Count => _proposals.Count;
