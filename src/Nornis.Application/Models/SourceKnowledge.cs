@@ -14,7 +14,8 @@ public record SourceKnowledgeArtifact(
     Guid ArtifactId,
     string Name,
     string Type,
-    string? Quote);
+    string? Quote,
+    string? Slug = null);
 
 public record SourceKnowledgeFact(
     Guid FactId,
@@ -24,7 +25,8 @@ public record SourceKnowledgeFact(
     string Value,
     string TruthState,
     string Visibility,
-    string? Quote);
+    string? Quote,
+    string? ArtifactSlug = null);
 
 public record SourceKnowledgeRelationship(
     Guid RelationshipId,
@@ -33,7 +35,9 @@ public record SourceKnowledgeRelationship(
     string Type,
     Guid ArtifactBId,
     string ArtifactBName,
-    string? Quote);
+    string? Quote,
+    string? ArtifactASlug = null,
+    string? ArtifactBSlug = null);
 
 /// <summary>GM-only removal of a single incorrect fact, recorded by a GM note.</summary>
 public record RemoveFactCommand(

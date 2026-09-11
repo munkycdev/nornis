@@ -11,4 +11,5 @@ public record LibraryExcerptCandidateResponse(
 public record LibraryExcerptFiledResponse(
     Guid SourceId,
     string Title,
-    string ProcessingStatus);
+    string ProcessingStatus,
+    string? Slug = null);

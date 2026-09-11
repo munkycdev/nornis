@@ -15,4 +15,5 @@ public record ArtifactDetailResponse(
     IReadOnlyList<ArtifactRelationshipResponse> Relationships,
     IReadOnlyList<ConnectedArtifactResponse> ConnectedArtifacts,
     IReadOnlyList<SourceReferenceResponse> SourceReferences,
-    IReadOnlyList<string> PlayedBy);
+    IReadOnlyList<string> PlayedBy,
+    string? Slug = null);

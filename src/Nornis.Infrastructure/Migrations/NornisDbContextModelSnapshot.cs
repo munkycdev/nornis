@@ -119,6 +119,10 @@ namespace Nornis.Infrastructure.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
+                    b.Property<string>("Slug")
+                        .HasMaxLength(65)
+                        .HasColumnType("nvarchar(65)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -149,6 +153,10 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasIndex("CreatedByUserId");
 
                     b.HasIndex("WorldId");
+
+                    b.HasIndex("WorldId", "Slug")
+                        .IsUnique()
+                        .HasFilter("[Slug] IS NOT NULL");
 
                     b.ToTable("Artifacts", (string)null);
                 });
@@ -300,6 +308,10 @@ namespace Nornis.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("Slug")
+                        .HasMaxLength(65)
+                        .HasColumnType("nvarchar(65)");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
 
@@ -322,6 +334,10 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasIndex("CreatedByUserId");
 
                     b.HasIndex("WorldId");
+
+                    b.HasIndex("WorldId", "Slug")
+                        .IsUnique()
+                        .HasFilter("[Slug] IS NOT NULL");
 
                     b.ToTable("Campaigns", (string)null);
                 });
@@ -421,6 +437,10 @@ namespace Nornis.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("SheetUpdatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("Slug")
+                        .HasMaxLength(65)
+                        .HasColumnType("nvarchar(65)");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -434,6 +454,10 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasIndex("PlayerId");
 
                     b.HasIndex("WorldId");
+
+                    b.HasIndex("WorldId", "Slug")
+                        .IsUnique()
+                        .HasFilter("[Slug] IS NOT NULL");
 
                     b.ToTable("Characters", (string)null);
                 });
@@ -769,6 +793,10 @@ namespace Nornis.Infrastructure.Migrations
                     b.Property<long>("SizeBytes")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("Slug")
+                        .HasMaxLength(65)
+                        .HasColumnType("nvarchar(65)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -794,6 +822,10 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("UploadedByUserId");
+
+                    b.HasIndex("WorldId", "Slug")
+                        .IsUnique()
+                        .HasFilter("[Slug] IS NOT NULL");
 
                     b.HasIndex("WorldId", "Status");
 
@@ -1097,6 +1129,10 @@ namespace Nornis.Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("Slug")
+                        .HasMaxLength(65)
+                        .HasColumnType("nvarchar(65)");
+
                     b.Property<DateTimeOffset?>("StatusChangedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -1129,6 +1165,10 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasIndex("LibraryDocumentId");
 
                     b.HasIndex("WorldId", "ProcessingStatus");
+
+                    b.HasIndex("WorldId", "Slug")
+                        .IsUnique()
+                        .HasFilter("[Slug] IS NOT NULL");
 
                     b.ToTable("Sources", (string)null);
                 });

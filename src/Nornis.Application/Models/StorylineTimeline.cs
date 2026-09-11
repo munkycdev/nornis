@@ -15,7 +15,8 @@ public record TimelineSession(
     Guid SourceId,
     string Title,
     DateTimeOffset OccurredAt,
-    int StorylineCount);
+    int StorylineCount,
+    string? SourceSlug = null);
 
 /// <summary>
 /// One storyline's arc.
@@ -39,7 +40,8 @@ public record TimelineLane(
     Guid? ParentStorylineId,
     IReadOnlyList<TimelineLaneCampaign> Campaigns,
     string? CampaignName,
-    DateTimeOffset? CampaignStartedAt = null);
+    DateTimeOffset? CampaignStartedAt = null,
+    string? Slug = null);
 
 /// <summary>
 /// A campaign a storyline lane spans, meaning at least one of the lane's dated sessions falls
@@ -49,7 +51,8 @@ public record TimelineLane(
 public record TimelineLaneCampaign(
     Guid CampaignId,
     string Name,
-    DateTimeOffset? StartedAt);
+    DateTimeOffset? StartedAt,
+    string? Slug = null);
 
 /// <summary>
 /// One session's worth of developments on one storyline. <paramref name="CampaignId"/> is the
@@ -60,7 +63,8 @@ public record TimelinePoint(
     Guid SourceId,
     DateTimeOffset OccurredAt,
     IReadOnlyList<TimelineDevelopment> Developments,
-    Guid? CampaignId = null);
+    Guid? CampaignId = null,
+    string? SourceSlug = null);
 
 public record TimelineDevelopment(
     string Kind,

@@ -106,11 +106,11 @@
                                 {
                                     @if (c.ArtifactId is not null)
                                     {
-                                        <a href="@($"/artifacts/{c.ArtifactId}")" class="nornis-cite">@c.DisplayName</a>
+                                        <a href="@Links.Artifact(c.Slug, c.ArtifactId.Value)" class="nornis-cite">@c.DisplayName</a>
                                     }
                                     else if (c.DocumentId is not null)
                                     {
-                                        <a href="@($"/library/{c.DocumentId}")" class="nornis-cite nornis-cite-book">
+                                        <a href="@Links.LibraryDocument(c.Slug, c.DocumentId.Value)" class="nornis-cite nornis-cite-book">
                                             <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Small" />@c.DisplayName
                                         </a>
                                     }
@@ -314,7 +314,7 @@
                 Question = question,
                 Answer = LoremasterDisplay.CleanAnswer(a.Answer),
                 Confidence = a.Confidence,
-                Citations = a.Citations.Select(c => new AskCitation { DisplayName = c.DisplayName, ArtifactId = c.ArtifactId, DocumentId = c.DocumentId }).ToList(),
+                Citations = a.Citations.Select(c => new AskCitation { DisplayName = c.DisplayName, ArtifactId = c.ArtifactId, DocumentId = c.DocumentId, Slug = c.Slug }).ToList(),
                 Caveats = a.Caveats.ToList(),
             });
             if (conversation.Exchanges.Count == 1)

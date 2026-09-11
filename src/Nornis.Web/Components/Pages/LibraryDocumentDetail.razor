@@ -1,4 +1,4 @@
-﻿@page "/library/{DocumentId:guid}"
+﻿@page "/library/{Key}"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -143,12 +143,13 @@
 </div>
 
 @code {
-    [Parameter] public Guid DocumentId { get; set; }
+    /// <summary>The slug, or an id from a link minted before slugs; see <see cref="Links"/>.</summary>
+    [Parameter] public string Key { get; set; } = string.Empty;
 
     private bool _loading;
     private bool _notFound;
     private string? _error;
-    private Guid _loadedId;
+    private string? _loadedKey;
     private LibraryDocumentDto? _document;
 
     protected override async Task OnInitializedAsync()
@@ -162,7 +163,7 @@
     {
         // Guard on the id we last ATTEMPTED, not the loaded row — a failed load must
         // not leave the page refusing to retry when the route changes.
-        if (DocumentId != _loadedId)
+        if (Key != _loadedKey)
         {
             await LoadAsync();
         }
@@ -192,17 +193,22 @@
         _loading = true;
         _notFound = false;
         _error = null;
-        _loadedId = DocumentId;
+        _loadedKey = Key;
         StateHasChanged();
 
-        var result = await Api.GetLibraryDocumentAsync(Worlds.Current.Id, DocumentId);
+        var result = await Api.GetLibraryDocumentAsync(Worlds.Current.Id, Key);
         _loading = false;
         if (result.IsSuccess)
         {
             _document = result.Value;
             if (_document is not null)
             {
-                Crumbs.Set($"/library/{_document.Id}", new Crumb("Library", "/library"), new Crumb(_document.Title));
+                if (!Links.IsCanonical(Key, _document.Slug))
+                {
+                    _loadedKey = _document.Slug;
+                    Nav.NavigateTo(Links.LibraryDocument(_document.Slug, _document.Id), replace: true);
+                }
+                Crumbs.Set(Links.LibraryDocument(_document.Slug, _document.Id), new Crumb("Library", "/library"), new Crumb(_document.Title));
             }
         }
         else if (result.Error!.Code == "not_found")
@@ -338,13 +344,13 @@
             return;
         }
 
-        var sourceId = result.Value!.SourceId;
+        var sourceLink = Links.Source(result.Value!.Slug, result.Value.SourceId);
         Snackbar.Add($"Filed “{result.Value.Title}” — extraction queued.", Severity.Success, options =>
         {
             options.Action = "Open";
             options.OnClick = _ =>
             {
-                Nav.NavigateTo($"/sources/{sourceId}");
+                Nav.NavigateTo(sourceLink);
                 return Task.CompletedTask;
             };
         });

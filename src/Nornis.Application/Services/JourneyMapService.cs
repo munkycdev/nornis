@@ -80,14 +80,14 @@ public class JourneyMapService : IJourneyMapService
         }
 
         var locations = canvas.Placemarks
-            .Select(p => new JourneyLocation(p.ArtifactId, p.ArtifactName, p.X, p.Y, p.Label))
+            .Select(p => new JourneyLocation(p.ArtifactId, p.ArtifactName, p.X, p.Y, p.Label, p.ArtifactSlug))
             .ToList();
 
         if (locations.Count == 0)
         {
             // An explicitly-requested map may have no visible pins — return it statically.
             return AppResult<JourneyMap>.Success(
-                new JourneyMap(canvas.Attachment.Id, canvas.Attachment.SourceId, canvas.ImageUrl, locations, [], 0));
+                new JourneyMap(canvas.Attachment.Id, canvas.Attachment.SourceId, canvas.ImageUrl, locations, [], 0, MapSourceSlug(allSources, canvas)));
         }
 
         var pinnedSet = locations.Select(l => l.ArtifactId).ToHashSet();
@@ -176,7 +176,7 @@ public class JourneyMapService : IJourneyMapService
                 .OrderBy(a => TypeRank(a.Type))
                 .ThenBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(a => new JourneyHighlight(
-                    a.Id, a.Name, a.Type.ToString(), earliestStopByArtifact[a.Id] == i, a.Summary))
+                    a.Id, a.Name, a.Type.ToString(), earliestStopByArtifact[a.Id] == i, a.Summary, a.Slug))
                 .ToList();
 
             stops.Add(new JourneyStop(
@@ -184,12 +184,17 @@ public class JourneyMapService : IJourneyMapService
                 source.Title,
                 source.OccurredAt!.Value,
                 visitsByStop[i],
-                highlights));
+                highlights,
+                source.Slug));
         }
 
         return AppResult<JourneyMap>.Success(
-            new JourneyMap(canvas.Attachment.Id, canvas.Attachment.SourceId, canvas.ImageUrl, locations, stops, undatedCount));
+            new JourneyMap(canvas.Attachment.Id, canvas.Attachment.SourceId, canvas.ImageUrl, locations, stops, undatedCount, MapSourceSlug(allSources, canvas)));
     }
+
+    /// <summary>The map source is one of the world sources already loaded; its slug names the map page.</summary>
+    private static string? MapSourceSlug(IReadOnlyList<Source> allSources, MapView canvas) =>
+        allSources.FirstOrDefault(s => s.Id == canvas.Attachment.SourceId)?.Slug;
 
     /// <summary>Deterministic canvas order: most visible pins, then most recent, then id.</summary>
     private static bool IsRicher(Source candidate, MapView candidateView, Source current, MapView currentView)

@@ -10,6 +10,7 @@ public class AskCitation
 
     /// <summary>Library document, for passage citations ("Title, p. N").</summary>
     public Guid? DocumentId { get; set; }
+    public string? Slug { get; set; }
 }
 
 public class AskExchange
@@ -26,6 +27,7 @@ public class AskExchange
     /// deserialization failure, so a required member here would silently wipe saved history.
     /// </summary>
     public Guid? FiledSourceId { get; set; }
+    public string? FiledSourceSlug { get; set; }
 }
 
 public class AskConversation

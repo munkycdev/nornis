@@ -36,7 +36,8 @@ public record CampaignArtifactResponse(
     string Type,
     string? Summary,
     string Status,
-    int SourceCount);
+    int SourceCount,
+    string? Slug = null);
 
 /// <summary>
 /// The generated "story so far", rendered for the caller — same shape and same

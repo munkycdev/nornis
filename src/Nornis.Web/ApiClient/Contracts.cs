@@ -93,7 +93,8 @@ public record SourceListItem(
     string Visibility,
     string ProcessingStatus,
     Guid? CampaignId = null,
-    string? CampaignName = null);
+    string? CampaignName = null,
+    string? Slug = null, string? CampaignSlug = null);
 
 public record SourceAttachmentDto(
     Guid Id,
@@ -137,10 +138,11 @@ public record SourceDetailDto(
     Guid? LibraryDocumentId = null,
     string? LibraryDocumentTitle = null,
     int? LibraryPageFrom = null,
-    int? LibraryPageTo = null);
+    int? LibraryPageTo = null,
+    string? Slug = null, string? CampaignSlug = null, string? LibraryDocumentSlug = null);
 
 // Mirrors Nornis.Api LinkedLocationResponse: one Location a session is linked to.
-public record LinkedLocationDto(Guid ArtifactId, string Name, string? Summary);
+public record LinkedLocationDto(Guid ArtifactId, string Name, string? Summary, string? Slug = null);
 
 public record CreateSourceRequest(
     string Title,
@@ -184,7 +186,8 @@ public record SourceKnowledgeArtifactDto(
     Guid ArtifactId,
     string Name,
     string Type,
-    string? Quote);
+    string? Quote,
+    string? Slug = null);
 
 public record SourceKnowledgeFactDto(
     Guid FactId,
@@ -194,7 +197,8 @@ public record SourceKnowledgeFactDto(
     string Value,
     string TruthState,
     string Visibility,
-    string? Quote);
+    string? Quote,
+    string? ArtifactSlug = null);
 
 public record SourceKnowledgeRelationshipDto(
     Guid RelationshipId,
@@ -203,7 +207,8 @@ public record SourceKnowledgeRelationshipDto(
     string Type,
     Guid ArtifactBId,
     string ArtifactBName,
-    string? Quote);
+    string? Quote,
+    string? ArtifactASlug = null, string? ArtifactBSlug = null);
 
 // Mirrors Nornis.Api RemoveFactRequest.
 public record RemoveFactRequest(string Note);
@@ -225,7 +230,8 @@ public record MapPlacemarkDto(
     decimal X,
     decimal Y,
     string? Label,
-    decimal? Confidence);
+    decimal? Confidence,
+    string? ArtifactSlug = null);
 
 public record MapViewDto(
     SourceAttachmentDto Attachment,
@@ -233,16 +239,17 @@ public record MapViewDto(
     IReadOnlyList<MapPlacemarkDto> Placemarks);
 
 // Mirrors Nornis.Api JourneyResponse.
-public record JourneyLocationDto(Guid ArtifactId, string Name, decimal X, decimal Y, string? Label);
+public record JourneyLocationDto(Guid ArtifactId, string Name, decimal X, decimal Y, string? Label, string? ArtifactSlug = null);
 
-public record JourneyHighlightDto(Guid ArtifactId, string Name, string Type, bool FirstSeen, string? Summary);
+public record JourneyHighlightDto(Guid ArtifactId, string Name, string Type, bool FirstSeen, string? Summary, string? ArtifactSlug = null);
 
 public record JourneyStopDto(
     Guid SourceId,
     string Title,
     DateTimeOffset OccurredAt,
     IReadOnlyList<Guid> VisitedLocationIds,
-    IReadOnlyList<JourneyHighlightDto> Highlights);
+    IReadOnlyList<JourneyHighlightDto> Highlights,
+    string? SourceSlug = null);
 
 public record JourneyDto(
     Guid MapAttachmentId,
@@ -250,7 +257,8 @@ public record JourneyDto(
     string ImageUrl,
     IReadOnlyList<JourneyLocationDto> Locations,
     IReadOnlyList<JourneyStopDto> Stops,
-    int UndatedSessionCount);
+    int UndatedSessionCount,
+    string? MapSourceSlug = null);
 
 // Mirrors Nornis.Api ReprocessPreviewResponse.
 public record ReprocessPreviewDto(
@@ -269,7 +277,8 @@ public record ExtractionReplayDto(
     string? CurrentSourceTitle,
     string? CurrentSourceProcessingStatus,
     int RemainingCount,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? CurrentSourceSlug = null);
 
 // Mirrors Nornis.Api ExtractionReplayStateResponse: Replay is null when none is running.
 public record ExtractionReplayStateDto(ExtractionReplayDto? Replay);
@@ -290,7 +299,8 @@ public record CampaignDto(
     DateTimeOffset? EndedAt,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    Guid CreatedByUserId);
+    Guid CreatedByUserId,
+    string? Slug = null);
 
 public record CreateCampaignRequest(
     string Name,
@@ -359,7 +369,8 @@ public record CharacterDto(
     IReadOnlyList<Guid> CampaignIds,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    DateTimeOffset? SheetUpdatedAt = null);
+    DateTimeOffset? SheetUpdatedAt = null,
+    string? Slug = null, string? ArtifactSlug = null);
 
 /// <param name="Record">
 /// Null both when the character is unlinked and when the reader may not see the artifact it
@@ -381,14 +392,16 @@ public record CharacterDossierDto(
 public record UnreconciledItemDto(
     Guid ArtifactId,
     string Name,
-    string Type);
+    string Type,
+    string? Slug = null);
 
 public record CharacterSnapshotDto(
     Guid Id,
     Guid SourceId,
     string SourceTitle,
     DateTimeOffset AsOf,
-    string? Note);
+    string? Note,
+    string? SourceSlug = null);
 
 public record AttachCharacterSnapshotRequest(Guid SourceId, DateTimeOffset AsOf, string? Note = null);
 
@@ -402,7 +415,8 @@ public record CharacterRecordDto(
     string? Summary,
     IReadOnlyList<ArtifactFactDto> Facts,
     int TotalFactCount,
-    IReadOnlyList<CharacterRecordGroupDto> Groups);
+    IReadOnlyList<CharacterRecordGroupDto> Groups,
+    string? ArtifactSlug = null);
 
 public record CharacterRecordGroupDto(
     string Type,
@@ -460,7 +474,8 @@ public record CampaignArtifactDto(
     string Type,
     string? Summary,
     string Status,
-    int SourceCount);
+    int SourceCount,
+    string? Slug = null);
 
 // Mirrors Nornis.Api CampaignRecapResponse.
 public record CampaignRecapDto(
@@ -479,7 +494,8 @@ public record ArtifactListItem(
     string Visibility,
     decimal? Confidence,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string? Slug = null);
 
 public record ArtifactFactDto(
     Guid Id,
@@ -506,7 +522,8 @@ public record ConnectedArtifact(
     Guid Id,
     string Name,
     string Type,
-    string? Summary = null);
+    string? Summary = null,
+    string? Slug = null);
 
 public record SourceReferenceDto(
     Guid Id,
@@ -516,7 +533,8 @@ public record SourceReferenceDto(
     string? Quote,
     string? Notes,
     DateTimeOffset CreatedAt,
-    string? SourceTitle = null);
+    string? SourceTitle = null,
+    string? SourceSlug = null);
 
 public record ArtifactDetailDto(
     Guid Id,
@@ -533,7 +551,8 @@ public record ArtifactDetailDto(
     IReadOnlyList<ArtifactRelationshipDto> Relationships,
     IReadOnlyList<ConnectedArtifact> ConnectedArtifacts,
     IReadOnlyList<SourceReferenceDto> SourceReferences,
-    IReadOnlyList<string>? PlayedBy = null);
+    IReadOnlyList<string>? PlayedBy = null,
+    string? Slug = null);
 
 /// <summary>A campaign a storyline is declared to belong to (id + name only).</summary>
 public record RevealBody(
@@ -581,7 +600,8 @@ public record CanonEntry(
     decimal? Confidence,
     string TruthState,
     string Visibility,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string? ArtifactSlug = null, string? OtherArtifactSlug = null);
 
 public record ReviewProposal(
     Guid Id,
@@ -663,7 +683,8 @@ public record Citation(
     Guid? FactId,
     Guid? RelationshipId,
     Guid? SourceId,
-    Guid? DocumentId = null);
+    Guid? DocumentId = null,
+    string? Slug = null);
 
 public record AskAnswer(
     string Answer,
@@ -720,7 +741,8 @@ public record ContinuityFinding(
     IReadOnlyList<ContinuityEvidenceItem> EvidenceItems,
     Guid? ArtifactId,
     string Status,
-    bool IsStale);
+    bool IsStale,
+    string? ArtifactSlug = null);
 
 /// <summary>
 /// A cited evidence ref resolved for display. Changed items were edited after the assessment
@@ -732,7 +754,8 @@ public record ContinuityEvidenceItem(
     string Label,
     Guid? ArtifactId,
     bool ChangedSinceAudit,
-    bool Missing);
+    bool Missing,
+    string? ArtifactSlug = null);
 
 /// <summary>
 /// The maintained world digest, rendered by the API for the caller's role: GMs get
@@ -769,7 +792,7 @@ public record ArtifactGraphDto(
     IReadOnlyList<GraphNode> Nodes,
     IReadOnlyList<GraphEdge> Edges);
 
-public record GraphNode(Guid Id, string Name, string Type, string Status);
+public record GraphNode(Guid Id, string Name, string Type, string Status, string? Slug = null);
 
 public record GraphEdge(Guid Id, Guid SourceId, Guid TargetId, string Type);
 
@@ -789,7 +812,7 @@ public record UserSummaryDto(Guid Id, string Username);
 
 public record JumpDto(IReadOnlyList<JumpGroupDto> Groups);
 public record JumpGroupDto(string Kind, IReadOnlyList<JumpItemDto> Items, int TotalCount);
-public record JumpItemDto(Guid Id, string Name, string? Detail);
+public record JumpItemDto(Guid Id, string Name, string? Detail, string? Slug = null);
 
 public record BackfillQueueResult(
     int QueuedCount,
@@ -862,7 +885,8 @@ public record TimelineSessionDto(
     Guid SourceId,
     string Title,
     DateTimeOffset OccurredAt,
-    int StorylineCount);
+    int StorylineCount,
+    string? SourceSlug = null);
 
 public record TimelineLaneDto(
     Guid StorylineId,
@@ -872,19 +896,22 @@ public record TimelineLaneDto(
     Guid? ParentStorylineId = null,
     string? CampaignName = null,
     DateTimeOffset? CampaignStartedAt = null,
-    IReadOnlyList<TimelineLaneCampaignDto>? Campaigns = null);
+    IReadOnlyList<TimelineLaneCampaignDto>? Campaigns = null,
+    string? Slug = null);
 
 /// <summary>A campaign a storyline lane spans — declared by the GM, derived from sessions, or both.</summary>
 public record TimelineLaneCampaignDto(
     Guid CampaignId,
     string Name,
-    DateTimeOffset? StartedAt);
+    DateTimeOffset? StartedAt,
+    string? Slug = null);
 
 public record TimelinePointDto(
     Guid SourceId,
     DateTimeOffset OccurredAt,
     IReadOnlyList<TimelineDevelopmentDto> Developments,
-    Guid? CampaignId = null);
+    Guid? CampaignId = null,
+    string? SourceSlug = null);
 
 public record TimelineDevelopmentDto(
     string Kind,
@@ -912,7 +939,8 @@ public record LibraryDocumentDto(
     string? ErrorMessage,
     Guid UploadedByUserId,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string? Slug = null);
 
 public record RequestLibraryUploadRequest(
     string Title,
@@ -932,7 +960,7 @@ public record FileLibraryExcerptRequest(IReadOnlyList<Guid>? ChunkIds, int? Page
 
 public record LibraryExcerptCandidateDto(Guid ChunkId, Guid DocumentId, string DocumentTitle, int Page, string Text);
 
-public record LibraryExcerptFiledDto(Guid SourceId, string Title, string ProcessingStatus);
+public record LibraryExcerptFiledDto(Guid SourceId, string Title, string ProcessingStatus, string? Slug = null);
 
 public record ExportWorldRequest(IReadOnlyList<string> Categories);
 
@@ -1087,7 +1115,7 @@ public record ConvergenceDto(
 
 // ------------------------------------------------------------ what you learned --
 
-public record LearnedElementDto(Guid Id, string Kind, string Name, string? Detail);
+public record LearnedElementDto(Guid Id, string Kind, string Name, string? Detail, string? Slug = null);
 
 /// <summary><c>GmNote</c> is the GM's own words, never the composed source body.</summary>
 public record LearnedEntryDto(

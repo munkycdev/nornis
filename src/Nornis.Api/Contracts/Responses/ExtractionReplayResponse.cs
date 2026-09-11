@@ -7,7 +7,8 @@ public record ExtractionReplayResponse(
     string? CurrentSourceTitle,
     string? CurrentSourceProcessingStatus,
     int RemainingCount,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? CurrentSourceSlug = null);
 
 /// <summary>GET wrapper: Replay is null when the world has no replay in progress, so the
 /// endpoint always answers 200 and polling clients need no 404 special case.</summary>

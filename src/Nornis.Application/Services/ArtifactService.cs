@@ -98,7 +98,7 @@ public class ArtifactService : IArtifactService
             .ToList();
 
         var nodes = artifacts
-            .Select(a => new ArtifactGraphNode(a.Id, a.Name, a.Type.ToString(), a.Status.ToString()))
+            .Select(a => new ArtifactGraphNode(a.Id, a.Name, a.Type.ToString(), a.Status.ToString(), a.Slug))
             .ToList();
 
         var visibleIds = artifacts.Select(a => a.Id).ToHashSet();
@@ -176,6 +176,7 @@ public class ArtifactService : IArtifactService
             citedSourceIds, requestingUserId, role, ct);
 
         var sourceTitles = attributions.ToDictionary(a => a.Id, a => a.Title);
+        var sourceSlugs = attributions.ToDictionary(a => a.Id, a => a.Slug);
 
         var sourceReferences = allReferences
             .Where(r => sourceTitles.ContainsKey(r.SourceId))
@@ -189,6 +190,7 @@ public class ArtifactService : IArtifactService
             ConnectedArtifacts: connectedArtifacts,
             SourceReferences: sourceReferences,
             SourceTitles: sourceTitles,
+            SourceSlugs: sourceSlugs,
             PlayedBy: playedBy);
 
         return AppResult<ArtifactDetail>.Success(detail);
@@ -384,7 +386,8 @@ public class ArtifactService : IArtifactService
                         kv.Key.SourceId,
                         sources[kv.Key.SourceId].OccurredAt!.Value,
                         kv.Value,
-                        sources[kv.Key.SourceId].CampaignId))
+                        sources[kv.Key.SourceId].CampaignId,
+                        sources[kv.Key.SourceId].Slug))
                     .OrderBy(p => p.OccurredAt)
                     .ToList();
 
@@ -406,7 +409,8 @@ public class ArtifactService : IArtifactService
                     .Select(id => new TimelineLaneCampaign(
                         id,
                         campaignsById[id].Name,
-                        campaignsById[id].StartedAt))
+                        campaignsById[id].StartedAt,
+                        campaignsById[id].Slug))
                     .OrderBy(c => EffectiveStart(c.CampaignId))
                     .ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
                     .ToList();
@@ -424,7 +428,8 @@ public class ArtifactService : IArtifactService
                     parentByChild.TryGetValue(s.Id, out var parentId) ? parentId : null,
                     campaigns,
                     anchor?.Name,
-                    anchor?.StartedAt);
+                    anchor?.StartedAt,
+                    s.Slug);
             })
             // Undated lanes last, then by when the arc opened, then by when it closed —
             // the same key order the chart lays rows out in.
@@ -439,7 +444,8 @@ public class ArtifactService : IArtifactService
                 g.Key,
                 sources[g.Key].Title,
                 sources[g.Key].OccurredAt!.Value,
-                g.Select(k => k.StorylineId).Distinct().Count()))
+                g.Select(k => k.StorylineId).Distinct().Count(),
+                sources[g.Key].Slug))
             .OrderBy(s => s.OccurredAt)
             .ToList();
 

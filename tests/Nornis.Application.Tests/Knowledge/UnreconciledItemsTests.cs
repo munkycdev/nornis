@@ -115,6 +115,7 @@ public class UnreconciledItemsTests
             ConnectedArtifacts: many,
             SourceReferences: [],
             SourceTitles: new Dictionary<Guid, string>(),
+            SourceSlugs: new Dictionary<Guid, string?>(),
             PlayedBy: []);
 
         var result = UnreconciledItems.Find(CharacterRecordProjector.Project(detail), "blank-ish sheet");

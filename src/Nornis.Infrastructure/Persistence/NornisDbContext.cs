@@ -64,8 +64,12 @@ public class NornisDbContext : DbContext
     /// bypasses tracking entirely — <see cref="Repositories.SourceRepository.TryClaimForExtractionAsync"/>
     /// sets the column in its own SetProperty for that reason.
     /// </summary>
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        // Same reasoning as the stamp below, one layer up: every writer of a page-bearing row
+        // gets its slug here or not at all.
+        await SlugAssigner.AssignAsync(this, cancellationToken);
+
         var now = DateTimeOffset.UtcNow;
         foreach (var entry in ChangeTracker.Entries<Source>())
         {
@@ -79,7 +83,7 @@ public class NornisDbContext : DbContext
             }
         }
 
-        return base.SaveChangesAsync(cancellationToken);
+        return await base.SaveChangesAsync(cancellationToken);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -45,7 +45,8 @@ public record ContinuityFindingResponse(
     IReadOnlyList<ContinuityEvidenceItemResponse> EvidenceItems,
     Guid? ArtifactId,
     string Status,
-    bool IsStale);
+    bool IsStale,
+    string? ArtifactSlug = null);
 
 /// <summary>
 /// A cited evidence ref resolved for display: kind, label, and the artifact to open. Changed
@@ -57,7 +58,8 @@ public record ContinuityEvidenceItemResponse(
     string Label,
     Guid? ArtifactId,
     bool ChangedSinceAudit,
-    bool Missing);
+    bool Missing,
+    string? ArtifactSlug = null);
 
 /// <summary>
 /// Result of drafting a fix for a finding. <c>ProposalCount</c> 0 means the fixer had nothing

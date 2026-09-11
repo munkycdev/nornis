@@ -1,6 +1,6 @@
 namespace Nornis.Api.Contracts.Responses;
 
-public record LearnedElementResponse(Guid Id, string Kind, string Name, string? Detail);
+public record LearnedElementResponse(Guid Id, string Kind, string Name, string? Detail, string? Slug = null);
 
 /// <summary>
 /// <paramref name="GmNote"/> is the GM's own words where they wrote any — never the composed

@@ -17,7 +17,7 @@
             <MudIconButton Icon="@Icons.Material.Filled.CheckCircle"
                            Size="Size.Small"
                            Color="Color.Success"
-                           Href="@($"/sources/{filedSourceId}")"
+                           Href="@Links.Source(Exchange.FiledSourceSlug, filedSourceId)"
                            aria-label="Filed as a source" />
         </MudTooltip>
     }
@@ -66,7 +66,8 @@
         _filing = false;
         if (result.IsSuccess)
         {
-            Exchange.FiledSourceId = result.Value;
+            Exchange.FiledSourceId = result.Value!.Id;
+            Exchange.FiledSourceSlug = result.Value.Slug;
             Snackbar.Add("Filed — proposals will appear in the review queue shortly.", Severity.Success);
             await Filed.InvokeAsync(worldId);
         }

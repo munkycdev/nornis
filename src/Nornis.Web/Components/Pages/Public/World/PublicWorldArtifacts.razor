@@ -61,7 +61,7 @@
                                 <div class="nornis-list-title">@_graphSelected.Name</div>
                                 <div class="nornis-list-sub mb-2">@_graphSelected.Type · @_graphSelected.Status</div>
                                 <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Secondary"
-                                           Href="@($"/w/{Slug}/artifacts/{_graphSelected.Id}")">Open</MudButton>
+                                           Href="@Links.PublicArtifact(Slug, _graphSelected.Slug, _graphSelected.Id)">Open</MudButton>
                             </MudPaper>
                         }
                     </ArtifactGraph>
@@ -94,7 +94,7 @@
                                     {
                                         @foreach (var a in statusGroup.OrderBy(x => x.Name))
                                         {
-                                            <a href="@($"/w/{Slug}/artifacts/{a.Id}")" class="nornis-tree-leaf nornis-link">
+                                            <a href="@Links.PublicArtifact(Slug, a.Slug, a.Id)" class="nornis-tree-leaf nornis-link">
                                                 <ArtifactTip Name="@a.Name" Summary="@a.Summary" />
                                             </a>
                                         }
@@ -110,7 +110,7 @@
                 <div class="nornis-artifact-grid">
                     @foreach (var a in Filtered)
                     {
-                        <a href="@($"/w/{Slug}/artifacts/{a.Id}")" class="nornis-card nornis-artifact-card">
+                        <a href="@Links.PublicArtifact(Slug, a.Slug, a.Id)" class="nornis-card nornis-artifact-card">
                             <div class="nornis-artifact-card-head">
                                 <div class="nornis-list-thumb"><MudIcon Icon="@ArtifactTypeDisplay.Icon(a.Type)" Size="Size.Small" /></div>
                                 <div class="nornis-artifact-card-title">

@@ -167,6 +167,7 @@ public class SourceAttributionProjectionTests : IntegrationTestBase
             nameof(Domain.Models.SourceAttribution.Title),
             nameof(Domain.Models.SourceAttribution.Visibility),
             nameof(Domain.Models.SourceAttribution.CreatedByUserId),
+            nameof(Domain.Models.SourceAttribution.Slug),
         ]));
     }
 }

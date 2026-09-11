@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Models;
 
 namespace Nornis.Infrastructure.Persistence.Configurations;
 
@@ -15,6 +16,19 @@ public class ArtifactConfiguration : IEntityTypeConfiguration<Artifact>
         builder.Property(a => a.Name)
             .IsRequired()
             .HasMaxLength(200);
+
+        // Assigned once by SlugAssigner from the name; unique per world, null only until backfilled.
+        builder.Property(a => a.Slug)
+            .HasMaxLength(Slug.MaxStoredLength);
+
+        builder.HasIndex(a => new { a.WorldId, a.Slug })
+            .IsUnique()
+            .HasFilter("[Slug] IS NOT NULL");
+
+        // Kept explicitly: the filtered composite above starts with WorldId, which makes the
+        // convention drop the plain FK index as redundant — but a filtered index cannot serve
+        // "every artifact in this world", the most common query on the table.
+        builder.HasIndex(a => a.WorldId);
 
         builder.Property(a => a.Summary)
             .HasMaxLength(2000);

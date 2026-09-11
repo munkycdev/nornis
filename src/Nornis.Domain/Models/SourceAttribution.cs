@@ -18,4 +18,5 @@ public record SourceAttribution(
     Guid Id,
     string Title,
     VisibilityScope Visibility,
-    Guid CreatedByUserId);
+    Guid CreatedByUserId,
+    string? Slug = null);

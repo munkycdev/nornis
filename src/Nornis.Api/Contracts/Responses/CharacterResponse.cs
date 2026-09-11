@@ -11,4 +11,6 @@ public record CharacterResponse(
     IReadOnlyList<Guid> CampaignIds,
     DateTimeOffset? SheetUpdatedAt,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string? Slug = null,
+    string? ArtifactSlug = null);

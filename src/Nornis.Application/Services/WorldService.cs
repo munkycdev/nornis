@@ -5,6 +5,7 @@ using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -217,10 +218,10 @@ public class WorldService : IWorldService
         return AppResult<IReadOnlyList<WorldWithRoleDto>>.Success(result);
     }
 
-    /// <summary>Slugs are lowercase a-z0-9 with interior hyphens, 3-60 chars.</summary>
+    /// <summary>The GM-typed form of <see cref="Slug"/>: lowercase a-z0-9 with interior hyphens, 3-60 chars.</summary>
     private static AppError? ValidatePublicSlug(string slug)
     {
-        if (!System.Text.RegularExpressions.Regex.IsMatch(slug, "^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$"))
+        if (!Slug.IsValid(slug))
         {
             return new AppError(400, "validation_error",
                 "The public URL slug must be 3-60 characters: lowercase letters, digits, and hyphens (not at the ends).");

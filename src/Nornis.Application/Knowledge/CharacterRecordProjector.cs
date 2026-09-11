@@ -57,6 +57,7 @@ public static class CharacterRecordProjector
         return new CharacterRecord(
             ArtifactId: detail.Artifact.Id,
             ArtifactName: detail.Artifact.Name,
+            ArtifactSlug: detail.Artifact.Slug,
             Summary: detail.Artifact.Summary,
             Facts: detail.Facts.Take(MaxFacts).ToList(),
             TotalFactCount: detail.Facts.Count,

@@ -9,6 +9,6 @@ public record ArtifactGraph(
     IReadOnlyList<ArtifactGraphNode> Nodes,
     IReadOnlyList<ArtifactGraphEdge> Edges);
 
-public record ArtifactGraphNode(Guid Id, string Name, string Type, string Status);
+public record ArtifactGraphNode(Guid Id, string Name, string Type, string Status, string? Slug = null);
 
 public record ArtifactGraphEdge(Guid Id, Guid SourceId, Guid TargetId, string Type);

@@ -83,7 +83,7 @@ public class LibraryChunkRepository : ILibraryChunkRepository
             .AsNoTracking()
             .Where(c => c.DocumentId == documentId && ords.Contains(c.Ord))
             .OrderBy(c => c.Ord)
-            .Select(c => new LibraryChunkHit(c.Id, c.DocumentId, c.Document.Title, c.Ord, c.Page, c.Text, 0d))
+            .Select(c => new LibraryChunkHit(c.Id, c.DocumentId, c.Document.Title, c.Ord, c.Page, c.Text, 0d, c.Document.Slug))
             .ToListAsync(cancellationToken);
     }
 
@@ -96,7 +96,7 @@ public class LibraryChunkRepository : ILibraryChunkRepository
             .AsNoTracking()
             .Where(c => c.DocumentId == documentId && chunkIds.Contains(c.Id))
             .OrderBy(c => c.Ord)
-            .Select(c => new LibraryChunkHit(c.Id, c.DocumentId, c.Document.Title, c.Ord, c.Page, c.Text, 0d))
+            .Select(c => new LibraryChunkHit(c.Id, c.DocumentId, c.Document.Title, c.Ord, c.Page, c.Text, 0d, c.Document.Slug))
             .ToListAsync(cancellationToken);
     }
 
@@ -110,7 +110,7 @@ public class LibraryChunkRepository : ILibraryChunkRepository
             .AsNoTracking()
             .Where(c => c.DocumentId == documentId && c.Page >= pageFrom && c.Page <= pageTo)
             .OrderBy(c => c.Ord)
-            .Select(c => new LibraryChunkHit(c.Id, c.DocumentId, c.Document.Title, c.Ord, c.Page, c.Text, 0d))
+            .Select(c => new LibraryChunkHit(c.Id, c.DocumentId, c.Document.Title, c.Ord, c.Page, c.Text, 0d, c.Document.Slug))
             .ToListAsync(cancellationToken);
     }
 
@@ -145,7 +145,8 @@ public class LibraryChunkRepository : ILibraryChunkRepository
                 EF.Functions.VectorDistance(
                     "cosine",
                     EF.Property<SqlVector<float>>(c, LibraryChunkConfiguration.EmbeddingProperty),
-                    query)))
+                    query),
+                c.Document.Slug))
             .ToListAsync(cancellationToken);
     }
 }

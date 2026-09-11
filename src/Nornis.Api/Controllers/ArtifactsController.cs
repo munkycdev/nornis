@@ -7,6 +7,7 @@ using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Repositories;
 
 namespace Nornis.Api.Controllers;
 
@@ -243,17 +244,25 @@ public class ArtifactsController : ControllerBase
     internal static ArtifactGraphResponse ToGraphResponse(ArtifactGraph graph)
     {
         return new ArtifactGraphResponse(
-            graph.Nodes.Select(n => new ArtifactGraphNodeResponse(n.Id, n.Name, n.Type, n.Status)).ToList(),
+            graph.Nodes.Select(n => new ArtifactGraphNodeResponse(n.Id, n.Name, n.Type, n.Status, n.Slug)).ToList(),
             graph.Edges.Select(e => new ArtifactGraphEdgeResponse(e.Id, e.SourceId, e.TargetId, e.Type)).ToList());
     }
 
-    [HttpGet("{artifactId:guid}")]
-    public async Task<IActionResult> GetById(Guid worldId, Guid artifactId, CancellationToken ct)
+    /// <summary>The key is the artifact's slug, or its id for links minted before slugs.</summary>
+    [HttpGet("{key}")]
+    public async Task<IActionResult> GetByKey(
+        Guid worldId, string key, [FromServices] ISlugResolver slugResolver, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        var result = await _artifactService.GetDetailAsync(artifactId, worldId, user.Id, member.Role, ct);
+        var resolved = await slugResolver.ResolveKeyAsync<Artifact>(worldId, key, "Artifact", ct);
+        if (!resolved.IsSuccess)
+        {
+            return resolved.Error!.ToActionResult();
+        }
+
+        var result = await _artifactService.GetDetailAsync(resolved.Value, worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -317,7 +326,8 @@ public class ArtifactsController : ControllerBase
             Visibility: artifact.Visibility.ToString(),
             Confidence: artifact.Confidence,
             CreatedAt: artifact.CreatedAt,
-            UpdatedAt: artifact.UpdatedAt);
+            UpdatedAt: artifact.UpdatedAt,
+            Slug: artifact.Slug);
     }
 
     internal static ArtifactDetailResponse ToDetailResponse(ArtifactDetail detail)
@@ -338,8 +348,9 @@ public class ArtifactsController : ControllerBase
             Facts: detail.Facts.Select(ToFactResponse).ToList(),
             Relationships: detail.Relationships.Select(ToRelationshipResponse).ToList(),
             ConnectedArtifacts: detail.ConnectedArtifacts.Select(ToConnectedResponse).ToList(),
-            SourceReferences: detail.SourceReferences.Select(r => ToSourceReferenceResponse(r, detail.SourceTitles)).ToList(),
-            PlayedBy: detail.PlayedBy);
+            SourceReferences: detail.SourceReferences.Select(r => ToSourceReferenceResponse(r, detail.SourceTitles, detail.SourceSlugs)).ToList(),
+            PlayedBy: detail.PlayedBy,
+            Slug: artifact.Slug);
     }
 
     internal static ArtifactFactResponse ToFactResponse(ArtifactFact fact)
@@ -375,11 +386,14 @@ public class ArtifactsController : ControllerBase
             Id: artifact.Id,
             Name: artifact.Name,
             Type: artifact.Type.ToString(),
-            Summary: artifact.Summary);
+            Summary: artifact.Summary,
+            Slug: artifact.Slug);
     }
 
     private static SourceReferenceResponse ToSourceReferenceResponse(
-        SourceReference reference, IReadOnlyDictionary<Guid, string>? sourceTitles = null)
+        SourceReference reference,
+        IReadOnlyDictionary<Guid, string>? sourceTitles = null,
+        IReadOnlyDictionary<Guid, string?>? sourceSlugs = null)
     {
         return new SourceReferenceResponse(
             Id: reference.Id,
@@ -389,6 +403,7 @@ public class ArtifactsController : ControllerBase
             Quote: reference.Quote,
             Notes: reference.Notes,
             CreatedAt: reference.CreatedAt,
-            SourceTitle: sourceTitles?.GetValueOrDefault(reference.SourceId));
+            SourceTitle: sourceTitles?.GetValueOrDefault(reference.SourceId),
+            SourceSlug: sourceSlugs?.GetValueOrDefault(reference.SourceId));
     }
 }

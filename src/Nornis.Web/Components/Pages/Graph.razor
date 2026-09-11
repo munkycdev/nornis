@@ -1,13 +1,14 @@
 @page "/graph"
-@page "/graph/{FocusId:guid}"
+@page "/graph/{Focus}"
 @inject NavigationManager Nav
 
 @* The standalone graph page moved into the Artifacts browse page (graph view) and the
    artifact detail Connections section. This stub keeps old bookmarks working. *@
 
 @code {
-    [Parameter] public Guid? FocusId { get; set; }
+    /// <summary>The artifact key an old bookmark carried, slug or id; the artifact page resolves it.</summary>
+    [Parameter] public string? Focus { get; set; }
 
     protected override void OnInitialized() =>
-        Nav.NavigateTo(FocusId is { } id ? $"/artifacts/{id}" : "/artifacts", replace: true);
+        Nav.NavigateTo(string.IsNullOrEmpty(Focus) ? "/artifacts" : $"/artifacts/{Uri.EscapeDataString(Focus)}", replace: true);
 }

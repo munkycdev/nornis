@@ -10,6 +10,8 @@ public class KnowledgePassage
     public required int Page { get; init; }
     public required string Text { get; init; }
     public required string ReferenceId { get; init; }
+
+    public string? DocumentSlug { get; init; }
 }
 
 /// <summary>Vector retrieval over indexed library documents; empty when the world has none.</summary>

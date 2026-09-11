@@ -142,10 +142,11 @@ public class PublicController : ControllerBase
         return result.IsSuccess ? Ok(ArtifactsController.ToGraphResponse(result.Value!)) : PublicNotFound();
     }
 
-    [HttpGet("artifacts/{artifactId:guid}")]
+    [HttpGet("artifacts/{key}")]
 
     [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
-    public async Task<IActionResult> GetArtifact(string slug, Guid artifactId, CancellationToken ct)
+    public async Task<IActionResult> GetArtifact(
+        string slug, string key, [FromServices] ISlugResolver slugResolver, CancellationToken ct)
     {
         var world = await ResolveAsync(slug, ct);
         if (world is null)
@@ -153,7 +154,13 @@ public class PublicController : ControllerBase
             return PublicNotFound();
         }
 
-        var result = await _artifactService.GetDetailAsync(artifactId, world.Id, AnonymousUserId, PublicRole, ct);
+        var resolved = await slugResolver.ResolveAsync<Artifact>(world.Id, key, ct);
+        if (resolved is null)
+        {
+            return PublicNotFound();
+        }
+
+        var result = await _artifactService.GetDetailAsync(resolved.Value, world.Id, AnonymousUserId, PublicRole, ct);
         if (!result.IsSuccess)
         {
             return PublicNotFound();
@@ -234,10 +241,11 @@ public class PublicController : ControllerBase
             : PublicNotFound();
     }
 
-    [HttpGet("sources/{sourceId:guid}")]
+    [HttpGet("sources/{key}")]
 
     [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
-    public async Task<IActionResult> GetSource(string slug, Guid sourceId, CancellationToken ct)
+    public async Task<IActionResult> GetSource(
+        string slug, string key, [FromServices] ISlugResolver slugResolver, CancellationToken ct)
     {
         var world = await ResolveAsync(slug, ct);
         if (world is null)
@@ -245,7 +253,13 @@ public class PublicController : ControllerBase
             return PublicNotFound();
         }
 
-        var source = await ResolvePublicSourceAsync(world, sourceId, ct);
+        var resolved = await slugResolver.ResolveAsync<Source>(world.Id, key, ct);
+        if (resolved is null)
+        {
+            return PublicNotFound();
+        }
+
+        var source = await ResolvePublicSourceAsync(world, resolved.Value, ct);
         return source is null ? PublicNotFound() : Ok(SourcesController.ToSourceResponse(source));
     }
 
@@ -278,15 +292,15 @@ public class PublicController : ControllerBase
         var knowledge = result.Value!;
         return Ok(new SourceKnowledgeResponse(
             knowledge.Artifacts
-                .Select(a => new SourceKnowledgeArtifactResponse(a.ArtifactId, a.Name, a.Type, a.Quote))
+                .Select(a => new SourceKnowledgeArtifactResponse(a.ArtifactId, a.Name, a.Type, a.Quote, a.Slug))
                 .ToList(),
             knowledge.Facts
                 .Select(f => new SourceKnowledgeFactResponse(
-                    f.FactId, f.ArtifactId, f.ArtifactName, f.Predicate, f.Value, f.TruthState, f.Visibility, f.Quote))
+                    f.FactId, f.ArtifactId, f.ArtifactName, f.Predicate, f.Value, f.TruthState, f.Visibility, f.Quote, f.ArtifactSlug))
                 .ToList(),
             knowledge.Relationships
                 .Select(r => new SourceKnowledgeRelationshipResponse(
-                    r.RelationshipId, r.ArtifactAId, r.ArtifactAName, r.Type, r.ArtifactBId, r.ArtifactBName, r.Quote))
+                    r.RelationshipId, r.ArtifactAId, r.ArtifactAName, r.Type, r.ArtifactBId, r.ArtifactBName, r.Quote, r.ArtifactASlug, r.ArtifactBSlug))
                 .ToList()));
     }
 
@@ -312,7 +326,7 @@ public class PublicController : ControllerBase
 
         var result = await locationService.ListLocationsAsync(sourceId, world.Id, AnonymousUserId, PublicRole, ct);
         return result.IsSuccess
-            ? Ok(result.Value!.Select(l => new LinkedLocationResponse(l.ArtifactId, l.Name, l.Summary)).ToList())
+            ? Ok(result.Value!.Select(l => new LinkedLocationResponse(l.ArtifactId, l.Name, l.Summary, l.Slug)).ToList())
             : PublicNotFound();
     }
 
@@ -341,13 +355,14 @@ public class PublicController : ControllerBase
     /// what it touched within the party's view, and its sessions. Projected into its own shape
     /// so the GM-only parts of the member response have no field to travel in.
     /// </summary>
-    [HttpGet("campaigns/{campaignId:guid}/detail")]
+    [HttpGet("campaigns/{key}/detail")]
     [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
     public async Task<IActionResult> GetCampaign(
         string slug,
-        Guid campaignId,
+        string key,
         [FromServices] ICampaignService campaignService,
         [FromServices] ICharacterService characterService,
+        [FromServices] ISlugResolver slugResolver,
         CancellationToken ct)
     {
         var world = await ResolveAsync(slug, ct);
@@ -356,7 +371,13 @@ public class PublicController : ControllerBase
             return PublicNotFound();
         }
 
-        var result = await campaignService.GetDetailAsync(campaignId, world.Id, AnonymousUserId, PublicRole, ct);
+        var resolved = await slugResolver.ResolveAsync<Campaign>(world.Id, key, ct);
+        if (resolved is null)
+        {
+            return PublicNotFound();
+        }
+
+        var result = await campaignService.GetDetailAsync(resolved.Value, world.Id, AnonymousUserId, PublicRole, ct);
         if (!result.IsSuccess)
         {
             return PublicNotFound();
@@ -370,7 +391,7 @@ public class PublicController : ControllerBase
             Cast: cast.Select(c => new PublicCampaignCastResponse(c.Id, c.Name, c.PlayerName)).ToList(),
             Artifacts: detail.Rollup.Artifacts
                 .Select(a => new CampaignArtifactResponse(
-                    a.ArtifactId, a.Name, a.Type.ToString(), a.Summary, a.Status.ToString(), a.SourceCount))
+                    a.ArtifactId, a.Name, a.Type.ToString(), a.Summary, a.Status.ToString(), a.SourceCount, a.Slug))
                 .ToList(),
             ArtifactTotalCount: detail.Rollup.TotalCount,
             RecentSessions: detail.RecentSessions

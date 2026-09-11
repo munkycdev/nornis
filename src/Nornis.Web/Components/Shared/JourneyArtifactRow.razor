@@ -1,7 +1,7 @@
 @* One artifact line in the Journey panels: a type chip plus the artifact name under the same
    hover-summary tooltip (ArtifactTip) used across the rest of the site. Shared by the session
    ledger and the place tree so both read identically. *@
-<a class="nornis-journey-art" href="@($"{LinkBase}/{Highlight.ArtifactId}")">
+<a class="nornis-journey-art" href="@($"{LinkBase}/{Links.Key(Highlight.ArtifactSlug, Highlight.ArtifactId)}")">
     <span class="nornis-journey-chip type-@Highlight.Type.ToLowerInvariant()">@Highlight.Type</span>
     <ArtifactTip Name="@Highlight.Name" Summary="@Highlight.Summary">
         <span class="nornis-journey-hl-name">@Highlight.Name</span>

@@ -6,4 +6,4 @@ public record JumpResponse(IReadOnlyList<JumpGroupResponse> Groups);
 /// <param name="TotalCount">Visible matches of this kind before the per-kind cap.</param>
 public record JumpGroupResponse(string Kind, IReadOnlyList<JumpItemResponse> Items, int TotalCount);
 
-public record JumpItemResponse(Guid Id, string Name, string? Detail);
+public record JumpItemResponse(Guid Id, string Name, string? Detail, string? Slug = null);

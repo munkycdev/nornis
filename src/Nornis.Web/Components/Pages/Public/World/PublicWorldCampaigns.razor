@@ -25,7 +25,7 @@
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                 @foreach (var c in _campaigns)
                 {
-                    <a href="@($"/w/{Slug}/campaigns/{c.Id}")" class="nornis-list-row nornis-list-link">
+                    <a href="@Links.PublicCampaign(Slug, c.Slug, c.Id)" class="nornis-list-row nornis-list-link">
                         <div class="nornis-list-thumb">
                             <MudIcon Icon="@Icons.Material.Outlined.AutoStories" Size="Size.Small" />
                         </div>

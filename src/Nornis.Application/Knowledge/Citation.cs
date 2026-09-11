@@ -12,4 +12,7 @@ public class Citation
 
     /// <summary>Library document for Passage citations — links to /library/{id}.</summary>
     public Guid? DocumentId { get; init; }
+
+    /// <summary>Slug of whichever of the artifact, source or document this cites; null before backfill.</summary>
+    public string? Slug { get; init; }
 }

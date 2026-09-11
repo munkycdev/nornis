@@ -8,4 +8,5 @@ public record CitationResponse(
     Guid? FactId,
     Guid? RelationshipId,
     Guid? SourceId,
-    Guid? DocumentId = null);
+    Guid? DocumentId = null,
+    string? Slug = null);

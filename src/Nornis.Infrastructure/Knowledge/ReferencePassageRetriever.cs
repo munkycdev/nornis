@@ -87,6 +87,7 @@ public class ReferencePassageRetriever : IReferencePassageRetriever
                 Page = h.Page,
                 Text = h.Text,
                 ReferenceId = $"passage:{h.ChunkId}",
+                DocumentSlug = h.DocumentSlug,
             }).ToList();
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)

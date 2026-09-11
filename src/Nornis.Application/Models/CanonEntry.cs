@@ -20,7 +20,9 @@ public record CanonEntry(
     decimal? Confidence,
     TruthState TruthState,
     VisibilityScope Visibility,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string? ArtifactSlug = null,
+    string? OtherArtifactSlug = null);
 
 public enum CanonEntryKind
 {

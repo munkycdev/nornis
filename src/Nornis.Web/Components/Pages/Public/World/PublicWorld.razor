@@ -75,11 +75,11 @@
                                 {
                                     @if (c.ArtifactId is not null)
                                     {
-                                        <a href="@($"/w/{Slug}/artifacts/{c.ArtifactId}")" class="nornis-cite">@c.DisplayName</a>
+                                        <a href="@Links.PublicArtifact(Slug, c.Slug, c.ArtifactId.Value)" class="nornis-cite">@c.DisplayName</a>
                                     }
                                     else if (c.SourceId is not null)
                                     {
-                                        <a href="@($"/w/{Slug}/sources/{c.SourceId}")" class="nornis-cite">@c.DisplayName</a>
+                                        <a href="@Links.PublicSource(Slug, c.Slug, c.SourceId.Value)" class="nornis-cite">@c.DisplayName</a>
                                     }
                                     else
                                     {

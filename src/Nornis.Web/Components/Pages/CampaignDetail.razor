@@ -1,4 +1,4 @@
-﻿@page "/campaigns/{CampaignId:guid}"
+﻿@page "/campaigns/{Key}"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -158,7 +158,7 @@
                                              Value="@_fileIds.Contains(s.Id)"
                                              ValueChanged="@(v => ToggleUnfiled(s.Id, v))"
                                              aria-label="@($"File {s.Title}")" />
-                                <a href="@($"/sources/{s.Id}")" class="nornis-link flex-grow-1">
+                                <a href="@Links.Source(s.Slug, s.Id)" class="nornis-link flex-grow-1">
                                     <span class="nornis-list-title">@s.Title</span>
                                     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block">
                                         @SourceTypeDisplay.Label(s.Type)
@@ -301,7 +301,7 @@
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                                  Icon="@Icons.Material.Outlined.Person"
                                  title="@($"Played by {ch.PlayerName}")"
-                                 Href="@($"/characters/{ch.Id}")">@ch.Name</MudChip>
+                                 Href="@Links.Character(ch.Slug, ch.Id)">@ch.Name</MudChip>
                     }
                 </div>
             }
@@ -330,7 +330,7 @@
                             <div class="d-flex flex-column gap-1">
                                 @foreach (var a in group.Items)
                                 {
-                                    <a href="@($"/artifacts/{a.Id}")" class="nornis-list-row nornis-link">
+                                    <a href="@Links.Artifact(a.Slug, a.Id)" class="nornis-list-row nornis-link">
                                         <div class="nornis-list-thumb">
                                             <MudIcon Icon="@ArtifactTypeDisplay.Icon(a.Type)" Size="Size.Small" />
                                         </div>
@@ -383,7 +383,7 @@
                 <div class="d-flex flex-column gap-1">
                     @foreach (var s in _detail.RecentSessions)
                     {
-                        <a href="@($"/sources/{s.Id}")" class="nornis-list-row nornis-link">
+                        <a href="@Links.Source(s.Slug, s.Id)" class="nornis-list-row nornis-link">
                             <div class="nornis-list-thumb">
                                 <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" />
                             </div>
@@ -433,7 +433,11 @@
 </div>
 
 @code {
-    [Parameter] public Guid CampaignId { get; set; }
+    /// <summary>The slug, or an id from a link minted before slugs; see <see cref="Links"/>.</summary>
+    [Parameter] public string Key { get; set; } = string.Empty;
+
+    /// <summary>Every mutation targets the campaign that loaded; the key only opens the page.</summary>
+    private Guid CampaignId => _detail?.Campaign.Id ?? Guid.Empty;
 
     private CampaignDetailDto? _detail;
     private bool _loading = true;
@@ -685,7 +689,7 @@
     private IReadOnlyList<ContextRail.RailLink> RailRelated => _detail is null ? [] :
         _detail.Characters
             .Take(8)
-            .Select(ch => new ContextRail.RailLink(Icons.Material.Outlined.Person, ch.Name, $"/characters/{ch.Id}"))
+            .Select(ch => new ContextRail.RailLink(Icons.Material.Outlined.Person, ch.Name, Links.Character(ch.Slug, ch.Id)))
             .ToList();
 
     private async Task LoadAsync()
@@ -702,12 +706,12 @@
         _editingCast = false;
 
         var worldId = Worlds.Current.Id;
-        var campaignId = CampaignId;
-        var result = await Api.GetCampaignDetailAsync(worldId, campaignId);
+        var key = Key;
+        var result = await Api.GetCampaignDetailAsync(worldId, key);
 
         // A slower earlier load must not overwrite a newer one, and must not paint another
         // world's campaign onto this page.
-        if (Worlds.Current?.Id != worldId || CampaignId != campaignId)
+        if (Worlds.Current?.Id != worldId || Key != key)
         {
             return;
         }
@@ -716,7 +720,11 @@
         _loading = false;
         if (_detail is not null)
         {
-            Crumbs.Set($"/campaigns/{_detail.Campaign.Id}", new Crumb("Campaigns", "/campaigns"), new Crumb(_detail.Campaign.Name));
+            if (!Links.IsCanonical(Key, _detail.Campaign.Slug))
+            {
+                Nav.NavigateTo(Links.Campaign(_detail.Campaign.Slug, _detail.Campaign.Id), replace: true);
+            }
+            Crumbs.Set(Links.Campaign(_detail.Campaign.Slug, _detail.Campaign.Id), new Crumb("Campaigns", "/campaigns"), new Crumb(_detail.Campaign.Name));
             // Everything offered starts checked: the offer is "file these", and unchecking
             // is the exception the GM makes.
             SelectAllUnfiled();

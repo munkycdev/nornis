@@ -1,4 +1,4 @@
-﻿@page "/artifacts/{ArtifactId:guid}"
+﻿@page "/artifacts/{Key}"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -182,7 +182,7 @@
                         @if (other is not null)
                         {
                             <ArtifactTip Name="@other.Name" Summary="@other.Summary">
-                                <a href="@($"/artifacts/{other.Id}")" class="nornis-link">@other.Name</a>
+                                <a href="@Links.Artifact(other.Slug, other.Id)" class="nornis-link">@other.Name</a>
                             </ArtifactTip>
                         }
                         else
@@ -207,7 +207,7 @@
                 {
                     <div class="d-flex align-center gap-2 mb-3">
                         <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
-                        <a href="@($"/artifacts/{parent.Id}")" class="nornis-link">@parent.Name</a>
+                        <a href="@Links.Artifact(parent.Slug, parent.Id)" class="nornis-link">@parent.Name</a>
                         <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearParentAsync" Disabled="_parentBusy">
                             Detach
                         </MudButton>
@@ -266,7 +266,7 @@
                             }
                             @if (s.SourceTitle is not null)
                             {
-                                <a href="@($"/sources/{s.SourceId}")" class="nornis-link nornis-list-sub">@s.SourceTitle</a>
+                                <a href="@Links.Source(s.SourceSlug, s.SourceId)" class="nornis-link nornis-list-sub">@s.SourceTitle</a>
                             }
                         </div>
                     </div>
@@ -363,13 +363,14 @@
 @code {
     private MudMenu? _statusMenu;
 
-    [Parameter] public Guid ArtifactId { get; set; }
+    /// <summary>The slug, or an id from a link minted before slugs; see <see cref="Links"/>.</summary>
+    [Parameter] public string Key { get; set; } = string.Empty;
 
     private bool _loading;
     private bool _notFound;
     private string? _error;
     private ArtifactDetailDto? _detail;
-    private Guid _loadedId;
+    private string? _loadedKey;
 
     // Browser history back, so arriving from the Timeline (or graph, or another
     // artifact) returns there instead of always landing on the Codex list.
@@ -404,7 +405,7 @@
         }
 
         return result.Value!
-            .Where(a => a.Id != ArtifactId)
+            .Where(a => a.Id != _detail?.Id)
             .Where(a => !_mergeSameTypeOnly || _detail is null || a.Type == _detail.Type)
             .Where(a => string.IsNullOrWhiteSpace(value) || a.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
             .OrderBy(a => a.Name)
@@ -441,7 +442,7 @@
         }
 
         Snackbar.Add($"Merged into {_mergeTarget.Name}.", Severity.Success);
-        Nav.NavigateTo($"/artifacts/{result.Value!.TargetArtifactId}");
+        Nav.NavigateTo(Links.Artifact(_mergeTarget.Slug, result.Value!.TargetArtifactId));
     }
 
     // Remove from canon (GM): deletes this artifact and the knowledge attached to it.
@@ -559,13 +560,13 @@
         {
             foreach (var excerpt in filed)
             {
-                var sourceId = excerpt.SourceId;
+                var sourceLink = Links.Source(excerpt.Slug, excerpt.SourceId);
                 Snackbar.Add($"Filed “{excerpt.Title}” — extraction queued.", Severity.Success, options =>
                 {
                     options.Action = "Open";
                     options.OnClick = _ =>
                     {
-                        Nav.NavigateTo($"/sources/{sourceId}");
+                        Nav.NavigateTo(sourceLink);
                         return Task.CompletedTask;
                     };
                 });
@@ -630,7 +631,7 @@
         }
 
         return result.Value!
-            .Where(a => a.Id != ArtifactId)
+            .Where(a => a.Id != _detail?.Id)
             .Where(a => string.IsNullOrWhiteSpace(value) || a.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
             .OrderBy(a => a.Name)
             .Take(15);
@@ -715,7 +716,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (ArtifactId != _loadedId)
+        if (Key != _loadedKey)
         {
             await Worlds.EnsureLoadedAsync();
             await LoadAsync();
@@ -723,6 +724,17 @@
     }
 
     private void OnWorldChanged() => InvokeAsync(LoadAsync);
+
+    // Opened by an old id link, or a pasted slug in the wrong case: put the canonical address
+    // in the bar without reloading. _loadedKey moves first so the parameter change is a no-op.
+    private void Canonicalize()
+    {
+        if (_detail is not null && !Links.IsCanonical(Key, _detail.Slug))
+        {
+            _loadedKey = _detail.Slug;
+            Nav.NavigateTo(Links.Artifact(_detail.Slug, _detail.Id), replace: true);
+        }
+    }
 
     // The rail is built from the detail the page already rendered, so its counts can never
     // exceed what the body may show (feature 24, Property 1).
@@ -736,7 +748,7 @@
     private IReadOnlyList<ContextRail.RailLink> RailRelated => _detail is null ? [] :
         _detail.ConnectedArtifacts
             .Take(8)
-            .Select(c => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(c.Type), c.Name, $"/artifacts/{c.Id}"))
+            .Select(c => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(c.Type), c.Name, Links.Artifact(c.Slug, c.Id)))
             .ToList();
 
     private async Task LoadAsync()
@@ -755,18 +767,18 @@
         _loading = true;
         _notFound = false;
         _error = null;
-        _loadedId = ArtifactId;
+        _loadedKey = Key;
         StateHasChanged();
 
         var worldId = Worlds.Current.Id;
-        var artifactId = ArtifactId;
-        var result = await Api.GetArtifactAsync(worldId, artifactId);
+        var key = Key;
+        var result = await Api.GetArtifactAsync(worldId, key);
 
         // Clicking through the codex starts a load per artifact, and they do not come back in
         // the order they were sent. Without this, the slowest response wins and paints an
         // artifact the reader has already navigated past — under the new one's URL.
-        // _loadedId is the sequence marker: a newer load overwrote it before its own await.
-        if (_disposed || _loadedId != artifactId || Worlds.Current?.Id != worldId)
+        // _loadedKey is the sequence marker: a newer load overwrote it before its own await.
+        if (_disposed || _loadedKey != key || Worlds.Current?.Id != worldId)
         {
             return;
         }
@@ -775,7 +787,8 @@
         if (result.IsSuccess)
         {
             _detail = result.Value!;
-            Crumbs.Set($"/artifacts/{_detail.Id}",
+            Canonicalize();
+            Crumbs.Set(Links.Artifact(_detail.Slug, _detail.Id),
                 new Crumb("Codex", "/artifacts"),
                 new Crumb(ArtifactTypeDisplay.Plural(_detail.Type), "/artifacts"),
                 new Crumb(_detail.Name));
@@ -835,13 +848,13 @@
     {
         if (node.Id != _detail?.Id)
         {
-            Nav.NavigateTo($"/artifacts/{node.Id}");
+            Nav.NavigateTo(Links.Artifact(node.Slug, node.Id));
         }
     }
 
     private ConnectedArtifact? OtherArtifact(ArtifactRelationshipDto r)
     {
-        var otherId = r.ArtifactAId == ArtifactId ? r.ArtifactBId : r.ArtifactAId;
+        var otherId = r.ArtifactAId == _detail?.Id ? r.ArtifactBId : r.ArtifactAId;
         return _detail?.ConnectedArtifacts.FirstOrDefault(c => c.Id == otherId);
     }
 
@@ -867,8 +880,8 @@
     // Open continuity findings pointing at this artifact, from the assessment the circuit
     // already holds — no extra fetch. GM-only by data: non-GMs have no Continuity loaded.
     private IReadOnlyList<ContinuityFinding> ArtifactFindings =>
-        Worlds.Continuity is { HasData: true } c
-            ? c.Findings.Where(f => f.Status == "Open" && f.ArtifactId == ArtifactId).ToList()
+        Worlds.Continuity is { HasData: true } c && _detail is { } d
+            ? c.Findings.Where(f => f.Status == "Open" && f.ArtifactId == d.Id).ToList()
             : [];
 
     private async Task DismissFindingAsync(ContinuityFinding finding)

@@ -64,7 +64,7 @@ else
             {
                 <div class="nornis-list-row">
                     <div class="nornis-list-body">
-                        <a href="@($"/sources/{s.Id}")" class="nornis-list-title nornis-link">@s.Title</a>
+                        <a href="@Links.Source(s.Slug, s.Id)" class="nornis-list-title nornis-link">@s.Title</a>
                         <div class="nornis-list-sub">@s.Type · added @RelativeTime.Ago(s.CreatedAt)</div>
                     </div>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SourceStatusDisplay.StatusColor(s.ProcessingStatus)">

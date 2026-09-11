@@ -50,7 +50,7 @@ public class PublicWorldPagesTests : BunitContext
     [Test]
     public void Entry_SaysWhoPlaysIt_AndHasARailWithoutTheLoremaster()
     {
-        var cut = Render<PublicWorldArtifactDetail>(p => p.Add(x => x.Slug, "black-harbor").Add(x => x.ArtifactId, ArtifactId));
+        var cut = Render<PublicWorldArtifactDetail>(p => p.Add(x => x.Slug, "black-harbor").Add(x => x.Key, ArtifactId.ToString()));
 
         cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Played by Henry")));
         Assert.Multiple(() =>
@@ -65,7 +65,7 @@ public class PublicWorldPagesTests : BunitContext
     [Test]
     public void Excerpt_SaysWhereItCameFrom_WithoutALink()
     {
-        var cut = Render<PublicWorldSourceDetail>(p => p.Add(x => x.Slug, "black-harbor").Add(x => x.SourceId, SourceId));
+        var cut = Render<PublicWorldSourceDetail>(p => p.Add(x => x.Slug, "black-harbor").Add(x => x.Key, SourceId.ToString()));
 
         cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Player&#x27;s Guide").Or.Contain("Player's Guide")));
         Assert.Multiple(() =>
@@ -79,7 +79,7 @@ public class PublicWorldPagesTests : BunitContext
     [Test]
     public void Campaign_ShowsThePartyRecapAndTheCast()
     {
-        var cut = Render<PublicWorldCampaignDetail>(p => p.Add(x => x.Slug, "black-harbor").Add(x => x.CampaignId, CampaignId));
+        var cut = Render<PublicWorldCampaignDetail>(p => p.Add(x => x.Slug, "black-harbor").Add(x => x.Key, CampaignId.ToString()));
 
         cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("The party has reached Black Harbor")));
         Assert.Multiple(() =>

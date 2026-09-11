@@ -79,6 +79,7 @@ public class LoremasterController : ControllerBase
             FactId: citation.FactId,
             RelationshipId: citation.RelationshipId,
             SourceId: citation.SourceId,
-            DocumentId: citation.DocumentId);
+            DocumentId: citation.DocumentId,
+            Slug: citation.Slug);
     }
 }

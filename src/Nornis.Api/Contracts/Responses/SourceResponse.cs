@@ -19,4 +19,7 @@ public record SourceResponse(
     Guid? LibraryDocumentId = null,
     string? LibraryDocumentTitle = null,
     int? LibraryPageFrom = null,
-    int? LibraryPageTo = null);
+    int? LibraryPageTo = null,
+    string? Slug = null,
+    string? CampaignSlug = null,
+    string? LibraryDocumentSlug = null);

@@ -6,13 +6,18 @@ namespace Nornis.Domain.Entities;
 /// A play-context within a world: a named run of sessions. Deliberately thin —
 /// campaigns carry no membership and no permissions; world membership governs access.
 /// </summary>
-public class Campaign
+public class Campaign : ISlugged
 {
     public Guid Id { get; set; }
 
     public Guid WorldId { get; set; }
 
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>Per-world URL slug; see <see cref="ISlugged"/>.</summary>
+    public string? Slug { get; set; }
+
+    string ISlugged.SlugSource => Name;
 
     public string? Description { get; set; }
 

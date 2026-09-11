@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Models;
 
 namespace Nornis.Infrastructure.Persistence.Configurations;
 
@@ -15,6 +16,14 @@ public class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
         builder.Property(c => c.Name)
             .IsRequired()
             .HasMaxLength(200);
+
+        // Assigned once by SlugAssigner from the name; unique per world, null only until backfilled.
+        builder.Property(c => c.Slug)
+            .HasMaxLength(Slug.MaxStoredLength);
+
+        builder.HasIndex(c => new { c.WorldId, c.Slug })
+            .IsUnique()
+            .HasFilter("[Slug] IS NOT NULL");
 
         builder.Property(c => c.Description)
             .HasMaxLength(2000);

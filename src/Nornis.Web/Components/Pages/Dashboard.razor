@@ -130,7 +130,7 @@ else
                 }
                 @foreach (var rel in _canonRelationships)
                 {
-                    <a href="@($"/artifacts/{rel.ArtifactId}")" class="nornis-list-row nornis-list-link">
+                    <a href="@Links.Artifact(rel.ArtifactSlug, rel.ArtifactId)" class="nornis-list-row nornis-list-link">
                         <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /></div>
                         <div class="nornis-list-body">
                             <div class="nornis-list-title">@rel.ArtifactName</div>

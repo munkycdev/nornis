@@ -253,6 +253,8 @@ builder.Services.AddScoped<IExtractionReplayRepository, ExtractionReplayReposito
 builder.Services.AddScoped<IImportSessionRepository, ImportSessionRepository>();
 builder.Services.AddScoped<IWorldExportReader, WorldExportReader>();
 builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
+builder.Services.AddScoped<ISlugResolver, SlugResolver>();
+builder.Services.AddScoped<ISlugBackfiller, SlugBackfiller>();
 
 // Application service registrations
 builder.Services.AddScoped<IWorldService, WorldService>();
@@ -334,6 +336,9 @@ builder.Services.AddHostedService<ContinuityAuditBackgroundService>();
 builder.Services.Configure<UploadSweepOptions>(builder.Configuration.GetSection(UploadSweepOptions.SectionName));
 builder.Services.AddScoped<IPendingUploadSweeper, PendingUploadSweeper>();
 builder.Services.AddHostedService<PendingUploadSweepBackgroundService>();
+
+// Rows from before detail pages had slugs get theirs once, shortly after start.
+builder.Services.AddHostedService<SlugBackfillBackgroundService>();
 
 var loremasterEndpoint = builder.Configuration["Loremaster:AiEndpoint"];
 var loremasterModel = builder.Configuration["Loremaster:AiModel"];

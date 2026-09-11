@@ -85,7 +85,7 @@
             {
                 @* ---- session mode: this stop's artifacts alone ---- *@
                 <div class="nornis-journey-ledger-eye">@(_stopIndex + 1) <span>of @Data.Stops.Count</span></div>
-                <a class="nornis-journey-ledger-title nornis-serif" href="@($"{SourceLinkBase}/{stop.SourceId}")">@stop.Title</a>
+                <a class="nornis-journey-ledger-title nornis-serif" href="@($"{SourceLinkBase}/{Links.Key(stop.SourceSlug, stop.SourceId)}")">@stop.Title</a>
                 <div class="nornis-journey-ledger-meta">
                     <b>@stop.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)</b>
                     @if (VisitedNames(stop) is { Length: > 0 } names)

@@ -19,7 +19,7 @@
         <MudTooltip Text="Open the map's source page, where pins can be dragged or removed.">
             <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                        StartIcon="@Icons.Material.Outlined.EditLocationAlt"
-                       Href="@($"/sources/{_journey.MapSourceId}")">
+                       Href="@Links.Source(_journey.MapSourceSlug, _journey.MapSourceId)">
                 Adjust pins
             </MudButton>
         </MudTooltip>

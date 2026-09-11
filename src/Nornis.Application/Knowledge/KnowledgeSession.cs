@@ -18,4 +18,6 @@ public class KnowledgeSession
     public string? Text { get; init; }
 
     public required string ReferenceId { get; init; }
+
+    public string? Slug { get; init; }
 }

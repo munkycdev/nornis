@@ -1,4 +1,4 @@
-@page "/w/{Slug}/artifacts/{ArtifactId:guid}"
+@page "/w/{Slug}/artifacts/{Key}"
 @layout PublicLayout
 @inject NornisApiClient Api
 
@@ -106,7 +106,7 @@
                                 <div class="nornis-list-body">
                                     <div class="nornis-list-title">
                                         <ArtifactTip Name="@other.Name" Summary="@other.Summary">
-                                            <a href="@($"/w/{Slug}/artifacts/{other.Id}")" class="nornis-link">@other.Name</a>
+                                            <a href="@Links.PublicArtifact(Slug, other.Slug, other.Id)" class="nornis-link">@other.Name</a>
                                         </ArtifactTip>
                                     </div>
                                     <div class="nornis-list-sub">@DisplayText.Humanize(rel.Type)@(rel.Description is null ? "" : $" — {rel.Description}")</div>
@@ -136,7 +136,7 @@
                                 }
                                 @if (s.SourceTitle is not null)
                                 {
-                                    <a href="@($"/w/{Slug}/sources/{s.SourceId}")" class="nornis-link nornis-list-sub">@s.SourceTitle</a>
+                                    <a href="@Links.PublicSource(Slug, s.SourceSlug, s.SourceId)" class="nornis-link nornis-list-sub">@s.SourceTitle</a>
                                 }
                             </div>
                         </div>
@@ -156,22 +156,23 @@
 
 @code {
     [Parameter] public string Slug { get; set; } = string.Empty;
-    [Parameter] public Guid ArtifactId { get; set; }
+    /// <summary>The slug, or an id from a link minted before slugs; see <see cref="Links"/>.</summary>
+    [Parameter] public string Key { get; set; } = string.Empty;
 
     private bool _loading = true;
     private ArtifactDetailDto? _detail;
-    private (string Slug, Guid Id)? _loadedKey;
+    private (string Slug, string Key)? _loadedKey;
 
     protected override async Task OnParametersSetAsync()
     {
-        if (_loadedKey == (Slug, ArtifactId))
+        if (_loadedKey == (Slug, Key))
         {
             return;
         }
-        var key = (Slug, ArtifactId);
+        var key = (Slug, Key);
         _loadedKey = key;
         _loading = true;
-        var result = await Api.GetPublicArtifactAsync(Slug, ArtifactId);
+        var result = await Api.GetPublicArtifactAsync(Slug, Key);
 
         // Overlapping loads do not return in the order they were sent, so without this the
         // slowest wins and shows the artifact a visitor clicked past. _loadedKey is the
@@ -206,7 +207,7 @@
 
     private ConnectedArtifact? OtherEnd(ArtifactRelationshipDto rel)
     {
-        var otherId = rel.ArtifactAId == ArtifactId ? rel.ArtifactBId : rel.ArtifactAId;
+        var otherId = rel.ArtifactAId == _detail?.Id ? rel.ArtifactBId : rel.ArtifactAId;
         return _detail?.ConnectedArtifacts.FirstOrDefault(c => c.Id == otherId);
     }
 
@@ -220,6 +221,6 @@
     private IReadOnlyList<ContextRail.RailLink> RailRelated => _detail is null ? [] :
         _detail.ConnectedArtifacts
             .Take(8)
-            .Select(c => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(c.Type), c.Name, $"/w/{Slug}/artifacts/{c.Id}"))
+            .Select(c => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(c.Type), c.Name, Links.PublicArtifact(Slug, c.Slug, c.Id)))
             .ToList();
 }

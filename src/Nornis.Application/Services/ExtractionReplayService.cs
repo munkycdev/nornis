@@ -268,7 +268,8 @@ public class ExtractionReplayService : IExtractionReplayService
             cursor?.Title,
             cursor?.ProcessingStatus.ToString(),
             remaining,
-            replay.CreatedAt);
+            replay.CreatedAt,
+            cursor?.Slug);
     }
 
     private static AppError GmOnly() =>

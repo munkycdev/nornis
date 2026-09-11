@@ -148,8 +148,12 @@ public class NornisApiClient
         DeleteAsync($"/api/worlds/{worldId}/campaigns/{campaignId}", ct);
 
     /// <summary>Replaces the full set of characters assigned to a campaign.</summary>
+    /// <summary>The key is a slug or an id; see <see cref="Navigation.Links"/>.</summary>
+    public Task<ApiResult<CampaignDetailDto>> GetCampaignDetailAsync(Guid worldId, string key, CancellationToken ct = default) =>
+        GetAsync<CampaignDetailDto>($"/api/worlds/{worldId}/campaigns/{Uri.EscapeDataString(key)}/detail", ct);
+
     public Task<ApiResult<CampaignDetailDto>> GetCampaignDetailAsync(Guid worldId, Guid campaignId, CancellationToken ct = default) =>
-        GetAsync<CampaignDetailDto>($"/api/worlds/{worldId}/campaigns/{campaignId}/detail", ct);
+        GetCampaignDetailAsync(worldId, campaignId.ToString(), ct);
 
     public Task<ApiResult<IReadOnlyList<CampaignDto>>> ReorderCampaignsAsync(
         Guid worldId, IReadOnlyList<Guid> campaignIds, CancellationToken ct = default) =>
@@ -255,8 +259,11 @@ public class NornisApiClient
     public Task<ApiResult<CharacterDto>> MoveCharacterAsync(Guid worldId, Guid characterId, Guid playerId, CancellationToken ct = default) =>
         PutAsync<MoveCharacterRequest, CharacterDto>($"/api/worlds/{worldId}/characters/{characterId}/player", new MoveCharacterRequest(playerId), ct);
 
+    public Task<ApiResult<CharacterDossierDto>> GetCharacterDossierAsync(Guid worldId, string key, CancellationToken ct = default) =>
+        GetAsync<CharacterDossierDto>($"/api/worlds/{worldId}/characters/{Uri.EscapeDataString(key)}/dossier", ct);
+
     public Task<ApiResult<CharacterDossierDto>> GetCharacterDossierAsync(Guid worldId, Guid characterId, CancellationToken ct = default) =>
-        GetAsync<CharacterDossierDto>($"/api/worlds/{worldId}/characters/{characterId}/dossier", ct);
+        GetCharacterDossierAsync(worldId, characterId.ToString(), ct);
 
     public Task<ApiResult<CharacterDto>> UpdateCharacterSheetAsync(Guid worldId, Guid characterId, string? sheet, CancellationToken ct = default) =>
         PutAsync<UpdateCharacterSheetRequest, CharacterDto>(
@@ -283,8 +290,11 @@ public class NornisApiClient
     public Task<ApiResult<IReadOnlyList<SourceListItem>>> GetSourcesAsync(Guid worldId, string? campaignFilter = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<SourceListItem>>($"/api/worlds/{worldId}/sources{Query(("campaignId", campaignFilter))}", ct);
 
+    public Task<ApiResult<SourceDetailDto>> GetSourceAsync(Guid worldId, string key, CancellationToken ct = default) =>
+        GetAsync<SourceDetailDto>($"/api/worlds/{worldId}/sources/{Uri.EscapeDataString(key)}", ct);
+
     public Task<ApiResult<SourceDetailDto>> GetSourceAsync(Guid worldId, Guid sourceId, CancellationToken ct = default) =>
-        GetAsync<SourceDetailDto>($"/api/worlds/{worldId}/sources/{sourceId}", ct);
+        GetSourceAsync(worldId, sourceId.ToString(), ct);
 
     public Task<ApiResult<SourceDetailDto>> CreateSourceAsync(Guid worldId, CreateSourceRequest request, CancellationToken ct = default) =>
         PostAsync<CreateSourceRequest, SourceDetailDto>($"/api/worlds/{worldId}/sources", request, ct);
@@ -484,8 +494,8 @@ public class NornisApiClient
     public Task<ApiResult<IReadOnlyList<ArtifactListItem>>> GetPublicArtifactsAsync(string slug, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<ArtifactListItem>>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/artifacts", ct);
 
-    public Task<ApiResult<ArtifactDetailDto>> GetPublicArtifactAsync(string slug, Guid artifactId, CancellationToken ct = default) =>
-        GetAsync<ArtifactDetailDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/artifacts/{artifactId}", ct);
+    public Task<ApiResult<ArtifactDetailDto>> GetPublicArtifactAsync(string slug, string key, CancellationToken ct = default) =>
+        GetAsync<ArtifactDetailDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/artifacts/{Uri.EscapeDataString(key)}", ct);
 
     public Task<ApiResult<ArtifactGraphDto>> GetPublicArtifactGraphAsync(string slug, CancellationToken ct = default) =>
         GetAsync<ArtifactGraphDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/artifacts/graph", ct);
@@ -500,8 +510,8 @@ public class NornisApiClient
     public Task<ApiResult<IReadOnlyList<SourceListItem>>> GetPublicSourcesAsync(string slug, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<SourceListItem>>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/sources", ct);
 
-    public Task<ApiResult<SourceDetailDto>> GetPublicSourceAsync(string slug, Guid sourceId, CancellationToken ct = default) =>
-        GetAsync<SourceDetailDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/sources/{sourceId}", ct);
+    public Task<ApiResult<SourceDetailDto>> GetPublicSourceAsync(string slug, string key, CancellationToken ct = default) =>
+        GetAsync<SourceDetailDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/sources/{Uri.EscapeDataString(key)}", ct);
 
     /// <summary>What a public session contributed to the record (party-visible only).</summary>
     public Task<ApiResult<SourceKnowledgeDto>> GetPublicSourceKnowledgeAsync(string slug, Guid sourceId, CancellationToken ct = default) =>
@@ -514,8 +524,8 @@ public class NornisApiClient
     public Task<ApiResult<IReadOnlyList<CampaignDto>>> GetPublicCampaignsAsync(string slug, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<CampaignDto>>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/campaigns", ct);
 
-    public Task<ApiResult<PublicCampaignDetailDto>> GetPublicCampaignDetailAsync(string slug, Guid campaignId, CancellationToken ct = default) =>
-        GetAsync<PublicCampaignDetailDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/campaigns/{campaignId}/detail", ct);
+    public Task<ApiResult<PublicCampaignDetailDto>> GetPublicCampaignDetailAsync(string slug, string key, CancellationToken ct = default) =>
+        GetAsync<PublicCampaignDetailDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/campaigns/{Uri.EscapeDataString(key)}/detail", ct);
 
     /// <summary>Anonymous single-shot Ask the Loremaster against a public world. The API gates it
     /// on the GM's monthly spend cap; failures (disabled, budget spent) come back as the error.</summary>
@@ -535,8 +545,11 @@ public class NornisApiClient
     public Task<ApiResult<IReadOnlyList<LibraryDocumentDto>>> GetLibraryAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<LibraryDocumentDto>>($"/api/worlds/{worldId}/library", ct);
 
+    public Task<ApiResult<LibraryDocumentDto>> GetLibraryDocumentAsync(Guid worldId, string key, CancellationToken ct = default) =>
+        GetAsync<LibraryDocumentDto>($"/api/worlds/{worldId}/library/{Uri.EscapeDataString(key)}", ct);
+
     public Task<ApiResult<LibraryDocumentDto>> GetLibraryDocumentAsync(Guid worldId, Guid documentId, CancellationToken ct = default) =>
-        GetAsync<LibraryDocumentDto>($"/api/worlds/{worldId}/library/{documentId}", ct);
+        GetLibraryDocumentAsync(worldId, documentId.ToString(), ct);
 
     public Task<ApiResult<LibraryDownloadDto>> GetLibraryDownloadAsync(Guid worldId, Guid documentId, CancellationToken ct = default) =>
         GetAsync<LibraryDownloadDto>($"/api/worlds/{worldId}/library/{documentId}/download", ct);
@@ -592,8 +605,11 @@ public class NornisApiClient
         GetAsync<IReadOnlyList<ArtifactListItem>>(
             $"/api/worlds/{worldId}/artifacts/search{Query(("q", term), ("limit", limit.ToString()))}", ct);
 
+    public Task<ApiResult<ArtifactDetailDto>> GetArtifactAsync(Guid worldId, string key, CancellationToken ct = default) =>
+        GetAsync<ArtifactDetailDto>($"/api/worlds/{worldId}/artifacts/{Uri.EscapeDataString(key)}", ct);
+
     public Task<ApiResult<ArtifactDetailDto>> GetArtifactAsync(Guid worldId, Guid artifactId, CancellationToken ct = default) =>
-        GetAsync<ArtifactDetailDto>($"/api/worlds/{worldId}/artifacts/{artifactId}", ct);
+        GetArtifactAsync(worldId, artifactId.ToString(), ct);
 
     /// <summary>GM-only: the same ranking with a sentence of timing beside its top rows. Spends.</summary>
     public Task<ApiResult<ConvergenceDto>> NarrateConvergenceAsync(Guid worldId, CancellationToken ct = default) =>

@@ -15,7 +15,7 @@ public enum LearnedEntryKind
 }
 
 /// <summary>One thing the party can now see, resolved at the time of reading.</summary>
-public sealed record LearnedElement(Guid Id, string Kind, string Name, string? Detail);
+public sealed record LearnedElement(Guid Id, string Kind, string Name, string? Detail, string? Slug = null);
 
 /// <summary>
 /// One disclosure. <see cref="GmNote"/> is the GM's own words where they wrote any — never the

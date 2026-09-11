@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Nornis.Web.Navigation;
 using NUnit.Framework;
@@ -27,7 +28,7 @@ public class ReachabilityTests
     private static readonly HashSet<string> Exempt = new(StringComparer.OrdinalIgnoreCase)
     {
         "/", "/Error", "/invite/{Code}", "/shelf/{Code}", "/welcome", "/about", "/features", "/changelog",
-        "/privacy", "/terms", "/licenses", "/canon", "/graph", "/graph/{FocusId:guid}", "/costs", "/settings",
+        "/privacy", "/terms", "/licenses", "/canon", "/graph", "/graph/{Focus}", "/costs", "/settings",
         // /extract is the older alias of /import; the page carries both.
         "/extract",
     };
@@ -49,7 +50,7 @@ public class ReachabilityTests
     private static string Normalize(string route)
     {
         // Parameterised routes are compared by their static prefix: a link to
-        // /artifacts/{some id} is a door to /artifacts/{ArtifactId:guid}.
+        // /artifacts/{some id} is a door to /artifacts/{Key}.
         var idx = route.IndexOf('{');
         return idx < 0 ? route.TrimEnd('/') : route[..idx].TrimEnd('/');
     }
@@ -86,9 +87,16 @@ public class ReachabilityTests
                 }
 
                 // A door is a link from a file other than the page itself: href="/x", Href="/x",
-                // href="@($"/x/{...}")", NavigateTo("/x"), or a constant string "/x/".
+                // href="@($"/x/{...}")", NavigateTo("/x"), a constant string "/x/", or a call to
+                // the Links method that spells /x — detail pages are linked through Links, so the
+                // path is not in the razor at all.
                 var pattern = new Regex(@"[""'(]" + Regex.Escape(prefix) + @"(?:[""'/?{]|$)", RegexOptions.IgnoreCase);
-                var linkedFrom = files.Where(f => f != file && pattern.IsMatch(File.ReadAllText(f))).ToList();
+                var builders = LinkBuildersFor(prefix);
+                var linkedFrom = files.Where(f => f != file).Where(f =>
+                {
+                    var text = File.ReadAllText(f);
+                    return pattern.IsMatch(text) || builders.Any(b => text.Contains(b, StringComparison.Ordinal));
+                }).ToList();
                 if (linkedFrom.Count == 0)
                 {
                     undoored.Add($"{route}  ({Path.GetRelativePath(root, file)})");
@@ -99,6 +107,19 @@ public class ReachabilityTests
         Assert.That(undoored, Is.Empty,
             "These routes have no link from the sidebar or any other page:\n  " + string.Join("\n  ", undoored));
     }
+
+    /// <summary>
+    /// The <c>Links.X(</c> calls that produce a path under <paramref name="prefix"/>, found by
+    /// asking Links itself rather than by listing them here — so a new route in Links is a new
+    /// door without this test knowing its name.
+    /// </summary>
+    private static IReadOnlyList<string> LinkBuildersFor(string prefix) =>
+        typeof(Links).GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.ReturnType == typeof(string))
+            .Where(m => m.GetParameters().Select(p => p.ParameterType).SequenceEqual([typeof(string), typeof(Guid)]))
+            .Where(m => ((string)m.Invoke(null, [null, Guid.Empty])!).StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase))
+            .Select(m => $"Links.{m.Name}(")
+            .ToList();
 
     [Test]
     public void EverySidebarEntry_PointsAtARealRoute()

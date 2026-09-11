@@ -70,6 +70,6 @@ public class LearnedController : ControllerBase
         entry.OccurredAt,
         entry.GmNote,
         entry.Elements
-            .Select(e => new LearnedElementResponse(e.Id, e.Kind, e.Name, e.Detail))
+            .Select(e => new LearnedElementResponse(e.Id, e.Kind, e.Name, e.Detail, e.Slug))
             .ToList());
 }

@@ -15,4 +15,5 @@ public sealed record LibraryChunkHit(
     int Ord,
     int Page,
     string Text,
-    double Distance);
+    double Distance,
+    string? DocumentSlug = null);

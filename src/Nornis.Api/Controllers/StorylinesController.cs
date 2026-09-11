@@ -201,16 +201,17 @@ public class StorylinesController : ControllerBase
     /// <summary>Shared with the public read-only endpoints.</summary>
     internal static StorylineTimelineResponse ToTimelineResponse(Application.Models.StorylineTimeline timeline) =>
         new(
-            timeline.Sessions.Select(s => new TimelineSessionResponse(s.SourceId, s.Title, s.OccurredAt, s.StorylineCount)).ToList(),
+            timeline.Sessions.Select(s => new TimelineSessionResponse(s.SourceId, s.Title, s.OccurredAt, s.StorylineCount, s.SourceSlug)).ToList(),
             timeline.Lanes.Select(l => new TimelineLaneResponse(
                 l.StorylineId, l.Name, l.Status,
                 l.Points.Select(p => new TimelinePointResponse(
                     p.SourceId, p.OccurredAt,
                     p.Developments.Select(d => new TimelineDevelopmentResponse(d.Kind, d.Text, d.Quote, d.IsOpenQuestion)).ToList(),
-                    p.CampaignId)).ToList(),
+                    p.CampaignId,
+                    p.SourceSlug)).ToList(),
                 l.ParentStorylineId,
-                l.Campaigns.Select(c => new TimelineLaneCampaignResponse(c.CampaignId, c.Name, c.StartedAt)).ToList(),
-                l.CampaignName, l.CampaignStartedAt)).ToList(),
+                l.Campaigns.Select(c => new TimelineLaneCampaignResponse(c.CampaignId, c.Name, c.StartedAt, c.Slug)).ToList(),
+                l.CampaignName, l.CampaignStartedAt, l.Slug)).ToList(),
             timeline.Links.Select(x => new TimelineLinkResponse(x.FromStorylineId, x.ToStorylineId, x.Type)).ToList());
 
     [HttpGet]

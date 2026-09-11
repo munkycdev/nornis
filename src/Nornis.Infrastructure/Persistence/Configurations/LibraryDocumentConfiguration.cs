@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Models;
 
 namespace Nornis.Infrastructure.Persistence.Configurations;
 
@@ -15,6 +16,14 @@ public class LibraryDocumentConfiguration : IEntityTypeConfiguration<LibraryDocu
         builder.Property(d => d.Title)
             .IsRequired()
             .HasMaxLength(200);
+
+        // Assigned once by SlugAssigner from the title; unique per world, null only until backfilled.
+        builder.Property(d => d.Slug)
+            .HasMaxLength(Slug.MaxStoredLength);
+
+        builder.HasIndex(d => new { d.WorldId, d.Slug })
+            .IsUnique()
+            .HasFilter("[Slug] IS NOT NULL");
 
         builder.Property(d => d.FileName)
             .IsRequired()

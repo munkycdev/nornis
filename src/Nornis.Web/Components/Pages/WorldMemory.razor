@@ -164,7 +164,7 @@
                                             <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                                                      Color="@(item.ChangedSinceAudit ? Color.Warning : Color.Default)"
                                                      Icon="@EvidenceIcon(item.Kind)"
-                                                     Href="@($"/artifacts/{evidenceArtifactId}")">
+                                                     Href="@Links.Artifact(item.ArtifactSlug, evidenceArtifactId)">
                                                 @item.Label@(item.ChangedSinceAudit ? " (edited)" : "")
                                             </MudChip>
                                         }
@@ -192,7 +192,7 @@
                         }
                         @if (finding.ArtifactId is { } artifactId)
                         {
-                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" Href="@($"/artifacts/{artifactId}")">
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" Href="@Links.Artifact(finding.ArtifactSlug, artifactId)">
                                 Open artifact
                             </MudButton>
                         }

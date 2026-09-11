@@ -91,5 +91,5 @@ public class ExtractionReplayController : ControllerBase
 
     private static ExtractionReplayResponse ToResponse(ExtractionReplayInfo info) =>
         new(info.Id, info.Status, info.CurrentSourceId, info.CurrentSourceTitle,
-            info.CurrentSourceProcessingStatus, info.RemainingCount, info.CreatedAt);
+            info.CurrentSourceProcessingStatus, info.RemainingCount, info.CreatedAt, info.CurrentSourceSlug);
 }

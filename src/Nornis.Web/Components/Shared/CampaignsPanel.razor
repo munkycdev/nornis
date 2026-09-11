@@ -47,7 +47,7 @@ else
                 }
                 <div class="nornis-list-body">
                     <div class="nornis-list-title">
-                        <a href="@($"/campaigns/{c.Id}")" class="nornis-link">@c.Name</a>
+                        <a href="@Links.Campaign(c.Slug, c.Id)" class="nornis-link">@c.Name</a>
                         @if (isCurrent)
                         {
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="ml-1">Playing now</MudChip>

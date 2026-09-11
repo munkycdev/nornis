@@ -4,7 +4,7 @@ using Nornis.Domain.Enums;
 namespace Nornis.Application.Services;
 
 /// <summary>One pinned Location on the journey's map, at a normalized 0..1 position.</summary>
-public sealed record JourneyLocation(Guid ArtifactId, string Name, decimal X, decimal Y, string? Label);
+public sealed record JourneyLocation(Guid ArtifactId, string Name, decimal X, decimal Y, string? Label, string? ArtifactSlug = null);
 
 /// <summary>
 /// An artifact a session introduced or advanced, surfaced beside the map when its stop is
@@ -12,7 +12,7 @@ public sealed record JourneyLocation(Guid ArtifactId, string Name, decimal X, de
 /// session to reference the artifact (a location's "first visit"). <paramref name="Summary"/>
 /// feeds the same hover tooltip the rest of the site uses ("which one is this?").
 /// </summary>
-public sealed record JourneyHighlight(Guid ArtifactId, string Name, string Type, bool FirstSeen, string? Summary);
+public sealed record JourneyHighlight(Guid ArtifactId, string Name, string Type, bool FirstSeen, string? Summary, string? ArtifactSlug = null);
 
 /// <summary>
 /// One dated session or imported note on the timeline: the pinned locations it visited (a
@@ -24,7 +24,8 @@ public sealed record JourneyStop(
     string Title,
     DateTimeOffset OccurredAt,
     IReadOnlyList<Guid> VisitedLocationIds,
-    IReadOnlyList<JourneyHighlight> Highlights);
+    IReadOnlyList<JourneyHighlight> Highlights,
+    string? SourceSlug = null);
 
 /// <summary>
 /// The world's journey over one map: the map image, its caller-visible location pins, and the
@@ -39,7 +40,8 @@ public sealed record JourneyMap(
     string ImageUrl,
     IReadOnlyList<JourneyLocation> Locations,
     IReadOnlyList<JourneyStop> Stops,
-    int UndatedSessionCount);
+    int UndatedSessionCount,
+    string? MapSourceSlug = null);
 
 public interface IJourneyMapService
 {

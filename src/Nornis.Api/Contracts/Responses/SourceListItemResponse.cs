@@ -11,4 +11,6 @@ public record SourceListItemResponse(
     string Visibility,
     string ProcessingStatus,
     Guid? CampaignId = null,
-    string? CampaignName = null);
+    string? CampaignName = null,
+    string? Slug = null,
+    string? CampaignSlug = null);

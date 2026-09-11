@@ -7,6 +7,7 @@ using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Repositories;
 
 namespace Nornis.Api.Controllers;
 
@@ -88,15 +89,24 @@ public class CampaignsController : ControllerBase
     /// The campaign page's read model. Any member may read it; the service assembles it at
     /// their visibility, so a player's copy simply holds less.
     /// </summary>
-    [HttpGet("{campaignId:guid}/detail")]
+    [HttpGet("{key}/detail")]
     public async Task<IActionResult> GetDetail(
         Guid worldId,
-        Guid campaignId,
+        string key,
         [FromServices] ICharacterService characterService,
+        [FromServices] ISlugResolver slugResolver,
         CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
+
+        var resolved = await slugResolver.ResolveKeyAsync<Campaign>(worldId, key, "Campaign", ct);
+        if (!resolved.IsSuccess)
+        {
+            return resolved.Error!.ToActionResult();
+        }
+
+        var campaignId = resolved.Value;
 
         var result = await _campaignService.GetDetailAsync(campaignId, worldId, user.Id, member.Role, ct);
 
@@ -113,7 +123,7 @@ public class CampaignsController : ControllerBase
             Characters: characters.Select(CharactersController.ToCharacterResponse).ToList(),
             Artifacts: detail.Rollup.Artifacts
                 .Select(a => new CampaignArtifactResponse(
-                    a.ArtifactId, a.Name, a.Type.ToString(), a.Summary, a.Status.ToString(), a.SourceCount))
+                    a.ArtifactId, a.Name, a.Type.ToString(), a.Summary, a.Status.ToString(), a.SourceCount, a.Slug))
                 .ToList(),
             ArtifactTotalCount: detail.Rollup.TotalCount,
             RecentSessions: detail.RecentSessions.Select(SourcesController.ToSourceListItemResponse).ToList(),
@@ -358,6 +368,7 @@ public class CampaignsController : ControllerBase
             EndedAt: campaign.EndedAt,
             CreatedAt: campaign.CreatedAt,
             UpdatedAt: campaign.UpdatedAt,
-            CreatedByUserId: campaign.CreatedByUserId);
+            CreatedByUserId: campaign.CreatedByUserId,
+            Slug: campaign.Slug);
     }
 }

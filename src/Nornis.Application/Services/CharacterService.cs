@@ -239,16 +239,17 @@ public class CharacterService : ICharacterService
         var attributions = await _sourceRepository.ListAttributionByIdsAsync(
             snapshots.Select(s => s.SourceId).Distinct().ToList(), actingUserId, role, ct);
 
-        var titles = attributions.ToDictionary(a => a.Id, a => a.Title);
+        var titles = attributions.ToDictionary(a => a.Id);
 
         return snapshots
             .Where(s => titles.ContainsKey(s.SourceId))
             .Select(s => new CharacterSnapshotView(
                 Id: s.Id,
                 SourceId: s.SourceId,
-                SourceTitle: titles[s.SourceId],
+                SourceTitle: titles[s.SourceId].Title,
                 AsOf: s.AsOf,
-                Note: s.Note))
+                Note: s.Note,
+                SourceSlug: titles[s.SourceId].Slug))
             .ToList();
     }
 
@@ -686,6 +687,8 @@ public class CharacterService : ICharacterService
             Name: character.Name,
             Description: character.Description,
             ArtifactId: artifactVisible ? character.ArtifactId : null,
+            ArtifactSlug: artifactVisible ? character.Artifact?.Slug : null,
+            Slug: character.Slug,
             CampaignIds: character.CampaignCharacters.Select(cc => cc.CampaignId).ToList(),
             SheetUpdatedAt: CanReadSheet(character, player, actingMember, role) ? character.SheetUpdatedAt : null,
             CreatedAt: character.CreatedAt,

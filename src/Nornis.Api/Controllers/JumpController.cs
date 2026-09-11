@@ -39,7 +39,7 @@ public class JumpController : ControllerBase
 
         return Ok(new JumpResponse(result.Value!.Groups.Select(g => new JumpGroupResponse(
             Kind: g.Kind.ToString(),
-            Items: g.Items.Select(i => new JumpItemResponse(i.Id, i.Name, i.Detail)).ToList(),
+            Items: g.Items.Select(i => new JumpItemResponse(i.Id, i.Name, i.Detail, i.Slug)).ToList(),
             TotalCount: g.TotalCount)).ToList()));
     }
 }

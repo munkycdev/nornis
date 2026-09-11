@@ -116,7 +116,7 @@ else
                         var px = X(point.OccurredAt);
                         var r = 4 + Math.Min(point.Developments.Count - 1, 3);
                         <g style="cursor:pointer" data-nornis-tip="@PointTitle(lane, point)"
-                           @onclick="@(() => Nav.NavigateTo($"{SourceLinkBase}/{point.SourceId}"))">
+                           @onclick="@(() => Nav.NavigateTo($"{SourceLinkBase}/{Links.Key(point.SourceSlug, point.SourceId)}"))">
                             @if (point.Developments.Any(d => d.IsOpenQuestion))
                             {
                                 <circle cx="@px" cy="@y" r="@(r + 4)" fill="none" stroke="@color" stroke-width="1.5" opacity="0.55" />
@@ -161,7 +161,7 @@ else
                          data-nornis-tip="@(LaneTitle(lane) + DragHint(lane))"
                          data-storyline-id="@(CanEdit ? lane.StorylineId.ToString() : null)"
                          data-has-parent="@(CanEdit && lane.ParentStorylineId is not null ? "true" : null)"
-                         @onclick="@(() => Nav.NavigateTo($"{ArtifactLinkBase}/{lane.StorylineId}"))">
+                         @onclick="@(() => Nav.NavigateTo($"{ArtifactLinkBase}/{Links.Key(lane.Slug, lane.StorylineId)}"))">
                         <span class="nornis-graph-dot" style="background:@StatusColor(lane.Status)"></span>
                         <span class="nornis-timeline-label-text">@lane.Name</span>
                         @if ((lane.Campaigns?.Count ?? 0) >= 2)
@@ -181,7 +181,7 @@ else
             @for (var i = 0; i < UndatedLanes.Count; i++)
             {
                 var lane = UndatedLanes[i];
-                @(i > 0 ? ", " : " ")<a href="@($"{ArtifactLinkBase}/{lane.StorylineId}")" class="nornis-link">@lane.Name</a>
+                @(i > 0 ? ", " : " ")<a href="@($"{ArtifactLinkBase}/{Links.Key(lane.Slug, lane.StorylineId)}")" class="nornis-link">@lane.Name</a>
             }
             — these storylines are only referenced by undated sources. Give a source a date to place them.
         </MudText>

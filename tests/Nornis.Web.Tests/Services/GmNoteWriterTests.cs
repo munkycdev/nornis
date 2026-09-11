@@ -98,7 +98,7 @@ public class GmNoteWriterTests
         var result = await writer.FileAskAnswerAsync(WorldId, "Who hired the raiders?", "The evidence points to Voss.");
 
         Assert.That(result.IsSuccess, Is.True);
-        Assert.That(result.Value, Is.EqualTo(handler.NewSourceId));
+        Assert.That(result.Value!.Id, Is.EqualTo(handler.NewSourceId));
         Assert.That(handler.MarkedReadySourceId, Is.EqualTo(handler.NewSourceId),
             "an answer that is never marked ready is never read, and proposes nothing");
     }

@@ -96,7 +96,7 @@ public class SourceKnowledgeService : ISourceKnowledgeService
                             && seenArtifacts.Add(artifact.Id))
                         {
                             artifacts.Add(new SourceKnowledgeArtifact(
-                                artifact.Id, artifact.Name, artifact.Type.ToString(), reference.Quote));
+                                artifact.Id, artifact.Name, artifact.Type.ToString(), reference.Quote, artifact.Slug));
                         }
                         break;
                     }
@@ -114,7 +114,7 @@ public class SourceKnowledgeService : ISourceKnowledgeService
                             seenFacts.Add(fact.Id);
                             facts.Add(new SourceKnowledgeFact(
                                 fact.Id, owner.Id, owner.Name, fact.Predicate, fact.Value,
-                                fact.TruthState.ToString(), fact.Visibility.ToString(), reference.Quote));
+                                fact.TruthState.ToString(), fact.Visibility.ToString(), reference.Quote, owner.Slug));
                         }
                         break;
                     }
@@ -133,7 +133,7 @@ public class SourceKnowledgeService : ISourceKnowledgeService
                         {
                             seenRelationships.Add(relationship.Id);
                             relationships.Add(new SourceKnowledgeRelationship(
-                                relationship.Id, a.Id, a.Name, relationship.Type, b.Id, b.Name, reference.Quote));
+                                relationship.Id, a.Id, a.Name, relationship.Type, b.Id, b.Name, reference.Quote, a.Slug, b.Slug));
                         }
                         break;
                     }

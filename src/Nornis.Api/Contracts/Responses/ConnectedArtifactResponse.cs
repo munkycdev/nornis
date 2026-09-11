@@ -4,4 +4,5 @@ public record ConnectedArtifactResponse(
     Guid Id,
     string Name,
     string Type,
-    string? Summary);
+    string? Summary,
+    string? Slug = null);

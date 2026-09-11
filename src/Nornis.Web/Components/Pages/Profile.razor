@@ -78,7 +78,7 @@
                         <MudAvatar Color="Color.Tertiary" Size="Size.Small">@ch.Name[..1].ToUpperInvariant()</MudAvatar>
                         <div class="nornis-list-body">
                             <div class="nornis-list-title">
-                                <a href="@($"/characters/{ch.Id}")" class="nornis-link">@ch.Name</a>
+                                <a href="@Links.Character(ch.Slug, ch.Id)" class="nornis-link">@ch.Name</a>
                             </div>
                             <div class="nornis-list-sub">
                                 @if (CharacterCampaignNames(ch) is { Length: > 0 } campaigns)
@@ -91,7 +91,7 @@
                                 }
                                 @if (ch.ArtifactId is { } linkedId)
                                 {
-                                    <span> · </span><a href="@($"/artifacts/{linkedId}")" class="nornis-link">Linked artifact</a>
+                                    <span> · </span><a href="@Links.Artifact(ch.ArtifactSlug, linkedId)" class="nornis-link">Linked artifact</a>
                                 }
                             </div>
                         </div>

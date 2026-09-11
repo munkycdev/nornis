@@ -650,7 +650,8 @@ public partial class LoremasterService : ILoremasterService
                 ReferenceId = referenceId,
                 Type = CitationType.Artifact,
                 DisplayName = artifact.Name,
-                ArtifactId = artifact.Id
+                ArtifactId = artifact.Id,
+                Slug = artifact.Slug
             };
         }
 
@@ -683,7 +684,8 @@ public partial class LoremasterService : ILoremasterService
                 ReferenceId = referenceId,
                 Type = CitationType.Source,
                 DisplayName = source.Quote ?? $"Source reference {source.Id}",
-                SourceId = source.Id
+                SourceId = source.Id,
+                Slug = source.SourceSlug
             };
         }
 
@@ -694,7 +696,8 @@ public partial class LoremasterService : ILoremasterService
                 ReferenceId = referenceId,
                 Type = CitationType.Passage,
                 DisplayName = $"{passage.DocumentTitle}, p. {passage.Page}",
-                DocumentId = passage.DocumentId
+                DocumentId = passage.DocumentId,
+                Slug = passage.DocumentSlug
             };
         }
 
@@ -707,7 +710,8 @@ public partial class LoremasterService : ILoremasterService
                 ReferenceId = referenceId,
                 Type = CitationType.Source,
                 DisplayName = session.Title,
-                SourceId = session.Id
+                SourceId = session.Id,
+                Slug = session.Slug
             };
         }
 

@@ -33,6 +33,7 @@ public class CharacterRecordProjectorTests
             ConnectedArtifacts: connected?.ToList() ?? [],
             SourceReferences: [],
             SourceTitles: new Dictionary<Guid, string>(),
+            SourceSlugs: new Dictionary<Guid, string?>(),
             PlayedBy: []);
 
     private static ArtifactFact Fact(int index) => new()

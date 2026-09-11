@@ -67,7 +67,8 @@ public record ContinuityFindingView(
     IReadOnlyList<ContinuityEvidenceItemView> EvidenceItems,
     Guid? ArtifactId,
     string Status,
-    bool IsStale);
+    bool IsStale,
+    string? ArtifactSlug = null);
 
 /// <summary>
 /// One cited evidence ref resolved for display: what kind of item it is, a human-readable
@@ -81,4 +82,5 @@ public record ContinuityEvidenceItemView(
     string Label,
     Guid? ArtifactId,
     bool ChangedSinceAudit,
-    bool Missing);
+    bool Missing,
+    string? ArtifactSlug = null);

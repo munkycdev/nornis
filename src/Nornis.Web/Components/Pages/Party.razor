@@ -94,7 +94,7 @@ else
                     {
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                                  Icon="@Icons.Material.Outlined.Person"
-                                 Href="@($"/characters/{ch.Id}")">@ch.Name</MudChip>
+                                 Href="@Links.Character(ch.Slug, ch.Id)">@ch.Name</MudChip>
                     }
                 </div>
             }

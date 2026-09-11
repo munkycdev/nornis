@@ -8,6 +8,7 @@ using Nornis.Application.Services;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
+using Nornis.Domain.Repositories;
 
 namespace Nornis.Api.Controllers;
 
@@ -67,7 +68,7 @@ public class SourcesController : ControllerBase
         var source = result.Value!;
         var response = ToSourceResponse(source);
 
-        return CreatedAtAction(nameof(GetById), new { worldId, sourceId = source.Id }, response);
+        return CreatedAtAction(nameof(GetByKey), new { worldId, key = source.Slug ?? source.Id.ToString() }, response);
     }
 
     [HttpGet]
@@ -145,13 +146,20 @@ public class SourcesController : ControllerBase
             UnseenDisclosures: unseen.IsSuccess ? unseen.Value : 0));
     }
 
-    [HttpGet("{sourceId:guid}")]
-    public async Task<IActionResult> GetById(Guid worldId, Guid sourceId, CancellationToken ct)
+    [HttpGet("{key}")]
+    public async Task<IActionResult> GetByKey(
+        Guid worldId, string key, [FromServices] ISlugResolver slugResolver, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        var result = await _sourceService.GetByIdAsync(sourceId, worldId, user.Id, member.Role, ct);
+        var resolved = await slugResolver.ResolveKeyAsync<Source>(worldId, key, "Source", ct);
+        if (!resolved.IsSuccess)
+        {
+            return resolved.Error!.ToActionResult();
+        }
+
+        var result = await _sourceService.GetByIdAsync(resolved.Value, worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -264,7 +272,7 @@ public class SourcesController : ControllerBase
             ToAttachmentResponse(map.Attachment),
             map.ImageUrl,
             map.Placemarks
-                .Select(p => new MapPlacemarkResponse(p.Id, p.ArtifactId, p.ArtifactName, p.X, p.Y, p.Label, p.Confidence))
+                .Select(p => new MapPlacemarkResponse(p.Id, p.ArtifactId, p.ArtifactName, p.X, p.Y, p.Label, p.Confidence, p.ArtifactSlug))
                 .ToList()));
     }
 
@@ -290,7 +298,7 @@ public class SourcesController : ControllerBase
         }
 
         var pin = result.Value!;
-        return Ok(new MapPlacemarkResponse(pin.Id, pin.ArtifactId, pin.ArtifactName, pin.X, pin.Y, pin.Label, pin.Confidence));
+        return Ok(new MapPlacemarkResponse(pin.Id, pin.ArtifactId, pin.ArtifactName, pin.X, pin.Y, pin.Label, pin.Confidence, pin.ArtifactSlug));
     }
 
     /// <summary>Moves a map pin to a new normalized position. Source creator or GM only.</summary>
@@ -315,7 +323,7 @@ public class SourcesController : ControllerBase
         }
 
         var pin = result.Value!;
-        return Ok(new MapPlacemarkResponse(pin.Id, pin.ArtifactId, pin.ArtifactName, pin.X, pin.Y, pin.Label, pin.Confidence));
+        return Ok(new MapPlacemarkResponse(pin.Id, pin.ArtifactId, pin.ArtifactName, pin.X, pin.Y, pin.Label, pin.Confidence, pin.ArtifactSlug));
     }
 
     /// <summary>Removes a map pin; the pinned Location artifact is untouched. Source creator or GM only.</summary>
@@ -362,15 +370,15 @@ public class SourcesController : ControllerBase
         var knowledge = result.Value!;
         return Ok(new SourceKnowledgeResponse(
             knowledge.Artifacts
-                .Select(a => new SourceKnowledgeArtifactResponse(a.ArtifactId, a.Name, a.Type, a.Quote))
+                .Select(a => new SourceKnowledgeArtifactResponse(a.ArtifactId, a.Name, a.Type, a.Quote, a.Slug))
                 .ToList(),
             knowledge.Facts
                 .Select(f => new SourceKnowledgeFactResponse(
-                    f.FactId, f.ArtifactId, f.ArtifactName, f.Predicate, f.Value, f.TruthState, f.Visibility, f.Quote))
+                    f.FactId, f.ArtifactId, f.ArtifactName, f.Predicate, f.Value, f.TruthState, f.Visibility, f.Quote, f.ArtifactSlug))
                 .ToList(),
             knowledge.Relationships
                 .Select(r => new SourceKnowledgeRelationshipResponse(
-                    r.RelationshipId, r.ArtifactAId, r.ArtifactAName, r.Type, r.ArtifactBId, r.ArtifactBName, r.Quote))
+                    r.RelationshipId, r.ArtifactAId, r.ArtifactAName, r.Type, r.ArtifactBId, r.ArtifactBName, r.Quote, r.ArtifactASlug, r.ArtifactBSlug))
                 .ToList()));
     }
 
@@ -650,7 +658,10 @@ public class SourcesController : ControllerBase
             LibraryDocumentId: source.LibraryDocumentId,
             LibraryDocumentTitle: source.LibraryDocument?.Title,
             LibraryPageFrom: source.LibraryPageFrom,
-            LibraryPageTo: source.LibraryPageTo);
+            LibraryPageTo: source.LibraryPageTo,
+            Slug: source.Slug,
+            CampaignSlug: source.Campaign?.Slug,
+            LibraryDocumentSlug: source.LibraryDocument?.Slug);
     }
 
     internal static SourceListItemResponse ToSourceListItemResponse(SourceListItem source)
@@ -666,6 +677,8 @@ public class SourcesController : ControllerBase
             Visibility: source.Visibility.ToString(),
             ProcessingStatus: source.ProcessingStatus.ToString(),
             CampaignId: source.CampaignId,
-            CampaignName: source.CampaignName);
+            CampaignName: source.CampaignName,
+            Slug: source.Slug,
+            CampaignSlug: source.CampaignSlug);
     }
 }

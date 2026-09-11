@@ -103,7 +103,9 @@ public class SourceRepository : ISourceRepository
                 s.Visibility,
                 s.ProcessingStatus,
                 s.CampaignId,
-                s.Campaign != null ? s.Campaign.Name : null))
+                s.Campaign != null ? s.Campaign.Name : null,
+                s.Slug,
+                s.Campaign != null ? s.Campaign.Slug : null))
             .ToListAsync(cancellationToken);
     }
 
@@ -185,7 +187,7 @@ public class SourceRepository : ISourceRepository
             .AsNoTracking()
             .Where(s => ids.Contains(s.Id))
             .Where(SourceVisibilityRule.CanSee(userId, role))
-            .Select(s => new SourceAttribution(s.Id, s.Title, s.Visibility, s.CreatedByUserId))
+            .Select(s => new SourceAttribution(s.Id, s.Title, s.Visibility, s.CreatedByUserId, s.Slug))
             .ToListAsync(cancellationToken);
     }
 

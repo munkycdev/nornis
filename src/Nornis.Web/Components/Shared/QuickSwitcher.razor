@@ -92,15 +92,15 @@
 
 @code {
     /// <summary>One row, whatever kind it is: what to show and where it goes.</summary>
-    private sealed record Row(string Kind, Guid Id, string Name, string? Detail)
+    private sealed record Row(string Kind, Guid Id, string Name, string? Detail, string? Slug)
     {
         public string Href => Kind switch
         {
-            "Campaign" => $"/campaigns/{Id}",
-            "Character" => $"/characters/{Id}",
-            "Artifact" => $"/artifacts/{Id}",
-            "Session" => $"/sources/{Id}",
-            "Library" => $"/library/{Id}",
+            "Campaign" => Links.Campaign(Slug, Id),
+            "Character" => Links.Character(Slug, Id),
+            "Artifact" => Links.Artifact(Slug, Id),
+            "Session" => Links.Source(Slug, Id),
+            "Library" => Links.LibraryDocument(Slug, Id),
             _ => "/dashboard",
         };
     }
@@ -187,7 +187,7 @@
         if (result.IsSuccess)
         {
             _groups = result.Value!.Groups;
-            _rows = _groups.SelectMany(g => g.Items.Select(i => new Row(g.Kind, i.Id, i.Name, i.Detail))).ToList();
+            _rows = _groups.SelectMany(g => g.Items.Select(i => new Row(g.Kind, i.Id, i.Name, i.Detail, i.Slug))).ToList();
         }
         else
         {

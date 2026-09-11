@@ -13,4 +13,5 @@ public record ExtractionReplayInfo(
     string? CurrentSourceTitle,
     string? CurrentSourceProcessingStatus,
     int RemainingCount,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? CurrentSourceSlug = null);

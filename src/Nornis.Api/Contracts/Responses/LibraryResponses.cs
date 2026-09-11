@@ -15,7 +15,8 @@ public record LibraryDocumentResponse(
     string? ErrorMessage,
     Guid UploadedByUserId,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string? Slug = null);
 
 public record LibraryUploadResponse(
     LibraryDocumentResponse Document,

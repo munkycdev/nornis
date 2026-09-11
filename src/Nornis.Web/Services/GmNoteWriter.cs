@@ -14,6 +14,9 @@ namespace Nornis.Web.Services;
 /// The sequence lives here rather than in the dialog so it can be tested without rendering one.
 /// </para>
 /// </remarks>
+/// <summary>The note just filed: enough to link to it.</summary>
+public record FiledNote(Guid Id, string? Slug);
+
 public class GmNoteWriter
 {
     private readonly NornisApiClient _api;
@@ -28,7 +31,7 @@ public class GmNoteWriter
     /// What the GM was reading, if the page knew. Prefixed onto the body so extraction can match
     /// the note to that artifact by name.
     /// </param>
-    public Task<ApiResult<Guid>> SaveAsync(
+    public Task<ApiResult<FiledNote>> SaveAsync(
         Guid worldId,
         string? subject,
         string text,
@@ -44,35 +47,36 @@ public class GmNoteWriter
     /// grounding" is the only computable one. Reveal is the sanctioned promotion path, and the
     /// GM can widen individual proposals at review.
     /// </summary>
-    public Task<ApiResult<Guid>> FileAskAnswerAsync(
+    public Task<ApiResult<FiledNote>> FileAskAnswerAsync(
         Guid worldId,
         string question,
         string answer,
         CancellationToken ct = default) =>
         CreateAndQueueAsync(worldId, BuildAskFileBackRequest(question, answer), ct);
 
-    private async Task<ApiResult<Guid>> CreateAndQueueAsync(
+    private async Task<ApiResult<FiledNote>> CreateAndQueueAsync(
         Guid worldId, CreateSourceRequest request, CancellationToken ct)
     {
         var created = await _api.CreateSourceAsync(worldId, request, ct);
         if (!created.IsSuccess)
         {
-            return ApiResult<Guid>.Fail(created.Error!);
+            return ApiResult<FiledNote>.Fail(created.Error!);
         }
 
         var sourceId = created.Value!.Id;
+        var slug = created.Value.Slug;
         var ready = await _api.MarkSourceReadyAsync(worldId, sourceId, ct);
         if (!ready.IsSuccess)
         {
             // The note survives as a draft, so nothing the GM typed is lost — but it will sit
             // unread until someone queues it from the sources ledger. Say so rather than
             // reporting a plain failure.
-            return ApiResult<Guid>.Fail(new ApiError(
+            return ApiResult<FiledNote>.Fail(new ApiError(
                 ready.Error!.Code,
                 $"Saved as a draft, but could not queue it for reading: {ready.Error!.Message}"));
         }
 
-        return ApiResult<Guid>.Ok(sourceId);
+        return ApiResult<FiledNote>.Ok(new FiledNote(sourceId, slug));
     }
 
     internal static CreateSourceRequest BuildRequest(string? subject, string text, string visibility)

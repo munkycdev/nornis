@@ -73,7 +73,7 @@ public class MapViewService : IMapViewService
 
             views.Add(new MapPlacemarkView(
                 placemark.Id, artifact.Id, artifact.Name,
-                placemark.X, placemark.Y, placemark.Label, placemark.Confidence));
+                placemark.X, placemark.Y, placemark.Label, placemark.Confidence, artifact.Slug));
         }
 
         return AppResult<MapView>.Success(new MapView(attachment, imageUrl, views));
@@ -141,7 +141,7 @@ public class MapViewService : IMapViewService
         }, ct);
 
         return AppResult<MapPlacemarkView>.Success(new MapPlacemarkView(
-            created.Id, artifact.Id, artifact.Name, created.X, created.Y, created.Label, created.Confidence));
+            created.Id, artifact.Id, artifact.Name, created.X, created.Y, created.Label, created.Confidence, artifact.Slug));
     }
 
     public async Task<AppResult<MapPlacemarkView>> MovePlacemarkAsync(
@@ -173,7 +173,7 @@ public class MapViewService : IMapViewService
         var updated = await _placemarkRepository.UpdateAsync(placemark, ct);
 
         return AppResult<MapPlacemarkView>.Success(new MapPlacemarkView(
-            updated.Id, artifact!.Id, artifact.Name, updated.X, updated.Y, updated.Label, updated.Confidence));
+            updated.Id, artifact!.Id, artifact.Name, updated.X, updated.Y, updated.Label, updated.Confidence, artifact.Slug));
     }
 
     public async Task<AppResult> RemovePlacemarkAsync(

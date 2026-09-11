@@ -22,4 +22,6 @@ public record SourceListItem(
     VisibilityScope Visibility,
     SourceProcessingStatus ProcessingStatus,
     Guid? CampaignId,
-    string? CampaignName);
+    string? CampaignName,
+    string? Slug = null,
+    string? CampaignSlug = null);

@@ -16,4 +16,5 @@ public record ArtifactDetail(
     IReadOnlyList<Artifact> ConnectedArtifacts,
     IReadOnlyList<SourceReference> SourceReferences,
     IReadOnlyDictionary<Guid, string> SourceTitles,
+    IReadOnlyDictionary<Guid, string?> SourceSlugs,
     IReadOnlyList<string> PlayedBy);

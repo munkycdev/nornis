@@ -121,6 +121,7 @@ public class ArtifactTests
         var properties = _type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
         // 16th: SummaryRefreshedAt — provenance stamp and staleness gate for the accept-time
         // summary refresh (W1); null means the refresh has never run for this artifact.
-        Assert.That(properties, Has.Length.EqualTo(16));
+        // 17th: Slug — the address of the detail page, assigned once in the save path.
+        Assert.That(properties, Has.Length.EqualTo(17));
     }
 }

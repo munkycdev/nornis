@@ -25,7 +25,7 @@
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                 @foreach (var source in _sources)
                 {
-                    <a href="@($"/w/{Slug}/sources/{source.Id}")" class="nornis-list-row nornis-list-link">
+                    <a href="@Links.PublicSource(Slug, source.Slug, source.Id)" class="nornis-list-row nornis-list-link">
                         <div class="nornis-list-thumb">
                             <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" />
                         </div>

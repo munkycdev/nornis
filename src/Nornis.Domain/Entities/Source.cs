@@ -2,7 +2,7 @@
 
 namespace Nornis.Domain.Entities;
 
-public class Source
+public class Source : ISlugged
 {
     public Guid Id { get; set; }
 
@@ -17,6 +17,11 @@ public class Source
     public SourceType Type { get; set; }
 
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>Per-world URL slug; see <see cref="ISlugged"/>.</summary>
+    public string? Slug { get; set; }
+
+    string ISlugged.SlugSource => Title;
 
     public string? Body { get; set; }
 

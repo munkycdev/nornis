@@ -1,5 +1,34 @@
 # Domain Model
 
+> **Amendment (2026-09-10): detail pages are addressed by slug.** `Artifact`, `Campaign`,
+> `Character`, `Source` and `LibraryDocument` each carry a `Slug` — lowercase a-z0-9 joined by
+> hyphens, at most 60 characters plus a numeric suffix, unique per world and per kind. It is
+> derived from the name (or title) by `Slug.From`, the one definition of the alphabet, which the
+> world's GM-typed `PublicSlug` is validated against as well.
+>
+> Three rules, each a decision:
+>
+> - **Assigned once, never moved.** The slug is set when the row is first saved and a rename does
+>   not change it — it is a permalink, like the world's public slug. Following the name would let
+>   an old link land on whatever entity later took the freed slug, which is worse than a stale
+>   word in the address bar. Collisions take `-2`, `-3`, …
+> - **Assigned in the save path, not by callers.** `SlugAssigner` runs inside
+>   `NornisDbContext.SaveChangesAsync`, so the eight creators (review apply, the demo clone,
+>   world import, uploads, the plain create commands) get it without knowing. A row without a
+>   slug is not an error — every link builder falls back to the id — so **null means "written
+>   before slugs existed and not yet backfilled"** and nothing else. `SlugBackfiller` runs once
+>   at API start and clears that backlog; the column stays nullable.
+> - **The id is still a key.** A detail endpoint takes `{key}`, slug or GUID, and an unknown slug
+>   is the same 404 as an unknown id (`ISlugResolver`, `SlugKeys`). Links minted before slugs keep
+>   working forever; a page opened by id rewrites the address bar to the slug.
+>
+> Slugs are not exported: a world imported from a package derives fresh ones from the names.
+>
+> ```csharp
+> // on each of the five entities
+> public string? Slug { get; set; }   // ISlugged; unique (WorldId, Slug) where not null
+> ```
+
 > **Amendment (2026-09-10): a player without an account can hold a shelf link.** Feature 27
 > adds `ShelfLink` — a capability code minted by a GM for one unlinked `Player`, which opens
 > the world's party shelf (the Library as a member with the Player role sees it) anonymously,

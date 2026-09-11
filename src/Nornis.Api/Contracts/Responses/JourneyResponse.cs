@@ -1,15 +1,16 @@
 namespace Nornis.Api.Contracts.Responses;
 
-public record JourneyLocationResponse(Guid ArtifactId, string Name, decimal X, decimal Y, string? Label);
+public record JourneyLocationResponse(Guid ArtifactId, string Name, decimal X, decimal Y, string? Label, string? ArtifactSlug = null);
 
-public record JourneyHighlightResponse(Guid ArtifactId, string Name, string Type, bool FirstSeen, string? Summary);
+public record JourneyHighlightResponse(Guid ArtifactId, string Name, string Type, bool FirstSeen, string? Summary, string? ArtifactSlug = null);
 
 public record JourneyStopResponse(
     Guid SourceId,
     string Title,
     DateTimeOffset OccurredAt,
     IReadOnlyList<Guid> VisitedLocationIds,
-    IReadOnlyList<JourneyHighlightResponse> Highlights);
+    IReadOnlyList<JourneyHighlightResponse> Highlights,
+    string? SourceSlug = null);
 
 /// <summary>
 /// The world's journey over one map: the map image (short-lived SAS url), its visible location
@@ -22,4 +23,5 @@ public record JourneyResponse(
     string ImageUrl,
     IReadOnlyList<JourneyLocationResponse> Locations,
     IReadOnlyList<JourneyStopResponse> Stops,
-    int UndatedSessionCount);
+    int UndatedSessionCount,
+    string? MapSourceSlug = null);

@@ -639,7 +639,7 @@ public class ContinuityAuditService : IContinuityAuditService
             case "artifact" when lookup.Artifacts.TryGetValue(id, out var artifact):
                 return new ContinuityEvidenceItemView(
                     refId, "Artifact", artifact.Name, artifact.Id,
-                    artifact.UpdatedAt > assessedAt, false);
+                    artifact.UpdatedAt > assessedAt, false, artifact.Slug);
 
             case "artifact":
                 return new ContinuityEvidenceItemView(
@@ -650,18 +650,19 @@ public class ContinuityAuditService : IContinuityAuditService
                 return new ContinuityEvidenceItemView(
                     refId, "Fact",
                     $"{owner?.Name ?? "Unknown artifact"} — {fact.Predicate}: {fact.Value.Truncate(80, ellipsis: true)}",
-                    fact.ArtifactId, fact.UpdatedAt > assessedAt, false);
+                    fact.ArtifactId, fact.UpdatedAt > assessedAt, false, owner?.Slug);
 
             case "fact":
                 return new ContinuityEvidenceItemView(
                     refId, "Fact", "No longer in the record", null, false, true);
 
             case "rel" when lookup.Relationships.TryGetValue(id, out var rel):
-                var a = lookup.Artifacts.GetValueOrDefault(rel.ArtifactAId)?.Name ?? "Unknown artifact";
+                var artifactA = lookup.Artifacts.GetValueOrDefault(rel.ArtifactAId);
+                var a = artifactA?.Name ?? "Unknown artifact";
                 var b = lookup.Artifacts.GetValueOrDefault(rel.ArtifactBId)?.Name ?? "Unknown artifact";
                 return new ContinuityEvidenceItemView(
                     refId, "Relationship", $"{a} ↔ {b} — {rel.Type}", rel.ArtifactAId,
-                    rel.UpdatedAt > assessedAt, false);
+                    rel.UpdatedAt > assessedAt, false, artifactA?.Slug);
 
             case "rel":
                 return new ContinuityEvidenceItemView(
@@ -734,7 +735,8 @@ public class ContinuityAuditService : IContinuityAuditService
             items,
             f.ArtifactId,
             f.Status.ToString(),
-            IsStale: items.Any(i => i.ChangedSinceAudit || i.Missing));
+            IsStale: items.Any(i => i.ChangedSinceAudit || i.Missing),
+            ArtifactSlug: f.ArtifactId is { } linked ? lookup.Artifacts.GetValueOrDefault(linked)?.Slug : null);
     }
 
     private static IReadOnlyList<string> DeserializeEvidence(string json)

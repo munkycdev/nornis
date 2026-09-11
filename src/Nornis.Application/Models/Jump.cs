@@ -20,7 +20,7 @@ public record JumpQuery(
     int PerKind = 8);
 
 /// <param name="Detail">A word or two beside the name: an artifact's type, a campaign's status, a session's date.</param>
-public record JumpItem(Guid Id, string Name, string? Detail);
+public record JumpItem(Guid Id, string Name, string? Detail, string? Slug = null);
 
 /// <param name="TotalCount">
 /// Matches of this kind the reader may see, before the per-kind cap — so the UI can say "8 of

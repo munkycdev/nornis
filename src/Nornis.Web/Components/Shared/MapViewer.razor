@@ -13,7 +13,7 @@
     @foreach (var pin in Placemarks)
     {
         <a @key="pin.Id"
-           href="@($"{ArtifactLinkBase}/{pin.ArtifactId}")"
+           href="@($"{ArtifactLinkBase}/{Links.Key(pin.ArtifactSlug, pin.ArtifactId)}")"
            class="nornis-map-pin"
            data-placemark-id="@pin.Id"
            style="left:@(Pct(pin.X))%; top:@(Pct(pin.Y))%;"

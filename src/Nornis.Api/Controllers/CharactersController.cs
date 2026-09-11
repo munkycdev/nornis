@@ -6,6 +6,7 @@ using Nornis.Api.Filters;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Repositories;
 
 namespace Nornis.Api.Controllers;
 
@@ -162,13 +163,20 @@ public class CharactersController : ControllerBase
         return NoContent();
     }
 
-    [HttpGet("{characterId:guid}/dossier")]
-    public async Task<IActionResult> GetDossier(Guid worldId, Guid characterId, CancellationToken ct)
+    [HttpGet("{key}/dossier")]
+    public async Task<IActionResult> GetDossier(
+        Guid worldId, string key, [FromServices] ISlugResolver slugResolver, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        var result = await _characterService.GetDossierAsync(characterId, worldId, user.Id, member.Role, ct);
+        var resolved = await slugResolver.ResolveKeyAsync<Character>(worldId, key, "Character", ct);
+        if (!resolved.IsSuccess)
+        {
+            return resolved.Error!.ToActionResult();
+        }
+
+        var result = await _characterService.GetDossierAsync(resolved.Value, worldId, user.Id, member.Role, ct);
 
         if (!result.IsSuccess)
         {
@@ -187,6 +195,7 @@ public class CharactersController : ControllerBase
                 Summary: dossier.Record.Summary,
                 Facts: dossier.Record.Facts.Select(ArtifactsController.ToFactResponse).ToList(),
                 TotalFactCount: dossier.Record.TotalFactCount,
+                ArtifactSlug: dossier.Record.ArtifactSlug,
                 Groups: dossier.Record.Groups.Select(g => new CharacterRecordGroupResponse(
                     Type: g.Type.ToString(),
                     Artifacts: g.Artifacts.Select(ArtifactsController.ToConnectedResponse).ToList(),
@@ -200,11 +209,13 @@ public class CharactersController : ControllerBase
                 SourceId: s.SourceId,
                 SourceTitle: s.SourceTitle,
                 AsOf: s.AsOf,
-                Note: s.Note)).ToList(),
+                Note: s.Note,
+                SourceSlug: s.SourceSlug)).ToList(),
             UnreconciledItems: dossier.UnreconciledItems.Select(u => new UnreconciledItemResponse(
                 ArtifactId: u.ArtifactId,
                 Name: u.Name,
-                Type: u.Type.ToString())).ToList()));
+                Type: u.Type.ToString(),
+                Slug: u.Slug)).ToList()));
     }
 
     [HttpPost("{characterId:guid}/snapshots")]
@@ -321,6 +332,8 @@ public class CharactersController : ControllerBase
             CampaignIds: character.CampaignIds,
             SheetUpdatedAt: character.SheetUpdatedAt,
             CreatedAt: character.CreatedAt,
-            UpdatedAt: character.UpdatedAt);
+            UpdatedAt: character.UpdatedAt,
+            Slug: character.Slug,
+            ArtifactSlug: character.ArtifactSlug);
     }
 }

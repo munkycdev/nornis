@@ -21,14 +21,16 @@ public record CharacterDossierResponse(
 public record UnreconciledItemResponse(
     Guid ArtifactId,
     string Name,
-    string Type);
+    string Type,
+    string? Slug = null);
 
 public record CharacterSnapshotResponse(
     Guid Id,
     Guid SourceId,
     string SourceTitle,
     DateTimeOffset AsOf,
-    string? Note);
+    string? Note,
+    string? SourceSlug = null);
 
 public record CharacterRecordResponse(
     Guid ArtifactId,
@@ -36,7 +38,8 @@ public record CharacterRecordResponse(
     string? Summary,
     IReadOnlyList<ArtifactFactResponse> Facts,
     int TotalFactCount,
-    IReadOnlyList<CharacterRecordGroupResponse> Groups);
+    IReadOnlyList<CharacterRecordGroupResponse> Groups,
+    string? ArtifactSlug = null);
 
 public record CharacterRecordGroupResponse(
     string Type,

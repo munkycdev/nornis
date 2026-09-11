@@ -5,7 +5,7 @@ using Nornis.Domain.Enums;
 namespace Nornis.Application.Services;
 
 public sealed record MapPlacemarkView(
-    Guid Id, Guid ArtifactId, string ArtifactName, decimal X, decimal Y, string? Label, decimal? Confidence);
+    Guid Id, Guid ArtifactId, string ArtifactName, decimal X, decimal Y, string? Label, decimal? Confidence, string? ArtifactSlug = null);
 
 public sealed record MapView(
     SourceAttachment Attachment, string ImageUrl, IReadOnlyList<MapPlacemarkView> Placemarks);

@@ -60,7 +60,7 @@ public sealed class JumpService : IJumpService
             return AppResult<JumpResult>.Fail(campaigns.Error!);
         }
         groups.Add(Group(JumpKind.Campaign, perKind, term,
-            campaigns.Value!.Select(c => (c.Name, new JumpItem(c.Id, c.Name, c.Status.ToString())))));
+            campaigns.Value!.Select(c => (c.Name, new JumpItem(c.Id, c.Name, c.Status.ToString(), c.Slug)))));
 
         var characters = await _characters.ListByWorldAsync(query.WorldId, query.ActingUserId, query.ActingUserRole, ct);
         if (!characters.IsSuccess)
@@ -68,7 +68,7 @@ public sealed class JumpService : IJumpService
             return AppResult<JumpResult>.Fail(characters.Error!);
         }
         groups.Add(Group(JumpKind.Character, perKind, term,
-            characters.Value!.Select(c => (c.Name, new JumpItem(c.Id, c.Name, "Character")))));
+            characters.Value!.Select(c => (c.Name, new JumpItem(c.Id, c.Name, "Character", c.Slug)))));
 
         // Artifacts have a real search with its own ranking and cap. The cap is asked for as
         // one more than the page so "more than this" is knowable without a count query; the
@@ -79,7 +79,7 @@ public sealed class JumpService : IJumpService
         {
             return AppResult<JumpResult>.Fail(artifacts.Error!);
         }
-        var artifactItems = artifacts.Value!.Select(a => new JumpItem(a.Id, a.Name, a.Type.ToString())).ToList();
+        var artifactItems = artifacts.Value!.Select(a => new JumpItem(a.Id, a.Name, a.Type.ToString(), a.Slug)).ToList();
         groups.Add(new JumpGroup(JumpKind.Artifact, artifactItems.Take(perKind).ToList(), artifactItems.Count));
 
         var sources = await _sources.ListSummariesByWorldAsync(query.WorldId, query.ActingUserId, query.ActingUserRole, ct);
@@ -88,7 +88,7 @@ public sealed class JumpService : IJumpService
             return AppResult<JumpResult>.Fail(sources.Error!);
         }
         groups.Add(Group(JumpKind.Session, perKind, term,
-            sources.Value!.Select(s => (s.Title, new JumpItem(s.Id, s.Title, SessionDetail(s))))));
+            sources.Value!.Select(s => (s.Title, new JumpItem(s.Id, s.Title, SessionDetail(s), s.Slug)))));
 
         var library = await _library.ListAsync(query.WorldId, query.ActingUserRole, ct);
         if (!library.IsSuccess)
@@ -96,7 +96,7 @@ public sealed class JumpService : IJumpService
             return AppResult<JumpResult>.Fail(library.Error!);
         }
         groups.Add(Group(JumpKind.Library, perKind, term,
-            library.Value!.Select(d => (d.Title, new JumpItem(d.Id, d.Title, d.Kind.ToString())))));
+            library.Value!.Select(d => (d.Title, new JumpItem(d.Id, d.Title, d.Kind.ToString(), d.Slug)))));
 
         return AppResult<JumpResult>.Success(new JumpResult(groups.Where(g => g.TotalCount > 0).ToList()));
     }

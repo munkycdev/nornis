@@ -154,7 +154,7 @@ public class SourceLocationService : ISourceLocationService
             {
                 continue; // not a place, archived, or hidden from this caller
             }
-            locations.Add(new LinkedLocation(artifact.Id, artifact.Name, artifact.Summary));
+            locations.Add(new LinkedLocation(artifact.Id, artifact.Name, artifact.Summary, artifact.Slug));
         }
 
         return locations

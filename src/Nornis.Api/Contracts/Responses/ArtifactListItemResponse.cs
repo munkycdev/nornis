@@ -10,4 +10,5 @@ public record ArtifactListItemResponse(
     string Visibility,
     decimal? Confidence,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string? Slug = null);

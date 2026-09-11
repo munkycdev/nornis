@@ -82,7 +82,8 @@ public class CanonService : ICanonService
                 Confidence: fact.Confidence,
                 TruthState: fact.TruthState,
                 Visibility: fact.Visibility,
-                UpdatedAt: fact.UpdatedAt));
+                UpdatedAt: fact.UpdatedAt,
+                ArtifactSlug: artifact.Slug));
         }
 
         entries = relationshipEntries;
@@ -109,7 +110,9 @@ public class CanonService : ICanonService
                 Confidence: relationship.Confidence,
                 TruthState: relationship.TruthState,
                 Visibility: relationship.Visibility,
-                UpdatedAt: relationship.UpdatedAt));
+                UpdatedAt: relationship.UpdatedAt,
+                ArtifactSlug: artifactA.Slug,
+                OtherArtifactSlug: artifactB.Slug));
         }
 
         // Every cap below runs on entries that already passed visibility and truth-state

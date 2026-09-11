@@ -12,6 +12,8 @@ public class KnowledgeSourceReference
     /// provenance ("recorded in ...").</summary>
     public string? SourceTitle { get; init; }
 
+    public string? SourceSlug { get; init; }
+
     /// <summary>When the owning source's events happened (OccurredAt ?? CreatedAt),
     /// when loaded — lets the prompt date-stamp retrieved knowledge.</summary>
     public DateTimeOffset? SourceDate { get; init; }

@@ -10,13 +10,18 @@ namespace Nornis.Domain.Entities;
 /// pages and file them as a <see cref="SourceType.LibraryExcerpt"/> — the choosing is the
 /// gate, and from there the excerpt is an ordinary source.
 /// </summary>
-public class LibraryDocument
+public class LibraryDocument : ISlugged
 {
     public Guid Id { get; set; }
 
     public Guid WorldId { get; set; }
 
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>Per-world URL slug; see <see cref="ISlugged"/>.</summary>
+    public string? Slug { get; set; }
+
+    string ISlugged.SlugSource => Title;
 
     public string FileName { get; set; } = string.Empty;
 

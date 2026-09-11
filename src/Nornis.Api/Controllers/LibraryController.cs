@@ -7,6 +7,7 @@ using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Repositories;
 
 namespace Nornis.Api.Controllers;
 
@@ -86,11 +87,18 @@ public class LibraryController : ControllerBase
             : result.Error!.ToActionResult();
     }
 
-    [HttpGet("{documentId:guid}")]
-    public async Task<IActionResult> GetById(Guid worldId, Guid documentId, CancellationToken ct)
+    [HttpGet("{key}")]
+    public async Task<IActionResult> GetByKey(
+        Guid worldId, string key, [FromServices] ISlugResolver slugResolver, CancellationToken ct)
     {
         var member = HttpContext.GetWorldMember();
-        var result = await _libraryService.GetByIdAsync(documentId, worldId, member.Role, ct);
+        var resolved = await slugResolver.ResolveKeyAsync<LibraryDocument>(worldId, key, "Library document", ct);
+        if (!resolved.IsSuccess)
+        {
+            return resolved.Error!.ToActionResult();
+        }
+
+        var result = await _libraryService.GetByIdAsync(resolved.Value, worldId, member.Role, ct);
         return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 
@@ -189,12 +197,12 @@ public class LibraryController : ControllerBase
                 request.ChunkIds ?? [], request.PageFrom, request.PageTo, request.ArtifactId), ct);
 
         return result.IsSuccess
-            ? Ok(new LibraryExcerptFiledResponse(result.Value!.Id, result.Value.Title, result.Value.ProcessingStatus.ToString()))
+            ? Ok(new LibraryExcerptFiledResponse(result.Value!.Id, result.Value.Title, result.Value.ProcessingStatus.ToString(), result.Value.Slug))
             : result.Error!.ToActionResult();
     }
 
     private static LibraryDocumentResponse ToResponse(LibraryDocument d) => new(
         d.Id, d.WorldId, d.Title, d.FileName, d.ContentType, d.SizeBytes,
         d.Kind.ToString(), d.Visibility.ToString(), d.Status.ToString(),
-        d.PageCount, d.ChunkCount, d.ErrorMessage, d.UploadedByUserId, d.CreatedAt, d.UpdatedAt);
+        d.PageCount, d.ChunkCount, d.ErrorMessage, d.UploadedByUserId, d.CreatedAt, d.UpdatedAt, d.Slug);
 }

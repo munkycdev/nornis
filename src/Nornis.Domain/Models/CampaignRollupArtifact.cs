@@ -21,7 +21,8 @@ public record CampaignRollupArtifact(
     ArtifactType Type,
     string? Summary,
     ArtifactStatus Status,
-    int SourceCount);
+    int SourceCount,
+    string? Slug = null);
 
 /// <summary>
 /// One page of the rollup. <paramref name="TotalCount"/> is the unbounded truth so the UI can

@@ -8,4 +8,6 @@ public class KnowledgeArtifact
     public string? Summary { get; init; }
     public string? Status { get; init; }
     public required string ReferenceId { get; init; }
+
+    public string? Slug { get; init; }
 }

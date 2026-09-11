@@ -46,7 +46,7 @@ public static class UnreconciledItems
             .Where(g => ObservedTypes.Contains(g.Type))
             .SelectMany(g => g.Artifacts)
             .Where(a => !sheetText.Contains(a.Name, StringComparison.OrdinalIgnoreCase))
-            .Select(a => new UnreconciledItem(a.Id, a.Name, a.Type))
+            .Select(a => new UnreconciledItem(a.Id, a.Name, a.Type, a.Slug))
             .ToList();
     }
 }

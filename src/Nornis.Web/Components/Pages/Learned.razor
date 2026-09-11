@@ -88,7 +88,7 @@ else
                         <div>
                             @if (element.Kind == "Artifact")
                             {
-                                <MudLink Href="@($"/artifacts/{element.Id}")">@element.Name</MudLink>
+                                <MudLink Href="@Links.Artifact(element.Slug, element.Id)">@element.Name</MudLink>
                             }
                             else
                             {

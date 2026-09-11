@@ -10,7 +10,8 @@ public record SourceKnowledgeArtifactResponse(
     Guid ArtifactId,
     string Name,
     string Type,
-    string? Quote);
+    string? Quote,
+    string? Slug = null);
 
 public record SourceKnowledgeFactResponse(
     Guid FactId,
@@ -20,7 +21,8 @@ public record SourceKnowledgeFactResponse(
     string Value,
     string TruthState,
     string Visibility,
-    string? Quote);
+    string? Quote,
+    string? ArtifactSlug = null);
 
 public record SourceKnowledgeRelationshipResponse(
     Guid RelationshipId,
@@ -29,4 +31,6 @@ public record SourceKnowledgeRelationshipResponse(
     string Type,
     Guid ArtifactBId,
     string ArtifactBName,
-    string? Quote);
+    string? Quote,
+    string? ArtifactASlug = null,
+    string? ArtifactBSlug = null);

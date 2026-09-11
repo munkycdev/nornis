@@ -7,7 +7,7 @@ namespace Nornis.Application.Services;
 /// One Location artifact a session is linked to. <paramref name="Summary"/> feeds the same
 /// hover-card (ArtifactTip) the rest of the app uses.
 /// </summary>
-public sealed record LinkedLocation(Guid ArtifactId, string Name, string? Summary);
+public sealed record LinkedLocation(Guid ArtifactId, string Name, string? Summary, string? Slug = null);
 
 /// <summary>
 /// Reads and writes the user-authored links between a session (Source) and the Location artifacts

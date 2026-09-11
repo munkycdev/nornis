@@ -120,7 +120,7 @@ public class CampaignRepository : ICampaignRepository
                        .Where(a => a.WorldId == worldId)
                        .Where(filter.CanSeeArtifact())
                    on c.ArtifactId equals a.Id
-               group c.SourceId by new { a.Id, a.Name, a.Type, a.Summary, a.Status }
+               group c.SourceId by new { a.Id, a.Name, a.Type, a.Summary, a.Status, a.Slug }
                into g
                orderby g.Select(sourceId => sourceId).Distinct().Count() descending, g.Key.Name
                select new CampaignRollupArtifact(
@@ -129,7 +129,8 @@ public class CampaignRepository : ICampaignRepository
                    g.Key.Type,
                    g.Key.Summary,
                    g.Key.Status,
-                   g.Select(sourceId => sourceId).Distinct().Count());
+                   g.Select(sourceId => sourceId).Distinct().Count(),
+                   g.Key.Slug);
     }
 
     public async Task<IReadOnlyList<Campaign>> ReorderAsync(

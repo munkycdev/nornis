@@ -1,4 +1,4 @@
-﻿@page "/sources/{SourceId:guid}"
+﻿@page "/sources/{Key}"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -53,7 +53,7 @@
                     @if (_source.CampaignName is not null)
                     {
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary"
-                                 Href="@($"/campaigns/{_source.CampaignId}")">@_source.CampaignName</MudChip>
+                                 Href="@Links.Campaign(_source.CampaignSlug, _source.CampaignId!.Value)">@_source.CampaignName</MudChip>
                     }
                 </div>
             </div>
@@ -113,7 +113,7 @@
                 <div class="d-flex align-center gap-3 flex-wrap">
                     <span>
                         Timeline replay in progress — currently on
-                        <MudLink Href="@($"/sources/{_replay.CurrentSourceId}")">@(_replay.CurrentSourceTitle ?? "a note")</MudLink>
+                        <MudLink Href="@Links.Source(_replay.CurrentSourceSlug, _replay.CurrentSourceId)">@(_replay.CurrentSourceTitle ?? "a note")</MudLink>
                         (@ReplayPhase(_replay.CurrentSourceProcessingStatus)), @_replay.RemainingCount more to go.
                     </span>
                     <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default"
@@ -217,7 +217,7 @@
                 {
                     <div class="nornis-kv">
                         <span class="nornis-kv-key">Campaign</span>
-                        <span class="nornis-kv-value"><a href="@($"/campaigns/{_source.CampaignId}")" class="nornis-link">@_source.CampaignName</a></span>
+                        <span class="nornis-kv-value"><a href="@Links.Campaign(_source.CampaignSlug, _source.CampaignId!.Value)" class="nornis-link">@_source.CampaignName</a></span>
                     </div>
                 }
                 @if (!string.IsNullOrWhiteSpace(_source.Uri))
@@ -234,7 +234,7 @@
                         <span class="nornis-kv-value">
                             @if (_source.LibraryDocumentId is { } documentId)
                             {
-                                <a href="@($"/library/{documentId}")" class="nornis-link">@(_source.LibraryDocumentTitle ?? "Document")</a>
+                                <a href="@Links.LibraryDocument(_source.LibraryDocumentSlug, documentId)" class="nornis-link">@(_source.LibraryDocumentTitle ?? "Document")</a>
                             }
                             else
                             {
@@ -382,7 +382,7 @@
                         {
                             <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
                                        StartIcon="@Icons.Material.Filled.Draw"
-                                       Href="@($"/capture/ink/{_source.Id}")">
+                                       Href="@Links.InkCapture(_source.Slug, _source.Id)">
                                 Open canvas
                             </MudButton>
                         }
@@ -449,14 +449,18 @@
 </div>
 
 @code {
-    [Parameter] public Guid SourceId { get; set; }
+    /// <summary>The slug, or an id from a link minted before slugs; see <see cref="Links"/>.</summary>
+    [Parameter] public string Key { get; set; } = string.Empty;
+
+    /// <summary>Every follow-up read and mutation targets the source that loaded; the key only opens the page.</summary>
+    private Guid SourceId => _source?.Id ?? Guid.Empty;
 
     private bool _loading;
     private bool _notFound;
     private bool _processing;
     private string? _error;
     private SourceDetailDto? _source;
-    private Guid _loadedId;
+    private string? _loadedKey;
     private IReadOnlyList<SourceAttachmentDto> _attachments = [];
 
     private MapViewDto? _mapView;
@@ -660,7 +664,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (SourceId != _loadedId)
+        if (Key != _loadedKey)
         {
             await Worlds.EnsureLoadedAsync();
             await LoadAsync();
@@ -740,7 +744,7 @@
             var rows = new List<ContextRail.RailRow>();
             if (_source.CampaignName is not null)
             {
-                rows.Add(new("Campaign", _source.CampaignName, $"/campaigns/{_source.CampaignId}"));
+                rows.Add(new("Campaign", _source.CampaignName, Links.Campaign(_source.CampaignSlug, _source.CampaignId!.Value)));
             }
             if (_knowledge is not null)
             {
@@ -759,7 +763,7 @@
     private IReadOnlyList<ContextRail.RailLink> RailRelated => _knowledge is null ? [] :
         _knowledge.Artifacts
             .Take(8)
-            .Select(k => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(k.Type), k.Name, $"/artifacts/{k.ArtifactId}"))
+            .Select(k => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(k.Type), k.Name, Links.Artifact(k.Slug, k.ArtifactId)))
             .ToList();
 
     private async Task LoadAsync()
@@ -774,25 +778,25 @@
         _loading = true;
         _notFound = false;
         _error = null;
-        _loadedId = SourceId;
+        _loadedKey = Key;
         StateHasChanged();
 
         // Captured once: a world switch mid-load nulls Worlds.Current, and every fetch below
         // should describe the world this load started in.
         var worldId = Worlds.Current.Id;
-        var sourceId = SourceId;
+        var key = Key;
 
         // The campaign list and the GM's replay banner don't depend on the source row, so they
         // run alongside the fetch everything else waits on.
         var campaignsTask = Api.GetCampaignsAsync(worldId);
         var replayTask = RefreshReplayAsync(CancellationToken.None);
-        var result = await Api.GetSourceAsync(worldId, sourceId);
+        var result = await Api.GetSourceAsync(worldId, key);
 
         // The comment that used to sit above claimed late responses were "discarded by the
         // callers' own checks". No such check existed anywhere — so overlapping loads painted
         // whichever finished last, and a world switch mid-load painted the old world's source.
-        // _loadedId is the sequence marker: a newer load overwrote it before its own await.
-        if (_loadedId != sourceId || Worlds.Current?.Id != worldId)
+        // _loadedKey is the sequence marker: a newer load overwrote it before its own await.
+        if (_loadedKey != key || Worlds.Current?.Id != worldId)
         {
             return;
         }
@@ -805,9 +809,14 @@
         if (result.IsSuccess)
         {
             _source = result.Value!;
-            Crumbs.Set($"/sources/{_source.Id}",
+            if (!Links.IsCanonical(Key, _source.Slug))
+            {
+                _loadedKey = _source.Slug;
+                Nav.NavigateTo(Links.Source(_source.Slug, _source.Id), replace: true);
+            }
+            Crumbs.Set(Links.Source(_source.Slug, _source.Id),
                 _source.CampaignId is { } campaignId && _source.CampaignName is not null
-                    ? [new Crumb("Sources", "/sources"), new Crumb(_source.CampaignName, $"/campaigns/{campaignId}"), new Crumb(_source.Title)]
+                    ? [new Crumb("Sources", "/sources"), new Crumb(_source.CampaignName, Links.Campaign(_source.CampaignSlug, campaignId)), new Crumb(_source.Title)]
                     : [new Crumb("Sources", "/sources"), new Crumb(_source.Title)]);
 
             _attachments = [];

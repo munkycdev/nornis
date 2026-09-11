@@ -12,4 +12,6 @@ public record CanonEntryResponse(
     decimal? Confidence,
     string TruthState,
     string Visibility,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string? ArtifactSlug = null,
+    string? OtherArtifactSlug = null);

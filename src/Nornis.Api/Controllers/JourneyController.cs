@@ -50,14 +50,16 @@ public class JourneyController : ControllerBase
             journey.MapSourceId,
             journey.ImageUrl,
             journey.Locations
-                .Select(l => new JourneyLocationResponse(l.ArtifactId, l.Name, l.X, l.Y, l.Label))
+                .Select(l => new JourneyLocationResponse(l.ArtifactId, l.Name, l.X, l.Y, l.Label, l.ArtifactSlug))
                 .ToList(),
             journey.Stops
                 .Select(s => new JourneyStopResponse(
                     s.SourceId, s.Title, s.OccurredAt, s.VisitedLocationIds,
                     s.Highlights
-                        .Select(h => new JourneyHighlightResponse(h.ArtifactId, h.Name, h.Type, h.FirstSeen, h.Summary))
-                        .ToList()))
+                        .Select(h => new JourneyHighlightResponse(h.ArtifactId, h.Name, h.Type, h.FirstSeen, h.Summary, h.ArtifactSlug))
+                        .ToList(),
+                    s.SourceSlug))
                 .ToList(),
-            journey.UndatedSessionCount);
+            journey.UndatedSessionCount,
+            journey.MapSourceSlug);
 }

@@ -60,5 +60,5 @@ public class SourceLocationsController : ControllerBase
     }
 
     private static IReadOnlyList<LinkedLocationResponse> ToResponse(IReadOnlyList<LinkedLocation> locations) =>
-        locations.Select(l => new LinkedLocationResponse(l.ArtifactId, l.Name, l.Summary)).ToList();
+        locations.Select(l => new LinkedLocationResponse(l.ArtifactId, l.Name, l.Summary, l.Slug)).ToList();
 }

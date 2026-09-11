@@ -1,5 +1,5 @@
 @page "/capture/ink"
-@page "/capture/ink/{SourceId:guid}"
+@page "/capture/ink/{Key}"
 @layout InkLayout
 @implements IAsyncDisposable
 @inject WorldState Worlds
@@ -34,11 +34,13 @@
 <div id="@_canvasId" class="nornis-ink-canvas"></div>
 
 @code {
-    [Parameter] public Guid? SourceId { get; set; }
+    /// <summary>The draft being resumed: its slug, or an id from an older address.</summary>
+    [Parameter] public string? Key { get; set; }
 
     private readonly string _canvasId = $"nornis-ink-{Guid.NewGuid():N}";
     private DotNetObjectReference<InkCapture>? _selfRef;
     private Guid? _sourceId;
+    private string? _sourceSlug;
     private string _title = $"Session notes — {DateTime.Today:d MMM yyyy}";
     private string _tool = "pen";
     private string _status = "";
@@ -61,7 +63,6 @@
     protected override async Task OnInitializedAsync()
     {
         await Worlds.EnsureLoadedAsync();
-        _sourceId = SourceId;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -81,16 +82,23 @@
 
         _selfRef = DotNetObjectReference.Create(this);
 
-        if (_sourceId is not null)
+        if (!string.IsNullOrEmpty(Key))
         {
-            // Resume: load the source title and its ink document (straight from blob).
-            var source = await Api.GetSourceAsync(Worlds.Current.Id, _sourceId.Value);
+            // Resume: the key in the address opens the draft (after the world restore above,
+            // which is why this is not in OnInitialized); everything after works from its id.
+            var source = await Api.GetSourceAsync(Worlds.Current.Id, Key);
             if (source.IsSuccess)
             {
-                _title = source.Value!.Title;
+                _sourceId = source.Value!.Id;
+                _sourceSlug = source.Value.Slug;
+                _title = source.Value.Title;
                 StateHasChanged();
             }
+        }
 
+        if (_sourceId is not null)
+        {
+            // The ink document itself, straight from blob.
             var attachments = await Api.GetSourceAttachmentsAsync(Worlds.Current.Id, _sourceId.Value);
             var ink = attachments.IsSuccess
                 ? attachments.Value!.FirstOrDefault(a => a.Kind == "InkDocument" && a.Url is not null)
@@ -213,8 +221,9 @@
         }
 
         _sourceId = created.Value!.Id;
-        // Put the id in the URL so a refresh (or the browser dying) resumes this canvas.
-        Nav.NavigateTo($"/capture/ink/{_sourceId}", replace: true);
+        _sourceSlug = created.Value.Slug;
+        // Put the key in the URL so a refresh (or the browser dying) resumes this canvas.
+        Nav.NavigateTo(Links.InkCapture(_sourceSlug, _sourceId.Value), replace: true);
         return true;
     }
 
@@ -308,7 +317,7 @@
             }
 
             Snackbar.Add("Ink queued — Nornis is transcribing and extracting it now.", Severity.Success);
-            Nav.NavigateTo($"/sources/{_sourceId}");
+            Nav.NavigateTo(Links.Source(_sourceSlug, _sourceId.Value));
         }
         finally
         {
@@ -323,7 +332,7 @@
         {
             await SaveInkAsync();
         }
-        Nav.NavigateTo(_sourceId is null ? "/sources" : $"/sources/{_sourceId}");
+        Nav.NavigateTo(_sourceId is { } id ? Links.Source(_sourceSlug, id) : "/sources");
     }
 
     public async ValueTask DisposeAsync()

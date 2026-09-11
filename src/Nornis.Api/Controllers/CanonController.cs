@@ -121,6 +121,8 @@ public class CanonController : ControllerBase
             Confidence: entry.Confidence,
             TruthState: entry.TruthState.ToString(),
             Visibility: entry.Visibility.ToString(),
-            UpdatedAt: entry.UpdatedAt);
+            UpdatedAt: entry.UpdatedAt,
+            ArtifactSlug: entry.ArtifactSlug,
+            OtherArtifactSlug: entry.OtherArtifactSlug);
     }
 }

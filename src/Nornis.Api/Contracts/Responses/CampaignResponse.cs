@@ -10,4 +10,5 @@ public record CampaignResponse(
     DateTimeOffset? EndedAt,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    Guid CreatedByUserId);
+    Guid CreatedByUserId,
+    string? Slug = null);

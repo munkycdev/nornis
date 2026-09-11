@@ -104,8 +104,8 @@ public class HealthController : ControllerBase
 
     private static ContinuityFindingResponse ToResponse(ContinuityFindingView f) =>
         new(f.Id, f.Category, f.Severity, f.Summary, f.SuggestedAction, f.Evidence,
-            f.EvidenceItems.Select(ToResponse).ToList(), f.ArtifactId, f.Status, f.IsStale);
+            f.EvidenceItems.Select(ToResponse).ToList(), f.ArtifactId, f.Status, f.IsStale, f.ArtifactSlug);
 
     private static ContinuityEvidenceItemResponse ToResponse(ContinuityEvidenceItemView e) =>
-        new(e.RefId, e.Kind, e.Label, e.ArtifactId, e.ChangedSinceAudit, e.Missing);
+        new(e.RefId, e.Kind, e.Label, e.ArtifactId, e.ChangedSinceAudit, e.Missing, e.ArtifactSlug);
 }

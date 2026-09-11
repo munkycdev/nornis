@@ -9,7 +9,8 @@ public record TimelineSessionResponse(
     Guid SourceId,
     string Title,
     DateTimeOffset OccurredAt,
-    int StorylineCount);
+    int StorylineCount,
+    string? SourceSlug = null);
 
 public record TimelineLaneResponse(
     Guid StorylineId,
@@ -19,18 +20,21 @@ public record TimelineLaneResponse(
     Guid? ParentStorylineId,
     IReadOnlyList<TimelineLaneCampaignResponse> Campaigns,
     string? CampaignName,
-    DateTimeOffset? CampaignStartedAt);
+    DateTimeOffset? CampaignStartedAt,
+    string? Slug = null);
 
 public record TimelineLaneCampaignResponse(
     Guid CampaignId,
     string Name,
-    DateTimeOffset? StartedAt);
+    DateTimeOffset? StartedAt,
+    string? Slug = null);
 
 public record TimelinePointResponse(
     Guid SourceId,
     DateTimeOffset OccurredAt,
     IReadOnlyList<TimelineDevelopmentResponse> Developments,
-    Guid? CampaignId);
+    Guid? CampaignId,
+    string? SourceSlug = null);
 
 public record TimelineDevelopmentResponse(
     string Kind,

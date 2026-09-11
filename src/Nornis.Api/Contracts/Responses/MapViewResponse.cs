@@ -7,7 +7,8 @@ public record MapPlacemarkResponse(
     decimal X,
     decimal Y,
     string? Label,
-    decimal? Confidence);
+    decimal? Confidence,
+    string? ArtifactSlug = null);
 
 /// <summary>The source's map image (short-lived SAS url) plus its visible pins.</summary>
 public record MapViewResponse(

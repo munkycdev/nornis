@@ -8,4 +8,5 @@ public record SourceReferenceResponse(
     string? Quote,
     string? Notes,
     DateTimeOffset CreatedAt,
-    string? SourceTitle = null);
+    string? SourceTitle = null,
+    string? SourceSlug = null);

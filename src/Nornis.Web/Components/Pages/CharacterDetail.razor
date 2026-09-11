@@ -1,10 +1,11 @@
-﻿@page "/characters/{CharacterId:guid}"
+﻿@page "/characters/{Key}"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject BreadcrumbState Crumbs
+@inject NavigationManager Nav
 @using Nornis.Web.Services
 
 @* A character's own page: who plays them, where they have played, and what the record knows
@@ -152,7 +153,7 @@
                             {
                                 <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                                          Icon="@ArtifactTypeDisplay.Icon(item.Type)"
-                                         Href="@($"/artifacts/{item.ArtifactId}")">@item.Name</MudChip>
+                                         Href="@Links.Artifact(item.Slug, item.ArtifactId)">@item.Name</MudChip>
                             }
                         </div>
                     }
@@ -223,7 +224,7 @@
                             <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" Color="Color.Secondary" />
                             <div class="nornis-list-body">
                                 <div class="nornis-list-title">
-                                    <a href="@($"/sources/{snap.SourceId}")" class="nornis-link">@snap.SourceTitle</a>
+                                    <a href="@Links.Source(snap.SourceSlug, snap.SourceId)" class="nornis-link">@snap.SourceTitle</a>
                                 </div>
                                 <div class="nornis-list-sub">
                                     <span>As of @snap.AsOf.ToString("d MMM yyyy")</span>
@@ -270,7 +271,7 @@
                 <div class="d-flex align-center gap-2 mb-2">
                     <MudText Typo="Typo.subtitle1" Class="nornis-serif flex-grow-1">What the record knows</MudText>
                     <MudButton Size="Size.Small" Variant="Variant.Text" EndIcon="@Icons.Material.Filled.OpenInNew"
-                               Href="@($"/artifacts/{record.ArtifactId}")">
+                               Href="@Links.Artifact(record.ArtifactSlug, record.ArtifactId)">
                         @record.ArtifactName
                     </MudButton>
                 </div>
@@ -303,7 +304,7 @@
                     {
                         <MudText Typo="Typo.caption" Color="Color.Secondary">
                             Showing @record.Facts.Count of @record.TotalFactCount.
-                            <MudLink Href="@($"/artifacts/{record.ArtifactId}")">See all</MudLink>
+                            <MudLink Href="@Links.Artifact(record.ArtifactSlug, record.ArtifactId)">See all</MudLink>
                         </MudText>
                     }
                 }
@@ -330,7 +331,7 @@
                         {
                             <ArtifactTip Name="@artifact.Name" Summary="@artifact.Summary">
                                 <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                         Href="@($"/artifacts/{artifact.Id}")">@artifact.Name</MudChip>
+                                         Href="@Links.Artifact(artifact.Slug, artifact.Id)">@artifact.Name</MudChip>
                             </ArtifactTip>
                         }
                     </div>
@@ -346,7 +347,11 @@
 </div>
 
 @code {
-    [Parameter] public Guid CharacterId { get; set; }
+    /// <summary>The slug, or an id from a link minted before slugs; see <see cref="Links"/>.</summary>
+    [Parameter] public string Key { get; set; } = string.Empty;
+
+    /// <summary>Every mutation targets the character that loaded; the key only opens the page.</summary>
+    private Guid CharacterId => _dossier?.Character.Id ?? Guid.Empty;
 
     private CharacterDossierDto? _dossier;
     private bool _loading = true;
@@ -533,7 +538,7 @@
         _dossier.Record.Groups
             .SelectMany(g => g.Artifacts)
             .Take(8)
-            .Select(a => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(a.Type), a.Name, $"/artifacts/{a.Id}"))
+            .Select(a => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(a.Type), a.Name, Links.Artifact(a.Slug, a.Id)))
             .ToList();
 
     private async Task LoadAsync()
@@ -547,12 +552,12 @@
         _loading = true;
 
         var worldId = Worlds.Current.Id;
-        var characterId = CharacterId;
-        var result = await Api.GetCharacterDossierAsync(worldId, characterId);
+        var key = Key;
+        var result = await Api.GetCharacterDossierAsync(worldId, key);
 
         // A slower earlier load must not overwrite a newer one, and must not paint another
         // world's character onto this page.
-        if (Worlds.Current?.Id != worldId || CharacterId != characterId)
+        if (Worlds.Current?.Id != worldId || Key != key)
         {
             return;
         }
@@ -561,7 +566,11 @@
         _loading = false;
         if (_dossier is not null)
         {
-            Crumbs.Set($"/characters/{_dossier.Character.Id}", new Crumb("Party", "/party"), new Crumb(_dossier.Character.Name));
+            if (!Links.IsCanonical(Key, _dossier.Character.Slug))
+            {
+                Nav.NavigateTo(Links.Character(_dossier.Character.Slug, _dossier.Character.Id), replace: true);
+            }
+            Crumbs.Set(Links.Character(_dossier.Character.Slug, _dossier.Character.Id), new Crumb("Party", "/party"), new Crumb(_dossier.Character.Name));
         }
     }
 }

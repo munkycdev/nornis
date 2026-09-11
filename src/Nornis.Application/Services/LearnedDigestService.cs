@@ -215,7 +215,7 @@ public class LearnedDigestService : ILearnedDigestService
                 if (artifact.Status != ArtifactStatus.Archived
                     && filter.CanSee(artifact.Visibility, artifact.CreatedByUserId))
                 {
-                    elements.Add(new LearnedElement(artifact.Id, "Artifact", artifact.Name, artifact.Summary));
+                    elements.Add(new LearnedElement(artifact.Id, "Artifact", artifact.Name, artifact.Summary, artifact.Slug));
                 }
             }
         }

@@ -2,7 +2,7 @@
 
 namespace Nornis.Domain.Entities;
 
-public class Artifact
+public class Artifact : ISlugged
 {
     public Guid Id { get; set; }
 
@@ -11,6 +11,11 @@ public class Artifact
     public ArtifactType Type { get; set; }
 
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>Per-world URL slug; see <see cref="ISlugged"/>.</summary>
+    public string? Slug { get; set; }
+
+    string ISlugged.SlugSource => Name;
 
     public string? Summary { get; set; }
 

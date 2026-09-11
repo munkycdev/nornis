@@ -1,4 +1,4 @@
-@page "/w/{Slug}/campaigns/{CampaignId:guid}"
+@page "/w/{Slug}/campaigns/{Key}"
 @layout PublicLayout
 @inject NornisApiClient Api
 
@@ -84,7 +84,7 @@
                                 <div class="d-flex flex-column gap-1">
                                     @foreach (var a in group.Items)
                                     {
-                                        <a href="@($"/w/{Slug}/artifacts/{a.Id}")" class="nornis-list-row nornis-link">
+                                        <a href="@Links.PublicArtifact(Slug, a.Slug, a.Id)" class="nornis-list-row nornis-link">
                                             <div class="nornis-list-thumb">
                                                 <MudIcon Icon="@ArtifactTypeDisplay.Icon(a.Type)" Size="Size.Small" />
                                             </div>
@@ -127,7 +127,7 @@
                     <div class="d-flex flex-column gap-1">
                         @foreach (var s in _detail.RecentSessions)
                         {
-                            <a href="@($"/w/{Slug}/sources/{s.Id}")" class="nornis-list-row nornis-link">
+                            <a href="@Links.PublicSource(Slug, s.Slug, s.Id)" class="nornis-list-row nornis-link">
                                 <div class="nornis-list-thumb">
                                     <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" />
                                 </div>
@@ -162,22 +162,23 @@
 
 @code {
     [Parameter] public string Slug { get; set; } = string.Empty;
-    [Parameter] public Guid CampaignId { get; set; }
+    /// <summary>The slug, or an id from a link minted before slugs; see <see cref="Links"/>.</summary>
+    [Parameter] public string Key { get; set; } = string.Empty;
 
     private bool _loading = true;
     private PublicCampaignDetailDto? _detail;
-    private (string Slug, Guid Id)? _loadedKey;
+    private (string Slug, string Key)? _loadedKey;
 
     protected override async Task OnParametersSetAsync()
     {
-        if (_loadedKey == (Slug, CampaignId))
+        if (_loadedKey == (Slug, Key))
         {
             return;
         }
-        var key = (Slug, CampaignId);
+        var key = (Slug, Key);
         _loadedKey = key;
         _loading = true;
-        var result = await Api.GetPublicCampaignDetailAsync(Slug, CampaignId);
+        var result = await Api.GetPublicCampaignDetailAsync(Slug, Key);
         if (_loadedKey != key)
         {
             return;

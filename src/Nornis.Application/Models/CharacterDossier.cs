@@ -40,7 +40,7 @@ public record CharacterDossier(
     IReadOnlyList<UnreconciledItem> UnreconciledItems);
 
 /// <summary>An item the record has and the sheet does not mention. An observation, not a task.</summary>
-public record UnreconciledItem(Guid ArtifactId, string Name, ArtifactType Type);
+public record UnreconciledItem(Guid ArtifactId, string Name, ArtifactType Type, string? Slug = null);
 
 /// <summary>
 /// One attached sheet photograph, as this reader may see it. Snapshots whose source the
@@ -52,7 +52,8 @@ public record CharacterSnapshotView(
     Guid SourceId,
     string SourceTitle,
     DateTimeOffset AsOf,
-    string? Note);
+    string? Note,
+    string? SourceSlug = null);
 
 /// <summary>
 /// The linked artifact as this reader may see it. Every element here arrived already
@@ -69,7 +70,8 @@ public record CharacterRecord(
     string? Summary,
     IReadOnlyList<ArtifactFact> Facts,
     int TotalFactCount,
-    IReadOnlyList<CharacterRecordGroup> Groups);
+    IReadOnlyList<CharacterRecordGroup> Groups,
+    string? ArtifactSlug = null);
 
 /// <param name="TotalCount">
 /// Visible artifacts of this type before the per-group cap, so the UI can say "24 of 31"

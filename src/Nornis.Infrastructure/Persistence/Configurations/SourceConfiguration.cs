@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Models;
 
 namespace Nornis.Infrastructure.Persistence.Configurations;
 
@@ -15,6 +16,14 @@ public class SourceConfiguration : IEntityTypeConfiguration<Source>
         builder.Property(s => s.Title)
             .IsRequired()
             .HasMaxLength(200);
+
+        // Assigned once by SlugAssigner from the title; unique per world, null only until backfilled.
+        builder.Property(s => s.Slug)
+            .HasMaxLength(Slug.MaxStoredLength);
+
+        builder.HasIndex(s => new { s.WorldId, s.Slug })
+            .IsUnique()
+            .HasFilter("[Slug] IS NOT NULL");
 
         builder.Property(s => s.Body)
             .HasColumnType("nvarchar(max)");

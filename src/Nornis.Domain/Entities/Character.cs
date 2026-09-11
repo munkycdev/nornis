@@ -6,7 +6,7 @@ namespace Nornis.Domain.Entities;
 /// participate in any number of campaigns. Distinct from the AI-extracted Artifact of type
 /// Character.
 /// </summary>
-public class Character
+public class Character : ISlugged
 {
     /// <summary>
     /// Ceiling on <see cref="Sheet"/>. Generous for text, short of a document. Over-length
@@ -22,6 +22,11 @@ public class Character
     public Guid PlayerId { get; set; }
 
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>Per-world URL slug; see <see cref="ISlugged"/>.</summary>
+    public string? Slug { get; set; }
+
+    string ISlugged.SlugSource => Name;
 
     public string? Description { get; set; }
 

@@ -146,7 +146,8 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
         Type = artifact.Type.ToString(),
         Summary = artifact.Summary,
         Status = artifact.Status.ToString(),
-        ReferenceId = $"artifact:{artifact.Id}"
+        ReferenceId = $"artifact:{artifact.Id}",
+        Slug = artifact.Slug
     };
 
     private static KnowledgeFact MapFact(ArtifactFact fact) => new()
@@ -179,6 +180,7 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
         ReferenceId = $"src:{sourceRef.Id}",
         // Navigation may be unloaded in older call paths; provenance stamps are best-effort.
         SourceTitle = sourceRef.Source?.Title,
+        SourceSlug = sourceRef.Source?.Slug,
         SourceDate = sourceRef.Source is null ? null : sourceRef.Source.OccurredAt ?? sourceRef.Source.CreatedAt
     };
 
@@ -190,6 +192,7 @@ public class KeywordKnowledgeRetriever : IKnowledgeRetriever
         // The typed body is the session record; machine-derived text (audio
         // transcription, attachment reads) stands in when nothing was typed.
         Text = string.IsNullOrWhiteSpace(session.Body) ? session.DerivedText : session.Body,
-        ReferenceId = $"session:{session.Id}"
+        ReferenceId = $"session:{session.Id}",
+        Slug = session.Slug
     };
 }

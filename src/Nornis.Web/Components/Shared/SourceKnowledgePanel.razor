@@ -27,7 +27,7 @@
                 @foreach (var artifact in Knowledge.Artifacts)
                 {
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary"
-                             Href="@($"{ArtifactLinkBase}/{artifact.ArtifactId}")">
+                             Href="@($"{ArtifactLinkBase}/{Links.Key(artifact.Slug, artifact.ArtifactId)}")">
                         @artifact.Name
                     </MudChip>
                 }
@@ -43,7 +43,7 @@
                     <div class="nornis-list-row">
                         <div class="nornis-list-body">
                             <div class="nornis-list-title">
-                                <a href="@($"{ArtifactLinkBase}/{fact.ArtifactId}")" class="nornis-link">@fact.ArtifactName</a>
+                                <a href="@($"{ArtifactLinkBase}/{Links.Key(fact.ArtifactSlug, fact.ArtifactId)}")" class="nornis-link">@fact.ArtifactName</a>
                                 — @fact.Predicate
                             </div>
                             <div class="nornis-list-sub">@fact.Value</div>
@@ -100,9 +100,9 @@
                 <div class="nornis-list-row">
                     <div class="nornis-list-body">
                         <div class="nornis-list-title">
-                            <a href="@($"{ArtifactLinkBase}/{rel.ArtifactAId}")" class="nornis-link">@rel.ArtifactAName</a>
+                            <a href="@($"{ArtifactLinkBase}/{Links.Key(rel.ArtifactASlug, rel.ArtifactAId)}")" class="nornis-link">@rel.ArtifactAName</a>
                             <span class="nornis-list-meta">@DisplayText.Humanize(rel.Type)</span>
-                            <a href="@($"{ArtifactLinkBase}/{rel.ArtifactBId}")" class="nornis-link">@rel.ArtifactBName</a>
+                            <a href="@($"{ArtifactLinkBase}/{Links.Key(rel.ArtifactBSlug, rel.ArtifactBId)}")" class="nornis-link">@rel.ArtifactBName</a>
                         </div>
                         @if (!string.IsNullOrWhiteSpace(rel.Quote))
                         {
