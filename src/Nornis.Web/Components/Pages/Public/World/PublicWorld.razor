@@ -101,7 +101,7 @@
             <MudText Typo="Typo.body2" Color="Color.Secondary">
                 A living record of this world, kept by its game master with Nornis.
                 Browse the codex of people, places, and storylines; follow the timeline;
-                or read the session chronicles. Everything here is what the party knows —
+                or read the sessions, journals and excerpts as they were written. Everything here is what the party knows —
                 the GM's secrets stay secret.
             </MudText>
         </MudPaper>
@@ -119,9 +119,13 @@
                 <span class="nornis-tile-title"><MudIcon Icon="@Icons.Material.Outlined.Place" Color="Color.Primary" Size="Size.Small" /> Locations</span>
                 <span class="nornis-tile-sub">Every place your party has been</span>
             </a>
+            <a href="@($"/w/{Slug}/campaigns")" class="nornis-tile">
+                <span class="nornis-tile-title"><MudIcon Icon="@Icons.Material.Outlined.AutoStories" Color="Color.Primary" Size="Size.Small" /> Campaigns</span>
+                <span class="nornis-tile-sub">The runs of play, and what each one touched</span>
+            </a>
             <a href="@($"/w/{Slug}/sources")" class="nornis-tile">
-                <span class="nornis-tile-title"><MudIcon Icon="@Icons.Material.Outlined.Layers" Color="Color.Primary" Size="Size.Small" /> Sessions</span>
-                <span class="nornis-tile-sub">The chronicles as they were written</span>
+                <span class="nornis-tile-title"><MudIcon Icon="@Icons.Material.Outlined.Layers" Color="Color.Primary" Size="Size.Small" /> Sources</span>
+                <span class="nornis-tile-sub">Sessions, journals and excerpts as they were written</span>
             </a>
         </div>
     </ChildContent>

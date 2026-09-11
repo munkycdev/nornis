@@ -1,0 +1,17 @@
+@* The public rail's stand-in for the Loremaster: the member rail carries the conversation
+   panel, which is a member thing; a stranger gets the single-shot Ask on the overview, when the
+   GM has funded it, and this points there. Nothing when it is off — an invitation to a door
+   that will not open is worse than no door. *@
+
+@if (Enabled)
+{
+    <a href="@($"/w/{Slug}")" class="nornis-rail-link">
+        <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Small" Color="Color.Secondary" />
+        <span>Ask this world</span>
+    </a>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Slug { get; set; } = string.Empty;
+    [Parameter] public bool Enabled { get; set; }
+}

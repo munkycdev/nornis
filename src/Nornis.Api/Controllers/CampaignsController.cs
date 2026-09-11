@@ -346,7 +346,7 @@ public class CampaignsController : ControllerBase
     private static CampaignRecapResponse ToRecapResponse(CampaignRecapView view) =>
         new(view.HasData, view.GeneratedAt, view.Content, view.PartyPreview);
 
-    private static CampaignResponse ToCampaignResponse(Campaign campaign)
+    internal static CampaignResponse ToCampaignResponse(Campaign campaign)
     {
         return new CampaignResponse(
             Id: campaign.Id,

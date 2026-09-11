@@ -217,6 +217,13 @@ The rules that make it safe:
   with an anonymous identity of `Guid.Empty`.
 - **Anonymous means anonymous.** There is no user, so there is no "own Private content"
   carve-out to fall through; the empty-identity guard exists precisely to stop one.
+- **Reveal records are not public** (feature 28, 2026-09-10). They are party-visible by design —
+  the GM's note to the table — and addressed to the players, not to whoever holds the link.
+  `PublicSurface.ShowsSource` in the API is the one place that says so, and every public read
+  that can reach a source goes through it; a reveal answers the same 404 as a source that does
+  not exist. The public campaign pages (`GET campaigns`, `GET campaigns/{id}/detail`) run under
+  the same Observer scoping and project their own response so the GM-only parts of the member
+  response have no field to travel in.
 - **Public Ask is capped in money, not requests.** A per-world monthly USD budget gates it,
   and a world with no positive budget has the feature off. That is the deliberate inverse of
   the world daily budget, where zero means "no cap".
