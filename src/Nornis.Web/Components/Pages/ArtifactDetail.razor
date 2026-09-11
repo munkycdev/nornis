@@ -1,4 +1,4 @@
-﻿@page "/artifacts/{Key}"
+﻿@page "/codex/{Key}"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
@@ -374,7 +374,7 @@
 
     // Browser history back, so arriving from the Timeline (or graph, or another
     // artifact) returns there instead of always landing on the Codex list.
-    private async Task GoBackAsync() => await JS.InvokeVoidAsync("nornisNav.back", "/artifacts");
+    private async Task GoBackAsync() => await JS.InvokeVoidAsync("nornisNav.back", "/codex");
 
     // Merge duplicate (GM): folds this artifact into a chosen target.
     private ArtifactListItem? _mergeTarget;
@@ -500,7 +500,7 @@
         }
 
         Snackbar.Add($"Removed \"{p.ArtifactName}\" from canon.", Severity.Info);
-        Nav.NavigateTo("/artifacts");
+        Nav.NavigateTo("/codex");
     }
 
     // Reveal to the party (GM): promotes chosen GM-only parts of this artifact to PartyVisible.
@@ -789,8 +789,8 @@
             _detail = result.Value!;
             Canonicalize();
             Crumbs.Set(Links.Artifact(_detail.Slug, _detail.Id),
-                new Crumb("Codex", "/artifacts"),
-                new Crumb(ArtifactTypeDisplay.Plural(_detail.Type), "/artifacts"),
+                new Crumb("Codex", "/codex"),
+                new Crumb(ArtifactTypeDisplay.Plural(_detail.Type), "/codex"),
                 new Crumb(_detail.Name));
         }
         else if (result.Error!.Code == "not_found")

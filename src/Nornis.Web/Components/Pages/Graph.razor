@@ -10,5 +10,5 @@
     [Parameter] public string? Focus { get; set; }
 
     protected override void OnInitialized() =>
-        Nav.NavigateTo(string.IsNullOrEmpty(Focus) ? "/artifacts" : $"/artifacts/{Uri.EscapeDataString(Focus)}", replace: true);
+        Nav.NavigateTo(string.IsNullOrEmpty(Focus) ? "/codex" : $"/codex/{Uri.EscapeDataString(Focus)}", replace: true);
 }

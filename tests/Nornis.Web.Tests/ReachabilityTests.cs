@@ -29,6 +29,8 @@ public class ReachabilityTests
     {
         "/", "/Error", "/invite/{Code}", "/shelf/{Code}", "/welcome", "/about", "/features", "/changelog",
         "/privacy", "/terms", "/licenses", "/canon", "/graph", "/graph/{Focus}", "/costs", "/settings",
+        // /artifacts is the older spelling of /codex; the stub redirects old bookmarks.
+        "/artifacts", "/artifacts/{Key}",
         // /extract is the older alias of /import; the page carries both.
         "/extract",
     };
@@ -50,7 +52,7 @@ public class ReachabilityTests
     private static string Normalize(string route)
     {
         // Parameterised routes are compared by their static prefix: a link to
-        // /artifacts/{some id} is a door to /artifacts/{Key}.
+        // /codex/{some id} is a door to /codex/{Key}.
         var idx = route.IndexOf('{');
         return idx < 0 ? route.TrimEnd('/') : route[..idx].TrimEnd('/');
     }

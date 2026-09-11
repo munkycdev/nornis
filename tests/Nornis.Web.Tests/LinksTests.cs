@@ -21,15 +21,15 @@ public class LinksTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(Links.Artifact("the-ashen-king", Id), Is.EqualTo("/artifacts/the-ashen-king"));
-            Assert.That(Links.Artifact(null, Id), Is.EqualTo($"/artifacts/{Id}"));
-            Assert.That(Links.Artifact("", Id), Is.EqualTo($"/artifacts/{Id}"), "empty is unset, not a slug");
+            Assert.That(Links.Artifact("the-ashen-king", Id), Is.EqualTo("/codex/the-ashen-king"));
+            Assert.That(Links.Artifact(null, Id), Is.EqualTo($"/codex/{Id}"));
+            Assert.That(Links.Artifact("", Id), Is.EqualTo($"/codex/{Id}"), "empty is unset, not a slug");
             Assert.That(Links.Campaign("ash-and-salt", Id), Is.EqualTo("/campaigns/ash-and-salt"));
             Assert.That(Links.Character("mira-voss", Id), Is.EqualTo("/characters/mira-voss"));
             Assert.That(Links.Source("session-12", Id), Is.EqualTo("/sources/session-12"));
             Assert.That(Links.LibraryDocument("players-guide", Id), Is.EqualTo("/library/players-guide"));
             Assert.That(Links.InkCapture("session-12", Id), Is.EqualTo("/capture/ink/session-12"));
-            Assert.That(Links.PublicArtifact("black-harbor", "the-ashen-king", Id), Is.EqualTo("/w/black-harbor/artifacts/the-ashen-king"));
+            Assert.That(Links.PublicArtifact("black-harbor", "the-ashen-king", Id), Is.EqualTo("/w/black-harbor/codex/the-ashen-king"));
             Assert.That(Links.PublicCampaign("black-harbor", null, Id), Is.EqualTo($"/w/black-harbor/campaigns/{Id}"));
             Assert.That(Links.PublicSource("black-harbor", "session-12", Id), Is.EqualTo("/w/black-harbor/sources/session-12"));
         });
@@ -48,7 +48,7 @@ public class LinksTests
     }
 
     private static readonly Regex HandSpelledDetailPath = new(
-        @"(/artifacts|/sources|/campaigns|/characters|/library|/capture/ink)/\{[A-Za-z_.!()?]*Id[A-Za-z_.!()?]*\}",
+        @"(/codex|/artifacts|/sources|/campaigns|/characters|/library|/capture/ink)/\{[A-Za-z_.!()?]*Id[A-Za-z_.!()?]*\}",
         RegexOptions.Compiled);
 
     [Test]

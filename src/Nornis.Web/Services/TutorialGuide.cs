@@ -72,7 +72,7 @@ public static class TutorialGuide
         new(SeeAsPlayer, "See it as a player", null,
             "Use the GM chip under the world name. The world tints, and what only a GM sees leaves the page.",
             TutorialTrigger.EnterPlayerView, InPlayerView: true),
-        new(MeetTheCast, "Meet the cast", "/artifacts",
+        new(MeetTheCast, "Meet the cast", "/codex",
             "Browse what Nornis built from five sessions of notes: the people, the places, the factions, the things they carry.",
             TutorialTrigger.Visit, InPlayerView: true),
         new(WalkTheJourney, "Walk the journey", "/timeline",

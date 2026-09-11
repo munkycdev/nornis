@@ -67,9 +67,9 @@ public class EntityPageTests : BunitContext
             .Add(r => r.RelatedTitle, "Connected")
             .Add(r => r.Related, new List<ContextRail.RailLink>
             {
-                new("icon", "Fera", "/artifacts/1"),
+                new("icon", "Fera", "/codex/1"),
             })
-            .Add(r => r.RelatedMoreHref, "/artifacts")
+            .Add(r => r.RelatedMoreHref, "/codex")
             .Add(r => r.ShowLoremaster, false));
 
         Assert.Multiple(() =>
@@ -78,8 +78,8 @@ public class EntityPageTests : BunitContext
             Assert.That(cut.FindAll(".nornis-rail-row"), Has.Count.EqualTo(2));
             Assert.That(cut.Find(".nornis-rail-row a").GetAttribute("href"), Is.EqualTo("/sources"), "a row with somewhere to go links");
             Assert.That(cut.FindAll(".nornis-rail-value").Select(v => v.TextContent), Is.EqualTo(["12", "3"]));
-            Assert.That(cut.Find(".nornis-rail-link").GetAttribute("href"), Is.EqualTo("/artifacts/1"));
-            Assert.That(cut.Find(".nornis-rail-more").GetAttribute("href"), Is.EqualTo("/artifacts"));
+            Assert.That(cut.Find(".nornis-rail-link").GetAttribute("href"), Is.EqualTo("/codex/1"));
+            Assert.That(cut.Find(".nornis-rail-more").GetAttribute("href"), Is.EqualTo("/codex"));
         });
     }
 

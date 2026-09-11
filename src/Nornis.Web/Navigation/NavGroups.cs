@@ -49,7 +49,7 @@ public static class NavGroups
         ]),
         new("World",
         [
-            new("Codex", "/artifacts", Icons.Material.Outlined.Hub),
+            new("Codex", "/codex", Icons.Material.Outlined.Hub),
             new("Storylines", "/storylines", Icons.Material.Outlined.AutoStories),
             new("Timeline", "/timeline", Icons.Material.Outlined.Route),
             new("Map", "/locations", Icons.Material.Outlined.Place),
@@ -73,7 +73,7 @@ public static class NavGroups
     /// <summary>
     /// The entry whose route the given path belongs to, if any — the default breadcrumb for a
     /// page that has not set its own. Longest matching href wins, so <c>/capture/ink</c> finds
-    /// Capture and <c>/artifacts/{id}</c> finds Codex.
+    /// Capture and <c>/codex/{id}</c> finds Codex.
     /// </summary>
     public static NavItem? FindByPath(string path) => Locate(path)?.Item;
 

@@ -1,10 +1,10 @@
-@page "/w/{Slug}/artifacts"
+@page "/w/{Slug}/codex"
 @layout PublicLayout
 @inject NornisApiClient Api
 
 <PageTitle>Codex — Nornis</PageTitle>
 
-<PublicWorldFrame Slug="@Slug" Active="artifacts">
+<PublicWorldFrame Slug="@Slug" Active="codex">
     <ChildContent Context="world">
         @if (_artifacts is null)
         {

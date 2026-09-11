@@ -79,8 +79,8 @@ public class TutorialGuideTests
     [Test]
     public void StepAt_MatchesThePageAndWhatIsUnderIt_ForTheTriggerAsked()
     {
-        Assert.That(TutorialGuide.StepAt("/artifacts", TutorialTrigger.Visit)?.Key, Is.EqualTo(TutorialGuide.MeetTheCast));
-        Assert.That(TutorialGuide.StepAt($"/artifacts/{Guid.NewGuid()}", TutorialTrigger.Visit)?.Key, Is.EqualTo(TutorialGuide.MeetTheCast));
+        Assert.That(TutorialGuide.StepAt("/codex", TutorialTrigger.Visit)?.Key, Is.EqualTo(TutorialGuide.MeetTheCast));
+        Assert.That(TutorialGuide.StepAt($"/codex/{Guid.NewGuid()}", TutorialTrigger.Visit)?.Key, Is.EqualTo(TutorialGuide.MeetTheCast));
         Assert.That(TutorialGuide.StepAt($"/campaigns/{Guid.NewGuid()}", TutorialTrigger.Visit)?.Key, Is.EqualTo(TutorialGuide.OpenTheCampaign));
 
         // A visit to Capture no longer completes anything: chapter two's Capture step is state-detected.
@@ -90,8 +90,8 @@ public class TutorialGuideTests
         Assert.That(TutorialGuide.StepAt("/learned", TutorialTrigger.Visit), Is.Null);
         Assert.That(TutorialGuide.StepAt("/learned", TutorialTrigger.LearnedAsPlayer)?.Key, Is.EqualTo(TutorialGuide.SeeWhatTheySee));
 
-        // /artifactsx is not under /artifacts.
-        Assert.That(TutorialGuide.StepAt("/artifactsx", TutorialTrigger.Visit), Is.Null);
+        // /codexx is not under /codex.
+        Assert.That(TutorialGuide.StepAt("/codexx", TutorialTrigger.Visit), Is.Null);
     }
 
     [Test]

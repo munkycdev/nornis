@@ -1,13 +1,13 @@
-@page "/w/{Slug}/artifacts/{Key}"
+@page "/w/{Slug}/codex/{Key}"
 @layout PublicLayout
 @inject NornisApiClient Api
 
 <PageTitle>@(_detail?.Name ?? "Codex") — Nornis</PageTitle>
 
-<PublicWorldFrame Slug="@Slug" Active="artifacts">
+<PublicWorldFrame Slug="@Slug" Active="codex">
     <ChildContent Context="world">
         <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text"
-                   Color="Color.Default" Href="@($"/w/{Slug}/artifacts")" Class="mb-3">Codex</MudButton>
+                   Color="Color.Default" Href="@($"/w/{Slug}/codex")" Class="mb-3">Codex</MudButton>
 
         @if (_loading)
         {

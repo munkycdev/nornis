@@ -11,7 +11,7 @@ public sealed record Crumb(string Label, string? Href = null);
 ///
 /// Two layers so every page has a trail without every page having to write one. On each
 /// navigation the layout sets the default from the route (<see cref="NavGroups.FindByPath"/>:
-/// "Codex" for anything under <c>/artifacts</c>). A page that knows more — an artifact's name
+/// "Codex" for anything under <c>/codex</c>). A page that knows more — an artifact's name
 /// and type, a session's campaign — replaces it from data it already loaded, per Requirement
 /// 2.3: a breadcrumb never costs a request. The world crumb is always first and is supplied by
 /// the layout, so a page's trail starts one level in.

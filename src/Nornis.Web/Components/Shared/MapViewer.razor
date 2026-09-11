@@ -39,7 +39,7 @@
     [Parameter] public IReadOnlyList<MapPlacemarkDto> Placemarks { get; set; } = [];
 
     /// <summary>Route prefix for pin clicks; the public /w/{slug} pages could override.</summary>
-    [Parameter] public string ArtifactLinkBase { get; set; } = "/artifacts";
+    [Parameter] public string ArtifactLinkBase { get; set; } = "/codex";
 
     /// <summary>Enables drag-to-adjust on the pins. Pair with <see cref="OnPinMoved"/>.</summary>
     [Parameter] public bool CanEdit { get; set; }

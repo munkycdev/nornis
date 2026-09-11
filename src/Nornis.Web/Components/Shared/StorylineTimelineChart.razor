@@ -199,7 +199,7 @@ else
 
     /// <summary>Route prefixes for point/lane clicks; the public /w/{slug} pages override these.</summary>
     [Parameter] public string SourceLinkBase { get; set; } = "/sources";
-    [Parameter] public string ArtifactLinkBase { get; set; } = "/artifacts";
+    [Parameter] public string ArtifactLinkBase { get; set; } = "/codex";
 
     /// <summary>Raised when a lane is dropped onto another: (child, new parent).</summary>
     [Parameter] public EventCallback<(TimelineLaneDto Child, TimelineLaneDto Parent)> ReparentRequested { get; set; }

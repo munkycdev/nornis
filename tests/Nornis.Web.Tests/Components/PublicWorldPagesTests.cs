@@ -58,7 +58,7 @@ public class PublicWorldPagesTests : BunitContext
             Assert.That(cut.Markup, Does.Contain("nornis-entity-rail"), "the 2.0 template");
             Assert.That(cut.Markup, Does.Contain("Ask this world"), "the rail points at the funded Ask");
             Assert.That(cut.Markup, Does.Not.Contain("nornis-rail-loremaster"), "no conversation panel for strangers");
-            Assert.That(cut.Markup, Does.Contain("/w/black-harbor/artifacts/"), "connections link within the public site");
+            Assert.That(cut.Markup, Does.Contain("/w/black-harbor/codex/"), "connections link within the public site");
         });
     }
 

@@ -1,0 +1,13 @@
+@page "/artifacts"
+@page "/artifacts/{Key}"
+@inject NavigationManager Nav
+
+@* The Codex lived at /artifacts until 2026-09-11. This stub keeps old bookmarks and shared
+   links working; the key is passed through untouched because the Codex page resolves it. *@
+
+@code {
+    [Parameter] public string? Key { get; set; }
+
+    protected override void OnInitialized() =>
+        Nav.NavigateTo(string.IsNullOrEmpty(Key) ? "/codex" : $"/codex/{Uri.EscapeDataString(Key)}", replace: true);
+}

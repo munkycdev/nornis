@@ -69,7 +69,7 @@
                 {
                     <JourneyMap Data="_journey"
                                 SourceLinkBase="@($"/w/{Slug}/sources")"
-                                ArtifactLinkBase="@($"/w/{Slug}/artifacts")" />
+                                ArtifactLinkBase="@($"/w/{Slug}/codex")" />
                 }
             }
             else if (_timeline.Lanes.Count == 0)
@@ -87,7 +87,7 @@
                 <StorylineTimelineChart Data="_timeline" CanEdit="false"
                                         StatusFilter="_selectedStatuses"
                                         SourceLinkBase="@($"/w/{Slug}/sources")"
-                                        ArtifactLinkBase="@($"/w/{Slug}/artifacts")" />
+                                        ArtifactLinkBase="@($"/w/{Slug}/codex")" />
             }
         }
     </ChildContent>

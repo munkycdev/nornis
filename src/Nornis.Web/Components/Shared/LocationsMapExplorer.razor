@@ -97,7 +97,7 @@
     [Parameter, EditorRequired] public JourneyDto Journey { get; set; } = null!;
 
     /// <summary>Route prefix for artifact links; the public /w/{slug} pages override it.</summary>
-    [Parameter] public string ArtifactLinkBase { get; set; } = "/artifacts";
+    [Parameter] public string ArtifactLinkBase { get; set; } = "/codex";
 
     private Guid? _selectedPinId;
     private readonly HashSet<Guid> _collapsedNotes = new();

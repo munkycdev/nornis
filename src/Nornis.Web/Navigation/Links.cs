@@ -12,7 +12,7 @@ namespace Nornis.Web.Navigation;
 /// </summary>
 public static class Links
 {
-    public static string Artifact(string? slug, Guid id) => $"/artifacts/{Key(slug, id)}";
+    public static string Artifact(string? slug, Guid id) => $"/codex/{Key(slug, id)}";
 
     public static string Campaign(string? slug, Guid id) => $"/campaigns/{Key(slug, id)}";
 
@@ -26,7 +26,7 @@ public static class Links
 
     public static string InkCapture(string? slug, Guid id) => $"/capture/ink/{Key(slug, id)}";
 
-    public static string PublicArtifact(string worldSlug, string? slug, Guid id) => $"/w/{worldSlug}/artifacts/{Key(slug, id)}";
+    public static string PublicArtifact(string worldSlug, string? slug, Guid id) => $"/w/{worldSlug}/codex/{Key(slug, id)}";
 
     public static string PublicCampaign(string worldSlug, string? slug, Guid id) => $"/w/{worldSlug}/campaigns/{Key(slug, id)}";
 

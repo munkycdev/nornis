@@ -129,7 +129,7 @@
     [Parameter] public EventCallback<(SourceKnowledgeFactDto Fact, string Note)> RemoveFactRequested { get; set; }
 
     /// <summary>Route prefix for artifact links; the public /w/{slug} pages override it.</summary>
-    [Parameter] public string ArtifactLinkBase { get; set; } = "/artifacts";
+    [Parameter] public string ArtifactLinkBase { get; set; } = "/codex";
 
     /// <summary>True when the source has been processed — tunes the empty-state wording.</summary>
     [Parameter] public bool ProcessedHint { get; set; } = true;

@@ -1,5 +1,10 @@
 # UI Design System
 
+> **Amendment (2026-09-11): the Codex route is `/codex`.** The note below that the rename was
+> "presentation only" and the route "still `/artifacts`" no longer holds: the Web pages moved to
+> `/codex` and `/codex/{key}` (and `/w/{slug}/codex` on the public site). `/artifacts` remains as a
+> redirect stub for old links. The API paths and the domain term `Artifact` are unchanged.
+
 > **Amendment (2026-08-01):** the "Suggested starting palette" under Visual Tokens below
 > is exactly that — a starting point, and the shipped app has moved past it. The authority
 > is `src/Nornis.Web/Components/NornisTheme.cs`, which calls itself the single source of

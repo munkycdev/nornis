@@ -190,7 +190,7 @@
     [Parameter, EditorRequired] public JourneyDto Data { get; set; } = default!;
 
     /// <summary>Route prefixes for links; the public pages could override these.</summary>
-    [Parameter] public string ArtifactLinkBase { get; set; } = "/artifacts";
+    [Parameter] public string ArtifactLinkBase { get; set; } = "/codex";
     [Parameter] public string SourceLinkBase { get; set; } = "/sources";
 
     private readonly string _railId = $"nornis-journey-{Guid.NewGuid():N}";
