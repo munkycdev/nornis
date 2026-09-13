@@ -6,9 +6,10 @@ namespace Nornis.Application.Models;
 /// <summary>
 /// A GM's request to reveal a curated set of GM-only knowledge to the party. Artifacts,
 /// facts, and relationships named here are promoted <c>GMOnly → PartyVisible</c>; corrections
-/// re-truth-state existing party-visible beliefs the reveal supersedes. Elements already
-/// party-visible are no-ops; <c>Private</c> elements are rejected (reveal promotes GM-only
-/// knowledge only).
+/// re-truth-state existing party-visible beliefs the reveal supersedes. A fact or relationship
+/// whose truth state is <c>Hidden</c> is confirmed as it is promoted (or on its own, when it was
+/// already party-visible). Elements already party-visible with nothing hidden are no-ops;
+/// <c>Private</c> elements are rejected (reveal promotes GM-only knowledge only).
 /// </summary>
 public record RevealCommand(
     Guid WorldId,

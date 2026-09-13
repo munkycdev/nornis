@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Application;
 using Nornis.Application.Errors;
@@ -17,7 +18,9 @@ namespace Nornis.Application.Services;
 /// player-visible provenance), applied through the real <see cref="IProposalApplicator"/> in a
 /// single transaction — the same confirm-and-apply shape as
 /// <see cref="ArtifactMergeService"/>. It never lowers visibility and never touches
-/// <c>Private</c> knowledge.
+/// <c>Private</c> knowledge. A fact or relationship whose truth state is <c>Hidden</c> is
+/// disclosed by confirming it as well — Hidden is GM-only truth by definition, so promoting
+/// the row's visibility alone would hand the party nothing they can read.
 /// </summary>
 public class RevealService : IRevealService
 {
@@ -127,7 +130,7 @@ public class RevealService : IRevealService
                 return AppResult<RevealResult>.Fail(priv);
             }
 
-            if (fact.Visibility == VisibilityScope.GMOnly)
+            if (NeedsRevealing(fact.Visibility, fact.TruthState))
             {
                 factsToReveal.Add(fact);
                 factParentIds.Add(fact.ArtifactId);
@@ -149,7 +152,7 @@ public class RevealService : IRevealService
                 return AppResult<RevealResult>.Fail(priv);
             }
 
-            if (relationship.Visibility == VisibilityScope.GMOnly)
+            if (NeedsRevealing(relationship.Visibility, relationship.TruthState))
             {
                 relationshipsToReveal.Add(relationship);
                 if (await RecordArtifactVisibilityAsync(relationship.ArtifactAId) is { } aError)
@@ -217,9 +220,11 @@ public class RevealService : IRevealService
         specs.AddRange(artifactsToReveal.Select(artifact => RevealSpec(
             ReviewChangeType.UpdateArtifact, ReviewTargetType.Artifact, artifact.Id, RevealVisibilityJson, "Revealed to the party.")));
         specs.AddRange(factsToReveal.Select(fact => RevealSpec(
-            ReviewChangeType.UpdateFact, ReviewTargetType.ArtifactFact, fact.Id, RevealVisibilityJson, "Revealed to the party.")));
+            ReviewChangeType.UpdateFact, ReviewTargetType.ArtifactFact, fact.Id,
+            RevealPayload(fact.Visibility, fact.TruthState), "Revealed to the party.")));
         specs.AddRange(relationshipsToReveal.Select(relationship => RevealSpec(
-            ReviewChangeType.UpdateRelationship, ReviewTargetType.ArtifactRelationship, relationship.Id, RevealVisibilityJson, "Revealed to the party.")));
+            ReviewChangeType.UpdateRelationship, ReviewTargetType.ArtifactRelationship, relationship.Id,
+            RevealPayload(relationship.Visibility, relationship.TruthState), "Revealed to the party.")));
         specs.AddRange(corrections.Select(correction => RevealSpec(
             ReviewChangeType.UpdateFact, ReviewTargetType.ArtifactFact, correction.FactId,
             $$"""{"truthState":"{{correction.TruthState}}"}""", "Corrected on reveal.")));
@@ -345,6 +350,37 @@ public class RevealService : IRevealService
         {
             _logger.LogWarning(ex, "Could not record the tutorial reveal step for world {WorldId}", worldId);
         }
+    }
+
+    /// <summary>
+    /// Whether an element has anything left to disclose: it is GM-only, or its truth is. The
+    /// convergence gauge offers both shapes as "what the party is ready to learn", and this is
+    /// the one place reveal decides what that means.
+    /// </summary>
+    private static bool NeedsRevealing(VisibilityScope visibility, TruthState truthState) =>
+        visibility == VisibilityScope.GMOnly || truthState == TruthState.Hidden;
+
+    /// <summary>
+    /// What a reveal writes to a fact or relationship. Visibility is promoted when GM-only; a
+    /// Hidden truth state becomes Confirmed. Hidden is defined as the truth only the GM may see,
+    /// and every party-side read (the record, the Loremaster, What you learned) filters it out —
+    /// so a fact handed to the party still marked Hidden was a reveal that disclosed nothing:
+    /// the nav counted it and the page had nothing to show.
+    /// </summary>
+    private static string RevealPayload(VisibilityScope visibility, TruthState truthState)
+    {
+        var fields = new Dictionary<string, string>();
+        if (visibility == VisibilityScope.GMOnly)
+        {
+            fields["visibility"] = nameof(VisibilityScope.PartyVisible);
+        }
+
+        if (truthState == TruthState.Hidden)
+        {
+            fields["truthState"] = nameof(TruthState.Confirmed);
+        }
+
+        return JsonSerializer.Serialize(fields);
     }
 
     private static AppError? PrivateGuard(VisibilityScope visibility, string kind, Guid id) =>
