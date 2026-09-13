@@ -151,8 +151,11 @@ public class WorldRepository : IWorldRepository
             .Where(p => _context.ReviewBatches.Any(b => b.Id == p.ReviewBatchId && b.WorldId == worldId)));
         await DeleteAsync(_context.ReviewBatches.Where(b => b.WorldId == worldId));
 
-        // Source satellites, then the map pins that sit on source attachments.
+        // Source satellites, then the map pins that sit on source attachments. Sheet
+        // snapshots hold a NoAction FK to their character, so they die here, before Characters.
         await DeleteAsync(_context.MapPlacemarks.Where(p => p.WorldId == worldId));
+        await DeleteAsync(_context.CharacterSheetSnapshots
+            .Where(s => _context.Sources.Any(src => src.Id == s.SourceId && src.WorldId == worldId)));
         await DeleteAsync(_context.SourceReferences
             .Where(r => _context.Sources.Any(s => s.Id == r.SourceId && s.WorldId == worldId)));
         await DeleteAsync(_context.SourceExtractions
@@ -170,7 +173,8 @@ public class WorldRepository : IWorldRepository
         await DeleteAsync(_context.LibraryDocuments.Where(d => d.WorldId == worldId));
 
         // Knowledge graph. Relationships Restrict their artifacts; characters hold a
-        // NoAction FK to their artifact, so they go before Artifacts.
+        // NoAction FK to their artifact, so they go before Artifacts. Shelf links hang off
+        // players.
         await DeleteAsync(_context.ArtifactFacts
             .Where(f => _context.Artifacts.Any(a => a.Id == f.ArtifactId && a.WorldId == worldId)));
         await DeleteAsync(_context.ArtifactRelationships.Where(r => r.WorldId == worldId));
@@ -179,13 +183,29 @@ public class WorldRepository : IWorldRepository
         await DeleteAsync(_context.CampaignRecaps
             .Where(r => _context.Campaigns.Any(c => c.Id == r.CampaignId && c.WorldId == worldId)));
         await DeleteAsync(_context.Characters.Where(c => c.WorldId == worldId));
+        await DeleteAsync(_context.ShelfLinks
+            .Where(l => _context.Players.Any(p => p.Id == l.PlayerId && p.WorldId == worldId)));
         await DeleteAsync(_context.Players.Where(p => p.WorldId == worldId));
         await DeleteAsync(_context.Artifacts.Where(a => a.WorldId == worldId));
 
-        // Sources before Campaigns (Source.CampaignId is Restrict), then the shell.
+        // Import staging and the backlog walk reference sources loosely (no FK), so order is
+        // free; they go before Sources all the same, children before parents.
+        await DeleteAsync(_context.ImportSessionItems
+            .Where(i => _context.ImportSessions.Any(s => s.Id == i.ImportSessionId && s.WorldId == worldId)));
+        await DeleteAsync(_context.ImportSessions.Where(s => s.WorldId == worldId));
+
+        // Sources before Campaigns (Source.CampaignId is Restrict), then the shell. The world
+        // points at the campaign it is playing through a Restrict FK — Campaigns cascade from
+        // Worlds, and a second path back would be the double cascade SQL Server refuses — so
+        // the pointer is let go before the campaigns can die. This is the one step that is an
+        // update rather than a delete, and the one the wipe shipped without: a world mid-campaign
+        // answered its own delete with a foreign key violation.
         await DeleteAsync(_context.ExtractionReplays.Where(r => r.WorldId == worldId));
         await DeleteAsync(_context.Sources.Where(s => s.WorldId == worldId));
+        await _context.SetWhereAsync<World, Guid?>(w => w.Id == worldId, w => w.CurrentCampaignId, null, ct);
         await DeleteAsync(_context.Campaigns.Where(c => c.WorldId == worldId));
+        await DeleteAsync(_context.WorldDigests.Where(d => d.WorldId == worldId));
+        await DeleteAsync(_context.TutorialProgress.Where(p => p.WorldId == worldId));
         await DeleteAsync(_context.WorldInvites.Where(i => i.WorldId == worldId));
         await DeleteAsync(_context.WorldMembers.Where(m => m.WorldId == worldId));
         await DeleteAsync(_context.Worlds.Where(w => w.Id == worldId));

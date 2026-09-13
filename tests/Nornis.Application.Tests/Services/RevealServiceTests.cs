@@ -148,6 +148,81 @@ public class RevealServiceTests
         Assert.That(CurrentRelationship(link.Id).Visibility, Is.EqualTo(VisibilityScope.PartyVisible));
     }
 
+    // ---- hidden truth ----
+
+    // Hidden is defined as the truth only the GM may see, and every party-side read filters it
+    // out. A reveal that promoted visibility and left the truth state alone handed the party a
+    // row they could not read: the nav counted a disclosure and What you learned had nothing to
+    // show. These three pin the rule that a reveal confirms what it discloses.
+
+    [Test]
+    public async Task RevealAsync_GmOnlyHiddenFact_BecomesPartyVisible_AndConfirmed()
+    {
+        var voss = SeedArtifact("Captain Voss", VisibilityScope.PartyVisible, ArtifactType.Character);
+        var secret = SeedFact(voss.Id, "true allegiance", "Smuggler king", VisibilityScope.GMOnly, TruthState.Hidden);
+
+        var result = await _sut.RevealAsync(Command(facts: [secret.Id]), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.RevealedFacts, Is.EqualTo(1));
+        var revealed = CurrentFact(secret.Id);
+        Assert.That(revealed.Visibility, Is.EqualTo(VisibilityScope.PartyVisible));
+        Assert.That(revealed.TruthState, Is.EqualTo(TruthState.Confirmed),
+            "a revealed fact still marked Hidden is invisible to the party it was revealed to");
+    }
+
+    [Test]
+    public async Task RevealAsync_PartyVisibleHiddenFact_IsConfirmed_WithProvenance()
+    {
+        // The convergence gauge offers this shape — the party can see the claim, not its truth —
+        // so revealing it must do something, not quietly mint nothing.
+        var voss = SeedArtifact("Captain Voss", VisibilityScope.PartyVisible, ArtifactType.Character);
+        var shape = SeedFact(voss.Id, "true allegiance", "Smuggler king", VisibilityScope.PartyVisible, TruthState.Hidden);
+
+        var result = await _sut.RevealAsync(Command(facts: [shape.Id]), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.RevealedFacts, Is.EqualTo(1));
+        Assert.That(result.Value.BatchId, Is.Not.Null);
+        var revealed = CurrentFact(shape.Id);
+        Assert.That(revealed.TruthState, Is.EqualTo(TruthState.Confirmed));
+        Assert.That(revealed.Visibility, Is.EqualTo(VisibilityScope.PartyVisible));
+        Assert.That(_batchRepo.Batches.Single().Kind, Is.EqualTo("Reveal"));
+        Assert.That(_sourceRepo.Sources.Single().Visibility, Is.EqualTo(VisibilityScope.PartyVisible));
+    }
+
+    [Test]
+    public async Task RevealAsync_GmOnlyHiddenRelationship_BecomesPartyVisible_AndConfirmed()
+    {
+        var voss = SeedArtifact("Captain Voss", VisibilityScope.PartyVisible, ArtifactType.Character);
+        var caravan = SeedArtifact("Missing Caravan", VisibilityScope.PartyVisible, ArtifactType.Storyline);
+        var link = SeedRelationship(voss.Id, caravan.Id, "SuspectedIn", VisibilityScope.GMOnly);
+        link.TruthState = TruthState.Hidden;
+
+        var result = await _sut.RevealAsync(Command(relationships: [link.Id]), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(result.Value!.RevealedRelationships, Is.EqualTo(1));
+        var revealed = CurrentRelationship(link.Id);
+        Assert.That(revealed.Visibility, Is.EqualTo(VisibilityScope.PartyVisible));
+        Assert.That(revealed.TruthState, Is.EqualTo(TruthState.Confirmed));
+    }
+
+    [Test]
+    public async Task RevealAsync_GmOnlyFactWithKnownTruth_KeepsItsTruthState()
+    {
+        // Only Hidden is rewritten. A GM-only rumour revealed is still a rumour.
+        var voss = SeedArtifact("Captain Voss", VisibilityScope.PartyVisible, ArtifactType.Character);
+        var rumour = SeedFact(voss.Id, "whereabouts", "seen in Saltmere", VisibilityScope.GMOnly, TruthState.Rumor);
+
+        var result = await _sut.RevealAsync(Command(facts: [rumour.Id]), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        var revealed = CurrentFact(rumour.Id);
+        Assert.That(revealed.Visibility, Is.EqualTo(VisibilityScope.PartyVisible));
+        Assert.That(revealed.TruthState, Is.EqualTo(TruthState.Rumor));
+    }
+
     // ---- idempotence / no-op ----
 
     [Test]

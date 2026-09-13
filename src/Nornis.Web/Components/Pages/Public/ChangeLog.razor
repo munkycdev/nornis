@@ -9,6 +9,15 @@
     <Stonemark Kind="StonemarkKind.Rule" />
 
     <section class="nornis-changelog-entry">
+        <h2>September 13, 2026</h2>
+        <ul>
+            <li>Deleting a world works again. A world mid-campaign remembers which campaign it is playing, and the wipe was removing the campaigns while the world still pointed at one, which the database refused. The pointer is let go first now, and the wipe also clears the tables added since it was written — shelf links, sheet snapshots, digests, import sessions and tutorial progress — rather than trusting the database to cascade them.</li>
+            <li>Revealing a fact whose truth was <em>Hidden</em> now confirms it. Hidden is the truth only the GM may see, so a fact revealed to the party but left Hidden was invisible to them — What you learned counted the disclosure on the nav and then had nothing to show. Reveal confirms what it discloses, and a party-visible fact whose truth was still hidden can be revealed on its own.</li>
+            <li>The <kbd>Ctrl</kbd>+<kbd>K</kbd> results read left to right instead of sitting centred.</li>
+        </ul>
+    </section>
+
+    <section class="nornis-changelog-entry">
         <h2>September 10, 2026</h2>
         <ul>
             <li>The Codex is at <code>/codex</code>. Its pages were filed under <code>/artifacts</code>, the name the code uses for an entry; the address now says what the sidebar says. Old <code>/artifacts</code> links redirect.</li>

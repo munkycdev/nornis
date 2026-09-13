@@ -22,13 +22,17 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
         Guid FactId, Guid RelationshipId, Guid SourceId,
         Guid ExtractionId, Guid ReferenceId, Guid AttachmentId, Guid PlacemarkId,
         Guid BatchId, Guid ProposalId, Guid UsageId, Guid AssessmentId, Guid FindingId,
-        Guid DismissalId, Guid DocumentId, Guid ChunkId, Guid ReplayId);
+        Guid DismissalId, Guid DocumentId, Guid ChunkId, Guid ReplayId,
+        Guid ShelfLinkId, Guid SnapshotId, Guid DigestId, Guid ImportSessionId, Guid ImportItemId,
+        Guid TutorialProgressId);
 
     /// <summary>
     /// Seeds a world exercising every table and every awkward FK: a character linked to an
     /// artifact (NoAction), a source in a campaign (Restrict), a review batch on the source
-    /// (Restrict), usage-ledger rows pointing at source and batch (NoAction), and the
-    /// join/satellite tables that carry no WorldId of their own.
+    /// (Restrict), usage-ledger rows pointing at source and batch (NoAction), a sheet snapshot
+    /// on the character (NoAction), the world's own pointer at its current campaign (Restrict —
+    /// the one that shipped as a 500 on an ordinary delete), and the join/satellite tables that
+    /// carry no WorldId of their own.
     /// </summary>
     private WorldGraph SeedWorldGraph()
     {
@@ -315,12 +319,72 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
             UpdatedAt = now,
             CompletedAt = now,
         };
+        var shelfLink = new ShelfLink
+        {
+            Id = Guid.NewGuid(),
+            PlayerId = player.Id,
+            Code = Guid.NewGuid().ToString("N"),
+            CreatedByUserId = user.Id,
+            CreatedAt = now,
+        };
+        var snapshot = new CharacterSheetSnapshot
+        {
+            Id = Guid.NewGuid(),
+            CharacterId = character.Id,
+            SourceId = source.Id,
+            AsOf = now,
+            CreatedAt = now,
+            CreatedByUserId = user.Id,
+        };
+        var digest = new WorldDigest
+        {
+            Id = Guid.NewGuid(),
+            WorldId = world.Id,
+            GmContentMarkdown = "The traitor is known.",
+            PartyContentMarkdown = "The caravan is still missing.",
+            Model = "gpt-4o",
+            GeneratedAt = now,
+            GeneratedByUserId = user.Id,
+        };
+        var importSession = new ImportSession
+        {
+            Id = Guid.NewGuid(),
+            WorldId = world.Id,
+            CreatedByUserId = user.Id,
+            Status = ImportSessionStatus.Draft,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+        var importItem = new ImportSessionItem
+        {
+            Id = Guid.NewGuid(),
+            ImportSessionId = importSession.Id,
+            SourceId = source.Id,
+            Position = 0,
+            CreatedByImport = true,
+        };
+        var tutorialProgress = new TutorialProgress
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            WorldId = world.Id,
+            StepKey = "reveal-secret",
+            CompletedAt = now,
+        };
 
         Context.AddRange(
             user, world, member, player, invite, campaign, artifact, storyline, character,
             campaignCharacter, campaignRecap, fact, relationship, source, extraction,
             reference, attachment, placemark, batch, proposal, usage, assessment, finding,
-            dismissal, document, chunk, replay);
+            dismissal, document, chunk, replay, shelfLink, snapshot, digest, importSession,
+            importItem, tutorialProgress);
+        Context.SaveChanges();
+
+        // The world is playing its campaign: the pointer is a Restrict FK from Worlds to
+        // Campaigns, so the wipe must let go of it before the campaign can die. Set in a second
+        // save because World and Campaign each reference the other, and one insert cannot
+        // order a cycle.
+        world.CurrentCampaignId = campaign.Id;
         Context.SaveChanges();
         Context.ChangeTracker.Clear();
 
@@ -329,7 +393,8 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
             character.Id, campaignCharacter.Id, campaignRecap.Id, fact.Id, relationship.Id,
             source.Id, extraction.Id, reference.Id, attachment.Id, placemark.Id, batch.Id,
             proposal.Id, usage.Id, assessment.Id, finding.Id, dismissal.Id, document.Id,
-            chunk.Id, replay.Id);
+            chunk.Id, replay.Id, shelfLink.Id, snapshot.Id, digest.Id, importSession.Id,
+            importItem.Id, tutorialProgress.Id);
     }
 
     /// <summary>Counts how many of the graph's seeded rows still exist, table by table.</summary>
@@ -360,11 +425,17 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
         remaining += await Context.LibraryDocuments.CountAsync(x => x.Id == g.DocumentId);
         remaining += await Context.LibraryChunks.CountAsync(x => x.Id == g.ChunkId);
         remaining += await Context.ExtractionReplays.CountAsync(x => x.Id == g.ReplayId);
+        remaining += await Context.ShelfLinks.CountAsync(x => x.Id == g.ShelfLinkId);
+        remaining += await Context.CharacterSheetSnapshots.CountAsync(x => x.Id == g.SnapshotId);
+        remaining += await Context.WorldDigests.CountAsync(x => x.Id == g.DigestId);
+        remaining += await Context.ImportSessions.CountAsync(x => x.Id == g.ImportSessionId);
+        remaining += await Context.ImportSessionItems.CountAsync(x => x.Id == g.ImportItemId);
+        remaining += await Context.TutorialProgress.CountAsync(x => x.Id == g.TutorialProgressId);
         return remaining;
     }
 
     /// <summary>The number of rows one seeded graph contributes (2 artifacts, 1 of everything else).</summary>
-    private const int SeededRowCount = 25;
+    private const int SeededRowCount = 31;
 
     [Test]
     public async Task DeleteAsync_RemovesEveryRowOfTheWorld_AndNothingElse()

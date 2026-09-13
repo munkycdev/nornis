@@ -4083,6 +4083,8 @@ a.nornis-cite:hover {
 .nornis-switcher-row {
     display: flex;
     align-items: center;
+    /* MudBlazor's reset centres every <button>'s content; a result row reads left to right. */
+    justify-content: flex-start;
     gap: 12px;
     width: 100%;
     height: 40px;
