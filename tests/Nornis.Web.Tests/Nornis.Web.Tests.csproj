@@ -6,10 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="bunit" Version="2.9.0" />
+    <PackageReference Include="bunit" Version="2.11.3" />
     <!-- bUnit 2.7.2 pulls AngleSharp 1.4.0, which carries a moderate advisory
          (GHSA-pgww-w46g-26qg) and NU1902 is an error here. Pin the patched line. -->
-    <PackageReference Include="AngleSharp" Version="1.8.0" />
+    <PackageReference Include="AngleSharp" Version="1.8.1" />
     <PackageReference Include="NUnit" Version="4.6.1" />
     <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
   </ItemGroup>
