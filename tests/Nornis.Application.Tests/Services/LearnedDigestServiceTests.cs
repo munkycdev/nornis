@@ -359,17 +359,59 @@ public class LearnedDigestServiceTests
 
     #region The unseen count (phase E)
 
+    // The badge is the page's entry count and nothing else. It used to be a separate aggregate
+    // over reveal sources — deliberately, so a session being processed would not pull the party
+    // back to the app — and the two disagreed in both directions: the badge ignored the session
+    // records the page shows, and it counted a reveal whose elements the page had since dropped.
+    // David's call, 2026-09-16: a number on the nav must be the number of things behind it.
+
     [Test]
-    public async Task CountUnseen_CountsOnlyDisclosures()
+    public async Task CountUnseen_IsTheNumberOfEntriesThePageShows()
     {
         SeedReveal(Now.AddDays(-2), "one", SeedArtifact("A"));
         SeedSession(Now.AddDays(-1), SeedArtifact("B"));
 
         var count = await _sut.CountUnseenAsync(WorldId, PlayerId, WorldRole.Player, CancellationToken.None);
 
-        // The badge announces that the GM told you something. A session being processed is not
-        // an event the party needs pulling back to the app for.
-        Assert.That(count.Value, Is.EqualTo(1));
+        Assert.That(count.Value, Is.EqualTo(2));
+        Assert.That(count.Value, Is.EqualTo((await Read()).Value!.Entries.Count));
+    }
+
+    [Test]
+    public async Task CountUnseen_DoesNotCountARevealThePageHasNothingToShowFor()
+    {
+        // The shape that shipped: two reveals on the nav, "Nothing new" on the page. Here the
+        // revealed artifact has since been archived, so the entry is dropped — and so is the count.
+        var gone = SeedArtifact("Retired secret");
+        SeedReveal(Now.AddDays(-1), "you have learned", gone);
+        gone.Status = ArtifactStatus.Archived;
+
+        var count = await _sut.CountUnseenAsync(WorldId, PlayerId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That((await Read()).Value!.Entries, Is.Empty);
+        Assert.That(count.Value, Is.Zero);
+    }
+
+    [Test]
+    public async Task CountUnseen_AgreesWithThePage_AcrossEveryShapeTheDigestKnows()
+    {
+        // A reveal that resolves, a reveal that does not, a session, a source with no batch, a
+        // GM-only session the player cannot see, and one already behind the marker.
+        SeedReveal(Now.AddDays(-1), "told", SeedArtifact("Told"));
+        var archived = SeedArtifact("Archived");
+        SeedReveal(Now.AddDays(-2), "gone", archived);
+        archived.Status = ArtifactStatus.Archived;
+        SeedSession(Now.AddDays(-3), SeedArtifact("Recorded"));
+        SeedSession(Now.AddDays(-4));
+        SeedSession(Now.AddDays(-5), SeedArtifact("Secret session")).Visibility = VisibilityScope.GMOnly;
+        SeedSession(Now.AddDays(-30), SeedArtifact("Old news"));
+        Member(PlayerId).LearnedSeenAt = Now.AddDays(-10);
+
+        var page = (await Read()).Value!;
+        var count = await _sut.CountUnseenAsync(WorldId, PlayerId, WorldRole.Player, CancellationToken.None);
+
+        Assert.That(page.Entries.Select(e => e.Kind), Is.EqualTo([LearnedEntryKind.Disclosed, LearnedEntryKind.Recorded]).AsCollection);
+        Assert.That(count.Value, Is.EqualTo(page.Entries.Count));
     }
 
     [Test]

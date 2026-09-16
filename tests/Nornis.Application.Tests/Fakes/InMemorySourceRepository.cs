@@ -94,20 +94,21 @@ public class InMemorySourceRepository : ISourceRepository
         return Task.FromResult(any);
     }
 
-    public Task<int> CountRevealsSinceAsync(
-        Guid worldId, DateTimeOffset? since, Guid requestingUserId, WorldRole role,
-        CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<LearnedCandidate>> ListLearnedCandidatesAsync(
+        Guid worldId, DateTimeOffset? since, CancellationToken cancellationToken = default)
     {
-        // Same shared rule, and the same date expression the real query uses, so this fake
-        // cannot disagree with production about which reveals a reader has left to see.
-        var canSee = SourceVisibilityRule.Compile(requestingUserId, role);
+        // Mirrors SourceRepository.ListLearnedCandidatesAsync's date expression — the one place
+        // "when did this happen" is decided for the marker and the sort alike.
+        var candidates = _sources
+            .Where(s => s.WorldId == worldId)
+            .Where(s => since is not { } marker || (s.OccurredAt ?? s.CreatedAt) > marker)
+            .OrderByDescending(s => s.OccurredAt ?? s.CreatedAt)
+            .ThenByDescending(s => s.Id)
+            .Select(s => new LearnedCandidate(
+                s.Id, s.Type, s.Visibility, s.CreatedByUserId, s.OccurredAt ?? s.CreatedAt, s.RevealNote))
+            .ToList();
 
-        var count = _sources
-            .Where(s => s.WorldId == worldId && s.Type == SourceType.Reveal)
-            .Where(canSee)
-            .Count(s => since is not { } marker || (s.OccurredAt ?? s.CreatedAt) > marker);
-
-        return Task.FromResult(count);
+        return Task.FromResult<IReadOnlyList<LearnedCandidate>>(candidates);
     }
 
     public Task<IReadOnlyDictionary<SourceProcessingStatus, int>> CountByStatusAsync(
