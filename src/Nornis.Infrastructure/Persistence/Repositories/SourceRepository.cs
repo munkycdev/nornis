@@ -146,29 +146,29 @@ public class SourceRepository : ISourceRepository
         return counts.ToDictionary(c => c.Status, c => c.Count);
     }
 
-    public Task<int> CountRevealsSinceAsync(
+    public async Task<IReadOnlyList<LearnedCandidate>> ListLearnedCandidatesAsync(
         Guid worldId,
         DateTimeOffset? since,
-        Guid requestingUserId,
-        WorldRole role,
         CancellationToken cancellationToken = default)
     {
         var query = _context.Sources
             .AsNoTracking()
-            .Where(s => s.WorldId == worldId && s.Type == SourceType.Reveal)
-            // The shared expression, as CountByStatusAsync uses — the count and the list the
-            // page renders must not be able to disagree about who may see a source.
-            .Where(SourceVisibilityRule.CanSee(requestingUserId, role));
+            .Where(s => s.WorldId == worldId);
 
+        // The marker cut and the sort share one expression, so a source cannot be newer than the
+        // marker by one date and sorted by another. InMemorySourceRepository mirrors it — the
+        // fake reads objects and this reads SQL, and no compiler spans the two.
         if (since is { } marker)
         {
-            // Mirrors LearnedDigestService.SortDate, which no compiler spans: the service reads
-            // in memory and this reads in SQL, and a disagreement would count a reveal the page
-            // does not show.
             query = query.Where(s => (s.OccurredAt ?? s.CreatedAt) > marker);
         }
 
-        return query.CountAsync(cancellationToken);
+        return await query
+            .OrderByDescending(s => s.OccurredAt ?? s.CreatedAt)
+            .ThenByDescending(s => s.Id)
+            .Select(s => new LearnedCandidate(
+                s.Id, s.Type, s.Visibility, s.CreatedByUserId, s.OccurredAt ?? s.CreatedAt, s.RevealNote))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<SourceAttribution>> ListAttributionByIdsAsync(

@@ -80,19 +80,22 @@ public class LearnedDigestService : ILearnedDigestService
         // marker, whose accepted proposals name what it put into the record. A reveal promotes
         // material that already existed; an extraction introduces new material. Chronological,
         // because the reader's question is "what happened since I looked", not "what kind".
-        var sources = (await _sourceRepository.ListByWorldAsync(worldId, ct))
-            .Where(s => filter.CanSee(s.Visibility, s.CreatedByUserId))
-            .Where(s => seenThrough is null || SortDate(s) > seenThrough.Value)
-            .OrderByDescending(SortDate)
-            .ThenByDescending(s => s.Id)
+        var candidates = (await _sourceRepository.ListLearnedCandidatesAsync(worldId, seenThrough, ct))
+            .Where(c => filter.CanSee(c.Visibility, c.CreatedByUserId))
             .ToList();
 
         var limit = seenThrough is null ? FirstViewLimit : PageLimit;
 
+        // One query for every candidate's batches. This read is also the nav badge's, and most
+        // candidates settle right here at "no usable batch" — a note saved to the record without
+        // extraction, a session whose every proposal was rejected.
+        var batchesBySource = (await _batchRepository.ListBySourceIdsAsync(candidates.Select(c => c.Id).ToList(), ct))
+            .ToLookup(b => b.SourceId);
+
         var entries = new List<LearnedEntry>();
         var considered = 0;
 
-        foreach (var source in sources)
+        foreach (var candidate in candidates)
         {
             if (entries.Count >= limit)
             {
@@ -100,7 +103,20 @@ public class LearnedDigestService : ILearnedDigestService
             }
 
             considered++;
-            var elements = await ResolveAsync(source, filter, ct);
+
+            // A reveal names its batch; an ordinary source's extraction batch is the one with no
+            // kind at all — that null is what the filtered unique index keys on, and it is the
+            // difference between "the GM told you" and "the record caught up".
+            var batch = candidate.Type == SourceType.Reveal
+                ? batchesBySource[candidate.Id].FirstOrDefault(b => b.Kind == ReviewBatchKinds.Reveal)
+                : batchesBySource[candidate.Id].FirstOrDefault(b => b.Kind is null);
+
+            if (batch is null)
+            {
+                continue;
+            }
+
+            var elements = await ResolveAsync(batch.Id, filter, ct);
 
             // An entry whose elements have all been archived or hidden since is dropped rather
             // than rendered empty: "the GM revealed something and it is gone" is exactly the gap
@@ -113,17 +129,17 @@ public class LearnedDigestService : ILearnedDigestService
 
             entries.Add(new LearnedEntry
             {
-                Kind = source.Type == SourceType.Reveal
+                Kind = candidate.Type == SourceType.Reveal
                     ? LearnedEntryKind.Disclosed
                     : LearnedEntryKind.Recorded,
-                SourceId = source.Id,
-                OccurredAt = SortDate(source),
-                GmNote = source.Type == SourceType.Reveal ? source.RevealNote : null,
+                SourceId = candidate.Id,
+                OccurredAt = candidate.OccurredAt,
+                GmNote = candidate.Type == SourceType.Reveal ? candidate.RevealNote : null,
                 Elements = elements
             });
         }
 
-        var hasMore = sources.Count > considered;
+        var hasMore = candidates.Count > considered;
 
         return AppResult<LearnedDigest>.Success(new LearnedDigest
         {
@@ -135,19 +151,21 @@ public class LearnedDigestService : ILearnedDigestService
         });
     }
 
+    /// <summary>
+    /// The page's own read, counted. The badge used to be a separate aggregate over reveal
+    /// sources, and it disagreed with the page twice over: it never counted the session
+    /// records the page shows, and it counted a reveal whose every element the page had since
+    /// dropped — "2" on the nav above a page saying "nothing new". One read, one number: the
+    /// badge is by construction the number of entries the reader will find.
+    /// </summary>
     public async Task<AppResult<int>> CountUnseenAsync(
         Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct)
     {
-        var member = await _memberRepository.GetByWorldAndUserAsync(worldId, actingUserId, ct);
+        var digest = await GetAsync(worldId, actingUserId, role, ct);
 
-        var count = await _sourceRepository.CountRevealsSinceAsync(
-            worldId, member?.LearnedSeenAt, actingUserId, role, ct);
-
-        // A member who has never looked sees a bounded first view, so the badge must not promise
-        // more rows than the page will hand them.
-        var limit = member?.LearnedSeenAt is null ? FirstViewLimit : PageLimit;
-
-        return AppResult<int>.Success(Math.Min(count, limit));
+        return digest.IsSuccess
+            ? AppResult<int>.Success(digest.Value!.Entries.Count)
+            : AppResult<int>.Fail(digest.Error!);
     }
 
     public async Task<AppResult<DateTimeOffset>> MarkSeenAsync(
@@ -170,35 +188,14 @@ public class LearnedDigestService : ILearnedDigestService
     }
 
     /// <summary>
-    /// A reveal source records when it happened in OccurredAt where one was set, and otherwise
-    /// when it was written. Both orderings must agree with what the marker compares against, so
-    /// the choice lives in one place.
-    /// </summary>
-    private static DateTimeOffset SortDate(Source source) => source.OccurredAt ?? source.CreatedAt;
-
-    /// <summary>
-    /// What a reveal promoted, resolved through the reader's own filter. Anything since
-    /// archived, removed, or lowered simply does not come back, which is what makes "only
+    /// What a batch put into the record, resolved through the reader's own filter. Anything
+    /// since archived, removed, or lowered simply does not come back, which is what makes "only
     /// party-visible material appears" structural rather than a rule to remember.
     /// </summary>
     private async Task<IReadOnlyList<LearnedElement>> ResolveAsync(
-        Source source, VisibilityFilter filter, CancellationToken ct)
+        Guid batchId, VisibilityFilter filter, CancellationToken ct)
     {
-        var batches = await _batchRepository.ListBySourceAsync(source.Id, ct);
-
-        // A reveal names its batch; an ordinary source's extraction batch is the one with no
-        // kind at all — that null is what the filtered unique index keys on, and it is the
-        // difference between "the GM told you" and "the record caught up".
-        var batch = source.Type == SourceType.Reveal
-            ? batches.FirstOrDefault(b => b.Kind == ReviewBatchKinds.Reveal)
-            : batches.FirstOrDefault(b => b.Kind is null);
-
-        if (batch is null)
-        {
-            return [];
-        }
-
-        var proposals = (await _proposalRepository.ListByReviewBatchAsync(batch.Id, ct))
+        var proposals = (await _proposalRepository.ListByReviewBatchAsync(batchId, ct))
             .Where(p => p.Status == ReviewProposalStatus.Accepted && p.TargetId is not null)
             .ToList();
 

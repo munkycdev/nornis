@@ -9,6 +9,13 @@
     <Stonemark Kind="StonemarkKind.Rule" />
 
     <section class="nornis-changelog-entry">
+        <h2>September 16, 2026</h2>
+        <ul>
+            <li>The number beside <em>What you learned</em> is now exactly the number of entries on the page. The two were computed separately — the badge counted reveals, the page showed reveals and session records and dropped anything with nothing left to show — so they could disagree in both directions. The badge is now the page's own read, counted, and session records count towards it the way they appear on the page.</li>
+        </ul>
+    </section>
+
+    <section class="nornis-changelog-entry">
         <h2>September 13, 2026</h2>
         <ul>
             <li>Deleting a world works again. A world mid-campaign remembers which campaign it is playing, and the wipe was removing the campaigns while the world still pointed at one, which the database refused. The pointer is let go first now, and the wipe also clears the tables added since it was written — shelf links, sheet snapshots, digests, import sessions and tutorial progress — rather than trusting the database to cascade them.</li>

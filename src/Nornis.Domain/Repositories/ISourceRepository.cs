@@ -82,19 +82,15 @@ public interface ISourceRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// How many reveals this reader has not seen. An aggregate, because it feeds the nav badge
-    /// on the most frequently polled endpoint in the system — resolving each reveal to check it
-    /// still has something to show would answer six integers by loading half the world.
-    ///
-    /// The consequence, accepted: a reveal whose every element has since been archived is
-    /// counted here but dropped from the page, so the badge can overcount by one in a case that
-    /// requires a whole disclosure to be retired.
+    /// The sources What you learned may show a reader: newer than <paramref name="since"/> (all
+    /// of them when null), newest first, projected to what the digest sorts and filters by.
+    /// Visibility is the caller's to apply — <see cref="Models.VisibilityFilter"/> is the one
+    /// policy and it lives in memory. Feeds both the page and the nav badge, which is why it is
+    /// a projection and not the entity: the badge poll must not load transcript bodies.
     /// </summary>
-    Task<int> CountRevealsSinceAsync(
+    Task<IReadOnlyList<LearnedCandidate>> ListLearnedCandidatesAsync(
         Guid worldId,
         DateTimeOffset? since,
-        Guid requestingUserId,
-        WorldRole role,
         CancellationToken cancellationToken = default);
 
     /// <summary>

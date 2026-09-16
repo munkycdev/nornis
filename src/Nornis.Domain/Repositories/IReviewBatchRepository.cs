@@ -30,6 +30,13 @@ public interface IReviewBatchRepository
     /// <summary>All batches for a source, extraction and backfill kinds alike.</summary>
     Task<IReadOnlyList<ReviewBatch>> ListBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Every batch of every listed source, one query. What you learned resolves its candidates
+    /// on the nav-badge poll, and most of them settle at "no usable batch" — a query per source
+    /// to learn that is the cost this exists to avoid.
+    /// </summary>
+    Task<IReadOnlyList<ReviewBatch>> ListBySourceIdsAsync(IReadOnlyList<Guid> sourceIds, CancellationToken cancellationToken = default);
+
     /// <summary>Whether a batch of the given kind exists for the source (sweep idempotency).</summary>
     Task<bool> ExistsForSourceAsync(Guid sourceId, string kind, CancellationToken cancellationToken = default);
 
