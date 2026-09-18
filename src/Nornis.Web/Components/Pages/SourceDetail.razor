@@ -151,7 +151,8 @@
 
                 <div class="mb-3">
                     <NotesEditor @ref="_bodyEditor" InitialMarkdown="@_editBody"
-                                 Placeholder="Paste session notes, a journal entry, a transcript…" />
+                                 Placeholder="Paste session notes, a journal entry, a transcript…"
+                                 AllowMaximize="true" />
                 </div>
 
                 <MudTextField @bind-Value="_editUri" Label="Link (optional)" Placeholder="https://…"
