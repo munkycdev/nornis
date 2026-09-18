@@ -2949,6 +2949,42 @@ a.nornis-cite:hover {
     background: rgba(0, 0, 0, 0.12);
 }
 
+.nornis-editor-toolbar-grow { flex: 1 1 auto; }
+
+/* Maximised: the editor is the page. Fixed over everything the sidebar and app bar own
+   (1200 is the drawer's and the tutorial panel's layer) but under MudBlazor's popovers, so the
+   toolbar's tooltips and the table menu still open on top. The 680px reading measure keeps
+   its width and moves to the centre; the toolbar stays put while the text scrolls. */
+.nornis-editor-max {
+    position: fixed;
+    inset: 0;
+    z-index: 1250;
+    display: flex;
+    flex-direction: column;
+    border: 0;
+    border-radius: 0;
+}
+
+.nornis-editor-max:focus-within { box-shadow: none; }
+
+.nornis-editor-max .nornis-editor-toolbar {
+    flex: 0 0 auto;
+    padding: 8px 16px;
+}
+
+.nornis-editor-max .nornis-editor-content {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    max-width: none;
+    padding: 32px max(24px, calc((100% - 680px) / 2)) 40vh;
+}
+
+.nornis-editor-max .nornis-editor-content.nornis-editor-empty::before {
+    top: 32px;
+    left: max(24px, calc((100% - 680px) / 2));
+    right: max(24px, calc((100% - 680px) / 2));
+}
+
 .nornis-editor-content {
     position: relative;
     padding: 14px 18px;
@@ -4242,3 +4278,10 @@ a.nornis-cite:hover {
     --nornis-topo: none;
     color-scheme: dark;
 }
+
+/* The editor's white is the light surface, hard-coded from before dark existed; on the ink side
+   the palette's near-white text was landing on it and vanishing. Same token, both sides. */
+.nornis-dark .nornis-editor { background: var(--mud-palette-surface); }
+.nornis-dark .nornis-editor-toolbar { border-bottom-color: var(--nornis-onside-border); }
+.nornis-dark .nornis-editor-toolbar-sep { background: var(--nornis-onside-border); }
+.nornis-dark .nornis-editor-content.nornis-editor-empty::before { color: var(--nornis-onside-muted); }
