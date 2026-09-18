@@ -33,16 +33,8 @@ else
                     @* What was here when the page was last left, put back. Said once, with the way
                        out beside it — the alternative to a banner is a GM wondering whose notes
                        these are. *@
-                    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
-                        <div class="d-flex align-center justify-space-between gap-3 flex-wrap">
-                            <span>Picked up where you left off — kept @CaptureBackup.DescribeAge(DateTimeOffset.UtcNow - keptAt).</span>
-                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Inherit"
-                                       StartIcon="@Icons.Material.Outlined.DeleteSweep"
-                                       OnClick="StartFreshAsync" Disabled="_busy">
-                                Start fresh
-                            </MudButton>
-                        </div>
-                    </MudAlert>
+                    <KeptNotesNotice KeptAt="keptAt" Message="Picked up where you left off"
+                                     DiscardLabel="Start fresh" OnDiscard="StartFreshAsync" Disabled="_busy" />
                 }
 
                 <MudTextField @bind-Value="_title"
@@ -301,8 +293,8 @@ else
     private string? _lastFormFingerprint;
     private DateTimeOffset? _keptAt;
 
-    private string NotesBackupKey => CaptureBackup.NotesKey(Worlds.Current!.Id);
-    private string FormBackupKey => CaptureBackup.FormKey(Worlds.Current!.Id);
+    private string NotesBackupKey => NotesBackup.CaptureNotesKey(Worlds.Current!.Id);
+    private string FormBackupKey => NotesBackup.CaptureFormKey(Worlds.Current!.Id);
 
     // ------------------------------------------------ Read-before-extract (handwriting) --
     // A handwritten source is saved as a draft, transcribed, corrected, and only then sent
@@ -541,7 +533,7 @@ else
             return;
         }
 
-        var kept = CaptureBackup.TryParse(json);
+        var kept = NotesBackup.TryParse(json);
         if (kept is null)
         {
             return;
@@ -588,7 +580,7 @@ else
 
             var form = new CaptureFormBackup(
                 _title, _type, _visibility, _uri, _occurredAt, _campaignId, _extractionEnabled, DateTimeOffset.UtcNow);
-            await JS.InvokeVoidAsync("localStorage.setItem", FormBackupKey, CaptureBackup.Serialize(form));
+            await JS.InvokeVoidAsync("localStorage.setItem", FormBackupKey, NotesBackup.Serialize(form));
         }
         catch (JSException)
         {

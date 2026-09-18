@@ -133,8 +133,28 @@
     /// </summary>
     [Parameter] public string? BackupKey { get; set; }
 
+    /// <summary>
+    /// Load the kept notes even over non-empty initial content. An edit page seeds the editor
+    /// with the stored body, and the kept copy is newer edits on top of it; the capture page
+    /// leaves this off, because its non-empty initial content is a fresh transcription that must
+    /// not be overwritten by an older abandoned note.
+    /// </summary>
+    [Parameter] public bool PreferBackup { get; set; }
+
     /// <summary>Raised once, after first render, with the time the restored notes were kept at.</summary>
     [Parameter] public EventCallback<DateTimeOffset> Restored { get; set; }
+
+    /// <summary>Puts this text in the editor and forgets the kept copy — "discard my unsaved changes".</summary>
+    public async Task ReplaceAsync(string? markdown)
+    {
+        if (!_initialized)
+        {
+            return;
+        }
+
+        await ClearBackupAsync();
+        await JS.InvokeVoidAsync("nornisEditor.setContent", _elementId, markdown ?? string.Empty);
+    }
 
     private readonly string _elementId = $"nornis-editor-{Guid.NewGuid():N}";
     private bool _initialized;
@@ -188,7 +208,7 @@
             // the ISO time of a backup loaded in place of empty content, or null.
             var restoredAt = await JS.InvokeAsync<string?>("nornisEditor.init",
                 _elementId, InitialHtml ?? InitialMarkdown, ReadOnly ? null : Placeholder, !ReadOnly,
-                ReadOnly ? null : BackupKey);
+                ReadOnly ? null : BackupKey, PreferBackup);
             _initialized = true;
 
             if (DateTimeOffset.TryParse(restoredAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var keptAt))
