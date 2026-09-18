@@ -310,6 +310,15 @@
             }
         },
 
+        // Puts the caret back where it was. Toggling the editor's maximised state re-renders
+        // the wrapper, and a click on the toolbar button had already taken focus anyway.
+        focus(elementId) {
+            const editor = editors.get(elementId);
+            if (editor) {
+                editor.commands.focus();
+            }
+        },
+
         destroy(elementId) {
             const editor = editors.get(elementId);
             if (editor) {

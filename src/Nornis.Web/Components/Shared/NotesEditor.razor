@@ -7,7 +7,8 @@
    GetMarkdownAsync. Markdown-style typing (**bold**, # heading, - list) and the usual
    hotkeys work alongside the toolbar. *@
 
-<div class="nornis-editor @(ReadOnly ? "nornis-editor-ro" : "")">
+<div class="nornis-editor @(ReadOnly ? "nornis-editor-ro" : "") @(_maximized ? "nornis-editor-max" : "")"
+     @onkeydown="OnKeyDownAsync">
     @if (!ReadOnly)
     {
     <div class="nornis-editor-toolbar">
@@ -84,6 +85,19 @@
                 <MudMenuItem OnClick="@(() => ExecAsync("deleteTable"))">Delete table</MudMenuItem>
             </ChildContent>
         </MudMenu>
+
+        @if (AllowMaximize)
+        {
+            @* Long session notes want the whole screen, not a 320px box inside a card. The
+               toggle sits at the toolbar's far end, apart from the formatting controls. *@
+            <span class="nornis-editor-toolbar-grow"></span>
+            <MudTooltip Text="@(_maximized ? "Restore (Esc)" : "Maximize")">
+                <MudIconButton Icon="@(_maximized ? Icons.Material.Filled.FullscreenExit : Icons.Material.Filled.Fullscreen)"
+                               Size="Size.Small" OnClick="ToggleMaximizeAsync"
+                               aria-label="@(_maximized ? "Restore editor size" : "Maximize editor")"
+                               aria-pressed="@(_maximized ? "true" : "false")" />
+            </MudTooltip>
+        }
     </div>
     }
     <div id="@_elementId" class="nornis-editor-content"></div>
@@ -104,8 +118,35 @@
     /// <summary>Display mode: no toolbar, not editable, chrome stripped by CSS.</summary>
     [Parameter] public bool ReadOnly { get; set; }
 
+    /// <summary>
+    /// Offers a toolbar toggle that grows the editor to the whole viewport. Off by default:
+    /// a sheet on a character page or a body being corrected in place fits where it is; the
+    /// capture page, where a session's notes are typed from scratch, turns it on.
+    /// </summary>
+    [Parameter] public bool AllowMaximize { get; set; }
+
     private readonly string _elementId = $"nornis-editor-{Guid.NewGuid():N}";
     private bool _initialized;
+    private bool _maximized;
+
+    /// <summary>
+    /// A presentation state, not content: the TipTap instance stays mounted in the same element
+    /// and only the wrapper's class changes, so nothing typed is at risk in the toggle.
+    /// </summary>
+    private async Task ToggleMaximizeAsync()
+    {
+        _maximized = !_maximized;
+        StateHasChanged();
+
+        // The button took the focus; hand it back to the text so typing carries on.
+        if (_initialized)
+        {
+            await JS.InvokeVoidAsync("nornisEditor.focus", _elementId);
+        }
+    }
+
+    private Task OnKeyDownAsync(KeyboardEventArgs e) =>
+        _maximized && e.Key == "Escape" ? ToggleMaximizeAsync() : Task.CompletedTask;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
