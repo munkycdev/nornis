@@ -28,6 +28,23 @@ else
     <div class="nornis-dashboard">
         <div class="nornis-dashboard-main">
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                @if (_keptAt is { } keptAt)
+                {
+                    @* What was here when the page was last left, put back. Said once, with the way
+                       out beside it — the alternative to a banner is a GM wondering whose notes
+                       these are. *@
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                        <div class="d-flex align-center justify-space-between gap-3 flex-wrap">
+                            <span>Picked up where you left off — kept @CaptureBackup.DescribeAge(DateTimeOffset.UtcNow - keptAt).</span>
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Inherit"
+                                       StartIcon="@Icons.Material.Outlined.DeleteSweep"
+                                       OnClick="StartFreshAsync" Disabled="_busy">
+                                Start fresh
+                            </MudButton>
+                        </div>
+                    </MudAlert>
+                }
+
                 <MudTextField @bind-Value="_title"
                               Label="Title"
                               Required="true"
@@ -180,7 +197,8 @@ else
                     }
                     <div class="mb-3">
                         <NotesEditor @ref="_editor" InitialMarkdown="@_transcription"
-                                     Placeholder="@EditorPlaceholder" AllowMaximize="true" />
+                                     Placeholder="@EditorPlaceholder" AllowMaximize="true"
+                                     BackupKey="@NotesBackupKey" Restored="OnNotesRestored" />
                     </div>
                 }
 
@@ -271,6 +289,20 @@ else
     private bool _extractionEnabled = true;
     private bool _busy;
     private string? _error;
+
+    // ---------------------------------------------------------- Unsaved work, kept locally --
+    // The editor keeps what is typed in this browser's storage as it goes (nornis-editor.js);
+    // the fields around it are kept here the same way, from OnAfterRender so the write never
+    // races the prerender. Both come back on the next visit and are forgotten the moment a save
+    // succeeds or the GM starts fresh. Not a Draft — that is a saved Source; this is the safety
+    // net for the one that was never saved.
+
+    private bool _backupReady;
+    private string? _lastFormFingerprint;
+    private DateTimeOffset? _keptAt;
+
+    private string NotesBackupKey => CaptureBackup.NotesKey(Worlds.Current!.Id);
+    private string FormBackupKey => CaptureBackup.FormKey(Worlds.Current!.Id);
 
     // ------------------------------------------------ Read-before-extract (handwriting) --
     // A handwritten source is saved as a draft, transcribed, corrected, and only then sent
@@ -475,6 +507,137 @@ else
         }
 
         return null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        // First interactive render: put the kept form back, if there is one. Every render
+        // after: keep the form as it stands. The gate is a flag rather than firstRender because
+        // the world can arrive on a later render than the first.
+        if (!_backupReady)
+        {
+            _backupReady = true;
+            await RestoreFormAsync();
+            return;
+        }
+
+        await KeepFormAsync();
+    }
+
+    private async Task RestoreFormAsync()
+    {
+        string? json;
+        try
+        {
+            json = await JS.InvokeAsync<string?>("localStorage.getItem", FormBackupKey);
+        }
+        catch (JSException)
+        {
+            return;
+        }
+
+        var kept = CaptureBackup.TryParse(json);
+        if (kept is null)
+        {
+            return;
+        }
+
+        // Each value is checked against what the form offers today, so a type retired or a
+        // campaign deleted since the notes were kept falls back rather than jamming a picker.
+        _title = kept.Title;
+        _type = SourceTypeDisplay.IsCaptureOption(kept.Type) ? kept.Type : _type;
+        _visibility = VisibilityDisplay.Scopes.Contains(kept.Visibility) ? kept.Visibility : _visibility;
+        _uri = IsWebLink ? kept.Uri : null;
+        _occurredAt = kept.OccurredAt;
+        _campaignId = _campaigns.Any(c => c.Id == kept.CampaignId) ? kept.CampaignId : null;
+        _extractionEnabled = kept.ExtractionEnabled;
+        _lastFormFingerprint = FormFingerprint;
+        _keptAt = Newest(_keptAt, kept.SavedAt);
+        StateHasChanged();
+    }
+
+    private string FormFingerprint =>
+        $"{_title}|{_type}|{_visibility}|{_uri}|{_occurredAt:o}|{_campaignId}|{_extractionEnabled}";
+
+    /// <summary>
+    /// Writes the form when it has changed since the last write, and forgets it when it has
+    /// gone back to blank — an empty title with no link is nothing worth restoring, and keeping
+    /// it would announce "picked up where you left off" over an empty page.
+    /// </summary>
+    private async Task KeepFormAsync()
+    {
+        var fingerprint = FormFingerprint;
+        if (fingerprint == _lastFormFingerprint)
+        {
+            return;
+        }
+
+        _lastFormFingerprint = fingerprint;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_title) && string.IsNullOrWhiteSpace(_uri))
+            {
+                await JS.InvokeVoidAsync("localStorage.removeItem", FormBackupKey);
+                return;
+            }
+
+            var form = new CaptureFormBackup(
+                _title, _type, _visibility, _uri, _occurredAt, _campaignId, _extractionEnabled, DateTimeOffset.UtcNow);
+            await JS.InvokeVoidAsync("localStorage.setItem", FormBackupKey, CaptureBackup.Serialize(form));
+        }
+        catch (JSException)
+        {
+            // Storage refused (quota, private mode). The form still works; the net is gone
+            // for this write, and the next change tries again.
+        }
+    }
+
+    private void OnNotesRestored(DateTimeOffset keptAt) => _keptAt = Newest(_keptAt, keptAt);
+
+    private static DateTimeOffset? Newest(DateTimeOffset? a, DateTimeOffset b) =>
+        a is { } current && current > b ? current : b;
+
+    /// <summary>Forgets both halves. Called once a save has succeeded, and by "start fresh".</summary>
+    private async Task ClearBackupAsync()
+    {
+        _lastFormFingerprint = null;
+        _keptAt = null;
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.removeItem", FormBackupKey);
+        }
+        catch (JSException)
+        {
+            // Nothing to remove, or nowhere to remove it from.
+        }
+
+        if (_editor is not null)
+        {
+            await _editor.ClearBackupAsync();
+        }
+    }
+
+    /// <summary>Back to a blank page, and the kept work forgotten with it.</summary>
+    private async Task StartFreshAsync()
+    {
+        _title = string.Empty;
+        _uri = null;
+        _visibility = "PartyVisible";
+        _occurredAt = DateTime.Today;
+        _campaignId = null;
+        _extractionEnabled = true;
+        _error = null;
+
+        await ClearBackupAsync();
+        if (_editor is not null)
+        {
+            await _editor.ClearAsync();
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -765,6 +928,11 @@ else
         }
 
         _busy = false;
+
+        // Saved for real: the kept copy has done its job and must not come back on the next
+        // visit as a ghost of a note that is already in the record.
+        await ClearBackupAsync();
+
         Snackbar.Add(
             !process ? "Draft saved."
             : _extractionEnabled ? "Source saved and queued for processing."

@@ -125,9 +125,41 @@
     /// </summary>
     [Parameter] public bool AllowMaximize { get; set; }
 
+    /// <summary>
+    /// When set, what is typed is kept under this key in the browser's localStorage as it goes
+    /// (written by nornis-editor.js, never across the circuit) and comes back on the next mount
+    /// with empty initial content. Null means no safety net — the read views and the in-place
+    /// edits that already have a saved body behind them.
+    /// </summary>
+    [Parameter] public string? BackupKey { get; set; }
+
+    /// <summary>Raised once, after first render, with the time the restored notes were kept at.</summary>
+    [Parameter] public EventCallback<DateTimeOffset> Restored { get; set; }
+
     private readonly string _elementId = $"nornis-editor-{Guid.NewGuid():N}";
     private bool _initialized;
     private bool _maximized;
+
+    /// <summary>Empties the editor and forgets its backup — "start fresh".</summary>
+    public async Task ClearAsync()
+    {
+        if (!_initialized)
+        {
+            return;
+        }
+
+        await ClearBackupAsync();
+        await JS.InvokeVoidAsync("nornisEditor.setContent", _elementId, string.Empty);
+    }
+
+    /// <summary>Forgets the kept notes. The page calls this the moment a save has succeeded.</summary>
+    public async Task ClearBackupAsync()
+    {
+        if (BackupKey is not null)
+        {
+            await JS.InvokeVoidAsync("nornisEditor.clearBackup", BackupKey);
+        }
+    }
 
     /// <summary>
     /// A presentation state, not content: the TipTap instance stays mounted in the same element
@@ -152,10 +184,17 @@
     {
         if (firstRender)
         {
-            // ensureHtml on the JS side auto-detects HTML vs markdown content.
-            await JS.InvokeVoidAsync("nornisEditor.init",
-                _elementId, InitialHtml ?? InitialMarkdown, ReadOnly ? null : Placeholder, !ReadOnly);
+            // ensureHtml on the JS side auto-detects HTML vs markdown content. The return is
+            // the ISO time of a backup loaded in place of empty content, or null.
+            var restoredAt = await JS.InvokeAsync<string?>("nornisEditor.init",
+                _elementId, InitialHtml ?? InitialMarkdown, ReadOnly ? null : Placeholder, !ReadOnly,
+                ReadOnly ? null : BackupKey);
             _initialized = true;
+
+            if (DateTimeOffset.TryParse(restoredAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var keptAt))
+            {
+                await Restored.InvokeAsync(keptAt);
+            }
         }
     }
 

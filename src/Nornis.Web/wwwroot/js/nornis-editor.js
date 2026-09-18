@@ -252,14 +252,84 @@
         container.classList.toggle('nornis-editor-empty', editor.isEmpty);
     }
 
+    // ── Backup of unsaved notes ──
+    //
+    // Kept in this browser's localStorage, written from here rather than from Blazor, so it
+    // survives the one thing it exists for: the page going away — a mis-click on the sidebar, a
+    // dropped circuit, a closed tab — before Save was pressed. Nothing here crosses the SignalR
+    // connection. One entry per key; the key is the page's business (Capture uses one per world).
+
+    const BACKUP_DEBOUNCE_MS = 600;
+    // Well under any browser's per-origin quota, and past anything a person types in a
+    // sitting. A pasted transcript beyond it is not backed up, and the console says so once.
+    const BACKUP_MAX_CHARS = 1500000;
+    const backups = new Map(); // elementId -> { key, timer }
+
+    function readBackup(key) {
+        try {
+            const raw = window.localStorage.getItem(key);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed.html === 'string' && parsed.html.trim() ? parsed : null;
+        } catch {
+            return null;
+        }
+    }
+
+    function writeBackup(key, editor) {
+        try {
+            if (editor.isEmpty) {
+                window.localStorage.removeItem(key);
+                return;
+            }
+            const html = editor.getHTML();
+            if (html.length > BACKUP_MAX_CHARS) {
+                console.warn('nornisEditor: notes too large to back up locally', key, html.length);
+                return;
+            }
+            window.localStorage.setItem(key, JSON.stringify({ html, savedAt: new Date().toISOString() }));
+        } catch (e) {
+            // Quota, private mode, or storage switched off: the editor keeps working, the
+            // safety net does not. Said once per write attempt, not swallowed.
+            console.warn('nornisEditor: could not back up notes', key, e);
+        }
+    }
+
+    function scheduleBackup(elementId, editor) {
+        const entry = backups.get(elementId);
+        if (!entry) return;
+        if (entry.timer) clearTimeout(entry.timer);
+        entry.timer = setTimeout(() => {
+            entry.timer = null;
+            writeBackup(entry.key, editor);
+        }, BACKUP_DEBOUNCE_MS);
+    }
+
+    // The last few hundred milliseconds of typing are still in the debounce when the page is
+    // left; destroy() and pagehide both land them before the editor goes.
+    function flushBackup(elementId) {
+        const entry = backups.get(elementId);
+        const editor = editors.get(elementId);
+        if (!entry || !editor || !entry.timer) return;
+        clearTimeout(entry.timer);
+        entry.timer = null;
+        writeBackup(entry.key, editor);
+    }
+
+    window.addEventListener('pagehide', () => {
+        for (const elementId of backups.keys()) flushBackup(elementId);
+    });
+
     // ── Public API ──
 
     window.nornisEditor = {
-        init(elementId, initialContent, placeholder, editable = true) {
+        // Returns the ISO time the restored notes were kept at when a backup was loaded in
+        // place of empty initial content, and null otherwise — the page shows a banner from it.
+        init(elementId, initialContent, placeholder, editable = true, backupKey = null) {
             const container = document.getElementById(elementId);
             if (!container || !window.TipTap) {
                 console.error('nornisEditor.init: missing container or TipTap bundle', elementId);
-                return;
+                return null;
             }
 
             this.destroy(elementId);
@@ -268,7 +338,20 @@
                 container.dataset.placeholder = placeholder;
             }
 
-            const content = convertMarkdownPipeTablesInHtml(ensureHtml(initialContent));
+            let restoredAt = null;
+            let startingContent = initialContent;
+            if (backupKey && editable) {
+                backups.set(elementId, { key: backupKey, timer: null });
+                if (!initialContent || !initialContent.trim()) {
+                    const kept = readBackup(backupKey);
+                    if (kept) {
+                        startingContent = kept.html;
+                        restoredAt = kept.savedAt || null;
+                    }
+                }
+            }
+
+            const content = convertMarkdownPipeTablesInHtml(ensureHtml(startingContent));
             const editor = new window.TipTap.Editor({
                 element: container,
                 extensions: [
@@ -284,10 +367,28 @@
                 onUpdate: ({ editor }) => {
                     normalizeMarkdownTables(elementId, editor);
                     if (editable) updateEmptyState(container, editor);
+                    scheduleBackup(elementId, editor);
                 },
             });
 
             editors.set(elementId, editor);
+            return restoredAt;
+        },
+
+        // Forgets the kept notes for a key and cancels any write on its way — called when the
+        // notes have been saved for real, or when the person chooses to start fresh.
+        clearBackup(backupKey) {
+            for (const entry of backups.values()) {
+                if (entry.key === backupKey && entry.timer) {
+                    clearTimeout(entry.timer);
+                    entry.timer = null;
+                }
+            }
+            try {
+                window.localStorage.removeItem(backupKey);
+            } catch {
+                // Nothing to remove, or no storage to remove it from.
+            }
         },
 
         getHtml(elementId) {
@@ -299,6 +400,11 @@
             const editor = editors.get(elementId);
             if (editor) {
                 editor.commands.setContent(convertMarkdownPipeTablesInHtml(ensureHtml(markdown)));
+                // setContent does not emit an update, so the placeholder state and the backup
+                // are brought in line here.
+                const container = document.getElementById(elementId);
+                if (container && editor.isEditable) updateEmptyState(container, editor);
+                scheduleBackup(elementId, editor);
             }
         },
 
@@ -320,6 +426,8 @@
         },
 
         destroy(elementId) {
+            flushBackup(elementId);
+            backups.delete(elementId);
             const editor = editors.get(elementId);
             if (editor) {
                 editor.destroy();
