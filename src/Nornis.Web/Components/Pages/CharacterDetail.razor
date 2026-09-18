@@ -6,6 +6,7 @@
 @inject IDialogService DialogService
 @inject BreadcrumbState Crumbs
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 @using Nornis.Web.Services
 
 @* A character's own page: who plays them, where they have played, and what the record knows
@@ -96,16 +97,33 @@
                     }
                 </div>
 
+                @if (_keptSheetAt is { } keptSheetAt)
+                {
+                    @if (_editingSheet)
+                    {
+                        <KeptNotesNotice KeptAt="keptSheetAt" Message="Picked up your unsaved changes to this sheet"
+                                         DiscardLabel="Discard them" OnDiscard="DiscardKeptSheetAsync" Disabled="_savingSheet" />
+                    }
+                    else if (_dossier.CanEditSheet)
+                    {
+                        <KeptNotesNotice KeptAt="keptSheetAt" Message="You have unsaved changes to this sheet"
+                                         OnResume="BeginEditSheet" OnDiscard="DiscardKeptSheetAsync" />
+                    }
+                }
+
                 @if (_editingSheet)
                 {
                     <NotesEditor @ref="_sheetEditor" InitialMarkdown="@_dossier.Sheet"
-                                 Placeholder="Equipment, spells, notes — whatever you'd write on the paper…" />
+                                 Placeholder="Equipment, spells, notes — whatever you'd write on the paper…"
+                                 AllowMaximize="true"
+                                 BackupKey="@NotesBackup.CharacterSheetKey(CharacterId)" PreferBackup="true"
+                                 Restored="OnSheetRestored" />
 
                     <div class="d-flex gap-2 mt-3">
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                                    OnClick="SaveSheetAsync" Disabled="_savingSheet">Save</MudButton>
                         <MudButton Variant="Variant.Text" Size="Size.Small"
-                                   OnClick="@(() => _editingSheet = false)">Cancel</MudButton>
+                                   OnClick="CancelEditSheetAsync" Disabled="_savingSheet">Cancel</MudButton>
                     </div>
 
                     @if (_sheetError is not null)
@@ -391,9 +409,71 @@
             return;
         }
 
+        // Landed: the kept copy has done its job. Cleared while the editor is still mounted, so
+        // its own teardown has no pending write to land on top.
+        if (_sheetEditor is not null)
+        {
+            await _sheetEditor.ClearBackupAsync();
+        }
+
+        _keptSheetAt = null;
         _editingSheet = false;
         _sheetEditor = null;
         await LoadAsync();
+    }
+
+    // ---------------------------------------------------------- Unsaved sheet, kept locally --
+    // Same net as a source's body: the editor keeps the sheet as it is typed under this
+    // character's key and loads it over the stored sheet when the form next mounts; the page
+    // asks whether something was kept before any editor exists, and forgets it on save,
+    // cancel or discard.
+
+    private DateTimeOffset? _keptSheetAt;
+    private Guid? _keptCheckedFor;
+
+    private void OnSheetRestored(DateTimeOffset keptAt) => _keptSheetAt = keptAt;
+
+    /// <summary>Cancel is a decision: the edits go, and so does the kept copy of them.</summary>
+    private async Task CancelEditSheetAsync()
+    {
+        if (_sheetEditor is not null)
+        {
+            await _sheetEditor.ClearBackupAsync();
+        }
+
+        _keptSheetAt = null;
+        _editingSheet = false;
+        _sheetEditor = null;
+    }
+
+    private async Task DiscardKeptSheetAsync()
+    {
+        if (_editingSheet && _sheetEditor is not null)
+        {
+            await _sheetEditor.ReplaceAsync(_dossier?.Sheet);
+        }
+        else
+        {
+            await NotesBackup.ClearAsync(JS, NotesBackup.CharacterSheetKey(CharacterId));
+        }
+
+        _keptSheetAt = null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Once per character shown, after the page is interactive: an unfinished sheet edit
+        // in this browser?
+        if (_dossier is not null && _keptCheckedFor != CharacterId)
+        {
+            _keptCheckedFor = CharacterId;
+            var keptAt = await NotesBackup.PeekAsync(JS, NotesBackup.CharacterSheetKey(CharacterId));
+            if (keptAt is not null)
+            {
+                _keptSheetAt = keptAt;
+                StateHasChanged();
+            }
+        }
     }
 
     private bool _attaching;

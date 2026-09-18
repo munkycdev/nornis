@@ -1,0 +1,45 @@
+@* The one notice for unsaved notes the browser kept. Three pages show it — capture, a source
+   mid-edit, a character sheet mid-edit — and each says what was kept in its own words, but the
+   age, the way out, and the shape are decided here once. Read mode offers to resume; edit mode
+   has already restored and only offers to discard. *@
+
+<MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+    <div class="d-flex align-center justify-space-between gap-3 flex-wrap">
+        <span>@Message — kept @NotesBackup.DescribeAge(DateTimeOffset.UtcNow - KeptAt).</span>
+        <span class="d-flex gap-1">
+            @if (OnResume.HasDelegate)
+            {
+                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Inherit"
+                           StartIcon="@Icons.Material.Outlined.EditNote"
+                           OnClick="OnResume" Disabled="Disabled">
+                    @ResumeLabel
+                </MudButton>
+            }
+            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Inherit"
+                       StartIcon="@Icons.Material.Outlined.DeleteSweep"
+                       OnClick="OnDiscard" Disabled="Disabled">
+                @DiscardLabel
+            </MudButton>
+        </span>
+    </div>
+</MudAlert>
+
+@code {
+    /// <summary>When the notes were kept, for the relative age.</summary>
+    [Parameter, EditorRequired] public DateTimeOffset KeptAt { get; set; }
+
+    /// <summary>What was kept, in the page's words: "Picked up where you left off".</summary>
+    [Parameter, EditorRequired] public string Message { get; set; } = string.Empty;
+
+    /// <summary>Shown only when set: the way back into the editor from read mode.</summary>
+    [Parameter] public EventCallback OnResume { get; set; }
+
+    [Parameter] public string ResumeLabel { get; set; } = "Resume editing";
+
+    /// <summary>Forgets the kept notes. Always offered — kept notes nobody wants are a nag.</summary>
+    [Parameter, EditorRequired] public EventCallback OnDiscard { get; set; }
+
+    [Parameter] public string DiscardLabel { get; set; } = "Discard";
+
+    [Parameter] public bool Disabled { get; set; }
+}

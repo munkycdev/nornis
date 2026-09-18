@@ -323,9 +323,12 @@
     // ── Public API ──
 
     window.nornisEditor = {
-        // Returns the ISO time the restored notes were kept at when a backup was loaded in
-        // place of empty initial content, and null otherwise — the page shows a banner from it.
-        init(elementId, initialContent, placeholder, editable = true, backupKey = null) {
+        // Returns the ISO time the restored notes were kept at when a backup was loaded, and
+        // null otherwise — the page shows a banner from it. A backup is loaded in place of empty
+        // initial content, or in place of any content when preferBackup is set: an edit page's
+        // initial content is the stored body, and the kept copy is by definition newer edits on
+        // top of it.
+        init(elementId, initialContent, placeholder, editable = true, backupKey = null, preferBackup = false) {
             const container = document.getElementById(elementId);
             if (!container || !window.TipTap) {
                 console.error('nornisEditor.init: missing container or TipTap bundle', elementId);
@@ -342,7 +345,7 @@
             let startingContent = initialContent;
             if (backupKey && editable) {
                 backups.set(elementId, { key: backupKey, timer: null });
-                if (!initialContent || !initialContent.trim()) {
+                if (preferBackup || !initialContent || !initialContent.trim()) {
                     const kept = readBackup(backupKey);
                     if (kept) {
                         startingContent = kept.html;
@@ -371,8 +374,26 @@
                 },
             });
 
+            // Alt+Left and Alt+Right are the browser's Back and Forward, one slip away from the
+            // word-jump keys, and Back from the middle of a page of notes is how notes get lost.
+            // Swallowed only while the text has focus; everywhere else the browser keeps them.
+            if (editable) {
+                container.addEventListener('keydown', e => {
+                    if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+                        e.preventDefault();
+                    }
+                });
+            }
+
             editors.set(elementId, editor);
             return restoredAt;
+        },
+
+        // When notes were kept under a key, as an ISO time, or null. Lets a page say "you have
+        // unsaved changes here" before any editor is on screen.
+        peekBackup(backupKey) {
+            const kept = readBackup(backupKey);
+            return kept ? (kept.savedAt || null) : null;
         },
 
         // Forgets the kept notes for a key and cancels any write on its way — called when the
@@ -400,11 +421,18 @@
             const editor = editors.get(elementId);
             if (editor) {
                 editor.commands.setContent(convertMarkdownPipeTablesInHtml(ensureHtml(markdown)));
-                // setContent does not emit an update, so the placeholder state and the backup
-                // are brought in line here.
+                // The replace emits an update, which schedules a backup write; cancel it. Every
+                // caller has just cleared the kept copy and is putting canonical content back —
+                // writing that as a "kept" copy would announce unsaved changes that are nothing
+                // of the kind. The placeholder state is brought in line by hand for the same
+                // reason: the update may or may not have fired, depending on the TipTap build.
+                const entry = backups.get(elementId);
+                if (entry && entry.timer) {
+                    clearTimeout(entry.timer);
+                    entry.timer = null;
+                }
                 const container = document.getElementById(elementId);
                 if (container && editor.isEditable) updateEmptyState(container, editor);
-                scheduleBackup(elementId, editor);
             }
         },
 

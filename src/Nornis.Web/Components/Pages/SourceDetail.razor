@@ -7,6 +7,7 @@
 @inject IDialogService DialogService
 @inject NavigationManager Nav
 @inject BreadcrumbState Crumbs
+@inject IJSRuntime JS
 
 <PageTitle>@(_source?.Title ?? "Source") — Nornis</PageTitle>
 
@@ -124,6 +125,25 @@
             </MudAlert>
         }
 
+        @if (_keptEditAt is { } keptEditAt)
+        {
+            @* Edits this browser kept when the page was left mid-edit. In read mode the way in is
+               Resume; in edit mode the editor already holds them and the only choice is to let
+               them go — back to the stored body. *@
+            <div class="mt-4">
+                @if (_editing)
+                {
+                    <KeptNotesNotice KeptAt="keptEditAt" Message="Picked up your unsaved changes to this source"
+                                     DiscardLabel="Discard them" OnDiscard="DiscardKeptEditAsync" Disabled="_saving" />
+                }
+                else
+                {
+                    <KeptNotesNotice KeptAt="keptEditAt" Message="You have unsaved changes to this source"
+                                     OnResume="BeginEdit" OnDiscard="DiscardKeptEditAsync" />
+                }
+            </div>
+        }
+
         @if (_editing)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
@@ -152,7 +172,9 @@
                 <div class="mb-3">
                     <NotesEditor @ref="_bodyEditor" InitialMarkdown="@_editBody"
                                  Placeholder="Paste session notes, a journal entry, a transcript…"
-                                 AllowMaximize="true" />
+                                 AllowMaximize="true"
+                                 BackupKey="@NotesBackup.SourceEditKey(_source.Id)" PreferBackup="true"
+                                 Restored="OnEditRestored" />
                 </div>
 
                 <MudTextField @bind-Value="_editUri" Label="Link (optional)" Placeholder="https://…"
@@ -194,7 +216,7 @@
                     <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SaveEditAsync" Disabled="_saving">
                         Save
                     </MudButton>
-                    <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="CancelEdit" Disabled="_saving">
+                    <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="CancelEditAsync" Disabled="_saving">
                         Cancel
                     </MudButton>
                 </div>
@@ -973,6 +995,19 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // Once per source shown, after the page is interactive (JS is not there during
+        // prerender): is there an unfinished edit of this source in this browser?
+        if (_source is not null && _keptCheckedFor != _source.Id)
+        {
+            _keptCheckedFor = _source.Id;
+            var keptAt = await NotesBackup.PeekAsync(JS, NotesBackup.SourceEditKey(_source.Id));
+            if (keptAt is not null)
+            {
+                _keptEditAt = keptAt;
+                StateHasChanged();
+            }
+        }
+
         if (_clearLocationPending)
         {
             _clearLocationPending = false;
@@ -1072,10 +1107,52 @@
         _editing = true;
     }
 
-    private void CancelEdit()
+    /// <summary>
+    /// Cancel is a decision: the edits are let go, and so is the copy the browser kept of them.
+    /// Leaving the page without deciding is the case the kept copy exists for.
+    /// </summary>
+    private async Task CancelEditAsync()
     {
+        if (_bodyEditor is not null)
+        {
+            await _bodyEditor.ClearBackupAsync();
+        }
+
+        _keptEditAt = null;
         _editing = false;
         _editError = null;
+    }
+
+    // ---------------------------------------------------------- Unsaved edits, kept locally --
+    // The editor keeps the body as it is typed (nornis-editor.js, under this source's key) and
+    // loads it over the stored body when the edit form next mounts. The page's part is small:
+    // ask, before any editor exists, whether something was kept — so the read view can say so
+    // next to Edit — and forget it once a save has landed or the GM has said discard. This is
+    // the page that shipped without the net, and where a session's notes were lost.
+
+    private DateTimeOffset? _keptEditAt;
+    private Guid? _keptCheckedFor;
+
+    private void OnEditRestored(DateTimeOffset keptAt) => _keptEditAt = keptAt;
+
+    private async Task DiscardKeptEditAsync()
+    {
+        if (_source is null)
+        {
+            return;
+        }
+
+        if (_editing && _bodyEditor is not null)
+        {
+            // Back to the stored body, in place; the form stays open.
+            await _bodyEditor.ReplaceAsync(_source.Body);
+        }
+        else
+        {
+            await NotesBackup.ClearAsync(JS, NotesBackup.SourceEditKey(_source.Id));
+        }
+
+        _keptEditAt = null;
     }
 
     private async Task SaveEditAsync()
@@ -1171,6 +1248,14 @@
         _saving = false;
         if (result.IsSuccess)
         {
+            // Landed: the kept copy has done its job. Cleared while the editor is still mounted,
+            // so its own teardown has no pending write to land on top.
+            if (_bodyEditor is not null)
+            {
+                await _bodyEditor.ClearBackupAsync();
+            }
+
+            _keptEditAt = null;
             _source = result.Value!;
             _editing = false;
             Snackbar.Add(reprocessed
