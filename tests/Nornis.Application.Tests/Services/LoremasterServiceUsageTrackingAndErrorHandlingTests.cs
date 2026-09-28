@@ -120,7 +120,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
     public async Task AskAsync_SuccessfulAiCall_RecordsTheWholeCall()
     {
         SetupKnowledgeContext();
-        _aiClient.SetupSuccess(new LoremasterAiResponse
+        _aiClient.SetupSuccess(new CannedLoremasterResponse
         {
             AnswerText = "Captain Voss is a sea captain based in Black Harbor.",
             Usage = new AiUsage
@@ -222,7 +222,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
     public async Task AskAsync_SuccessfulCall_CalculatesCostCorrectly()
     {
         SetupKnowledgeContext();
-        _aiClient.SetupSuccess(new LoremasterAiResponse
+        _aiClient.SetupSuccess(new CannedLoremasterResponse
         {
             AnswerText = "Captain Voss is a sea captain.",
             Usage = new AiUsage
@@ -249,7 +249,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
     public async Task AskAsync_SuccessfulCall_CostCalculation_WithLargeTokenCounts()
     {
         SetupKnowledgeContext();
-        _aiClient.SetupSuccess(new LoremasterAiResponse
+        _aiClient.SetupSuccess(new CannedLoremasterResponse
         {
             AnswerText = "Detailed answer about the world.",
             Usage = new AiUsage
@@ -288,7 +288,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
     public async Task AskAsync_UnknownModel_CostIsZero()
     {
         SetupKnowledgeContext();
-        _aiClient.SetupSuccess(new LoremasterAiResponse
+        _aiClient.SetupSuccess(new CannedLoremasterResponse
         {
             AnswerText = "Answer text.",
             Usage = new AiUsage
@@ -318,8 +318,8 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         using var cts = new CancellationTokenSource();
 
         var aiClient = Substitute.For<ILoremasterAiClient>();
-        aiClient.AskAsync(Arg.Any<AiPromptRequest>(), Arg.Any<CancellationToken>())
-            .Returns(new LoremasterAiResponse
+        aiClient.StreamAsync(Arg.Any<AiPromptRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new CannedLoremasterResponse
             {
                 AnswerText = "Answer",
                 Usage = new AiUsage
@@ -330,7 +330,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
                     DurationMs = 200,
                     Model = "gpt-4o"
                 }
-            });
+            }.AsStream());
 
         var service = new LoremasterService(
             _knowledgeRetriever, new FakeReferencePassageRetriever(),
@@ -340,7 +340,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
 
         await service.AskAsync(CreateCommand(), cts.Token);
 
-        await aiClient.Received(1).AskAsync(
+        aiClient.Received(1).StreamAsync(
             Arg.Any<AiPromptRequest>(),
             cts.Token);
     }

@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using MudBlazor;
+using Nornis.Web.ApiClient;
 using Nornis.Web.State;
 
 namespace Nornis.Web.Services;
@@ -11,8 +12,28 @@ namespace Nornis.Web.Services;
 /// </summary>
 public static partial class LoremasterDisplay
 {
-    /// <summary>Strips inline [ref:…] markers the model emits; citations render separately.</summary>
-    public static string CleanAnswer(string text) => RefMarker().Replace(text, "").Trim();
+    /// <summary>
+    /// Strips inline [ref:…] markers the model emits; citations render separately. Also drops a
+    /// marker still being written at the end of a streaming answer — "[ref:fact:12" is on its way
+    /// to being stripped, and showing it for a frame would flash raw syntax at the reader.
+    /// </summary>
+    public static string CleanAnswer(string text) =>
+        UnfinishedRefMarker().Replace(RefMarker().Replace(text, ""), "").Trim();
+
+    /// <summary>
+    /// The exchange a finished answer becomes in Ask history. Both members' surfaces add answers
+    /// to the same persisted history, so they must build the entry the same way.
+    /// </summary>
+    public static AskExchange ToExchange(string question, AskAnswer answer) => new()
+    {
+        Question = question,
+        Answer = CleanAnswer(answer.Answer),
+        Confidence = answer.Confidence,
+        Citations = answer.Citations
+            .Select(c => new AskCitation { DisplayName = c.DisplayName, ArtifactId = c.ArtifactId, DocumentId = c.DocumentId, Slug = c.Slug })
+            .ToList(),
+        Caveats = answer.Caveats.ToList(),
+    };
 
     public static Color ConfidenceColor(string confidence) => confidence switch
     {
@@ -51,4 +72,8 @@ public static partial class LoremasterDisplay
 
     [GeneratedRegex(@"\s*\[ref:[^\]]+\]")]
     private static partial Regex RefMarker();
+
+    // Any unclosed prefix of "[ref:" at the very end: "[", "[r", …, "[ref:art-1".
+    [GeneratedRegex(@"\s*\[(?:r(?:e(?:f(?::[^\]]*)?)?)?)?$")]
+    private static partial Regex UnfinishedRefMarker();
 }

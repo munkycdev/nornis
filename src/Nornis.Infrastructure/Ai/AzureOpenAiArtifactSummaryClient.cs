@@ -1,20 +1,20 @@
 using System.Text.Json;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
-using OpenAI.Chat;
 
 namespace Nornis.Infrastructure.Ai;
 
 public class AzureOpenAiArtifactSummaryClient : IArtifactSummaryAiClient
 {
     // options: empty apart from the schema — see AzureOpenAiExtractionClient.
-    // MaxOutputTokenCount serialises as max_tokens, which these deployments reject.
+    // No output ceiling: these deployments rejected the one the old SDK sent.
 
-    private readonly ChatClient _chatClient;
+    private readonly IChatClient _chatClient;
     private readonly ILogger<AzureOpenAiArtifactSummaryClient> _logger;
 
     public AzureOpenAiArtifactSummaryClient(
-        ChatClient chatClient,
+        IChatClient chatClient,
         ILogger<AzureOpenAiArtifactSummaryClient> logger)
     {
         _chatClient = chatClient;
@@ -23,16 +23,10 @@ public class AzureOpenAiArtifactSummaryClient : IArtifactSummaryAiClient
 
     public async Task<ArtifactSummaryAiResponse> SummarizeAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var completionOptions = new ChatCompletionOptions
-        {
-            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                jsonSchemaFormatName: "artifact_summary",
-                jsonSchema: BinaryData.FromString(StructuredOutputSchema),
-                jsonSchemaIsStrict: true)
-        };
+        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("artifact_summary", StructuredOutputSchema, strict: true);
 
         var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, request, completionOptions, "Artifact summary", _logger, ct);
+            _chatClient, request, chatOptions, "Artifact summary", _logger, ct);
 
         try
         {

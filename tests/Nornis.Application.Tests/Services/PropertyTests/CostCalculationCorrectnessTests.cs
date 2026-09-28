@@ -166,7 +166,7 @@ public record CostCalculationScenario(
     string ModelName,
     decimal InputPerMillionTokensUsd,
     decimal OutputPerMillionTokensUsd,
-    LoremasterAiResponse AiResponse,
+    CannedLoremasterResponse AiResponse,
     KnowledgeContext Context);
 
 /// <summary>
@@ -193,7 +193,7 @@ public class CostCalculationArbitraries
             from outputRateCents in Gen.Choose(1, 10000) // 0.01 to 100.00 USD per million
             let inputRate = inputRateCents / 100m
             let outputRate = outputRateCents / 100m
-            let aiResponse = new LoremasterAiResponse
+            let aiResponse = new CannedLoremasterResponse
             {
                 AnswerText = "The Loremaster provides this answer based on world knowledge.",
                 Usage = new AiUsage

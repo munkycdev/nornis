@@ -7,8 +7,8 @@ namespace Nornis.Infrastructure.Tests.Ai;
 /// Guards against re-introducing chat parameters the deployed models reject.
 ///
 /// On 2026-07-27 setting <c>ChatCompletionOptions.MaxOutputTokenCount</c> took every AI feature
-/// in production down at once. Azure.AI.OpenAI 2.1.0 — still the current release — serialises it
-/// as <c>max_tokens</c>, and the gpt-5.4 deployments answer:
+/// in production down at once. Azure.AI.OpenAI 2.1.0, the SDK in use then, serialised it as
+/// <c>max_tokens</c>, and the gpt-5.4 deployments answer:
 ///
 ///     HTTP 400 (invalid_request_error: unsupported_parameter) Parameter: max_tokens
 ///     'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.
@@ -19,8 +19,10 @@ namespace Nornis.Infrastructure.Tests.Ai;
 ///
 /// This scans source rather than reflecting over behaviour because the damage is done at the
 /// point someone *writes* the assignment: the failure is a 400 from a live deployment, so no
-/// unit test that stops short of a real call would catch it. When the SDK gains
-/// <c>max_completion_tokens</c>, delete this test along with the restriction.
+/// unit test that stops short of a real call would catch it. Since 2026-09 the clients use the
+/// plain OpenAI SDK behind Microsoft.Extensions.AI, which may well emit
+/// <c>max_completion_tokens</c>; once a real call against the deployment proves it, delete this
+/// test along with the restriction.
 /// </summary>
 [TestFixture]
 public class UnsupportedChatParameterTests
@@ -28,6 +30,9 @@ public class UnsupportedChatParameterTests
     private static readonly string[] ForbiddenAssignments =
     [
         "MaxOutputTokenCount",
+        // The same parameter under its Microsoft.Extensions.AI name: ChatOptions.MaxOutputTokens is
+        // translated into the SDK's MaxOutputTokenCount by the adapter, so it reaches the wire alike.
+        "MaxOutputTokens",
         "Temperature",
     ];
 
@@ -83,10 +88,19 @@ public class UnsupportedChatParameterTests
     public void ExtractionRequestOptions_CarryNoOutputTokenCeiling()
     {
         // The behavioural half: the actual options object the extraction path sends. Extraction
-        // is ~88% of AI spend and was the call that surfaced the outage.
+        // is ~88% of AI spend and was the call that surfaced the outage. Both layers are checked:
+        // the abstraction's own ceiling, and the SDK options object the adapter starts from,
+        // which a ceiling could equally be set on.
         var built = Nornis.Infrastructure.Ai.AzureOpenAiExtractionClient.BuildCompletionOptions();
+        var raw = built.RawRepresentationFactory?.Invoke(new FakeChatClient()) as OpenAI.Chat.ChatCompletionOptions;
 
-        Assert.That(built.MaxOutputTokenCount, Is.Null,
-            "setting this serialises as max_tokens, which the deployment rejects outright");
+        Assert.Multiple(() =>
+        {
+            Assert.That(built.MaxOutputTokens, Is.Null,
+                "the adapter sends this as the output ceiling, which the deployment rejects outright");
+            Assert.That(raw, Is.Not.Null, "extraction must still build its SDK options through the factory");
+            Assert.That(raw!.MaxOutputTokenCount, Is.Null,
+                "setting this serialises as max_tokens, which the deployment rejects outright");
+        });
     }
 }

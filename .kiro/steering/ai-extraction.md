@@ -199,6 +199,16 @@ Use `SourceReference` records to preserve traceability.
 
 ## Token and Cost Tracking
 
+> **Amendment (2026-09-28) — a streamed answer cut short is estimated, not free.** Ask the
+> Loremaster streams its answer, and a stream reports token usage only in its final chunk. An
+> answer that ends early — the reader closes the page, the model times out midway — never hears
+> it. Recording those at zero tokens would make "ask, then leave" free, public Ask included, so
+> once any text has arrived the row is estimated at four characters per token from the prompt
+> and the text received (the same rough ratio the context budget uses). Before the first word
+> nothing is provably spent and the row carries zero tokens. A reader leaving is recorded with
+> `ErrorCode = "Cancelled"` and `Succeeded = true`: the outcome monitor reads `Succeeded` as
+> "is the provider up", and a reader walking away says nothing against it.
+
 Every AI call must create an `AiUsageRecord`.
 
 Capture:

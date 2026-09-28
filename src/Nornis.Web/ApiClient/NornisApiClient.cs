@@ -1,5 +1,8 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
+using System.Net.ServerSentEvents;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
 
 namespace Nornis.Web.ApiClient;
 
@@ -527,11 +530,11 @@ public class NornisApiClient
     public Task<ApiResult<PublicCampaignDetailDto>> GetPublicCampaignDetailAsync(string slug, string key, CancellationToken ct = default) =>
         GetAsync<PublicCampaignDetailDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/campaigns/{Uri.EscapeDataString(key)}/detail", ct);
 
-    /// <summary>Anonymous single-shot Ask the Loremaster against a public world. The API gates it
-    /// on the GM's monthly spend cap; failures (disabled, budget spent) come back as the error.</summary>
-    public Task<ApiResult<AskAnswer>> AskPublicAsync(string slug, string question, CancellationToken ct = default) =>
-        PostAsync<PublicAskRequest, AskAnswer>(
-            $"/api/public/worlds/{Uri.EscapeDataString(slug)}/ask", new PublicAskRequest(question), ct);
+    /// <summary>Anonymous single-shot Ask the Loremaster against a public world, streamed. The API
+    /// gates it on the GM's monthly spend cap; refusals (disabled, budget spent) arrive as
+    /// <see cref="AskStreamEvent.Failed"/>.</summary>
+    public IAsyncEnumerable<AskStreamEvent> StreamPublicAskAsync(string slug, string question, CancellationToken ct = default) =>
+        StreamAskEventsAsync($"/api/public/worlds/{Uri.EscapeDataString(slug)}/ask", new PublicAskRequest(question), ct);
 
     // ------------------------------------------------------------------ Library --
 
@@ -754,8 +757,10 @@ public class NornisApiClient
 
     // ------------------------------------------------------------------------ Ask --
 
-    public Task<ApiResult<AskAnswer>> AskLoremasterAsync(Guid worldId, string question, string? conversationContext = null, CancellationToken ct = default) =>
-        PostAsync<AskRequest, AskAnswer>($"/api/worlds/{worldId}/ask", new AskRequest(question, conversationContext), ct);
+    /// <summary>Asks the Loremaster and streams the answer as it is written. Stopping the
+    /// enumeration early aborts the request, and with it the model call.</summary>
+    public IAsyncEnumerable<AskStreamEvent> StreamAskAsync(Guid worldId, string question, string? conversationContext = null, CancellationToken ct = default) =>
+        StreamAskEventsAsync($"/api/worlds/{worldId}/ask", new AskRequest(question, conversationContext), ct);
 
     public Task<ApiResult<IReadOnlyList<AskSuggestion>>> GetAskSuggestionsAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<AskSuggestion>>($"/api/worlds/{worldId}/ask/suggestions", ct);
@@ -856,7 +861,8 @@ public class NornisApiClient
     /// hides them in that mode).
     /// </summary>
     private async Task<HttpResponseMessage> SendCoreAsync(
-        HttpMethod method, string uri, HttpContent? content, CancellationToken ct)
+        HttpMethod method, string uri, HttpContent? content, CancellationToken ct,
+        HttpCompletionOption completion = HttpCompletionOption.ResponseContentRead)
     {
         var request = new HttpRequestMessage(method, uri) { Content = content };
         if (_viewAs.ViewingAsPlayer)
@@ -864,7 +870,7 @@ public class NornisApiClient
             request.Headers.Add(ViewAsHeaderName, "Player");
         }
 
-        var response = await _httpClient.SendAsync(request, ct);
+        var response = await _httpClient.SendAsync(request, completion, ct);
 
         // Every call goes through here, so this is also the one place that always sees the API
         // say "I don't know who you are". A 401 marks the session expired; any success clears it,
@@ -995,6 +1001,116 @@ public class NornisApiClient
             return ApiResult<T>.Fail(Unreachable(ex));
         }
     }
+
+    /// <summary>
+    /// Posts an Ask and reads the answer's server-sent events as they arrive. Every way this can
+    /// go wrong ends the stream with one <see cref="AskStreamEvent.Failed"/>: a refusal before the
+    /// stream (the API's status and error body, read exactly as <see cref="ReadResultAsync{T}"/>
+    /// reads them), an unreachable API, or a stream that stops without saying it is done.
+    /// </summary>
+    private async IAsyncEnumerable<AskStreamEvent> StreamAskEventsAsync<TBody>(
+        string uri, TBody body, [EnumeratorCancellation] CancellationToken ct)
+    {
+        HttpResponseMessage? response = null;
+        ApiError? refusal = null;
+        try
+        {
+            // Headers only: the default reads the whole body before returning, which for a stream
+            // means waiting for the last word before showing the first.
+            response = await SendCoreAsync(
+                HttpMethod.Post, uri, JsonContent.Create(body), ct, HttpCompletionOption.ResponseHeadersRead);
+            if (!response.IsSuccessStatusCode)
+            {
+                refusal = (await ReadResultAsync<bool>(response, ct)).Error;
+            }
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            refusal = Unreachable(ex);
+        }
+
+        if (refusal is not null)
+        {
+            response?.Dispose();
+            yield return new AskStreamEvent.Failed(refusal);
+            yield break;
+        }
+
+        using (response)
+        {
+            IAsyncEnumerator<SseItem<string>>? items = null;
+            try
+            {
+                while (true)
+                {
+                    AskStreamEvent? next;
+
+                    // No yield inside a try with a catch, so only the read sits in one.
+                    try
+                    {
+                        if (items is null)
+                        {
+                            var stream = await response!.Content.ReadAsStreamAsync(ct);
+                            items = SseParser.Create(stream).EnumerateAsync(ct).GetAsyncEnumerator(ct);
+                        }
+
+                        if (!await items.MoveNextAsync())
+                        {
+                            break;
+                        }
+
+                        next = ToAskStreamEvent(items.Current);
+                    }
+                    catch (Exception ex) when (!ct.IsCancellationRequested)
+                    {
+                        // A dropped connection or a payload that will not parse: either way the
+                        // answer is incomplete, and saying so beats rendering half of one as whole.
+                        next = new AskStreamEvent.Failed(Interrupted(ex));
+                    }
+
+                    if (next is null)
+                    {
+                        continue;
+                    }
+
+                    yield return next;
+                    if (next is AskStreamEvent.Done or AskStreamEvent.Failed)
+                    {
+                        yield break;
+                    }
+                }
+            }
+            finally
+            {
+                if (items is not null)
+                {
+                    await items.DisposeAsync();
+                }
+            }
+        }
+
+        yield return new AskStreamEvent.Failed(Interrupted(null));
+    }
+
+    /// <summary>Null for an event this client does not know — a newer API may add some.</summary>
+    private static AskStreamEvent? ToAskStreamEvent(SseItem<string> item) => item.EventType switch
+    {
+        AskStreamEventNames.Start => Deserialize<AskStreamEvent.Started>(item.Data),
+        AskStreamEventNames.Delta => Deserialize<AskStreamEvent.Delta>(item.Data),
+        AskStreamEventNames.Done => new AskStreamEvent.Done(Deserialize<AskAnswer>(item.Data)),
+        AskStreamEventNames.Error => new AskStreamEvent.Failed(Deserialize<ApiError>(item.Data)),
+        _ => null,
+    };
+
+    private static T Deserialize<T>(string json) =>
+        JsonSerializer.Deserialize<T>(json, JsonSerializerOptions.Web)
+        ?? throw new JsonException($"Empty {typeof(T).Name} payload in the answer stream.");
+
+    // Carries the cause the way Unreachable does: this client has no logger, and a cut-off
+    // answer with no reason attached is undiagnosable.
+    private static ApiError Interrupted(Exception? ex) =>
+        new("stream_interrupted", "The Loremaster's answer was cut off. Please try again."
+            + (ex is null ? string.Empty : $" ({ex.Message})"));
 
     private static async Task<ApiResult<T>> ReadResultAsync<T>(HttpResponseMessage response, CancellationToken ct)
     {

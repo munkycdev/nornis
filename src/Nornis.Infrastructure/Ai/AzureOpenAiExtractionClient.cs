@@ -3,27 +3,27 @@ using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
-using OpenAI.Chat;
 
 namespace Nornis.Infrastructure.Ai;
 
 public class AzureOpenAiExtractionClient : IAiExtractionClient
 {
-    // DO NOT set ChatCompletionOptions.MaxOutputTokenCount here (or in any sibling client).
-    // Azure.AI.OpenAI 2.1.0 — the current release — serialises it as "max_tokens", and the
-    // gpt-5.4 deployments reject that outright:
+    // DO NOT set an output ceiling here (ChatOptions.MaxOutputTokens, or the SDK's
+    // MaxOutputTokenCount) or in any sibling client. Azure.AI.OpenAI 2.1.0 serialised it as
+    // "max_tokens", and the gpt-5.4 deployments reject that outright:
     //
     //     HTTP 400 (invalid_request_error: unsupported_parameter) Parameter: max_tokens
     //     "'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."
     //
     // It fails the call before any tokens are spent, so there is no partial-response fallback:
     // the feature is simply dead. Setting it took every AI feature down in production on
-    // 2026-07-27. Restore an output ceiling only once the SDK emits max_completion_tokens, and
-    // verify against a real deployment before shipping.
+    // 2026-07-27. The OpenAI SDK that replaced it may well emit max_completion_tokens; restore
+    // a ceiling only after a real call against the deployment proves it.
 
-    private readonly ChatClient _chatClient;
+    private readonly IChatClient _chatClient;
     private readonly ILogger<AzureOpenAiExtractionClient> _logger;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -44,7 +44,7 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
     ];
 
     public AzureOpenAiExtractionClient(
-        ChatClient chatClient,
+        IChatClient chatClient,
         ILogger<AzureOpenAiExtractionClient> logger)
     {
         _chatClient = chatClient;
@@ -53,13 +53,13 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
 
     public async Task<AiExtractionResponse> ExtractAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var completionOptions = BuildCompletionOptions();
+        var chatOptions = BuildCompletionOptions();
 
         (string Content, AiUsage Usage) result;
         try
         {
             result = await AzureOpenAiCallExecutor.ExecuteAsync(
-                _chatClient, request, completionOptions, "AI extraction", _logger, ct);
+                _chatClient, request, chatOptions, "AI extraction", _logger, ct);
         }
         catch (AiHttpException ex) when (ex.InnerException is ClientResultException raw)
         {
@@ -92,22 +92,12 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
 
     /// <summary>Internal so a test can assert the request we are about to send is one these
     /// deployments will accept — see the note at the top of this class.</summary>
-    internal static ChatCompletionOptions BuildCompletionOptions()
-    {
-        var schema = BinaryData.FromString(GetStructuredOutputSchema());
-
-        return new ChatCompletionOptions
-        {
-            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                jsonSchemaFormatName: "extraction_proposals",
-                jsonSchema: schema,
-                // Not strict: proposedValue's shape varies by changeType, so the schema declares
-                // it as an open object ("additionalProperties": true) — which strict mode rejects
-                // with HTTP 400. Output shape is still guarded by ParseAndValidateResponse, the
-                // parse-retry loop, and ProposalValidator at accept time.
-                jsonSchemaIsStrict: false)
-        };
-    }
+    internal static ChatOptions BuildCompletionOptions() =>
+        // Not strict: proposedValue's shape varies by changeType, so the schema declares
+        // it as an open object ("additionalProperties": true) — which strict mode rejects
+        // with HTTP 400. Output shape is still guarded by ParseAndValidateResponse, the
+        // parse-retry loop, and ProposalValidator at accept time.
+        AzureOpenAiCallExecutor.JsonSchema("extraction_proposals", GetStructuredOutputSchema(), strict: false);
 
     internal static string GetStructuredOutputSchema()
     {

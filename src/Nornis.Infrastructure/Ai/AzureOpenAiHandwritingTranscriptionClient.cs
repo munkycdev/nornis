@@ -1,26 +1,26 @@
 using System.ClientModel;
 using System.Diagnostics;
 using System.Net;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
-using OpenAI.Chat;
 
 namespace Nornis.Infrastructure.Ai;
 
 /// <summary>
 /// Azure OpenAI implementation of <see cref="IHandwritingTranscriptionClient"/>. Shares
-/// the extraction <see cref="ChatClient"/> (nornis-extract, gpt-5.4 — multimodal); sends
+/// the extraction <see cref="IChatClient"/> (nornis-extract, gpt-5.4 — multimodal); sends
 /// one user message with a text part followed by one image part per page, in order.
 /// Plain-text response — transcription needs no structured output.
 /// </summary>
 public class AzureOpenAiHandwritingTranscriptionClient : IHandwritingTranscriptionClient
 {
 
-    private readonly ChatClient _chatClient;
+    private readonly IChatClient _chatClient;
     private readonly ILogger<AzureOpenAiHandwritingTranscriptionClient> _logger;
 
     public AzureOpenAiHandwritingTranscriptionClient(
-        ChatClient chatClient, ILogger<AzureOpenAiHandwritingTranscriptionClient> logger)
+        IChatClient chatClient, ILogger<AzureOpenAiHandwritingTranscriptionClient> logger)
     {
         _chatClient = chatClient;
         _logger = logger;
@@ -28,25 +28,24 @@ public class AzureOpenAiHandwritingTranscriptionClient : IHandwritingTranscripti
 
     public async Task<HandwritingTranscriptionResponse> TranscribeAsync(HandwritingTranscriptionRequest request, CancellationToken ct)
     {
-        var parts = new List<ChatMessageContentPart>
+        var parts = new List<AIContent>
         {
-            ChatMessageContentPart.CreateTextPart(
+            new TextContent(
                 $"Transcribe the following {request.Pages.Count} page(s) of handwritten notes, in order.")
         };
         foreach (var page in request.Pages)
         {
-            parts.Add(ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(page.ImageBytes), page.MediaType));
+            parts.Add(new DataContent(page.ImageBytes, page.MediaType));
         }
 
         var messages = new List<ChatMessage>
         {
-            new SystemChatMessage(BuildSystemPrompt()),
-            new UserChatMessage(parts)
+            new ChatMessage(ChatRole.System, BuildSystemPrompt()),
+            new ChatMessage(ChatRole.User, parts)
         };
-        // options: empty — see AzureOpenAiExtractionClient. MaxOutputTokenCount serialises as
-        // "max_tokens", which these deployments reject with HTTP 400.
+        // options: none — see AzureOpenAiExtractionClient on why there is no output ceiling.
         var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, messages, new ChatCompletionOptions(), request.Model, request.TimeoutSeconds,
+            _chatClient, messages, chatOptions: null, request.Model, request.TimeoutSeconds,
             "Handwriting transcription", _logger, ct);
 
         return new HandwritingTranscriptionResponse

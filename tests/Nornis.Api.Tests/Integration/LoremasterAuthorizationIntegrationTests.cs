@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
@@ -110,7 +111,7 @@ public class LoremasterAuthorizationIntegrationTests
         var response = await _scenario.GmClient.PostAsJsonAsync(AskUrl, request);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
-        var answer = await response.Content.ReadFromJsonAsync<AskAnswerResponse>();
+        var answer = await response.Content.ReadAskAnswerAsync();
         Assert.That(answer, Is.Not.Null);
 
         // Assert — The answer should contain the GMOnly artifact name because
@@ -134,7 +135,7 @@ public class LoremasterAuthorizationIntegrationTests
         var response = await _scenario.PlayerClient.PostAsJsonAsync(AskUrl, request);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
-        var answer = await response.Content.ReadFromJsonAsync<AskAnswerResponse>();
+        var answer = await response.Content.ReadAskAnswerAsync();
         Assert.That(answer, Is.Not.Null);
 
         // Assert — The answer should NOT contain the GMOnly artifact name
@@ -152,7 +153,7 @@ public class LoremasterAuthorizationIntegrationTests
         var response = await _scenario.PlayerClient.PostAsJsonAsync(AskUrl, request);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
-        var answer = await response.Content.ReadFromJsonAsync<AskAnswerResponse>();
+        var answer = await response.Content.ReadAskAnswerAsync();
         Assert.That(answer, Is.Not.Null);
 
         // Assert — Player should see PartyVisible content
@@ -175,7 +176,7 @@ public class LoremasterAuthorizationIntegrationTests
         var response = await _scenario.ObserverClient.PostAsJsonAsync(AskUrl, request);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
-        var answer = await response.Content.ReadFromJsonAsync<AskAnswerResponse>();
+        var answer = await response.Content.ReadAskAnswerAsync();
         Assert.That(answer, Is.Not.Null);
 
         // Assert — Observer sees PartyVisible but not GMOnly
@@ -200,7 +201,7 @@ public class LoremasterAuthorizationIntegrationTests
         var response = await _scenario.PlayerClient.PostAsJsonAsync(AskUrl, request);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
-        var answer = await response.Content.ReadFromJsonAsync<AskAnswerResponse>();
+        var answer = await response.Content.ReadAskAnswerAsync();
         Assert.That(answer, Is.Not.Null);
 
         // Assert — The GMOnly fact content should not appear for Player
@@ -221,7 +222,7 @@ public class LoremasterAuthorizationIntegrationTests
         var response = await _scenario.ObserverClient.PostAsJsonAsync(AskUrl, request);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
-        var answer = await response.Content.ReadFromJsonAsync<AskAnswerResponse>();
+        var answer = await response.Content.ReadAskAnswerAsync();
         Assert.That(answer, Is.Not.Null);
 
         // Assert — The GMOnly fact content should not appear for Observer
@@ -441,8 +442,12 @@ public class LoremasterAuthorizationTestFactory : NornisWebApplicationFactory
 /// </summary>
 public class EchoLoremasterAiClient : ILoremasterAiClient
 {
-    public Task<LoremasterAiResponse> AskAsync(AiPromptRequest request, CancellationToken ct)
+    public async IAsyncEnumerable<AiStreamChunk> StreamAsync(
+        AiPromptRequest request,
+        [EnumeratorCancellation] CancellationToken ct)
     {
+        await Task.Yield();
+
         // Extract only the knowledge context section (before "## Question")
         var userMessage = request.UserMessage;
         var questionMarker = "## Question";
@@ -452,9 +457,13 @@ public class EchoLoremasterAiClient : ILoremasterAiClient
             ? userMessage[..questionIndex]
             : userMessage;
 
-        return Task.FromResult(new LoremasterAiResponse
+        // Streamed in two pieces so a name split across them still has to survive reassembly.
+        var half = knowledgeContext.Length / 2;
+        yield return new AiStreamChunk { Text = knowledgeContext[..half] };
+        yield return new AiStreamChunk { Text = knowledgeContext[half..] };
+        yield return new AiStreamChunk
         {
-            AnswerText = knowledgeContext,
+            Text = string.Empty,
             Usage = new AiUsage
             {
                 InputTokens = 100,
@@ -463,6 +472,6 @@ public class EchoLoremasterAiClient : ILoremasterAiClient
                 DurationMs = 200,
                 Model = "gpt-4o"
             }
-        });
+        };
     }
 }

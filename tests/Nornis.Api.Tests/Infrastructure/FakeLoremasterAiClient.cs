@@ -1,16 +1,18 @@
 using System.Net;
+using System.Runtime.CompilerServices;
 using Nornis.Application.Ai;
 
 namespace Nornis.Api.Tests.Infrastructure;
 
 /// <summary>
 /// A fake implementation of <see cref="ILoremasterAiClient"/> for integration testing.
-/// Supports configurable canned responses, failure modes, and call recording.
+/// Supports configurable canned responses, failure modes, and call recording. Answers
+/// stream in a few chunks and end with a usage chunk, the shape the real client delivers.
 /// </summary>
 public class FakeLoremasterAiClient : ILoremasterAiClient
 {
     private readonly List<AiPromptRequest> _requests = [];
-    private LoremasterAiResponse? _cannedResponse;
+    private CannedAnswer? _cannedResponse;
     private FailureMode _failureMode = FailureMode.None;
 
     /// <summary>
@@ -37,18 +39,14 @@ public class FakeLoremasterAiClient : ILoremasterAiClient
         var outputTokens = Math.Max(10, answerText.Length / 4);
         var inputTokens = outputTokens * 3;
 
-        _cannedResponse = new LoremasterAiResponse
+        _cannedResponse = new CannedAnswer(answerText, new AiUsage
         {
-            AnswerText = answerText,
-            Usage = new AiUsage
-            {
-                InputTokens = inputTokens,
-                OutputTokens = outputTokens,
-                TotalTokens = inputTokens + outputTokens,
-                DurationMs = 200 + (outputTokens * 5),
-                Model = "gpt-4o"
-            }
-        };
+            InputTokens = inputTokens,
+            OutputTokens = outputTokens,
+            TotalTokens = inputTokens + outputTokens,
+            DurationMs = 200 + (outputTokens * 5),
+            Model = "gpt-4o"
+        });
         _failureMode = FailureMode.None;
     }
 
@@ -70,43 +68,84 @@ public class FakeLoremasterAiClient : ILoremasterAiClient
         _cannedResponse = null;
     }
 
-    public Task<LoremasterAiResponse> AskAsync(AiPromptRequest request, CancellationToken ct)
+    /// <summary>
+    /// Streams <paramref name="partialText"/> and then fails with a service error: a model call
+    /// that dies partway through its answer, after the response has already started.
+    /// </summary>
+    public void SetupServiceErrorAfter(string partialText)
+    {
+        _failureMode = FailureMode.ServiceErrorAfterText;
+        _cannedResponse = new CannedAnswer(partialText, Usage: null);
+    }
+
+    public IAsyncEnumerable<AiStreamChunk> StreamAsync(AiPromptRequest request, CancellationToken ct)
     {
         _requests.Add(request);
+        return StreamCoreAsync(_failureMode, _cannedResponse ?? DefaultResponse(), ct);
+    }
 
-        switch (_failureMode)
+    private static async IAsyncEnumerable<AiStreamChunk> StreamCoreAsync(
+        FailureMode failureMode,
+        CannedAnswer answer,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        await Task.Yield();
+
+        switch (failureMode)
         {
             case FailureMode.Timeout:
                 throw new OperationCanceledException(
                     "The AI request timed out after the configured timeout period.");
 
             case FailureMode.ServiceError:
-                throw new HttpRequestException(
-                    "AI service unavailable: HTTP 503",
-                    inner: null,
-                    statusCode: HttpStatusCode.ServiceUnavailable);
+                throw ServiceUnavailable();
         }
 
-        return Task.FromResult(_cannedResponse ?? DefaultResponse());
+        foreach (var chunk in Split(answer.Text))
+        {
+            ct.ThrowIfCancellationRequested();
+            yield return new AiStreamChunk { Text = chunk };
+        }
+
+        if (failureMode == FailureMode.ServiceErrorAfterText)
+        {
+            throw ServiceUnavailable();
+        }
+
+        yield return new AiStreamChunk { Text = string.Empty, Usage = answer.Usage };
     }
 
-    private static LoremasterAiResponse DefaultResponse() => new()
+    private static HttpRequestException ServiceUnavailable() =>
+        new("AI service unavailable: HTTP 503", inner: null, statusCode: HttpStatusCode.ServiceUnavailable);
+
+    /// <summary>Up to three contiguous pieces, cut without regard to [ref:…] markers.</summary>
+    private static IEnumerable<string> Split(string text)
     {
-        AnswerText = "I don't have a confirmed source for that yet.",
-        Usage = new AiUsage
+        var size = Math.Max(1, (int)Math.Ceiling(text.Length / 3.0));
+        for (var start = 0; start < text.Length; start += size)
+        {
+            yield return text.Substring(start, Math.Min(size, text.Length - start));
+        }
+    }
+
+    private static CannedAnswer DefaultResponse() => new(
+        "I don't have a confirmed source for that yet.",
+        new AiUsage
         {
             InputTokens = 150,
             OutputTokens = 42,
             TotalTokens = 192,
             DurationMs = 620,
             Model = "gpt-4o"
-        }
-    };
+        });
+
+    private sealed record CannedAnswer(string Text, AiUsage? Usage);
 
     private enum FailureMode
     {
         None,
         Timeout,
-        ServiceError
+        ServiceError,
+        ServiceErrorAfterText
     }
 }

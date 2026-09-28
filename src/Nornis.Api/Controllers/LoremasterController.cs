@@ -1,3 +1,7 @@
+using System.Diagnostics;
+using System.Net.ServerSentEvents;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
@@ -51,14 +55,48 @@ public class LoremasterController : ControllerBase
             UserRole: member.Role,
             ConversationContext: request.ConversationContext);
 
-        var result = await _loremasterService.AskAsync(command, ct);
+        var result = await _loremasterService.BeginAskAsync(command, ct);
 
-        if (!result.IsSuccess)
-            return result.Error!.ToActionResult();
-
-        var answer = result.Value!;
-        return Ok(ToAnswerResponse(answer));
+        return result.IsSuccess
+            ? ToStreamResult(result.Value!)
+            : result.Error!.ToActionResult();
     }
+
+    /// <summary>
+    /// The answer as server-sent events: <c>start</c> with what is already known, a <c>delta</c>
+    /// per piece of text, then <c>done</c> with the whole answer or <c>error</c> if the model call
+    /// failed partway. Everything that can refuse the question has run before this is built, so
+    /// those refusals keep their status codes; only a failure after the first byte rides in-band.
+    /// </summary>
+    public static IActionResult ToStreamResult(LoremasterAnswerStream stream) =>
+        new ServerSentEventsActionResult(ToServerSentEvents(stream));
+
+    private static async IAsyncEnumerable<SseItem<string>> ToServerSentEvents(
+        LoremasterAnswerStream stream,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        yield return Event(AskStreamEventNames.Start,
+            new AskStreamStartResponse(stream.Confidence.ToString(), stream.Caveats));
+
+        await foreach (var e in stream.Events.WithCancellation(ct))
+        {
+            yield return e switch
+            {
+                LoremasterStreamEvent.Delta delta =>
+                    Event(AskStreamEventNames.Delta, new AskStreamDeltaResponse(delta.Text)),
+                LoremasterStreamEvent.Completed completed =>
+                    Event(AskStreamEventNames.Done, ToAnswerResponse(completed.Answer)),
+                LoremasterStreamEvent.Failed failed =>
+                    Event(AskStreamEventNames.Error, failed.Error.ToErrorResponse()),
+                _ => throw new UnreachableException($"Unhandled Loremaster stream event {e.GetType().Name}."),
+            };
+        }
+    }
+
+    // Serialized here rather than by the SSE result so the payload is the same web-default JSON
+    // (camelCase) every other endpoint returns; the result writes a string payload verbatim.
+    private static SseItem<string> Event<T>(string eventName, T payload) =>
+        new(JsonSerializer.Serialize(payload, JsonSerializerOptions.Web), eventName);
 
     public static AskAnswerResponse ToAnswerResponse(LoremasterAnswer answer)
     {

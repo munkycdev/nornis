@@ -1,24 +1,15 @@
-﻿using System.ClientModel;
-using System.ClientModel.Primitives;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
-using Nornis.Application.Configuration;
 using Nornis.Infrastructure.Ai;
-using NSubstitute;
-using NSubstitute.ExceptionExtensions;
 using NUnit.Framework;
-using OpenAI.Chat;
 
 namespace Nornis.Infrastructure.Tests.Ai;
 
 [TestFixture]
 public class AzureOpenAiLoremasterClientTests
 {
-    private ChatClient _mockChatClient = null!;
-    private IOptions<LoremasterOptions> _options = null!;
-    private ILogger<AzureOpenAiLoremasterClient> _logger = null!;
+    private FakeChatClient _chatClient = null!;
     private AzureOpenAiLoremasterClient _client = null!;
 
     private static readonly AiPromptRequest DefaultRequest = new()
@@ -32,83 +23,65 @@ public class AzureOpenAiLoremasterClientTests
     [SetUp]
     public void SetUp()
     {
-        _mockChatClient = Substitute.For<ChatClient>();
-        _options = Options.Create(new LoremasterOptions
+        _chatClient = new FakeChatClient();
+        _client = new AzureOpenAiLoremasterClient(
+            _chatClient, NullLogger<AzureOpenAiLoremasterClient>.Instance);
+    }
+
+    private async Task<List<AiStreamChunk>> DrainAsync(
+        AiPromptRequest? request = null,
+        CancellationToken ct = default)
+    {
+        var chunks = new List<AiStreamChunk>();
+        await foreach (var chunk in _client.StreamAsync(request ?? DefaultRequest, ct))
         {
-            AiModel = "gpt-4o",
-            AiEndpoint = "https://test.openai.azure.com/",
-            AiTimeoutSeconds = 30,
-            MaxRetrievalCount = 30,
-            MaxQuestionLength = 2000
-        });
-        _logger = NullLogger<AzureOpenAiLoremasterClient>.Instance;
-        _client = new AzureOpenAiLoremasterClient(_mockChatClient, _options, _logger);
+            chunks.Add(chunk);
+        }
+
+        return chunks;
     }
-
-    #region Helper Methods
-
-    private static ChatCompletion CreateChatCompletion(string answerText)
-    {
-        var content = new ChatMessageContent(answerText);
-        var usage = OpenAIChatModelFactory.ChatTokenUsage(
-            outputTokenCount: 200,
-            inputTokenCount: 800,
-            totalTokenCount: 1000);
-
-        return OpenAIChatModelFactory.ChatCompletion(
-            id: "chatcmpl-loremaster-123",
-            finishReason: ChatFinishReason.Stop,
-            content: content,
-            model: "gpt-4o",
-            usage: usage);
-    }
-
-    private void SetupMockToReturn(string answerText)
-    {
-        var completion = CreateChatCompletion(answerText);
-        var mockResponse = Substitute.For<PipelineResponse>();
-        mockResponse.Status.Returns(200);
-        var result = ClientResult.FromValue(completion, mockResponse);
-
-        _mockChatClient.CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(),
-            Arg.Any<ChatCompletionOptions>(),
-            Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(result));
-    }
-
-    #endregion
 
     #region Success Tests
 
     [Test]
-    public async Task AskAsync_ValidResponse_ReturnsLoremasterAiResponse()
+    public async Task StreamAsync_ValidResponse_StreamsTheAnswerThenItsUsage()
     {
-        var answerText = "Captain Voss is a shady harbor captain based in Black Harbor. [ref:art-1]";
-        SetupMockToReturn(answerText);
+        _chatClient.Streams(
+            ["Captain Voss is a shady harbor captain ", "based in Black Harbor. [ref:art-1]"],
+            new UsageDetails { InputTokenCount = 800, OutputTokenCount = 200, TotalTokenCount = 1000 });
 
-        var response = await _client.AskAsync(DefaultRequest, CancellationToken.None);
+        var chunks = await DrainAsync();
 
-        Assert.That(response.AnswerText, Is.EqualTo(answerText));
-        Assert.That(response.Usage.InputTokens, Is.EqualTo(800));
-        Assert.That(response.Usage.OutputTokens, Is.EqualTo(200));
-        Assert.That(response.Usage.TotalTokens, Is.EqualTo(1000));
-        Assert.That(response.Usage.Model, Is.EqualTo("gpt-4o"));
-        Assert.That(response.Usage.DurationMs, Is.GreaterThanOrEqualTo(0));
+        Assert.That(string.Concat(chunks.Select(c => c.Text)),
+            Is.EqualTo("Captain Voss is a shady harbor captain based in Black Harbor. [ref:art-1]"));
+        var usage = chunks[^1].Usage;
+        Assert.That(usage, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(usage!.InputTokens, Is.EqualTo(800));
+            Assert.That(usage.OutputTokens, Is.EqualTo(200));
+            Assert.That(usage.TotalTokens, Is.EqualTo(1000));
+            Assert.That(usage.Model, Is.EqualTo("gpt-4o"));
+            Assert.That(usage.DurationMs, Is.GreaterThanOrEqualTo(0));
+        });
     }
 
     [Test]
-    public async Task AskAsync_PassesSystemPromptAndUserMessage()
+    public async Task StreamAsync_SendsSystemPromptThenUserMessage_AndNoChatOptions()
     {
-        SetupMockToReturn("Some answer.");
+        _chatClient.Streams(["Some answer."]);
 
-        await _client.AskAsync(DefaultRequest, CancellationToken.None);
+        await DrainAsync();
 
-        await _mockChatClient.Received(1).CompleteChatAsync(
-            Arg.Is<IEnumerable<ChatMessage>>(messages =>
-                messages != null && messages.Count() == 2),
-            Arg.Any<ChatCompletionOptions>(),
-            Arg.Any<CancellationToken>());
+        var (messages, options) = _chatClient.Calls.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(messages.Select(m => m.Role), Is.EqualTo([ChatRole.System, ChatRole.User]));
+            Assert.That(messages[0].Text, Is.EqualTo(DefaultRequest.SystemPrompt));
+            Assert.That(messages[1].Text, Is.EqualTo(DefaultRequest.UserMessage));
+            // No output ceiling, no temperature: see UnsupportedChatParameterTests.
+            Assert.That(options, Is.Null);
+        });
     }
 
     #endregion
@@ -116,7 +89,7 @@ public class AzureOpenAiLoremasterClientTests
     #region Timeout Tests
 
     [Test]
-    public void AskAsync_Timeout_ThrowsAiLoremasterTimeoutException()
+    public void StreamAsync_Timeout_ThrowsAiTimeoutException()
     {
         var shortTimeoutRequest = new AiPromptRequest
         {
@@ -125,141 +98,52 @@ public class AzureOpenAiLoremasterClientTests
             Model = "gpt-4o",
             TimeoutSeconds = 1
         };
-
-        _mockChatClient.CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(),
-            Arg.Any<ChatCompletionOptions>(),
-            Arg.Any<CancellationToken>())
-            .Returns<ClientResult<ChatCompletion>>(callInfo =>
-            {
-                var ct = callInfo.Arg<CancellationToken>();
-                ct.WaitHandle.WaitOne(TimeSpan.FromSeconds(10));
-                ct.ThrowIfCancellationRequested();
-                throw new InvalidOperationException("Should not reach here");
-            });
+        _chatClient.Streams([], thenHang: true);
 
         var ex = Assert.ThrowsAsync<AiTimeoutException>(
-            async () => await _client.AskAsync(shortTimeoutRequest, CancellationToken.None));
+            async () => await DrainAsync(shortTimeoutRequest));
 
         Assert.That(ex!.Message, Does.Contain("timed out"));
     }
 
     [Test]
-    public void AskAsync_ExternalCancellation_ThrowsOperationCanceledException()
+    public void StreamAsync_ExternalCancellation_ThrowsOperationCanceledException()
     {
         using var cts = new CancellationTokenSource();
         cts.Cancel();
+        _chatClient.Streams([], thenHang: true);
 
-        _mockChatClient.CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(),
-            Arg.Any<ChatCompletionOptions>(),
-            Arg.Any<CancellationToken>())
-            .ThrowsAsync(new OperationCanceledException());
-
-        Assert.ThrowsAsync<OperationCanceledException>(
-            async () => await _client.AskAsync(DefaultRequest, cts.Token));
+        Assert.CatchAsync<OperationCanceledException>(
+            async () => await DrainAsync(ct: cts.Token));
     }
 
     #endregion
 
-    #region Rate Limit Tests
+    #region HTTP Failure Tests
 
-    [Test]
-    public void AskAsync_429Response_ThrowsRateLimitedAiHttpException()
+    [TestCase(429)]
+    [TestCase(500)]
+    [TestCase(503)]
+    [TestCase(400)]
+    public void StreamAsync_HttpFailure_ThrowsAiHttpExceptionWithItsStatus(int status)
     {
-        var mockResponse = Substitute.For<PipelineResponse>();
-        mockResponse.Status.Returns(429);
-        var clientException = new ClientResultException(mockResponse);
+        _chatClient.Streams([], thenThrow: FakeChatClient.HttpFailure(status));
 
-        _mockChatClient.CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(),
-            Arg.Any<ChatCompletionOptions>(),
-            Arg.Any<CancellationToken>())
-            .ThrowsAsync(clientException);
+        var ex = Assert.ThrowsAsync<AiHttpException>(async () => await DrainAsync());
 
-        var ex = Assert.ThrowsAsync<AiHttpException>(
-            async () => await _client.AskAsync(DefaultRequest, CancellationToken.None));
-
-        Assert.That(ex!.StatusCode, Is.EqualTo(429));
-    }
-
-    #endregion
-
-    #region Service Error Tests
-
-    [Test]
-    public void AskAsync_500Response_ThrowsAiHttpException()
-    {
-        var mockResponse = Substitute.For<PipelineResponse>();
-        mockResponse.Status.Returns(500);
-        var clientException = new ClientResultException(mockResponse);
-
-        _mockChatClient.CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(),
-            Arg.Any<ChatCompletionOptions>(),
-            Arg.Any<CancellationToken>())
-            .ThrowsAsync(clientException);
-
-        var ex = Assert.ThrowsAsync<AiHttpException>(
-            async () => await _client.AskAsync(DefaultRequest, CancellationToken.None));
-
-        Assert.That(ex!.StatusCode, Is.EqualTo(500));
+        Assert.That(ex!.StatusCode, Is.EqualTo(status));
     }
 
     [Test]
-    public void AskAsync_503Response_ThrowsAiHttpException()
+    public void StreamAsync_UnexpectedException_ThrowsAiHttpException()
     {
-        var mockResponse = Substitute.For<PipelineResponse>();
-        mockResponse.Status.Returns(503);
-        var clientException = new ClientResultException(mockResponse);
+        _chatClient.Streams([], thenThrow: new InvalidOperationException("Something unexpected"));
 
-        _mockChatClient.CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(),
-            Arg.Any<ChatCompletionOptions>(),
-            Arg.Any<CancellationToken>())
-            .ThrowsAsync(clientException);
-
-        var ex = Assert.ThrowsAsync<AiHttpException>(
-            async () => await _client.AskAsync(DefaultRequest, CancellationToken.None));
-
-        Assert.That(ex!.StatusCode, Is.EqualTo(503));
-    }
-
-    [Test]
-    public void AskAsync_NonServerClientResultException_ThrowsAiHttpException()
-    {
-        var mockResponse = Substitute.For<PipelineResponse>();
-        mockResponse.Status.Returns(400);
-        var clientException = new ClientResultException(mockResponse);
-
-        _mockChatClient.CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(),
-            Arg.Any<ChatCompletionOptions>(),
-            Arg.Any<CancellationToken>())
-            .ThrowsAsync(clientException);
-
-        var ex = Assert.ThrowsAsync<AiHttpException>(
-            async () => await _client.AskAsync(DefaultRequest, CancellationToken.None));
-
-        Assert.That(ex!.StatusCode, Is.EqualTo(400));
-    }
-
-    [Test]
-    public void AskAsync_UnexpectedException_ThrowsAiHttpException()
-    {
-        _mockChatClient.CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(),
-            Arg.Any<ChatCompletionOptions>(),
-            Arg.Any<CancellationToken>())
-            .ThrowsAsync(new InvalidOperationException("Something unexpected"));
-
-        var ex = Assert.ThrowsAsync<AiHttpException>(
-            async () => await _client.AskAsync(DefaultRequest, CancellationToken.None));
+        var ex = Assert.ThrowsAsync<AiHttpException>(async () => await DrainAsync());
 
         Assert.That(ex!.StatusCode, Is.Null);
         Assert.That(ex.Message, Does.Contain("Unexpected error"));
     }
 
     #endregion
-
 }

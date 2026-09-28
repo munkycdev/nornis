@@ -2,24 +2,24 @@ using System.ClientModel;
 using System.Diagnostics;
 using System.Net;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
-using OpenAI.Chat;
 
 namespace Nornis.Infrastructure.Ai;
 
 /// <summary>
 /// Azure OpenAI implementation of <see cref="IRelationshipBackfillAiClient"/>. Shares the
-/// extraction <see cref="ChatClient"/> (nornis-extract deployment), with strict
+/// extraction <see cref="IChatClient"/> (nornis-extract deployment), with strict
 /// JSON-schema structured output describing the links array.
 /// </summary>
 public class AzureOpenAiRelationshipBackfillClient : IRelationshipBackfillAiClient
 {
 
-    private readonly ChatClient _chatClient;
+    private readonly IChatClient _chatClient;
     private readonly ILogger<AzureOpenAiRelationshipBackfillClient> _logger;
 
-    public AzureOpenAiRelationshipBackfillClient(ChatClient chatClient, ILogger<AzureOpenAiRelationshipBackfillClient> logger)
+    public AzureOpenAiRelationshipBackfillClient(IChatClient chatClient, ILogger<AzureOpenAiRelationshipBackfillClient> logger)
     {
         _chatClient = chatClient;
         _logger = logger;
@@ -27,16 +27,10 @@ public class AzureOpenAiRelationshipBackfillClient : IRelationshipBackfillAiClie
 
     public async Task<RelationshipBackfillAiResponse> ProposeLinksAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var completionOptions = new ChatCompletionOptions
-        {
-            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                jsonSchemaFormatName: "backfill_links",
-                jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
-                jsonSchemaIsStrict: true)
-        };
+        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("backfill_links", GetStructuredOutputSchema(), strict: true);
 
         var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, request, completionOptions, "Relationship backfill", _logger, ct);
+            _chatClient, request, chatOptions, "Relationship backfill", _logger, ct);
 
         return new RelationshipBackfillAiResponse
         {

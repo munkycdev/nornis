@@ -2,9 +2,9 @@ using System.ClientModel;
 using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
-using OpenAI.Chat;
 
 namespace Nornis.Infrastructure.Ai;
 
@@ -12,13 +12,13 @@ namespace Nornis.Infrastructure.Ai;
 /// Azure OpenAI implementation of <see cref="IMapExtractionClient"/>: the map image as
 /// a vision part, existing Locations as matching context, and strict JSON-schema output
 /// of labeled places with normalized positions. Shares the extraction
-/// <see cref="ChatClient"/> (nornis-extract, gpt-5.4 — multimodal).
+/// <see cref="IChatClient"/> (nornis-extract, gpt-5.4 — multimodal).
 /// </summary>
 public class AzureOpenAiMapExtractionClient : IMapExtractionClient
 {
 
 
-    private readonly ChatClient _chatClient;
+    private readonly IChatClient _chatClient;
     private readonly ILogger<AzureOpenAiMapExtractionClient> _logger;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -28,7 +28,7 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
     };
 
     public AzureOpenAiMapExtractionClient(
-        ChatClient chatClient, ILogger<AzureOpenAiMapExtractionClient> logger)
+        IChatClient chatClient, ILogger<AzureOpenAiMapExtractionClient> logger)
     {
         _chatClient = chatClient;
         _logger = logger;
@@ -40,30 +40,24 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
         // not just the first pass, exactly as the usage aggregation below sums tokens.
         var stopwatch = Stopwatch.StartNew();
 
-        var parts = new List<ChatMessageContentPart>
+        var parts = new List<AIContent>
         {
-            ChatMessageContentPart.CreateTextPart(BuildUserContext(request)),
-            ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(request.ImageBytes), request.MediaType)
+            new TextContent(BuildUserContext(request)),
+            new DataContent(request.ImageBytes, request.MediaType)
         };
 
         var messages = new List<ChatMessage>
         {
-            new SystemChatMessage(BuildSystemPrompt()),
-            new UserChatMessage(parts)
+            new ChatMessage(ChatRole.System, BuildSystemPrompt()),
+            new ChatMessage(ChatRole.User, parts)
         };
 
-        var completionOptions = new ChatCompletionOptions
-        {
-            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                jsonSchemaFormatName: "map_places",
-                jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
-                // Unlike text extraction there is no open proposedValue object here,
-                // so the schema is strict-mode compliant.
-                jsonSchemaIsStrict: true)
-        };
+        // Unlike text extraction there is no open proposedValue object here,
+        // so the schema is strict-mode compliant.
+        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("map_places", GetStructuredOutputSchema(), strict: true);
 
         var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, messages, completionOptions, request.Model, request.TimeoutSeconds,
+            _chatClient, messages, chatOptions, request.Model, request.TimeoutSeconds,
             "Map extraction", _logger, ct);
 
         var places = ParsePlaces(content);
@@ -200,29 +194,22 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
             "This image is a cropped region of a larger fantasy/TTRPG map. Locate these places, " +
             "all believed to lie within this crop:\n" + string.Join("\n", lines);
 
-        var parts = new List<ChatMessageContentPart>
+        var parts = new List<AIContent>
         {
-            ChatMessageContentPart.CreateTextPart(userText),
-            ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(cropBytes), "image/png")
+            new TextContent(userText),
+            new DataContent(cropBytes, "image/png")
         };
 
         var messages = new List<ChatMessage>
         {
-            new SystemChatMessage(BuildRefinementSystemPrompt()),
-            new UserChatMessage(parts)
+            new ChatMessage(ChatRole.System, BuildRefinementSystemPrompt()),
+            new ChatMessage(ChatRole.User, parts)
         };
 
-        var completionOptions = new ChatCompletionOptions
-        {
-            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                jsonSchemaFormatName: "map_place_positions",
-                jsonSchema: BinaryData.FromString(GetRefinementOutputSchema()),
-                jsonSchemaIsStrict: true)
-        };
+        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("map_place_positions", GetRefinementOutputSchema(), strict: true);
 
-        var response = await _chatClient.CompleteChatAsync(messages, completionOptions, linkedCts.Token);
-        var completion = response.Value;
-        var content = completion.Content.Count > 0 ? completion.Content[0].Text : string.Empty;
+        var response = await _chatClient.GetResponseAsync(messages, chatOptions, linkedCts.Token);
+        var content = response.Text;
 
         RefinedPlacesDocument? document;
         try
@@ -256,8 +243,9 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
             positions.Add((placeIndex, MapRefinement.ToFullImage(tile, refined.X, refined.Y)));
         }
 
-        var usage = completion.Usage;
-        return (positions, new TileUsage(usage.InputTokenCount, usage.OutputTokenCount, usage.TotalTokenCount));
+        var usage = response.Usage;
+        return (positions, new TileUsage(
+            (int)(usage?.InputTokenCount ?? 0), (int)(usage?.OutputTokenCount ?? 0), (int)(usage?.TotalTokenCount ?? 0)));
     }
 
     private sealed record RefinedPlace(string? Name, bool Found, decimal X, decimal Y);

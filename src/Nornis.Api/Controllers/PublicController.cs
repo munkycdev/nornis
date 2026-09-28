@@ -102,9 +102,9 @@ public class PublicController : ControllerBase
             ConversationContext: null,
             IncludeLibrary: false);
 
-        var result = await _loremasterService.AskAsync(command, ct);
+        var result = await _loremasterService.BeginAskAsync(command, ct);
         return result.IsSuccess
-            ? Ok(LoremasterController.ToAnswerResponse(result.Value!))
+            ? LoremasterController.ToStreamResult(result.Value!)
             : MapAskError(result.Error!);
     }
 

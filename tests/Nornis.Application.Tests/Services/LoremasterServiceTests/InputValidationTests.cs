@@ -96,8 +96,8 @@ public class InputValidationTests
             Arg.Any<CancellationToken>())
             .Returns(CreateEmptyContext());
 
-        _aiClient.AskAsync(Arg.Any<AiPromptRequest>(), Arg.Any<CancellationToken>())
-            .Returns(CreateDefaultAiResponse());
+        _aiClient.StreamAsync(Arg.Any<AiPromptRequest>(), Arg.Any<CancellationToken>())
+            .Returns(CreateDefaultAiResponse().AsStream());
 
         var command = CreateCommand(question: "Who is Captain Voss?");
 
@@ -133,7 +133,7 @@ public class InputValidationTests
 
         await _service.AskAsync(command, CancellationToken.None);
 
-        await _aiClient.DidNotReceive().AskAsync(
+        _aiClient.DidNotReceive().StreamAsync(
             Arg.Any<AiPromptRequest>(),
             Arg.Any<CancellationToken>());
     }
@@ -160,7 +160,7 @@ public class InputValidationTests
 
         await _service.AskAsync(command, CancellationToken.None);
 
-        await _aiClient.DidNotReceive().AskAsync(
+        _aiClient.DidNotReceive().StreamAsync(
             Arg.Any<AiPromptRequest>(),
             Arg.Any<CancellationToken>());
     }
@@ -189,7 +189,7 @@ public class InputValidationTests
 
         await _service.AskAsync(command, CancellationToken.None);
 
-        await _aiClient.DidNotReceive().AskAsync(
+        _aiClient.DidNotReceive().StreamAsync(
             Arg.Any<AiPromptRequest>(),
             Arg.Any<CancellationToken>());
     }
@@ -207,8 +207,8 @@ public class InputValidationTests
             Arg.Any<CancellationToken>())
             .Returns(CreateEmptyContext());
 
-        _aiClient.AskAsync(Arg.Any<AiPromptRequest>(), Arg.Any<CancellationToken>())
-            .Returns(CreateDefaultAiResponse());
+        _aiClient.StreamAsync(Arg.Any<AiPromptRequest>(), Arg.Any<CancellationToken>())
+            .Returns(CreateDefaultAiResponse().AsStream());
 
         var command = CreateCommand(question: exactQuestion);
 
@@ -245,7 +245,7 @@ public class InputValidationTests
         SourceReferences = new List<KnowledgeSourceReference>()
     };
 
-    private static LoremasterAiResponse CreateDefaultAiResponse() => new()
+    private static CannedLoremasterResponse CreateDefaultAiResponse() => new()
     {
         AnswerText = "I don't have a confirmed source for that yet.",
         Usage = new AiUsage

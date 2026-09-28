@@ -135,10 +135,27 @@
                     </div>
                 }
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-answer">
-                    <div class="nornis-answer-thinking">
-                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Secondary" />
-                        <span>Consulting the Loremaster…</span>
-                    </div>
+                    @if (_streaming is { HasText: true } streaming)
+                    {
+                        <div class="nornis-answer-head">
+                            <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />
+                            <span class="nornis-answer-label">Loremaster</span>
+                            @if (streaming.Confidence is not null)
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@LoremasterDisplay.ConfidenceColor(streaming.Confidence)">
+                                    @streaming.Confidence confidence
+                                </MudChip>
+                            }
+                        </div>
+                        <div class="nornis-answer-text nornis-answer-streaming">@streaming.Text</div>
+                    }
+                    else
+                    {
+                        <div class="nornis-answer-thinking">
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Secondary" />
+                            <span>Consulting the Loremaster…</span>
+                        </div>
+                    }
                 </MudPaper>
             }
 
@@ -176,7 +193,9 @@
     private AskConversation? _current;
     private string _input = string.Empty;
     private string? _pendingQuestion;
+    private StreamingAnswer? _streaming;
     private bool _asking;
+    private readonly CancellationTokenSource _disposed = new();
     private string? _error;
     private Guid _loadedWorldId;
     private bool _initialized;
@@ -287,36 +306,34 @@
         var conversation = _current;
 
         var context = LoremasterDisplay.BuildContext(conversation);
+        var answer = new StreamingAnswer();
         _pendingQuestion = question;
+        _streaming = answer;
         _asking = true;
         _error = null;
         StateHasChanged();
 
-        var result = await Api.AskLoremasterAsync(askedWorldId, question, context);
+        // Reading _current here instead would append one world's Q&A to another's thread and
+        // persist the whole list under the new world's key — or throw, when the new world has
+        // no conversations and _current is null. A switch mid-answer stops the stream outright.
+        var finished = await answer.ReadAsync(
+            Api.StreamAskAsync(askedWorldId, question, context, _disposed.Token),
+            stillWanted: () => Worlds.Current?.Id == askedWorldId,
+            render: StateHasChanged);
 
         _asking = false;
         _pendingQuestion = null;
+        _streaming = null;
 
-        // Reading _current here instead would append one world's Q&A to another's thread and
-        // persist the whole list under the new world's key — or throw, when the new world has
-        // no conversations and _current is null.
-        if (Worlds.Current?.Id != askedWorldId)
+        if (!finished || Worlds.Current?.Id != askedWorldId)
         {
             StateHasChanged();
             return;
         }
 
-        if (result.IsSuccess)
+        if (answer.Answer is { } a)
         {
-            var a = result.Value!;
-            conversation.Exchanges.Add(new AskExchange
-            {
-                Question = question,
-                Answer = LoremasterDisplay.CleanAnswer(a.Answer),
-                Confidence = a.Confidence,
-                Citations = a.Citations.Select(c => new AskCitation { DisplayName = c.DisplayName, ArtifactId = c.ArtifactId, DocumentId = c.DocumentId, Slug = c.Slug }).ToList(),
-                Caveats = a.Caveats.ToList(),
-            });
+            conversation.Exchanges.Add(LoremasterDisplay.ToExchange(question, a));
             if (conversation.Exchanges.Count == 1)
             {
                 conversation.Title = Nornis.Web.Services.DisplayText.Truncate(question, 48);
@@ -326,7 +343,7 @@
         }
         else
         {
-            _error = result.Error!.Message;
+            _error = answer.Error!.Message;
             // Discard a conversation that never got its first answer.
             if (conversation.Exchanges.Count == 0)
             {
@@ -377,5 +394,12 @@
         _error = null;
     }
 
-    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+    public void Dispose()
+    {
+        Worlds.Changed -= OnWorldChanged;
+
+        // Leaving mid-answer aborts the request, and the model call with it.
+        _disposed.Cancel();
+        _disposed.Dispose();
+    }
 }

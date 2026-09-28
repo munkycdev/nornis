@@ -1800,6 +1800,14 @@ span.nornis-list-meta {
     white-space: pre-wrap;
 }
 
+/* A still caret after text that is still arriving — the one cue that the answer is not done yet.
+   Deliberately not blinking: it sits beside prose someone is reading. */
+.nornis-answer-streaming::after {
+    content: "\258D";
+    margin-left: 1px;
+    color: var(--mud-palette-text-secondary);
+}
+
 .nornis-answer-caveat {
     display: flex;
     align-items: center;

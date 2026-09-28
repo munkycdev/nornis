@@ -68,6 +68,20 @@ public class ErrorResponsesNeverExposeInternalsTests
         }
     }
 
+    [FsCheck.NUnit.Property(
+        Arbitrary = [typeof(ErrorResponseArbitraries)],
+        MaxTest = 100)]
+    [Description("Feature: ask-loremaster, Property 12: Error Responses Never Expose Internals")]
+    public void InBandError_IsTheSameSanitizedBody(ErrorResponseScenario scenario)
+    {
+        // A streamed answer that fails partway reports it as an error event, with no status to
+        // set. That body must be exactly the one the status-code path sends, which the property
+        // above proves safe — a second, separately written scrub is how the two would drift.
+        var inBand = scenario.Error.ToErrorResponse();
+
+        Assert.That(inBand, Is.EqualTo(ExtractErrorResponse(scenario.Error.ToActionResult())));
+    }
+
     private static ErrorResponse? ExtractErrorResponse(IActionResult result)
     {
         return result switch

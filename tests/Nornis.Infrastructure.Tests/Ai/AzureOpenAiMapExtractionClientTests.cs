@@ -1,12 +1,7 @@
-using System.ClientModel;
-using System.ClientModel.Primitives;
 using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Ai;
 using Nornis.Infrastructure.Ai;
-using NSubstitute;
-using NSubstitute.ExceptionExtensions;
 using NUnit.Framework;
-using OpenAI.Chat;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -20,15 +15,15 @@ namespace Nornis.Infrastructure.Tests.Ai;
 [Category("Feature: map-source")]
 public class AzureOpenAiMapExtractionClientTests
 {
-    private ChatClient _mockChatClient = null!;
+    private FakeChatClient _chatClient = null!;
     private AzureOpenAiMapExtractionClient _client = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _mockChatClient = Substitute.For<ChatClient>();
+        _chatClient = new FakeChatClient();
         _client = new AzureOpenAiMapExtractionClient(
-            _mockChatClient, NullLogger<AzureOpenAiMapExtractionClient>.Instance);
+            _chatClient, NullLogger<AzureOpenAiMapExtractionClient>.Instance);
     }
 
     private static byte[] TinyPng()
@@ -50,34 +45,18 @@ public class AzureOpenAiMapExtractionClientTests
         RefinePositions = refine
     };
 
-    private static ClientResult<ChatCompletion> Completion(string json)
-    {
-        var completion = OpenAIChatModelFactory.ChatCompletion(
-            id: "chatcmpl-test",
-            finishReason: ChatFinishReason.Stop,
-            content: new ChatMessageContent(json),
-            model: "gpt-test",
-            usage: OpenAIChatModelFactory.ChatTokenUsage(
-                outputTokenCount: 10, inputTokenCount: 100, totalTokenCount: 110));
-        var response = Substitute.For<PipelineResponse>();
-        response.Status.Returns(200);
-        return ClientResult.FromValue(completion, response);
-    }
-
     // Pass 1: one place at (0.30, 0.30) → tile 0 of the 3×3 grid.
     private const string Pass1Json = """
         {"places":[{"name":"Thistle Hold","kind":"town","x":0.30,"y":0.30,"confidence":0.9,"existingArtifactId":null}]}
         """;
 
-    /// <summary>Queues chat responses. The ClientResults are built BEFORE the Returns call —
-    /// building them inline would consume NSubstitute's last-call context (they contain a
-    /// nested substitute) and break the setup.</summary>
+    /// <summary>Queues one chat response per JSON document, each reporting 100 in / 10 out.</summary>
     private void SetupResponses(params string[] jsons)
     {
-        var results = jsons.Select(Completion).ToArray();
-        _mockChatClient.CompleteChatAsync(
-                Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatCompletionOptions>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(results[0]), results.Skip(1).Select(Task.FromResult).ToArray());
+        foreach (var json in jsons)
+        {
+            _chatClient.Returns(json, input: 100, output: 10, total: 110);
+        }
     }
 
     [Test]
@@ -99,8 +78,7 @@ public class AzureOpenAiMapExtractionClientTests
         Assert.That(result.Usage.InputTokens, Is.EqualTo(200));
         Assert.That(result.Usage.OutputTokens, Is.EqualTo(20));
         Assert.That(result.Usage.TotalTokens, Is.EqualTo(220));
-        await _mockChatClient.Received(2).CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatCompletionOptions>(), Arg.Any<CancellationToken>());
+        Assert.That(_chatClient.Calls, Has.Count.EqualTo(2));
     }
 
     [Test]
@@ -113,19 +91,15 @@ public class AzureOpenAiMapExtractionClientTests
         Assert.That(result.Places[0].X, Is.EqualTo(0.30m));
         Assert.That(result.Places[0].Y, Is.EqualTo(0.30m));
         Assert.That(result.Usage.TotalTokens, Is.EqualTo(110));
-        await _mockChatClient.Received(1).CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatCompletionOptions>(), Arg.Any<CancellationToken>());
+        Assert.That(_chatClient.Calls, Has.Count.EqualTo(1));
     }
 
     [Test]
     public async Task Extract_RefinementCallFails_KeepsFirstPassPositions()
     {
-        var firstResult = Completion(Pass1Json);
-        _mockChatClient.CompleteChatAsync(
-                Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatCompletionOptions>(), Arg.Any<CancellationToken>())
-            .Returns(
-                _ => Task.FromResult(firstResult),
-                _ => throw new InvalidOperationException("refinement boom"));
+        _chatClient
+            .Returns(Pass1Json, input: 100, output: 10, total: 110)
+            .Throws(new InvalidOperationException("refinement boom"));
 
         var result = await _client.ExtractAsync(Request(refine: true), CancellationToken.None);
 
@@ -168,8 +142,7 @@ public class AzureOpenAiMapExtractionClientTests
         var result = await _client.ExtractAsync(Request(refine: true), CancellationToken.None);
 
         Assert.That(result.Places, Is.Empty);
-        await _mockChatClient.Received(1).CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatCompletionOptions>(), Arg.Any<CancellationToken>());
+        Assert.That(_chatClient.Calls, Has.Count.EqualTo(1));
     }
 
     [Test]

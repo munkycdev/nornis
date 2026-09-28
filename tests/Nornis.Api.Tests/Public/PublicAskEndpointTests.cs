@@ -90,9 +90,59 @@ public class PublicAskEndpointTests
         var response = await AskAsync("Who is the watch captain?");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
-        var answer = await response.Content.ReadFromJsonAsync<AskAnswerResponse>();
+        var answer = await response.Content.ReadAskAnswerAsync();
         Assert.That(answer!.Answer, Does.Contain("Aldric Vane"));
         Assert.That(_factory.FakeAiClient.CallCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Ask_EnabledWithinBudget_StreamsStartDeltasThenDone()
+    {
+        _factory.FakeAiClient.SetupSuccess("The watch captain is Aldric Vane.");
+        await PublishAsync(monthlyBudget: 10m);
+
+        var response = await AskAsync("Who is the watch captain?");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var stream = await response.Content.ReadAskStreamAsync();
+        var types = stream.EventTypes.ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(types.First(), Is.EqualTo("start"));
+            Assert.That(types.Last(), Is.EqualTo("done"));
+            Assert.That(types.Skip(1).SkipLast(1), Is.Not.Empty.And.All.EqualTo("delta"));
+            Assert.That(string.Concat(stream.Deltas), Is.EqualTo("The watch captain is Aldric Vane."));
+        });
+    }
+
+    [Test]
+    public async Task Ask_AiFailsAfterText_EndsWithAnErrorEvent_AndStillMetersTheSpend()
+    {
+        // Public Ask is paid for by the GM's cap, so a half-answer that fails must still count
+        // against it: a stranger who can make it fail must not get free text out of it.
+        _factory.FakeAiClient.SetupServiceErrorAfter("The watch captain is ");
+        await PublishAsync(monthlyBudget: 10m);
+
+        var response = await AskAsync("Who is the watch captain?");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var stream = await response.Content.ReadAskStreamAsync();
+        Assert.Multiple(() =>
+        {
+            Assert.That(stream.EventTypes.Last(), Is.EqualTo("error"));
+            Assert.That(stream.EventTypes, Does.Not.Contain("done"));
+            Assert.That(stream.Error!.Code, Is.EqualTo("service_unavailable"));
+        });
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        var record = db.AiUsageRecords.Single(r => r.WorldId == _worldId);
+        Assert.Multiple(() =>
+        {
+            Assert.That(record.UserId, Is.Null);
+            Assert.That(record.Succeeded, Is.False);
+            Assert.That(record.EstimatedCostUsd, Is.GreaterThan(0m));
+        });
     }
 
     [Test]
