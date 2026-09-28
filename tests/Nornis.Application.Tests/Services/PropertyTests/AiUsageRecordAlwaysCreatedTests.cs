@@ -164,7 +164,7 @@ public record AiUsageRecordScenario(
     string Question,
     KnowledgeContext KnowledgeContext,
     bool AiSucceeds,
-    LoremasterAiResponse AiResponse,
+    CannedLoremasterResponse AiResponse,
     AiFailureType FailureType);
 
 /// <summary>
@@ -237,7 +237,7 @@ public class AiUsageRecordScenarioArbitraries
             from inputTokens in Gen.Choose(50, 2000)
             from outputTokens in Gen.Choose(20, 500)
             from durationMs in Gen.Choose(100, 5000)
-            select new LoremasterAiResponse
+            select new CannedLoremasterResponse
             {
                 AnswerText = "Captain Voss is known to frequent Black Harbor [ref:art-123].",
                 Usage = new AiUsage

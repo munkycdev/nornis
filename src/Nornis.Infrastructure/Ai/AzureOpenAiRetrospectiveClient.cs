@@ -2,24 +2,24 @@ using System.ClientModel;
 using System.Diagnostics;
 using System.Net;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
-using OpenAI.Chat;
 
 namespace Nornis.Infrastructure.Ai;
 
 /// <summary>
 /// Azure OpenAI implementation of <see cref="IRetrospectiveAiClient"/>. Shares the
-/// Loremaster <see cref="ChatClient"/> configuration, with strict JSON-schema
+/// Loremaster <see cref="IChatClient"/> configuration, with strict JSON-schema
 /// structured output describing the verdicts array.
 /// </summary>
 public class AzureOpenAiRetrospectiveClient : IRetrospectiveAiClient
 {
 
-    private readonly ChatClient _chatClient;
+    private readonly IChatClient _chatClient;
     private readonly ILogger<AzureOpenAiRetrospectiveClient> _logger;
 
-    public AzureOpenAiRetrospectiveClient(ChatClient chatClient, ILogger<AzureOpenAiRetrospectiveClient> logger)
+    public AzureOpenAiRetrospectiveClient(IChatClient chatClient, ILogger<AzureOpenAiRetrospectiveClient> logger)
     {
         _chatClient = chatClient;
         _logger = logger;
@@ -27,16 +27,10 @@ public class AzureOpenAiRetrospectiveClient : IRetrospectiveAiClient
 
     public async Task<RetrospectiveAiResponse> AssessAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var completionOptions = new ChatCompletionOptions
-        {
-            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                jsonSchemaFormatName: "storyline_verdicts",
-                jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
-                jsonSchemaIsStrict: true)
-        };
+        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("storyline_verdicts", GetStructuredOutputSchema(), strict: true);
 
         var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, request, completionOptions, "Storyline retrospective", _logger, ct);
+            _chatClient, request, chatOptions, "Storyline retrospective", _logger, ct);
 
         return new RetrospectiveAiResponse
         {

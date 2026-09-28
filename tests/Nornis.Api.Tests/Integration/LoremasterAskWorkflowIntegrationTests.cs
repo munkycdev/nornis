@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -87,7 +88,7 @@ public class LoremasterAskWorkflowIntegrationTests
         // Assert
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
-        var answer = await response.Content.ReadFromJsonAsync<AskAnswerResponse>();
+        var answer = await response.Content.ReadAskAnswerAsync();
         Assert.That(answer, Is.Not.Null);
         Assert.That(answer!.Answer, Is.Not.Null.And.Not.Empty);
         Assert.That(answer.Confidence, Is.Not.Null.And.Not.Empty);
@@ -117,7 +118,7 @@ public class LoremasterAskWorkflowIntegrationTests
         // Assert — successful response
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
-        var answer = await response.Content.ReadFromJsonAsync<AskAnswerResponse>();
+        var answer = await response.Content.ReadAskAnswerAsync();
         Assert.That(answer, Is.Not.Null);
         Assert.That(answer!.Answer, Does.Contain("Captain Voss"));
 
@@ -180,10 +181,10 @@ public class LoremasterAskWorkflowIntegrationTests
 
     #endregion
 
-    #region AI timeout → 503
+    #region AI timeout → error event
 
     [Test]
-    public async Task Post_AiTimeout_Returns503()
+    public async Task Post_AiTimeout_EndsTheStreamWithAServiceUnavailableErrorEvent()
     {
         // Arrange — configure AI to simulate a timeout
         _factory.FakeAiClient.SetupTimeout();
@@ -192,12 +193,17 @@ public class LoremasterAskWorkflowIntegrationTests
         // Act
         var response = await _scenario.GmClient.PostAsJsonAsync(AskUrl, request);
 
-        // Assert
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.ServiceUnavailable));
+        // Assert — the model call runs after the response has committed to a stream, so its
+        // failure can no longer choose the status: it arrives as the stream's closing error
+        // event, carrying the body the 503 used to.
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
-        var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+        var stream = await response.Content.ReadAskStreamAsync();
+        Assert.That(stream.EventTypes, Is.EqualTo(["start", "error"]));
+
+        var error = stream.Error;
         Assert.That(error, Is.Not.Null);
-        Assert.That(error!.Code, Is.Not.Null.And.Not.Empty);
+        Assert.That(error!.Code, Is.EqualTo("service_unavailable"));
         Assert.That(error.Message, Is.Not.Null.And.Not.Empty);
         // Error message should not expose internals
         Assert.That(error.Message, Does.Not.Contain("OperationCanceledException"));
@@ -243,6 +249,89 @@ public class LoremasterAskWorkflowIntegrationTests
         Assert.That(record.TotalTokens, Is.GreaterThan(0));
         Assert.That(record.DurationMs, Is.GreaterThanOrEqualTo(0));
         Assert.That(record.EstimatedCostUsd, Is.GreaterThan(0));
+    }
+
+    #endregion
+
+    #region The answer as a stream
+
+    [Test]
+    public async Task Post_ValidQuestion_StreamsStartThenDeltasThenDoneWithTheAnswerShape()
+    {
+        var artifactRefId = $"art-{_scenario.CaptainVoss.Id.ToString()[..8]}";
+        _factory.FakeAiClient.SetupSuccess(
+            $"Captain Voss is a sea captain based in Black Harbor [ref:{artifactRefId}].");
+
+        var response = await _scenario.GmClient.PostAsJsonAsync(AskUrl, new AskLoremasterRequest("Who is Captain Voss?"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("text/event-stream"));
+
+        var stream = await response.Content.ReadAskStreamAsync();
+        var types = stream.EventTypes.ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(types.First(), Is.EqualTo("start"));
+            Assert.That(types.Last(), Is.EqualTo("done"));
+            Assert.That(types.Skip(1).SkipLast(1), Is.Not.Empty.And.All.EqualTo("delta"));
+        });
+
+        // done carries the answer exactly as the endpoint used to return it as a JSON body: the
+        // same four camelCase fields, and the text the deltas spelled out.
+        var doneJson = JsonNode.Parse(stream.Events.Last().Data)!.AsObject();
+        Assert.That(doneJson.Select(p => p.Key), Is.EquivalentTo(["answer", "citations", "confidence", "caveats"]));
+
+        var done = stream.Done!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(done.Answer, Is.EqualTo(string.Concat(stream.Deltas)));
+            Assert.That(done.Confidence, Is.EqualTo(stream.Start!.Confidence));
+            Assert.That(done.Caveats, Is.EqualTo(stream.Start.Caveats));
+        });
+    }
+
+    [Test]
+    public async Task Post_InvalidQuestion_Returns400JsonRatherThanAStream()
+    {
+        // Everything that can refuse a question runs before the response commits to a stream,
+        // so a refusal keeps its status code and its ordinary JSON body.
+        var response = await _scenario.GmClient.PostAsJsonAsync(AskUrl, new AskLoremasterRequest(""));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/json"));
+        var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+        Assert.That(error!.Code, Is.EqualTo("invalid_question"));
+    }
+
+    [Test]
+    public async Task Post_AiFailsAfterText_StreamsTheTextThenAnErrorEvent_AndLedgersTheAttempt()
+    {
+        _factory.FakeAiClient.SetupServiceErrorAfter("Captain Voss sails out of Black Harbor");
+
+        var response = await _scenario.GmClient.PostAsJsonAsync(AskUrl, new AskLoremasterRequest("Who is Captain Voss?"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var stream = await response.Content.ReadAskStreamAsync();
+        Assert.Multiple(() =>
+        {
+            Assert.That(stream.EventTypes.First(), Is.EqualTo("start"));
+            Assert.That(stream.EventTypes.Last(), Is.EqualTo("error"));
+            Assert.That(stream.EventTypes, Does.Not.Contain("done"), "a truncated answer must never be presented as whole");
+            Assert.That(string.Concat(stream.Deltas), Is.EqualTo("Captain Voss sails out of Black Harbor"));
+            Assert.That(stream.Error!.Code, Is.EqualTo("service_unavailable"));
+        });
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        var record = db.AiUsageRecords.Single(r =>
+            r.WorldId == _scenario.World.Id && r.OperationType == AiOperationType.AskLoremaster);
+        Assert.Multiple(() =>
+        {
+            Assert.That(record.Succeeded, Is.False);
+            Assert.That(record.ErrorCode, Is.EqualTo("ServiceError"));
+            Assert.That(record.OutputTokens, Is.GreaterThan(0), "text was delivered, so it was paid for");
+            Assert.That(record.EstimatedCostUsd, Is.GreaterThan(0));
+        });
     }
 
     #endregion

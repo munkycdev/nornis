@@ -2,24 +2,24 @@ using System.ClientModel;
 using System.Diagnostics;
 using System.Net;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
-using OpenAI.Chat;
 
 namespace Nornis.Infrastructure.Ai;
 
 /// <summary>
-/// Azure OpenAI implementation of <see cref="IAuditAiClient"/>. Uses the same <see cref="ChatClient"/>
+/// Azure OpenAI implementation of <see cref="IAuditAiClient"/>. Uses the same <see cref="IChatClient"/>
 /// (and therefore the same Loremaster Azure OpenAI configuration) as the Loremaster, with a strict
 /// JSON-schema structured output describing the findings array.
 /// </summary>
 public class AzureOpenAiAuditClient : IAuditAiClient
 {
 
-    private readonly ChatClient _chatClient;
+    private readonly IChatClient _chatClient;
     private readonly ILogger<AzureOpenAiAuditClient> _logger;
 
-    public AzureOpenAiAuditClient(ChatClient chatClient, ILogger<AzureOpenAiAuditClient> logger)
+    public AzureOpenAiAuditClient(IChatClient chatClient, ILogger<AzureOpenAiAuditClient> logger)
     {
         _chatClient = chatClient;
         _logger = logger;
@@ -27,16 +27,10 @@ public class AzureOpenAiAuditClient : IAuditAiClient
 
     public async Task<AuditAiResponse> AssessAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var completionOptions = new ChatCompletionOptions
-        {
-            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                jsonSchemaFormatName: "continuity_findings",
-                jsonSchema: BinaryData.FromString(GetStructuredOutputSchema()),
-                jsonSchemaIsStrict: true)
-        };
+        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("continuity_findings", GetStructuredOutputSchema(), strict: true);
 
         var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, request, completionOptions, "Continuity audit", _logger, ct);
+            _chatClient, request, chatOptions, "Continuity audit", _logger, ct);
 
         return new AuditAiResponse
         {

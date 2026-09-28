@@ -1,6 +1,7 @@
 @page "/w/{Slug}"
 @layout PublicLayout
 @using System.Text.RegularExpressions
+@implements IDisposable
 @inject NornisApiClient Api
 
 <PageTitle>World — Nornis</PageTitle>
@@ -44,7 +45,22 @@
                               ShowCloseIcon="true" CloseIconClicked="() => _askError = null">@_askError</MudAlert>
                 }
 
-                @if (_asking)
+                @if (_asking && _streaming is { HasText: true } streaming)
+                {
+                    <div class="nornis-lm-answer">
+                        @if (streaming.Confidence is not null)
+                        {
+                            <div class="nornis-lm-answer-head">
+                                <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@ConfidenceColor(streaming.Confidence)">
+                                    @streaming.Confidence
+                                </MudChip>
+                            </div>
+                        }
+                        <div class="nornis-lm-answer-text nornis-answer-streaming">@streaming.Text</div>
+                    </div>
+                }
+                else if (_asking)
                 {
                     <div class="nornis-lm-answer nornis-lm-thinking">
                         <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Secondary" />
@@ -136,7 +152,9 @@
 
     private string _question = string.Empty;
     private bool _asking;
+    private Nornis.Web.Services.StreamingAnswer? _streaming;
     private AskAnswer? _answer;
+    private readonly CancellationTokenSource _disposed = new();
     private string? _askError;
     private string? _loadedSlug;
 
@@ -149,6 +167,7 @@
             _loadedSlug = Slug;
             _question = string.Empty;
             _answer = null;
+            _streaming = null;
             _askError = null;
             _asking = false;
         }
@@ -170,23 +189,38 @@
             return;
         }
 
+        // Navigating to another public world reuses this component with a new Slug; an answer
+        // still streaming for the old one must not land on the new world's page.
+        var askedSlug = Slug;
+        var answer = new Nornis.Web.Services.StreamingAnswer();
         _asking = true;
+        _streaming = answer;
         _askError = null;
         _answer = null;
         StateHasChanged();
 
-        var result = await Api.AskPublicAsync(Slug, q);
+        var finished = await answer.ReadAsync(
+            Api.StreamPublicAskAsync(askedSlug, q, _disposed.Token),
+            stillWanted: () => Slug == askedSlug,
+            render: StateHasChanged);
+
+        if (!finished || Slug != askedSlug)
+        {
+            return;
+        }
 
         _asking = false;
-        if (result.IsSuccess)
-        {
-            _answer = result.Value!;
-        }
-        else
-        {
-            _askError = result.Error!.Message;
-        }
+        _streaming = null;
+        _answer = answer.Answer;
+        _askError = answer.Error?.Message;
         StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        // Leaving mid-answer aborts the request, and the model call with it.
+        _disposed.Cancel();
+        _disposed.Dispose();
     }
 
     private static string CleanAnswer(string text) => Nornis.Web.Services.LoremasterDisplay.CleanAnswer(text);

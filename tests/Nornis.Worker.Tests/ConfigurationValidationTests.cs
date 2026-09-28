@@ -1,5 +1,4 @@
 ﻿using System.ClientModel;
-using Azure.AI.OpenAI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +15,6 @@ using Nornis.Infrastructure.Persistence.Repositories;
 using Nornis.Worker;
 using Nornis.Worker.Configuration;
 using NUnit.Framework;
-using OpenAI.Chat;
 
 namespace Nornis.Worker.Tests;
 

@@ -1,17 +1,17 @@
 using System.Text.Json;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
-using OpenAI.Chat;
 
 namespace Nornis.Infrastructure.Ai;
 
 public class AzureOpenAiConvergenceNarrationClient : IConvergenceNarrationClient
 {
-    private readonly ChatClient _chatClient;
+    private readonly IChatClient _chatClient;
     private readonly ILogger<AzureOpenAiConvergenceNarrationClient> _logger;
 
     public AzureOpenAiConvergenceNarrationClient(
-        ChatClient chatClient,
+        IChatClient chatClient,
         ILogger<AzureOpenAiConvergenceNarrationClient> logger)
     {
         _chatClient = chatClient;
@@ -20,16 +20,10 @@ public class AzureOpenAiConvergenceNarrationClient : IConvergenceNarrationClient
 
     public async Task<ConvergenceNarrationAiResponse> NarrateAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var completionOptions = new ChatCompletionOptions
-        {
-            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                jsonSchemaFormatName: "convergence_narration",
-                jsonSchema: BinaryData.FromString(StructuredOutputSchema),
-                jsonSchemaIsStrict: true)
-        };
+        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("convergence_narration", StructuredOutputSchema, strict: true);
 
         var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, request, completionOptions, "Convergence narration", _logger, ct);
+            _chatClient, request, chatOptions, "Convergence narration", _logger, ct);
 
         try
         {

@@ -327,7 +327,7 @@ builder.Services.AddScoped<ISuggestionService, SuggestionService>();
 builder.Services.AddScoped<IKnowledgeRetriever, KeywordKnowledgeRetriever>();
 
 // Continuity audit (AI-assessed health): options + hourly auto-trigger. The audit AI client
-// reuses the Loremaster's Azure OpenAI ChatClient and configuration (registered below).
+// reuses the Loremaster's Azure OpenAI chat client and configuration (registered below).
 builder.Services.Configure<ContinuityAuditOptions>(builder.Configuration.GetSection(ContinuityAuditOptions.SectionName));
 builder.Services.Configure<ContinuityOptions>(builder.Configuration.GetSection(ContinuityOptions.SectionName));
 builder.Services.AddHostedService<ContinuityAuditBackgroundService>();
@@ -349,7 +349,8 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
         new Uri(loremasterEndpoint),
         new System.ClientModel.ApiKeyCredential(aiKey),
         Nornis.Infrastructure.Ai.AzureOpenAiClientFactory.RetriesForUserFacingCall);
-    builder.Services.AddSingleton(openAiClient.GetChatClient(loremasterModel ?? "gpt-4o"));
+    builder.Services.AddSingleton<Microsoft.Extensions.AI.IChatClient>(
+        new Nornis.Infrastructure.Ai.AzureOpenAiChatClient(openAiClient.GetChatClient(loremasterModel ?? "gpt-4o")));
     builder.Services.AddScoped<ILoremasterAiClient, AzureOpenAiLoremasterClient>();
     builder.Services.AddScoped<IAuditAiClient, AzureOpenAiAuditClient>();
     builder.Services.AddScoped<IContinuityFixAiClient, AzureOpenAiContinuityFixClient>();
@@ -359,7 +360,7 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
     builder.Services.AddScoped<IWorldNameGenerator, AzureOpenAiWorldNameGenerator>();
 
     // Handwriting transcription on demand: the capture page reads a photo of notes so the GM
-    // can correct the reading before extraction sees it. Same ChatClient as every other
+    // can correct the reading before extraction sees it. Same chat client as every other
     // user-facing call here, so the settings name the SAME deployment — Loremaster:AiModel is
     // the key Loremaster:ModelPricing is written against, and a name that misses it prices
     // the call at $0 (see the note in appsettings.json).

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
@@ -118,18 +119,18 @@ public partial class LoremasterService : ILoremasterService
         _options = options.Value;
     }
 
-    public async Task<AppResult<LoremasterAnswer>> AskAsync(
+    public async Task<AppResult<LoremasterAnswerStream>> BeginAskAsync(
         AskLoremasterCommand command,
         CancellationToken ct)
     {
         var validationError = ValidateQuestion(command.Question);
         if (validationError is not null)
-            return AppResult<LoremasterAnswer>.Fail(validationError);
+            return AppResult<LoremasterAnswerStream>.Fail(validationError);
 
         // 1b. Daily AI budget gate — before any retrieval or model work.
         var budgetError = await _budgetGuard.CheckAsync(command.WorldId, ct);
         if (budgetError is not null)
-            return AppResult<LoremasterAnswer>.Fail(budgetError);
+            return AppResult<LoremasterAnswerStream>.Fail(budgetError);
 
         // Retrieve knowledge. Follow-up questions often name artifacts only in earlier
         // exchanges ("what about his brother?"), so the conversation context participates
@@ -188,71 +189,118 @@ public partial class LoremasterService : ILoremasterService
             // convert every bug in here into an identical, untraceable message.
             _logger.LogError(ex,
                 "Loremaster context assembly failed. WorldId={WorldId}", command.WorldId);
-            return AppResult<LoremasterAnswer>.Fail(
+            return AppResult<LoremasterAnswerStream>.Fail(
                 new AppError(500, "internal_error", "Something went wrong. Please try again."));
         }
 
         var request = BuildPrompt(command.Question, context, command.ConversationContext);
-
         var confidence = DetermineConfidence(context);
-
-        var stopwatch = Stopwatch.StartNew();
-        LoremasterAiResponse? aiResponse = null;
-        try
-        {
-            aiResponse = await _aiClient.AskAsync(request, ct);
-            stopwatch.Stop();
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw; // propagate real cancellation
-        }
-        catch (OperationCanceledException)
-        {
-            // Timeout (TaskCanceledException or OperationCanceledException when not cancelled by token)
-            stopwatch.Stop();
-            await TrackUsageAsync(command, aiResponse, stopwatch.Elapsed, false, "Timeout", ct);
-            return AppResult<LoremasterAnswer>.Fail(
-                new AppError(503, "service_unavailable", "The Loremaster is temporarily unavailable. Please try again."));
-        }
-        catch (AiTimeoutException)
-        {
-            stopwatch.Stop();
-            await TrackUsageAsync(command, aiResponse, stopwatch.Elapsed, false, "Timeout", ct);
-            return AppResult<LoremasterAnswer>.Fail(
-                new AppError(503, "service_unavailable", "The Loremaster is temporarily unavailable. Please try again."));
-        }
-        catch (AiHttpException ex) when (ex.StatusCode == 429)
-        {
-            stopwatch.Stop();
-            await TrackUsageAsync(command, aiResponse, stopwatch.Elapsed, false, "RateLimited", ct);
-            return AppResult<LoremasterAnswer>.Fail(
-                new AppError(429, "rate_limited", "Too many requests. Please try again in a moment."));
-        }
-        catch (Exception)
-        {
-            // Anything else in the taxonomy — HTTP failure, parse failure, or the
-            // unexpected — reads the same to the asker: temporarily unavailable.
-            stopwatch.Stop();
-            await TrackUsageAsync(command, aiResponse, stopwatch.Elapsed, false, "ServiceError", ct);
-            return AppResult<LoremasterAnswer>.Fail(
-                new AppError(503, "service_unavailable", "The Loremaster is temporarily unavailable. Please try again."));
-        }
-
-        var citations = ParseCitations(aiResponse.AnswerText, context);
-
         var caveats = AssembleCaveats(context);
 
-        await TrackUsageAsync(command, aiResponse, stopwatch.Elapsed, true, null, ct);
-
-        return AppResult<LoremasterAnswer>.Success(new LoremasterAnswer
+        return AppResult<LoremasterAnswerStream>.Success(new LoremasterAnswerStream
         {
-            AnswerText = aiResponse.AnswerText,
-            Citations = citations,
             Confidence = confidence,
-            Caveats = caveats
+            Caveats = caveats,
+            Events = StreamAnswerAsync(command, request, context, confidence, caveats, ct),
         });
     }
+
+    private async IAsyncEnumerable<LoremasterStreamEvent> StreamAnswerAsync(
+        AskLoremasterCommand command,
+        AiPromptRequest request,
+        KnowledgeContext context,
+        ConfidenceLevel confidence,
+        IReadOnlyList<string> caveats,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var answer = new StringBuilder();
+        AiUsage? usage = null;
+        AppError? failure = null;
+        string? failureCode = null;
+        var finished = false;
+
+        IAsyncEnumerator<AiStreamChunk>? chunks = null;
+        try
+        {
+            while (true)
+            {
+                AiStreamChunk chunk;
+                try
+                {
+                    // Started inside the guard: a client that throws on the call itself, rather
+                    // than from its enumeration, must still end in Failed and a ledger row.
+                    chunks ??= _aiClient.StreamAsync(request, ct).GetAsyncEnumerator(ct);
+
+                    if (!await chunks.MoveNextAsync())
+                    {
+                        break;
+                    }
+
+                    chunk = chunks.Current;
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw; // the reader left; the finally below still writes the ledger row
+                }
+                catch (Exception ex)
+                {
+                    (failureCode, failure) = Classify(ex);
+                    break;
+                }
+
+                usage = chunk.Usage ?? usage;
+                if (chunk.Text.Length > 0)
+                {
+                    answer.Append(chunk.Text);
+                    yield return new LoremasterStreamEvent.Delta(chunk.Text);
+                }
+            }
+
+            finished = true;
+        }
+        finally
+        {
+            if (chunks is not null)
+            {
+                await chunks.DisposeAsync();
+            }
+
+            stopwatch.Stop();
+            await TrackUsageAsync(command, request, answer, usage, stopwatch.Elapsed, finished, failureCode);
+        }
+
+        if (failure is not null)
+        {
+            yield return new LoremasterStreamEvent.Failed(failure);
+            yield break;
+        }
+
+        var answerText = answer.ToString();
+        yield return new LoremasterStreamEvent.Completed(new LoremasterAnswer
+        {
+            AnswerText = answerText,
+            Citations = ParseCitations(answerText, context),
+            Confidence = confidence,
+            Caveats = caveats,
+        });
+    }
+
+    /// <summary>
+    /// Everything in the AI taxonomy reads the same to the asker — temporarily unavailable —
+    /// except a throttle, which is worth telling apart because waiting a moment fixes it.
+    /// </summary>
+    private static (string Code, AppError Error) Classify(Exception ex) => ex switch
+    {
+        AiHttpException { StatusCode: 429 } =>
+            ("RateLimited", new AppError(429, "rate_limited", "Too many requests. Please try again in a moment.")),
+        AiTimeoutException or OperationCanceledException =>
+            ("Timeout", Unavailable),
+        _ => ("ServiceError", Unavailable),
+    };
+
+    private static readonly AppError Unavailable =
+        new(503, "service_unavailable", "The Loremaster is temporarily unavailable. Please try again.");
 
     /// <summary>
     /// Validates the question input. Returns an AppError if invalid, null if valid.
@@ -319,30 +367,63 @@ public partial class LoremasterService : ILoremasterService
         return caveats;
     }
 
-    // Duration comes from the service's own stopwatch — a timeout never yields a
-    // response to read one from, and the ledger row must still carry how long we waited.
+    /// <summary>
+    /// Writes the ledger row for one streamed answer, however it ended. A stream reports its usage
+    /// only in its final chunk, so an answer cut short never hears it — and a reader who closes
+    /// the page mid-answer is the ordinary way to cut one short. Pricing that at zero would make
+    /// "ask, then leave" free, public Ask included. So: once any text has arrived the model has
+    /// demonstrably read the prompt and written that much, and the row is estimated from both.
+    /// Before the first word nothing is provably spent, and the row stays at zero as it always has.
+    /// </summary>
+    /// <param name="finished">False when the reader stopped the stream; true when it ran to an
+    /// end, <paramref name="failureCode"/> saying whether that end was a failure.</param>
     private Task TrackUsageAsync(
         AskLoremasterCommand command,
-        LoremasterAiResponse? response,
+        AiPromptRequest request,
+        StringBuilder answer,
+        AiUsage? reported,
         TimeSpan elapsed,
-        bool succeeded,
-        string? errorCode,
-        CancellationToken ct)
+        bool finished,
+        string? failureCode)
     {
-        var usage = response?.Usage ?? new AiUsage
-        {
-            Model = _options.AiModel,
-            InputTokens = 0,
-            OutputTokens = 0,
-            TotalTokens = 0,
-            DurationMs = 0,
-        };
+        var spent = answer.Length > 0;
+        var usage = reported ?? (spent ? EstimateUsage(request, answer) : ZeroUsage());
         usage = usage with { DurationMs = (int)elapsed.TotalMilliseconds };
 
+        // A reader leaving is recorded as a success: it says nothing against the provider, and
+        // the outcome monitor behind the status page reads this flag as "is the provider up".
+        var succeeded = finished ? failureCode is null : true;
+        var errorCode = finished ? failureCode : "Cancelled";
+
+        // The request's own token may already be cancelled — that is one of the cases being
+        // recorded — and the row must land regardless.
         return _usageRecorder.RecordAsync(
             command.WorldId, command.UserId, AiOperationType.AskLoremaster, usage,
-            succeeded, errorCode, ct: ct);
+            succeeded, errorCode, ct: CancellationToken.None);
     }
+
+    private static AiUsage EstimateUsage(AiPromptRequest request, StringBuilder answer)
+    {
+        var input = (request.SystemPrompt.Length + request.UserMessage.Length) / EstimatedCharsPerToken;
+        var output = answer.Length / EstimatedCharsPerToken;
+        return new AiUsage
+        {
+            Model = request.Model,
+            InputTokens = input,
+            OutputTokens = output,
+            TotalTokens = input + output,
+            DurationMs = 0,
+        };
+    }
+
+    private AiUsage ZeroUsage() => new()
+    {
+        Model = _options.AiModel,
+        InputTokens = 0,
+        OutputTokens = 0,
+        TotalTokens = 0,
+        DurationMs = 0,
+    };
 
     /// <summary>
     /// Builds the AI request prompt from the question, knowledge context, and optional

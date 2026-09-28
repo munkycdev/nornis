@@ -18,12 +18,18 @@ public static class AppErrorExtensions
     /// through — a 502 tells the client to retry later, and sanitizing must not
     /// erase that.
     /// </summary>
-    public static IActionResult ToActionResult(this AppError error)
+    public static IActionResult ToActionResult(this AppError error) =>
+        new ObjectResult(error.ToErrorResponse()) { StatusCode = error.StatusCode };
+
+    /// <summary>
+    /// The body alone, sanitized by the same rule — for an error that arrives after the response
+    /// has started, such as partway through a streamed answer, where no status can be set.
+    /// </summary>
+    public static ErrorResponse ToErrorResponse(this AppError error)
     {
         var passThrough = error.StatusCode < 500 || error.StatusCode == 503;
-        var body = passThrough
+        return passThrough
             ? new ErrorResponse(error.Code, error.Message)
             : new ErrorResponse(SanitizedCode, SanitizedMessage);
-        return new ObjectResult(body) { StatusCode = error.StatusCode };
     }
 }

@@ -1,12 +1,18 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
-using Azure.AI.OpenAI;
+using OpenAI;
 
 namespace Nornis.Infrastructure.Ai;
 
 /// <summary>
-/// Builds the Azure OpenAI client with an explicit retry count, because the SDK's default of
-/// three sits underneath every retry ladder this system designed and is invisible to all of them.
+/// Builds the OpenAI client for an Azure OpenAI resource, with an explicit retry count, because the
+/// SDK's default of three sits underneath every retry ladder this system designed and is invisible
+/// to all of them.
+///
+/// Azure's v1 endpoint (<c>{resource}/openai/v1/</c>) speaks the OpenAI wire protocol, so the plain
+/// OpenAI SDK talks to it directly and the deployment name goes where OpenAI puts the model name.
+/// Azure.AI.OpenAI is not used: its last stable release pins an OpenAI SDK too old for
+/// Microsoft.Extensions.AI, whose <c>IChatClient</c> every chat client here is written against.
 /// </summary>
 public static class AzureOpenAiClientFactory
 {
@@ -25,9 +31,15 @@ public static class AzureOpenAiClientFactory
     /// </summary>
     public const int RetriesForUserFacingCall = 1;
 
-    public static AzureOpenAIClient Create(Uri endpoint, ApiKeyCredential credential, int maxRetries) =>
-        new(endpoint, credential, new AzureOpenAIClientOptions
+    /// <param name="resourceEndpoint">The resource root as configured, e.g.
+    /// <c>https://name.openai.azure.com/</c>. The v1 path is appended here, once.</param>
+    public static OpenAIClient Create(Uri resourceEndpoint, ApiKeyCredential credential, int maxRetries) =>
+        new(credential, new OpenAIClientOptions
         {
+            Endpoint = V1Endpoint(resourceEndpoint),
             RetryPolicy = new ClientRetryPolicy(maxRetries),
         });
+
+    internal static Uri V1Endpoint(Uri resourceEndpoint) =>
+        new(new Uri(resourceEndpoint.GetLeftPart(UriPartial.Authority) + "/"), "openai/v1/");
 }

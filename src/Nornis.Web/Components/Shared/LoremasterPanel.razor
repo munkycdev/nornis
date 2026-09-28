@@ -68,10 +68,28 @@
                             <span>@_pendingQuestion</span>
                         </div>
                     }
-                    <div class="nornis-lm-answer nornis-lm-thinking">
-                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Secondary" />
-                        <span>Consulting the Loremaster…</span>
-                    </div>
+                    @if (_streaming is { HasText: true } streaming)
+                    {
+                        <div class="nornis-lm-answer">
+                            @if (streaming.Confidence is not null)
+                            {
+                                <div class="nornis-lm-answer-head">
+                                    <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@LoremasterDisplay.ConfidenceColor(streaming.Confidence)">
+                                        @streaming.Confidence
+                                    </MudChip>
+                                </div>
+                            }
+                            <div class="nornis-lm-answer-text nornis-answer-streaming">@streaming.Text</div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="nornis-lm-answer nornis-lm-thinking">
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Secondary" />
+                            <span>Consulting the Loremaster…</span>
+                        </div>
+                    }
                 </div>
             }
             @foreach (var ex in Enumerable.Reverse(_conversation.Exchanges))
@@ -132,7 +150,9 @@
     private AskConversation _conversation = new();
     private string _input = string.Empty;
     private string? _pendingQuestion;
+    private StreamingAnswer? _streaming;
     private bool _asking;
+    private readonly CancellationTokenSource _disposed = new();
     private string? _error;
     private Guid _worldId;
 
@@ -181,34 +201,32 @@
         var askedWorldId = Worlds.Current.Id;
         var conversation = _conversation;
 
+        var answer = new StreamingAnswer();
         _input = string.Empty;
         _pendingQuestion = q;
+        _streaming = answer;
         _asking = true;
         _error = null;
         StateHasChanged();
 
-        var result = await Api.AskLoremasterAsync(askedWorldId, q, LoremasterDisplay.BuildContext(conversation));
+        var finished = await answer.ReadAsync(
+            Api.StreamAskAsync(askedWorldId, q, LoremasterDisplay.BuildContext(conversation), _disposed.Token),
+            stillWanted: () => Worlds.Current?.Id == askedWorldId,
+            render: StateHasChanged);
 
         _asking = false;
         _pendingQuestion = null;
+        _streaming = null;
 
-        if (Worlds.Current?.Id != askedWorldId)
+        if (!finished || Worlds.Current?.Id != askedWorldId)
         {
             StateHasChanged();
             return;
         }
 
-        if (result.IsSuccess)
+        if (answer.Answer is { } a)
         {
-            var a = result.Value!;
-            conversation.Exchanges.Add(new AskExchange
-            {
-                Question = q,
-                Answer = LoremasterDisplay.CleanAnswer(a.Answer),
-                Confidence = a.Confidence,
-                Citations = a.Citations.Select(c => new AskCitation { DisplayName = c.DisplayName, ArtifactId = c.ArtifactId, DocumentId = c.DocumentId, Slug = c.Slug }).ToList(),
-                Caveats = a.Caveats.ToList(),
-            });
+            conversation.Exchanges.Add(LoremasterDisplay.ToExchange(q, a));
             if (conversation.Exchanges.Count == 1)
             {
                 conversation.Title = Nornis.Web.Services.DisplayText.Truncate(q, 48);
@@ -218,7 +236,7 @@
         }
         else
         {
-            _error = result.Error!.Message;
+            _error = answer.Error!.Message;
         }
         StateHasChanged();
     }
@@ -252,5 +270,12 @@
         await History.SaveAsync(worldId, conversations);
     }
 
-    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+    public void Dispose()
+    {
+        Worlds.Changed -= OnWorldChanged;
+
+        // Leaving mid-answer aborts the request, and the model call with it.
+        _disposed.Cancel();
+        _disposed.Dispose();
+    }
 }

@@ -1,5 +1,3 @@
-using System.ClientModel;
-using System.ClientModel.Primitives;
 using System.Net;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
@@ -9,17 +7,14 @@ using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Infrastructure.Ai;
-using NSubstitute;
-using NSubstitute.ExceptionExtensions;
 using NUnit.Framework;
-using OpenAI.Chat;
 
 namespace Nornis.Infrastructure.Tests.Ai;
 
 [TestFixture]
 public class AzureOpenAiExtractionClientTests
 {
-    private ChatClient _mockChatClient = null!;
+    private FakeChatClient _chatClient = null!;
     private ILogger<AzureOpenAiExtractionClient> _logger = null!;
     private AzureOpenAiExtractionClient _client = null!;
 
@@ -36,42 +31,15 @@ public class AzureOpenAiExtractionClientTests
     [SetUp]
     public void SetUp()
     {
-        _mockChatClient = Substitute.For<ChatClient>();
+        _chatClient = new FakeChatClient();
         _logger = NullLogger<AzureOpenAiExtractionClient>.Instance;
-        _client = new AzureOpenAiExtractionClient(_mockChatClient, _logger);
+        _client = new AzureOpenAiExtractionClient(_chatClient, _logger);
     }
 
     #region Helper Methods
 
-    private static ChatCompletion CreateChatCompletion(string responseJson)
-    {
-        var content = new ChatMessageContent(responseJson);
-        var usage = OpenAIChatModelFactory.ChatTokenUsage(
-            outputTokenCount: 150,
-            inputTokenCount: 500,
-            totalTokenCount: 650);
-
-        return OpenAIChatModelFactory.ChatCompletion(
-            id: "chatcmpl-test-123",
-            finishReason: ChatFinishReason.Stop,
-            content: content,
-            model: "gpt-4o",
-            usage: usage);
-    }
-
-    private void SetupMockToReturn(string responseJson)
-    {
-        var completion = CreateChatCompletion(responseJson);
-        var mockResponse = Substitute.For<PipelineResponse>();
-        mockResponse.Status.Returns(200);
-        var result = ClientResult.FromValue(completion, mockResponse);
-
-        _mockChatClient.CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(),
-            Arg.Any<ChatCompletionOptions>(),
-            Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(result));
-    }
+    private void SetupMockToReturn(string responseJson) =>
+        _chatClient.Returns(responseJson, input: 500, output: 150, total: 650);
 
     /// <summary>
     /// A proposal the client accepts. The parse-failure tests below each break exactly
@@ -308,18 +276,7 @@ public class AzureOpenAiExtractionClientTests
             TimeoutSeconds = 1
         };
 
-        _mockChatClient.CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(),
-            Arg.Any<ChatCompletionOptions>(),
-            Arg.Any<CancellationToken>())
-            .Returns<ClientResult<ChatCompletion>>(callInfo =>
-            {
-                var ct = callInfo.Arg<CancellationToken>();
-                // Simulate a long-running operation that will be cancelled by the timeout
-                ct.WaitHandle.WaitOne(TimeSpan.FromSeconds(10));
-                ct.ThrowIfCancellationRequested();
-                throw new InvalidOperationException("Should not reach here");
-            });
+        _chatClient.Hangs();
 
         Assert.ThrowsAsync<AiTimeoutException>(
             async () => await _client.ExtractAsync(shortTimeoutRequest, CancellationToken.None));
@@ -328,20 +285,7 @@ public class AzureOpenAiExtractionClientTests
     [Test]
     public void ExtractAsync_429Response_ThrowsAiHttpException()
     {
-        var exception = new ClientResultException(
-            "Too Many Requests",
-            Substitute.For<PipelineResponse>());
-
-        // Use reflection to set the Status property since it's read from the response
-        var mockResponse = Substitute.For<PipelineResponse>();
-        mockResponse.Status.Returns(429);
-        var clientException = new ClientResultException(mockResponse);
-
-        _mockChatClient.CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(),
-            Arg.Any<ChatCompletionOptions>(),
-            Arg.Any<CancellationToken>())
-            .ThrowsAsync(clientException);
+        _chatClient.Throws(FakeChatClient.HttpFailure(429));
 
         var ex = Assert.ThrowsAsync<AiHttpException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
@@ -352,15 +296,7 @@ public class AzureOpenAiExtractionClientTests
     [Test]
     public void ExtractAsync_503Response_ThrowsAiHttpException()
     {
-        var mockResponse = Substitute.For<PipelineResponse>();
-        mockResponse.Status.Returns(503);
-        var clientException = new ClientResultException(mockResponse);
-
-        _mockChatClient.CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(),
-            Arg.Any<ChatCompletionOptions>(),
-            Arg.Any<CancellationToken>())
-            .ThrowsAsync(clientException);
+        _chatClient.Throws(FakeChatClient.HttpFailure(503));
 
         var ex = Assert.ThrowsAsync<AiHttpException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
@@ -371,11 +307,7 @@ public class AzureOpenAiExtractionClientTests
     [Test]
     public void ExtractAsync_NetworkException_ThrowsAiHttpException()
     {
-        _mockChatClient.CompleteChatAsync(
-            Arg.Any<IEnumerable<ChatMessage>>(),
-            Arg.Any<ChatCompletionOptions>(),
-            Arg.Any<CancellationToken>())
-            .ThrowsAsync(new HttpRequestException("Network error"));
+        _chatClient.Throws(new HttpRequestException("Network error"));
 
         Assert.ThrowsAsync<AiHttpException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));

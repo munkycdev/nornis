@@ -1,9 +1,14 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Controllers;
+using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
+using Nornis.Api.Tests.Infrastructure;
 using Nornis.Application.Errors;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
@@ -104,18 +109,19 @@ public class LoremasterControllerTests
         };
 
         _loremasterService
-            .AskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
-            .Returns(AppResult<LoremasterAnswer>.Success(answer));
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Success(Streamed(answer)));
 
         // Act
         var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
-        var okResult = result as OkObjectResult;
-        Assert.That(okResult, Is.Not.Null);
-        Assert.That(okResult!.StatusCode, Is.EqualTo(200));
+        var (status, stream) = await ExecuteAsync(result);
+        Assert.That(status, Is.EqualTo(200));
+        Assert.That(stream.EventTypes, Is.EqualTo(["start", "delta", "delta", "done"]));
+        Assert.That(string.Concat(stream.Deltas), Is.EqualTo(answer.AnswerText));
 
-        var response = okResult.Value as AskAnswerResponse;
+        var response = stream.Done;
         Assert.That(response, Is.Not.Null);
         Assert.That(response!.Answer, Is.EqualTo("Captain Voss is a sea captain in Black Harbor."));
         Assert.That(response.Confidence, Is.EqualTo("High"));
@@ -152,17 +158,16 @@ public class LoremasterControllerTests
         };
 
         _loremasterService
-            .AskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
-            .Returns(AppResult<LoremasterAnswer>.Success(answer));
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Success(Streamed(answer)));
 
         // Act
         var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
-        var okResult = result as OkObjectResult;
-        Assert.That(okResult, Is.Not.Null);
+        var (_, stream) = await ExecuteAsync(result);
 
-        var response = okResult!.Value as AskAnswerResponse;
+        var response = stream.Done;
         Assert.That(response, Is.Not.Null);
 
         var citation = response!.Citations[0];
@@ -183,14 +188,14 @@ public class LoremasterControllerTests
         var request = new AskLoremasterRequest("What happened at Black Harbor?", "Previous question about Captain Voss");
 
         _loremasterService
-            .AskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
-            .Returns(AppResult<LoremasterAnswer>.Success(CreateSimpleAnswer()));
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Success(Streamed(CreateSimpleAnswer())));
 
         // Act
         await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
-        await _loremasterService.Received(1).AskAsync(
+        await _loremasterService.Received(1).BeginAskAsync(
             Arg.Is<AskLoremasterCommand>(cmd =>
                 cmd != null &&
                 cmd.WorldId == WorldId &&
@@ -251,18 +256,18 @@ public class LoremasterControllerTests
         var request = new AskLoremasterRequest("Who is Captain Voss?", null);
 
         _loremasterService
-            .AskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
-            .Returns(AppResult<LoremasterAnswer>.Success(CreateSimpleAnswer()));
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Success(Streamed(CreateSimpleAnswer())));
 
         // Act
         var result = await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
-        var okResult = result as OkObjectResult;
-        Assert.That(okResult, Is.Not.Null);
-        Assert.That(okResult!.StatusCode, Is.EqualTo(200));
+        var (status, stream) = await ExecuteAsync(result);
+        Assert.That(status, Is.EqualTo(200));
+        Assert.That(stream.Done, Is.Not.Null);
 
-        await _loremasterService.Received(1).AskAsync(
+        await _loremasterService.Received(1).BeginAskAsync(
             Arg.Is<AskLoremasterCommand>(cmd => cmd != null && cmd.ConversationContext == null),
             Arg.Any<CancellationToken>());
     }
@@ -275,14 +280,14 @@ public class LoremasterControllerTests
         var request = new AskLoremasterRequest("Any updates on that?", conversationContext);
 
         _loremasterService
-            .AskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
-            .Returns(AppResult<LoremasterAnswer>.Success(CreateSimpleAnswer()));
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Success(Streamed(CreateSimpleAnswer())));
 
         // Act
         await _controller.Ask(WorldId, request, CancellationToken.None);
 
         // Assert
-        await _loremasterService.Received(1).AskAsync(
+        await _loremasterService.Received(1).BeginAskAsync(
             Arg.Is<AskLoremasterCommand>(cmd =>
                 cmd != null && cmd.ConversationContext == conversationContext),
             Arg.Any<CancellationToken>());
@@ -299,8 +304,8 @@ public class LoremasterControllerTests
         var request = new AskLoremasterRequest("");
 
         _loremasterService
-            .AskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
-            .Returns(AppResult<LoremasterAnswer>.Fail(
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Fail(
                 new AppError(400, "invalid_question", "Question must not be empty.")));
 
         // Act
@@ -324,8 +329,8 @@ public class LoremasterControllerTests
         var request = new AskLoremasterRequest(new string('x', 2001));
 
         _loremasterService
-            .AskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
-            .Returns(AppResult<LoremasterAnswer>.Fail(
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Fail(
                 new AppError(400, "invalid_question", "Question must not exceed 2000 characters.")));
 
         // Act
@@ -352,8 +357,8 @@ public class LoremasterControllerTests
         var request = new AskLoremasterRequest("Who is Captain Voss?");
 
         _loremasterService
-            .AskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
-            .Returns(AppResult<LoremasterAnswer>.Fail(
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Fail(
                 new AppError(503, "service_unavailable", "The Loremaster is temporarily unavailable. Please try again.")));
 
         // Act
@@ -381,8 +386,8 @@ public class LoremasterControllerTests
         var request = new AskLoremasterRequest("What do we know about Black Harbor?");
 
         _loremasterService
-            .AskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
-            .Returns(AppResult<LoremasterAnswer>.Fail(
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Fail(
                 new AppError(429, "rate_limited", "Too many requests. Please try again in a moment.")));
 
         // Act
@@ -410,8 +415,8 @@ public class LoremasterControllerTests
         var request = new AskLoremasterRequest("Tell me about the Missing Caravan.");
 
         _loremasterService
-            .AskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
-            .Returns(AppResult<LoremasterAnswer>.Fail(
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Fail(
                 new AppError(500, "retrieval_failed", "NullReferenceException at Nornis.Infrastructure...")));
 
         // Act
@@ -435,8 +440,8 @@ public class LoremasterControllerTests
         var request = new AskLoremasterRequest("What about the Silver Key?");
 
         _loremasterService
-            .AskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
-            .Returns(AppResult<LoremasterAnswer>.Fail(
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Fail(
                 new AppError(500, "internal_error",
                     "at Nornis.Application.Services.LoremasterService.AskAsync() in D:\\repos\\nornis\\src\\LoremasterService.cs:line 47")));
 
@@ -467,8 +472,8 @@ public class LoremasterControllerTests
         var request = new AskLoremasterRequest("Who is Captain Voss?");
 
         _loremasterService
-            .AskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
-            .Returns(AppResult<LoremasterAnswer>.Fail(
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Fail(
                 new AppError(502, "bad_gateway", "Upstream service failed with detailed internal error.")));
 
         // Act
@@ -489,6 +494,71 @@ public class LoremasterControllerTests
 
     #endregion
 
+    #region Failure after the answer started → error event
+
+    [Test]
+    public async Task Ask_StartAnnouncesConfidenceAndCaveatsBeforeAnyText()
+    {
+        var answer = new LoremasterAnswer
+        {
+            AnswerText = "I don't have a confirmed source for that yet.",
+            Citations = [],
+            Confidence = ConfidenceLevel.Low,
+            Caveats = ["Limited information available"],
+        };
+        _loremasterService
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Success(Streamed(answer)));
+
+        var (_, stream) = await ExecuteAsync(
+            await _controller.Ask(WorldId, new AskLoremasterRequest("Who is Captain Voss?"), CancellationToken.None));
+
+        Assert.That(stream.EventTypes.First(), Is.EqualTo("start"));
+        Assert.That(stream.Start!.Confidence, Is.EqualTo("Low"));
+        Assert.That(stream.Start.Caveats, Is.EqualTo(["Limited information available"]));
+    }
+
+    [Test]
+    public async Task Ask_FailureAfterText_EndsTheStreamWithAnErrorEventNotDone()
+    {
+        // The status line has already gone out as 200, so the failure rides in-band. The reader
+        // must be told the answer is incomplete rather than left holding half of one.
+        _loremasterService
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Success(FailingAfter(
+                "Captain Voss sails ",
+                new AppError(503, "service_unavailable", "The Loremaster is temporarily unavailable. Please try again."))));
+
+        var (status, stream) = await ExecuteAsync(
+            await _controller.Ask(WorldId, new AskLoremasterRequest("Who is Captain Voss?"), CancellationToken.None));
+
+        Assert.That(status, Is.EqualTo(200));
+        Assert.That(stream.EventTypes, Is.EqualTo(["start", "delta", "error"]));
+        Assert.That(stream.Deltas, Is.EqualTo(["Captain Voss sails "]));
+        Assert.That(stream.Error!.Code, Is.EqualTo("service_unavailable"));
+        Assert.That(stream.Error.Message, Is.EqualTo("The Loremaster is temporarily unavailable. Please try again."));
+    }
+
+    [Test]
+    public async Task Ask_InternalFailureAfterText_IsSanitizedInTheErrorEvent()
+    {
+        // The in-band error goes through the same scrub as a status-code error: an internal
+        // message never reaches the reader just because it arrived late.
+        _loremasterService
+            .BeginAskAsync(Arg.Any<AskLoremasterCommand>(), Arg.Any<CancellationToken>())
+            .Returns(AppResult<LoremasterAnswerStream>.Success(FailingAfter(
+                "Captain Voss sails ",
+                new AppError(500, "retrieval_failed", "NullReferenceException at Nornis.Infrastructure..."))));
+
+        var (_, stream) = await ExecuteAsync(
+            await _controller.Ask(WorldId, new AskLoremasterRequest("Who is Captain Voss?"), CancellationToken.None));
+
+        Assert.That(stream.Error!.Code, Is.EqualTo("internal_error"));
+        Assert.That(stream.Error.Message, Is.EqualTo("Something went wrong. Please try again."));
+    }
+
+    #endregion
+
     #region Helpers
 
     private static LoremasterAnswer CreateSimpleAnswer()
@@ -500,6 +570,61 @@ public class LoremasterControllerTests
             Confidence = ConfidenceLevel.Medium,
             Caveats = new List<string>()
         };
+    }
+
+    /// <summary>The answer as the service streams it: two deltas, then Completed.</summary>
+    private static LoremasterAnswerStream Streamed(LoremasterAnswer answer) => new()
+    {
+        Confidence = answer.Confidence,
+        Caveats = answer.Caveats,
+        Events = StreamEvents(answer),
+    };
+
+    private static async IAsyncEnumerable<LoremasterStreamEvent> StreamEvents(LoremasterAnswer answer)
+    {
+        await Task.Yield();
+        var half = answer.AnswerText.Length / 2;
+        yield return new LoremasterStreamEvent.Delta(answer.AnswerText[..half]);
+        yield return new LoremasterStreamEvent.Delta(answer.AnswerText[half..]);
+        yield return new LoremasterStreamEvent.Completed(answer);
+    }
+
+    /// <summary>A stream that delivers <paramref name="text"/> and then fails.</summary>
+    private static LoremasterAnswerStream FailingAfter(string text, AppError error) => new()
+    {
+        Confidence = ConfidenceLevel.Medium,
+        Caveats = [],
+        Events = FailingEvents(text, error),
+    };
+
+    private static async IAsyncEnumerable<LoremasterStreamEvent> FailingEvents(string text, AppError error)
+    {
+        await Task.Yield();
+        yield return new LoremasterStreamEvent.Delta(text);
+        yield return new LoremasterStreamEvent.Failed(error);
+    }
+
+    /// <summary>
+    /// Runs a success result against a real response, as the framework would, and reads the
+    /// body back as the event stream the client sees.
+    /// </summary>
+    private static async Task<(int Status, AskStream Stream)> ExecuteAsync(IActionResult result)
+    {
+        Assert.That(result, Is.InstanceOf<ServerSentEventsActionResult>(),
+            "a successful ask must answer as a stream, not a buffered JSON body");
+
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = new ServiceCollection().AddLogging().BuildServiceProvider(),
+        };
+        using var body = new MemoryStream();
+        httpContext.Response.Body = body;
+
+        await result.ExecuteResultAsync(new ActionContext(httpContext, new RouteData(), new ActionDescriptor()));
+
+        Assert.That(httpContext.Response.ContentType, Does.StartWith("text/event-stream"));
+        body.Position = 0;
+        return (httpContext.Response.StatusCode, await AskStream.ParseAsync(body));
     }
 
     #endregion

@@ -1,7 +1,7 @@
 ﻿using System.ClientModel;
-using Azure.AI.OpenAI;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Application;
@@ -18,7 +18,6 @@ using Nornis.Infrastructure.Storage;
 using Nornis.Infrastructure.Telemetry;
 using Nornis.Worker;
 using Nornis.Worker.Configuration;
-using OpenAI.Chat;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 
@@ -124,7 +123,7 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddSingleton<Nornis.Application.Ai.IAiOutcomeMonitor, AiOutcomeMonitor>();
 
         // Azure OpenAI client
-        services.AddSingleton<ChatClient>(sp =>
+        services.AddSingleton<IChatClient>(sp =>
         {
             var options = sp.GetRequiredService<IOptions<ExtractionOptions>>().Value;
             var endpoint = new Uri(options.AiEndpoint);
@@ -132,7 +131,7 @@ var builder = Host.CreateDefaultBuilder(args)
                 configuration["Extraction:AiApiKey"] ?? string.Empty);
             var azureClient = AzureOpenAiClientFactory.Create(
                 endpoint, credential, AzureOpenAiClientFactory.RetriesOwnedByBackoff);
-            return azureClient.GetChatClient(options.AiModel);
+            return new AzureOpenAiChatClient(azureClient.GetChatClient(options.AiModel));
         });
 
         // AI extraction client

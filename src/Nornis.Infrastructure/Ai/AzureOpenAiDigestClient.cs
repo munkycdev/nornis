@@ -1,20 +1,20 @@
 using System.Text.Json;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
-using OpenAI.Chat;
 
 namespace Nornis.Infrastructure.Ai;
 
 public class AzureOpenAiDigestClient : IDigestAiClient
 {
     // options: empty apart from the schema — see AzureOpenAiExtractionClient.
-    // MaxOutputTokenCount serialises as max_tokens, which these deployments reject.
+    // No output ceiling: these deployments rejected the one the old SDK sent.
 
-    private readonly ChatClient _chatClient;
+    private readonly IChatClient _chatClient;
     private readonly ILogger<AzureOpenAiDigestClient> _logger;
 
     public AzureOpenAiDigestClient(
-        ChatClient chatClient,
+        IChatClient chatClient,
         ILogger<AzureOpenAiDigestClient> logger)
     {
         _chatClient = chatClient;
@@ -23,16 +23,10 @@ public class AzureOpenAiDigestClient : IDigestAiClient
 
     public async Task<DigestAiResponse> GenerateAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var completionOptions = new ChatCompletionOptions
-        {
-            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                jsonSchemaFormatName: "world_digest",
-                jsonSchema: BinaryData.FromString(StructuredOutputSchema),
-                jsonSchemaIsStrict: true)
-        };
+        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("world_digest", StructuredOutputSchema, strict: true);
 
         var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, request, completionOptions, "World digest", _logger, ct);
+            _chatClient, request, chatOptions, "World digest", _logger, ct);
 
         try
         {
