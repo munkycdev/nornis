@@ -2,8 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Ai;
 using Nornis.Infrastructure.Ai;
 using NUnit.Framework;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace Nornis.Infrastructure.Tests.Ai;
 
@@ -28,10 +27,10 @@ public class AzureOpenAiMapExtractionClientTests
 
     private static byte[] TinyPng()
     {
-        using var image = new Image<Rgba32>(30, 30);
-        using var buffer = new MemoryStream();
-        image.SaveAsPng(buffer);
-        return buffer.ToArray();
+        using var bitmap = new SKBitmap(30, 30);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+        return png.ToArray();
     }
 
     private static MapExtractionRequest Request(bool refine) => new()

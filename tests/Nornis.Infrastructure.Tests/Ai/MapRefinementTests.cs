@@ -1,8 +1,7 @@
 using Nornis.Application.Ai;
 using Nornis.Infrastructure.Ai;
 using NUnit.Framework;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace Nornis.Infrastructure.Tests.Ai;
 
@@ -88,15 +87,15 @@ public class MapRefinementTests
     [Test]
     public void CropTiles_ProducesOnePngPerTile_WithExpectedSize()
     {
-        using var image = new Image<Rgba32>(300, 150);
-        using var buffer = new MemoryStream();
-        image.SaveAsPng(buffer);
+        using var bitmap = new SKBitmap(300, 150);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
 
         var tiles = MapRefinement.PlanTiles([Place("top-left", 0.1m, 0.1m), Place("bottom-right", 0.95m, 0.95m)]);
-        var crops = MapRefinement.CropTiles(buffer.ToArray(), tiles);
+        var crops = MapRefinement.CropTiles(png.ToArray(), tiles);
 
         Assert.That(crops.Keys, Is.EquivalentTo([0, 8]));
-        using var crop = Image.Load(crops[0]);
+        using var crop = SKBitmap.Decode(crops[0]);
         // Tile 0 spans 0..(1/3 + margin) of a 300×150 image.
         Assert.That(crop.Width, Is.EqualTo(130));
         Assert.That(crop.Height, Is.EqualTo(65));

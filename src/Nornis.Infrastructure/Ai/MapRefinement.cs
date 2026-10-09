@@ -1,6 +1,5 @@
 using Nornis.Application.Ai;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
+using SkiaSharp;
 
 namespace Nornis.Infrastructure.Ai;
 
@@ -64,7 +63,9 @@ internal static class MapRefinement
     /// <summary>Decodes the map once and encodes one PNG crop per tile.</summary>
     internal static Dictionary<int, byte[]> CropTiles(byte[] imageBytes, IReadOnlyList<Tile> tiles)
     {
-        using var image = Image.Load(imageBytes);
+        using var bitmap = SKBitmap.Decode(imageBytes)
+            ?? throw new InvalidDataException("The map image could not be decoded.");
+        using var image = SKImage.FromBitmap(bitmap);
         var crops = new Dictionary<int, byte[]>(tiles.Count);
         foreach (var tile in tiles)
         {
@@ -73,10 +74,9 @@ internal static class MapRefinement
             var width = Math.Clamp((int)Math.Ceiling(tile.Width * image.Width), 1, image.Width - x);
             var height = Math.Clamp((int)Math.Ceiling(tile.Height * image.Height), 1, image.Height - y);
 
-            using var crop = image.Clone(c => c.Crop(new Rectangle(x, y, width, height)));
-            using var buffer = new MemoryStream();
-            crop.SaveAsPng(buffer);
-            crops[tile.Index] = buffer.ToArray();
+            using var crop = image.Subset(SKRectI.Create(x, y, width, height));
+            using var png = crop.Encode(SKEncodedImageFormat.Png, 100);
+            crops[tile.Index] = png.ToArray();
         }
         return crops;
     }
