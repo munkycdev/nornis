@@ -34,6 +34,13 @@
 > "explicit `AllowAnonymous` only for health/status", reads as "only for the endpoints in the
 > anonymous list above", which the 2026-08-02 amendment already widened.
 
+> **Amendment (2026-10-08): which source types a role may capture.** "Create sources" under
+> Player below does not include GM notes. A GM note is the GM's voice to the extractor, and
+> until this date only the UI kept Players from filing one. `SourceCapture` in Domain is now
+> the one rule, enforced in `SourceService` on create and on retype: `GMNote` is GM-only, and
+> `Reveal` and `LibraryExcerpt` are never captured by any role (their own services mint them)
+> nor retyped once they exist.
+
 ## Authentication
 
 Use Auth0 for authentication.

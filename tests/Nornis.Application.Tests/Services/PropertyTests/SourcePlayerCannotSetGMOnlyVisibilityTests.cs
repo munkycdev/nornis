@@ -181,7 +181,6 @@ public class PlayerGMOnlyArbitraries
             SourceType.Image,
             SourceType.HandwrittenNotes,
             SourceType.WebLink,
-            SourceType.GMNote,
             SourceType.ImportedNote);
 
         var optionalBodyGen = Gen.OneOf(

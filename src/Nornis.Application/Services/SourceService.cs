@@ -82,6 +82,12 @@ public class SourceService : ISourceService
             return AppResult<Source>.Fail(new AppError(403, "insufficient_role", "Observers cannot create sources."));
         }
 
+        var typeError = CaptureTypeError(command.Type, command.CreatingUserRole);
+        if (typeError is not null)
+        {
+            return AppResult<Source>.Fail(typeError);
+        }
+
         // Input validation
         var titleError = ValidateTitle(command.Title);
         if (titleError is not null)
@@ -178,6 +184,22 @@ public class SourceService : ISourceService
         if (source.CreatedByUserId != command.ActingUserId && command.ActingUserRole != WorldRole.GM)
         {
             return AppResult<Source>.Fail(new AppError(403, "forbidden", "Only the source creator or a GM can update this source."));
+        }
+
+        // Value comparison, not presence: clients resend the unchanged type on every save.
+        if (command.Type is { } newType && newType != source.Type)
+        {
+            if (SourceCapture.IsMinted(source.Type))
+            {
+                return AppResult<Source>.Fail(new AppError(400, "validation_error",
+                    $"A {source.Type} source cannot be retyped."));
+            }
+
+            var typeError = CaptureTypeError(newType, command.ActingUserRole);
+            if (typeError is not null)
+            {
+                return AppResult<Source>.Fail(typeError);
+            }
         }
 
         // Processing status guards: in-flight sources are fully locked. Processed sources
@@ -558,6 +580,21 @@ public class SourceService : ISourceService
     private static bool IsValidTransition(SourceProcessingStatus current, SourceProcessingStatus target)
     {
         return ValidTransitions.TryGetValue(current, out var validTargets) && validTargets.Contains(target);
+    }
+
+    private static AppError? CaptureTypeError(SourceType type, WorldRole role)
+    {
+        if (SourceCapture.IsMinted(type))
+        {
+            return new AppError(400, "validation_error", $"{type} sources are created by Nornis, not captured.");
+        }
+
+        if (SourceCapture.IsGmOnly(type) && role != WorldRole.GM)
+        {
+            return new AppError(403, "insufficient_role", $"Only a GM can write a {type} source.");
+        }
+
+        return null;
     }
 
     // Shared with SourceReprocessService — one definition of the field rules.

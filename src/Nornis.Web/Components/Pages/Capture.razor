@@ -47,7 +47,7 @@ else
 
                 <div class="d-flex gap-3 mb-3">
                     <MudSelect @bind-Value="SelectedType" Label="Type" Variant="Variant.Outlined" Class="flex-grow-1">
-                        @foreach (var (value, label) in SourceTypeDisplay.CaptureOptions)
+                        @foreach (var (value, label) in SourceTypeDisplay.CaptureOptionsFor(Worlds.IsGm))
                         {
                             <MudSelectItem Value="@value">@label</MudSelectItem>
                         }
@@ -357,11 +357,12 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        if (!string.IsNullOrWhiteSpace(Type) && SourceTypeDisplay.IsCaptureOption(Type))
+        await Worlds.EnsureLoadedAsync();
+        // After the load: which types are on offer depends on the member's role.
+        if (!string.IsNullOrWhiteSpace(Type) && SourceTypeDisplay.IsCaptureOption(Type, Worlds.IsGm))
         {
             _type = Type;
         }
-        await Worlds.EnsureLoadedAsync();
 
         if (Worlds.Current is not null)
         {
@@ -542,7 +543,7 @@ else
         // Each value is checked against what the form offers today, so a type retired or a
         // campaign deleted since the notes were kept falls back rather than jamming a picker.
         _title = kept.Title;
-        _type = SourceTypeDisplay.IsCaptureOption(kept.Type) ? kept.Type : _type;
+        _type = SourceTypeDisplay.IsCaptureOption(kept.Type, Worlds.IsGm) ? kept.Type : _type;
         _visibility = VisibilityDisplay.Scopes.Contains(kept.Visibility) ? kept.Visibility : _visibility;
         _uri = IsWebLink ? kept.Uri : null;
         _occurredAt = kept.OccurredAt;
