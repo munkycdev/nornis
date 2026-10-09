@@ -106,11 +106,14 @@
 @code {
     private MudMenu? _tableMenu;
 
-    /// <summary>Markdown to load into the editor on first render.</summary>
+    /// <summary>
+    /// Markdown to load into the editor on first render. Parsed here with Markdig, the same
+    /// parser the read views use, so a stored body opens in the editor exactly as it reads —
+    /// nested lists included, which a regex converter on the JS side used to flatten.
+    /// </summary>
     [Parameter] public string? InitialMarkdown { get; set; }
 
-    /// <summary>Pre-rendered HTML to load instead of markdown — used by read views that
-    /// parse markdown with Markdig (better CommonMark fidelity than the JS converter).</summary>
+    /// <summary>Pre-rendered HTML to load instead of markdown.</summary>
     [Parameter] public string? InitialHtml { get; set; }
 
     [Parameter] public string? Placeholder { get; set; }
@@ -153,7 +156,7 @@
         }
 
         await ClearBackupAsync();
-        await JS.InvokeVoidAsync("nornisEditor.setContent", _elementId, markdown ?? string.Empty);
+        await JS.InvokeVoidAsync("nornisEditor.setContent", _elementId, MarkdownRenderer.ToHtml(markdown).Value);
     }
 
     private readonly string _elementId = $"nornis-editor-{Guid.NewGuid():N}";
@@ -204,10 +207,10 @@
     {
         if (firstRender)
         {
-            // ensureHtml on the JS side auto-detects HTML vs markdown content. The return is
-            // the ISO time of a backup loaded in place of empty content, or null.
+            // The return is the ISO time of a backup loaded in place of empty content, or null.
             var restoredAt = await JS.InvokeAsync<string?>("nornisEditor.init",
-                _elementId, InitialHtml ?? InitialMarkdown, ReadOnly ? null : Placeholder, !ReadOnly,
+                _elementId, InitialHtml ?? MarkdownRenderer.ToHtml(InitialMarkdown).Value,
+                ReadOnly ? null : Placeholder, !ReadOnly,
                 ReadOnly ? null : BackupKey, PreferBackup);
             _initialized = true;
 

@@ -75,6 +75,40 @@ public class HtmlToMarkdownConverterTests
     }
 
     [Test]
+    public void Convert_NestedUnderOrderedItem_IndentsToContentColumn()
+    {
+        // Two spaces under "1. " is short of the item's content column; CommonMark would read
+        // the child back as a sibling list, not a nested one.
+        var markdown = HtmlToMarkdownConverter.Convert(
+            "<ol><li>Parent<ul><li>Child<ol><li>Grandchild</li></ol></li></ul></li></ol>");
+
+        Assert.That(markdown, Is.EqualTo("1. Parent\n   - Child\n     1. Grandchild"));
+    }
+
+    [Test]
+    public void Convert_SeparateLists_KeepTheParagraphBetween()
+    {
+        var markdown = HtmlToMarkdownConverter.Convert(
+            "<ul><li>One</li></ul><p>Between</p><ul><li>Two</li></ul>");
+
+        Assert.That(markdown, Is.EqualTo("- One\n\nBetween\n\n- Two"));
+    }
+
+    [TestCase("<ul><li><p>Parent</p><ul><li><p>Child</p><ul><li><p>Grandchild</p></li></ul></li></ul></li><li><p>Sibling</p></li></ul>")]
+    [TestCase("<ol><li><p>Parent</p><ol><li><p>Child</p></li></ol></li><li><p>Sibling</p></li></ol>")]
+    [TestCase("<ol><li><p>Parent</p><ul><li><p>Child</p></li></ul></li></ol>")]
+    public void NestedList_SurvivesSaveAndReload(string editorHtml)
+    {
+        // What the editor saves must parse back to the same nesting when the note is reopened.
+        var reloaded = MarkdownRenderer.ToHtml(HtmlToMarkdownConverter.Convert(editorHtml)).Value;
+
+        Assert.That(ListShape(reloaded), Is.EqualTo(ListShape(editorHtml)));
+    }
+
+    private static string ListShape(string html) =>
+        string.Concat(System.Text.RegularExpressions.Regex.Matches(html, "</?(?:ul|ol)>").Select(m => m.Value));
+
+    [Test]
     public void Convert_ListItemWithBold_KeepsFormatting()
     {
         var markdown = HtmlToMarkdownConverter.Convert("<ul><li><strong>Koves</strong> escapes</li></ul>");
