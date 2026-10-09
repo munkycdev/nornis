@@ -8,74 +8,10 @@
     const editors = new Map();
     const normalizeLocks = new Set();
 
-    // ── Markdown → HTML (initial content back-compat; Capture usually starts empty) ──
-
-    function isHtmlContent(content) {
-        if (!content || content.trim() === '') return false;
-        return /<(p|h[1-6]|ul|ol|li|strong|em|s|a|pre|code|blockquote|div|span|br|table|thead|tbody|tr|th|td)[^>]*>/i.test(content);
-    }
-
-    function markdownToHtml(markdown) {
-        if (!markdown) return '<p></p>';
-
-        let html = markdown;
-
-        // Headers
-        html = html.replace(/^######\s+(.+)$/gm, '<h6>$1</h6>');
-        html = html.replace(/^#####\s+(.+)$/gm, '<h5>$1</h5>');
-        html = html.replace(/^####\s+(.+)$/gm, '<h4>$1</h4>');
-        html = html.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
-        html = html.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>');
-        html = html.replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
-
-        // Horizontal rule (own line)
-        html = html.replace(/^---+\s*$/gm, '<hr>');
-
-        // Bold / italic / strikethrough
-        html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-        html = html.replace(/\*([^\*\n]+?)\*/g, '<em>$1</em>');
-        html = html.replace(/~~(.+?)~~/g, '<s>$1</s>');
-
-        // Links [text](url)
-        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-
-        // Code blocks then inline code
-        html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
-        html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-        // Bullet lists — consecutive lines starting with * or -
-        html = html.replace(/^([\*\-]\s+.+\n?)+/gm, match => {
-            const items = match.trim().split('\n')
-                .filter(line => line.trim())
-                .map(line => `<li>${line.replace(/^[\*\-]\s+/, '')}</li>`)
-                .join('');
-            return `<ul>${items}</ul>`;
-        });
-
-        // Ordered lists — consecutive numbered lines
-        html = html.replace(/^(\d+\.\s+.+\n?)+/gm, match => {
-            const items = match.trim().split('\n')
-                .filter(line => line.trim())
-                .map(line => `<li>${line.replace(/^\d+\.\s+/, '')}</li>`)
-                .join('');
-            return `<ol>${items}</ol>`;
-        });
-
-        // Paragraph breaks and line breaks
-        html = html.replace(/\n\n/g, '</p><p>');
-        html = html.replace(/\n/g, '<br>');
-
-        if (!html.match(/^<(h[1-6]|ul|ol|pre|blockquote|div|hr)/)) {
-            html = '<p>' + html + '</p>';
-        }
-
-        return html || '<p></p>';
-    }
-
+    // Content always arrives as HTML: Blazor parses stored markdown with Markdig before init,
+    // and backups are kept as the editor's own HTML.
     function ensureHtml(content) {
-        if (!content || content.trim() === '') return '<p></p>';
-        return isHtmlContent(content) ? content : markdownToHtml(content);
+        return content && content.trim() !== '' ? content : '<p></p>';
     }
 
     // ── Markdown pipe-table normalization (typed or pasted "| a | b |" rows become real tables) ──
@@ -417,10 +353,10 @@
             return editor ? editor.getHTML() : '';
         },
 
-        setContent(elementId, markdown) {
+        setContent(elementId, html) {
             const editor = editors.get(elementId);
             if (editor) {
-                editor.commands.setContent(convertMarkdownPipeTablesInHtml(ensureHtml(markdown)));
+                editor.commands.setContent(convertMarkdownPipeTablesInHtml(ensureHtml(html)));
                 // The replace emits an update, which schedules a backup write; cancel it. Every
                 // caller has just cleared the kept copy and is putting canonical content back —
                 // writing that as a "kept" copy would announce unsaved changes that are nothing

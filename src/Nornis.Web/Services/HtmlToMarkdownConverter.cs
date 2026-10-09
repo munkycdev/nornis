@@ -43,20 +43,14 @@ public static partial class HtmlToMarkdownConverter
     [GeneratedRegex(@"<p[^>]*>(.*?)</p>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
     private static partial Regex ParagraphTag();
 
-    [GeneratedRegex(@"<ul[^>]*>([\s\S]*)</ul>", RegexOptions.IgnoreCase)]
-    private static partial Regex UnorderedList();
-
-    [GeneratedRegex(@"<ol[^>]*>([\s\S]*)</ol>", RegexOptions.IgnoreCase)]
-    private static partial Regex OrderedList();
+    [GeneratedRegex(@"<(/?)([uo])l\b[^>]*>", RegexOptions.IgnoreCase)]
+    private static partial Regex ListTag();
 
     [GeneratedRegex(@"<li[^>]*>", RegexOptions.IgnoreCase)]
     private static partial Regex ListItemOpen();
 
     [GeneratedRegex(@"</li>", RegexOptions.IgnoreCase)]
     private static partial Regex ListItemClose();
-
-    [GeneratedRegex(@"(<[uo]l[^>]*>[\s\S]*</[uo]l>)", RegexOptions.IgnoreCase)]
-    private static partial Regex NestedList();
 
     [GeneratedRegex(@"<table[^>]*>([\s\S]*?)</table>", RegexOptions.IgnoreCase)]
     private static partial Regex TableTag();
@@ -232,29 +226,51 @@ public static partial class HtmlToMarkdownConverter
 
     internal static string ConvertLists(string html)
     {
+        // Outermost list first, whatever its kind; ProcessList renders the lists nested inside
+        // each <li> itself. The rendered markdown carries no list tags, so the next search
+        // finds the next top-level list.
         var result = html;
-        var previous = "";
-
-        // Keep processing until no more changes (handles deep nesting)
-        while (result != previous)
+        while (FindList(result, 0) is { } list)
         {
-            previous = result;
-
-            // Greedy match captures the outermost list first;
-            // ProcessList handles nested <ul>/<ol> recursively within each <li>.
-            result = UnorderedList().Replace(result,
-                m => ProcessList(m.Groups[1].Value, ordered: false, indentLevel: 0));
-            result = OrderedList().Replace(result,
-                m => ProcessList(m.Groups[1].Value, ordered: true, indentLevel: 0));
+            result = result[..list.Start]
+                + ProcessList(result[list.InnerStart..list.InnerEnd], list.Ordered, indent: "")
+                + result[list.End..];
         }
 
         return result;
     }
 
-    internal static string ProcessList(string listContent, bool ordered, int indentLevel)
+    private readonly record struct ListSpan(int Start, int End, int InnerStart, int InnerEnd, bool Ordered);
+
+    /// <summary>
+    /// The first list at or after <paramref name="from"/>, closed by its own matching tag. Tags
+    /// are paired by depth across both kinds: a regex can't tell the &lt;/ul&gt; that closes a
+    /// list from one closing a list nested in it, nor &lt;ol&gt; inside &lt;ul&gt; from siblings.
+    /// </summary>
+    private static ListSpan? FindList(string html, int from)
+    {
+        var tags = ListTag().Matches(html, from);
+        if (tags.Count == 0 || tags[0].Groups[1].Value == "/")
+            return null;
+
+        var open = tags[0];
+        var depth = 0;
+        foreach (Match tag in tags)
+        {
+            depth += tag.Groups[1].Value == "/" ? -1 : 1;
+            if (depth == 0)
+            {
+                return new ListSpan(open.Index, tag.Index + tag.Length, open.Index + open.Length, tag.Index,
+                    Ordered: open.Groups[2].Value.Equals("o", StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        return null;
+    }
+
+    internal static string ProcessList(string listContent, bool ordered, string indent)
     {
         var sb = new StringBuilder();
-        var indent = new string(' ', indentLevel * 2);
         var counter = 1;
 
         var items = ExtractListItems(listContent);
@@ -269,13 +285,16 @@ public static partial class HtmlToMarkdownConverter
             sb.AppendLine($"{indent}{prefix}{textContent}");
             counter++;
 
+            // A child list nests only when indented to the parent item's content column, which
+            // is the marker's width: two spaces under "- ", three under "1. ", four under "10. ".
+            // A flat two spaces under a numbered item reads back as a sibling list.
             if (!string.IsNullOrEmpty(nestedListHtml))
             {
-                sb.Append(RenderNestedList(nestedListHtml, indentLevel + 1));
+                sb.Append(RenderNestedList(nestedListHtml, indent + new string(' ', prefix.Length)));
             }
         }
 
-        if (indentLevel == 0)
+        if (indent.Length == 0)
             sb.AppendLine();
 
         return sb.ToString();
@@ -329,25 +348,23 @@ public static partial class HtmlToMarkdownConverter
 
     private static (string text, string nestedHtml) SplitNestedList(string itemContent)
     {
-        var nestedMatch = NestedList().Match(itemContent);
-        if (!nestedMatch.Success)
+        var nestedStart = ListTag().Match(itemContent);
+        if (!nestedStart.Success)
             return (itemContent, "");
 
-        var text = itemContent[..nestedMatch.Index];
-        return (text, nestedMatch.Groups[1].Value);
+        return (itemContent[..nestedStart.Index], itemContent[nestedStart.Index..]);
     }
 
-    private static string RenderNestedList(string nestedHtml, int indentLevel)
+    private static string RenderNestedList(string nestedHtml, string indent)
     {
         var sb = new StringBuilder();
 
-        var ulMatch = UnorderedList().Match(nestedHtml);
-        if (ulMatch.Success)
-            sb.Append(ProcessList(ulMatch.Groups[1].Value, ordered: false, indentLevel));
-
-        var olMatch = OrderedList().Match(nestedHtml);
-        if (olMatch.Success)
-            sb.Append(ProcessList(olMatch.Groups[1].Value, ordered: true, indentLevel));
+        var from = 0;
+        while (FindList(nestedHtml, from) is { } list)
+        {
+            sb.Append(ProcessList(nestedHtml[list.InnerStart..list.InnerEnd], list.Ordered, indent));
+            from = list.End;
+        }
 
         return sb.ToString();
     }
