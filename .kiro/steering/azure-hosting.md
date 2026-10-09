@@ -46,6 +46,12 @@
 > section's list no longer exists at all: since 2026-09-08 there are no database, Service Bus or
 > Blob credentials to store.
 
+> **Amendment (2026-10-08):** the Web app now has a system-assigned identity too, for one
+> thing: its ASP.NET data-protection key ring lives in the `nornis-web-keys` blob container
+> (`DataProtection:KeyBlobUri`), where the Web identity alone holds Storage Blob Data
+> Contributor. Before this the ring lived on the container filesystem and every deploy signed
+> every member out. With Auth0 configured the Web app refuses to start without the setting.
+
 ## Hosting Target
 
 Nornis will be hosted on Azure Kubernetes Service.
