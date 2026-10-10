@@ -47,4 +47,16 @@ public static class SourceTypeDisplay
 
     public static bool IsCaptureOption(string type) =>
         CaptureOptions.Any(o => o.Value == type);
+
+    // Mirrors SourceCapture.IsGmOnly in Domain, which Web does not reference. The API refuses
+    // a non-GM's GM note regardless; this only keeps the picker from offering it.
+    private static readonly IReadOnlyList<(string Value, string Label)> NonGmCaptureOptions =
+        CaptureOptions.Where(o => o.Value != "GMNote").ToList();
+
+    /// <summary>The capture types this member may pick.</summary>
+    public static IReadOnlyList<(string Value, string Label)> CaptureOptionsFor(bool isGm) =>
+        isGm ? CaptureOptions : NonGmCaptureOptions;
+
+    public static bool IsCaptureOption(string type, bool isGm) =>
+        CaptureOptionsFor(isGm).Any(o => o.Value == type);
 }

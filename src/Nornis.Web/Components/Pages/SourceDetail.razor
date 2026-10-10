@@ -505,13 +505,13 @@
     private IReadOnlyList<SourceAttachmentDto> Documents =>
         _attachments.Where(a => a.Kind == "Document" && a.Url is not null).ToList();
 
-    // Inline edit form. Types come from the shared capture list; a source already
-    // carrying a legacy type (JournalEntry, Transcript) keeps it selectable so an
-    // unrelated edit doesn't silently change the type.
+    // Inline edit form. Types come from the shared capture list for this member's role; a
+    // source already carrying a type outside it (legacy JournalEntry, a minted Reveal) keeps
+    // it selectable so an unrelated edit doesn't silently change the type.
     private IEnumerable<(string Value, string Label)> EditTypeOptions =>
-        _source is not null && !SourceTypeDisplay.IsCaptureOption(_source.Type)
-            ? SourceTypeDisplay.CaptureOptions.Prepend((_source.Type, SourceTypeDisplay.Label(_source.Type)))
-            : SourceTypeDisplay.CaptureOptions;
+        _source is not null && !SourceTypeDisplay.IsCaptureOption(_source.Type, Worlds.IsGm)
+            ? SourceTypeDisplay.CaptureOptionsFor(Worlds.IsGm).Prepend((_source.Type, SourceTypeDisplay.Label(_source.Type)))
+            : SourceTypeDisplay.CaptureOptionsFor(Worlds.IsGm);
 
 
     private bool _editing;

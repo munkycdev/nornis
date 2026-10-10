@@ -22,6 +22,15 @@ public class SourceTypeDisplayTests
     }
 
     [Test]
+    public void GmNote_IsOfferedOnlyToAGm()
+    {
+        Assert.That(SourceTypeDisplay.CaptureOptionsFor(isGm: true).Any(o => o.Value == "GMNote"), Is.True);
+        Assert.That(SourceTypeDisplay.CaptureOptionsFor(isGm: false).Any(o => o.Value == "GMNote"), Is.False);
+        Assert.That(SourceTypeDisplay.IsCaptureOption("GMNote", isGm: false), Is.False);
+        Assert.That(SourceTypeDisplay.IsCaptureOption("SessionNote", isGm: false), Is.True);
+    }
+
+    [Test]
     public void LegacyTypes_AreLabelledButNotOffered()
     {
         Assert.That(SourceTypeDisplay.Label("JournalEntry"), Is.EqualTo("Journal Entry"));

@@ -6,6 +6,7 @@ using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services.PropertyTests;
@@ -185,8 +186,10 @@ public class SourceCreationArbitraries
         var inputGen =
             from worldId in ArbMap.Default.GeneratorFor<Guid>()
             from title in validTitleGen
-            from sourceType in validSourceTypeGen
             from role in roleGen
+            from sourceType in role == WorldRole.GM
+                ? validSourceTypeGen
+                : validSourceTypeGen.Where(type => !SourceCapture.IsGmOnly(type))
             from visibility in role == WorldRole.GM
                 ? Gen.Elements(VisibilityScope.Private, VisibilityScope.GMOnly, VisibilityScope.PartyVisible)
                 : validVisibilityGen

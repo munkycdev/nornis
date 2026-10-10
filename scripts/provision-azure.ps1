@@ -52,6 +52,7 @@ param(
     [string]$StorageAccount = "stchronicis",
     [string]$StorageRg = "rg-nornis",
     [string]$BlobContainer = "nornis-library",
+    [string]$KeyContainer = "nornis-web-keys",
     [string]$AppInsights = "appi-nornis",
     [string]$ImageTag = "bootstrap",
     # Auth0 tenant wiring. None of these are secrets — the client secret is the only one, and
@@ -122,6 +123,12 @@ $blobServiceUri = "https://$StorageAccount.blob.core.windows.net/"
 $sbScope = az servicebus namespace show -g $ServiceBusRg -n $ServiceBusNamespace --query id -o tsv
 $storageAccountScope = az storage account show -g $StorageRg -n $StorageAccount --query id -o tsv
 $blobScope = $storageAccountScope + "/blobServices/default/containers/$BlobContainer"
+
+# The Web app's data-protection key ring (sign-in cookie, antiforgery, circuits). Its own
+# container so the Web identity can be granted on it alone: anyone who can read these keys can
+# mint a sign-in cookie, so neither the API nor the worker gets a role here.
+az storage container-rm create --storage-account $StorageAccount -g $StorageRg -n $KeyContainer --public-access off -o none
+$keyScope = $storageAccountScope + "/blobServices/default/containers/$KeyContainer"
 
 function Grant-Role([string]$principalId, [string]$role, [string]$scope) {
     az role assignment create --assignee-object-id $principalId --assignee-principal-type ServicePrincipal `
@@ -211,19 +218,23 @@ $webEnv = @(
     "Auth0__ClientId=$Auth0WebClientId"
     "Auth0__ClientSecret=secretref:auth0-client-secret"
     "Auth0__Audience=$Auth0Audience"
+    # Required whenever Auth0 is configured: the app refuses to start without it.
+    "DataProtection__KeyBlobUri=$blobServiceUri$KeyContainer/keys.xml"
 )
 if ($appInsightsConn) {
     $webSecrets += "appi-conn=$appInsightsConn"
     $webEnv     += "APPLICATIONINSIGHTS_CONNECTION_STRING=secretref:appi-conn"
 }
 az containerapp create --name ca-nornis-web --resource-group $ResourceGroup `
-    --environment $Environment --user-assigned $identityId `
+    --environment $Environment --system-assigned --user-assigned $identityId `
     --image "$Registry/nornis-web:$ImageTag" --target-port 8080 --ingress external `
     --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi `
     --secrets @webSecrets `
     --env-vars @webEnv -o none
 az containerapp ingress sticky-sessions set --affinity sticky `
     -g $ResourceGroup -n ca-nornis-web -o none
+$webPrincipal = az containerapp show -g $ResourceGroup -n ca-nornis-web --query identity.principalId -o tsv
+Grant-Role $webPrincipal "Storage Blob Data Contributor" $keyScope
 
 Write-Host "== Worker app (scale-to-zero on queue depth)"
 # Secrets and env vars are built as arrays so the Application Insights entry can be omitted

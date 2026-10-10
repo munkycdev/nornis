@@ -60,6 +60,7 @@ builder.Services.AddResponseCompression(options =>
 var auth0 = builder.Configuration.GetSection("Auth0");
 var authEnabled = !string.IsNullOrEmpty(auth0["ClientId"]);
 builder.Services.AddSingleton(new AuthFeature(authEnabled));
+builder.Services.AddNornisDataProtection(builder.Configuration, signInEnabled: authEnabled);
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpContextAccessor();
 
