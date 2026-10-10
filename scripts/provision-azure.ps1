@@ -127,7 +127,7 @@ $blobScope = $storageAccountScope + "/blobServices/default/containers/$BlobConta
 # The Web app's data-protection key ring (sign-in cookie, antiforgery, circuits). Its own
 # container so the Web identity can be granted on it alone: anyone who can read these keys can
 # mint a sign-in cookie, so neither the API nor the worker gets a role here.
-az storage container create --name $KeyContainer --account-name $StorageAccount --auth-mode login -o none
+az storage container-rm create --storage-account $StorageAccount -g $StorageRg -n $KeyContainer --public-access off -o none
 $keyScope = $storageAccountScope + "/blobServices/default/containers/$KeyContainer"
 
 function Grant-Role([string]$principalId, [string]$role, [string]$scope) {
