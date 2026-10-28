@@ -18,12 +18,16 @@ log in, because nothing anywhere exercises a sign-in.
 
 | | |
 | --- | --- |
-| Domain | `auth.nornis.app` (custom domain) |
+| Domain | `auth.munkyc.dev` (custom domain; was `auth.nornis.app` until 2026-10-28) |
 | API audience | `https://api.nornis.app` |
-| Tenant | Shared with Velum — an outage or a misconfiguration here affects both |
+| Tenant | The shared MunkyC tenant, also used by Velum and Bibliotaph — an outage or a misconfiguration here affects all of them |
 
 The Web host holds `Auth0__ClientId` / `Auth0__ClientSecret` and runs the OIDC login flow;
 the API only validates the resulting tokens.
+
+The free plan allows one custom domain per tenant. Adding a domain for another app drops the
+old one, and anything still pointed at it fails with a TLS error before a page shows. That is
+how `auth.nornis.app` went dark on 2026-10-27; `Auth0__Domain` on both apps has to move with it.
 
 ## Diagnose
 
@@ -33,13 +37,13 @@ and have completely different remedies.
 ```bash
 # Is the tenant answering? OpenID discovery needs no credentials.
 curl -s -o /dev/null -w "discovery [%{http_code}]\n" \
-  https://auth.nornis.app/.well-known/openid-configuration
+  https://auth.munkyc.dev/.well-known/openid-configuration
 
 # Are the signing keys served?
-curl -s -o /dev/null -w "jwks [%{http_code}]\n" https://auth.nornis.app/.well-known/jwks.json
+curl -s -o /dev/null -w "jwks [%{http_code}]\n" https://auth.munkyc.dev/.well-known/jwks.json
 
 # Certificate on the custom domain still valid?
-curl -sv https://auth.nornis.app/.well-known/openid-configuration 2>&1 \
+curl -sv https://auth.munkyc.dev/.well-known/openid-configuration 2>&1 \
   | grep -iE "expire date|subject:"
 ```
 

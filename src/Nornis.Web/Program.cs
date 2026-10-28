@@ -234,6 +234,15 @@ app.UseAntiforgery();
 // does, better. This exists so the platform has something to ping.
 app.MapGet(healthPath, () => Results.Json(new { status = "Healthy" })).AllowAnonymous();
 
+// The root is the address a stranger types and also where members land: the Auth0 return URL
+// and old bookmarks still say "/". Members go on to the dashboard, everyone
+// else to the landing page, decided here rather than in a page component because a component
+// prerenders the member shell for a stranger before its redirect can run, and an [Authorize]
+// page sends them to the sign-in screen without ever showing what Nornis is.
+app.MapGet("/", (HttpContext context) =>
+        Results.LocalRedirect(context.User.Identity?.IsAuthenticated == true ? "/dashboard" : "/welcome"))
+    .AllowAnonymous();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

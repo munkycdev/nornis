@@ -7,6 +7,19 @@ GitHub Container Registry). See
 `.kiro/steering/azure-hosting.md` for the intended architecture and the deliberate
 amendments made during provisioning.
 
+## web-key-ring.ps1
+
+Gives the existing `ca-nornis-web` what `provision-azure.ps1` gives a new one for its
+data-protection key ring: the `nornis-web-keys` container, the app's system-assigned identity,
+Storage Blob Data Contributor for that identity on that container alone, and
+`DataProtection__KeyBlobUri`. Without the setting a Web image built after 2026-10-08 refuses to
+start once sign-in is configured. Idempotent; run it once before deploying, since the role takes
+a few minutes to apply.
+
+```powershell
+./scripts/web-key-ring.ps1
+```
+
 ## sql-identity-users.cs
 
 The one provisioning step `provision-azure.ps1` cannot do for itself: creating the contained
