@@ -180,8 +180,10 @@ jobs:
         run: |
           deadline=$((SECONDS + 180))
           while :; do
-            read -r latest ready < <(az containerapp show -g "$RESOURCE_GROUP" -n ca-nornis-web \
-              --query "[properties.latestRevisionName, properties.latestReadyRevisionName]" -o tsv | tr '\n' ' ')
+            revisions=$(az containerapp show -g "$RESOURCE_GROUP" -n ca-nornis-web \
+              --query "[properties.latestRevisionName, properties.latestReadyRevisionName]" -o tsv)
+            latest=$(sed -n 1p <<< "$revisions")
+            ready=$(sed -n 2p <<< "$revisions")
             if [ "$latest" = "$ready" ]; then
               echo "Web is serving $latest."
               break
