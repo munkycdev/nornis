@@ -60,7 +60,7 @@ param(
     # post-login Action, which stamps profile claims under this prefix; the chronicis.app value
     # predates the Nornis rename and is shared with Chronicis — changing it here without
     # changing the Action would break user provisioning.
-    [string]$Auth0Domain = "auth.nornis.app",
+    [string]$Auth0Domain = "auth.munkyc.dev",
     [string]$Auth0Audience = "https://api.nornis.app",
     [string]$Auth0ClaimsNamespace = "https://chronicis.app",
     [string]$Auth0WebClientId = "dMNCPqm8QMRar6Cw1nKVajXwV6aP9d5q"

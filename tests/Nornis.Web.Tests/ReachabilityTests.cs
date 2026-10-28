@@ -27,7 +27,7 @@ public class ReachabilityTests
     /// </summary>
     private static readonly HashSet<string> Exempt = new(StringComparer.OrdinalIgnoreCase)
     {
-        "/", "/Error", "/invite/{Code}", "/shelf/{Code}", "/welcome", "/about", "/features", "/changelog",
+        "/Error", "/invite/{Code}", "/shelf/{Code}", "/welcome", "/about", "/features", "/changelog",
         "/privacy", "/terms", "/licenses", "/canon", "/graph", "/graph/{Focus}", "/costs", "/settings",
         // /artifacts is the older spelling of /codex; the stub redirects old bookmarks.
         "/artifacts", "/artifacts/{Key}",
