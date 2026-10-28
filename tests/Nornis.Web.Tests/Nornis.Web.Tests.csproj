@@ -6,17 +6,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="bunit" Version="2.9.0" />
+    <PackageReference Include="bunit" Version="2.13.3" />
     <!-- bUnit 2.7.2 pulls AngleSharp 1.4.0, which carries a moderate advisory
          (GHSA-pgww-w46g-26qg) and NU1902 is an error here. Pin the patched line. -->
-    <PackageReference Include="AngleSharp" Version="1.8.0" />
+    <PackageReference Include="AngleSharp" Version="1.8.6" />
     <!-- The DataProtection package this project restores (the Web app gets it from the shared
          framework instead) pulls System.Security.Cryptography.Xml and Pkcs 10.0.10, which carry
          high-severity advisories. Same reason as above: pin the patched line. -->
     <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.14" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
     <PackageReference Include="NUnit" Version="4.6.1" />
-    <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="6.3.1" />
   </ItemGroup>
 
   <ItemGroup>
