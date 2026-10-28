@@ -46,8 +46,10 @@ if (-not $principal) { throw "$WebApp has no system-assigned identity after assi
 
 Write-Host "== Role on the key container"
 $role = "Storage Blob Data Contributor"
-$granted = az role assignment list --assignee $principal --role $role --scope $keyScope --query "length(@)" -o tsv
-if ($granted -eq "0") {
+# Counted here rather than with a JMESPath length(): az is a .cmd on Windows, and cmd.exe
+# cannot take parentheses in an argument.
+$granted = @(az role assignment list --assignee $principal --role $role --scope $keyScope --query "[].id" -o tsv)
+if ($granted.Count -eq 0) {
     az role assignment create --assignee-object-id $principal --assignee-principal-type ServicePrincipal `
         --role $role --scope $keyScope -o none
 }
