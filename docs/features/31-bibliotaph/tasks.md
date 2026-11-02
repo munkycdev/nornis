@@ -5,7 +5,7 @@ prod stays as it is until Dave sets the secrets. Phases C to G need Bibliotaph's
 step to test end to end; until then they are tested against the stand-in. Phase H waits for
 Bibliotaph's half to be live.
 
-**Status: specified 2026-11-02.** Ships as Nornis v3.2.
+**Status: specified 2026-11-02; Phase A done 2026-11-02.** Ships as Nornis v3.2.
 
 Dave's part, outside the repo: the Auth0 setup in the Bibliotaph spec plus the Nornis →
 Bibliotaph application (design.md, decision 3), the Container Apps settings (design.md,
@@ -13,13 +13,13 @@ Bibliotaph application (design.md, decision 3), the Container Apps settings (des
 
 ## Phase A — Spec
 
-- [ ] A1. `requirements.md`, `design.md` and this file.
-- [ ] A2. `domain-model.md` amendment: `LibraryDocument.Origin` and the Bibliotaph fields,
+- [x] A1. `requirements.md`, `design.md` and this file.
+- [x] A2. `domain-model.md` amendment: `LibraryDocument.Origin` and the Bibliotaph fields,
       `BibliotaphConnection`, `BibliotaphWorldEvent`, `LibraryReadingRecord`.
-- [ ] A3. `security-and-permissions.md` amendment: the `azp` guard, the Bibliotaph policy,
+- [x] A3. `security-and-permissions.md` amendment: the `azp` guard, the Bibliotaph policy,
       the token ring, reading tickets.
-- [ ] A4. Row 31 in `docs/features/README.md`.
-- [ ] A5. The Bibliotaph spec's Auth0 step 4 names the dedicated application and its callback.
+- [x] A4. Row 31 in `docs/features/README.md`.
+- [x] A5. The Bibliotaph spec's Auth0 step 4 names the dedicated application and its callback.
 
 ## Phase B — Foundation
 
