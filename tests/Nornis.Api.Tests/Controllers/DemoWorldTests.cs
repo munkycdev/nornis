@@ -3,9 +3,11 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Tests.Infrastructure;
+using Nornis.Infrastructure.Persistence;
 using NUnit.Framework;
 
 namespace Nornis.Api.Tests.Controllers;
@@ -82,6 +84,27 @@ public class DemoWorldTests
 
         var artifacts = await client.GetFromJsonAsync<JsonElement>($"/api/worlds/{world.Id}/artifacts");
         Assert.That(artifacts.GetArrayLength(), Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task CreateDemo_FromATemplateWithPrep_CarriesNoAdventures()
+    {
+        // Feature 29, Requirement 9.3. The template is a world export; Prep in it is the
+        // template author's own planning and must not reach the demo world's GM.
+        WriteTemplateZip(_templatePath, withPrep: true);
+        var client = CreateClientWithTemplate();
+
+        var response = await client.PostAsJsonAsync("/api/worlds/demo", new CreateDemoWorldRequest(Tutorial: false));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created), await response.Content.ReadAsStringAsync());
+        var world = (await response.Content.ReadFromJsonAsync<WorldResponse>())!;
+        var adventures = await client.GetFromJsonAsync<JsonElement>($"/api/worlds/{world.Id}/prep");
+        Assert.That(adventures.GetArrayLength(), Is.Zero);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        Assert.That(db.Sources.Where(s => s.WorldId == world.Id).Select(s => s.AdventureId), Is.All.Null);
+        Assert.That(db.Sources.Count(s => s.WorldId == world.Id), Is.EqualTo(2));
     }
 
     [Test]
@@ -191,9 +214,10 @@ public class DemoWorldTests
     private static readonly Guid Artifact2Id = Guid.NewGuid();
     private static readonly Guid FactId = Guid.NewGuid();
     private static readonly Guid RelationshipId = Guid.NewGuid();
+    private static readonly Guid AdventureId = Guid.NewGuid();
 
     /// <summary>A minimal but complete template package in the world-export zip format.</summary>
-    private static void WriteTemplateZip(string path, bool danglingPin = false)
+    private static void WriteTemplateZip(string path, bool danglingPin = false, bool withPrep = false)
     {
         using var stream = new FileStream(path, FileMode.Create, FileAccess.Write);
         using var zip = new ZipArchive(stream, ZipArchiveMode.Create);
@@ -209,6 +233,19 @@ public class DemoWorldTests
              "campaignCharacters":[],"storylineCampaigns":[]}
             """);
 
+        // A template exported with the Prep category: the demo clone must leave it behind.
+        var prepLink = withPrep ? $",\"adventureId\":\"{AdventureId}\"" : "";
+        if (withPrep)
+        {
+            WriteEntry(zip, "prep.json", $$"""
+                {"adventures":[{"id":"{{AdventureId}}","campaignId":null,"title":"The Vesper heist",
+                  "slug":"the-vesper-heist","pitch":null,"lastPrintedDocumentId":null}],
+                 "sections":[{"id":"{{Guid.NewGuid()}}","adventureId":"{{AdventureId}}","kind":"Overview",
+                  "title":"Overview","bodyMarkdown":"Voss hides the bell.","sortOrder":1}],
+                 "revisions":[]}
+                """);
+        }
+
         WriteEntry(zip, "sources.json", $$"""
             {"sources":[
               {"id":"{{Source1Id}}","campaignId":"{{CampaignId}}","type":"SessionNote",
@@ -218,7 +255,7 @@ public class DemoWorldTests
               {"id":"{{Source2Id}}","campaignId":null,"type":"GMNote",
                "title":"GM prep - The Castellan's design","body":"Voss is the last Bellwarden.",
                "uri":null,"occurredAt":null,"visibility":"GMOnly",
-               "processingStatus":"Processed","extractionEnabled":false,"derivedText":null}],
+               "processingStatus":"Processed","extractionEnabled":false,"derivedText":null{{prepLink}}}],
              "extractions":[{"id":"{{Guid.NewGuid()}}","sourceId":"{{Source1Id}}",
                "extractionType":"Manual","text":"The party investigates wrecks.","confidence":0.9}],
              "references":[{"id":"{{Guid.NewGuid()}}","sourceId":"{{Source1Id}}",

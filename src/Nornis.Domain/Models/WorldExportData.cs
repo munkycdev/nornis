@@ -45,4 +45,10 @@ public class WorldExportData
     public IReadOnlyList<ContinuityFinding> ContinuityFindings { get; init; } = [];
 
     public IReadOnlyList<AiUsageRecord> AiUsageRecords { get; init; } = [];
+
+    public IReadOnlyList<Adventure> Adventures { get; init; } = [];
+
+    public IReadOnlyList<AdventureSection> AdventureSections { get; init; } = [];
+
+    public IReadOnlyList<AdventureSectionRevision> AdventureSectionRevisions { get; init; } = [];
 }
