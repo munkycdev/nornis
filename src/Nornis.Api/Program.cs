@@ -20,6 +20,7 @@ using Nornis.Application.Storage;
 using Nornis.Application.Validation;
 using Nornis.Domain.Repositories;
 using Nornis.Infrastructure.Ai;
+using Nornis.Infrastructure.Bibliotaph;
 using Nornis.Infrastructure.Configuration;
 using Nornis.Infrastructure.Knowledge;
 using Nornis.Infrastructure.Messaging;
@@ -77,7 +78,7 @@ if (builder.Environment.IsDevelopment() && builder.Configuration["Auth0:Domain"]
 {
     // Dev mode: skip real Auth0 — DevAuthBypassMiddleware handles identity
     builder.Services.AddAuthentication().AddJwtBearer();
-    builder.Services.AddAuthorization();
+    builder.Services.AddAuthorization(options => options.AddNornisPolicies());
 }
 else
 {
@@ -281,6 +282,7 @@ builder.Services.AddOptions<PrepOptions>()
     .Bind(builder.Configuration.GetSection(PrepOptions.SectionName))
     .Validate(o => o.FirstNonPositiveBound() is null, "Every Prep bound must be greater than zero; none means unbounded.")
     .ValidateOnStart();
+builder.Services.AddBibliotaph(builder.Configuration);
 builder.Services.AddScoped<IAdventureService, AdventureService>();
 builder.Services.AddScoped<IAdventureDraftingService, AdventureDraftingService>();
 builder.Services.AddScoped<IAdventureExportService, AdventureExportService>();

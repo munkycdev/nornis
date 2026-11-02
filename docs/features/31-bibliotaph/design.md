@@ -1,5 +1,35 @@
 # Design Document
 
+> **Amendment (2026-11-02, Phase B):** what building the foundation changed. The text below is
+> left as written.
+>
+> - **The outbox is delivered by the API, not the Worker.** The Worker scales to zero on queue
+>   depth (`provision-azure.ps1`), so a poller there would sleep until an unrelated extraction
+>   woke it, and a rename could wait hours. The API runs one replica that never scales to
+>   zero, and already hosts the upload sweep and the continuity audit, so
+>   `BibliotaphOutboxBackgroundService` lives there. The Worker still gets the Bibliotaph
+>   client and the key ring, for extraction's reference books (Phase E).
+> - **A reading record has one foreign key**, to its document (cascade). `WorldId`, `UserId`
+>   and `PlayerId` are plain columns and the viewer's name is copied at the time
+>   (`ViewerName`), so a log row never blocks a player's claim or removal.
+> - **`Bibliotaph:Auth0Domain`** is its own setting, because the Worker has no `Auth0`
+>   section. Configured means `BaseUrl`, `Auth0Domain`, `ClientId` and `ClientSecret` are set;
+>   `ProviderClientId` and `WebOrigin` are API-only and are checked where they are used. The
+>   `azp` guard is on whenever `ProviderClientId` is set, configured or not.
+> - **Every bound refuses to start at zero**, and a configured integration without
+>   `KeyBlobUri` refuses to start, as the Web does without its key ring
+>   (`BibliotaphOptions.StartupProblem`).
+> - **The token ring is built privately** (`BibliotaphTokenProtector.Create`), in its own
+>   service collection, so it never mixes with a host's Data Protection keys. An unreadable
+>   ciphertext reads as a refused grant, so a lost ring asks GMs to reconnect instead of
+>   failing every call.
+> - **A 403 that isn't `kept_from_ai` marks the connection Needs reconnect** too: it means a
+>   scope is missing, and reconnecting is what grants it.
+> - **The contract's list answers are wrapped**: `{ "books": [...] }` and `{ "pages": [...] }`.
+>   The Bibliotaph spec now says so.
+> - Infrastructure pins `System.Security.Cryptography.Xml` 10.0.14, which Data Protection
+>   pulls at a vulnerable 10.0.11, as `Pkcs` is pinned.
+
 ## Overview
 
 Nornis keeps the Library page, its rows and its GMOnly / PartyVisible chip. What changes is

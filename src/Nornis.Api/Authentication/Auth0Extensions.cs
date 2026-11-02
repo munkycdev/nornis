@@ -37,10 +37,8 @@ public static class Auth0Extensions
                 };
             });
 
-        services.AddAuthorization(options =>
-        {
-            options.FallbackPolicy = options.DefaultPolicy;
-        });
+        // Authenticated by default, and Bibliotaph's tokens kept to their own endpoints.
+        services.AddAuthorization(options => options.AddNornisPolicies());
 
         return services;
     }

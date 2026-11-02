@@ -24,6 +24,40 @@ public static class TestJwtIssuer
 
     public static SecurityKey GetSecurityKey() => SecurityKey;
 
+    /// <summary>The Web's Auth0 application, as the <c>azp</c> of an ordinary member token.</summary>
+    public const string WebClientId = "nornis-web-test-client";
+
+    /// <summary>Bibliotaph's Auth0 application (<c>Bibliotaph:ProviderClientId</c> in the test host).</summary>
+    public const string BibliotaphClientId = "bibliotaph-test-client";
+
+    /// <summary>A token as Bibliotaph's storage provider holds it: its own <c>azp</c>, and the given scopes.</summary>
+    public static string GenerateBibliotaphToken(string sub, string scope = "openid offline_access published:read") =>
+        GenerateToken(sub, email: null, extraClaims: [new Claim("azp", BibliotaphClientId), new Claim("scope", scope)]);
+
+    /// <summary>A token with any extra claims, such as <c>azp</c> or <c>scope</c>. A null email leaves the claim out.</summary>
+    public static string GenerateToken(string sub, string? email, IEnumerable<Claim> extraClaims)
+    {
+        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, sub), new("sub", sub) };
+        if (email is not null)
+        {
+            claims.Add(new Claim(ClaimTypes.Email, email));
+            claims.Add(new Claim("email", email));
+        }
+
+        claims.AddRange(extraClaims);
+
+        var handler = new JwtSecurityTokenHandler();
+        var token = handler.CreateToken(new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(claims),
+            Expires = DateTime.UtcNow.AddHours(1),
+            Issuer = Issuer,
+            Audience = Audience,
+            SigningCredentials = Credentials
+        });
+        return handler.WriteToken(token);
+    }
+
     /// <summary>
     /// Generates a valid JWT token with the specified claims.
     /// </summary>

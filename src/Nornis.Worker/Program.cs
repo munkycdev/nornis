@@ -10,6 +10,7 @@ using Nornis.Application.Services;
 using Nornis.Application.Storage;
 using Nornis.Domain.Repositories;
 using Nornis.Infrastructure.Ai;
+using Nornis.Infrastructure.Bibliotaph;
 using Nornis.Infrastructure.Configuration;
 using Nornis.Infrastructure.Messaging;
 using Nornis.Infrastructure.Persistence;
@@ -246,6 +247,9 @@ var builder = Host.CreateDefaultBuilder(args)
             return azureClient.GetEmbeddingClient(libraryOptions.EmbeddingDeployment);
         });
         services.AddScoped<IEmbeddingClient, AzureOpenAiEmbeddingClient>();
+
+        // Bibliotaph (feature 31): the outbox delivery and extraction's reference books use it.
+        services.AddBibliotaph(configuration);
 
         // Reference-passage retrieval grounds extraction in the world's published library.
         services.AddScoped<Nornis.Application.Knowledge.IReferencePassageRetriever,

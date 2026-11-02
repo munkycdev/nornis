@@ -172,6 +172,7 @@ public class WorldRepository : IWorldRepository
         // print's Adventure), both Restrict, so the Adventures let go of their prints first.
         await _context.SetWhereAsync<Adventure, Guid?>(
             a => a.WorldId == worldId, a => a.LastPrintedDocumentId, null, ct);
+        await DeleteAsync(_context.LibraryReadingRecords.Where(r => r.WorldId == worldId));
         await DeleteAsync(_context.LibraryChunks.Where(c => c.WorldId == worldId));
         await DeleteAsync(_context.LibraryDocuments.Where(d => d.WorldId == worldId));
 

@@ -22,6 +22,24 @@ public class EnumDefinitionTests
     }
 
     [Test]
+    public void LibraryDocumentOrigin_HasExpectedValues()
+    {
+        AssertEnumHasExactValues<LibraryDocumentOrigin>("Upload", "Bibliotaph");
+    }
+
+    [Test]
+    public void BibliotaphConnectionStatus_HasExpectedValues()
+    {
+        AssertEnumHasExactValues<BibliotaphConnectionStatus>("Connected", "NeedsReconnect");
+    }
+
+    [Test]
+    public void BibliotaphWorldEventKind_HasExpectedValues()
+    {
+        AssertEnumHasExactValues<BibliotaphWorldEventKind>("Created", "Renamed", "Deleted", "FilesChanged");
+    }
+
+    [Test]
     public void WorldRole_HasExpectedValues()
     {
         AssertEnumHasExactValues<WorldRole>("GM", "Player", "Observer");

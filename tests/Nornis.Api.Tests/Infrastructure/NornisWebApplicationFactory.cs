@@ -169,6 +169,9 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
         });
 
         builder.UseEnvironment("Testing");
+
+        // As in production: Bibliotaph's tokens are told apart by their azp (feature 31).
+        builder.UseSetting("Bibliotaph:ProviderClientId", TestJwtIssuer.BibliotaphClientId);
     }
 
     /// <summary>
