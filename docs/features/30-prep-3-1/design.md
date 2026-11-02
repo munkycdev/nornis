@@ -1,5 +1,23 @@
 # Design Document
 
+> **Amendment (2026-11-02, Phase C):** what building Threads to use changed. The text below
+> is left as written.
+>
+> - **No `prep/{id}/threads` route.** The card reads `GET api/worlds/{w}/convergence`, which
+>   is already GM-only, calls the same `IConvergenceGaugeService` at the caller's role, and
+>   never narrates, and the Web already has its DTO and `ConvergenceDisplay`. A second route
+>   would have been a second response shape over one ranking. The card takes the first five,
+>   a count mirrored from `AdventureDraftPrompt.MaxThreads` and pinned by a test, so it shows
+>   what a draft sees. `ThreadToUseResponse` is not built.
+> - **The draft's block is bounded twice over:** five threads, each line cut at 300
+>   characters. It sits after the world block and before the adventure, so it changes the
+>   prompt only for an Overview draft.
+> - **Use in this adventure** adds `Build toward this hidden thread: {anchor}: {description}`
+>   on a new line of the instruction box. The same line is not added twice, and one that would
+>   pass the box's 2,000 characters is refused with a message rather than cut.
+> - **A gauge that fails costs the threads, not the draft**, on the server (logged as a
+>   warning) and on the page (one line saying the threads couldn't be loaded).
+
 > **Amendment (2026-11-02, Phase B):** what building the side conversation changed. The text
 > below is left as written.
 >

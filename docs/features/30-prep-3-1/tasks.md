@@ -4,7 +4,8 @@ Three PRs. The spec, then the side conversation (the only migration, additive), 
 to use and the version bump. Nothing in Phase B depends on Phase C, so C can ship without B if
 B stalls.
 
-**Status: specified 2026-11-02; Phase B done 2026-11-02.** Ships as Nornis v3.1. One-click
+**Status: specified 2026-11-02; Phases B and C done 2026-11-02, shipped as Nornis v3.1.** Only
+the live walk (C5) is open. One-click
 PDF is deferred (see requirements.md, Staging), as Dave decided on 2026-11-02.
 
 ## Phase A — Spec
@@ -52,12 +53,20 @@ PDF is deferred (see requirements.md, Staging), as Dave decided on 2026-11-02.
 
 ## Phase C — Threads to use, and ship 3.1
 
-- [ ] C1. `GET prep/{id}/threads` over `IConvergenceGaugeService`, top five, in the 403 sweep.
-- [ ] C2. The Overview's draft prompt gains "Threads ready to pay off", bounded. Prompt test.
-- [ ] C3. Web: the Threads card on the Overview, **Use in this adventure** appending to the
+- [x] C1. `GET prep/{id}/threads` over `IConvergenceGaugeService`, top five, in the 403 sweep.
+      **Not built.** The card reads the existing GM-only `GET convergence`, which is the same
+      service at the same role, and takes the first five (design.md, Phase C amendment).
+- [x] C2. The Overview's draft prompt gains "Threads ready to pay off", bounded. Prompt test.
+      `AdventureDraftingService` reads the gauge for an Overview draft only, and a gauge that
+      fails or throws costs the draft its threads, never the draft.
+- [x] C3. Web: the Threads card on the Overview, **Use in this adventure** appending to the
       instruction box, the "nothing hidden yet" line. bUnit tests.
-- [ ] C4. Ship: `MinorVersion` 1, changelog entry, Features page, README, steering re-check
+- [x] C4. Ship: `MinorVersion` 1, changelog entry, Features page, README, steering re-check
       notes, feature README row updated.
+
+      **Phase C notes (2026-11-02):** every test was checked by breaking what it covers; the one
+      sabotage no test caught, dropping the service's own `Take(5)`, is redundant with the
+      prompt's cap, which is tested, and the code says so. No migration.
 - [ ] C5. Live walk in Gribbits: a conversation grounded in Hidden truth, an answer put in a
       section and undone, a thread used in an Overview draft, the Prep pool on Costs showing
       both operations.

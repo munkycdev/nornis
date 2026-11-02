@@ -8,12 +8,18 @@ namespace Nornis.Application.Prep;
 /// <param name="WorldContext">The world knowledge block, already retrieved at the GM's role and
 /// formatted. Hidden truth is in it because the asker is the GM; that rule lives in the
 /// retriever, not here.</param>
+/// <param name="Threads">Threads ready to pay off (feature 30), for an Overview draft only:
+/// the convergence gauge's top candidates. Empty for every other section.</param>
 public sealed record AdventureDraftInput(
     string? GameSystem,
     string WorldContext,
     Adventure Adventure,
     Guid SectionId,
-    string? Instruction);
+    string? Instruction,
+    IReadOnlyList<PrepThread>? Threads = null);
+
+/// <summary>A hidden truth the convergence gauge ranks as ready to pay off: what it hangs on, and what it says.</summary>
+public sealed record PrepThread(string AnchorName, string Description);
 
 /// <summary>
 /// The prompt for drafting or revising one Prep section (feature 29). The order is the cache
@@ -26,6 +32,12 @@ public static class AdventureDraftPrompt
 {
     /// <summary>Each neighbouring section is cut to this many characters; they are context, not the work.</summary>
     public const int MaxNeighbourChars = 6_000;
+
+    /// <summary>How many threads to use an Overview draft is given, the gauge's strongest first.</summary>
+    public const int MaxThreads = 5;
+
+    /// <summary>Each thread's line is cut to this; a fact's value can be long, and these are pointers.</summary>
+    public const int MaxThreadChars = 300;
 
     public static readonly string SystemPrompt = $$"""
         You are helping a game master prepare an adventure for their tabletop group. You write one
@@ -89,6 +101,8 @@ public static class AdventureDraftPrompt
             : input.WorldContext.TrimEnd());
         sb.AppendLine();
 
+        AppendThreads(sb, input.Threads);
+
         sb.AppendLine($"## The adventure: {input.Adventure.Title}");
         sb.AppendLine();
         if (!string.IsNullOrWhiteSpace(input.Adventure.Pitch))
@@ -139,6 +153,27 @@ public static class AdventureDraftPrompt
             : input.Instruction.Trim());
 
         return sb.ToString();
+    }
+
+    private static void AppendThreads(StringBuilder sb, IReadOnlyList<PrepThread>? threads)
+    {
+        if (threads is not { Count: > 0 })
+        {
+            return;
+        }
+
+        sb.AppendLine("### Threads ready to pay off");
+        sb.AppendLine();
+        sb.AppendLine("Hidden truths the world's record ranks as closest to being revealed. Build the adventure "
+            + "toward one or two of them if they fit the pitch; they are the GM's to reveal, not the players' to be told.");
+        sb.AppendLine();
+        foreach (var thread in threads.Take(MaxThreads))
+        {
+            var line = $"{thread.AnchorName}: {thread.Description}";
+            sb.AppendLine($"- {(line.Length > MaxThreadChars ? line[..MaxThreadChars] + "…" : line)}");
+        }
+
+        sb.AppendLine();
     }
 
     private static void AppendNeighbour(StringBuilder sb, string label, AdventureSection? neighbour, AdventureSection? overview)

@@ -43,7 +43,9 @@
 > it party-visible asks the GM to confirm that it may hold Hidden truth; an export is a
 > `GMOnly` source, so what it proposes follows the AI visibility rules below. Drafting asks
 > the retriever at the caller's role, which is always GM, so this document's Ask rule is
-> unchanged.
+> unchanged. Since v3.1 (feature 30) an Adventure's side conversation sits behind the same
+> check: its four routes are in the Prep 403 sweep, it has no `Visibility` column, and it is
+> never served to a public page, a shelf link or Ask.
 
 > **Amendment (2026-08-02): where GM gating lives.** Role checks are enforced in the
 > **application services**, which receive the acting role as a parameter (`ActingUserRole` on

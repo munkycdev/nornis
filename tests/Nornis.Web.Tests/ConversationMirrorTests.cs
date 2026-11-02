@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Nornis.Web.ApiClient;
+using Nornis.Web.Components.Pages;
 using Nornis.Web.Components.Shared;
 using NUnit.Framework;
 
@@ -8,7 +9,8 @@ namespace Nornis.Web.Tests;
 /// <summary>
 /// The side conversation's names and bound, which the Web mirrors because it can't reference
 /// Domain or Application: the message roles it tells apart, the Put in section modes it sends
-/// (the API refuses any other with 400), and the message length its box allows.
+/// (the API refuses any other with 400), the message length its box allows, and the
+/// instruction box's bound and the threads count the Overview shares with its draft.
 /// </summary>
 [TestFixture]
 public class ConversationMirrorTests
@@ -31,6 +33,23 @@ public class ConversationMirrorTests
 
         Assert.That(match.Success, Is.True, "no MaxConversationMessageChars default in PrepOptions.cs");
         Assert.That(AdventureConversationPanel.MaxMessageChars, Is.EqualTo(int.Parse(match.Groups["n"].Value.Replace("_", ""))));
+    }
+
+    [Test]
+    public void TheInstructionBox_AllowsWhatTheApiAllows() =>
+        Assert.That(AdventureDetail.MaxInstructionChars, Is.EqualTo(Default("src/Nornis.Application/Configuration/PrepOptions.cs", "MaxInstructionChars")));
+
+    [Test]
+    public void TheThreadsCard_ShowsWhatADraftSees() =>
+        Assert.That(ThreadsToUseCard.MaxThreads, Is.EqualTo(Default("src/Nornis.Application/Prep/AdventureDraftPrompt.cs", "MaxThreads")));
+
+    /// <summary>The number a source file gives a property's default or a constant.</summary>
+    private static int Default(string relativePath, string name)
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot(), relativePath));
+        var match = Regex.Match(source, $@"\b{name}\b(\s*\{{\s*get;\s*set;\s*\}})?\s*=\s*(?<n>[\d_]+);");
+        Assert.That(match.Success, Is.True, $"no {name} in {relativePath}");
+        return int.Parse(match.Groups["n"].Value.Replace("_", ""));
     }
 
     private static List<string> EnumMembers(string relativePath, string enumName)

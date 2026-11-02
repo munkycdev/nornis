@@ -231,7 +231,9 @@ Add basic controls:
 - Per-world monthly Prep threshold for adventure drafting (2026-11-02, feature 29): its own
   pool, `World.PrepMonthlyBudgetUsd` ($10 by default), metered as `AdventureDrafting` and
   never counted against the daily world budget, so planning can't starve extraction or Ask.
-  The global pause stops it like everything else.
+  The global pause stops it like everything else. Since v3.1 (feature 30) the Adventure's
+  side conversation spends from the same pool, metered as `AdventureConversation`, so the
+  Costs tab shows planning's two lines apart.
 - Logging and alerting for unusually high token usage.
 - Alerts for repeated extraction failures.
 

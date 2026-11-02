@@ -171,9 +171,13 @@ else if (_adventure is not null)
 
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-draft mt-3">
                     <MudText Typo="Typo.overline" Color="Color.Secondary">Draft with the Loremaster</MudText>
+                    @if (selected.Kind == OverviewKind)
+                    {
+                        <ThreadsToUseCard WorldId="Worlds.Current.Id" Disabled="_busy" OnUse="UseThread" />
+                    }
                     <MudTextField @bind-Value="_instruction" Variant="Variant.Outlined" Margin="Margin.Dense"
                                   Label="@(selected.IsFilled ? "How should it change? (optional)" : "What should this section do? (optional)")"
-                                  Lines="3" MaxLength="2000" Immediate="true" Disabled="_busy" />
+                                  Lines="3" MaxLength="@MaxInstructionChars" Immediate="true" Disabled="_busy" />
                     <div class="d-flex gap-2 mt-2 flex-wrap align-center">
                         @if (_drafting)
                         {
@@ -486,6 +490,33 @@ else if (_adventure is not null)
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
+    }
+
+    /// <summary>The longest instruction the API takes. Mirrors <c>PrepOptions.MaxInstructionChars</c>; pinned by a test.</summary>
+    public const int MaxInstructionChars = 2_000;
+
+    private const string OverviewKind = "Overview";
+
+    /// <summary>
+    /// Use in this adventure: the thread's line goes on the end of the instruction box, where the
+    /// GM can edit it before drafting. A line already there isn't added twice, and one that
+    /// would pass the box's bound isn't cut to fit.
+    /// </summary>
+    private void UseThread(string line)
+    {
+        if (_instruction.Contains(line, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var text = string.IsNullOrWhiteSpace(_instruction) ? line : $"{_instruction.TrimEnd()}\n{line}";
+        if (text.Length > MaxInstructionChars)
+        {
+            Snackbar.Add("The instruction box is full. Shorten it to add this thread.", Severity.Warning);
+            return;
+        }
+
+        _instruction = text;
     }
 
     private void ClearDraft()

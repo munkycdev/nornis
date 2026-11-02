@@ -1,0 +1,50 @@
+[
+ [
+  "threads-every-section",
+  "CAUGHT failed: 1 total: 1"
+ ],
+ [
+  "threads-never",
+  "CAUGHT failed: 1 total: 1"
+ ],
+ [
+  "threads-not-passed",
+  "CAUGHT failed: 1 total: 1"
+ ],
+ [
+  "threads-no-catch",
+  "CAUGHT failed: 1 total: 1"
+ ],
+ [
+  "threads-role",
+  "CAUGHT failed: 1 total: 1"
+ ],
+ [
+  "prompt-no-cap",
+  "CAUGHT failed: 1 total: 1"
+ ],
+ [
+  "svc-no-cap",
+  "MISSED failed: 0 total: 1"
+ ],
+ [
+  "prompt-no-cut",
+  "CAUGHT failed: 1 total: 1"
+ ],
+ [
+  "prompt-order",
+  "CAUGHT failed: 1 total: 1"
+ ],
+ [
+  "prompt-empty-block",
+  "CAUGHT failed: 2 total: 2"
+ ],
+ [
+  "card-every-kind",
+  "CAUGHT failed: 1 total: 1"
+ ],
+ [
+  "card-no-cap",
+  "CAUGHT failed: 1 total: 1"
+ ]
+]

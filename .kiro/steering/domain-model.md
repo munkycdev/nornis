@@ -40,6 +40,13 @@
 > Conversation + AdventureId?   // unique where not null
 > AiOperationType + AdventureConversation   // the Prep monthly pool
 > ```
+>
+> Re-checked against the build on 2026-11-02, when v3.1 shipped. It holds. Two details the
+> build settled: clearing a conversation deletes the `Conversation` row with its messages, and
+> the next message starts a new one; and the "never canon" rule is enforced by a source scan
+> (`PrepBoundaryTests`) that fails when any file outside Prep, deletion and export names the
+> conversation's repository or tables. A *thread to use* is not an entity: it is a convergence
+> candidate shown on the Overview, and nothing about it is stored.
 
 > **Amendment (2026-11-02): an Adventure is the GM's prep, and it is never canon.** Feature 29
 > (Prep, Nornis v3.0) adds the first mutable authored document in the model. Every other
