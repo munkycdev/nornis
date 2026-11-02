@@ -19,6 +19,8 @@ public class SourceTypeDisplayTests
         Assert.That(SourceTypeDisplay.Label("Map"), Is.EqualTo("Map"));
         Assert.That(SourceTypeDisplay.Label("HandwrittenNotes"), Is.EqualTo("Handwritten Note"));
         Assert.That(SourceTypeDisplay.Label("GMNote"), Is.EqualTo("GM Note"));
+        Assert.That(SourceTypeDisplay.Label("AdventureExport"), Is.EqualTo("Adventure Prep"));
+        Assert.That(SourceTypeDisplay.IsCaptureOption("AdventureExport", isGm: true), Is.False, "an export is filed from Prep, never captured");
     }
 
     [Test]

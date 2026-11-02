@@ -44,7 +44,12 @@ public class LibraryPrintTests
         var now = DateTimeOffset.UtcNow;
         return await _adventures.CreateAsync(new Adventure
         {
-            Id = Guid.NewGuid(), WorldId = worldId, Title = title, CreatedByUserId = GmId, CreatedAt = now, UpdatedAt = now,
+            Id = Guid.NewGuid(),
+            WorldId = worldId,
+            Title = title,
+            CreatedByUserId = GmId,
+            CreatedAt = now,
+            UpdatedAt = now,
         });
     }
 

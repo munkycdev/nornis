@@ -143,7 +143,8 @@ public record SourceDetailDto(
     string? LibraryDocumentTitle = null,
     int? LibraryPageFrom = null,
     int? LibraryPageTo = null,
-    string? Slug = null, string? CampaignSlug = null, string? LibraryDocumentSlug = null);
+    string? Slug = null, string? CampaignSlug = null, string? LibraryDocumentSlug = null,
+    Guid? AdventureId = null);
 
 // Mirrors Nornis.Api LinkedLocationResponse: one Location a session is linked to.
 public record LinkedLocationDto(Guid ArtifactId, string Name, string? Summary, string? Slug = null);
@@ -944,15 +945,21 @@ public record LibraryDocumentDto(
     Guid UploadedByUserId,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    string? Slug = null);
+    string? Slug = null,
+    Guid? AdventureId = null);
 
+/// <summary>
+/// <see cref="AdventureId"/> files a Prep print: the API then sets the dated title, Handout and
+/// GM only itself, whatever the other fields say.
+/// </summary>
 public record RequestLibraryUploadRequest(
     string Title,
     string FileName,
     string ContentType,
     long SizeBytes,
     string Kind,
-    string Visibility);
+    string Visibility,
+    Guid? AdventureId = null);
 
 public record LibraryUploadTicketDto(LibraryDocumentDto Document, string UploadUrl);
 
@@ -1127,6 +1134,15 @@ public record PrepBudgetDto(decimal SpentThisMonthUsd, decimal? MonthlyBudgetUsd
 public record AddAdventureSectionRequest(string Kind, string Title, Guid? AfterSectionId);
 
 public record ReorderAdventureSectionsRequest(IReadOnlyList<Guid> SectionIds);
+
+/// <summary>The booklet: <see cref="Html"/> is escaped, sanitized markup from the API, shown as is.</summary>
+public record AdventurePrintDto(Guid AdventureId, string Title, string? Slug, string Html, string LibraryTitle);
+
+/// <summary>Export to Nornis. A null chapter is the whole Adventure.</summary>
+public record ExportAdventureRequest(Guid? ChapterSectionId);
+
+/// <summary>The source an export filed.</summary>
+public record AdventureExportDto(Guid SourceId, string Title, string? Slug);
 
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);

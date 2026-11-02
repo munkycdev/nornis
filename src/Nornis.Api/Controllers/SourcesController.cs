@@ -661,7 +661,8 @@ public class SourcesController : ControllerBase
             LibraryPageTo: source.LibraryPageTo,
             Slug: source.Slug,
             CampaignSlug: source.Campaign?.Slug,
-            LibraryDocumentSlug: source.LibraryDocument?.Slug);
+            LibraryDocumentSlug: source.LibraryDocument?.Slug,
+            AdventureId: source.AdventureId);
     }
 
     internal static SourceListItemResponse ToSourceListItemResponse(SourceListItem source)

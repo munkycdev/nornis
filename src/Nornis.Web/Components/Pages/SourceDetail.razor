@@ -250,6 +250,22 @@
                         <a href="@_source.Uri" target="_blank" rel="noopener" class="nornis-link">@_source.Uri</a>
                     </div>
                 }
+                @if (_source.Type == "AdventureExport")
+                {
+                    <div class="nornis-kv">
+                        <span class="nornis-kv-key">Prep</span>
+                        <span class="nornis-kv-value">
+                            @if (_source.AdventureId is { } adventureId && Worlds.IsGm)
+                            {
+                                <a href="@Links.Adventure(null, adventureId)" class="nornis-link">The adventure it was exported from</a>
+                            }
+                            else
+                            {
+                                <span>An adventure since deleted from Prep</span>
+                            }
+                        </span>
+                    </div>
+                }
                 @if (_source.Type == "LibraryExcerpt")
                 {
                     <div class="nornis-kv">

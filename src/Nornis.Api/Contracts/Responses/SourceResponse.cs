@@ -22,4 +22,5 @@ public record SourceResponse(
     int? LibraryPageTo = null,
     string? Slug = null,
     string? CampaignSlug = null,
-    string? LibraryDocumentSlug = null);
+    string? LibraryDocumentSlug = null,
+    Guid? AdventureId = null);

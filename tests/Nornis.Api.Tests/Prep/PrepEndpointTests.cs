@@ -375,6 +375,7 @@ public class PrepEndpointTests
             Assert.That(export.Slug, Is.Not.Null.And.Not.Empty);
             Assert.That(source!.Type, Is.EqualTo("AdventureExport"));
             Assert.That(source.Visibility, Is.EqualTo("GMOnly"));
+            Assert.That(source.AdventureId, Is.EqualTo(adventure.Id));
             Assert.That(source.Body, Does.Contain("The key opens the vault."));
             Assert.That(_factory.ExtractionQueueClient.SentMessages.Count(m => m.SourceId == export.SourceId), Is.EqualTo(1));
         });

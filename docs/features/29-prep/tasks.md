@@ -5,7 +5,7 @@ editor holds the markup, and whether the SDK sends an output ceiling the deploym
 After that the Adventure is built without AI, then drafting, then Print and Export. There is
 one migration, and it is additive.
 
-**Status: specified 2026-11-02; Phase A done 2026-11-02; Phase B done 2026-11-02; Phase C done 2026-11-02.** Ships as Nornis v3.0. The v3.1 items are listed
+**Status: specified 2026-11-02; Phase A done 2026-11-02; Phase B done 2026-11-02; Phase C done 2026-11-02; Phase D done 2026-11-02.** Ships as Nornis v3.0. The v3.1 items are listed
 at the end so the v3.0 design leaves room for them.
 
 ## Phase A — Retire the risks
@@ -78,16 +78,25 @@ at the end so the v3.0 design leaves room for them.
 
 ## Phase D — Print and Export
 
-- [ ] D1. `AdventurePrintModel` (Markdig with the marker extension) and its tests.
-- [ ] D2. `/prep/{key}/print` and the print stylesheet. Check it against the synthetic fixture
+- [x] D1. `AdventurePrintModel` (Markdig with the marker extension) and its tests.
+- [x] D2. `/prep/{key}/print` and the print stylesheet. Check it against the synthetic fixture
       and the spa in Chromium print preview.
-- [ ] D3. File to Library: `adventureId` on the upload command, with a same-world check, a
+- [x] D3. File to Library: `adventureId` on the upload command, with a same-world check, a
       dated title, `Handout` and GMOnly, and `LastPrintedDocumentId` on confirm. The Library
       page's "Printed from Prep" line and the share confirmation.
-- [ ] D4. `AdventureExportComposer`, `AdventureExportService` (whole or one chapter), and tests.
-- [ ] D5. The `## Adventure Prep` section in `ExtractionPromptBuilder`, the retrieval skip, and
+- [x] D4. `AdventureExportComposer`, `AdventureExportService` (whole or one chapter), and tests.
+- [x] D5. The `## Adventure Prep` section in `ExtractionPromptBuilder`, the retrieval skip, and
       tests.
-- [ ] D6. The Export button and its result (a link to the new source, then to Review).
+- [x] D6. The Export button and its result (a link to the new source, then to Review).
+
+      **Phase D notes (2026-11-02):** the deviations from design.md are in its Phase D
+      amendment. The booklet was checked in headless Chromium against the synthetic fixture
+      (`two-chapters.md`), printed to Letter: the cover, two columns, Chapter 2 on a new page,
+      and each convention in its panel. The spa's check moves to E5's live walk, since its
+      chapters stay out of the repo. Every new test was checked by breaking the code it covers:
+      the retrieval skip, the prompt section, the export's GMOnly, both GM checks (the endpoint
+      sweep), the print's adventure id, the share confirmation, the save before printing and
+      the chapter choice.
 
 ## Phase E — Ship
 

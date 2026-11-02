@@ -1,9 +1,12 @@
 ﻿@inject WorldState Worlds
 @inject NornisApiClient Api
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 @* Which shelf a library document sits on. A GM can move it between the two; everyone
-   else only ever sees party-visible documents, so the badge is read-only for them. *@
+   else only ever sees party-visible documents, so the badge is read-only for them.
+   A Prep print (one with an AdventureId) asks first before it goes to the party: it was
+   drafted with the world's Hidden truth, and sharing it shares all of it. *@
 
 @if (Worlds.IsGm)
 {
@@ -37,6 +40,10 @@ else if (IsGmOnly)
 
     private bool _saving;
 
+    /// <summary>The design's words for sharing a Prep print, verbatim.</summary>
+    public const string SharePrintWarning =
+        "This booklet was drafted with your world's Hidden truth and may contain it. Players will be able to read all of it.";
+
     private bool IsGmOnly => Document.Visibility == "GMOnly";
 
     private string Label => IsGmOnly ? "GM only" : "Party visible";
@@ -48,6 +55,17 @@ else if (IsGmOnly)
         if (Worlds.Current is null || _saving || Document.Visibility == visibility)
         {
             return;
+        }
+
+        if (visibility == "PartyVisible" && Document.AdventureId is not null)
+        {
+            var confirmed = await DialogService.ShowMessageBoxAsync(
+                "Share this booklet with the party?", SharePrintWarning,
+                yesText: "Share it", cancelText: "Keep it GM only");
+            if (confirmed != true)
+            {
+                return;
+            }
         }
 
         _saving = true;

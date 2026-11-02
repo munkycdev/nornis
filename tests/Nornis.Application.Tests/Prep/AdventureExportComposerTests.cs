@@ -20,7 +20,12 @@ public class AdventureExportComposerTests
             Title = "Everybody Dies at the Slurping Spa",
             Sections = sections.Select((s, i) => new AdventureSection
             {
-                Id = Guid.NewGuid(), AdventureId = id, Title = s.Title, Kind = s.Kind, BodyMarkdown = s.Body, SortOrder = i + 1,
+                Id = Guid.NewGuid(),
+                AdventureId = id,
+                Title = s.Title,
+                Kind = s.Kind,
+                BodyMarkdown = s.Body,
+                SortOrder = i + 1,
             }).ToList(),
         };
     }
@@ -60,7 +65,7 @@ public class AdventureExportComposerTests
 
         var sections = AdventureExportComposer.Select(adventure, chapter1.Id)!;
 
-        Assert.That(sections.Select(s => s.Title), Is.EqualTo(new[] { "Chapter 1: Arrival", "Scene 1", "Scene 2" }));
+        Assert.That(sections.Select(s => s.Title), Is.EqualTo(["Chapter 1: Arrival", "Scene 1", "Scene 2"]));
         Assert.That(AdventureExportComposer.BuildFilingLine(adventure.Title, chapter1.Title, At),
             Is.EqualTo("Adventure \"Everybody Dies at the Slurping Spa\", chapter \"Chapter 1: Arrival\", exported 2026-11-14 by the GM as prep"));
     }
@@ -72,7 +77,7 @@ public class AdventureExportComposerTests
         var chapter2 = adventure.Sections.First(s => s.Title == "Chapter 2: The Baths");
 
         Assert.That(AdventureExportComposer.Select(adventure, chapter2.Id)!.Select(s => s.Title),
-            Is.EqualTo(new[] { "Chapter 2: The Baths", "Scene 3" }));
+            Is.EqualTo(["Chapter 2: The Baths", "Scene 3"]));
     }
 
     [Test]

@@ -37,8 +37,12 @@ public class AdventureExportServiceTests
         _campaignId = Guid.NewGuid();
         await campaigns.CreateAsync(new Campaign
         {
-            Id = _campaignId, WorldId = WorldId, Name = "Missing Caravan Arc", CreatedByUserId = GmId,
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+            Id = _campaignId,
+            WorldId = WorldId,
+            Name = "Missing Caravan Arc",
+            CreatedByUserId = GmId,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
         });
         var sourceService = new SourceService(_sources, new InMemoryWorldMemberRepository(), campaigns,
             _queue, new InMemoryReviewBatchRepository(), new InMemoryReviewProposalRepository(),

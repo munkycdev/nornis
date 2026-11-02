@@ -1,5 +1,33 @@
 # Design Document
 
+> **Amendment (2026-11-02, Phase D):** what building Print and Export changed. The text below
+> is left as written.
+>
+> - **The server sets a print's filing, not the Web.** When `RequestUploadAsync` carries an
+>   `AdventureId`, the service checks the GM and the same world (403 and 404), then sets the
+>   title to "{Adventure title}, printed {yyyy-MM-dd}" (cut to 200 characters), `Kind` to
+>   `Handout` and `Visibility` to GMOnly, whatever the request said. The Web shows the same
+>   title (the print route returns it as `LibraryTitle`) and offers only a PDF.
+> - **File to Library reuses the Library's upload dialog** in a print mode: no title, kind or
+>   visibility fields, a hint to choose *Save as PDF* in the print dialog, and `.pdf` only.
+> - **Unwritten sections are left out** of both the booklet and the export, so an untouched
+>   scene template never prints or reaches extraction. A Chapter always prints, as its own
+>   heading. An export with nothing written is refused with 400 `nothing_to_export`.
+> - **The export's filing line cuts each title to 100 characters**, and the source title is
+>   "{Adventure} (prep)" or "{Adventure}: {Chapter} (prep)", within the 200-character bound.
+>   The answer is `{sourceId, title, slug}`, so the Web links by slug.
+> - **A chapter export is the Chapter and the sections after it up to the next Chapter.** A
+>   `chapterSectionId` that is not a Chapter of this Adventure is a 404.
+> - **The source page names an export's Adventure.** `SourceResponse` gains `AdventureId`; the
+>   source page shows a "Prep" line linking back to it for the GM, or that it was deleted. The
+>   sources ledger labels the type "Adventure Prep".
+> - **"Printed from Prep" is shown to the GM only**, on the Library list and the document
+>   page, because a player can't open Prep. The share confirmation applies to any document
+>   with an `AdventureId`, from either page.
+> - **The booklet stays paper in dark mode.** It is the printed page, so its colours are the
+>   paper theme's own, not the palette's variables. On screen it sits as a page on the desk;
+>   in print the drawer, top bar, footer, tutorial and toolbar are hidden.
+
 > **Amendment (2026-11-02, Phase C):** what building drafting changed. The text below is left
 > as written.
 >
