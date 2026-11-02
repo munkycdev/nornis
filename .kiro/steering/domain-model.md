@@ -1,5 +1,24 @@
 # Domain Model
 
+> **Amendment (2026-11-02): `Conversation` is built, as an Adventure's side conversation.**
+> Feature 30 (Prep 3.1) builds the `Conversation` and `ConversationMessage` sketched below,
+> with one addition, a nullable `AdventureId`. Each Adventure has at most one. Three rules:
+>
+> - **GM-only by current role**, like the Adventure it belongs to. It has no `Visibility`
+>   column, for the same reason: it is written with Hidden truth in context.
+> - **Never canon.** Messages are never extracted, never read by Ask's retriever, and never
+>   shown on a public page or a shelf link. The only way an answer reaches the record is
+>   **Put in section** (a revision of the Adventure, undoable) and then Export, through review.
+> - **Deleted with its Adventure**, and with its world.
+>
+> A null `AdventureId` would mean a conversation that isn't Prep; v3.1 never creates one, and
+> Ask history stays unpersisted.
+>
+> ```csharp
+> Conversation + AdventureId?   // unique where not null
+> AiOperationType + AdventureConversation   // the Prep monthly pool
+> ```
+
 > **Amendment (2026-11-02): an Adventure is the GM's prep, and it is never canon.** Feature 29
 > (Prep, Nornis v3.0) adds the first mutable authored document in the model. Every other
 > Markdown-bodied entity is either immutable (`Source`) or generated (`CampaignRecap`,
