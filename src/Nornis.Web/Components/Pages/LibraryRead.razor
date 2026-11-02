@@ -1,0 +1,79 @@
+@page "/library/{Key}/read"
+@* Opening a book (feature 31, Requirement 4), and the renew address Bibliotaph's reader comes
+   back to when its hour is up, with ?page= the page it was on. Nornis checks again, then sends
+   the browser on to a fresh reading ticket, or says why it can't. *@
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>Opening a book — Nornis</PageTitle>
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-3">@_error</MudAlert>
+    <MudButton Variant="Variant.Outlined" Href="/library">Back to the Library</MudButton>
+}
+else
+{
+    <MudText Typo="Typo.body1">Opening the book…</MudText>
+}
+
+@code {
+    [Parameter] public string Key { get; set; } = string.Empty;
+
+    /// <summary>The page to open at, 0-based, as Bibliotaph's reader counts.</summary>
+    [SupplyParameterFromQuery(Name = "page")] public int? Page { get; set; }
+
+    private string? _error;
+    private bool _attempted;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
+        await TryOpenAsync();
+    }
+
+    private void OnWorldChanged() => InvokeAsync(TryOpenAsync);
+
+    /// <summary>
+    /// Once, and only once the saved world is restored: the layout restores it after the first
+    /// interactive render, so this mints a single ticket rather than one per render pass.
+    /// </summary>
+    private async Task TryOpenAsync()
+    {
+        if (_attempted || !Worlds.Ready)
+        {
+            return;
+        }
+
+        _attempted = true;
+        if (Worlds.Current is null)
+        {
+            _error = "Choose a world first, then open the book from its Library.";
+            StateHasChanged();
+            return;
+        }
+
+        var document = await Api.GetLibraryDocumentAsync(Worlds.Current.Id, Key);
+        if (!document.IsSuccess)
+        {
+            _error = "This book isn't in this world's Library, or isn't shared with you.";
+            StateHasChanged();
+            return;
+        }
+
+        var result = await Api.ReadLibraryDocumentAsync(Worlds.Current.Id, document.Value!.Id, Page);
+        if (result.IsSuccess)
+        {
+            Nav.NavigateTo(result.Value!.Url, forceLoad: true);
+            return;
+        }
+
+        _error = result.Error!.Message;
+        StateHasChanged();
+    }
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}

@@ -104,6 +104,13 @@ else
                                        OnClick="() => ReindexAsync(doc)" aria-label="Retry indexing" />
                     </MudTooltip>
                 }
+                @if (doc.InBibliotaph)
+                {
+                    <MudTooltip Text="Read in Bibliotaph">
+                        <MudIconButton Icon="@Icons.Material.Outlined.AutoStories" Size="Size.Small"
+                                       OnClick="() => OpenAsync(doc)" aria-label="Open" />
+                    </MudTooltip>
+                }
                 @if (!doc.IsFromBibliotaph)
                 {
                     <MudTooltip Text="Download">
@@ -207,6 +214,20 @@ else
         else
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private async Task OpenAsync(LibraryDocumentDto doc)
+    {
+        if (Worlds.Current is null) return;
+        var result = await Api.ReadLibraryDocumentAsync(Worlds.Current.Id, doc.Id, null);
+        if (result.IsSuccess)
+        {
+            await JS.InvokeVoidAsync("nornisUpload.open", result.Value!.Url);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Warning);
         }
     }
 

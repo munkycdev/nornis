@@ -5,7 +5,7 @@ prod stays as it is until Dave sets the secrets. Phases C to G need Bibliotaph's
 step to test end to end; until then they are tested against the stand-in. Phase H waits for
 Bibliotaph's half to be live.
 
-**Status: specified 2026-11-02; Phases A to E done 2026-11-02.** Ships as Nornis v3.2.
+**Status: specified 2026-11-02; Phases A to F done 2026-11-02.** Ships as Nornis v3.2.
 
 Dave's part, outside the repo: the Auth0 setup in the Bibliotaph spec plus the Nornis →
 Bibliotaph application (design.md, decision 3), the Container Apps settings (design.md,
@@ -63,9 +63,9 @@ Bibliotaph application (design.md, decision 3), the Container Apps settings (des
 
 ## Phase F — Players read shared books
 
-- [ ] F1. `BibliotaphReadingService`, `LibraryReadingRecord` writes and the 90-day purge.
-- [ ] F2. The read routes for members and shelf links; the renew pages in the Web.
-- [ ] F3. "Opened by" on the document page.
+- [x] F1. `BibliotaphReadingService`, `LibraryReadingRecord` writes and the 90-day purge.
+- [x] F2. The read routes for members and shelf links; the renew pages in the Web.
+- [x] F3. "Opened by" on the document page.
 
 ## Phase G — Excerpts
 

@@ -35,6 +35,10 @@ public class ReachabilityTests
         "/extract",
         // Bibliotaph sends the browser here mid-Connect (feature 31); nothing in Nornis links to it.
         "/profile/bibliotaph/{State}",
+        // Reading a Bibliotaph book (feature 31): Open calls the API directly, and Bibliotaph's
+        // reader comes back to these as its renew addresses.
+        "/library/{Key}/read",
+        "/shelf/{Code}/read/{DocumentId:guid}",
     };
 
     private static string ComponentsRoot()

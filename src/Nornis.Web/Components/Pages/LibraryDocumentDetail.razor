@@ -106,6 +106,13 @@
             }
 
             <div class="d-flex gap-2">
+                @if (_document.InBibliotaph)
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Outlined.AutoStories" OnClick="OpenAsync">
+                        Open
+                    </MudButton>
+                }
                 @if (!_document.IsFromBibliotaph)
                 {
                     <MudButton Variant="Variant.Filled" Color="Color.Primary"
@@ -135,7 +142,28 @@
             </div>
         </MudPaper>
 
-        @if (Worlds.IsGm && _document.Status == "Indexed")
+        @if (Worlds.IsGm && _document.InBibliotaph)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+                <MudText Typo="Typo.h6" Class="nornis-serif mb-2">Opened by</MudText>
+                @if (_opens.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Nobody has opened this book from Nornis yet.</MudText>
+                }
+                else
+                {
+                    @foreach (var open in _opens)
+                    {
+                        <div class="nornis-list-sub">
+                            @open.ViewerName@(open.FromShelfLink ? " (shelf link)" : "") · @open.OpenedAt.ToLocalTime().ToString("g")
+                        </div>
+                    }
+                }
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 d-block">Kept for 90 days.</MudText>
+            </MudPaper>
+        }
+
+        @if (Worlds.IsGm && _document.Status == "Indexed" && !_document.IsFromBibliotaph)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">File pages as a source</div>
@@ -185,6 +213,7 @@
     private string? _error;
     private string? _loadedKey;
     private LibraryDocumentDto? _document;
+    private IReadOnlyList<LibraryOpenDto> _opens = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -243,6 +272,7 @@
                     Nav.NavigateTo(Links.LibraryDocument(_document.Slug, _document.Id), replace: true);
                 }
                 Crumbs.Set(Links.LibraryDocument(_document.Slug, _document.Id), new Crumb("Library", "/library"), new Crumb(_document.Title));
+                await LoadOpensAsync();
             }
         }
         else if (result.Error!.Code == "not_found")
@@ -257,6 +287,34 @@
             _error = result.Error!.Message;
             _document = null;
         }
+        StateHasChanged();
+    }
+
+    private async Task OpenAsync()
+    {
+        if (Worlds.Current is null || _document is null) return;
+        var result = await Api.ReadLibraryDocumentAsync(Worlds.Current.Id, _document.Id, null);
+        if (result.IsSuccess)
+        {
+            await JS.InvokeVoidAsync("nornisUpload.open", result.Value!.Url);
+            await LoadOpensAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Warning);
+        }
+    }
+
+    private async Task LoadOpensAsync()
+    {
+        _opens = [];
+        if (Worlds.Current is null || _document is not { InBibliotaph: true } || !Worlds.IsGm)
+        {
+            return;
+        }
+
+        var result = await Api.GetLibraryOpensAsync(Worlds.Current.Id, _document.Id);
+        _opens = result.IsSuccess ? result.Value! : [];
         StateHasChanged();
     }
 

@@ -93,6 +93,22 @@
 > - A reconcile that loses the unique entry index to another process logs the conflict and
 >   keeps the rows; the next reconcile catches up.
 
+> **Amendment (2026-11-02, Phase F):** what building reading changed. The text below is left
+> as written.
+>
+> - **`page` on a renew address is a 0-based index**, as Bibliotaph's reader counts. It is
+>   passed through as the ticket's `startPage` unchanged, and the API's `read` body takes
+>   `startPage` 0-based too.
+> - **An upload Bibliotaph catalogued opens in Bibliotaph's reader** like a Bibliotaph book,
+>   because it has a document id there. An upload it hasn't catalogued answers the same route
+>   with a download (`kind: download`), so a caller never has to choose.
+> - **The reading log is purged by the API's outbox pass** (1,000 per pass), since the outbox
+>   moved to the API in Phase B.
+> - **The member read page waits for the world selection** before minting, so one visit
+>   mints one ticket. It resolves the key in the current world. Shelf reads go through
+>   `IShelfLinkService.GetDocumentAsync`, which applies the shelf's own visibility check.
+> - "Opened by" lists the last 50 opens, marks shelf-link opens, and is GM only.
+
 ## Overview
 
 Nornis keeps the Library page, its rows and its GMOnly / PartyVisible chip. What changes is

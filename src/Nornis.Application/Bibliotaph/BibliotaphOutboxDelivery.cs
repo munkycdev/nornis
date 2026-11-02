@@ -8,7 +8,7 @@ namespace Nornis.Application.Bibliotaph;
 
 public interface IBibliotaphOutboxDelivery
 {
-    /// <summary>Delivers what is due, settles what is too old, and purges what has settled.</summary>
+    /// <summary>Delivers what is due, settles what is too old, and purges what has settled and old reading records.</summary>
     Task RunOnceAsync(CancellationToken ct);
 }
 
@@ -37,7 +37,11 @@ public sealed class BibliotaphOutboxDelivery : IBibliotaphOutboxDelivery
 
     private static readonly TimeSpan MaxBackoff = TimeSpan.FromHours(1);
 
+    /// <summary>Reading records purged per pass, so a backlog drains without one long delete.</summary>
+    public const int ReadingRecordsPurgedPerPass = 1000;
+
     private readonly IBibliotaphOutboxRepository _outbox;
+    private readonly ILibraryReadingRecordRepository _readingRecords;
     private readonly IBibliotaphClient _client;
     private readonly BibliotaphOptions _options;
     private readonly TimeProvider _time;
@@ -45,12 +49,14 @@ public sealed class BibliotaphOutboxDelivery : IBibliotaphOutboxDelivery
 
     public BibliotaphOutboxDelivery(
         IBibliotaphOutboxRepository outbox,
+        ILibraryReadingRecordRepository readingRecords,
         IBibliotaphClient client,
         IOptions<BibliotaphOptions> options,
         TimeProvider time,
         ILogger<BibliotaphOutboxDelivery> logger)
     {
         _outbox = outbox;
+        _readingRecords = readingRecords;
         _client = client;
         _options = options.Value;
         _time = time;
@@ -83,6 +89,10 @@ public sealed class BibliotaphOutboxDelivery : IBibliotaphOutboxDelivery
         {
             _logger.LogInformation("Bibliotaph outbox purged {Count} settled events", purged);
         }
+
+        // Who opened which book is kept 90 days (feature 31, Requirement 4); the same tick ages it out.
+        await _readingRecords.PurgeOlderThanAsync(
+            now.AddDays(-_options.ReadingRecordRetentionDays), ReadingRecordsPurgedPerPass, ct);
     }
 
     private async Task DeliverAsync(Guid userId, BibliotaphWorldEvent[] batch, DateTimeOffset now, CancellationToken ct)

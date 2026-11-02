@@ -1,0 +1,46 @@
+@page "/shelf/{Code}/read/{DocumentId:guid}"
+@layout PublicLayout
+@* Opening a shared book from a shelf link (feature 31, Requirement 4), and the renew address
+   Bibliotaph's reader comes back to when its hour is up. Anonymous like the shelf itself: the
+   code is the key, and the API checks it again on every open. *@
+@inject NornisApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Opening a book — Nornis</PageTitle>
+
+<article class="nornis-public-page">
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-3">@_error</MudAlert>
+        <MudButton Variant="Variant.Outlined" Href="@($"/shelf/{Uri.EscapeDataString(Code)}")">Back to the shelf</MudButton>
+    }
+    else
+    {
+        <MudText Typo="Typo.body1">Opening the book…</MudText>
+    }
+</article>
+
+@code {
+    [Parameter] public string Code { get; set; } = string.Empty;
+
+    [Parameter] public Guid DocumentId { get; set; }
+
+    /// <summary>The page to open at, 0-based, as Bibliotaph's reader counts.</summary>
+    [SupplyParameterFromQuery(Name = "page")] public int? Page { get; set; }
+
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.ReadShelfDocumentAsync(Code, DocumentId, Page);
+        if (result.IsSuccess)
+        {
+            Nav.NavigateTo(result.Value!.Url, forceLoad: true);
+            return;
+        }
+
+        _error = result.Error!.Code == "not_found"
+            ? "This book isn't on this shelf any more, or the link has been turned off."
+            : result.Error.Message;
+    }
+}

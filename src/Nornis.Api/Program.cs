@@ -285,6 +285,8 @@ builder.Services.AddOptions<PrepOptions>()
 builder.Services.AddBibliotaph(builder.Configuration);
 builder.Services.AddScoped<IBibliotaphOutboxRepository, BibliotaphOutboxRepository>();
 builder.Services.AddScoped<IBibliotaphProviderRepository, BibliotaphProviderRepository>();
+builder.Services.AddScoped<ILibraryReadingRecordRepository, LibraryReadingRecordRepository>();
+builder.Services.AddScoped<Nornis.Application.Bibliotaph.IBibliotaphReadingService, Nornis.Application.Bibliotaph.BibliotaphReadingService>();
 builder.Services.AddScoped<Nornis.Application.Bibliotaph.IBibliotaphConnectService, Nornis.Application.Bibliotaph.BibliotaphConnectService>();
 builder.Services.AddScoped<Nornis.Application.Bibliotaph.IBibliotaphOutboxDelivery, Nornis.Application.Bibliotaph.BibliotaphOutboxDelivery>();
 builder.Services.AddScoped<Nornis.Application.Bibliotaph.IBibliotaphProviderService, Nornis.Application.Bibliotaph.BibliotaphProviderService>();

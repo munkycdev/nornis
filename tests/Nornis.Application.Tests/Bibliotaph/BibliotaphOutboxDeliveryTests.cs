@@ -17,6 +17,7 @@ public class BibliotaphOutboxDeliveryTests
     private static readonly DateTimeOffset Now = new(2026, 11, 2, 12, 0, 0, TimeSpan.Zero);
 
     private IBibliotaphOutboxRepository _outbox = null!;
+    private ILibraryReadingRecordRepository _readingRecords = null!;
     private IBibliotaphClient _client = null!;
     private BibliotaphOptions _options = null!;
     private BibliotaphOutboxDelivery _sut = null!;
@@ -25,10 +26,11 @@ public class BibliotaphOutboxDeliveryTests
     public void SetUp()
     {
         _outbox = Substitute.For<IBibliotaphOutboxRepository>();
+        _readingRecords = Substitute.For<ILibraryReadingRecordRepository>();
         _client = Substitute.For<IBibliotaphClient>();
         _options = new BibliotaphOptions();
         _sut = new BibliotaphOutboxDelivery(
-            _outbox, _client, Options.Create(_options), new FixedClock(), NullLogger<BibliotaphOutboxDelivery>.Instance);
+            _outbox, _readingRecords, _client, Options.Create(_options), new FixedClock(), NullLogger<BibliotaphOutboxDelivery>.Instance);
     }
 
     [TestCase(1, 1)]
@@ -112,13 +114,15 @@ public class BibliotaphOutboxDeliveryTests
     }
 
     [Test]
-    public async Task Each_pass_purges_what_settled_over_a_week_ago()
+    public async Task Each_pass_purges_what_settled_over_a_week_ago_and_opens_over_90_days_old()
     {
         Due([]);
 
         await _sut.RunOnceAsync(CancellationToken.None);
 
         await _outbox.Received(1).PurgeSettledAsync(Now.AddDays(-7), Arg.Any<CancellationToken>());
+        await _readingRecords.Received(1).PurgeOlderThanAsync(
+            Now.AddDays(-90), BibliotaphOutboxDelivery.ReadingRecordsPurgedPerPass, Arg.Any<CancellationToken>());
     }
 
     private void Due(IReadOnlyList<BibliotaphWorldEvent> events) =>
