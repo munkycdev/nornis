@@ -22,6 +22,12 @@ public record LibraryDocumentResponse(
     bool InBibliotaph = false,
     bool HasCover = false);
 
+/// <summary>Where opening a book sends the browser: Bibliotaph's reader, or a download.</summary>
+public record LibraryReadResponse(string Url, string Kind);
+
+/// <summary>One open of a Bibliotaph book, for the GM.</summary>
+public record LibraryOpenResponse(string ViewerName, DateTimeOffset OpenedAt, bool FromShelfLink);
+
 /// <summary>The Library's Bibliotaph strip (feature 31). <c>State</c> is a <c>BibliotaphShelfStates</c> value.</summary>
 public record LibraryBibliotaphResponse(string State, string? OwnerName);
 

@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
+using Nornis.Application.Bibliotaph;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
 
@@ -54,6 +56,22 @@ public class ShelfController : ControllerBase
             : result.Error!.ToActionResult();
     }
 
+    /// <summary>
+    /// Opens a shared book from the shelf: a reading ticket for a Bibliotaph book (recorded under
+    /// the link's player), a download otherwise. The shelf's own visibility check decides.
+    /// </summary>
+    [HttpPost("documents/{documentId:guid}/read")]
+    public async Task<IActionResult> Read(
+        string code, Guid documentId, [FromBody] LibraryReadRequest? request,
+        [FromServices] IBibliotaphReadingService reading, CancellationToken ct)
+    {
+        var result = await reading.OpenForShelfAsync(code, documentId, request?.StartPage, ct);
+        return result.IsSuccess
+            ? Ok(new LibraryReadResponse(result.Value!.Url, result.Value.Kind))
+            : result.Error!.ToActionResult();
+    }
+
     private static ShelfDocumentResponse ToDocumentResponse(LibraryDocument d) => new(
-        d.Id, d.Title, d.Kind.ToString(), d.FileName, d.ContentType, d.SizeBytes, d.PageCount);
+        d.Id, d.Title, d.Kind.ToString(), d.FileName, d.ContentType, d.SizeBytes, d.PageCount,
+        d.BibliotaphDocumentId is not null);
 }

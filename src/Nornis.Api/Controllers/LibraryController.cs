@@ -111,6 +111,36 @@ public class LibraryController : ControllerBase
         return Accepted();
     }
 
+    /// <summary>
+    /// Opens a book the member may see: a reading ticket for a Bibliotaph book (recorded), a
+    /// download for an upload Bibliotaph hasn't catalogued.
+    /// </summary>
+    [HttpPost("{documentId:guid}/read")]
+    public async Task<IActionResult> Read(
+        Guid worldId, Guid documentId, [FromBody] LibraryReadRequest? request,
+        [FromServices] IBibliotaphReadingService reading, CancellationToken ct)
+    {
+        var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
+        var result = await reading.OpenForMemberAsync(
+            worldId, documentId, user, member.Role, user.Username, request?.StartPage, ct);
+        return result.IsSuccess
+            ? Ok(new LibraryReadResponse(result.Value!.Url, result.Value.Kind))
+            : result.Error!.ToActionResult();
+    }
+
+    /// <summary>GM only: who opened the book lately.</summary>
+    [HttpGet("{documentId:guid}/opens")]
+    public async Task<IActionResult> Opens(
+        Guid worldId, Guid documentId, [FromServices] IBibliotaphReadingService reading, CancellationToken ct)
+    {
+        var member = HttpContext.GetWorldMember();
+        var result = await reading.ListOpensAsync(worldId, documentId, member.Role, ct);
+        return result.IsSuccess
+            ? Ok(result.Value!.Select(o => new LibraryOpenResponse(o.ViewerName, o.OpenedAt, o.FromShelfLink)).ToList())
+            : result.Error!.ToActionResult();
+    }
+
     /// <summary>A Bibliotaph book's cover, for anyone who may see the book.</summary>
     [HttpGet("{documentId:guid}/cover")]
     public async Task<IActionResult> Cover(Guid worldId, Guid documentId, [FromServices] IBibliotaphCovers covers, CancellationToken ct)

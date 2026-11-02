@@ -13,7 +13,8 @@ public record ShelfDocumentResponse(
     string FileName,
     string ContentType,
     long SizeBytes,
-    int? PageCount);
+    int? PageCount,
+    bool InBibliotaph = false);
 
 /// <summary>A standing link as the GM sees it. The code is the secret; this is a GM-only response.</summary>
 public record ShelfLinkResponse(

@@ -361,7 +361,16 @@ public record ShelfDocumentDto(
     string FileName,
     string ContentType,
     long SizeBytes,
-    int? PageCount);
+    int? PageCount,
+    bool InBibliotaph = false);
+
+/// <summary>Where opening a book goes: Bibliotaph's reader (<c>reader</c>) or a download (<c>download</c>).</summary>
+public record LibraryReadDto(string Url, string Kind);
+
+public record LibraryReadRequest(int? StartPage);
+
+/// <summary>One open of a Bibliotaph book, for the GM.</summary>
+public record LibraryOpenDto(string ViewerName, DateTimeOffset OpenedAt, bool FromShelfLink);
 
 public record CharacterDto(
     Guid Id,

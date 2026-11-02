@@ -254,6 +254,11 @@ public class NornisApiClient
     public Task<ApiResult<LibraryDownloadDto>> GetShelfDownloadAsync(string code, Guid documentId, CancellationToken ct = default) =>
         GetAsync<LibraryDownloadDto>($"/api/shelf/{Uri.EscapeDataString(code)}/documents/{documentId}/download", ct);
 
+    /// <summary>Opens a shared book from a shelf link. <paramref name="startPage"/> is 0-based.</summary>
+    public Task<ApiResult<LibraryReadDto>> ReadShelfDocumentAsync(string code, Guid documentId, int? startPage, CancellationToken ct = default) =>
+        PostAsync<LibraryReadRequest, LibraryReadDto>(
+            $"/api/shelf/{Uri.EscapeDataString(code)}/documents/{documentId}/read", new LibraryReadRequest(startPage), ct);
+
     // ----------------------------------------------------------------- Characters --
 
     public Task<ApiResult<IReadOnlyList<CharacterDto>>> GetCharactersAsync(Guid worldId, bool mine = false, CancellationToken ct = default) =>
@@ -662,6 +667,14 @@ public class NornisApiClient
     /// <summary>The world's Bibliotaph, reconciled first (feature 31). Call before <see cref="GetLibraryAsync"/>.</summary>
     public Task<ApiResult<LibraryBibliotaphDto>> GetLibraryBibliotaphAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<LibraryBibliotaphDto>($"/api/worlds/{worldId}/library/bibliotaph", ct);
+
+    /// <summary>Opens a book: a Bibliotaph reading ticket or a download. <paramref name="startPage"/> is 0-based.</summary>
+    public Task<ApiResult<LibraryReadDto>> ReadLibraryDocumentAsync(Guid worldId, Guid documentId, int? startPage, CancellationToken ct = default) =>
+        PostAsync<LibraryReadRequest, LibraryReadDto>(
+            $"/api/worlds/{worldId}/library/{documentId}/read", new LibraryReadRequest(startPage), ct);
+
+    public Task<ApiResult<IReadOnlyList<LibraryOpenDto>>> GetLibraryOpensAsync(Guid worldId, Guid documentId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<LibraryOpenDto>>($"/api/worlds/{worldId}/library/{documentId}/opens", ct);
 
     /// <summary>Asks the API to warm the world's Bibliotaph; best effort, never an error.</summary>
     public async Task WarmBibliotaphAsync(Guid worldId, CancellationToken ct = default)

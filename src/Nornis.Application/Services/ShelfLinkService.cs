@@ -142,6 +142,22 @@ public class ShelfLinkService : IShelfLinkService
         return await _library.GetDownloadAsync(documentId, resolved.Value!.Player.WorldId, LinkHolderRole, ct);
     }
 
+    public async Task<AppResult<ShelfDocument>> GetDocumentAsync(string code, Guid documentId, CancellationToken ct)
+    {
+        var resolved = await ResolveAsync(code, ct);
+        if (!resolved.IsSuccess)
+        {
+            return AppResult<ShelfDocument>.Fail(resolved.Error!);
+        }
+
+        var link = resolved.Value!;
+        var document = await _library.GetByIdAsync(documentId, link.Player.WorldId, LinkHolderRole, ct);
+        return document.IsSuccess
+            ? AppResult<ShelfDocument>.Success(new ShelfDocument(
+                link.Player.WorldId, link.Player.Id, PlayerDisplayName.For(link.Player, member: null), document.Value!))
+            : AppResult<ShelfDocument>.Fail(document.Error!);
+    }
+
     /// <summary>
     /// The one path a code takes to a link. Unknown and revoked answer identically so the
     /// surface is not an oracle for which codes exist, and every successful open is stamped.

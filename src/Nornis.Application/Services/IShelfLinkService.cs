@@ -27,4 +27,10 @@ public interface IShelfLinkService
 
     /// <summary>A read URL for one document on the shelf a link opens, under the same rule.</summary>
     Task<AppResult<LibraryDownload>> DownloadAsync(string code, Guid documentId, CancellationToken ct);
+
+    /// <summary>
+    /// A document the link may see, with the link's player and their display name: what opening a
+    /// shared Bibliotaph book from a shelf needs (feature 31). Not found and not shared answer the same.
+    /// </summary>
+    Task<AppResult<ShelfDocument>> GetDocumentAsync(string code, Guid documentId, CancellationToken ct);
 }
