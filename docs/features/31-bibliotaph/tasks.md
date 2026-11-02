@@ -5,7 +5,7 @@ prod stays as it is until Dave sets the secrets. Phases C to G need Bibliotaph's
 step to test end to end; until then they are tested against the stand-in. Phase H waits for
 Bibliotaph's half to be live.
 
-**Status: specified 2026-11-02; Phase A done 2026-11-02.** Ships as Nornis v3.2.
+**Status: specified 2026-11-02; Phases A and B done 2026-11-02.** Ships as Nornis v3.2.
 
 Dave's part, outside the repo: the Auth0 setup in the Bibliotaph spec plus the Nornis →
 Bibliotaph application (design.md, decision 3), the Container Apps settings (design.md,
@@ -23,17 +23,17 @@ Bibliotaph application (design.md, decision 3), the Container Apps settings (des
 
 ## Phase B — Foundation
 
-- [ ] B1. Domain: the three entities, `LibraryDocumentOrigin`, the new `LibraryDocument`
+- [x] B1. Domain: the three entities, `LibraryDocumentOrigin`, the new `LibraryDocument`
       fields, `BibliotaphExposure`. EF configurations per design.md (no FK on the outbox's
       `WorldId`; the reading record in the world graph and the document delete). Enum tests.
-- [ ] B2. Migration `AddBibliotaph`. **Applied to prod by Dave before the PR merges.**
-- [ ] B3. `BibliotaphOptions` with every bound, zero refused at start-up; `IsConfigured`.
-- [ ] B4. The token ring (`Bibliotaph:KeyBlobUri`, application name `nornis-bibliotaph`) in the
+- [x] B2. Migration `AddBibliotaph`. **Applied to prod by Dave before the PR merges.**
+- [x] B3. `BibliotaphOptions` with every bound, zero refused at start-up; `IsConfigured`.
+- [x] B4. The token ring (`Bibliotaph:KeyBlobUri`, application name `nornis-bibliotaph`) in the
       API and Worker; `provision-azure.ps1` gains the container, grants and settings.
-- [ ] B5. `IBibliotaphClient`, the contract records, `BibliotaphClient` with per-call budgets
+- [x] B5. `IBibliotaphClient`, the contract records, `BibliotaphClient` with per-call budgets
       and the failure mapping; `IBibliotaphTokenSource` with the cache and per-connection
       gate; `FakeBibliotaphHandler` in the test projects.
-- [ ] B6. The `azp` guard and the `Bibliotaph` policy; the sweep test both ways;
+- [x] B6. The `azp` guard and the `Bibliotaph` policy; the sweep test both ways;
       `UserProvisioningMiddleware` never provisions for a Bibliotaph token.
 
 ## Phase C — Connecting
@@ -46,7 +46,8 @@ Bibliotaph application (design.md, decision 3), the Container Apps settings (des
 
 - [ ] D1. `BibliotaphOutboxCapture` in `SaveChangesAsync`, plus the explicit calls in the two
       `ExecuteDelete` paths. Capture tests.
-- [ ] D2. `BibliotaphOutboxWorker`: delivery, backoff, failure, purge, pause. Tests.
+- [ ] D2. `BibliotaphOutboxBackgroundService` in the API (design.md, Phase B amendment):
+      delivery, backoff, failure, purge, pause. Tests.
 - [ ] D3. `api/bibliotaph/v1/me|worlds|worlds/{id}/files|files/{id}/link|resync`. Tests.
 
 ## Phase E — Library rows and the Loremaster

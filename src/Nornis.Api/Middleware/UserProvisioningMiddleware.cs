@@ -1,6 +1,9 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
+using Nornis.Api.Authentication;
+using Nornis.Application.Configuration;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Repositories;
 
@@ -39,7 +42,8 @@ public class UserProvisioningMiddleware
         _claimsNamespace = (configuration["Auth0:ClaimsNamespace"] ?? "https://chronicis.app").TrimEnd('/');
     }
 
-    public async Task InvokeAsync(HttpContext context, IUserRepository userRepository, IMemoryCache cache)
+    public async Task InvokeAsync(
+        HttpContext context, IUserRepository userRepository, IMemoryCache cache, IOptions<BibliotaphOptions> bibliotaph)
     {
         if (!context.User.Identity?.IsAuthenticated ?? true)
         {
@@ -53,6 +57,23 @@ public class UserProvisioningMiddleware
         if (string.IsNullOrEmpty(sub))
         {
             context.Response.StatusCode = 401;
+            return;
+        }
+
+        // A token Bibliotaph holds (feature 31) speaks for a Nornis user who already exists: the
+        // GM who connected. It never creates one, and needs no email, because nothing is read
+        // from it but the subject.
+        if (BibliotaphTokens.IsFromBibliotaph(context.User, bibliotaph.Value.ProviderClientId))
+        {
+            var existing = await userRepository.GetByAuth0SubjectIdAsync(sub, context.RequestAborted);
+            if (existing is null)
+            {
+                context.Response.StatusCode = 401;
+                return;
+            }
+
+            context.Items["NornisUser"] = existing;
+            await _next(context);
             return;
         }
 

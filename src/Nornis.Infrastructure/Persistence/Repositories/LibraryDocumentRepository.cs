@@ -72,6 +72,9 @@ public class LibraryDocumentRepository : ILibraryDocumentRepository
         await _context.SetWhereAsync<Adventure, Guid?>(
             a => a.LastPrintedDocumentId == id, a => a.LastPrintedDocumentId, null, cancellationToken);
 
+        // Who opened it goes with it; the FK cascades too, but nothing here relies on that.
+        await _context.DeleteWhereAsync<LibraryReadingRecord>(r => r.LibraryDocumentId == id, cancellationToken);
+
         await _context.DeleteWhereAsync<LibraryDocument>(d => d.Id == id, cancellationToken);
     }
 

@@ -52,6 +52,33 @@ public class LibraryDocument : ISlugged
     /// </summary>
     public Guid? AdventureId { get; set; }
 
+    /// <summary>Upload, or a book in the creator's Bibliotaph collection (feature 31).</summary>
+    public LibraryDocumentOrigin Origin { get; set; }
+
+    /// <summary>
+    /// The book's entry in the Bibliotaph collection. Always set on a Bibliotaph row; on an
+    /// upload, set once Bibliotaph has catalogued it, and null otherwise.
+    /// </summary>
+    public string? BibliotaphEntryId { get; set; }
+
+    /// <summary>The document Bibliotaph's reader opens for this entry. Set with <see cref="BibliotaphEntryId"/>.</summary>
+    public string? BibliotaphDocumentId { get; set; }
+
+    /// <summary>
+    /// The title Bibliotaph last sent. While <see cref="Title"/> equals it, a reconcile updates
+    /// both; once the GM renames the row, only this one moves. Null on an uncatalogued upload.
+    /// </summary>
+    public string? RemoteTitle { get; set; }
+
+    /// <summary>Bibliotaph's cover name for the book. Null means no cover; the page shows the kind's icon.</summary>
+    public string? CoverName { get; set; }
+
+    /// <summary>
+    /// When the book left the Bibliotaph collection. Null means live. A removed row is hidden,
+    /// unreadable and unsearchable, but kept, so excerpts filed from it keep their link.
+    /// </summary>
+    public DateTimeOffset? RemovedAt { get; set; }
+
     public Guid UploadedByUserId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }

@@ -53,6 +53,16 @@ param(
     [string]$StorageRg = "rg-nornis",
     [string]$BlobContainer = "nornis-library",
     [string]$KeyContainer = "nornis-web-keys",
+    # Bibliotaph (feature 31). The key ring that protects the stored Bibliotaph grants lives in
+    # its own container, granted to the API and worker only. The client id is the "Nornis ->
+    # Bibliotaph" Auth0 application; its secret comes from the Nornis.Api user-secrets store
+    # (Bibliotaph:ClientSecret). Leave BibliotaphClientId empty to provision without the
+    # integration: every Bibliotaph path is then off.
+    [string]$BibliotaphKeyContainer = "bibliotaph-keys",
+    [string]$BibliotaphBaseUrl = "https://bibliotaph.online",
+    [string]$BibliotaphClientId = "",
+    [string]$BibliotaphProviderClientId = "",
+    [string]$WebOrigin = "https://nornis.app",
     [string]$AppInsights = "appi-nornis",
     [string]$ImageTag = "bootstrap",
     # Auth0 tenant wiring. None of these are secrets — the client secret is the only one, and
@@ -130,6 +140,24 @@ $blobScope = $storageAccountScope + "/blobServices/default/containers/$BlobConta
 az storage container-rm create --storage-account $StorageAccount -g $StorageRg -n $KeyContainer --public-access off -o none
 $keyScope = $storageAccountScope + "/blobServices/default/containers/$KeyContainer"
 
+# The Bibliotaph grants' key ring. Whoever reads it can use every connected GM's Bibliotaph,
+# so the Web gets no role here: only the API and the worker, which call Bibliotaph.
+az storage container-rm create --storage-account $StorageAccount -g $StorageRg -n $BibliotaphKeyContainer --public-access off -o none
+$bibliotaphKeyScope = $storageAccountScope + "/blobServices/default/containers/$BibliotaphKeyContainer"
+$bibliotaphEnv = @()
+$bibliotaphSecrets = @()
+if ($BibliotaphClientId) {
+    $bibliotaphSecret = Get-UserSecret "src/Nornis.Api" "Bibliotaph:ClientSecret"
+    $bibliotaphSecrets = @("bibliotaph-client-secret=$bibliotaphSecret")
+    $bibliotaphEnv = @(
+        "Bibliotaph__BaseUrl=$BibliotaphBaseUrl"
+        "Bibliotaph__Auth0Domain=$Auth0Domain"
+        "Bibliotaph__ClientId=$BibliotaphClientId"
+        "Bibliotaph__ClientSecret=secretref:bibliotaph-client-secret"
+        "Bibliotaph__KeyBlobUri=$blobServiceUri$BibliotaphKeyContainer/keys.xml"
+    )
+}
+
 function Grant-Role([string]$principalId, [string]$role, [string]$scope) {
     az role assignment create --assignee-object-id $principalId --assignee-principal-type ServicePrincipal `
         --role $role --scope $scope -o none
@@ -180,6 +208,15 @@ $apiEnv = @(
     "Auth0__Audience=$Auth0Audience"
     "Auth0__ClaimsNamespace=$Auth0ClaimsNamespace"
 )
+$apiSecrets += $bibliotaphSecrets
+$apiEnv += $bibliotaphEnv
+if ($BibliotaphProviderClientId) {
+    # Bibliotaph's own application: its tokens reach only api/bibliotaph/v1.
+    $apiEnv += "Bibliotaph__ProviderClientId=$BibliotaphProviderClientId"
+}
+if ($BibliotaphClientId) {
+    $apiEnv += "Bibliotaph__WebOrigin=$WebOrigin"
+}
 if ($appInsightsConn) {
     $apiSecrets += "appi-conn=$appInsightsConn"
     $apiEnv     += "APPLICATIONINSIGHTS_CONNECTION_STRING=secretref:appi-conn"
@@ -200,6 +237,7 @@ Grant-Role $apiPrincipal "Storage Blob Data Contributor" $blobScope
 # carries only that one action; the data it unlocks is still bounded by the container role.
 Grant-Role $apiPrincipal "Storage Blob Delegator" $storageAccountScope
 Grant-Role $apiPrincipal "Azure Service Bus Data Sender" $sbScope
+Grant-Role $apiPrincipal "Storage Blob Data Contributor" $bibliotaphKeyScope
 
 $apiFqdn = az containerapp show -g $ResourceGroup -n ca-nornis-api --query properties.configuration.ingress.fqdn -o tsv
 
@@ -254,6 +292,8 @@ $workerEnv = @(
     "Extraction__AiTimeoutSeconds=180"
     "AiBudget__DailyWorldBudgetUsd=2"
 )
+$workerSecrets += $bibliotaphSecrets
+$workerEnv += $bibliotaphEnv
 if ($appInsightsConn) {
     $workerSecrets += "appi-conn=$appInsightsConn"
     $workerEnv     += "APPLICATIONINSIGHTS_CONNECTION_STRING=secretref:appi-conn"
@@ -277,6 +317,7 @@ Grant-Role $workerPrincipal "Storage Blob Data Contributor" $blobScope
 Grant-Role $workerPrincipal "Storage Blob Delegator" $storageAccountScope
 Grant-Role $workerPrincipal "Azure Service Bus Data Sender" $sbScope
 Grant-Role $workerPrincipal "Azure Service Bus Data Receiver" $sbScope
+Grant-Role $workerPrincipal "Storage Blob Data Contributor" $bibliotaphKeyScope
 
 # `containerapp create` accepts a single scale rule, so the library queue's rule is added in a
 # follow-up update. Without it the worker — at min-replicas 0 — never wakes for an uploaded

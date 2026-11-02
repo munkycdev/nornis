@@ -52,6 +52,32 @@ public class LibraryDocumentConfiguration : IEntityTypeConfiguration<LibraryDocu
         builder.Property(d => d.ErrorMessage)
             .HasMaxLength(2000);
 
+        builder.Property(d => d.Origin)
+            .IsRequired()
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
+        // Bibliotaph's ids are opaque strings; see the Bibliotaph integration spec.
+        builder.Property(d => d.BibliotaphEntryId)
+            .HasMaxLength(64);
+
+        builder.Property(d => d.BibliotaphDocumentId)
+            .HasMaxLength(64);
+
+        builder.Property(d => d.RemoteTitle)
+            .HasMaxLength(200);
+
+        builder.Property(d => d.CoverName)
+            .HasMaxLength(200);
+
+        builder.Property(d => d.RemovedAt)
+            .HasColumnType("datetimeoffset");
+
+        // An entry appears once per world: the reconcile matches on it.
+        builder.HasIndex(d => new { d.WorldId, d.BibliotaphEntryId })
+            .IsUnique()
+            .HasFilter("[BibliotaphEntryId] IS NOT NULL");
+
         builder.Property(d => d.CreatedAt)
             .HasColumnType("datetimeoffset");
 

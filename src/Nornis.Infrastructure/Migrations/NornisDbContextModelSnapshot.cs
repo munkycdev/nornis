@@ -407,6 +407,91 @@ namespace Nornis.Infrastructure.Migrations
                     b.ToTable("ArtifactRelationships", (string)null);
                 });
 
+            modelBuilder.Entity("Nornis.Domain.Entities.BibliotaphConnection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("ConnectedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("LastUsedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ProtectedRefreshToken")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTimeOffset>("StatusChangedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("BibliotaphConnections", (string)null);
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.BibliotaphWorldEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("DeliveredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("FailedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorldId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("WorldName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "OccurredAt");
+
+                    b.HasIndex("DeliveredAt", "FailedAt", "NextAttemptAt");
+
+                    b.ToTable("BibliotaphWorldEvents", (string)null);
+                });
+
             modelBuilder.Entity("Nornis.Domain.Entities.Campaign", b =>
                 {
                     b.Property<Guid>("Id")
@@ -955,6 +1040,14 @@ namespace Nornis.Infrastructure.Migrations
                     b.Property<Guid?>("AdventureId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("BibliotaphDocumentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("BibliotaphEntryId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<string>("BlobPath")
                         .IsRequired()
                         .HasMaxLength(1024)
@@ -967,6 +1060,10 @@ namespace Nornis.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CoverName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -984,8 +1081,20 @@ namespace Nornis.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
                     b.Property<int?>("PageCount")
                         .HasColumnType("int");
+
+                    b.Property<string>("RemoteTitle")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset?>("RemovedAt")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<long>("SizeBytes")
                         .HasColumnType("bigint");
@@ -1022,6 +1131,10 @@ namespace Nornis.Infrastructure.Migrations
 
                     b.HasIndex("UploadedByUserId");
 
+                    b.HasIndex("WorldId", "BibliotaphEntryId")
+                        .IsUnique()
+                        .HasFilter("[BibliotaphEntryId] IS NOT NULL");
+
                     b.HasIndex("WorldId", "Slug")
                         .IsUnique()
                         .HasFilter("[Slug] IS NOT NULL");
@@ -1029,6 +1142,41 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasIndex("WorldId", "Status");
 
                     b.ToTable("LibraryDocuments", (string)null);
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.LibraryReadingRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("LibraryDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("OpenedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("PlayerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ViewerName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("WorldId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OpenedAt");
+
+                    b.HasIndex("LibraryDocumentId", "OpenedAt");
+
+                    b.ToTable("LibraryReadingRecords", (string)null);
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.MapPlacemark", b =>
@@ -1944,6 +2092,28 @@ namespace Nornis.Infrastructure.Migrations
                     b.Navigation("World");
                 });
 
+            modelBuilder.Entity("Nornis.Domain.Entities.BibliotaphConnection", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.BibliotaphWorldEvent", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Nornis.Domain.Entities.Campaign", b =>
                 {
                     b.HasOne("Nornis.Domain.Entities.User", "CreatedByUser")
@@ -2173,6 +2343,15 @@ namespace Nornis.Infrastructure.Migrations
                     b.Navigation("UploadedByUser");
 
                     b.Navigation("World");
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.LibraryReadingRecord", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.LibraryDocument", null)
+                        .WithMany()
+                        .HasForeignKey("LibraryDocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.MapPlacemark", b =>
