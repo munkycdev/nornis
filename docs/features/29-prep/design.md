@@ -1,5 +1,25 @@
 # Design Document
 
+> **Amendment (2026-11-02, Phase A):** three corrections found while starting the build. The
+> text below is left as written.
+>
+> - **The Web can't reference Application.** `Nornis.Web.csproj` deliberately has no project
+>   reference, so the Web can't call `AdventurePrintModel` or read `PrepMarkup`. The booklet is
+>   rendered by the API instead: `GET api/worlds/{worldId}/prep/{id}/print` (GM) returns the
+>   HTML `AdventurePrintModel` builds, and `/prep/{key}/print` wraps it in the print
+>   stylesheet. There is still one renderer, and v3.1's worker calls the same code. The editor
+>   toolbar uses a Web mirror of `PrepMarkup` (`Nornis.Web.Services.PrepMarkup`), which
+>   `PrepMarkupMirrorTests` pins to the Application file by reading its source.
+> - **Markdig moves into Application.** The importer and the print model both parse Markdown
+>   and run in the API (later the worker), so `Nornis.Application.csproj` references Markdig at
+>   the Web's version. It is a pure parser with no I/O.
+> - **A1's result.** TipTap 3.11.0 keeps all of it: the `[!PROP]` and `[!ASK]` lines (as text
+>   followed by `<br>`), the `language-statblock` class and pipe tables. The losses were in
+>   `HtmlToMarkdownConverter`, which wrote every fence bare (dropping `statblock`), ran a
+>   blockquote's paragraphs together, and left each `<br>` line of a quote outside the `> `.
+>   All three are fixed there, so the convention stands and the bold-label fallback isn't
+>   needed. The paragraph merge affected every multi-paragraph quote in session notes too.
+
 ## Overview
 
 The feature adds three tables, one source type, one AI seam, one budget pool, a print view and
@@ -63,7 +83,7 @@ Queued" changes.
 - Revisions: at most 20 per section. The insert trims the oldest in the same transaction.
 - Drafting output: `MaxOutputTokens` 2,500 on the drafting client, set only after one real
   call confirms the OpenAI SDK sends `max_completion_tokens`. That is the open gap from the
-  July outage; task A6 makes the call first.
+  July outage; task A2 makes the call first.
 - Drafting wait: `PrepOptions.DraftTimeoutSeconds` (90), an application timeout like every
   other AI path's.
 - Concurrency: one draft in flight per section, held by an in-memory per-section gate

@@ -5,18 +5,34 @@ editor holds the markup, and whether the SDK sends an output ceiling the deploym
 After that the Adventure is built without AI, then drafting, then Print and Export. There is
 one migration, and it is additive.
 
-**Status: specified 2026-11-02, not started.** Ships as Nornis v3.0. The v3.1 items are listed
+**Status: specified 2026-11-02; Phase A started 2026-11-02.** Ships as Nornis v3.0. The v3.1 items are listed
 at the end so the v3.0 design leaves room for them.
 
 ## Phase A — Retire the risks
 
-- [ ] A1. `PrepMarkup` constants and `PrepMarkupRoundTripTests`. Prove that `[!PROP]`, `[!ASK]`,
+- [x] A1. `PrepMarkup` constants and `PrepMarkupRoundTripTests`. Prove that `[!PROP]`, `[!ASK]`,
       a `statblock` fence and a pipe table survive TipTap → `HtmlToMarkdownConverter`. If the
       alert line can't be held, switch `PrepMarkup` to the bold-label fallback here and amend
       design.md's markup section with the date.
-- [ ] A2. One real gpt-5.4 call on `nornis-ask` with an output ceiling, confirming
+      **Done 2026-11-02.** Checked against the real bundle: `tiptap.bundle.min.js` loaded in
+      headless Chromium, each case's Markdig HTML through `setContent` and `getHTML()`. TipTap
+      holds everything. `HtmlToMarkdownConverter` lost the fence's info string, merged a
+      quote's paragraphs and dropped `> ` from `<br>` lines; all fixed, and the captured HTML
+      is the input of `PrepMarkupRoundTripTests`. The convention stands, no fallback.
+- [x] A2. One real gpt-5.4 call on `nornis-ask` with an output ceiling, confirming
       `max_completion_tokens` goes on the wire and is accepted. Record the result in this
-      file. Until it passes, A6 ships without a ceiling, and the gap stays open in this file.
+      file. Until it passes, C4 ships without a ceiling, and the gap stays open in this file.
+      **Wire half done 2026-11-02:** `OutputCeilingWireTests` reads the request body through
+      `AzureOpenAiChatClient` (OpenAI 2.14.0, Microsoft.Extensions.AI.OpenAI 10.10.1), streamed
+      and not: a ceiling goes out as `max_completion_tokens`, never `max_tokens`. **Live half:**
+      `LiveOutputCeilingTests` (Explicit, needs the API's secrets), **passed 2026-11-02** on
+      Dave's machine at bb733e1, against `nornis-ask` (gpt-5.4-2026-03-05):
+      - ceiling 2500: finish Stop, 35 output tokens (0 reasoning), 151 chars;
+      - ceiling 64 on a 400-word ask: finish Length at exactly 64 output tokens (0 reasoning).
+
+      The deployment accepts `max_completion_tokens` and enforces it, so the gap is closed for
+      the drafting client: C4 carries `MaxOutputTokens` 2,500. Reasoning tokens count against
+      that ceiling on this model family and were 0 here; C4 records them if they ever aren't.
 
 ## Phase B — The Adventure (no AI)
 

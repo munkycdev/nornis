@@ -31,8 +31,12 @@ public static partial class HtmlToMarkdownConverter
     [GeneratedRegex(@"<a[^>]*href=""([^""]*)""[^>]*>(.*?)</a>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
     private static partial Regex AnchorTag();
 
-    [GeneratedRegex(@"<pre[^>]*><code[^>]*>([\s\S]*?)</code></pre>", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"<pre[^>]*><code([^>]*)>([\s\S]*?)</code></pre>", RegexOptions.IgnoreCase)]
     private static partial Regex PreCodeBlock();
+
+    // TipTap and Markdig both carry a fence's info string as the code element's class.
+    [GeneratedRegex(@"class=""[^""]*\blanguage-([^""\s]+)", RegexOptions.IgnoreCase)]
+    private static partial Regex CodeLanguageClass();
 
     [GeneratedRegex(@"<code[^>]*>(.*?)</code>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
     private static partial Regex InlineCode();
@@ -203,7 +207,17 @@ public static partial class HtmlToMarkdownConverter
 
     internal static string ConvertCodeBlocks(string html)
     {
-        var result = PreCodeBlock().Replace(html, "```\n$1\n```\n\n");
+        var result = PreCodeBlock().Replace(html, m =>
+        {
+            // The info string is content, not decoration: Prep's stat blocks are the fences
+            // whose info string is "statblock", so dropping it loses the block's meaning.
+            var language = CodeLanguageClass().Match(m.Groups[1].Value);
+            var info = language.Success ? language.Groups[1].Value : "";
+            // Both editors end the code with the newline before the closing fence; written
+            // as-is it would add a blank last line on every save.
+            var code = m.Groups[2].Value.TrimEnd('\n');
+            return $"```{info}\n{code}\n```\n\n";
+        });
         return InlineCode().Replace(result, "`$1`");
     }
 
@@ -213,12 +227,23 @@ public static partial class HtmlToMarkdownConverter
     {
         return BlockquoteTag().Replace(html, m =>
         {
+            // One paragraph per block, and every line of every paragraph keeps its "> ".
+            // TipTap's HTML has no newlines between tags, so joining the paragraphs' text ran
+            // them together, and a <br> converted later left its line outside the quote.
             var content = m.Groups[1].Value;
-            content = ParagraphTag().Replace(content, "$1");
-            var lines = content.Split('\n')
-                .Select(l => "> " + l.Trim())
-                .Where(l => l != "> ");
-            return string.Join("\n", lines) + "\n\n";
+            var paragraphs = ParagraphTag().Matches(content).Select(p => p.Groups[1].Value).ToList();
+            if (paragraphs.Count == 0)
+                paragraphs.Add(content);
+
+            var blocks = paragraphs
+                .Select(p => BreakTag().Split(p)
+                    .SelectMany(part => part.Split('\n'))
+                    .Select(l => l.Trim())
+                    .Where(l => l.Length > 0)
+                    .Select(l => "> " + l))
+                .Where(lines => lines.Any())
+                .Select(lines => string.Join("\n", lines));
+            return string.Join("\n>\n", blocks) + "\n\n";
         });
     }
 
