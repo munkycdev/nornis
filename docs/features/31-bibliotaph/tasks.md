@@ -5,7 +5,7 @@ prod stays as it is until Dave sets the secrets. Phases C to G need Bibliotaph's
 step to test end to end; until then they are tested against the stand-in. Phase H waits for
 Bibliotaph's half to be live.
 
-**Status: specified 2026-11-02; Phases A to D done 2026-11-02.** Ships as Nornis v3.2.
+**Status: specified 2026-11-02; Phases A to E done 2026-11-02.** Ships as Nornis v3.2.
 
 Dave's part, outside the repo: the Auth0 setup in the Bibliotaph spec plus the Nornis →
 Bibliotaph application (design.md, decision 3), the Container Apps settings (design.md,
@@ -53,13 +53,13 @@ Bibliotaph application (design.md, decision 3), the Container Apps settings (des
 
 ## Phase E — Library rows and the Loremaster
 
-- [ ] E1. `BibliotaphLibrarySync` and the list response's `bibliotaph` state.
-- [ ] E2. Covers: the API route and the Web endpoint.
-- [ ] E3. Library page: Bibliotaph rows, the owner strip, Open.
-- [ ] E4. `ReferencePassages` return type, `KnowledgePassage.PageLabel` and nullable
+- [x] E1. `BibliotaphLibrarySync` and the Library's `bibliotaph` state (its own route; Phase E amendment).
+- [x] E2. Covers: the API route and the Web endpoint.
+- [x] E3. Library page: Bibliotaph rows, the owner strip, Open.
+- [x] E4. `ReferencePassages` return type, `KnowledgePassage.PageLabel` and nullable
       `ChunkId`, the caveat; `BibliotaphReferencePassageRetriever` registered in the API and
       Worker. Tests, including the player sabotage.
-- [ ] E5. Warm-up channel and background service.
+- [x] E5. Warm-up channel and background service.
 
 ## Phase F — Players read shared books
 

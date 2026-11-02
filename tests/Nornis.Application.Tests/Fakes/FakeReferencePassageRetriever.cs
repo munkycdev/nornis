@@ -8,25 +8,28 @@ public class FakeReferencePassageRetriever : IReferencePassageRetriever
 {
     public List<KnowledgePassage> Passages { get; } = [];
 
+    /// <summary>Answer as if the reference books couldn't be reached.</summary>
+    public bool Unavailable { get; set; }
+
     public string? LastQuestion { get; private set; }
 
     public IReadOnlyList<VisibilityScope>? LastAllowedScopes { get; private set; }
 
     public Guid? LastAttributedUserId { get; private set; }
 
-    public Task<IReadOnlyList<KnowledgePassage>> RetrieveAsync(
+    public Task<ReferencePassages> RetrieveAsync(
         string question, Guid worldId, Guid userId, WorldRole role, CancellationToken ct)
     {
         LastQuestion = question;
-        return Task.FromResult<IReadOnlyList<KnowledgePassage>>(Passages.ToList());
+        return Task.FromResult(new ReferencePassages(Passages.ToList(), Unavailable));
     }
 
-    public Task<IReadOnlyList<KnowledgePassage>> RetrieveForScopesAsync(
+    public Task<ReferencePassages> RetrieveForScopesAsync(
         string query, Guid worldId, IReadOnlyList<VisibilityScope> allowedScopes, Guid? attributedUserId, CancellationToken ct)
     {
         LastQuestion = query;
         LastAllowedScopes = allowedScopes;
         LastAttributedUserId = attributedUserId;
-        return Task.FromResult<IReadOnlyList<KnowledgePassage>>(Passages.ToList());
+        return Task.FromResult(new ReferencePassages(Passages.ToList(), Unavailable));
     }
 }

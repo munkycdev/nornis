@@ -4,20 +4,37 @@ namespace Nornis.Application.Knowledge;
 /// text, kept distinct from world canon in the prompt and citations.</summary>
 public class KnowledgePassage
 {
-    public required Guid ChunkId { get; init; }
+    /// <summary>The indexed chunk, for an upload Nornis indexed; null for a page from Bibliotaph (feature 31).</summary>
+    public required Guid? ChunkId { get; init; }
     public required Guid DocumentId { get; init; }
     public required string DocumentTitle { get; init; }
+    /// <summary>1-based page number in the file.</summary>
     public required int Page { get; init; }
+
+    /// <summary>The printed page number, when Bibliotaph knows it. What a citation shows.</summary>
+    public string? PageLabel { get; init; }
+
+    /// <summary>The page as a citation names it: the printed label, else the page number.</summary>
+    public string PageShown => string.IsNullOrWhiteSpace(PageLabel) ? Page.ToString(System.Globalization.CultureInfo.InvariantCulture) : PageLabel;
     public required string Text { get; init; }
     public required string ReferenceId { get; init; }
 
     public string? DocumentSlug { get; init; }
 }
 
-/// <summary>Vector retrieval over indexed library documents; empty when the world has none.</summary>
+/// <summary>
+/// What a reference retrieval found. <see cref="Unavailable"/> means the reference books couldn't
+/// be reached (Bibliotaph timed out or refused), so the answer uses world memory only and says so.
+/// </summary>
+public sealed record ReferencePassages(IReadOnlyList<KnowledgePassage> Passages, bool Unavailable = false)
+{
+    public static readonly ReferencePassages None = new([]);
+}
+
+/// <summary>Retrieval over the world's reference books; empty when the world has none.</summary>
 public interface IReferencePassageRetriever
 {
-    Task<IReadOnlyList<KnowledgePassage>> RetrieveAsync(
+    Task<ReferencePassages> RetrieveAsync(
         string question,
         Guid worldId,
         Guid userId,
@@ -29,7 +46,7 @@ public interface IReferencePassageRetriever
     /// role — used by extraction, which grounds against a source's <see cref="Domain.Enums.VisibilityScope"/>
     /// rather than a user. <paramref name="attributedUserId"/> attributes the embedding cost.
     /// </summary>
-    Task<IReadOnlyList<KnowledgePassage>> RetrieveForScopesAsync(
+    Task<ReferencePassages> RetrieveForScopesAsync(
         string query,
         Guid worldId,
         IReadOnlyList<Domain.Enums.VisibilityScope> allowedScopes,

@@ -279,7 +279,7 @@ public static class ExtractionPromptBuilder
             parts.Add("Background from the world's reference shelf. Use it to get names, spellings, and entity types right, and to understand terms the source uses. Do NOT create a proposal whose only support is this reference material — every proposal must be grounded in the Source Content above.");
             foreach (var passage in request.ReferencePassages)
             {
-                parts.Add($"- From \"{passage.DocumentTitle}\", p. {passage.Page}:");
+                parts.Add($"- From \"{passage.DocumentTitle}\", p. {passage.PageShown}:");
                 parts.Add($"  {passage.Text.ReplaceLineEndings("\n  ")}");
             }
         }

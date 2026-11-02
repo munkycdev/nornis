@@ -38,8 +38,21 @@ else if (_error is not null)
 {
     <MudAlert Severity="Severity.Error">@_error</MudAlert>
 }
-else if (_documents.Count == 0)
+else
 {
+    @if (_bibliotaph is { } shelf && shelf.State != LibraryBibliotaphDto.None)
+    {
+        <MudAlert Severity="@StripSeverity(shelf.State)" Dense="true" Variant="Variant.Text" Class="mb-3 nornis-library-bibliotaph">
+            @StripText(shelf)
+            @if (shelf.State == LibraryBibliotaphDto.NeedsReconnect && Worlds.IsGm)
+            {
+                <text> </text><a href="/profile" class="nornis-link">Reconnect on your Profile.</a>
+            }
+        </MudAlert>
+    }
+
+    @if (_documents.Count == 0)
+    {
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
         <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Large" Class="nornis-comingsoon-icon" />
         <MudText Typo="Typo.h5" Class="nornis-serif">The shelves are empty</MudText>
@@ -55,11 +68,20 @@ else
         @foreach (var doc in _documents)
         {
             <div class="nornis-list-row">
-                <div class="nornis-list-thumb"><MudIcon Icon="@LibraryDisplay.KindIcon(doc.Kind)" Size="Size.Small" /></div>
+                <div class="nornis-list-thumb">
+                    @if (doc.HasCover)
+                    {
+                        <img src="@($"/library-covers/{doc.WorldId}/{doc.Id}")" alt="" class="nornis-library-cover" loading="lazy" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@LibraryDisplay.KindIcon(doc.Kind)" Size="Size.Small" />
+                    }
+                </div>
                 <div class="nornis-list-body">
                     <a href="@Links.LibraryDocument(doc.Slug, doc.Id)" class="nornis-list-title nornis-link">@doc.Title</a>
                     <div class="nornis-list-sub">
-                        @doc.Kind · @DisplayText.FormatSize(doc.SizeBytes)@(doc.PageCount is { } p ? $" · {p} pages" : "")
+                        @(doc.IsFromBibliotaph ? "From Bibliotaph" : $"{doc.Kind} · {DisplayText.FormatSize(doc.SizeBytes)}")@(doc.PageCount is { } p ? $" · {p} pages" : "")
                     </div>
                     @if (Worlds.IsGm && doc.AdventureId is { } adventureId)
                     {
@@ -69,9 +91,12 @@ else
                     }
                 </div>
                 <LibraryVisibilityChip Document="doc" OnChanged="LoadAsync" />
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@LibraryDisplay.StatusColor(doc.Status)">
-                    @LibraryDisplay.StatusLabel(doc.Status, doc.ChunkCount)
-                </MudChip>
+                @if (!doc.IsFromBibliotaph)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@LibraryDisplay.StatusColor(doc.Status)">
+                        @LibraryDisplay.StatusLabel(doc.Status, doc.ChunkCount)
+                    </MudChip>
+                }
                 @if (doc.Status == "IndexFailed")
                 {
                     <MudTooltip Text="@($"Retry indexing. {doc.ErrorMessage}")">
@@ -79,16 +104,29 @@ else
                                        OnClick="() => ReindexAsync(doc)" aria-label="Retry indexing" />
                     </MudTooltip>
                 }
-                <MudTooltip Text="Download">
-                    <MudIconButton Icon="@Icons.Material.Outlined.Download" Size="Size.Small"
-                                   OnClick="() => DownloadAsync(doc)" aria-label="Download" />
-                </MudTooltip>
+                @if (!doc.IsFromBibliotaph)
+                {
+                    <MudTooltip Text="Download">
+                        <MudIconButton Icon="@Icons.Material.Outlined.Download" Size="Size.Small"
+                                       OnClick="() => DownloadAsync(doc)" aria-label="Download" />
+                    </MudTooltip>
+                }
                 @if (Worlds.IsGm)
                 {
                     <MudTooltip Text="Rename">
                         <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small"
                                        OnClick="() => RenameAsync(doc)" aria-label="Rename" />
                     </MudTooltip>
+                }
+                @if (Worlds.IsGm && doc.IsFromBibliotaph)
+                {
+                    <MudTooltip Text="Take it out of the world's collection in Bibliotaph to remove it here">
+                        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" Disabled="true"
+                                       aria-label="Delete (in Bibliotaph)" />
+                    </MudTooltip>
+                }
+                else if (Worlds.IsGm)
+                {
                     <MudTooltip Text="@(doc.Status == "Indexing" ? "Available once indexing finishes" : "Delete")">
                         <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small"
                                        Disabled="@(doc.Status == "Indexing")"
@@ -100,10 +138,13 @@ else
     </MudPaper>
 }
 
+}
+
 @code {
     private bool _loading;
     private string? _error;
     private IReadOnlyList<LibraryDocumentDto> _documents = [];
+    private LibraryBibliotaphDto? _bibliotaph;
 
     protected override async Task OnInitializedAsync()
     {
@@ -127,6 +168,9 @@ else
         _error = null;
         StateHasChanged();
 
+        // Bibliotaph first: it brings the rows up to date, so the list below includes new books.
+        var shelf = await Api.GetLibraryBibliotaphAsync(Worlds.Current.Id);
+        _bibliotaph = shelf.IsSuccess ? shelf.Value : null;
         var result = await Api.GetLibraryAsync(Worlds.Current.Id);
 
         _loading = false;
@@ -222,6 +266,28 @@ else
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
     }
+
+    private static Severity StripSeverity(string state) => state switch
+    {
+        LibraryBibliotaphDto.Ok => Severity.Normal,
+        LibraryBibliotaphDto.NeedsReconnect or LibraryBibliotaphDto.Unreachable => Severity.Warning,
+        _ => Severity.Info,
+    };
+
+    private static string StripText(LibraryBibliotaphDto shelf)
+    {
+        var whose = string.IsNullOrWhiteSpace(shelf.OwnerName) ? "the GM's" : $"{shelf.OwnerName}'s";
+        return shelf.State switch
+        {
+            LibraryBibliotaphDto.Ok => $"Books from {whose} Bibliotaph appear here alongside uploads.",
+            LibraryBibliotaphDto.NeedsReconnect => $"{Capitalize(whose)} Bibliotaph needs reconnecting, so its books may be out of date.",
+            LibraryBibliotaphDto.Opening => $"{Capitalize(whose)} Bibliotaph is opening. These are its books as they were last seen.",
+            LibraryBibliotaphDto.NotSetUp => "Bibliotaph is still setting up this world's collection.",
+            _ => "Bibliotaph couldn't be reached. These are its books as they were last seen.",
+        };
+    }
+
+    private static string Capitalize(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

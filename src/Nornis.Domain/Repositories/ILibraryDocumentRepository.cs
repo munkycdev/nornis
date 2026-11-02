@@ -25,6 +25,10 @@ public interface ILibraryDocumentRepository
 
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>One save of a Bibliotaph reconcile (feature 31): new Bibliotaph rows and changed rows.</summary>
+    Task SaveBibliotaphReconcileAsync(
+        IReadOnlyList<LibraryDocument> added, IReadOnlyList<LibraryDocument> changed, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Rows still awaiting a blob that never arrived, oldest first. A PendingUpload row is the
     /// half of the SAS handshake the server owns; if the browser never PUTs the bytes — closed

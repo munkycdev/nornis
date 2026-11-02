@@ -148,6 +148,7 @@ public class WorldState
             ?? Worlds.FirstOrDefault();
         Ready = true;
         Changed?.Invoke();
+        WarmBibliotaph();
 
         await EnsureContinuityLoadedAsync();
     }
@@ -189,6 +190,15 @@ public class WorldState
     /// full load. Selecting and remembering are one act.
     /// </para>
     /// </summary>
+    /// <summary>Opening a world warms its Bibliotaph (feature 31), so the first question doesn't wait for it.</summary>
+    private void WarmBibliotaph()
+    {
+        if (Current is { } world)
+        {
+            _ = _api.WarmBibliotaphAsync(world.Id);
+        }
+    }
+
     public async Task SelectAsync(Guid worldId)
     {
         var match = Worlds.FirstOrDefault(c => c.Id == worldId);
@@ -206,6 +216,7 @@ public class WorldState
             ContinuityError = null;
             Changed?.Invoke();
             _ = LoadContinuityAsync();
+            WarmBibliotaph();
         }
 
         // Written even when the selection did not change: a re-select is how a caller repairs a

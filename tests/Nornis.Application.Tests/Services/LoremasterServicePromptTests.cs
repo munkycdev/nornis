@@ -615,6 +615,28 @@ public class LoremasterServicePromptTests
         Assert.That(caveats, Does.Contain("Includes GM-only knowledge not visible to players"));
     }
 
+    [Test]
+    public void AssembleCaveats_ReferenceBooksUnavailable_SaysTheAnswerUsesWorldMemoryOnly()
+    {
+        var context = new KnowledgeContext
+        {
+            Artifacts = [],
+            Facts = [],
+            Relationships = [],
+            SourceReferences = [],
+            ReferenceBooksUnavailable = true,
+        };
+
+        Assert.That(LoremasterService.AssembleCaveats(context), Does.Contain(LoremasterService.ReferenceBooksUnavailableCaveat));
+        Assert.That(LoremasterService.AssembleCaveats(new KnowledgeContext
+        {
+            Artifacts = [],
+            Facts = [],
+            Relationships = [],
+            SourceReferences = [],
+        }), Does.Not.Contain(LoremasterService.ReferenceBooksUnavailableCaveat));
+    }
+
     #endregion
 
     [Test]

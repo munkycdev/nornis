@@ -76,8 +76,11 @@ public class LibraryExcerptService : ILibraryExcerptService
         var passages = await _passageRetriever.RetrieveForScopesAsync(
             query, command.WorldId, LibraryService.GetAllowedScopes(command.ActingUserRole), command.ActingUserId, ct);
 
-        IReadOnlyList<LibraryExcerptCandidate> candidates = passages
-            .Select(p => new LibraryExcerptCandidate(p.ChunkId, p.DocumentId, p.DocumentTitle, p.Page, p.Text))
+        // Only indexed chunks can be filed by chunk id; a Bibliotaph page is filed by its page
+        // range (feature 31, Phase G).
+        IReadOnlyList<LibraryExcerptCandidate> candidates = passages.Passages
+            .Where(p => p.ChunkId is not null)
+            .Select(p => new LibraryExcerptCandidate(p.ChunkId!.Value, p.DocumentId, p.DocumentTitle, p.Page, p.Text))
             .ToList();
 
         return AppResult<IReadOnlyList<LibraryExcerptCandidate>>.Success(candidates);

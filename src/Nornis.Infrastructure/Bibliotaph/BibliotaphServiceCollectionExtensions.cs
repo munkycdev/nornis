@@ -23,6 +23,9 @@ public static class BibliotaphServiceCollectionExtensions
 
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<IBibliotaphConnectionRepository, BibliotaphConnectionRepository>();
+        services.AddScoped<IBibliotaphConnectionResolver, BibliotaphConnectionResolver>();
+        services.AddScoped<IBibliotaphLibrarySync, BibliotaphLibrarySync>();
+        services.AddSingleton<BibliotaphReconcileThrottle>();
         services.AddSingleton<IBibliotaphTokenProtector>(_ => BibliotaphTokenProtector.Create(options.KeyBlobUri));
         services.AddSingleton<IBibliotaphTokenSource, Auth0BibliotaphTokenSource>();
 

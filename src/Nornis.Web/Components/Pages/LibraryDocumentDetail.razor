@@ -37,7 +37,14 @@
         <Body>
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
             <div class="d-flex align-center gap-3 mb-2">
-                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Large" Color="Color.Secondary" />
+                @if (_document.HasCover && Worlds.Current is not null)
+                {
+                    <img src="@($"/library-covers/{Worlds.Current.Id}/{_document.Id}")" alt="" class="nornis-library-cover-large" loading="lazy" />
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Large" Color="Color.Secondary" />
+                }
                 <div class="flex-grow-1">
                     <div class="d-flex align-center gap-1">
                         <MudText Typo="Typo.h5" Class="nornis-serif">@_document.Title</MudText>
@@ -50,7 +57,14 @@
                         }
                     </div>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @_document.Kind · @_document.FileName · @DisplayText.FormatSize(_document.SizeBytes)
+                        @if (_document.IsFromBibliotaph)
+                        {
+                            @("From Bibliotaph")
+                        }
+                        else
+                        {
+                            @($"{_document.Kind} · {_document.FileName} · {DisplayText.FormatSize(_document.SizeBytes)}")
+                        }
                         @(_document.PageCount is { } p ? $" · {p} pages" : "")
                     </MudText>
                     @if (Worlds.IsGm && _document.AdventureId is { } adventureId)
@@ -61,10 +75,21 @@
                     }
                 </div>
                 <LibraryVisibilityChip Document="_document" OnChanged="LoadAsync" />
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@LibraryDisplay.StatusColor(_document.Status)">
-                    @LibraryDisplay.StatusLabel(_document.Status, _document.ChunkCount)
-                </MudChip>
+                @if (!_document.IsFromBibliotaph)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@LibraryDisplay.StatusColor(_document.Status)">
+                        @LibraryDisplay.StatusLabel(_document.Status, _document.ChunkCount)
+                    </MudChip>
+                }
             </div>
+
+            @if (_document.IsFromBibliotaph)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    This book lives in the world's Bibliotaph collection. The Loremaster quotes it
+                    from there@(Worlds.IsGm ? ", and it leaves this Library when you take it out of the collection in Bibliotaph" : "").
+                </MudText>
+            }
 
             @if (_document.Status == "Indexed")
             {
@@ -81,10 +106,13 @@
             }
 
             <div class="d-flex gap-2">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                           StartIcon="@Icons.Material.Outlined.Download" OnClick="DownloadAsync">
-                    Download
-                </MudButton>
+                @if (!_document.IsFromBibliotaph)
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Outlined.Download" OnClick="DownloadAsync">
+                        Download
+                    </MudButton>
+                }
                 @if (_document.Status == "IndexFailed")
                 {
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary"
@@ -93,7 +121,7 @@
                     </MudButton>
                 }
                 <MudSpacer />
-                @if (Worlds.IsGm)
+                @if (Worlds.IsGm && !_document.IsFromBibliotaph)
                 {
                     <MudTooltip Text="@(_document.Status == "Indexing" ? "Available once indexing finishes" : null)">
                         <MudButton Variant="Variant.Text" Color="Color.Error"

@@ -288,7 +288,10 @@ builder.Services.AddScoped<IBibliotaphProviderRepository, BibliotaphProviderRepo
 builder.Services.AddScoped<Nornis.Application.Bibliotaph.IBibliotaphConnectService, Nornis.Application.Bibliotaph.BibliotaphConnectService>();
 builder.Services.AddScoped<Nornis.Application.Bibliotaph.IBibliotaphOutboxDelivery, Nornis.Application.Bibliotaph.BibliotaphOutboxDelivery>();
 builder.Services.AddScoped<Nornis.Application.Bibliotaph.IBibliotaphProviderService, Nornis.Application.Bibliotaph.BibliotaphProviderService>();
+builder.Services.AddScoped<Nornis.Application.Bibliotaph.IBibliotaphCovers, Nornis.Application.Bibliotaph.BibliotaphCovers>();
 builder.Services.AddHostedService<BibliotaphOutboxBackgroundService>();
+builder.Services.AddSingleton<Nornis.Application.Bibliotaph.BibliotaphWarmUps>();
+builder.Services.AddHostedService<BibliotaphWarmUpBackgroundService>();
 builder.Services.AddHttpClient(Nornis.Api.Bibliotaph.Auth0BibliotaphAuthorizationClient.HttpClientName,
     client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddSingleton<Nornis.Application.Bibliotaph.IBibliotaphAuthorizationClient, Nornis.Api.Bibliotaph.Auth0BibliotaphAuthorizationClient>();
@@ -476,7 +479,11 @@ else
 builder.Services.Configure<LibraryOptions>(builder.Configuration.GetSection(LibraryOptions.SectionName));
 builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<ILibraryExcerptService, LibraryExcerptService>();
-builder.Services.AddScoped<IReferencePassageRetriever, ReferencePassageRetriever>();
+// The world's Bibliotaph books alongside the indexed uploads, until the cutover (feature 31).
+builder.Services.AddScoped<ReferencePassageRetriever>();
+builder.Services.AddScoped<IReferencePassageRetriever>(sp =>
+    ActivatorUtilities.CreateInstance<Nornis.Application.Bibliotaph.BibliotaphReferencePassageRetriever>(
+        sp, sp.GetRequiredService<ReferencePassageRetriever>()));
 if (blobServiceClient is not null)
 {
     builder.Services.AddSingleton<IBlobStorageService>(sp =>

@@ -3,6 +3,7 @@ using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
+using Nornis.Application.Bibliotaph;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
@@ -86,6 +87,43 @@ public class LibraryController : ControllerBase
         return result.IsSuccess
             ? Ok(result.Value!.Select(ToResponse).ToList())
             : result.Error!.ToActionResult();
+    }
+
+    /// <summary>
+    /// The world's Bibliotaph, brought up to date first (at most once a minute per world): the
+    /// Library page calls this before listing, so new books appear and removed ones go.
+    /// </summary>
+    [HttpGet("bibliotaph")]
+    public async Task<IActionResult> Bibliotaph(Guid worldId, [FromServices] IBibliotaphLibrarySync sync, CancellationToken ct)
+    {
+        var shelf = await sync.ReconcileAsync(worldId, ct);
+        return Ok(new LibraryBibliotaphResponse(shelf.State, shelf.OwnerName));
+    }
+
+    /// <summary>
+    /// Opening a world asks Bibliotaph to open the GM's library, so the first question doesn't
+    /// meet "opening". Queued, throttled per world, and always 202.
+    /// </summary>
+    [HttpPost("bibliotaph/warm")]
+    public IActionResult Warm(Guid worldId, [FromServices] BibliotaphWarmUps warmUps)
+    {
+        warmUps.Request(worldId);
+        return Accepted();
+    }
+
+    /// <summary>A Bibliotaph book's cover, for anyone who may see the book.</summary>
+    [HttpGet("{documentId:guid}/cover")]
+    public async Task<IActionResult> Cover(Guid worldId, Guid documentId, [FromServices] IBibliotaphCovers covers, CancellationToken ct)
+    {
+        var member = HttpContext.GetWorldMember();
+        var result = await covers.GetAsync(worldId, documentId, member.Role, ct);
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        Response.Headers.CacheControl = "private, max-age=86400";
+        return File(result.Value!.Bytes, result.Value.ContentType);
     }
 
     [HttpGet("{key}")]
@@ -205,5 +243,6 @@ public class LibraryController : ControllerBase
     private static LibraryDocumentResponse ToResponse(LibraryDocument d) => new(
         d.Id, d.WorldId, d.Title, d.FileName, d.ContentType, d.SizeBytes,
         d.Kind.ToString(), d.Visibility.ToString(), d.Status.ToString(),
-        d.PageCount, d.ChunkCount, d.ErrorMessage, d.UploadedByUserId, d.CreatedAt, d.UpdatedAt, d.Slug, d.AdventureId);
+        d.PageCount, d.ChunkCount, d.ErrorMessage, d.UploadedByUserId, d.CreatedAt, d.UpdatedAt, d.Slug, d.AdventureId,
+        d.Origin.ToString(), d.BibliotaphEntryId is not null, d.CoverName is not null);
 }
