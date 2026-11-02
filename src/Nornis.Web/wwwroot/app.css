@@ -4293,3 +4293,67 @@ a.nornis-cite:hover {
 .nornis-dark .nornis-editor-toolbar { border-bottom-color: var(--nornis-onside-border); }
 .nornis-dark .nornis-editor-toolbar-sep { background: var(--nornis-onside-border); }
 .nornis-dark .nornis-editor-content.nornis-editor-empty::before { color: var(--nornis-onside-muted); }
+
+/* ------------------------------------------------------------------ Prep --- */
+
+/* The Adventure page: the outline beside the section being written. The outline is a fixed
+   column so long titles wrap rather than squeezing the editor; below the breakpoint the
+   outline sits above the editor. */
+.nornis-prep-layout {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+@container page (max-width: 900px) {
+    .nornis-prep-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.nornis-prep-outline-row {
+    gap: 6px;
+    padding: 6px 0;
+}
+
+.nornis-prep-outline-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 4px 2px;
+    font: inherit;
+    font-size: 0.9rem;
+    color: var(--mud-palette-text-primary);
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+
+.nornis-prep-outline-title:hover {
+    text-decoration: underline;
+}
+
+.nornis-prep-outline-title:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 1px;
+}
+
+/* An unwritten section reads lighter, and in italics so colour is not the only cue. */
+.nornis-prep-outline-empty {
+    color: var(--mud-palette-text-secondary);
+    font-style: italic;
+}
+
+.nornis-prep-outline-selected .nornis-prep-outline-title {
+    font-weight: 600;
+}
+
+.nornis-prep-outline-selected {
+    box-shadow: inset 3px 0 0 0 var(--mud-palette-primary);
+}
+
+.nornis-prep-kind {
+    flex: 0 0 200px;
+}

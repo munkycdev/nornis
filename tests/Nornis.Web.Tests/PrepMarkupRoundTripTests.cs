@@ -60,6 +60,46 @@ public class PrepMarkupRoundTripTests
         Assert.That(HtmlToMarkdownConverter.Convert(html), Is.EqualTo(markdown));
     }
 
+    [TestCase("prop", "[!PROP]")]
+    [TestCase("ask", "[!ASK]")]
+    public void TheToolbarsMarkedBlocks_SaveWithTheMarkerAsTheirFirstLine(string button, string marker)
+    {
+        var html = button == "prop" ? PrepMarkup.PropBlockHtml() : PrepMarkup.AskBlockHtml();
+
+        var lines = HtmlToMarkdownConverter.Convert(html).Split('\n');
+
+        Assert.That(lines[0], Is.EqualTo($"> {marker}"));
+        Assert.That(lines, Has.Length.EqualTo(2));
+        Assert.That(lines[1], Does.StartWith("> ").And.Length.GreaterThan(2));
+    }
+
+    [Test]
+    public void TheToolbarsStatBlock_SavesAsAStatblockFence()
+    {
+        // The shape TipTap gives a code block with a language (see the StatBlock case above).
+        var html = $"<pre><code class=\"language-{PrepMarkup.StatBlockInfo}\">{PrepMarkup.StatBlockTemplate}</code></pre>";
+
+        var markdown = HtmlToMarkdownConverter.Convert(html);
+
+        Assert.That(markdown, Does.StartWith("```statblock\nName:"));
+        Assert.That(markdown, Does.EndWith("\n```"));
+    }
+
+    /// <summary>
+    /// The toolbar buttons' output as TipTap holds it after the insert, captured on 2026-11-02
+    /// the same way as the cases above, by calling <c>nornisEditor.insertHtml</c> and
+    /// <c>insertCodeBlock</c> with what <see cref="PrepMarkup"/> hands them, after an
+    /// "Intro." paragraph. TipTap adds the empty trailing paragraph itself.
+    /// </summary>
+    [TestCase(
+        "<p>Intro.</p><blockquote><p>[!ASK]<br>What do you ask the players?</p></blockquote><p></p>",
+        "Intro.\n\n> [!ASK]\n> What do you ask the players?")]
+    [TestCase(
+        "<p>Intro.</p><pre><code class=\"language-statblock\">Name: \nDefense: \nHealth: \nSpeed: \nAttacks: </code></pre><p></p>",
+        "Intro.\n\n```statblock\nName: \nDefense: \nHealth: \nSpeed: \nAttacks: \n```")]
+    public void TheToolbarsInsertsInTipTap_SaveAsPrepMarkup(string tipTapHtml, string markdown) =>
+        Assert.That(HtmlToMarkdownConverter.Convert(tipTapHtml), Is.EqualTo(markdown));
+
     [Test]
     public void ACodeBlockWithoutAnInfoString_StaysBare()
     {

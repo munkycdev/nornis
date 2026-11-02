@@ -1058,6 +1058,66 @@ public record ReorderImportItemsRequest(IReadOnlyList<Guid> ItemIds);
 // showing as current; the API refuses the call if the walk has moved on since.
 public record AdvanceImportSessionRequest(bool SkipCurrent = false, Guid? ExpectedItemId = null);
 
+// ------------------------------------------------------------------------- Prep --
+
+/// <summary>An Adventure on the Prep list. Mirrors the API's <c>AdventureSummaryResponse</c>.</summary>
+public record AdventureSummaryDto(
+    Guid Id,
+    string Title,
+    string? Slug,
+    Guid? CampaignId,
+    int SectionCount,
+    int FilledSectionCount,
+    Guid? LastPrintedDocumentId,
+    DateTimeOffset UpdatedAt);
+
+public record AdventureSectionDto(
+    Guid Id,
+    string Kind,
+    string Title,
+    string BodyMarkdown,
+    int SortOrder,
+    DateTimeOffset UpdatedAt,
+    int RevisionCount,
+    bool IsFilled);
+
+/// <summary>A section as a save leaves it; a save never changes its revisions.</summary>
+public record SavedAdventureSectionDto(
+    Guid Id,
+    string Kind,
+    string Title,
+    string BodyMarkdown,
+    int SortOrder,
+    DateTimeOffset UpdatedAt,
+    bool IsFilled);
+
+public record AdventureDto(
+    Guid Id,
+    Guid WorldId,
+    Guid? CampaignId,
+    string Title,
+    string? Slug,
+    string? Pitch,
+    Guid? LastPrintedDocumentId,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<AdventureSectionDto> Sections);
+
+public record CreateAdventureRequest(string Title, string? Pitch, Guid? CampaignId);
+
+public record ImportAdventureFile(string Name, string Markdown);
+
+public record ImportAdventureRequest(IReadOnlyList<ImportAdventureFile> Files, Guid? CampaignId);
+
+/// <summary>Every field is the new value: a null pitch means none, a null campaign means world-level.</summary>
+public record UpdateAdventureRequest(string Title, string? Pitch, Guid? CampaignId);
+
+public record SaveAdventureSectionRequest(string Kind, string Title, string? BodyMarkdown, DateTimeOffset BasedOnUpdatedAt);
+
+public record AddAdventureSectionRequest(string Kind, string Title, Guid? AfterSectionId);
+
+public record ReorderAdventureSectionsRequest(IReadOnlyList<Guid> SectionIds);
+
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);
 

@@ -380,6 +380,26 @@
             }
         },
 
+        // Prep's toolbar buttons. The markup they insert is spelled in C# (PrepMarkup), the one
+        // place the convention lives on the Web side, and handed in here as content.
+        insertHtml(elementId, html) {
+            const editor = editors.get(elementId);
+            if (editor) {
+                editor.chain().focus().insertContent(html).run();
+            }
+        },
+
+        insertCodeBlock(elementId, language, text) {
+            const editor = editors.get(elementId);
+            if (editor) {
+                editor.chain().focus().insertContent({
+                    type: 'codeBlock',
+                    attrs: { language: language },
+                    content: text ? [{ type: 'text', text: text }] : [],
+                }).run();
+            }
+        },
+
         // Puts the caret back where it was. Toggling the editor's maximised state re-renders
         // the wrapper, and a click on the toolbar button had already taken focus anyway.
         focus(elementId) {

@@ -119,7 +119,7 @@ public class AdventureRepositoryTests : IntegrationTestBase
         var loaded = await _sut.GetWithSectionsAsync(adventure.Id);
 
         Assert.That(loaded!.Slug, Is.EqualTo("the-silver-key"));
-        Assert.That(loaded.Sections.Select(s => s.BodyMarkdown), Is.EqualTo(new[] { "a", "b" }));
+        Assert.That(loaded.Sections.Select(s => s.BodyMarkdown), Is.EqualTo(["a", "b"]));
     }
 
     [Test]
@@ -181,7 +181,7 @@ public class AdventureRepositoryTests : IntegrationTestBase
 
         var loaded = await _sut.GetWithSectionsAsync(adventure.Id);
         Assert.That(loaded!.Sections.Select(s => (s.Title, s.SortOrder)),
-            Is.EqualTo(new[] { ("Section 1", 1), ("Between", 2), ("Section 2", 3) }));
+            Is.EqualTo([("Section 1", 1), ("Between", 2), ("Section 2", 3)]));
     }
 
     [Test]
@@ -195,7 +195,7 @@ public class AdventureRepositoryTests : IntegrationTestBase
         await _sut.DeleteSectionAsync(adventure.Id, ids[1]);
 
         var loaded = await _sut.GetWithSectionsAsync(adventure.Id);
-        Assert.That(loaded!.Sections.Select(s => (s.Id, s.SortOrder)), Is.EqualTo(new[] { (ids[2], 1), (ids[0], 2) }));
+        Assert.That(loaded!.Sections.Select(s => (s.Id, s.SortOrder)), Is.EqualTo([(ids[2], 1), (ids[0], 2)]));
         Assert.That(await Context.AdventureSectionRevisions.CountAsync(r => ids.Contains(r.SectionId)), Is.Zero);
     }
 
@@ -214,7 +214,7 @@ public class AdventureRepositoryTests : IntegrationTestBase
         Assert.That(restored, Is.True);
         Assert.That((await Context.AdventureSections.AsNoTracking().SingleAsync(s => s.Id == section.Id)).BodyMarkdown, Is.EqualTo("before the draft"));
         Assert.That(await Context.AdventureSectionRevisions.Where(r => r.SectionId == section.Id).Select(r => r.BodyMarkdown).ToListAsync(),
-            Is.EqualTo(new[] { "first" }));
+            Is.EqualTo(["first"]));
         Assert.That((await _sut.CountRevisionsAsync(adventure.Id))[section.Id], Is.EqualTo(1));
     }
 

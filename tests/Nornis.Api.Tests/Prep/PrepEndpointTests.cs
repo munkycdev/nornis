@@ -110,8 +110,9 @@ public class PrepEndpointTests
         var adventure = await CreateAsync(scenario.GmClient, scenario.World.Id);
 
         Assert.That(adventure.Sections.Select(s => s.Kind),
-            Is.EqualTo(new[] { "Overview", "SessionClock", "Chapter", "Scene", "Scene", "Scene", "QuickReference" }));
+            Is.EqualTo(["Overview", "SessionClock", "Chapter", "Scene", "Scene", "Scene", "QuickReference"]));
         Assert.That(adventure.Slug, Is.Not.Null.And.Not.Empty);
+        Assert.That(adventure.Sections.Select(s => s.IsFilled), Is.All.False, "an untouched skeleton, scene templates included, is unwritten");
 
         var bySlug = await scenario.GmClient.GetAsync($"{Base(scenario.World.Id)}/{adventure.Slug}");
         Assert.That(bySlug.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -150,6 +151,7 @@ public class PrepEndpointTests
         Assert.That(saved.StatusCode, Is.EqualTo(HttpStatusCode.OK), await saved.Content.ReadAsStringAsync());
         var section = (await saved.Content.ReadFromJsonAsync<SavedAdventureSectionResponse>())!;
         Assert.That(section.BodyMarkdown, Is.EqualTo("The key opens the vault."));
+        Assert.That(section.IsFilled, Is.True);
 
         var stale = await scenario.GmClient.PutAsJsonAsync(url,
             new SaveAdventureSectionRequest("Overview", "Overview", "An older tab's text.", overview.UpdatedAt));

@@ -1,0 +1,110 @@
+@inject NornisApiClient Api
+
+@* Brings an Adventure written elsewhere into Prep. The files are read here and sent as text;
+   the API splits them into sections (AdventureMarkdownImporter) and enforces the bounds, so
+   this dialog only caps what it will read before asking. *@
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-3">
+            Choose one or more Markdown files, in order. A file's first <code>#</code> heading is the
+            Adventure's title; each later <code>#</code> heading starts a section. A heading that starts
+            with "Scene" becomes a scene, and a file that repeats the title starts a new chapter.
+        </MudText>
+
+        <InputFile OnChange="OnFilesSelectedAsync" multiple accept=".md,.markdown,.txt" />
+
+        @if (_files.Count > 0)
+        {
+            <div class="mt-3">
+                @foreach (var file in _files)
+                {
+                    <MudText Typo="Typo.body2">@file.Name (@file.Markdown.Length.ToString("N0") characters)</MudText>
+                }
+            </div>
+        }
+
+        <MudSelect T="Guid?" @bind-Value="_campaignId" Label="Campaign" Variant="Variant.Outlined" Class="mt-3" Clearable="true">
+            <MudSelectItem T="Guid?" Value="@((Guid?)null)">None: world-level prep</MudSelectItem>
+            @foreach (var campaign in Campaigns)
+            {
+                <MudSelectItem T="Guid?" Value="@((Guid?)campaign.Id)">@campaign.Name</MudSelectItem>
+            }
+        </MudSelect>
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Disabled="_busy">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SubmitAsync"
+                   Disabled="@(_busy || _files.Count == 0)">
+            @(_busy ? "Importing…" : "Import")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    // A ceiling on what this dialog reads, not the rule: the API bounds the Adventure itself
+    // and says so in its own words. This only stops a stray large file crossing the circuit.
+    private const long MaxFileBytes = 1024 * 1024;
+    private const int MaxFiles = 50;
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid WorldId { get; set; }
+    [Parameter] public IReadOnlyList<CampaignDto> Campaigns { get; set; } = [];
+    [Parameter] public Guid? DefaultCampaignId { get; set; }
+
+    private readonly List<ImportAdventureFile> _files = [];
+    private Guid? _campaignId;
+    private bool _busy;
+    private string? _error;
+
+    protected override void OnInitialized() => _campaignId = DefaultCampaignId;
+
+    private async Task OnFilesSelectedAsync(InputFileChangeEventArgs e)
+    {
+        _files.Clear();
+        _error = null;
+
+        if (e.FileCount > MaxFiles)
+        {
+            _error = $"Choose at most {MaxFiles} files.";
+            return;
+        }
+
+        foreach (var file in e.GetMultipleFiles(MaxFiles))
+        {
+            if (file.Size > MaxFileBytes)
+            {
+                _error = $"{file.Name} is {DisplayText.FormatSize(file.Size)}; files over {DisplayText.FormatSize(MaxFileBytes)} aren't read.";
+                _files.Clear();
+                return;
+            }
+
+            using var reader = new StreamReader(file.OpenReadStream(MaxFileBytes));
+            _files.Add(new ImportAdventureFile(file.Name, await reader.ReadToEndAsync()));
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        _busy = true;
+        _error = null;
+        var result = await Api.ImportAdventureAsync(WorldId, new ImportAdventureRequest(_files, _campaignId));
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(result.Value!));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

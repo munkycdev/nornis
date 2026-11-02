@@ -76,8 +76,8 @@ public class WorldExportReaderPrepTests : IntegrationTestBase
 
         var data = await _sut.ReadAsync(mine.Id, new HashSet<WorldExportCategory> { WorldExportCategory.Prep });
 
-        Assert.That(data.Adventures.Select(a => a.Id), Is.EqualTo(new[] { adventure.Id }));
-        Assert.That(data.AdventureSections.Select(s => s.BodyMarkdown), Is.EqualTo(new[] { "Black Harbor docks" }));
+        Assert.That(data.Adventures.Select(a => a.Id), Is.EqualTo([adventure.Id]));
+        Assert.That(data.AdventureSections.Select(s => s.BodyMarkdown), Is.EqualTo(["Black Harbor docks"]));
         Assert.That(data.AdventureSectionRevisions, Has.Count.EqualTo(1));
         Assert.That(data.AdventureSectionRevisions[0].SectionId, Is.EqualTo(data.AdventureSections[0].Id));
     }

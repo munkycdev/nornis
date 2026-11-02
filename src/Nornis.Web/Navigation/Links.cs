@@ -22,6 +22,8 @@ public static class Links
 
     public static string LibraryDocument(string? slug, Guid id) => $"/library/{Key(slug, id)}";
 
+    public static string Adventure(string? slug, Guid id) => $"/prep/{Key(slug, id)}";
+
     public static string Graph(string? slug, Guid id) => $"/graph/{Key(slug, id)}";
 
     public static string InkCapture(string? slug, Guid id) => $"/capture/ink/{Key(slug, id)}";

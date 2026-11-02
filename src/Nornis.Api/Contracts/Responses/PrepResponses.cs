@@ -10,6 +10,10 @@ public record AdventureSummaryResponse(
     Guid? LastPrintedDocumentId,
     DateTimeOffset UpdatedAt);
 
+/// <summary>
+/// One section. <see cref="IsFilled"/> is decided here, by <c>AdventureSkeleton.IsUnfilled</c>,
+/// so the Web's outline and the list's count can't disagree about what an untouched scene is.
+/// </summary>
 public record AdventureSectionResponse(
     Guid Id,
     string Kind,
@@ -17,7 +21,8 @@ public record AdventureSectionResponse(
     string BodyMarkdown,
     int SortOrder,
     DateTimeOffset UpdatedAt,
-    int RevisionCount);
+    int RevisionCount,
+    bool IsFilled);
 
 /// <summary>A section as a save leaves it. A save never changes revisions, so their count isn't here.</summary>
 public record SavedAdventureSectionResponse(
@@ -26,7 +31,8 @@ public record SavedAdventureSectionResponse(
     string Title,
     string BodyMarkdown,
     int SortOrder,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    bool IsFilled);
 
 public record AdventureResponse(
     Guid Id,

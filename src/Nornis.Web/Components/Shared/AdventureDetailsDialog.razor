@@ -1,0 +1,76 @@
+@inject NornisApiClient Api
+
+@* An Adventure's own fields. With no Existing it starts a new Adventure from the house
+   skeleton; with one it edits that Adventure's title, pitch and campaign. The campaign is
+   optional: an Adventure with none is world-level prep, usable in any campaign. *@
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="_title" Label="Title" Required="true" Immediate="true"
+                      MaxLength="200" Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_pitch" Label="Pitch (optional)" Lines="3" MaxLength="4000"
+                      HelperText="A sentence or two: what happens, and why the players care."
+                      Variant="Variant.Outlined" Class="mb-3" />
+        <MudSelect T="Guid?" @bind-Value="_campaignId" Label="Campaign" Variant="Variant.Outlined" Clearable="true">
+            <MudSelectItem T="Guid?" Value="@((Guid?)null)">None: world-level prep</MudSelectItem>
+            @foreach (var campaign in Campaigns)
+            {
+                <MudSelectItem T="Guid?" Value="@((Guid?)campaign.Id)">@campaign.Name</MudSelectItem>
+            }
+        </MudSelect>
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Disabled="_busy">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SubmitAsync"
+                   Disabled="@(_busy || string.IsNullOrWhiteSpace(_title))">
+            @(Existing is null ? "Create" : "Save")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid WorldId { get; set; }
+    [Parameter] public IReadOnlyList<CampaignDto> Campaigns { get; set; } = [];
+    [Parameter] public Guid? DefaultCampaignId { get; set; }
+    [Parameter] public AdventureDto? Existing { get; set; }
+
+    private string _title = string.Empty;
+    private string? _pitch;
+    private Guid? _campaignId;
+    private bool _busy;
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        _campaignId = Existing is null ? DefaultCampaignId : Existing.CampaignId;
+        _title = Existing?.Title ?? string.Empty;
+        _pitch = Existing?.Pitch;
+    }
+
+    private async Task SubmitAsync()
+    {
+        _busy = true;
+        _error = null;
+        var pitch = string.IsNullOrWhiteSpace(_pitch) ? null : _pitch.Trim();
+        var result = Existing is null
+            ? await Api.CreateAdventureAsync(WorldId, new CreateAdventureRequest(_title.Trim(), pitch, _campaignId))
+            : await Api.UpdateAdventureAsync(WorldId, Existing.Id, new UpdateAdventureRequest(_title.Trim(), pitch, _campaignId));
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(result.Value!));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

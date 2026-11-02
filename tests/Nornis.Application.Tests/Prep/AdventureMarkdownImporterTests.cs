@@ -23,14 +23,14 @@ public class AdventureMarkdownImporterTests
         var adventure = Import(new MarkdownFile("two-chapters.md", Fixture()));
 
         Assert.That(adventure.Title, Is.EqualTo("The Silver Key of Black Harbor"));
-        Assert.That(adventure.Sections.Select(s => (s.Kind, s.Title)), Is.EqualTo(new[]
-        {
+        Assert.That(adventure.Sections.Select(s => (s.Kind, s.Title)), Is.EqualTo(
+        [
             (AdventureSectionKind.Chapter, "Chapter 1: The Harbor at Dusk"),
             (AdventureSectionKind.Scene, "Scene 1: The Customs House"),
             (AdventureSectionKind.Chapter, "Chapter 2: Voss's Ship"),
             (AdventureSectionKind.Scene, "Scene 2: The Mudlark"),
             (AdventureSectionKind.Notes, "Captain Voss"),
-        }));
+        ]));
     }
 
     [Test]
@@ -75,13 +75,13 @@ public class AdventureMarkdownImporterTests
             new MarkdownFile("two.md", "#   the  missing CARAVAN \n## The Camp\n\nAshes.\n\n# Aftermath\n\nQuiet."));
 
         Assert.That(adventure.Title, Is.EqualTo("The Missing Caravan"));
-        Assert.That(adventure.Sections.Select(s => (s.Kind, s.Title, s.BodyMarkdown)), Is.EqualTo(new[]
-        {
+        Assert.That(adventure.Sections.Select(s => (s.Kind, s.Title, s.BodyMarkdown)), Is.EqualTo(
+        [
             (AdventureSectionKind.Chapter, "The Road", "Dust."),
             (AdventureSectionKind.Scene, "Scene 1: Tracks", "Ruts."),
             (AdventureSectionKind.Chapter, "The Camp", "Ashes."),
             (AdventureSectionKind.Notes, "Aftermath", "Quiet."),
-        }));
+        ]));
     }
 
     [Test]
@@ -108,10 +108,10 @@ public class AdventureMarkdownImporterTests
         var adventure = Import(new MarkdownFile("harbor.md", "Just notes.\r\nTwo lines."));
 
         Assert.That(adventure.Title, Is.EqualTo("harbor"));
-        Assert.That(adventure.Sections, Is.EqualTo(new[]
-        {
+        Assert.That(adventure.Sections, Is.EqualTo(
+        [
             new ImportedSection(AdventureSectionKind.Notes, "harbor", "Just notes.\nTwo lines."),
-        }));
+        ]));
     }
 
     [Test]

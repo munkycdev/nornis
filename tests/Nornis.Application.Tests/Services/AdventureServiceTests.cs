@@ -102,8 +102,8 @@ public class AdventureServiceTests
     {
         var view = await CreateAsync();
 
-        Assert.That(view.Adventure.Sections.Select(s => (s.Kind, s.Title, s.SortOrder)), Is.EqualTo(new[]
-        {
+        Assert.That(view.Adventure.Sections.Select(s => (s.Kind, s.Title, s.SortOrder)), Is.EqualTo(
+        [
             (AdventureSectionKind.Overview, "Overview", 1),
             (AdventureSectionKind.SessionClock, "Session clock", 2),
             (AdventureSectionKind.Chapter, "Chapter 1", 3),
@@ -111,7 +111,7 @@ public class AdventureServiceTests
             (AdventureSectionKind.Scene, "Scene 2", 5),
             (AdventureSectionKind.Scene, "Scene 3", 6),
             (AdventureSectionKind.QuickReference, "Quick reference", 7),
-        }));
+        ]));
         Assert.That(view.Adventure.Sections.Where(s => s.Kind == AdventureSectionKind.Scene).Select(s => s.BodyMarkdown),
             Is.All.EqualTo(AdventureSkeleton.SceneTemplate));
         Assert.That(view.Adventure.Pitch, Is.EqualTo("A key in the mud."));
@@ -184,11 +184,11 @@ public class AdventureServiceTests
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         Assert.That(result.Value!.Adventure.Title, Is.EqualTo("Black Harbor"));
-        Assert.That(result.Value.Adventure.Sections.Select(s => (s.Kind, s.Title, s.SortOrder)), Is.EqualTo(new[]
-        {
+        Assert.That(result.Value.Adventure.Sections.Select(s => (s.Kind, s.Title, s.SortOrder)), Is.EqualTo(
+        [
             (AdventureSectionKind.Chapter, "Dusk", 1),
             (AdventureSectionKind.Scene, "Scene 1: Customs", 2),
-        }));
+        ]));
     }
 
     [Test]
@@ -439,7 +439,7 @@ public class AdventureServiceTests
 
         Assert.That(result.Value!.BodyMarkdown, Is.EqualTo("The body before the last draft"));
         Assert.That(_adventures.Sections.Single(s => s.Id == overview.Id).BodyMarkdown, Is.EqualTo("The body before the last draft"));
-        Assert.That(_adventures.Revisions.Select(r => r.BodyMarkdown), Is.EqualTo(new[] { "Older body" }));
+        Assert.That(_adventures.Revisions.Select(r => r.BodyMarkdown), Is.EqualTo(["Older body"]));
     }
 
     [Test]
