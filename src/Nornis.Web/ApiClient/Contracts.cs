@@ -19,7 +19,9 @@ public record WorldSummary(
     bool TutorialEnabled = false,
     bool IsTemplate = false,
     // The campaign this world is playing now; null when none is. What a capture defaults to.
-    Guid? CurrentCampaignId = null);
+    Guid? CurrentCampaignId = null,
+    // Prep's monthly AI cap; null inherits the configured default.
+    decimal? PrepMonthlyBudgetUsd = null);
 
 public record CreateWorldRequest(
     string Name,
@@ -37,7 +39,9 @@ public record UpdateWorldRequest(
     decimal? PublicAskMonthlyBudgetUsd = null,
     bool ClearPublicAskBudget = false,
     bool? SummaryReviewRequired = null,
-    bool? IsTemplate = null);
+    bool? IsTemplate = null,
+    decimal? PrepMonthlyBudgetUsd = null,
+    bool ClearPrepBudget = false);
 
 public record WorldMember(
     Guid Id,

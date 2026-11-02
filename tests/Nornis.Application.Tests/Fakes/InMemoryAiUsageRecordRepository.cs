@@ -76,6 +76,15 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
         return Task.FromResult(sum);
     }
 
+    public Task<decimal> SumCostAsync(
+        Guid worldId,
+        DateTimeOffset fromInclusive,
+        IReadOnlyCollection<AiOperationType> operations,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(_records
+            .Where(r => r.WorldId == worldId && r.CreatedAt >= fromInclusive && operations.Contains(r.OperationType))
+            .Sum(r => r.EstimatedCostUsd));
+
     public Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByOperationTypeAsync(
         Guid worldId,
         Guid? userId,

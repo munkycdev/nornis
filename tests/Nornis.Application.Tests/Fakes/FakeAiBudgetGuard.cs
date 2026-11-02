@@ -33,6 +33,22 @@ public class FakeAiBudgetGuard : IAiBudgetGuard
             PublicAskSpentThisMonthUsd,
             PublicAskEnabled && PublicAskExceeded));
 
+    public bool PrepExceeded { get; set; }
+    public decimal PrepSpentThisMonthUsd { get; set; }
+    public decimal? PrepMonthlyBudgetUsd { get; set; } = 10.00m;
+    public int PrepChecks { get; private set; }
+
+    public Task<PrepBudgetStatus> GetPrepStatusAsync(Guid worldId, CancellationToken ct) =>
+        Task.FromResult(new PrepBudgetStatus(PrepSpentThisMonthUsd, PrepMonthlyBudgetUsd, PrepExceeded));
+
+    public Task<AppError?> CheckPrepAsync(Guid worldId, CancellationToken ct)
+    {
+        PrepChecks++;
+        return Task.FromResult<AppError?>(PrepExceeded
+            ? new AppError(429, "prep_budget_exceeded", "This world's Prep budget for the month is spent.")
+            : null);
+    }
+
     public Task<AppError?> CheckPublicAskAsync(Guid worldId, CancellationToken ct) =>
         Task.FromResult<AppError?>(!PublicAskEnabled
             ? new AppError(404, "public_ask_unavailable", "Asking the Loremaster isn't enabled for this world.")

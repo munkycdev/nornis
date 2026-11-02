@@ -75,6 +75,12 @@
                                  HelperText="Let anonymous visitors Ask the Loremaster on the public page, capped at this AI spend per calendar month. Leave empty to keep public questions off. Requires public access above."
                                  Variant="Variant.Outlined" Class="mb-3" />
 
+                @* Prep's own pool (feature 29): drafting never spends the daily budget above. *@
+                <MudNumericField T="decimal?" @bind-Value="_prepMonthlyBudget" Label="Prep budget (USD / month)"
+                                 Placeholder="default" Min="0.01m" Max="1000m" Step="1m"
+                                 HelperText="The most AI drafting in Prep may spend each calendar month. Separate from the daily budget, so prep never holds up extraction. Leave empty for the default."
+                                 Variant="Variant.Outlined" Class="mb-3" />
+
                 @if (_worldError is not null)
                 {
                     <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_worldError</MudAlert>
@@ -218,6 +224,7 @@
     private string? _publicSlug;
     private bool _publicAccessEnabled;
     private decimal? _publicAskMonthlyBudget;
+    private decimal? _prepMonthlyBudget;
     private bool _summaryReviewRequired;
     private bool _isTemplate;
     private bool _savingWorld;
@@ -266,6 +273,7 @@
             _publicSlug = c.PublicSlug;
             _publicAccessEnabled = c.PublicAccessEnabled;
             _publicAskMonthlyBudget = c.PublicAskMonthlyBudgetUsd;
+            _prepMonthlyBudget = c.PrepMonthlyBudgetUsd;
             _summaryReviewRequired = c.SummaryReviewRequired;
             _isTemplate = c.IsTemplate;
             _loadedWorldId = c.Id;
@@ -310,7 +318,9 @@
                 PublicAskMonthlyBudgetUsd: _publicAskMonthlyBudget,
                 ClearPublicAskBudget: _publicAskMonthlyBudget is null,
                 SummaryReviewRequired: _summaryReviewRequired,
-                IsTemplate: _isTemplate));
+                IsTemplate: _isTemplate,
+                PrepMonthlyBudgetUsd: _prepMonthlyBudget,
+                ClearPrepBudget: _prepMonthlyBudget is null));
 
         _savingWorld = false;
         if (!result.IsSuccess)

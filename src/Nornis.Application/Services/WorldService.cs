@@ -141,6 +141,21 @@ public class WorldService : IWorldService
             world.PublicAskMonthlyBudgetUsd = null;
         }
 
+        if (command.PrepMonthlyBudgetUsd is not null)
+        {
+            if (command.PrepMonthlyBudgetUsd is < 0.01m or > 1000m)
+            {
+                return AppResult<World>.Fail(new AppError(400, "validation_error",
+                    "Prep monthly budget must be between $0.01 and $1000."));
+            }
+
+            world.PrepMonthlyBudgetUsd = command.PrepMonthlyBudgetUsd;
+        }
+        else if (command.ClearPrepBudget)
+        {
+            world.PrepMonthlyBudgetUsd = null;
+        }
+
         if (command.PublicSlug is not null)
         {
             var normalized = command.PublicSlug.Trim().ToLowerInvariant();
