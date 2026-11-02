@@ -80,6 +80,15 @@ All accepted artifact, fact, and relationship changes must come from user review
 > 2,500 output tokens, sent as `max_completion_tokens`, and a draft the ceiling cuts off is
 > refused rather than saved. An `AdventureExport` source, like a Library excerpt, retrieves
 > no reference passages, because the source is the reference.
+>
+> v3.1 (feature 30, 2026-11-02) adds two things under the same rule. *Talk it through* is a
+> GM-only conversation with the Loremaster per Adventure: its answers are stored only as
+> conversation messages, which are never extracted or retrieved, and an answer reaches a
+> section only when the GM chooses **Put in section**, which is a revision like a draft and
+> undoes the same way. It retrieves at the caller's role, is metered as
+> `AdventureConversation` in the Prep monthly pool, and an answer the ceiling cuts off is not
+> saved. *Threads to use* makes no AI call: an Overview draft is given the convergence gauge's
+> top five candidates, read at the GM's role, and the gauge's narration is never asked for.
 
 ## Extraction Goal
 

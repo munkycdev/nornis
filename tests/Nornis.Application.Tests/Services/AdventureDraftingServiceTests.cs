@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
+using Nornis.Application.Errors;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Prep;
@@ -34,6 +35,7 @@ public class AdventureDraftingServiceTests
     private FakePrepAiClient _ai = null!;
     private FakeAiBudgetGuard _budget = null!;
     private SectionDraftGate _gate = null!;
+    private StubConvergenceGauge _gauge = null!;
     private PrepOptions _options = null!;
     private AdventureService _adventureService = null!;
     private AdventureDraftingService _sut = null!;
@@ -49,6 +51,7 @@ public class AdventureDraftingServiceTests
         _ai = new FakePrepAiClient();
         _budget = new FakeAiBudgetGuard();
         _gate = new SectionDraftGate(TimeSpan.FromMinutes(5));
+        _gauge = new StubConvergenceGauge();
         _options = new PrepOptions();
 
         var loremaster = new LoremasterOptions { AiModel = "nornis-ask", MaxRetrievalCount = 30, MaxFactsPerArtifact = 15 };
@@ -70,7 +73,7 @@ public class AdventureDraftingServiceTests
         _adventureService = new AdventureService(_adventures, new InMemoryCampaignRepository(),
             new FakeSlugResolver((_, _) => null), Options.Create(_options));
         _sut = new AdventureDraftingService(
-            _adventures, worlds, _retriever, _ai, _budget, TestUsageRecorder.Wrap(_ledger), _gate,
+            _adventures, worlds, _retriever, _ai, _budget, TestUsageRecorder.Wrap(_ledger), _gate, _gauge,
             Options.Create(_options), Options.Create(loremaster), NullLogger<AdventureDraftingService>.Instance);
     }
 
@@ -551,5 +554,94 @@ public class AdventureDraftingServiceTests
         await DraftAsync(Command(adventure, Stored(chapter.Id)));
 
         Assert.That(_retriever.Calls.Single().Text, Does.Contain("Mirela Thorn"));
+    }
+
+    // ------------------------------------------------------- threads to use (3.1) --
+
+    private static AdventureSection Overview(Adventure adventure) => adventure.Sections.First(s => s.Kind == AdventureSectionKind.Overview);
+
+    [Test]
+    public async Task AnOverviewDraft_IsGivenTheGaugesTopFive_ReadAtTheGmsRole()
+    {
+        var adventure = await CreateAdventureAsync();
+        _gauge.Candidates = Enumerable.Range(1, 7)
+            .Select(i => StubConvergenceGauge.Candidate($"Anchor {i}", $"Secret number {i}.", 100 - i))
+            .ToList();
+        _ai.Script("A heist in the fog.");
+
+        await DraftAsync(Command(adventure, Overview(adventure)));
+
+        var message = _ai.Requests.Single().UserMessage;
+        Assert.Multiple(() =>
+        {
+            Assert.That(_gauge.Calls, Is.EqualTo([WorldRole.GM]));
+            Assert.That(message, Does.Contain("### Threads ready to pay off"));
+            Assert.That(message, Does.Contain("- Anchor 1: Secret number 1."));
+            Assert.That(message, Does.Contain("- Anchor 5: Secret number 5."));
+            Assert.That(message, Does.Not.Contain("Anchor 6"), "five, the gauge's strongest");
+        });
+    }
+
+    [Test]
+    public async Task ASceneDraft_NeverAsksTheGauge_AndHasNoThreads()
+    {
+        var adventure = await CreateAdventureAsync();
+        _gauge.Candidates = [StubConvergenceGauge.Candidate("Captain Voss", "Voss is the smuggler king.", 90)];
+        _ai.Script("Gulls.");
+
+        await DraftAsync(Command(adventure, Scene(adventure)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_gauge.Calls, Is.Empty);
+            Assert.That(_ai.Requests.Single().UserMessage, Does.Not.Contain("Threads ready to pay off"));
+        });
+    }
+
+    [Test]
+    public async Task AnEmptyGauge_LeavesTheBlockOut()
+    {
+        var adventure = await CreateAdventureAsync();
+        _ai.Script("A heist.");
+
+        await DraftAsync(Command(adventure, Overview(adventure)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_gauge.Calls, Has.Count.EqualTo(1));
+            Assert.That(_ai.Requests.Single().UserMessage, Does.Not.Contain("Threads ready to pay off"));
+        });
+    }
+
+    [Test]
+    public async Task AGaugeThatRefuses_StillDrafts_WithoutThreads()
+    {
+        var adventure = await CreateAdventureAsync();
+        _gauge.Error = new AppError(403, "forbidden", "GM only.");
+        _ai.Script("A heist.");
+
+        var events = await DraftAsync(Command(adventure, Overview(adventure)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(events.OfType<DraftEvent.Completed>(), Has.Exactly(1).Items);
+            Assert.That(_ai.Requests.Single().UserMessage, Does.Not.Contain("Threads ready to pay off"));
+        });
+    }
+
+    [Test]
+    public async Task AGaugeThatThrows_StillDrafts_WithoutThreads()
+    {
+        var adventure = await CreateAdventureAsync();
+        _gauge.Throw = new InvalidOperationException("the gauge broke");
+        _ai.Script("A heist.");
+
+        var events = await DraftAsync(Command(adventure, Overview(adventure)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(events.OfType<DraftEvent.Completed>(), Has.Exactly(1).Items);
+            Assert.That(_ai.Requests.Single().UserMessage, Does.Not.Contain("Threads ready to pay off"));
+        });
     }
 }

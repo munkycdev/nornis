@@ -9,6 +9,7 @@ using MudBlazor;
 using MudBlazor.Services;
 using Nornis.Web.ApiClient;
 using Nornis.Web.Components.Pages;
+using Nornis.Web.Components.Shared;
 using Nornis.Web.State;
 using NUnit.Framework;
 
@@ -295,6 +296,68 @@ public class AdventurePageTests : BunitContext
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-talk-message"), Is.Empty));
     }
 
+    // ---------------------------------------------------------- Threads to use --
+
+    [Test]
+    public async Task TheOverview_ShowsTheGaugesTopFive_WithTheirReasons()
+    {
+        _handler.ConvergenceJson = StubHandler.Gauge(Enumerable.Range(1, 7)
+            .Select(i => ($"Anchor {i}", $"Secret number {i}.")).ToArray());
+
+        var cut = await RenderAsync();
+
+        cut.WaitForAssertion(() => Assert.Multiple(() =>
+        {
+            Assert.That(cut.FindAll(".nornis-prep-thread"), Has.Count.EqualTo(ThreadsToUseCard.MaxThreads));
+            Assert.That(cut.Find(".nornis-prep-threads").TextContent, Does.Contain("Anchor 1"));
+            Assert.That(cut.Find(".nornis-prep-threads").TextContent, Does.Not.Contain("Anchor 6"));
+            Assert.That(cut.Find(".nornis-prep-thread").TextContent, Does.Contain("hidden for 32 days"), "the gauge's own reasons");
+        }));
+        Assert.That(_handler.Requests, Has.None.Contains("/narrate"), "threads to use never spend");
+    }
+
+    [Test]
+    public async Task UseInThisAdventure_AddsTheThreadToTheInstruction_OnceAndAfterWhatWasTyped()
+    {
+        _handler.ConvergenceJson = StubHandler.Gauge(("Captain Voss", "Voss is the smuggler king."));
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll("button.nornis-prep-thread-use"), Has.Count.EqualTo(1)));
+
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-draft textarea").Input("Keep it short."));
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-thread-use").Click());
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-thread-use").Click());
+        await cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Trim() == "Revise").Click());
+
+        cut.WaitForAssertion(() => Assert.That(_handler.LastDraftBody, Is.Not.Null));
+        var instruction = JsonDocument.Parse(_handler.LastDraftBody!).RootElement.GetProperty("instruction").GetString();
+        Assert.Multiple(() =>
+        {
+            Assert.That(instruction, Is.EqualTo("Keep it short.\nBuild toward this hidden thread: Captain Voss: Voss is the smuggler king."));
+            Assert.That(_handler.LastSaveBody, Does.Not.Contain("smuggler king"), "the thread goes to the instruction, never a section");
+        });
+    }
+
+    [Test]
+    public async Task AWorldWithNothingHidden_SaysSoInOneLine()
+    {
+        var cut = await RenderAsync();
+
+        cut.WaitForAssertion(() => Assert.That(cut.Find(".nornis-prep-threads-empty").TextContent, Does.Contain("Nothing hidden yet")));
+        Assert.That(cut.FindAll(".nornis-prep-thread"), Is.Empty);
+    }
+
+    [Test]
+    public async Task AScene_HasNoThreadsCard()
+    {
+        _handler.ConvergenceJson = StubHandler.Gauge(("Captain Voss", "Voss is the smuggler king."));
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-threads"), Has.Count.EqualTo(1)));
+
+        await cut.InvokeAsync(() => cut.FindAll("button.nornis-prep-outline-title").First(b => b.TextContent.Contains("Scene 1")).Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-threads"), Is.Empty));
+    }
+
     private sealed class StubHandler : HttpMessageHandler
     {
         public static readonly Guid OverviewId = Guid.NewGuid();
@@ -327,11 +390,31 @@ public class AdventurePageTests : BunitContext
         /// <summary>What GET conversation answers once a message has been sent.</summary>
         public string? ConversationAfterSendJson { get; set; }
 
+        /// <summary>What GET convergence answers; a world with nothing hidden until a test says otherwise.</summary>
+        public string ConvergenceJson { get; set; } = Gauge();
+
         public bool SendFails { get; set; }
         public string? LastSendBody { get; private set; }
         public string? LastPutBody { get; private set; }
         public string? LastPutPath { get; private set; }
         public bool Cleared { get; private set; }
+
+        /// <summary>A gauge of these candidates, strongest first: (anchor, description) each.</summary>
+        public static string Gauge(params (string Anchor, string Description)[] candidates)
+        {
+            var rows = candidates.Select((c, i) => $$"""
+                {"kind":"Fact","id":"{{Guid.NewGuid()}}","anchorArtifactId":"{{Guid.NewGuid()}}","anchorName":"{{c.Anchor}}",
+                 "description":"{{c.Description}}","createdAt":"2026-10-01T00:00:00+00:00","missingArtifactIds":[],
+                 "components":{"daysHidden":32,"partyVisibleFactsOnAnchor":2,"missingArtifactCount":0,"isSelfContained":true,
+                   "storylineStatus":null,"contradictionSeverity":null,"contradictionAssessed":false,"dormancy":0.5,
+                   "anchorFamiliarity":0.5,"selfContainment":1.0,"storylineState":0.0,"contradictionPressure":null},
+                 "score":{{90 - i}},"rationale":null}
+                """);
+            return $$"""
+                {"worldId":"{{Guid.NewGuid()}}","generatedAt":"2026-11-02T10:00:00+00:00","assessmentId":null,
+                 "totalCandidates":{{candidates.Length}},"candidates":[{{string.Join(",", rows)}}]}
+                """;
+        }
 
         public static string Answered(string question, string answer) => $$"""
             {"messages":[
@@ -350,6 +433,11 @@ public class AdventurePageTests : BunitContext
                 return Json($$"""
                     [{"id":"{{_worldId}}","name":"Black Harbor","description":null,"gameSystem":null,"myRole":"{{Role}}"}]
                     """);
+            }
+
+            if (path.EndsWith("/convergence", StringComparison.Ordinal))
+            {
+                return Json(ConvergenceJson);
             }
 
             if (path.EndsWith("/campaigns", StringComparison.Ordinal))

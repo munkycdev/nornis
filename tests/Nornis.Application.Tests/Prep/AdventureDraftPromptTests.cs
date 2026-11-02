@@ -126,4 +126,54 @@ public class AdventureDraftPromptTests
     public void ASectionFromAnotherAdventure_IsRefused() =>
         Assert.That(() => AdventureDraftPrompt.BuildUserMessage(
             new AdventureDraftInput(null, "", Adventure(), Guid.NewGuid(), null)), Throws.ArgumentException);
+
+    // ------------------------------------------------------- threads to use (3.1) --
+
+    private static string BuildWithThreads(Adventure adventure, IReadOnlyList<PrepThread> threads) =>
+        AdventureDraftPrompt.BuildUserMessage(new AdventureDraftInput(
+            "D&D 5e", "### Artifacts\n- Captain Voss [Hidden — GM-only truth]", adventure,
+            adventure.Sections.Single(s => s.SortOrder == 1).Id, null, threads));
+
+    [Test]
+    public void Threads_SitAfterTheWorld_AndBeforeTheAdventure()
+    {
+        var message = BuildWithThreads(Adventure(), [new PrepThread("Captain Voss", "Voss is the smuggler king.")]);
+
+        var order = new[]
+        {
+            "Captain Voss [Hidden", "### Threads ready to pay off", "- Captain Voss: Voss is the smuggler king.",
+            "## The adventure: The Silver Key",
+        }.Select(marker => message.IndexOf(marker, StringComparison.Ordinal)).ToList();
+
+        Assert.That(order, Has.None.EqualTo(-1), message);
+        Assert.That(order, Is.Ordered, message);
+    }
+
+    [Test]
+    public void NoThreads_MeansNoBlock()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(BuildWithThreads(Adventure(), []), Does.Not.Contain("Threads ready to pay off"));
+            Assert.That(Build(Adventure(), 1), Does.Not.Contain("Threads ready to pay off"));
+        });
+    }
+
+    [Test]
+    public void Threads_AreCappedInNumber_AndEachLineIsCut()
+    {
+        var threads = Enumerable.Range(1, AdventureDraftPrompt.MaxThreads + 2)
+            .Select(i => new PrepThread($"Anchor {i}", new string('y', AdventureDraftPrompt.MaxThreadChars)))
+            .ToList();
+
+        var message = BuildWithThreads(Adventure(), threads);
+        var lines = message.Split('\n').Where(l => l.StartsWith("- Anchor ", StringComparison.Ordinal)).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lines, Has.Count.EqualTo(AdventureDraftPrompt.MaxThreads));
+            Assert.That(lines, Has.All.Length.EqualTo("- ".Length + AdventureDraftPrompt.MaxThreadChars + "…".Length));
+            Assert.That(message, Does.Not.Contain($"Anchor {AdventureDraftPrompt.MaxThreads + 1}:"));
+        });
+    }
 }

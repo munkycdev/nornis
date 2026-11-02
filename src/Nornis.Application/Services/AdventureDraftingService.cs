@@ -28,6 +28,7 @@ public class AdventureDraftingService : IAdventureDraftingService
     private readonly IAiBudgetGuard _budget;
     private readonly IAiUsageRecorder _usage;
     private readonly ISectionDraftGate _gate;
+    private readonly IConvergenceGaugeService _gauge;
     private readonly PrepOptions _options;
     private readonly LoremasterOptions _loremaster;
     private readonly ILogger<AdventureDraftingService> _logger;
@@ -40,6 +41,7 @@ public class AdventureDraftingService : IAdventureDraftingService
         IAiBudgetGuard budget,
         IAiUsageRecorder usage,
         ISectionDraftGate gate,
+        IConvergenceGaugeService gauge,
         IOptions<PrepOptions> options,
         IOptions<LoremasterOptions> loremaster,
         ILogger<AdventureDraftingService> logger)
@@ -51,6 +53,7 @@ public class AdventureDraftingService : IAdventureDraftingService
         _budget = budget;
         _usage = usage;
         _gate = gate;
+        _gauge = gauge;
         _options = options.Value;
         _loremaster = loremaster.Value;
         _logger = logger;
@@ -111,6 +114,7 @@ public class AdventureDraftingService : IAdventureDraftingService
             var world = await _worlds.GetByIdAsync(command.WorldId, ct);
             var context = await _retriever.RetrieveAsync(
                 RetrievalText(adventure, section, instruction), command.WorldId, command.ActingUserId, command.ActingUserRole, ct);
+            var threads = section.Kind == AdventureSectionKind.Overview ? await ThreadsAsync(command, ct) : [];
 
             var request = new AiPromptRequest
             {
@@ -120,7 +124,8 @@ public class AdventureDraftingService : IAdventureDraftingService
                     LoremasterService.FormatKnowledgeContext(context, _loremaster.MaxSessionChars, _loremaster.MaxContextTokens),
                     adventure,
                     section.Id,
-                    instruction)),
+                    instruction,
+                    threads)),
                 Model = Model,
                 TimeoutSeconds = _options.DraftTimeoutSeconds,
             };
@@ -139,6 +144,28 @@ public class AdventureDraftingService : IAdventureDraftingService
             _logger.LogError(ex, "Prep draft context assembly failed. WorldId={WorldId} SectionId={SectionId}",
                 command.WorldId, command.SectionId);
             return Fail(new AppError(500, "internal_error", "Something went wrong. Please try again."));
+        }
+    }
+
+    /// <summary>
+    /// Threads to use, for an Overview draft: the convergence gauge's strongest candidates, read
+    /// at the GM's role. No AI call (the gauge's narration is never asked for). A gauge that
+    /// fails costs the draft its threads, never the draft. The prompt owns the cap; taking it
+    /// here only saves copying candidates the prompt would drop.
+    /// </summary>
+    private async Task<IReadOnlyList<PrepThread>> ThreadsAsync(DraftSectionCommand command, CancellationToken ct)
+    {
+        try
+        {
+            var gauge = await _gauge.GetGaugeAsync(command.WorldId, command.ActingUserId, command.ActingUserRole, ct);
+            return gauge.IsSuccess
+                ? gauge.Value!.Candidates.Take(AdventureDraftPrompt.MaxThreads).Select(c => new PrepThread(c.AnchorName, c.Description)).ToList()
+                : [];
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Threads to use were left out of an Overview draft. WorldId={WorldId}", command.WorldId);
+            return [];
         }
     }
 

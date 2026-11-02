@@ -4673,3 +4673,20 @@ a.nornis-cite:hover {
         column-count: 2;
     }
 }
+
+/* Threads to use (feature 30): the Overview's hidden threads, above its instruction box. */
+.nornis-prep-threads {
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+    padding-bottom: 8px;
+}
+
+.nornis-prep-thread {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 8px 0;
+}
+
+.nornis-prep-thread + .nornis-prep-thread {
+    border-top: 1px dashed var(--mud-palette-lines-default);
+}
