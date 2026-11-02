@@ -11,7 +11,7 @@ namespace Nornis.Application.Tests.Services.PropertyTests;
 /// Property 2: User Provisioning Creates Correct User from Claims
 ///
 /// For any valid claims tuple (sub, nickname, email) where no User exists for that sub,
-/// provisioning should create a User with Auth0SubjectId equal to sub, Username equal to
+/// provisioning should create a User whose one sign-in is sub, Username equal to
 /// nickname (or sub if nickname is absent), and Email equal to email.
 /// </summary>
 [TestFixture]
@@ -28,9 +28,9 @@ public class UserProvisioningCreatesCorrectUserTests
         var userRepository = new InMemoryUserRepository();
 
         // Act - simulate the provisioning logic from UserProvisioningMiddleware:
-        // if user not found, create with Auth0SubjectId=sub, Username=nickname ?? sub, Email=email
+        // if user not found, create with one sign-in for sub, Username=nickname ?? sub, Email=email
         var existingUser = userRepository
-            .GetByAuth0SubjectIdAsync(input.Sub, CancellationToken.None)
+            .GetBySubjectAsync(input.Sub, CancellationToken.None)
             .GetAwaiter().GetResult();
 
         Assert.That(existingUser, Is.Null, "Pre-condition: no user should exist for this sub.");
@@ -40,16 +40,15 @@ public class UserProvisioningCreatesCorrectUserTests
         var createdUser = userRepository.CreateAsync(new User
         {
             Id = Guid.NewGuid(),
-            Auth0SubjectId = input.Sub,
             Username = expectedUsername,
             Email = input.Email,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
-        }, CancellationToken.None).GetAwaiter().GetResult();
+        }, input.Sub, CancellationToken.None).GetAwaiter().GetResult();
 
-        // Assert - Auth0SubjectId equals sub
-        Assert.That(createdUser.Auth0SubjectId, Is.EqualTo(input.Sub),
-            "Created user Auth0SubjectId must equal the sub claim.");
+        // Assert - the one sign-in is sub
+        Assert.That(createdUser.SignIns.Single().Subject, Is.EqualTo(input.Sub),
+            "Created user's one sign-in must equal the sub claim.");
 
         // Assert - Username equals nickname when present, or sub when nickname is absent
         Assert.That(createdUser.Username, Is.EqualTo(expectedUsername),
@@ -61,12 +60,12 @@ public class UserProvisioningCreatesCorrectUserTests
 
         // Assert - user is persisted and retrievable by sub
         var retrievedUser = userRepository
-            .GetByAuth0SubjectIdAsync(input.Sub, CancellationToken.None)
+            .GetBySubjectAsync(input.Sub, CancellationToken.None)
             .GetAwaiter().GetResult();
 
         Assert.That(retrievedUser, Is.Not.Null,
             "User should be retrievable from repository after creation.");
-        Assert.That(retrievedUser!.Auth0SubjectId, Is.EqualTo(input.Sub));
+        Assert.That(retrievedUser!.SignIns.Single().Subject, Is.EqualTo(input.Sub));
         Assert.That(retrievedUser.Username, Is.EqualTo(expectedUsername));
         Assert.That(retrievedUser.Email, Is.EqualTo(input.Email));
     }
@@ -84,12 +83,11 @@ public class UserProvisioningCreatesCorrectUserTests
         var createdUser = userRepository.CreateAsync(new User
         {
             Id = Guid.NewGuid(),
-            Auth0SubjectId = input.Sub,
             Username = input.Sub, // nickname is absent, so Username = sub
             Email = input.Email,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
-        }, CancellationToken.None).GetAwaiter().GetResult();
+        }, input.Sub, CancellationToken.None).GetAwaiter().GetResult();
 
         // Assert - Username equals sub when nickname is absent
         Assert.That(createdUser.Username, Is.EqualTo(input.Sub),

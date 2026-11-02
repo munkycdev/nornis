@@ -1,5 +1,17 @@
 # Domain Model
 
+> **Amendment (2026-11-02): a user holds a set of sign-ins.** Feature 33 (Nornis v3.3)
+> replaces `User.Auth0SubjectId` (read it below as gone) with two entities:
+>
+> - **`UserSignIn`**: one Auth0 subject (`discord`, `google-oauth2`, `windowslive`, …) that
+>   opens the user's account. `Subject` is unique across all users; a user has at least one.
+>   The provider's name shown on Profile is derived from the subject's prefix, never stored.
+> - **`SignInLinkCode`**: the one pending link per user. Only the SHA-256 of the code is kept,
+>   with a ten-minute expiry; it is removed when claimed, used or not.
+>
+> "Account" in the UI means the `User`; "sign-in" means a `UserSignIn`. Don't call a sign-in
+> an "identity" or a "provider" in code or copy: Auth0 already uses both words for other things.
+
 > **Amendment (2026-11-02): a Library document can come from Bibliotaph.** Feature 31
 > (Nornis v3.2) makes Bibliotaph, the GM's own sourcebook library, the home of sourcebooks.
 > The Library page and its `LibraryDocument` rows stay; what changes is where a row comes from.

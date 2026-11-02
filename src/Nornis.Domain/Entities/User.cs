@@ -4,8 +4,6 @@ public class User
 {
     public Guid Id { get; set; }
 
-    public string Auth0SubjectId { get; set; } = string.Empty;
-
     public string Username { get; set; } = string.Empty;
 
     public string Email { get; set; } = string.Empty;
@@ -27,4 +25,10 @@ public class User
     public DateTimeOffset? TutorialDismissedAt { get; set; }
 
     public byte[] RowVersion { get; set; } = [];
+
+    /// <summary>
+    /// The Auth0 subjects that sign in to this account, one or more (feature 33). A request is
+    /// resolved through these; the user itself carries no subject.
+    /// </summary>
+    public ICollection<UserSignIn> SignIns { get; set; } = new List<UserSignIn>();
 }

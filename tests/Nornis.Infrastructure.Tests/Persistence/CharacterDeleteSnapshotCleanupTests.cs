@@ -34,7 +34,7 @@ public class CharacterDeleteSnapshotCleanupTests : IntegrationTestBase
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Auth0SubjectId = $"auth0|p-{tag}",
+            SignIns = { new UserSignIn { Subject = $"auth0|p-{tag}" } },
             Username = $"p-{tag}",
             Email = $"p-{tag}@example.com",
             CreatedAt = now,

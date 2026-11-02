@@ -110,7 +110,7 @@ public class BibliotaphProviderRepositoryTests : IntegrationTestBase
     private static User NewUser(string name) => new()
     {
         Id = Guid.NewGuid(),
-        Auth0SubjectId = $"auth0|{name}-{Guid.NewGuid():N}",
+        SignIns = { new UserSignIn { Subject = $"auth0|{name}-{Guid.NewGuid():N}" } },
         Username = name,
         Email = $"{name}@example.com",
         CreatedAt = Now,

@@ -29,7 +29,7 @@ public class BidirectionalRelationshipQueryTests : IntegrationTestBase
         var user = new User
         {
             Id = userId,
-            Auth0SubjectId = $"auth0|{userId:N}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{userId:N}" } },
             Username = "Captain Voss",
             Email = "voss@blackharbor.test",
             CreatedAt = DateTimeOffset.UtcNow,

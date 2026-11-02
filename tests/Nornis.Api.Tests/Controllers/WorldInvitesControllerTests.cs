@@ -37,7 +37,7 @@ public class WorldInvitesControllerTests
         httpContext.Items["NornisUser"] = new User
         {
             Id = userId,
-            Auth0SubjectId = $"auth0|{userId}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{userId}" } },
             Username = "Kelda",
             Email = "kelda@nornis.test",
             CreatedAt = DateTimeOffset.UtcNow,

@@ -15,7 +15,7 @@ public class LibraryReadingRecordRepositoryTests : IntegrationTestBase
     [Test]
     public async Task Opens_list_newest_first_and_the_purge_takes_the_oldest_in_batches()
     {
-        var user = new User { Id = Guid.NewGuid(), Auth0SubjectId = $"auth0|{Guid.NewGuid():N}", Username = "dave", Email = "d@example.com", CreatedAt = Now, UpdatedAt = Now, RowVersion = [] };
+        var user = new User { Id = Guid.NewGuid(), SignIns = { new UserSignIn { Subject = $"auth0|{Guid.NewGuid():N}" } }, Username = "dave", Email = "d@example.com", CreatedAt = Now, UpdatedAt = Now, RowVersion = [] };
         var world = new World { Id = Guid.NewGuid(), Name = "Gribbits", CreatedAt = Now, UpdatedAt = Now, CreatedByUserId = user.Id, RowVersion = [] };
         var book = new LibraryDocument
         {

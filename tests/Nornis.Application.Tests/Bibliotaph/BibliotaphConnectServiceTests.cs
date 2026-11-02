@@ -19,7 +19,8 @@ public class BibliotaphConnectServiceTests
 {
     private const string WebOrigin = "https://nornis.example";
 
-    private readonly User _dave = new() { Id = Guid.NewGuid(), Auth0SubjectId = "auth0|dave" };
+    private readonly User _dave = new() { Id = Guid.NewGuid() };
+    private readonly User _jack = new() { Id = Guid.NewGuid() };
 
     private IBibliotaphConnectionRepository _connections = null!;
     private IBibliotaphOutboxRepository _outbox = null!;
@@ -39,6 +40,10 @@ public class BibliotaphConnectServiceTests
         _outbox = Substitute.For<IBibliotaphOutboxRepository>();
         _users = Substitute.For<IUserRepository>();
         _users.GetByIdAsync(_dave.Id, Arg.Any<CancellationToken>()).Returns(_dave);
+        // Dave signs in with Discord and Google (feature 33); Jack is someone else.
+        _users.GetBySubjectAsync("oauth2|discord|dave", Arg.Any<CancellationToken>()).Returns(_dave);
+        _users.GetBySubjectAsync("google-oauth2|dave", Arg.Any<CancellationToken>()).Returns(_dave);
+        _users.GetBySubjectAsync("google-oauth2|jack", Arg.Any<CancellationToken>()).Returns(_jack);
         _tokens = Substitute.For<IBibliotaphTokenSource>();
         _auth0 = Substitute.For<IBibliotaphAuthorizationClient>();
         _protector = BibliotaphTokenProtector.Create(null);
@@ -121,7 +126,7 @@ public class BibliotaphConnectServiceTests
         var state = await StateFor(_dave.Id);
         var verifier = VerifierSentFor(state);
         _auth0.ExchangeCodeAsync("code-1", Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new BibliotaphGrant("refresh-1", _dave.Auth0SubjectId));
+            .Returns(new BibliotaphGrant("refresh-1", "oauth2|discord|dave"));
 
         var redirect = await Sut().CompleteAsync("code-1", state, null, CancellationToken.None);
 
@@ -149,12 +154,39 @@ public class BibliotaphConnectServiceTests
     }
 
     [Test]
+    public async Task A_grant_for_another_of_the_users_sign_ins_is_kept()
+    {
+        var state = await StateFor(_dave.Id);
+        _auth0.ExchangeCodeAsync(default!, default!, default)
+            .ReturnsForAnyArgs(new BibliotaphGrant("refresh-g", "google-oauth2|dave"));
+
+        var redirect = await Sut().CompleteAsync("code-1", state, null, CancellationToken.None);
+
+        Assert.That(redirect, Is.EqualTo($"{WebOrigin}/profile?bibliotaph=connected"));
+        await _connections.Received(1).UpsertAsync(_dave.Id, Arg.Any<string>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task A_grant_for_another_users_sign_in_is_revoked_and_never_kept()
+    {
+        var state = await StateFor(_dave.Id);
+        _auth0.ExchangeCodeAsync(default!, default!, default)
+            .ReturnsForAnyArgs(new BibliotaphGrant("refresh-j", "google-oauth2|jack"));
+
+        var redirect = await Sut().CompleteAsync("code-1", state, null, CancellationToken.None);
+
+        Assert.That(redirect, Is.EqualTo($"{WebOrigin}/profile?bibliotaph=refused"));
+        await _auth0.Received(1).RevokeAsync("refresh-j", Arg.Any<CancellationToken>());
+        await _connections.DidNotReceiveWithAnyArgs().UpsertAsync(default, default!, default, default);
+    }
+
+    [Test]
     public async Task Reconnecting_revokes_the_grant_it_replaces()
     {
         _connections.GetByUserIdAsync(_dave.Id, Arg.Any<CancellationToken>())
             .Returns(new BibliotaphConnection { Id = Guid.NewGuid(), UserId = _dave.Id, ProtectedRefreshToken = _protector.Protect("old") });
         _auth0.ExchangeCodeAsync(default!, default!, default)
-            .ReturnsForAnyArgs(new BibliotaphGrant("new", _dave.Auth0SubjectId));
+            .ReturnsForAnyArgs(new BibliotaphGrant("new", "oauth2|discord|dave"));
 
         await Sut().CompleteAsync("code-1", await StateFor(_dave.Id), null, CancellationToken.None);
 

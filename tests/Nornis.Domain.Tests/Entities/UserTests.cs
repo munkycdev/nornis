@@ -18,11 +18,11 @@ public class UserTests
     }
 
     [Test]
-    public void User_Has_Auth0SubjectId_Property_Of_Type_String()
+    public void User_Carries_No_Subject_Of_Its_Own()
     {
-        var property = _type.GetProperty("Auth0SubjectId");
-        Assert.That(property, Is.Not.Null);
-        Assert.That(property!.PropertyType, Is.EqualTo(typeof(string)));
+        // Feature 33: a user's subjects are its sign-ins, so there is one source of truth.
+        Assert.That(_type.GetProperty("Auth0SubjectId"), Is.Null);
+        Assert.That(_type.GetProperty(nameof(User.SignIns))!.PropertyType, Is.EqualTo(typeof(ICollection<UserSignIn>)));
     }
 
     [Test]

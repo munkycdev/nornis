@@ -32,7 +32,7 @@ public class ImportSessionRepositoryTests : IntegrationTestBase
         Context.Users.Add(new User
         {
             Id = _gmId,
-            Auth0SubjectId = $"auth0|{_gmId:N}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{_gmId:N}" } },
             Username = "kelda",
             Email = "kelda@example.test",
             CreatedAt = DateTimeOffset.UtcNow,

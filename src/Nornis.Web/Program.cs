@@ -116,6 +116,22 @@ if (authEnabled)
                 {
                     context.ProtocolMessage.SetParameter("audience", audience);
                 }
+                if (SignInLinking.IsLink(context.Properties))
+                {
+                    context.ProtocolMessage.Scope = SignInLinking.Scope;
+                }
+                return Task.CompletedTask;
+            },
+            // Linking another sign-in (feature 33) claims it here and keeps the session as it was.
+            OnTokenValidated = SignInLinking.OnTokenValidatedAsync,
+            OnRemoteFailure = context =>
+            {
+                // A link refused or cancelled at Auth0 goes back to Profile, not the error page.
+                if (SignInLinking.IsLink(context.Properties))
+                {
+                    context.Response.Redirect(SignInLinking.OutcomeUrl("failed"));
+                    context.HandleResponse();
+                }
                 return Task.CompletedTask;
             },
             // Auth0 requires its own logout endpoint to end the Auth0 session.
@@ -225,6 +241,22 @@ if (authEnabled)
     app.MapGet("/account/logout", () =>
         Results.SignOut(new Microsoft.AspNetCore.Authentication.AuthenticationProperties { RedirectUri = "/welcome" },
             [CookieAuthenticationDefaults.AuthenticationScheme, OpenIdConnectDefaults.AuthenticationScheme]));
+
+    // Profile › Link another sign-in (feature 33): the API issues the code with the session's
+    // token, and the round trip through Auth0 carries it back inside the protected state.
+    app.MapGet("/account/link-sign-in", async (HttpContext context, NornisApiClient api, CancellationToken ct) =>
+        {
+            var from = SignInLinking.Subject(context.User);
+            var begun = await api.BeginSignInLinkAsync(ct);
+            if (string.IsNullOrEmpty(from) || !begun.IsSuccess)
+            {
+                return Results.LocalRedirect(SignInLinking.OutcomeUrl("failed"));
+            }
+
+            return Results.Challenge(SignInLinking.Challenge(begun.Value!.Code, from),
+                [OpenIdConnectDefaults.AuthenticationScheme]);
+        })
+        .RequireAuthorization();
 }
 
 app.UseAntiforgery();

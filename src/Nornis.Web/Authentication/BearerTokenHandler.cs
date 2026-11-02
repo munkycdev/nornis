@@ -9,7 +9,8 @@ namespace Nornis.Web.Authentication;
 /// HttpContext carries the cookie, so the accessor resolves during circuits too.
 /// Near-expiry tokens are silently renewed by <see cref="Auth0TokenRefresher"/> so a
 /// long-lived circuit keeps working past the 24h access-token lifetime. When no token
-/// is available the request goes out anonymous — locally the API's dev bypass handles it.
+/// is available the request goes out anonymous — locally the API's dev bypass handles it. A
+/// request that already has an <c>Authorization</c> header is left as it is.
 /// </summary>
 public class BearerTokenHandler : DelegatingHandler
 {
@@ -24,8 +25,10 @@ public class BearerTokenHandler : DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        // A request that names its own bearer keeps it: claiming a sign-in link (feature 33)
+        // sends the new sign-in's token from a request that still carries the old session.
         var httpContext = _httpContextAccessor.HttpContext;
-        if (httpContext is not null)
+        if (httpContext is not null && request.Headers.Authorization is null)
         {
             var accessToken = await _tokenRefresher.GetAccessTokenAsync(httpContext, cancellationToken);
             if (!string.IsNullOrEmpty(accessToken))

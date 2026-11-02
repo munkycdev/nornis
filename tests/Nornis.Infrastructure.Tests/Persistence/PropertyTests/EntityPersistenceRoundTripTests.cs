@@ -18,9 +18,10 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
     [FsCheck.NUnit.Property(Arbitrary = [typeof(EntityGenerators.DomainArbitraries)], MaxTest = 100)]
     public void User_RoundTrip_AllPropertiesMatch(User generated)
     {
-        // Assign a unique Id and Auth0SubjectId to avoid collisions across iterations
+        // Assign a unique Id and subject to avoid collisions across iterations
         generated.Id = Guid.NewGuid();
-        generated.Auth0SubjectId = $"auth0|{Guid.NewGuid():N}";
+        var subject = $"auth0|{Guid.NewGuid():N}";
+        generated.SignIns = [new UserSignIn { Id = Guid.NewGuid(), Subject = subject, AddedAt = generated.CreatedAt }];
         generated.RowVersion = [];
 
         // Persist
@@ -33,7 +34,8 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
 
         // Assert all scalar properties
         Assert.That(retrieved.Id, Is.EqualTo(generated.Id));
-        Assert.That(retrieved.Auth0SubjectId, Is.EqualTo(generated.Auth0SubjectId));
+        Assert.That(readContext.UserSignIns.AsNoTracking().Where(si => si.UserId == generated.Id).Select(si => si.Subject).ToList(),
+            Is.EqualTo([subject]));
         Assert.That(retrieved.Username, Is.EqualTo(generated.Username));
         Assert.That(retrieved.Email, Is.EqualTo(generated.Email));
         Assert.That(retrieved.CreatedAt, Is.EqualTo(generated.CreatedAt));
@@ -385,7 +387,7 @@ public class EntityPersistenceRoundTripTests : IntegrationTestBase
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Auth0SubjectId = $"auth0|{Guid.NewGuid():N}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{Guid.NewGuid():N}" } },
             Username = "TestUser",
             Email = "test@nornis.app",
             CreatedAt = DateTimeOffset.UtcNow,

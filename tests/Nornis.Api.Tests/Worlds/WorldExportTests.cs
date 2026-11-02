@@ -168,7 +168,7 @@ public class WorldExportTests
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-            playerUserId = (await db.Users.FirstAsync(u => u.Auth0SubjectId == "auth0|player-tavrin-exp4")).Id;
+            playerUserId = (await db.Users.FirstAsync(u => u.SignIns.Any(si => si.Subject == "auth0|player-tavrin-exp4"))).Id;
         }
 
         var add = await gmClient.PostAsJsonAsync($"/api/worlds/{worldId}/members",

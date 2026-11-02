@@ -125,7 +125,7 @@ public class ImportSessionsControllerTests
 
         using var scope = _factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-        var playerUser = context.Users.Single(u => u.Auth0SubjectId == "auth0|import-player");
+        var playerUser = context.Users.Single(u => u.SignIns.Any(si => si.Subject == "auth0|import-player"));
         context.WorldMembers.Add(new WorldMember
         {
             Id = Guid.NewGuid(),

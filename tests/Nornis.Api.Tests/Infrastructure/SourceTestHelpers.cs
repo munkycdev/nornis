@@ -28,7 +28,7 @@ public static class SourceTestHelpers
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Auth0SubjectId = auth0Sub,
+            SignIns = { new UserSignIn { Subject = auth0Sub } },
             Email = email,
             Username = username ?? email.Split('@')[0],
             CreatedAt = DateTimeOffset.UtcNow,
@@ -55,7 +55,7 @@ public static class SourceTestHelpers
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-        var user = db.Users.First(u => u.Auth0SubjectId == auth0Sub);
+        var user = db.Users.First(u => u.SignIns.Any(si => si.Subject == auth0Sub));
         return user.Id;
     }
 

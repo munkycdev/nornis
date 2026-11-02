@@ -1,0 +1,124 @@
+@* Profile › Sign-ins (feature 33): the ways this account can sign in. *@
+@inject NornisApiClient Api
+@inject NavigationManager Nav
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4">
+    <div class="nornis-detail-section-title">Sign-ins</div>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+        The ways you can sign in to this account. Each one opens the same worlds. To add one,
+        sign in with it once from here.
+    </MudText>
+
+    @if (Outcome is { } outcome)
+    {
+        <MudAlert Severity="@OutcomeSeverity(outcome)" Dense="true" Class="mb-3">@OutcomeText(outcome)</MudAlert>
+    }
+
+    @if (_signIns is null)
+    {
+        @if (_error is null)
+        {
+            <LoadingRows Rows="1" Height="40px" />
+        }
+    }
+    else
+    {
+        @foreach (var signIn in _signIns)
+        {
+            <div class="nornis-member-row">
+                <MudIcon Icon="@Icons.Material.Filled.Key" Size="Size.Small" Color="Color.Secondary" />
+                <div class="nornis-list-body">
+                    <div class="nornis-list-title">@signIn.Provider</div>
+                    <div class="nornis-list-sub">
+                        <span>Added @signIn.AddedAt.LocalDateTime.ToString("d MMM yyyy")</span>
+                        @if (signIn.Current)
+                        {
+                            <span> · signed in with this now</span>
+                        }
+                    </div>
+                </div>
+                @if (!signIn.Current && _signIns.Count > 1)
+                {
+                    <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                               OnClick="() => RemoveAsync(signIn)" Disabled="_busy">Remove</MudButton>
+                }
+            </div>
+        }
+
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="Link" Disabled="_busy" Class="mt-2">Link another sign-in</MudButton>
+    }
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert>
+    }
+</MudPaper>
+
+@code {
+    /// <summary>The <c>?signin=</c> outcome a link came back with, if any.</summary>
+    [Parameter] public string? Outcome { get; set; }
+
+    private IReadOnlyList<SignInDto>? _signIns;
+    private bool _busy;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Api.GetSignInsAsync();
+        _signIns = result.IsSuccess ? result.Value : null;
+        _error = result.IsSuccess ? null : result.Error!.Message;
+    }
+
+    // A full page load: the round trip leaves the app for Auth0 and comes back to Profile.
+    private void Link()
+    {
+        _busy = true;
+        Nav.NavigateTo("/account/link-sign-in", forceLoad: true);
+    }
+
+    private async Task RemoveAsync(SignInDto signIn)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            $"Remove {signIn.Provider}?",
+            $"You won't be able to sign in to this account with {signIn.Provider}. Signing in with it afterwards starts a new, empty account.",
+            yesText: "Remove", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _busy = true;
+        var result = await Api.RemoveSignInAsync(signIn.Id);
+        _busy = false;
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        Snackbar.Add($"{signIn.Provider} sign-in removed.", Severity.Normal);
+        await LoadAsync();
+    }
+
+    private static Severity OutcomeSeverity(string outcome) => outcome switch
+    {
+        "linked" => Severity.Success,
+        "already-linked" => Severity.Info,
+        "taken" or "expired" => Severity.Warning,
+        _ => Severity.Error,
+    };
+
+    private static string OutcomeText(string outcome) => outcome switch
+    {
+        "linked" => "Sign-in added. You can use it next time you sign in.",
+        "already-linked" => "That sign-in was already on this account.",
+        "taken" => "That sign-in already has its own Nornis account, so it wasn't added. Two accounts can't be merged from here.",
+        "expired" => "That took too long. Choose Link another sign-in to try again.",
+        _ => "The sign-in wasn't added. Please try again.",
+    };
+}

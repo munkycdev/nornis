@@ -4,11 +4,16 @@ namespace Nornis.Domain.Repositories;
 
 public interface IUserRepository
 {
-    Task<User> CreateAsync(User user, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Creates <paramref name="user"/> with <paramref name="subject"/> as its one sign-in, in one
+    /// save. A subject another user already owns fails on the unique index (a create race).
+    /// </summary>
+    Task<User> CreateAsync(User user, string subject, CancellationToken cancellationToken = default);
 
     Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
-    Task<User?> GetByAuth0SubjectIdAsync(string auth0SubjectId, CancellationToken cancellationToken = default);
+    /// <summary>The user one of whose sign-ins is <paramref name="subject"/>, or null.</summary>
+    Task<User?> GetBySubjectAsync(string subject, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Users who are not yet members of <paramref name="worldId"/>, ordered by username — the

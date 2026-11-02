@@ -37,7 +37,7 @@ public class SourceAttributionProjectionTests : IntegrationTestBase
         Context.Users.Add(new User
         {
             Id = _authorId,
-            Auth0SubjectId = $"auth0|{tag}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{tag}" } },
             Username = $"gm-{tag}",
             Email = $"{tag}@example.com",
             CreatedAt = DateTimeOffset.UtcNow,

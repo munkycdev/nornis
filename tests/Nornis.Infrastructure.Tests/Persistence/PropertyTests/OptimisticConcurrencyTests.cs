@@ -54,7 +54,7 @@ public class OptimisticConcurrencyTests : IDisposable
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Auth0SubjectId = $"auth0|{Guid.NewGuid():N}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{Guid.NewGuid():N}" } },
             Username = "Captain Voss",
             Email = "voss@blackharbor.test",
             CreatedAt = DateTimeOffset.UtcNow,
@@ -200,7 +200,7 @@ public class OptimisticConcurrencyTests : IDisposable
             var user = new User
             {
                 Id = Guid.NewGuid(),
-                Auth0SubjectId = $"auth0|{Guid.NewGuid():N}",
+                SignIns = { new UserSignIn { Subject = $"auth0|{Guid.NewGuid():N}" } },
                 Username = generated.Username,
                 Email = generated.Email,
                 CreatedAt = generated.CreatedAt,

@@ -1430,6 +1430,27 @@ namespace Nornis.Infrastructure.Migrations
                     b.ToTable("ShelfLinks", (string)null);
                 });
 
+            modelBuilder.Entity("Nornis.Domain.Entities.SignInLinkCode", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("CodeHash")
+                        .IsUnique();
+
+                    b.ToTable("SignInLinkCodes", (string)null);
+                });
+
             modelBuilder.Entity("Nornis.Domain.Entities.Source", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1682,11 +1703,6 @@ namespace Nornis.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Auth0SubjectId")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -1717,10 +1733,34 @@ namespace Nornis.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Auth0SubjectId")
+                    b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.UserSignIn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Subject")
                         .IsUnique();
 
-                    b.ToTable("Users", (string)null);
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserSignIns", (string)null);
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.WorkerHeartbeat", b =>
@@ -2436,6 +2476,15 @@ namespace Nornis.Infrastructure.Migrations
                     b.Navigation("Player");
                 });
 
+            modelBuilder.Entity("Nornis.Domain.Entities.SignInLinkCode", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Nornis.Domain.Entities.Source", b =>
                 {
                     b.HasOne("Nornis.Domain.Entities.Adventure", null)
@@ -2510,6 +2559,15 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasOne("Nornis.Domain.Entities.World", null)
                         .WithMany()
                         .HasForeignKey("WorldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.UserSignIn", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.User", null)
+                        .WithMany("SignIns")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -2639,6 +2697,11 @@ namespace Nornis.Infrastructure.Migrations
             modelBuilder.Entity("Nornis.Domain.Entities.Source", b =>
                 {
                     b.Navigation("SourceExtractions");
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.User", b =>
+                {
+                    b.Navigation("SignIns");
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.World", b =>

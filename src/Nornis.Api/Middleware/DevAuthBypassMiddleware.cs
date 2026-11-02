@@ -59,19 +59,18 @@ public class DevAuthBypassMiddleware
         context.User = new ClaimsPrincipal(identity);
 
         // Provision or retrieve the dev user
-        var user = await userRepository.GetByAuth0SubjectIdAsync(_subjectId, context.RequestAborted);
+        var user = await userRepository.GetBySubjectAsync(_subjectId, context.RequestAborted);
 
         if (user is null)
         {
             user = await userRepository.CreateAsync(new User
             {
                 Id = Guid.NewGuid(),
-                Auth0SubjectId = _subjectId,
                 Username = _username,
                 Email = _email,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
-            }, context.RequestAborted);
+            }, _subjectId, context.RequestAborted);
 
             _logger.LogInformation("Dev auth bypass: created dev user {UserId}", user.Id);
         }

@@ -73,18 +73,27 @@ public class ModelValidationTests : IntegrationTestBase
     #region Unique Indexes
 
     [Test]
-    public void User_HasUniqueIndex_OnAuth0SubjectId()
+    public void UserSignIn_HasUniqueIndex_OnSubject()
     {
         using var context = CreateSqlServerModelContext();
-        var entityType = context.Model.FindEntityType(typeof(User))!;
+        var entityType = context.Model.FindEntityType(typeof(UserSignIn))!;
         var indexes = entityType.GetIndexes().ToList();
 
-        var auth0Index = indexes.FirstOrDefault(i =>
+        var subjectIndex = indexes.FirstOrDefault(i =>
             i.Properties.Count == 1 &&
-            i.Properties[0].Name == nameof(User.Auth0SubjectId));
+            i.Properties[0].Name == nameof(UserSignIn.Subject));
 
-        Assert.That(auth0Index, Is.Not.Null, "User should have an index on Auth0SubjectId");
-        Assert.That(auth0Index!.IsUnique, Is.True, "Auth0SubjectId index should be unique");
+        Assert.That(subjectIndex, Is.Not.Null, "UserSignIn should have an index on Subject");
+        Assert.That(subjectIndex!.IsUnique, Is.True, "a subject belongs to at most one user");
+    }
+
+    [Test]
+    public void SignInLinkCode_IsKeyedByUser_SoEachUserHasAtMostOne()
+    {
+        using var context = CreateSqlServerModelContext();
+        var key = context.Model.FindEntityType(typeof(SignInLinkCode))!.FindPrimaryKey()!;
+
+        Assert.That(key.Properties.Select(p => p.Name), Is.EqualTo([nameof(SignInLinkCode.UserId)]));
     }
 
     [Test]
@@ -156,7 +165,8 @@ public class ModelValidationTests : IntegrationTestBase
 
     #region String Max Lengths
 
-    [TestCase(typeof(User), nameof(User.Auth0SubjectId), 200)]
+    [TestCase(typeof(UserSignIn), nameof(UserSignIn.Subject), 200)]
+    [TestCase(typeof(SignInLinkCode), nameof(SignInLinkCode.CodeHash), 64)]
     [TestCase(typeof(User), nameof(User.Username), 200)]
     [TestCase(typeof(User), nameof(User.Email), 200)]
     [TestCase(typeof(World), nameof(World.Name), 200)]

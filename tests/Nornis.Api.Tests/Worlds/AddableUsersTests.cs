@@ -50,7 +50,7 @@ public class AddableUsersTests
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-        var user = await db.Users.FirstAsync(u => u.Auth0SubjectId == sub);
+        var user = await db.Users.FirstAsync(u => u.SignIns.Any(si => si.Subject == sub));
         return user.Id;
     }
 

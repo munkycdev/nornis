@@ -46,11 +46,11 @@ public class UserProvisioningTests
         // Verify user was created in the database
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0SubjectId == sub);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.SignIns.Any(si => si.Subject == sub));
 
         Assert.That(user, Is.Not.Null);
-        Assert.That(user!.Auth0SubjectId, Is.EqualTo(sub));
-        Assert.That(user.Username, Is.EqualTo(nickname));
+        Assert.That(await db.UserSignIns.Where(si => si.UserId == user!.Id).Select(si => si.Subject).ToListAsync(), Is.EqualTo([sub]));
+        Assert.That(user!.Username, Is.EqualTo(nickname));
         Assert.That(user.Email, Is.EqualTo(email));
     }
 
@@ -73,7 +73,7 @@ public class UserProvisioningTests
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-            var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0SubjectId == sub);
+            var user = await db.Users.FirstOrDefaultAsync(u => u.SignIns.Any(si => si.Subject == sub));
             Assert.That(user, Is.Not.Null, "User should exist after first request");
         }
 
@@ -87,7 +87,7 @@ public class UserProvisioningTests
         // Verify no duplicate user was created
         using var scope2 = _factory.Services.CreateScope();
         var db2 = scope2.ServiceProvider.GetRequiredService<NornisDbContext>();
-        var users = await db2.Users.Where(u => u.Auth0SubjectId == sub).ToListAsync();
+        var users = await db2.Users.Where(u => u.SignIns.Any(si => si.Subject == sub)).ToListAsync();
 
         Assert.That(users, Has.Count.EqualTo(1), "Only one user record should exist for the same sub");
         Assert.That(users[0].Username, Is.EqualTo(nickname));
@@ -135,7 +135,7 @@ public class UserProvisioningTests
         // Verify user was created with Username equal to sub
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0SubjectId == sub);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.SignIns.Any(si => si.Subject == sub));
 
         Assert.That(user, Is.Not.Null);
         Assert.That(user!.Username, Is.EqualTo(sub), "Username should default to sub when nickname is absent");

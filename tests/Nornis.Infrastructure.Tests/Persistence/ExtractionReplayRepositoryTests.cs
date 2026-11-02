@@ -15,7 +15,7 @@ public class ExtractionReplayRepositoryTests : IntegrationTestBase
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Auth0SubjectId = $"auth0|{tag}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{tag}" } },
             Username = $"gm-{tag}",
             Email = $"{tag}@example.com",
             CreatedAt = now,

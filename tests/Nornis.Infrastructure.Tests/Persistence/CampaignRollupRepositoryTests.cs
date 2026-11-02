@@ -71,7 +71,7 @@ public class CampaignRollupRepositoryTests : IntegrationTestBase
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Auth0SubjectId = $"auth0|{tag}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{tag}" } },
             Username = tag,
             Email = $"{tag}@example.com",
             CreatedAt = now,

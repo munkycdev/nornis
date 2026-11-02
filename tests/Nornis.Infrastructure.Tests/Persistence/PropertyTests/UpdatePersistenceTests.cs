@@ -52,11 +52,10 @@ public class UpdatePersistenceTests : IntegrationTestBase
     {
         // Arrange
         user.Id = Guid.NewGuid();
-        user.Auth0SubjectId = Guid.NewGuid().ToString(); // ensure unique
         user.RowVersion = [];
 
         var repo = new UserRepository(Context);
-        await repo.CreateAsync(user);
+        await repo.CreateAsync(user, Guid.NewGuid().ToString()); // a unique subject
 
         // Act: mutate username
         var newUsername = "Updated " + user.Username;
@@ -239,7 +238,7 @@ public class UpdatePersistenceTests : IntegrationTestBase
     private static User CreateValidUser() => new()
     {
         Id = Guid.NewGuid(),
-        Auth0SubjectId = Guid.NewGuid().ToString(),
+        SignIns = { new UserSignIn { Subject = Guid.NewGuid().ToString() } },
         Username = "TestUser",
         Email = "test@example.com",
         CreatedAt = DateTimeOffset.UtcNow,

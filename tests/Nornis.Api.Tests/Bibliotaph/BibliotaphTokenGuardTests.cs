@@ -65,7 +65,7 @@ public class BibliotaphTokenGuardTests
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-        Assert.That(await db.Users.AnyAsync(u => u.Auth0SubjectId == sub), Is.False);
+        Assert.That(await db.Users.AnyAsync(u => u.SignIns.Any(si => si.Subject == sub)), Is.False);
     }
 
     [Test]

@@ -55,7 +55,7 @@ public class WorldMemberTests
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-        var user = await db.Users.FirstAsync(u => u.Auth0SubjectId == sub);
+        var user = await db.Users.FirstAsync(u => u.SignIns.Any(si => si.Subject == sub));
         return user.Id;
     }
 
@@ -219,7 +219,7 @@ public class WorldMemberTests
         // Get the GM user's ID
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-        var gmUser = await db.Users.FirstAsync(u => u.Auth0SubjectId == "auth0|gm-voss-006");
+        var gmUser = await db.Users.FirstAsync(u => u.SignIns.Any(si => si.Subject == "auth0|gm-voss-006"));
 
         // Act - GM tries to remove themselves (last GM)
         var response = await gmClient.DeleteAsync($"/api/worlds/{worldId}/members/{gmUser.Id}");

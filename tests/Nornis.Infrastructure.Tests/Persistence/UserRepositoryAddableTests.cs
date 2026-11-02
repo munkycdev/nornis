@@ -34,7 +34,7 @@ public class UserRepositoryAddableTests : IntegrationTestBase
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Auth0SubjectId = $"auth0|{tag}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{tag}" } },
             Username = username,
             Email = $"{tag}@example.com",
             CreatedAt = DateTimeOffset.UtcNow,
