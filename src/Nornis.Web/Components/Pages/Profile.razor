@@ -25,6 +25,8 @@
         </MudRadioGroup>
     </MudPaper>
 
+    <BibliotaphConnectionCard Outcome="@BibliotaphOutcome" />
+
     @if (Worlds.Current is null)
     {
         <NoWorld />
@@ -173,6 +175,9 @@
 </div>
 
 @code {
+    /// <summary>How a Bibliotaph connect attempt ended, when it brought the browser back here.</summary>
+    [SupplyParameterFromQuery(Name = "bibliotaph")] public string? BibliotaphOutcome { get; set; }
+
     private bool _loading;
     private string? _error;
     private IReadOnlyList<CharacterDto> _characters = [];

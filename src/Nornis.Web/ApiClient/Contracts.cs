@@ -1249,3 +1249,18 @@ public record LearnedDto(
     IReadOnlyList<LearnedEntryDto> Entries);
 
 public record MarkLearnedSeenBody(DateTimeOffset SeenThrough);
+
+// ------------------------------------------------------------- bibliotaph (feature 31) --
+
+/// <summary>Profile › Bibliotaph. <see cref="Status"/> is one of the constants below.</summary>
+public record BibliotaphConnectionDto(bool Configured, string Status, DateTimeOffset? ConnectedAt, DateTimeOffset? LastUsedAt)
+{
+    public const string None = "none";
+    public const string Connected = "connected";
+    public const string NeedsReconnect = "needs_reconnect";
+}
+
+/// <summary>An address the API wants the browser sent to.</summary>
+public record BibliotaphRedirectDto(string Url);
+
+public record BibliotaphAuthorizeRequest(string State);

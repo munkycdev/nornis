@@ -223,6 +223,20 @@ public class NornisApiClient
     // ---------------------------------------------------------------- Shelf links --
 
     /// <summary>The world's standing shelf links. GM only — each carries its code.</summary>
+    // Bibliotaph (feature 31): the signed-in user's own connection.
+    public Task<ApiResult<BibliotaphConnectionDto>> GetBibliotaphConnectionAsync(CancellationToken ct = default) =>
+        GetAsync<BibliotaphConnectionDto>("/api/bibliotaph/connection", ct);
+
+    public Task<ApiResult<BibliotaphRedirectDto>> BeginBibliotaphConnectAsync(CancellationToken ct = default) =>
+        PostAsync<object?, BibliotaphRedirectDto>("/api/bibliotaph/connection/begin", null, ct);
+
+    public Task<ApiResult<BibliotaphRedirectDto>> AuthorizeBibliotaphAsync(string state, CancellationToken ct = default) =>
+        PostAsync<BibliotaphAuthorizeRequest, BibliotaphRedirectDto>(
+            "/api/bibliotaph/connection/authorize", new BibliotaphAuthorizeRequest(state), ct);
+
+    public Task<ApiResult<bool>> DisconnectBibliotaphAsync(CancellationToken ct = default) =>
+        DeleteAsync("/api/bibliotaph/connection", ct);
+
     public Task<ApiResult<IReadOnlyList<ShelfLinkDto>>> GetShelfLinksAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<ShelfLinkDto>>($"/api/worlds/{worldId}/shelf-links", ct);
 

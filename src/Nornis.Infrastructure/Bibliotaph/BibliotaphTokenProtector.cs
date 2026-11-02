@@ -16,12 +16,15 @@ public sealed class BibliotaphTokenProtector : IBibliotaphTokenProtector
 {
     public const string ApplicationName = "nornis-bibliotaph";
     private const string Purpose = "Nornis.Bibliotaph.RefreshToken";
+    private const string StatePurpose = "Nornis.Bibliotaph.ConnectState";
 
     private readonly IDataProtector _protector;
+    private readonly IDataProtector _stateProtector;
 
     public BibliotaphTokenProtector(IDataProtectionProvider provider)
     {
         _protector = provider.CreateProtector(Purpose);
+        _stateProtector = provider.CreateProtector(StatePurpose);
     }
 
     /// <summary>
@@ -46,13 +49,19 @@ public sealed class BibliotaphTokenProtector : IBibliotaphTokenProtector
 
     public string Protect(string refreshToken) => _protector.Protect(refreshToken);
 
-    public string? Unprotect(string protectedRefreshToken)
+    public string ProtectState(string state) => _stateProtector.Protect(state);
+
+    public string? UnprotectState(string protectedState) => TryUnprotect(_stateProtector, protectedState);
+
+    public string? Unprotect(string protectedRefreshToken) => TryUnprotect(_protector, protectedRefreshToken);
+
+    private static string? TryUnprotect(IDataProtector protector, string ciphertext)
     {
         try
         {
-            return _protector.Unprotect(protectedRefreshToken);
+            return protector.Unprotect(ciphertext);
         }
-        catch (CryptographicException)
+        catch (Exception ex) when (ex is CryptographicException or FormatException)
         {
             // A lost ring or tampered ciphertext. The caller treats it as a refused grant, so the
             // GM is asked to reconnect rather than every call failing with a 500.

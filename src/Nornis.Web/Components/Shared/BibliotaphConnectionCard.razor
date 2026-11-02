@@ -1,0 +1,118 @@
+@* Profile › Bibliotaph (feature 31, Requirement 1). Hidden unless the integration is set up. *@
+@inject NornisApiClient Api
+@inject NavigationManager Nav
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+@if (_connection is { Configured: true } c)
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4">
+        <div class="nornis-detail-section-title">Bibliotaph</div>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Your sourcebook library. Once connected, each world you created gets a collection in
+            Bibliotaph, and the books you put there appear on that world's Library page, GM-only
+            until you share them.
+        </MudText>
+
+        @if (Outcome is { } outcome)
+        {
+            <MudAlert Severity="@OutcomeSeverity(outcome)" Dense="true" Class="mb-3">@OutcomeText(outcome)</MudAlert>
+        }
+
+        @switch (c.Status)
+        {
+            case BibliotaphConnectionDto.Connected:
+                <MudText Typo="Typo.body2" Class="mb-2">
+                    Connected@(c.ConnectedAt is { } since ? $" since {since.LocalDateTime:d MMM yyyy}" : "")@(c.LastUsedAt is { } used ? $", last used {used.LocalDateTime:d MMM, HH:mm}" : "").
+                </MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="DisconnectAsync" Disabled="_busy">Disconnect</MudButton>
+                break;
+            case BibliotaphConnectionDto.NeedsReconnect:
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
+                    Bibliotaph stopped accepting Nornis's connection. Reconnect to bring your books back.
+                </MudAlert>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ConnectAsync" Disabled="_busy" Class="mr-2">Reconnect Bibliotaph</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="DisconnectAsync" Disabled="_busy">Disconnect</MudButton>
+                break;
+            default:
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ConnectAsync" Disabled="_busy">Connect Bibliotaph</MudButton>
+                break;
+        }
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert>
+        }
+    </MudPaper>
+}
+
+@code {
+    /// <summary>The <c>?bibliotaph=</c> outcome the connect flow came back with, if any.</summary>
+    [Parameter] public string? Outcome { get; set; }
+
+    private BibliotaphConnectionDto? _connection;
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetBibliotaphConnectionAsync();
+        _connection = result.IsSuccess ? result.Value : null;
+    }
+
+    private async Task ConnectAsync()
+    {
+        _busy = true;
+        _error = null;
+        var result = await Api.BeginBibliotaphConnectAsync();
+        if (result.IsSuccess)
+        {
+            Nav.NavigateTo(result.Value!.Url, forceLoad: true);
+            return;
+        }
+
+        _error = result.Error!.Message;
+        _busy = false;
+    }
+
+    private async Task DisconnectAsync()
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Disconnect Bibliotaph?",
+            "Your worlds' Library pages stop showing your Bibliotaph books, and players can no longer open the ones you shared. Your collections and books stay in Bibliotaph.",
+            yesText: "Disconnect", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _busy = true;
+        var result = await Api.DisconnectBibliotaphAsync();
+        _busy = false;
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        Snackbar.Add("Bibliotaph disconnected.", Severity.Normal);
+        var refreshed = await Api.GetBibliotaphConnectionAsync();
+        _connection = refreshed.IsSuccess ? refreshed.Value : _connection;
+    }
+
+    private static Severity OutcomeSeverity(string outcome) => outcome switch
+    {
+        "connected" => Severity.Success,
+        "full" or "invite-required" or "refused" => Severity.Warning,
+        _ => Severity.Error,
+    };
+
+    private static string OutcomeText(string outcome) => outcome switch
+    {
+        "connected" => "Bibliotaph is connected. Your worlds' collections are being made now.",
+        "full" => "Bibliotaph isn't taking new accounts right now, so it couldn't be connected.",
+        "invite-required" => "Bibliotaph needs an invitation before it can be connected. Ask for one, then try again.",
+        "refused" => "The connection wasn't made. It has to be finished by the same person who started it.",
+        _ => "Something went wrong connecting Bibliotaph. Please try again.",
+    };
+}

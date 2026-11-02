@@ -283,6 +283,11 @@ builder.Services.AddOptions<PrepOptions>()
     .Validate(o => o.FirstNonPositiveBound() is null, "Every Prep bound must be greater than zero; none means unbounded.")
     .ValidateOnStart();
 builder.Services.AddBibliotaph(builder.Configuration);
+builder.Services.AddScoped<IBibliotaphOutboxRepository, BibliotaphOutboxRepository>();
+builder.Services.AddScoped<Nornis.Application.Bibliotaph.IBibliotaphConnectService, Nornis.Application.Bibliotaph.BibliotaphConnectService>();
+builder.Services.AddHttpClient(Nornis.Api.Bibliotaph.Auth0BibliotaphAuthorizationClient.HttpClientName,
+    client => client.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddSingleton<Nornis.Application.Bibliotaph.IBibliotaphAuthorizationClient, Nornis.Api.Bibliotaph.Auth0BibliotaphAuthorizationClient>();
 builder.Services.AddScoped<IAdventureService, AdventureService>();
 builder.Services.AddScoped<IAdventureDraftingService, AdventureDraftingService>();
 builder.Services.AddScoped<IAdventureExportService, AdventureExportService>();
