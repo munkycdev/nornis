@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Persistence.Repositories;
@@ -61,6 +62,17 @@ public class LibraryDocumentRepository : ILibraryDocumentRepository
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        // An upload Bibliotaph lists is about to vanish from that listing (feature 31). Staged
+        // and saved first: a delete that then fails costs Bibliotaph one needless rescan, while
+        // the other order could lose the event.
+        var document = await _context.LibraryDocuments.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
+        if (document is not null && BibliotaphExposure.IsExposed(document)
+            && await BibliotaphOutboxCapture.QueueAsync(
+                _context, document.WorldId, BibliotaphWorldEventKind.FilesChanged, DateTimeOffset.UtcNow, cancellationToken))
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
         // Excerpts filed from this document are sources in their own right — their text was
         // copied at filing — and they outlive it. The FK is Restrict (Worlds already cascades
         // to both tables), so they are detached here rather than by the database.

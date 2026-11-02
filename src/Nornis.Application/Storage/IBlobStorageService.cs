@@ -3,6 +3,9 @@ namespace Nornis.Application.Storage;
 /// <summary>Size and content type reported by blob storage for an uploaded blob.</summary>
 public sealed record BlobMetadata(long SizeBytes, string ContentType);
 
+/// <summary>A read-only address for a blob and when it stops working.</summary>
+public sealed record BlobReadLink(string Url, DateTimeOffset ExpiresAt);
+
 /// <summary>
 /// Blob storage for library documents. Uploads use the SAS handshake: the API hands the
 /// browser a short-lived write URL and the bytes never pass through the server; downloads
@@ -21,6 +24,12 @@ public interface IBlobStorageService
 
     /// <summary>Read-only SAS URL, 15-minute expiry.</summary>
     Task<string> GenerateDownloadSasUrlAsync(string blobPath, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Read-only SAS URL with the given lifetime, for a reader that holds it longer than a
+    /// download does: Bibliotaph's Nornis storage provider reads byte ranges for about an hour.
+    /// </summary>
+    Task<BlobReadLink> GenerateReadLinkAsync(string blobPath, TimeSpan lifetime, CancellationToken cancellationToken = default);
 
     /// <summary>Null when the blob does not exist — the confirm step's existence check.</summary>
     Task<BlobMetadata?> GetBlobMetadataAsync(string blobPath, CancellationToken cancellationToken = default);

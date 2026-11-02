@@ -30,6 +30,41 @@
 > - Infrastructure pins `System.Security.Cryptography.Xml` 10.0.14, which Data Protection
 >   pulls at a vulnerable 10.0.11, as `Pkcs` is pinned.
 
+> **Amendment (2026-11-02, Phase D):** what building the outbox and the provider changed. The
+> text below is left as written.
+>
+> - **The capture reads the old values from the database.** Repositories save detached
+>   entities with `Update`, which marks every property modified with the original equal to the
+>   new value, so the change tracker can't say whether a name changed or an upload was pending.
+>   `BibliotaphOutboxCapture` queries the stored world names and upload statuses instead, and
+>   only once a connected creator is involved: one query for the worlds and one for the
+>   connections when a world or exposed upload is in the save, one more for statuses.
+> - **Deleting an Adventure queues `files-changed`** when it has a print, because its prints
+>   are exposed through their `AdventureId` and lose it (`AdventureRepository.DeleteAsync`).
+> - **`BibliotaphExposure.Rule` is an expression**, so the provider's query and the capture's
+>   in-memory check are one rule.
+> - **No pause gate on the outbox.** The operational pause stops AI spend in the Worker; the
+>   outbox makes no AI calls.
+> - **Delivery** (`BibliotaphOutboxDelivery`): no connection fails the events at once; every
+>   other failure, a refused grant included, waits with backoff; and any event older than 7 days
+>   is failed with an error log. Reconnecting or Resync sends a fresh `created` for each world,
+>   which repairs what a given-up event would have said. Reading records are purged in Phase F,
+>   where they are first written.
+> - **Resync with no connection queues nothing** and still answers 202: the outbox holds rows
+>   only for connected creators.
+> - **File links** come from `IBlobStorageService.GenerateReadLinkAsync` with
+>   `Bibliotaph:FileLinkMinutes` (60, refused above 60 at start-up). The user delegation key now
+>   lives 2 hours, since a SAS dies with the key that signed it and the old 1-hour key could not
+>   sign an hour-long link.
+> - **A cursor Nornis didn't issue is a 400 `bad_cursor`.** The provider's reads go through
+>   `IBibliotaphProviderRepository`.
+> - **Blob CORS.** Bibliotaph's reader reads byte ranges from Nornis blob storage from its own
+>   origin, so `provision-azure.ps1` adds a CORS rule for `BibliotaphBaseUrl` once (with
+>   `BibliotaphProviderClientId` set).
+> - **Open with Bibliotaph:** the spec's provider path uses the file name as the segment, and
+>   Nornis doesn't keep file names unique within a world. The provider item id is the file id,
+>   which is unique; Bibliotaph should key on that.
+
 ## Overview
 
 Nornis keeps the Library page, its rows and its GMOnly / PartyVisible chip. What changes is

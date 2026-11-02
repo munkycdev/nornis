@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Persistence.Repositories;
@@ -110,14 +111,25 @@ public class WorldRepository : IWorldRepository
     {
         // ExecuteDelete needs a relational provider; the API integration tests run on
         // InMemory, which gets tracked RemoveRange + a single SaveChanges instead.
+        // Bibliotaph hears of the delete in the same transaction (feature 31). The event is
+        // staged first, while the world's name and creator can still be read, and its row has
+        // no foreign key to the world, so the graph delete below leaves it in place.
         if (_context.Database.IsRelational())
         {
             await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            if (await BibliotaphOutboxCapture.QueueAsync(
+                _context, worldId, BibliotaphWorldEventKind.Deleted, DateTimeOffset.UtcNow, cancellationToken))
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
             await DeleteWorldGraphAsync(worldId, relational: true, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
         else
         {
+            await BibliotaphOutboxCapture.QueueAsync(
+                _context, worldId, BibliotaphWorldEventKind.Deleted, DateTimeOffset.UtcNow, cancellationToken);
             await DeleteWorldGraphAsync(worldId, relational: false, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
         }

@@ -79,6 +79,10 @@ public class NornisDbContext : DbContext
         await SlugAssigner.AssignAsync(this, cancellationToken);
 
         var now = DateTimeOffset.UtcNow;
+
+        // Bibliotaph's outbox rows ride in the same save as the change they report (feature 31).
+        await BibliotaphOutboxCapture.CaptureAsync(this, now, cancellationToken);
+
         foreach (var entry in ChangeTracker.Entries<Source>())
         {
             var isNewlyQueued = entry.State == EntityState.Added;

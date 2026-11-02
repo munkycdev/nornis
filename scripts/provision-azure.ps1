@@ -213,6 +213,18 @@ $apiEnv += $bibliotaphEnv
 if ($BibliotaphProviderClientId) {
     # Bibliotaph's own application: its tokens reach only api/bibliotaph/v1.
     $apiEnv += "Bibliotaph__ProviderClientId=$BibliotaphProviderClientId"
+
+    # Bibliotaph's reader reads uploaded books straight from blob storage, by byte range, from
+    # its own origin, through the read links api/bibliotaph/v1 hands out. Added once; the
+    # account's other CORS rules are left as they are.
+    $bibliotaphOrigin = $BibliotaphBaseUrl.TrimEnd('/')
+    $corsRules = az storage cors list --services b --account-name $StorageAccount -o json | ConvertFrom-Json
+    $hasBibliotaphRule = $corsRules | Where-Object { (@($_.AllowedOrigins) -join ',') -split ',' -contains $bibliotaphOrigin }
+    if (-not $hasBibliotaphRule) {
+        az storage cors add --services b --account-name $StorageAccount --origins $bibliotaphOrigin `
+            --methods GET HEAD OPTIONS --allowed-headers "Range,If-Match,If-None-Match,If-Modified-Since" `
+            --exposed-headers "Content-Range,Content-Length,Accept-Ranges,ETag,Last-Modified" --max-age 3600 -o none
+    }
 }
 if ($BibliotaphClientId) {
     $apiEnv += "Bibliotaph__WebOrigin=$WebOrigin"

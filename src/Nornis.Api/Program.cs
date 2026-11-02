@@ -284,7 +284,11 @@ builder.Services.AddOptions<PrepOptions>()
     .ValidateOnStart();
 builder.Services.AddBibliotaph(builder.Configuration);
 builder.Services.AddScoped<IBibliotaphOutboxRepository, BibliotaphOutboxRepository>();
+builder.Services.AddScoped<IBibliotaphProviderRepository, BibliotaphProviderRepository>();
 builder.Services.AddScoped<Nornis.Application.Bibliotaph.IBibliotaphConnectService, Nornis.Application.Bibliotaph.BibliotaphConnectService>();
+builder.Services.AddScoped<Nornis.Application.Bibliotaph.IBibliotaphOutboxDelivery, Nornis.Application.Bibliotaph.BibliotaphOutboxDelivery>();
+builder.Services.AddScoped<Nornis.Application.Bibliotaph.IBibliotaphProviderService, Nornis.Application.Bibliotaph.BibliotaphProviderService>();
+builder.Services.AddHostedService<BibliotaphOutboxBackgroundService>();
 builder.Services.AddHttpClient(Nornis.Api.Bibliotaph.Auth0BibliotaphAuthorizationClient.HttpClientName,
     client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddSingleton<Nornis.Application.Bibliotaph.IBibliotaphAuthorizationClient, Nornis.Api.Bibliotaph.Auth0BibliotaphAuthorizationClient>();
