@@ -65,6 +65,34 @@
 >   Nornis doesn't keep file names unique within a world. The provider item id is the file id,
 >   which is unique; Bibliotaph should key on that.
 
+> **Amendment (2026-11-02, Phase E):** what building the Library rows and the Loremaster
+> changed. The text below is left as written.
+>
+> - **The list keeps its shape.** `GET library` stays a bare array, which the Web and the shelf
+>   already read. The strip's state comes from `GET api/worlds/{id}/library/bibliotaph`, which
+>   reconciles first, inside the throttle, and answers `{ state, ownerName }`. The Library page
+>   calls it before listing. A new state, `not_set_up`, covers Bibliotaph answering 404 because
+>   the world's `created` event hasn't arrived yet. The shelf page does not reconcile: shelf
+>   players see the rows as the GM's last visit left them.
+> - **Warm-ups are `POST api/worlds/{id}/library/bibliotaph/warm`**, not a side effect of a
+>   world-entry endpoint, because the Web never calls `GET worlds/{id}`. `WorldState` sends one
+>   when it restores or switches the world. The queue is `BibliotaphWarmUps` (100, drop when
+>   full, 10 minutes per world) and `BibliotaphWarmUpBackgroundService` sends them.
+> - **Covers** go through `IBibliotaphCovers`, which uses `LibraryService.GetByIdAsync` for the
+>   visibility check, so whoever may see a row may see its cover.
+> - **`LibraryService` refuses download, delete and reindex on a Bibliotaph row** with 409
+>   `in_bibliotaph`. A removed row is not listed, and `GetByIdAsync` answers 404 for it, so
+>   every route that reads a row inherits that.
+> - **The retriever** maps each page onto the rows the caller's scopes can see. That catches a
+>   GMOnly page even if Bibliotaph ignored `entryIds`, a second guard behind the request
+>   itself. When an upload Bibliotaph catalogued would be quoted twice, Bibliotaph's pages win
+>   over the vector passages. A page's reference id is `passage:{rowId:N}-{pageIndex}`. Excerpt
+>   search keeps to indexed chunks until Phase G gives Bibliotaph pages a page-range filing.
+> - The resolver, the sync and its throttle are registered by `AddBibliotaph`, so the API and
+>   the Worker share them. The Worker gains `IUserRepository` for the owner's name.
+> - A reconcile that loses the unique entry index to another process logs the conflict and
+>   keeps the rows; the next reconcile catches up.
+
 ## Overview
 
 Nornis keeps the Library page, its rows and its GMOnly / PartyVisible chip. What changes is

@@ -243,6 +243,25 @@ app.MapGet("/", (HttpContext context) =>
         Results.LocalRedirect(context.User.Identity?.IsAuthenticated == true ? "/dashboard" : "/welcome"))
     .AllowAnonymous();
 
+// Bibliotaph covers (feature 31) for <img> tags: the browser has a cookie, not a token, so this
+// forwards with the member's token and lets the browser keep the image for a day.
+var covers = app.MapGet("/library-covers/{worldId:guid}/{documentId:guid}", async (
+        Guid worldId, Guid documentId, NornisApiClient api, HttpContext context, CancellationToken ct) =>
+    {
+        var cover = await api.GetLibraryCoverAsync(worldId, documentId, ct);
+        if (cover is not { } found)
+        {
+            return Results.NotFound();
+        }
+
+        context.Response.Headers.CacheControl = "private, max-age=86400";
+        return Results.File(found.Bytes, found.ContentType);
+    });
+if (authEnabled)
+{
+    covers.RequireAuthorization();
+}
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

@@ -57,7 +57,7 @@ public class ReferencePassageRetrieverTests
     [Test]
     public async Task Retrieve_NoIndexedDocuments_SkipsEmbeddingEntirely()
     {
-        var passages = await _sut.RetrieveAsync("question", WorldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
+        var passages = (await _sut.RetrieveAsync("question", WorldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None)).Passages;
 
         Assert.That(passages, Is.Empty);
         Assert.That(_embeddings.Batches, Is.Empty, "no embedding cost when nothing is indexed");
@@ -73,7 +73,7 @@ public class ReferencePassageRetrieverTests
         _chunks.AllChunks.AddRange([before, hit, after, Chunk(20, "unrelated")]);
         _chunks.SearchHits.Add(hit);
 
-        var passages = await _sut.RetrieveAsync("level 10?", WorldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
+        var passages = (await _sut.RetrieveAsync("level 10?", WorldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None)).Passages;
 
         Assert.That(passages.Select(p => p.ChunkId),
             Is.EqualTo([before.ChunkId, hit.ChunkId, after.ChunkId]),
@@ -93,7 +93,7 @@ public class ReferencePassageRetrieverTests
         _chunks.SearchHits.AddRange(seeds);
         _chunks.AllChunks.AddRange(seeds.Select(s => Chunk(s.Ord + 1, "neighbor")));
 
-        var passages = await _sut.RetrieveAsync("q", WorldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
+        var passages = (await _sut.RetrieveAsync("q", WorldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None)).Passages;
 
         Assert.That(passages, Has.Count.LessThanOrEqualTo(4));
         foreach (var seed in seeds)
@@ -112,7 +112,7 @@ public class ReferencePassageRetrieverTests
         _chunks.AllChunks.AddRange([Chunk(4, "before"), hit, Chunk(6, "after")]);
         _chunks.SearchHits.Add(hit);
 
-        var passages = await _sut.RetrieveAsync("q", WorldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None);
+        var passages = (await _sut.RetrieveAsync("q", WorldId, Guid.NewGuid(), WorldRole.GM, CancellationToken.None)).Passages;
 
         Assert.That(passages.Select(p => p.ChunkId), Is.EqualTo([hit.ChunkId]));
     }
@@ -122,7 +122,7 @@ public class ReferencePassageRetrieverTests
     {
         SeedIndexedDocument();
 
-        var passages = await _sut.RetrieveForScopesAsync("q", WorldId, [], Guid.NewGuid(), CancellationToken.None);
+        var passages = (await _sut.RetrieveForScopesAsync("q", WorldId, [], Guid.NewGuid(), CancellationToken.None)).Passages;
 
         Assert.That(passages, Is.Empty);
         Assert.That(_embeddings.Batches, Is.Empty);
@@ -133,8 +133,8 @@ public class ReferencePassageRetrieverTests
     {
         SeedIndexedDocument(); // seeded doc is GMOnly
 
-        var passages = await _sut.RetrieveForScopesAsync(
-            "q", WorldId, [VisibilityScope.PartyVisible], Guid.NewGuid(), CancellationToken.None);
+        var passages = (await _sut.RetrieveForScopesAsync(
+            "q", WorldId, [VisibilityScope.PartyVisible], Guid.NewGuid(), CancellationToken.None)).Passages;
 
         Assert.That(passages, Is.Empty);
         Assert.That(_embeddings.Batches, Is.Empty, "a party-visible caller pays nothing when only GM-only docs exist");
@@ -149,9 +149,9 @@ public class ReferencePassageRetrieverTests
         _chunks.AllChunks.Add(hit);
         _chunks.SearchHits.Add(hit);
 
-        var passages = await _sut.RetrieveForScopesAsync(
+        var passages = (await _sut.RetrieveForScopesAsync(
             "ranger", WorldId,
-            [VisibilityScope.PartyVisible, VisibilityScope.GMOnly], Guid.NewGuid(), CancellationToken.None);
+            [VisibilityScope.PartyVisible, VisibilityScope.GMOnly], Guid.NewGuid(), CancellationToken.None)).Passages;
 
         Assert.That(passages.Select(p => p.ChunkId), Is.EqualTo([hit.ChunkId]));
     }

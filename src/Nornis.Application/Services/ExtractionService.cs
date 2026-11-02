@@ -1136,8 +1136,9 @@ public class ExtractionService : IExtractionService
             : [VisibilityScope.PartyVisible];
 
         var query = BuildRetrievalQuery(source);
-        return await _passageRetriever.RetrieveForScopesAsync(
+        var found = await _passageRetriever.RetrieveForScopesAsync(
             query, worldId, allowedScopes, source.CreatedByUserId, ct);
+        return found.Passages;
     }
 
     /// <summary>The retrieval query: the title plus the head of the body, bounded so a long

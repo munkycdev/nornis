@@ -90,6 +90,21 @@ public class LibraryDocumentRepository : ILibraryDocumentRepository
         await _context.DeleteWhereAsync<LibraryDocument>(d => d.Id == id, cancellationToken);
     }
 
+    public async Task SaveBibliotaphReconcileAsync(
+        IReadOnlyList<LibraryDocument> added, IReadOnlyList<LibraryDocument> changed, CancellationToken cancellationToken = default)
+    {
+        _context.LibraryDocuments.AddRange(added);
+        _context.LibraryDocuments.UpdateRange(changed);
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        finally
+        {
+            _context.ChangeTracker.Clear();
+        }
+    }
+
     public async Task<IReadOnlyList<LibraryDocument>> ListAbandonedPendingUploadsAsync(
         DateTimeOffset createdBefore,
         int limit,

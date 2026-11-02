@@ -659,6 +659,43 @@ public class NornisApiClient
     public Task<ApiResult<IReadOnlyList<LibraryDocumentDto>>> GetLibraryAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<LibraryDocumentDto>>($"/api/worlds/{worldId}/library", ct);
 
+    /// <summary>The world's Bibliotaph, reconciled first (feature 31). Call before <see cref="GetLibraryAsync"/>.</summary>
+    public Task<ApiResult<LibraryBibliotaphDto>> GetLibraryBibliotaphAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<LibraryBibliotaphDto>($"/api/worlds/{worldId}/library/bibliotaph", ct);
+
+    /// <summary>Asks the API to warm the world's Bibliotaph; best effort, never an error.</summary>
+    public async Task WarmBibliotaphAsync(Guid worldId, CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await SendCoreAsync(HttpMethod.Post, $"/api/worlds/{worldId}/library/bibliotaph/warm", null, ct);
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            // A warm-up is a courtesy.
+        }
+    }
+
+    /// <summary>A Bibliotaph book's cover bytes and type, or null when there is none to show.</summary>
+    public async Task<(byte[] Bytes, string ContentType)?> GetLibraryCoverAsync(Guid worldId, Guid documentId, CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await SendCoreAsync(HttpMethod.Get, $"/api/worlds/{worldId}/library/{documentId}/cover", null, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+            return (bytes, response.Content.Headers.ContentType?.MediaType ?? "image/jpeg");
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return null;
+        }
+    }
+
     public Task<ApiResult<LibraryDocumentDto>> GetLibraryDocumentAsync(Guid worldId, string key, CancellationToken ct = default) =>
         GetAsync<LibraryDocumentDto>($"/api/worlds/{worldId}/library/{Uri.EscapeDataString(key)}", ct);
 

@@ -101,6 +101,10 @@ public class LibraryService : ILibraryService
 
     /// <summary>GM sees everything; everyone else sees the party shelf. Private is not a
     /// library concept — reference material is shared by nature.</summary>
+    /// <summary>The refusal for an upload-only action on a book from Bibliotaph (feature 31).</summary>
+    private static AppError InBibliotaph(string why) =>
+        new(409, "in_bibliotaph", $"This book {why}.");
+
     public static IReadOnlyList<VisibilityScope> GetAllowedScopes(WorldRole role) =>
         role == WorldRole.GM
             ? [VisibilityScope.PartyVisible, VisibilityScope.GMOnly]
@@ -269,15 +273,19 @@ public class LibraryService : ILibraryService
     public async Task<AppResult<IReadOnlyList<LibraryDocument>>> ListAsync(Guid worldId, WorldRole role, CancellationToken ct)
     {
         var documents = await _documentRepository.ListByWorldAsync(worldId, GetAllowedScopes(role), ct);
-        // Pending rows are upload dialogs that never finished — invisible until confirmed.
-        var visible = documents.Where(d => d.Status != LibraryDocumentStatus.PendingUpload).ToList();
+        // Pending rows are upload dialogs that never finished — invisible until confirmed. A
+        // removed row is a book that left the world's Bibliotaph collection (feature 31).
+        var visible = documents
+            .Where(d => d.Status != LibraryDocumentStatus.PendingUpload && d.RemovedAt is null)
+            .ToList();
         return AppResult<IReadOnlyList<LibraryDocument>>.Success(visible);
     }
 
     public async Task<AppResult<LibraryDocument>> GetByIdAsync(Guid documentId, Guid worldId, WorldRole role, CancellationToken ct)
     {
         var document = await _documentRepository.GetByIdAsync(documentId, ct);
-        if (document is null || document.WorldId != worldId || !GetAllowedScopes(role).Contains(document.Visibility))
+        if (document is null || document.WorldId != worldId || !GetAllowedScopes(role).Contains(document.Visibility)
+            || document.RemovedAt is not null)
         {
             return AppResult<LibraryDocument>.Fail(new AppError(404, "not_found", "Library document not found."));
         }
@@ -293,6 +301,11 @@ public class LibraryService : ILibraryService
         }
 
         var document = result.Value!;
+        if (document.Origin == LibraryDocumentOrigin.Bibliotaph)
+        {
+            return AppResult<LibraryDownload>.Fail(InBibliotaph("is read in Bibliotaph, not downloaded"));
+        }
+
         var url = await _blobStorage.GenerateDownloadSasUrlAsync(document.BlobPath, ct);
         return AppResult<LibraryDownload>.Success(
             new LibraryDownload(url, document.FileName, document.ContentType, document.SizeBytes));
@@ -398,6 +411,10 @@ public class LibraryService : ILibraryService
         }
 
         var document = result.Value!;
+        if (document.Origin == LibraryDocumentOrigin.Bibliotaph)
+        {
+            return AppResult.Fail(InBibliotaph("leaves the Library when it leaves the world's collection in Bibliotaph"));
+        }
 
         // Deleting mid-index races the worker's chunk-insert transaction (lock timeouts,
         // then a worker crash into a vanished row). Refuse until indexing settles — unless
@@ -434,6 +451,11 @@ public class LibraryService : ILibraryService
         }
 
         var document = result.Value!;
+        if (document.Origin == LibraryDocumentOrigin.Bibliotaph)
+        {
+            return AppResult<LibraryDocument>.Fail(InBibliotaph("is searched by Bibliotaph, not indexed by Nornis"));
+        }
+
         if (role != WorldRole.GM && document.UploadedByUserId != actingUserId)
         {
             return AppResult<LibraryDocument>.Fail(new AppError(403, "insufficient_role", "Only the uploader or a GM can reindex a library document."));

@@ -12,12 +12,12 @@ public sealed class NoOpReferencePassageRetriever : IReferencePassageRetriever
 {
     public static readonly NoOpReferencePassageRetriever Instance = new();
 
-    public Task<IReadOnlyList<KnowledgePassage>> RetrieveAsync(
+    public Task<ReferencePassages> RetrieveAsync(
         string question, Guid worldId, Guid userId, WorldRole role, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<KnowledgePassage>>([]);
+        Task.FromResult(ReferencePassages.None);
 
-    public Task<IReadOnlyList<KnowledgePassage>> RetrieveForScopesAsync(
+    public Task<ReferencePassages> RetrieveForScopesAsync(
         string query, Guid worldId, IReadOnlyList<VisibilityScope> allowedScopes,
         Guid? attributedUserId, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<KnowledgePassage>>([]);
+        Task.FromResult(ReferencePassages.None);
 }

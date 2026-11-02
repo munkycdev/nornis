@@ -54,6 +54,22 @@ public class InMemoryLibraryDocumentRepository : ILibraryDocumentRepository
         return Task.CompletedTask;
     }
 
+    public Task SaveBibliotaphReconcileAsync(
+        IReadOnlyList<LibraryDocument> added, IReadOnlyList<LibraryDocument> changed, CancellationToken cancellationToken = default)
+    {
+        _documents.AddRange(added);
+        foreach (var row in changed)
+        {
+            var index = _documents.FindIndex(d => d.Id == row.Id);
+            if (index >= 0)
+            {
+                _documents[index] = row;
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task<IReadOnlyList<LibraryDocument>> ListAbandonedPendingUploadsAsync(
         DateTimeOffset createdBefore, int limit, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<LibraryDocument>>(

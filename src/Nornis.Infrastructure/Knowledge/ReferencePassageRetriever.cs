@@ -41,21 +41,24 @@ public class ReferencePassageRetriever : IReferencePassageRetriever
         _logger = logger;
     }
 
-    public Task<IReadOnlyList<KnowledgePassage>> RetrieveAsync(
+    public Task<ReferencePassages> RetrieveAsync(
         string question,
         Guid worldId,
         Guid userId,
         WorldRole role,
         CancellationToken ct)
-        => RetrieveCoreAsync(question, worldId, LibraryService.GetAllowedScopes(role), userId, ct);
+        => WrapAsync(RetrieveCoreAsync(question, worldId, LibraryService.GetAllowedScopes(role), userId, ct));
 
-    public Task<IReadOnlyList<KnowledgePassage>> RetrieveForScopesAsync(
+    public Task<ReferencePassages> RetrieveForScopesAsync(
         string query,
         Guid worldId,
         IReadOnlyList<VisibilityScope> allowedScopes,
         Guid? attributedUserId,
         CancellationToken ct)
-        => RetrieveCoreAsync(query, worldId, allowedScopes, attributedUserId, ct);
+        => WrapAsync(RetrieveCoreAsync(query, worldId, allowedScopes, attributedUserId, ct));
+
+    private static async Task<ReferencePassages> WrapAsync(Task<IReadOnlyList<KnowledgePassage>> passages) =>
+        new(await passages);
 
     private async Task<IReadOnlyList<KnowledgePassage>> RetrieveCoreAsync(
         string query,

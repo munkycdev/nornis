@@ -252,8 +252,12 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddBibliotaph(configuration);
 
         // Reference-passage retrieval grounds extraction in the world's published library.
-        services.AddScoped<Nornis.Application.Knowledge.IReferencePassageRetriever,
-            Nornis.Infrastructure.Knowledge.ReferencePassageRetriever>();
+        // The world's Bibliotaph books alongside the indexed uploads, until the cutover (feature 31).
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<Nornis.Infrastructure.Knowledge.ReferencePassageRetriever>();
+        services.AddScoped<Nornis.Application.Knowledge.IReferencePassageRetriever>(sp =>
+            ActivatorUtilities.CreateInstance<Nornis.Application.Bibliotaph.BibliotaphReferencePassageRetriever>(
+                sp, sp.GetRequiredService<Nornis.Infrastructure.Knowledge.ReferencePassageRetriever>()));
 
         // Second queue processor (keyed): same Service Bus namespace, library-indexing queue.
         services.AddKeyedSingleton<ServiceBusExtractionProcessor>(LibraryIndexingWorker.ProcessorKey, (sp, _) =>

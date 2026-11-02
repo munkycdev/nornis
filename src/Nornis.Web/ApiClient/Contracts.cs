@@ -946,7 +946,25 @@ public record LibraryDocumentDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     string? Slug = null,
-    Guid? AdventureId = null);
+    Guid? AdventureId = null,
+    string Origin = "Upload",
+    bool InBibliotaph = false,
+    bool HasCover = false)
+{
+    /// <summary>A book from the world's Bibliotaph: read there, never downloaded or deleted here.</summary>
+    public bool IsFromBibliotaph => Origin == "Bibliotaph";
+}
+
+/// <summary>The Library's Bibliotaph strip. <see cref="State"/> mirrors the API's shelf states.</summary>
+public record LibraryBibliotaphDto(string State, string? OwnerName)
+{
+    public const string None = "none";
+    public const string Ok = "ok";
+    public const string NeedsReconnect = "needs_reconnect";
+    public const string Opening = "opening";
+    public const string NotSetUp = "not_set_up";
+    public const string Unreachable = "unreachable";
+}
 
 /// <summary>
 /// <see cref="AdventureId"/> files a Prep print: the API then sets the dated title, Handout and

@@ -160,9 +160,10 @@ public partial class LoremasterService : ILoremasterService
             // Public asks opt out entirely — indexed sourcebooks stay off the public site.
             if (command.IncludeLibrary)
             {
-                var passages = await _passageRetriever.RetrieveAsync(
+                var found = await _passageRetriever.RetrieveAsync(
                     retrievalText, command.WorldId, retrievalUserId, command.UserRole, ct);
-                if (passages.Count > 0)
+                var passages = found.Passages;
+                if (passages.Count > 0 || found.Unavailable)
                 {
                     context = new KnowledgeContext
                     {
@@ -172,6 +173,7 @@ public partial class LoremasterService : ILoremasterService
                         SourceReferences = context.SourceReferences,
                         Passages = passages,
                         Sessions = context.Sessions,
+                        ReferenceBooksUnavailable = found.Unavailable,
                     };
                 }
             }
@@ -348,6 +350,9 @@ public partial class LoremasterService : ILoremasterService
     /// <summary>
     /// Assembles caveats based on the knowledge context.
     /// </summary>
+    public const string ReferenceBooksUnavailableCaveat =
+        "The reference books couldn't be reached, so this answer uses world memory only.";
+
     internal static IReadOnlyList<string> AssembleCaveats(KnowledgeContext context)
     {
         var caveats = new List<string>();
@@ -363,6 +368,9 @@ public partial class LoremasterService : ILoremasterService
 
         if (context.Facts.Any(f => f.TruthState == TruthState.Hidden))
             caveats.Add("Includes GM-only knowledge not visible to players");
+
+        if (context.ReferenceBooksUnavailable)
+            caveats.Add(ReferenceBooksUnavailableCaveat);
 
         return caveats;
     }
@@ -616,7 +624,7 @@ public partial class LoremasterService : ILoremasterService
             sb.AppendLine("### Published Reference (rulebooks and modules — not world canon)");
             foreach (var passage in context.Passages)
             {
-                sb.AppendLine($"- From \"{passage.DocumentTitle}\", p. {passage.Page} [ref:{passage.ReferenceId}]:");
+                sb.AppendLine($"- From \"{passage.DocumentTitle}\", p. {passage.PageShown} [ref:{passage.ReferenceId}]:");
                 sb.AppendLine($"  {passage.Text.ReplaceLineEndings("\n  ")}");
             }
             sb.AppendLine();
@@ -776,7 +784,7 @@ public partial class LoremasterService : ILoremasterService
             {
                 ReferenceId = referenceId,
                 Type = CitationType.Passage,
-                DisplayName = $"{passage.DocumentTitle}, p. {passage.Page}",
+                DisplayName = $"{passage.DocumentTitle}, p. {passage.PageShown}",
                 DocumentId = passage.DocumentId,
                 Slug = passage.DocumentSlug
             };

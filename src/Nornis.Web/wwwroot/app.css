@@ -4690,3 +4690,19 @@ a.nornis-cite:hover {
 .nornis-prep-thread + .nornis-prep-thread {
     border-top: 1px dashed var(--mud-palette-lines-default);
 }
+
+/* Bibliotaph covers (feature 31): a book's cover in its thumbnail, cropped to the square. */
+.nornis-library-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
+}
+
+.nornis-library-cover-large {
+    width: 72px;
+    height: 96px;
+    object-fit: cover;
+    border-radius: 6px;
+    flex: 0 0 auto;
+}
