@@ -1,5 +1,50 @@
 # Domain Model
 
+> **Amendment (2026-11-02): an Adventure is the GM's prep, and it is never canon.** Feature 29
+> (Prep, Nornis v3.0) adds the first mutable authored document in the model. Every other
+> Markdown-bodied entity is either immutable (`Source`) or generated (`CampaignRecap`,
+> `WorldDigest`). The word is deliberate, and it sits beside the others:
+>
+> - **Campaign** is a run of play, which is *declared*.
+> - **Storyline** is what emerges from play, which is *discovered*.
+> - **Adventure** is what the GM *intends* to run. It is a plan, not a record.
+>
+> An `Adventure` belongs to one world and may name one of its campaigns. It is an ordered
+> list of `AdventureSection` rows, each with a kind (Overview, SessionClock, Chapter, Scene,
+> QuickReference, Notes), a title and a Markdown body. The house skeleton a new Adventure
+> starts from is a template, not a schema. An `AdventureSectionRevision` keeps a section's
+> body as it was before each AI write (Undo, at most 20 per section). GM edits make no
+> revisions.
+>
+> Three rules, each a decision:
+>
+> - **GM-only by definition.** An Adventure has no `Visibility` column. It is drafted with
+>   Hidden truth in context, so a column that could say `PartyVisible` would be a guard that
+>   must never fire. Access follows the caller's current GM role in the world.
+> - **Never canon.** Drafting writes to an Adventure and nothing else. The only way an
+>   Adventure reaches the record is **Export**, which files a snapshot as a `Source` of type
+>   `AdventureExport` (GMOnly, `Source.AdventureId` naming it, null once the Adventure is
+>   deleted) through `MarkReadyAsync`. From there it is extracted and reviewed like any
+>   source, and Reveal decides what players learn. The export prompt extracts what is true of
+>   the world and never proposes planned scenes as Events. Planned is not happened.
+> - **Only a print is shared.** **Print** files the rendered booklet as a Library `Handout`,
+>   GMOnly, with `LibraryDocument.AdventureId` set. The GM may make that print party-visible
+>   after a warning that it may contain Hidden truth. Each print is a new document, because
+>   documents are immutable.
+>
+> `Conversation`, below, is still unbuilt. It stays optional and deferred in v3.0, which
+> drafts from a per-section instruction. v3.1 builds it as written, plus a nullable
+> `AdventureId`, as the Adventure's side conversation. Access then follows the Adventure's
+> rule, and its messages are never extracted.
+>
+> ```csharp
+> Adventure : ISlugged          // Id, WorldId, CampaignId?, Title, Slug?, Pitch?,
+>                               // LastPrintedDocumentId?, CreatedByUserId, CreatedAt, UpdatedAt
+> AdventureSection              // Id, AdventureId, Kind, Title, BodyMarkdown, SortOrder, UpdatedAt
+> AdventureSectionRevision      // Id, SectionId, BodyMarkdown, Instruction?, Model, CreatedAt
+> SourceType + AdventureExport; Source + AdventureId?; LibraryDocument + AdventureId?
+> ```
+
 > **Amendment (2026-09-10): detail pages are addressed by slug.** `Artifact`, `Campaign`,
 > `Character`, `Source` and `LibraryDocument` each carry a `Slug` — lowercase a-z0-9 joined by
 > hyphens, at most 60 characters plus a numeric suffix, unique per world and per kind. It is

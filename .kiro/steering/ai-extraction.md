@@ -58,6 +58,24 @@ All accepted artifact, fact, and relationship changes must come from user review
 >   names back and the queue says so: an accept that grew canon past the card on screen must
 >   not do it quietly.
 
+> **Amendment (2026-11-02) — drafting writes to an Adventure, never to canon.** Feature 29
+> (Prep) lets the Loremaster draft and revise sections of a GM's Adventure. That is AI writing
+> text no review gates, so it is recorded here against the rule above. What keeps it inside
+> that rule:
+>
+> - **The target is not world knowledge.** A draft replaces one `AdventureSection` body, a
+>   plan the GM owns, and never an artifact, fact or relationship. The old body is kept as a
+>   revision, so the GM can undo the write.
+> - **The only way into canon is Export through review.** Export files the Adventure as an
+>   `AdventureExport` source. It is extracted and reviewed like any source, and the prompt
+>   for that type extracts world truths only, never planned scenes as Events.
+> - **Context is scoped by the retriever, not the prompt.** Drafting asks `IKnowledgeRetriever`
+>   at the caller's role, which is always GM, so Hidden truth is in context because the asker
+>   may see it. That is the same rule Ask uses, and it isn't restated in the drafting code.
+> - **Metered and capped on its own.** Every call is an `AdventureDrafting` usage record,
+>   capped by the world's monthly Prep budget (separate from the daily world budget), stopped
+>   by the global pause, and given an output ceiling.
+
 ## Extraction Goal
 
 Given a source, extract proposed updates to the world knowledge graph.
