@@ -5,7 +5,7 @@ prod stays as it is until Dave sets the secrets. Phases C to G need Bibliotaph's
 step to test end to end; until then they are tested against the stand-in. Phase H waits for
 Bibliotaph's half to be live.
 
-**Status: specified 2026-11-02; Phases A to C done 2026-11-02.** Ships as Nornis v3.2.
+**Status: specified 2026-11-02; Phases A to D done 2026-11-02.** Ships as Nornis v3.2.
 
 Dave's part, outside the repo: the Auth0 setup in the Bibliotaph spec plus the Nornis →
 Bibliotaph application (design.md, decision 3), the Container Apps settings (design.md,
@@ -44,11 +44,12 @@ Bibliotaph application (design.md, decision 3), the Container Apps settings (des
 
 ## Phase D — The outbox and the provider endpoints
 
-- [ ] D1. `BibliotaphOutboxCapture` in `SaveChangesAsync`, plus the explicit calls in the two
-      `ExecuteDelete` paths. Capture tests.
-- [ ] D2. `BibliotaphOutboxBackgroundService` in the API (design.md, Phase B amendment):
-      delivery, backoff, failure, purge, pause. Tests.
-- [ ] D3. `api/bibliotaph/v1/me|worlds|worlds/{id}/files|files/{id}/link|resync`. Tests.
+- [x] D1. `BibliotaphOutboxCapture` in `SaveChangesAsync`, plus the explicit calls in the two
+      `ExecuteDelete` paths and the Adventure delete. Capture tests.
+- [x] D2. `BibliotaphOutboxBackgroundService` in the API (design.md, Phase B amendment):
+      delivery, backoff, failure, purge; no pause gate (Phase D amendment). Tests.
+- [x] D3. `api/bibliotaph/v1/me|worlds|worlds/{id}/files|files/{id}/link|resync`. Tests, and the
+      sweep: every other route refuses a Bibliotaph token, these refuse a Web token.
 
 ## Phase E — Library rows and the Loremaster
 

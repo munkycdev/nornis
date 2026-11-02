@@ -28,6 +28,7 @@ public class BibliotaphOptionsTests
             Assert.That(o.OutboxRetentionDays, Is.EqualTo(7));
             Assert.That(o.ReadingRecordRetentionDays, Is.EqualTo(90));
             Assert.That(o.MaxExcerptPages, Is.EqualTo(12));
+            Assert.That(o.FileLinkMinutes, Is.EqualTo(60));
             Assert.That(o.StartupProblem(), Is.Null);
         });
     }
@@ -63,6 +64,14 @@ public class BibliotaphOptionsTests
         var o = new BibliotaphOptions { OutboxBatchSize = BibliotaphOptions.MaxEventsPerCall + 1 };
 
         Assert.That(o.StartupProblem(), Does.Contain("OutboxBatchSize"));
+    }
+
+    [Test]
+    public void A_file_link_over_an_hour_refuses_to_start()
+    {
+        var o = new BibliotaphOptions { FileLinkMinutes = BibliotaphOptions.MaxFileLinkMinutes + 1 };
+
+        Assert.That(o.StartupProblem(), Does.Contain("FileLinkMinutes"));
     }
 
     [Test]

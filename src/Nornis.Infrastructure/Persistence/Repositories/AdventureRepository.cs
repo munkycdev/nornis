@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
@@ -141,6 +142,20 @@ public class AdventureRepository : IAdventureRepository
 
     public async Task DeleteAsync(Guid adventureId, CancellationToken cancellationToken = default)
     {
+        // Its prints are exposed to Bibliotaph because they belong to it; letting go below takes
+        // them out of the listing (feature 31). One rescan, even for a print that stays exposed.
+        var printWorldId = await _context.LibraryDocuments.AsNoTracking()
+            .Where(d => d.AdventureId == adventureId)
+            .Where(BibliotaphExposure.Rule)
+            .Select(d => (Guid?)d.WorldId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (printWorldId is { } worldId
+            && await BibliotaphOutboxCapture.QueueAsync(
+                _context, worldId, BibliotaphWorldEventKind.FilesChanged, DateTimeOffset.UtcNow, cancellationToken))
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
         // Exports and prints are snapshots and outlive the Adventure. Both FKs are Restrict
         // (Worlds cascades to every table here), so they are let go of before the delete.
         await _context.SetWhereAsync<Source, Guid?>(

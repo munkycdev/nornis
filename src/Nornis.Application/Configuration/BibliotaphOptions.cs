@@ -90,6 +90,9 @@ public class BibliotaphOptions
 
     public int MaxExcerptPages { get; set; } = 12;
 
+    /// <summary>How long a file link handed to Bibliotaph's Nornis storage provider works. At most 60.</summary>
+    public int FileLinkMinutes { get; set; } = 60;
+
     /// <summary>A connection's last-used time is written at most this often.</summary>
     public int LastUsedWriteMinutes { get; set; } = 5;
 
@@ -123,6 +126,7 @@ public class BibliotaphOptions
             (nameof(OutboxRetentionDays), OutboxRetentionDays),
             (nameof(ReadingRecordRetentionDays), ReadingRecordRetentionDays),
             (nameof(MaxExcerptPages), MaxExcerptPages),
+            (nameof(FileLinkMinutes), FileLinkMinutes),
             (nameof(LastUsedWriteMinutes), LastUsedWriteMinutes),
             (nameof(ConnectStateMinutes), ConnectStateMinutes),
         }.FirstOrDefault(b => b.Value <= 0).Name;
@@ -143,6 +147,11 @@ public class BibliotaphOptions
             return $"Bibliotaph:OutboxBatchSize can't exceed {MaxEventsPerCall}, the webhook's limit.";
         }
 
+        if (FileLinkMinutes > MaxFileLinkMinutes)
+        {
+            return $"Bibliotaph:FileLinkMinutes can't exceed {MaxFileLinkMinutes}; a storage link is short-lived.";
+        }
+
         if (IsConfigured && string.IsNullOrWhiteSpace(KeyBlobUri))
         {
             return "Bibliotaph is configured but Bibliotaph:KeyBlobUri is not. Without it the stored " +
@@ -154,4 +163,7 @@ public class BibliotaphOptions
 
     /// <summary>The webhook's batch limit, from the contract.</summary>
     public const int MaxEventsPerCall = 100;
+
+    /// <summary>The longest a file link may work: the contract's "about an hour".</summary>
+    public const int MaxFileLinkMinutes = 60;
 }

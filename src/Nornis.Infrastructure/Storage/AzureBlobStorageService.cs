@@ -27,8 +27,11 @@ public sealed class AzureBlobStorageService : IBlobStorageService
     /// expires within minutes, so one key covers many SAS; refreshed while it still has
     /// comfortably more life than the longest SAS it will sign.
     /// </summary>
-    private static readonly TimeSpan DelegationKeyLifetime = TimeSpan.FromHours(1);
+    // Longer than the longest SAS minted (a one-hour read link) plus the refresh margin, since a
+    // SAS stops working when the key that signed it expires.
+    private static readonly TimeSpan DelegationKeyLifetime = TimeSpan.FromHours(2);
     private static readonly TimeSpan DelegationKeyRefreshMargin = TimeSpan.FromMinutes(20);
+    private static readonly TimeSpan MaxReadLinkLifetime = TimeSpan.FromHours(1);
 
     private readonly BlobServiceClient _blobServiceClient;
     private readonly ILogger<AzureBlobStorageService> _logger;
@@ -126,6 +129,20 @@ public sealed class AzureBlobStorageService : IBlobStorageService
         var sasBuilder = CreateSasBuilder(blobPath);
         sasBuilder.SetPermissions(BlobSasPermissions.Read);
         return GenerateSasUrlAsync(blobPath, sasBuilder, cancellationToken);
+    }
+
+    public async Task<BlobReadLink> GenerateReadLinkAsync(string blobPath, TimeSpan lifetime, CancellationToken cancellationToken = default)
+    {
+        if (lifetime <= TimeSpan.Zero || lifetime > MaxReadLinkLifetime)
+        {
+            throw new ArgumentOutOfRangeException(nameof(lifetime), lifetime, "A read link lives more than nothing and at most an hour.");
+        }
+
+        var sasBuilder = CreateSasBuilder(blobPath);
+        sasBuilder.ExpiresOn = DateTimeOffset.UtcNow + lifetime;
+        sasBuilder.SetPermissions(BlobSasPermissions.Read);
+        var url = await GenerateSasUrlAsync(blobPath, sasBuilder, cancellationToken);
+        return new BlobReadLink(url, sasBuilder.ExpiresOn);
     }
 
     /// <remarks>

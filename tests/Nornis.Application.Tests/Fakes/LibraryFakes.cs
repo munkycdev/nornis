@@ -158,6 +158,9 @@ public class FakeBlobStorageService : IBlobStorageService
     public Task<string> GenerateDownloadSasUrlAsync(string blobPath, CancellationToken cancellationToken = default) =>
         Task.FromResult($"https://blob.test/{blobPath}?sas=download");
 
+    public Task<BlobReadLink> GenerateReadLinkAsync(string blobPath, TimeSpan lifetime, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new BlobReadLink($"https://blob.test/{blobPath}?sas=read", DateTimeOffset.UtcNow + lifetime));
+
     public Task<BlobMetadata?> GetBlobMetadataAsync(string blobPath, CancellationToken cancellationToken = default) =>
         Task.FromResult(Blobs.TryGetValue(blobPath, out var blob)
             ? new BlobMetadata(blob.Content.Length, blob.ContentType)
