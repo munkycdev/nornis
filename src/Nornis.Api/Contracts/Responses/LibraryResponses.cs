@@ -16,7 +16,8 @@ public record LibraryDocumentResponse(
     Guid UploadedByUserId,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    string? Slug = null);
+    string? Slug = null,
+    Guid? AdventureId = null);
 
 public record LibraryUploadResponse(
     LibraryDocumentResponse Document,

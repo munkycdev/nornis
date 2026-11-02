@@ -65,3 +65,6 @@ public static class DraftStreamEventNames
 public record DraftStreamDeltaResponse(string Text);
 
 public record PrepBudgetResponse(decimal SpentThisMonthUsd, decimal? MonthlyBudgetUsd, bool IsExceeded);
+
+/// <summary>The booklet. <see cref="Html"/> is escaped, sanitized markup, ready to show as is.</summary>
+public record AdventurePrintResponse(Guid AdventureId, string Title, string? Slug, string Html, string LibraryTitle);

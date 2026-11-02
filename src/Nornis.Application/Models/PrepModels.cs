@@ -62,3 +62,6 @@ public abstract record DraftEvent
     /// <summary>Nothing was written to the section.</summary>
     public sealed record Failed(AppError Error) : DraftEvent;
 }
+
+/// <summary>The booklet's HTML, and the title File to Library will give it today.</summary>
+public record AdventurePrint(Adventure Adventure, string Html, string LibraryTitle);

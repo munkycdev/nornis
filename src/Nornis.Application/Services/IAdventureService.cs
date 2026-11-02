@@ -40,6 +40,9 @@ public interface IAdventureService
     /// <summary>Deletes the Adventure. Its prints and exports stay, with their link to it cleared.</summary>
     Task<AppResult> DeleteAsync(DeleteAdventureCommand command, CancellationToken ct);
 
+    /// <summary>The booklet: the Adventure as <c>AdventurePrintModel</c> renders it.</summary>
+    Task<AppResult<AdventurePrint>> GetPrintAsync(Guid worldId, Guid adventureId, WorldRole role, CancellationToken ct);
+
     /// <summary>Restores the section's latest revision, the body an AI write replaced, and drops it.</summary>
     Task<AppResult<AdventureSection>> UndoAsync(UndoSectionCommand command, CancellationToken ct);
 }

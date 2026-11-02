@@ -141,6 +141,19 @@ public class PrepController : ControllerBase
         Respond(await _adventures.ReorderAsync(new ReorderSectionsCommand(
             worldId, adventureId, HttpContext.GetWorldMember().Role, request.SectionIds ?? []), ct));
 
+    [HttpGet("{adventureId:guid}/print")]
+    public async Task<IActionResult> Print(Guid worldId, Guid adventureId, CancellationToken ct)
+    {
+        var result = await _adventures.GetPrintAsync(worldId, adventureId, HttpContext.GetWorldMember().Role, ct);
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        var print = result.Value!;
+        return Ok(new AdventurePrintResponse(print.Adventure.Id, print.Adventure.Title, print.Adventure.Slug, print.Html, print.LibraryTitle));
+    }
+
     [HttpPost("{adventureId:guid}/sections/{sectionId:guid}/undo")]
     public async Task<IActionResult> Undo(Guid worldId, Guid adventureId, Guid sectionId, CancellationToken ct)
     {

@@ -328,6 +328,20 @@ public class AdventureService : IAdventureService
         return AppResult.Success();
     }
 
+    public async Task<AppResult<AdventurePrint>> GetPrintAsync(Guid worldId, Guid adventureId, WorldRole role, CancellationToken ct)
+    {
+        if (role != WorldRole.GM)
+        {
+            return AppResult<AdventurePrint>.Fail(GmOnly());
+        }
+
+        var adventure = await LoadAsync(worldId, adventureId, ct);
+        return adventure is null
+            ? AppResult<AdventurePrint>.Fail(NotFound())
+            : AppResult<AdventurePrint>.Success(new AdventurePrint(
+                adventure, AdventurePrintModel.Render(adventure), LibraryService.PrintTitle(adventure.Title, DateTimeOffset.UtcNow)));
+    }
+
     public async Task<AppResult<AdventureSection>> UndoAsync(UndoSectionCommand command, CancellationToken ct)
     {
         if (command.ActingUserRole != WorldRole.GM)
