@@ -75,6 +75,11 @@ All accepted artifact, fact, and relationship changes must come from user review
 > - **Metered and capped on its own.** Every call is an `AdventureDrafting` usage record,
 >   capped by the world's monthly Prep budget (separate from the daily world budget), stopped
 >   by the global pause, and given an output ceiling.
+>
+> Re-checked against the build on 2026-11-02, when v3.0 shipped. It holds. The ceiling is
+> 2,500 output tokens, sent as `max_completion_tokens`, and a draft the ceiling cuts off is
+> refused rather than saved. An `AdventureExport` source, like a Library excerpt, retrieves
+> no reference passages, because the source is the reference.
 
 ## Extraction Goal
 

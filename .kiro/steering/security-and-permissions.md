@@ -10,6 +10,17 @@
 > **Amendment (2026-09-10):** a third anonymous family, `/api/shelf/{code}/**`, joins the list below,
 > and a "Shelf Links" section at the foot says what it serves and why it is safe. Feature 27.
 
+> **Amendment (2026-11-02):** Prep (feature 29, Nornis 3.0) is the first surface that is
+> GM-only by role rather than by a visibility value. An `Adventure` has no `Visibility`
+> column, because it is drafted with Hidden truth in context. Every Prep route checks the
+> caller's *current* role in the world first, so a Player, an Observer and a GM viewing as a
+> Player all get 403 before anything is read. The two ways out of Prep keep that boundary:
+> a print is filed to the Library as a `GMOnly` Handout whatever the request asks, and making
+> it party-visible asks the GM to confirm that it may hold Hidden truth; an export is a
+> `GMOnly` source, so what it proposes follows the AI visibility rules below. Drafting asks
+> the retriever at the caller's role, which is always GM, so this document's Ask rule is
+> unchanged.
+
 > **Amendment (2026-08-02): where GM gating lives.** Role checks are enforced in the
 > **application services**, which receive the acting role as a parameter (`ActingUserRole` on
 > a command, or an explicit argument). Controllers resolve membership through

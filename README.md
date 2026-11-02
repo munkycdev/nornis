@@ -70,11 +70,12 @@ claim keeps a link back to the sentence in the source that produced it.
 | **World digest** | A short read on where the world stands, on the dashboard, written twice: the full record for GMs, and a party version drawn only from what the party can see. |
 | **Secrets & reveals** | Everything carries a scope — Private, GM only, or Party visible. When the fiction discloses a secret, the GM ticks exactly what the party now learns; Nornis checks the reveal leaves no dangling references. One-way. A convergence gauge ranks what the party is ready to learn next, and players get a "what you learned" view of everything disclosed since they last looked. |
 | **Campaigns & characters** | Campaigns are runs of play with their own page — cast, places, and record assembled from what their sessions cite. A character is somewhere to go: what the record knows about them, grouped for reading about a person, beside a free-form sheet Nornis stores but never interprets and dated snapshots of the paper one. |
+| **Prep** | A GM-only place to write the next adventure: an outline of chapters and scenes, drafted and revised by a Loremaster that knows the whole record, Hidden truth included. Print it as a two-column booklet with read-aloud boxes, props and stat blocks, filed GM-only to the Library, or export it into the world as a GM-only source that comes back through Review. Drafting has its own monthly budget. |
 | **Library** | Upload sourcebooks, maps, and handouts. PDFs are indexed into passages so the Loremaster can quote them with page citations. |
 | **Continuity health** | A read on how coherent the record is — contradictions, dangling threads, stale storylines, timeline conflicts, summary drift, and duplicates — each finding with a severity, a jump to the artifact, and most drafting into a reviewable fix. |
 | **Onboarding** | A demo world of five already-extracted sessions plus a sixth left as raw notes, and a two-chapter checklist that detects its own completion from actual state. Dismissable permanently. |
 | **Sharing** | Invite players by link with a role. Optionally give the world a public address for a read-only, party-visible-only view, with a public Ask the Loremaster behind a monthly cap the GM sets. |
-| **Cost visibility** | Every AI call is metered by operation, model, and user, against a per-world daily budget. |
+| **Cost visibility** | Every AI call is metered by operation, model, and user, against a per-world daily budget, with Prep drafting on a monthly budget of its own. |
 
 Roles are **GM**, **Player**, and **Observer** — and they see genuinely different worlds. A
 player and a GM asking the Loremaster the same question get different answers, because
@@ -145,7 +146,7 @@ dotnet user-secrets --project src/Nornis.Worker set "Extraction:AiEndpoint" "htt
 dotnet user-secrets --project src/Nornis.Worker set "Extraction:AiApiKey"  "<your-key>"
 
 # API — Ask the Loremaster, continuity health, retrospectives, library
-# retrieval (deployment: nornis-ask)
+# retrieval and Prep drafting (deployment: nornis-ask)
 dotnet user-secrets --project src/Nornis.Api set "Loremaster:AiEndpoint" "https://<resource>.openai.azure.com/"
 dotnet user-secrets --project src/Nornis.Api set "Loremaster:AiKey"      "<your-key>"
 ```
@@ -155,6 +156,8 @@ and the AI paths fail with an explicit "not configured" message rather than a cr
 
 > The `AiModel` values in `appsettings.json` are Azure OpenAI **deployment** names, not model
 > names, and the `ModelPricing` key must match, or cost tracking silently records $0.
+> Prep drafting uses the Loremaster's deployment unless `Prep:Deployment` names another on the
+> same resource, and that name is its pricing key too.
 
 ### Build and test
 

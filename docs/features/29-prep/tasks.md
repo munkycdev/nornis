@@ -5,7 +5,7 @@ editor holds the markup, and whether the SDK sends an output ceiling the deploym
 After that the Adventure is built without AI, then drafting, then Print and Export. There is
 one migration, and it is additive.
 
-**Status: specified 2026-11-02; Phase A done 2026-11-02; Phase B done 2026-11-02; Phase C done 2026-11-02; Phase D done 2026-11-02.** Ships as Nornis v3.0. The v3.1 items are listed
+**Status: specified 2026-11-02; Phase A done 2026-11-02; Phase B done 2026-11-02; Phase C done 2026-11-02; Phase D done 2026-11-02; Phase E shipped 2026-11-02, live walk (E5) pending.** Ships as Nornis v3.0. The v3.1 items are listed
 at the end so the v3.0 design leaves room for them.
 
 ## Phase A — Retire the risks
@@ -100,14 +100,27 @@ at the end so the v3.0 design leaves room for them.
 
 ## Phase E — Ship
 
-- [ ] E1. Amendments: `domain-model.md` (Adventure, sections, revisions, `AdventureExport`,
+- [x] E1. Amendments: `domain-model.md` (Adventure, sections, revisions, `AdventureExport`,
       `Conversation` status) and `ai-extraction.md` (drafting writes to an Adventure, never
       to canon). Both are drafted in this spec's PR and are re-checked against the build here.
-- [ ] E2. `Directory.Build.props` MajorVersion 3, MinorVersion 0; the changelog entry;
+      **Done 2026-11-02.** Both hold. Each carries a dated re-check note. `domain-model.md`'s
+      sketch adds `World.PrepMonthlyBudgetUsd` and `AiOperationType.AdventureDrafting`. Two
+      more steering docs gained a short amendment: `security-and-permissions.md` (Prep is
+      GM-only by current role, and how print and export keep the boundary) and
+      `observability-and-costs.md` (the monthly Prep pool among the guardrails).
+- [x] E2. `Directory.Build.props` MajorVersion 3, MinorVersion 0; the changelog entry;
       `docs/features/README.md` row 29.
-- [ ] E3. Build, `dotnet test --solution Nornis.sln`, and `dotnet format --verify-no-changes`
+      **Done 2026-11-02**, plus the in-app Features page (a Prep section, Prep in the GM's
+      role row, and a limit saying stat blocks are never computed), the README's feature
+      table and AI configuration note (`Prep:Deployment`), and a changelog entry for the
+      October fixes that had none.
+- [x] E3. Build, `dotnet test --solution Nornis.sln`, and `dotnet format --verify-no-changes`
       in a clean worktree with an explicit restore.
-- [ ] E4. Apply migration `AddPrep` before deploy, and watch the deploy.
+      **Done 2026-11-02** on main after Phase D plus this phase: build 0 warnings and 0 errors;
+      4,260 tests, 4,258 passed and 2 skipped (the Explicit live tests); format clean.
+- [x] E4. Apply migration `AddPrep` before deploy, and watch the deploy.
+      **Done in Phase B**, the PR that brought the migration: `AddPrep` was applied to
+      production before #65 merged. Phases C to E add no migration.
 - [ ] E5. Live walk in *Gribbits Detective Agency*, as design.md lists it, recorded here.
 
 ## v3.1 (designed for, not built)

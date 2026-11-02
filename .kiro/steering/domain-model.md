@@ -43,7 +43,14 @@
 > AdventureSection              // Id, AdventureId, Kind, Title, BodyMarkdown, SortOrder, UpdatedAt
 > AdventureSectionRevision      // Id, SectionId, BodyMarkdown, Instruction?, Model, CreatedAt
 > SourceType + AdventureExport; Source + AdventureId?; LibraryDocument + AdventureId?
+> World + PrepMonthlyBudgetUsd?; AiOperationType + AdventureDrafting
 > ```
+>
+> Re-checked against the build on 2026-11-02, when v3.0 shipped. It holds as written. The
+> last line of the sketch is the one addition: the monthly Prep pool lives on `World`, and
+> drafting is metered as its own operation. Export and Print leave out sections that are
+> still unwritten, and the server, not the page, sets a print's title, kind and visibility
+> (feature 29's design.md, Phase D amendment).
 
 > **Amendment (2026-09-10): detail pages are addressed by slug.** `Artifact`, `Campaign`,
 > `Character`, `Source` and `LibraryDocument` each carry a `Slug` — lowercase a-z0-9 joined by

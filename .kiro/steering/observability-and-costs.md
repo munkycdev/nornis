@@ -228,6 +228,10 @@ Add basic controls:
 
 - Per-user rate limits where practical.
 - Per-world daily usage threshold where practical.
+- Per-world monthly Prep threshold for adventure drafting (2026-11-02, feature 29): its own
+  pool, `World.PrepMonthlyBudgetUsd` ($10 by default), metered as `AdventureDrafting` and
+  never counted against the daily world budget, so planning can't starve extraction or Ask.
+  The global pause stops it like everything else.
 - Logging and alerting for unusually high token usage.
 - Alerts for repeated extraction failures.
 
