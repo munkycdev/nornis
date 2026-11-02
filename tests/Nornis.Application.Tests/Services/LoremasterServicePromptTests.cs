@@ -630,7 +630,10 @@ public class LoremasterServicePromptTests
         Assert.That(LoremasterService.AssembleCaveats(context), Does.Contain(LoremasterService.ReferenceBooksUnavailableCaveat));
         Assert.That(LoremasterService.AssembleCaveats(new KnowledgeContext
         {
-            Artifacts = [], Facts = [], Relationships = [], SourceReferences = [],
+            Artifacts = [],
+            Facts = [],
+            Relationships = [],
+            SourceReferences = [],
         }), Does.Not.Contain(LoremasterService.ReferenceBooksUnavailableCaveat));
     }
 
