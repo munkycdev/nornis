@@ -172,27 +172,31 @@ jobs:
           done
           echo "API is serving."
 
-      # The API check above cannot see the Web app, and Web's /health answers 200 from whichever
-      # revision is serving. When a new Web revision fails to start, Container Apps keeps the
-      # previous one live, so from 2026-10-08 every Web change "deployed" green while production
-      # kept running an older image. Compare the latest revision with the latest ready one.
-      - name: Verify the Web revision started
+      # /health answers 200 from whichever revision is serving. When a new revision fails to
+      # start, Container Apps keeps the previous one live, so from 2026-10-08 every Web change
+      # "deployed" green while production kept running an older image, and on 2026-11-02 the
+      # same hid a night of API deploys behind revision 331. Compare each app's latest revision
+      # with its latest ready one. The worker scales to zero, so it has no ready replica to
+      # wait for and is left out.
+      - name: Verify the API and Web revisions started
         run: |
-          deadline=$((SECONDS + 180))
-          while :; do
-            revisions=$(az containerapp show -g "$RESOURCE_GROUP" -n ca-nornis-web \
-              --query "[properties.latestRevisionName, properties.latestReadyRevisionName]" -o tsv)
-            latest=$(sed -n 1p <<< "$revisions")
-            ready=$(sed -n 2p <<< "$revisions")
-            if [ "$latest" = "$ready" ]; then
-              echo "Web is serving $latest."
-              break
-            fi
-            if [ "$SECONDS" -ge "$deadline" ]; then
-              echo "::error::Web revision $latest did not become ready; $ready is still serving. Its startup error is in: az containerapp logs show -g $RESOURCE_GROUP -n ca-nornis-web --revision $latest --type console"
-              exit 1
-            fi
-            sleep 5
+          for svc in api web; do
+            deadline=$((SECONDS + 180))
+            while :; do
+              revisions=$(az containerapp show -g "$RESOURCE_GROUP" -n "ca-nornis-$svc" \
+                --query "[properties.latestRevisionName, properties.latestReadyRevisionName]" -o tsv)
+              latest=$(sed -n 1p <<< "$revisions")
+              ready=$(sed -n 2p <<< "$revisions")
+              if [ "$latest" = "$ready" ]; then
+                echo "$svc is serving $latest."
+                break
+              fi
+              if [ "$SECONDS" -ge "$deadline" ]; then
+                echo "::error::$svc revision $latest did not become ready; $ready is still serving. Its startup error is in: az containerapp logs show -g $RESOURCE_GROUP -n ca-nornis-$svc --revision $latest --type console"
+                exit 1
+              fi
+              sleep 5
+            done
           done
 
       - name: Warm the new revision
