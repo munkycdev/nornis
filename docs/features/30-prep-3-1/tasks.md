@@ -4,8 +4,8 @@ Three PRs. The spec, then the side conversation (the only migration, additive), 
 to use and the version bump. Nothing in Phase B depends on Phase C, so C can ship without B if
 B stalls.
 
-**Status: specified 2026-11-02.** Ships as Nornis v3.1. One-click PDF is deferred (see
-requirements.md, Staging), pending Dave's call on the design doc.
+**Status: specified 2026-11-02; Phase B done 2026-11-02.** Ships as Nornis v3.1. One-click
+PDF is deferred (see requirements.md, Staging), as Dave decided on 2026-11-02.
 
 ## Phase A — Spec
 
@@ -16,29 +16,39 @@ requirements.md, Staging), pending Dave's call on the design doc.
 
 ## Phase B — The side conversation
 
-- [ ] B1. Domain: `Conversation` (+ `AdventureId?`), `ConversationMessage`, `ConversationRole`,
+- [x] B1. Domain: `Conversation` (+ `AdventureId?`), `ConversationMessage`, `ConversationRole`,
       `AiOperationType.AdventureConversation`. EF configurations: World FK cascade, Adventure
       FK restrict with an explicit delete in `AdventureService.DeleteAsync`, the unique
       filtered index on `AdventureId`, and the `(ConversationId, CreatedAt)` index. Update the
       enum-definition tests.
-- [ ] B2. Migration `AddPrepConversations`. **Applied to prod by Dave before the PR merges**
+- [x] B2. Migration `AddPrepConversations`. **Applied to prod by Dave before the PR merges**
       (docs/runbooks/migration-missed.md).
-- [ ] B3. `PrepOptions` gains the four conversation bounds; zero refused; a bound test pinning
+- [x] B3. `PrepOptions` gains the four conversation bounds; zero refused; a bound test pinning
       `MaxConversationMessageChars <= ConversationHistoryChars`.
-- [ ] B4. `AiSpendPools.PoolOf`: `AdventureConversation` → Prep. Sabotage: the daily pool.
-- [ ] B5. `AdventureConversationPrompt`, cache-ordered, with its tests.
-- [ ] B6. `AdventureConversationService` (`GetAsync`, `SendAsync` streaming, `ClearAsync`),
+      **Done 2026-11-02**, with the start-up check covering every Prep bound (design.md, Phase B
+      amendment).
+- [x] B4. `AiSpendPools.PoolOf`: `AdventureConversation` → Prep. Sabotage: the daily pool.
+- [x] B5. `AdventureConversationPrompt`, cache-ordered, with its tests.
+- [x] B6. `AdventureConversationService` (`GetAsync`, `SendAsync` streaming, `ClearAsync`),
       the per-Adventure gate, usage recording. Tests per design.md, including Hidden at GM
       through the real `KeywordKnowledgeRetriever`, and Ask's retriever never reading a
       conversation.
-- [ ] B7. `AdventureService.PutInSectionAsync` through `TryAcceptDraftAsync`. `PutInSectionTests`.
-- [ ] B8. `PrepController`: the four conversation routes, in the 403 sweep. Endpoint tests,
+- [x] B7. `AdventureService.PutInSectionAsync` through `TryAcceptDraftAsync`. `PutInSectionTests`.
+      **Built in `AdventureConversationService`** instead; its tests are in
+      `AdventureConversationServiceTests`.
+- [x] B8. `PrepController`: the four conversation routes, in the 403 sweep. Endpoint tests,
       including a streamed turn and Put in section then Undo.
-- [ ] B9. World lifecycle: `WorldDeletionService` wipes both tables; `prep.json` carries each
+- [x] B9. World lifecycle: `WorldDeletionService` wipes both tables; `prep.json` carries each
       Adventure's conversation; the demo clone skips it.
-- [ ] B10. Web: the **Talk it through** panel (stream, stop, saved-or-not line, Put in section
+- [x] B10. Web: the **Talk it through** panel (stream, stop, saved-or-not line, Put in section
       dialog, Clear), the SSE event-name mirror test, bUnit tests.
-- [ ] B11. `LibraryPrintPathTests` (Requirement 7).
+- [x] B11. `LibraryPrintPathTests` (Requirement 7).
+      **Built as `PrepBoundaryTests`**, which also holds Requirement 6's scan, plus a confirm test
+      in `LibraryPrintTests`.
+
+      **Phase B notes (2026-11-02):** every test was checked by breaking what it covers. The
+      deviations are in design.md's Phase B amendment. The migration is additive and must be
+      applied to production before the PR merges.
 
 ## Phase C — Threads to use, and ship 3.1
 

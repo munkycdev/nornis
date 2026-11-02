@@ -47,8 +47,9 @@ public record AdventureResponse(
     IReadOnlyList<AdventureSectionResponse> Sections);
 
 /// <summary>
-/// The draft stream's server-sent event names. Mirrored by <c>DraftStreamEventNames</c> in the
-/// Web, which shares no project with the API.
+/// The draft stream's server-sent event names, which a side-conversation turn streams under too
+/// (its <c>done</c> carries a <see cref="ConversationMessageResponse"/>). Mirrored by
+/// <c>DraftStreamEventNames</c> in the Web, which shares no project with the API.
 /// </summary>
 public static class DraftStreamEventNames
 {
@@ -71,3 +72,9 @@ public record AdventurePrintResponse(Guid AdventureId, string Title, string? Slu
 
 /// <summary>The source an export filed, so the page can link to it and on to Review.</summary>
 public record AdventureExportResponse(Guid SourceId, string Title, string? Slug);
+
+/// <summary>One message of an Adventure's side conversation. <see cref="Role"/> is User (the GM) or Assistant.</summary>
+public record ConversationMessageResponse(Guid Id, string Role, string Content, string? Model, DateTimeOffset CreatedAt);
+
+/// <summary>The side conversation, oldest first. <see cref="IsFull"/> means it must be cleared before another turn.</summary>
+public record ConversationResponse(IReadOnlyList<ConversationMessageResponse> Messages, bool IsFull);

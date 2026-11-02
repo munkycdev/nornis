@@ -81,6 +81,25 @@ public class LibraryPrintTests
         });
     }
 
+    /// <summary>
+    /// Feature 30, Requirement 7: the Library/Bibliotaph integration catalogues a print from the
+    /// confirmed row, so the confirm must keep what the request set: its Adventure, and GM-only.
+    /// </summary>
+    [Test]
+    public async Task AConfirmedPrint_KeepsItsAdventure_AndStaysGmOnly()
+    {
+        var confirmed = await FileAsync();
+
+        var stored = _documents.Documents.Single(d => d.Id == confirmed.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(confirmed.AdventureId, Is.EqualTo(_adventure.Id));
+            Assert.That(stored.AdventureId, Is.EqualTo(_adventure.Id));
+            Assert.That(stored.Visibility, Is.EqualTo(VisibilityScope.GMOnly));
+            Assert.That(stored.Status, Is.Not.EqualTo(LibraryDocumentStatus.PendingUpload));
+        });
+    }
+
     [TestCase(WorldRole.Player)]
     [TestCase(WorldRole.Observer)]
     public async Task OnlyTheGm_CanFileAPrint(WorldRole role)

@@ -51,4 +51,8 @@ public class WorldExportData
     public IReadOnlyList<AdventureSection> AdventureSections { get; init; } = [];
 
     public IReadOnlyList<AdventureSectionRevision> AdventureSectionRevisions { get; init; } = [];
+
+    public IReadOnlyList<Conversation> Conversations { get; init; } = [];
+
+    public IReadOnlyList<ConversationMessage> ConversationMessages { get; init; } = [];
 }

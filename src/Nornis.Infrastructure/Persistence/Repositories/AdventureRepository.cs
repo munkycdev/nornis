@@ -148,6 +148,12 @@ public class AdventureRepository : IAdventureRepository
         await _context.SetWhereAsync<LibraryDocument, Guid?>(
             d => d.AdventureId == adventureId, d => d.AdventureId, null, cancellationToken);
 
+        // The side conversation is the Adventure's own, and goes with it (its FK is Restrict).
+        await _context.DeleteWhereAsync<ConversationMessage>(
+            m => _context.Conversations.Any(c => c.Id == m.ConversationId && c.AdventureId == adventureId),
+            cancellationToken);
+        await _context.DeleteWhereAsync<Conversation>(c => c.AdventureId == adventureId, cancellationToken);
+
         await _context.DeleteWhereAsync<AdventureSectionRevision>(
             r => _context.AdventureSections.Any(s => s.Id == r.SectionId && s.AdventureId == adventureId),
             cancellationToken);

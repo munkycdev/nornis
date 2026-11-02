@@ -30,8 +30,8 @@ public class AdventureDraftingServiceTests
     private InMemoryAiUsageRecordRepository _ledger = null!;
     private InMemoryArtifactRepository _artifacts = null!;
     private InMemoryArtifactFactRepository _facts = null!;
-    private SpyRetriever _retriever = null!;
-    private FakeDraftingClient _ai = null!;
+    private SpyKnowledgeRetriever _retriever = null!;
+    private FakePrepAiClient _ai = null!;
     private FakeAiBudgetGuard _budget = null!;
     private SectionDraftGate _gate = null!;
     private PrepOptions _options = null!;
@@ -46,13 +46,13 @@ public class AdventureDraftingServiceTests
         _ledger = new InMemoryAiUsageRecordRepository();
         _artifacts = new InMemoryArtifactRepository();
         _facts = new InMemoryArtifactFactRepository();
-        _ai = new FakeDraftingClient();
+        _ai = new FakePrepAiClient();
         _budget = new FakeAiBudgetGuard();
         _gate = new SectionDraftGate(TimeSpan.FromMinutes(5));
         _options = new PrepOptions();
 
         var loremaster = new LoremasterOptions { AiModel = "nornis-ask", MaxRetrievalCount = 30, MaxFactsPerArtifact = 15 };
-        _retriever = new SpyRetriever(new KeywordKnowledgeRetriever(
+        _retriever = new SpyKnowledgeRetriever(new KeywordKnowledgeRetriever(
             _artifacts, _facts, new InMemoryArtifactRelationshipRepository(), new InMemorySourceReferenceRepository(),
             new InMemorySourceRepository(), Options.Create(loremaster)));
 
@@ -551,67 +551,5 @@ public class AdventureDraftingServiceTests
         await DraftAsync(Command(adventure, Stored(chapter.Id)));
 
         Assert.That(_retriever.Calls.Single().Text, Does.Contain("Mirela Thorn"));
-    }
-
-    // ------------------------------------------------------------------- fakes --
-
-    private sealed class SpyRetriever(IKnowledgeRetriever inner) : IKnowledgeRetriever
-    {
-        public IKnowledgeRetriever Inner { get; } = inner;
-
-        public List<(string Text, WorldRole Role)> Calls { get; } = [];
-
-        public Task<KnowledgeContext> RetrieveAsync(string question, Guid worldId, Guid userId, WorldRole role, CancellationToken ct)
-        {
-            Calls.Add((question, role));
-            return Inner.RetrieveAsync(question, worldId, userId, role, ct);
-        }
-    }
-
-    private sealed class FakeDraftingClient : IAdventureDraftingAiClient
-    {
-        private string[] _texts = [];
-
-        public List<AiPromptRequest> Requests { get; } = [];
-
-        public AiUsage? Usage { get; set; }
-
-        public bool CutOff { get; set; }
-
-        public bool HangAfterText { get; set; }
-
-        public Exception? ThrowAfterText { get; set; }
-
-        /// <summary>Runs after the text and before the final chunk: something happening mid-draft.</summary>
-        public Func<Task>? BeforeEnd { get; set; }
-
-        public void Script(params string[] texts) => _texts = texts;
-
-        public async IAsyncEnumerable<AiStreamChunk> StreamAsync(AiPromptRequest request, [EnumeratorCancellation] CancellationToken ct)
-        {
-            Requests.Add(request);
-            foreach (var text in _texts)
-            {
-                await Task.Yield();
-                yield return new AiStreamChunk { Text = text };
-            }
-
-            if (HangAfterText)
-            {
-                await Task.Delay(Timeout.Infinite, ct);
-            }
-
-            if (ThrowAfterText is not null)
-            {
-                throw ThrowAfterText;
-            }
-
-            if (BeforeEnd is not null)
-            {
-                await BeforeEnd();
-            }
-
-            yield return new AiStreamChunk { Text = string.Empty, Usage = Usage, CutOff = CutOff };
-        }
     }
 }

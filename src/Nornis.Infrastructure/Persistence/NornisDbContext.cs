@@ -42,6 +42,8 @@ public class NornisDbContext : DbContext
     public DbSet<Adventure> Adventures => Set<Adventure>();
     public DbSet<AdventureSection> AdventureSections => Set<AdventureSection>();
     public DbSet<AdventureSectionRevision> AdventureSectionRevisions => Set<AdventureSectionRevision>();
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+    public DbSet<ConversationMessage> ConversationMessages => Set<ConversationMessage>();
     public DbSet<MapPlacemark> MapPlacemarks => Set<MapPlacemark>();
     public DbSet<ExtractionReplay> ExtractionReplays => Set<ExtractionReplay>();
     public DbSet<ImportSession> ImportSessions => Set<ImportSession>();

@@ -116,7 +116,13 @@ public class EnumDefinitionTests
     {
         AssertEnumHasExactValues<AiOperationType>(
             "SourceExtraction", "ArtifactSummary", "AskLoremaster", "SourceExtractionRepair", "ContinuityAudit", "StorylineRetrospective", "Embedding", "RelationshipBackfill", "HandwritingTranscription", "ImageReading", "MapExtraction", "ContinuityFix", "WorldNaming",
-            "WorldDigest", "CampaignRecap", "ConvergenceNarration", "AdventureDrafting");
+            "WorldDigest", "CampaignRecap", "ConvergenceNarration", "AdventureDrafting", "AdventureConversation");
+    }
+
+    [Test]
+    public void ConversationRole_HasExpectedValues()
+    {
+        AssertEnumHasExactValues<ConversationRole>("User", "Assistant");
     }
 
     [Test]

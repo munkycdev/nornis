@@ -1,0 +1,235 @@
+@inject NornisApiClient Api
+@inject IDialogService DialogService
+
+@* Talk it through: the Adventure's side conversation with the Loremaster (feature 30). GM-only
+   like the page it sits on. The GM's message is saved before the answer starts, and an answer is
+   saved only when it ends cleanly, so the panel reloads from the server after every turn and
+   says so under a question that has no answer. Put in section is the page's to do (it owns the
+   editor, whose typing must be saved first); the panel only asks which section and how. *@
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-talk">
+    <div class="d-flex align-center gap-2">
+        <MudText Typo="Typo.overline" Color="Color.Secondary" Class="flex-grow-1">Talk it through</MudText>
+        @if (_messages.Count > 0)
+        {
+            <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.DeleteSweep"
+                       Class="nornis-prep-talk-clear" Disabled="@_streaming" OnClick="ClearAsync">
+                Clear
+            </MudButton>
+        }
+    </div>
+
+    @if (_loadError is not null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_loadError</MudAlert>
+    }
+    else if (_messages.Count == 0 && !_streaming)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1 nornis-prep-talk-empty">
+            Ask the Loremaster about this adventure. It knows your world, Hidden truth included, and
+            the section you have open. Nothing here changes the adventure until you put an answer in.
+        </MudText>
+    }
+
+    <div class="nornis-prep-talk-messages" aria-live="polite">
+        @foreach (var (message, index) in _messages.Select((m, i) => (m, i)))
+        {
+            <div class="nornis-prep-talk-message @(message.IsAnswer ? "nornis-prep-talk-answer" : "nornis-prep-talk-question")">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">@(message.IsAnswer ? "Loremaster" : "You")</MudText>
+                <div class="nornis-prep-talk-text">@message.Content</div>
+                @if (message.IsAnswer)
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" Class="nornis-prep-talk-put"
+                               StartIcon="@Icons.Material.Outlined.PostAdd" Disabled="@(_streaming || Sections.Count == 0)"
+                               OnClick="() => PutAsync(message)">
+                        Put in section
+                    </MudButton>
+                }
+                else if (!_streaming && (index == _messages.Count - 1 || !_messages[index + 1].IsAnswer))
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="nornis-prep-talk-unanswered">
+                        No answer was saved. Send it again to ask once more.
+                    </MudText>
+                }
+            </div>
+        }
+
+        @if (_streaming)
+        {
+            <div class="nornis-prep-talk-message nornis-prep-talk-answer nornis-prep-talk-streaming">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Loremaster</MudText>
+                <div class="nornis-prep-talk-text">@(_answer is { Length: > 0 } ? _answer : "Thinking…")</div>
+            </div>
+        }
+    </div>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2 nornis-prep-talk-error">@_error</MudAlert>
+    }
+
+    @if (_isFull)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2 nornis-prep-talk-full">
+            This conversation is as long as one can be. Clear it to start again; the adventure keeps
+            everything you put in.
+        </MudAlert>
+    }
+    else
+    {
+        <MudTextField @bind-Value="_text" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2 nornis-prep-talk-input"
+                      Label="Ask, or ask it to write something" Lines="3" MaxLength="@MaxMessageChars" Immediate="true"
+                      Disabled="@_streaming" />
+        <div class="d-flex gap-2 mt-2 align-center">
+            @if (_streaming)
+            {
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Stop" OnClick="Stop" Class="nornis-prep-talk-stop">
+                    Stop
+                </MudButton>
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Send"
+                           Class="nornis-prep-talk-send" Disabled="@string.IsNullOrWhiteSpace(_text)" OnClick="SendAsync">
+                    Send
+                </MudButton>
+            }
+        </div>
+    }
+</MudPaper>
+
+@code {
+    /// <summary>The longest message the API takes. Mirrors <c>PrepOptions.MaxConversationMessageChars</c>; pinned by a test.</summary>
+    public const int MaxMessageChars = 4_000;
+
+    [Parameter] public Guid WorldId { get; set; }
+    [Parameter] public Guid AdventureId { get; set; }
+    [Parameter] public IReadOnlyList<AdventureSectionDto> Sections { get; set; } = [];
+
+    /// <summary>The section open in the editor: sent with each message as context, and offered first by Put in section.</summary>
+    [Parameter] public Guid? SelectedSectionId { get; set; }
+
+    /// <summary>Writes the answer into the chosen section. The page saves the editor first and reports the outcome.</summary>
+    [Parameter] public Func<ConversationMessageDto, PutInSectionChoice, Task>? PutInSection { get; set; }
+
+    private List<ConversationMessageDto> _messages = [];
+    private bool _isFull;
+    private string? _loadError;
+    private string? _error;
+    private string _text = string.Empty;
+    private bool _streaming;
+    private string? _answer;
+    private CancellationTokenSource? _cts;
+    private Guid _loadedFor;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (AdventureId != _loadedFor)
+        {
+            _loadedFor = AdventureId;
+            await ReloadAsync();
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        var result = await Api.GetAdventureConversationAsync(WorldId, AdventureId);
+        if (result.IsSuccess)
+        {
+            _messages = result.Value!.Messages.ToList();
+            _isFull = result.Value.IsFull;
+            _loadError = null;
+        }
+        else
+        {
+            _loadError = result.Error!.Message;
+        }
+    }
+
+    private async Task SendAsync()
+    {
+        var text = _text.Trim();
+        if (text.Length == 0 || _streaming)
+        {
+            return;
+        }
+
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        _streaming = true;
+        _answer = string.Empty;
+        _error = null;
+        // Shown at once; the reload after the turn replaces it with the saved copy.
+        _messages.Add(new ConversationMessageDto(Guid.Empty, ConversationMessageDto.UserRole, text, null, DateTimeOffset.UtcNow));
+        _text = string.Empty;
+        StateHasChanged();
+        try
+        {
+            await foreach (var e in Api.StreamAdventureConversationAsync(WorldId, AdventureId,
+                               new SendConversationMessageRequest(text, SelectedSectionId), _cts.Token))
+            {
+                switch (e)
+                {
+                    case ConversationStreamEvent.Delta delta:
+                        _answer += delta.Text;
+                        StateHasChanged();
+                        break;
+                    case ConversationStreamEvent.Failed failed:
+                        _error = failed.Error.Message;
+                        break;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+            _error = "Stopped. The answer wasn't saved.";
+        }
+        finally
+        {
+            _streaming = false;
+            _answer = null;
+            await ReloadAsync();
+            StateHasChanged();
+        }
+    }
+
+    private void Stop() => _cts?.Cancel();
+
+    private async Task ClearAsync()
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Clear the conversation?",
+            "Every message goes. The adventure and anything you put in it stay as they are.",
+            yesText: "Clear", cancelText: "Keep it");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var result = await Api.ClearAdventureConversationAsync(WorldId, AdventureId);
+        _error = result.IsSuccess ? null : result.Error!.Message;
+        await ReloadAsync();
+    }
+
+    private async Task PutAsync(ConversationMessageDto message)
+    {
+        if (PutInSection is null)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters<PutInSectionDialog>
+        {
+            { d => d.Sections, Sections },
+            { d => d.DefaultSectionId, SelectedSectionId },
+        };
+        var dialog = await DialogService.ShowAsync<PutInSectionDialog>("Put in section", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: PutInSectionChoice choice })
+        {
+            await PutInSection(message, choice);
+        }
+    }
+}

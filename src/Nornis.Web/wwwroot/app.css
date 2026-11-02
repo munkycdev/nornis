@@ -4299,16 +4299,33 @@ a.nornis-cite:hover {
 /* The Adventure page: the outline beside the section being written. The outline is a fixed
    column so long titles wrap rather than squeezing the editor; below the breakpoint the
    outline sits above the editor. */
+/* Outline, editor, and the side conversation (Talk it through). Three columns when the page is
+   wide; below that the conversation goes under the editor, and on a narrow page everything
+   stacks. */
 .nornis-prep-layout {
     display: grid;
-    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-columns: 260px minmax(0, 1fr) 360px;
     gap: 20px;
     align-items: start;
+}
+
+@container page (max-width: 1300px) {
+    .nornis-prep-layout {
+        grid-template-columns: 300px minmax(0, 1fr);
+    }
+
+    .nornis-prep-talk-column {
+        grid-column: 2;
+    }
 }
 
 @container page (max-width: 900px) {
     .nornis-prep-layout {
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .nornis-prep-talk-column {
+        grid-column: auto;
     }
 }
 
@@ -4370,6 +4387,41 @@ a.nornis-cite:hover {
     border-left: 3px solid var(--mud-palette-primary);
     background: var(--mud-palette-background-gray);
     border-radius: 4px;
+}
+
+/* Talk it through. Plain text, as the draft preview is: an answer is Markdown the editor reads
+   only once it is put in a section. The list scrolls, so the box stays in reach. */
+.nornis-prep-talk-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 60vh;
+    overflow-y: auto;
+    margin-top: 8px;
+}
+
+.nornis-prep-talk-message {
+    padding: 8px 12px;
+    border-radius: 4px;
+}
+
+.nornis-prep-talk-question {
+    background: var(--mud-palette-background-gray);
+}
+
+.nornis-prep-talk-answer {
+    border-left: 3px solid var(--mud-palette-primary);
+}
+
+.nornis-prep-talk-text {
+    white-space: pre-wrap;
+    font-size: 0.95rem;
+    line-height: 1.55;
+}
+
+.nornis-prep-talk-unanswered {
+    display: block;
+    font-style: italic;
 }
 
 /* ---------------------------------------------------------- Prep booklet --- */

@@ -24,3 +24,9 @@ public record DraftAdventureSectionRequest(string? Instruction, DateTimeOffset B
 
 /// <summary>Export to Nornis. A null chapter is the whole Adventure; otherwise one Chapter and the sections under it.</summary>
 public record ExportAdventureRequest(Guid? ChapterSectionId);
+
+/// <summary>One turn of the side conversation. <see cref="SectionId"/> is the section on screen, or null.</summary>
+public record SendConversationMessageRequest(string? Text, Guid? SectionId);
+
+/// <summary>Put one saved answer into a section. <see cref="Mode"/> is Replace or Append.</summary>
+public record PutInSectionRequest(Guid MessageId, string? Mode, DateTimeOffset BasedOnUpdatedAt);

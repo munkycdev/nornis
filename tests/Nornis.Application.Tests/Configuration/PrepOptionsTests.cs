@@ -32,4 +32,45 @@ public class PrepOptionsTests
 
         Assert.That(options.MaxSectionChars, Is.LessThan(options.MaxAdventureChars));
     }
+
+    /// <summary>
+    /// A turn's own material (the section on screen, the history window and the new message)
+    /// is no larger than the world context the Loremaster already takes, at four characters a
+    /// token, so a turn's prompt is at most about twice a draft's world block.
+    /// </summary>
+    [Test]
+    public void ATurnsOwnMaterial_FitsInTheLoremastersContextBudget()
+    {
+        var options = new PrepOptions();
+        var loremaster = new LoremasterOptions();
+
+        var turn = options.ConversationSectionChars + options.ConversationHistoryChars + options.MaxConversationMessageChars;
+
+        Assert.That(turn, Is.LessThanOrEqualTo(loremaster.MaxContextTokens * 4));
+    }
+
+    [Test]
+    public void OneMessageAtItsBound_FitsInTheHistoryWindow()
+    {
+        var options = new PrepOptions();
+
+        Assert.That(options.MaxConversationMessageChars, Is.LessThanOrEqualTo(options.ConversationHistoryChars));
+    }
+
+    [Test]
+    public void TheDefaults_HaveNoNonPositiveBound() =>
+        Assert.That(new PrepOptions().FirstNonPositiveBound(), Is.Null);
+
+    [TestCase(nameof(PrepOptions.MaxConversationMessageChars))]
+    [TestCase(nameof(PrepOptions.MaxConversationMessages))]
+    [TestCase(nameof(PrepOptions.ConversationHistoryChars))]
+    [TestCase(nameof(PrepOptions.ConversationSectionChars))]
+    [TestCase(nameof(PrepOptions.MaxSectionChars))]
+    public void AZeroBound_IsNamed_SoTheApiRefusesToStart(string bound)
+    {
+        var options = new PrepOptions();
+        typeof(PrepOptions).GetProperty(bound)!.SetValue(options, 0);
+
+        Assert.That(options.FirstNonPositiveBound(), Is.EqualTo(bound));
+    }
 }

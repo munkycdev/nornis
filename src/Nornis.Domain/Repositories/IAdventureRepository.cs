@@ -52,8 +52,9 @@ public interface IAdventureRepository
         Guid adventureId, IReadOnlyList<Guid> orderedSectionIds, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Deletes the Adventure, its sections and their revisions. Exports and prints filed from
-    /// it are detached first and survive: each is a snapshot that stands on its own.
+    /// Deletes the Adventure, its sections and their revisions, and its side conversation.
+    /// Exports and prints filed from it are detached first and survive: each is a snapshot
+    /// that stands on its own.
     /// </summary>
     Task DeleteAsync(Guid adventureId, CancellationToken cancellationToken = default);
 
