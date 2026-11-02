@@ -25,4 +25,12 @@ public class PrepOptions
 
     /// <summary>The application timeout on one drafting call, like every other AI path's.</summary>
     public int DraftTimeoutSeconds { get; set; } = 90;
+
+    /// <summary>
+    /// The deployment drafting runs on. Null runs it on the Loremaster's (<c>Loremaster:AiModel</c>).
+    /// The name is also the key the ledger prices the call by, so one set here needs its own
+    /// <c>ModelPricing</c> entry, or drafting is recorded at $0 and the Prep pool
+    /// never fills.
+    /// </summary>
+    public string? Deployment { get; set; }
 }

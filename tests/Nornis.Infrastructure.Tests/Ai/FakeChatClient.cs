@@ -60,14 +60,17 @@ public sealed class FakeChatClient : IChatClient
     /// <summary>
     /// Streams one update per text, then (when given) a usage-only update, then — when given —
     /// throws <paramref name="thenThrow"/>, or hangs until cancelled if <paramref name="thenHang"/>.
+    /// A <paramref name="finishReason"/> rides on an update of its own after the text, as the
+    /// provider sends it.
     /// </summary>
     public FakeChatClient Streams(
         IReadOnlyList<string> texts,
         UsageDetails? usage = null,
         Exception? thenThrow = null,
-        bool thenHang = false)
+        bool thenHang = false,
+        ChatFinishReason? finishReason = null)
     {
-        _streams.Enqueue(ct => StreamUpdates(texts, usage, thenThrow, thenHang, ct));
+        _streams.Enqueue(ct => StreamUpdates(texts, usage, thenThrow, thenHang, finishReason, ct));
         return this;
     }
 
@@ -76,12 +79,18 @@ public sealed class FakeChatClient : IChatClient
         UsageDetails? usage,
         Exception? thenThrow,
         bool thenHang,
+        ChatFinishReason? finishReason,
         [EnumeratorCancellation] CancellationToken ct)
     {
         foreach (var text in texts)
         {
             await Task.Yield();
             yield return new ChatResponseUpdate(ChatRole.Assistant, text);
+        }
+
+        if (finishReason is not null)
+        {
+            yield return new ChatResponseUpdate { Role = ChatRole.Assistant, FinishReason = finishReason };
         }
 
         if (usage is not null)

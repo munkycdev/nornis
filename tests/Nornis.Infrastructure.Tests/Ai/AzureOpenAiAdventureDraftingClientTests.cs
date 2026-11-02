@@ -1,0 +1,114 @@
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging.Abstractions;
+using Nornis.Application.Ai;
+using Nornis.Infrastructure.Ai;
+using NUnit.Framework;
+
+namespace Nornis.Infrastructure.Tests.Ai;
+
+/// <summary>
+/// Prep's drafting transport (feature 29): what it sends, and the two things it reports that no
+/// other client needs, a cut-off at the output ceiling and the reasoning tokens spent under it.
+/// </summary>
+[TestFixture]
+public class AzureOpenAiAdventureDraftingClientTests
+{
+    private FakeChatClient _chatClient = null!;
+    private AzureOpenAiAdventureDraftingClient _client = null!;
+
+    private static readonly AiPromptRequest Request = new()
+    {
+        SystemPrompt = "You are helping a game master prepare an adventure.",
+        UserMessage = "## The section to write: [Scene] The Docks",
+        Model = "nornis-ask",
+        TimeoutSeconds = 30,
+    };
+
+    [SetUp]
+    public void SetUp()
+    {
+        _chatClient = new FakeChatClient();
+        _client = new AzureOpenAiAdventureDraftingClient(_chatClient, NullLogger<AzureOpenAiAdventureDraftingClient>.Instance);
+    }
+
+    private async Task<List<AiStreamChunk>> DrainAsync()
+    {
+        var chunks = new List<AiStreamChunk>();
+        await foreach (var chunk in _client.StreamAsync(Request, CancellationToken.None))
+        {
+            chunks.Add(chunk);
+        }
+
+        return chunks;
+    }
+
+    [Test]
+    public async Task StreamAsync_SendsThePromptWithTheCeiling()
+    {
+        _chatClient.Streams(["> Gulls wheel over the docks."], finishReason: ChatFinishReason.Stop);
+
+        await DrainAsync();
+
+        var (messages, options) = _chatClient.Calls.Single();
+        var raw = options?.RawRepresentationFactory?.Invoke(_chatClient) as OpenAI.Chat.ChatCompletionOptions;
+        Assert.Multiple(() =>
+        {
+            Assert.That(messages.Select(m => m.Role), Is.EqualTo([ChatRole.System, ChatRole.User]));
+            Assert.That(messages[0].Text, Is.EqualTo(Request.SystemPrompt));
+            Assert.That(messages[1].Text, Is.EqualTo(Request.UserMessage));
+            Assert.That(raw?.MaxOutputTokenCount, Is.EqualTo(AzureOpenAiAdventureDraftingClient.OutputCeilingTokens));
+        });
+    }
+
+    [Test]
+    public async Task StreamAsync_ACleanFinish_IsNotCutOff_AndCarriesCachedAndReasoningTokens()
+    {
+        _chatClient.Streams(
+            ["> Gulls wheel ", "over the docks."],
+            new UsageDetails
+            {
+                InputTokenCount = 4_000, CachedInputTokenCount = 3_072, OutputTokenCount = 600,
+                ReasoningTokenCount = 0, TotalTokenCount = 4_600,
+            },
+            finishReason: ChatFinishReason.Stop);
+
+        var chunks = await DrainAsync();
+
+        var last = chunks[^1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(string.Concat(chunks.Select(c => c.Text)), Is.EqualTo("> Gulls wheel over the docks."));
+            Assert.That(last.CutOff, Is.False);
+            Assert.That(last.Usage!.CachedInputTokens, Is.EqualTo(3_072));
+            Assert.That(last.Usage.ReasoningTokens, Is.EqualTo(0));
+            Assert.That(last.Usage.Model, Is.EqualTo("nornis-ask"));
+        });
+    }
+
+    [Test]
+    public async Task StreamAsync_StoppedByTheCeiling_SaysCutOff()
+    {
+        _chatClient.Streams(
+            ["> Gulls wheel over the"],
+            new UsageDetails { InputTokenCount = 4_000, OutputTokenCount = 2_500, ReasoningTokenCount = 900, TotalTokenCount = 6_500 },
+            finishReason: ChatFinishReason.Length);
+
+        var chunks = await DrainAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(chunks[^1].CutOff, Is.True);
+            Assert.That(chunks[^1].Usage!.ReasoningTokens, Is.EqualTo(900));
+        });
+    }
+
+    [Test]
+    public void StreamAsync_HttpFailure_IsTheUsualTaxonomy()
+    {
+        _chatClient.Streams([], thenThrow: FakeChatClient.HttpFailure(429));
+
+        var ex = Assert.ThrowsAsync<AiHttpException>(async () => await DrainAsync());
+
+        Assert.That(ex!.StatusCode, Is.EqualTo(429));
+    }
+}

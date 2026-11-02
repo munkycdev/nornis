@@ -23,6 +23,12 @@ namespace Nornis.Infrastructure.Tests.Ai;
 /// plain OpenAI SDK behind Microsoft.Extensions.AI, which may well emit
 /// <c>max_completion_tokens</c>; once a real call against the deployment proves it, delete this
 /// test along with the restriction.
+///
+/// 2026-11-02 (feature 29, task A2): that call was made, and the deployment accepts and enforces
+/// <c>max_completion_tokens</c>. The restriction is relaxed for one file only, Prep's drafting
+/// client, whose ceiling is pinned by <see cref="DraftingOptions_CarryTheCeiling_OnTheSdkOptions"/>.
+/// Every other client still sends none, and <c>Temperature</c> stays banned everywhere: nothing
+/// has shown this model family accepts it.
 /// </summary>
 [TestFixture]
 public class UnsupportedChatParameterTests
@@ -35,6 +41,12 @@ public class UnsupportedChatParameterTests
         "MaxOutputTokens",
         "Temperature",
     ];
+
+    /// <summary>The ceilings a file may set, by file name. Temperature is never on this list.</summary>
+    private static readonly Dictionary<string, string[]> AllowedCeilings = new()
+    {
+        ["AzureOpenAiAdventureDraftingClient.cs"] = ["MaxOutputTokenCount"],
+    };
 
     private static DirectoryInfo AiSourceDirectory()
     {
@@ -70,6 +82,11 @@ public class UnsupportedChatParameterTests
 
                 foreach (var property in ForbiddenAssignments)
                 {
+                    if (AllowedCeilings.TryGetValue(file.Name, out var allowed) && allowed.Contains(property))
+                    {
+                        continue;
+                    }
+
                     // An assignment, not a mention: `Temperature = 1.2f` or `MaxOutputTokenCount = X`.
                     if (Regex.IsMatch(line, $@"\b{property}\s*=[^=]"))
                     {
@@ -101,6 +118,34 @@ public class UnsupportedChatParameterTests
             Assert.That(raw, Is.Not.Null, "extraction must still build its SDK options through the factory");
             Assert.That(raw!.MaxOutputTokenCount, Is.Null,
                 "setting this serialises as max_tokens, which the deployment rejects outright");
+        });
+    }
+
+    [Test]
+    public void DraftingOptions_CarryTheCeiling_OnTheSdkOptions()
+    {
+        // The one client allowed a ceiling sets it where OutputCeilingWireTests proved it goes out
+        // as max_completion_tokens: on the SDK options, not ChatOptions.MaxOutputTokens.
+        var built = Nornis.Infrastructure.Ai.AzureOpenAiAdventureDraftingClient.BuildChatOptions();
+        var raw = built.RawRepresentationFactory?.Invoke(new FakeChatClient()) as OpenAI.Chat.ChatCompletionOptions;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(built.MaxOutputTokens, Is.Null);
+            Assert.That(built.Temperature, Is.Null);
+            Assert.That(raw, Is.Not.Null);
+            Assert.That(raw!.MaxOutputTokenCount, Is.EqualTo(2_500));
+            Assert.That(raw.Temperature, Is.Null);
+        });
+    }
+
+    [Test]
+    public void TheAllowance_IsForTheDraftingClientOnly_AndNeverForTemperature()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(AllowedCeilings.Keys, Is.EqualTo(new[] { "AzureOpenAiAdventureDraftingClient.cs" }));
+            Assert.That(AllowedCeilings.Values.SelectMany(v => v), Has.None.EqualTo("Temperature"));
         });
     }
 }

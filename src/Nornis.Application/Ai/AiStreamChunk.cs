@@ -11,4 +11,11 @@ public sealed record AiStreamChunk
     public required string Text { get; init; }
 
     public AiUsage? Usage { get; init; }
+
+    /// <summary>
+    /// On the final chunk: the provider stopped because the call's output ceiling was reached,
+    /// so the text ends wherever the model was when it ran out. Only a client that sets a
+    /// ceiling can see this; for the rest it stays false.
+    /// </summary>
+    public bool CutOff { get; init; }
 }
