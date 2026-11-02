@@ -1,5 +1,27 @@
 # Domain Model
 
+> **Amendment (2026-11-02): a Library document can come from Bibliotaph.** Feature 31
+> (Nornis v3.2) makes Bibliotaph, the GM's own sourcebook library, the home of sourcebooks.
+> The Library page and its `LibraryDocument` rows stay; what changes is where a row comes from.
+>
+> - **`LibraryDocument.Origin`** is `Upload` (a file in Nornis storage, as before) or
+>   `Bibliotaph` (a book in the creator's Bibliotaph collection for the world, with no file in
+>   Nornis). An upload that Bibliotaph has catalogued keeps `Upload` and gains the Bibliotaph
+>   ids, so it is one row. A Bibliotaph row is a cache of Bibliotaph's answer, reconciled when
+>   the page loads; `RemovedAt` marks a book that left the collection, and the row stays so
+>   excerpts keep their link. **Visibility is a Nornis setting only**, and a new or returning
+>   book is `GMOnly`.
+> - **`BibliotaphConnection`**: a user's grant to call Bibliotaph, one per user. A world uses
+>   its creator's; a co-GM or player reaches the books through it.
+> - **`BibliotaphWorldEvent`**: the outbox that tells Bibliotaph a world was created, renamed
+>   or deleted, or that its exposed uploads changed. Its `WorldId` has no foreign key, so a
+>   world's deletion doesn't delete its own `deleted` event.
+> - **`LibraryReadingRecord`**: who opened a Bibliotaph book, kept 90 days.
+>
+> The vocabulary doesn't move: a Library document is still reference material, never a
+> `Source`, and still reaches canon only as a GM-chosen `LibraryExcerpt`. `LibraryChunk` is
+> retired at the cutover (feature 31, Phase H).
+
 > **Amendment (2026-11-02): `Conversation` is built, as an Adventure's side conversation.**
 > Feature 30 (Prep 3.1) builds the `Conversation` and `ConversationMessage` sketched below,
 > with one addition, a nullable `AdventureId`. Each Adventure has at most one. Three rules:

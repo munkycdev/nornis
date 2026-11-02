@@ -1,5 +1,29 @@
 ﻿# Security and Permissions
 
+> **Amendment (2026-11-02): Bibliotaph.** Feature 31 (Nornis v3.2) adds a second Auth0
+> client that may hold a token for the Nornis API: Bibliotaph's, through its storage provider.
+>
+> - **Tokens are told apart by `azp`.** The default policy refuses a token issued to
+>   Bibliotaph's application (`Bibliotaph:ProviderClientId`); the `Bibliotaph` policy, used
+>   only by `api/bibliotaph/v1/**`, requires that application and scope `published:read`.
+>   A Web token is refused there. Nothing links the two apps by subject, and a Bibliotaph
+>   token never provisions a Nornis user.
+> - **The provider endpoints expose only what Bibliotaph should catalogue**: worlds the caller
+>   created, and their Sourcebook, Other and Prep-print uploads. Never a handout, a map or a
+>   pending upload.
+> - **Nornis's grant to Bibliotaph** is a refresh token per connected user, protected with a
+>   Data Protection ring that only the API and Worker can read (its own container). The Web
+>   never holds it. Connecting refuses an ID token whose subject isn't the user who started.
+> - **Nornis decides who may read a Bibliotaph book.** A member or shelf-link player opens a
+>   book only after `LibraryService`'s visibility check (or the shelf's), and only then does
+>   Nornis ask Bibliotaph for a reading ticket: single use, two minutes, one book, view-only,
+>   renewed hourly through Nornis, which checks again. Every open is logged for the GM.
+> - **A player's question searches only books the GM shared**: the retriever sends the
+>   PartyVisible rows' ids, and makes no call when there are none. Public Ask still never
+>   includes reference books.
+> - One more anonymous route: `GET /bibliotaph/callback`, which carries a protected state
+>   and sets nothing but the stored grant.
+
 > **Amendment (2026-08-02):** two sections at the foot of this document — "Public Sharing"
 > and "World Invitation" — describe MVP deferrals that were later built. Both are corrected
 > in place below rather than deleted, because the *reasoning* they carry still governs how
