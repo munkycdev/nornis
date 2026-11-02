@@ -21,3 +21,6 @@ public record ReorderAdventureSectionsRequest(IReadOnlyList<Guid> SectionIds);
 
 /// <summary>Draft or revise one section. A null or blank instruction is a plain Draft or Revise.</summary>
 public record DraftAdventureSectionRequest(string? Instruction, DateTimeOffset BasedOnUpdatedAt);
+
+/// <summary>Export to Nornis. A null chapter is the whole Adventure; otherwise one Chapter and the sections under it.</summary>
+public record ExportAdventureRequest(Guid? ChapterSectionId);

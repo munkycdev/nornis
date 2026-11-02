@@ -58,7 +58,8 @@ public class LibraryController : ControllerBase
             ContentType: request.ContentType,
             SizeBytes: request.SizeBytes,
             Kind: kind,
-            Visibility: visibility);
+            Visibility: visibility,
+            AdventureId: request.AdventureId);
 
         var result = await _libraryService.RequestUploadAsync(command, ct);
         if (!result.IsSuccess)
@@ -204,5 +205,5 @@ public class LibraryController : ControllerBase
     private static LibraryDocumentResponse ToResponse(LibraryDocument d) => new(
         d.Id, d.WorldId, d.Title, d.FileName, d.ContentType, d.SizeBytes,
         d.Kind.ToString(), d.Visibility.ToString(), d.Status.ToString(),
-        d.PageCount, d.ChunkCount, d.ErrorMessage, d.UploadedByUserId, d.CreatedAt, d.UpdatedAt, d.Slug);
+        d.PageCount, d.ChunkCount, d.ErrorMessage, d.UploadedByUserId, d.CreatedAt, d.UpdatedAt, d.Slug, d.AdventureId);
 }

@@ -62,3 +62,10 @@ public abstract record DraftEvent
     /// <summary>Nothing was written to the section.</summary>
     public sealed record Failed(AppError Error) : DraftEvent;
 }
+
+/// <summary>The booklet's HTML, and the title File to Library will give it today.</summary>
+public record AdventurePrint(Adventure Adventure, string Html, string LibraryTitle);
+
+/// <summary>Export the whole Adventure, or the Chapter <see cref="ChapterSectionId"/> names and what follows it.</summary>
+public record ExportAdventureCommand(
+    Guid WorldId, Guid AdventureId, Guid? ChapterSectionId, Guid ActingUserId, WorldRole ActingUserRole);

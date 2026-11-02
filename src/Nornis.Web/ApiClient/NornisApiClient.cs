@@ -600,6 +600,15 @@ public class NornisApiClient
     public Task<ApiResult<PrepBudgetDto>> GetPrepBudgetAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<PrepBudgetDto>($"/api/worlds/{worldId}/prep-budget", ct);
 
+    public Task<ApiResult<AdventurePrintDto>> GetAdventurePrintAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        GetAsync<AdventurePrintDto>($"/api/worlds/{worldId}/prep/{adventureId}/print", ct);
+
+    /// <summary>Files the Adventure, or one Chapter of it, as a GM-only source queued for extraction.</summary>
+    public Task<ApiResult<AdventureExportDto>> ExportAdventureAsync(
+        Guid worldId, Guid adventureId, Guid? chapterSectionId, CancellationToken ct = default) =>
+        PostAsync<ExportAdventureRequest, AdventureExportDto>(
+            $"/api/worlds/{worldId}/prep/{adventureId}/export", new ExportAdventureRequest(chapterSectionId), ct);
+
     // ------------------------------------------------------------------ Library --
 
     public Task<ApiResult<LibraryUploadTicketDto>> RequestLibraryUploadAsync(

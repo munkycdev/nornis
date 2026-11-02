@@ -49,6 +49,29 @@ public static class ExtractionPromptBuilder
               """
             : string.Empty;
 
+        // Feature 29. Prep is a plan, so its scenes must not come back as things that happened.
+        var adventurePrepSection = request.SourceType == "AdventureExport"
+            ? """
+
+              ## Adventure Prep
+              This source is the GM's own preparation for an adventure, exported from Nornis's Prep.
+              It is the GM's authority on the world, so it is authoritative about the world. The
+              first line of the Source Content is Nornis's own filing line naming the adventure; it
+              is not part of the prep. Extract what the prep establishes about the world as it
+              stands when the adventure begins: the people, places, factions and items it
+              describes (CreateArtifact for those the world does not know yet), the facts about
+              them, the relationships between them, and the secrets behind them. State anything
+              the text marks as hidden from the players, as a secret, or as the twist, as "Hidden"
+              truth with GMOnly visibility; the players have not learned it. Never propose the
+              adventure's scenes, beats, encounters or outcomes as Event artifacts, and never
+              record them as facts: they are plans for what might happen, and session notes will
+              record what did. Facts the prep states as description are written canon: rate them
+              "Confirmed", as for an excerpt, and keep "Rumor" and "Disputed" for what the prep
+              itself frames as hearsay or contested. A stat block (a "Label: value" list) describes
+              the artifact it is attached to; its lines may become facts on that artifact.
+              """
+            : string.Empty;
+
         var locationContextSection = request.RecentLocations is null
             ? string.Empty
             : """
@@ -162,7 +185,7 @@ public static class ExtractionPromptBuilder
             beside it in the Existing World Artifacts list — setting its truthState to "False"
             (the question is no longer open) alongside whatever new facts record the answer. Do
             not re-propose an open question that already exists.
-            {{importedNotesSection}}{{libraryExcerptSection}}{{locationContextSection}}
+            {{importedNotesSection}}{{libraryExcerptSection}}{{adventurePrepSection}}{{locationContextSection}}
             ## Naming Conventions
             - Fact predicates: short lowercase noun phrases — "location", "current owner",
               "occupation", "goal", "denied knowledge of". Reuse an existing predicate from the

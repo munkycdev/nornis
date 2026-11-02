@@ -6,4 +6,5 @@ public record RequestLibraryUploadRequest(
     string ContentType,
     long SizeBytes,
     string Kind,
-    string Visibility);
+    string Visibility,
+    Guid? AdventureId = null);

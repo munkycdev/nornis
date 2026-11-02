@@ -46,7 +46,7 @@ public class ShelfLinkServiceTests
 
         var library = new LibraryService(
             _documents, new InMemoryLibraryChunkRepository(), new FakeBlobStorageService(),
-            new FakeLibraryIndexingQueueClient(), Options.Create(new LibraryOptions()),
+            new FakeLibraryIndexingQueueClient(), new InMemoryAdventureRepository(), Options.Create(new LibraryOptions()),
             NullLogger<LibraryService>.Instance);
         _sut = new ShelfLinkService(_links, _players, library, new StubInviteCodeGenerator());
 

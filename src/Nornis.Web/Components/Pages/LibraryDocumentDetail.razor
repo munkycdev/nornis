@@ -53,6 +53,12 @@
                         @_document.Kind · @_document.FileName · @DisplayText.FormatSize(_document.SizeBytes)
                         @(_document.PageCount is { } p ? $" · {p} pages" : "")
                     </MudText>
+                    @if (Worlds.IsGm && _document.AdventureId is { } adventureId)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-library-printed">
+                            Printed from <a href="@Links.Adventure(null, adventureId)" class="nornis-link">Prep</a>
+                        </MudText>
+                    }
                 </div>
                 <LibraryVisibilityChip Document="_document" OnChanged="LoadAsync" />
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@LibraryDisplay.StatusColor(_document.Status)">

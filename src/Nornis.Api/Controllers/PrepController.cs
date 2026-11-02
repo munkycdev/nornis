@@ -27,11 +27,14 @@ public class PrepController : ControllerBase
 {
     private readonly IAdventureService _adventures;
     private readonly IAdventureDraftingService _drafting;
+    private readonly IAdventureExportService _export;
 
-    public PrepController(IAdventureService adventures, IAdventureDraftingService drafting)
+    public PrepController(
+        IAdventureService adventures, IAdventureDraftingService drafting, IAdventureExportService export)
     {
         _adventures = adventures;
         _drafting = drafting;
+        _export = export;
     }
 
     /// <summary>
@@ -140,6 +143,35 @@ public class PrepController : ControllerBase
         Guid worldId, Guid adventureId, [FromBody] ReorderAdventureSectionsRequest request, CancellationToken ct) =>
         Respond(await _adventures.ReorderAsync(new ReorderSectionsCommand(
             worldId, adventureId, HttpContext.GetWorldMember().Role, request.SectionIds ?? []), ct));
+
+    [HttpGet("{adventureId:guid}/print")]
+    public async Task<IActionResult> Print(Guid worldId, Guid adventureId, CancellationToken ct)
+    {
+        var result = await _adventures.GetPrintAsync(worldId, adventureId, HttpContext.GetWorldMember().Role, ct);
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        var print = result.Value!;
+        return Ok(new AdventurePrintResponse(print.Adventure.Id, print.Adventure.Title, print.Adventure.Slug, print.Html, print.LibraryTitle));
+    }
+
+    /// <summary>
+    /// Export to Nornis: the whole Adventure, or the Chapter named, filed as a new GM-only
+    /// source and queued for extraction. The answer names the source so the page can link to it.
+    /// </summary>
+    [HttpPost("{adventureId:guid}/export")]
+    public async Task<IActionResult> Export(
+        Guid worldId, Guid adventureId, [FromBody] ExportAdventureRequest? request, CancellationToken ct)
+    {
+        var result = await _export.ExportAsync(new ExportAdventureCommand(
+            worldId, adventureId, request?.ChapterSectionId, HttpContext.GetNornisUser().Id,
+            HttpContext.GetWorldMember().Role), ct);
+        return result.IsSuccess
+            ? Ok(new AdventureExportResponse(result.Value!.Id, result.Value.Title, result.Value.Slug))
+            : result.Error!.ToActionResult();
+    }
 
     [HttpPost("{adventureId:guid}/sections/{sectionId:guid}/undo")]
     public async Task<IActionResult> Undo(Guid worldId, Guid adventureId, Guid sectionId, CancellationToken ct)

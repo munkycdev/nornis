@@ -51,6 +51,14 @@ else if (_adventure is not null)
                        StartIcon="@Icons.Material.Outlined.Edit" OnClick="EditDetailsAsync" Disabled="_busy">
                 Details
             </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="nornis-prep-print"
+                       StartIcon="@Icons.Material.Outlined.Print" OnClick="PrintAsync" Disabled="_busy">
+                Print
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="nornis-prep-export"
+                       StartIcon="@Icons.Material.Outlined.MoveToInbox" OnClick="ExportAsync" Disabled="_busy">
+                Export to Nornis
+            </MudButton>
             <MudButton Variant="Variant.Outlined" Color="Color.Error"
                        StartIcon="@Icons.Material.Outlined.Delete" OnClick="DeleteAdventureAsync" Disabled="_busy">
                 Delete
@@ -746,6 +754,40 @@ else if (_adventure is not null)
                 Nav.NavigateTo(Links.Adventure(updated.Slug, updated.Id), replace: true);
             }
         }
+    }
+
+    /// <summary>
+    /// Saves the open section first, so the booklet and the export carry what is on screen.
+    /// False when that save didn't land (a conflict, or an error already shown).
+    /// </summary>
+    private async Task<bool> SaveBeforeLeavingEditorAsync() =>
+        !await IsDirtyAsync() || await SaveCoreAsync(overwrite: false);
+
+    private async Task PrintAsync()
+    {
+        if (_adventure is null || !await SaveBeforeLeavingEditorAsync())
+        {
+            return;
+        }
+
+        Nav.NavigateTo($"{Links.Adventure(_adventure.Slug, _adventure.Id)}/print");
+    }
+
+    private async Task ExportAsync()
+    {
+        if (Worlds.Current is null || _adventure is null || !await SaveBeforeLeavingEditorAsync())
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters<AdventureExportDialog>
+        {
+            { d => d.WorldId, Worlds.Current.Id },
+            { d => d.AdventureId, _adventure.Id },
+            { d => d.Chapters, _adventure.Sections.Where(s => s.Kind == "Chapter").ToList() },
+        };
+        await DialogService.ShowAsync<AdventureExportDialog>("Export to Nornis", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
     }
 
     private async Task DeleteAdventureAsync()

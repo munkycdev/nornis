@@ -379,6 +379,39 @@ public class ExtractionPromptBuilderTests
     }
 
     [Test]
+    public void BuildSystemPrompt_AdventureExport_IsAuthoritative_HiddenForSecrets_AndNoEventsFromPlans()
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "Adventure \"The Silver Key\", exported 2026-11-14 by the GM as prep\n\n## Captain Voss\n\nVoss secretly serves the Shadow Guild.",
+            SourceTitle = "The Silver Key (prep)",
+            SourceType = "AdventureExport",
+            SourceVisibility = "GMOnly"
+        };
+
+        var prompt = ExtractionPromptBuilder.BuildSystemPrompt(request);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prompt, Does.Contain("## Adventure Prep"));
+            Assert.That(prompt, Does.Contain("authoritative about the world"));
+            Assert.That(prompt, Does.Contain("as \"Hidden\""));
+            Assert.That(prompt, Does.Contain("Never propose the"));
+            Assert.That(prompt, Does.Contain("as Event artifacts"));
+            Assert.That(prompt, Does.Contain("\"Confirmed\", as for an excerpt"));
+            Assert.That(prompt, Does.Not.Contain("## Library Excerpt"));
+        });
+    }
+
+    [Test]
+    public void BuildSystemPrompt_SessionNote_OmitsAdventurePrepInstructions()
+    {
+        var prompt = ExtractionPromptBuilder.BuildSystemPrompt(DefaultRequest);
+
+        Assert.That(prompt, Does.Not.Contain("## Adventure Prep"));
+    }
+
+    [Test]
     public void BuildSystemPrompt_SessionNote_OmitsLibraryExcerptInstructions()
     {
         var prompt = ExtractionPromptBuilder.BuildSystemPrompt(DefaultRequest);

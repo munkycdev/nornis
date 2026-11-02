@@ -1124,8 +1124,9 @@ public class ExtractionService : IExtractionService
         Source source, Guid worldId, CancellationToken ct)
     {
         // An excerpt IS the reference: retrieving its own neighbours back would pay an
-        // embedding to show the model what it is already reading.
-        if (source.Type == SourceType.LibraryExcerpt)
+        // embedding to show the model what it is already reading. An Adventure export is the
+        // GM's own authority, and is treated the same way (feature 29).
+        if (source.Type is SourceType.LibraryExcerpt or SourceType.AdventureExport)
         {
             return [];
         }

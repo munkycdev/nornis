@@ -1,0 +1,86 @@
+@inject NornisApiClient Api
+
+@* Export to Nornis: the whole Adventure, or one Chapter and the sections under it, filed as a
+   GM-only source and read like any other. What Nornis learns from it waits in Review, so the
+   dialog ends on a link to the new source and on to Review, and nothing reaches canon from here. *@
+
+<MudDialog>
+    <DialogContent>
+        @if (_filed is null)
+        {
+            <MudText Typo="Typo.body2" Class="mb-3">
+                Nornis reads what you've written here as GM-only prep: the people, places and secrets it
+                names. What it learns waits for you in Review. Planned scenes don't become events.
+            </MudText>
+            @if (Chapters.Count > 0)
+            {
+                <MudRadioGroup T="Guid?" @bind-Value="_chapterId" Class="nornis-prep-export-choice">
+                    <MudRadio T="Guid?" Value="@((Guid?)null)">The whole adventure</MudRadio>
+                    @foreach (var chapter in Chapters)
+                    {
+                        <MudRadio T="Guid?" Value="@((Guid?)chapter.Id)">@chapter.Title</MudRadio>
+                    }
+                </MudRadioGroup>
+            }
+
+            @if (_error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
+            }
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Success" Dense="true" Class="nornis-prep-export-done">
+                Filed as <a href="@Links.Source(_filed.Slug, _filed.SourceId)" class="nornis-link">@_filed.Title</a>.
+                Nornis is reading it now, and what it learns will wait for you in
+                <a href="/review" class="nornis-link">Review</a>.
+            </MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        @if (_filed is null)
+        {
+            <MudButton OnClick="Cancel" Disabled="_busy">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="ExportAsync" Disabled="_busy">
+                Export
+            </MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="Close">Done</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid WorldId { get; set; }
+    [Parameter] public Guid AdventureId { get; set; }
+    [Parameter] public IReadOnlyList<AdventureSectionDto> Chapters { get; set; } = [];
+
+    private Guid? _chapterId;
+    private bool _busy;
+    private string? _error;
+    private AdventureExportDto? _filed;
+
+    private async Task ExportAsync()
+    {
+        _busy = true;
+        _error = null;
+        var result = await Api.ExportAdventureAsync(WorldId, AdventureId, _chapterId);
+        _busy = false;
+        if (result.IsSuccess)
+        {
+            _filed = result.Value;
+        }
+        else
+        {
+            _error = result.Error!.Message;
+        }
+    }
+
+    private void Close() => MudDialog.Close(DialogResult.Ok(_filed));
+
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -153,10 +153,48 @@ public class AdventurePageTests : BunitContext
         Assert.That(cut.Markup, Does.Not.Contain("Undo (1)"));
     }
 
+    [Test]
+    public async Task Export_FilesTheChapterChosen_AndLinksToTheSourceAndOnToReview()
+    {
+        _handler.WithChapter = true;
+        var cut = await RenderAsync();
+        var dialogs = Render<MudDialogProvider>();
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Chapter 1: The Heist")));
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-export").Click());
+        dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup, Does.Contain("The whole adventure")));
+        await dialogs.InvokeAsync(() => dialogs.FindAll(".nornis-prep-export-choice input[type=radio]")[1].Click());
+        await dialogs.InvokeAsync(() => dialogs.FindAll("button").First(b => b.TextContent.Trim() == "Export").Click());
+
+        dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup, Does.Contain("Nornis is reading it now")));
+        var body = JsonDocument.Parse(_handler.LastExportBody!).RootElement;
+        Assert.Multiple(() =>
+        {
+            Assert.That(body.GetProperty("chapterSectionId").GetGuid(), Is.EqualTo(StubHandler.ChapterId));
+            Assert.That(dialogs.Find(".nornis-prep-export-done a[href^='/sources/']").GetAttribute("href"),
+                Is.EqualTo("/sources/the-silver-key-the-heist-prep"));
+            Assert.That(dialogs.FindAll(".nornis-prep-export-done a[href='/review']"), Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Print_SavesWhatWasTyped_ThenOpensTheBooklet()
+    {
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Scene 1: The Docks")));
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-print").Click());
+
+        var nav = Services.GetRequiredService<NavigationManager>();
+        cut.WaitForAssertion(() => Assert.That(nav.Uri, Does.EndWith("/prep/the-silver-key/print")));
+        Assert.That(_handler.LastSaveBody, Does.Contain("The key opens the vault."), "the booklet prints what is on screen");
+    }
+
     private sealed class StubHandler : HttpMessageHandler
     {
         public static readonly Guid OverviewId = Guid.NewGuid();
         public static readonly Guid SceneId = Guid.NewGuid();
+        public static readonly Guid ChapterId = Guid.NewGuid();
         public static readonly DateTimeOffset OverviewStamp = new(2026, 11, 2, 10, 0, 0, TimeSpan.Zero);
 
         private readonly Guid _worldId = Guid.NewGuid();
@@ -171,6 +209,10 @@ public class AdventurePageTests : BunitContext
         public List<string> Requests { get; } = [];
         public string? LastSaveBody { get; private set; }
         public string? LastReorderBody { get; private set; }
+        public string? LastExportBody { get; private set; }
+
+        /// <summary>Adds a Chapter after the two sections, for the export's choice.</summary>
+        public bool WithChapter { get; set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
@@ -216,6 +258,14 @@ public class AdventurePageTests : BunitContext
                 return response;
             }
 
+            if (request.Method == HttpMethod.Post && path.EndsWith("/export", StringComparison.Ordinal))
+            {
+                LastExportBody = await request.Content!.ReadAsStringAsync(ct);
+                return Json($$"""
+                    {"sourceId":"{{Guid.NewGuid()}}","title":"The Silver Key: The Heist (prep)","slug":"the-silver-key-the-heist-prep"}
+                    """);
+            }
+
             if (request.Method == HttpMethod.Put && path.EndsWith("/order", StringComparison.Ordinal))
             {
                 LastReorderBody = await request.Content!.ReadAsStringAsync(ct);
@@ -240,9 +290,13 @@ public class AdventurePageTests : BunitContext
                 {"id":"{{_adventureId}}","worldId":"{{_worldId}}","campaignId":null,"title":"The Silver Key",
                  "slug":"the-silver-key","pitch":"A heist.","lastPrintedDocumentId":null,
                  "createdAt":"2026-11-02T09:00:00+00:00","updatedAt":"2026-11-02T10:00:00+00:00",
-                 "sections":[{{Section(first, 1)}},{{Section(second, 2)}}]}
+                 "sections":[{{Section(first, 1)}},{{Section(second, 2)}}{{Chapter()}}]}
                 """;
         }
+
+        private string Chapter() => WithChapter
+            ? $$""",{"id":"{{ChapterId}}","kind":"Chapter","title":"Chapter 1: The Heist","bodyMarkdown":"","sortOrder":3,"updatedAt":"2026-11-02T10:00:00+00:00","revisionCount":0,"isFilled":false}"""
+            : string.Empty;
 
         private static HttpResponseMessage Json(string body) => new(HttpStatusCode.OK)
         {

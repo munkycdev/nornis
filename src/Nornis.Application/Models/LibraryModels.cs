@@ -12,7 +12,8 @@ public record RequestLibraryUploadCommand(
     string ContentType,
     long SizeBytes,
     LibraryDocumentKind Kind,
-    VisibilityScope Visibility);
+    VisibilityScope Visibility,
+    Guid? AdventureId = null);
 
 /// <summary>The pending document plus the short-lived SAS URL the browser PUTs the bytes to.</summary>
 public record LibraryUploadTicket(LibraryDocument Document, string UploadUrl);

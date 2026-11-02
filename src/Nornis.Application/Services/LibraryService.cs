@@ -43,6 +43,7 @@ public class LibraryService : ILibraryService
     private readonly ILibraryChunkRepository _chunkRepository;
     private readonly IBlobStorageService _blobStorage;
     private readonly ILibraryIndexingQueueClient _indexingQueueClient;
+    private readonly IAdventureRepository _adventures;
     private readonly LibraryOptions _options;
     private readonly ILogger<LibraryService> _logger;
 
@@ -51,6 +52,7 @@ public class LibraryService : ILibraryService
         ILibraryChunkRepository chunkRepository,
         IBlobStorageService blobStorage,
         ILibraryIndexingQueueClient indexingQueueClient,
+        IAdventureRepository adventures,
         IOptions<LibraryOptions> options,
         ILogger<LibraryService> logger)
     {
@@ -58,8 +60,43 @@ public class LibraryService : ILibraryService
         _chunkRepository = chunkRepository;
         _blobStorage = blobStorage;
         _indexingQueueClient = indexingQueueClient;
+        _adventures = adventures;
         _options = options.Value;
         _logger = logger;
+    }
+
+    /// <summary>A print's Library title: the Adventure's, dated, cut to fit the title bound.</summary>
+    public static string PrintTitle(string adventureTitle, DateTimeOffset at)
+    {
+        var suffix = $", printed {at:yyyy-MM-dd}";
+        var room = Math.Max(MaxPrintTitleChars - suffix.Length, 1);
+        var title = adventureTitle.Trim();
+        return (title.Length > room ? title[..room].TrimEnd() : title) + suffix;
+    }
+
+    private const int MaxPrintTitleChars = 200;
+
+    /// <summary>
+    /// Points the Adventure at its newest print. The print itself is already stored and confirmed,
+    /// so a failure here costs only the "last printed" line and is logged, not returned.
+    /// </summary>
+    private async Task RecordLastPrintAsync(Guid adventureId, Guid documentId, CancellationToken ct)
+    {
+        try
+        {
+            var adventure = await _adventures.GetWithSectionsAsync(adventureId, ct);
+            if (adventure is null)
+            {
+                return;
+            }
+
+            adventure.LastPrintedDocumentId = documentId;
+            await _adventures.UpdateAsync(adventure, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Could not record the last print {DocumentId} on adventure {AdventureId}", documentId, adventureId);
+        }
     }
 
     /// <summary>GM sees everything; everyone else sees the party shelf. Private is not a
@@ -74,6 +111,30 @@ public class LibraryService : ILibraryService
         if (command.ActingUserRole == WorldRole.Observer)
         {
             return AppResult<LibraryUploadTicket>.Fail(new AppError(403, "insufficient_role", "Observers cannot upload library documents."));
+        }
+
+        // A print filed from Prep (feature 29): the GM's alone, and its shape is fixed here, not
+        // by the client, because the booklet was drafted with the world's Hidden truth.
+        Adventure? printedFrom = null;
+        if (command.AdventureId is { } adventureId)
+        {
+            if (command.ActingUserRole != WorldRole.GM)
+            {
+                return AppResult<LibraryUploadTicket>.Fail(new AppError(403, "insufficient_role", "Only the GM can file a Prep print."));
+            }
+
+            printedFrom = await _adventures.GetWithSectionsAsync(adventureId, ct);
+            if (printedFrom is null || printedFrom.WorldId != command.WorldId)
+            {
+                return AppResult<LibraryUploadTicket>.Fail(new AppError(404, "not_found", "Adventure not found."));
+            }
+
+            command = command with
+            {
+                Title = PrintTitle(printedFrom.Title, DateTimeOffset.UtcNow),
+                Kind = LibraryDocumentKind.Handout,
+                Visibility = VisibilityScope.GMOnly,
+            };
         }
 
         var titleResult = NormalizeTitle(command.Title);
@@ -122,6 +183,7 @@ public class LibraryService : ILibraryService
             Visibility = visibility,
             Status = LibraryDocumentStatus.PendingUpload,
             UploadedByUserId = command.ActingUserId,
+            AdventureId = printedFrom?.Id,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -179,6 +241,11 @@ public class LibraryService : ILibraryService
         // a message for a row still in PendingUpload would race the worker.
         document.Status = isPdf ? LibraryDocumentStatus.Indexing : LibraryDocumentStatus.Stored;
         document = await _documentRepository.UpdateAsync(document, ct);
+
+        if (document.AdventureId is { } printedFromId)
+        {
+            await RecordLastPrintAsync(printedFromId, document.Id, ct);
+        }
 
         if (isPdf)
         {
