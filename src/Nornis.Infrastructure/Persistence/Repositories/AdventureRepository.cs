@@ -200,6 +200,40 @@ public class AdventureRepository : IAdventureRepository
         return await SaveGuardedAsync(cancellationToken);
     }
 
+    public async Task<bool> TryAcceptDraftAsync(
+        AdventureSectionRevision revision, string newBody, int maxRevisions,
+        DateTimeOffset basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+    {
+        var section = await _context.LoadForUpdateAsync<AdventureSection>(revision.SectionId, cancellationToken);
+        if (section.UpdatedAt != basedOn)
+        {
+            _context.Entry(section).State = EntityState.Detached;
+            return false;
+        }
+
+        // Keep the newest maxRevisions - 1 of the old ones, so with this one there are maxRevisions.
+        // Ordered in memory, as GetLatestRevisionAsync is: the set is bounded, and SQLite can't
+        // order by a DateTimeOffset.
+        var existing = await _context.AdventureSectionRevisions
+            .Where(r => r.SectionId == section.Id)
+            .ToListAsync(cancellationToken);
+        var stale = existing
+            .OrderByDescending(r => r.CreatedAt)
+            .ThenByDescending(r => r.Id)
+            .Skip(Math.Max(maxRevisions - 1, 0));
+        _context.AdventureSectionRevisions.RemoveRange(stale);
+
+        revision.BodyMarkdown = section.BodyMarkdown;
+        _context.AdventureSectionRevisions.Add(revision);
+
+        section.BodyMarkdown = newBody;
+        section.UpdatedAt = updatedAt;
+        await TouchAdventureAsync(section.AdventureId, updatedAt, cancellationToken);
+
+        // One SaveChanges: the revision, the trim and the new body commit together or not at all.
+        return await SaveGuardedAsync(cancellationToken);
+    }
+
     private static void Renumber(IReadOnlyList<AdventureSection> ordered)
     {
         for (var i = 0; i < ordered.Count; i++)

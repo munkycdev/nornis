@@ -385,30 +385,7 @@ public class AdventureService : IAdventureService
     private static string? NormalizePitch(string? pitch) =>
         string.IsNullOrWhiteSpace(pitch) ? null : pitch.Trim();
 
-    /// <summary>The bounds of Requirement 2, each refusal naming the size found and the bound.</summary>
-    private AppError? ValidateBounds(IReadOnlyList<AdventureSection> sections)
-    {
-        if (sections.Count > _options.MaxSections)
-        {
-            return TooLarge($"That's {sections.Count:N0} sections; an adventure holds at most {_options.MaxSections:N0}.");
-        }
-
-        var oversized = sections.FirstOrDefault(s => s.BodyMarkdown.Length > _options.MaxSectionChars);
-        if (oversized is not null)
-        {
-            return TooLarge($"\"{oversized.Title}\" is {oversized.BodyMarkdown.Length:N0} characters; "
-                + $"a section holds at most {_options.MaxSectionChars:N0}.");
-        }
-
-        var size = AdventureSize.Measure(sections);
-        if (size > _options.MaxAdventureChars)
-        {
-            return TooLarge($"The adventure would be {size:N0} characters; an adventure holds at most "
-                + $"{_options.MaxAdventureChars:N0}, so that it can always be exported whole.");
-        }
-
-        return null;
-    }
+    private AppError? ValidateBounds(IReadOnlyList<AdventureSection> sections) => PrepBounds.Validate(sections, _options);
 
     private async Task<AppError?> ValidateCampaignAsync(Guid worldId, Guid? campaignId, CancellationToken ct)
     {
@@ -446,7 +423,7 @@ public class AdventureService : IAdventureService
 
     private static AppError NotFound() => new(404, "not_found", "Adventure not found.");
 
-    private static AppError TooLarge(string message) => new(400, "prep_too_large", message);
+    private static AppError TooLarge(string message) => PrepBounds.TooLarge(message);
 
     private static AppError SectionChanged() => new(409, "section_changed",
         "This section changed since you opened it. Reload it to see the latest version.");

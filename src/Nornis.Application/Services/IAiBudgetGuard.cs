@@ -15,6 +15,12 @@ public record PublicAskBudgetStatus(
     bool IsExceeded);
 
 /// <summary>
+/// Prep drafting spend this calendar month against the world's Prep cap. A null
+/// <see cref="MonthlyBudgetUsd"/> means no ceiling.
+/// </summary>
+public record PrepBudgetStatus(decimal SpentThisMonthUsd, decimal? MonthlyBudgetUsd, bool IsExceeded);
+
+/// <summary>
 /// World-level daily AI spend ceiling. Every AI entry point (ask, extraction,
 /// continuity audit) checks this before calling the model, so a misbehaving loop or an
 /// enthusiastic table can't quietly burn money past the configured cap.
@@ -37,4 +43,14 @@ public interface IAiBudgetGuard
     /// for the world, or a 429 when this month's public cap is spent.
     /// </summary>
     Task<AppError?> CheckPublicAskAsync(Guid worldId, CancellationToken ct);
+
+    /// <summary>The world's Prep pool: this month's drafting spend against its monthly cap.</summary>
+    Task<PrepBudgetStatus> GetPrepStatusAsync(Guid worldId, CancellationToken ct);
+
+    /// <summary>
+    /// Null when a Prep draft may proceed; a 503 when AI is paused, or a 429 when this month's
+    /// Prep budget is spent. Never consults the daily budget: drafting doesn't call
+    /// <see cref="CheckAsync"/>.
+    /// </summary>
+    Task<AppError?> CheckPrepAsync(Guid worldId, CancellationToken ct);
 }

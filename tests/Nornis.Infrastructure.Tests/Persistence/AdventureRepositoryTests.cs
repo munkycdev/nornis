@@ -233,6 +233,63 @@ public class AdventureRepositoryTests : IntegrationTestBase
     }
 
     [Test]
+    public async Task TryAcceptDraft_SnapshotsTheStoredBody_WritesTheNewOne_AndTrims_Together()
+    {
+        var adventure = await CreateAsync("the GM's text");
+        var section = adventure.Sections.Single();
+        await AddRevisionAsync(section.Id, "oldest", _now.AddMinutes(-3));
+        await AddRevisionAsync(section.Id, "middle", _now.AddMinutes(-2));
+        var at = _now.AddSeconds(1);
+        var revision = new AdventureSectionRevision
+        {
+            Id = Guid.NewGuid(),
+            SectionId = section.Id,
+            BodyMarkdown = "ignored",
+            Instruction = "Tighter.",
+            Model = "nornis-ask",
+            CreatedAt = at,
+        };
+
+        var accepted = await _sut.TryAcceptDraftAsync(revision, "the draft", maxRevisions: 2, basedOn: _now, updatedAt: at);
+
+        var stored = await Context.AdventureSections.AsNoTracking().SingleAsync(s => s.Id == section.Id);
+        var kept = (await Context.AdventureSectionRevisions.AsNoTracking().Where(r => r.SectionId == section.Id).ToListAsync())
+            .OrderBy(r => r.CreatedAt).ToList();
+        var parent = await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(accepted, Is.True);
+            Assert.That(stored.BodyMarkdown, Is.EqualTo("the draft"));
+            Assert.That(stored.UpdatedAt, Is.EqualTo(at));
+            Assert.That(parent.UpdatedAt, Is.EqualTo(at));
+            Assert.That(kept.Select(r => r.BodyMarkdown), Is.EqualTo(["middle", "the GM's text"]),
+                "the oldest is trimmed, and the new revision holds what was stored, not what was passed");
+            Assert.That(kept[^1].Instruction, Is.EqualTo("Tighter."));
+        });
+    }
+
+    [Test]
+    public async Task TryAcceptDraft_OnAStaleStamp_WritesNothing()
+    {
+        var adventure = await CreateAsync("the GM's newer text");
+        var section = adventure.Sections.Single();
+        var revision = new AdventureSectionRevision
+        {
+            Id = Guid.NewGuid(),
+            SectionId = section.Id,
+            Model = "nornis-ask",
+            CreatedAt = _now.AddSeconds(1),
+        };
+
+        var accepted = await _sut.TryAcceptDraftAsync(revision, "the draft", 20, basedOn: _now.AddSeconds(-1), updatedAt: _now.AddSeconds(1));
+
+        Assert.That(accepted, Is.False);
+        Assert.That((await Context.AdventureSections.AsNoTracking().SingleAsync(s => s.Id == section.Id)).BodyMarkdown,
+            Is.EqualTo("the GM's newer text"));
+        Assert.That(await Context.AdventureSectionRevisions.CountAsync(r => r.SectionId == section.Id), Is.Zero);
+    }
+
+    [Test]
     public async Task Delete_KeepsItsExportsAndPrints_WithTheLinkCleared()
     {
         var adventure = await CreateAsync("a");

@@ -1,3 +1,4 @@
+using Nornis.Application.Errors;
 using Nornis.Application.Prep;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -37,3 +38,27 @@ public record ReorderSectionsCommand(
 public record DeleteAdventureCommand(Guid WorldId, Guid AdventureId, WorldRole ActingUserRole);
 
 public record UndoSectionCommand(Guid WorldId, Guid AdventureId, Guid SectionId, WorldRole ActingUserRole);
+
+/// <summary>
+/// Draft or revise one section with AI. <see cref="Instruction"/> null is a plain Draft (or, on a
+/// filled section, a plain tighten-and-improve Revise).
+/// </summary>
+public record DraftSectionCommand(
+    Guid WorldId, Guid AdventureId, Guid SectionId, Guid ActingUserId, WorldRole ActingUserRole,
+    DateTimeOffset BasedOnUpdatedAt, string? Instruction);
+
+/// <summary>What a draft stream says, in order: text as it is written, then exactly one end.</summary>
+public abstract record DraftEvent
+{
+    private DraftEvent()
+    {
+    }
+
+    public sealed record Delta(string Text) : DraftEvent;
+
+    /// <summary>The draft was saved. <see cref="RevisionCount"/> is how many Undos the section now has.</summary>
+    public sealed record Completed(AdventureSection Section, int RevisionCount) : DraftEvent;
+
+    /// <summary>Nothing was written to the section.</summary>
+    public sealed record Failed(AppError Error) : DraftEvent;
+}

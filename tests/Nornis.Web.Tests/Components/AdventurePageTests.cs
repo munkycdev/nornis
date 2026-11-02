@@ -116,6 +116,43 @@ public class AdventurePageTests : BunitContext
         Assert.That(ids, Is.EqualTo([StubHandler.SceneId, StubHandler.OverviewId]));
     }
 
+    [Test]
+    public async Task Revise_SavesWhatWasTypedFirst_ThenDraftsFromThatVersion_AndShowsTheResult()
+    {
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Scene 1: The Docks")));
+
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-draft textarea").Input("Make it tense."));
+        await cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Trim() == "Revise").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Undo (1)")));
+        var draft = JsonDocument.Parse(_handler.LastDraftBody!).RootElement;
+        Assert.Multiple(() =>
+        {
+            Assert.That(_handler.Requests.FindIndex(r => r.StartsWith("PUT", StringComparison.Ordinal) && r.Contains("/sections/")),
+                Is.LessThan(_handler.Requests.FindIndex(r => r.EndsWith("/draft", StringComparison.Ordinal))),
+                "what was typed is saved before the draft starts");
+            Assert.That(draft.GetProperty("basedOnUpdatedAt").GetDateTimeOffset(), Is.EqualTo(StubHandler.SavedStamp),
+                "the draft is based on the version the save just wrote");
+            Assert.That(draft.GetProperty("instruction").GetString(), Is.EqualTo("Make it tense."));
+            Assert.That(cut.FindAll(".nornis-prep-draft-preview"), Is.Empty, "a saved draft is in the editor, not the preview");
+        });
+    }
+
+    [Test]
+    public async Task AFailedDraft_SaysNothingWasSaved_AndKeepsWhatWasWrittenToRead()
+    {
+        _handler.DraftFails = true;
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Scene 1: The Docks")));
+
+        await cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Trim() == "Revise").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Drafting is temporarily unavailable")));
+        Assert.That(cut.Find(".nornis-prep-draft-preview").TextContent, Does.Contain("> Gulls wheel"));
+        Assert.That(cut.Markup, Does.Not.Contain("Undo (1)"));
+    }
+
     private sealed class StubHandler : HttpMessageHandler
     {
         public static readonly Guid OverviewId = Guid.NewGuid();
@@ -126,7 +163,11 @@ public class AdventurePageTests : BunitContext
         private readonly Guid _adventureId = Guid.NewGuid();
 
         public string Role { get; set; } = "GM";
+        public static readonly DateTimeOffset SavedStamp = new(2026, 11, 2, 11, 0, 0, TimeSpan.Zero);
+
         public HttpStatusCode SaveStatus { get; set; } = HttpStatusCode.OK;
+        public bool DraftFails { get; set; }
+        public string? LastDraftBody { get; private set; }
         public List<string> Requests { get; } = [];
         public string? LastSaveBody { get; private set; }
         public string? LastReorderBody { get; private set; }
@@ -161,6 +202,18 @@ public class AdventurePageTests : BunitContext
                         {"id":"{{OverviewId}}","kind":"Overview","title":"Overview","bodyMarkdown":"The key opens the vault.",
                          "sortOrder":1,"updatedAt":"2026-11-02T11:00:00+00:00","isFilled":true}
                         """);
+            }
+
+            if (request.Method == HttpMethod.Post && path.EndsWith("/draft", StringComparison.Ordinal))
+            {
+                LastDraftBody = await request.Content!.ReadAsStringAsync(ct);
+                var end = DraftFails
+                    ? "event: error\ndata: {\"code\":\"service_unavailable\",\"message\":\"Drafting is temporarily unavailable. Nothing was changed. Please try again.\"}\n\n"
+                    : $"event: done\ndata: {{\"id\":\"{OverviewId}\",\"kind\":\"Overview\",\"title\":\"Overview\",\"bodyMarkdown\":\"> Gulls wheel over the docks.\",\"sortOrder\":1,\"updatedAt\":\"2026-11-02T11:05:00+00:00\",\"revisionCount\":1,\"isFilled\":true}}\n\n";
+                var stream = "event: delta\ndata: {\"text\":\"> Gulls wheel \"}\n\n" + end;
+                var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(stream, Encoding.UTF8) };
+                response.Content.Headers.ContentType = new("text/event-stream");
+                return response;
             }
 
             if (request.Method == HttpMethod.Put && path.EndsWith("/order", StringComparison.Ordinal))

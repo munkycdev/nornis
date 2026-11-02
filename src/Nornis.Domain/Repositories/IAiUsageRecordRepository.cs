@@ -38,6 +38,17 @@ public interface IAiUsageRecordRepository
         DateTimeOffset fromInclusive,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Sum of estimated cost (USD) for a world since <paramref name="fromInclusive"/>, counting
+    /// only the given operations. Backs the spend pools: the daily budget and the monthly Prep
+    /// budget each sum their own operations. Returns 0 when nothing matches.
+    /// </summary>
+    Task<decimal> SumCostAsync(
+        Guid worldId,
+        DateTimeOffset fromInclusive,
+        IReadOnlyCollection<AiOperationType> operations,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByOperationTypeAsync(
         Guid worldId,
         Guid? userId,

@@ -5,7 +5,7 @@ editor holds the markup, and whether the SDK sends an output ceiling the deploym
 After that the Adventure is built without AI, then drafting, then Print and Export. There is
 one migration, and it is additive.
 
-**Status: specified 2026-11-02; Phase A done 2026-11-02; Phase B done 2026-11-02.** Ships as Nornis v3.0. The v3.1 items are listed
+**Status: specified 2026-11-02; Phase A done 2026-11-02; Phase B done 2026-11-02; Phase C done 2026-11-02.** Ships as Nornis v3.0. The v3.1 items are listed
 at the end so the v3.0 design leaves room for them.
 
 ## Phase A — Retire the risks
@@ -58,18 +58,23 @@ at the end so the v3.0 design leaves room for them.
 
 ## Phase C — Drafting
 
-- [ ] C1. `AiSpendPools`; `AiBudgetGuard.GetPrepStatusAsync` / `CheckPrepAsync`; the daily
+- [x] C1. `AiSpendPools`; `AiBudgetGuard.GetPrepStatusAsync` / `CheckPrepAsync`; the daily
       status reads the pool map. `AiBudgetGuardPrepTests`, including the pool sabotage.
-- [ ] C2. `World.PrepMonthlyBudgetUsd` through `WorldService` validation, the API contracts and
+- [x] C2. `World.PrepMonthlyBudgetUsd` through `WorldService` validation, the API contracts and
       the Settings card.
-- [ ] C3. `AdventureDraftPrompt`, with the cacheable prefix first.
-- [ ] C4. `IAdventureDraftingAiClient` plus its Infrastructure transport on the shared
+- [x] C3. `AdventureDraftPrompt`, with the cacheable prefix first.
+- [x] C4. `IAdventureDraftingAiClient` plus its Infrastructure transport on the shared
       `IChatClient`, `Prep:Deployment`, the timeout and usage recording, with
       `CachedInputTokens` captured.
-- [ ] C5. `IAdventureDraftingService`: the gate, the 409s, the streaming, the transactional
+- [x] C5. `IAdventureDraftingService`: the gate, the 409s, the streaming, the transactional
       revision write and trim, Undo. Tests, including the Hidden-at-GM / not-at-Player case.
-- [ ] C6. The draft SSE endpoint and the Web's instruction box, Draft / Revise / Undo, and
+- [x] C6. The draft SSE endpoint and the Web's instruction box, Draft / Revise / Undo, and
       the Prep spend line on `/prep`.
+      **Phase C notes (2026-11-02):** the deviations from design.md are in its Phase C
+      amendment. Every test named under `AdventureDraftingServiceTests` and
+      `AiBudgetGuardPrepTests` exists, each checked by breaking the code it covers. The Hidden
+      case runs the real `KeywordKnowledgeRetriever`: the GM's prompt carries a Hidden fact, and
+      the same retrieval text at Player role finds the artifact but not the fact. No migration.
 
 ## Phase D — Print and Export
 

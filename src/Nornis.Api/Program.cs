@@ -14,6 +14,7 @@ using Nornis.Application.Application;
 using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Messaging;
+using Nornis.Application.Prep;
 using Nornis.Application.Services;
 using Nornis.Application.Storage;
 using Nornis.Application.Validation;
@@ -277,6 +278,12 @@ builder.Services.AddSingleton<IInviteCodeGenerator, InviteCodeGenerator>();
 builder.Services.AddScoped<ICampaignService, CampaignService>();
 builder.Services.Configure<PrepOptions>(builder.Configuration.GetSection(PrepOptions.SectionName));
 builder.Services.AddScoped<IAdventureService, AdventureService>();
+builder.Services.AddScoped<IAdventureDraftingService, AdventureDraftingService>();
+// One draft per section across requests, so a singleton. A lease outlives the longest draft
+// (the AI timeout plus retrieval and the write) and then lapses, so an abandoned one can't hold
+// a section until restart.
+builder.Services.AddSingleton<ISectionDraftGate>(sp => new SectionDraftGate(TimeSpan.FromSeconds(
+    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PrepOptions>>().Value.DraftTimeoutSeconds + 60)));
 builder.Services.AddScoped<IJumpService, JumpService>();
 builder.Services.AddScoped<ICharacterService, CharacterService>();
 builder.Services.AddScoped<IPlayerService, PlayerService>();
@@ -362,6 +369,17 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
     builder.Services.AddScoped<IConvergenceNarrationClient, AzureOpenAiConvergenceNarrationClient>();
     builder.Services.AddScoped<IWorldNameGenerator, AzureOpenAiWorldNameGenerator>();
 
+    // Prep drafting (feature 29) shares the account. On the Loremaster's chat client unless
+    // Prep:Deployment names a different deployment, which then gets a client of its own.
+    var prepDeployment = builder.Configuration["Prep:Deployment"];
+    Microsoft.Extensions.AI.IChatClient? prepChatClient =
+        string.IsNullOrWhiteSpace(prepDeployment) || prepDeployment == loremasterModel
+            ? null
+            : new Nornis.Infrastructure.Ai.AzureOpenAiChatClient(openAiClient.GetChatClient(prepDeployment));
+    builder.Services.AddScoped<IAdventureDraftingAiClient>(sp => new AzureOpenAiAdventureDraftingClient(
+        prepChatClient ?? sp.GetRequiredService<Microsoft.Extensions.AI.IChatClient>(),
+        sp.GetRequiredService<ILogger<AzureOpenAiAdventureDraftingClient>>()));
+
     // Handwriting transcription on demand: the capture page reads a photo of notes so the GM
     // can correct the reading before extraction sees it. Same chat client as every other
     // user-facing call here, so the settings name the SAME deployment — Loremaster:AiModel is
@@ -400,6 +418,9 @@ else
     builder.Services.AddScoped<IEmbeddingClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable library passage retrieval."));
+    builder.Services.AddScoped<IAdventureDraftingAiClient>(sp =>
+        throw new InvalidOperationException(
+            "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable Prep drafting."));
     builder.Services.AddScoped<IHandwritingTranscriptionClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable handwriting transcription."));

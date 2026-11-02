@@ -19,7 +19,9 @@ public record WorldSummary(
     bool TutorialEnabled = false,
     bool IsTemplate = false,
     // The campaign this world is playing now; null when none is. What a capture defaults to.
-    Guid? CurrentCampaignId = null);
+    Guid? CurrentCampaignId = null,
+    // Prep's monthly AI cap; null inherits the configured default.
+    decimal? PrepMonthlyBudgetUsd = null);
 
 public record CreateWorldRequest(
     string Name,
@@ -37,7 +39,9 @@ public record UpdateWorldRequest(
     decimal? PublicAskMonthlyBudgetUsd = null,
     bool ClearPublicAskBudget = false,
     bool? SummaryReviewRequired = null,
-    bool? IsTemplate = null);
+    bool? IsTemplate = null,
+    decimal? PrepMonthlyBudgetUsd = null,
+    bool ClearPrepBudget = false);
 
 public record WorldMember(
     Guid Id,
@@ -1113,6 +1117,12 @@ public record ImportAdventureRequest(IReadOnlyList<ImportAdventureFile> Files, G
 public record UpdateAdventureRequest(string Title, string? Pitch, Guid? CampaignId);
 
 public record SaveAdventureSectionRequest(string Kind, string Title, string? BodyMarkdown, DateTimeOffset BasedOnUpdatedAt);
+
+/// <summary>Draft or revise one section. A null or blank instruction is a plain Draft or Revise.</summary>
+public record DraftAdventureSectionRequest(string? Instruction, DateTimeOffset BasedOnUpdatedAt);
+
+/// <summary>This month's Prep spend. A null ceiling means none is set.</summary>
+public record PrepBudgetDto(decimal SpentThisMonthUsd, decimal? MonthlyBudgetUsd, bool IsExceeded);
 
 public record AddAdventureSectionRequest(string Kind, string Title, Guid? AfterSectionId);
 

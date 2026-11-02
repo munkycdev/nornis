@@ -19,4 +19,6 @@ public record WorldResponse(
     bool IsTemplate = false,
     /// <summary>The campaign the world is playing now; null when none is. Carried on the world
     /// so the capture form can default to it without a second round trip.</summary>
-    Guid? CurrentCampaignId = null);
+    Guid? CurrentCampaignId = null,
+    /// <summary>Prep's monthly AI cap for this world; null inherits the configured default.</summary>
+    decimal? PrepMonthlyBudgetUsd = null);

@@ -85,6 +85,21 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
             .SumAsync(r => (decimal?)r.EstimatedCostUsd, cancellationToken) ?? 0m;
     }
 
+    public async Task<decimal> SumCostAsync(
+        Guid worldId,
+        DateTimeOffset fromInclusive,
+        IReadOnlyCollection<AiOperationType> operations,
+        CancellationToken cancellationToken = default)
+    {
+        // Cast to decimal? so an empty set sums to null → 0 rather than throwing.
+        return await _context.AiUsageRecords
+            .AsNoTracking()
+            .Where(r => r.WorldId == worldId
+                     && r.CreatedAt >= fromInclusive
+                     && operations.Contains(r.OperationType))
+            .SumAsync(r => (decimal?)r.EstimatedCostUsd, cancellationToken) ?? 0m;
+    }
+
     public async Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByOperationTypeAsync(
         Guid worldId,
         Guid? userId,

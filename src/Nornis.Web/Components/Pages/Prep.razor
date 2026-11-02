@@ -15,6 +15,12 @@
             Adventures you're getting ready to run. Only you see them, and nothing here is canon
             until you send it into Nornis.
         </MudText>
+        @if (_budget is { } budget)
+        {
+            <MudText Typo="Typo.caption" Color="@(budget.IsExceeded ? Color.Error : Color.Secondary)" Class="nornis-prep-spend">
+                Drafting this month: @PrepSpend(budget)
+            </MudText>
+        }
     </div>
     @if (Worlds.Current is not null && Worlds.IsGm)
     {
@@ -91,6 +97,13 @@ else
     private string? _error;
     private IReadOnlyList<AdventureSummaryDto> _adventures = [];
     private IReadOnlyList<CampaignDto> _campaigns = [];
+    private PrepBudgetDto? _budget;
+
+    /// <summary>The month's drafting spend against its ceiling, as the Settings card states it.</summary>
+    private static string PrepSpend(PrepBudgetDto budget) =>
+        budget.MonthlyBudgetUsd is { } cap
+            ? $"${budget.SpentThisMonthUsd:0.00} of ${cap:0.00}{(budget.IsExceeded ? ", spent until next month" : "")}"
+            : $"${budget.SpentThisMonthUsd:0.00}, no monthly limit";
 
     protected override async Task OnInitializedAsync()
     {
@@ -112,6 +125,7 @@ else
         if (Worlds.Current is null || !Worlds.IsGm)
         {
             _adventures = [];
+            _budget = null;
             StateHasChanged();
             return;
         }
@@ -123,6 +137,8 @@ else
         var worldId = Worlds.Current.Id;
         var adventures = await Api.GetAdventuresAsync(worldId);
         var campaigns = await Api.GetCampaignsAsync(worldId);
+        var budget = await Api.GetPrepBudgetAsync(worldId);
+        _budget = budget.Value;
 
         _loading = false;
         if (adventures.IsSuccess)

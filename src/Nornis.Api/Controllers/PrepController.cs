@@ -1,3 +1,7 @@
+using System.Diagnostics;
+using System.Net.ServerSentEvents;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
@@ -22,10 +26,25 @@ namespace Nornis.Api.Controllers;
 public class PrepController : ControllerBase
 {
     private readonly IAdventureService _adventures;
+    private readonly IAdventureDraftingService _drafting;
 
-    public PrepController(IAdventureService adventures)
+    public PrepController(IAdventureService adventures, IAdventureDraftingService drafting)
     {
         _adventures = adventures;
+        _drafting = drafting;
+    }
+
+    /// <summary>
+    /// The month's Prep spend. Outside <c>prep/</c> on purpose: every literal under it is also a
+    /// slug some Adventure could have, and <c>prep/budget</c> would hide one titled "Budget".
+    /// </summary>
+    [HttpGet("~/api/worlds/{worldId:guid}/prep-budget")]
+    public async Task<IActionResult> Budget(Guid worldId, CancellationToken ct)
+    {
+        var result = await _drafting.GetBudgetAsync(worldId, HttpContext.GetWorldMember().Role, ct);
+        return result.IsSuccess
+            ? Ok(new PrepBudgetResponse(result.Value!.SpentThisMonthUsd, result.Value.MonthlyBudgetUsd, result.Value.IsExceeded))
+            : result.Error!.ToActionResult();
     }
 
     [HttpGet]
@@ -130,6 +149,42 @@ public class PrepController : ControllerBase
         // The whole Adventure back: the undo changed the section and its revision count.
         return result.IsSuccess ? await Fetch(worldId, adventureId, ct) : result.Error!.ToActionResult();
     }
+
+    /// <summary>
+    /// Draft or revise one section, as server-sent events: a <c>delta</c> per piece of text, then
+    /// <c>done</c> with the saved section or <c>error</c> when nothing was saved. Every refusal
+    /// that can come before the model starts (role, a stale stamp, a draft already running, the
+    /// budget) keeps its status code; only what happens after the first byte rides in-band.
+    /// </summary>
+    [HttpPost("{adventureId:guid}/sections/{sectionId:guid}/draft")]
+    public async Task<IActionResult> Draft(
+        Guid worldId, Guid adventureId, Guid sectionId, [FromBody] DraftAdventureSectionRequest request, CancellationToken ct)
+    {
+        var result = await _drafting.DraftAsync(new DraftSectionCommand(
+            worldId, adventureId, sectionId, HttpContext.GetNornisUser().Id, HttpContext.GetWorldMember().Role,
+            request.BasedOnUpdatedAt, request.Instruction), ct);
+        return result.IsSuccess
+            ? new ServerSentEventsActionResult(ToServerSentEvents(result.Value!))
+            : result.Error!.ToActionResult();
+    }
+
+    private static async IAsyncEnumerable<SseItem<string>> ToServerSentEvents(
+        IAsyncEnumerable<DraftEvent> events, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        await foreach (var e in events.WithCancellation(ct))
+        {
+            yield return e switch
+            {
+                DraftEvent.Delta delta => Event(DraftStreamEventNames.Delta, new DraftStreamDeltaResponse(delta.Text)),
+                DraftEvent.Completed done => Event(DraftStreamEventNames.Done, ToSection(done.Section, done.RevisionCount)),
+                DraftEvent.Failed failed => Event(DraftStreamEventNames.Error, failed.Error.ToErrorResponse()),
+                _ => throw new UnreachableException($"Unhandled draft event {e.GetType().Name}."),
+            };
+        }
+    }
+
+    private static SseItem<string> Event<T>(string eventName, T payload) =>
+        new(JsonSerializer.Serialize(payload, JsonSerializerOptions.Web), eventName);
 
     private async Task<IActionResult> Fetch(Guid worldId, Guid adventureId, CancellationToken ct) =>
         Respond(await _adventures.GetAsync(worldId, adventureId, HttpContext.GetWorldMember().Role, ct));

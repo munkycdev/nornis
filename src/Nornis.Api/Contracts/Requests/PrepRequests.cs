@@ -18,3 +18,6 @@ public record SaveAdventureSectionRequest(string Kind, string Title, string? Bod
 public record AddAdventureSectionRequest(string Kind, string Title, Guid? AfterSectionId);
 
 public record ReorderAdventureSectionsRequest(IReadOnlyList<Guid> SectionIds);
+
+/// <summary>Draft or revise one section. A null or blank instruction is a plain Draft or Revise.</summary>
+public record DraftAdventureSectionRequest(string? Instruction, DateTimeOffset BasedOnUpdatedAt);

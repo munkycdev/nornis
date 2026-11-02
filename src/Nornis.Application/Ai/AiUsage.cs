@@ -26,4 +26,11 @@ public sealed record AiUsage
     /// distinguishable when judging whether prompt-cache work paid off.
     /// </summary>
     public int? CachedInputTokens { get; init; }
+
+    /// <summary>
+    /// Portion of <see cref="OutputTokens"/> the model spent reasoning, when the provider
+    /// reports it. These count against an output ceiling without producing text, which is why
+    /// a client that sets one wants to see them. Null means not reported.
+    /// </summary>
+    public int? ReasoningTokens { get; init; }
 }

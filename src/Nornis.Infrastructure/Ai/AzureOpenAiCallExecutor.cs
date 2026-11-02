@@ -84,6 +84,7 @@ public static class AzureOpenAiCallExecutor
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
         UsageDetails? usage = null;
+        var cutOff = false;
         IAsyncEnumerator<ChatResponseUpdate>? updates = null;
         try
         {
@@ -119,6 +120,11 @@ public static class AzureOpenAiCallExecutor
                     }
                 }
 
+                if (update.FinishReason == ChatFinishReason.Length)
+                {
+                    cutOff = true;
+                }
+
                 if (!string.IsNullOrEmpty(update.Text))
                 {
                     yield return new AiStreamChunk { Text = update.Text };
@@ -141,6 +147,7 @@ public static class AzureOpenAiCallExecutor
         {
             Text = string.Empty,
             Usage = usage is null ? null : ToUsage(usage, request.Model, stopwatch),
+            CutOff = cutOff,
         };
     }
 
@@ -178,6 +185,7 @@ public static class AzureOpenAiCallExecutor
         InputTokens = (int)(usage?.InputTokenCount ?? 0),
         CachedInputTokens = usage?.CachedInputTokenCount is { } cached ? (int)cached : null,
         OutputTokens = (int)(usage?.OutputTokenCount ?? 0),
+        ReasoningTokens = usage?.ReasoningTokenCount is { } reasoning ? (int)reasoning : null,
         TotalTokens = (int)(usage?.TotalTokenCount ?? 0),
         DurationMs = (int)stopwatch.ElapsedMilliseconds,
     };

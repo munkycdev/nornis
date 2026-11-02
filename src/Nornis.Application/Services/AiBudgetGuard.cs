@@ -39,13 +39,16 @@ public class AiBudgetGuard : IAiBudgetGuard
         if (budget is not { } ceiling)
             return new AiBudgetStatus(0m, 0m, IsExceeded: false);
 
+        // Only the daily pool's operations: Prep drafting has its own monthly pool and must
+        // neither fill this one nor be blocked by it (feature 29).
         var todayUtc = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
-        var summary = await _usageRepository.AggregateAsync(worldId, null, todayUtc, null, ct);
+        var spent = await _usageRepository.SumCostAsync(
+            worldId, todayUtc, AiSpendPools.OperationsIn(AiSpendPool.DailyWorld), ct);
 
         return new AiBudgetStatus(
-            SpentTodayUsd: summary.TotalEstimatedCostUsd,
+            SpentTodayUsd: spent,
             DailyBudgetUsd: ceiling,
-            IsExceeded: summary.TotalEstimatedCostUsd >= ceiling);
+            IsExceeded: spent >= ceiling);
     }
 
     public async Task<AppError?> CheckAsync(Guid worldId, CancellationToken ct)
@@ -114,5 +117,33 @@ public class AiBudgetGuard : IAiBudgetGuard
                 "This world's public question budget for the month has been reached. It resets at the start of next month.");
 
         return null;
+    }
+
+    public async Task<PrepBudgetStatus> GetPrepStatusAsync(Guid worldId, CancellationToken ct)
+    {
+        var world = await _worldRepository.GetByIdAsync(worldId, ct);
+        var budget = world?.PrepMonthlyBudgetUsd ?? _options.PrepMonthlyBudgetUsd;
+
+        var now = DateTime.UtcNow;
+        var monthStart = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero);
+        var spent = await _usageRepository.SumCostAsync(
+            worldId, monthStart, AiSpendPools.OperationsIn(AiSpendPool.PrepMonthly), ct);
+
+        // Null, and only null, is no ceiling; a zero is a ceiling of zero, as for the daily pool.
+        return new PrepBudgetStatus(spent, budget, IsExceeded: budget is { } ceiling && spent >= ceiling);
+    }
+
+    public async Task<AppError?> CheckPrepAsync(Guid worldId, CancellationToken ct)
+    {
+        if (await _pauseGate.GetAsync(ct) is { IsPaused: true } paused)
+        {
+            return PausedError(paused);
+        }
+
+        var status = await GetPrepStatusAsync(worldId, ct);
+        return status.IsExceeded
+            ? new AppError(429, "prep_budget_exceeded",
+                $"This world's Prep budget for the month (${status.MonthlyBudgetUsd:0.00}) is spent. It resets on the first of next month, UTC. You can raise it in Settings.")
+            : null;
     }
 }

@@ -15,4 +15,12 @@ public class AiBudgetOptions
     /// zero arriving from anywhere fails closed.
     /// </summary>
     public decimal? DailyWorldBudgetUsd { get; set; } = 2.00m;
+
+    /// <summary>
+    /// Monthly per-world Prep drafting ceiling in USD (feature 29), for worlds that have not set
+    /// their own <c>PrepMonthlyBudgetUsd</c>. Its own pool: Prep spend never counts against the
+    /// daily budget, and the daily budget never blocks Prep. Resets on the first of the month,
+    /// UTC. Null means no ceiling; zero blocks, as it does for the daily budget.
+    /// </summary>
+    public decimal? PrepMonthlyBudgetUsd { get; set; } = 10.00m;
 }

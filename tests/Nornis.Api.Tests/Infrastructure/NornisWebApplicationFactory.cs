@@ -36,6 +36,9 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
     /// markdown or make it throw to exercise the endpoint's blank and failure paths.</summary>
     public FakeHandwritingTranscriptionClient Transcription => _fakeTranscription;
 
+    /// <summary>Prep's drafting client; a test sets what it writes and reads what it was sent.</summary>
+    public FakeAdventureDraftingAiClient FakeDrafting { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureServices(services =>
@@ -125,6 +128,16 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
                 services.Remove(transcriptionDescriptor);
             }
             services.AddSingleton<Nornis.Application.Ai.IHandwritingTranscriptionClient>(_fakeTranscription);
+
+            // Prep's drafting client is a throwing stub when unconfigured too, and PrepController
+            // takes the drafting service, so without a fake no Prep route would activate.
+            var draftingDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(Nornis.Application.Ai.IAdventureDraftingAiClient));
+            if (draftingDescriptor is not null)
+            {
+                services.Remove(draftingDescriptor);
+            }
+            services.AddSingleton<Nornis.Application.Ai.IAdventureDraftingAiClient>(FakeDrafting);
 
             // Blob storage is a throwing DI stub when unconfigured — replace with an
             // in-memory fake so Library endpoints are testable.
