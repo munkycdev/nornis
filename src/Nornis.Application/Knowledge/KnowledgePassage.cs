@@ -31,6 +31,18 @@ public sealed record ReferencePassages(IReadOnlyList<KnowledgePassage> Passages,
     public static readonly ReferencePassages None = new([]);
 }
 
+/// <summary>
+/// How closely a reference passage must match. <see cref="Ask"/> is a question being answered:
+/// a weak match is no match. <see cref="Search"/> is a GM choosing pages to file: the closest
+/// pages come back anyway. Bibliotaph's <c>passages</c> modes; the vector retriever ranks the
+/// same either way.
+/// </summary>
+public enum ReferenceSearchMode
+{
+    Ask,
+    Search,
+}
+
 /// <summary>Retrieval over the world's reference books; empty when the world has none.</summary>
 public interface IReferencePassageRetriever
 {
@@ -51,5 +63,6 @@ public interface IReferencePassageRetriever
         Guid worldId,
         IReadOnlyList<Domain.Enums.VisibilityScope> allowedScopes,
         Guid? attributedUserId,
+        ReferenceSearchMode mode,
         CancellationToken ct);
 }

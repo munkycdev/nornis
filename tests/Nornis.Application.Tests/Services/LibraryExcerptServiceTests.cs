@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Nornis.Application.Bibliotaph;
 using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
@@ -8,6 +9,7 @@ using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
+using NSubstitute;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services;
@@ -54,7 +56,7 @@ public class LibraryExcerptServiceTests
             new InMemorySourceAttachmentRepository(), blobs, NullLogger<SourceService>.Instance);
 
         _sut = new LibraryExcerptService(libraryService, _chunks, _artifacts, _retriever, _sources, sourceService,
-            options, NullLogger<LibraryExcerptService>.Instance);
+            Substitute.For<IBibliotaphExcerptPages>(), options, NullLogger<LibraryExcerptService>.Instance);
 
         _documents.Seed(Document(DocumentId, WorldId, VisibilityScope.GMOnly, LibraryDocumentStatus.Indexed));
         _artifacts.Seed(new Artifact
@@ -137,6 +139,7 @@ public class LibraryExcerptServiceTests
         Assert.That(_retriever.LastQuestion, Does.Contain("Thistlehold").And.Contain("river city"));
         Assert.That(_retriever.LastAllowedScopes, Is.EquivalentTo([VisibilityScope.PartyVisible, VisibilityScope.GMOnly]));
         Assert.That(_retriever.LastAttributedUserId, Is.EqualTo(GmId));
+        Assert.That(_retriever.LastMode, Is.EqualTo(ReferenceSearchMode.Search), "a GM choosing pages wants the closest ones anyway");
         Assert.That(result.Value!, Has.Count.EqualTo(1));
         Assert.That(result.Value![0].Page, Is.EqualTo(42));
         Assert.That(result.Value![0].DocumentTitle, Is.EqualTo("Player's Guide"));

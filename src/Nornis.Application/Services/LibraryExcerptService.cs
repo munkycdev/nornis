@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Nornis.Application.Bibliotaph;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Knowledge;
@@ -19,6 +20,7 @@ public class LibraryExcerptService : ILibraryExcerptService
     private readonly IReferencePassageRetriever _passageRetriever;
     private readonly ISourceRepository _sourceRepository;
     private readonly ISourceService _sourceService;
+    private readonly IBibliotaphExcerptPages _bibliotaphPages;
     private readonly LibraryOptions _options;
     private readonly ILogger<LibraryExcerptService> _logger;
 
@@ -29,6 +31,7 @@ public class LibraryExcerptService : ILibraryExcerptService
         IReferencePassageRetriever passageRetriever,
         ISourceRepository sourceRepository,
         ISourceService sourceService,
+        IBibliotaphExcerptPages bibliotaphPages,
         IOptions<LibraryOptions> options,
         ILogger<LibraryExcerptService> logger)
     {
@@ -38,6 +41,7 @@ public class LibraryExcerptService : ILibraryExcerptService
         _passageRetriever = passageRetriever;
         _sourceRepository = sourceRepository;
         _sourceService = sourceService;
+        _bibliotaphPages = bibliotaphPages;
         _options = options.Value;
         _logger = logger;
     }
@@ -74,13 +78,12 @@ public class LibraryExcerptService : ILibraryExcerptService
         }
 
         var passages = await _passageRetriever.RetrieveForScopesAsync(
-            query, command.WorldId, LibraryService.GetAllowedScopes(command.ActingUserRole), command.ActingUserId, ct);
+            query, command.WorldId, LibraryService.GetAllowedScopes(command.ActingUserRole), command.ActingUserId,
+            ReferenceSearchMode.Search, ct);
 
-        // Only indexed chunks can be filed by chunk id; a Bibliotaph page is filed by its page
-        // range (feature 31, Phase G).
+        // An indexed chunk is filed by its id, a Bibliotaph page by its page number (feature 31).
         IReadOnlyList<LibraryExcerptCandidate> candidates = passages.Passages
-            .Where(p => p.ChunkId is not null)
-            .Select(p => new LibraryExcerptCandidate(p.ChunkId!.Value, p.DocumentId, p.DocumentTitle, p.Page, p.Text))
+            .Select(p => new LibraryExcerptCandidate(p.ChunkId, p.DocumentId, p.DocumentTitle, p.Page, p.Text, p.PageLabel))
             .ToList();
 
         return AppResult<IReadOnlyList<LibraryExcerptCandidate>>.Success(candidates);
@@ -100,7 +103,8 @@ public class LibraryExcerptService : ILibraryExcerptService
         }
 
         var document = documentResult.Value!;
-        if (document.Status != LibraryDocumentStatus.Indexed)
+        var bibliotaphPages = BibliotaphPageNumbers(command, document);
+        if (bibliotaphPages is null && document.Status != LibraryDocumentStatus.Indexed)
         {
             return AppResult<Source>.Fail(new AppError(409, "document_not_indexed",
                 "Only an indexed document has passages to file. Wait for indexing to finish, or retry it."));
@@ -118,15 +122,43 @@ public class LibraryExcerptService : ILibraryExcerptService
             artifactName = artifact.Name;
         }
 
-        var chunksResult = await ResolveChunksAsync(command, ct);
-        if (!chunksResult.IsSuccess)
+        int pageFrom, pageTo, parts;
+        string body;
+        if (bibliotaphPages is not null)
         {
-            return AppResult<Source>.Fail(chunksResult.Error!);
+            var pagesResult = await _bibliotaphPages.ReadAsync(document, bibliotaphPages, ct);
+            if (!pagesResult.IsSuccess)
+            {
+                return AppResult<Source>.Fail(pagesResult.Error!);
+            }
+
+            var pages = pagesResult.Value!;
+            pageFrom = pages[0].Page;
+            pageTo = pages[^1].Page;
+            parts = pages.Count;
+            body = LibraryExcerptComposer.BuildBody(artifactName, document.Title, pageFrom, pageTo, pages);
+        }
+        else
+        {
+            var chunksResult = await ResolveChunksAsync(command, ct);
+            if (!chunksResult.IsSuccess)
+            {
+                return AppResult<Source>.Fail(chunksResult.Error!);
+            }
+
+            var chunks = chunksResult.Value!;
+            pageFrom = chunks.Min(c => c.Page);
+            pageTo = chunks.Max(c => c.Page);
+            parts = chunks.Count;
+            body = LibraryExcerptComposer.BuildBody(artifactName, document.Title, pageFrom, pageTo, chunks, _options.OverlapChars);
         }
 
-        var chunks = chunksResult.Value!;
-        var pageFrom = chunks.Min(c => c.Page);
-        var pageTo = chunks.Max(c => c.Page);
+        if (body.Length > SourceService.MaxBodyChars)
+        {
+            return AppResult<Source>.Fail(new AppError(400, "excerpt_too_large",
+                $"The excerpt would be {body.Length:N0} characters; a source holds at most {SourceService.MaxBodyChars:N0}. Choose fewer pages."));
+        }
+
         var now = DateTimeOffset.UtcNow;
 
         var source = new Source
@@ -135,7 +167,7 @@ public class LibraryExcerptService : ILibraryExcerptService
             WorldId = command.WorldId,
             Type = SourceType.LibraryExcerpt,
             Title = LibraryExcerptComposer.BuildTitle(artifactName, document.Title, pageFrom, pageTo),
-            Body = LibraryExcerptComposer.BuildBody(artifactName, document.Title, pageFrom, pageTo, chunks, _options.OverlapChars),
+            Body = body,
             CreatedAt = now,
             CreatedByUserId = command.ActingUserId,
             // The document's shelf is the excerpt's audience: a GM-only sourcebook never
@@ -161,11 +193,76 @@ public class LibraryExcerptService : ILibraryExcerptService
         }
 
         _logger.LogInformation(
-            "Library excerpt filed. WorldId={WorldId}, DocumentId={DocumentId}, Pages={PageFrom}-{PageTo}, Chunks={Chunks}, SourceId={SourceId}, User={UserId}",
-            command.WorldId, document.Id, pageFrom, pageTo, chunks.Count, source.Id, command.ActingUserId);
+            "Library excerpt filed. WorldId={WorldId}, DocumentId={DocumentId}, Pages={PageFrom}-{PageTo}, Parts={Parts}, FromBibliotaph={FromBibliotaph}, SourceId={SourceId}, User={UserId}",
+            command.WorldId, document.Id, pageFrom, pageTo, parts, bibliotaphPages is not null, source.Id, command.ActingUserId);
 
         return AppResult<Source>.Success(ready.Value!);
     }
+
+    public async Task<AppResult<LibraryDocument>> FindBibliotaphDocumentAsync(
+        Guid worldId, WorldRole role, string bibliotaphDocumentId, CancellationToken ct)
+    {
+        if (GmOnly(role) is { } roleError)
+        {
+            return AppResult<LibraryDocument>.Fail(roleError);
+        }
+
+        var row = await _bibliotaphPages.FindAsync(worldId, bibliotaphDocumentId, ct);
+        return row is null
+            ? AppResult<LibraryDocument>.Fail(NotFound("That book isn't in this world's Bibliotaph collection."))
+            : AppResult<LibraryDocument>.Success(row);
+    }
+
+    public async Task<AppResult<IReadOnlyList<LibraryPage>>> ReadPagesAsync(
+        Guid worldId, WorldRole role, Guid documentId, int pageFrom, int pageTo, CancellationToken ct)
+    {
+        if (GmOnly(role) is { } roleError)
+        {
+            return AppResult<IReadOnlyList<LibraryPage>>.Fail(roleError);
+        }
+
+        if (pageFrom < 1 || pageTo < pageFrom)
+        {
+            return AppResult<IReadOnlyList<LibraryPage>>.Fail(InvalidRange());
+        }
+
+        var documentResult = await _libraryService.GetByIdAsync(documentId, worldId, role, ct);
+        if (!documentResult.IsSuccess)
+        {
+            return AppResult<IReadOnlyList<LibraryPage>>.Fail(documentResult.Error!);
+        }
+
+        return await _bibliotaphPages.ReadAsync(documentResult.Value!, PageRange(pageFrom, pageTo), ct);
+    }
+
+    /// <summary>
+    /// The 1-based pages to read from Bibliotaph, or null for the indexed-chunk path. A book in
+    /// the collection is read from Bibliotaph unless the GM ticked indexed chunks.
+    /// </summary>
+    private static IReadOnlyList<int>? BibliotaphPageNumbers(FileLibraryExcerptCommand command, LibraryDocument document)
+    {
+        if (document.BibliotaphDocumentId is null || command.ChunkIds.Count > 0)
+        {
+            return null;
+        }
+
+        if (command.Pages is { Count: > 0 } ticked)
+        {
+            return ticked;
+        }
+
+        // Nothing chosen, or a range that doesn't start at 1: ReadAsync refuses an empty list.
+        return command.PageFrom is { } from && command.PageTo is { } to && from >= 1 && to >= from
+            ? PageRange(from, to)
+            : [];
+    }
+
+    /// <summary>
+    /// A valid 1-based range as page numbers, cut one past the excerpt limit so a wild range
+    /// costs nothing and is still refused as too large.
+    /// </summary>
+    private static IReadOnlyList<int> PageRange(int from, int to) =>
+        Enumerable.Range(from, Math.Min(to - from + 1, BibliotaphExcerptPages.MaxSentPages + 1)).ToList();
 
     private async Task<AppResult<IReadOnlyList<LibraryChunkHit>>> ResolveChunksAsync(
         FileLibraryExcerptCommand command, CancellationToken ct)
@@ -229,6 +326,9 @@ public class LibraryExcerptService : ILibraryExcerptService
             : new AppError(403, "insufficient_role", "Only GMs can file library excerpts.");
 
     private static AppError NotFound(string message) => new(404, "not_found", message);
+
+    private static AppError InvalidRange() => new(400, "validation_error",
+        "Pages must start at 1 and the last page must not come before the first.");
 
     private static AppError TooLarge(int max) => new(400, "excerpt_too_large",
         $"An excerpt holds at most {max} passages. Narrow the page range or the selection and file the rest separately.");

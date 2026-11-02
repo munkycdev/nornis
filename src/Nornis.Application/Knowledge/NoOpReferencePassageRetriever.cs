@@ -18,6 +18,6 @@ public sealed class NoOpReferencePassageRetriever : IReferencePassageRetriever
 
     public Task<ReferencePassages> RetrieveForScopesAsync(
         string query, Guid worldId, IReadOnlyList<VisibilityScope> allowedScopes,
-        Guid? attributedUserId, CancellationToken ct) =>
+        Guid? attributedUserId, ReferenceSearchMode mode, CancellationToken ct) =>
         Task.FromResult(ReferencePassages.None);
 }

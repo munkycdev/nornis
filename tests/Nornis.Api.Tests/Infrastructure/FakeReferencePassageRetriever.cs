@@ -12,6 +12,6 @@ public class FakeReferencePassageRetriever : IReferencePassageRetriever
         Task.FromResult(ReferencePassages.None);
 
     public Task<ReferencePassages> RetrieveForScopesAsync(
-        string query, Guid worldId, IReadOnlyList<VisibilityScope> allowedScopes, Guid? attributedUserId, CancellationToken ct) =>
+        string query, Guid worldId, IReadOnlyList<VisibilityScope> allowedScopes, Guid? attributedUserId, ReferenceSearchMode mode, CancellationToken ct) =>
         Task.FromResult(ReferencePassages.None);
 }

@@ -245,7 +245,7 @@ public class LibraryController : ControllerBase
             new SearchLibraryExcerptsCommand(worldId, user.Id, member.Role, request.ArtifactId, request.Query), ct);
 
         return result.IsSuccess
-            ? Ok(result.Value!.Select(c => new LibraryExcerptCandidateResponse(c.ChunkId, c.DocumentId, c.DocumentTitle, c.Page, c.Text)).ToList())
+            ? Ok(result.Value!.Select(c => new LibraryExcerptCandidateResponse(c.ChunkId, c.DocumentId, c.DocumentTitle, c.Page, c.Text, c.PageLabel)).ToList())
             : result.Error!.ToActionResult();
     }
 
@@ -263,10 +263,30 @@ public class LibraryController : ControllerBase
         var result = await _excerptService.FileAsync(
             new FileLibraryExcerptCommand(
                 worldId, user.Id, member.Role, documentId,
-                request.ChunkIds ?? [], request.PageFrom, request.PageTo, request.ArtifactId), ct);
+                request.ChunkIds ?? [], request.PageFrom, request.PageTo, request.ArtifactId, request.Pages), ct);
 
         return result.IsSuccess
             ? Ok(new LibraryExcerptFiledResponse(result.Value!.Id, result.Value.Title, result.Value.ProcessingStatus.ToString(), result.Value.Slug))
+            : result.Error!.ToActionResult();
+    }
+
+    /// <summary>GM-only: the world's row for a Bibliotaph document, for Bibliotaph's Send to Nornis.</summary>
+    [HttpGet("bibliotaph-document/{bibliotaphDocumentId}")]
+    public async Task<IActionResult> GetBibliotaphDocument(Guid worldId, string bibliotaphDocumentId, CancellationToken ct)
+    {
+        var member = HttpContext.GetWorldMember();
+        var result = await _excerptService.FindBibliotaphDocumentAsync(worldId, member.Role, bibliotaphDocumentId, ct);
+        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
+    }
+
+    /// <summary>GM-only: a Bibliotaph book's page text, 1-based and inclusive, at most the excerpt limit.</summary>
+    [HttpGet("{documentId:guid}/pages")]
+    public async Task<IActionResult> GetPages(Guid worldId, Guid documentId, [FromQuery] int from, [FromQuery] int to, CancellationToken ct)
+    {
+        var member = HttpContext.GetWorldMember();
+        var result = await _excerptService.ReadPagesAsync(worldId, member.Role, documentId, from, to, ct);
+        return result.IsSuccess
+            ? Ok(result.Value!.Select(p => new LibraryPageResponse(p.Page, p.Label, p.Text)).ToList())
             : result.Error!.ToActionResult();
     }
 

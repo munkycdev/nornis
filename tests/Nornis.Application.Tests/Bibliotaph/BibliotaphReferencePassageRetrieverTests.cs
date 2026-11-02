@@ -105,9 +105,23 @@ public class BibliotaphReferencePassageRetrieverTests
         _client.FindPassagesAsync(Creator, WorldId, Arg.Do<BibliotaphPassagesRequest>(r => sent = r), Arg.Any<CancellationToken>())
             .Returns(Pages());
 
-        await _sut.RetrieveForScopesAsync("q", WorldId, [VisibilityScope.PartyVisible], Creator, CancellationToken.None);
+        await _sut.RetrieveForScopesAsync("q", WorldId, [VisibilityScope.PartyVisible], Creator, ReferenceSearchMode.Ask, CancellationToken.None);
 
         Assert.That(sent!.EntryIds, Is.EqualTo(["e-shared"]));
+        Assert.That(sent.Mode, Is.EqualTo(BibliotaphPassageModes.Ask));
+    }
+
+    [Test]
+    public async Task Choosing_excerpts_searches_for_the_closest_pages()
+    {
+        BibliotaphPassagesRequest? sent = null;
+        _client.FindPassagesAsync(Creator, WorldId, Arg.Do<BibliotaphPassagesRequest>(r => sent = r), Arg.Any<CancellationToken>())
+            .Returns(Pages());
+
+        await _sut.RetrieveForScopesAsync("q", WorldId, [VisibilityScope.PartyVisible, VisibilityScope.GMOnly], Creator,
+            ReferenceSearchMode.Search, CancellationToken.None);
+
+        Assert.That(sent!.Mode, Is.EqualTo(BibliotaphPassageModes.Search));
     }
 
     [Test]

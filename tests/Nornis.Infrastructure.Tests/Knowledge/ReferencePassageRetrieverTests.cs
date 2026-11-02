@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
+using Nornis.Application.Knowledge;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -122,7 +123,7 @@ public class ReferencePassageRetrieverTests
     {
         SeedIndexedDocument();
 
-        var passages = (await _sut.RetrieveForScopesAsync("q", WorldId, [], Guid.NewGuid(), CancellationToken.None)).Passages;
+        var passages = (await _sut.RetrieveForScopesAsync("q", WorldId, [], Guid.NewGuid(), ReferenceSearchMode.Ask, CancellationToken.None)).Passages;
 
         Assert.That(passages, Is.Empty);
         Assert.That(_embeddings.Batches, Is.Empty);
@@ -134,7 +135,7 @@ public class ReferencePassageRetrieverTests
         SeedIndexedDocument(); // seeded doc is GMOnly
 
         var passages = (await _sut.RetrieveForScopesAsync(
-            "q", WorldId, [VisibilityScope.PartyVisible], Guid.NewGuid(), CancellationToken.None)).Passages;
+            "q", WorldId, [VisibilityScope.PartyVisible], Guid.NewGuid(), ReferenceSearchMode.Ask, CancellationToken.None)).Passages;
 
         Assert.That(passages, Is.Empty);
         Assert.That(_embeddings.Batches, Is.Empty, "a party-visible caller pays nothing when only GM-only docs exist");
@@ -151,7 +152,7 @@ public class ReferencePassageRetrieverTests
 
         var passages = (await _sut.RetrieveForScopesAsync(
             "ranger", WorldId,
-            [VisibilityScope.PartyVisible, VisibilityScope.GMOnly], Guid.NewGuid(), CancellationToken.None)).Passages;
+            [VisibilityScope.PartyVisible, VisibilityScope.GMOnly], Guid.NewGuid(), ReferenceSearchMode.Ask, CancellationToken.None)).Passages;
 
         Assert.That(passages.Select(p => p.ChunkId), Is.EqualTo([hit.ChunkId]));
     }

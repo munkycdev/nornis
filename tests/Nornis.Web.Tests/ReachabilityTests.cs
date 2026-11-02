@@ -39,6 +39,8 @@ public class ReachabilityTests
         // reader comes back to these as its renew addresses.
         "/library/{Key}/read",
         "/shelf/{Code}/read/{DocumentId:guid}",
+        // Bibliotaph's Send to Nornis (feature 31): only Bibliotaph links here.
+        "/bibliotaph/excerpt",
     };
 
     private static string ComponentsRoot()

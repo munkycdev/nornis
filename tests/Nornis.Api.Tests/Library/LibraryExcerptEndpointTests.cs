@@ -77,6 +77,21 @@ public class LibraryExcerptEndpointTests
     }
 
     [Test]
+    [Category("Authorization")]
+    public async Task BibliotaphPagesAndDocumentLookup_AsPlayer_Return403()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var (document, _) = await SeedIndexedDocumentAsync(scenario.World.Id, scenario.GmUserId);
+
+        var pages = await scenario.PlayerClient.GetAsync(
+            $"/api/worlds/{scenario.World.Id}/library/{document.Id}/pages?from=1&to=2");
+        var lookup = await scenario.PlayerClient.GetAsync(
+            $"/api/worlds/{scenario.World.Id}/library/bibliotaph-document/doc-1");
+
+        Assert.That(new[] { pages.StatusCode, lookup.StatusCode }, Is.All.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
     public async Task Search_AsGm_ReturnsAList()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);

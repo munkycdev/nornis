@@ -109,6 +109,28 @@
 >   `IShelfLinkService.GetDocumentAsync`, which applies the shelf's own visibility check.
 > - "Opened by" lists the last 50 opens, marks shelf-link opens, and is GM only.
 
+> **Amendment (2026-11-02, Phase G):** what building excerpts changed. The text below is left
+> as written.
+>
+> - **The search mode is a parameter of the reference retriever** (`ReferenceSearchMode`, Ask
+>   or Search), not a second Bibliotaph call in the excerpt service, so Enrich from Library
+>   still gets uploads and Bibliotaph pages merged once. Extraction and the Loremaster pass
+>   Ask; the vector retriever ranks the same either way.
+> - **Ticked pages, not only a range.** A Bibliotaph candidate has no chunk id; the dialog
+>   files it by page number (`pages` on the file body, 1-based). Pages that aren't next to
+>   each other are read as separate runs, so ticking pp. 3 and 80 reads two pages. The title
+>   shows the first and last, as a chunk excerpt does.
+> - **A row with a Bibliotaph document id is read from Bibliotaph** for a page range or ticked
+>   pages, whatever its status; only ticked chunk ids take the indexed path. So a catalogued
+>   upload files from Bibliotaph's pages, which is what it will do after the cutover anyway.
+> - **The body limit is checked before the source is made** (`SourceService.MaxBodyChars`),
+>   for chunk excerpts too, as `excerpt_too_large`.
+> - `IBibliotaphExcerptPages` holds the reading and the lookup by document id; the GM check
+>   stays in `LibraryExcerptService`. `kept_from_ai` is a 403 with that code; Bibliotaph's
+>   own reason isn't carried by the client, so the message is Nornis's.
+> - **Send to Nornis** switches to the world Bibliotaph named when it is one of the GM's,
+>   shows the first 12 pages of what was sent (at most 40), and files only the range on screen.
+
 ## Overview
 
 Nornis keeps the Library page, its rows and its GMOnly / PartyVisible chip. What changes is

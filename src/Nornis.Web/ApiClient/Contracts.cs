@@ -994,9 +994,23 @@ public record LibraryDownloadDto(string DownloadUrl, string FileName, string Con
 
 public record SearchLibraryExcerptsRequest(Guid? ArtifactId, string? Query);
 
-public record FileLibraryExcerptRequest(IReadOnlyList<Guid>? ChunkIds, int? PageFrom, int? PageTo, Guid? ArtifactId);
+/// <summary>Pages are 1-based. <paramref name="Pages"/> are ticked pages of a Bibliotaph book.</summary>
+public record FileLibraryExcerptRequest(
+    IReadOnlyList<Guid>? ChunkIds, int? PageFrom, int? PageTo, Guid? ArtifactId, IReadOnlyList<int>? Pages = null);
 
-public record LibraryExcerptCandidateDto(Guid ChunkId, Guid DocumentId, string DocumentTitle, int Page, string Text);
+/// <summary>An indexed chunk (<paramref name="ChunkId"/> set) or a Bibliotaph page, filed by <paramref name="Page"/>.</summary>
+public record LibraryExcerptCandidateDto(
+    Guid? ChunkId, Guid DocumentId, string DocumentTitle, int Page, string Text, string? PageLabel = null)
+{
+    /// <summary>What the dialog ticks: the chunk, or the book's page.</summary>
+    public string Key => ChunkId is { } id ? id.ToString() : $"{DocumentId}:{Page}";
+
+    /// <summary>The page as the book prints it, when Bibliotaph knows.</summary>
+    public string PageShown => string.IsNullOrWhiteSpace(PageLabel) ? Page.ToString(System.Globalization.CultureInfo.InvariantCulture) : PageLabel;
+}
+
+/// <summary>One page of a Bibliotaph book. <paramref name="Page"/> is 1-based.</summary>
+public record LibraryPageDto(int Page, string? Label, string Text);
 
 public record LibraryExcerptFiledDto(Guid SourceId, string Title, string ProcessingStatus, string? Slug = null);
 
