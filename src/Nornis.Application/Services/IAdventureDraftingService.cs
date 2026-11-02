@@ -1,5 +1,6 @@
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
+using Nornis.Domain.Enums;
 
 namespace Nornis.Application.Services;
 
@@ -13,4 +14,7 @@ namespace Nornis.Application.Services;
 public interface IAdventureDraftingService
 {
     Task<AppResult<IAsyncEnumerable<DraftEvent>>> DraftAsync(DraftSectionCommand command, CancellationToken ct);
+
+    /// <summary>The month's Prep spend against its ceiling. GM-only, like the rest of Prep.</summary>
+    Task<AppResult<PrepBudgetStatus>> GetBudgetAsync(Guid worldId, WorldRole role, CancellationToken ct);
 }

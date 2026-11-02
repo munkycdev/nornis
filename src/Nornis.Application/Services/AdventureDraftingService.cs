@@ -63,7 +63,7 @@ public class AdventureDraftingService : IAdventureDraftingService
     {
         if (command.ActingUserRole != WorldRole.GM)
         {
-            return Fail(new AppError(403, "insufficient_role", "Prep is for the world's GM."));
+            return Fail(GmOnly());
         }
 
         var instruction = string.IsNullOrWhiteSpace(command.Instruction) ? null : command.Instruction.Trim();
@@ -141,6 +141,11 @@ public class AdventureDraftingService : IAdventureDraftingService
             return Fail(new AppError(500, "internal_error", "Something went wrong. Please try again."));
         }
     }
+
+    public async Task<AppResult<PrepBudgetStatus>> GetBudgetAsync(Guid worldId, WorldRole role, CancellationToken ct) =>
+        role != WorldRole.GM
+            ? AppResult<PrepBudgetStatus>.Fail(GmOnly())
+            : AppResult<PrepBudgetStatus>.Success(await _budget.GetPrepStatusAsync(worldId, ct));
 
     /// <summary>
     /// What the retriever name-matches against. The pitch, the titles and the instruction, as the
@@ -354,6 +359,8 @@ public class AdventureDraftingService : IAdventureDraftingService
 
     private static readonly AppError Unavailable =
         new(503, "service_unavailable", "Drafting is temporarily unavailable. Nothing was changed. Please try again.");
+
+    private static AppError GmOnly() => new(403, "insufficient_role", "Prep is for the world's GM.");
 
     private static AppError SectionChanged() => new(409, "section_changed",
         "This section changed since you opened it. Reload it to see the latest version.");

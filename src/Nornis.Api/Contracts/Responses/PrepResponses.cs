@@ -45,3 +45,23 @@ public record AdventureResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     IReadOnlyList<AdventureSectionResponse> Sections);
+
+/// <summary>
+/// The draft stream's server-sent event names. Mirrored by <c>DraftStreamEventNames</c> in the
+/// Web, which shares no project with the API.
+/// </summary>
+public static class DraftStreamEventNames
+{
+    /// <summary><see cref="DraftStreamDeltaResponse"/>: the next piece of the draft.</summary>
+    public const string Delta = "delta";
+
+    /// <summary><see cref="AdventureSectionResponse"/>: the section as the draft left it. The stream ends here.</summary>
+    public const string Done = "done";
+
+    /// <summary><see cref="ErrorResponse"/>: nothing was saved. The stream ends here.</summary>
+    public const string Error = "error";
+}
+
+public record DraftStreamDeltaResponse(string Text);
+
+public record PrepBudgetResponse(decimal SpentThisMonthUsd, decimal? MonthlyBudgetUsd, bool IsExceeded);

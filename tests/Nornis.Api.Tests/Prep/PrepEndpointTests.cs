@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.ServerSentEvents;
+using System.Text.Json;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
@@ -50,6 +52,9 @@ public class PrepEndpointTests
         yield return ("delete section", (c, w, a, s) => c.DeleteAsync($"{Base(w)}/{a}/sections/{s}"));
         yield return ("reorder", (c, w, a, s) => c.PutAsJsonAsync($"{Base(w)}/{a}/order", new ReorderAdventureSectionsRequest([s])));
         yield return ("undo", (c, w, a, s) => c.PostAsync($"{Base(w)}/{a}/sections/{s}/undo", null));
+        yield return ("draft", (c, w, a, s) => c.PostAsJsonAsync($"{Base(w)}/{a}/sections/{s}/draft",
+            new DraftAdventureSectionRequest("Write it.", DateTimeOffset.UtcNow)));
+        yield return ("budget", (c, w, _, _) => c.GetAsync($"/api/worlds/{w}/prep-budget"));
     }
 
     [Test]
@@ -229,5 +234,95 @@ public class PrepEndpointTests
             $"{Base(scenario.World.Id)}/{adventure.Id}/sections/{adventure.Sections[0].Id}/undo", null);
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+    }
+
+    // ------------------------------------------------------------------ drafting --
+
+    private static async Task<List<SseItem<string>>> ReadEventsAsync(HttpResponseMessage response)
+    {
+        var items = new List<SseItem<string>>();
+        await foreach (var item in SseParser.Create(await response.Content.ReadAsStreamAsync()).EnumerateAsync())
+        {
+            items.Add(item);
+        }
+
+        return items;
+    }
+
+    [Test]
+    public async Task Draft_StreamsTheText_ThenTheSavedSection_AndUndoHasOneStep()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+        var scene = adventure.Sections.First(s => s.Kind == "Scene");
+        _factory.FakeDrafting.Text = "> Gulls wheel over the docks.";
+
+        var response = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/sections/{scene.Id}/draft",
+            new DraftAdventureSectionRequest("Open on the docks.", scene.UpdatedAt));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("text/event-stream"));
+        var events = await ReadEventsAsync(response);
+        var deltas = events.Where(e => e.EventType == DraftStreamEventNames.Delta)
+            .Select(e => JsonSerializer.Deserialize<DraftStreamDeltaResponse>(e.Data, JsonSerializerOptions.Web)!.Text);
+        var done = JsonSerializer.Deserialize<AdventureSectionResponse>(events[^1].Data, JsonSerializerOptions.Web)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(string.Concat(deltas), Is.EqualTo("> Gulls wheel over the docks."));
+            Assert.That(events[^1].EventType, Is.EqualTo(DraftStreamEventNames.Done));
+            Assert.That(done.BodyMarkdown, Is.EqualTo("> Gulls wheel over the docks."));
+            Assert.That(done.RevisionCount, Is.EqualTo(1));
+            Assert.That(done.IsFilled, Is.True);
+            Assert.That(_factory.FakeDrafting.Requests.Single().UserMessage, Does.Contain("Open on the docks."));
+        });
+
+        var after = await scenario.GmClient.GetFromJsonAsync<AdventureResponse>($"{Base(worldId)}/{adventure.Id}");
+        Assert.That(after!.Sections.Single(s => s.Id == scene.Id).BodyMarkdown, Is.EqualTo("> Gulls wheel over the docks."));
+
+        var undone = await scenario.GmClient.PostAsync($"{Base(worldId)}/{adventure.Id}/sections/{scene.Id}/undo", null);
+        var restored = (await undone.Content.ReadFromJsonAsync<AdventureResponse>())!.Sections.Single(s => s.Id == scene.Id);
+        Assert.That(restored.BodyMarkdown, Is.EqualTo(scene.BodyMarkdown));
+        Assert.That(restored.RevisionCount, Is.Zero);
+    }
+
+    [Test]
+    public async Task Draft_OnAStaleStamp_IsAPlain409_NotAStream()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+        var scene = adventure.Sections.First(s => s.Kind == "Scene");
+
+        var response = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/sections/{scene.Id}/draft",
+            new DraftAdventureSectionRequest(null, scene.UpdatedAt.AddMinutes(-1)));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+        Assert.That((await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Code, Is.EqualTo("section_changed"));
+        Assert.That(_factory.FakeDrafting.Requests, Is.Empty);
+    }
+
+    [Test]
+    public async Task Budget_ReadsThisMonthsPrepSpend_AgainstTheDefaultCeiling()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+
+        var budget = await scenario.GmClient.GetFromJsonAsync<PrepBudgetResponse>($"/api/worlds/{scenario.World.Id}/prep-budget");
+
+        Assert.That(budget!.MonthlyBudgetUsd, Is.EqualTo(10.00m));
+        Assert.That(budget.SpentThisMonthUsd, Is.Zero);
+        Assert.That(budget.IsExceeded, Is.False);
+    }
+
+    [Test]
+    public async Task AnAdventureCalledBudget_IsStillReachableBySlug()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var created = await CreateAsync(scenario.GmClient, scenario.World.Id, "Budget");
+
+        var bySlug = await scenario.GmClient.GetFromJsonAsync<AdventureResponse>($"{Base(scenario.World.Id)}/{created.Slug}");
+
+        Assert.That(created.Slug, Is.EqualTo("budget"));
+        Assert.That(bySlug!.Id, Is.EqualTo(created.Id));
     }
 }
