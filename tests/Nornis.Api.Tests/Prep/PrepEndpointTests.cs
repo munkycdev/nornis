@@ -57,6 +57,12 @@ public class PrepEndpointTests
         yield return ("budget", (c, w, _, _) => c.GetAsync($"/api/worlds/{w}/prep-budget"));
         yield return ("print", (c, w, a, _) => c.GetAsync($"{Base(w)}/{a}/print"));
         yield return ("export", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/export", new ExportAdventureRequest(null)));
+        yield return ("conversation", (c, w, a, _) => c.GetAsync($"{Base(w)}/{a}/conversation"));
+        yield return ("send message", (c, w, a, s) => c.PostAsJsonAsync($"{Base(w)}/{a}/conversation/messages",
+            new SendConversationMessageRequest("Who else could the cult have recruited?", s)));
+        yield return ("clear conversation", (c, w, a, _) => c.DeleteAsync($"{Base(w)}/{a}/conversation"));
+        yield return ("put in section", (c, w, a, s) => c.PostAsJsonAsync($"{Base(w)}/{a}/sections/{s}/put",
+            new PutInSectionRequest(Guid.NewGuid(), "Replace", DateTimeOffset.UtcNow)));
     }
 
     [Test]
@@ -94,6 +100,9 @@ public class PrepEndpointTests
         Assert.That(after.Sections.Select(s => s.Id), Is.EqualTo(adventure.Sections.Select(s => s.Id)));
         var list = await scenario.GmClient.GetFromJsonAsync<List<AdventureSummaryResponse>>(Base(worldId));
         Assert.That(list, Has.Count.EqualTo(1));
+        var conversation = await scenario.GmClient.GetFromJsonAsync<ConversationResponse>($"{Base(worldId)}/{adventure.Id}/conversation");
+        Assert.That(conversation!.Messages, Is.Empty);
+        Assert.That(_factory.FakeDrafting.Requests, Is.Empty);
     }
 
     [Test]
@@ -397,5 +406,114 @@ public class PrepEndpointTests
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
         Assert.That((await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Code, Is.EqualTo("nothing_to_export"));
         Assert.That(_factory.ExtractionQueueClient.SentMessages, Is.Empty);
+    }
+
+    // ------------------------------------------------------- side conversation --
+
+    [Test]
+    public async Task ATurn_StreamsTheAnswer_SavesBoth_AndPutInSectionThenUndoGivesTheTextBack()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+        var scene = adventure.Sections.First(s => s.Kind == "Scene");
+        _factory.FakeDrafting.Text = "> Fog rolls in off the water.";
+
+        var response = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/conversation/messages",
+            new SendConversationMessageRequest("Open the scene for me.", scene.Id));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("text/event-stream"));
+        var events = await ReadEventsAsync(response);
+        var deltas = events.Where(e => e.EventType == DraftStreamEventNames.Delta)
+            .Select(e => JsonSerializer.Deserialize<DraftStreamDeltaResponse>(e.Data, JsonSerializerOptions.Web)!.Text);
+        var answer = JsonSerializer.Deserialize<ConversationMessageResponse>(events[^1].Data, JsonSerializerOptions.Web)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(string.Concat(deltas), Is.EqualTo("> Fog rolls in off the water."));
+            Assert.That(events[^1].EventType, Is.EqualTo(DraftStreamEventNames.Done));
+            Assert.That(answer.Role, Is.EqualTo("Assistant"));
+            Assert.That(answer.Content, Is.EqualTo("> Fog rolls in off the water."));
+            Assert.That(_factory.FakeDrafting.Requests.Single().UserMessage, Does.Contain("Open the scene for me."));
+        });
+
+        var conversation = await scenario.GmClient.GetFromJsonAsync<ConversationResponse>($"{Base(worldId)}/{adventure.Id}/conversation");
+        Assert.That(conversation!.Messages.Select(m => m.Role), Is.EqualTo(["User", "Assistant"]));
+        Assert.That(conversation.IsFull, Is.False);
+
+        var put = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/sections/{scene.Id}/put",
+            new PutInSectionRequest(answer.Id, "Replace", scene.UpdatedAt));
+        Assert.That(put.StatusCode, Is.EqualTo(HttpStatusCode.OK), await put.Content.ReadAsStringAsync());
+        var section = (await put.Content.ReadFromJsonAsync<AdventureSectionResponse>())!;
+        Assert.That(section.BodyMarkdown, Is.EqualTo("> Fog rolls in off the water."));
+        Assert.That(section.RevisionCount, Is.EqualTo(1));
+        Assert.That(_factory.FakeDrafting.Requests, Has.Count.EqualTo(1), "Put in section makes no AI call");
+
+        var undone = await scenario.GmClient.PostAsync($"{Base(worldId)}/{adventure.Id}/sections/{scene.Id}/undo", null);
+        var restored = (await undone.Content.ReadFromJsonAsync<AdventureResponse>())!.Sections.Single(s => s.Id == scene.Id);
+        Assert.That(restored.BodyMarkdown, Is.EqualTo(scene.BodyMarkdown));
+    }
+
+    [Test]
+    public async Task ABlankMessage_IsAPlain400_NotAStream()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var response = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/conversation/messages",
+            new SendConversationMessageRequest("  ", null));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That(_factory.FakeDrafting.Requests, Is.Empty);
+    }
+
+    [Test]
+    public async Task Clear_Is204_AndLeavesTheConversationEmpty()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+        var sent = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/conversation/messages",
+            new SendConversationMessageRequest("Who else?", null));
+        await ReadEventsAsync(sent);
+
+        var cleared = await scenario.GmClient.DeleteAsync($"{Base(worldId)}/{adventure.Id}/conversation");
+        var conversation = await scenario.GmClient.GetFromJsonAsync<ConversationResponse>($"{Base(worldId)}/{adventure.Id}/conversation");
+
+        Assert.That(cleared.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+        Assert.That(conversation!.Messages, Is.Empty);
+    }
+
+    [Test]
+    public async Task PutInSection_WithAnUnknownMode_Is400()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+        var scene = adventure.Sections.First(s => s.Kind == "Scene");
+
+        var response = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/sections/{scene.Id}/put",
+            new PutInSectionRequest(Guid.NewGuid(), "Overwrite", scene.UpdatedAt));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That((await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Code, Is.EqualTo("invalid_mode"));
+    }
+
+    [Test]
+    public async Task DeletingTheAdventure_DeletesItsConversation()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+        var sent = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/conversation/messages",
+            new SendConversationMessageRequest("Who else?", null));
+        await ReadEventsAsync(sent);
+
+        var deleted = await scenario.GmClient.DeleteAsync($"{Base(worldId)}/{adventure.Id}");
+        var conversation = await scenario.GmClient.GetAsync($"{Base(worldId)}/{adventure.Id}/conversation");
+
+        Assert.That(deleted.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+        Assert.That(conversation.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 }

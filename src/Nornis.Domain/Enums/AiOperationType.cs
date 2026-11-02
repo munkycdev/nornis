@@ -30,5 +30,9 @@ public enum AiOperationType
 
     /// <summary>Drafting or revising one Prep section. Metered against the world's monthly
     /// Prep pool, never the daily world budget.</summary>
-    AdventureDrafting
+    AdventureDrafting,
+
+    /// <summary>One turn of an Adventure's side conversation (feature 30). Metered apart from
+    /// drafting so the GM can see what brainstorming costs, against the same monthly Prep pool.</summary>
+    AdventureConversation
 }

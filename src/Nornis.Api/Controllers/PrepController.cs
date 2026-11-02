@@ -28,13 +28,16 @@ public class PrepController : ControllerBase
     private readonly IAdventureService _adventures;
     private readonly IAdventureDraftingService _drafting;
     private readonly IAdventureExportService _export;
+    private readonly IAdventureConversationService _conversation;
 
     public PrepController(
-        IAdventureService adventures, IAdventureDraftingService drafting, IAdventureExportService export)
+        IAdventureService adventures, IAdventureDraftingService drafting, IAdventureExportService export,
+        IAdventureConversationService conversation)
     {
         _adventures = adventures;
         _drafting = drafting;
         _export = export;
+        _conversation = conversation;
     }
 
     /// <summary>
@@ -199,6 +202,78 @@ public class PrepController : ControllerBase
             ? new ServerSentEventsActionResult(ToServerSentEvents(result.Value!))
             : result.Error!.ToActionResult();
     }
+
+    /// <summary>The Adventure's side conversation, oldest first; empty before the first message.</summary>
+    [HttpGet("{adventureId:guid}/conversation")]
+    public async Task<IActionResult> Conversation(Guid worldId, Guid adventureId, CancellationToken ct)
+    {
+        var result = await _conversation.GetAsync(worldId, adventureId, HttpContext.GetWorldMember().Role, ct);
+        return result.IsSuccess
+            ? Ok(new ConversationResponse(result.Value!.Messages.Select(ToMessage).ToList(), result.Value.IsFull))
+            : result.Error!.ToActionResult();
+    }
+
+    /// <summary>
+    /// One turn, as server-sent events under the draft's names: a <c>delta</c> per piece of the
+    /// answer, then <c>done</c> with the saved answer or <c>error</c> when none was saved. The
+    /// GM's message is saved before the model starts. Refusals before the first byte keep their
+    /// status codes, as a draft's do.
+    /// </summary>
+    [HttpPost("{adventureId:guid}/conversation/messages")]
+    public async Task<IActionResult> SendMessage(
+        Guid worldId, Guid adventureId, [FromBody] SendConversationMessageRequest request, CancellationToken ct)
+    {
+        var result = await _conversation.SendAsync(new SendConversationMessageCommand(
+            worldId, adventureId, HttpContext.GetNornisUser().Id, HttpContext.GetWorldMember().Role,
+            request.Text ?? "", request.SectionId), ct);
+        return result.IsSuccess
+            ? new ServerSentEventsActionResult(ToServerSentEvents(result.Value!))
+            : result.Error!.ToActionResult();
+    }
+
+    /// <summary>Clear conversation: every message goes. The Adventure is untouched.</summary>
+    [HttpDelete("{adventureId:guid}/conversation")]
+    public async Task<IActionResult> ClearConversation(Guid worldId, Guid adventureId, CancellationToken ct)
+    {
+        var result = await _conversation.ClearAsync(worldId, adventureId, HttpContext.GetWorldMember().Role, ct);
+        return result.IsSuccess ? NoContent() : result.Error!.ToActionResult();
+    }
+
+    /// <summary>Put one saved answer into a section, as an undoable revision. The answer is the section with its Undo count.</summary>
+    [HttpPost("{adventureId:guid}/sections/{sectionId:guid}/put")]
+    public async Task<IActionResult> PutInSection(
+        Guid worldId, Guid adventureId, Guid sectionId, [FromBody] PutInSectionRequest request, CancellationToken ct)
+    {
+        if (!EnumParsing.TryParseDefined<PutInSectionMode>(request.Mode ?? "", out var mode))
+        {
+            return BadRequest(new ErrorResponse("invalid_mode", $"'{request.Mode}' is not Replace or Append."));
+        }
+
+        var result = await _conversation.PutInSectionAsync(new PutInSectionCommand(
+            worldId, adventureId, sectionId, HttpContext.GetWorldMember().Role,
+            request.MessageId, mode, request.BasedOnUpdatedAt), ct);
+        return result.IsSuccess
+            ? Ok(ToSection(result.Value!.Section, result.Value.RevisionCount))
+            : result.Error!.ToActionResult();
+    }
+
+    private static async IAsyncEnumerable<SseItem<string>> ToServerSentEvents(
+        IAsyncEnumerable<ConversationEvent> events, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        await foreach (var e in events.WithCancellation(ct))
+        {
+            yield return e switch
+            {
+                ConversationEvent.Delta delta => Event(DraftStreamEventNames.Delta, new DraftStreamDeltaResponse(delta.Text)),
+                ConversationEvent.Completed done => Event(DraftStreamEventNames.Done, ToMessage(done.Answer)),
+                ConversationEvent.Failed failed => Event(DraftStreamEventNames.Error, failed.Error.ToErrorResponse()),
+                _ => throw new UnreachableException($"Unhandled conversation event {e.GetType().Name}."),
+            };
+        }
+    }
+
+    private static ConversationMessageResponse ToMessage(ConversationMessage m) =>
+        new(m.Id, m.Role.ToString(), m.Content, m.Model, m.CreatedAt);
 
     private static async IAsyncEnumerable<SseItem<string>> ToServerSentEvents(
         IAsyncEnumerable<DraftEvent> events, [EnumeratorCancellation] CancellationToken ct = default)

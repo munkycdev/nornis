@@ -96,6 +96,11 @@ public class WorldExportReader : IWorldExportReader
                 .Where(r => _context.AdventureSections.Any(s => s.Id == r.SectionId
                     && _context.Adventures.Any(a => a.Id == s.AdventureId && a.WorldId == worldId)))
                 .OrderBy(r => r.SectionId).ThenBy(r => r.CreatedAt)),
+            Conversations = await LoadAsync(WorldExportCategory.Prep, _context.Conversations
+                .Where(c => c.WorldId == worldId).OrderBy(c => c.CreatedAt)),
+            ConversationMessages = await LoadAsync(WorldExportCategory.Prep, _context.ConversationMessages
+                .Where(m => _context.Conversations.Any(c => c.Id == m.ConversationId && c.WorldId == worldId))
+                .OrderBy(m => m.ConversationId).ThenBy(m => m.CreatedAt)),
         };
     }
 }

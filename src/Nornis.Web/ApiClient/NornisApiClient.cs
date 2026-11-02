@@ -609,6 +609,30 @@ public class NornisApiClient
         PostAsync<ExportAdventureRequest, AdventureExportDto>(
             $"/api/worlds/{worldId}/prep/{adventureId}/export", new ExportAdventureRequest(chapterSectionId), ct);
 
+    public Task<ApiResult<ConversationDto>> GetAdventureConversationAsync(
+        Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        GetAsync<ConversationDto>($"/api/worlds/{worldId}/prep/{adventureId}/conversation", ct);
+
+    /// <summary>
+    /// One turn of the side conversation, streamed. The GM's message is saved before the answer
+    /// starts; the answer is saved only if the stream ends in <see cref="ConversationStreamEvent.Done"/>.
+    /// </summary>
+    public IAsyncEnumerable<ConversationStreamEvent> StreamAdventureConversationAsync(
+        Guid worldId, Guid adventureId, SendConversationMessageRequest request, CancellationToken ct = default) =>
+        StreamEventsAsync($"/api/worlds/{worldId}/prep/{adventureId}/conversation/messages", request,
+            ToConversationStreamEvent, error => new ConversationStreamEvent.Failed(error),
+            e => e is ConversationStreamEvent.Done or ConversationStreamEvent.Failed,
+            "The answer was cut off, and it wasn't saved. Please try again.", ct);
+
+    public Task<ApiResult<bool>> ClearAdventureConversationAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/prep/{adventureId}/conversation", ct);
+
+    /// <summary>Puts one saved answer into a section; the section comes back with its new Undo count.</summary>
+    public Task<ApiResult<AdventureSectionDto>> PutAnswerInSectionAsync(
+        Guid worldId, Guid adventureId, Guid sectionId, PutInSectionRequest request, CancellationToken ct = default) =>
+        PostAsync<PutInSectionRequest, AdventureSectionDto>(
+            $"/api/worlds/{worldId}/prep/{adventureId}/sections/{sectionId}/put", request, ct);
+
     // ------------------------------------------------------------------ Library --
 
     public Task<ApiResult<LibraryUploadTicketDto>> RequestLibraryUploadAsync(
@@ -1199,6 +1223,15 @@ public class NornisApiClient
         DraftStreamEventNames.Delta => Deserialize<DraftStreamEvent.Delta>(item.Data),
         DraftStreamEventNames.Done => new DraftStreamEvent.Done(Deserialize<AdventureSectionDto>(item.Data)),
         DraftStreamEventNames.Error => new DraftStreamEvent.Failed(Deserialize<ApiError>(item.Data)),
+        _ => null,
+    };
+
+    /// <summary>Null for an event this client does not know.</summary>
+    private static ConversationStreamEvent? ToConversationStreamEvent(SseItem<string> item) => item.EventType switch
+    {
+        DraftStreamEventNames.Delta => Deserialize<ConversationStreamEvent.Delta>(item.Data),
+        DraftStreamEventNames.Done => new ConversationStreamEvent.Done(Deserialize<ConversationMessageDto>(item.Data)),
+        DraftStreamEventNames.Error => new ConversationStreamEvent.Failed(Deserialize<ApiError>(item.Data)),
         _ => null,
     };
 

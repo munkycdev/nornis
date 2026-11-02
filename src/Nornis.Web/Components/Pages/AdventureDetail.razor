@@ -211,6 +211,12 @@ else if (_adventure is not null)
                 </MudPaper>
             }
         </div>
+
+        <div class="nornis-prep-talk-column">
+            <AdventureConversationPanel WorldId="Worlds.Current.Id" AdventureId="_adventure.Id"
+                                        Sections="_adventure.Sections" SelectedSectionId="_selectedId"
+                                        PutInSection="PutAnswerAsync" />
+        </div>
     </div>
 }
 
@@ -762,6 +768,58 @@ else if (_adventure is not null)
     /// </summary>
     private async Task<bool> SaveBeforeLeavingEditorAsync() =>
         !await IsDirtyAsync() || await SaveCoreAsync(overwrite: false);
+
+    /// <summary>
+    /// Put in section, from the conversation panel. What is typed in the editor is saved first,
+    /// so the answer lands on the GM's text rather than under it, and the write is based on the
+    /// section as it now stands. The section comes back with its Undo count; if it is the one
+    /// open, the editor reloads with the new text.
+    /// </summary>
+    private async Task PutAnswerAsync(ConversationMessageDto message, PutInSectionChoice choice)
+    {
+        if (Worlds.Current is null || _adventure is null || !await SaveBeforeLeavingEditorAsync())
+        {
+            return;
+        }
+
+        if (_adventure.Sections.FirstOrDefault(s => s.Id == choice.SectionId) is not { } target)
+        {
+            return;
+        }
+
+        _busy = true;
+        StateHasChanged();
+        try
+        {
+            var result = await Api.PutAnswerInSectionAsync(Worlds.Current.Id, _adventure.Id, target.Id,
+                new PutInSectionRequest(message.Id, choice.Mode, target.UpdatedAt));
+            if (!result.IsSuccess)
+            {
+                Snackbar.Add(result.Error!.Message, Severity.Error);
+                return;
+            }
+
+            var saved = result.Value!;
+            _adventure = _adventure with
+            {
+                Sections = _adventure.Sections.Select(s => s.Id == saved.Id ? saved : s).ToList(),
+            };
+            if (saved.Id == _selectedId && _editor is not null)
+            {
+                // The kept copy is the text from before; left in place it would come back over this.
+                await _editor.ClearBackupAsync();
+                _restoredAt = null;
+                _editorVersion++;
+            }
+
+            Snackbar.Add($"Put in \"{saved.Title}\". Undo on that section takes it back.", Severity.Success);
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
 
     private async Task PrintAsync()
     {

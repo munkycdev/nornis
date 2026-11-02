@@ -207,7 +207,11 @@ public class WorldRepository : IWorldRepository
         await DeleteAsync(_context.Sources.Where(s => s.WorldId == worldId));
 
         // Prep, after the sources and prints that point at it (both Restrict) and before the
-        // campaigns it points at (Restrict too).
+        // campaigns it points at (Restrict too). Its side conversations first: they point at
+        // their Adventure, Restrict.
+        await DeleteAsync(_context.ConversationMessages
+            .Where(m => _context.Conversations.Any(c => c.Id == m.ConversationId && c.WorldId == worldId)));
+        await DeleteAsync(_context.Conversations.Where(c => c.WorldId == worldId));
         await DeleteAsync(_context.AdventureSectionRevisions
             .Where(r => _context.AdventureSections.Any(s => s.Id == r.SectionId
                 && _context.Adventures.Any(a => a.Id == s.AdventureId && a.WorldId == worldId))));

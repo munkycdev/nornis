@@ -698,6 +698,77 @@ namespace Nornis.Infrastructure.Migrations
                     b.ToTable("ContinuityFindings", (string)null);
                 });
 
+            modelBuilder.Entity("Nornis.Domain.Entities.Conversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AdventureId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorldId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdventureId")
+                        .IsUnique()
+                        .HasFilter("[AdventureId] IS NOT NULL");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("WorldId");
+
+                    b.ToTable("Conversations", (string)null);
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.ConversationMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversationId", "CreatedAt");
+
+                    b.ToTable("ConversationMessages", (string)null);
+                });
+
             modelBuilder.Entity("Nornis.Domain.Entities.ExtractionReplay", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1988,6 +2059,43 @@ namespace Nornis.Infrastructure.Migrations
                     b.Navigation("HealthAssessment");
                 });
 
+            modelBuilder.Entity("Nornis.Domain.Entities.Conversation", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.Adventure", "Adventure")
+                        .WithMany()
+                        .HasForeignKey("AdventureId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Nornis.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Nornis.Domain.Entities.World", "World")
+                        .WithMany()
+                        .HasForeignKey("WorldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Adventure");
+
+                    b.Navigation("User");
+
+                    b.Navigation("World");
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.ConversationMessage", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.Conversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+                });
+
             modelBuilder.Entity("Nornis.Domain.Entities.ExtractionReplay", b =>
                 {
                     b.HasOne("Nornis.Domain.Entities.World", "World")
@@ -2317,6 +2425,11 @@ namespace Nornis.Infrastructure.Migrations
             modelBuilder.Entity("Nornis.Domain.Entities.Character", b =>
                 {
                     b.Navigation("CampaignCharacters");
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.Conversation", b =>
+                {
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.HealthAssessment", b =>

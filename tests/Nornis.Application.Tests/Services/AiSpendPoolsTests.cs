@@ -4,7 +4,7 @@ using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services;
 
-/// <summary>Every AI operation spends from exactly one pool, and only drafting spends from Prep's.</summary>
+/// <summary>Every AI operation spends from exactly one pool, and only Prep's own operations spend from its pool.</summary>
 [TestFixture]
 public class AiSpendPoolsTests
 {
@@ -18,8 +18,9 @@ public class AiSpendPoolsTests
         var daily = AiSpendPools.OperationsIn(AiSpendPool.DailyWorld);
         var prep = AiSpendPools.OperationsIn(AiSpendPool.PrepMonthly);
 
-        Assert.That(prep, Is.EqualTo([AiOperationType.AdventureDrafting]));
+        Assert.That(prep, Is.EqualTo([AiOperationType.AdventureDrafting, AiOperationType.AdventureConversation]));
         Assert.That(daily.Concat(prep), Is.EquivalentTo(Enum.GetValues<AiOperationType>()));
         Assert.That(daily, Does.Not.Contain(AiOperationType.AdventureDrafting));
+        Assert.That(daily, Does.Not.Contain(AiOperationType.AdventureConversation));
     }
 }

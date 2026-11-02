@@ -1144,6 +1144,32 @@ public record ExportAdventureRequest(Guid? ChapterSectionId);
 /// <summary>The source an export filed.</summary>
 public record AdventureExportDto(Guid SourceId, string Title, string? Slug);
 
+/// <summary>One message of an Adventure's side conversation. Mirrors the API's <c>ConversationMessageResponse</c>.</summary>
+public record ConversationMessageDto(Guid Id, string Role, string Content, string? Model, DateTimeOffset CreatedAt)
+{
+    /// <summary>The role names the API sends, the domain's <c>ConversationRole</c>; pinned by a test.</summary>
+    public const string UserRole = "User";
+    public const string AssistantRole = "Assistant";
+
+    public bool IsAnswer => Role == AssistantRole;
+}
+
+/// <summary>The side conversation, oldest first. <see cref="IsFull"/> means it must be cleared first.</summary>
+public record ConversationDto(IReadOnlyList<ConversationMessageDto> Messages, bool IsFull);
+
+public record SendConversationMessageRequest(string Text, Guid? SectionId);
+
+/// <summary>What the Put in section dialog chose: the section, and <see cref="PutInSectionRequest.Replace"/> or <see cref="PutInSectionRequest.Append"/>.</summary>
+public record PutInSectionChoice(Guid SectionId, string Mode);
+
+/// <summary>Put one saved answer into a section. <see cref="Mode"/> is one of the constants below.</summary>
+public record PutInSectionRequest(Guid MessageId, string Mode, DateTimeOffset BasedOnUpdatedAt)
+{
+    /// <summary>The API's <c>PutInSectionMode</c> names; pinned by a test.</summary>
+    public const string Replace = "Replace";
+    public const string Append = "Append";
+}
+
 /// <summary>Problem detail returned by the API on a non-success status.</summary>
 public record ApiError(string Code, string Message);
 

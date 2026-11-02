@@ -1,5 +1,45 @@
 # Design Document
 
+> **Amendment (2026-11-02, Phase B):** what building the side conversation changed. The text
+> below is left as written.
+>
+> - **Put in section lives in `AdventureConversationService`**, not `AdventureService`. It reads
+>   a conversation message, which is that service's repository, and it writes through the same
+>   `IAdventureRepository.TryAcceptDraftAsync` as planned, so the revision, the trim and the
+>   stamp are the draft's code. `AdventureService` gains no dependency.
+> - **The bound test pins a turn's own material, not the whole message.** The world context
+>   alone may be `MaxContextTokens`, so "the whole user message within `MaxContextTokens`"
+>   can't hold. `PrepOptionsTests` pins that the section, the history window and the message
+>   together fit in `MaxContextTokens` × 4 characters, and that one message fits the window.
+> - **Zero is refused at start-up.** `PrepOptions.FirstNonPositiveBound` names the first bound
+>   at zero or below, for every Prep bound, not only the four new ones, and the API's options
+>   registration validates on start.
+> - **"Full" means no room for a turn.** A turn adds two messages, so a conversation is full
+>   when its count plus two would pass `MaxConversationMessages`.
+> - **Clear deletes the conversation row too**, and the next message starts a new one. Clear
+>   is refused with 409 `answer_in_progress` while an answer is being written, through the
+>   same gate a turn holds.
+> - **A turn streams under the draft's event names.** `done` carries a
+>   `ConversationMessageResponse` instead of a section, so there is no second set of names to
+>   mirror. The panel reloads the conversation after every turn rather than patching it
+>   locally, and "No answer was saved" is shown under any question that no answer follows,
+>   so it survives a reload.
+> - **Put in section is a small dialog**: the section (the one open first) and Append (the
+>   default) or Replace. The page, which owns the editor, saves what is typed first and bases
+>   the write on the stamp that save returned.
+> - **The layout is three columns at 1,300px of page and up**, the conversation under the
+>   editor from 900px, and everything stacked below that. There is no tab.
+> - **"Never read by Ask" is pinned by a source scan**, `PrepBoundaryTests`, in place of a
+>   `RetrievalScopeTests` case (no such fixture exists). Only an allow-list of files may name
+>   the conversation's repository or tables; a retriever, extractor or public route that did
+>   would fail it. The same fixture holds Requirement 7's scan: a `LibraryDocument` gets an
+>   `AdventureId` only in `LibraryService.RequestUploadAsync`. `LibraryPrintTests` adds that a
+>   confirmed print keeps its Adventure and stays GM-only.
+> - **The Web's mirrors are pinned** by `ConversationMirrorTests`: the role names, the Put in
+>   section modes, and the 4,000-character message box.
+> - **The demo clone needed no change.** It copies the tables it names, and these aren't among
+>   them.
+
 ## Overview
 
 3.1 adds two tables, one AI operation, one prompt and five routes to Prep, and reuses the rest

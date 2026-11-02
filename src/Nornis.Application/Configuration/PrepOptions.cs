@@ -1,7 +1,8 @@
 namespace Nornis.Application.Configuration;
 
 /// <summary>
-/// Prep's bounds, enforced on every write: create, import, save, and the accept of a draft.
+/// Prep's bounds, enforced on every write: create, import, save, the accept of a draft, and
+/// each turn of the side conversation.
 /// <c>PrepOptionsTests</c> pins the defaults so a whole Adventure always fits in one source.
 /// </summary>
 public class PrepOptions
@@ -26,6 +27,24 @@ public class PrepOptions
     /// <summary>The application timeout on one drafting call, like every other AI path's.</summary>
     public int DraftTimeoutSeconds { get; set; } = 90;
 
+    /// <summary>The longest message a GM can send in an Adventure's side conversation (feature 30).</summary>
+    public int MaxConversationMessageChars { get; set; } = 4_000;
+
+    /// <summary>
+    /// The most messages one side conversation holds, the GM's and the answers together. A turn
+    /// needs room for two, so at one short of this the panel asks the GM to clear it.
+    /// </summary>
+    public int MaxConversationMessages { get; set; } = 400;
+
+    /// <summary>
+    /// The conversation so far that rides with a turn: the newest whole messages, until the next
+    /// would cross this. Never a cut message.
+    /// </summary>
+    public int ConversationHistoryChars { get; set; } = 12_000;
+
+    /// <summary>The section on screen, cut to this when it rides with a turn, as a neighbour is in a draft.</summary>
+    public int ConversationSectionChars { get; set; } = 6_000;
+
     /// <summary>
     /// The deployment drafting runs on. Null runs it on the Loremaster's (<c>Loremaster:AiModel</c>).
     /// The name is also the key the ledger prices the call by, so one set here needs its own
@@ -33,4 +52,23 @@ public class PrepOptions
     /// never fills.
     /// </summary>
     public string? Deployment { get; set; }
+
+    /// <summary>
+    /// The first bound that is zero or less, by name, or null when every bound is positive. No
+    /// bound has an "unbounded" value, so the API refuses to start on one (Program.cs).
+    /// </summary>
+    public string? FirstNonPositiveBound() =>
+        new (string Name, int Value)[]
+        {
+            (nameof(MaxSections), MaxSections),
+            (nameof(MaxSectionChars), MaxSectionChars),
+            (nameof(MaxAdventureChars), MaxAdventureChars),
+            (nameof(MaxInstructionChars), MaxInstructionChars),
+            (nameof(MaxRevisionsPerSection), MaxRevisionsPerSection),
+            (nameof(DraftTimeoutSeconds), DraftTimeoutSeconds),
+            (nameof(MaxConversationMessageChars), MaxConversationMessageChars),
+            (nameof(MaxConversationMessages), MaxConversationMessages),
+            (nameof(ConversationHistoryChars), ConversationHistoryChars),
+            (nameof(ConversationSectionChars), ConversationSectionChars),
+        }.FirstOrDefault(b => b.Value <= 0).Name;
 }

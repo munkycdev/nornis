@@ -24,3 +24,19 @@ internal static class DraftStreamEventNames
     public const string Done = "done";
     public const string Error = "error";
 }
+
+/// <summary>
+/// One step of a side-conversation turn, streamed under the draft's event names. Ends with
+/// exactly one <see cref="Done"/> or <see cref="Failed"/>; only <see cref="Done"/> means the answer
+/// was saved. The GM's message was saved before the stream began, either way.
+/// </summary>
+public abstract record ConversationStreamEvent
+{
+    private ConversationStreamEvent() { }
+
+    public sealed record Delta(string Text) : ConversationStreamEvent;
+
+    public sealed record Done(ConversationMessageDto Answer) : ConversationStreamEvent;
+
+    public sealed record Failed(ApiError Error) : ConversationStreamEvent;
+}

@@ -190,6 +190,111 @@ public class AdventurePageTests : BunitContext
         Assert.That(_handler.LastSaveBody, Does.Contain("The key opens the vault."), "the booklet prints what is on screen");
     }
 
+    // ------------------------------------------------------- Talk it through --
+
+    [Test]
+    public async Task TheGm_SeesTalkItThrough_WithTheSavedConversation()
+    {
+        _handler.ConversationJson = StubHandler.Answered("Who else could the cult have recruited?", "The harbormaster.");
+
+        var cut = await RenderAsync();
+
+        cut.WaitForAssertion(() => Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find(".nornis-prep-talk").TextContent, Does.Contain("Talk it through"));
+            Assert.That(cut.Find(".nornis-prep-talk-question").TextContent, Does.Contain("Who else could the cult have recruited?"));
+            Assert.That(cut.Find(".nornis-prep-talk-answer").TextContent, Does.Contain("The harbormaster."));
+            Assert.That(cut.FindAll(".nornis-prep-talk-put"), Has.Count.EqualTo(1), "only an answer can be put in");
+            Assert.That(cut.FindAll(".nornis-prep-talk-unanswered"), Is.Empty);
+        }));
+    }
+
+    [Test]
+    public async Task Send_StreamsTheAnswer_WithTheOpenSection_ThenShowsTheSavedConversation()
+    {
+        _handler.ConversationAfterSendJson = StubHandler.Answered("Who else?", "Three cultists.");
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Talk it through")));
+
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-talk-input textarea").Input("Who else?"));
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-talk-send").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-talk-put"), Has.Count.EqualTo(1)));
+        var sent = JsonDocument.Parse(_handler.LastSendBody!).RootElement;
+        Assert.Multiple(() =>
+        {
+            Assert.That(sent.GetProperty("text").GetString(), Is.EqualTo("Who else?"));
+            Assert.That(sent.GetProperty("sectionId").GetGuid(), Is.EqualTo(StubHandler.OverviewId), "the section on screen rides along");
+            Assert.That(cut.Find(".nornis-prep-talk-answer").TextContent, Does.Contain("Three cultists."));
+            Assert.That(cut.FindAll(".nornis-prep-talk-error"), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task AFailedAnswer_SaysItWasNotSaved_UnderTheQuestion()
+    {
+        _handler.SendFails = true;
+        _handler.ConversationAfterSendJson = """
+            {"messages":[{"id":"7b0f1c3e-1111-4c4c-9c9c-000000000001","role":"User","content":"Who else?","model":null,"createdAt":"2026-11-02T10:30:00+00:00"}],"isFull":false}
+            """;
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Talk it through")));
+
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-talk-input textarea").Input("Who else?"));
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-talk-send").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-talk-unanswered"), Has.Count.EqualTo(1)));
+        Assert.That(cut.Find(".nornis-prep-talk-error").TextContent, Does.Contain("wasn't saved"));
+        Assert.That(cut.FindAll(".nornis-prep-talk-put"), Is.Empty);
+    }
+
+    [Test]
+    public async Task PutInSection_SavesTheEditorFirst_ThenSendsTheNewStampAndTheMode()
+    {
+        _handler.ConversationJson = StubHandler.Answered("Who else?", "Three cultists.");
+        var cut = await RenderAsync();
+        var dialogs = Render<MudDialogProvider>();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-talk-put"), Has.Count.EqualTo(1)));
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-talk-put").Click());
+        dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup, Does.Contain("Add it after what's there")));
+        await dialogs.InvokeAsync(() => dialogs.Find("button.nornis-prep-put-submit").Click());
+
+        cut.WaitForAssertion(() => Assert.That(_handler.LastPutBody, Is.Not.Null));
+        var put = JsonDocument.Parse(_handler.LastPutBody!).RootElement;
+        Assert.Multiple(() =>
+        {
+            Assert.That(_handler.LastPutPath, Does.EndWith($"/sections/{StubHandler.OverviewId}/put"), "the open section is offered first");
+            Assert.That(put.GetProperty("messageId").GetGuid(), Is.EqualTo(StubHandler.AnswerId));
+            Assert.That(put.GetProperty("mode").GetString(), Is.EqualTo(PutInSectionRequest.Append));
+            Assert.That(put.GetProperty("basedOnUpdatedAt").GetDateTimeOffset(), Is.EqualTo(StubHandler.SavedStamp),
+                "based on the version the editor's save just wrote, so the GM's typing isn't put under");
+            Assert.That(_handler.LastSaveBody, Does.Contain("The key opens the vault."));
+        });
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Undo (1)")));
+    }
+
+    [Test]
+    public async Task Clear_AsksFirst_AndKeepsTheConversationIfTheGmSaysNo()
+    {
+        _handler.ConversationJson = StubHandler.Answered("Who else?", "Three cultists.");
+        var cut = await RenderAsync();
+        var dialogs = Render<MudDialogProvider>();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll("button.nornis-prep-talk-clear"), Has.Count.EqualTo(1)));
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-talk-clear").Click());
+        dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup, Does.Contain("Clear the conversation?")));
+        await dialogs.InvokeAsync(() => dialogs.FindAll("button").First(b => b.TextContent.Trim() == "Keep it").Click());
+        Assert.That(_handler.Cleared, Is.False);
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-talk-clear").Click());
+        dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup, Does.Contain("Clear the conversation?")));
+        await dialogs.InvokeAsync(() => dialogs.FindAll("button").First(b => b.TextContent.Trim() == "Clear").Click());
+
+        cut.WaitForAssertion(() => Assert.That(_handler.Cleared, Is.True));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-talk-message"), Is.Empty));
+    }
+
     private sealed class StubHandler : HttpMessageHandler
     {
         public static readonly Guid OverviewId = Guid.NewGuid();
@@ -213,6 +318,27 @@ public class AdventurePageTests : BunitContext
 
         /// <summary>Adds a Chapter after the two sections, for the export's choice.</summary>
         public bool WithChapter { get; set; }
+
+        public static readonly Guid AnswerId = Guid.NewGuid();
+
+        /// <summary>What GET conversation answers; the empty conversation until a test says otherwise.</summary>
+        public string ConversationJson { get; set; } = """{"messages":[],"isFull":false}""";
+
+        /// <summary>What GET conversation answers once a message has been sent.</summary>
+        public string? ConversationAfterSendJson { get; set; }
+
+        public bool SendFails { get; set; }
+        public string? LastSendBody { get; private set; }
+        public string? LastPutBody { get; private set; }
+        public string? LastPutPath { get; private set; }
+        public bool Cleared { get; private set; }
+
+        public static string Answered(string question, string answer) => $$"""
+            {"messages":[
+              {"id":"{{Guid.NewGuid()}}","role":"User","content":"{{question}}","model":null,"createdAt":"2026-11-02T10:30:00+00:00"},
+              {"id":"{{AnswerId}}","role":"Assistant","content":"{{answer}}","model":"nornis-ask","createdAt":"2026-11-02T10:30:05+00:00"}],
+             "isFull":false}
+            """;
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
@@ -256,6 +382,41 @@ public class AdventurePageTests : BunitContext
                 var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(stream, Encoding.UTF8) };
                 response.Content.Headers.ContentType = new("text/event-stream");
                 return response;
+            }
+
+            if (path.EndsWith("/conversation", StringComparison.Ordinal))
+            {
+                if (request.Method == HttpMethod.Delete)
+                {
+                    Cleared = true;
+                    ConversationJson = """{"messages":[],"isFull":false}""";
+                    return new HttpResponseMessage(HttpStatusCode.NoContent);
+                }
+
+                return Json(ConversationJson);
+            }
+
+            if (request.Method == HttpMethod.Post && path.EndsWith("/conversation/messages", StringComparison.Ordinal))
+            {
+                LastSendBody = await request.Content!.ReadAsStringAsync(ct);
+                ConversationJson = ConversationAfterSendJson ?? ConversationJson;
+                var end = SendFails
+                    ? "event: error\ndata: {\"code\":\"answer_cut_off\",\"message\":\"The answer ran past the length one answer can be and was cut off, so it wasn't saved.\"}\n\n"
+                    : $"event: done\ndata: {{\"id\":\"{AnswerId}\",\"role\":\"Assistant\",\"content\":\"Three cultists.\",\"model\":\"nornis-ask\",\"createdAt\":\"2026-11-02T10:30:05+00:00\"}}\n\n";
+                var stream = "event: delta\ndata: {\"text\":\"Three \"}\n\n" + end;
+                var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(stream, Encoding.UTF8) };
+                response.Content.Headers.ContentType = new("text/event-stream");
+                return response;
+            }
+
+            if (request.Method == HttpMethod.Post && path.EndsWith("/put", StringComparison.Ordinal))
+            {
+                LastPutBody = await request.Content!.ReadAsStringAsync(ct);
+                LastPutPath = path;
+                return Json($$"""
+                    {"id":"{{OverviewId}}","kind":"Overview","title":"Overview","bodyMarkdown":"The key opens the vault.\n\nThree cultists.",
+                     "sortOrder":1,"updatedAt":"2026-11-02T11:10:00+00:00","revisionCount":1,"isFilled":true}
+                    """);
             }
 
             if (request.Method == HttpMethod.Post && path.EndsWith("/export", StringComparison.Ordinal))

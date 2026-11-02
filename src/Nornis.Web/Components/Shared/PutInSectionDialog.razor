@@ -1,0 +1,46 @@
+@* Put in section: which section a saved answer goes into, and whether it replaces the section's
+   text or goes after it. The page does the write, so what is being typed in the editor is saved
+   first; this dialog only asks. Undo on the section steps back either way. *@
+
+<MudDialog>
+    <DialogContent>
+        <MudSelect T="Guid" @bind-Value="_sectionId" Label="Section" Variant="Variant.Outlined" Class="nornis-prep-put-section mb-3">
+            @foreach (var row in Sections)
+            {
+                <MudSelectItem T="Guid" Value="@row.Id">@row.Title</MudSelectItem>
+            }
+        </MudSelect>
+        <MudRadioGroup T="string" @bind-Value="_mode" Class="nornis-prep-put-mode">
+            <MudRadio T="string" Value="@PutInSectionRequest.Append">Add it after what's there</MudRadio>
+            <MudRadio T="string" Value="@PutInSectionRequest.Replace">Replace what's there</MudRadio>
+        </MudRadioGroup>
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 d-block">
+            An unwritten section is filled either way. Undo on the section takes it back.
+        </MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="Submit" Class="nornis-prep-put-submit">
+            Put it in
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public IReadOnlyList<AdventureSectionDto> Sections { get; set; } = [];
+
+    /// <summary>The section to offer first: the one open in the editor.</summary>
+    [Parameter] public Guid? DefaultSectionId { get; set; }
+
+    private Guid _sectionId;
+    private string _mode = PutInSectionRequest.Append;
+
+    protected override void OnInitialized() =>
+        _sectionId = DefaultSectionId is { } id && Sections.Any(s => s.Id == id) ? id : Sections.FirstOrDefault()?.Id ?? Guid.Empty;
+
+    private void Submit() => MudDialog.Close(DialogResult.Ok(new PutInSectionChoice(_sectionId, _mode)));
+
+    private void Cancel() => MudDialog.Cancel();
+}

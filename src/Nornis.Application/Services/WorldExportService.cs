@@ -482,6 +482,24 @@ public class WorldExportService : IWorldExportService
                     r.Model,
                     r.CreatedAt,
                 }),
+                Conversations = data.Conversations.Select(c => new
+                {
+                    c.Id,
+                    c.AdventureId,
+                    c.UserId,
+                    c.Title,
+                    c.CreatedAt,
+                    c.UpdatedAt,
+                }),
+                ConversationMessages = data.ConversationMessages.Select(m => new
+                {
+                    m.Id,
+                    m.ConversationId,
+                    m.Role,
+                    m.Content,
+                    m.Model,
+                    m.CreatedAt,
+                }),
             }, ct);
         }
 

@@ -24,7 +24,8 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
         Guid BatchId, Guid ProposalId, Guid UsageId, Guid AssessmentId, Guid FindingId,
         Guid DismissalId, Guid DocumentId, Guid ChunkId, Guid ReplayId,
         Guid ShelfLinkId, Guid SnapshotId, Guid DigestId, Guid ImportSessionId, Guid ImportItemId,
-        Guid TutorialProgressId, Guid AdventureId, Guid AdventureSectionId, Guid AdventureRevisionId);
+        Guid TutorialProgressId, Guid AdventureId, Guid AdventureSectionId, Guid AdventureRevisionId,
+        Guid ConversationId, Guid ConversationMessageId);
 
     /// <summary>
     /// Seeds a world exercising every table and every awkward FK: a character linked to an
@@ -402,8 +403,28 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
             CreatedAt = now,
         };
 
+        // The Adventure's side conversation: Restrict to its Adventure, so it must go first.
+        var conversation = new Conversation
+        {
+            Id = Guid.NewGuid(),
+            WorldId = world.Id,
+            UserId = user.Id,
+            AdventureId = adventure.Id,
+            Title = adventure.Title,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+        var conversationMessage = new ConversationMessage
+        {
+            Id = Guid.NewGuid(),
+            ConversationId = conversation.Id,
+            Role = ConversationRole.User,
+            Content = "Who else could the cult have recruited?",
+            CreatedAt = now,
+        };
+
         Context.AddRange(
-            adventure, adventureSection, adventureRevision,
+            adventure, adventureSection, adventureRevision, conversation, conversationMessage,
             user, world, member, player, invite, campaign, artifact, storyline, character,
             campaignCharacter, campaignRecap, fact, relationship, source, extraction,
             reference, attachment, placemark, batch, proposal, usage, assessment, finding,
@@ -431,7 +452,8 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
             source.Id, extraction.Id, reference.Id, attachment.Id, placemark.Id, batch.Id,
             proposal.Id, usage.Id, assessment.Id, finding.Id, dismissal.Id, document.Id,
             chunk.Id, replay.Id, shelfLink.Id, snapshot.Id, digest.Id, importSession.Id,
-            importItem.Id, tutorialProgress.Id, adventure.Id, adventureSection.Id, adventureRevision.Id);
+            importItem.Id, tutorialProgress.Id, adventure.Id, adventureSection.Id, adventureRevision.Id,
+            conversation.Id, conversationMessage.Id);
     }
 
     /// <summary>Counts how many of the graph's seeded rows still exist, table by table.</summary>
@@ -471,11 +493,13 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
         remaining += await Context.Adventures.CountAsync(x => x.Id == g.AdventureId);
         remaining += await Context.AdventureSections.CountAsync(x => x.Id == g.AdventureSectionId);
         remaining += await Context.AdventureSectionRevisions.CountAsync(x => x.Id == g.AdventureRevisionId);
+        remaining += await Context.Conversations.CountAsync(x => x.Id == g.ConversationId);
+        remaining += await Context.ConversationMessages.CountAsync(x => x.Id == g.ConversationMessageId);
         return remaining;
     }
 
     /// <summary>The number of rows one seeded graph contributes (2 artifacts, 1 of everything else).</summary>
-    private const int SeededRowCount = 34;
+    private const int SeededRowCount = 36;
 
     [Test]
     public async Task DeleteAsync_RemovesEveryRowOfTheWorld_AndNothingElse()

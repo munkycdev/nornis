@@ -221,6 +221,7 @@ builder.Services.AddScoped<IWorldInviteRepository, WorldInviteRepository>();
 builder.Services.AddScoped<ICampaignRepository, CampaignRepository>();
 builder.Services.AddScoped<ICampaignRecapRepository, CampaignRecapRepository>();
 builder.Services.AddScoped<IAdventureRepository, AdventureRepository>();
+builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
 builder.Services.AddScoped<ICharacterRepository, CharacterRepository>();
 builder.Services.AddScoped<IPlayerRepository, PlayerRepository>();
 builder.Services.AddScoped<IShelfLinkRepository, ShelfLinkRepository>();
@@ -276,10 +277,14 @@ builder.Services.AddScoped<IWorldMemberService, WorldMemberService>();
 builder.Services.AddScoped<IWorldInviteService, WorldInviteService>();
 builder.Services.AddSingleton<IInviteCodeGenerator, InviteCodeGenerator>();
 builder.Services.AddScoped<ICampaignService, CampaignService>();
-builder.Services.Configure<PrepOptions>(builder.Configuration.GetSection(PrepOptions.SectionName));
+builder.Services.AddOptions<PrepOptions>()
+    .Bind(builder.Configuration.GetSection(PrepOptions.SectionName))
+    .Validate(o => o.FirstNonPositiveBound() is null, "Every Prep bound must be greater than zero; none means unbounded.")
+    .ValidateOnStart();
 builder.Services.AddScoped<IAdventureService, AdventureService>();
 builder.Services.AddScoped<IAdventureDraftingService, AdventureDraftingService>();
 builder.Services.AddScoped<IAdventureExportService, AdventureExportService>();
+builder.Services.AddScoped<IAdventureConversationService, AdventureConversationService>();
 // One draft per section across requests, so a singleton. A lease outlives the longest draft
 // (the AI timeout plus retrieval and the write) and then lapses, so an abandoned one can't hold
 // a section until restart.
