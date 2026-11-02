@@ -747,6 +747,17 @@ public class NornisApiClient
             $"/api/worlds/{worldId}/library/excerpts/search", request, ct);
 
     /// <summary>GM-only: files chosen passages of a document as an excerpt source, queued for extraction.</summary>
+    /// <summary>GM-only: the world's row for a Bibliotaph document id (Send to Nornis).</summary>
+    public Task<ApiResult<LibraryDocumentDto>> GetBibliotaphLibraryDocumentAsync(
+        Guid worldId, string bibliotaphDocumentId, CancellationToken ct = default) =>
+        GetAsync<LibraryDocumentDto>(
+            $"/api/worlds/{worldId}/library/bibliotaph-document/{Uri.EscapeDataString(bibliotaphDocumentId)}", ct);
+
+    /// <summary>GM-only: a Bibliotaph book's page text, 1-based and inclusive.</summary>
+    public Task<ApiResult<IReadOnlyList<LibraryPageDto>>> GetLibraryPagesAsync(
+        Guid worldId, Guid documentId, int from, int to, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<LibraryPageDto>>($"/api/worlds/{worldId}/library/{documentId}/pages?from={from}&to={to}", ct);
+
     public Task<ApiResult<LibraryExcerptFiledDto>> FileLibraryExcerptAsync(
         Guid worldId, Guid documentId, FileLibraryExcerptRequest request, CancellationToken ct = default) =>
         PostAsync<FileLibraryExcerptRequest, LibraryExcerptFiledDto>(

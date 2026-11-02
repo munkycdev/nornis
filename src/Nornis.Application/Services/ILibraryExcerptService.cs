@@ -15,4 +15,12 @@ public interface ILibraryExcerptService
 
     /// <summary>Creates the excerpt source and queues it for extraction; the returned source is Queued.</summary>
     Task<AppResult<Source>> FileAsync(FileLibraryExcerptCommand command, CancellationToken ct);
+
+    /// <summary>GM only: the world's row for a Bibliotaph document id, for Bibliotaph's Send to Nornis (feature 31).</summary>
+    Task<AppResult<LibraryDocument>> FindBibliotaphDocumentAsync(
+        Guid worldId, Domain.Enums.WorldRole role, string bibliotaphDocumentId, CancellationToken ct);
+
+    /// <summary>GM only: a Bibliotaph book's page text, 1-based and inclusive, at most the excerpt limit.</summary>
+    Task<AppResult<IReadOnlyList<LibraryPage>>> ReadPagesAsync(
+        Guid worldId, Domain.Enums.WorldRole role, Guid documentId, int pageFrom, int pageTo, CancellationToken ct);
 }

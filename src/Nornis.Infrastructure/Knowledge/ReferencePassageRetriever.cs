@@ -54,6 +54,7 @@ public class ReferencePassageRetriever : IReferencePassageRetriever
         Guid worldId,
         IReadOnlyList<VisibilityScope> allowedScopes,
         Guid? attributedUserId,
+        ReferenceSearchMode mode,
         CancellationToken ct)
         => WrapAsync(RetrieveCoreAsync(query, worldId, allowedScopes, attributedUserId, ct));
 

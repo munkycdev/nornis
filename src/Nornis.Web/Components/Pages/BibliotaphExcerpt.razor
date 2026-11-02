@@ -1,0 +1,282 @@
+@page "/bibliotaph/excerpt"
+@* Bibliotaph's Send to Nornis (feature 31, Requirement 7). Bibliotaph sends the GM here with
+   the world, its own document id and a 0-based page range of up to 40 pages. Nornis finds the
+   book's Library row, shows the pages' text, lets the GM trim the range to 12 and name a codex
+   entry, then files it as a Library excerpt like the document page does. GM only, and the
+   server says so too. *@
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>Send to Nornis — Nornis</PageTitle>
+
+<div class="nornis-page">
+    <MudText Typo="Typo.h4" Class="mb-1">Send to Nornis</MudText>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-3">@_error</MudAlert>
+        <MudButton Variant="Variant.Outlined" Href="/library">Go to the Library</MudButton>
+    }
+    else if (_document is null)
+    {
+        <LoadingRows Rows="3" />
+    }
+    else if (_filed is not null)
+    {
+        <MudAlert Severity="Severity.Success" Class="mb-3">
+            Filed “@_filed.Title”. Extraction is queued, and what it finds arrives in Review.
+        </MudAlert>
+        <div class="d-flex gap-2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@Links.Source(_filed.Slug, _filed.SourceId)">Open the source</MudButton>
+            <MudButton Variant="Variant.Outlined" Href="@Links.LibraryDocument(_document.Slug, _document.Id)">Back to the book</MudButton>
+        </div>
+    }
+    else
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Pages of <strong>@_document.Title</strong> from your Bibliotaph. File them as a source and they go
+            through extraction like a session note; what they say arrives in Review as proposals,
+            for the entry you name here if you name one. An excerpt holds up to @MaxPages pages.
+        </MudText>
+
+        @if (_trimmed)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                Bibliotaph sent pp. @_first–@_last. Choose up to @MaxPages of them; file the rest as another excerpt.
+            </MudAlert>
+        }
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4">
+            <div class="d-flex gap-3 align-center flex-wrap">
+                <MudNumericField T="int" @bind-Value="_from" Label="From page" Min="@_first" Max="@_last"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 9rem;" />
+                <MudNumericField T="int" @bind-Value="_to" Label="To page" Min="@_first" Max="@_last"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 9rem;" />
+                <MudButton Variant="Variant.Outlined" OnClick="LoadPagesAsync" Disabled="@(_loading || !RangeOk)">Show pages</MudButton>
+                <MudAutocomplete T="ArtifactListItem" @bind-Value="_artifact"
+                                 SearchFunc="SearchArtifactsAsync"
+                                 ToStringFunc="@(a => a?.Name)"
+                                 Label="For codex entry (optional)" Variant="Variant.Outlined" Dense="true"
+                                 Class="flex-grow-1" Clearable="true" />
+            </div>
+            @if (!RangeOk)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Warning" Class="mt-2 d-block">
+                    Choose between 1 and @MaxPages pages, from p. @_first to p. @_last.
+                </MudText>
+            }
+        </MudPaper>
+
+        @if (_loading)
+        {
+            <LoadingRows Rows="4" />
+        }
+        else if (_pagesError is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_pagesError</MudAlert>
+        }
+        else
+        {
+            @foreach (var shown in _pages)
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-2">
+                    <div class="nornis-list-sub">p. @(string.IsNullOrWhiteSpace(shown.Label) ? shown.Page : shown.Label)</div>
+                    <MudText Typo="Typo.body2" Class="nornis-reading" Style="white-space: pre-wrap;">@shown.Text</MudText>
+                </MudPaper>
+            }
+        }
+
+        @if (_fileError is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_fileError</MudAlert>
+        }
+
+        <div class="d-flex gap-2 mt-3">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.PostAdd"
+                       OnClick="FileAsync" Disabled="@(_filing || _loading || !RangeOk || _shownFrom != _from || _shownTo != _to)">
+                File pp. @_from–@_to as a source
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Href="@Links.LibraryDocument(_document.Slug, _document.Id)">Cancel</MudButton>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>The excerpt bound; the server enforces it (BibliotaphOptions.MaxExcerptPages).</summary>
+    private const int MaxPages = 12;
+
+    /// <summary>The widest range Bibliotaph may send (BibliotaphExcerptPages.MaxSentPages).</summary>
+    private const int MaxSent = 40;
+
+    [SupplyParameterFromQuery(Name = "world")] public Guid? World { get; set; }
+    [SupplyParameterFromQuery(Name = "document")] public string? Document { get; set; }
+
+    /// <summary>0-based, as Bibliotaph counts.</summary>
+    [SupplyParameterFromQuery(Name = "from")] public int? From { get; set; }
+
+    /// <summary>0-based and inclusive, as Bibliotaph counts.</summary>
+    [SupplyParameterFromQuery(Name = "to")] public int? To { get; set; }
+
+    private LibraryDocumentDto? _document;
+    private string? _error;
+    private bool _attempted;
+
+    // The pages Bibliotaph sent, 1-based; the GM's choice within them; and what is on screen.
+    private int _first;
+    private int _last;
+    private bool _trimmed;
+    private int _from;
+    private int _to;
+    private int? _shownFrom;
+    private int? _shownTo;
+
+    private IReadOnlyList<LibraryPageDto> _pages = [];
+    private bool _loading;
+    private string? _pagesError;
+    private ArtifactListItem? _artifact;
+    private bool _filing;
+    private string? _fileError;
+    private LibraryExcerptFiledDto? _filed;
+
+    private bool RangeOk => _from >= _first && _to <= _last && _to >= _from && _to - _from + 1 <= MaxPages;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
+        await TryStartAsync();
+    }
+
+    private void OnWorldChanged() => InvokeAsync(TryStartAsync);
+
+    /// <summary>Once, after the saved world is restored, so the world switch below is the last word.</summary>
+    private async Task TryStartAsync()
+    {
+        if (_attempted || !Worlds.Ready)
+        {
+            return;
+        }
+
+        _attempted = true;
+        if (World is not { } worldId || string.IsNullOrWhiteSpace(Document) || From is not { } from || To is not { } to || from < 0 || to < from)
+        {
+            Fail("Bibliotaph's link is missing the world, the book or the pages. Send the pages again from Bibliotaph.");
+            return;
+        }
+
+        if (Worlds.Current?.Id != worldId)
+        {
+            if (Worlds.Worlds.All(w => w.Id != worldId))
+            {
+                Fail("That world isn't one of yours in Nornis.");
+                return;
+            }
+
+            await Worlds.SelectAsync(worldId);
+        }
+
+        if (!Worlds.IsGm)
+        {
+            Fail("Only the world's GM can file pages as a source.");
+            return;
+        }
+
+        var found = await Api.GetBibliotaphLibraryDocumentAsync(worldId, Document);
+        if (!found.IsSuccess)
+        {
+            Fail(found.Error!.Message);
+            return;
+        }
+
+        _document = found.Value!;
+        _first = from + 1;
+        _last = Math.Min(to, from + MaxSent - 1) + 1;
+        _trimmed = _last - _first + 1 > MaxPages;
+        _from = _first;
+        _to = Math.Min(_last, _first + MaxPages - 1);
+        StateHasChanged();
+        await LoadPagesAsync();
+    }
+
+    private void Fail(string message)
+    {
+        _error = message;
+        StateHasChanged();
+    }
+
+    private async Task LoadPagesAsync()
+    {
+        if (_document is null || Worlds.Current is null || !RangeOk)
+        {
+            return;
+        }
+
+        _loading = true;
+        _pagesError = null;
+        _fileError = null;
+        StateHasChanged();
+
+        var result = await Api.GetLibraryPagesAsync(Worlds.Current.Id, _document.Id, _from, _to);
+        _loading = false;
+        if (result.IsSuccess)
+        {
+            _pages = result.Value!;
+            _shownFrom = _from;
+            _shownTo = _to;
+        }
+        else
+        {
+            _pages = [];
+            _shownFrom = _shownTo = null;
+            _pagesError = result.Error!.Message;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task<IEnumerable<ArtifactListItem>> SearchArtifactsAsync(string value, CancellationToken ct)
+    {
+        if (Worlds.Current is null)
+        {
+            return [];
+        }
+
+        var result = await Api.GetArtifactsAsync(Worlds.Current.Id, ct: ct);
+        if (!result.IsSuccess)
+        {
+            return [];
+        }
+
+        return result.Value!
+            .Where(a => string.IsNullOrWhiteSpace(value) || a.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(a => a.Name)
+            .Take(15);
+    }
+
+    private async Task FileAsync()
+    {
+        if (_document is null || Worlds.Current is null || !RangeOk)
+        {
+            return;
+        }
+
+        _filing = true;
+        _fileError = null;
+        var result = await Api.FileLibraryExcerptAsync(Worlds.Current.Id, _document.Id,
+            new FileLibraryExcerptRequest(null, _from, _to, _artifact?.Id));
+        _filing = false;
+
+        if (result.IsSuccess)
+        {
+            _filed = result.Value!;
+        }
+        else
+        {
+            _fileError = result.Error!.Message;
+        }
+    }
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}

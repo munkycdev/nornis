@@ -1,4 +1,5 @@
 using System.Text;
+using Nornis.Application.Models;
 using Nornis.Domain.Models;
 
 namespace Nornis.Application.Services;
@@ -63,6 +64,27 @@ public static class LibraryExcerptComposer
 
             sb.Append("\n\n").Append(text.Trim());
             previous = chunk.Text;
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// The filing line, then each page of a Bibliotaph book (feature 31). Pages are whole, so
+    /// there is no overlap to strip.
+    /// </summary>
+    public static string BuildBody(
+        string? artifactName,
+        string documentTitle,
+        int pageFrom,
+        int pageTo,
+        IReadOnlyList<LibraryPage> pagesInOrder)
+    {
+        var sb = new StringBuilder();
+        sb.Append(BuildFilingLine(artifactName, documentTitle, pageFrom, pageTo));
+        foreach (var page in pagesInOrder.Where(p => !string.IsNullOrWhiteSpace(p.Text)))
+        {
+            sb.Append("\n\n").Append(page.Text.Trim());
         }
 
         return sb.ToString();

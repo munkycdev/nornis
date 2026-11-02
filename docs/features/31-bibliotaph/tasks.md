@@ -5,7 +5,7 @@ prod stays as it is until Dave sets the secrets. Phases C to G need Bibliotaph's
 step to test end to end; until then they are tested against the stand-in. Phase H waits for
 Bibliotaph's half to be live.
 
-**Status: specified 2026-11-02; Phases A to F done 2026-11-02.** Ships as Nornis v3.2.
+**Status: specified 2026-11-02; Phases A to G done 2026-11-02.** Ships as Nornis v3.2.
 
 Dave's part, outside the repo: the Auth0 setup in the Bibliotaph spec plus the Nornis →
 Bibliotaph application (design.md, decision 3), the Container Apps settings (design.md,
@@ -69,11 +69,11 @@ Bibliotaph application (design.md, decision 3), the Container Apps settings (des
 
 ## Phase G — Excerpts
 
-- [ ] G1. `LibraryExcerptService` over Bibliotaph pages; composer overload; the 12-page bound.
-- [ ] G2. Enrich from Library in search mode.
-- [ ] G3. `/bibliotaph/excerpt`, the Send to Nornis page.
-- [ ] G4. v3.2: version bump, Features page, changelog, README, the user guide's Library
-      chapter.
+- [x] G1. `LibraryExcerptService` over Bibliotaph pages; composer overload; the 12-page bound.
+- [x] G2. Enrich from Library in search mode.
+- [x] G3. `/bibliotaph/excerpt`, the Send to Nornis page.
+- [x] G4. v3.2: version bump, Features page, changelog, README. The repo has no user guide,
+      so there was no Library chapter to change; the Features page and README carry it.
 
 ## Phase H — Cutover (after Bibliotaph's half is live)
 

@@ -17,6 +17,8 @@ public class FakeReferencePassageRetriever : IReferencePassageRetriever
 
     public Guid? LastAttributedUserId { get; private set; }
 
+    public ReferenceSearchMode? LastMode { get; private set; }
+
     public Task<ReferencePassages> RetrieveAsync(
         string question, Guid worldId, Guid userId, WorldRole role, CancellationToken ct)
     {
@@ -25,11 +27,12 @@ public class FakeReferencePassageRetriever : IReferencePassageRetriever
     }
 
     public Task<ReferencePassages> RetrieveForScopesAsync(
-        string query, Guid worldId, IReadOnlyList<VisibilityScope> allowedScopes, Guid? attributedUserId, CancellationToken ct)
+        string query, Guid worldId, IReadOnlyList<VisibilityScope> allowedScopes, Guid? attributedUserId, ReferenceSearchMode mode, CancellationToken ct)
     {
         LastQuestion = query;
         LastAllowedScopes = allowedScopes;
         LastAttributedUserId = attributedUserId;
+        LastMode = mode;
         return Task.FromResult(new ReferencePassages(Passages.ToList(), Unavailable));
     }
 }

@@ -163,7 +163,7 @@
             </MudPaper>
         }
 
-        @if (Worlds.IsGm && _document.Status == "Indexed" && !_document.IsFromBibliotaph)
+        @if (Worlds.IsGm && (_document.Status == "Indexed" || _document.InBibliotaph))
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-detail-section-title">File pages as a source</div>
@@ -171,6 +171,10 @@
                     Choose the pages that are about something in your world and file them as a
                     source. They go through extraction like a session note, and what they say
                     arrives in Review as proposals — for the entry you name here, if you name one.
+                    @if (_document.InBibliotaph)
+                    {
+                        <text> The pages are read from your Bibliotaph, up to 12 at a time.</text>
+                    }
                 </MudText>
                 <div class="d-flex gap-3 align-center flex-wrap">
                     <MudNumericField T="int?" @bind-Value="_pageFrom" Label="From page" Min="1"

@@ -2,8 +2,10 @@
 
 @* The GM picks the Library passages that are about a codex entry and files them as excerpt
    sources — one per document — which then go through extraction like any captured note.
-   The search is the Loremaster's own similarity retrieval, run with the entry's name and
-   summary; the GM can search again with their own words. GM-only, and the server says so. *@
+   The search is the Loremaster's own retrieval in its "closest pages" mode, run with the
+   entry's name and summary; the GM can search again with their own words. A passage is an
+   indexed chunk of an upload or a page of a Bibliotaph book, and is filed the same way.
+   GM-only, and the server says so. *@
 
 <MudDialog>
     <DialogContent>
@@ -33,8 +35,9 @@
         else if (_candidates.Count == 0)
         {
             <MudText Typo="Typo.body2" Color="Color.Secondary">
-                Nothing in the Library matched. If no document is indexed yet, upload a PDF on the
-                <a href="/library" class="nornis-link">Library</a> page and come back once it says Indexed.
+                Nothing in the Library matched. Books come from your Bibliotaph once it is connected
+                on your <a href="/profile" class="nornis-link">Profile</a>; an uploaded PDF is
+                searchable once the <a href="/library" class="nornis-link">Library</a> says Indexed.
             </MudText>
         }
         else
@@ -46,10 +49,10 @@
                 @foreach (var candidate in group)
                 {
                     <div class="d-flex gap-2 align-start mb-2">
-                        <MudCheckBox T="bool" Value="@_selected.Contains(candidate.ChunkId)"
-                                     ValueChanged="@(v => Toggle(candidate.ChunkId, v))" Dense="true" />
+                        <MudCheckBox T="bool" Value="@_selected.Contains(candidate.Key)"
+                                     ValueChanged="@(v => Toggle(candidate.Key, v))" Dense="true" />
                         <div class="flex-grow-1">
-                            <div class="nornis-list-sub">p. @candidate.Page</div>
+                            <div class="nornis-list-sub">p. @candidate.PageShown</div>
                             <MudText Typo="Typo.body2" Class="nornis-reading" Style="white-space: pre-wrap;">@Snippet(candidate.Text)</MudText>
                         </div>
                     </div>
@@ -85,10 +88,10 @@
     private string? _error;
     private string? _fileError;
     private IReadOnlyList<LibraryExcerptCandidateDto> _candidates = [];
-    private readonly HashSet<Guid> _selected = [];
+    private readonly HashSet<string> _selected = [];
 
     private int SelectedDocumentCount =>
-        _candidates.Where(c => _selected.Contains(c.ChunkId)).Select(c => c.DocumentId).Distinct().Count();
+        _candidates.Where(c => _selected.Contains(c.Key)).Select(c => c.DocumentId).Distinct().Count();
 
     protected override async Task OnInitializedAsync() => await SearchAsync();
 
@@ -123,15 +126,15 @@
         _selected.Clear();
     }
 
-    private void Toggle(Guid chunkId, bool on)
+    private void Toggle(string key, bool on)
     {
         if (on)
         {
-            _selected.Add(chunkId);
+            _selected.Add(key);
         }
         else
         {
-            _selected.Remove(chunkId);
+            _selected.Remove(key);
         }
     }
 
@@ -148,10 +151,15 @@
         _fileError = null;
 
         var filed = new List<LibraryExcerptFiledDto>();
-        foreach (var group in _candidates.Where(c => _selected.Contains(c.ChunkId)).GroupBy(c => c.DocumentId))
+        foreach (var group in _candidates.Where(c => _selected.Contains(c.Key)).GroupBy(c => c.DocumentId))
         {
+            // A document's passages are all chunks (an indexed upload) or all pages (a Bibliotaph book).
+            var chunkIds = group.Where(c => c.ChunkId is not null).Select(c => c.ChunkId!.Value).ToList();
+            var pages = group.Where(c => c.ChunkId is null).Select(c => c.Page).ToList();
             var result = await Api.FileLibraryExcerptAsync(WorldId, group.Key,
-                new FileLibraryExcerptRequest(group.Select(c => c.ChunkId).ToList(), null, null, ArtifactId));
+                chunkIds.Count > 0
+                    ? new FileLibraryExcerptRequest(chunkIds, null, null, ArtifactId)
+                    : new FileLibraryExcerptRequest(null, null, null, ArtifactId, pages));
             if (!result.IsSuccess)
             {
                 // Earlier documents in the loop are already filed; say so rather than hide it.

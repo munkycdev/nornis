@@ -55,17 +55,19 @@ public sealed class BibliotaphReferencePassageRetriever : IReferencePassageRetri
     public async Task<ReferencePassages> RetrieveAsync(
         string question, Guid worldId, Guid userId, WorldRole role, CancellationToken ct) =>
         await CombineAsync(
-            question, worldId, LibraryService.GetAllowedScopes(role),
+            question, worldId, LibraryService.GetAllowedScopes(role), ReferenceSearchMode.Ask,
             await _uploads.RetrieveAsync(question, worldId, userId, role, ct), ct);
 
     public async Task<ReferencePassages> RetrieveForScopesAsync(
-        string query, Guid worldId, IReadOnlyList<VisibilityScope> allowedScopes, Guid? attributedUserId, CancellationToken ct) =>
+        string query, Guid worldId, IReadOnlyList<VisibilityScope> allowedScopes, Guid? attributedUserId,
+        ReferenceSearchMode mode, CancellationToken ct) =>
         await CombineAsync(
-            query, worldId, allowedScopes,
-            await _uploads.RetrieveForScopesAsync(query, worldId, allowedScopes, attributedUserId, ct), ct);
+            query, worldId, allowedScopes, mode,
+            await _uploads.RetrieveForScopesAsync(query, worldId, allowedScopes, attributedUserId, mode, ct), ct);
 
     private async Task<ReferencePassages> CombineAsync(
-        string question, Guid worldId, IReadOnlyList<VisibilityScope> scopes, ReferencePassages uploads, CancellationToken ct)
+        string question, Guid worldId, IReadOnlyList<VisibilityScope> scopes, ReferenceSearchMode mode,
+        ReferencePassages uploads, CancellationToken ct)
     {
         var owner = await _owners.ForWorldAsync(worldId, ct);
         if (owner?.Connection is null || scopes.Count == 0)
@@ -86,7 +88,8 @@ public sealed class BibliotaphReferencePassageRetriever : IReferencePassageRetri
         }
 
         var result = await _client.FindPassagesAsync(
-            owner.UserId, worldId, new BibliotaphPassagesRequest(question, PassageLimit, entryIds, "ask"), ct);
+            owner.UserId, worldId, new BibliotaphPassagesRequest(question, PassageLimit, entryIds,
+                mode == ReferenceSearchMode.Search ? BibliotaphPassageModes.Search : BibliotaphPassageModes.Ask), ct);
         if (!result.IsSuccess)
         {
             _logger.LogInformation(

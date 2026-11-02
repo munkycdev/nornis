@@ -1137,7 +1137,7 @@ public class ExtractionService : IExtractionService
 
         var query = BuildRetrievalQuery(source);
         var found = await _passageRetriever.RetrieveForScopesAsync(
-            query, worldId, allowedScopes, source.CreatedByUserId, ct);
+            query, worldId, allowedScopes, source.CreatedByUserId, ReferenceSearchMode.Ask, ct);
         return found.Passages;
     }
 
