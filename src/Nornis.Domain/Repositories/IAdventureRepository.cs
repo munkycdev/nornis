@@ -70,4 +70,15 @@ public interface IAdventureRepository
     Task<bool> TryRestoreRevisionAsync(
         AdventureSectionRevision revision, DateTimeOffset basedOn, DateTimeOffset updatedAt,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A draft's accept, in one unit of work: the section's stored body goes into
+    /// <paramref name="revision"/> (whose own body is ignored), the revision is inserted, the
+    /// section's revisions are trimmed to the newest <paramref name="maxRevisions"/>, and
+    /// <paramref name="newBody"/> is written with <paramref name="updatedAt"/> as the new stamp.
+    /// False, and nothing written, when the stored stamp is not <paramref name="basedOn"/>.
+    /// </summary>
+    Task<bool> TryAcceptDraftAsync(
+        AdventureSectionRevision revision, string newBody, int maxRevisions,
+        DateTimeOffset basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default);
 }

@@ -165,6 +165,34 @@ public class InMemoryAdventureRepository : IAdventureRepository
         return Task.FromResult(true);
     }
 
+    public Task<bool> TryAcceptDraftAsync(
+        AdventureSectionRevision revision, string newBody, int maxRevisions,
+        DateTimeOffset basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+    {
+        var section = Required(_sections, s => s.Id == revision.SectionId);
+        if (section.UpdatedAt != basedOn)
+        {
+            return Task.FromResult(false);
+        }
+
+        var stale = _revisions.Where(r => r.SectionId == section.Id)
+            .OrderByDescending(r => r.CreatedAt).ThenByDescending(r => r.Id)
+            .Skip(Math.Max(maxRevisions - 1, 0)).Select(r => r.Id).ToHashSet();
+        _revisions.RemoveAll(r => stale.Contains(r.Id));
+        _revisions.Add(new AdventureSectionRevision
+        {
+            Id = revision.Id,
+            SectionId = revision.SectionId,
+            BodyMarkdown = section.BodyMarkdown,
+            Instruction = revision.Instruction,
+            Model = revision.Model,
+            CreatedAt = revision.CreatedAt,
+        });
+        section.BodyMarkdown = newBody;
+        section.UpdatedAt = updatedAt;
+        return Task.FromResult(true);
+    }
+
     private static void Renumber(List<AdventureSection> ordered)
     {
         for (var i = 0; i < ordered.Count; i++)

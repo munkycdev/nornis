@@ -18,7 +18,7 @@ public class AiSpendPoolsTests
         var daily = AiSpendPools.OperationsIn(AiSpendPool.DailyWorld);
         var prep = AiSpendPools.OperationsIn(AiSpendPool.PrepMonthly);
 
-        Assert.That(prep, Is.EqualTo(new[] { AiOperationType.AdventureDrafting }));
+        Assert.That(prep, Is.EqualTo([AiOperationType.AdventureDrafting]));
         Assert.That(daily.Concat(prep), Is.EquivalentTo(Enum.GetValues<AiOperationType>()));
         Assert.That(daily, Does.Not.Contain(AiOperationType.AdventureDrafting));
     }

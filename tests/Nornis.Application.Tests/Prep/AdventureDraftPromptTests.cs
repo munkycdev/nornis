@@ -18,7 +18,12 @@ public class AdventureDraftPromptTests
         var adventure = new Adventure { Id = Guid.NewGuid(), Title = "The Silver Key", Pitch = "A heist on the docks." };
         AdventureSection Section(int order, AdventureSectionKind kind, string title, string body) => new()
         {
-            Id = Guid.NewGuid(), AdventureId = adventure.Id, Kind = kind, Title = title, BodyMarkdown = body, SortOrder = order,
+            Id = Guid.NewGuid(),
+            AdventureId = adventure.Id,
+            Kind = kind,
+            Title = title,
+            BodyMarkdown = body,
+            SortOrder = order,
         };
 
         adventure.Sections =

@@ -144,7 +144,7 @@ public class UnsupportedChatParameterTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(AllowedCeilings.Keys, Is.EqualTo(new[] { "AzureOpenAiAdventureDraftingClient.cs" }));
+            Assert.That(AllowedCeilings.Keys, Is.EqualTo(["AzureOpenAiAdventureDraftingClient.cs"]));
             Assert.That(AllowedCeilings.Values.SelectMany(v => v), Has.None.EqualTo("Temperature"));
         });
     }

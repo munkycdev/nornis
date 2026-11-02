@@ -67,8 +67,11 @@ public class AzureOpenAiAdventureDraftingClientTests
             ["> Gulls wheel ", "over the docks."],
             new UsageDetails
             {
-                InputTokenCount = 4_000, CachedInputTokenCount = 3_072, OutputTokenCount = 600,
-                ReasoningTokenCount = 0, TotalTokenCount = 4_600,
+                InputTokenCount = 4_000,
+                CachedInputTokenCount = 3_072,
+                OutputTokenCount = 600,
+                ReasoningTokenCount = 0,
+                TotalTokenCount = 4_600,
             },
             finishReason: ChatFinishReason.Stop);
 
