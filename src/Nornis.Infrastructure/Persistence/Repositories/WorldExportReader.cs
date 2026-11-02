@@ -86,6 +86,16 @@ public class WorldExportReader : IWorldExportReader
 
             AiUsageRecords = await LoadAsync(WorldExportCategory.AiUsage, _context.AiUsageRecords
                 .Where(a => a.WorldId == worldId).OrderBy(a => a.CreatedAt)),
+
+            Adventures = await LoadAsync(WorldExportCategory.Prep, _context.Adventures
+                .Where(a => a.WorldId == worldId).OrderBy(a => a.CreatedAt)),
+            AdventureSections = await LoadAsync(WorldExportCategory.Prep, _context.AdventureSections
+                .Where(s => _context.Adventures.Any(a => a.Id == s.AdventureId && a.WorldId == worldId))
+                .OrderBy(s => s.AdventureId).ThenBy(s => s.SortOrder)),
+            AdventureSectionRevisions = await LoadAsync(WorldExportCategory.Prep, _context.AdventureSectionRevisions
+                .Where(r => _context.AdventureSections.Any(s => s.Id == r.SectionId
+                    && _context.Adventures.Any(a => a.Id == s.AdventureId && a.WorldId == worldId)))
+                .OrderBy(r => r.SectionId).ThenBy(r => r.CreatedAt)),
         };
     }
 }

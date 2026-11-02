@@ -122,6 +122,17 @@ public class WorldTests
         // world is playing now, which is what a new capture defaults to. On World rather than
         // as a flag on Campaign so "one current per world" is structural; see the 2026-08-09
         // amendment in domain-model.md.
-        Assert.That(properties, Has.Length.EqualTo(22));
+        // 23rd: PrepMonthlyBudgetUsd — Prep's own monthly AI cap (feature 29), apart from the
+        // daily budget extraction depends on. Null means the default.
+        Assert.That(properties, Has.Length.EqualTo(23));
+    }
+
+    [Test]
+    public void PrepMonthlyBudgetUsd_IsANullableDecimal_ThatStartsUnset()
+    {
+        var property = _type.GetProperty(nameof(World.PrepMonthlyBudgetUsd));
+
+        Assert.That(property!.PropertyType, Is.EqualTo(typeof(decimal?)));
+        Assert.That(new World().PrepMonthlyBudgetUsd, Is.Null, "unset means the configured default");
     }
 }

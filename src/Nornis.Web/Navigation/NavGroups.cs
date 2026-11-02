@@ -64,6 +64,7 @@ public static class NavGroups
         ]),
         new("GM",
         [
+            new("Prep", "/prep", Icons.Material.Outlined.HistoryEdu),
             new("Reveal", "/convergence", Icons.Material.Outlined.Visibility),
             new("World memory", "/world-memory", Icons.Material.Outlined.Psychology),
             new("Settings", "/admin", Icons.Material.Outlined.Tune),

@@ -1,5 +1,36 @@
 # Design Document
 
+> **Amendment (2026-11-02, Phase B):** what building the Adventure changed. The text below is
+> left as written.
+>
+> - **`MaxAdventureChars` is 97,500, measured over titles and bodies.** Requirement 2.5 says
+>   100,000, but Export adds a filing line and a `##` heading per section, and the whole
+>   Adventure must still fit `SourceService.MaxBodyChars` (100,000). `AdventureSize` holds the
+>   overhead (8 characters a section, 300 for the filing line), and `PrepOptionsTests` pins
+>   that the largest legal Adventure exports within the Source bound.
+> - **Editing an Adventure's fields is `PUT`, not `PATCH`.** The request carries all three
+>   fields as their new values, so a null pitch or campaign means "none" and there is no
+>   "unchanged" to confuse with it.
+> - **"Unfilled" includes an untouched Scene template.** A new Scene's body is the
+>   `### Goal / Read-aloud / Likely questions / End state` scaffold, so counting it as written
+>   would make every new Adventure look a third done. `AdventureSkeleton.IsUnfilled` is the one
+>   rule; the list's count and the section response's `isFilled` both come from it.
+> - **The skeleton has three Scenes**, as Requirement 2.3 says, not the worked example's five.
+> - **World import has nothing to extend.** No user-facing world import exists in the tree;
+>   `IWorldImportWriter` is used only by the demo clone, which maps Source fields one by one,
+>   so neither Adventures nor `Source.AdventureId` can reach a demo world. Requirement 9.2's
+>   export half ships (`prep.json`: Adventures, sections and revisions; `adventureId` on
+>   sources and library documents; `prepMonthlyBudgetUsd` on the world), and
+>   `DemoWorldTests` proves 9.3 against a template that carries Prep. The import half waits
+>   for a world import to exist.
+> - **The nav icon is `HistoryEdu`.** `EditNote` is already Capture's.
+> - **Reordering has arrow buttons beside drag**, as the import backlog does, so the outline
+>   can be reordered from the keyboard.
+> - **A section's unsaved text is kept in the browser** under a per-section key, the
+>   capture editor's safety net, and moving to another section saves the one being left. A
+>   save that loses to a newer version (409 `section_changed`) offers "Save mine over it" or
+>   "Load the saved version"; nothing is overwritten without that choice.
+
 > **Amendment (2026-11-02, Phase A):** three corrections found while starting the build. The
 > text below is left as written.
 >

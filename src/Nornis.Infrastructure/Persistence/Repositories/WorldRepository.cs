@@ -168,7 +168,10 @@ public class WorldRepository : IWorldRepository
         await DeleteAsync(_context.HealthAssessments.Where(h => h.WorldId == worldId));
         await DeleteAsync(_context.ContinuityDismissals.Where(d => d.WorldId == worldId));
 
-        // Library.
+        // Library. Prep and the Library point at each other (an Adventure's last print, a
+        // print's Adventure), both Restrict, so the Adventures let go of their prints first.
+        await _context.SetWhereAsync<Adventure, Guid?>(
+            a => a.WorldId == worldId, a => a.LastPrintedDocumentId, null, ct);
         await DeleteAsync(_context.LibraryChunks.Where(c => c.WorldId == worldId));
         await DeleteAsync(_context.LibraryDocuments.Where(d => d.WorldId == worldId));
 
@@ -202,6 +205,16 @@ public class WorldRepository : IWorldRepository
         // answered its own delete with a foreign key violation.
         await DeleteAsync(_context.ExtractionReplays.Where(r => r.WorldId == worldId));
         await DeleteAsync(_context.Sources.Where(s => s.WorldId == worldId));
+
+        // Prep, after the sources and prints that point at it (both Restrict) and before the
+        // campaigns it points at (Restrict too).
+        await DeleteAsync(_context.AdventureSectionRevisions
+            .Where(r => _context.AdventureSections.Any(s => s.Id == r.SectionId
+                && _context.Adventures.Any(a => a.Id == s.AdventureId && a.WorldId == worldId))));
+        await DeleteAsync(_context.AdventureSections
+            .Where(s => _context.Adventures.Any(a => a.Id == s.AdventureId && a.WorldId == worldId)));
+        await DeleteAsync(_context.Adventures.Where(a => a.WorldId == worldId));
+
         await _context.SetWhereAsync<World, Guid?>(w => w.Id == worldId, w => w.CurrentCampaignId, null, ct);
         await DeleteAsync(_context.Campaigns.Where(c => c.WorldId == worldId));
         await DeleteAsync(_context.WorldDigests.Where(d => d.WorldId == worldId));

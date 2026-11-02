@@ -28,6 +28,8 @@ public class LinksTests
             Assert.That(Links.Character("mira-voss", Id), Is.EqualTo("/characters/mira-voss"));
             Assert.That(Links.Source("session-12", Id), Is.EqualTo("/sources/session-12"));
             Assert.That(Links.LibraryDocument("players-guide", Id), Is.EqualTo("/library/players-guide"));
+            Assert.That(Links.Adventure("the-silver-key", Id), Is.EqualTo("/prep/the-silver-key"));
+            Assert.That(Links.Adventure(null, Id), Is.EqualTo($"/prep/{Id}"));
             Assert.That(Links.InkCapture("session-12", Id), Is.EqualTo("/capture/ink/session-12"));
             Assert.That(Links.PublicArtifact("black-harbor", "the-ashen-king", Id), Is.EqualTo("/w/black-harbor/codex/the-ashen-king"));
             Assert.That(Links.PublicCampaign("black-harbor", null, Id), Is.EqualTo($"/w/black-harbor/campaigns/{Id}"));
@@ -48,7 +50,7 @@ public class LinksTests
     }
 
     private static readonly Regex HandSpelledDetailPath = new(
-        @"(/codex|/artifacts|/sources|/campaigns|/characters|/library|/capture/ink)/\{[A-Za-z_.!()?]*Id[A-Za-z_.!()?]*\}",
+        @"(/codex|/artifacts|/sources|/campaigns|/characters|/library|/capture/ink|/prep)/\{[A-Za-z_.!()?]*Id[A-Za-z_.!()?]*\}",
         RegexOptions.Compiled);
 
     [Test]

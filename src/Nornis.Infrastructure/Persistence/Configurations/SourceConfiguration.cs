@@ -65,6 +65,8 @@ public class SourceConfiguration : IEntityTypeConfiguration<Source>
 
         builder.HasIndex(s => s.LibraryDocumentId);
 
+        builder.HasIndex(s => s.AdventureId);
+
         builder.HasOne(s => s.World)
             .WithMany()
             .HasForeignKey(s => s.WorldId)
@@ -83,6 +85,13 @@ public class SourceConfiguration : IEntityTypeConfiguration<Source>
         builder.HasOne(s => s.LibraryDocument)
             .WithMany()
             .HasForeignKey(s => s.LibraryDocumentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Restrict for the same reason again. AdventureRepository.DeleteAsync detaches the
+        // exports before the delete: a filed export is a snapshot and outlives its Adventure.
+        builder.HasOne<Adventure>()
+            .WithMany()
+            .HasForeignKey(s => s.AdventureId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(s => s.CreatedByUser)

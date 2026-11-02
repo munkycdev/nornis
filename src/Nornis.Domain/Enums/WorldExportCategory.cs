@@ -18,4 +18,5 @@ public enum WorldExportCategory
     Reviews,
     Health,
     AiUsage,
+    Prep,
 }

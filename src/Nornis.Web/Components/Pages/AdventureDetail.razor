@@ -1,0 +1,653 @@
+@page "/prep/{Key}"
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject NavigationManager Nav
+@inject BreadcrumbState Crumbs
+
+<PageTitle>@(_adventure?.Title ?? "Adventure") — Prep — Nornis</PageTitle>
+
+@if (Worlds.Current is null)
+{
+    <NoWorld />
+}
+else if (!Worlds.IsGm)
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+        <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Large" Class="nornis-comingsoon-icon" />
+        <MudText Typo="Typo.h5" Class="nornis-serif">GMs only</MudText>
+        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+            Prep is the GM's planning, and it can hold anything the players haven't learned yet.
+        </MudText>
+    </MudPaper>
+}
+else if (_loading && _adventure is null)
+{
+    <LoadingRows Rows="4" />
+}
+else if (_notFound)
+{
+    <MudAlert Severity="Severity.Warning">
+        That adventure isn't here. It may have been deleted. <a href="/prep" class="nornis-link">Back to Prep</a>
+    </MudAlert>
+}
+else if (_error is not null && _adventure is null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_adventure is not null)
+{
+    <div class="nornis-page-head">
+        <div>
+            <MudText Typo="Typo.h4" Class="nornis-serif">@_adventure.Title</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                @(_adventure.Pitch ?? "No pitch yet.")
+            </MudText>
+        </div>
+        <div class="nornis-page-head-actions">
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.Edit" OnClick="EditDetailsAsync" Disabled="_busy">
+                Details
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                       StartIcon="@Icons.Material.Outlined.Delete" OnClick="DeleteAdventureAsync" Disabled="_busy">
+                Delete
+            </MudButton>
+        </div>
+    </div>
+
+    <div class="nornis-prep-layout">
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-outline">
+            <MudText Typo="Typo.overline" Color="Color.Secondary">Outline</MudText>
+            @foreach (var (row, index) in _adventure.Sections.Select((s, i) => (s, i)))
+            {
+                var sectionId = row.Id;
+                var position = index;
+                @* dragover carries preventDefault with no handler, as on the import backlog: a
+                   .NET callback per dragover event would re-render the outline continuously. *@
+                <div class="nornis-list-row nornis-prep-outline-row @(sectionId == _selectedId ? "nornis-prep-outline-selected" : null) @DragClass(sectionId)"
+                     draggable="@(_busy ? "false" : "true")"
+                     @ondragstart="() => _dragId = sectionId"
+                     @ondragenter="() => OnDragEnter(sectionId)"
+                     @ondragover:preventDefault="true"
+                     @ondrop="() => OnDropAsync(sectionId)"
+                     @ondragend="OnDragEnd">
+                    <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small"
+                             Class="nornis-drag-grip" title="Drag to reorder" />
+                    <MudIcon Icon="@PrepDisplay.Icon(row.Kind)" Size="Size.Small"
+                             Color="@(row.IsFilled ? Color.Default : Color.Secondary)"
+                             title="@PrepDisplay.Label(row.Kind)" />
+                    <button type="button" class="nornis-prep-outline-title @(row.IsFilled ? null : "nornis-prep-outline-empty")"
+                            @onclick="() => SelectAsync(sectionId)" disabled="@_busy">
+                        @row.Title
+                    </button>
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
+                                   Disabled="@(_busy || position == 0)" aria-label="Move up"
+                                   OnClick="() => MoveAsync(sectionId, -1)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
+                                   Disabled="@(_busy || position == _adventure.Sections.Count - 1)" aria-label="Move down"
+                                   OnClick="() => MoveAsync(sectionId, 1)" />
+                </div>
+            }
+            <MudMenu Label="Add section" StartIcon="@Icons.Material.Outlined.Add" Variant="Variant.Text"
+                     Color="Color.Primary" Dense="true" Class="mt-2" Disabled="_busy">
+                @foreach (var (kind, label, icon) in PrepDisplay.Kinds)
+                {
+                    <MudMenuItem Icon="@icon" OnClick="() => AddSectionAsync(kind, label)">@label</MudMenuItem>
+                }
+            </MudMenu>
+        </MudPaper>
+
+        <div class="nornis-prep-editor">
+            @if (Selected is { } selected)
+            {
+                @if (_conflict)
+                {
+                    <MudAlert Severity="Severity.Warning" Class="mb-3">
+                        This section changed somewhere else since you opened it, in another tab or window.
+                        Nothing you typed was saved over it.
+                        <div class="mt-2 d-flex gap-2">
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="OverwriteAsync">Save mine over it</MudButton>
+                            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="DiscardMineAsync">Load the saved version</MudButton>
+                        </div>
+                    </MudAlert>
+                }
+                @if (_restoredAt is { } restoredAt)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3" ShowCloseIcon="true"
+                              CloseIconClicked="() => _restoredAt = null">
+                        Unsaved changes from @RelativeTime.Ago(restoredAt) were brought back. Save to keep them.
+                    </MudAlert>
+                }
+
+                <div class="d-flex gap-3 mb-3 flex-wrap">
+                    <MudSelect T="string" @bind-Value="_kind" Label="Kind" Variant="Variant.Outlined" Margin="Margin.Dense"
+                               Class="nornis-prep-kind" Disabled="_busy">
+                        @foreach (var (kind, label, _) in PrepDisplay.Kinds)
+                        {
+                            <MudSelectItem T="string" Value="@kind">@label</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudTextField @bind-Value="_title" Label="Section title" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  MaxLength="200" Class="flex-grow-1" Immediate="true" Disabled="_busy" />
+                </div>
+
+                <NotesEditor @key="@($"{selected.Id}:{_editorVersion}")" @ref="_editor"
+                             InitialMarkdown="@selected.BodyMarkdown"
+                             Placeholder="Write the section. Use Read-aloud for boxed text, Prop and Ask for handouts and questions."
+                             PrepTools="true" AllowMaximize="true"
+                             BackupKey="@BackupKey(selected.Id)" PreferBackup="true"
+                             Restored="at => _restoredAt = at" />
+
+                <div class="d-flex gap-2 mt-3 flex-wrap align-center">
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SaveAsync"
+                               StartIcon="@Icons.Material.Outlined.Save" Disabled="_busy">
+                        @(_saving ? "Saving…" : "Save")
+                    </MudButton>
+                    <MudTooltip Text="@(selected.RevisionCount == 0 ? "Nothing to undo yet: Undo steps back through AI drafts." : $"Step back to the text before the last draft ({selected.RevisionCount} kept).")">
+                        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.Undo"
+                                   Disabled="@(_busy || selected.RevisionCount == 0)" OnClick="UndoAsync">
+                            Undo@(selected.RevisionCount > 0 ? $" ({selected.RevisionCount})" : "")
+                        </MudButton>
+                    </MudTooltip>
+                    <span class="flex-grow-1"></span>
+                    <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Outlined.Delete"
+                               Disabled="_busy" OnClick="DeleteSectionAsync">
+                        Delete section
+                    </MudButton>
+                </div>
+            }
+            else
+            {
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                    <MudText Typo="Typo.body1">This adventure has no sections. Add one from the outline.</MudText>
+                </MudPaper>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Key { get; set; } = string.Empty;
+
+    private bool _loading;
+    private bool _notFound;
+    private bool _busy;
+    private bool _saving;
+    private bool _conflict;
+    private string? _error;
+    private string? _loadedKey;
+    private AdventureDto? _adventure;
+    private IReadOnlyList<CampaignDto> _campaigns = [];
+
+    private Guid? _selectedId;
+    private string _kind = "Notes";
+    private string _title = string.Empty;
+    private NotesEditor? _editor;
+    private int _editorVersion;
+    private DateTimeOffset? _restoredAt;
+
+    private Guid? _dragId;
+    private Guid? _dragOverId;
+
+    private AdventureSectionDto? Selected => _adventure?.Sections.FirstOrDefault(s => s.Id == _selectedId);
+
+    /// <summary>
+    /// Where the browser keeps a section's unsaved text. Per section, so moving between sections
+    /// never brings one section's words into another.
+    /// </summary>
+    private static string BackupKey(Guid sectionId) => $"nornis-prep-section-{sectionId}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Guard on the key last attempted, not the loaded row, so a failed load can retry.
+        if (Key != _loadedKey)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
+
+    private async Task LoadAsync()
+    {
+        _loadedKey = Key;
+        if (Worlds.Current is null || !Worlds.IsGm)
+        {
+            _adventure = null;
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        _notFound = false;
+        _error = null;
+        StateHasChanged();
+
+        var worldId = Worlds.Current.Id;
+        var result = await Api.GetAdventureAsync(worldId, Key);
+        _loading = false;
+
+        if (result.IsSuccess)
+        {
+            Show(result.Value!);
+            if (!Links.IsCanonical(Key, _adventure!.Slug))
+            {
+                _loadedKey = _adventure.Slug;
+                Nav.NavigateTo(Links.Adventure(_adventure.Slug, _adventure.Id), replace: true);
+            }
+
+            _campaigns = (await Api.GetCampaignsAsync(worldId)).Value ?? [];
+        }
+        else if (result.Error!.Code == "not_found")
+        {
+            _notFound = true;
+            _adventure = null;
+        }
+        else
+        {
+            _error = result.Error.Message;
+            _adventure = null;
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Puts an Adventure the API returned on screen, keeping the selected section when it still
+    /// exists. The editor is remounted only when the section it shows has new text from the
+    /// server, so a reorder doesn't throw away what is being typed.
+    /// </summary>
+    private void Show(AdventureDto adventure, bool remountEditor = false)
+    {
+        _adventure = adventure;
+        Crumbs.Set(Links.Adventure(adventure.Slug, adventure.Id), new Crumb("Prep", "/prep"), new Crumb(adventure.Title));
+
+        var keep = adventure.Sections.FirstOrDefault(s => s.Id == _selectedId) ?? adventure.Sections.FirstOrDefault();
+        if (keep is null)
+        {
+            _selectedId = null;
+            return;
+        }
+
+        if (keep.Id != _selectedId || remountEditor)
+        {
+            _selectedId = keep.Id;
+            _kind = keep.Kind;
+            _title = keep.Title;
+            _conflict = false;
+            _restoredAt = null;
+            _editorVersion++;
+        }
+    }
+
+    /// <summary>The editor's text as it would be saved: empty, never null.</summary>
+    private async Task<string> CurrentBodyAsync() =>
+        _editor is { Initialized: true } editor ? await editor.GetMarkdownAsync() ?? string.Empty : Selected?.BodyMarkdown ?? string.Empty;
+
+    private async Task<bool> IsDirtyAsync() =>
+        Selected is { } selected
+        && (selected.Kind != _kind || selected.Title != _title.Trim() || selected.BodyMarkdown != await CurrentBodyAsync());
+
+    private async Task SelectAsync(Guid sectionId)
+    {
+        if (_adventure is null || sectionId == _selectedId)
+        {
+            return;
+        }
+
+        // Moving on saves what was typed. A save that fails (a conflict, a bound) keeps the
+        // GM where they are, with the reason on screen, rather than leaving the words behind.
+        if (await IsDirtyAsync() && !await SaveCoreAsync(overwrite: false))
+        {
+            return;
+        }
+
+        var next = _adventure.Sections.First(s => s.Id == sectionId);
+        _selectedId = next.Id;
+        _kind = next.Kind;
+        _title = next.Title;
+        _conflict = false;
+        _restoredAt = null;
+        _editorVersion++;
+    }
+
+    private Task SaveAsync() => SaveCoreAsync(overwrite: false);
+
+    private Task OverwriteAsync() => SaveCoreAsync(overwrite: true);
+
+    /// <summary>
+    /// Saves the selected section against the version it was opened at. With
+    /// <paramref name="overwrite"/>, the GM has seen the conflict and chosen their text: the
+    /// current version is fetched and the save is based on it.
+    /// </summary>
+    private async Task<bool> SaveCoreAsync(bool overwrite)
+    {
+        if (Worlds.Current is null || _adventure is null || Selected is not { } selected || _editor is null)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_title))
+        {
+            Snackbar.Add("A section needs a title.", Severity.Warning);
+            return false;
+        }
+
+        _busy = _saving = true;
+        StateHasChanged();
+        try
+        {
+            var worldId = Worlds.Current.Id;
+            var body = await CurrentBodyAsync();
+            var basedOn = selected.UpdatedAt;
+            if (overwrite)
+            {
+                var fresh = await Api.GetAdventureAsync(worldId, _adventure.Id.ToString());
+                if (!fresh.IsSuccess || fresh.Value!.Sections.FirstOrDefault(s => s.Id == selected.Id) is not { } current)
+                {
+                    Snackbar.Add(fresh.Error?.Message ?? "That section was deleted.", Severity.Error);
+                    return false;
+                }
+
+                basedOn = current.UpdatedAt;
+            }
+
+            var result = await Api.SaveAdventureSectionAsync(worldId, _adventure.Id, selected.Id,
+                new SaveAdventureSectionRequest(_kind, _title.Trim(), body, basedOn));
+
+            if (!result.IsSuccess)
+            {
+                if (result.Error!.Code == "section_changed")
+                {
+                    _conflict = true;
+                }
+                else
+                {
+                    Snackbar.Add(result.Error.Message, Severity.Error);
+                }
+
+                return false;
+            }
+
+            var saved = result.Value!;
+            _adventure = _adventure with
+            {
+                Sections = _adventure.Sections
+                    .Select(s => s.Id == saved.Id
+                        ? s with { Kind = saved.Kind, Title = saved.Title, BodyMarkdown = saved.BodyMarkdown, UpdatedAt = saved.UpdatedAt, IsFilled = saved.IsFilled }
+                        : s)
+                    .ToList(),
+            };
+            _conflict = false;
+            _restoredAt = null;
+            await _editor.ClearBackupAsync();
+            return true;
+        }
+        finally
+        {
+            _busy = _saving = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>The GM drops their text for the saved version: forget the kept copy, then reload.</summary>
+    private async Task DiscardMineAsync()
+    {
+        if (Selected is { } selected && _editor is not null)
+        {
+            await _editor.ClearBackupAsync();
+        }
+
+        await RefreshAsync(remountEditor: true);
+    }
+
+    private async Task RefreshAsync(bool remountEditor)
+    {
+        if (Worlds.Current is null || _adventure is null)
+        {
+            return;
+        }
+
+        var result = await Api.GetAdventureAsync(Worlds.Current.Id, _adventure.Id.ToString());
+        if (result.IsSuccess)
+        {
+            Show(result.Value!, remountEditor);
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private async Task UndoAsync()
+    {
+        if (Worlds.Current is null || _adventure is null || Selected is not { } selected)
+        {
+            return;
+        }
+
+        await RunAsync(async worldId =>
+        {
+            var result = await Api.UndoAdventureSectionAsync(worldId, _adventure.Id, selected.Id);
+            if (result.IsSuccess && _editor is not null)
+            {
+                // The section's text is now the revision's; a kept copy of the old text would
+                // come straight back over it.
+                await _editor.ClearBackupAsync();
+            }
+
+            return (result.Value, result.Error, true);
+        });
+    }
+
+    private async Task AddSectionAsync(string kind, string label)
+    {
+        if (_adventure is null || (await IsDirtyAsync() && !await SaveCoreAsync(overwrite: false)))
+        {
+            return;
+        }
+
+        var adventureId = _adventure.Id;
+        var after = _selectedId;
+        var before = _adventure.Sections.Select(s => s.Id).ToHashSet();
+        await RunAsync(async worldId =>
+        {
+            var result = await Api.AddAdventureSectionAsync(worldId, adventureId,
+                new AddAdventureSectionRequest(kind, label, after));
+            if (result.IsSuccess)
+            {
+                // Open the new section, which is the one id the response has that we didn't.
+                _selectedId = result.Value!.Sections.FirstOrDefault(s => !before.Contains(s.Id))?.Id ?? _selectedId;
+            }
+
+            return (result.Value, result.Error, true);
+        });
+    }
+
+    private async Task DeleteSectionAsync()
+    {
+        if (_adventure is null || Selected is not { } selected)
+        {
+            return;
+        }
+
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Delete section?",
+            $"Delete \"{selected.Title}\" and its kept drafts? This can't be undone.",
+            yesText: "Delete", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var adventureId = _adventure.Id;
+        var editor = _editor;
+        await RunAsync(async worldId =>
+        {
+            var result = await Api.DeleteAdventureSectionAsync(worldId, adventureId, selected.Id);
+            if (result.IsSuccess && editor is not null)
+            {
+                await editor.ClearBackupAsync();
+                _selectedId = null;
+            }
+
+            return (result.Value, result.Error, true);
+        });
+    }
+
+    private Task MoveAsync(Guid sectionId, int delta) =>
+        _adventure is null ? Task.CompletedTask : ReorderAsync(PrepDisplay.MoveBy(SectionIds(), sectionId, delta));
+
+    private IReadOnlyList<Guid> SectionIds() => _adventure!.Sections.Select(s => s.Id).ToList();
+
+    private async Task ReorderAsync(IReadOnlyList<Guid> order)
+    {
+        if (_adventure is null || order.SequenceEqual(SectionIds()))
+        {
+            return;
+        }
+
+        var adventureId = _adventure.Id;
+        await RunAsync(async worldId =>
+        {
+            var result = await Api.ReorderAdventureSectionsAsync(worldId, adventureId, order);
+            // The order changed, not the text: the editor keeps what is being typed.
+            return (result.Value, result.Error, false);
+        });
+    }
+
+    private string? DragClass(Guid sectionId) =>
+        _dragId == sectionId ? "nornis-dragging"
+        : _dragId is not null && _dragOverId == sectionId ? "nornis-drag-over"
+        : null;
+
+    private void OnDragEnter(Guid sectionId)
+    {
+        if (_dragId is not null && _dragId != sectionId)
+        {
+            _dragOverId = sectionId;
+        }
+    }
+
+    private void OnDragEnd()
+    {
+        _dragId = null;
+        _dragOverId = null;
+    }
+
+    private async Task OnDropAsync(Guid targetId)
+    {
+        var moved = _dragId;
+        OnDragEnd();
+        if (_adventure is null || moved is null)
+        {
+            return;
+        }
+
+        await ReorderAsync(PrepDisplay.MoveTo(SectionIds(), moved.Value, targetId));
+    }
+
+    /// <summary>
+    /// One structural change: block the page, call, then show what came back. The call says
+    /// whether the editor should reload from the result.
+    /// </summary>
+    private async Task RunAsync(Func<Guid, Task<(AdventureDto? Value, ApiError? Error, bool Remount)>> call)
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        StateHasChanged();
+        try
+        {
+            var (value, error, remount) = await call(Worlds.Current.Id);
+            if (error is not null)
+            {
+                Snackbar.Add(error.Message, Severity.Error);
+            }
+            else if (value is not null)
+            {
+                Show(value, remount);
+            }
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task EditDetailsAsync()
+    {
+        if (Worlds.Current is null || _adventure is null)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters<AdventureDetailsDialog>
+        {
+            { d => d.WorldId, Worlds.Current.Id },
+            { d => d.Campaigns, _campaigns },
+            { d => d.Existing, _adventure },
+        };
+        var dialog = await DialogService.ShowAsync<AdventureDetailsDialog>("Adventure details", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: AdventureDto updated })
+        {
+            Show(updated);
+            if (!Links.IsCanonical(Key, updated.Slug))
+            {
+                _loadedKey = updated.Slug;
+                Nav.NavigateTo(Links.Adventure(updated.Slug, updated.Id), replace: true);
+            }
+        }
+    }
+
+    private async Task DeleteAdventureAsync()
+    {
+        if (Worlds.Current is null || _adventure is null)
+        {
+            return;
+        }
+
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Delete adventure?",
+            $"Delete \"{_adventure.Title}\", every section and every kept draft? Anything you've already printed or sent into Nornis stays. This can't be undone.",
+            yesText: "Delete", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var result = await Api.DeleteAdventureAsync(Worlds.Current.Id, _adventure.Id);
+        if (result.IsSuccess)
+        {
+            if (_editor is not null)
+            {
+                await _editor.ClearBackupAsync();
+            }
+
+            Snackbar.Add($"\"{_adventure.Title}\" deleted.", Severity.Success);
+            Nav.NavigateTo("/prep");
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}

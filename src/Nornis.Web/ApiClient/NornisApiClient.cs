@@ -536,6 +536,55 @@ public class NornisApiClient
     public IAsyncEnumerable<AskStreamEvent> StreamPublicAskAsync(string slug, string question, CancellationToken ct = default) =>
         StreamAskEventsAsync($"/api/public/worlds/{Uri.EscapeDataString(slug)}/ask", new PublicAskRequest(question), ct);
 
+    // --------------------------------------------------------------------- Prep --
+    // GM-only throughout; the API answers 403 to anyone else, including a GM viewing as a player.
+
+    public Task<ApiResult<IReadOnlyList<AdventureSummaryDto>>> GetAdventuresAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AdventureSummaryDto>>($"/api/worlds/{worldId}/prep", ct);
+
+    /// <summary>One Adventure with its sections, by slug or id.</summary>
+    public Task<ApiResult<AdventureDto>> GetAdventureAsync(Guid worldId, string key, CancellationToken ct = default) =>
+        GetAsync<AdventureDto>($"/api/worlds/{worldId}/prep/{Uri.EscapeDataString(key)}", ct);
+
+    public Task<ApiResult<AdventureDto>> CreateAdventureAsync(Guid worldId, CreateAdventureRequest request, CancellationToken ct = default) =>
+        PostAsync<CreateAdventureRequest, AdventureDto>($"/api/worlds/{worldId}/prep", request, ct);
+
+    public Task<ApiResult<AdventureDto>> ImportAdventureAsync(Guid worldId, ImportAdventureRequest request, CancellationToken ct = default) =>
+        PostAsync<ImportAdventureRequest, AdventureDto>($"/api/worlds/{worldId}/prep/import", request, ct);
+
+    public Task<ApiResult<AdventureDto>> UpdateAdventureAsync(
+        Guid worldId, Guid adventureId, UpdateAdventureRequest request, CancellationToken ct = default) =>
+        PutAsync<UpdateAdventureRequest, AdventureDto>($"/api/worlds/{worldId}/prep/{adventureId}", request, ct);
+
+    public Task<ApiResult<bool>> DeleteAdventureAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/prep/{adventureId}", ct);
+
+    /// <summary>
+    /// Saves one section. A 409 <c>section_changed</c> means it changed since
+    /// <see cref="SaveAdventureSectionRequest.BasedOnUpdatedAt"/>, and nothing was written.
+    /// </summary>
+    public Task<ApiResult<SavedAdventureSectionDto>> SaveAdventureSectionAsync(
+        Guid worldId, Guid adventureId, Guid sectionId, SaveAdventureSectionRequest request, CancellationToken ct = default) =>
+        PutAsync<SaveAdventureSectionRequest, SavedAdventureSectionDto>(
+            $"/api/worlds/{worldId}/prep/{adventureId}/sections/{sectionId}", request, ct);
+
+    public Task<ApiResult<AdventureDto>> AddAdventureSectionAsync(
+        Guid worldId, Guid adventureId, AddAdventureSectionRequest request, CancellationToken ct = default) =>
+        PostAsync<AddAdventureSectionRequest, AdventureDto>($"/api/worlds/{worldId}/prep/{adventureId}/sections", request, ct);
+
+    public Task<ApiResult<AdventureDto>> DeleteAdventureSectionAsync(
+        Guid worldId, Guid adventureId, Guid sectionId, CancellationToken ct = default) =>
+        DeleteAsync<AdventureDto>($"/api/worlds/{worldId}/prep/{adventureId}/sections/{sectionId}", ct);
+
+    public Task<ApiResult<AdventureDto>> ReorderAdventureSectionsAsync(
+        Guid worldId, Guid adventureId, IReadOnlyList<Guid> sectionIds, CancellationToken ct = default) =>
+        PutAsync<ReorderAdventureSectionsRequest, AdventureDto>(
+            $"/api/worlds/{worldId}/prep/{adventureId}/order", new ReorderAdventureSectionsRequest(sectionIds), ct);
+
+    public Task<ApiResult<AdventureDto>> UndoAdventureSectionAsync(
+        Guid worldId, Guid adventureId, Guid sectionId, CancellationToken ct = default) =>
+        PostAsync<object?, AdventureDto>($"/api/worlds/{worldId}/prep/{adventureId}/sections/{sectionId}/undo", null, ct);
+
     // ------------------------------------------------------------------ Library --
 
     public Task<ApiResult<LibraryUploadTicketDto>> RequestLibraryUploadAsync(

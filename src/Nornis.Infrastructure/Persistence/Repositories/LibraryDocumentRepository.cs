@@ -67,6 +67,11 @@ public class LibraryDocumentRepository : ILibraryDocumentRepository
         await _context.SetWhereAsync<Source, Guid?>(
             s => s.LibraryDocumentId == id, s => s.LibraryDocumentId, null, cancellationToken);
 
+        // An Adventure printed to this document forgets it: null means "never printed, or the
+        // print was deleted", which is what the Prep page shows.
+        await _context.SetWhereAsync<Adventure, Guid?>(
+            a => a.LastPrintedDocumentId == id, a => a.LastPrintedDocumentId, null, cancellationToken);
+
         await _context.DeleteWhereAsync<LibraryDocument>(d => d.Id == id, cancellationToken);
     }
 

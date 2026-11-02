@@ -325,4 +325,59 @@ public class WorldExportServiceTests
         Assert.That(result.IsSuccess, Is.True, "clearing earlier exports is best-effort");
         Assert.That(_blobs.Blobs.ContainsKey($"worlds/{_world.Id}/exports/{result.Value!.FileName}"), Is.True);
     }
+
+    [Test]
+    public async Task Export_Prep_WritesAdventuresSectionsAndRevisions_AndTheirLinksElsewhere()
+    {
+        var adventureId = Guid.NewGuid();
+        var sectionId = Guid.NewGuid();
+        _reader.Data = new WorldExportData
+        {
+            Adventures = [new Adventure { Id = adventureId, WorldId = _world.Id, Title = "The Silver Key", Slug = "the-silver-key" }],
+            AdventureSections =
+            [
+                new AdventureSection
+                {
+                    Id = sectionId, AdventureId = adventureId, Kind = AdventureSectionKind.Scene,
+                    Title = "Scene 1: The Docks", BodyMarkdown = "> Fog rolls in.", SortOrder = 1,
+                },
+            ],
+            AdventureSectionRevisions =
+            [
+                new AdventureSectionRevision { Id = Guid.NewGuid(), SectionId = sectionId, BodyMarkdown = "", Model = "gpt-test" },
+            ],
+            Sources = [new Source { Id = Guid.NewGuid(), WorldId = _world.Id, Title = "Exported", AdventureId = adventureId }],
+        };
+
+        var result = await _sut.ExportAsync(
+            Command([WorldExportCategory.Prep, WorldExportCategory.Sources]), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        using var zip = OpenZip(UploadedZipBytes());
+        using var prep = ReadJsonEntry(zip, "prep.json");
+        var adventure = prep.RootElement.GetProperty("adventures").EnumerateArray().Single();
+        Assert.That(adventure.GetProperty("title").GetString(), Is.EqualTo("The Silver Key"));
+        var section = prep.RootElement.GetProperty("sections").EnumerateArray().Single();
+        Assert.That(section.GetProperty("kind").GetString(), Is.EqualTo("Scene"));
+        Assert.That(section.GetProperty("bodyMarkdown").GetString(), Is.EqualTo("> Fog rolls in."));
+        Assert.That(prep.RootElement.GetProperty("revisions").GetArrayLength(), Is.EqualTo(1));
+
+        using var sources = ReadJsonEntry(zip, "sources.json");
+        Assert.That(sources.RootElement.GetProperty("sources")[0].GetProperty("adventureId").GetGuid(), Is.EqualTo(adventureId));
+    }
+
+    [Test]
+    public async Task Export_WithoutPrep_WritesNoPrepFile()
+    {
+        _reader.Data = new WorldExportData
+        {
+            Adventures = [new Adventure { Id = Guid.NewGuid(), WorldId = _world.Id, Title = "The Silver Key" }],
+        };
+
+        var result = await _sut.ExportAsync(Command([WorldExportCategory.Members]), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        using var zip = OpenZip(UploadedZipBytes());
+        Assert.That(zip.GetEntry("prep.json"), Is.Null);
+    }
 }

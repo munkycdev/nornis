@@ -150,6 +150,7 @@ public class WorldExportService : IWorldExportService
             world.DailyAiBudgetUsd,
             world.PublicAskMonthlyBudgetUsd,
             world.SummaryReviewRequired,
+            world.PrepMonthlyBudgetUsd,
         }, ct);
 
         if (categories.Contains(WorldExportCategory.Members))
@@ -232,6 +233,7 @@ public class WorldExportService : IWorldExportService
                     s.ProcessingStatus,
                     s.ExtractionEnabled,
                     s.DerivedText,
+                    s.AdventureId,
                 }),
                 Extractions = data.SourceExtractions.Select(e => new
                 {
@@ -355,6 +357,7 @@ public class WorldExportService : IWorldExportService
                 d.Status,
                 d.PageCount,
                 d.UploadedByUserId,
+                d.AdventureId,
                 d.CreatedAt,
                 d.UpdatedAt,
                 File = d.Status != LibraryDocumentStatus.PendingUpload ? LibraryEntryName(d) : null,
@@ -442,6 +445,44 @@ public class WorldExportService : IWorldExportService
                 a.ErrorCode,
                 a.CreatedAt,
             }), ct);
+        }
+
+        if (categories.Contains(WorldExportCategory.Prep))
+        {
+            await WriteJsonEntryAsync(zip, "prep.json", new
+            {
+                Adventures = data.Adventures.Select(a => new
+                {
+                    a.Id,
+                    a.CampaignId,
+                    a.Title,
+                    a.Slug,
+                    a.Pitch,
+                    a.LastPrintedDocumentId,
+                    a.CreatedByUserId,
+                    a.CreatedAt,
+                    a.UpdatedAt,
+                }),
+                Sections = data.AdventureSections.Select(s => new
+                {
+                    s.Id,
+                    s.AdventureId,
+                    s.Kind,
+                    s.Title,
+                    s.BodyMarkdown,
+                    s.SortOrder,
+                    s.UpdatedAt,
+                }),
+                Revisions = data.AdventureSectionRevisions.Select(r => new
+                {
+                    r.Id,
+                    r.SectionId,
+                    r.BodyMarkdown,
+                    r.Instruction,
+                    r.Model,
+                    r.CreatedAt,
+                }),
+            }, ct);
         }
 
         // Written last so it can list the files that turned out to be missing, but named

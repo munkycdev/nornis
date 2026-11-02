@@ -5,7 +5,7 @@ editor holds the markup, and whether the SDK sends an output ceiling the deploym
 After that the Adventure is built without AI, then drafting, then Print and Export. There is
 one migration, and it is additive.
 
-**Status: specified 2026-11-02; Phase A started 2026-11-02.** Ships as Nornis v3.0. The v3.1 items are listed
+**Status: specified 2026-11-02; Phase A done 2026-11-02; Phase B done 2026-11-02.** Ships as Nornis v3.0. The v3.1 items are listed
 at the end so the v3.0 design leaves room for them.
 
 ## Phase A — Retire the risks
@@ -36,21 +36,25 @@ at the end so the v3.0 design leaves room for them.
 
 ## Phase B — The Adventure (no AI)
 
-- [ ] B1. Domain: `Adventure`, `AdventureSection`, `AdventureSectionRevision`,
+- [x] B1. Domain: `Adventure`, `AdventureSection`, `AdventureSectionRevision`,
       `AdventureSectionKind`, `SourceType.AdventureExport`, `Source.AdventureId`,
       `LibraryDocument.AdventureId`, `World.PrepMonthlyBudgetUsd`,
       `AiOperationType.AdventureDrafting`. EF configurations, with every FK Restrict and
       detach-before-delete. Update the enum-definition tests.
-- [ ] B2. Migration `AddPrep`.
-- [ ] B3. `PrepOptions`, and the bound test pinning `MaxAdventureChars <= SourceService.MaxBodyChars`.
-- [ ] B4. `AdventureSkeleton`, `AdventureMarkdownImporter`, and the synthetic fixture
+- [x] B2. Migration `AddPrep`.
+- [x] B3. `PrepOptions`, and the bound test pinning `MaxAdventureChars <= SourceService.MaxBodyChars`.
+- [x] B4. `AdventureSkeleton`, `AdventureMarkdownImporter`, and the synthetic fixture
       `Fixtures/Prep/two-chapters.md` with its tests.
-- [ ] B5. `IAdventureService` and repositories, with tests including the GM-check sabotage.
-- [ ] B6. `PrepController` (all non-AI routes) and endpoint tests.
-- [ ] B7. World lifecycle: `WorldDeletionService` covers the three tables, world export and
+- [x] B5. `IAdventureService` and repositories, with tests including the GM-check sabotage.
+- [x] B6. `PrepController` (all non-AI routes) and endpoint tests.
+- [x] B7. World lifecycle: `WorldDeletionService` covers the three tables, world export and
       import gain the Prep category, and the demo clone skips it. Tests for each.
-- [ ] B8. Web: nav item, `/prep`, `/prep/{key}` with outline, editor toolbar buttons, reorder,
+- [x] B8. Web: nav item, `/prep`, `/prep/{key}` with outline, editor toolbar buttons, reorder,
       Import Markdown dialog, and `Links.Adventure`. `ReachabilityTests`.
+      **Phase B notes (2026-11-02):** the deviations from design.md are recorded in its Phase B
+      amendment. B7's import half has no world import to extend, so it is open until one exists.
+      The toolbar's inserts were captured from the real TipTap bundle and pinned in
+      `PrepMarkupRoundTripTests`.
 
 ## Phase C — Drafting
 

@@ -60,6 +60,15 @@ public class LibraryDocumentConfiguration : IEntityTypeConfiguration<LibraryDocu
 
         builder.HasIndex(d => new { d.WorldId, d.Status });
 
+        builder.HasIndex(d => d.AdventureId);
+
+        // A Prep print's Adventure. Restrict (Worlds cascades to both tables);
+        // AdventureRepository.DeleteAsync detaches the prints, which outlive their Adventure.
+        builder.HasOne<Adventure>()
+            .WithMany()
+            .HasForeignKey(d => d.AdventureId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne(d => d.World)
             .WithMany()
             .HasForeignKey(d => d.WorldId)

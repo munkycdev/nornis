@@ -53,10 +53,35 @@
 
         <span class="nornis-editor-toolbar-sep"></span>
 
-        <MudTooltip Text="Quote">
-            <MudIconButton Icon="@Icons.Material.Filled.FormatQuote" Size="Size.Small"
-                           OnClick="@(() => ExecAsync("blockquote"))" aria-label="Quote" />
-        </MudTooltip>
+        @if (PrepTools)
+        {
+            @* Prep's markup (feature 29): a plain quote is read-aloud text; Prop and Ask are a
+               quote with a marker first line; a stat block is a fenced block. PrepMarkup spells
+               all of it, so these buttons can't write a marker the print view won't know. *@
+            <MudTooltip Text="Read-aloud: boxed text you read to the table">
+                <MudIconButton Icon="@Icons.Material.Filled.RecordVoiceOver" Size="Size.Small"
+                               OnClick="@(() => ExecAsync("blockquote"))" aria-label="Read-aloud" />
+            </MudTooltip>
+            <MudTooltip Text="Prop: something the players can hold or read">
+                <MudIconButton Icon="@Icons.Material.Outlined.Description" Size="Size.Small"
+                               OnClick="@(() => InsertHtmlAsync(PrepMarkup.PropBlockHtml()))" aria-label="Prop" />
+            </MudTooltip>
+            <MudTooltip Text="Ask: a question you put to the players">
+                <MudIconButton Icon="@Icons.Material.Outlined.HelpOutline" Size="Size.Small"
+                               OnClick="@(() => InsertHtmlAsync(PrepMarkup.AskBlockHtml()))" aria-label="Ask" />
+            </MudTooltip>
+            <MudTooltip Text="Stat block: labels and values, any game system">
+                <MudIconButton Icon="@Icons.Material.Outlined.ViewList" Size="Size.Small"
+                               OnClick="InsertStatBlockAsync" aria-label="Stat block" />
+            </MudTooltip>
+        }
+        else
+        {
+            <MudTooltip Text="Quote">
+                <MudIconButton Icon="@Icons.Material.Filled.FormatQuote" Size="Size.Small"
+                               OnClick="@(() => ExecAsync("blockquote"))" aria-label="Quote" />
+            </MudTooltip>
+        }
         <MudTooltip Text="Code block">
             <MudIconButton Icon="@Icons.Material.Filled.Code" Size="Size.Small"
                            OnClick="@(() => ExecAsync("codeBlock"))" aria-label="Code block" />
@@ -127,6 +152,12 @@
     /// capture page, where a session's notes are typed from scratch, turns it on.
     /// </summary>
     [Parameter] public bool AllowMaximize { get; set; }
+
+    /// <summary>
+    /// Prep's toolbar: Read-aloud in place of Quote, and Prop, Ask and Stat block. Off
+    /// everywhere but the Adventure editor, where those blocks mean something to the print view.
+    /// </summary>
+    [Parameter] public bool PrepTools { get; set; }
 
     /// <summary>
     /// When set, what is typed is kept under this key in the browser's localStorage as it goes
@@ -250,6 +281,12 @@
 
     private async Task ExecAsync(string command) =>
         await JS.InvokeVoidAsync("nornisEditor.exec", _elementId, command);
+
+    private async Task InsertHtmlAsync(string html) =>
+        await JS.InvokeVoidAsync("nornisEditor.insertHtml", _elementId, html);
+
+    private async Task InsertStatBlockAsync() =>
+        await JS.InvokeVoidAsync("nornisEditor.insertCodeBlock", _elementId, PrepMarkup.StatBlockInfo, PrepMarkup.StatBlockTemplate);
 
     public async ValueTask DisposeAsync()
     {

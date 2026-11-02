@@ -1,0 +1,169 @@
+@page "/prep"
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject IDialogService DialogService
+@inject NavigationManager Nav
+@inject BreadcrumbState Crumbs
+
+<PageTitle>Prep — Nornis</PageTitle>
+
+<div class="nornis-page-head">
+    <div>
+        <MudText Typo="Typo.h4" Class="nornis-serif">Prep</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Adventures you're getting ready to run. Only you see them, and nothing here is canon
+            until you send it into Nornis.
+        </MudText>
+    </div>
+    @if (Worlds.Current is not null && Worlds.IsGm)
+    {
+        <div class="nornis-page-head-actions">
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.FileUpload" OnClick="ImportAsync">
+                Import Markdown
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Outlined.Add" OnClick="CreateAsync">
+                New adventure
+            </MudButton>
+        </div>
+    }
+</div>
+
+@if (Worlds.Current is null)
+{
+    <NoWorld />
+}
+else if (!Worlds.IsGm)
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+        <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Large" Class="nornis-comingsoon-icon" />
+        <MudText Typo="Typo.h5" Class="nornis-serif">GMs only</MudText>
+        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+            Prep is the GM's planning, and it can hold anything the players haven't learned yet.
+        </MudText>
+    </MudPaper>
+}
+else if (_loading)
+{
+    <LoadingRows Rows="3" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_adventures.Count == 0)
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
+        <MudIcon Icon="@Icons.Material.Outlined.HistoryEdu" Size="Size.Large" Class="nornis-comingsoon-icon" />
+        <MudText Typo="Typo.h5" Class="nornis-serif">Nothing in prep yet</MudText>
+        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+            Start an adventure from an outline of scenes, or import one you've already written in Markdown.
+        </MudText>
+    </MudPaper>
+}
+else
+{
+    <div class="nornis-artifact-grid">
+        @foreach (var adventure in _adventures)
+        {
+            <a href="@Links.Adventure(adventure.Slug, adventure.Id)" class="mud-paper nornis-card nornis-artifact-card">
+                <div class="nornis-artifact-card-head">
+                    <MudIcon Icon="@Icons.Material.Outlined.HistoryEdu" Size="Size.Small" />
+                    <span class="nornis-artifact-card-title">@adventure.Title</span>
+                </div>
+                <p class="nornis-artifact-card-summary">
+                    @PrepDisplay.Progress(adventure.FilledSectionCount, adventure.SectionCount)
+                </p>
+                <div class="nornis-artifact-card-foot">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @CampaignName(adventure.CampaignId) · edited @RelativeTime.Ago(adventure.UpdatedAt)@(adventure.LastPrintedDocumentId is null ? "" : " · printed")
+                    </MudText>
+                </div>
+            </a>
+        }
+    </div>
+}
+
+@code {
+    private bool _loading;
+    private string? _error;
+    private IReadOnlyList<AdventureSummaryDto> _adventures = [];
+    private IReadOnlyList<CampaignDto> _campaigns = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Crumbs.Set("/prep", new Crumb("Prep"));
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
+
+    private string CampaignName(Guid? campaignId) =>
+        campaignId is { } id && _campaigns.FirstOrDefault(c => c.Id == id) is { } campaign
+            ? campaign.Name
+            : "World-level";
+
+    private async Task LoadAsync()
+    {
+        if (Worlds.Current is null || !Worlds.IsGm)
+        {
+            _adventures = [];
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        var worldId = Worlds.Current.Id;
+        var adventures = await Api.GetAdventuresAsync(worldId);
+        var campaigns = await Api.GetCampaignsAsync(worldId);
+
+        _loading = false;
+        if (adventures.IsSuccess)
+        {
+            _adventures = adventures.Value!;
+        }
+        else
+        {
+            _error = adventures.Error!.Message;
+        }
+
+        _campaigns = campaigns.Value ?? [];
+        StateHasChanged();
+    }
+
+    private Task CreateAsync() => OpenAsync<AdventureDetailsDialog>("New adventure");
+
+    private Task ImportAsync() => OpenAsync<ImportAdventureDialog>("Import Markdown");
+
+    /// <summary>Both dialogs take the same parameters and close with the new Adventure, which opens.</summary>
+    private async Task OpenAsync<TDialog>(string title) where TDialog : IComponent
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters
+        {
+            ["WorldId"] = Worlds.Current.Id,
+            ["Campaigns"] = _campaigns,
+            ["DefaultCampaignId"] = Worlds.Current.CurrentCampaignId,
+        };
+        var dialog = await DialogService.ShowAsync<TDialog>(title, parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: AdventureDto created })
+        {
+            Nav.NavigateTo(Links.Adventure(created.Slug, created.Id));
+        }
+    }
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}

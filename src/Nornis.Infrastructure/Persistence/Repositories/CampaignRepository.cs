@@ -183,6 +183,11 @@ public class CampaignRepository : ICampaignRepository
         await _context.SetWhereAsync<World, Guid?>(
             w => w.CurrentCampaignId == campaignId, w => w.CurrentCampaignId, null, cancellationToken);
 
+        // Prep for this campaign becomes world-level prep; an Adventure is the GM's work, not
+        // the campaign's, and does not die with it.
+        await _context.SetWhereAsync<Adventure, Guid?>(
+            a => a.CampaignId == campaignId, a => a.CampaignId, null, cancellationToken);
+
         await _context.DeleteWhereAsync<CampaignCharacter>(
             cc => cc.CampaignId == campaignId, cancellationToken);
 

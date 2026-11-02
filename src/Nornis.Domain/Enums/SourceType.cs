@@ -36,5 +36,14 @@ public enum SourceType
     /// source is extracted like any other, so what the book says can become cited canon
     /// without the whole book ever being extracted.
     /// </summary>
-    LibraryExcerpt
+    LibraryExcerpt,
+
+    /// <summary>
+    /// A GM's Prep, filed into the world: a snapshot of an Adventure (or one chapter of it)
+    /// taken at export and extracted like any source, so the world truths the GM wrote can
+    /// become canon, Hidden where the prep says so, through review. Always GM-only, never
+    /// edited after filing, and never read for planned events: session notes record what
+    /// happened.
+    /// </summary>
+    AdventureExport
 }
