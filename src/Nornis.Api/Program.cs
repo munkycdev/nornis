@@ -279,6 +279,7 @@ builder.Services.AddScoped<ICampaignService, CampaignService>();
 builder.Services.Configure<PrepOptions>(builder.Configuration.GetSection(PrepOptions.SectionName));
 builder.Services.AddScoped<IAdventureService, AdventureService>();
 builder.Services.AddScoped<IAdventureDraftingService, AdventureDraftingService>();
+builder.Services.AddScoped<IAdventureExportService, AdventureExportService>();
 // One draft per section across requests, so a singleton. A lease outlives the longest draft
 // (the AI timeout plus retrieval and the write) and then lapses, so an abandoned one can't hold
 // a section until restart.

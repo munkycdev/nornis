@@ -68,3 +68,6 @@ public record PrepBudgetResponse(decimal SpentThisMonthUsd, decimal? MonthlyBudg
 
 /// <summary>The booklet. <see cref="Html"/> is escaped, sanitized markup, ready to show as is.</summary>
 public record AdventurePrintResponse(Guid AdventureId, string Title, string? Slug, string Html, string LibraryTitle);
+
+/// <summary>The source an export filed, so the page can link to it and on to Review.</summary>
+public record AdventureExportResponse(Guid SourceId, string Title, string? Slug);

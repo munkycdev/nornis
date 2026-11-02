@@ -241,6 +241,31 @@ public class ExtractionServiceLibraryTests
     }
 
     [Test]
+    public async Task Extraction_AdventureExport_DoesNotRetrieveReferencePassages()
+    {
+        _sourceRepo.Seed(new Source
+        {
+            Id = SourceId,
+            WorldId = WorldId,
+            Type = SourceType.AdventureExport,
+            Title = "The Silver Key (prep)",
+            Body = "Adventure \"The Silver Key\", exported 2026-11-14 by the GM as prep\n\n## Captain Voss\n\nVoss hides the key.",
+            Visibility = VisibilityScope.GMOnly,
+            ProcessingStatus = SourceProcessingStatus.Queued,
+            CreatedByUserId = UserId,
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-10)
+        });
+        _retriever.Passages.Add(Passage());
+        _aiClient.SetupSuccess(SuccessResponse());
+
+        var outcome = await _sut.ProcessExtractionAsync(SourceId, WorldId, CancellationToken.None);
+
+        Assert.That(outcome.Type, Is.EqualTo(OutcomeType.Success));
+        Assert.That(_retriever.LastQuestion, Is.Null, "the GM's prep is its own authority; no embedding is bought");
+        Assert.That(Prompt().ReferencePassages, Is.Empty);
+    }
+
+    [Test]
     public async Task Extraction_RetrievalQuery_IncludesSourceTitle_AndAttributesToSourceCreator()
     {
         SeedSource();

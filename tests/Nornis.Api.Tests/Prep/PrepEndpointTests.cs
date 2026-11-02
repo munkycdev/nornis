@@ -55,6 +55,8 @@ public class PrepEndpointTests
         yield return ("draft", (c, w, a, s) => c.PostAsJsonAsync($"{Base(w)}/{a}/sections/{s}/draft",
             new DraftAdventureSectionRequest("Write it.", DateTimeOffset.UtcNow)));
         yield return ("budget", (c, w, _, _) => c.GetAsync($"/api/worlds/{w}/prep-budget"));
+        yield return ("print", (c, w, a, _) => c.GetAsync($"{Base(w)}/{a}/print"));
+        yield return ("export", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/export", new ExportAdventureRequest(null)));
     }
 
     [Test]
@@ -324,5 +326,75 @@ public class PrepEndpointTests
 
         Assert.That(created.Slug, Is.EqualTo("budget"));
         Assert.That(bySlug!.Id, Is.EqualTo(created.Id));
+    }
+
+    private static async Task<AdventureResponse> WriteOverviewAsync(HttpClient gm, Guid worldId, AdventureResponse adventure, string body)
+    {
+        var overview = adventure.Sections[0];
+        var saved = await gm.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/sections/{overview.Id}",
+            new SaveAdventureSectionRequest("Overview", "Overview", body, overview.UpdatedAt));
+        Assert.That(saved.StatusCode, Is.EqualTo(HttpStatusCode.OK), await saved.Content.ReadAsStringAsync());
+        return (await gm.GetFromJsonAsync<AdventureResponse>($"{Base(worldId)}/{adventure.Id}"))!;
+    }
+
+    [Test]
+    public async Task Print_ReturnsTheBooklet_WithTheTitleItWillBeFiledUnder()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await WriteOverviewAsync(scenario.GmClient, worldId,
+            await CreateAsync(scenario.GmClient, worldId), "> The vault door is cold.");
+
+        var print = await scenario.GmClient.GetFromJsonAsync<AdventurePrintResponse>($"{Base(worldId)}/{adventure.Id}/print");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(print!.AdventureId, Is.EqualTo(adventure.Id));
+            Assert.That(print.Html, Does.StartWith("<article class=\"booklet\">"));
+            Assert.That(print.Html, Does.Contain("<blockquote class=\"read-aloud\">"));
+            Assert.That(print.LibraryTitle, Does.StartWith("The Silver Key, printed "));
+        });
+    }
+
+    [Test]
+    public async Task Gm_ExportsTheAdventure_AsAGmOnlySource_QueuedForExtraction()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await WriteOverviewAsync(scenario.GmClient, worldId,
+            await CreateAsync(scenario.GmClient, worldId), "The key opens the vault.");
+
+        var response = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/export", new ExportAdventureRequest(null));
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
+        var export = (await response.Content.ReadFromJsonAsync<AdventureExportResponse>())!;
+
+        var source = await scenario.GmClient.GetFromJsonAsync<SourceResponse>($"/api/worlds/{worldId}/sources/{export.SourceId}");
+        Assert.Multiple(() =>
+        {
+            Assert.That(export.Title, Is.EqualTo("The Silver Key (prep)"));
+            Assert.That(export.Slug, Is.Not.Null.And.Not.Empty);
+            Assert.That(source!.Type, Is.EqualTo("AdventureExport"));
+            Assert.That(source.Visibility, Is.EqualTo("GMOnly"));
+            Assert.That(source.Body, Does.Contain("The key opens the vault."));
+            Assert.That(_factory.ExtractionQueueClient.SentMessages.Count(m => m.SourceId == export.SourceId), Is.EqualTo(1));
+        });
+
+        // GM-only all the way down: the Player can't open what the export filed.
+        var asPlayer = await scenario.PlayerClient.GetAsync($"/api/worlds/{worldId}/sources/{export.SourceId}");
+        Assert.That(asPlayer.StatusCode, Is.EqualTo(HttpStatusCode.NotFound).Or.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
+    public async Task Export_OfAnUntouchedSkeleton_Is400_AndFilesNothing()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var adventure = await CreateAsync(scenario.GmClient, scenario.World.Id);
+
+        var response = await scenario.GmClient.PostAsJsonAsync(
+            $"{Base(scenario.World.Id)}/{adventure.Id}/export", new ExportAdventureRequest(null));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That((await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Code, Is.EqualTo("nothing_to_export"));
+        Assert.That(_factory.ExtractionQueueClient.SentMessages, Is.Empty);
     }
 }
