@@ -39,6 +39,13 @@ public class World
     public decimal? PublicAskMonthlyBudgetUsd { get; set; }
 
     /// <summary>
+    /// GM-configured monthly spend cap (USD) for Prep drafting, a pool of its own: drafting
+    /// never draws on <see cref="DailyAiBudgetUsd"/>, and the daily cap never blocks it.
+    /// Null inherits the configured default; zero blocks drafting.
+    /// </summary>
+    public decimal? PrepMonthlyBudgetUsd { get; set; }
+
+    /// <summary>
     /// Routes accept-time summary refreshes through review instead of the default trusted
     /// write. Off by default: a refreshed summary restates already-accepted knowledge, and
     /// most GMs will not want a review round per restatement — but the gate is theirs to

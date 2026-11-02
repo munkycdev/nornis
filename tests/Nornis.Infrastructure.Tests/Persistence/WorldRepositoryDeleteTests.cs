@@ -24,7 +24,7 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
         Guid BatchId, Guid ProposalId, Guid UsageId, Guid AssessmentId, Guid FindingId,
         Guid DismissalId, Guid DocumentId, Guid ChunkId, Guid ReplayId,
         Guid ShelfLinkId, Guid SnapshotId, Guid DigestId, Guid ImportSessionId, Guid ImportItemId,
-        Guid TutorialProgressId);
+        Guid TutorialProgressId, Guid AdventureId, Guid AdventureSectionId, Guid AdventureRevisionId);
 
     /// <summary>
     /// Seeds a world exercising every table and every awkward FK: a character linked to an
@@ -372,7 +372,38 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
             CompletedAt = now,
         };
 
+        // Prep: an Adventure for the campaign (Restrict), a section and its revision.
+        var adventure = new Adventure
+        {
+            Id = Guid.NewGuid(),
+            WorldId = world.Id,
+            CampaignId = campaign.Id,
+            Title = "The Silver Key",
+            CreatedByUserId = user.Id,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+        var adventureSection = new AdventureSection
+        {
+            Id = Guid.NewGuid(),
+            AdventureId = adventure.Id,
+            Kind = AdventureSectionKind.Scene,
+            Title = "Scene 1",
+            BodyMarkdown = "> Fog.",
+            SortOrder = 1,
+            UpdatedAt = now,
+        };
+        var adventureRevision = new AdventureSectionRevision
+        {
+            Id = Guid.NewGuid(),
+            SectionId = adventureSection.Id,
+            BodyMarkdown = "",
+            Model = "gpt-5.4",
+            CreatedAt = now,
+        };
+
         Context.AddRange(
+            adventure, adventureSection, adventureRevision,
             user, world, member, player, invite, campaign, artifact, storyline, character,
             campaignCharacter, campaignRecap, fact, relationship, source, extraction,
             reference, attachment, placemark, batch, proposal, usage, assessment, finding,
@@ -385,6 +416,12 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
         // save because World and Campaign each reference the other, and one insert cannot
         // order a cycle.
         world.CurrentCampaignId = campaign.Id;
+
+        // Prep and the Library point at each other, both Restrict: the Adventure's last print,
+        // and the print's Adventure. The source is an export of the Adventure, also Restrict.
+        adventure.LastPrintedDocumentId = document.Id;
+        document.AdventureId = adventure.Id;
+        source.AdventureId = adventure.Id;
         Context.SaveChanges();
         Context.ChangeTracker.Clear();
 
@@ -394,7 +431,7 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
             source.Id, extraction.Id, reference.Id, attachment.Id, placemark.Id, batch.Id,
             proposal.Id, usage.Id, assessment.Id, finding.Id, dismissal.Id, document.Id,
             chunk.Id, replay.Id, shelfLink.Id, snapshot.Id, digest.Id, importSession.Id,
-            importItem.Id, tutorialProgress.Id);
+            importItem.Id, tutorialProgress.Id, adventure.Id, adventureSection.Id, adventureRevision.Id);
     }
 
     /// <summary>Counts how many of the graph's seeded rows still exist, table by table.</summary>
@@ -431,11 +468,14 @@ public class WorldRepositoryDeleteTests : IntegrationTestBase
         remaining += await Context.ImportSessions.CountAsync(x => x.Id == g.ImportSessionId);
         remaining += await Context.ImportSessionItems.CountAsync(x => x.Id == g.ImportItemId);
         remaining += await Context.TutorialProgress.CountAsync(x => x.Id == g.TutorialProgressId);
+        remaining += await Context.Adventures.CountAsync(x => x.Id == g.AdventureId);
+        remaining += await Context.AdventureSections.CountAsync(x => x.Id == g.AdventureSectionId);
+        remaining += await Context.AdventureSectionRevisions.CountAsync(x => x.Id == g.AdventureRevisionId);
         return remaining;
     }
 
     /// <summary>The number of rows one seeded graph contributes (2 artifacts, 1 of everything else).</summary>
-    private const int SeededRowCount = 31;
+    private const int SeededRowCount = 34;
 
     [Test]
     public async Task DeleteAsync_RemovesEveryRowOfTheWorld_AndNothingElse()

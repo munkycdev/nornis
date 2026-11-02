@@ -33,7 +33,7 @@ public class EnumDefinitionTests
         AssertEnumHasExactValues<SourceType>(
             "SessionNote", "JournalEntry", "Transcript", "Upload",
             "Image", "HandwrittenNotes", "WebLink", "GMNote", "ImportedNote",
-            "SessionAudio", "FanFiction", "Map", "Reveal", "LibraryExcerpt");
+            "SessionAudio", "FanFiction", "Map", "Reveal", "LibraryExcerpt", "AdventureExport");
     }
 
     [Test]
@@ -116,7 +116,14 @@ public class EnumDefinitionTests
     {
         AssertEnumHasExactValues<AiOperationType>(
             "SourceExtraction", "ArtifactSummary", "AskLoremaster", "SourceExtractionRepair", "ContinuityAudit", "StorylineRetrospective", "Embedding", "RelationshipBackfill", "HandwritingTranscription", "ImageReading", "MapExtraction", "ContinuityFix", "WorldNaming",
-            "WorldDigest", "CampaignRecap", "ConvergenceNarration");
+            "WorldDigest", "CampaignRecap", "ConvergenceNarration", "AdventureDrafting");
+    }
+
+    [Test]
+    public void AdventureSectionKind_HasExpectedValues()
+    {
+        AssertEnumHasExactValues<AdventureSectionKind>(
+            "Overview", "SessionClock", "Chapter", "Scene", "QuickReference", "Notes");
     }
 
 

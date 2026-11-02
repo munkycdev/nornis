@@ -82,6 +82,13 @@ public class Source : ISlugged
     /// </summary>
     public Guid? LibraryDocumentId { get; set; }
 
+    /// <summary>
+    /// The Adventure a <see cref="SourceType.AdventureExport"/> was exported from. Null on an
+    /// export means the Adventure has since been deleted; the snapshot stands on its own.
+    /// Always null on every other source type.
+    /// </summary>
+    public Guid? AdventureId { get; set; }
+
     /// <summary>1-based first page an excerpt covers; set on every excerpt, null elsewhere.</summary>
     public int? LibraryPageFrom { get; set; }
 

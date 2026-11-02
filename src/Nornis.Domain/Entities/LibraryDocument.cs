@@ -45,6 +45,13 @@ public class LibraryDocument : ISlugged
     /// <summary>Why indexing failed, when <see cref="Status"/> is IndexFailed.</summary>
     public string? ErrorMessage { get; set; }
 
+    /// <summary>
+    /// The Adventure this document was printed from. Null means it isn't a Prep print, or its
+    /// Adventure has since been deleted. Every print carries it: it is how a print is told
+    /// apart from an uploaded handout.
+    /// </summary>
+    public Guid? AdventureId { get; set; }
+
     public Guid UploadedByUserId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }

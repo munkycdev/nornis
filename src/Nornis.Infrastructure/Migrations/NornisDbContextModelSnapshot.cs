@@ -23,6 +23,129 @@ namespace Nornis.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Nornis.Domain.Entities.Adventure", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CampaignId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("LastPrintedDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Pitch")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("Slug")
+                        .HasMaxLength(65)
+                        .HasColumnType("nvarchar(65)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("WorldId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("LastPrintedDocumentId");
+
+                    b.HasIndex("WorldId");
+
+                    b.HasIndex("WorldId", "Slug")
+                        .IsUnique()
+                        .HasFilter("[Slug] IS NOT NULL");
+
+                    b.ToTable("Adventures", (string)null);
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.AdventureSection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AdventureId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BodyMarkdown")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdventureId", "SortOrder");
+
+                    b.ToTable("AdventureSections", (string)null);
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.AdventureSectionRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BodyMarkdown")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Instruction")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("SectionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SectionId", "CreatedAt");
+
+                    b.ToTable("AdventureSectionRevisions", (string)null);
+                });
+
             modelBuilder.Entity("Nornis.Domain.Entities.AiUsageRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -758,6 +881,9 @@ namespace Nornis.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("AdventureId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("BlobPath")
                         .IsRequired()
                         .HasMaxLength(1024)
@@ -820,6 +946,8 @@ namespace Nornis.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AdventureId");
 
                     b.HasIndex("UploadedByUserId");
 
@@ -1089,6 +1217,9 @@ namespace Nornis.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("AdventureId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Body")
                         .HasColumnType("nvarchar(max)");
 
@@ -1157,6 +1288,8 @@ namespace Nornis.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AdventureId");
 
                     b.HasIndex("CampaignId");
 
@@ -1425,6 +1558,9 @@ namespace Nornis.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<decimal?>("PrepMonthlyBudgetUsd")
+                        .HasColumnType("decimal(6,2)");
+
                     b.Property<bool>("PublicAccessEnabled")
                         .HasColumnType("bit");
 
@@ -1587,6 +1723,61 @@ namespace Nornis.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("WorldMembers", (string)null);
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.Adventure", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.Campaign", "Campaign")
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Nornis.Domain.Entities.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Nornis.Domain.Entities.LibraryDocument", "LastPrintedDocument")
+                        .WithMany()
+                        .HasForeignKey("LastPrintedDocumentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Nornis.Domain.Entities.World", "World")
+                        .WithMany()
+                        .HasForeignKey("WorldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Campaign");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("LastPrintedDocument");
+
+                    b.Navigation("World");
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.AdventureSection", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.Adventure", "Adventure")
+                        .WithMany("Sections")
+                        .HasForeignKey("AdventureId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Adventure");
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.AdventureSectionRevision", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.AdventureSection", "Section")
+                        .WithMany("Revisions")
+                        .HasForeignKey("SectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Section");
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.AiUsageRecord", b =>
@@ -1854,6 +2045,11 @@ namespace Nornis.Infrastructure.Migrations
 
             modelBuilder.Entity("Nornis.Domain.Entities.LibraryDocument", b =>
                 {
+                    b.HasOne("Nornis.Domain.Entities.Adventure", null)
+                        .WithMany()
+                        .HasForeignKey("AdventureId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Nornis.Domain.Entities.User", "UploadedByUser")
                         .WithMany()
                         .HasForeignKey("UploadedByUserId")
@@ -1955,6 +2151,11 @@ namespace Nornis.Infrastructure.Migrations
 
             modelBuilder.Entity("Nornis.Domain.Entities.Source", b =>
                 {
+                    b.HasOne("Nornis.Domain.Entities.Adventure", null)
+                        .WithMany()
+                        .HasForeignKey("AdventureId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Nornis.Domain.Entities.Campaign", "Campaign")
                         .WithMany()
                         .HasForeignKey("CampaignId")
@@ -2091,6 +2292,16 @@ namespace Nornis.Infrastructure.Migrations
                     b.Navigation("User");
 
                     b.Navigation("World");
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.Adventure", b =>
+                {
+                    b.Navigation("Sections");
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.AdventureSection", b =>
+                {
+                    b.Navigation("Revisions");
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.Artifact", b =>

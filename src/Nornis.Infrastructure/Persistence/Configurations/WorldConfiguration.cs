@@ -25,6 +25,9 @@ public class WorldConfiguration : IEntityTypeConfiguration<World>
         builder.Property(c => c.PublicAskMonthlyBudgetUsd)
             .HasColumnType("decimal(6,2)");
 
+        builder.Property(c => c.PrepMonthlyBudgetUsd)
+            .HasColumnType("decimal(6,2)");
+
         builder.Property(c => c.GameSystem)
             .HasMaxLength(200);
 

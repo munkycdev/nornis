@@ -88,6 +88,7 @@ public class SourceServiceCaptureTypeTests
 
     [TestCase(SourceType.Reveal)]
     [TestCase(SourceType.LibraryExcerpt)]
+    [TestCase(SourceType.AdventureExport)]
     [Category("Authorization")]
     public async Task Create_NoRoleCanCaptureAMintedType(SourceType type)
     {

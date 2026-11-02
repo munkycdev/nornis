@@ -26,5 +26,9 @@ public enum AiOperationType
 
     /// <summary>Writing the why-now beside a convergence candidate. Annotates a ranking
     /// the system already computed; it never produces one.</summary>
-    ConvergenceNarration
+    ConvergenceNarration,
+
+    /// <summary>Drafting or revising one Prep section. Metered against the world's monthly
+    /// Prep pool, never the daily world budget.</summary>
+    AdventureDrafting
 }

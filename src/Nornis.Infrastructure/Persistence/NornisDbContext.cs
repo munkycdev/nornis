@@ -39,6 +39,9 @@ public class NornisDbContext : DbContext
     public DbSet<ContinuityDismissal> ContinuityDismissals => Set<ContinuityDismissal>();
     public DbSet<LibraryDocument> LibraryDocuments => Set<LibraryDocument>();
     public DbSet<LibraryChunk> LibraryChunks => Set<LibraryChunk>();
+    public DbSet<Adventure> Adventures => Set<Adventure>();
+    public DbSet<AdventureSection> AdventureSections => Set<AdventureSection>();
+    public DbSet<AdventureSectionRevision> AdventureSectionRevisions => Set<AdventureSectionRevision>();
     public DbSet<MapPlacemark> MapPlacemarks => Set<MapPlacemark>();
     public DbSet<ExtractionReplay> ExtractionReplays => Set<ExtractionReplay>();
     public DbSet<ImportSession> ImportSessions => Set<ImportSession>();
