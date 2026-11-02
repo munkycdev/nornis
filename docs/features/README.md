@@ -41,6 +41,7 @@ simply never used, and it stays unused so that every existing reference keeps it
 | 28 | The public face, brought up to date | 2026-09-10 | A per-world switch to withhold player names; a public character page; campaign filtering on the public Sources tab |
 | 29 | Prep (Nornis 3.0) | 2026-11-02 (all five phases) | A persisted side conversation per Adventure; one-click PDF filing from a worker; the booklet reaching Bibliotaph; telling extraction which Adventure a session ran; printing only the props |
 | 30 | Prep 3.1 (side conversation, threads to use) | Specified 2026-11-02 | One-click PDF (deferred); telling extraction which Adventure a session ran; printing only the props |
+| 31 | Bibliotaph (Nornis 3.2) | Specified 2026-11-02 | A "read in Bibliotaph" link for the creator; Nornis's own PDF index until the cutover (Phase H) |
 
 Work sequenced outside this folder — the August operations and test-quality backlog — lives in
 [`../future-features.md`](../future-features.md) and `../plans/`. Campaigns' first-tier page
