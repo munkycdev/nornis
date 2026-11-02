@@ -585,6 +585,21 @@ public class NornisApiClient
         Guid worldId, Guid adventureId, Guid sectionId, CancellationToken ct = default) =>
         PostAsync<object?, AdventureDto>($"/api/worlds/{worldId}/prep/{adventureId}/sections/{sectionId}/undo", null, ct);
 
+    /// <summary>
+    /// Drafts or revises one section, streamed. Refusals (a stale section, a draft already
+    /// running, the Prep budget spent) arrive as <see cref="DraftStreamEvent.Failed"/>, and
+    /// nothing is saved unless the stream ends in <see cref="DraftStreamEvent.Done"/>.
+    /// </summary>
+    public IAsyncEnumerable<DraftStreamEvent> StreamAdventureDraftAsync(
+        Guid worldId, Guid adventureId, Guid sectionId, DraftAdventureSectionRequest request, CancellationToken ct = default) =>
+        StreamEventsAsync($"/api/worlds/{worldId}/prep/{adventureId}/sections/{sectionId}/draft", request,
+            ToDraftStreamEvent, error => new DraftStreamEvent.Failed(error),
+            e => e is DraftStreamEvent.Done or DraftStreamEvent.Failed,
+            "The draft was cut off, and nothing was saved. Please try again.", ct);
+
+    public Task<ApiResult<PrepBudgetDto>> GetPrepBudgetAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<PrepBudgetDto>($"/api/worlds/{worldId}/prep-budget", ct);
+
     // ------------------------------------------------------------------ Library --
 
     public Task<ApiResult<LibraryUploadTicketDto>> RequestLibraryUploadAsync(
@@ -1051,14 +1066,28 @@ public class NornisApiClient
         }
     }
 
+    private IAsyncEnumerable<AskStreamEvent> StreamAskEventsAsync<TBody>(string uri, TBody body, CancellationToken ct) =>
+        StreamEventsAsync(uri, body, ToAskStreamEvent, error => new AskStreamEvent.Failed(error),
+            e => e is AskStreamEvent.Done or AskStreamEvent.Failed,
+            "The Loremaster's answer was cut off. Please try again.", ct);
+
     /// <summary>
-    /// Posts an Ask and reads the answer's server-sent events as they arrive. Every way this can
-    /// go wrong ends the stream with one <see cref="AskStreamEvent.Failed"/>: a refusal before the
-    /// stream (the API's status and error body, read exactly as <see cref="ReadResultAsync{T}"/>
-    /// reads them), an unreachable API, or a stream that stops without saying it is done.
+    /// Posts and reads the response's server-sent events as they arrive. Every way this can go
+    /// wrong ends the stream with one failure event: a refusal before the stream (the API's
+    /// status and error body, read exactly as <see cref="ReadResultAsync{T}"/> reads them), an
+    /// unreachable API, or a stream that stops without saying it is done.
     /// </summary>
-    private async IAsyncEnumerable<AskStreamEvent> StreamAskEventsAsync<TBody>(
-        string uri, TBody body, [EnumeratorCancellation] CancellationToken ct)
+    /// <param name="map">Null for an event this client does not know; a newer API may add some.</param>
+    /// <param name="cutOff">What a stream that stops early says, ahead of the cause.</param>
+    private async IAsyncEnumerable<TEvent> StreamEventsAsync<TBody, TEvent>(
+        string uri,
+        TBody body,
+        Func<SseItem<string>, TEvent?> map,
+        Func<ApiError, TEvent> fail,
+        Func<TEvent, bool> isEnd,
+        string cutOff,
+        [EnumeratorCancellation] CancellationToken ct)
+        where TEvent : class
     {
         HttpResponseMessage? response = null;
         ApiError? refusal = null;
@@ -1081,7 +1110,7 @@ public class NornisApiClient
         if (refusal is not null)
         {
             response?.Dispose();
-            yield return new AskStreamEvent.Failed(refusal);
+            yield return fail(refusal);
             yield break;
         }
 
@@ -1092,7 +1121,7 @@ public class NornisApiClient
             {
                 while (true)
                 {
-                    AskStreamEvent? next;
+                    TEvent? next;
 
                     // No yield inside a try with a catch, so only the read sits in one.
                     try
@@ -1108,13 +1137,13 @@ public class NornisApiClient
                             break;
                         }
 
-                        next = ToAskStreamEvent(items.Current);
+                        next = map(items.Current);
                     }
                     catch (Exception ex) when (!ct.IsCancellationRequested)
                     {
                         // A dropped connection or a payload that will not parse: either way the
-                        // answer is incomplete, and saying so beats rendering half of one as whole.
-                        next = new AskStreamEvent.Failed(Interrupted(ex));
+                        // result is incomplete, and saying so beats rendering half of one as whole.
+                        next = fail(Interrupted(cutOff, ex));
                     }
 
                     if (next is null)
@@ -1123,7 +1152,7 @@ public class NornisApiClient
                     }
 
                     yield return next;
-                    if (next is AskStreamEvent.Done or AskStreamEvent.Failed)
+                    if (isEnd(next))
                     {
                         yield break;
                     }
@@ -1138,7 +1167,7 @@ public class NornisApiClient
             }
         }
 
-        yield return new AskStreamEvent.Failed(Interrupted(null));
+        yield return fail(Interrupted(cutOff, null));
     }
 
     /// <summary>Null for an event this client does not know — a newer API may add some.</summary>
@@ -1155,11 +1184,19 @@ public class NornisApiClient
         JsonSerializer.Deserialize<T>(json, JsonSerializerOptions.Web)
         ?? throw new JsonException($"Empty {typeof(T).Name} payload in the answer stream.");
 
+    /// <summary>Null for an event this client does not know.</summary>
+    private static DraftStreamEvent? ToDraftStreamEvent(SseItem<string> item) => item.EventType switch
+    {
+        DraftStreamEventNames.Delta => Deserialize<DraftStreamEvent.Delta>(item.Data),
+        DraftStreamEventNames.Done => new DraftStreamEvent.Done(Deserialize<AdventureSectionDto>(item.Data)),
+        DraftStreamEventNames.Error => new DraftStreamEvent.Failed(Deserialize<ApiError>(item.Data)),
+        _ => null,
+    };
+
     // Carries the cause the way Unreachable does: this client has no logger, and a cut-off
-    // answer with no reason attached is undiagnosable.
-    private static ApiError Interrupted(Exception? ex) =>
-        new("stream_interrupted", "The Loremaster's answer was cut off. Please try again."
-            + (ex is null ? string.Empty : $" ({ex.Message})"));
+    // stream with no reason attached is undiagnosable.
+    private static ApiError Interrupted(string message, Exception? ex) =>
+        new("stream_interrupted", message + (ex is null ? string.Empty : $" ({ex.Message})"));
 
     private static async Task<ApiResult<T>> ReadResultAsync<T>(HttpResponseMessage response, CancellationToken ct)
     {

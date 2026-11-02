@@ -1,5 +1,38 @@
 # Design Document
 
+> **Amendment (2026-11-02, Phase C):** what building drafting changed. The text below is left
+> as written.
+>
+> - **`DraftAsync` returns `AppResult<IAsyncEnumerable<DraftEvent>>`**, as streaming Ask does,
+>   not a bare stream. Everything that can refuse a draft (role, a stale stamp, a held gate, the
+>   budget, an over-long instruction) answers with its status code before the first byte; only
+>   what happens after the model starts rides in-band as an `error` event.
+> - **A draft is saved only when it ends cleanly.** The stream's last chunk now says whether
+>   the output ceiling cut the text off (`AiStreamChunk.CutOff`, from finish reason `Length`).
+>   A cut-off draft, an empty one, or one that would break a Prep bound is refused with nothing
+>   written. Usage is recorded for all of them; a refusal after a full answer counts as a
+>   provider success, a GM stopping counts as `Cancelled`. The Web keeps the streamed text on
+>   screen after a refusal so it can still be read or copied.
+> - **An edit while a draft streams wins.** The accept is conditional on the stamp the draft
+>   started from, so a save in between makes the draft a 409 and keeps the GM's text. The page
+>   saves what was typed before it starts a draft and holds the editor read-only while one runs.
+> - **The gate's lease lapses** after `DraftTimeoutSeconds + 60`, so a stream that is never
+>   read can't hold its section until the API restarts.
+> - **Retrieval also reads the section's own text** when it has some, and the Adventure's
+>   title, as well as the pitch, section title and instruction: a revision of a scene that names
+>   someone should bring that someone's record.
+> - **An unwritten Overview with no pitch needs an instruction** (400 `instruction_required`),
+>   which the Constraints table implies but the flow didn't say.
+> - **The budget route is `GET api/worlds/{worldId}/prep-budget`**, not `prep/budget`: every
+>   literal under `prep/` is also a slug an Adventure could have.
+> - **The ceiling constant is `OutputCeilingTokens`.** `UnsupportedChatParameterTests` now
+>   allows `MaxOutputTokenCount` in the drafting client's file only and still bans
+>   `Temperature` everywhere; naming the constant `MaxOutputTokens` tripped the same scan.
+> - **Usage carries reasoning tokens** (`AiUsage.ReasoningTokens`); the drafting service logs
+>   them whenever they are above zero, as task A2 asked.
+> - **`Prep:Deployment` names its pricing key too.** A deployment set there needs its own
+>   `ModelPricing` entry, or drafting is recorded at $0 and the Prep pool never fills.
+
 > **Amendment (2026-11-02, Phase B):** what building the Adventure changed. The text below is
 > left as written.
 >

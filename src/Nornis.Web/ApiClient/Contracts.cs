@@ -1118,6 +1118,12 @@ public record UpdateAdventureRequest(string Title, string? Pitch, Guid? Campaign
 
 public record SaveAdventureSectionRequest(string Kind, string Title, string? BodyMarkdown, DateTimeOffset BasedOnUpdatedAt);
 
+/// <summary>Draft or revise one section. A null or blank instruction is a plain Draft or Revise.</summary>
+public record DraftAdventureSectionRequest(string? Instruction, DateTimeOffset BasedOnUpdatedAt);
+
+/// <summary>This month's Prep spend. A null ceiling means none is set.</summary>
+public record PrepBudgetDto(decimal SpentThisMonthUsd, decimal? MonthlyBudgetUsd, bool IsExceeded);
+
 public record AddAdventureSectionRequest(string Kind, string Title, Guid? AfterSectionId);
 
 public record ReorderAdventureSectionsRequest(IReadOnlyList<Guid> SectionIds);
