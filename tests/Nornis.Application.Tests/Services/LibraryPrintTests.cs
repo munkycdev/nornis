@@ -112,7 +112,7 @@ public class LibraryPrintTests
         Assert.Multiple(() =>
         {
             Assert.That(second.Id, Is.Not.EqualTo(first.Id));
-            Assert.That(_documents.Documents.Select(d => d.Id), Is.SupersetOf(new[] { first.Id, second.Id }));
+            Assert.That(_documents.Documents.Select(d => d.Id), Is.SupersetOf([first.Id, second.Id]));
             Assert.That(adventure!.LastPrintedDocumentId, Is.EqualTo(second.Id));
         });
     }
