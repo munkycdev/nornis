@@ -33,6 +33,8 @@ public class ReachabilityTests
         "/artifacts", "/artifacts/{Key}",
         // /extract is the older alias of /import; the page carries both.
         "/extract",
+        // Bibliotaph sends the browser here mid-Connect (feature 31); nothing in Nornis links to it.
+        "/profile/bibliotaph/{State}",
     };
 
     private static string ComponentsRoot()

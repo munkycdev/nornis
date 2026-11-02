@@ -5,7 +5,7 @@ prod stays as it is until Dave sets the secrets. Phases C to G need Bibliotaph's
 step to test end to end; until then they are tested against the stand-in. Phase H waits for
 Bibliotaph's half to be live.
 
-**Status: specified 2026-11-02; Phases A and B done 2026-11-02.** Ships as Nornis v3.2.
+**Status: specified 2026-11-02; Phases A to C done 2026-11-02.** Ships as Nornis v3.2.
 
 Dave's part, outside the repo: the Auth0 setup in the Bibliotaph spec plus the Nornis →
 Bibliotaph application (design.md, decision 3), the Container Apps settings (design.md,
@@ -38,9 +38,9 @@ Bibliotaph application (design.md, decision 3), the Container Apps settings (des
 
 ## Phase C — Connecting
 
-- [ ] C1. `BibliotaphConnectService` (begin, authorize, complete, disconnect) with its tests.
-- [ ] C2. The connection routes and the anonymous callback.
-- [ ] C3. Profile › Bibliotaph and the return page.
+- [x] C1. `BibliotaphConnectService` (begin, authorize, complete, disconnect) with its tests.
+- [x] C2. The connection routes and the anonymous callback.
+- [x] C3. Profile › Bibliotaph and the return page.
 
 ## Phase D — The outbox and the provider endpoints
 

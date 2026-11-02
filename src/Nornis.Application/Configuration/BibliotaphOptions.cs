@@ -34,6 +34,18 @@ public class BibliotaphOptions
     public string? WebOrigin { get; set; }
 
     /// <summary>
+    /// Where Auth0 sends the browser back after the GM consents: the API's callback, which is the
+    /// one registered on the "Nornis → Bibliotaph" application. API only.
+    /// </summary>
+    public string CallbackUrl { get; set; } = "https://api.nornis.app/bibliotaph/callback";
+
+    /// <summary>The scopes Nornis asks Bibliotaph for, as the contract names them.</summary>
+    public const string Scopes = "openid books:read tickets:write worlds:write offline_access";
+
+    /// <summary>How long a GM has to finish connecting once they press Connect.</summary>
+    public int ConnectStateMinutes { get; set; } = 10;
+
+    /// <summary>
     /// Where the Data Protection ring that protects the stored refresh tokens lives: a blob in a
     /// container only the API and Worker identities are granted on. Required when configured.
     /// </summary>
@@ -112,6 +124,7 @@ public class BibliotaphOptions
             (nameof(ReadingRecordRetentionDays), ReadingRecordRetentionDays),
             (nameof(MaxExcerptPages), MaxExcerptPages),
             (nameof(LastUsedWriteMinutes), LastUsedWriteMinutes),
+            (nameof(ConnectStateMinutes), ConnectStateMinutes),
         }.FirstOrDefault(b => b.Value <= 0).Name;
 
     /// <summary>

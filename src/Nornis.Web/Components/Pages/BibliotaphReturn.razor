@@ -1,0 +1,44 @@
+@page "/profile/bibliotaph/{State}"
+@* Where Bibliotaph sends the browser back during Connect (feature 31, Requirement 1). On
+   "connected" the API hands over the Auth0 address for the grant; anything else goes back to
+   Profile with the outcome. The state is opaque here: only the API can read it. *@
+@inject NornisApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Connecting Bibliotaph — Nornis</PageTitle>
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_error</MudAlert>
+    <MudButton Variant="Variant.Outlined" Href="/profile">Back to your settings</MudButton>
+}
+else
+{
+    <MudText Typo="Typo.body1">Connecting Bibliotaph…</MudText>
+}
+
+@code {
+    [Parameter] public string State { get; set; } = string.Empty;
+
+    [SupplyParameterFromQuery(Name = "bibliotaph")] public string? Outcome { get; set; }
+
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Outcome != "connected")
+        {
+            Nav.NavigateTo($"/profile?bibliotaph={Uri.EscapeDataString(Outcome ?? "failed")}", replace: true);
+            return;
+        }
+
+        var result = await Api.AuthorizeBibliotaphAsync(State);
+        if (result.IsSuccess)
+        {
+            Nav.NavigateTo(result.Value!.Url, forceLoad: true);
+            return;
+        }
+
+        _error = result.Error!.Message;
+    }
+}
