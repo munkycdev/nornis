@@ -58,7 +58,7 @@ public sealed class AiFundingService : IAiFundingService
             if (keys.Count > 0)
             {
                 var choice = await _keys.GetChoiceAsync(holderId, task, ct);
-                if (Pick(keys, choice, task, needsImages) is { } pick)
+                if (AiModelPicker.Pick(_options, keys, choice?.ModelId, task, needsImages) is { } pick)
                 {
                     if (pick.Key.CheckFailed)
                     {
@@ -66,7 +66,7 @@ public sealed class AiFundingService : IAiFundingService
                     }
 
                     return new AiFunding(pick.Key.Provider, pick.Model, AiFundedBy.Key, pick.Key.Id, holderId,
-                        pick.ModelId, pick.Price);
+                        pick.CatalogId, pick.Price);
                 }
             }
         }
@@ -107,63 +107,6 @@ public sealed class AiFundingService : IAiFundingService
 
         return new AiFunding(AiProvider.AzureOpenAi, nornisModel, AiFundedBy.Trial, KeyHolderUserId: holderId);
     }
-
-    private sealed record ModelPick(UserAiKey Key, string Model, string? ModelId, AiModelPrice Price);
-
-    private ModelPick? Pick(IReadOnlyList<UserAiKey> keys, UserAiModelChoice? choice, AiTask task, bool needsImages)
-    {
-        if (choice is not null && Chosen(keys, choice.ModelId, task, needsImages) is { } chosen)
-        {
-            return chosen;
-        }
-
-        // A choice that no longer fits (the model left the catalog, its key was removed, or this
-        // call needs images it can't read) falls back to the default, never to "off".
-        foreach (var model in _options.Catalog)
-        {
-            if (Fits(model, task, needsImages) && KeyFor(keys, model.Provider) is { } key)
-            {
-                return new ModelPick(key, model.Model, model.Id, model.Price);
-            }
-        }
-
-        return Compatible(keys, task, needsImages, lineId: null);
-    }
-
-    private ModelPick? Chosen(IReadOnlyList<UserAiKey> keys, string modelId, AiTask task, bool needsImages)
-    {
-        if (modelId.StartsWith(UserAiModelChoice.CompatiblePrefix, StringComparison.Ordinal))
-        {
-            return Guid.TryParse(modelId[UserAiModelChoice.CompatiblePrefix.Length..], out var lineId)
-                ? Compatible(keys, task, needsImages, lineId)
-                : null;
-        }
-
-        return _options.Find(modelId) is { } model && Fits(model, task, needsImages) && KeyFor(keys, model.Provider) is { } key
-            ? new ModelPick(key, model.Model, model.Id, model.Price)
-            : null;
-    }
-
-    private static ModelPick? Compatible(IReadOnlyList<UserAiKey> keys, AiTask task, bool needsImages, Guid? lineId)
-    {
-        if (KeyFor(keys, AiProvider.OpenAiCompatible) is not { } key)
-        {
-            return null;
-        }
-
-        var line = key.CompatibleModels.FirstOrDefault(m =>
-            m.Task == task && (lineId is null || m.Id == lineId) && (!needsImages || m.SupportsImages));
-
-        return line is null
-            ? null
-            : new ModelPick(key, line.ModelName, null, new AiModelPrice(line.InputPerMillionUsd, null, line.OutputPerMillionUsd));
-    }
-
-    private static bool Fits(AiCatalogModel model, AiTask task, bool needsImages) =>
-        model.Tasks.Contains(task) && (!needsImages || model.SupportsImages);
-
-    private static UserAiKey? KeyFor(IReadOnlyList<UserAiKey> keys, AiProvider provider) =>
-        keys.FirstOrDefault(k => k.Provider == provider);
 
     private async Task<Guid?> KeyHolderAsync(AiCallScope scope, CancellationToken ct)
     {

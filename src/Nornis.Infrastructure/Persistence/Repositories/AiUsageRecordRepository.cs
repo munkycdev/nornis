@@ -181,6 +181,43 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
         return results;
     }
 
+    public async Task<IReadOnlyList<GroupedCostSummary<AiFundingKey>>> AggregateByFundingAsync(
+        Guid worldId,
+        Guid? userId,
+        DateTimeOffset? fromDate,
+        DateTimeOffset? toDate,
+        CancellationToken cancellationToken = default)
+    {
+        var grouped = await BuildFilteredQuery(worldId, userId, fromDate, toDate)
+            .GroupBy(r => new { r.FundedBy, r.AiKeyId })
+            .Select(g => new
+            {
+                g.Key.FundedBy,
+                g.Key.AiKeyId,
+                TotalInputTokens = g.Sum(r => (long)r.InputTokens),
+                TotalOutputTokens = g.Sum(r => (long)r.OutputTokens),
+                TotalTokens = g.Sum(r => (long)r.TotalTokens),
+                TotalEstimatedCostUsd = g.Sum(r => r.EstimatedCostUsd),
+                OperationCount = g.Count()
+            })
+            .ToListAsync(cancellationToken);
+
+        return grouped
+            .Select(g => new GroupedCostSummary<AiFundingKey>
+            {
+                Key = new AiFundingKey(g.FundedBy, g.AiKeyId),
+                Summary = new CostSummary
+                {
+                    TotalInputTokens = g.TotalInputTokens,
+                    TotalOutputTokens = g.TotalOutputTokens,
+                    TotalTokens = g.TotalTokens,
+                    TotalEstimatedCostUsd = g.TotalEstimatedCostUsd,
+                    OperationCount = g.OperationCount
+                }
+            })
+            .ToList();
+    }
+
     public async Task<IReadOnlyList<GroupedCostSummary<Guid>>> AggregateByUserAsync(
         Guid worldId,
         Guid? userId,

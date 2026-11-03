@@ -362,7 +362,7 @@ public class AiCallExecutorTests
             Task.FromResult(new AiBinding(client, OpenAiProviderTraits.Instance,
                 new AiFunding(AiProvider.OpenAi, model, AiFundedBy.Key)));
 
-        public Task ReportKeyRejectedAsync(AiBinding binding, CancellationToken ct) => Task.CompletedTask;
+        public Task ReportAsync(AiBinding binding, Exception? failure, CancellationToken ct) => Task.CompletedTask;
     }
 
     private sealed class ThrowingBinder(Exception exception) : IAiCallBinder
@@ -370,7 +370,7 @@ public class AiCallExecutorTests
         public Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, CancellationToken ct) =>
             Task.FromException<AiBinding>(exception);
 
-        public Task ReportKeyRejectedAsync(AiBinding binding, CancellationToken ct) => Task.CompletedTask;
+        public Task ReportAsync(AiBinding binding, Exception? failure, CancellationToken ct) => Task.CompletedTask;
     }
 
     #endregion

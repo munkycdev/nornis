@@ -28,4 +28,10 @@ public static class ErrorCategories
 
     /// <summary>Feature 39: the key works, but its provider account is out of credit.</summary>
     public const string AiCreditExhausted = "AiCreditExhausted";
+
+    /// <summary>The failures that are about who pays rather than about the call (feature 39); a
+    /// saved key can cure each of them.</summary>
+    public static readonly IReadOnlyCollection<string> Refusals = [AiKeyRequired, AiKeyRejected, AiCreditExhausted];
+
+    public static bool IsRefusal(string? category) => category is not null && Refusals.Contains(category);
 }

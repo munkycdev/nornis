@@ -137,6 +137,17 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
         return Task.FromResult<IReadOnlyList<GroupedCostSummary<string>>>(result.AsReadOnly());
     }
 
+    public Task<IReadOnlyList<GroupedCostSummary<AiFundingKey>>> AggregateByFundingAsync(
+        Guid worldId,
+        Guid? userId,
+        DateTimeOffset? fromDate,
+        DateTimeOffset? toDate,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<GroupedCostSummary<AiFundingKey>>>(FilterRecords(worldId, userId, fromDate, toDate)
+            .GroupBy(r => new AiFundingKey(r.FundedBy, r.AiKeyId))
+            .Select(g => new GroupedCostSummary<AiFundingKey> { Key = g.Key, Summary = BuildSummary(g.ToList()) })
+            .ToList());
+
     public Task<IReadOnlyList<GroupedCostSummary<Guid>>> AggregateByUserAsync(
         Guid worldId,
         Guid? userId,

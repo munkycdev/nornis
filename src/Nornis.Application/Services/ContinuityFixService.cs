@@ -191,6 +191,12 @@ public class ContinuityFixService : IContinuityFixService
         {
             throw;
         }
+        catch (AiRefusalException refusal)
+        {
+            // Nothing could pay, or the paying key was refused (feature 39): nothing was charged, and
+            // the code tells the GM what to fix.
+            return AppResult<ContinuityFixDraft>.Fail(refusal.ToAppError());
+        }
         catch (Exception)
         {
             await TrackUsageAsync(worldId, actingUserId, null, false, "ServiceError", ct);

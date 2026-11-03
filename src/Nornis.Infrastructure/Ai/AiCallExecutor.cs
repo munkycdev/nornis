@@ -65,11 +65,12 @@ public static class AiCallExecutor
                 throw new InvalidOperationException("The completion carried no content.");
             }
 
+            await binder.ReportAsync(binding, null, CancellationToken.None);
             return (response.Text, ToUsage(response.Usage, binding.Funding, stopwatch));
         }
         catch (Exception ex) when (Translate(ex, binding, timeoutCts, ct, timeoutSeconds, operation, logger) is { } translated)
         {
-            await ReportAsync(binder, binding, translated);
+            await binder.ReportAsync(binding, translated, CancellationToken.None);
             throw translated;
         }
     }
@@ -124,7 +125,7 @@ public static class AiCallExecutor
                 }
                 catch (Exception ex) when (Translate(ex, binding, timeoutCts, ct, request.TimeoutSeconds, operation, logger) is { } translated)
                 {
-                    await ReportAsync(binder, binding, translated);
+                    await binder.ReportAsync(binding, translated, CancellationToken.None);
                     throw translated;
                 }
 
@@ -156,6 +157,7 @@ public static class AiCallExecutor
         }
 
         stopwatch.Stop();
+        await binder.ReportAsync(binding, null, CancellationToken.None);
 
         // Null, not zeros, when the provider reported nothing: zeros would read as a free call,
         // and the caller could no longer tell "cost nothing" from "we were not told".
@@ -177,15 +179,6 @@ public static class AiCallExecutor
     internal static bool CarriesImages(IEnumerable<ChatMessage> messages) =>
         messages.Any(m => m.Contents.Any(c => c is DataContent data && data.HasTopLevelMediaType("image")
                                               || c is UriContent uri && uri.HasTopLevelMediaType("image")));
-
-    /// <summary>
-    /// A refused key is marked at once, so the next call is refused by the funding rule instead of
-    /// being sent. Not on the caller's token: a reader leaving must not leave the key unmarked.
-    /// </summary>
-    private static Task ReportAsync(IAiCallBinder binder, AiBinding binding, Exception translated) =>
-        translated is AiKeyRejectedException
-            ? binder.ReportKeyRejectedAsync(binding, CancellationToken.None)
-            : Task.CompletedTask;
 
     private static AiUsage ToUsage(UsageDetails? usage, AiFunding funding, Stopwatch stopwatch) => new()
     {

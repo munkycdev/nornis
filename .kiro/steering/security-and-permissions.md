@@ -1,5 +1,19 @@
 ﻿# Security and Permissions
 
+> **Amendment (2026-11-03): users' AI keys.** Feature 39 lets a user save their own key for an
+> AI provider, which their worlds' AI then spends.
+>
+> - **A key never leaves the API.** It is stored as Data Protection ciphertext under its own ring
+>   (`AiKeys:KeyBlobUri`), shown only by its last four characters, and never logged: the HTTP
+>   client factory redacts header values, which a test holds.
+> - **Every route acts on the signed-in user's own keys**; none takes another user's id. A world's
+>   funding is told to its GMs only, never to players.
+> - **A key is checked with its provider before it is saved**, at most 10 checks an hour per
+>   user, so a stolen session can't use Nornis to test keys.
+> - **Outbound calls to a URL a user typed go through `PublicEndpointGuard`**: https only, public
+>   addresses only (checked after DNS on every connection), no redirects. This is the rule for
+>   any future feature that calls a user-supplied URL from the API or the Worker.
+
 > **Amendment (2026-11-02): an account can have several sign-ins.** Feature 33 (Nornis v3.3).
 > A user is no longer one Auth0 subject but a set of them (`UserSignIn`), and any of them
 > resolves the same user, in the Web, the API and the Bibliotaph Connect check.

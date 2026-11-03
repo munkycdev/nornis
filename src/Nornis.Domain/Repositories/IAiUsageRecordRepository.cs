@@ -81,6 +81,15 @@ public interface IAiUsageRecordRepository
         DateTimeOffset? toDate,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Costs by what paid (feature 39): one group per funding kind and key. Rows from
+    /// before feature 39 have neither and group together.</summary>
+    Task<IReadOnlyList<GroupedCostSummary<AiFundingKey>>> AggregateByFundingAsync(
+        Guid worldId,
+        Guid? userId,
+        DateTimeOffset? fromDate,
+        DateTimeOffset? toDate,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<GroupedCostSummary<Guid>>> AggregateByWorldAsync(
         IReadOnlyList<Guid> worldIds,
         DateTimeOffset? fromDate,

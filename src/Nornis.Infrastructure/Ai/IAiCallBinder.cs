@@ -16,9 +16,13 @@ public interface IAiCallBinder
     /// <exception cref="AiRefusalException">Nothing can pay, or the paying key can't be used.</exception>
     Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, CancellationToken ct);
 
-    /// <summary>The provider refused the key this binding spent: mark it, so the next call is
-    /// refused by the funding rule instead of being sent. Does nothing when no key paid.</summary>
-    Task ReportKeyRejectedAsync(AiBinding binding, CancellationToken ct);
+    /// <summary>
+    /// How a bound call ended: <paramref name="failure"/> is null on success, otherwise the failure
+    /// as translated. Feeds the provider's health (<see cref="IAiOutcomeMonitor"/>), which never
+    /// counts a refusal, and marks a key its provider refused, so the next call is refused by the
+    /// funding rule instead of being sent.
+    /// </summary>
+    Task ReportAsync(AiBinding binding, Exception? failure, CancellationToken ct);
 }
 
 public sealed class AiCallBinder : IAiCallBinder
@@ -28,6 +32,7 @@ public sealed class AiCallBinder : IAiCallBinder
     private readonly UserKeyChatClients _userKeys;
     private readonly IAiKeyRepository _keys;
     private readonly IAiKeyProtector _protector;
+    private readonly IAiOutcomeMonitor _outcomes;
     private readonly TimeProvider _time;
 
     public AiCallBinder(
@@ -36,8 +41,10 @@ public sealed class AiCallBinder : IAiCallBinder
         UserKeyChatClients userKeys,
         IAiKeyRepository keys,
         IAiKeyProtector protector,
+        IAiOutcomeMonitor outcomes,
         TimeProvider time)
     {
+        _outcomes = outcomes;
         _funding = funding;
         _nornis = nornis;
         _userKeys = userKeys;
@@ -80,10 +87,18 @@ public sealed class AiCallBinder : IAiCallBinder
         return new AiBinding(client, TraitsFor(key.Provider), funding, key.UpdatedAt);
     }
 
-    public Task ReportKeyRejectedAsync(AiBinding binding, CancellationToken ct) =>
-        binding is { Funding.AiKeyId: { } keyId, KeyVersion: { } version }
+    public Task ReportAsync(AiBinding binding, Exception? failure, CancellationToken ct)
+    {
+        if (failure is not AiRefusalException)
+        {
+            _outcomes.Record(binding.Funding.Provider, failure is null, _time.GetUtcNow());
+            return Task.CompletedTask;
+        }
+
+        return failure is AiKeyRejectedException && binding is { Funding.AiKeyId: { } keyId, KeyVersion: { } version }
             ? _keys.MarkCheckFailedAsync(keyId, version, _time.GetUtcNow(), ct)
             : Task.CompletedTask;
+    }
 
     private sealed class UnreadableKeyException : Exception;
 

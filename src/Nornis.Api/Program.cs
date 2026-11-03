@@ -149,8 +149,15 @@ builder.Services.AddSingleton<MigrationStateMemo>();
 var healthChecks = builder.Services.AddHealthChecks()
     .AddCheck<PendingMigrationsHealthCheck>("pending-migrations", tags: [StatusEndpoint.LivenessTag])
     .AddCheck<WorkerHeartbeatHealthCheck>("worker-heartbeat", failureStatus: null,
-        tags: [StatusEndpoint.DependencyTag], timeout: StatusEndpoint.ProbeTimeout)
-    .AddCheck<AiAvailabilityHealthCheck>("azure-openai", tags: [StatusEndpoint.DependencyTag]);
+        tags: [StatusEndpoint.DependencyTag], timeout: StatusEndpoint.ProbeTimeout);
+
+// One AI entry per provider (feature 39): Nornis's own Azure resource, and each provider users'
+// keys can reach. Idle reads Healthy, so a provider nobody uses yet is a quiet row, not a red one.
+foreach (var provider in AiAvailabilityHealthCheck.ReportedProviders)
+{
+    healthChecks.AddTypeActivatedCheck<AiAvailabilityHealthCheck>(
+        AiAvailabilityHealthCheck.EntryName(provider), failureStatus: null, tags: [StatusEndpoint.DependencyTag], args: provider);
+}
 
 // Each probe registers only when its dependency is actually configured, mirroring the
 // client registrations further down: a local run without Service Bus should show a status
@@ -277,6 +284,7 @@ builder.Services.AddScoped<IDemoWorldService, DemoWorldService>();
 builder.Services.AddScoped<ITutorialProgressRepository, TutorialProgressRepository>();
 builder.Services.AddScoped<ITutorialService, TutorialService>();
 builder.Services.AddScoped<Nornis.Application.Accounts.ISignInService, Nornis.Application.Accounts.SignInService>();
+builder.Services.AddScoped<Nornis.Application.Accounts.IAiKeyService, Nornis.Application.Accounts.AiKeyService>();
 builder.Services.AddScoped<IWorldMemberService, WorldMemberService>();
 builder.Services.AddScoped<IWorldInviteService, WorldInviteService>();
 builder.Services.AddSingleton<IInviteCodeGenerator, InviteCodeGenerator>();
@@ -378,6 +386,11 @@ builder.Services.AddHostedService<PendingUploadSweepBackgroundService>();
 // Rows from before detail pages had slugs get theirs once, shortly after start.
 builder.Services.AddHostedService<SlugBackfillBackgroundService>();
 
+// Users' keys, the model catalog and the funding rule (feature 39). Outside the Azure branch below:
+// Profile's AI keys card works whether or not Nornis's own AI is configured, as in local runs.
+builder.Services.AddAiFunding(
+    builder.Configuration, Nornis.Infrastructure.Ai.AzureOpenAiClientFactory.RetriesForUserFacingCall);
+
 var loremasterEndpoint = builder.Configuration["Loremaster:AiEndpoint"];
 var loremasterModel = builder.Configuration["Loremaster:AiModel"];
 if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<resource>"))
@@ -390,8 +403,6 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
     // Every AI client binds each call through the binder (feature 39): the funding service
     // decides who pays and on which model, and Nornis's own deployments are built on first use.
     builder.Services.AddSingleton(Nornis.Infrastructure.Ai.NornisChatClients.Create(openAiClient));
-    builder.Services.AddAiFunding(
-        builder.Configuration, Nornis.Infrastructure.Ai.AzureOpenAiClientFactory.RetriesForUserFacingCall);
     builder.Services.AddScoped<ILoremasterAiClient, LoremasterAiClient>();
     builder.Services.AddScoped<IAuditAiClient, AuditAiClient>();
     builder.Services.AddScoped<IContinuityFixAiClient, ContinuityFixAiClient>();
@@ -423,7 +434,12 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
 }
 else
 {
-    // No Azure OpenAI configured — register stubs that throw on use
+    // No Azure OpenAI configured — register stubs that throw on use. Nornis's own clients too:
+    // the binder (registered above with the AI keys) names them, and a Development host checks
+    // every registration's dependencies at startup.
+    builder.Services.AddSingleton<Nornis.Infrastructure.Ai.NornisChatClients>(_ =>
+        throw new InvalidOperationException(
+            "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable AI."));
     builder.Services.AddScoped<ILoremasterAiClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable Ask the Loremaster."));
@@ -506,7 +522,7 @@ else
 // MVC action filter for world-scoped endpoints
 builder.Services.AddScoped<WorldMemberActionFilter>();
 
-// Rate limit only the anonymous public surface — authenticated traffic is unaffected.
+// Rate limits: the anonymous public surface, plus two authenticated endpoints that each say why below.
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -550,6 +566,20 @@ builder.Services.AddRateLimiter(options =>
                 // below what walking the alphabet would need.
                 PermitLimit = 30,
                 Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+    // Saving an AI key checks it with the provider (feature 39). Ten an hour per user is plenty for
+    // a person fixing a typo, and too few for a stolen session to use Nornis as a key tester.
+    options.AddPolicy(Nornis.Api.Controllers.AiKeysController.KeyCheckRateLimit, httpContext =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                ?? "unknown",
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromHours(1),
                 QueueLimit = 0,
             }));
 });

@@ -302,14 +302,7 @@ public class SourceRepository : ISourceRepository
             s => s.CampaignId, campaignId, cancellationToken);
 
     public Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default) =>
-        MutateAsync(id, source =>
-        {
-            source.ProcessingStatus = status;
-            if (status != SourceProcessingStatus.Failed)
-            {
-                source.FailureCategory = null;
-            }
-        }, cancellationToken);
+        MutateAsync(id, source => source.ProcessingStatus = status, cancellationToken);
 
     public Task MarkFailedAsync(Guid id, string? failureCategory, CancellationToken cancellationToken = default) =>
         MutateAsync(id, source =>
@@ -317,6 +310,24 @@ public class SourceRepository : ISourceRepository
             source.ProcessingStatus = SourceProcessingStatus.Failed;
             source.FailureCategory = failureCategory;
         }, cancellationToken);
+
+    public async Task<IReadOnlyList<Source>> ListFailedInCreatedWorldsAsync(
+        Guid creatorUserId,
+        IReadOnlyCollection<string> categories,
+        int take,
+        IReadOnlyCollection<Guid> excluding,
+        CancellationToken cancellationToken = default) =>
+        await _context.Sources
+            .AsNoTracking()
+            .Where(s => s.ProcessingStatus == SourceProcessingStatus.Failed
+                        && s.FailureCategory != null
+                        && categories.Contains(s.FailureCategory)
+                        && !excluding.Contains(s.Id)
+                        && _context.Worlds.Any(w => w.Id == s.WorldId && w.CreatedByUserId == creatorUserId))
+            .OrderBy(s => s.StatusChangedAt)
+            .ThenBy(s => s.Id)
+            .Take(take)
+            .ToListAsync(cancellationToken);
 
     /// <summary>The reveal path lifts a GM-only source to PartyVisible without a whole-entity
     /// update, which would fight the general update's post-extraction visibility lock.</summary>

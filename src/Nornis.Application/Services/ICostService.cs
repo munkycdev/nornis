@@ -39,4 +39,13 @@ public interface ICostService
         DateTimeOffset? startDate,
         DateTimeOffset? endDate,
         CancellationToken ct);
+
+    /// <summary>Costs by what paid: Nornis, the trial, or one of the creator's keys (feature 39).</summary>
+    Task<AppResult<IReadOnlyList<FundingCostResult>>> GetByFundingAsync(
+        Guid worldId,
+        Guid userId,
+        WorldRole role,
+        DateTimeOffset? startDate,
+        DateTimeOffset? endDate,
+        CancellationToken ct);
 }

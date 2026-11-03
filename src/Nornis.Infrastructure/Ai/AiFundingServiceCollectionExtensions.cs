@@ -31,6 +31,8 @@ public static class AiFundingServiceCollectionExtensions
         services.AddScoped<IAiKeyRepository, AiKeyRepository>();
         services.AddScoped<IAiFundingService, AiFundingService>();
         services.AddScoped<IAiCallBinder, AiCallBinder>();
+        services.AddHttpClient<IAiKeyChecker, AiKeyChecker>()
+            .ConfigurePrimaryHttpMessageHandler(PublicEndpointGuard.CreateHandler);
 
         return services;
     }

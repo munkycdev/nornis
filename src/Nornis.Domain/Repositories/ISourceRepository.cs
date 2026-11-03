@@ -180,6 +180,18 @@ public interface ISourceRepository
     Task MarkFailedAsync(Guid id, string? failureCategory, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Failed sources whose failure was one of <paramref name="categories"/>, in worlds
+    /// <paramref name="creatorUserId"/> created, oldest first, at most <paramref name="take"/>,
+    /// leaving out <paramref name="excluding"/>. Saving an AI key queues these again (feature 39).
+    /// </summary>
+    Task<IReadOnlyList<Source>> ListFailedInCreatedWorldsAsync(
+        Guid creatorUserId,
+        IReadOnlyCollection<string> categories,
+        int take,
+        IReadOnlyCollection<Guid> excluding,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Queued → Processing, but only from Queued: true means this caller owns the extraction,
     /// false means someone else already claimed it. Two deliveries of the same message can
     /// both read Queued, and an unconditional write lets both proceed into a full paid pass.

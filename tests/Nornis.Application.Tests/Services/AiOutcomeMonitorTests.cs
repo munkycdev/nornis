@@ -1,4 +1,5 @@
 using Nornis.Application.Services;
+using Nornis.Domain.Enums;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services;
@@ -17,7 +18,7 @@ public class AiOutcomeMonitorTests
     [Test]
     public void Snapshot_WithNothingRecorded_IsIdle()
     {
-        var snapshot = new AiOutcomeMonitor().Snapshot(Window, Now);
+        var snapshot = new AiOutcomeMonitor().Snapshot(AiProvider.AzureOpenAi, Window, Now);
 
         Assert.Multiple(() =>
         {
@@ -31,10 +32,10 @@ public class AiOutcomeMonitorTests
     public void Snapshot_CountsOnlyOutcomesInsideTheWindow()
     {
         var monitor = new AiOutcomeMonitor();
-        monitor.Record(succeeded: false, Now.AddMinutes(-20));
-        monitor.Record(succeeded: true, Now.AddMinutes(-5));
+        monitor.Record(AiProvider.AzureOpenAi, succeeded: false, Now.AddMinutes(-20));
+        monitor.Record(AiProvider.AzureOpenAi, succeeded: true, Now.AddMinutes(-5));
 
-        var snapshot = monitor.Snapshot(Window, Now);
+        var snapshot = monitor.Snapshot(AiProvider.AzureOpenAi, Window, Now);
 
         Assert.Multiple(() =>
         {
@@ -47,9 +48,9 @@ public class AiOutcomeMonitorTests
     public void Snapshot_ReportsLastOutcomeEvenWhenItPredatesTheWindow()
     {
         var monitor = new AiOutcomeMonitor();
-        monitor.Record(succeeded: true, Now.AddHours(-3));
+        monitor.Record(AiProvider.AzureOpenAi, succeeded: true, Now.AddHours(-3));
 
-        var snapshot = monitor.Snapshot(Window, Now);
+        var snapshot = monitor.Snapshot(AiProvider.AzureOpenAi, Window, Now);
 
         Assert.Multiple(() =>
         {
@@ -63,11 +64,11 @@ public class AiOutcomeMonitorTests
     public void Snapshot_SeparatesFailuresFromSuccesses()
     {
         var monitor = new AiOutcomeMonitor();
-        monitor.Record(succeeded: true, Now.AddMinutes(-3));
-        monitor.Record(succeeded: false, Now.AddMinutes(-2));
-        monitor.Record(succeeded: false, Now.AddMinutes(-1));
+        monitor.Record(AiProvider.AzureOpenAi, succeeded: true, Now.AddMinutes(-3));
+        monitor.Record(AiProvider.AzureOpenAi, succeeded: false, Now.AddMinutes(-2));
+        monitor.Record(AiProvider.AzureOpenAi, succeeded: false, Now.AddMinutes(-1));
 
-        var snapshot = monitor.Snapshot(Window, Now);
+        var snapshot = monitor.Snapshot(AiProvider.AzureOpenAi, Window, Now);
 
         Assert.Multiple(() =>
         {
@@ -85,15 +86,15 @@ public class AiOutcomeMonitorTests
         // are older than the ring is deep, so nothing should remember them.
         for (var i = 0; i < 5; i++)
         {
-            monitor.Record(succeeded: false, Now.AddMinutes(-10));
+            monitor.Record(AiProvider.AzureOpenAi, succeeded: false, Now.AddMinutes(-10));
         }
 
         for (var i = 0; i < AiOutcomeMonitor.Capacity; i++)
         {
-            monitor.Record(succeeded: true, Now.AddMinutes(-1));
+            monitor.Record(AiProvider.AzureOpenAi, succeeded: true, Now.AddMinutes(-1));
         }
 
-        var snapshot = monitor.Snapshot(Window, Now);
+        var snapshot = monitor.Snapshot(AiProvider.AzureOpenAi, Window, Now);
 
         Assert.Multiple(() =>
         {

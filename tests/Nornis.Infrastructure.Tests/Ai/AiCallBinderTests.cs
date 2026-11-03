@@ -1,5 +1,6 @@
 using System.ClientModel;
 using Nornis.Application.Ai;
+using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -19,6 +20,7 @@ public class AiCallBinderTests
         }));
 
     private InMemoryAiKeyRepository _keys = null!;
+    private AiOutcomeMonitor _outcomes = null!;
     private AiKeyProtector _protector = null!;
     private UserKeyChatClients _userKeys = null!;
 
@@ -26,6 +28,7 @@ public class AiCallBinderTests
     public void SetUp()
     {
         _keys = new InMemoryAiKeyRepository();
+        _outcomes = new AiOutcomeMonitor();
         _protector = AiKeyProtector.Create(keyBlobUri: null);
         _userKeys = new UserKeyChatClients(maxRetries: 0);
     }
@@ -34,7 +37,7 @@ public class AiCallBinderTests
     public void TearDown() => _userKeys.Dispose();
 
     private AiCallBinder Binder(Func<AiFunding> funding) =>
-        new(new FixedFunding(funding), Nornis, _userKeys, _keys, _protector, TimeProvider.System);
+        new(new FixedFunding(funding), Nornis, _userKeys, _keys, _protector, _outcomes, TimeProvider.System);
 
     private UserAiKey SavedKey(AiProvider provider = AiProvider.OpenAi, string? baseUrl = null)
     {
@@ -128,18 +131,39 @@ public class AiCallBinderTests
     }
 
     [Test]
-    public async Task ReportKeyRejected_MarksTheKeyThatWasUsed_NotOneSavedSince()
+    public async Task ReportRejected_MarksTheKeyThatWasUsed_NotOneSavedSince()
     {
         var key = SavedKey();
         var binder = Binder(() => KeyFunding(key));
         var binding = await Bind(binder);
 
         key.UpdatedAt = key.UpdatedAt.AddMinutes(1);
-        await binder.ReportKeyRejectedAsync(binding, CancellationToken.None);
+        await binder.ReportAsync(binding, new AiKeyRejectedException(key.Provider), CancellationToken.None);
         Assert.That(key.CheckFailed, Is.False, "the GM saved a new key while the old one was failing");
 
-        await binder.ReportKeyRejectedAsync(await Bind(binder), CancellationToken.None);
+        await binder.ReportAsync(await Bind(binder), new AiKeyRejectedException(key.Provider), CancellationToken.None);
         Assert.That(key.CheckFailed, Is.True);
+    }
+
+    [Test]
+    public async Task Report_CountsOutcomesPerProvider_AndNeverARefusal()
+    {
+        var key = SavedKey();
+        var binder = Binder(() => KeyFunding(key));
+        var binding = await Bind(binder);
+
+        await binder.ReportAsync(binding, null, CancellationToken.None);
+        await binder.ReportAsync(binding, new AiHttpException("boom", 500), CancellationToken.None);
+        await binder.ReportAsync(binding, new AiCreditExhaustedException(key.Provider), CancellationToken.None);
+        await binder.ReportAsync(binding, new AiKeyRejectedException(key.Provider), CancellationToken.None);
+
+        var openAi = _outcomes.Snapshot(AiProvider.OpenAi, TimeSpan.FromMinutes(15), DateTimeOffset.UtcNow);
+        var azure = _outcomes.Snapshot(AiProvider.AzureOpenAi, TimeSpan.FromMinutes(15), DateTimeOffset.UtcNow);
+        Assert.Multiple(() =>
+        {
+            Assert.That((openAi.Total, openAi.Failures), Is.EqualTo((2, 1)), "the refusals say nothing about OpenAI");
+            Assert.That(azure.Total, Is.Zero, "a user's key is not Nornis's resource");
+        });
     }
 
     [Test]

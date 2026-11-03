@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Nornis.Application.Services;
+using Nornis.Domain.Enums;
 using Nornis.Infrastructure.Ai;
 using NUnit.Framework;
 
@@ -14,7 +15,7 @@ namespace Nornis.Infrastructure.Tests.Ai;
 public class AiAvailabilityHealthCheckTests
 {
     private static Task<HealthCheckResult> CheckAsync(AiOutcomeMonitor monitor) =>
-        new AiAvailabilityHealthCheck(monitor, PauseGate(paused: false)).CheckHealthAsync(new HealthCheckContext());
+        new AiAvailabilityHealthCheck(monitor, PauseGate(paused: false), AiProvider.AzureOpenAi).CheckHealthAsync(new HealthCheckContext());
 
     [Test]
     public async Task NoRecentCalls_IsHealthy()
@@ -28,7 +29,7 @@ public class AiAvailabilityHealthCheckTests
     public async Task OnlyStaleCalls_IsHealthy()
     {
         var monitor = new AiOutcomeMonitor();
-        monitor.Record(succeeded: false, DateTimeOffset.UtcNow - AiAvailabilityHealthCheck.Window - TimeSpan.FromMinutes(1));
+        monitor.Record(AiProvider.AzureOpenAi, succeeded: false, DateTimeOffset.UtcNow - AiAvailabilityHealthCheck.Window - TimeSpan.FromMinutes(1));
 
         // Failures that fell out of the window are history, not a live outage.
         var result = await CheckAsync(monitor);
@@ -40,8 +41,8 @@ public class AiAvailabilityHealthCheckTests
     public async Task EveryRecentCallFailed_IsDegraded()
     {
         var monitor = new AiOutcomeMonitor();
-        monitor.Record(succeeded: false, DateTimeOffset.UtcNow);
-        monitor.Record(succeeded: false, DateTimeOffset.UtcNow);
+        monitor.Record(AiProvider.AzureOpenAi, succeeded: false, DateTimeOffset.UtcNow);
+        monitor.Record(AiProvider.AzureOpenAi, succeeded: false, DateTimeOffset.UtcNow);
 
         var result = await CheckAsync(monitor);
 
@@ -52,8 +53,8 @@ public class AiAvailabilityHealthCheckTests
     public async Task SomeRecentCallsSucceeded_IsHealthy()
     {
         var monitor = new AiOutcomeMonitor();
-        monitor.Record(succeeded: false, DateTimeOffset.UtcNow);
-        monitor.Record(succeeded: true, DateTimeOffset.UtcNow);
+        monitor.Record(AiProvider.AzureOpenAi, succeeded: false, DateTimeOffset.UtcNow);
+        monitor.Record(AiProvider.AzureOpenAi, succeeded: true, DateTimeOffset.UtcNow);
 
         // The provider is answering; the failure is about that request, not the service.
         var result = await CheckAsync(monitor);
@@ -75,7 +76,7 @@ public class AiAvailabilityHealthCheckTests
     public async Task WhenAiIsPaused_TheCheckSaysWhoTurnedItOff()
     {
         var monitor = new AiOutcomeMonitor();
-        var result = await new AiAvailabilityHealthCheck(monitor, PauseGate(true, "Provider incident"))
+        var result = await new AiAvailabilityHealthCheck(monitor, PauseGate(true, "Provider incident"), AiProvider.AzureOpenAi)
             .CheckHealthAsync(new HealthCheckContext());
 
         // Degraded, because the feature genuinely is unavailable — but the text has to

@@ -41,7 +41,38 @@
 >   messages) skips models that can't read them: a choice without images falls back to the
 >   default, and the default search skips them too. A user with only an OpenAI-compatible key
 >   gets that key's line for the task as the default, which the rule as written left out.
-> - **`AiTask` lives in Domain** (`Nornis.Domain.Enums`), because `UserAiCompatibleModel` and
+> - **Phase B2 (2026-11-03), the API half.**
+  - **A world's funding is its own route**, `GET /api/worlds/{id}/ai-funding` (GMs only), not a
+    field on the world response: the Web loads the world list, and a funding lookup per world
+    there would be a query per row. It answers `{ trial, trialRemainingUsd, creatorIsYou }`.
+  - **Refusals answer 409** with their code (`ai_key_required`, `ai_key_rejected`,
+    `ai_credit_exhausted`) from every API path: the non-streaming services catch
+    `AiRefusalException` before their generic catch, the streaming ones (Ask, Prep drafting and
+    conversation) classify it, and on-demand transcription maps the three categories. The
+    exception's own 401/402 describes the provider's reply and would read to the browser as an
+    expired session.
+  - **A refusal is not a call.** `AiUsageRecorder` writes no row for one (the streaming paths
+    always write their ledger row), matching the Worker, which records none.
+  - **Saving without a key** re-checks the stored key: how a GM clears a failed check, or edits
+    a compatible key's model lines, without pasting the key again. A line keeps its id while its
+    task is listed, so a choice that names it survives the save.
+  - **OpenAI-compatible endpoints** must be plain https (no credentials, query or fragment), and
+    every connection to one, for the check and for calls, goes through `PublicEndpointGuard`:
+    public addresses only, checked after DNS on each connection, no redirects. Without it a base
+    URL could point the API or the Worker at the metadata service or a private address.
+  - **Provider health is recorded by the binder** (`IAiCallBinder.ReportAsync`), not by the
+    usage recorder: a failed call reaches the recorder without its usage, so without its
+    provider. A parse failure no longer counts as the provider failing, since the provider
+    answered. `/status` has `azure-openai` (Nornis's resource, which embeddings also report to),
+    `ai-openai` and `ai-openai-compatible`; Anthropic and Gemini join with their clients.
+  - **Requeue on save** runs in the save request, only when the user's keys now cover extraction
+    (or the sources would fail again), in batches of 50 until none are left, through
+    `SourceService.MarkReadyAsync` with the creator's role in each world. `Source.FailureCategory`
+    is cleared by `NornisDbContext`'s save hook on any status but Failed, so no writer can leave a
+    stale reason behind.
+  - **The key-check limit** is ASP.NET's rate limiter, per user, 10 an hour, per API replica.
+  - B2 ships as two PRs: the API (B5, B6b, B7) and the Web (B8).
+- **`AiTask` lives in Domain** (`Nornis.Domain.Enums`), because `UserAiCompatibleModel` and
 >   `UserAiModelChoice` store it; `AiTasks.For` stays in Application.
 > - Fifteen clients were renamed (`AzureOpenAiExtractionClient` → `ExtractionAiClient` and so
 >   on), not nineteen; `AzureOpenAiChatClient`, `AzureOpenAiClientFactory` and

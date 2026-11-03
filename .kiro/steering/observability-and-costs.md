@@ -9,6 +9,12 @@
 > every call while `AiModels:Fallback` is `Nornis`) are still priced from the `ModelPricing`
 > sections below. Costs shown for a key-funded world are Nornis's estimate; the provider's bill
 > is the real figure.
+>
+> **(2026-11-03, B2.)** `/status` reports AI per provider: `azure-openai` (Nornis's own resource,
+> which the trial and embeddings use), `ai-openai` and `ai-openai-compatible`, each from its own
+> recent traffic, recorded by the AI call binder. A refusal (no key, a rejected key, an account
+> out of credit) is never recorded there and writes no usage row: nothing was charged, and it says
+> nothing about the provider. Costs gains a "Paid by" breakdown (`…/costs/by-funding`).
 
 > **Amendment (July 2026):** Observability runs on **Azure Monitor / Application
 > Insights** (`appi-nornis`) via OpenTelemetry, not DataDog — read every DataDog

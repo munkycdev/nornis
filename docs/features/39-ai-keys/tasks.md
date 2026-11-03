@@ -33,9 +33,9 @@ design.md for where it differs from the tasks below.**
 
 ## Phase B — Keys and the trial (OpenAI and OpenAI-compatible)
 
-Shipped as two PRs. **B1** (with migration `AddAiKeys`): B1a to B4 and B6a, behind
-`AiModels:Fallback = Nornis`, so with no keys saved nothing changes. **B2**: B5, B6b, B7, B8
-and the rest of B9, with no migration.
+Shipped as three PRs. **B1** (with migration `AddAiKeys`): B1a to B4 and B6a, behind
+`AiModels:Fallback = Nornis`, so with no keys saved nothing changes. **B2 API**: B5, B6b, B7
+and their tests, with no migration. **B2 Web**: B8.
 
 - [ ] B0. Decide Gemini's route (its .NET GenAI SDK or the OpenAI-compatible endpoint) with a
       conformance test of streaming, images, schema and usage; record the choice here.
@@ -53,12 +53,16 @@ and the rest of B9, with no migration.
       Ask without the trial. Every AI entry point in the API and the Worker calls it.
 - [x] B4. Binder: user keys for OpenAI and OpenAI-compatible; the client cache;
       `CheckFailed` on a rejected call. The redaction test moves to B5, with the key check.
-- [ ] B5. API: `/api/me/ai-keys`, `/api/me/ai-models`, `/api/me/ai-trial`; `aiFunding` on the
-      world response for GMs; refusal codes.
+- [x] B5. API: `/api/me/ai-keys`, `/api/me/ai-models`, `/api/me/ai-trial`;
+      `/api/worlds/{id}/ai-funding` for GMs (design amendment: not a world field); refusal codes;
+      `IAiKeyChecker` with its rate limit, the public-endpoint guard and the redaction test;
+      `GET …/costs/by-funding` for B8's "Paid by".
 - [x] B6a. Worker: refusals fail the source with their category, with no redelivery, and
       record nothing (extraction, maps, images, handwriting, summaries, backfill).
-- [ ] B6b. Saving a key queues key-failed sources again; name the retry path it reuses.
-- [ ] B7. Health: outcomes per provider, key outcomes not recorded; `/status` entries.
+- [x] B6b. Saving a key queues key-failed sources again, through `SourceService.MarkReadyAsync`
+      (the GM's own retry of a failed source), found by `Source.FailureCategory`.
+- [x] B7. Health: outcomes per provider, recorded by the binder, refusals not recorded;
+      `/status` entries `azure-openai`, `ai-openai`, `ai-openai-compatible`.
 - [ ] B8. Web: Profile's AI keys and Models cards, the trial line, refusal rendering, and
       "Estimated" plus "Paid by" on Costs.
 - [ ] B9. Tests per design.md; build, `dotnet test`, `dotnet format --verify-no-changes`.

@@ -158,7 +158,7 @@ public class RelationshipBackfillService : IRelationshipBackfillService
             // Feature 39: nothing could pay, or the paying key was refused. Nothing was charged,
             // so nothing is recorded; the source fails with the reason the GM can act on.
             _logger.LogWarning("AI call refused ({Code}). Id={Id}", refusal.Code, sourceId);
-            return ExtractionOutcome.NonTransient(refusal.Category, refusal.Message);
+            return ExtractionOutcome.NonTransient(refusal.Category, refusal.ToAppError().Message);
         }
         catch (HttpRequestException ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
         {

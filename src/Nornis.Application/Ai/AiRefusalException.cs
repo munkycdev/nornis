@@ -1,3 +1,4 @@
+using Nornis.Application.Errors;
 using Nornis.Domain.Enums;
 
 namespace Nornis.Application.Ai;
@@ -29,6 +30,16 @@ public abstract class AiRefusalException : AiHttpException
 
     /// <summary>The provider whose key or account is the problem, when one is.</summary>
     public AiProvider? Provider { get; }
+
+    /// <summary>
+    /// The API's answer: 409 with <see cref="Code"/>, which the Web renders as its call to action.
+    /// Not the exception's own status: that one describes the provider's reply, and a 401 here
+    /// would read to the browser as the user's session having expired.
+    /// </summary>
+    public AppError ToAppError() => new(409, Code, UserMessage);
+
+    /// <summary>What a person reads; the exception's message is for the log.</summary>
+    protected abstract string UserMessage { get; }
 }
 
 /// <summary>Nothing can pay: the key holder has no key for the task and no trial to spend.</summary>
@@ -41,6 +52,9 @@ public sealed class AiKeyRequiredException : AiRefusalException
     }
 
     public AiTask Task { get; }
+
+    protected override string UserMessage =>
+        "This world's AI needs a key. The world's creator can add one under Profile, AI keys.";
 }
 
 /// <summary>The provider refused the key (on its check or on a call). It is not spent again until
@@ -52,6 +66,9 @@ public sealed class AiKeyRejectedException : AiRefusalException
             ErrorCategories.AiKeyRejected, provider, innerException)
     {
     }
+
+    protected override string UserMessage =>
+        $"{AiProviderNames.Display(Provider!.Value)} refused the key this world uses. The world's creator can replace it under Profile, AI keys.";
 }
 
 /// <summary>The key works but its provider account has no credit left.</summary>
@@ -62,4 +79,7 @@ public sealed class AiCreditExhaustedException : AiRefusalException
             ErrorCategories.AiCreditExhausted, provider, innerException)
     {
     }
+
+    protected override string UserMessage =>
+        $"The {AiProviderNames.Display(Provider!.Value)} account behind this world's key is out of credit. Add credit there, then try again.";
 }

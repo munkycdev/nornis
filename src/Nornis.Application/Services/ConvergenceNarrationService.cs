@@ -118,6 +118,11 @@ public class ConvergenceNarrationService : IConvergenceNarrationService
         {
             throw;
         }
+        catch (AiRefusalException)
+        {
+            // No key to pay for the narration (feature 39): the gauge still stands without it.
+            return AppResult<ConvergenceGauge>.Success(gauge);
+        }
         catch (Exception)
         {
             await TrackUsageAsync(worldId, actingUserId, null, false, "ServiceError", ct);

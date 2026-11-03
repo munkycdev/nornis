@@ -23,4 +23,17 @@ public interface IAiKeyRepository
     /// <paramref name="keyVersion"/>: a call made with the old key must not fail the new one.
     /// </summary>
     Task MarkCheckFailedAsync(Guid keyId, DateTimeOffset keyVersion, DateTimeOffset at, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds the key, or replaces the stored one with the same id: its fields, and its compatible
+    /// model lines as a set (a line keeps its id when its task is still listed, so a model choice
+    /// that names it survives the save).
+    /// </summary>
+    Task SaveAsync(UserAiKey key, CancellationToken cancellationToken = default);
+
+    /// <summary>Removes the key and its compatible model lines. Usage rows keep its id.</summary>
+    Task DeleteAsync(Guid keyId, CancellationToken cancellationToken = default);
+
+    /// <summary>Sets the user's model for a task; null goes back to the task's default.</summary>
+    Task SetChoiceAsync(Guid userId, AiTask task, string? modelId, CancellationToken cancellationToken = default);
 }

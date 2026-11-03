@@ -33,6 +33,49 @@ public class InMemoryAiKeyRepository : IAiKeyRepository
         return Task.CompletedTask;
     }
 
+    public Task SaveAsync(UserAiKey key, CancellationToken cancellationToken = default)
+    {
+        var stored = Keys.FirstOrDefault(k => k.Id == key.Id);
+        if (stored is not null)
+        {
+            // As the real one: a line keeps its id while its task is still listed.
+            foreach (var line in key.CompatibleModels)
+            {
+                if (stored.CompatibleModels.FirstOrDefault(l => l.Task == line.Task) is { } kept)
+                {
+                    line.Id = kept.Id;
+                }
+            }
+
+            Keys.Remove(stored);
+        }
+
+        foreach (var line in key.CompatibleModels)
+        {
+            line.UserAiKeyId = key.Id;
+        }
+
+        Keys.Add(key);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(Guid keyId, CancellationToken cancellationToken = default)
+    {
+        Keys.RemoveAll(k => k.Id == keyId);
+        return Task.CompletedTask;
+    }
+
+    public Task SetChoiceAsync(Guid userId, AiTask task, string? modelId, CancellationToken cancellationToken = default)
+    {
+        Choices.RemoveAll(c => c.UserId == userId && c.Task == task);
+        if (modelId is not null)
+        {
+            Choices.Add(new UserAiModelChoice { UserId = userId, Task = task, ModelId = modelId });
+        }
+
+        return Task.CompletedTask;
+    }
+
     public UserAiKey Add(Guid userId, AiProvider provider, bool checkFailed = false, params UserAiCompatibleModel[] lines)
     {
         var key = new UserAiKey

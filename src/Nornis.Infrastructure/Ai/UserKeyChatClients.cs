@@ -20,12 +20,23 @@ public sealed class UserKeyChatClients : IDisposable
 
     private readonly MemoryCache _cache = new(new MemoryCacheOptions { SizeLimit = 500 });
     private readonly int _maxRetries;
+    private readonly HttpClient _compatibleHttp;
 
     /// <param name="maxRetries">The host's SDK retry count, as for Nornis's own clients
     /// (<see cref="AzureOpenAiClientFactory"/>): the Worker's queue owns its retries, the API allows one.</param>
-    public UserKeyChatClients(int maxRetries)
+    /// <param name="compatibleHandler">What OpenAI-compatible endpoints are reached through; by
+    /// default <see cref="PublicEndpointGuard"/>'s handler, since their URLs are users' own. Tests
+    /// pass a fake.</param>
+    public UserKeyChatClients(int maxRetries, HttpMessageHandler? compatibleHandler = null)
     {
         _maxRetries = maxRetries;
+
+        // One client for every compatible endpoint, so connections pool; the executor owns the
+        // call's timeout, not HttpClient.
+        _compatibleHttp = new HttpClient(compatibleHandler ?? PublicEndpointGuard.CreateHandler())
+        {
+            Timeout = System.Threading.Timeout.InfiniteTimeSpan,
+        };
     }
 
     /// <summary>The client for <paramref name="key"/> on <paramref name="model"/>.
@@ -48,6 +59,7 @@ public sealed class UserKeyChatClients : IDisposable
 
             case AiProvider.OpenAiCompatible when Uri.TryCreate(key.BaseUrl, UriKind.Absolute, out var endpoint):
                 options.Endpoint = endpoint;
+                options.Transport = new HttpClientPipelineTransport(_compatibleHttp);
                 break;
 
             case AiProvider.OpenAiCompatible:
@@ -62,5 +74,9 @@ public sealed class UserKeyChatClients : IDisposable
         return new AzureOpenAiChatClient(new OpenAIClient(new ApiKeyCredential(secret), options).GetChatClient(model));
     }
 
-    public void Dispose() => _cache.Dispose();
+    public void Dispose()
+    {
+        _cache.Dispose();
+        _compatibleHttp.Dispose();
+    }
 }

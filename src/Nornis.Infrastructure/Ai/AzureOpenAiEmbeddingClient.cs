@@ -3,6 +3,7 @@ using System.Net;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
+using Nornis.Domain.Enums;
 using OpenAI.Embeddings;
 
 namespace Nornis.Infrastructure.Ai;
@@ -12,11 +13,15 @@ public sealed class AzureOpenAiEmbeddingClient : IEmbeddingClient
 {
     private readonly EmbeddingClient _client;
     private readonly LibraryOptions _options;
+    private readonly IAiOutcomeMonitor? _outcomes;
 
-    public AzureOpenAiEmbeddingClient(EmbeddingClient client, IOptions<LibraryOptions> options)
+    /// <param name="outcomes">Where the call's outcome is recorded for <c>/status</c>; embeddings
+    /// run on Nornis's own Azure resource and count towards its entry.</param>
+    public AzureOpenAiEmbeddingClient(EmbeddingClient client, IOptions<LibraryOptions> options, IAiOutcomeMonitor? outcomes = null)
     {
         _client = client;
         _options = options.Value;
+        _outcomes = outcomes;
     }
 
     public async Task<EmbeddingResult> EmbedAsync(IReadOnlyList<string> inputs, CancellationToken ct)
@@ -34,6 +39,7 @@ public sealed class AzureOpenAiEmbeddingClient : IEmbeddingClient
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
         {
+            Record(succeeded: false);
             // AiTimeoutException rather than the raw cancellation, because TransientFailureClassifier
             // reads the two oppositely: a timeout is transient and retries, an OperationCanceledException
             // is the caller's decision and does not. Letting the raw one out would permanently fail a
@@ -43,6 +49,7 @@ public sealed class AzureOpenAiEmbeddingClient : IEmbeddingClient
         }
         catch (ClientResultException ex)
         {
+            Record(succeeded: false);
             // Translate at the boundary, exactly as the chat clients do. Without this the raw SDK
             // exception reaches the application layer, which cannot read its status without
             // depending on the SDK — so a genuine 429 was being classified by matching text, and
@@ -53,6 +60,7 @@ public sealed class AzureOpenAiEmbeddingClient : IEmbeddingClient
                 (HttpStatusCode)ex.Status);
         }
 
+        Record(succeeded: true);
         var collection = response.Value;
 
         var embeddings = collection
@@ -62,4 +70,6 @@ public sealed class AzureOpenAiEmbeddingClient : IEmbeddingClient
 
         return new EmbeddingResult(embeddings, collection.Usage?.InputTokenCount ?? 0);
     }
+
+    private void Record(bool succeeded) => _outcomes?.Record(AiProvider.AzureOpenAi, succeeded, DateTimeOffset.UtcNow);
 }
