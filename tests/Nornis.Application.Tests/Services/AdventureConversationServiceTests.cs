@@ -1,3 +1,4 @@
+using Nornis.Application.Knowledge;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
@@ -38,6 +39,8 @@ public class AdventureConversationServiceTests
     private AdventureService _adventureService = null!;
     private AdventureConversationService _sut = null!;
 
+    private FakeReferencePassageRetriever _references = null!;
+
     [SetUp]
     public async Task SetUp()
     {
@@ -57,6 +60,7 @@ public class AdventureConversationServiceTests
             _artifacts, _facts, new InMemoryArtifactRelationshipRepository(), new InMemorySourceReferenceRepository(),
             new InMemorySourceRepository(), Options.Create(loremaster)));
 
+        _references = new FakeReferencePassageRetriever();
         var worlds = new InMemoryWorldRepository();
         await worlds.CreateAsync(new World
         {
@@ -71,7 +75,7 @@ public class AdventureConversationServiceTests
         _adventureService = new AdventureService(_adventures, new InMemoryCampaignRepository(),
             new FakeSlugResolver((_, _) => null), TestBooklets.Printer(TestPrintDetails.For(_worldId, GmUserId, worlds: worlds)), Options.Create(_options));
         _sut = new AdventureConversationService(
-            _adventures, _conversations, worlds, _retriever, _ai, _budget, TestUsageRecorder.Wrap(_ledger), _gate,
+            _adventures, _conversations, new PrepPromptContextBuilder(worlds, _retriever, _references, Options.Create(loremaster)), _ai, _budget, TestUsageRecorder.Wrap(_ledger), _gate,
             Options.Create(_options), Options.Create(loremaster), NullLogger<AdventureConversationService>.Instance);
     }
 
@@ -654,5 +658,60 @@ public class AdventureConversationServiceTests
         Assert.That(before.Value!.Messages, Is.Empty);
         Assert.That(after.Value!.Messages.Select(m => m.Content), Is.EqualTo(["First?", "One."]));
         Assert.That(after.Value.IsFull, Is.False);
+    }
+
+    // ------------------------------------------- the table and the books (feature 37) --
+
+    private static KnowledgePassage Passage(Guid documentId, string title, string text) => new()
+    {
+        ChunkId = null,
+        DocumentId = documentId,
+        DocumentTitle = title,
+        Page = 12,
+        Text = text,
+        ReferenceId = $"passage:{documentId:N}-11",
+    };
+
+    [Test]
+    public async Task ThePrompt_CarriesTheTableBrief_AndAReferencePassage()
+    {
+        var adventure = await CreateAdventureAsync();
+        _adventures.Adventures.Single(a => a.Id == adventure.Id).TableBrief = "Four players, level 3, two hours, one hates puzzles.";
+        _references.Passages.Add(Passage(Guid.NewGuid(), "Slime Compendium", "Slimes dissolve copper on contact."));
+        _ai.Script("A scene.");
+
+        await TurnAsync(Send(adventure));
+
+        var message = _ai.Requests.Single().UserMessage;
+        Assert.Multiple(() =>
+        {
+            Assert.That(message, Does.Contain("### The table\n\nFour players, level 3, two hours, one hates puzzles."));
+            Assert.That(message, Does.Contain("From \"Slime Compendium\", p. 12"));
+            Assert.That(message, Does.Contain("Slimes dissolve copper on contact."));
+            Assert.That(_ai.Requests.Single().SystemPrompt, Does.Contain("cite them as (*Book title*, p. 12)"));
+            Assert.That(_references.LastDocumentIds, Is.Null, "no source books chosen, so every book");
+        });
+    }
+
+    [Test]
+    public async Task ChosenSourceBooks_AreTheOnlyBooksThePromptReads()
+    {
+        var adventure = await CreateAdventureAsync();
+        var chosen = new LibraryDocument { Id = Guid.NewGuid(), WorldId = _worldId, Title = "Slime Compendium", Kind = LibraryDocumentKind.Sourcebook };
+        _adventures.Documents.Add(chosen);
+        await _adventures.ReplaceSourceBooksAsync(adventure.Id, [chosen.Id]);
+        _references.Passages.Add(Passage(chosen.Id, chosen.Title, "Slimes dissolve copper on contact."));
+        _references.Passages.Add(Passage(Guid.NewGuid(), "Dragon Manual", "Dragons hoard gold."));
+        _ai.Script("A scene.");
+
+        await TurnAsync(Send(adventure));
+
+        var message = _ai.Requests.Single().UserMessage;
+        Assert.Multiple(() =>
+        {
+            Assert.That(_references.LastDocumentIds, Is.EqualTo(new[] { chosen.Id }));
+            Assert.That(message, Does.Contain("Slimes dissolve copper on contact."));
+            Assert.That(message, Does.Not.Contain("Dragons hoard gold."));
+        });
     }
 }

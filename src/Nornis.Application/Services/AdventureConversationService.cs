@@ -27,8 +27,7 @@ public class AdventureConversationService : IAdventureConversationService
 
     private readonly IAdventureRepository _adventures;
     private readonly IConversationRepository _conversations;
-    private readonly IWorldRepository _worlds;
-    private readonly IKnowledgeRetriever _retriever;
+    private readonly PrepPromptContextBuilder _prompts;
     private readonly IAdventureDraftingAiClient _ai;
     private readonly IAiBudgetGuard _budget;
     private readonly IAiUsageRecorder _usage;
@@ -40,8 +39,7 @@ public class AdventureConversationService : IAdventureConversationService
     public AdventureConversationService(
         IAdventureRepository adventures,
         IConversationRepository conversations,
-        IWorldRepository worlds,
-        IKnowledgeRetriever retriever,
+        PrepPromptContextBuilder prompts,
         IAdventureDraftingAiClient ai,
         IAiBudgetGuard budget,
         IAiUsageRecorder usage,
@@ -52,8 +50,7 @@ public class AdventureConversationService : IAdventureConversationService
     {
         _adventures = adventures;
         _conversations = conversations;
-        _worlds = worlds;
-        _retriever = retriever;
+        _prompts = prompts;
         _ai = ai;
         _budget = budget;
         _usage = usage;
@@ -167,17 +164,15 @@ public class AdventureConversationService : IAdventureConversationService
             }
 
             var section = adventure.Sections.FirstOrDefault(s => s.Id == command.SectionId);
-            var world = await _worlds.GetByIdAsync(command.WorldId, ct);
-            var context = await _retriever.RetrieveAsync(
-                RetrievalText(adventure, section, text), command.WorldId, command.ActingUserId, command.ActingUserRole, ct);
+            var context = await _prompts.BuildAsync(
+                adventure, RetrievalText(adventure, section, text), command.ActingUserId, command.ActingUserRole, ct);
 
             var request = new AiPromptRequest
             {
                 Scope = AiCallScope.ForWorld(command.WorldId, command.ActingUserId),
                 SystemPrompt = AdventureConversationPrompt.SystemPrompt,
                 UserMessage = AdventureConversationPrompt.BuildUserMessage(new AdventureConversationInput(
-                    PrintDetails.SystemOf(adventure.Details, world?.GameSystem),
-                    LoremasterService.FormatKnowledgeContext(context, _loremaster.MaxSessionChars, _loremaster.MaxContextTokens),
+                    context,
                     adventure,
                     section?.Id,
                     AdventureConversationPrompt.HistoryWindow(earlier, _options.ConversationHistoryChars),

@@ -305,6 +305,7 @@ builder.Services.AddScoped<AdventureBookletPrinter>();
 builder.Services.AddSingleton<IBookletPdfRenderer, QuestPdfBookletRenderer>();
 builder.Services.AddScoped<IAdventureService, AdventureService>();
 builder.Services.AddScoped<IAdventureDesignService, AdventureDesignService>();
+builder.Services.AddScoped<PrepPromptContextBuilder>();
 builder.Services.AddScoped<IAdventureDraftingService, AdventureDraftingService>();
 builder.Services.AddScoped<IAdventureExportService, AdventureExportService>();
 builder.Services.AddScoped<IAdventureConversationService, AdventureConversationService>();

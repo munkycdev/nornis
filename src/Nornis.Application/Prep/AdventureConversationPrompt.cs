@@ -5,16 +5,15 @@ using Nornis.Domain.Enums;
 namespace Nornis.Application.Prep;
 
 /// <summary>What one turn of an Adventure's side conversation is answered from.</summary>
-/// <param name="WorldContext">The world knowledge block, retrieved at the GM's role and
-/// formatted. Hidden truth is in it because the asker is the GM; that rule lives in the
-/// retriever, not here.</param>
+/// <param name="Context">The system, levels, table brief, world's record and reference passages
+/// (feature 37), gathered at the GM's role by <see cref="PrepPromptContextBuilder"/>. Hidden truth
+/// is in it because the asker is the GM; that rule lives in the retrievers, not here.</param>
 /// <param name="SectionId">The section on screen when the GM sent the message. Null when none was.</param>
 /// <param name="History">The conversation so far that fits the window, oldest first, without
 /// the new message. <see cref="AdventureConversationPrompt.HistoryWindow"/> chooses it.</param>
 /// <param name="MaxSectionChars">The section on screen is cut to this.</param>
 public sealed record AdventureConversationInput(
-    string? GameSystem,
-    string WorldContext,
+    PrepPromptContext Context,
     Adventure Adventure,
     Guid? SectionId,
     IReadOnlyList<ConversationMessage> History,
@@ -42,9 +41,11 @@ public static class AdventureConversationPrompt
         world. You help them think, and you write for the adventure only when they ask you to.
 
         ## What you are given
+        - The game system, the characters' levels and a brief on the table, when the GM gave one.
         - The world's record: its people, places, factions, facts and relationships. Some are marked
           Hidden. Those are the GM's secrets, and you may use them, because only the GM reads this
           conversation. Treat them as things the GM can reveal, never as things the players know.
+        - Passages from the GM's reference books, when any fit.
         - The adventure's title, pitch and outline, and the section the GM has open, if any.
         - The conversation so far, and the GM's new message.
 
@@ -55,6 +56,7 @@ public static class AdventureConversationPrompt
         - Be brief and concrete. When the GM asks for ideas, offer a few distinct options, each in a
           sentence or two, rather than one long answer.
         - Do not include citation markers such as [ref:...].
+        {{PrepPromptContext.ReferenceRules}}
 
         ## When the GM asks you to write something for the adventure
         Write it so it can go into a section as it stands: Markdown, no heading for the section's
@@ -95,19 +97,7 @@ public static class AdventureConversationPrompt
         var onScreen = input.SectionId is { } id ? sections.FirstOrDefault(s => s.Id == id) : null;
         var sb = new StringBuilder();
 
-        sb.AppendLine("## The world");
-        sb.AppendLine();
-        sb.AppendLine(string.IsNullOrWhiteSpace(input.GameSystem) ? "Game system: not stated." : $"Game system: {input.GameSystem}");
-        if (!string.IsNullOrWhiteSpace(input.Adventure.Details.Levels))
-        {
-            sb.AppendLine($"For characters of level {input.Adventure.Details.Levels.Trim()}.");
-        }
-
-        sb.AppendLine();
-        sb.AppendLine(string.IsNullOrWhiteSpace(input.WorldContext)
-            ? "The world's record has nothing on this yet."
-            : input.WorldContext.TrimEnd());
-        sb.AppendLine();
+        input.Context.AppendTo(sb);
 
         sb.AppendLine($"## The adventure: {input.Adventure.Title}");
         sb.AppendLine();

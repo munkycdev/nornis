@@ -46,7 +46,7 @@ public class AdventureConversationPromptTests
 
     private static string Build(Adventure adventure, Guid? sectionId, IReadOnlyList<ConversationMessage> history, int maxSectionChars = 6_000) =>
         AdventureConversationPrompt.BuildUserMessage(new AdventureConversationInput(
-            "Fate Accelerated", "WORLD-CONTEXT", adventure, sectionId, history, "THE-NEW-MESSAGE", maxSectionChars));
+            new PrepPromptContext("Fate Accelerated", adventure.Details.Levels, null, "WORLD-CONTEXT"), adventure, sectionId, history, "THE-NEW-MESSAGE", maxSectionChars));
 
     [Test]
     public void ThePartsComeInCacheOrder_LeastChangingFirst()

@@ -5,14 +5,13 @@ using Nornis.Domain.Enums;
 namespace Nornis.Application.Prep;
 
 /// <summary>What one draft or revision of a section is written from.</summary>
-/// <param name="WorldContext">The world knowledge block, already retrieved at the GM's role and
-/// formatted. Hidden truth is in it because the asker is the GM; that rule lives in the
-/// retriever, not here.</param>
+/// <param name="Context">The system, levels, table brief, world's record and reference passages
+/// (feature 37), gathered at the GM's role by <see cref="PrepPromptContextBuilder"/>. Hidden truth
+/// is in it because the asker is the GM; that rule lives in the retrievers, not here.</param>
 /// <param name="Threads">Threads ready to pay off (feature 30), for an Overview draft only:
 /// the convergence gauge's top candidates. Empty for every other section.</param>
 public sealed record AdventureDraftInput(
-    string? GameSystem,
-    string WorldContext,
+    PrepPromptContext Context,
     Adventure Adventure,
     Guid SectionId,
     string? Instruction,
@@ -45,10 +44,12 @@ public static class AdventureDraftPrompt
         decides what happens; you draft what they asked for and nothing beyond it.
 
         ## What you are given
+        - The game system, the characters' levels and a brief on the table, when the GM gave one.
         - The world's record: its people, places, factions, facts and relationships. Some are marked
           Hidden. Those are the GM's secrets, and you may use them, because only the GM reads this.
           Write them so the GM can run them, never as something the players are told outright,
           unless the GM asks for that.
+        - Passages from the GM's reference books, when any fit.
         - The adventure's outline, its overview and pitch, and the sections either side of the one
           you are writing.
         - The section itself, and the GM's instruction for it.
@@ -62,6 +63,7 @@ public static class AdventureDraftPrompt
         - Keep to the section you were asked for. Don't write the next scene, and don't summarise
           the adventure.
         - Do not include citation markers such as [ref:...]; this text is for the table.
+        {{PrepPromptContext.ReferenceRules}}
 
         ## Format
         Answer with the section's body only, in Markdown, with no heading for the section's own
@@ -84,19 +86,7 @@ public static class AdventureDraftPrompt
         var target = sections[index];
         var sb = new StringBuilder();
 
-        sb.AppendLine("## The world");
-        sb.AppendLine();
-        sb.AppendLine(string.IsNullOrWhiteSpace(input.GameSystem) ? "Game system: not stated." : $"Game system: {input.GameSystem}");
-        if (!string.IsNullOrWhiteSpace(input.Adventure.Details.Levels))
-        {
-            sb.AppendLine($"For characters of level {input.Adventure.Details.Levels.Trim()}.");
-        }
-
-        sb.AppendLine();
-        sb.AppendLine(string.IsNullOrWhiteSpace(input.WorldContext)
-            ? "The world's record has nothing on this yet."
-            : input.WorldContext.TrimEnd());
-        sb.AppendLine();
+        input.Context.AppendTo(sb);
 
         AppendThreads(sb, input.Threads);
 
