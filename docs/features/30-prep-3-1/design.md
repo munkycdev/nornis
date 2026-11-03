@@ -1,5 +1,11 @@
 # Design Document
 
+> **Amendment (2026-11-03): the one-click PDF is built in feature 34, with a library, not a
+> container.** Decision 5 named a separate `ca-nornis-print` container running Chromium if
+> this were ever built. Dave chose a .NET PDF library (QuestPDF) in the API instead, after his
+> Nornis 3.4 walk. The booklet becomes a PDF Nornis lays out itself, and the HTML booklet is
+> retired. See `docs/features/34-booklet-pdf/`.
+
 > **Amendment (2026-11-02, Phase C):** what building Threads to use changed. The text below
 > is left as written.
 >

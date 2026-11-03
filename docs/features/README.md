@@ -44,6 +44,7 @@ simply never used, and it stays unused so that every existing reference keeps it
 | 31 | Bibliotaph (Nornis 3.2) | Shipped 2026-11-02 (Phases A to G; cutover H waits) | A "read in Bibliotaph" link for the creator; Nornis's own PDF index until the cutover (Phase H) |
 | 32 | Adventure details (Nornis 3.4) | 2026-11-03 (Phases A to C; live walk C7 is Dave's) | Editing type, publisher or author (fixed by Dave); details for Library uploads that are not prints; using the details in drafting |
 | 33 | Several sign-ins per account (Nornis 3.3) | 2026-11-02 | Merging two existing accounts (a one-off, by hand); showing when each sign-in was last used |
+| 34 | Booklet as a PDF, one-click filing (Nornis 3.5) | Specified 2026-11-03 | A4 page size; printing only the props; images in the booklet; widow and orphan control inside long paragraphs |
 
 Work sequenced outside this folder — the August operations and test-quality backlog — lives in
 [`../future-features.md`](../future-features.md) and `../plans/`. Campaigns' first-tier page
