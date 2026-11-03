@@ -6,8 +6,9 @@ namespace Nornis.Application.Tests.Fakes;
 /// <summary>An <see cref="AdventureBookletPrinter"/> over a fake renderer, for fixtures that view or print Adventures.</summary>
 public static class TestBooklets
 {
-    public static AdventureBookletPrinter Printer(AdventurePrintDetails details, FakeBookletPdfRenderer? renderer = null) =>
-        new(details, renderer ?? new FakeBookletPdfRenderer(), NullLogger<AdventureBookletPrinter>.Instance);
+    public static AdventureBookletPrinter Printer(
+        AdventurePrintDetails details, FakeBookletPdfRenderer? renderer = null, TimeProvider? time = null) =>
+        new(details, renderer ?? new FakeBookletPdfRenderer(), NullLogger<AdventureBookletPrinter>.Instance, time ?? TimeProvider.System);
 }
 
 /// <summary>

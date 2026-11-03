@@ -15,12 +15,15 @@ public class AdventureBookletPrinter
     private readonly AdventurePrintDetails _printDetails;
     private readonly IBookletPdfRenderer _renderer;
     private readonly ILogger<AdventureBookletPrinter> _logger;
+    private readonly TimeProvider _time;
 
-    public AdventureBookletPrinter(AdventurePrintDetails printDetails, IBookletPdfRenderer renderer, ILogger<AdventureBookletPrinter> logger)
+    public AdventureBookletPrinter(
+        AdventurePrintDetails printDetails, IBookletPdfRenderer renderer, ILogger<AdventureBookletPrinter> logger, TimeProvider time)
     {
         _printDetails = printDetails;
         _renderer = renderer;
         _logger = logger;
+        _time = time;
     }
 
     /// <summary>The details a print would carry now, for the Book details card's preview.</summary>
@@ -31,7 +34,8 @@ public class AdventureBookletPrinter
     {
         var details = await _printDetails.ResolveAsync(adventure, ct);
         var started = Stopwatch.GetTimestamp();
-        var pdf = _renderer.Render(BookletModel.Build(adventure, details));
+        var imprint = new BookletImprint(DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime), RightsStatement.CurrentVersion);
+        var pdf = _renderer.Render(BookletModel.Build(adventure, details, imprint));
 
         _logger.LogInformation(
             "booklet_rendered {AdventureId} pages={Pages} bytes={Bytes} ms={Milliseconds}",

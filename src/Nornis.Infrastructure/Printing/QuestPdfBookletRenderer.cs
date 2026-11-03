@@ -11,7 +11,8 @@ namespace Nornis.Infrastructure.Printing;
 /// Lays the booklet out as a PDF with QuestPDF (feature 34). Every layout rule lives here, and
 /// nothing here knows Markdown or Adventures:
 ///
-/// - The cover has a page to itself; every chapter starts a page, its title across both columns.
+/// - The cover has a page to itself, and the rights page (feature 38) the next; every chapter
+///   starts a page, its title across both columns.
 /// - Within a chapter the text flows down the left column, then the right, then the next page.
 /// - A heading never ends a column: it moves on with the start of what follows it.
 /// - A box, stat block or table row stays whole when it fits a column; a box longer than about
@@ -66,6 +67,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
         var bytes = Document.Create(document =>
             {
                 document.Page(page => Cover(page, booklet.Cover));
+                document.Page(page => Rights(page, booklet.Rights));
                 foreach (var chapter in booklet.Chapters)
                 {
                     document.Page(page => Chapter(page, booklet.Cover.Title, chapter));
@@ -118,8 +120,35 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             }
 
             col.Item().PaddingTop(24).PaddingHorizontal(120).LineHorizontal(1.5f).LineColor(Accent);
-            col.Item().AlignCenter().Text(cover.CreditsLine.ToUpperInvariant())
-                .FontFamily(Sans, Fallback).FontSize(8.5f).LetterSpacing(0.08f).FontColor(Muted);
+        });
+    }
+
+    /// <summary>
+    /// The rights page (feature 38): centred in small serif at the foot of the page, as a
+    /// published book's is, the credits above a hairline and the notices below it.
+    /// </summary>
+    private static void Rights(PageDescriptor page, BookletRights rights)
+    {
+        Setup(page);
+        page.Content().AlignBottom().PaddingHorizontal(72).Column(col =>
+        {
+            col.Spacing(3);
+            col.Item().AlignCenter().Text(rights.Title).FontSize(11).SemiBold();
+            col.Item().AlignCenter().Text(rights.Credits.ToUpperInvariant())
+                .FontFamily(Sans, Fallback).FontSize(7.5f).LetterSpacing(0.08f).FontColor(Muted);
+            col.Item().PaddingTop(6).AlignCenter().Text(rights.Copyright).FontSize(9);
+            foreach (var line in new[] { rights.SystemLine, rights.LevelsLine }.OfType<string>())
+            {
+                col.Item().AlignCenter().Text(line).FontSize(9);
+            }
+
+            col.Item().AlignCenter().Text(rights.Printed).FontSize(9);
+            col.Item().AlignCenter().Text(rights.MadeWith).FontSize(9);
+
+            col.Item().PaddingVertical(10).PaddingHorizontal(96).LineHorizontal(0.5f).LineColor(Hairline);
+
+            col.Item().AlignCenter().Text(rights.AiStatement).FontSize(8.5f).Italic();
+            col.Item().PaddingTop(4).AlignCenter().Text(rights.Notice).FontSize(8).FontColor(Muted);
         });
     }
 

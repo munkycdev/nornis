@@ -20,6 +20,7 @@ public class QuestPdfBookletRendererTests
 {
     // US Letter, 0.6in margins, 0.3in gutter: the two columns' edges in points.
     private const double PageWidth = 612;
+    private const double PageHeight = 792;
     private const double ContentLeft = 43.2;
     private const double ContentRight = PageWidth - 43.2;
     private const double Middle = PageWidth / 2;
@@ -28,8 +29,15 @@ public class QuestPdfBookletRendererTests
     /// <summary>Anything this low on a page is the footer, not the flow.</summary>
     private const double FooterTop = 64;
 
+    /// <summary>The cover is page 1 and the rights page page 2 (feature 38); the first chapter starts here.</summary>
+    private const int FirstChapterPage = 3;
+
     private static readonly BookletCover Cover = new(
-        "The Silver Key", "Shadowdark", "Levels 1–3", "by Dave", "A heist under the harbour.", "Nornis Press · Nornis adventure");
+        "The Silver Key", "Shadowdark", "Levels 1–3", "by Dave", "A heist under the harbour.");
+
+    private static readonly BookletRights Rights = new(
+        "The Silver Key", "Nornis Press", "Nornis adventure · Nornis Press · 2026", "© 2026 Dave", "Shadowdark", "Levels 1–3",
+        "Printed 3 November 2026", "Made with Nornis 3.9", "Text written with AI assistance.", "rightsnotice is a trademark line.");
 
     private readonly QuestPdfBookletRenderer _renderer = new();
 
@@ -44,9 +52,33 @@ public class QuestPdfBookletRendererTests
         var cover = Words(document.GetPage(1)).Select(w => w.Text).ToList();
         Assert.Multiple(() =>
         {
-            Assert.That(pdf.Pages, Is.EqualTo(2));
+            Assert.That(pdf.Pages, Is.EqualTo(3));
             Assert.That(cover, Does.Contain("Silver").And.Contain("Shadowdark").And.Contain("heist"));
             Assert.That(cover, Does.Not.Contain("chapterword"), "nothing of the adventure shares the cover's page");
+        });
+    }
+
+    /// <summary>Feature 38, Requirement 2: the rights page follows the cover, alone, its notices below the credits.</summary>
+    [Test]
+    public void TheRightsPage_IsPageTwoAlone_CreditsAboveTheNotices()
+    {
+        var pdf = Render(Chapter("Arrival", P("chapterword one.")));
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        var cover = Words(document.GetPage(1)).Select(w => w.Text).ToList();
+        var words = Words(document.GetPage(2)).ToList();
+        var text = words.Select(w => w.Text).ToList();
+        double TopOf(string token) => words.First(w => w.Text == token).BoundingBox.Top;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(text, Does.Contain("©").And.Contain("Printed").And.Contain("Made").And.Contain("assistance.")
+                .And.Contain("rightsnotice"));
+            Assert.That(text, Does.Not.Contain("chapterword"));
+            Assert.That(cover, Does.Not.Contain("PRESS"), "the credits moved off the cover");
+            Assert.That(TopOf("PRESS"), Is.GreaterThan(TopOf("assistance.")), "the credits sit above the AI statement");
+            Assert.That(TopOf("assistance."), Is.GreaterThan(TopOf("rightsnotice")), "and the notice last");
+            Assert.That(TopOf("rightsnotice"), Is.LessThan(PageHeight / 2), "at the foot of the page, as a book's is");
         });
     }
 
@@ -60,9 +92,9 @@ public class QuestPdfBookletRendererTests
         using var document = PdfDocument.Open(pdf.Bytes);
         Assert.Multiple(() =>
         {
-            Assert.That(pdf.Pages, Is.EqualTo(3));
-            Assert.That(Words(document.GetPage(2)).Select(w => w.Text), Does.Contain("Arrival").And.Contain("alphaword"));
-            Assert.That(Words(document.GetPage(3)).Select(w => w.Text), Does.Contain("Departure").And.Contain("betaword")
+            Assert.That(pdf.Pages, Is.EqualTo(4));
+            Assert.That(Words(document.GetPage(FirstChapterPage)).Select(w => w.Text), Does.Contain("Arrival").And.Contain("alphaword"));
+            Assert.That(Words(document.GetPage(FirstChapterPage + 1)).Select(w => w.Text), Does.Contain("Departure").And.Contain("betaword")
                 .And.Not.Contain("alphaword"));
         });
     }
@@ -116,7 +148,7 @@ public class QuestPdfBookletRendererTests
 
         using var document = PdfDocument.Open(pdf.Bytes);
         var lastLines = new List<string>();
-        for (var page = 2; page <= document.NumberOfPages; page++)
+        for (var page = FirstChapterPage; page <= document.NumberOfPages; page++)
         {
             foreach (var column in Words(document.GetPage(page)).Where(w => w.BoundingBox.Bottom > FooterTop).GroupBy(ColumnOf))
             {
@@ -171,7 +203,7 @@ public class QuestPdfBookletRendererTests
 
         Assert.Multiple(() =>
         {
-            Assert.That((found[0].Page, found[0].Column), Is.EqualTo((2, 0)), "the box starts under the opening paragraph");
+            Assert.That((found[0].Page, found[0].Column), Is.EqualTo((FirstChapterPage, 0)), "the box starts under the opening paragraph");
             Assert.That(found.Select(f => (f.Page, f.Column)).Distinct().Count(), Is.GreaterThan(1), "and flows into the next column");
         });
     }
@@ -259,7 +291,7 @@ public class QuestPdfBookletRendererTests
         using var document = PdfDocument.Open(pdf.Bytes);
         var outside = new List<string>();
         var bullets = 0;
-        for (var page = 2; page <= document.NumberOfPages; page++)
+        for (var page = FirstChapterPage; page <= document.NumberOfPages; page++)
         {
             foreach (var letter in document.GetPage(page).Letters.Where(l => l.BoundingBox.Bottom > FooterTop && !string.IsNullOrWhiteSpace(l.Value)))
             {
@@ -358,7 +390,7 @@ public class QuestPdfBookletRendererTests
                 Game(GameBlockKind.Stat, text)));
             using var document = PdfDocument.Open(pdf.Bytes);
             pages = Math.Max(pages, document.NumberOfPages);
-            for (var page = 2; page <= document.NumberOfPages; page++)
+            for (var page = FirstChapterPage; page <= document.NumberOfPages; page++)
             {
                 foreach (var column in Words(document.GetPage(page)).Where(w => w.BoundingBox.Bottom > FooterTop).GroupBy(ColumnOf))
                 {
@@ -431,14 +463,14 @@ public class QuestPdfBookletRendererTests
         }
 
         var clock = Stopwatch.StartNew();
-        var pdf = _renderer.Render(new Booklet(Cover, chapters));
+        var pdf = _renderer.Render(new Booklet(Cover, Rights, chapters));
         clock.Stop();
 
         Assert.Multiple(() =>
         {
             Assert.That(pdf.Bytes.Length, Is.LessThan(new LibraryOptions().MaxUploadSizeBytes));
             Assert.That(pdf.Bytes.Length, Is.LessThan(20 * 1024 * 1024), "far under it, in practice");
-            Assert.That(pdf.Pages, Is.InRange(21, 200));
+            Assert.That(pdf.Pages, Is.InRange(22, 200));
             Assert.That(clock.Elapsed, Is.LessThan(TimeSpan.FromSeconds(30)), "rendering is on the request thread");
         });
     }
@@ -456,7 +488,7 @@ public class QuestPdfBookletRendererTests
 
     private sealed record Found(string Token, int Page, int Column, double Top, double Left);
 
-    private BookletPdf Render(params BookletChapter[] chapters) => _renderer.Render(new Booklet(Cover, chapters));
+    private BookletPdf Render(params BookletChapter[] chapters) => _renderer.Render(new Booklet(Cover, Rights, chapters));
 
     private static BookletChapter Chapter(string? title, params BookletBlock[] blocks) => new(title, blocks);
 
@@ -484,7 +516,7 @@ public class QuestPdfBookletRendererTests
     private static List<Found> Locate(BookletPdf pdf, IReadOnlyList<string> tokens)
     {
         using var document = PdfDocument.Open(pdf.Bytes);
-        var words = AllWords(document).Where(w => w.Page > 1).ToList();
+        var words = AllWords(document).Where(w => w.Page >= FirstChapterPage).ToList();
         return tokens.Select(token =>
         {
             var hits = words.Where(w => w.Word.Text == token).ToList();

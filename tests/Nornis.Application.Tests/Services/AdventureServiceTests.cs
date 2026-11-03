@@ -575,7 +575,7 @@ public class AdventureServiceTests
         {
             Assert.That(cover.SystemLine, Is.EqualTo("Shadowdark 1st"), "the world's game system");
             Assert.That(cover.AuthorLine, Is.EqualTo($"By {TestPrintDetails.Username}"));
-            Assert.That(cover.CreditsLine, Does.EndWith("Nornis Press · 2026"));
+            Assert.That(_renderer.Rendered.Single().Rights.Credits, Does.EndWith("Nornis Press · 2026"));
             Assert.That(booklet.Value!.Pdf, Is.EqualTo(FakeBookletPdfRenderer.BytesFor(_renderer.Rendered.Single(), _renderer.Size)));
             Assert.That(booklet.Value.FileName, Is.EqualTo($"{view.Adventure.Title}.pdf"));
         });

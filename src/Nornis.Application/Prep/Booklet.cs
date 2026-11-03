@@ -7,16 +7,42 @@ namespace Nornis.Application.Prep;
 /// and what <see cref="IBookletPdfRenderer"/> lays out. It carries no fonts, sizes or pages, so
 /// every markup convention is decided before layout and every layout rule after it.
 /// </summary>
-public sealed record Booklet(BookletCover Cover, IReadOnlyList<BookletChapter> Chapters);
+public sealed record Booklet(BookletCover Cover, BookletRights Rights, IReadOnlyList<BookletChapter> Chapters);
 
-/// <summary>The cover's lines, each already worded; a null line is left off (feature 32).</summary>
+/// <summary>
+/// The cover's lines, each already worded; a null line is left off (feature 32). The credits
+/// moved to the rights page in feature 38.
+/// </summary>
 public sealed record BookletCover(
     string Title,
     string? SystemLine,
     string? LevelsLine,
     string AuthorLine,
-    string? Pitch,
-    string CreditsLine);
+    string? Pitch);
+
+/// <summary>
+/// The rights page (feature 38), straight after the cover: credits, then the notices. Each line is
+/// already worded; a null line is left off.
+/// </summary>
+/// <param name="Credits">The type, the publisher and the year, as the cover used to carry them.</param>
+/// <param name="Copyright">"© 2026 kelda".</param>
+/// <param name="Printed">"Printed 3 November 2026".</param>
+/// <param name="MadeWith">"Made with Nornis 3.9".</param>
+/// <param name="AiStatement">What the Adventure recorded about AI, from <see cref="RightsStatement.For"/>.</param>
+public sealed record BookletRights(
+    string Title,
+    string Publisher,
+    string Credits,
+    string Copyright,
+    string? SystemLine,
+    string? LevelsLine,
+    string Printed,
+    string MadeWith,
+    string AiStatement,
+    string Notice);
+
+/// <summary>When a booklet was printed and by which release (feature 38): what the rights page dates it by.</summary>
+public sealed record BookletImprint(DateOnly Printed, string Version);
 
 /// <summary>A Chapter, which starts a page. <see cref="Title"/> is null for the sections before the first Chapter.</summary>
 public sealed record BookletChapter(string? Title, IReadOnlyList<BookletBlock> Blocks);

@@ -35,7 +35,7 @@ public static class BookletModel
         .DisableHtml()
         .Build();
 
-    public static Booklet Build(Adventure adventure, PrintDetails details)
+    public static Booklet Build(Adventure adventure, PrintDetails details, BookletImprint imprint)
     {
         var chapters = new List<BookletChapter>();
         string? title = null;
@@ -73,23 +73,43 @@ public static class BookletModel
             chapters.Add(new BookletChapter(title, blocks));
         }
 
-        return new Booklet(Cover(adventure, details), chapters);
+        return new Booklet(Cover(adventure, details), Rights(details, imprint), chapters);
     }
 
-    /// <summary>The cover's lines (feature 32): system and edition, levels, author, pitch, and the credits.</summary>
-    private static BookletCover Cover(Adventure adventure, PrintDetails details)
+    /// <summary>The cover's lines (feature 32): system and edition, levels, author and pitch.</summary>
+    private static BookletCover Cover(Adventure adventure, PrintDetails details) => new(
+        adventure.Title,
+        details.SystemLine(),
+        LevelsLine(details),
+        $"By {details.Author}",
+        string.IsNullOrWhiteSpace(adventure.Pitch) ? null : adventure.Pitch.Trim());
+
+    /// <summary>
+    /// The rights page (feature 38). The copyright year is the book's year when the GM gave one,
+    /// else the year it was printed. AI use comes from the resolved details, so the page and the
+    /// filed snapshot can't disagree.
+    /// </summary>
+    private static BookletRights Rights(PrintDetails details, BookletImprint imprint)
     {
         var credits = new[] { details.Type, details.Publisher, details.Year?.ToString(CultureInfo.InvariantCulture) }
             .Where(v => !string.IsNullOrWhiteSpace(v));
+        var year = details.Year ?? imprint.Printed.Year;
 
-        return new BookletCover(
-            adventure.Title,
+        return new BookletRights(
+            details.Title,
+            details.Publisher,
+            string.Join(" · ", credits),
+            $"© {year.ToString(CultureInfo.InvariantCulture)} {details.Author}",
             details.SystemLine(),
-            string.IsNullOrWhiteSpace(details.Levels) ? null : $"Levels {details.Levels}",
-            $"By {details.Author}",
-            string.IsNullOrWhiteSpace(adventure.Pitch) ? null : adventure.Pitch.Trim(),
-            string.Join(" · ", credits));
+            LevelsLine(details),
+            $"Printed {imprint.Printed.ToString("d MMMM yyyy", CultureInfo.InvariantCulture)}",
+            $"Made with Nornis {imprint.Version}",
+            RightsStatement.For(details.AiUse ?? AiUseKind.None),
+            RightsStatement.Notice);
     }
+
+    private static string? LevelsLine(PrintDetails details) =>
+        string.IsNullOrWhiteSpace(details.Levels) ? null : $"Levels {details.Levels}";
 
     /// <summary>One section's Markdown as booklet blocks. Public for the tests that pin each convention.</summary>
     public static IReadOnlyList<BookletBlock> Blocks(string? markdown)
