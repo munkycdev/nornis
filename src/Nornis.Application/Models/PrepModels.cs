@@ -13,7 +13,23 @@ namespace Nornis.Application.Models;
 /// </summary>
 public record AdventureView(
     Adventure Adventure, IReadOnlyDictionary<Guid, int> RevisionCounts, PrintDetails PrintDetails,
-    IReadOnlyList<string>? IgnoredDetails = null);
+    IReadOnlyList<string>? IgnoredDetails = null, int DraftRevisionCount = 0);
+
+/// <summary>The design draft (feature 37) as a write left it: null markdown means no draft.</summary>
+public record AdventureDraftState(string? Markdown, DateTimeOffset? UpdatedAt, int RevisionCount);
+
+/// <summary>The GM's own edit of the draft; <c>BasedOnUpdatedAt</c> is null when there was no draft yet.</summary>
+public record SaveDraftCommand(
+    Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, string Markdown, DateTimeOffset? BasedOnUpdatedAt);
+
+public record UndoDraftCommand(Guid WorldId, Guid AdventureId, WorldRole ActingUserRole);
+
+/// <summary>Replaces the table brief; null or blank clears it.</summary>
+public record SetTableBriefCommand(Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, string? Brief);
+
+/// <summary>Makes the Adventure's source books exactly these Library books; empty means every book.</summary>
+public record SetSourceBooksCommand(
+    Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, IReadOnlyList<Guid> DocumentIds);
 
 public record CreateAdventureCommand(
     Guid WorldId, Guid ActingUserId, WorldRole ActingUserRole, string Title, string? Pitch, Guid? CampaignId);

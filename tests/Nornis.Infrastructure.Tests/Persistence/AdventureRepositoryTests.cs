@@ -466,4 +466,110 @@ public class AdventureRepositoryTests : IntegrationTestBase
         var stored = await Context.Adventures.SingleAsync(a => a.Id == adventure.Id);
         Assert.That(stored.LastPrintedDocumentId, Is.Null);
     }
+
+    // ------------------------------------------------- design mode (feature 37) --
+
+    [Test]
+    public async Task ADraftSave_IsConditionalOnItsStamp()
+    {
+        var adventure = await CreateAsync("a");
+        var first = _now.AddMinutes(1);
+
+        var started = await _sut.TrySaveDraftAsync(adventure.Id, "# Draft", null, 20, basedOn: null, first);
+        var stale = await _sut.TrySaveDraftAsync(adventure.Id, "lost", null, 20, basedOn: null, _now.AddMinutes(2));
+        var next = await _sut.TrySaveDraftAsync(adventure.Id, "# Draft, again", null, 20, basedOn: first, _now.AddMinutes(3));
+        Context.ChangeTracker.Clear();
+
+        var stored = await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That((started, stale, next), Is.EqualTo((true, false, true)));
+            Assert.That(stored.DraftMarkdown, Is.EqualTo("# Draft, again"));
+        });
+    }
+
+    [Test]
+    public async Task ADraftChangeWithARevision_KeepsTheOldText_TrimmedToTheBound_AndUndoRestoresIt()
+    {
+        var adventure = await CreateAsync("a");
+        DateTimeOffset? stamp = null;
+        for (var i = 0; i < 4; i++)
+        {
+            var at = _now.AddMinutes(i + 1);
+            var revision = i == 0 ? null : new AdventureDraftRevision
+            {
+                Id = Guid.NewGuid(), Reason = AdventureDraftChange.Edit, CreatedAt = at,
+            };
+            Assert.That(await _sut.TrySaveDraftAsync(adventure.Id, $"v{i}", revision, maxRevisions: 2, stamp, at), Is.True);
+            stamp = at;
+        }
+
+        Assert.That(await _sut.CountDraftRevisionsAsync(adventure.Id), Is.EqualTo(2), "v1 and v2; v0 trimmed");
+
+        var latest = await _sut.GetLatestDraftRevisionAsync(adventure.Id);
+        var restored = await _sut.TryRestoreDraftRevisionAsync(latest!, stamp, _now.AddMinutes(10));
+        Context.ChangeTracker.Clear();
+
+        var stored = await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id);
+        var remaining = await _sut.CountDraftRevisionsAsync(adventure.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored, Is.True);
+            Assert.That(stored.DraftMarkdown, Is.EqualTo("v2"));
+            Assert.That(remaining, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task SourceBooks_AreReadWithTheAdventure_AndLeaveWhenTheirBookIsDeleted()
+    {
+        var adventure = await CreateAsync("a");
+        await _sut.ReplaceSourceBooksAsync(adventure.Id, [_print.Id]);
+
+        var loaded = await _sut.GetWithSectionsAsync(adventure.Id);
+        Assert.That(loaded!.SourceBooks.Select(b => b.LibraryDocument.Title), Is.EqualTo(new[] { _print.Title }));
+
+        await new LibraryDocumentRepository(Context).DeleteAsync(_print.Id);
+        Context.ChangeTracker.Clear();
+
+        Assert.That(await Context.AdventureSourceBooks.CountAsync(b => b.AdventureId == adventure.Id), Is.Zero);
+    }
+
+    [Test]
+    public async Task Delete_TakesTheDraftsHistoryAndTheSourceBookChoices_WithIt()
+    {
+        var adventure = await CreateAsync("a");
+        await _sut.TrySaveDraftAsync(adventure.Id, "v0", null, 20, null, _now.AddMinutes(1));
+        await _sut.TrySaveDraftAsync(adventure.Id, "v1",
+            new AdventureDraftRevision { Id = Guid.NewGuid(), Reason = AdventureDraftChange.Put, CreatedAt = _now },
+            20, _now.AddMinutes(1), _now.AddMinutes(2));
+        await _sut.ReplaceSourceBooksAsync(adventure.Id, [_print.Id]);
+
+        await _sut.DeleteAsync(adventure.Id);
+        Context.ChangeTracker.Clear();
+
+        var counts = (await Context.Adventures.CountAsync(a => a.Id == adventure.Id),
+            await Context.AdventureDraftRevisions.CountAsync(r => r.AdventureId == adventure.Id),
+            await Context.AdventureSourceBooks.CountAsync(b => b.AdventureId == adventure.Id),
+            await Context.LibraryDocuments.CountAsync(d => d.Id == _print.Id));
+        Assert.That(counts, Is.EqualTo((0, 0, 0, 1)), "the Adventure and its design rows go; the book stays");
+    }
+
+    [Test]
+    public async Task DeletingTheWorld_TakesDesignModeRowsWithIt()
+    {
+        var adventure = await CreateAsync("a");
+        await _sut.TrySaveDraftAsync(adventure.Id, "v0", null, 20, null, _now.AddMinutes(1));
+        await _sut.TrySaveDraftAsync(adventure.Id, "v1",
+            new AdventureDraftRevision { Id = Guid.NewGuid(), Reason = AdventureDraftChange.Gather, CreatedAt = _now },
+            20, _now.AddMinutes(1), _now.AddMinutes(2));
+        await _sut.ReplaceSourceBooksAsync(adventure.Id, [_print.Id]);
+
+        await new WorldRepository(Context).DeleteAsync(_world.Id);
+        Context.ChangeTracker.Clear();
+
+        var left = await Context.AdventureSourceBooks.CountAsync(b => b.AdventureId == adventure.Id)
+            + await Context.AdventureDraftRevisions.CountAsync(r => r.AdventureId == adventure.Id);
+        Assert.That(left, Is.Zero);
+    }
 }

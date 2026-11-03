@@ -21,12 +21,12 @@ public interface IAdventureRepository
     Task<IReadOnlyList<AdventureSummary>> ListByWorldAsync(
         Guid worldId, IReadOnlyCollection<string> unfilledBodies, CancellationToken cancellationToken = default);
 
-    /// <summary>The Adventure with its sections in order, untracked. Null when it doesn't exist.</summary>
+    /// <summary>The Adventure with its sections in order and its source books (with their documents), untracked. Null when it doesn't exist.</summary>
     Task<Adventure?> GetWithSectionsAsync(Guid adventureId, CancellationToken cancellationToken = default);
 
     Task<Adventure> CreateAsync(Adventure adventure, CancellationToken cancellationToken = default);
 
-    /// <summary>Writes the Adventure's own fields (title, pitch, campaign, last print); never its sections.</summary>
+    /// <summary>Writes the Adventure's own fields (title, pitch, campaign, last print, details, table brief); never its sections or draft.</summary>
     Task UpdateAsync(Adventure adventure, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -71,6 +71,32 @@ public interface IAdventureRepository
     Task<bool> TryRestoreRevisionAsync(
         AdventureSectionRevision revision, DateTimeOffset basedOn, DateTimeOffset updatedAt,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Writes the design draft (feature 37), null to discard it, with <paramref name="updatedAt"/>
+    /// as its new stamp. With a <paramref name="revision"/>, the stored draft goes into it first
+    /// (its own body is ignored) and the draft's revisions are trimmed to the newest
+    /// <paramref name="maxRevisions"/>, in the same unit of work. False, and nothing written, when
+    /// the stored draft stamp is not <paramref name="basedOn"/> (null: there was no draft).
+    /// </summary>
+    Task<bool> TrySaveDraftAsync(
+        Guid adventureId, string? markdown, AdventureDraftRevision? revision, int maxRevisions,
+        DateTimeOffset? basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default);
+
+    Task<int> CountDraftRevisionsAsync(Guid adventureId, CancellationToken cancellationToken = default);
+
+    Task<AdventureDraftRevision?> GetLatestDraftRevisionAsync(Guid adventureId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The draft's Undo: writes the revision's body as the draft and deletes the revision, in one
+    /// unit of work. False, and nothing written, when the draft's stamp is not <paramref name="basedOn"/>.
+    /// </summary>
+    Task<bool> TryRestoreDraftRevisionAsync(
+        AdventureDraftRevision revision, DateTimeOffset? basedOn, DateTimeOffset updatedAt,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Makes the Adventure's source books exactly <paramref name="documentIds"/>; the caller has checked them.</summary>
+    Task ReplaceSourceBooksAsync(Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// A draft's accept, in one unit of work: the section's stored body goes into

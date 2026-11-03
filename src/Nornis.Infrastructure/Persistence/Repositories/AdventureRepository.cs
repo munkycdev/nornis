@@ -44,6 +44,8 @@ public class AdventureRepository : IAdventureRepository
         var adventure = await _context.Adventures
             .AsNoTracking()
             .Include(a => a.Sections)
+            .Include(a => a.SourceBooks).ThenInclude(b => b.LibraryDocument)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(a => a.Id == adventureId, cancellationToken);
 
         if (adventure is not null)
@@ -70,6 +72,7 @@ public class AdventureRepository : IAdventureRepository
         row.Pitch = adventure.Pitch;
         row.CampaignId = adventure.CampaignId;
         row.LastPrintedDocumentId = adventure.LastPrintedDocumentId;
+        row.TableBrief = adventure.TableBrief;
 
         // A copy, so the caller's instance never becomes this row's tracked owned entity.
         row.Details = adventure.Details with { };
@@ -181,7 +184,100 @@ public class AdventureRepository : IAdventureRepository
             r => _context.AdventureSections.Any(s => s.Id == r.SectionId && s.AdventureId == adventureId),
             cancellationToken);
         await _context.DeleteWhereAsync<AdventureSection>(s => s.AdventureId == adventureId, cancellationToken);
+
+        // Design mode (feature 37): the draft's history cascades, the source book choices are
+        // Restrict (Worlds cascades to both ends); neither relies on the database here.
+        await _context.DeleteWhereAsync<AdventureDraftRevision>(r => r.AdventureId == adventureId, cancellationToken);
+        await _context.DeleteWhereAsync<AdventureSourceBook>(b => b.AdventureId == adventureId, cancellationToken);
         await _context.DeleteWhereAsync<Adventure>(a => a.Id == adventureId, cancellationToken);
+    }
+
+    public async Task<bool> TrySaveDraftAsync(
+        Guid adventureId, string? markdown, AdventureDraftRevision? revision, int maxRevisions,
+        DateTimeOffset? basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+    {
+        var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
+        if (adventure.DraftUpdatedAt != basedOn)
+        {
+            _context.Entry(adventure).State = EntityState.Detached;
+            return false;
+        }
+
+        if (revision is not null && adventure.DraftMarkdown is { } before)
+        {
+            await TrimDraftRevisionsAsync(adventureId, maxRevisions - 1, cancellationToken);
+            revision.AdventureId = adventureId;
+            revision.BodyMarkdown = before;
+            _context.AdventureDraftRevisions.Add(revision);
+        }
+
+        adventure.DraftMarkdown = markdown;
+        adventure.DraftUpdatedAt = markdown is null ? null : updatedAt;
+        adventure.UpdatedAt = updatedAt;
+
+        // One SaveChanges: the revision, the trim and the new draft commit together or not at all.
+        return await SaveGuardedAsync(cancellationToken);
+    }
+
+    public async Task<int> CountDraftRevisionsAsync(Guid adventureId, CancellationToken cancellationToken = default) =>
+        await _context.AdventureDraftRevisions.CountAsync(r => r.AdventureId == adventureId, cancellationToken);
+
+    public async Task<AdventureDraftRevision?> GetLatestDraftRevisionAsync(
+        Guid adventureId, CancellationToken cancellationToken = default)
+    {
+        // Bounded like section revisions, and ordered in memory for the same reason.
+        var revisions = await _context.AdventureDraftRevisions
+            .AsNoTracking()
+            .Where(r => r.AdventureId == adventureId)
+            .ToListAsync(cancellationToken);
+
+        return revisions.OrderByDescending(r => r.CreatedAt).ThenByDescending(r => r.Id).FirstOrDefault();
+    }
+
+    public async Task<bool> TryRestoreDraftRevisionAsync(
+        AdventureDraftRevision revision, DateTimeOffset? basedOn, DateTimeOffset updatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        var adventure = await _context.LoadForUpdateAsync<Adventure>(revision.AdventureId, cancellationToken);
+        if (adventure.DraftUpdatedAt != basedOn)
+        {
+            _context.Entry(adventure).State = EntityState.Detached;
+            return false;
+        }
+
+        adventure.DraftMarkdown = revision.BodyMarkdown;
+        adventure.DraftUpdatedAt = updatedAt;
+        adventure.UpdatedAt = updatedAt;
+        var row = await _context.LoadForUpdateAsync<AdventureDraftRevision>(revision.Id, cancellationToken);
+        _context.AdventureDraftRevisions.Remove(row);
+
+        return await SaveGuardedAsync(cancellationToken);
+    }
+
+    public async Task ReplaceSourceBooksAsync(
+        Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken cancellationToken = default)
+    {
+        var existing = await _context.AdventureSourceBooks
+            .Where(b => b.AdventureId == adventureId)
+            .ToListAsync(cancellationToken);
+        _context.AdventureSourceBooks.RemoveRange(existing.Where(b => !documentIds.Contains(b.LibraryDocumentId)));
+        _context.AdventureSourceBooks.AddRange(documentIds
+            .Where(id => existing.All(b => b.LibraryDocumentId != id))
+            .Select(id => new AdventureSourceBook { AdventureId = adventureId, LibraryDocumentId = id }));
+        await TouchAdventureAsync(adventureId, DateTimeOffset.UtcNow, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+        _context.ChangeTracker.Clear();
+    }
+
+    private async Task TrimDraftRevisionsAsync(Guid adventureId, int keep, CancellationToken cancellationToken)
+    {
+        var existing = await _context.AdventureDraftRevisions
+            .Where(r => r.AdventureId == adventureId)
+            .ToListAsync(cancellationToken);
+        _context.AdventureDraftRevisions.RemoveRange(existing
+            .OrderByDescending(r => r.CreatedAt)
+            .ThenByDescending(r => r.Id)
+            .Skip(Math.Max(keep, 0)));
     }
 
     public async Task<IReadOnlyDictionary<Guid, int>> CountRevisionsAsync(
