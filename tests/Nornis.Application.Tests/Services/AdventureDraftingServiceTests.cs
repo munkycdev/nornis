@@ -307,6 +307,8 @@ public class AdventureDraftingServiceTests
             Assert.That(revision.BodyMarkdown, Is.EqualTo(before));
             Assert.That(revision.Instruction, Is.EqualTo("Open on the docks at dawn."));
             Assert.That(revision.Model, Is.EqualTo("nornis-ask"));
+            Assert.That(_adventures.Adventures.Single(a => a.Id == adventure.Id).AiUse.WroteText, Is.True,
+                "a completed draft records that AI wrote text (feature 38)");
         });
     }
 

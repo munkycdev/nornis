@@ -328,13 +328,13 @@ public class BookletModelTests
 
     // ------------------------------------------------------------ The cover (feature 32) --
 
-    private static readonly PrintDetails Bare = PrintDetails.Resolve("The Silver Key", new AdventureDetails(), null, "kelda");
+    private static readonly PrintDetails Bare = PrintDetails.Resolve("The Silver Key", new AdventureDetails(), null, "kelda", AiUseKind.None);
 
     [Test]
     public void TheCover_HasEachDetail_AndTheCredits()
     {
         var details = PrintDetails.Resolve("The Silver Key",
-            new AdventureDetails { GameSystem = "Shadowdark", Edition = "1st", Levels = "1–3", Year = 2026 }, null, "kelda");
+            new AdventureDetails { GameSystem = "Shadowdark", Edition = "1st", Levels = "1–3", Year = 2026 }, null, "kelda", AiUseKind.None);
 
         var cover = BookletModel.Build(Adventure("The Silver Key"), details).Cover;
 
@@ -354,7 +354,7 @@ public class BookletModelTests
     [Test]
     public void AnEditionWithNoGameSystem_StillPrints()
     {
-        var details = PrintDetails.Resolve("The Silver Key", new AdventureDetails { Edition = "2nd" }, null, "kelda");
+        var details = PrintDetails.Resolve("The Silver Key", new AdventureDetails { Edition = "2nd" }, null, "kelda", AiUseKind.None);
 
         Assert.That(BookletModel.Build(Adventure("The Silver Key"), details).Cover.SystemLine, Is.EqualTo("2nd"));
     }

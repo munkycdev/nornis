@@ -76,7 +76,7 @@ public class LibraryOrganisationTests
             UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1),
         };
 
-    private static PrintDetails Details() => PrintDetails.Resolve("The Slurping Spa", new AdventureDetails(), null, "kelda");
+    private static PrintDetails Details() => PrintDetails.Resolve("The Slurping Spa", new AdventureDetails(), null, "kelda", AiUseKind.None);
 
     // --------------------------------------------------------------- Categories --
 

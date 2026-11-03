@@ -76,6 +76,10 @@ public class AdventureRepository : IAdventureRepository
 
         // A copy, so the caller's instance never becomes this row's tracked owned entity.
         row.Details = adventure.Details with { };
+
+        // Only the GM's own tick. The recorded flags are never copied from a caller, so no
+        // update (or Undo) can clear them; only TryAcceptDraftAsync and TrySaveDraftAsync set one.
+        row.AiUse.Declared = adventure.AiUse.Declared;
         row.UpdatedAt = adventure.UpdatedAt;
         await _context.SaveChangesAsync(cancellationToken);
         _context.Entry(row).State = EntityState.Detached;
@@ -194,7 +198,8 @@ public class AdventureRepository : IAdventureRepository
 
     public async Task<bool> TrySaveDraftAsync(
         Guid adventureId, string? markdown, AdventureDraftRevision? revision, int maxRevisions,
-        DateTimeOffset? basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+        DateTimeOffset? basedOn, DateTimeOffset updatedAt, bool loremasterWrote = false,
+        CancellationToken cancellationToken = default)
     {
         var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
         if (adventure.DraftUpdatedAt != basedOn)
@@ -214,8 +219,13 @@ public class AdventureRepository : IAdventureRepository
         adventure.DraftMarkdown = markdown;
         adventure.DraftUpdatedAt = markdown is null ? null : updatedAt;
         adventure.UpdatedAt = updatedAt;
+        if (loremasterWrote)
+        {
+            adventure.AiUse.WroteText = true;
+        }
 
-        // One SaveChanges: the revision, the trim and the new draft commit together or not at all.
+        // One SaveChanges: the revision, the trim, the new draft and the AI-use record commit
+        // together or not at all.
         return await SaveGuardedAsync(cancellationToken);
     }
 
@@ -402,9 +412,14 @@ public class AdventureRepository : IAdventureRepository
 
         section.BodyMarkdown = newBody;
         section.UpdatedAt = updatedAt;
-        await TouchAdventureAsync(section.AdventureId, updatedAt, cancellationToken);
+        var adventure = await TouchAdventureAsync(section.AdventureId, updatedAt, cancellationToken);
 
-        // One SaveChanges: the revision, the trim and the new body commit together or not at all.
+        // Every accept is the Loremaster's text (a draft or Put in section), so it records AI use
+        // (feature 38) in the same unit of work as the text it records.
+        adventure.AiUse.WroteText = true;
+
+        // One SaveChanges: the revision, the trim, the new body and the AI-use record commit
+        // together or not at all.
         return await SaveGuardedAsync(cancellationToken);
     }
 
@@ -416,10 +431,11 @@ public class AdventureRepository : IAdventureRepository
         }
     }
 
-    private async Task TouchAdventureAsync(Guid adventureId, DateTimeOffset at, CancellationToken cancellationToken)
+    private async Task<Adventure> TouchAdventureAsync(Guid adventureId, DateTimeOffset at, CancellationToken cancellationToken)
     {
         var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
         adventure.UpdatedAt = at;
+        return adventure;
     }
 
     /// <summary>

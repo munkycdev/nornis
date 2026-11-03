@@ -1,3 +1,4 @@
+using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
 using NUnit.Framework;
 
@@ -27,7 +28,7 @@ public class PrintDetailsTests
     {
         var details = new AdventureDetails { GameSystem = "Shadowdark", Edition = "1st", Levels = "1–3", Year = 2026 };
 
-        var print = PrintDetails.Resolve("The Slime Spa", details, "Fate Accelerated", "kelda");
+        var print = PrintDetails.Resolve("The Slime Spa", details, "Fate Accelerated", "kelda", AiUseKind.None);
 
         Assert.That(print, Is.EqualTo(new PrintDetails
         {
@@ -39,24 +40,25 @@ public class PrintDetailsTests
             Publisher = "Nornis Press",
             Author = "kelda",
             Year = 2026,
+            AiUse = AiUseKind.None,
         }));
     }
 
     [Test]
     public void AnUnsetGameSystem_IsTheWorlds() =>
-        Assert.That(PrintDetails.Resolve("The Slime Spa", new AdventureDetails(), "Fate Accelerated", "kelda").GameSystem,
+        Assert.That(PrintDetails.Resolve("The Slime Spa", new AdventureDetails(), "Fate Accelerated", "kelda", AiUseKind.None).GameSystem,
             Is.EqualTo("Fate Accelerated"));
 
     [TestCase(null)]
     [TestCase("")]
     [TestCase("   ")]
     public void NoGameSystemAnywhere_StaysUnset(string? worldGameSystem) =>
-        Assert.That(PrintDetails.Resolve("The Slime Spa", new AdventureDetails(), worldGameSystem, "kelda").GameSystem, Is.Null);
+        Assert.That(PrintDetails.Resolve("The Slime Spa", new AdventureDetails(), worldGameSystem, "kelda", AiUseKind.None).GameSystem, Is.Null);
 
     [Test]
     public void UnsetDetails_StayUnset()
     {
-        var print = PrintDetails.Resolve("The Slime Spa", new AdventureDetails(), null, "kelda");
+        var print = PrintDetails.Resolve("The Slime Spa", new AdventureDetails(), null, "kelda", AiUseKind.None);
 
         Assert.Multiple(() =>
         {
@@ -64,5 +66,13 @@ public class PrintDetailsTests
             Assert.That(print.Levels, Is.Null);
             Assert.That(print.Year, Is.Null);
         });
+    }
+
+    [Test]
+    public void Resolve_CarriesWhatTheAdventureRecordsAboutAi()
+    {
+        var print = PrintDetails.Resolve("The Slime Spa", new AdventureDetails(), null, "kelda", AiUseKind.TextAndArt);
+
+        Assert.That(print.AiUse, Is.EqualTo(AiUseKind.TextAndArt));
     }
 }

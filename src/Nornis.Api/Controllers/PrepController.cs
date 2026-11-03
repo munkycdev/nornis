@@ -115,6 +115,12 @@ public class PrepController : ControllerBase
         return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 
+    [HttpPut("{adventureId:guid}/ai-declared")]
+    public async Task<IActionResult> SetAiDeclared(
+        Guid worldId, Guid adventureId, [FromBody] SetAiDeclaredRequest request, CancellationToken ct) =>
+        Respond(await _adventures.SetAiDeclaredAsync(new SetAiDeclaredCommand(
+            worldId, adventureId, HttpContext.GetWorldMember().Role, request.Declared), ct));
+
     [HttpDelete("{adventureId:guid}")]
     public async Task<IActionResult> Delete(Guid worldId, Guid adventureId, CancellationToken ct)
     {
@@ -366,11 +372,13 @@ public class PrepController : ControllerBase
             a.SourceBooks
                 .Select(b => new AdventureSourceBookResponse(b.LibraryDocumentId, b.LibraryDocument.Title, b.LibraryDocument.Slug))
                 .OrderBy(b => b.Title, StringComparer.CurrentCultureIgnoreCase)
-                .ToList());
+                .ToList(),
+            new AdventureAiUseResponse(
+                a.AiUse.WroteText, a.AiUse.MadeArt, a.AiUse.Declared, a.AiUse.IsLocked(), a.AiUse.Kind().ToString()));
     }
 
     private static PrintDetailsResponse ToPrintDetails(PrintDetails p) =>
-        new(p.Title, p.GameSystem, p.Edition, p.Type, p.Levels, p.Publisher, p.Author, p.Year);
+        new(p.Title, p.GameSystem, p.Edition, p.Type, p.Levels, p.Publisher, p.Author, p.Year, p.AiUse?.ToString());
 
     private static AdventureSectionResponse ToSection(AdventureSection s, int revisionCount) =>
         new(s.Id, s.Kind.ToString(), s.Title, s.BodyMarkdown, s.SortOrder, s.UpdatedAt, revisionCount,

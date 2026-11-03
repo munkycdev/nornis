@@ -451,6 +451,57 @@ public class AdventureServiceTests
         });
     }
 
+    // ------------------------------------------------------------------ AI use (feature 38) --
+
+    [Test]
+    public async Task TheGmsOwnTick_SetsAndClearsDeclared_AndThePreviewSaysSo()
+    {
+        var view = await CreateAsync();
+
+        var ticked = await _sut.SetAiDeclaredAsync(new SetAiDeclaredCommand(WorldId, view.Adventure.Id, WorldRole.GM, true), CancellationToken.None);
+        var tickedKind = ticked.Value!.PrintDetails.AiUse;
+        var unticked = await _sut.SetAiDeclaredAsync(new SetAiDeclaredCommand(WorldId, view.Adventure.Id, WorldRole.GM, false), CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tickedKind, Is.EqualTo(AiUseKind.Declared));
+            Assert.That(unticked.Value!.PrintDetails.AiUse, Is.EqualTo(AiUseKind.None));
+            Assert.That(_adventures.Adventures.Single().AiUse.Declared, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task OnceAiUseIsRecorded_TheTickIsLocked_AndUntickingChangesNothing()
+    {
+        var view = await CreateAsync();
+        await _sut.SetAiDeclaredAsync(new SetAiDeclaredCommand(WorldId, view.Adventure.Id, WorldRole.GM, true), CancellationToken.None);
+        var section = _adventures.Sections.First(s => s.AdventureId == view.Adventure.Id);
+        await _adventures.TryAcceptDraftAsync(
+            new AdventureSectionRevision { Id = Guid.NewGuid(), SectionId = section.Id, CreatedAt = DateTimeOffset.UtcNow },
+            "The Loremaster's words.", 20, section.UpdatedAt, DateTimeOffset.UtcNow);
+
+        var result = await _sut.SetAiDeclaredAsync(new SetAiDeclaredCommand(WorldId, view.Adventure.Id, WorldRole.GM, false), CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(_adventures.Adventures.Single().AiUse.Declared, Is.True, "locked: the tick stays as it was");
+            Assert.That(result.Value!.PrintDetails.AiUse, Is.EqualTo(AiUseKind.Text));
+        });
+    }
+
+    [TestCase(WorldRole.Player)]
+    [TestCase(WorldRole.Observer)]
+    public async Task TheAiTick_IsGmOnly(WorldRole role)
+    {
+        var view = await CreateAsync();
+
+        var result = await _sut.SetAiDeclaredAsync(new SetAiDeclaredCommand(WorldId, view.Adventure.Id, role, true), CancellationToken.None);
+
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+        Assert.That(_adventures.Adventures.Single().AiUse.Declared, Is.False);
+    }
+
     [Test]
     public async Task UpdateDetails_NullClearsAField()
     {

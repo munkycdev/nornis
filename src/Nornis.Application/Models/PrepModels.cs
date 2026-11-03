@@ -99,6 +99,12 @@ public record UpdateAdventureDetailsCommand(
     Guid WorldId, Guid AdventureId, WorldRole ActingUserRole,
     string? GameSystem, string? Edition, string? Levels, int? Year);
 
+/// <summary>
+/// The GM's own "AI was used" tick (feature 38), for AI used outside Nornis. A no-op once AI use
+/// is recorded: the box is then ticked and locked.
+/// </summary>
+public record SetAiDeclaredCommand(Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, bool Declared);
+
 public record SaveSectionCommand(
     Guid WorldId, Guid AdventureId, Guid SectionId, WorldRole ActingUserRole,
     AdventureSectionKind Kind, string Title, string BodyMarkdown, DateTimeOffset BasedOnUpdatedAt);

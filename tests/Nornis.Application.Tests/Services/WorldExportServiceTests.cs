@@ -385,7 +385,7 @@ public class WorldExportServiceTests
             Title = "The Silver Key, printed 2026-11-03",
             FileName = "key.pdf",
             Status = LibraryDocumentStatus.PendingUpload,
-            PrintDetails = PrintDetails.Resolve("The Silver Key", new AdventureDetails { Levels = "1–3" }, "Shadowdark", "kelda"),
+            PrintDetails = PrintDetails.Resolve("The Silver Key", new AdventureDetails { Levels = "1–3" }, "Shadowdark", "kelda", AiUseKind.None),
         };
         var upload = new LibraryDocument
         {

@@ -202,7 +202,7 @@ public class AdventureRepositoryTests : IntegrationTestBase
     public async Task PrintDetails_RoundTripOnAPrint_AndAreNullOnADocumentThatIsNot()
     {
         var details = PrintDetails.Resolve(
-            "The Silver Key", new AdventureDetails { Edition = "1st", Year = 2026 }, "Shadowdark", _user.Username);
+            "The Silver Key", new AdventureDetails { Edition = "1st", Year = 2026 }, "Shadowdark", _user.Username, AiUseKind.TextAndArt);
         var print = new LibraryDocument
         {
             Id = Guid.NewGuid(),
@@ -365,6 +365,7 @@ public class AdventureRepositoryTests : IntegrationTestBase
             Assert.That(kept.Select(r => r.BodyMarkdown), Is.EqualTo(["middle", "the GM's text"]),
                 "the oldest is trimmed, and the new revision holds what was stored, not what was passed");
             Assert.That(kept[^1].Instruction, Is.EqualTo("Tighter."));
+            Assert.That(parent.AiUse.WroteText, Is.True, "an accept records AI text in the same save (feature 38)");
         });
     }
 
@@ -387,6 +388,35 @@ public class AdventureRepositoryTests : IntegrationTestBase
         Assert.That((await Context.AdventureSections.AsNoTracking().SingleAsync(s => s.Id == section.Id)).BodyMarkdown,
             Is.EqualTo("the GM's newer text"));
         Assert.That(await Context.AdventureSectionRevisions.CountAsync(r => r.SectionId == section.Id), Is.Zero);
+        Assert.That((await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id)).AiUse.WroteText, Is.False,
+            "a refused accept records nothing");
+    }
+
+    [Test]
+    public async Task ADraftSave_RecordsAiText_OnlyWhenTheLoremasterWrote_AndNoUpdateClearsIt()
+    {
+        var adventure = await CreateAsync("a");
+        var first = _now.AddMinutes(1);
+        await _sut.TrySaveDraftAsync(adventure.Id, "mine", null, 20, basedOn: null, first);
+        var afterGm = (await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id)).AiUse.WroteText;
+
+        await _sut.TrySaveDraftAsync(adventure.Id, "the Loremaster's", null, 20, basedOn: first, _now.AddMinutes(2), loremasterWrote: true);
+        Context.ChangeTracker.Clear();
+
+        // A caller's Adventure with the flags cleared, as an Update would send it: only Declared is copied.
+        var update = await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id);
+        update.AiUse = new AdventureAiUse { Declared = true };
+        await _sut.UpdateAsync(update);
+        Context.ChangeTracker.Clear();
+
+        var stored = await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(afterGm, Is.False, "the GM's own save records nothing");
+            Assert.That(stored.AiUse.WroteText, Is.True, "an update can't clear a record");
+            Assert.That(stored.AiUse.Declared, Is.True, "the GM's tick is the one field an update writes");
+            Assert.That(stored.AiUse.MadeArt, Is.False);
+        });
     }
 
     [Test]

@@ -47,6 +47,7 @@ public class PrepEndpointTests
         yield return ("update", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}", new UpdateAdventureRequest("Renamed", null, null)));
         yield return ("details", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/details",
             new UpdateAdventureDetailsRequest("Mine", null, null, null)));
+        yield return ("ai declared", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/ai-declared", new SetAiDeclaredRequest(true)));
         yield return ("delete", (c, w, a, _) => c.DeleteAsync($"{Base(w)}/{a}"));
         yield return ("save section", (c, w, a, s) => c.PutAsJsonAsync($"{Base(w)}/{a}/sections/{s}",
             new SaveAdventureSectionRequest("Notes", "Mine", "Body", DateTimeOffset.UtcNow)));
@@ -498,6 +499,25 @@ public class PrepEndpointTests
             Assert.That(reloaded.PrintDetails.Type, Is.EqualTo("Nornis adventure"));
             Assert.That(reloaded.PrintDetails.Publisher, Is.EqualTo("Nornis Press"));
             Assert.That(reloaded.PrintDetails.Author, Is.Not.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Gm_TicksAiUse_AndTheAdventureAndItsPreviewSaySo()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var response = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/ai-declared", new SetAiDeclaredRequest(true));
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
+        var reloaded = (await scenario.GmClient.GetFromJsonAsync<AdventureResponse>($"{Base(worldId)}/{adventure.Id}"))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(adventure.AiUse, Is.EqualTo(new AdventureAiUseResponse(false, false, false, false, "None")));
+            Assert.That(reloaded.AiUse, Is.EqualTo(new AdventureAiUseResponse(false, false, true, false, "Declared")));
+            Assert.That(reloaded.PrintDetails.AiUse, Is.EqualTo("Declared"));
         });
     }
 

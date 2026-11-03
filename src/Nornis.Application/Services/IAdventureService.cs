@@ -32,6 +32,9 @@ public interface IAdventureService
     /// <summary>Replaces the four editable details. 400 <c>invalid_details</c>, with nothing saved, when any is out of bounds.</summary>
     Task<AppResult<AdventureView>> UpdateDetailsAsync(UpdateAdventureDetailsCommand command, CancellationToken ct);
 
+    /// <summary>The GM's own AI-use tick (feature 38); a no-op once AI use is recorded.</summary>
+    Task<AppResult<AdventureView>> SetAiDeclaredAsync(SetAiDeclaredCommand command, CancellationToken ct);
+
     /// <summary>The GM's edit. 409 when the section changed since <c>BasedOnUpdatedAt</c>.</summary>
     Task<AppResult<AdventureSection>> SaveSectionAsync(SaveSectionCommand command, CancellationToken ct);
 

@@ -292,6 +292,41 @@ public class PrepBoundaryTests
         });
     }
 
+    /// <summary>
+    /// Feature 38, Requirement 1: AI use is recorded, never chosen. Only the repository sets the
+    /// recorded flags, inside the writes that put the Loremaster's words into an Adventure, so
+    /// the flag and the text commit together. Those writes have a known list of callers: a new
+    /// path that writes AI text has to join this list deliberately.
+    /// </summary>
+    [Test]
+    public void OnlyTheRepository_RecordsAiUse_FromAKnownListOfAiWriters()
+    {
+        var recorders = SourceFiles()
+            .Where(f => CodeLines(f).Any(l => Regex.IsMatch(l.Text, @"\b(WroteText|MadeArt)\s*=\s*true\b")))
+            .Select(f => f.Relative)
+            .ToList();
+        var accepters = SourceFiles()
+            .Where(f => CodeLines(f).Any(l => l.Text.Contains(".TryAcceptDraftAsync(", StringComparison.Ordinal)))
+            .Select(f => f.Relative)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        var draftWriters = SourceFiles()
+            .Where(f => CodeLines(f).Any(l => l.Text.Contains(".IsLoremasterWriting()", StringComparison.Ordinal)))
+            .Select(f => f.Relative)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recorders, Is.EqualTo(["src/Nornis.Infrastructure/Persistence/Repositories/AdventureRepository.cs"]));
+            Assert.That(accepters, Is.EqualTo(
+            [
+                "src/Nornis.Application/Services/AdventureConversationService.cs",
+                "src/Nornis.Application/Services/AdventureDraftingService.cs",
+            ]), "every accept records AI text: only a draft and Put in section may accept");
+            Assert.That(draftWriters, Is.EqualTo(["src/Nornis.Application/Services/AdventureDesignService.cs"]));
+        });
+    }
+
     // ------------------------------------------------------------------ helpers --
 
     private sealed record SourceFile(string Full, string Relative);

@@ -217,6 +217,34 @@ public class AdventureService : IAdventureService
         return AppResult<AdventureView>.Success(await ViewAsync(adventure, ct));
     }
 
+    /// <summary>
+    /// Sets the GM's own AI-use tick (feature 38). Once AI use is recorded the box is locked, and
+    /// this changes nothing and answers with the Adventure as it is: the recorded use already
+    /// ticks it, and the GM can't untick a record.
+    /// </summary>
+    public async Task<AppResult<AdventureView>> SetAiDeclaredAsync(SetAiDeclaredCommand command, CancellationToken ct)
+    {
+        if (command.ActingUserRole != WorldRole.GM)
+        {
+            return AppResult<AdventureView>.Fail(GmOnly());
+        }
+
+        var adventure = await LoadAsync(command.WorldId, command.AdventureId, ct);
+        if (adventure is null)
+        {
+            return AppResult<AdventureView>.Fail(NotFound());
+        }
+
+        if (!adventure.AiUse.IsLocked() && adventure.AiUse.Declared != command.Declared)
+        {
+            adventure.AiUse.Declared = command.Declared;
+            adventure.UpdatedAt = DateTimeOffset.UtcNow;
+            await _adventures.UpdateAsync(adventure, ct);
+        }
+
+        return AppResult<AdventureView>.Success(await ViewAsync(adventure, ct));
+    }
+
     public async Task<AppResult<AdventureSection>> SaveSectionAsync(SaveSectionCommand command, CancellationToken ct)
     {
         if (command.ActingUserRole != WorldRole.GM)

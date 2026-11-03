@@ -64,6 +64,12 @@ public class Adventure : ISlugged
     /// </summary>
     public string? TableBrief { get; set; }
 
+    /// <summary>
+    /// What the Adventure records about AI's part in it (feature 38). Never null; each Adventure
+    /// owns its own instance. Only the repository's AI writes set its recorded flags.
+    /// </summary>
+    public AdventureAiUse AiUse { get; set; } = new();
+
     public Guid CreatedByUserId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }

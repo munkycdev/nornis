@@ -15,6 +15,9 @@ public record UpdateAdventureRequest(string Title, string? Pitch, Guid? Campaign
 /// <summary>The four editable details, all of them: each is the new value, and null clears it (feature 32).</summary>
 public record UpdateAdventureDetailsRequest(string? GameSystem, string? Edition, string? Levels, int? Year);
 
+/// <summary>The GM's own AI-use tick (feature 38); ignored once AI use is recorded.</summary>
+public record SetAiDeclaredRequest(bool Declared);
+
 /// <summary>A GM's save of one section, naming the version of it the edit was based on.</summary>
 public record SaveAdventureSectionRequest(string Kind, string Title, string? BodyMarkdown, DateTimeOffset BasedOnUpdatedAt);
 

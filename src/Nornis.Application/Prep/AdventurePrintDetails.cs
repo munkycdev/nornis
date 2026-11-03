@@ -30,6 +30,6 @@ public class AdventurePrintDetails
         var creator = await _users.GetByIdAsync(adventure.CreatedByUserId, ct)
             ?? throw new InvalidOperationException($"Creator '{adventure.CreatedByUserId}' of Adventure '{adventure.Id}' not found.");
 
-        return PrintDetails.Resolve(adventure.Title, adventure.Details, world.GameSystem, creator.Username);
+        return PrintDetails.Resolve(adventure.Title, adventure.Details, world.GameSystem, creator.Username, adventure.AiUse.Kind());
     }
 }

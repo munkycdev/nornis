@@ -90,6 +90,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
         row.LastPrintedDocumentId = adventure.LastPrintedDocumentId;
         row.TableBrief = adventure.TableBrief;
         row.Details = adventure.Details with { };
+        row.AiUse.Declared = adventure.AiUse.Declared;
         row.UpdatedAt = adventure.UpdatedAt;
         return Task.CompletedTask;
     }
@@ -210,12 +211,14 @@ public class InMemoryAdventureRepository : IAdventureRepository
         });
         section.BodyMarkdown = newBody;
         section.UpdatedAt = updatedAt;
+        Required(_adventures, a => a.Id == section.AdventureId).AiUse.WroteText = true;
         return Task.FromResult(true);
     }
 
     public Task<bool> TrySaveDraftAsync(
         Guid adventureId, string? markdown, AdventureDraftRevision? revision, int maxRevisions,
-        DateTimeOffset? basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+        DateTimeOffset? basedOn, DateTimeOffset updatedAt, bool loremasterWrote = false,
+        CancellationToken cancellationToken = default)
     {
         var row = Required(_adventures, a => a.Id == adventureId);
         if (row.DraftUpdatedAt != basedOn)
@@ -242,6 +245,11 @@ public class InMemoryAdventureRepository : IAdventureRepository
         row.DraftMarkdown = markdown;
         row.DraftUpdatedAt = markdown is null ? null : updatedAt;
         row.UpdatedAt = updatedAt;
+        if (loremasterWrote)
+        {
+            row.AiUse.WroteText = true;
+        }
+
         return Task.FromResult(true);
     }
 
@@ -348,6 +356,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
         Pitch = a.Pitch,
         LastPrintedDocumentId = a.LastPrintedDocumentId,
         Details = a.Details with { },
+        AiUse = new() { WroteText = a.AiUse.WroteText, MadeArt = a.AiUse.MadeArt, Declared = a.AiUse.Declared },
         DraftMarkdown = a.DraftMarkdown,
         DraftUpdatedAt = a.DraftUpdatedAt,
         TableBrief = a.TableBrief,

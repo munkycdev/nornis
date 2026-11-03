@@ -40,6 +40,17 @@ public class AdventureConfiguration : IEntityTypeConfiguration<Adventure>
 
         builder.Navigation(a => a.Details).IsRequired();
 
+        // Feature 38: three bool columns (the migration adds them as false). The recorded two are only ever set
+        // to true, by AdventureRepository's AI writes; UpdateAsync copies the GM's Declared only.
+        builder.OwnsOne(a => a.AiUse, ai =>
+        {
+            ai.Property(u => u.WroteText).HasColumnName("AiWroteText");
+            ai.Property(u => u.MadeArt).HasColumnName("AiMadeArt");
+            ai.Property(u => u.Declared).HasColumnName("AiDeclared");
+        });
+
+        builder.Navigation(a => a.AiUse).IsRequired();
+
         // The design draft (feature 37). Its stamp is a concurrency token, so two tabs (or a tab
         // and an applied edit) can't silently overwrite each other's draft.
         builder.Property(a => a.DraftMarkdown)

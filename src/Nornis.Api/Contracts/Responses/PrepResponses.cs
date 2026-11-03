@@ -56,7 +56,16 @@ public record AdventureResponse(
     // Library books the Adventure reads.
     AdventureDraftResponse? Draft = null,
     string? TableBrief = null,
-    IReadOnlyList<AdventureSourceBookResponse>? SourceBooks = null);
+    IReadOnlyList<AdventureSourceBookResponse>? SourceBooks = null,
+    // Feature 38: what the Adventure records about AI's part in it.
+    AdventureAiUseResponse? AiUse = null);
+
+/// <summary>
+/// AI's part in the Adventure (feature 38). <see cref="Locked"/> means recorded use: the box is
+/// ticked and the GM can't untick it. <see cref="Kind"/> is what a print would say:
+/// None, Declared, Text, Art or TextAndArt.
+/// </summary>
+public record AdventureAiUseResponse(bool WroteText, bool MadeArt, bool Declared, bool Locked, string Kind);
 
 /// <summary>The design draft (feature 37); <see cref="RevisionCount"/> is how many changes Undo can step back.</summary>
 public record AdventureDraftResponse(string Markdown, DateTimeOffset UpdatedAt, int RevisionCount);
@@ -71,9 +80,10 @@ public record AdventureDetailsResponse(string? GameSystem, string? Edition, stri
 /// The details a print carries, defaults applied and fixed values filled in (feature 32). On an
 /// Adventure, the preview of a print filed now; the Details card shows it as is.
 /// </summary>
+/// <param name="AiUse">What the print says about AI (feature 38): None, Declared, Text, Art or TextAndArt.</param>
 public record PrintDetailsResponse(
     string Title, string? GameSystem, string? Edition, string Type, string? Levels,
-    string Publisher, string Author, int? Year);
+    string Publisher, string Author, int? Year, string? AiUse = null);
 
 /// <summary>
 /// The draft stream's server-sent event names, which a side-conversation turn streams under too

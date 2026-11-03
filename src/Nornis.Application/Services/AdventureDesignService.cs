@@ -56,7 +56,7 @@ public class AdventureDesignService : IAdventureDesignService
 
         var now = DateTimeOffset.UtcNow;
         if (!await _adventures.TrySaveDraftAsync(
-            adventure.Id, markdown, revision: null, maxRevisions: 0, command.BasedOnUpdatedAt, now, ct))
+            adventure.Id, markdown, revision: null, maxRevisions: 0, command.BasedOnUpdatedAt, now, loremasterWrote: false, ct))
         {
             return AppResult<AdventureDraftState>.Fail(DraftChanged());
         }
@@ -273,7 +273,8 @@ public class AdventureDesignService : IAdventureDesignService
             Reason = reason,
             CreatedAt = now,
         };
-        if (!await _adventures.TrySaveDraftAsync(adventure.Id, markdown, revision, _options.MaxRevisionsPerSection, basedOn, now, ct))
+        if (!await _adventures.TrySaveDraftAsync(adventure.Id, markdown, revision, _options.MaxRevisionsPerSection, basedOn, now,
+            reason.IsLoremasterWriting(), ct))
         {
             return AppResult<AdventureDraftState>.Fail(DraftChanged());
         }

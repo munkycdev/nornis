@@ -8,6 +8,7 @@ using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services;
@@ -126,7 +127,11 @@ public class AdventureDesignServiceTests
 
         var undo = await _sut.UndoDraftAsync(new(WorldId, _adventureId, WorldRole.GM), default);
 
-        Assert.That(undo.Error?.Code, Is.EqualTo("nothing_to_undo"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(undo.Error?.Code, Is.EqualTo("nothing_to_undo"));
+            Assert.That(AiUse.WroteText, Is.False, "the GM's own typing records no AI use");
+        });
     }
 
     [Test]
@@ -283,7 +288,11 @@ public class AdventureDesignServiceTests
         });
 
         var undo = await _sut.UndoDraftAsync(new(WorldId, _adventureId, WorldRole.GM), default);
-        Assert.That(undo.Value!.Markdown, Is.EqualTo("# The Spa\n\nThe spa is quiet.\n\nThe end."));
+        Assert.Multiple(() =>
+        {
+            Assert.That(undo.Value!.Markdown, Is.EqualTo("# The Spa\n\nThe spa is quiet.\n\nThe end."));
+            Assert.That(AiUse.WroteText, Is.True, "an applied edit records AI use, and Undo doesn't clear it");
+        });
     }
 
     [Test]
@@ -352,6 +361,7 @@ public class AdventureDesignServiceTests
             Assert.That(replaced.Value!.Markdown, Is.EqualTo("Three cultists wait in the steam."));
             Assert.That(replaced.Value.RevisionCount, Is.EqualTo(2));
             Assert.That(_adventures.DraftRevisions.Select(r => r.Reason), Is.All.EqualTo(AdventureDraftChange.Put));
+            Assert.That(AiUse.WroteText, Is.True, "Put in draft records AI use");
         });
     }
 
@@ -393,6 +403,7 @@ public class AdventureDesignServiceTests
             Assert.That(_adventures.Adventures.Single().DraftMarkdown, Is.EqualTo(SpaDraft), "the draft stays");
             Assert.That(_adventures.DraftRevisions.Single().Reason, Is.EqualTo(AdventureDraftChange.Split));
             Assert.That(_adventures.DraftRevisions.Single().BodyMarkdown, Is.EqualTo("## Overview\n\nThe old overview."));
+            Assert.That(AiUse.WroteText, Is.False, "a split only moves the GM's own text");
         });
     }
 
@@ -461,6 +472,7 @@ public class AdventureDesignServiceTests
             Assert.That(gathered.Value!.Markdown, Is.EqualTo("## Overview\n\nSteam everywhere."));
             Assert.That(_adventures.DraftRevisions.Single().Reason, Is.EqualTo(AdventureDraftChange.Gather));
             Assert.That(_adventures.DraftRevisions.Single().BodyMarkdown, Is.EqualTo("My old draft."));
+            Assert.That(AiUse.WroteText, Is.False, "a gather only moves the GM's own text");
         });
     }
 
@@ -486,4 +498,6 @@ public class AdventureDesignServiceTests
         Kind = LibraryDocumentKind.Sourcebook,
         Status = LibraryDocumentStatus.Stored,
     };
+
+    private AdventureAiUse AiUse => _adventures.Adventures.Single(a => a.Id == _adventureId).AiUse;
 }
