@@ -641,6 +641,64 @@ public class NornisApiClient
         Guid worldId, Guid adventureId, bool declared, CancellationToken ct = default) =>
         PutAsync<SetAiDeclaredRequest, AdventureDto>($"/api/worlds/{worldId}/prep/{adventureId}/ai-declared", new SetAiDeclaredRequest(declared), ct);
 
+    // ------------------------------------------------------------- Cover art (feature 38) --
+
+    private static string CoverUri(Guid worldId, Guid adventureId) => $"/api/worlds/{worldId}/prep/{adventureId}/cover";
+
+    public Task<ApiResult<CoverStateDto>> GetCoverAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        GetAsync<CoverStateDto>(CoverUri(worldId, adventureId), ct);
+
+    /// <summary>The Loremaster writes an art brief; it comes back as the card's brief.</summary>
+    public Task<ApiResult<CoverStateDto>> WriteCoverBriefAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        SendForAsync<CoverStateDto>(HttpMethod.Post, $"{CoverUri(worldId, adventureId)}/brief", null, ct);
+
+    public Task<ApiResult<CoverStateDto>> SaveCoverBriefAsync(Guid worldId, Guid adventureId, string? brief, CancellationToken ct = default) =>
+        PutAsync<CoverBriefRequest, CoverStateDto>($"{CoverUri(worldId, adventureId)}/brief", new CoverBriefRequest(brief), ct);
+
+    public Task<ApiResult<CoverStateDto>> GenerateCoverAsync(Guid worldId, Guid adventureId, string brief, CancellationToken ct = default) =>
+        PostAsync<CoverBriefRequest, CoverStateDto>($"{CoverUri(worldId, adventureId)}/generate", new CoverBriefRequest(brief), ct);
+
+    public Task<ApiResult<CoverStateDto>> ChooseCoverAsync(Guid worldId, Guid adventureId, Guid optionId, CancellationToken ct = default) =>
+        PostAsync<ChooseCoverRequest, CoverStateDto>($"{CoverUri(worldId, adventureId)}/choose", new ChooseCoverRequest(optionId), ct);
+
+    /// <summary>The GM's own art as the request body; the API reads its type from its bytes.</summary>
+    public Task<ApiResult<CoverStateDto>> UploadCoverAsync(Guid worldId, Guid adventureId, byte[] image, CancellationToken ct = default) =>
+        SendForAsync<CoverStateDto>(HttpMethod.Put, $"{CoverUri(worldId, adventureId)}/image", new ByteArrayContent(image), ct);
+
+    public Task<ApiResult<CoverStateDto>> RemoveCoverAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        SendForAsync<CoverStateDto>(HttpMethod.Delete, CoverUri(worldId, adventureId), null, ct);
+
+    public Task<ApiResult<CoverStateDto>> SetCoverLayoutAsync(Guid worldId, Guid adventureId, string layout, CancellationToken ct = default) =>
+        PutAsync<SetCoverLayoutRequest, CoverStateDto>($"{CoverUri(worldId, adventureId)}/layout", new SetCoverLayoutRequest(layout), ct);
+
+    /// <summary>The cover's image, for the Web's proxy; null when there is none.</summary>
+    public Task<(byte[] Bytes, string ContentType)?> GetCoverImageAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        GetImageAsync($"{CoverUri(worldId, adventureId)}/image", ct);
+
+    /// <summary>A generated option's image, for the Web's proxy; null when it isn't this Adventure's.</summary>
+    public Task<(byte[] Bytes, string ContentType)?> GetCoverOptionAsync(
+        Guid worldId, Guid adventureId, Guid optionId, CancellationToken ct = default) =>
+        GetImageAsync($"{CoverUri(worldId, adventureId)}/options/{optionId}", ct);
+
+    private async Task<(byte[] Bytes, string ContentType)?> GetImageAsync(string uri, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await SendCoreAsync(HttpMethod.Get, uri, null, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+            return (bytes, response.Content.Headers.ContentType?.MediaType ?? "image/png");
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return null;
+        }
+    }
+
     public Task<ApiResult<bool>> DeleteAdventureAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}/prep/{adventureId}", ct);
 
@@ -1245,6 +1303,20 @@ public class NornisApiClient
         try
         {
             var response = await SendCoreAsync(HttpMethod.Post, uri, JsonContent.Create(body), ct);
+            return await ReadResultAsync<TValue>(response, ct);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<TValue>.Fail(Unreachable(ex));
+        }
+    }
+
+    /// <summary>Any verb with any body (or none) whose answer carries a value: a POST with no body, a PUT of bytes, a DELETE that answers.</summary>
+    private async Task<ApiResult<TValue>> SendForAsync<TValue>(HttpMethod method, string uri, HttpContent? content, CancellationToken ct)
+    {
+        try
+        {
+            var response = await SendCoreAsync(method, uri, content, ct);
             return await ReadResultAsync<TValue>(response, ct);
         }
         catch (Exception ex)

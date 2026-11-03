@@ -317,6 +317,36 @@ if (authEnabled)
     booklets.RequireAuthorization();
 }
 
+// Prep cover art (feature 38): the chosen cover and the generated options, for the Cover card.
+// The cover's URL carries its stamp and an option never changes, so both may be cached.
+var prepCovers = app.MapGroup("/prep-covers/{worldId:guid}/{adventureId:guid}");
+prepCovers.MapGet("", async (Guid worldId, Guid adventureId, NornisApiClient api, HttpContext context, CancellationToken ct) =>
+    {
+        var image = await api.GetCoverImageAsync(worldId, adventureId, ct);
+        return CoverImage(image, context);
+    });
+prepCovers.MapGet("/options/{optionId:guid}", async (
+        Guid worldId, Guid adventureId, Guid optionId, NornisApiClient api, HttpContext context, CancellationToken ct) =>
+    {
+        var image = await api.GetCoverOptionAsync(worldId, adventureId, optionId, ct);
+        return CoverImage(image, context);
+    });
+if (authEnabled)
+{
+    prepCovers.RequireAuthorization();
+}
+
+static IResult CoverImage((byte[] Bytes, string ContentType)? image, HttpContext context)
+{
+    if (image is not { } found)
+    {
+        return Results.NotFound();
+    }
+
+    context.Response.Headers.CacheControl = "private, max-age=86400";
+    return Results.File(found.Bytes, found.ContentType);
+}
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

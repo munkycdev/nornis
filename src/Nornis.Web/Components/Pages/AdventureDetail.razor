@@ -111,6 +111,11 @@ else if (_adventure is not null)
 
             <BookDetailsCard Adventure="_adventure" Disabled="_busy" OnSaved="OnBookDetailsSaved" />
 
+            @if (Worlds.Current is { } coverWorld)
+            {
+                <CoverCard WorldId="coverWorld.Id" AdventureId="_adventure.Id" Disabled="_busy" OnChanged="OnCoverChangedAsync" />
+            }
+
             <TableBriefCard Adventure="_adventure" Disabled="_busy" OnSaved="Merge" />
 
             <SourceBooksCard Adventure="_adventure" Disabled="_busy" OnSaved="Merge" />
@@ -954,6 +959,24 @@ else if (_adventure is not null)
         {
             _busy = false;
             StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// The cover art changed (feature 38): a chosen generated option records AI art, so the Book
+    /// details card's AI-use box and preview are fetched again. Nothing else on the page moves.
+    /// </summary>
+    private async Task OnCoverChangedAsync()
+    {
+        if (Worlds.Current is null || _adventure is null)
+        {
+            return;
+        }
+
+        var result = await Api.GetAdventureAsync(Worlds.Current.Id, _adventure.Id.ToString());
+        if (result.IsSuccess && _adventure is not null && result.Value!.Id == _adventure.Id)
+        {
+            _adventure = _adventure with { AiUse = result.Value.AiUse, PrintDetails = result.Value.PrintDetails };
         }
     }
 

@@ -1195,6 +1195,24 @@ public record AdventureAiUseDto(bool WroteText, bool MadeArt, bool Declared, boo
 public record SetAiDeclaredRequest(bool Declared);
 
 /// <summary>
+/// The Cover card (feature 38). <see cref="Options"/> are generated options, newest first;
+/// <see cref="GenerateBlocker"/> says why Generate can't run; <see cref="Warning"/> is an upload's
+/// note that the art may print soft.
+/// </summary>
+public record CoverStateDto(
+    CoverDto? Cover, string? Brief, IReadOnlyList<Guid> Options, Guid? ChosenOptionId,
+    int ImagesGenerated, int ImagesCap, bool CanGenerate, string? GenerateBlocker, string? Warning);
+
+/// <summary>Source is Generated or Uploaded; Layout is FullBleed, Framed or ClassicModule.</summary>
+public record CoverDto(string Source, string Layout, string ContentType, DateTimeOffset UpdatedAt);
+
+public record CoverBriefRequest(string? Brief);
+
+public record ChooseCoverRequest(Guid OptionId);
+
+public record SetCoverLayoutRequest(string? Layout);
+
+/// <summary>
 /// The design draft (feature 37): one Markdown document the GM and the Loremaster iterate on,
 /// never printed and never exported. Saves are based on <see cref="UpdatedAt"/>. Mirrors
 /// <c>AdventureDraftResponse</c>.
