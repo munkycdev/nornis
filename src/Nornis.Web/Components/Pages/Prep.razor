@@ -71,25 +71,48 @@ else if (_adventures.Count == 0)
 }
 else
 {
-    <div class="nornis-artifact-grid">
-        @foreach (var adventure in _adventures)
+    <div class="nornis-filter-row mb-3 nornis-prep-filters">
+        @foreach (var filter in PrepDisplay.Filters)
         {
-            <a href="@Links.Adventure(adventure.Slug, adventure.Id)" class="mud-paper nornis-card nornis-artifact-card">
-                <div class="nornis-artifact-card-head">
-                    <MudIcon Icon="@Icons.Material.Outlined.HistoryEdu" Size="Size.Small" />
-                    <span class="nornis-artifact-card-title">@adventure.Title</span>
-                </div>
-                <p class="nornis-artifact-card-summary">
-                    @PrepDisplay.Progress(adventure.FilledSectionCount, adventure.SectionCount)
-                </p>
-                <div class="nornis-artifact-card-foot">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        @CampaignName(adventure.CampaignId) · edited @RelativeTime.Ago(adventure.UpdatedAt)@(adventure.LastPrintedDocumentId is null ? "" : " · printed")
-                    </MudText>
-                </div>
-            </a>
+            var f = filter;
+            <MudChip T="string" Size="@(f == PrepListFilter.All ? Size.Medium : Size.Small)"
+                     Variant="@(_filter == f ? Variant.Filled : Variant.Outlined)"
+                     Color="@(_filter == f ? Color.Secondary : Color.Default)"
+                     OnClick="() => _filter = f">@f</MudChip>
         }
     </div>
+
+    @if (FilteredAdventures.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-prep-filter-empty">@PrepDisplay.EmptyFilterText(_filter)</MudText>
+    }
+    else
+    {
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            @foreach (var adventure in FilteredAdventures)
+            {
+                <a href="@Links.Adventure(adventure.Slug, adventure.Id)" class="nornis-list-row nornis-list-link nornis-prep-row">
+                    <div class="nornis-list-thumb">
+                        <MudIcon Icon="@Icons.Material.Outlined.HistoryEdu" Size="Size.Small" />
+                    </div>
+                    <div class="nornis-list-body">
+                        <div class="nornis-list-title">@adventure.Title</div>
+                        <div class="nornis-list-sub">
+                            @CampaignName(adventure.CampaignId) · @PrepDisplay.Progress(adventure.FilledSectionCount, adventure.SectionCount) · edited @RelativeTime.Ago(adventure.UpdatedAt)
+                        </div>
+                    </div>
+                    @if (adventure.IsExported)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary" Class="nornis-prep-exported">Exported</MudChip>
+                    }
+                    @if (PrepDisplay.IsPublished(adventure))
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" Class="nornis-prep-published">Published</MudChip>
+                    }
+                </a>
+            }
+        </MudPaper>
+    }
 }
 
 @code {
@@ -98,6 +121,10 @@ else
     private IReadOnlyList<AdventureSummaryDto> _adventures = [];
     private IReadOnlyList<CampaignDto> _campaigns = [];
     private PrepBudgetDto? _budget;
+    private PrepListFilter _filter = PrepListFilter.All;
+
+    private IReadOnlyList<AdventureSummaryDto> FilteredAdventures =>
+        _adventures.Where(a => PrepDisplay.Matches(_filter, a)).ToList();
 
     /// <summary>The month's drafting spend against its ceiling, as the Settings card states it.</summary>
     private static string PrepSpend(PrepBudgetDto budget) =>

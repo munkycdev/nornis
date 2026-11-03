@@ -1121,7 +1121,8 @@ public record AdventureSummaryDto(
     int SectionCount,
     int FilledSectionCount,
     Guid? LastPrintedDocumentId,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    bool IsExported);
 
 public record AdventureSectionDto(
     Guid Id,

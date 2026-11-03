@@ -30,7 +30,8 @@ public class AdventureRepository : IAdventureRepository
                 a.Sections.Count,
                 a.Sections.Count(s => !unfilledBodies.Contains(s.BodyMarkdown)),
                 a.LastPrintedDocumentId,
-                a.UpdatedAt))
+                a.UpdatedAt,
+                _context.Sources.Any(s => s.AdventureId == a.Id)))
             .ToListAsync(cancellationToken);
 
         // Newest work first. Ordered here rather than in SQL so the SQLite test provider, which

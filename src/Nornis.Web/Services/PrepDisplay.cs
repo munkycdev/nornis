@@ -1,3 +1,5 @@
+using Nornis.Web.ApiClient;
+
 namespace Nornis.Web.Services;
 
 /// <summary>
@@ -54,4 +56,28 @@ public static class PrepDisplay
     /// <summary>"4 of 7 sections written", the card's measure of how far along an Adventure is.</summary>
     public static string Progress(int filled, int total) =>
         total == 0 ? "No sections" : $"{filled} of {total} section{(total == 1 ? "" : "s")} written";
+
+    /// <summary>The filter chips, in the order the Prep list shows them.</summary>
+    public static readonly IReadOnlyList<PrepListFilter> Filters =
+        [PrepListFilter.All, PrepListFilter.Exported, PrepListFilter.Published, PrepListFilter.Neither];
+
+    /// <summary>Filed to the Library as a booklet; the print is still there.</summary>
+    public static bool IsPublished(AdventureSummaryDto adventure) => adventure.LastPrintedDocumentId is not null;
+
+    public static bool Matches(PrepListFilter filter, AdventureSummaryDto adventure) => filter switch
+    {
+        PrepListFilter.Exported => adventure.IsExported,
+        PrepListFilter.Published => IsPublished(adventure),
+        PrepListFilter.Neither => !adventure.IsExported && !IsPublished(adventure),
+        _ => true,
+    };
+
+    /// <summary>What the list says when a filter leaves nothing.</summary>
+    public static string EmptyFilterText(PrepListFilter filter) => filter switch
+    {
+        PrepListFilter.Exported => "No adventures have been exported to Nornis.",
+        PrepListFilter.Published => "No adventures have been filed to the Library.",
+        PrepListFilter.Neither => "Every adventure has been exported or filed to the Library.",
+        _ => "No adventures.",
+    };
 }

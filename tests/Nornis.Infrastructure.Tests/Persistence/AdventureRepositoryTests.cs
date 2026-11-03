@@ -134,6 +134,36 @@ public class AdventureRepositoryTests : IntegrationTestBase
     }
 
     [Test]
+    public async Task List_SaysWhichAdventuresASourceWasExportedFrom()
+    {
+        var exported = await CreateAsync("a");
+        var untouched = await CreateAsync("b");
+        Context.Sources.Add(new Source
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _world.Id,
+            Type = SourceType.AdventureExport,
+            Title = "The Silver Key (prep)",
+            Body = "Adventure \"The Silver Key\", exported by the GM as prep",
+            Visibility = VisibilityScope.GMOnly,
+            ProcessingStatus = SourceProcessingStatus.Processed,
+            CreatedByUserId = _user.Id,
+            CreatedAt = _now,
+            AdventureId = exported.Id,
+        });
+        await Context.SaveChangesAsync();
+        Context.ChangeTracker.Clear();
+
+        var list = await _sut.ListByWorldAsync(_world.Id, [""]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(list.Single(a => a.Id == exported.Id).IsExported, Is.True);
+            Assert.That(list.Single(a => a.Id == untouched.Id).IsExported, Is.False);
+        });
+    }
+
+    [Test]
     public async Task TryUpdateSection_BasedOnTheStoredStamp_Writes()
     {
         var adventure = await CreateAsync("old");
