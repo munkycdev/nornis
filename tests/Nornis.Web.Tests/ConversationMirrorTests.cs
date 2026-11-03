@@ -26,6 +26,16 @@ public class ConversationMirrorTests
             Is.EqualTo(EnumMembers("src/Nornis.Application/Models/PrepModels.cs", "PutInSectionMode")));
 
     [Test]
+    public void TheScopes_AreTheApplicationsConversationScopes() =>
+        Assert.That(new[] { SendConversationMessageRequest.SectionScope, SendConversationMessageRequest.DraftScope },
+            Is.EqualTo(EnumMembers("src/Nornis.Application/Models/PrepModels.cs", "ConversationScope")));
+
+    [Test]
+    public void TheSplitModes_AreTheApplicationsDraftSplitModes() =>
+        Assert.That(new[] { SplitDraftRequest.Replace, SplitDraftRequest.Append },
+            Is.EqualTo(EnumMembers("src/Nornis.Application/Models/PrepModels.cs", "DraftSplitMode")));
+
+    [Test]
     public void TheMessageBox_AllowsWhatTheApiAllows()
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot(), "src", "Nornis.Application", "Configuration", "PrepOptions.cs"));

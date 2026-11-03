@@ -4591,6 +4591,86 @@ a.nornis-cite:hover {
     font-size: 0.75rem;
 }
 
+/* Design mode (feature 37): the brief keeps the GM's line breaks; source books are a short list. */
+.nornis-table-brief-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 0.875rem;
+}
+
+.nornis-source-book {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    overflow-wrap: anywhere;
+}
+
+.nornis-source-books-choices {
+    display: flex;
+    flex-direction: column;
+    max-height: 16rem;
+    overflow-y: auto;
+}
+
+/* Import Markdown into the draft: the label is the button, the file input is hidden but still focusable. */
+.nornis-prep-design-import {
+    position: relative;
+    cursor: pointer;
+}
+
+.nornis-prep-design-import-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+}
+
+/* A suggested edit (feature 37): the passage and its replacement, one above the other. */
+.nornis-prep-edit {
+    margin-top: 8px;
+    padding: 8px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 6px;
+}
+
+.nornis-prep-edit-before,
+.nornis-prep-edit-after {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 0.8125rem;
+    padding: 4px 6px;
+    border-radius: 4px;
+    margin: 4px 0;
+}
+
+.nornis-prep-edit-before {
+    background: color-mix(in srgb, var(--mud-palette-error) 10%, transparent);
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, var(--mud-palette-error) 60%, transparent);
+}
+
+.nornis-prep-edit-after {
+    background: color-mix(in srgb, var(--mud-palette-success) 12%, transparent);
+}
+
+/* The split plan's rows: title and kind on one line, the opening words under them. */
+.nornis-split-row {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+.nornis-split-kind {
+    max-width: 12rem;
+}
+
+.nornis-split-opening {
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.8125rem;
+    overflow-wrap: anywhere;
+}
+
 /* Library organisation (feature 36): the search, Adventure menu and sort sit on one row that
    wraps on a phone; the sort chips stay together. */
 .nornis-library-sort {

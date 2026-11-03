@@ -40,6 +40,18 @@ public class AdventureConfiguration : IEntityTypeConfiguration<Adventure>
 
         builder.Navigation(a => a.Details).IsRequired();
 
+        // The design draft (feature 37). Its stamp is a concurrency token, so two tabs (or a tab
+        // and an applied edit) can't silently overwrite each other's draft.
+        builder.Property(a => a.DraftMarkdown)
+            .HasColumnType("nvarchar(max)");
+
+        builder.Property(a => a.DraftUpdatedAt)
+            .HasColumnType("datetimeoffset")
+            .IsConcurrencyToken();
+
+        builder.Property(a => a.TableBrief)
+            .HasMaxLength(Adventure.MaxTableBriefChars);
+
         builder.Property(a => a.CreatedAt)
             .HasColumnType("datetimeoffset");
 

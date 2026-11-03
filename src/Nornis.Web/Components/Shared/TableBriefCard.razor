@@ -1,0 +1,98 @@
+@inject NornisApiClient Api
+
+@* The table brief (feature 37): a short note about the table that goes into every Prep prompt
+   and never prints. Shown as text; the pencil opens it for editing, and Save sends it whole. *@
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-table-brief">
+    <div class="d-flex align-center">
+        <MudText Typo="Typo.overline" Color="Color.Secondary" Class="flex-grow-1">Table brief</MudText>
+        @if (!_editing)
+        {
+            <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Class="nornis-table-brief-pencil"
+                           Disabled="Disabled" aria-label="Edit the table brief" OnClick="Edit" />
+        }
+    </div>
+
+    @if (_editing)
+    {
+        <MudTextField T="string" @bind-Value="_text" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="5"
+                      MaxLength="MaxChars" Counter="MaxChars" Immediate="true" AutoFocus="true" Disabled="_saving"
+                      Placeholder="Four players at level 3, a two-hour session. Priya loves puzzles; Tom gets bored in long talks."
+                      aria-label="Table brief" />
+        <div class="d-flex gap-1 mt-1">
+            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Class="nornis-table-brief-save"
+                       Disabled="_saving" OnClick="SaveAsync">Save</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="_saving" OnClick="Cancel">Cancel</MudButton>
+        </div>
+    }
+    else if (string.IsNullOrWhiteSpace(Adventure.TableBrief))
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-table-brief-empty">
+            Tell the Loremaster about your table once: the party, their level, how long the session
+            runs, and anyone to write for. Every draft and answer here uses it. It never prints.
+        </MudText>
+    }
+    else
+    {
+        <div class="nornis-table-brief-text">@Adventure.TableBrief</div>
+    }
+
+    @if (_error is not null)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Error">@_error</MudText>
+    }
+</MudPaper>
+
+@code {
+    /// <summary>Mirrors <c>Adventure.MaxTableBriefChars</c>; DesignModeMirrorTests pins it.</summary>
+    public const int MaxChars = 2_000;
+
+    [Parameter, EditorRequired] public AdventureDto Adventure { get; set; } = null!;
+
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Raised with the Adventure as the API returned it after a save.</summary>
+    [Parameter] public EventCallback<AdventureDto> OnSaved { get; set; }
+
+    private bool _editing;
+    private bool _saving;
+    private string _text = string.Empty;
+    private string? _error;
+
+    private void Edit()
+    {
+        _text = Adventure.TableBrief ?? string.Empty;
+        _error = null;
+        _editing = true;
+    }
+
+    private void Cancel()
+    {
+        _editing = false;
+        _error = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _error = null;
+        try
+        {
+            var result = await Api.SetAdventureTableBriefAsync(Adventure.WorldId, Adventure.Id,
+                string.IsNullOrWhiteSpace(_text) ? null : _text.Trim());
+            if (result.IsSuccess)
+            {
+                _editing = false;
+                await OnSaved.InvokeAsync(result.Value!);
+            }
+            else
+            {
+                _error = result.Error!.Message;
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

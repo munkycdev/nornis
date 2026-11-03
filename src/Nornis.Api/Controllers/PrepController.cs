@@ -254,9 +254,15 @@ public class PrepController : ControllerBase
     public async Task<IActionResult> SendMessage(
         Guid worldId, Guid adventureId, [FromBody] SendConversationMessageRequest request, CancellationToken ct)
     {
+        var scope = ConversationScope.Section;
+        if (request.Scope is not null && !EnumParsing.TryParseDefined(request.Scope, out scope))
+        {
+            return BadRequest(new ErrorResponse("invalid_scope", $"'{request.Scope}' is not Section or Draft."));
+        }
+
         var result = await _conversation.SendAsync(new SendConversationMessageCommand(
             worldId, adventureId, HttpContext.GetNornisUser().Id, HttpContext.GetWorldMember().Role,
-            request.Text ?? "", request.SectionId), ct);
+            request.Text ?? "", request.SectionId, scope), ct);
         return result.IsSuccess
             ? new ServerSentEventsActionResult(ToServerSentEvents(result.Value!))
             : result.Error!.ToActionResult();
@@ -303,8 +309,15 @@ public class PrepController : ControllerBase
         }
     }
 
-    private static ConversationMessageResponse ToMessage(ConversationMessage m) =>
-        new(m.Id, m.Role.ToString(), m.Content, m.Model, m.CreatedAt);
+    /// <summary>An answer's suggested edits are read here, as it is shown, by <see cref="DraftEdits"/>, the one reader of them.</summary>
+    private static ConversationMessageResponse ToMessage(ConversationMessage m)
+    {
+        var edits = m.Role == ConversationRole.Assistant ? DraftEdits.Parse(m.Content) : [];
+        return edits.Count == 0
+            ? new(m.Id, m.Role.ToString(), m.Content, m.Model, m.CreatedAt)
+            : new(m.Id, m.Role.ToString(), m.Content, m.Model, m.CreatedAt,
+                edits.Select(e => new DraftEditResponse(e.Find, e.Replace)).ToList(), DraftEdits.ProseOf(m.Content));
+    }
 
     private static async IAsyncEnumerable<SseItem<string>> ToServerSentEvents(
         IAsyncEnumerable<DraftEvent> events, [EnumeratorCancellation] CancellationToken ct = default)
@@ -335,7 +348,7 @@ public class PrepController : ControllerBase
     private IActionResult Respond(AppResult<AdventureView> result) =>
         result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
 
-    private static AdventureResponse ToResponse(AdventureView view)
+    internal static AdventureResponse ToResponse(AdventureView view)
     {
         var a = view.Adventure;
         return new AdventureResponse(
@@ -345,7 +358,15 @@ public class PrepController : ControllerBase
                 .ToList(),
             new AdventureDetailsResponse(a.Details.GameSystem, a.Details.Edition, a.Details.Levels, a.Details.Year),
             ToPrintDetails(view.PrintDetails),
-            view.IgnoredDetails);
+            view.IgnoredDetails,
+            a.DraftMarkdown is { } draft && a.DraftUpdatedAt is { } draftAt
+                ? new AdventureDraftResponse(draft, draftAt, view.DraftRevisionCount)
+                : null,
+            a.TableBrief,
+            a.SourceBooks
+                .Select(b => new AdventureSourceBookResponse(b.LibraryDocumentId, b.LibraryDocument.Title, b.LibraryDocument.Slug))
+                .OrderBy(b => b.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ToList());
     }
 
     private static PrintDetailsResponse ToPrintDetails(PrintDetails p) =>

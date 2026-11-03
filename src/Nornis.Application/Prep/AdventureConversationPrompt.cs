@@ -5,21 +5,23 @@ using Nornis.Domain.Enums;
 namespace Nornis.Application.Prep;
 
 /// <summary>What one turn of an Adventure's side conversation is answered from.</summary>
-/// <param name="WorldContext">The world knowledge block, retrieved at the GM's role and
-/// formatted. Hidden truth is in it because the asker is the GM; that rule lives in the
-/// retriever, not here.</param>
+/// <param name="Context">The system, levels, table brief, world's record and reference passages
+/// (feature 37), gathered at the GM's role by <see cref="PrepPromptContextBuilder"/>. Hidden truth
+/// is in it because the asker is the GM; that rule lives in the retrievers, not here.</param>
 /// <param name="SectionId">The section on screen when the GM sent the message. Null when none was.</param>
 /// <param name="History">The conversation so far that fits the window, oldest first, without
 /// the new message. <see cref="AdventureConversationPrompt.HistoryWindow"/> chooses it.</param>
 /// <param name="MaxSectionChars">The section on screen is cut to this.</param>
+/// <param name="OnDraft">The GM is in Design mode (feature 37): the whole design draft rides
+/// instead of a section, and answers may suggest edits to it.</param>
 public sealed record AdventureConversationInput(
-    string? GameSystem,
-    string WorldContext,
+    PrepPromptContext Context,
     Adventure Adventure,
     Guid? SectionId,
     IReadOnlyList<ConversationMessage> History,
     string Message,
-    int MaxSectionChars);
+    int MaxSectionChars,
+    bool OnDraft = false);
 
 /// <summary>
 /// The prompt for one turn of an Adventure's side conversation (feature 30). Cache-ordered like
@@ -42,10 +44,13 @@ public static class AdventureConversationPrompt
         world. You help them think, and you write for the adventure only when they ask you to.
 
         ## What you are given
+        - The game system, the characters' levels and a brief on the table, when the GM gave one.
         - The world's record: its people, places, factions, facts and relationships. Some are marked
           Hidden. Those are the GM's secrets, and you may use them, because only the GM reads this
           conversation. Treat them as things the GM can reveal, never as things the players know.
-        - The adventure's title, pitch and outline, and the section the GM has open, if any.
+        - Passages from the GM's reference books, when any fit.
+        - The adventure's title, pitch and outline, and the section the GM has open, if any; or,
+          when the GM is in Design mode, the whole design draft.
         - The conversation so far, and the GM's new message.
 
         ## Rules
@@ -55,12 +60,28 @@ public static class AdventureConversationPrompt
         - Be brief and concrete. When the GM asks for ideas, offer a few distinct options, each in a
           sentence or two, rather than one long answer.
         - Do not include citation markers such as [ref:...].
+        {{PrepPromptContext.ReferenceRules}}
 
         ## When the GM asks you to write something for the adventure
         Write it so it can go into a section as it stands: Markdown, no heading for the section's
         own title, no preamble or sign-off around it. Use these conventions, which the GM's editor
         and the printed booklet both understand:
         {{PrepMarkup.ConventionsForPrompt}}
+
+        ## When the GM is working on the design draft
+        The design draft is the whole adventure as one Markdown document, shown to you in full. When
+        the GM asks you to change it, never rewrite the whole draft. Write each change as a suggested
+        edit, which the GM applies or not:
+        {{DraftEdits.ConventionForPrompt}}
+        - Copy the passage exactly as it stands in the draft, as whole lines, and include enough of
+          it that it appears in the draft only once.
+        - One edit changes one place. Use several edits for several places, each with a sentence
+          before it saying what it does.
+        - To add new text, copy the line it goes after as the passage, and repeat that line at the
+          top of the replacement.
+        - When the draft is empty, leave the passage empty and write the whole text as the
+          replacement.
+        - Nothing reaches the draft until the GM applies it, so don't say you have changed it.
         """;
 
     /// <summary>
@@ -95,19 +116,7 @@ public static class AdventureConversationPrompt
         var onScreen = input.SectionId is { } id ? sections.FirstOrDefault(s => s.Id == id) : null;
         var sb = new StringBuilder();
 
-        sb.AppendLine("## The world");
-        sb.AppendLine();
-        sb.AppendLine(string.IsNullOrWhiteSpace(input.GameSystem) ? "Game system: not stated." : $"Game system: {input.GameSystem}");
-        if (!string.IsNullOrWhiteSpace(input.Adventure.Details.Levels))
-        {
-            sb.AppendLine($"For characters of level {input.Adventure.Details.Levels.Trim()}.");
-        }
-
-        sb.AppendLine();
-        sb.AppendLine(string.IsNullOrWhiteSpace(input.WorldContext)
-            ? "The world's record has nothing on this yet."
-            : input.WorldContext.TrimEnd());
-        sb.AppendLine();
+        input.Context.AppendTo(sb);
 
         sb.AppendLine($"## The adventure: {input.Adventure.Title}");
         sb.AppendLine();
@@ -129,7 +138,11 @@ public static class AdventureConversationPrompt
 
         sb.AppendLine();
 
-        if (onScreen is not null)
+        if (input.OnDraft)
+        {
+            AppendDraft(sb, input.Adventure.DraftMarkdown);
+        }
+        else if (onScreen is not null)
         {
             sb.AppendLine($"## The section the GM has open: [{onScreen.Kind}] {onScreen.Title}");
             sb.AppendLine();
@@ -167,6 +180,25 @@ public static class AdventureConversationPrompt
         sb.AppendLine(input.Message.Trim());
 
         return sb.ToString();
+    }
+
+    /// <summary>The whole draft, which is bounded by <see cref="Adventure.MaxDraftChars"/>, so nothing is cut: an edit must quote it exactly.</summary>
+    private static void AppendDraft(StringBuilder sb, string? draft)
+    {
+        sb.AppendLine("## The design draft the GM is working on");
+        sb.AppendLine();
+        if (string.IsNullOrWhiteSpace(draft))
+        {
+            sb.AppendLine("The draft is empty.");
+        }
+        else
+        {
+            sb.AppendLine("<draft>");
+            sb.AppendLine(draft.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd('\n'));
+            sb.AppendLine("</draft>");
+        }
+
+        sb.AppendLine();
     }
 
     private static string Label(ConversationRole role) => role == ConversationRole.User ? GmLabel : LoremasterLabel;

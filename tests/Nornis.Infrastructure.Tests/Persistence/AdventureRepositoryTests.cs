@@ -466,4 +466,170 @@ public class AdventureRepositoryTests : IntegrationTestBase
         var stored = await Context.Adventures.SingleAsync(a => a.Id == adventure.Id);
         Assert.That(stored.LastPrintedDocumentId, Is.Null);
     }
+
+    // ------------------------------------------------- design mode (feature 37) --
+
+    [Test]
+    public async Task ADraftSave_IsConditionalOnItsStamp()
+    {
+        var adventure = await CreateAsync("a");
+        var first = _now.AddMinutes(1);
+
+        var started = await _sut.TrySaveDraftAsync(adventure.Id, "# Draft", null, 20, basedOn: null, first);
+        var stale = await _sut.TrySaveDraftAsync(adventure.Id, "lost", null, 20, basedOn: null, _now.AddMinutes(2));
+        var next = await _sut.TrySaveDraftAsync(adventure.Id, "# Draft, again", null, 20, basedOn: first, _now.AddMinutes(3));
+        Context.ChangeTracker.Clear();
+
+        var stored = await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That((started, stale, next), Is.EqualTo((true, false, true)));
+            Assert.That(stored.DraftMarkdown, Is.EqualTo("# Draft, again"));
+        });
+    }
+
+    [Test]
+    public async Task ADraftChangeWithARevision_KeepsTheOldText_TrimmedToTheBound_AndUndoRestoresIt()
+    {
+        var adventure = await CreateAsync("a");
+        DateTimeOffset? stamp = null;
+        for (var i = 0; i < 4; i++)
+        {
+            var at = _now.AddMinutes(i + 1);
+            var revision = i == 0 ? null : new AdventureDraftRevision
+            {
+                Id = Guid.NewGuid(),
+                Reason = AdventureDraftChange.Edit,
+                CreatedAt = at,
+            };
+            Assert.That(await _sut.TrySaveDraftAsync(adventure.Id, $"v{i}", revision, maxRevisions: 2, stamp, at), Is.True);
+            stamp = at;
+        }
+
+        Assert.That(await _sut.CountDraftRevisionsAsync(adventure.Id), Is.EqualTo(2), "v1 and v2; v0 trimmed");
+
+        var latest = await _sut.GetLatestDraftRevisionAsync(adventure.Id);
+        var restored = await _sut.TryRestoreDraftRevisionAsync(latest!, stamp, _now.AddMinutes(10));
+        Context.ChangeTracker.Clear();
+
+        var stored = await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id);
+        var remaining = await _sut.CountDraftRevisionsAsync(adventure.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored, Is.True);
+            Assert.That(stored.DraftMarkdown, Is.EqualTo("v2"));
+            Assert.That(remaining, Is.EqualTo(1));
+        });
+    }
+
+    private static AdventureSection NewSection(string title, string body) => new()
+    {
+        Id = Guid.NewGuid(),
+        Kind = AdventureSectionKind.Scene,
+        Title = title,
+        BodyMarkdown = body,
+    };
+
+    [Test]
+    public async Task ASplitReplace_DeletesTheSectionsAndTheirRevisions_AddsTheCut_AndKeepsTheRevision_Together()
+    {
+        var adventure = await CreateAsync("old one", "old two");
+        await AddRevisionAsync(adventure.Sections.First().Id, "older", _now);
+        var draftAt = _now.AddMinutes(1);
+        Assert.That(await _sut.TrySaveDraftAsync(adventure.Id, "## A\n\na\n\n## B\n\nb", null, 20, null, draftAt), Is.True);
+        var kept = new AdventureDraftRevision
+        {
+            Id = Guid.NewGuid(),
+            BodyMarkdown = "## Section 1\n\nold one",
+            Reason = AdventureDraftChange.Split,
+            CreatedAt = _now.AddMinutes(2),
+        };
+
+        var written = await _sut.TryWriteSplitAsync(adventure.Id, [NewSection("A", "a"), NewSection("B", "b")], replace: true,
+            kept, maxRevisions: 20, basedOn: draftAt, updatedAt: _now.AddMinutes(2));
+
+        var stored = await _sut.GetWithSectionsAsync(adventure.Id);
+        var oldIds = adventure.Sections.Select(x => x.Id).ToList();
+        var orphanRevisions = await Context.AdventureSectionRevisions.CountAsync(r => oldIds.Contains(r.SectionId));
+        var latest = await _sut.GetLatestDraftRevisionAsync(adventure.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(written, Is.True);
+            Assert.That(stored!.Sections.Select(x => (x.Title, x.BodyMarkdown, x.SortOrder)), Is.EqualTo([("A", "a", 1), ("B", "b", 2)]));
+            Assert.That(stored.DraftMarkdown, Is.EqualTo("## A\n\na\n\n## B\n\nb"), "the draft stays");
+            Assert.That(orphanRevisions, Is.Zero);
+            Assert.That(latest!.BodyMarkdown, Is.EqualTo("## Section 1\n\nold one"));
+        });
+    }
+
+    [Test]
+    public async Task ASplitAppend_NumbersAfterTheSections_AndAStaleStampWritesNothing()
+    {
+        var adventure = await CreateAsync("one", "two");
+        var draftAt = _now.AddMinutes(1);
+        await _sut.TrySaveDraftAsync(adventure.Id, "## C\n\nc", null, 20, null, draftAt);
+
+        var stale = await _sut.TryWriteSplitAsync(adventure.Id, [NewSection("X", "x")], replace: true, null, 20, basedOn: _now, _now.AddMinutes(2));
+        var appended = await _sut.TryWriteSplitAsync(adventure.Id, [NewSection("C", "c")], replace: false, null, 20, basedOn: draftAt, _now.AddMinutes(3));
+
+        var stored = await _sut.GetWithSectionsAsync(adventure.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That((stale, appended), Is.EqualTo((false, true)));
+            Assert.That(stored!.Sections.Select(x => (x.Title, x.SortOrder)), Is.EqualTo([("Section 1", 1), ("Section 2", 2), ("C", 3)]));
+        });
+    }
+
+    [Test]
+    public async Task SourceBooks_AreReadWithTheAdventure_AndLeaveWhenTheirBookIsDeleted()
+    {
+        var adventure = await CreateAsync("a");
+        await _sut.ReplaceSourceBooksAsync(adventure.Id, [_print.Id]);
+
+        var loaded = await _sut.GetWithSectionsAsync(adventure.Id);
+        Assert.That(loaded!.SourceBooks.Select(b => b.LibraryDocument.Title), Is.EqualTo([_print.Title]));
+
+        await new LibraryDocumentRepository(Context).DeleteAsync(_print.Id);
+        Context.ChangeTracker.Clear();
+
+        Assert.That(await Context.AdventureSourceBooks.CountAsync(b => b.AdventureId == adventure.Id), Is.Zero);
+    }
+
+    [Test]
+    public async Task Delete_TakesTheDraftsHistoryAndTheSourceBookChoices_WithIt()
+    {
+        var adventure = await CreateAsync("a");
+        await _sut.TrySaveDraftAsync(adventure.Id, "v0", null, 20, null, _now.AddMinutes(1));
+        await _sut.TrySaveDraftAsync(adventure.Id, "v1",
+            new AdventureDraftRevision { Id = Guid.NewGuid(), Reason = AdventureDraftChange.Put, CreatedAt = _now },
+            20, _now.AddMinutes(1), _now.AddMinutes(2));
+        await _sut.ReplaceSourceBooksAsync(adventure.Id, [_print.Id]);
+
+        await _sut.DeleteAsync(adventure.Id);
+        Context.ChangeTracker.Clear();
+
+        var counts = (await Context.Adventures.CountAsync(a => a.Id == adventure.Id),
+            await Context.AdventureDraftRevisions.CountAsync(r => r.AdventureId == adventure.Id),
+            await Context.AdventureSourceBooks.CountAsync(b => b.AdventureId == adventure.Id),
+            await Context.LibraryDocuments.CountAsync(d => d.Id == _print.Id));
+        Assert.That(counts, Is.EqualTo((0, 0, 0, 1)), "the Adventure and its design rows go; the book stays");
+    }
+
+    [Test]
+    public async Task DeletingTheWorld_TakesDesignModeRowsWithIt()
+    {
+        var adventure = await CreateAsync("a");
+        await _sut.TrySaveDraftAsync(adventure.Id, "v0", null, 20, null, _now.AddMinutes(1));
+        await _sut.TrySaveDraftAsync(adventure.Id, "v1",
+            new AdventureDraftRevision { Id = Guid.NewGuid(), Reason = AdventureDraftChange.Gather, CreatedAt = _now },
+            20, _now.AddMinutes(1), _now.AddMinutes(2));
+        await _sut.ReplaceSourceBooksAsync(adventure.Id, [_print.Id]);
+
+        await new WorldRepository(Context).DeleteAsync(_world.Id);
+        Context.ChangeTracker.Clear();
+
+        var left = await Context.AdventureSourceBooks.CountAsync(b => b.AdventureId == adventure.Id)
+            + await Context.AdventureDraftRevisions.CountAsync(r => r.AdventureId == adventure.Id);
+        Assert.That(left, Is.Zero);
+    }
 }

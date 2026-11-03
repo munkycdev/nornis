@@ -39,7 +39,7 @@ public class AdventureDraftPromptTests
 
     private static string Build(Adventure adventure, int sortOrder, string? instruction = "Make the guards nervous.") =>
         AdventureDraftPrompt.BuildUserMessage(new AdventureDraftInput(
-            "D&D 5e", "### Artifacts\n- Captain Voss [Hidden — GM-only truth]", adventure,
+            new PrepPromptContext("D&D 5e", adventure.Details.Levels, null, "### Artifacts\n- Captain Voss [Hidden — GM-only truth]"), adventure,
             adventure.Sections.Single(s => s.SortOrder == sortOrder).Id, instruction));
 
     [Test]
@@ -125,13 +125,13 @@ public class AdventureDraftPromptTests
     [Test]
     public void ASectionFromAnotherAdventure_IsRefused() =>
         Assert.That(() => AdventureDraftPrompt.BuildUserMessage(
-            new AdventureDraftInput(null, "", Adventure(), Guid.NewGuid(), null)), Throws.ArgumentException);
+            new AdventureDraftInput(new PrepPromptContext(null, null, null, ""), Adventure(), Guid.NewGuid(), null)), Throws.ArgumentException);
 
     // ------------------------------------------------------- threads to use (3.1) --
 
     private static string BuildWithThreads(Adventure adventure, IReadOnlyList<PrepThread> threads) =>
         AdventureDraftPrompt.BuildUserMessage(new AdventureDraftInput(
-            "D&D 5e", "### Artifacts\n- Captain Voss [Hidden — GM-only truth]", adventure,
+            new PrepPromptContext("D&D 5e", adventure.Details.Levels, null, "### Artifacts\n- Captain Voss [Hidden — GM-only truth]"), adventure,
             adventure.Sections.Single(s => s.SortOrder == 1).Id, null, threads));
 
     [Test]

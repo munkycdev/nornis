@@ -13,6 +13,12 @@ namespace Nornis.Domain.Entities;
 /// </summary>
 public class Adventure : ISlugged
 {
+    /// <summary>The longest table brief (feature 37): a paragraph, not a document.</summary>
+    public const int MaxTableBriefChars = 2_000;
+
+    /// <summary>The longest design draft (feature 37): well under what one prompt can carry.</summary>
+    public const int MaxDraftChars = 60_000;
+
     public Guid Id { get; set; }
 
     public Guid WorldId { get; set; }
@@ -42,6 +48,22 @@ public class Adventure : ISlugged
     /// </summary>
     public AdventureDetails Details { get; set; } = new();
 
+    /// <summary>
+    /// The design draft (feature 37): one Markdown document the GM and the Loremaster iterate on
+    /// before it is split into sections. Null means no draft. It lives outside
+    /// <see cref="Sections"/> on purpose, so no booklet, export or outline count can ever read it.
+    /// </summary>
+    public string? DraftMarkdown { get; set; }
+
+    /// <summary>When the draft last changed; a write names the stamp it was based on. Null while there is no draft.</summary>
+    public DateTimeOffset? DraftUpdatedAt { get; set; }
+
+    /// <summary>
+    /// Who is at the table (feature 37): the party, their level, the runtime, players' quirks.
+    /// Every Prep prompt carries it. Null or empty means none.
+    /// </summary>
+    public string? TableBrief { get; set; }
+
     public Guid CreatedByUserId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
@@ -57,4 +79,7 @@ public class Adventure : ISlugged
     public User CreatedByUser { get; set; } = null!;
 
     public ICollection<AdventureSection> Sections { get; set; } = [];
+
+    /// <summary>The books Prep reads for this Adventure (feature 37); none means every book the GM has.</summary>
+    public ICollection<AdventureSourceBook> SourceBooks { get; set; } = [];
 }

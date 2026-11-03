@@ -23,8 +23,7 @@ public class AdventureDraftingService : IAdventureDraftingService
     private const int EstimatedCharsPerToken = 4;
 
     private readonly IAdventureRepository _adventures;
-    private readonly IWorldRepository _worlds;
-    private readonly IKnowledgeRetriever _retriever;
+    private readonly PrepPromptContextBuilder _prompts;
     private readonly IAdventureDraftingAiClient _ai;
     private readonly IAiBudgetGuard _budget;
     private readonly IAiUsageRecorder _usage;
@@ -36,8 +35,7 @@ public class AdventureDraftingService : IAdventureDraftingService
 
     public AdventureDraftingService(
         IAdventureRepository adventures,
-        IWorldRepository worlds,
-        IKnowledgeRetriever retriever,
+        PrepPromptContextBuilder prompts,
         IAdventureDraftingAiClient ai,
         IAiBudgetGuard budget,
         IAiUsageRecorder usage,
@@ -48,8 +46,7 @@ public class AdventureDraftingService : IAdventureDraftingService
         ILogger<AdventureDraftingService> logger)
     {
         _adventures = adventures;
-        _worlds = worlds;
-        _retriever = retriever;
+        _prompts = prompts;
         _ai = ai;
         _budget = budget;
         _usage = usage;
@@ -112,9 +109,8 @@ public class AdventureDraftingService : IAdventureDraftingService
 
         try
         {
-            var world = await _worlds.GetByIdAsync(command.WorldId, ct);
-            var context = await _retriever.RetrieveAsync(
-                RetrievalText(adventure, section, instruction), command.WorldId, command.ActingUserId, command.ActingUserRole, ct);
+            var context = await _prompts.BuildAsync(
+                adventure, RetrievalText(adventure, section, instruction), command.ActingUserId, command.ActingUserRole, ct);
             var threads = section.Kind == AdventureSectionKind.Overview ? await ThreadsAsync(command, ct) : [];
 
             var request = new AiPromptRequest
@@ -122,8 +118,7 @@ public class AdventureDraftingService : IAdventureDraftingService
                 Scope = AiCallScope.ForWorld(command.WorldId, command.ActingUserId),
                 SystemPrompt = AdventureDraftPrompt.SystemPrompt,
                 UserMessage = AdventureDraftPrompt.BuildUserMessage(new AdventureDraftInput(
-                    PrintDetails.SystemOf(adventure.Details, world?.GameSystem),
-                    LoremasterService.FormatKnowledgeContext(context, _loremaster.MaxSessionChars, _loremaster.MaxContextTokens),
+                    context,
                     adventure,
                     section.Id,
                     instruction,
