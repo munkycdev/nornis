@@ -258,6 +258,20 @@ public class InMemorySourceRepository : ISourceRepository
         var source = Required(id);
         _statusTransitions.Add((id, source.ProcessingStatus, status));
         source.ProcessingStatus = status;
+        if (status != SourceProcessingStatus.Failed)
+        {
+            source.FailureCategory = null;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task MarkFailedAsync(Guid id, string? failureCategory, CancellationToken cancellationToken = default)
+    {
+        var source = Required(id);
+        _statusTransitions.Add((id, source.ProcessingStatus, SourceProcessingStatus.Failed));
+        source.ProcessingStatus = SourceProcessingStatus.Failed;
+        source.FailureCategory = failureCategory;
         return Task.CompletedTask;
     }
 

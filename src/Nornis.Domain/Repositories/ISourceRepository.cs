@@ -173,7 +173,11 @@ public interface ISourceRepository
     /// it (null) when derivation inputs change.</summary>
     Task UpdateDerivedTextAsync(Guid id, string? derivedText, CancellationToken cancellationToken = default);
 
+    /// <summary>Sets the status. Any status but Failed clears <see cref="Source.FailureCategory"/>.</summary>
     Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default);
+
+    /// <summary>Marks the source Failed, recording why (an <c>ErrorCategories</c> value).</summary>
+    Task MarkFailedAsync(Guid id, string? failureCategory, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Queued → Processing, but only from Queued: true means this caller owns the extraction,

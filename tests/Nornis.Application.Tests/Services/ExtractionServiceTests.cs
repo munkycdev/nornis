@@ -463,6 +463,7 @@ public class ExtractionServiceTests
         _aiClient.EnqueueThrow(refusal);
 
         var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+        var stored = await _sourceRepository.GetByIdAsync(source.Id);
 
         Assert.Multiple(() =>
         {
@@ -470,6 +471,9 @@ public class ExtractionServiceTests
             Assert.That(result.ErrorCategory, Is.EqualTo(category));
             Assert.That(_aiClient.CallCount, Is.EqualTo(1));
             Assert.That(_aiUsageRecordRepository.Records, Is.Empty);
+            // B6b requeues on key save by this column, so the reason must be stored.
+            Assert.That(stored!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Failed));
+            Assert.That(stored.FailureCategory, Is.EqualTo(category));
         });
     }
 

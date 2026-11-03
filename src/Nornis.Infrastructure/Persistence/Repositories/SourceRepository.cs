@@ -302,7 +302,21 @@ public class SourceRepository : ISourceRepository
             s => s.CampaignId, campaignId, cancellationToken);
 
     public Task UpdateProcessingStatusAsync(Guid id, SourceProcessingStatus status, CancellationToken cancellationToken = default) =>
-        MutateAsync(id, source => source.ProcessingStatus = status, cancellationToken);
+        MutateAsync(id, source =>
+        {
+            source.ProcessingStatus = status;
+            if (status != SourceProcessingStatus.Failed)
+            {
+                source.FailureCategory = null;
+            }
+        }, cancellationToken);
+
+    public Task MarkFailedAsync(Guid id, string? failureCategory, CancellationToken cancellationToken = default) =>
+        MutateAsync(id, source =>
+        {
+            source.ProcessingStatus = SourceProcessingStatus.Failed;
+            source.FailureCategory = failureCategory;
+        }, cancellationToken);
 
     /// <summary>The reveal path lifts a GM-only source to PartyVisible without a whole-entity
     /// update, which would fight the general update's post-extraction visibility lock.</summary>

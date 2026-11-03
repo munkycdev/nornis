@@ -11,6 +11,13 @@ namespace Nornis.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<string>(
+                name: "FailureCategory",
+                table: "Sources",
+                type: "nvarchar(32)",
+                maxLength: 32,
+                nullable: true);
+
             migrationBuilder.AddColumn<Guid>(
                 name: "AiKeyId",
                 table: "AiUsageRecords",
@@ -146,6 +153,10 @@ namespace Nornis.Infrastructure.Migrations
             migrationBuilder.DropIndex(
                 name: "IX_AiUsageRecords_KeyHolderUserId_FundedBy_CreatedAt",
                 table: "AiUsageRecords");
+
+            migrationBuilder.DropColumn(
+                name: "FailureCategory",
+                table: "Sources");
 
             migrationBuilder.DropColumn(
                 name: "AiKeyId",

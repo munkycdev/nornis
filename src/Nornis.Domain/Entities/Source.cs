@@ -50,6 +50,13 @@ public class Source : ISlugged
     public DateTimeOffset? StatusChangedAt { get; set; }
 
     /// <summary>
+    /// Why the last processing run failed, as an <c>ErrorCategories</c> value, while the source
+    /// is Failed; null otherwise, and on rows from before feature 39. Lets saving an AI key find
+    /// the sources that failed for want of one and queue them again.
+    /// </summary>
+    public string? FailureCategory { get; set; }
+
+    /// <summary>
     /// Whether processing this source runs AI extraction. When false the source is
     /// stored as part of the record without generating proposals — reference documents,
     /// flavor writing, and other material that shouldn't touch canon.

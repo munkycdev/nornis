@@ -13,7 +13,7 @@ using Nornis.Infrastructure.Persistence;
 namespace Nornis.Infrastructure.Migrations
 {
     [DbContext(typeof(NornisDbContext))]
-    [Migration("20261103181324_AddAiKeys")]
+    [Migration("20261103183528_AddAiKeys")]
     partial class AddAiKeys
     {
         /// <inheritdoc />
@@ -1507,6 +1507,10 @@ namespace Nornis.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
+
+                    b.Property<string>("FailureCategory")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.Property<Guid?>("LibraryDocumentId")
                         .HasColumnType("uniqueidentifier");

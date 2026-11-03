@@ -1505,6 +1505,10 @@ namespace Nornis.Infrastructure.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<string>("FailureCategory")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
                     b.Property<Guid?>("LibraryDocumentId")
                         .HasColumnType("uniqueidentifier");
 

@@ -327,7 +327,7 @@ public class ExtractionService : IExtractionService
                 await _sourceRepository.UpdateProcessingStatusAsync(sourceId, SourceProcessingStatus.Queued, ct);
                 break;
             case OutcomeType.NonTransientFailure:
-                await _sourceRepository.UpdateProcessingStatusAsync(sourceId, SourceProcessingStatus.Failed, ct);
+                await _sourceRepository.MarkFailedAsync(sourceId, outcome.ErrorCategory, ct);
                 break;
         }
 

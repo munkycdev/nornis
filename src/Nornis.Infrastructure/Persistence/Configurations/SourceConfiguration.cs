@@ -48,6 +48,9 @@ public class SourceConfiguration : IEntityTypeConfiguration<Source>
             .IsRequired()
             .HasConversion<string>();
 
+        builder.Property(s => s.FailureCategory)
+            .HasMaxLength(32);
+
         // Default true so existing rows (and raw inserts) keep extracting.
         builder.Property(s => s.ExtractionEnabled)
             .IsRequired()
