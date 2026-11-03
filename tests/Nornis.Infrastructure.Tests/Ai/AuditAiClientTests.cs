@@ -15,12 +15,12 @@ namespace Nornis.Infrastructure.Tests.Ai;
 /// here instead of in a comment.
 /// </summary>
 [TestFixture]
-public class AzureOpenAiAuditClientTests
+public class AuditAiClientTests
 {
     /// <summary>Pulls a string-enum array out of the schema by property name.</summary>
     private static IReadOnlyList<string> SchemaEnumValues(string propertyName)
     {
-        using var document = JsonDocument.Parse(AzureOpenAiAuditClient.GetStructuredOutputSchema());
+        using var document = JsonDocument.Parse(AuditAiClient.GetStructuredOutputSchema());
 
         var property = document.RootElement
             .GetProperty("properties").GetProperty("findings")

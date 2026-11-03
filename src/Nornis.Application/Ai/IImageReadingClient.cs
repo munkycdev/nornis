@@ -14,6 +14,9 @@ public sealed record ImageToRead(byte[] ImageBytes, string MediaType, string Fil
 
 public class ImageReadingRequest
 {
+    /// <summary>Whose call this is: decides whose key pays (feature 39).</summary>
+    public required AiCallScope Scope { get; init; }
+
     public required IReadOnlyList<ImageToRead> Images { get; init; }
 
     public required string Model { get; init; }

@@ -7,13 +7,14 @@ using NUnit.Framework;
 namespace Nornis.Infrastructure.Tests.Ai;
 
 [TestFixture]
-public class AzureOpenAiLoremasterClientTests
+public class LoremasterAiClientTests
 {
     private FakeChatClient _chatClient = null!;
-    private AzureOpenAiLoremasterClient _client = null!;
+    private LoremasterAiClient _client = null!;
 
     private static readonly AiPromptRequest DefaultRequest = new()
     {
+        Scope = AiCallScope.ForWorld(Guid.NewGuid()),
         SystemPrompt = "You are the Loremaster.",
         UserMessage = "Who is Captain Voss?",
         Model = "gpt-4o",
@@ -24,8 +25,8 @@ public class AzureOpenAiLoremasterClientTests
     public void SetUp()
     {
         _chatClient = new FakeChatClient();
-        _client = new AzureOpenAiLoremasterClient(
-            _chatClient, NullLogger<AzureOpenAiLoremasterClient>.Instance);
+        _client = new LoremasterAiClient(
+            new FakeAiCallBinder(_chatClient), NullLogger<LoremasterAiClient>.Instance);
     }
 
     private async Task<List<AiStreamChunk>> DrainAsync(
@@ -93,6 +94,7 @@ public class AzureOpenAiLoremasterClientTests
     {
         var shortTimeoutRequest = new AiPromptRequest
         {
+            Scope = AiCallScope.ForWorld(Guid.NewGuid()),
             SystemPrompt = "System prompt",
             UserMessage = "Question?",
             Model = "gpt-4o",

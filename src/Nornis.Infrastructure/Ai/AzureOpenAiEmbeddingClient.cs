@@ -21,7 +21,7 @@ public sealed class AzureOpenAiEmbeddingClient : IEmbeddingClient
 
     public async Task<EmbeddingResult> EmbedAsync(IReadOnlyList<string> inputs, CancellationToken ct)
     {
-        // The linked-CTS shape the nine chat clients get from AzureOpenAiCallExecutor. Linked
+        // The linked-CTS shape the nine chat clients get from AiCallExecutor. Linked
         // rather than standalone so a caller cancelling still cancels the call, and so the catch
         // below can tell "we gave up waiting" from "the caller left".
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_options.AiTimeoutSeconds));

@@ -7,5 +7,5 @@ namespace Nornis.Application.Ai;
 /// </summary>
 public class NoOpWorldNameGenerator : IWorldNameGenerator
 {
-    public Task<string?> GenerateAsync(CancellationToken ct) => Task.FromResult<string?>(null);
+    public Task<string?> GenerateAsync(Guid userId, CancellationToken ct) => Task.FromResult<string?>(null);
 }

@@ -13,16 +13,16 @@ namespace Nornis.Infrastructure.Ai;
 /// user message with a text part naming the files followed by one image part per file.
 /// Plain markdown out — the extraction pass downstream does the structuring.
 /// </summary>
-public class AzureOpenAiImageReadingClient : IImageReadingClient
+public class ImageReadingAiClient : IImageReadingClient
 {
 
-    private readonly IChatClient _chatClient;
-    private readonly ILogger<AzureOpenAiImageReadingClient> _logger;
+    private readonly IAiCallBinder _binder;
+    private readonly ILogger<ImageReadingAiClient> _logger;
 
-    public AzureOpenAiImageReadingClient(
-        IChatClient chatClient, ILogger<AzureOpenAiImageReadingClient> logger)
+    public ImageReadingAiClient(
+        IAiCallBinder binder, ILogger<ImageReadingAiClient> logger)
     {
-        _chatClient = chatClient;
+        _binder = binder;
         _logger = logger;
     }
 
@@ -44,9 +44,9 @@ public class AzureOpenAiImageReadingClient : IImageReadingClient
             new ChatMessage(ChatRole.System, BuildSystemPrompt()),
             new ChatMessage(ChatRole.User, parts)
         };
-        // options: none — see AzureOpenAiExtractionClient on why there is no output ceiling.
-        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, messages, chatOptions: null, request.Model, request.TimeoutSeconds,
+        // options: none — see ExtractionAiClient on why there is no output ceiling.
+        var (content, usage) = await AiCallExecutor.ExecuteAsync(
+            _binder, AiTask.Extraction, request.Scope, request.Model, messages, options: null, request.TimeoutSeconds,
             "Image reading", _logger, ct);
 
         return new ImageReadingResponse

@@ -13,24 +13,24 @@ namespace Nornis.Infrastructure.Ai;
 /// (and therefore the same Loremaster Azure OpenAI configuration) as the Loremaster, with a strict
 /// JSON-schema structured output describing the findings array.
 /// </summary>
-public class AzureOpenAiAuditClient : IAuditAiClient
+public class AuditAiClient : IAuditAiClient
 {
 
-    private readonly IChatClient _chatClient;
-    private readonly ILogger<AzureOpenAiAuditClient> _logger;
+    private readonly IAiCallBinder _binder;
+    private readonly ILogger<AuditAiClient> _logger;
 
-    public AzureOpenAiAuditClient(IChatClient chatClient, ILogger<AzureOpenAiAuditClient> logger)
+    public AuditAiClient(IAiCallBinder binder, ILogger<AuditAiClient> logger)
     {
-        _chatClient = chatClient;
+        _binder = binder;
         _logger = logger;
     }
 
     public async Task<AuditAiResponse> AssessAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("continuity_findings", GetStructuredOutputSchema(), strict: true);
+        var callOptions = new AiCallOptions(new AiJsonSchema("continuity_findings", GetStructuredOutputSchema()));
 
-        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, request, chatOptions, "Continuity audit", _logger, ct);
+        var (content, usage) = await AiCallExecutor.ExecuteAsync(
+                _binder, AiTask.Ask, request, callOptions, "Continuity audit", _logger, ct);
 
         return new AuditAiResponse
         {

@@ -86,6 +86,7 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
             {
                 response = await _aiClient.AssessAsync(new AiPromptRequest
                 {
+                    Scope = AiCallScope.ForWorld(worldId, actingUserId),
                     SystemPrompt = BuildSystemPrompt(),
                     UserMessage = BuildUserMessage(chunk, factsByStoryline),
                     Model = _options.AiModel,

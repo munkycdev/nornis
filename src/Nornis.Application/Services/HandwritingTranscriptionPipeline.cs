@@ -147,6 +147,7 @@ public class HandwritingTranscriptionPipeline
         {
             response = await _transcriptionClient.TranscribeAsync(new HandwritingTranscriptionRequest
             {
+                Scope = AiCallScope.ForWorld(worldId),
                 Pages = images,
                 Model = _settings.Model,
                 TimeoutSeconds = _settings.TimeoutSeconds

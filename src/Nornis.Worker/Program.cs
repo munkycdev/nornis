@@ -123,31 +123,31 @@ var builder = Host.CreateDefaultBuilder(args)
         // to. It exists so AiUsageRecorder has one shape in both hosts.
         services.AddSingleton<Nornis.Application.Ai.IAiOutcomeMonitor, AiOutcomeMonitor>();
 
-        // Azure OpenAI client
-        services.AddSingleton<IChatClient>(sp =>
+        // Nornis's own Azure OpenAI deployments, built on first use. Every AI client binds each
+        // call through the binder (feature 39), which asks the funding service who pays.
+        services.AddSingleton(sp =>
         {
             var options = sp.GetRequiredService<IOptions<ExtractionOptions>>().Value;
-            var endpoint = new Uri(options.AiEndpoint);
-            var credential = new ApiKeyCredential(
-                configuration["Extraction:AiApiKey"] ?? string.Empty);
-            var azureClient = AzureOpenAiClientFactory.Create(
-                endpoint, credential, AzureOpenAiClientFactory.RetriesOwnedByBackoff);
-            return new AzureOpenAiChatClient(azureClient.GetChatClient(options.AiModel));
+            var credential = new ApiKeyCredential(configuration["Extraction:AiApiKey"] ?? string.Empty);
+            return NornisChatClients.Create(AzureOpenAiClientFactory.Create(
+                new Uri(options.AiEndpoint), credential, AzureOpenAiClientFactory.RetriesOwnedByBackoff));
         });
+        services.AddScoped<IAiFundingService, NornisAiFundingService>();
+        services.AddScoped<IAiCallBinder, AiCallBinder>();
 
         // AI extraction client
-        services.AddScoped<IAiExtractionClient, AzureOpenAiExtractionClient>();
+        services.AddScoped<IAiExtractionClient, ExtractionAiClient>();
 
         // Handwriting transcription (vision) — shares the extraction ChatClient, so the
         // settings name the extraction deployment and its priced model.
-        services.AddScoped<IHandwritingTranscriptionClient, AzureOpenAiHandwritingTranscriptionClient>();
+        services.AddScoped<IHandwritingTranscriptionClient, HandwritingTranscriptionAiClient>();
         services.AddSingleton(new HandwritingTranscriptionSettings(
             extractionOptions.AiModel, extractionOptions.AiTimeoutSeconds));
         services.AddScoped<HandwritingTranscriptionPipeline>();
 
         // Image lore-reading and map extraction (vision) — same ChatClient
-        services.AddScoped<IImageReadingClient, AzureOpenAiImageReadingClient>();
-        services.AddScoped<IMapExtractionClient, AzureOpenAiMapExtractionClient>();
+        services.AddScoped<IImageReadingClient, ImageReadingAiClient>();
+        services.AddScoped<IMapExtractionClient, MapExtractionAiClient>();
 
         // Daily AI budget guard (checked before every extraction AI call)
         services.Configure<AiBudgetOptions>(configuration.GetSection(AiBudgetOptions.SectionName));
@@ -183,13 +183,13 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<IWorldMemberRepository, WorldMemberRepository>();
         services.AddScoped<IProposalApplicator, ProposalApplicator>();
         services.AddScoped<SyntheticBatchWriter>();
-        services.AddScoped<IRelationshipBackfillAiClient, AzureOpenAiRelationshipBackfillClient>();
+        services.AddScoped<IRelationshipBackfillAiClient, RelationshipBackfillAiClient>();
         services.AddScoped<IRelationshipBackfillService, RelationshipBackfillService>();
 
         // Accept-time summary maintenance (same queue, ExtractionKind.SummaryRefresh
         // messages). Uses the worker's extraction ChatClient and ExtractionOptions —
         // whose ModelPricing the usage recorder resolves, so the spend prices correctly.
-        services.AddScoped<IArtifactSummaryAiClient, AzureOpenAiArtifactSummaryClient>();
+        services.AddScoped<IArtifactSummaryAiClient, ArtifactSummaryAiClient>();
         services.AddScoped<IArtifactSummaryService, ArtifactSummaryService>();
 
         // Service Bus extraction processor

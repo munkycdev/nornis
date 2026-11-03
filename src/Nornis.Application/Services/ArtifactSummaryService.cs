@@ -141,6 +141,7 @@ public class ArtifactSummaryService : IArtifactSummaryService
 
         var request = new AiPromptRequest
         {
+            Scope = AiCallScope.ForWorld(worldId),
             SystemPrompt = BuildSystemPrompt(),
             UserMessage = BuildUserMessage(artifact, facts, relationships),
             Model = _options.AiModel,

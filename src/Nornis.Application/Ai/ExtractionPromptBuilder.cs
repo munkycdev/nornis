@@ -146,7 +146,8 @@ public static class ExtractionPromptBuilder
               factions it names are worth their own CreateArtifact proposals.
 
             ## Payload Schemas
-            The proposedValue object must match the schema for its changeType exactly:
+            The proposedValue object must match the schema for its changeType exactly. It always
+            carries every field named below: set each field its changeType doesn't use to null.
             - CreateArtifact: { "name": string, "type": ArtifactType, "summary": string?, "visibility": string, "confidence": number? }
             - UpdateArtifact: { "name": string?, "summary": string?, "visibility": string?, "confidence": number?, "status": "Active"|"Dormant"|"Resolved"|"Archived"? } — include only fields that change; targetId is the artifact's UUID.
             - MergeArtifact: { "sourceArtifactId": uuid, "name": string?, "summary": string?, "visibility": string?, "confidence": number? } — targetId is the artifact to keep; sourceArtifactId is the duplicate to fold into it.

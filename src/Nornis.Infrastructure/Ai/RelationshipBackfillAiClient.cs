@@ -13,24 +13,24 @@ namespace Nornis.Infrastructure.Ai;
 /// extraction <see cref="IChatClient"/> (nornis-extract deployment), with strict
 /// JSON-schema structured output describing the links array.
 /// </summary>
-public class AzureOpenAiRelationshipBackfillClient : IRelationshipBackfillAiClient
+public class RelationshipBackfillAiClient : IRelationshipBackfillAiClient
 {
 
-    private readonly IChatClient _chatClient;
-    private readonly ILogger<AzureOpenAiRelationshipBackfillClient> _logger;
+    private readonly IAiCallBinder _binder;
+    private readonly ILogger<RelationshipBackfillAiClient> _logger;
 
-    public AzureOpenAiRelationshipBackfillClient(IChatClient chatClient, ILogger<AzureOpenAiRelationshipBackfillClient> logger)
+    public RelationshipBackfillAiClient(IAiCallBinder binder, ILogger<RelationshipBackfillAiClient> logger)
     {
-        _chatClient = chatClient;
+        _binder = binder;
         _logger = logger;
     }
 
     public async Task<RelationshipBackfillAiResponse> ProposeLinksAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("backfill_links", GetStructuredOutputSchema(), strict: true);
+        var callOptions = new AiCallOptions(new AiJsonSchema("backfill_links", GetStructuredOutputSchema()));
 
-        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, request, chatOptions, "Relationship backfill", _logger, ct);
+        var (content, usage) = await AiCallExecutor.ExecuteAsync(
+                _binder, AiTask.Extraction, request, callOptions, "Relationship backfill", _logger, ct);
 
         return new RelationshipBackfillAiResponse
         {

@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Services;
@@ -12,6 +13,7 @@ namespace Nornis.Application.Tests.Services;
 [TestFixture]
 public class LoremasterServicePromptTests
 {
+    private static readonly AiCallScope TestScope = AiCallScope.ForWorld(Guid.NewGuid());
     private LoremasterService _service = null!;
     private FakeKnowledgeRetriever _knowledgeRetriever = null!;
     private FakeLoremasterAiClient _aiClient = null!;
@@ -83,7 +85,7 @@ public class LoremasterServicePromptTests
         var context = CreateEmptyContext();
         var question = "Who is Captain Voss?";
 
-        var request = _service.BuildPrompt(question, context);
+        var request = _service.BuildPrompt(TestScope, question, context);
 
         Assert.That(request.UserMessage, Does.Contain(question));
     }
@@ -93,7 +95,7 @@ public class LoremasterServicePromptTests
     {
         var context = CreateContextWithArtifact("Captain Voss", "Character", "A sea captain in Black Harbor");
 
-        var request = _service.BuildPrompt("Tell me about Voss", context);
+        var request = _service.BuildPrompt(TestScope, "Tell me about Voss", context);
 
         Assert.That(request.UserMessage, Does.Contain("Captain Voss"));
     }
@@ -103,7 +105,7 @@ public class LoremasterServicePromptTests
     {
         var context = CreateContextWithArtifact("Black Harbor", "Location", "A port city on the coast");
 
-        var request = _service.BuildPrompt("Where is Black Harbor?", context);
+        var request = _service.BuildPrompt(TestScope, "Where is Black Harbor?", context);
 
         Assert.That(request.UserMessage, Does.Contain("Location"));
         Assert.That(request.UserMessage, Does.Contain("A port city on the coast"));
@@ -114,7 +116,7 @@ public class LoremasterServicePromptTests
     {
         var context = CreateContextWithArtifact("Silver Key", "Item", "A mysterious key");
 
-        var request = _service.BuildPrompt("What is the Silver Key?", context);
+        var request = _service.BuildPrompt(TestScope, "What is the Silver Key?", context);
 
         Assert.That(request.UserMessage, Does.Contain("[ref:art-1]"));
     }
@@ -141,7 +143,7 @@ public class LoremasterServicePromptTests
             SourceReferences = new List<KnowledgeSourceReference>()
         };
 
-        var request = _service.BuildPrompt("Where is Voss?", context);
+        var request = _service.BuildPrompt(TestScope, "Where is Voss?", context);
 
         Assert.That(request.UserMessage, Does.Contain("location: Black Harbor"));
         Assert.That(request.UserMessage, Does.Contain("[ref:fact-1]"));
@@ -169,7 +171,7 @@ public class LoremasterServicePromptTests
             SourceReferences = new List<KnowledgeSourceReference>()
         };
 
-        var request = _service.BuildPrompt("Who does Voss work for?", context);
+        var request = _service.BuildPrompt(TestScope, "Who does Voss work for?", context);
 
         Assert.That(request.UserMessage, Does.Contain("[Rumor]"));
     }
@@ -196,7 +198,7 @@ public class LoremasterServicePromptTests
             SourceReferences = new List<KnowledgeSourceReference>()
         };
 
-        var request = _service.BuildPrompt("Did Voss steal the caravan?", context);
+        var request = _service.BuildPrompt(TestScope, "Did Voss steal the caravan?", context);
 
         Assert.That(request.UserMessage, Does.Contain("[Disputed]"));
     }
@@ -223,7 +225,7 @@ public class LoremasterServicePromptTests
             SourceReferences = new List<KnowledgeSourceReference>()
         };
 
-        var request = _service.BuildPrompt("Who is Voss?", context);
+        var request = _service.BuildPrompt(TestScope, "Who is Voss?", context);
 
         Assert.That(request.UserMessage, Does.Not.Contain("[Confirmed]"));
         Assert.That(request.UserMessage, Does.Not.Contain("[Rumor]"));
@@ -253,7 +255,7 @@ public class LoremasterServicePromptTests
             SourceReferences = new List<KnowledgeSourceReference>()
         };
 
-        var request = _service.BuildPrompt("Where is Voss?", context);
+        var request = _service.BuildPrompt(TestScope, "Where is Voss?", context);
 
         Assert.That(request.UserMessage, Does.Contain("LocatedIn"));
         Assert.That(request.UserMessage, Does.Contain("Captain Voss is located in Black Harbor"));
@@ -283,7 +285,7 @@ public class LoremasterServicePromptTests
             SourceReferences = new List<KnowledgeSourceReference>()
         };
 
-        var request = _service.BuildPrompt("Who are Voss's allies?", context);
+        var request = _service.BuildPrompt(TestScope, "Who are Voss's allies?", context);
 
         Assert.That(request.UserMessage, Does.Contain("[Rumor]"));
     }
@@ -312,7 +314,7 @@ public class LoremasterServicePromptTests
             }
         };
 
-        var request = _service.BuildPrompt("What about the Silver Key?", context);
+        var request = _service.BuildPrompt(TestScope, "What about the Silver Key?", context);
 
         Assert.That(request.UserMessage, Does.Contain("Tavrin found the Silver Key in his quarters"));
         Assert.That(request.UserMessage, Does.Contain("[ref:src-1]"));
@@ -323,7 +325,7 @@ public class LoremasterServicePromptTests
     {
         var context = CreateEmptyContext();
 
-        var request = _service.BuildPrompt("Any question", context);
+        var request = _service.BuildPrompt(TestScope, "Any question", context);
 
         Assert.That(request.Model, Is.EqualTo("gpt-4o"));
     }
@@ -333,7 +335,7 @@ public class LoremasterServicePromptTests
     {
         var context = CreateEmptyContext();
 
-        var request = _service.BuildPrompt("Any question", context);
+        var request = _service.BuildPrompt(TestScope, "Any question", context);
 
         Assert.That(request.TimeoutSeconds, Is.EqualTo(30));
     }
@@ -343,7 +345,7 @@ public class LoremasterServicePromptTests
     {
         var context = CreateEmptyContext();
 
-        var request = _service.BuildPrompt("Any question", context);
+        var request = _service.BuildPrompt(TestScope, "Any question", context);
 
         Assert.That(request.SystemPrompt, Is.EqualTo(LoremasterService.SystemPromptTemplate));
     }
@@ -354,7 +356,7 @@ public class LoremasterServicePromptTests
         var context = CreateEmptyContext();
         var question = "What do we know about the missing caravan?";
 
-        var request = _service.BuildPrompt(question, context);
+        var request = _service.BuildPrompt(TestScope, question, context);
 
         Assert.That(request.UserMessage, Does.Contain(question));
     }
@@ -364,7 +366,7 @@ public class LoremasterServicePromptTests
     {
         var context = CreateEmptyContext();
 
-        var request = _service.BuildPrompt("Any question", context);
+        var request = _service.BuildPrompt(TestScope, "Any question", context);
 
         Assert.That(request.UserMessage, Does.Not.Contain("World Knowledge Context"));
     }
@@ -374,7 +376,7 @@ public class LoremasterServicePromptTests
     {
         var context = CreateContextWithArtifact("Captain Voss", "Character", "A captain");
 
-        var request = _service.BuildPrompt("Who is Voss?", context);
+        var request = _service.BuildPrompt(TestScope, "Who is Voss?", context);
 
         Assert.That(request.UserMessage, Does.Contain("World Knowledge Context"));
     }
@@ -443,7 +445,7 @@ public class LoremasterServicePromptTests
         var context = CreateEmptyContext();
         var conversation = "Q: Who is Captain Voss?\nA: A harbor captain in Black Harbor.";
 
-        var request = _service.BuildPrompt("What about his brother?", context, conversation);
+        var request = _service.BuildPrompt(TestScope, "What about his brother?", context, conversation);
 
         Assert.That(request.UserMessage, Does.Contain("## Conversation So Far"));
         Assert.That(request.UserMessage, Does.Contain("Who is Captain Voss?"));
@@ -452,7 +454,7 @@ public class LoremasterServicePromptTests
     [Test]
     public void BuildPrompt_WithoutConversationContext_OmitsConversationSection()
     {
-        var request = _service.BuildPrompt("Who is Voss?", CreateEmptyContext());
+        var request = _service.BuildPrompt(TestScope, "Who is Voss?", CreateEmptyContext());
 
         Assert.That(request.UserMessage, Does.Not.Contain("## Conversation So Far"));
     }

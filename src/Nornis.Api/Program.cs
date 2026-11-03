@@ -387,26 +387,22 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
         new Uri(loremasterEndpoint),
         new System.ClientModel.ApiKeyCredential(aiKey),
         Nornis.Infrastructure.Ai.AzureOpenAiClientFactory.RetriesForUserFacingCall);
-    builder.Services.AddSingleton<Microsoft.Extensions.AI.IChatClient>(
-        new Nornis.Infrastructure.Ai.AzureOpenAiChatClient(openAiClient.GetChatClient(loremasterModel ?? "gpt-4o")));
-    builder.Services.AddScoped<ILoremasterAiClient, AzureOpenAiLoremasterClient>();
-    builder.Services.AddScoped<IAuditAiClient, AzureOpenAiAuditClient>();
-    builder.Services.AddScoped<IContinuityFixAiClient, AzureOpenAiContinuityFixClient>();
-    builder.Services.AddScoped<IRetrospectiveAiClient, AzureOpenAiRetrospectiveClient>();
-    builder.Services.AddScoped<IDigestAiClient, AzureOpenAiDigestClient>();
-    builder.Services.AddScoped<IConvergenceNarrationClient, AzureOpenAiConvergenceNarrationClient>();
-    builder.Services.AddScoped<IWorldNameGenerator, AzureOpenAiWorldNameGenerator>();
+    // Every AI client binds each call through the binder (feature 39): the funding service
+    // decides who pays and on which model, and Nornis's own deployments are built on first use.
+    builder.Services.AddSingleton(Nornis.Infrastructure.Ai.NornisChatClients.Create(openAiClient));
+    builder.Services.AddScoped<IAiFundingService, NornisAiFundingService>();
+    builder.Services.AddScoped<Nornis.Infrastructure.Ai.IAiCallBinder, Nornis.Infrastructure.Ai.AiCallBinder>();
+    builder.Services.AddScoped<ILoremasterAiClient, LoremasterAiClient>();
+    builder.Services.AddScoped<IAuditAiClient, AuditAiClient>();
+    builder.Services.AddScoped<IContinuityFixAiClient, ContinuityFixAiClient>();
+    builder.Services.AddScoped<IRetrospectiveAiClient, RetrospectiveAiClient>();
+    builder.Services.AddScoped<IDigestAiClient, DigestAiClient>();
+    builder.Services.AddScoped<IConvergenceNarrationClient, ConvergenceNarrationAiClient>();
+    builder.Services.AddScoped<IWorldNameGenerator, AiWorldNameGenerator>();
 
-    // Prep drafting (feature 29) shares the account. On the Loremaster's chat client unless
-    // Prep:Deployment names a different deployment, which then gets a client of its own.
-    var prepDeployment = builder.Configuration["Prep:Deployment"];
-    Microsoft.Extensions.AI.IChatClient? prepChatClient =
-        string.IsNullOrWhiteSpace(prepDeployment) || prepDeployment == loremasterModel
-            ? null
-            : new Nornis.Infrastructure.Ai.AzureOpenAiChatClient(openAiClient.GetChatClient(prepDeployment));
-    builder.Services.AddScoped<IAdventureDraftingAiClient>(sp => new AzureOpenAiAdventureDraftingClient(
-        prepChatClient ?? sp.GetRequiredService<Microsoft.Extensions.AI.IChatClient>(),
-        sp.GetRequiredService<ILogger<AzureOpenAiAdventureDraftingClient>>()));
+    // Prep drafting (feature 29) shares the account; Prep:Deployment, when set, names its own
+    // deployment, which the services read and the binder builds a client for.
+    builder.Services.AddScoped<IAdventureDraftingAiClient, AdventureDraftingAiClient>();
 
     // Handwriting transcription on demand: the capture page reads a photo of notes so the GM
     // can correct the reading before extraction sees it. Same chat client as every other
@@ -416,7 +412,7 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
     builder.Services.AddSingleton(new HandwritingTranscriptionSettings(
         loremasterModel ?? "gpt-4o",
         builder.Configuration.GetValue<int?>("Transcription:TimeoutSeconds") ?? 90));
-    builder.Services.AddScoped<IHandwritingTranscriptionClient, AzureOpenAiHandwritingTranscriptionClient>();
+    builder.Services.AddScoped<IHandwritingTranscriptionClient, HandwritingTranscriptionAiClient>();
     builder.Services.AddScoped<HandwritingTranscriptionPipeline>();
     builder.Services.AddScoped<ISourceTranscriptionService, SourceTranscriptionService>();
 

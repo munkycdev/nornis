@@ -188,6 +188,7 @@ public class WorldDigestService : IWorldDigestService
     {
         var request = new AiPromptRequest
         {
+            Scope = AiCallScope.ForWorld(worldId),
             SystemPrompt = systemPrompt,
             UserMessage = recordText,
             Model = _options.AiModel,

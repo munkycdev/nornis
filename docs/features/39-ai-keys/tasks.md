@@ -2,38 +2,44 @@
 
 Four phases, one PR each. Built after the Prep wave (features 35 to 38) unless Dave moves it
 earlier; feature 38's cover art is written against Phase A's resolver if A lands first, so it
-doesn't need rework. The version number is set when Phase B ships. Ask Dave before merging
-these PRs. Phase B's migration is applied by Dave by hand before its PR merges.
+doesn't need rework. The version number is set when Phase B ships. Each PR merges once its
+checks pass (Dave, 2026-11-03: "you may merge PRs as you finish each one"). Phase B's migration is applied by Dave by hand before its PR merges.
 
-**Status: specified 2026-11-03.**
+**Status: specified 2026-11-03. Phase A built 2026-11-03; see the amendment at the top of
+design.md for where it differs from the tasks below.**
 
 ## Phase A — The seam, with Azure still behind it (no behaviour change)
 
-- [ ] A1. Amendments: `ai-extraction.md` (the schema dialect, `proposedFields`, the funding
-      rule), `observability-and-costs.md` (`AiModels` catalog replaces `ModelPricing`; usage
-      record funding fields), `architecture.md` (resolver and traits), `domain-model.md`
-      (`UserAiKey`, `UserAiCompatibleModel`, `UserAiModelChoice`, AI task, key holder).
-- [ ] A2. Application: `AiTask`, `AiTasks.For` (exhaustive), `AiFunding`, `AiJsonSchema`,
-      `AiKeyRejectedException`, `AiCreditExhaustedException`, the three `ErrorCategories`;
-      `AiPromptRequest.Funding` as a `required` member.
-- [ ] A3. Configuration: the `AiModels` section and its startup validation; `AiUsageRecorder`
-      prices from the catalog. The `azure/…` lines carry today's prices.
-- [ ] A4. Infrastructure: `IAiProviderTraits` (OpenAI/Azure first), `AiClientResolver` with
-      the trial client only, `AiCallExecutor` binding per call; the 19 clients drop the
-      `AzureOpenAi` prefix and the singleton `IChatClient`; the `RawRepresentationFactory`
-      schema path goes.
-- [ ] A5. A temporary `AiFundingService` that always funds the trial models, so nothing
-      changes for Dave.
-- [ ] A6. Schemas: the strict dialect everywhere; `proposedFields` in extraction (prompt,
-      schema, parser); the schema-dialect test, shown failing on today's schema first.
-- [ ] A7. Tests per design.md for A2 to A6; build, `dotnet test`,
-      `dotnet format --verify-no-changes`. A quick live check on Dave's Gribbits world that
-      extraction still proposes the same things.
+- [x] A1. Amendments: `ai-extraction.md` (the schema dialect, the closed `proposedValue`, the
+      funding rule), `architecture.md` (binder and traits). `observability-and-costs.md` and
+      `domain-model.md` move to Phase B with the catalog and the key entities.
+- [x] A2. Application: `AiTask`, `AiTasks.For` (exhaustive), `AiFunding`, `AiCallScope`,
+      `IAiFundingService`; `AiPromptRequest.Scope` (and on the three vision requests) as a
+      `required` member. The refusal exceptions and `ErrorCategories` move to Phase B.
+- [ ] A3. Moved to Phase B (B1a): the `AiModels` catalog and pricing from it.
+- [x] A4. Infrastructure: `IAiProviderTraits` (OpenAI first), `IAiCallBinder` with Nornis's
+      clients only (`NornisChatClients`, one per deployment), `AiCallExecutor` binding per call;
+      15 clients drop the `AzureOpenAi` prefix and the singleton `IChatClient`; schemas and the
+      drafting ceiling travel as `AiCallOptions`.
+- [x] A5. `NornisAiFundingService`, which always funds Nornis's own model, so nothing changes
+      for Dave.
+- [x] A6. Schemas: the strict dialect everywhere; extraction's `proposedValue` closed with
+      nullable fields (prompt, schema, parser). `StrictSchemaDialectTests` with its own
+      rule test on the old open shape.
+- [x] A7. Tests: `AiTasksTests`, `StrictSchemaDialectTests`, `OpenAiProviderTraitsTests`,
+      `AiCallBinderTests`, executor binding tests, the null-dropping parser; build,
+      `dotnet test`, `dotnet format --verify-no-changes`. Live check after deploy: one
+      extraction on Gribbits still proposes the same kinds of change.
 
 ## Phase B — Keys and the trial (OpenAI and OpenAI-compatible)
 
 - [ ] B0. Decide Gemini's route (its .NET GenAI SDK or the OpenAI-compatible endpoint) with a
       conformance test of streaming, images, schema and usage; record the choice here.
+- [ ] B1a. (from A3) The `AiModels` catalog and its startup validation; `AiUsageRecorder`
+      prices from it, replacing `ModelPricing`. The `azure/…` lines carry today's prices.
+- [ ] B1b. The refusal exceptions (`AiKeyRequiredException`, `AiKeyRejectedException`,
+      `AiCreditExhaustedException`, subclasses of `AiHttpException`) and their three
+      `ErrorCategories`.
 - [ ] B1. Domain and migration `AddAiKeys`: `UserAiKey`, `UserAiCompatibleModel`,
       `UserAiModelChoice`, the `AiUsageRecord` columns and index.
 - [ ] B2. `AiKeyProtector` with its own ring (`AiKeys:KeyBlobUri`); `IAiKeyChecker` with its

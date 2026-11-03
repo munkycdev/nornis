@@ -102,6 +102,7 @@ public class ConvergenceNarrationService : IConvergenceNarrationService
 
         var request = new AiPromptRequest
         {
+            Scope = AiCallScope.ForWorld(worldId, actingUserId),
             SystemPrompt = SystemPrompt,
             UserMessage = BuildUserMessage(narrated),
             Model = _options.AiModel,

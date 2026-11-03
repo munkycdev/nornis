@@ -90,7 +90,7 @@ public class DemoWorldService : IDemoWorldService
             using var zip = new ZipArchive(zipStream, ZipArchiveMode.Read);
             package = await TemplatePackage.ParseAsync(zip, ct);
 
-            var name = await GenerateNameAsync(ct);
+            var name = await GenerateNameAsync(command.ActingUserId, ct);
             var (world, member, rows) = await MaterializeAsync(package, zip, command, name, ct);
 
             await _importWriter.WriteAsync(world, member, rows, ct);
@@ -116,12 +116,12 @@ public class DemoWorldService : IDemoWorldService
         }
     }
 
-    private async Task<string> GenerateNameAsync(CancellationToken ct)
+    private async Task<string> GenerateNameAsync(Guid userId, CancellationToken ct)
     {
         string? generated = null;
         try
         {
-            generated = await _nameGenerator.GenerateAsync(ct);
+            generated = await _nameGenerator.GenerateAsync(userId, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
