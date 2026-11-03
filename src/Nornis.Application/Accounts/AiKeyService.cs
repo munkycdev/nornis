@@ -41,9 +41,11 @@ public sealed record SaveAiKeyCommand(
 /// <param name="SourcesQueued">Sources that had failed for want of a key and were queued again.</param>
 public sealed record SavedAiKey(AiKeyView Key, int SourcesQueued);
 
-/// <param name="Id">What a choice stores: a catalog id, or <c>compatible:{line id}</c>.</param>
+/// <param name="Id">What a choice stores: a catalog id, <c>compatible:{line id}</c>, or
+/// <c>untested:{provider}/{model}</c>.</param>
 /// <param name="HasKey">Whether the user has a key for its provider; a model without one can't be picked.</param>
-/// <param name="Tested">False for OpenAI-compatible models, which Nornis has never run.</param>
+/// <param name="Tested">False for OpenAI-compatible models and for the models a key's provider lists
+/// beyond the catalog ("More from your key"), which Nornis has never run.</param>
 public sealed record AiModelOption(string Id, string Name, AiProvider Provider, bool SupportsImages, bool HasKey, bool Tested);
 
 /// <param name="ChosenId">The user's pick, or null for the default.</param>
@@ -99,6 +101,7 @@ public sealed class AiKeyService : IAiKeyService
     private readonly IAiKeyRepository _keys;
     private readonly IAiKeyProtector _protector;
     private readonly IAiKeyChecker _checker;
+    private readonly IAiModelLister _lister;
     private readonly IAiUsageRecordRepository _usage;
     private readonly IWorldRepository _worlds;
     private readonly ISourceRepository _sources;
@@ -112,6 +115,7 @@ public sealed class AiKeyService : IAiKeyService
         IAiKeyRepository keys,
         IAiKeyProtector protector,
         IAiKeyChecker checker,
+        IAiModelLister lister,
         IAiUsageRecordRepository usage,
         IWorldRepository worlds,
         ISourceRepository sources,
@@ -124,6 +128,7 @@ public sealed class AiKeyService : IAiKeyService
         _keys = keys;
         _protector = protector;
         _checker = checker;
+        _lister = lister;
         _usage = usage;
         _worlds = worlds;
         _sources = sources;
@@ -266,9 +271,11 @@ public sealed class AiKeyService : IAiKeyService
         var keys = await _keys.ListByUserAsync(userId, ct);
         var choices = await _keys.ListChoicesAsync(userId, ct);
         var lines = keys.FirstOrDefault(k => k.Provider == AiProvider.OpenAiCompatible)?.CompatibleModels ?? [];
+        var untested = await UntestedModelsAsync(keys, ct);
 
         return Enum.GetValues<AiTask>().Select(task =>
         {
+            var chosenId = choices.FirstOrDefault(c => c.Task == task)?.ModelId;
             var options = _options.Catalog
                 .Where(m => m.Tasks.Contains(task))
                 .Select(m => new AiModelOption(m.Id, m.Model, m.Provider, m.SupportsImages,
@@ -276,12 +283,47 @@ public sealed class AiKeyService : IAiKeyService
                 .Concat(lines.Where(l => l.Task == task).Select(l => new AiModelOption(
                     AiModelPicker.CompatibleId(l.Id), l.ModelName, AiProvider.OpenAiCompatible, l.SupportsImages,
                     HasKey: true, Tested: false)))
+                .Concat(AiTasks.OnlyKeysRun(task) ? [] : untested)
                 .ToList();
 
-            return new AiTaskModels(task, options,
-                choices.FirstOrDefault(c => c.Task == task)?.ModelId,
+            // A pick the provider no longer lists, or couldn't be asked about just now, still
+            // shows as the pick: it runs until it fails or the GM changes it.
+            if (AiModelPicker.TryParseUntested(chosenId ?? "", out var provider, out var model)
+                && options.All(o => o.Id != chosenId)
+                && AiModelPicker.Pick(_options, keys, chosenId, task, needsImages: false)?.ChoiceId == chosenId)
+            {
+                options.Add(new AiModelOption(chosenId!, model, provider, SupportsImages: false, HasKey: true, Tested: false));
+            }
+
+            return new AiTaskModels(task, options, chosenId,
                 AiModelPicker.Pick(_options, keys, null, task, needsImages: false)?.ChoiceId);
         }).ToList();
+    }
+
+    /// <summary>
+    /// "More from your key": the chat models each of the user's keys can run that the catalog
+    /// doesn't list, for any task but the key-only ones. A provider that can't be asked just now
+    /// adds nothing; nor does a key whose check failed, or a provider the catalog can't price.
+    /// </summary>
+    private async Task<IReadOnlyList<AiModelOption>> UntestedModelsAsync(IReadOnlyList<UserAiKey> keys, CancellationToken ct)
+    {
+        var options = new List<AiModelOption>();
+        foreach (var key in keys.Where(k => AiModelPicker.UntestedProviders.Contains(k.Provider) && !k.CheckFailed))
+        {
+            if (_options.EstimateFor(key.Provider) is null || _protector.Unprotect(key.ProtectedKey) is not { } secret)
+            {
+                continue;
+            }
+
+            var catalogued = _options.Catalog.Where(m => m.Provider == key.Provider).Select(m => m.Model).ToHashSet(StringComparer.Ordinal);
+            var listed = await _lister.ListChatModelsAsync(key, secret, ct) ?? [];
+            options.AddRange(listed
+                .Where(m => !catalogued.Contains(m.Id))
+                .Select(m => new AiModelOption(AiModelPicker.UntestedId(key.Provider, m.Id), m.Name, key.Provider,
+                    SupportsImages: false, HasKey: true, Tested: false)));
+        }
+
+        return options;
     }
 
     public async Task<AppResult> ChooseModelAsync(Guid userId, AiTask task, string? modelId, CancellationToken ct)

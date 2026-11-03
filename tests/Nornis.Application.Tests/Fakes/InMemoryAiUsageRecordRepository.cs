@@ -116,7 +116,7 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
         return Task.FromResult<IReadOnlyList<GroupedCostSummary<string>>>(result.AsReadOnly());
     }
 
-    public Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByModelAsync(
+    public Task<IReadOnlyList<GroupedCostSummary<ModelCostKey>>> AggregateByModelAsync(
         Guid worldId,
         Guid? userId,
         DateTimeOffset? fromDate,
@@ -126,15 +126,16 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
         var query = FilterRecords(worldId, userId, fromDate, toDate);
 
         var result = query
-            .GroupBy(r => r.Model)
-            .Select(g => new GroupedCostSummary<string>
+            .GroupBy(r => new ModelCostKey(r.Model,
+                r.ModelId?.StartsWith(UserAiModelChoice.UntestedPrefix, StringComparison.Ordinal) == true))
+            .Select(g => new GroupedCostSummary<ModelCostKey>
             {
                 Key = g.Key,
                 Summary = BuildSummary(g.ToList())
             })
             .ToList();
 
-        return Task.FromResult<IReadOnlyList<GroupedCostSummary<string>>>(result.AsReadOnly());
+        return Task.FromResult<IReadOnlyList<GroupedCostSummary<ModelCostKey>>>(result.AsReadOnly());
     }
 
     public Task<IReadOnlyList<GroupedCostSummary<AiFundingKey>>> AggregateByFundingAsync(

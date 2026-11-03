@@ -5,9 +5,12 @@
 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4" id="ai-models">
     <div class="nornis-detail-section-title">Models</div>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-        Which model each kind of AI work in your worlds runs on. The default is the first one your keys
-        cover; a model you pick that stops fitting (its key removed, or a job that needs to read images)
-        falls back to the default.
+        Which model each kind of AI work in your worlds runs on. The default is the first reviewed model
+        your keys cover; a reviewed model you pick that stops fitting (its key removed, or a job that needs
+        to read images) falls back to the default. Under "More from your key" are the other models your
+        provider lists. Nornis hasn't tested them: one may not read images or return the structured answers
+        extraction needs, and then the work fails rather than switching models. Costs prices them as an
+        estimate, and the trial never runs them.
     </MudText>
 
     @if (_tasks is null)
@@ -30,11 +33,21 @@
                            Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Disabled="_busy"
                            Class="nornis-ai-model-select" aria-label="@($"Model for {AiText.Task(task.Task)}")">
                     <MudSelectItem T="string" Value="@Default">@DefaultLabel(task)</MudSelectItem>
-                    @foreach (var option in task.Options)
+                    @foreach (var option in task.Options.Where(o => !FromYourKey(o)))
                     {
                         <MudSelectItem T="string" Value="@option.Id" Disabled="!option.HasKey">
                             @OptionLabel(option)
                         </MudSelectItem>
+                    }
+                    @if (task.Options.Any(FromYourKey))
+                    {
+                        <MudSelectItem T="string" Value="@($"{MoreHeading}{task.Task}")" Disabled="true" data-testid="ai-models-more">
+                            More from your key (not tested by Nornis)
+                        </MudSelectItem>
+                        @foreach (var option in task.Options.Where(FromYourKey))
+                        {
+                            <MudSelectItem T="string" Value="@option.Id">@($"{option.Name} · {AiText.Provider(option.Provider)}")</MudSelectItem>
+                        }
                     }
                 </MudSelect>
             </div>
@@ -47,6 +60,14 @@
 @code {
     /// <summary>The select's value for "no pick": never a model id.</summary>
     private const string Default = "";
+
+    /// <summary>The disabled heading's value: never a model id either.</summary>
+    private const string MoreHeading = "heading:";
+
+    /// <summary>A model the key's provider lists beyond the catalog; an OpenAI-compatible line is
+    /// untested too, but it is the GM's own, so it stays with the rest.</summary>
+    private static bool FromYourKey(AiModelOptionDto option) =>
+        !option.Tested && option.Provider != "OpenAiCompatible";
 
     private IReadOnlyList<AiTaskModelsDto>? _tasks;
     private bool _busy;
@@ -65,6 +86,11 @@
 
     private async Task ChooseAsync(AiTaskModelsDto task, string value)
     {
+        if (value.StartsWith(MoreHeading, StringComparison.Ordinal))
+        {
+            return;
+        }
+
         _busy = true;
         var result = await Api.ChooseAiModelAsync(task.Task, value == Default ? null : value);
         _busy = false;

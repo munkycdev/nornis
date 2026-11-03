@@ -171,6 +171,23 @@ public class AiKeysEndpointTests
     }
 
     [Test]
+    public async Task More_from_your_key_can_be_chosen_after_the_catalog()
+    {
+        _factory.AiModelLister.Models = [new("gpt-4.1-mini", "gpt-4.1-mini")];
+        await _voss.PutAsJsonAsync("/api/me/ai-keys/openai", new { Key = Secret });
+
+        var chosen = await _voss.PutAsJsonAsync("/api/me/ai-models/ask", new { ModelId = "untested:OpenAi/gpt-4.1-mini" });
+        var models = await _voss.GetFromJsonAsync<List<AiTaskModelsResponse>>("/api/me/ai-models");
+
+        var ask = models!.Single(t => t.Task == "Ask");
+        Assert.That(chosen.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+        Assert.That(ask.ChosenId, Is.EqualTo("untested:OpenAi/gpt-4.1-mini"));
+        Assert.That(ask.Options[0].Id, Is.EqualTo("openai/gpt-5.4"), "the catalog comes first");
+        Assert.That(ask.Options.Single(o => o.Id == ask.ChosenId).Tested, Is.False);
+        Assert.That(models!.Single(t => t.Task == nameof(AiTask.CoverArt)).Options.Where(o => !o.Tested), Is.Empty);
+    }
+
+    [Test]
     public async Task The_trial_is_not_in_use_before_the_cutover()
     {
         var trial = await _voss.GetFromJsonAsync<AiTrialResponse>("/api/me/ai-trial");

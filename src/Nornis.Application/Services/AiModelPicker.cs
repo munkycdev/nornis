@@ -14,9 +14,15 @@ internal static class AiModelPicker
 {
     /// <param name="Key">The key that pays.</param>
     /// <param name="Model">The provider's model name, as sent on the wire.</param>
-    /// <param name="CatalogId">The catalog id; null for an OpenAI-compatible line.</param>
+    /// <param name="CatalogId">The catalog id, or the <c>untested:</c> id of a model the catalog
+    /// doesn't list; null for an OpenAI-compatible line. The ledger keeps it as the row's model id.</param>
     /// <param name="ChoiceId">What a <see cref="UserAiModelChoice"/> naming this model stores.</param>
     internal sealed record ModelPick(UserAiKey Key, string Model, string? CatalogId, string ChoiceId, AiModelPrice Price);
+
+    /// <summary>The providers whose own model lists Profile offers beyond the catalog: those with
+    /// a client and a model list. An OpenAI-compatible key names its models itself.</summary>
+    internal static readonly IReadOnlySet<AiProvider> UntestedProviders =
+        new HashSet<AiProvider> { AiProvider.OpenAi, AiProvider.Anthropic };
 
     /// <summary>
     /// The chosen model when it still fits, otherwise the first catalog model, in catalog order,
@@ -55,6 +61,11 @@ internal static class AiModelPicker
                 : null;
         }
 
+        if (TryParseUntested(choiceId, out var provider, out var name))
+        {
+            return Untested(options, keys, choiceId, provider, name, task);
+        }
+
         return options.Find(choiceId) is { } model && Fits(model, task, needsImages) && KeyFor(keys, model.Provider) is { } key
             ? new ModelPick(key, model.Model, model.Id, model.Id, model.Price)
             : null;
@@ -77,7 +88,59 @@ internal static class AiModelPicker
                 new AiModelPrice(line.InputPerMillionUsd, null, line.OutputPerMillionUsd));
     }
 
+    /// <summary>
+    /// A model the key's provider lists and the catalog doesn't. Nornis knows nothing of what it
+    /// can do, so it runs as chosen even when the call sends images: if the model can't read them
+    /// or can't return the structured answer, the provider's refusal fails the call where the GM
+    /// can see it, rather than the call quietly moving to another model. Priced as an estimate.
+    /// </summary>
+    private static ModelPick? Untested(
+        AiModelsOptions options, IReadOnlyList<UserAiKey> keys, string choiceId, AiProvider provider, string model, AiTask task)
+    {
+        if (AiTasks.OnlyKeysRun(task) || options.EstimateFor(provider) is not { } estimate
+            || KeyFor(keys, provider) is not { } key)
+        {
+            return null;
+        }
+
+        // Listed in the catalog since it was picked: it is tested now, and priced properly.
+        var listed = options.Catalog.FirstOrDefault(m => m.Provider == provider
+            && string.Equals(m.Model, model, StringComparison.Ordinal) && m.Tasks.Contains(task));
+        return listed is not null
+            ? new ModelPick(key, listed.Model, listed.Id, listed.Id, listed.Price)
+            : new ModelPick(key, model, choiceId, choiceId, estimate);
+    }
+
     internal static string CompatibleId(Guid lineId) => UserAiModelChoice.CompatiblePrefix + lineId;
+
+    internal static string UntestedId(AiProvider provider, string model) =>
+        $"{UserAiModelChoice.UntestedPrefix}{provider}/{model}";
+
+    internal static bool IsUntestedId(string? choiceId) =>
+        choiceId?.StartsWith(UserAiModelChoice.UntestedPrefix, StringComparison.Ordinal) == true;
+
+    internal static bool TryParseUntested(string choiceId, out AiProvider provider, out string model)
+    {
+        provider = default;
+        model = string.Empty;
+        if (!IsUntestedId(choiceId))
+        {
+            return false;
+        }
+
+        var rest = choiceId[UserAiModelChoice.UntestedPrefix.Length..];
+        var slash = rest.IndexOf('/');
+        if (slash <= 0 || slash == rest.Length - 1
+            || !Enum.TryParse(rest[..slash], ignoreCase: false, out provider)
+            || provider.ToString() != rest[..slash]
+            || !UntestedProviders.Contains(provider))
+        {
+            return false;
+        }
+
+        model = rest[(slash + 1)..];
+        return true;
+    }
 
     internal static bool Fits(AiCatalogModel model, AiTask task, bool needsImages) =>
         model.Tasks.Contains(task) && (!needsImages || model.SupportsImages);

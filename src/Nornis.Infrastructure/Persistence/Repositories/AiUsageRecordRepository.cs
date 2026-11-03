@@ -153,7 +153,7 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
             .ToList();
     }
 
-    public async Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByModelAsync(
+    public async Task<IReadOnlyList<GroupedCostSummary<ModelCostKey>>> AggregateByModelAsync(
         Guid worldId,
         Guid? userId,
         DateTimeOffset? fromDate,
@@ -163,10 +163,15 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
         var query = BuildFilteredQuery(worldId, userId, fromDate, toDate);
 
         var results = await query
-            .GroupBy(r => r.Model)
-            .Select(g => new GroupedCostSummary<string>
+            .GroupBy(r => new
             {
-                Key = g.Key,
+                r.Model,
+                Estimated = r.ModelId != null && r.ModelId.StartsWith(UserAiModelChoice.UntestedPrefix),
+            })
+            .Select(g => new
+            {
+                g.Key.Model,
+                g.Key.Estimated,
                 Summary = new CostSummary
                 {
                     TotalInputTokens = g.Sum(r => (long)r.InputTokens),
@@ -178,7 +183,9 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
             })
             .ToListAsync(cancellationToken);
 
-        return results;
+        return results
+            .Select(r => new GroupedCostSummary<ModelCostKey> { Key = new ModelCostKey(r.Model, r.Estimated), Summary = r.Summary })
+            .ToList();
     }
 
     public async Task<IReadOnlyList<GroupedCostSummary<AiFundingKey>>> AggregateByFundingAsync(
