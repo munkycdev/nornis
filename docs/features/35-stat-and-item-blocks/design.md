@@ -1,5 +1,38 @@
 # Design Document
 
+> **Amendment (2026-11-03, Phases B and C):** what building it changed. The text below is
+> left as written.
+>
+> - **A GM callout.** Dave's Slurping Spa transcript showed a box the grammar lacked: a note for
+>   the GM alone (a hard exit, a fallback). `> [!GM]` (`PrepMarkup.GmMarker`) is a marked quote
+>   like Prop and Ask, with a "GM note" editor button (`Icons.Material.Outlined.Flag`) and a
+>   shaded box with a heavy ink left rule in the booklet (`BookletBoxKind.Gm`). The prompt
+>   conventions teach it.
+> - **Prompts write for the adventure's own system.** Drafting and the side conversation used
+>   the world's game system and ignored Book details. Both now read `PrintDetails.SystemOf`
+>   (the adventure's system or the world's, then its edition), the same resolution the booklet
+>   cover uses, and name the adventure's levels when it has them.
+> - **The cut never depends on the system.** The warnings are built where no system is at
+>   hand (a save, a draft), so an export line keeps `SystemReserveChars` (the longest system
+>   plus edition, with " ()") free and decides its cut on the block alone. The warning and the
+>   export can't disagree. A name is cut at 200 characters, so the head alone can't fill the
+>   line. `GameBlockWarnings.For` therefore takes the Markdown only.
+> - **The export line's shape** is `Stat block for "Name" (System): *subtitle*. A: 1; B: 2.
+>   Group — C: 3.` An entry's own full stop gives way to the separator. An unclosed fence still
+>   becomes its line.
+> - **The export falls back to fences.** A block line can be longer than its fence (the head
+>   and the system), so only the body without lines is inside `AdventureSize`'s bound. When the
+>   body with lines would pass `SourceService.MaxBodyChars`, the export service composes it
+>   again without them (`blockLines: false`) and logs it; the export still goes through whole.
+> - **Groups print as run-in entries** ("Cutlass. +5 to hit…", label in semibold italics), not
+>   a label table, which reads like a published stat block. A group's heading, its rule and its
+>   first entry are kept together, so a heading never ends a column.
+> - **The item frame** is a 2 pt ink line above a hairline left, right and bottom border:
+>   QuestPDF gives a container's sides one colour, so the top rule is its own element.
+> - **The worked example** in the prompt conventions uses plain labels (Defense, Health, Speed)
+>   rather than one system's, so it doesn't pull every draft towards that system.
+> - **Warnings are plain text**, shown one per line in a dense warning alert.
+
 ## Overview
 
 Game blocks stay Markdown fences in a section's text. One parser in Application reads them into

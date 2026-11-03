@@ -1,5 +1,6 @@
 using Nornis.Application.Ai;
 using Nornis.Application.Knowledge;
+using Nornis.Application.Prep;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Ai;
@@ -400,6 +401,32 @@ public class ExtractionPromptBuilderTests
             Assert.That(prompt, Does.Contain("as Event artifacts"));
             Assert.That(prompt, Does.Contain("\"Confirmed\", as for an excerpt"));
             Assert.That(prompt, Does.Not.Contain("## Library Excerpt"));
+        });
+    }
+
+    /// <summary>
+    /// Feature 35: a named block's export line is one fact, and the prompt names the line by the
+    /// very start <see cref="GameBlocks.ExportLineFor"/> writes, so the two can't drift apart.
+    /// </summary>
+    [Test]
+    public void BuildSystemPrompt_AdventureExport_FilesABlockLine_AsOneFact_ByTheLinesOwnStart()
+    {
+        var prompt = ExtractionPromptBuilder.BuildSystemPrompt(new ExtractionRequest
+        {
+            SourceBody = "Adventure \"A\", exported 2026-11-14 by the GM as prep",
+            SourceTitle = "A (prep)",
+            SourceType = "AdventureExport",
+            SourceVisibility = "GMOnly"
+        });
+        var stat = GameBlocks.ExportLineFor(GameBlocks.Parse(GameBlockKind.Stat, ["# Name", "AC: 1"]), "OSE")!.Text;
+        var item = GameBlocks.ExportLineFor(GameBlocks.Parse(GameBlockKind.Item, ["# Name", "Weight: 1"]), "OSE")!.Text;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prompt, Does.Contain($"`{stat[..(stat.IndexOf("Name", StringComparison.Ordinal) + 5)]}`"));
+            Assert.That(prompt, Does.Contain($"`{item[..(item.IndexOf("Name", StringComparison.Ordinal) + 5)]}`"));
+            Assert.That(prompt, Does.Contain("Use the predicate \"stat block\" or \"item"));
+            Assert.That(prompt, Does.Contain("Don't split it into"));
         });
     }
 

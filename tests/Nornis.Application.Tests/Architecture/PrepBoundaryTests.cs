@@ -177,6 +177,32 @@ public class PrepBoundaryTests
         Assert.That(offenders, Is.Empty, "a booklet built or rendered outside AdventureBookletPrinter");
     }
 
+    /// <summary>
+    /// Only <see cref="GameBlocks"/> reads a game block's fence (feature 35). The booklet, the
+    /// block warnings and Export to Nornis all parse through it; a second reader of the info
+    /// string would be a second grammar that drifts. The two <c>PrepMarkup</c> files name the
+    /// info strings (one is the Web's mirror, pinned by a mirror test) and the editor writes them.
+    /// </summary>
+    [Test]
+    public void OnlyGameBlocks_ReadsAGameBlocksFence()
+    {
+        var allowed = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "src/Nornis.Application/Prep/GameBlocks.cs",
+            "src/Nornis.Application/Prep/PrepMarkup.cs",
+            "src/Nornis.Web/Services/PrepMarkup.cs",
+        };
+
+        var offenders = SourceFiles()
+            .Where(f => !allowed.Contains(f.Relative))
+            .SelectMany(f => CodeLines(f)
+                .Where(l => Regex.IsMatch(l.Text, @"\b(StatBlockInfo|ItemBlockInfo)\b|""(statblock|item)""|```(statblock|item)\b"))
+                .Select(l => $"{f.Relative}:{l.Number}"))
+            .ToList();
+
+        Assert.That(offenders, Is.Empty, "a game block's fence read outside GameBlocks");
+    }
+
     // ------------------------------------------------------------------ helpers --
 
     private sealed record SourceFile(string Full, string Relative);

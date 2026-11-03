@@ -67,8 +67,12 @@ public static class ExtractionPromptBuilder
               record them as facts: they are plans for what might happen, and session notes will
               record what did. Facts the prep states as description are written canon: rate them
               "Confirmed", as for an excerpt, and keep "Rumor" and "Disputed" for what the prep
-              itself frames as hearsay or contested. A stat block (a "Label: value" list) describes
-              the artifact it is attached to; its lines may become facts on that artifact.
+              itself frames as hearsay or contested. A line that starts `Stat block for "Name"` or
+              `Item "Name"` is one fact on the Artifact it names: a Character for a stat block (a
+              creature or person), an Item for an item. Use the predicate "stat block" or "item
+              details", and the rest of the line as the value, unchanged. Don't split it into
+              separate facts. Any other stat block (a fenced "Label: value" list) describes the
+              artifact it is attached to; its lines may become facts on that artifact.
               """
             : string.Empty;
 

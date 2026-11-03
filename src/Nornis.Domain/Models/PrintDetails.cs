@@ -46,6 +46,9 @@ public sealed record PrintDetails
 
     public int? Year { get; init; }
 
+    /// <summary>The game system and edition as one line ("Shadowdark 2nd"), or null when neither is set. A method, so no serializer or mapping stores it.</summary>
+    public string? SystemLine() => JoinSystem(GameSystem, Edition);
+
     /// <summary>
     /// The details a print of this Adventure carries now. A null game system falls back to the
     /// world's; type and publisher are the fixed values; the author is the creator's username.
@@ -53,7 +56,7 @@ public sealed record PrintDetails
     public static PrintDetails Resolve(string title, AdventureDetails details, string? worldGameSystem, string authorUsername) => new()
     {
         Title = title,
-        GameSystem = details.GameSystem ?? (string.IsNullOrWhiteSpace(worldGameSystem) ? null : worldGameSystem.Trim()),
+        GameSystem = GameSystemOf(details, worldGameSystem),
         Edition = details.Edition,
         Type = NornisType,
         Levels = details.Levels,
@@ -61,4 +64,22 @@ public sealed record PrintDetails
         Author = authorUsername,
         Year = details.Year,
     };
+
+    /// <summary>
+    /// The game system an Adventure is written for: its own, or the world's (feature 32). The
+    /// print and Prep's AI prompts (feature 35) both read it here, so the AI writes for the
+    /// system the booklet will name.
+    /// </summary>
+    public static string? GameSystemOf(AdventureDetails details, string? worldGameSystem) =>
+        details.GameSystem ?? (string.IsNullOrWhiteSpace(worldGameSystem) ? null : worldGameSystem.Trim());
+
+    /// <summary>The system line for an Adventure's details: its game system (or the world's) and its edition.</summary>
+    public static string? SystemOf(AdventureDetails details, string? worldGameSystem) =>
+        JoinSystem(GameSystemOf(details, worldGameSystem), details.Edition);
+
+    private static string? JoinSystem(string? gameSystem, string? edition)
+    {
+        var line = string.Join(' ', new[] { gameSystem, edition }.Where(v => !string.IsNullOrWhiteSpace(v)).Select(v => v!.Trim()));
+        return line.Length > 0 ? line : null;
+    }
 }

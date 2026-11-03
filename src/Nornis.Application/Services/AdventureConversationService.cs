@@ -11,6 +11,7 @@ using Nornis.Application.Models;
 using Nornis.Application.Prep;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -174,7 +175,7 @@ public class AdventureConversationService : IAdventureConversationService
             {
                 SystemPrompt = AdventureConversationPrompt.SystemPrompt,
                 UserMessage = AdventureConversationPrompt.BuildUserMessage(new AdventureConversationInput(
-                    world?.GameSystem,
+                    PrintDetails.SystemOf(adventure.Details, world?.GameSystem),
                     LoremasterService.FormatKnowledgeContext(context, _loremaster.MaxSessionChars, _loremaster.MaxContextTokens),
                     adventure,
                     section?.Id,

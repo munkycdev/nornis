@@ -353,9 +353,9 @@ public class PrepController : ControllerBase
 
     private static AdventureSectionResponse ToSection(AdventureSection s, int revisionCount) =>
         new(s.Id, s.Kind.ToString(), s.Title, s.BodyMarkdown, s.SortOrder, s.UpdatedAt, revisionCount,
-            !AdventureSkeleton.IsUnfilled(s.BodyMarkdown));
+            !AdventureSkeleton.IsUnfilled(s.BodyMarkdown), GameBlockWarnings.For(s.BodyMarkdown));
 
     private static SavedAdventureSectionResponse ToSavedSection(AdventureSection s) =>
         new(s.Id, s.Kind.ToString(), s.Title, s.BodyMarkdown, s.SortOrder, s.UpdatedAt,
-            !AdventureSkeleton.IsUnfilled(s.BodyMarkdown));
+            !AdventureSkeleton.IsUnfilled(s.BodyMarkdown), GameBlockWarnings.For(s.BodyMarkdown));
 }

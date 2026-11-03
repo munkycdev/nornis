@@ -232,7 +232,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             : 2 * LinePt,
         BookletBox => 20 + 2 * LinePt,
         BookletTable => 3 * LinePt,
-        BookletStatBlock => 14 + 2 * LinePt,
+        BookletGameBlock game => (game.Block.Name is null ? 0 : 20) + 14 + 2 * LinePt,
         BookletCode => 12 + 2 * LinePt,
         _ => 2 * LinePt,
     };
@@ -245,7 +245,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     internal static bool IsSmall(BookletBlock block) => block switch
     {
         BookletBox box => Chars(box.Blocks) <= KeepWholeMaxChars,
-        BookletStatBlock stat => stat.Entries.Count <= KeepWholeMaxStatLines,
+        BookletGameBlock game => GameBlockLines(game.Block) <= KeepWholeMaxStatLines,
         BookletTable table => table.Rows.Count <= 4 && Chars([table]) <= KeepWholeTextChars,
         BookletCode code => code.Text.Length <= KeepWholeTextChars,
         _ => Chars([block]) <= KeepWholeTextChars,
@@ -259,7 +259,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
         BookletList l => l.Items.Sum(item => Chars(item.Blocks)),
         BookletBox b => Chars(b.Blocks),
         BookletTable t => t.Header.Sum(Chars) + t.Rows.Sum(r => r.Sum(Chars)),
-        BookletStatBlock s => s.Entries.Sum(e => (e.Label?.Length ?? 0) + e.Value.Length),
+        BookletGameBlock g => g.Block.Lines.Sum(l => (l.Label?.Length ?? 0) + l.Value.Length) + g.Block.Description.Sum(d => d.Length),
         BookletCode c => c.Text.Length,
         _ => 0,
     });
@@ -296,8 +296,8 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             case BookletBox box:
                 Box(IsSmall(box) ? container.PreventPageBreak() : container, box);
                 break;
-            case BookletStatBlock stat:
-                StatBlock(IsSmall(stat) ? container.PreventPageBreak() : container, stat);
+            case BookletGameBlock game:
+                GameBlock(IsSmall(game) ? container.PreventPageBreak() : container, game.Block);
                 break;
             case BookletTable table:
                 Table(container, table);
@@ -352,6 +352,8 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
         {
             BookletBoxKind.Prop => container.Background(Parchment).Border(0.75f).BorderColor(ParchmentEdge).Padding(9),
             BookletBoxKind.Ask => container.BorderLeft(2).BorderColor(Ink).PaddingLeft(8).PaddingVertical(2),
+            // A GM callout is the loudest box and survives grey printing: a heavy ink rule on a shaded ground.
+            BookletBoxKind.Gm => container.Background(CodeShade).BorderLeft(4).BorderColor(Ink).PaddingVertical(6).PaddingHorizontal(8),
             _ => container.Border(0.75f).BorderColor(Hairline).BorderLeft(3).BorderColor(Accent).Background(Colors.White)
                 .PaddingVertical(7).PaddingHorizontal(9),
         };
@@ -376,31 +378,221 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
         });
     }
 
-    private static void StatBlock(IContainer container, BookletStatBlock stat)
-    {
-        container.Border(1.5f).BorderColor(Ink).Padding(6)
-            .DefaultTextStyle(s => s.FontFamily(Sans, Fallback).FontSize(8.5f).LineHeight(1.25f))
-            .Table(table =>
-            {
-                table.ColumnsDefinition(c =>
-                {
-                    c.ConstantColumn(62);
-                    c.RelativeColumn();
-                });
+    /// <summary>A game block's printed lines, counted for keep-together: name, subtitle, group headings, lines and description.</summary>
+    internal static int GameBlockLines(GameBlock block) =>
+        (block.Name is null ? 0 : 1) + (block.Subtitle is null ? 0 : 1) + block.Groups.Count(g => g.Heading is not null)
+        + block.Lines.Count() + block.Description.Count;
 
-                foreach (var entry in stat.Entries)
+    /// <summary>Runs of at least this many short entries print as a row of cells (STR 14, DEX 12…).</summary>
+    internal const int ScoreRunMin = 3;
+
+    /// <summary>A score row holds at most this many cells before it wraps.</summary>
+    internal const int ScoreRowMax = 6;
+
+    private const int ScoreLabelMaxChars = 4;
+    private const int ScoreValueMaxChars = 8;
+
+    /// <summary>
+    /// A stat block (feature 35): an ink frame; the name on an accent rule and the subtitle in
+    /// italics; the ungrouped lines as a label column, with runs of short scores as a row of
+    /// cells; each group under a small-caps rule, its entries run in ("Cutlass. +5 to hit").
+    /// An item is a card with a heavy top rule instead, so it never reads as a prop, and its
+    /// description under a hairline. An unnamed, ungrouped block prints as feature 34 printed it.
+    /// </summary>
+    private static void GameBlock(IContainer container, GameBlock block)
+    {
+        var body = block.Kind == GameBlockKind.Stat
+            ? container.Border(1.5f).BorderColor(Ink).Padding(6)
+            : ItemFrame(container);
+
+        body.DefaultTextStyle(s => s.FontFamily(Sans, Fallback).FontSize(8.5f).LineHeight(1.25f)).Column(col =>
+        {
+            col.Spacing(3);
+            if (block.Name is { } name)
+            {
+                var title = col.Item().Text(name).FontSize(block.Kind == GameBlockKind.Stat ? 11 : 10.5f).SemiBold();
+                if (block.Kind == GameBlockKind.Stat)
                 {
-                    if (entry.Label is null)
+                    title.FontColor(Accent);
+                }
+            }
+
+            if (block.Subtitle is { } subtitle)
+            {
+                col.Item().Text(subtitle).FontFamily(Serif, Fallback).FontSize(9).Italic();
+            }
+
+            if (block.Kind == GameBlockKind.Stat && block.Name is not null)
+            {
+                col.Item().LineHorizontal(1.5f).LineColor(Accent);
+            }
+
+            foreach (var group in block.Groups)
+            {
+                if (group.Heading is { } heading)
+                {
+                    // The heading, its rule and its first line move on together, so a group
+                    // heading never ends a column of a block long enough to flow.
+                    col.Item().PreventPageBreak().Column(head =>
                     {
-                        table.Cell().ColumnSpan(2).PaddingVertical(1).Text(entry.Value);
-                        continue;
+                        head.Spacing(3);
+                        head.Item().PaddingTop(3).Text(heading.ToUpperInvariant())
+                            .FontSize(7.5f).SemiBold().LetterSpacing(0.06f).FontColor(Accent);
+                        head.Item().LineHorizontal(0.5f).LineColor(Hairline);
+                        if (group.Lines.Count > 0)
+                        {
+                            RunIn(head.Item(), group.Lines[0]);
+                        }
+                    });
+
+                    foreach (var line in group.Lines.Skip(1))
+                    {
+                        RunIn(col.Item(), line);
                     }
 
-                    table.Cell().PaddingVertical(1).PaddingRight(4).Text(entry.Label).SemiBold();
-                    table.Cell().PaddingVertical(1).Text(entry.Value);
+                    continue;
                 }
-            });
+
+                foreach (var run in Runs(group.Lines))
+                {
+                    if (run.IsScores)
+                    {
+                        ScoreRows(col.Item(), run.Lines);
+                    }
+                    else
+                    {
+                        LabelTable(col.Item(), run.Lines);
+                    }
+                }
+            }
+
+            if (block.Description.Count > 0)
+            {
+                col.Item().PaddingTop(2).LineHorizontal(0.5f).LineColor(Hairline);
+                col.Item().Text(string.Join('\n', block.Description)).FontFamily(Serif, Fallback).FontSize(9.5f).LineHeight(1.3f);
+            }
+        });
     }
+
+    /// <summary>A group's entry, run in: "Cutlass. +5 to hit".</summary>
+    private static void RunIn(IContainer container, GameBlockLine line) =>
+        container.Text(t =>
+        {
+            if (line.Label is { } label)
+            {
+                t.Span(label.TrimEnd('.') + ". ").SemiBold().Italic();
+            }
+
+            t.Span(line.Value);
+        });
+
+    private static IContainer ItemFrame(IContainer container)
+    {
+        IContainer inner = container;
+        container.Column(card =>
+        {
+            card.Item().LineHorizontal(2).LineColor(Ink);
+            inner = card.Item().BorderLeft(0.75f).BorderRight(0.75f).BorderBottom(0.75f).BorderColor(Hairline).Padding(7);
+        });
+        return inner;
+    }
+
+    private static void LabelTable(IContainer container, IReadOnlyList<GameBlockLine> lines) =>
+        container.Table(table =>
+        {
+            table.ColumnsDefinition(c =>
+            {
+                c.ConstantColumn(62);
+                c.RelativeColumn();
+            });
+
+            foreach (var line in lines)
+            {
+                if (line.Label is null)
+                {
+                    table.Cell().ColumnSpan(2).PaddingVertical(1).Text(line.Value);
+                    continue;
+                }
+
+                table.Cell().PaddingVertical(1).PaddingRight(4).Text(line.Label).SemiBold();
+                table.Cell().PaddingVertical(1).Text(line.Value);
+            }
+        });
+
+    private static void ScoreRows(IContainer container, IReadOnlyList<GameBlockLine> scores)
+    {
+        var perRow = Math.Min(ScoreRowMax, scores.Count);
+        container.PaddingVertical(2).Column(rows =>
+        {
+            rows.Spacing(3);
+            foreach (var chunk in scores.Chunk(perRow))
+            {
+                rows.Item().Row(row =>
+                {
+                    for (var i = 0; i < perRow; i++)
+                    {
+                        var cell = row.RelativeItem();
+                        if (i < chunk.Length)
+                        {
+                            cell.Column(c =>
+                            {
+                                c.Item().AlignCenter().Text(chunk[i].Label!).SemiBold().FontSize(7.5f);
+                                c.Item().AlignCenter().Text(chunk[i].Value);
+                            });
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    internal sealed record LineRun(bool IsScores, IReadOnlyList<GameBlockLine> Lines);
+
+    /// <summary>Splits a group's lines into runs of short scores and runs of everything else, in order.</summary>
+    internal static IReadOnlyList<LineRun> Runs(IReadOnlyList<GameBlockLine> lines)
+    {
+        var runs = new List<LineRun>();
+        var i = 0;
+        while (i < lines.Count)
+        {
+            var end = i;
+            while (end < lines.Count && IsScore(lines[end]))
+            {
+                end++;
+            }
+
+            if (end - i >= ScoreRunMin)
+            {
+                runs.Add(new LineRun(true, lines.Skip(i).Take(end - i).ToList()));
+                i = end;
+                continue;
+            }
+
+            var start = i;
+            i = Math.Max(end, i + 1);
+            while (i < lines.Count && !StartsScoreRun(lines, i))
+            {
+                i++;
+            }
+
+            if (runs.Count > 0 && !runs[^1].IsScores)
+            {
+                runs[^1] = runs[^1] with { Lines = [.. runs[^1].Lines, .. lines.Skip(start).Take(i - start)] };
+            }
+            else
+            {
+                runs.Add(new LineRun(false, lines.Skip(start).Take(i - start).ToList()));
+            }
+        }
+
+        return runs;
+    }
+
+    private static bool StartsScoreRun(IReadOnlyList<GameBlockLine> lines, int i) =>
+        i + ScoreRunMin <= lines.Count && lines.Skip(i).Take(ScoreRunMin).All(IsScore);
+
+    private static bool IsScore(GameBlockLine line) =>
+        line.Label is { Length: > 0 and <= ScoreLabelMaxChars } && line.Value.Length is > 0 and <= ScoreValueMaxChars;
 
     private static void Table(IContainer container, BookletTable table)
     {

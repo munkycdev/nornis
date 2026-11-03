@@ -56,7 +56,7 @@
         @if (PrepTools)
         {
             @* Prep's markup (feature 29): a plain quote is read-aloud text; Prop and Ask are a
-               quote with a marker first line; a stat block is a fenced block. PrepMarkup spells
+               quote with a marker first line, as is a GM note; a stat block or item is a fenced block. PrepMarkup spells
                all of it, so these buttons can't write a marker the print view won't know. *@
             <MudTooltip Text="Read-aloud: boxed text you read to the table">
                 <MudIconButton Icon="@Icons.Material.Filled.RecordVoiceOver" Size="Size.Small"
@@ -70,9 +70,17 @@
                 <MudIconButton Icon="@Icons.Material.Outlined.HelpOutline" Size="Size.Small"
                                OnClick="@(() => InsertHtmlAsync(PrepMarkup.AskBlockHtml()))" aria-label="Ask" />
             </MudTooltip>
-            <MudTooltip Text="Stat block: labels and values, any game system">
+            <MudTooltip Text="GM note: a callout for you alone, such as a hard exit">
+                <MudIconButton Icon="@Icons.Material.Outlined.Flag" Size="Size.Small"
+                               OnClick="@(() => InsertHtmlAsync(PrepMarkup.GmBlockHtml()))" aria-label="GM note" />
+            </MudTooltip>
+            <MudTooltip Text="Stat block: a creature or person, any game system">
                 <MudIconButton Icon="@Icons.Material.Outlined.ViewList" Size="Size.Small"
                                OnClick="InsertStatBlockAsync" aria-label="Stat block" />
+            </MudTooltip>
+            <MudTooltip Text="Item: a piece of equipment, any game system">
+                <MudIconButton Icon="@Icons.Material.Outlined.Backpack" Size="Size.Small"
+                               OnClick="InsertItemBlockAsync" aria-label="Item" />
             </MudTooltip>
         }
         else
@@ -154,7 +162,7 @@
     [Parameter] public bool AllowMaximize { get; set; }
 
     /// <summary>
-    /// Prep's toolbar: Read-aloud in place of Quote, and Prop, Ask and Stat block. Off
+    /// Prep's toolbar: Read-aloud in place of Quote, and Prop, Ask, GM note, Stat block and Item. Off
     /// everywhere but the Adventure editor, where those blocks mean something to the print view.
     /// </summary>
     [Parameter] public bool PrepTools { get; set; }
@@ -287,6 +295,9 @@
 
     private async Task InsertStatBlockAsync() =>
         await JS.InvokeVoidAsync("nornisEditor.insertCodeBlock", _elementId, PrepMarkup.StatBlockInfo, PrepMarkup.StatBlockTemplate);
+
+    private async Task InsertItemBlockAsync() =>
+        await JS.InvokeVoidAsync("nornisEditor.insertCodeBlock", _elementId, PrepMarkup.ItemBlockInfo, PrepMarkup.ItemBlockTemplate);
 
     public async ValueTask DisposeAsync()
     {

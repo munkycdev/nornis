@@ -282,6 +282,119 @@ public class QuestPdfBookletRendererTests
         });
     }
 
+    // ------------------------------------------------------------- Game blocks --
+
+    private static BookletGameBlock Game(GameBlockKind kind, string text) => new(GameBlocks.Parse(kind, text.Split('\n')));
+
+    [Test]
+    public void AStatBlock_PrintsItsNameAboveItsSubtitle_AboveItsEntries()
+    {
+        var pdf = Render(Chapter("Arrival", Game(GameBlockKind.Stat, "# Vossname\n*Subtitleword human*\nArmour: 15 entryword")));
+
+        var found = Locate(pdf, ["Vossname", "Subtitleword", "entryword"]);
+
+        Assert.That(found.Select(f => f.Top), Is.Ordered.Descending, "name, then subtitle, then the entries, top to bottom");
+    }
+
+    [Test]
+    public void ShortScores_ShareOneRow_AndWrapAfterSix()
+    {
+        var labels = new[] { "STR", "DEX", "CON", "INT", "WIS", "CHA", "LCK", "SAN" };
+        var pdf = Render(Chapter("Arrival", Game(GameBlockKind.Stat,
+            "# Voss\n" + string.Join('\n', labels.Select((l, i) => $"{l}: {10 + i}")))));
+
+        var found = Locate(pdf, labels);
+        var firstRow = found.Take(6).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstRow.Select(f => Math.Round(f.Top)).Distinct().Count(), Is.EqualTo(1), "six labels on one baseline");
+            Assert.That(firstRow.Select(f => f.Left), Is.Ordered.Ascending, "left to right in the order written");
+            Assert.That(found[6].Top, Is.LessThan(firstRow[0].Top - 5), "the seventh wraps to a second row");
+            Assert.That(Math.Abs(found[6].Left - firstRow[0].Left), Is.LessThan(1), "under the first, in the same cell width");
+        });
+    }
+
+    [Test]
+    public void AnItemCard_NearAColumnsFoot_MovesOnWhole()
+    {
+        var lines = Enumerable.Range(1, 5).Select(i => $"cardline{i}").ToList();
+        var item = Game(GameBlockKind.Item,
+            "# Cloak\n*Wondrous item*\n" + string.Join('\n', lines.Take(3).Select(t => $"{t}: 1 lb")) + "\n---\n"
+            + string.Join('\n', lines.Skip(3).Select(t => $"{t} keeps the wearer dry.")));
+        var splitWouldHappen = 0;
+
+        for (var filler = 8; filler < 22; filler++)
+        {
+            var blocks = Enumerable.Range(0, filler).Select(i => P($"fill{i} {Sentence(2)}")).ToList<BookletBlock>();
+            blocks.Add(item);
+            blocks.Add(P("after the card."));
+
+            var found = Locate(Render(Chapter("Arrival", [.. blocks])), [$"fill{filler - 1}", .. lines]);
+            var places = found.Skip(1).Select(f => (f.Page, f.Column)).Distinct().ToList();
+            Assert.That(places, Has.Count.EqualTo(1), $"with {filler} filler paragraphs the card split across {string.Join(", ", places)}");
+            if ((found[0].Page, found[0].Column) != places[0])
+            {
+                splitWouldHappen++;
+            }
+        }
+
+        Assert.That(splitWouldHappen, Is.GreaterThan(0), "no filler count put the card at a column's foot, so the test proves nothing");
+    }
+
+    [Test]
+    public void AGroupHeading_NeverEndsAColumn_OfALongStatBlock()
+    {
+        var text = "# Hydra\n" + string.Join('\n', Enumerable.Range(0, 24).Select(g =>
+            $"## grpmark{g:D2}\n" + string.Join('\n', Enumerable.Range(0, 1 + g % 3).Select(n => $"Bite {n}: {Sentence(1)}"))));
+        var lastLines = new List<string>();
+        var pages = 0;
+
+        // The opening's length moves every group heading down a little each time, so across the
+        // runs some heading meets a column's foot.
+        for (var opening = 0; opening < 16; opening++)
+        {
+            var pdf = Render(Chapter("Arrival", P("opening " + string.Join(' ', Enumerable.Repeat("word", opening * 9))),
+                Game(GameBlockKind.Stat, text)));
+            using var document = PdfDocument.Open(pdf.Bytes);
+            pages = Math.Max(pages, document.NumberOfPages);
+            for (var page = 2; page <= document.NumberOfPages; page++)
+            {
+                foreach (var column in Words(document.GetPage(page)).Where(w => w.BoundingBox.Bottom > FooterTop).GroupBy(ColumnOf))
+                {
+                    var lowest = column.Min(w => w.BoundingBox.Bottom);
+                    lastLines.AddRange(column.Where(w => w.BoundingBox.Bottom - lowest < 2).Select(w => $"{opening}:{w.Text}"));
+                }
+            }
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pages, Is.GreaterThan(2), "the block must flow across column feet");
+            Assert.That(lastLines.Where(t => t.Contains(":GRPMARK", StringComparison.Ordinal)), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Runs_SplitShortScoresFromEverythingElse_InOrder()
+    {
+        GameBlockLine[] lines =
+        [
+            new("AC", "15"), new("HP", "27 (5d8+5)"),
+            new("STR", "14"), new("DEX", "16"), new("CON", "12"),
+            new("Senses", "darkvision 60 ft."), new("WIS", "10"), new("CHA", "8"),
+        ];
+
+        var runs = QuestPdfBookletRenderer.Runs(lines);
+
+        Assert.That(runs.Select(r => (r.IsScores, r.Lines.Count)), Is.EqualTo(((bool, int)[])
+        [
+            (false, 2),
+            (true, 3),
+            (false, 3),
+        ]), "two scores are not a row; 'HP 27 (5d8+5)' is too long to be one");
+    }
+
     // ------------------------------------------------------------------ Bounds --
 
     [Test]
@@ -309,7 +422,7 @@ public class QuestPdfBookletRendererTests
                 {
                     0 => new BookletBox(BookletBoxKind.ReadAloud, [P(Text(perSection))]),
                     1 => new BookletTable([Inl("When"), Inl("What")], [[Inl("0:00"), Inl(Text(perSection - 4))]]),
-                    2 => new BookletStatBlock([new BookletStatEntry("AC", "15"), new BookletStatEntry(null, Text(perSection - 4))]),
+                    2 => new BookletGameBlock(new GameBlock(GameBlockKind.Stat, "Guard", null, [new GameBlockGroup(null, [new GameBlockLine("AC", "15"), new GameBlockLine(null, Text(perSection - 4))])], [])),
                     _ => new BookletList(BookletListStyle.Bullet, 1, [new BookletListItem(BookletTask.None, [P(Text(perSection))])]),
                 });
             }
@@ -341,7 +454,7 @@ public class QuestPdfBookletRendererTests
 
     // ----------------------------------------------------------------- helpers --
 
-    private sealed record Found(string Token, int Page, int Column, double Top);
+    private sealed record Found(string Token, int Page, int Column, double Top, double Left);
 
     private BookletPdf Render(params BookletChapter[] chapters) => _renderer.Render(new Booklet(Cover, chapters));
 
@@ -376,7 +489,7 @@ public class QuestPdfBookletRendererTests
         {
             var hits = words.Where(w => w.Word.Text == token).ToList();
             Assert.That(hits, Has.Count.EqualTo(1), $"'{token}' should appear once");
-            return new Found(token, hits[0].Page, ColumnOf(hits[0].Word), hits[0].Word.BoundingBox.Top);
+            return new Found(token, hits[0].Page, ColumnOf(hits[0].Word), hits[0].Word.BoundingBox.Top, hits[0].Word.BoundingBox.Left);
         }).ToList();
     }
 }
