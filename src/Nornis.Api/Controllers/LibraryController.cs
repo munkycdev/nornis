@@ -290,7 +290,8 @@ public class LibraryController : ControllerBase
             : result.Error!.ToActionResult();
     }
 
-    private static LibraryDocumentResponse ToResponse(LibraryDocument d) => new(
+    /// <summary>A Library document on the wire; Prep's one-click filing answers with it too (feature 34).</summary>
+    internal static LibraryDocumentResponse ToResponse(LibraryDocument d) => new(
         d.Id, d.WorldId, d.Title, d.FileName, d.ContentType, d.SizeBytes,
         d.Kind.ToString(), d.Visibility.ToString(), d.Status.ToString(),
         d.PageCount, d.ChunkCount, d.ErrorMessage, d.UploadedByUserId, d.CreatedAt, d.UpdatedAt, d.Slug, d.AdventureId,

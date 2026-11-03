@@ -49,7 +49,7 @@ public class LibraryExcerptServiceTests
 
         var options = Options.Create(new LibraryOptions { MaxExcerptChunks = 3, OverlapChars = 4 });
         var blobs = new FakeBlobStorageService();
-        var libraryService = new LibraryService(_documents, _chunks, blobs, new FakeLibraryIndexingQueueClient(), new InMemoryAdventureRepository(), TestPrintDetails.None,
+        var libraryService = new LibraryService(_documents, _chunks, blobs, new FakeLibraryIndexingQueueClient(), new InMemoryAdventureRepository(), TestBooklets.Printer(TestPrintDetails.None),
             options, NullLogger<LibraryService>.Instance);
         var sourceService = new SourceService(_sources, new InMemoryWorldMemberRepository(), new InMemoryCampaignRepository(),
             _queue, new InMemoryReviewBatchRepository(), new InMemoryReviewProposalRepository(),

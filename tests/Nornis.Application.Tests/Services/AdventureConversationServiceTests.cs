@@ -69,7 +69,7 @@ public class AdventureConversationServiceTests
         });
 
         _adventureService = new AdventureService(_adventures, new InMemoryCampaignRepository(),
-            new FakeSlugResolver((_, _) => null), TestPrintDetails.For(_worldId, GmUserId, worlds: worlds), Options.Create(_options));
+            new FakeSlugResolver((_, _) => null), TestBooklets.Printer(TestPrintDetails.For(_worldId, GmUserId, worlds: worlds)), Options.Create(_options));
         _sut = new AdventureConversationService(
             _adventures, _conversations, worlds, _retriever, _ai, _budget, TestUsageRecorder.Wrap(_ledger), _gate,
             Options.Create(_options), Options.Create(loremaster), NullLogger<AdventureConversationService>.Instance);

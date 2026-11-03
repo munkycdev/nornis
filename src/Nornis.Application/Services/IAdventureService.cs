@@ -1,5 +1,6 @@
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
+using Nornis.Application.Prep;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
@@ -43,8 +44,8 @@ public interface IAdventureService
     /// <summary>Deletes the Adventure. Its prints and exports stay, with their link to it cleared.</summary>
     Task<AppResult> DeleteAsync(DeleteAdventureCommand command, CancellationToken ct);
 
-    /// <summary>The booklet: the Adventure as <c>AdventurePrintModel</c> renders it.</summary>
-    Task<AppResult<AdventurePrint>> GetPrintAsync(Guid worldId, Guid adventureId, WorldRole role, CancellationToken ct);
+    /// <summary>The booklet as a PDF (feature 34), the same one File to Library files.</summary>
+    Task<AppResult<PrintedBooklet>> GetBookletAsync(Guid worldId, Guid adventureId, WorldRole role, CancellationToken ct);
 
     /// <summary>Restores the section's latest revision, the body an AI write replaced, and drops it.</summary>
     Task<AppResult<AdventureSection>> UndoAsync(UndoSectionCommand command, CancellationToken ct);

@@ -658,8 +658,33 @@ public class NornisApiClient
     public Task<ApiResult<PrepBudgetDto>> GetPrepBudgetAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<PrepBudgetDto>($"/api/worlds/{worldId}/prep-budget", ct);
 
-    public Task<ApiResult<AdventurePrintDto>> GetAdventurePrintAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
-        GetAsync<AdventurePrintDto>($"/api/worlds/{worldId}/prep/{adventureId}/print", ct);
+    /// <summary>
+    /// The booklet's PDF bytes and file name (feature 34), for the Web's own booklet route, which
+    /// the print page's frame and Download point at. Null when the API refuses or fails.
+    /// </summary>
+    public async Task<(byte[] Bytes, string? FileName)?> GetAdventureBookletAsync(Guid worldId, Guid adventureId, CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await SendCoreAsync(HttpMethod.Get, $"/api/worlds/{worldId}/prep/{adventureId}/booklet", null, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+            var disposition = response.Content.Headers.ContentDisposition;
+            return (bytes, disposition?.FileNameStar ?? disposition?.FileName?.Trim('"'));
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>File to Library in one click (feature 34): the API renders the booklet and files it.</summary>
+    public Task<ApiResult<LibraryDocumentDto>> FileAdventureBookletAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        PostAsync<object?, LibraryDocumentDto>($"/api/worlds/{worldId}/prep/{adventureId}/booklet/file", null, ct);
 
     /// <summary>Files the Adventure, or one Chapter of it, as a GM-only source queued for extraction.</summary>
     public Task<ApiResult<AdventureExportDto>> ExportAdventureAsync(

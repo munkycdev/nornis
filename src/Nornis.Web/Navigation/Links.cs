@@ -24,6 +24,10 @@ public static class Links
 
     public static string Adventure(string? slug, Guid id) => $"/prep/{Key(slug, id)}";
 
+    /// <summary>The booklet's PDF through the Web's own route (feature 34); <paramref name="download"/> saves it.</summary>
+    public static string Booklet(Guid worldId, Guid adventureId, bool download = false) =>
+        $"/prep-booklets/{worldId}/{adventureId}" + (download ? "?download=true" : string.Empty);
+
     public static string Graph(string? slug, Guid id) => $"/graph/{Key(slug, id)}";
 
     public static string InkCapture(string? slug, Guid id) => $"/capture/ink/{Key(slug, id)}";

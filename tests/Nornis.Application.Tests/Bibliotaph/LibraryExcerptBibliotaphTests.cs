@@ -52,7 +52,7 @@ public class LibraryExcerptBibliotaphTests
         var blobs = new FakeBlobStorageService();
         var chunks = new InMemoryLibraryChunkRepository();
         var library = new LibraryService(_documents, chunks, blobs, new FakeLibraryIndexingQueueClient(),
-            new InMemoryAdventureRepository(), TestPrintDetails.None, options, NullLogger<LibraryService>.Instance);
+            new InMemoryAdventureRepository(), TestBooklets.Printer(TestPrintDetails.None), options, NullLogger<LibraryService>.Instance);
         var sourceService = new SourceService(_sources, new InMemoryWorldMemberRepository(), new InMemoryCampaignRepository(),
             _queue, new InMemoryReviewBatchRepository(), new InMemoryReviewProposalRepository(),
             new InMemorySourceAttachmentRepository(), blobs, NullLogger<SourceService>.Instance);

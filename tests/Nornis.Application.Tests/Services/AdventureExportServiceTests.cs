@@ -48,7 +48,7 @@ public class AdventureExportServiceTests
             _queue, new InMemoryReviewBatchRepository(), new InMemoryReviewProposalRepository(),
             new InMemorySourceAttachmentRepository(), new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
         _adventureService = new AdventureService(_adventures, campaigns, new FakeSlugResolver((_, _) => null),
-            TestPrintDetails.For(WorldId, GmId), Options.Create(new PrepOptions()));
+            TestBooklets.Printer(TestPrintDetails.For(WorldId, GmId)), Options.Create(new PrepOptions()));
         _sut = new AdventureExportService(_adventures, _sources, sourceService, NullLogger<AdventureExportService>.Instance);
     }
 

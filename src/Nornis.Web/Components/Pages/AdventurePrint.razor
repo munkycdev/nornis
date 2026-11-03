@@ -2,18 +2,14 @@
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
-@inject IDialogService DialogService
 @inject NavigationManager Nav
 @inject BreadcrumbState Crumbs
-@inject IJSRuntime JS
 
-@* The booklet. The API renders it (AdventurePrintModel, the one renderer) and this page only
-   frames it: a paper page on screen, and in print nothing but the page (app.css, "Prep
-   booklet"). File to Library takes the PDF the browser's print dialog saved and files it as a
-   GM-only Handout, dated, against this Adventure. *@
+@* The booklet (feature 34): a PDF the API lays out, the same one File to Library files. The page
+   shows it in the browser's own PDF viewer, whose Print prints it on paper; Download saves it;
+   File to Library files it in one click as a GM-only Handout, dated, against this Adventure. *@
 
-@* The adventure's title alone: a PDF saved from the print dialog takes this as its name (feature 32). *@
-<PageTitle>@(_print?.Title ?? "Adventure")</PageTitle>
+<PageTitle>@(_adventure?.Title ?? "Adventure")</PageTitle>
 
 @if (Worlds.Current is null)
 {
@@ -29,7 +25,7 @@ else if (!Worlds.IsGm)
         </MudText>
     </MudPaper>
 }
-else if (_loading && _print is null)
+else if (_loading && _adventure is null)
 {
     <LoadingRows Rows="6" />
 }
@@ -39,25 +35,25 @@ else if (_notFound)
         That adventure isn't here. It may have been deleted. <a href="/prep" class="nornis-link">Back to Prep</a>
     </MudAlert>
 }
-else if (_error is not null && _print is null)
+else if (_error is not null && _adventure is null)
 {
     <MudAlert Severity="Severity.Error">@_error</MudAlert>
 }
-else if (_print is not null)
+else if (_adventure is not null && Worlds.Current is { } world)
 {
     <div class="nornis-booklet-toolbar">
         <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.ArrowBack"
-                   Href="@Links.Adventure(_print.Slug, _print.AdventureId)">
+                   Href="@Links.Adventure(_adventure.Slug, _adventure.Id)">
             Back to the adventure
         </MudButton>
         <div class="flex-grow-1"></div>
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="nornis-booklet-print"
-                   StartIcon="@Icons.Material.Outlined.Print" OnClick="PrintAsync">
-            Print
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="nornis-booklet-download"
+                   StartIcon="@Icons.Material.Outlined.Download" Href="@Links.Booklet(world.Id, _adventure.Id, download: true)">
+            Download
         </MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="nornis-booklet-file"
-                   StartIcon="@Icons.Material.Outlined.LibraryAdd" OnClick="FileToLibraryAsync">
-            File to Library
+                   StartIcon="@Icons.Material.Outlined.LibraryAdd" Disabled="_filing" OnClick="FileToLibraryAsync">
+            @(_filing ? "Filing…" : "File to Library")
         </MudButton>
     </div>
 
@@ -69,8 +65,15 @@ else if (_print is not null)
         </MudAlert>
     }
 
-    <div class="nornis-booklet-page">
-        @((MarkupString)_print.Html)
+    @if (_fileError is not null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true" Class="nornis-booklet-toolbar nornis-booklet-file-error">@_fileError</MudAlert>
+    }
+
+    <iframe class="nornis-booklet-frame" src="@Links.Booklet(world.Id, _adventure.Id)" title="@_adventure.Title"></iframe>
+    <div class="nornis-booklet-open">
+        <a href="@Links.Booklet(world.Id, _adventure.Id)" target="_blank" rel="noopener" class="nornis-link">Open the PDF</a>
+        if your browser doesn't show it above.
     </div>
 }
 
@@ -81,8 +84,10 @@ else if (_print is not null)
     private bool _notFound;
     private string? _error;
     private string? _loadedKey;
-    private AdventurePrintDto? _print;
+    private AdventureDto? _adventure;
+    private bool _filing;
     private LibraryDocumentDto? _filed;
+    private string? _fileError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -104,8 +109,9 @@ else if (_print is not null)
     private async Task LoadAsync()
     {
         _loadedKey = Key;
-        _print = null;
+        _adventure = null;
         _filed = null;
+        _fileError = null;
         if (Worlds.Current is null || !Worlds.IsGm)
         {
             StateHasChanged();
@@ -117,58 +123,57 @@ else if (_print is not null)
         _error = null;
         StateHasChanged();
 
-        // The page is addressed by slug, the print route by id: the Adventure resolves the one
-        // to the other, as every Prep page does.
-        var worldId = Worlds.Current.Id;
-        var adventure = await Api.GetAdventureAsync(worldId, Key);
-        var print = adventure.IsSuccess ? await Api.GetAdventurePrintAsync(worldId, adventure.Value!.Id) : null;
+        // The page is addressed by slug, the booklet by id: the Adventure resolves the one to
+        // the other, as every Prep page does.
+        var adventure = await Api.GetAdventureAsync(Worlds.Current.Id, Key);
         _loading = false;
 
-        var error = adventure.Error ?? print?.Error;
-        if (error is null)
+        if (adventure.IsSuccess)
         {
-            _print = print!.Value;
-            var adventureLink = Links.Adventure(_print!.Slug, _print.AdventureId);
-            Crumbs.Set($"{adventureLink}/print", new Crumb("Prep", "/prep"), new Crumb(_print.Title, adventureLink), new Crumb("Print"));
-            if (!Links.IsCanonical(Key, _print.Slug))
+            _adventure = adventure.Value!;
+            var adventureLink = Links.Adventure(_adventure.Slug, _adventure.Id);
+            Crumbs.Set($"{adventureLink}/print", new Crumb("Prep", "/prep"), new Crumb(_adventure.Title, adventureLink), new Crumb("Print"));
+            if (!Links.IsCanonical(Key, _adventure.Slug))
             {
-                _loadedKey = _print.Slug;
+                _loadedKey = _adventure.Slug;
                 Nav.NavigateTo($"{adventureLink}/print", replace: true);
             }
         }
-        else if (error.Code == "not_found")
+        else if (adventure.Error!.Code == "not_found")
         {
             _notFound = true;
         }
         else
         {
-            _error = error.Message;
+            _error = adventure.Error.Message;
         }
 
         StateHasChanged();
     }
 
-    private async Task PrintAsync() => await JS.InvokeVoidAsync("print");
-
     private async Task FileToLibraryAsync()
     {
-        if (_print is null)
+        if (_adventure is null || Worlds.Current is null || _filing)
         {
             return;
         }
 
-        var parameters = new DialogParameters<LibraryUploadDialog>
+        _filing = true;
+        _fileError = null;
+        StateHasChanged();
+
+        var result = await Api.FileAdventureBookletAsync(Worlds.Current.Id, _adventure.Id);
+        _filing = false;
+        if (result.IsSuccess)
         {
-            { d => d.AdventureId, _print.AdventureId },
-            { d => d.PrintTitle, _print.LibraryTitle },
-        };
-        var dialog = await DialogService.ShowAsync<LibraryUploadDialog>("File to Library", parameters,
-            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
-        var result = await dialog.Result;
-        if (result is { Canceled: false, Data: LibraryDocumentDto filed })
-        {
-            _filed = filed;
+            _filed = result.Value;
         }
+        else
+        {
+            _fileError = result.Error!.Message;
+        }
+
+        StateHasChanged();
     }
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;

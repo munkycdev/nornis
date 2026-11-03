@@ -1,5 +1,42 @@
 # Design Document
 
+> **Amendment (2026-11-03, Phases B and C):** what building the booklet changed. The text
+> below is left as written.
+>
+> - **One PR for B and C.** Retiring the HTML booklet and retiring the print upload touch the
+>   same page, dialog and tests, so they shipped together (see `tasks.md`).
+> - **Record names.** The blocks are `Booklet`-prefixed throughout (`BookletSectionHeading`,
+>   `BookletHeading`, `BookletParagraph`, `BookletListItem`, `BookletTable`, `BookletBox`,
+>   `BookletStatBlock`, `BookletCode`, `BookletRule`, `BookletRun`, `BookletBreak`, and the
+>   enums `BookletListStyle`, `BookletTask`, `BookletBoxKind`, `BookletRunStyle`), so no name
+>   collides with QuestPDF's or the Domain's. A table cell is a plain list of inlines.
+> - **The renderer returns `BookletPdf(Bytes, Pages)`**, not bare bytes; the page count is
+>   read back with PdfPig and logged in `booklet_rendered`.
+> - **The printer also resolves the details for the page.** `AdventureBookletPrinter` has
+>   `ResolveDetailsAsync` beside `PrintAsync`, so the Adventure's "Book details" preview and the
+>   cover can't resolve them two ways. `PrintAsync` returns `PrintedBooklet(Pdf, Details,
+>   FileName)`; the file name is the Adventure's title plus `.pdf`.
+> - **Headings.** `EnsureSpace` in QuestPDF only acts on content that doesn't fit whole, so a
+>   heading on its own was still placed at a column's foot (the renderer test found it). A
+>   heading run is now always grouped with the block it introduces. The group needs room for
+>   27 pt per heading plus that block's first unbreakable piece (two lines of a paragraph, a
+>   short first list item, a table's header and first row), and is kept whole when the block is
+>   small. `KeepWithNextPt` is gone.
+> - **Short paragraphs and list items** (up to 500 characters) are kept whole; longer ones flow.
+>   A table with up to four rows and 500 characters is kept whole with its heading.
+> - **Table columns.** A column whose cells are all 16 characters or fewer is fixed to fit them
+>   (so "0:00-0:20" never wraps), when those columns take at most half the width. The rest share
+>   by text length, clamped to one to three times the narrowest, and none is narrower than its
+>   longest word. Every row is `ShowEntire`.
+> - **Code uses IBM Plex Mono** (one Latin 400 WOFF), not DejaVu Sans Mono. DejaVu Sans stays as
+>   the one fallback.
+> - **The print page shows an inline alert, not a snackbar**, for filed and failed: it stays
+>   until the GM leaves, and its link to the document doesn't vanish. There is no Print button:
+>   the browser's PDF viewer prints. Download is `?download=true`, because minimal APIs bind
+>   `bool` with `bool.TryParse`, which refuses "1".
+> - **Tests.** The filing tests stay in `LibraryPrintTests` (older docs name it); the endpoint
+>   tests add an upload that names an Adventure (400 `prints_are_filed_from_prep`).
+
 ## Overview
 
 The booklet becomes a PDF that Nornis lays out itself. It takes three pieces, each in one

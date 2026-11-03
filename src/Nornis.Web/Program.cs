@@ -294,6 +294,29 @@ if (authEnabled)
     covers.RequireAuthorization();
 }
 
+// The Prep booklet (feature 34) for the print page's frame and its Download link. The browser
+// has a cookie, not a token, so this forwards with the member's token. Never cached: the
+// booklet changes with every edit. "download=1" saves it rather than showing it.
+var booklets = app.MapGet("/prep-booklets/{worldId:guid}/{adventureId:guid}", async (
+        Guid worldId, Guid adventureId, bool? download, NornisApiClient api, HttpContext context, CancellationToken ct) =>
+    {
+        var booklet = await api.GetAdventureBookletAsync(worldId, adventureId, ct);
+        if (booklet is not { } found)
+        {
+            return Results.NotFound();
+        }
+
+        var disposition = new Microsoft.Net.Http.Headers.ContentDispositionHeaderValue(download == true ? "attachment" : "inline");
+        disposition.SetHttpFileName(found.FileName ?? "booklet.pdf");
+        context.Response.Headers.ContentDisposition = disposition.ToString();
+        context.Response.Headers.CacheControl = "private, no-store";
+        return Results.File(found.Bytes, "application/pdf");
+    });
+if (authEnabled)
+{
+    booklets.RequireAuthorization();
+}
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
