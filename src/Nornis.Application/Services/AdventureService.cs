@@ -417,7 +417,8 @@ public class AdventureService : IAdventureService
     }
 
     private async Task<AdventureView> ViewAsync(Adventure adventure, CancellationToken ct) =>
-        new(adventure, await _adventures.CountRevisionsAsync(adventure.Id, ct), await _printer.ResolveDetailsAsync(adventure, ct));
+        new(adventure, await _adventures.CountRevisionsAsync(adventure.Id, ct), await _printer.ResolveDetailsAsync(adventure, ct),
+            DraftRevisionCount: await _adventures.CountDraftRevisionsAsync(adventure.Id, ct));
 
     private static Adventure NewAdventure(
         Guid worldId, Guid userId, string title, string? pitch, Guid? campaignId, DateTimeOffset now) => new()

@@ -46,7 +46,7 @@ public class AdventureConversationPromptTests
 
     private static string Build(Adventure adventure, Guid? sectionId, IReadOnlyList<ConversationMessage> history, int maxSectionChars = 6_000) =>
         AdventureConversationPrompt.BuildUserMessage(new AdventureConversationInput(
-            "Fate Accelerated", "WORLD-CONTEXT", adventure, sectionId, history, "THE-NEW-MESSAGE", maxSectionChars));
+            new PrepPromptContext("Fate Accelerated", adventure.Details.Levels, null, "WORLD-CONTEXT"), adventure, sectionId, history, "THE-NEW-MESSAGE", maxSectionChars));
 
     [Test]
     public void ThePartsComeInCacheOrder_LeastChangingFirst()
@@ -59,6 +59,44 @@ public class AdventureConversationPromptTests
             "EARLIER-QUESTION", "THE-NEW-MESSAGE" }.Select(p => prompt.IndexOf(p, StringComparison.Ordinal)).ToList();
         Assert.That(order, Is.All.GreaterThanOrEqualTo(0));
         Assert.That(order, Is.Ordered);
+    }
+
+    [Test]
+    public void InDesignMode_TheWholeDraftRides_InsteadOfTheSection()
+    {
+        var adventure = AnAdventure(out var scene);
+        adventure.DraftMarkdown = "# The Silver Key\r\n\r\nDRAFT-START " + new string('x', 20_000) + " DRAFT-END";
+
+        var prompt = AdventureConversationPrompt.BuildUserMessage(new AdventureConversationInput(
+            new PrepPromptContext("Fate Accelerated", null, null, "WORLD-CONTEXT"), adventure, scene.Id, [], "THE-NEW-MESSAGE",
+            MaxSectionChars: 100, OnDraft: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prompt, Does.Contain("## The design draft the GM is working on"));
+            Assert.That(prompt, Does.Contain("DRAFT-END"), "the draft is never cut: an edit must quote it exactly");
+            Assert.That(prompt, Does.Not.Contain("\r\n"), "line ends are the ones Apply matches against");
+            Assert.That(prompt, Does.Not.Contain("## The section the GM has open"));
+            Assert.That(prompt.IndexOf("DRAFT-START", StringComparison.Ordinal), Is.LessThan(prompt.IndexOf("THE-NEW-MESSAGE", StringComparison.Ordinal)));
+        });
+    }
+
+    [Test]
+    public void InDesignMode_AnEmptyDraft_IsSaidToBeEmpty()
+    {
+        var adventure = AnAdventure(out _);
+
+        var prompt = AdventureConversationPrompt.BuildUserMessage(new AdventureConversationInput(
+            new PrepPromptContext(null, null, null, "WORLD-CONTEXT"), adventure, null, [], "Write it.", 100, OnDraft: true));
+
+        Assert.That(prompt, Does.Contain("The draft is empty."));
+    }
+
+    [Test]
+    public void TheSystemPrompt_TeachesTheEditFence_WhichTheParserReads()
+    {
+        Assert.That(AdventureConversationPrompt.SystemPrompt, Does.Contain(DraftEdits.ConventionForPrompt));
+        Assert.That(DraftEdits.Parse(DraftEdits.ConventionForPrompt), Has.Count.EqualTo(1), "the example the prompt teaches is an edit");
     }
 
     [Test]

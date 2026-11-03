@@ -19,6 +19,9 @@ public class FakeReferencePassageRetriever : IReferencePassageRetriever
 
     public ReferenceSearchMode? LastMode { get; private set; }
 
+    /// <summary>The books the last chosen-books call named (feature 37); null when none was made.</summary>
+    public IReadOnlyList<Guid>? LastDocumentIds { get; private set; }
+
     public Task<ReferencePassages> RetrieveAsync(
         string question, Guid worldId, Guid userId, WorldRole role, CancellationToken ct)
     {
@@ -34,5 +37,14 @@ public class FakeReferencePassageRetriever : IReferencePassageRetriever
         LastAttributedUserId = attributedUserId;
         LastMode = mode;
         return Task.FromResult(new ReferencePassages(Passages.ToList(), Unavailable));
+    }
+
+    public Task<ReferencePassages> RetrieveFromDocumentsAsync(
+        string query, Guid worldId, Guid userId, IReadOnlyList<Guid> documentIds, CancellationToken ct)
+    {
+        LastQuestion = query;
+        LastDocumentIds = documentIds;
+        return Task.FromResult(new ReferencePassages(
+            Passages.Where(p => documentIds.Contains(p.DocumentId)).ToList(), Unavailable));
     }
 }

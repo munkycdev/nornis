@@ -51,7 +51,18 @@ public record AdventureResponse(
     IReadOnlyList<AdventureSectionResponse> Sections,
     AdventureDetailsResponse Details,
     PrintDetailsResponse PrintDetails,
-    IReadOnlyList<string>? IgnoredDetails = null);
+    IReadOnlyList<string>? IgnoredDetails = null,
+    // Design mode (feature 37): the draft (null when there is none), the table brief and the
+    // Library books the Adventure reads.
+    AdventureDraftResponse? Draft = null,
+    string? TableBrief = null,
+    IReadOnlyList<AdventureSourceBookResponse>? SourceBooks = null);
+
+/// <summary>The design draft (feature 37); <see cref="RevisionCount"/> is how many changes Undo can step back.</summary>
+public record AdventureDraftResponse(string Markdown, DateTimeOffset UpdatedAt, int RevisionCount);
+
+/// <summary>A Library book the Adventure reads (feature 37).</summary>
+public record AdventureSourceBookResponse(Guid Id, string Title, string? Slug);
 
 /// <summary>The four details the GM edits (feature 32). A null game system means the world's.</summary>
 public record AdventureDetailsResponse(string? GameSystem, string? Edition, string? Levels, int? Year);
@@ -89,7 +100,19 @@ public record PrepBudgetResponse(decimal SpentThisMonthUsd, decimal? MonthlyBudg
 public record AdventureExportResponse(Guid SourceId, string Title, string? Slug);
 
 /// <summary>One message of an Adventure's side conversation. <see cref="Role"/> is User (the GM) or Assistant.</summary>
-public record ConversationMessageResponse(Guid Id, string Role, string Content, string? Model, DateTimeOffset CreatedAt);
+/// <param name="Edits">The suggested edits to the design draft an answer carries (feature 37), in order; null when none.</param>
+/// <param name="Prose">The answer with its edit fences taken out, to show around the edits; null when it has none.</param>
+public record ConversationMessageResponse(
+    Guid Id, string Role, string Content, string? Model, DateTimeOffset CreatedAt,
+    IReadOnlyList<DraftEditResponse>? Edits = null, string? Prose = null);
+
+/// <summary>A split plan (feature 37): Source is Headings or Loremaster; Note says why it isn't what was asked for.</summary>
+public record DraftPlanResponse(IReadOnlyList<DraftPlanRowResponse> Rows, string Source, string? Note, DateTimeOffset? DraftUpdatedAt);
+
+public record DraftPlanRowResponse(int StartLine, string Title, string Kind, string Opening);
+
+/// <summary>One suggested edit: the passage it finds in the draft and what replaces it.</summary>
+public record DraftEditResponse(string Find, string Replace);
 
 /// <summary>The side conversation, oldest first. <see cref="IsFull"/> means it must be cleared before another turn.</summary>
 public record ConversationResponse(IReadOnlyList<ConversationMessageResponse> Messages, bool IsFull);

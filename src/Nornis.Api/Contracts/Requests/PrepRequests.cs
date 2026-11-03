@@ -29,7 +29,8 @@ public record DraftAdventureSectionRequest(string? Instruction, DateTimeOffset B
 public record ExportAdventureRequest(Guid? ChapterSectionId);
 
 /// <summary>One turn of the side conversation. <see cref="SectionId"/> is the section on screen, or null.</summary>
-public record SendConversationMessageRequest(string? Text, Guid? SectionId);
+/// <param name="Scope">Section (the default) or Draft (feature 37): what the conversation sees besides the outline.</param>
+public record SendConversationMessageRequest(string? Text, Guid? SectionId, string? Scope = null);
 
 /// <summary>Put one saved answer into a section. <see cref="Mode"/> is Replace or Append.</summary>
 public record PutInSectionRequest(Guid MessageId, string? Mode, DateTimeOffset BasedOnUpdatedAt);

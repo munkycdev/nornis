@@ -67,6 +67,19 @@ public class PrepEndpointTests
         yield return ("clear conversation", (c, w, a, _) => c.DeleteAsync($"{Base(w)}/{a}/conversation"));
         yield return ("put in section", (c, w, a, s) => c.PostAsJsonAsync($"{Base(w)}/{a}/sections/{s}/put",
             new PutInSectionRequest(Guid.NewGuid(), "Replace", DateTimeOffset.UtcNow)));
+        yield return ("save draft", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/draft",
+            new SaveAdventureDraftRequest("# Mine", null)));
+        yield return ("undo draft", (c, w, a, _) => c.PostAsync($"{Base(w)}/{a}/draft/undo", null));
+        yield return ("apply edit", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/draft/edits",
+            new ApplyDraftEditRequest(Guid.NewGuid(), 0, null)));
+        yield return ("plan split", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/draft/plan", new PlanDraftRequest(false)));
+        yield return ("split", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/draft/split",
+            new SplitDraftRequest([new DraftSplitPointRequest(1, "A", "Scene")], "Replace", null)));
+        yield return ("gather", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/draft/gather", new GatherDraftRequest(null)));
+        yield return ("put in draft", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/draft/put",
+            new PutInDraftRequest(Guid.NewGuid(), "Replace", null)));
+        yield return ("brief", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/brief", new SetTableBriefRequest("Mine")));
+        yield return ("source books", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/source-books", new SetSourceBooksRequest([])));
     }
 
     [Test]
@@ -103,6 +116,7 @@ public class PrepEndpointTests
         Assert.That(after!.Title, Is.EqualTo("The Silver Key"));
         Assert.That(after.Details, Is.EqualTo(new AdventureDetailsResponse(null, null, null, null)));
         Assert.That(after.Sections.Select(s => s.Id), Is.EqualTo(adventure.Sections.Select(s => s.Id)));
+        Assert.That((after.Draft, after.TableBrief), Is.EqualTo(((AdventureDraftResponse?)null, (string?)null)));
         var list = await scenario.GmClient.GetFromJsonAsync<List<AdventureSummaryResponse>>(Base(worldId));
         Assert.That(list, Has.Count.EqualTo(1));
         Assert.That(list![0].IsExported, Is.False);
@@ -454,10 +468,11 @@ public class PrepEndpointTests
         var response = await scenario.GmClient.PostAsJsonAsync($"/api/worlds/{worldId}/library/request-upload",
             new RequestLibraryUploadRequest("Mine", "mine.pdf", "application/pdf", 1024, "Handout", "GMOnly", adventure.Id));
 
-        Assert.Multiple(async () =>
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Multiple(() =>
         {
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
-            Assert.That(await response.Content.ReadAsStringAsync(), Does.Contain("prints_are_filed_from_prep"));
+            Assert.That(body, Does.Contain("prints_are_filed_from_prep"));
         });
     }
 
@@ -639,6 +654,151 @@ public class PrepEndpointTests
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
         Assert.That((await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Code, Is.EqualTo("invalid_mode"));
+    }
+
+    [Test]
+    public async Task Gm_StartsADraft_SavesItOnItsStamp_AndAStaleSaveIs409()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+        Assert.That(adventure.Draft, Is.Null, "a new Adventure has no draft");
+
+        var started = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft",
+            new SaveAdventureDraftRequest("# The Slurping Spa", null));
+        var draft = (await started.Content.ReadFromJsonAsync<AdventureDraftResponse>())!;
+        var next = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft",
+            new SaveAdventureDraftRequest("# The Slurping Spa\n\nSlimes.", draft.UpdatedAt));
+        var stale = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft",
+            new SaveAdventureDraftRequest("lost", draft.UpdatedAt));
+        var undo = await scenario.GmClient.PostAsync($"{Base(worldId)}/{adventure.Id}/draft/undo", null);
+
+        var after = await scenario.GmClient.GetFromJsonAsync<AdventureResponse>($"{Base(worldId)}/{adventure.Id}");
+        Assert.Multiple(() =>
+        {
+            Assert.That((started.StatusCode, next.StatusCode, stale.StatusCode, undo.StatusCode),
+                Is.EqualTo((HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.Conflict, HttpStatusCode.Conflict)),
+                "the GM's own typing keeps no revision, so there is nothing to undo");
+            Assert.That(after!.Draft!.Markdown, Is.EqualTo("# The Slurping Spa\n\nSlimes."));
+            Assert.That(after.Sections.Select(s => s.Id), Is.EqualTo(adventure.Sections.Select(s => s.Id)), "the draft is not a section");
+        });
+    }
+
+    [Test]
+    public async Task InDesignMode_AnAnswersEdits_AreShownApart_AndApplyChangesTheDraft_Once()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+        var started = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft",
+            new SaveAdventureDraftRequest("# The Spa\n\nThe spa is quiet.", null));
+        var draft = (await started.Content.ReadFromJsonAsync<AdventureDraftResponse>())!;
+        _factory.FakeDrafting.Text = "Louder.\n\n```edit\n<<<\nThe spa is quiet.\n===\nThe spa hums with slime.\n>>>\n```";
+
+        var sent = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/conversation/messages",
+            new SendConversationMessageRequest("Make it louder.", null, "Draft"));
+        var events = await ReadEventsAsync(sent);
+        var answer = JsonSerializer.Deserialize<ConversationMessageResponse>(events[^1].Data, JsonSerializerOptions.Web)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_factory.FakeDrafting.Requests.Single().UserMessage, Does.Contain("The spa is quiet."), "the turn saw the draft");
+            Assert.That(answer.Edits, Is.EqualTo([new DraftEditResponse("The spa is quiet.", "The spa hums with slime.")]));
+            Assert.That(answer.Prose, Is.EqualTo("Louder."));
+        });
+
+        var applied = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft/edits",
+            new ApplyDraftEditRequest(answer.Id, 0, draft.UpdatedAt));
+        var after = (await applied.Content.ReadFromJsonAsync<AdventureDraftResponse>())!;
+        var again = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft/edits",
+            new ApplyDraftEditRequest(answer.Id, 0, after.UpdatedAt));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(after.Markdown, Is.EqualTo("# The Spa\n\nThe spa hums with slime."));
+            Assert.That(after.RevisionCount, Is.EqualTo(1));
+            Assert.That(again.StatusCode, Is.EqualTo(HttpStatusCode.Conflict), "the passage is gone, so the edit no longer fits");
+        });
+        Assert.That((await again.Content.ReadFromJsonAsync<ErrorResponse>())!.Code, Is.EqualTo("edit_no_longer_fits"));
+    }
+
+    [Test]
+    public async Task TheDraft_SplitsAtItsHeadings_IntoSections_AndGathersBack()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+        var started = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft",
+            new SaveAdventureDraftRequest("Steam.\n\n## The Baths\n\nSlimes lurk.", null));
+        var draft = (await started.Content.ReadFromJsonAsync<AdventureDraftResponse>())!;
+
+        var planned = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft/plan", new PlanDraftRequest(false));
+        var plan = (await planned.Content.ReadFromJsonAsync<DraftPlanResponse>())!;
+        var split = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft/split", new SplitDraftRequest(
+            plan.Rows.Select(r => new DraftSplitPointRequest(r.StartLine, r.Title, r.Kind)).ToList(), "Replace", plan.DraftUpdatedAt));
+        var after = (await split.Content.ReadFromJsonAsync<AdventureResponse>())!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.Source, Is.EqualTo("Headings"));
+            Assert.That(plan.Rows.Select(r => (r.StartLine, r.Title, r.Kind)), Is.EqualTo([(1, "Overview", "Overview"), (3, "The Baths", "Scene")]));
+            Assert.That(after.Sections.Select(x => (x.Title, x.BodyMarkdown)), Is.EqualTo([("Overview", "Steam."), ("The Baths", "Slimes lurk.")]));
+            Assert.That(after.Draft!.RevisionCount, Is.Zero, "the skeleton had no written sections to keep");
+            Assert.That(_factory.FakeDrafting.Requests, Is.Empty, "a headings split uses no AI");
+        });
+
+        var gathered = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft/gather", new GatherDraftRequest(draft.UpdatedAt));
+        Assert.That((await gathered.Content.ReadFromJsonAsync<AdventureDraftResponse>())!.Markdown,
+            Is.EqualTo("## Overview\n\nSteam.\n\n## The Baths\n\nSlimes lurk."));
+    }
+
+    [Test]
+    public async Task ASplitWithAnUnknownKind_IsAPlain400()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var response = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft/split",
+            new SplitDraftRequest([new DraftSplitPointRequest(1, "A", "Dungeon")], "Replace", null));
+
+        Assert.That((await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Code, Is.EqualTo("invalid_kind"));
+    }
+
+    [Test]
+    public async Task AnUnknownConversationScope_IsAPlain400()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var response = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/conversation/messages",
+            new SendConversationMessageRequest("Who else?", null, "Everything"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That((await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Code, Is.EqualTo("invalid_scope"));
+        Assert.That(_factory.FakeDrafting.Requests, Is.Empty);
+    }
+
+    [Test]
+    public async Task Gm_SetsTheTableBrief_AndSourceBooks_WhichMustBeTheWorldsBooks()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var brief = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/brief",
+            new SetTableBriefRequest("Four players, level 3, two hours."));
+        var stranger = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/source-books",
+            new SetSourceBooksRequest([Guid.NewGuid()]));
+
+        var after = await brief.Content.ReadFromJsonAsync<AdventureResponse>();
+        Assert.Multiple(() =>
+        {
+            Assert.That(after!.TableBrief, Is.EqualTo("Four players, level 3, two hours."));
+            Assert.That(after.SourceBooks, Is.Empty);
+            Assert.That(stranger.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        });
     }
 
     [Test]

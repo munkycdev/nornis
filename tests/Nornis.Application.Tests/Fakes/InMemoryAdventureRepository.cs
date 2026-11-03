@@ -15,6 +15,10 @@ public class InMemoryAdventureRepository : IAdventureRepository
     private readonly List<Adventure> _adventures = [];
     private readonly List<AdventureSection> _sections = [];
     private readonly List<AdventureSectionRevision> _revisions = [];
+    private readonly List<AdventureDraftRevision> _draftRevisions = [];
+    private readonly List<AdventureSourceBook> _sourceBooks = [];
+
+    public IReadOnlyList<AdventureDraftRevision> DraftRevisions => _draftRevisions;
 
     public List<Source> Sources { get; } = [];
 
@@ -58,6 +62,14 @@ public class InMemoryAdventureRepository : IAdventureRepository
 
         var copy = CopyOf(stored);
         copy.Sections = _sections.Where(s => s.AdventureId == adventureId).OrderBy(s => s.SortOrder).Select(CopyOf).ToList();
+        copy.SourceBooks = _sourceBooks.Where(b => b.AdventureId == adventureId)
+            .Select(b => new AdventureSourceBook
+            {
+                AdventureId = b.AdventureId,
+                LibraryDocumentId = b.LibraryDocumentId,
+                LibraryDocument = Documents.First(d => d.Id == b.LibraryDocumentId),
+            })
+            .ToList();
         return Task.FromResult<Adventure?>(copy);
     }
 
@@ -76,6 +88,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
         row.Pitch = adventure.Pitch;
         row.CampaignId = adventure.CampaignId;
         row.LastPrintedDocumentId = adventure.LastPrintedDocumentId;
+        row.TableBrief = adventure.TableBrief;
         row.Details = adventure.Details with { };
         row.UpdatedAt = adventure.UpdatedAt;
         return Task.CompletedTask;
@@ -137,6 +150,8 @@ public class InMemoryAdventureRepository : IAdventureRepository
         var sectionIds = _sections.Where(s => s.AdventureId == adventureId).Select(s => s.Id).ToHashSet();
         _revisions.RemoveAll(r => sectionIds.Contains(r.SectionId));
         _sections.RemoveAll(s => s.AdventureId == adventureId);
+        _draftRevisions.RemoveAll(r => r.AdventureId == adventureId);
+        _sourceBooks.RemoveAll(b => b.AdventureId == adventureId);
         _adventures.RemoveAll(a => a.Id == adventureId);
         return Task.CompletedTask;
     }
@@ -198,6 +213,120 @@ public class InMemoryAdventureRepository : IAdventureRepository
         return Task.FromResult(true);
     }
 
+    public Task<bool> TrySaveDraftAsync(
+        Guid adventureId, string? markdown, AdventureDraftRevision? revision, int maxRevisions,
+        DateTimeOffset? basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+    {
+        var row = Required(_adventures, a => a.Id == adventureId);
+        if (row.DraftUpdatedAt != basedOn)
+        {
+            return Task.FromResult(false);
+        }
+
+        if (revision is not null && row.DraftMarkdown is { } before)
+        {
+            var stale = _draftRevisions.Where(r => r.AdventureId == adventureId)
+                .OrderByDescending(r => r.CreatedAt).ThenByDescending(r => r.Id)
+                .Skip(Math.Max(maxRevisions - 1, 0)).ToList();
+            _draftRevisions.RemoveAll(stale.Contains);
+            _draftRevisions.Add(new AdventureDraftRevision
+            {
+                Id = revision.Id,
+                AdventureId = adventureId,
+                BodyMarkdown = before,
+                Reason = revision.Reason,
+                CreatedAt = revision.CreatedAt,
+            });
+        }
+
+        row.DraftMarkdown = markdown;
+        row.DraftUpdatedAt = markdown is null ? null : updatedAt;
+        row.UpdatedAt = updatedAt;
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> TryWriteSplitAsync(
+        Guid adventureId, IReadOnlyList<AdventureSection> sections, bool replace, AdventureDraftRevision? revision,
+        int maxRevisions, DateTimeOffset? basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+    {
+        var row = Required(_adventures, a => a.Id == adventureId);
+        if (row.DraftUpdatedAt != basedOn)
+        {
+            return Task.FromResult(false);
+        }
+
+        var next = 1;
+        if (replace)
+        {
+            var ids = _sections.Where(x => x.AdventureId == adventureId).Select(x => x.Id).ToHashSet();
+            _revisions.RemoveAll(r => ids.Contains(r.SectionId));
+            _sections.RemoveAll(x => ids.Contains(x.Id));
+        }
+        else
+        {
+            next = _sections.Where(x => x.AdventureId == adventureId).Select(x => x.SortOrder).DefaultIfEmpty(0).Max() + 1;
+        }
+
+        foreach (var section in sections)
+        {
+            var copy = CopyOf(section);
+            copy.AdventureId = adventureId;
+            copy.SortOrder = next++;
+            copy.UpdatedAt = updatedAt;
+            _sections.Add(copy);
+        }
+
+        if (revision is not null)
+        {
+            var stale = _draftRevisions.Where(r => r.AdventureId == adventureId)
+                .OrderByDescending(r => r.CreatedAt).ThenByDescending(r => r.Id)
+                .Skip(Math.Max(maxRevisions - 1, 0)).ToList();
+            _draftRevisions.RemoveAll(stale.Contains);
+            _draftRevisions.Add(new AdventureDraftRevision
+            {
+                Id = revision.Id,
+                AdventureId = adventureId,
+                BodyMarkdown = revision.BodyMarkdown,
+                Reason = revision.Reason,
+                CreatedAt = revision.CreatedAt,
+            });
+        }
+
+        row.UpdatedAt = updatedAt;
+        return Task.FromResult(true);
+    }
+
+    public Task<int> CountDraftRevisionsAsync(Guid adventureId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_draftRevisions.Count(r => r.AdventureId == adventureId));
+
+    public Task<AdventureDraftRevision?> GetLatestDraftRevisionAsync(Guid adventureId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_draftRevisions.Where(r => r.AdventureId == adventureId)
+            .OrderByDescending(r => r.CreatedAt).ThenByDescending(r => r.Id).FirstOrDefault());
+
+    public Task<bool> TryRestoreDraftRevisionAsync(
+        AdventureDraftRevision revision, DateTimeOffset? basedOn, DateTimeOffset updatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        var row = Required(_adventures, a => a.Id == revision.AdventureId);
+        if (row.DraftUpdatedAt != basedOn)
+        {
+            return Task.FromResult(false);
+        }
+
+        row.DraftMarkdown = revision.BodyMarkdown;
+        row.DraftUpdatedAt = updatedAt;
+        row.UpdatedAt = updatedAt;
+        _draftRevisions.RemoveAll(r => r.Id == revision.Id);
+        return Task.FromResult(true);
+    }
+
+    public Task ReplaceSourceBooksAsync(Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken cancellationToken = default)
+    {
+        _sourceBooks.RemoveAll(b => b.AdventureId == adventureId);
+        _sourceBooks.AddRange(documentIds.Select(id => new AdventureSourceBook { AdventureId = adventureId, LibraryDocumentId = id }));
+        return Task.CompletedTask;
+    }
+
     private static void Renumber(List<AdventureSection> ordered)
     {
         for (var i = 0; i < ordered.Count; i++)
@@ -219,6 +348,9 @@ public class InMemoryAdventureRepository : IAdventureRepository
         Pitch = a.Pitch,
         LastPrintedDocumentId = a.LastPrintedDocumentId,
         Details = a.Details with { },
+        DraftMarkdown = a.DraftMarkdown,
+        DraftUpdatedAt = a.DraftUpdatedAt,
+        TableBrief = a.TableBrief,
         CreatedByUserId = a.CreatedByUserId,
         CreatedAt = a.CreatedAt,
         UpdatedAt = a.UpdatedAt,

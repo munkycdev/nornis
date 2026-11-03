@@ -65,4 +65,17 @@ public interface IReferencePassageRetriever
         Guid? attributedUserId,
         ReferenceSearchMode mode,
         CancellationToken ct);
+
+    /// <summary>
+    /// Passages from these books only, at the GM's reach (feature 37: an Adventure's source
+    /// books). The default asks every book the GM can see and keeps the chosen ones; the
+    /// Bibliotaph retriever overrides it to ask Bibliotaph for those books alone, so ten passages
+    /// aren't spent on books that were never chosen.
+    /// </summary>
+    async Task<ReferencePassages> RetrieveFromDocumentsAsync(
+        string query, Guid worldId, Guid userId, IReadOnlyList<Guid> documentIds, CancellationToken ct)
+    {
+        var found = await RetrieveAsync(query, worldId, userId, Domain.Enums.WorldRole.GM, ct);
+        return found with { Passages = found.Passages.Where(p => documentIds.Contains(p.DocumentId)).ToList() };
+    }
 }

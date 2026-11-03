@@ -85,6 +85,34 @@ public class BibliotaphReferencePassageRetrieverTests
     }
 
     [Test]
+    public async Task An_adventures_source_books_ask_for_those_books_alone_including_GMOnly_ones()
+    {
+        BibliotaphPassagesRequest? sent = null;
+        // Sabotage: Bibliotaph answers from a book that wasn't chosen too.
+        _client.FindPassagesAsync(Creator, WorldId, Arg.Do<BibliotaphPassagesRequest>(r => sent = r), Arg.Any<CancellationToken>())
+            .Returns(Pages(Page("e-secret", 2, null), Page("e-shared", 3, null)));
+
+        var found = await _sut.RetrieveFromDocumentsAsync("slimes", WorldId, Creator, [_secret.Id], CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sent!.EntryIds, Is.EqualTo(["e-secret"]));
+            Assert.That(found.Passages.Select(p => p.DocumentId), Is.EqualTo([_secret.Id]));
+        });
+    }
+
+    [Test]
+    public async Task Source_books_that_left_the_collection_make_no_call()
+    {
+        _secret.RemovedAt = DateTimeOffset.UtcNow;
+
+        var found = await _sut.RetrieveFromDocumentsAsync("slimes", WorldId, Creator, [_secret.Id], CancellationToken.None);
+
+        Assert.That(found.Passages, Is.Empty);
+        await _client.DidNotReceiveWithAnyArgs().FindPassagesAsync(default, default, default!, default);
+    }
+
+    [Test]
     public async Task A_GMs_question_searches_the_whole_collection()
     {
         BibliotaphPassagesRequest? sent = null;

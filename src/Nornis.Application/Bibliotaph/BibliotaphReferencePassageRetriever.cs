@@ -65,6 +65,47 @@ public sealed class BibliotaphReferencePassageRetriever : IReferencePassageRetri
             query, worldId, allowedScopes, mode,
             await _uploads.RetrieveForScopesAsync(query, worldId, allowedScopes, attributedUserId, mode, ct), ct);
 
+    /// <summary>
+    /// An Adventure's source books (feature 37): Bibliotaph is asked for the chosen books' entries
+    /// only, and the uploads among them come from the inner retriever. GM reach, because Prep is
+    /// GM-only; a book that left the collection simply contributes nothing.
+    /// </summary>
+    public async Task<ReferencePassages> RetrieveFromDocumentsAsync(
+        string query, Guid worldId, Guid userId, IReadOnlyList<Guid> documentIds, CancellationToken ct)
+    {
+        var uploads = await _uploads.RetrieveFromDocumentsAsync(query, worldId, userId, documentIds, ct);
+        var owner = await _owners.ForWorldAsync(worldId, ct);
+        if (owner?.Connection is null)
+        {
+            return uploads;
+        }
+
+        var rows = (await LiveRowsAsync(worldId, LibraryService.GetAllowedScopes(WorldRole.GM), ct))
+            .Where(r => documentIds.Contains(r.Value.Id))
+            .ToDictionary(r => r.Key, r => r.Value, StringComparer.Ordinal);
+        if (rows.Count == 0)
+        {
+            return uploads;
+        }
+
+        var result = await _client.FindPassagesAsync(
+            owner.UserId, worldId, new BibliotaphPassagesRequest(query, PassageLimit, rows.Keys.ToList(), BibliotaphPassageModes.Ask), ct);
+        if (!result.IsSuccess)
+        {
+            _logger.LogInformation(
+                "Bibliotaph passages for world {WorldId} unavailable ({Failure})", worldId, result.Failure);
+            return uploads with { Unavailable = true };
+        }
+
+        var fromBibliotaph = result.Value!.Pages
+            .Where(p => rows.ContainsKey(p.EntryId))
+            .Select(p => ToPassage(rows[p.EntryId], p))
+            .ToList();
+        var covered = rows.Values.Select(r => r.Id).ToHashSet();
+        return new ReferencePassages(
+            fromBibliotaph.Concat(uploads.Passages.Where(p => !covered.Contains(p.DocumentId))).ToList(), uploads.Unavailable);
+    }
+
     private async Task<ReferencePassages> CombineAsync(
         string question, Guid worldId, IReadOnlyList<VisibilityScope> scopes, ReferenceSearchMode mode,
         ReferencePassages uploads, CancellationToken ct)
@@ -108,21 +149,7 @@ public sealed class BibliotaphReferencePassageRetriever : IReferencePassageRetri
 
         var fromBibliotaph = pages
             .Where(p => rows.ContainsKey(p.EntryId))
-            .Select(p =>
-            {
-                var row = rows[p.EntryId];
-                return new KnowledgePassage
-                {
-                    ChunkId = null,
-                    DocumentId = row.Id,
-                    DocumentTitle = row.Title,
-                    DocumentSlug = row.Slug,
-                    Page = BibliotaphPages.ToPageNumber(p.PageIndex),
-                    PageLabel = p.PageLabel,
-                    Text = p.Text,
-                    ReferenceId = $"passage:{row.Id:N}-{p.PageIndex}",
-                };
-            })
+            .Select(p => ToPassage(rows[p.EntryId], p))
             .ToList();
 
         // An upload Bibliotaph catalogued would otherwise be quoted twice: Bibliotaph's pages win.
@@ -132,6 +159,18 @@ public sealed class BibliotaphReferencePassageRetriever : IReferencePassageRetri
             .ToList();
         return new ReferencePassages(merged, uploads.Unavailable);
     }
+
+    private static KnowledgePassage ToPassage(LibraryDocument row, BibliotaphPassage page) => new()
+    {
+        ChunkId = null,
+        DocumentId = row.Id,
+        DocumentTitle = row.Title,
+        DocumentSlug = row.Slug,
+        Page = BibliotaphPages.ToPageNumber(page.PageIndex),
+        PageLabel = page.PageLabel,
+        Text = page.Text,
+        ReferenceId = $"passage:{row.Id:N}-{page.PageIndex}",
+    };
 
     /// <summary>The world's rows in Bibliotaph's collection that these scopes may see, by entry id.</summary>
     private async Task<Dictionary<string, LibraryDocument>> LiveRowsAsync(

@@ -184,6 +184,9 @@ public class WorldRepository : IWorldRepository
         // print's Adventure), both Restrict, so the Adventures let go of their prints first.
         await _context.SetWhereAsync<Adventure, Guid?>(
             a => a.WorldId == worldId, a => a.LastPrintedDocumentId, null, ct);
+        // An Adventure's chosen source books (feature 37) point at both; the Adventure side is Restrict.
+        await DeleteAsync(_context.AdventureSourceBooks
+            .Where(b => _context.Adventures.Any(a => a.Id == b.AdventureId && a.WorldId == worldId)));
         await DeleteAsync(_context.LibraryReadingRecords.Where(r => r.WorldId == worldId));
         await DeleteAsync(_context.LibraryChunks.Where(c => c.WorldId == worldId));
         await DeleteAsync(_context.LibraryDocuments.Where(d => d.WorldId == worldId));
@@ -230,6 +233,8 @@ public class WorldRepository : IWorldRepository
                 && _context.Adventures.Any(a => a.Id == s.AdventureId && a.WorldId == worldId))));
         await DeleteAsync(_context.AdventureSections
             .Where(s => _context.Adventures.Any(a => a.Id == s.AdventureId && a.WorldId == worldId)));
+        await DeleteAsync(_context.AdventureDraftRevisions
+            .Where(r => _context.Adventures.Any(a => a.Id == r.AdventureId && a.WorldId == worldId)));
         await DeleteAsync(_context.Adventures.Where(a => a.WorldId == worldId));
 
         await _context.SetWhereAsync<World, Guid?>(w => w.Id == worldId, w => w.CurrentCampaignId, null, ct);
