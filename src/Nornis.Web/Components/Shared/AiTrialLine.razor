@@ -1,0 +1,65 @@
+@* Feature 39: "Trial: $1.40 left · Add your own key", where a GM starts AI work. Shows nothing
+   for players, for worlds that run on their creator's keys, and before the cutover, when
+   Nornis pays for everything and there is no trial to speak of. *@
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+
+@if (_funding is { Trial: true } funding)
+{
+    <div class="nornis-ai-trial-line @Class" role="status">
+        <MudIcon Icon="@Icons.Material.Outlined.Toll" Size="Size.Small" Color="Color.Secondary" />
+        <span>Trial: @AiText.Money(funding.TrialRemainingUsd ?? 0m) left</span>
+        @if (funding.CreatorIsYou)
+        {
+            <span aria-hidden="true">·</span>
+            <MudLink Href="/profile#ai-keys" Typo="Typo.body2">Add your own key</MudLink>
+        }
+        else
+        {
+            <span>· on the world creator's account</span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string? Class { get; set; }
+
+    private WorldAiFundingDto? _funding;
+    private Guid? _loadedFor;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        await LoadAsync();
+    }
+
+    private void OnWorldChanged() => InvokeAsync(async () =>
+    {
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    private async Task LoadAsync()
+    {
+        if (Worlds.Current is not { } world || !Worlds.IsGm)
+        {
+            _funding = null;
+            _loadedFor = null;
+            return;
+        }
+
+        if (_loadedFor == world.Id)
+        {
+            return;
+        }
+
+        _loadedFor = world.Id;
+        var result = await Api.GetWorldAiFundingAsync(world.Id);
+
+        // A failed lookup hides the line: it is a hint, and its absence breaks nothing.
+        _funding = result.IsSuccess ? result.Value : null;
+    }
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}

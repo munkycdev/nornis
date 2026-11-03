@@ -1,0 +1,40 @@
+@* An AI call's error. A refusal (feature 39: no key, a refused key, an account out of credit) is
+   the GM's to fix, so it reads as a warning with the way to fix it, not as a fault. *@
+
+@if (Error is { } error)
+{
+    @if (AiText.IsRefusal(error.Code))
+    {
+        <MudAlert Severity="Severity.Warning" Dense="Dense" Class="@Class"
+                  ShowCloseIcon="OnClose.HasDelegate" CloseIconClicked="OnClose">
+            @error.Message
+            @if (error.Code == AiText.CreditCode && AiText.BillingUrl(AiText.CreditProvider(error.Message)) is { } billing)
+            {
+                <span> </span><MudLink Href="@billing" Target="_blank" Typo="Typo.body2">Add credit at @AiText.Provider(AiText.CreditProvider(error.Message)!)</MudLink>
+            }
+            else
+            {
+                <span> </span><MudLink Href="/profile#ai-keys" Typo="Typo.body2">Open AI keys</MudLink>
+            }
+        </MudAlert>
+    }
+    else
+    {
+        <MudAlert Severity="OtherSeverity" Dense="Dense" Class="@Class"
+                  ShowCloseIcon="OnClose.HasDelegate" CloseIconClicked="OnClose">@error.Message</MudAlert>
+    }
+}
+
+@code {
+    [Parameter] public ApiError? Error { get; set; }
+
+    [Parameter] public bool Dense { get; set; } = true;
+
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>How any error other than a refusal reads: an error unless the page says otherwise.</summary>
+    [Parameter] public Severity OtherSeverity { get; set; } = Severity.Error;
+
+    /// <summary>Shows a close icon when set.</summary>
+    [Parameter] public EventCallback OnClose { get; set; }
+}

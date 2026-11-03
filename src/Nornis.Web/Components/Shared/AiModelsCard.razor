@@ -1,0 +1,90 @@
+@* Profile › Models (feature 39): which of the user's models each kind of AI work runs on. *@
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4" id="ai-models">
+    <div class="nornis-detail-section-title">Models</div>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+        Which model each kind of AI work in your worlds runs on. The default is the first one your keys
+        cover; a model you pick that stops fitting (its key removed, or a job that needs to read images)
+        falls back to the default.
+    </MudText>
+
+    @if (_tasks is null)
+    {
+        @if (_error is null)
+        {
+            <LoadingRows Rows="2" Height="40px" />
+        }
+    }
+    else
+    {
+        @foreach (var task in _tasks)
+        {
+            <div class="nornis-ai-model-row" data-testid="ai-model-row">
+                <div class="nornis-list-body">
+                    <div class="nornis-list-title">@AiText.Task(task.Task)</div>
+                    <div class="nornis-list-sub">@AiText.TaskHint(task.Task)</div>
+                </div>
+                <MudSelect T="string" Value="@(task.ChosenId ?? Default)" ValueChanged="v => ChooseAsync(task, v)"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Disabled="_busy"
+                           Class="nornis-ai-model-select" aria-label="@($"Model for {AiText.Task(task.Task)}")">
+                    <MudSelectItem T="string" Value="@Default">@DefaultLabel(task)</MudSelectItem>
+                    @foreach (var option in task.Options)
+                    {
+                        <MudSelectItem T="string" Value="@option.Id" Disabled="!option.HasKey">
+                            @OptionLabel(option)
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </div>
+        }
+    }
+
+    <AiErrorAlert Error="_error" Class="mt-2" />
+</MudPaper>
+
+@code {
+    /// <summary>The select's value for "no pick": never a model id.</summary>
+    private const string Default = "";
+
+    private IReadOnlyList<AiTaskModelsDto>? _tasks;
+    private bool _busy;
+    private ApiError? _error;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    /// <summary>Reloaded by Profile when a key is saved or removed.</summary>
+    public async Task ReloadAsync()
+    {
+        var result = await Api.GetAiModelsAsync();
+        _tasks = result.IsSuccess ? result.Value : null;
+        _error = result.IsSuccess ? null : result.Error;
+        StateHasChanged();
+    }
+
+    private async Task ChooseAsync(AiTaskModelsDto task, string value)
+    {
+        _busy = true;
+        var result = await Api.ChooseAiModelAsync(task.Task, value == Default ? null : value);
+        _busy = false;
+        if (!result.IsSuccess)
+        {
+            _error = result.Error;
+            return;
+        }
+
+        Snackbar.Add($"{AiText.Task(task.Task)} will use {(value == Default ? "the default" : task.Options.First(o => o.Id == value).Name)}.", Severity.Normal);
+        await ReloadAsync();
+    }
+
+    private static string DefaultLabel(AiTaskModelsDto task) =>
+        task.Options.FirstOrDefault(o => o.Id == task.DefaultId) is { } model
+            ? $"Default: {model.Name}"
+            : "Default: Nornis's own model, until one of your keys covers this";
+
+    private static string OptionLabel(AiModelOptionDto option) =>
+        option.Name
+        + (option.Tested ? "" : " (not tested by Nornis)")
+        + (option.HasKey ? "" : $" (add a {AiText.Provider(option.Provider)} key)");
+}

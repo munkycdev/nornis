@@ -233,6 +233,29 @@ public class NornisApiClient
     public Task<ApiResult<bool>> RemoveSignInAsync(Guid signInId, CancellationToken ct = default) =>
         DeleteAsync($"/api/me/sign-ins/{signInId}", ct);
 
+    // AI keys (feature 39): the signed-in user's own keys, model choices and trial.
+    public Task<ApiResult<IReadOnlyList<AiKeyDto>>> GetAiKeysAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AiKeyDto>>("/api/me/ai-keys", ct);
+
+    public Task<ApiResult<SaveAiKeyResultDto>> SaveAiKeyAsync(string provider, SaveAiKeyBody body, CancellationToken ct = default) =>
+        PutAsync<SaveAiKeyBody, SaveAiKeyResultDto>($"/api/me/ai-keys/{Uri.EscapeDataString(provider)}", body, ct);
+
+    public Task<ApiResult<bool>> RemoveAiKeyAsync(string provider, CancellationToken ct = default) =>
+        DeleteAsync($"/api/me/ai-keys/{Uri.EscapeDataString(provider)}", ct);
+
+    public Task<ApiResult<IReadOnlyList<AiTaskModelsDto>>> GetAiModelsAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AiTaskModelsDto>>("/api/me/ai-models", ct);
+
+    public Task<ApiResult<bool>> ChooseAiModelAsync(string task, string? modelId, CancellationToken ct = default) =>
+        PutNoContentAsync($"/api/me/ai-models/{Uri.EscapeDataString(task)}", new ChooseAiModelBody(modelId), ct);
+
+    public Task<ApiResult<AiTrialDto>> GetAiTrialAsync(CancellationToken ct = default) =>
+        GetAsync<AiTrialDto>("/api/me/ai-trial", ct);
+
+    /// <summary>GM only: whether the world's AI runs on its creator's trial.</summary>
+    public Task<ApiResult<WorldAiFundingDto>> GetWorldAiFundingAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<WorldAiFundingDto>($"/api/worlds/{worldId}/ai-funding", ct);
+
     /// <summary>
     /// Claims a link with the new sign-in's own <paramref name="accessToken"/>, not the session's:
     /// it is called from inside the sign-in callback, where the old session's cookie is still the
@@ -1101,6 +1124,11 @@ public class NornisApiClient
         GetAsync<IReadOnlyList<ModelCost>>(
             $"/api/worlds/{worldId}/costs/by-model{DateQuery(from, to)}", ct);
 
+    public Task<ApiResult<IReadOnlyList<FundingCost>>> GetCostsByFundingAsync(
+        Guid worldId, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<FundingCost>>(
+            $"/api/worlds/{worldId}/costs/by-funding{DateQuery(from, to)}", ct);
+
     public Task<ApiResult<IReadOnlyList<UserCost>>> GetCostsByUserAsync(
         Guid worldId, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<UserCost>>(
@@ -1252,6 +1280,25 @@ public class NornisApiClient
         try
         {
             var response = await SendCoreAsync(HttpMethod.Post, uri, JsonContent.Create(body), ct);
+            if (response.IsSuccessStatusCode)
+            {
+                return ApiResult<bool>.Ok(true);
+            }
+
+            var failed = await ReadResultAsync<bool>(response, ct);
+            return ApiResult<bool>.Fail(failed.Error!);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<bool>.Fail(Unreachable(ex));
+        }
+    }
+
+    private async Task<ApiResult<bool>> PutNoContentAsync<TBody>(string uri, TBody body, CancellationToken ct)
+    {
+        try
+        {
+            var response = await SendCoreAsync(HttpMethod.Put, uri, JsonContent.Create(body), ct);
             if (response.IsSuccessStatusCode)
             {
                 return ApiResult<bool>.Ok(true);

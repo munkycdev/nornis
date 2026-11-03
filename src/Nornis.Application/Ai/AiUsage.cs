@@ -33,4 +33,8 @@ public sealed record AiUsage
     /// a client that sets one wants to see them. Null means not reported.
     /// </summary>
     public int? ReasoningTokens { get; init; }
+
+    /// <summary>Who paid and at what price (feature 39). Null where nothing bound the call, such
+    /// as an estimate written after a stream that reported no usage.</summary>
+    public AiFunding? Funding { get; init; }
 }

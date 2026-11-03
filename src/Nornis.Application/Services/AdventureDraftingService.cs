@@ -374,6 +374,7 @@ public class AdventureDraftingService : IAdventureDraftingService
 
     private static (string Code, AppError Error) Classify(Exception ex) => ex switch
     {
+        AiRefusalException refusal => (refusal.Category, refusal.ToAppError()),
         AiHttpException { StatusCode: 429 } =>
             ("RateLimited", new AppError(429, "rate_limited", "Too many requests. Please try again in a moment.")),
         AiTimeoutException or OperationCanceledException =>

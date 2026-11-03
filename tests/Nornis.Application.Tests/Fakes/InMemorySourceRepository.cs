@@ -258,8 +258,41 @@ public class InMemorySourceRepository : ISourceRepository
         var source = Required(id);
         _statusTransitions.Add((id, source.ProcessingStatus, status));
         source.ProcessingStatus = status;
+        if (status != SourceProcessingStatus.Failed)
+        {
+            source.FailureCategory = null;
+        }
+
         return Task.CompletedTask;
     }
+
+    public Task MarkFailedAsync(Guid id, string? failureCategory, CancellationToken cancellationToken = default)
+    {
+        var source = Required(id);
+        _statusTransitions.Add((id, source.ProcessingStatus, SourceProcessingStatus.Failed));
+        source.ProcessingStatus = SourceProcessingStatus.Failed;
+        source.FailureCategory = failureCategory;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Who created each world, for <see cref="ListFailedInCreatedWorldsAsync"/>; the fake
+    /// has no worlds of its own.</summary>
+    public Dictionary<Guid, Guid> WorldCreators { get; } = [];
+
+    public Task<IReadOnlyList<Source>> ListFailedInCreatedWorldsAsync(
+        Guid creatorUserId,
+        IReadOnlyCollection<string> categories,
+        int take,
+        IReadOnlyCollection<Guid> excluding,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<Source>>(_sources
+            .Where(s => s.ProcessingStatus == SourceProcessingStatus.Failed
+                        && s.FailureCategory is { } category && categories.Contains(category)
+                        && !excluding.Contains(s.Id)
+                        && WorldCreators.TryGetValue(s.WorldId, out var creator) && creator == creatorUserId)
+            .OrderBy(s => s.StatusChangedAt)
+            .Take(take)
+            .ToList());
 
     /// <summary>
     /// Simulates another worker winning the claim in the instant between this caller's read and
@@ -330,6 +363,13 @@ public class InMemorySourceRepository : ISourceRepository
         {
             _sources[index] = source;
         }
+
+        // NornisDbContext's save hook: a failure's reason goes with any other status.
+        if (source.ProcessingStatus != SourceProcessingStatus.Failed)
+        {
+            source.FailureCategory = null;
+        }
+
         return Task.FromResult(source);
     }
 

@@ -1,5 +1,21 @@
 ﻿# Observability and Cost Tracking
 
+> **Amendment (2026-11-03): who paid, and a model catalog.** Feature 39 lets a world run on its
+> creator's own AI keys. Every `AiUsageRecord` now says who paid (`FundedBy`: Nornis, Trial or
+> Key; plus `Provider`, `ModelId`, `AiKeyId`, `KeyHolderUserId`). A key-funded call is priced
+> from the `AiModels:Catalog` entry it ran on (input, cached input and output per million) or
+> from the user's own OpenAI-compatible line; a catalog entry without a price fails startup, so
+> no user model can be priced at $0 by a typo. Nornis's own Azure deployments (the trial, and
+> every call while `AiModels:Fallback` is `Nornis`) are still priced from the `ModelPricing`
+> sections below. Costs shown for a key-funded world are Nornis's estimate; the provider's bill
+> is the real figure.
+>
+> **(2026-11-03, B2.)** `/status` reports AI per provider: `azure-openai` (Nornis's own resource,
+> which the trial and embeddings use), `ai-openai` and `ai-openai-compatible`, each from its own
+> recent traffic, recorded by the AI call binder. A refusal (no key, a rejected key, an account
+> out of credit) is never recorded there and writes no usage row: nothing was charged, and it says
+> nothing about the provider. Costs gains a "Paid by" breakdown (`…/costs/by-funding`).
+
 > **Amendment (July 2026):** Observability runs on **Azure Monitor / Application
 > Insights** (`appi-nornis`) via OpenTelemetry, not DataDog — read every DataDog
 > reference below accordingly. The "service tags" exist as OTel service names

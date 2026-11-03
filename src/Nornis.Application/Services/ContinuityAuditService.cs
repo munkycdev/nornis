@@ -224,6 +224,12 @@ public class ContinuityAuditService : IContinuityAuditService
         {
             throw;
         }
+        catch (AiRefusalException refusal)
+        {
+            // Nothing could pay, or the paying key was refused (feature 39): nothing was charged, and
+            // the code tells the GM what to fix.
+            return AppResult<ContinuityAssessment>.Fail(refusal.ToAppError());
+        }
         catch (Exception)
         {
             await TrackUsageAsync(worldId, userId, null, false, "ServiceError", ct);

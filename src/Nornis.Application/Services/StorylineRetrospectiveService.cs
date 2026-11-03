@@ -93,6 +93,12 @@ public class StorylineRetrospectiveService : IStorylineRetrospectiveService
                     TimeoutSeconds = _options.AiTimeoutSeconds
                 }, ct);
             }
+            catch (AiRefusalException refusal)
+            {
+                // Nothing could pay, or the paying key was refused (feature 39): nothing was charged, and
+                // the code tells the GM what to fix.
+                return AppResult<RetrospectiveResult>.Fail(refusal.ToAppError());
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Storyline retrospective AI call failed. WorldId={WorldId}", worldId);

@@ -327,7 +327,7 @@ public class ExtractionService : IExtractionService
                 await _sourceRepository.UpdateProcessingStatusAsync(sourceId, SourceProcessingStatus.Queued, ct);
                 break;
             case OutcomeType.NonTransientFailure:
-                await _sourceRepository.UpdateProcessingStatusAsync(sourceId, SourceProcessingStatus.Failed, ct);
+                await _sourceRepository.MarkFailedAsync(sourceId, outcome.ErrorCategory, ct);
                 break;
         }
 
@@ -564,6 +564,13 @@ public class ExtractionService : IExtractionService
                 // Timeout — transient failure
                 await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.Timeout, ct);
                 return ExtractionOutcome.Transient(ErrorCategories.Timeout, "AI call timed out.");
+            }
+            catch (AiRefusalException refusal)
+            {
+                // Feature 39: nothing could pay, or the paying key was refused. Nothing was charged,
+                // so nothing is recorded; the source fails with the reason the GM can act on.
+                _logger.LogWarning("AI call refused ({Code}). Id={Id}", refusal.Code, source.Id);
+                return ExtractionOutcome.NonTransient(refusal.Category, refusal.ToAppError().Message);
             }
             catch (Exception ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
             {

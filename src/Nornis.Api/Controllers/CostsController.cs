@@ -125,6 +125,25 @@ public class CostsController : ControllerBase
         return Ok(result.Value!.Select(ToModelCostResponse).ToList());
     }
 
+    /// <summary>Costs by what paid (feature 39): Nornis, the trial, or one of the creator's keys.</summary>
+    [HttpGet("by-funding")]
+    public async Task<IActionResult> GetByFunding(
+        Guid worldId,
+        [FromQuery] DateTimeOffset? startDate,
+        [FromQuery] DateTimeOffset? endDate,
+        CancellationToken ct)
+    {
+        var result = await _costService.GetByFundingAsync(
+            worldId, HttpContext.GetNornisUser().Id, HttpContext.GetWorldMember().Role, startDate, endDate, ct);
+
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        return Ok(result.Value!.Select(r => new FundingCostResponse(r.Kind.ToString(), r.PaidBy, ToCostSummaryResponse(r.Summary))).ToList());
+    }
+
     private static TimePeriodSummaryResponse ToTimePeriodSummaryResponse(TimePeriodCostResult result, decimal budget)
     {
         return new TimePeriodSummaryResponse(

@@ -27,6 +27,10 @@
 
     <SignInsCard Outcome="@SignInOutcome" />
 
+    <AiKeysCard Changed="ReloadModelsAsync" />
+
+    <AiModelsCard @ref="_models" />
+
     <BibliotaphConnectionCard Outcome="@BibliotaphOutcome" />
 
     @if (Worlds.Current is null)
@@ -177,6 +181,10 @@
 </div>
 
 @code {
+    private AiModelsCard? _models;
+
+    private Task ReloadModelsAsync() => _models?.ReloadAsync() ?? Task.CompletedTask;
+
     /// <summary>How a Bibliotaph connect attempt ended, when it brought the browser back here.</summary>
     [SupplyParameterFromQuery(Name = "bibliotaph")] public string? BibliotaphOutcome { get; set; }
 

@@ -16,6 +16,7 @@
         <div>
             <MudText Typo="Typo.h4" Class="nornis-serif">Ask the Loremaster</MudText>
             <MudText Typo="Typo.body2" Color="Color.Secondary">Grounded in your world — with citations.</MudText>
+            <AiTrialLine Class="mt-1" />
         </div>
         <div class="nornis-page-head-actions gap-2">
             @if (_conversations.Count > 0)
@@ -159,10 +160,7 @@
                 </MudPaper>
             }
 
-            @if (_error is not null)
-            {
-                <MudAlert Severity="Severity.Error" ShowCloseIcon="true" CloseIconClicked="() => _error = null">@_error</MudAlert>
-            }
+            <AiErrorAlert Error="_error" Dense="false" OnClose="() => _error = null" />
         </div>
 
         <div class="nornis-ask-composer">
@@ -196,7 +194,7 @@
     private StreamingAnswer? _streaming;
     private bool _asking;
     private readonly CancellationTokenSource _disposed = new();
-    private string? _error;
+    private ApiError? _error;
     private Guid _loadedWorldId;
     private bool _initialized;
 
@@ -343,7 +341,7 @@
         }
         else
         {
-            _error = answer.Error!.Message;
+            _error = answer.Error;
             // Discard a conversation that never got its first answer.
             if (conversation.Exchanges.Count == 0)
             {

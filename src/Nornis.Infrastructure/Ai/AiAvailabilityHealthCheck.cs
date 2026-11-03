@@ -1,12 +1,16 @@
 ﻿using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Nornis.Application.Ai;
+using Nornis.Application.Configuration;
 using Nornis.Application.Services;
+using Nornis.Domain.Enums;
 
 namespace Nornis.Infrastructure.Ai;
 
 /// <summary>
-/// Reports Azure OpenAI availability from observed traffic rather than a probe — see
-/// <see cref="IAiOutcomeMonitor"/> for why a probe would be the wrong instrument.
+/// Reports one AI provider's availability from observed traffic rather than a probe — see
+/// <see cref="IAiOutcomeMonitor"/> for why a probe would be the wrong instrument. Registered once
+/// per provider (feature 39): <c>azure-openai</c> for Nornis's own resource, which serves the
+/// trial and embeddings, and one <c>ai-…</c> entry per provider users' keys reach.
 ///
 /// Idle reads Healthy on purpose. Most of the time nobody is asking the Loremaster
 /// anything, and a status page that goes amber overnight teaches people to ignore it.
@@ -21,12 +25,29 @@ public class AiAvailabilityHealthCheck : IHealthCheck
 
     private readonly IAiOutcomeMonitor _monitor;
     private readonly IAiPauseGate _pauseGate;
+    private readonly AiProvider _provider;
 
-    public AiAvailabilityHealthCheck(IAiOutcomeMonitor monitor, IAiPauseGate pauseGate)
+    public AiAvailabilityHealthCheck(IAiOutcomeMonitor monitor, IAiPauseGate pauseGate, AiProvider provider)
     {
         _monitor = monitor;
         _pauseGate = pauseGate;
+        _provider = provider;
     }
+
+    /// <summary>Nornis's own resource, then each provider a user's key can reach today.</summary>
+    public static IReadOnlyList<AiProvider> ReportedProviders =>
+        [AiProvider.AzureOpenAi, .. AiModelsOptions.CatalogProviders.Order(), AiProvider.OpenAiCompatible];
+
+    /// <summary>The <c>/status</c> entry each provider reports under.</summary>
+    public static string EntryName(AiProvider provider) => provider switch
+    {
+        AiProvider.AzureOpenAi => "azure-openai",
+        AiProvider.OpenAi => "ai-openai",
+        AiProvider.Anthropic => "ai-anthropic",
+        AiProvider.Gemini => "ai-gemini",
+        AiProvider.OpenAiCompatible => "ai-openai-compatible",
+        _ => "ai-" + provider.ToString().ToLowerInvariant(),
+    };
 
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
@@ -43,7 +64,7 @@ public class AiAvailabilityHealthCheck : IHealthCheck
                 : $"AI is paused by an operator: {paused.Reason}");
         }
 
-        var snapshot = _monitor.Snapshot(Window, DateTimeOffset.UtcNow);
+        var snapshot = _monitor.Snapshot(_provider, Window, DateTimeOffset.UtcNow);
 
         if (snapshot.Total == 0)
         {

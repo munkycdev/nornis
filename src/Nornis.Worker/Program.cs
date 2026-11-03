@@ -132,8 +132,7 @@ var builder = Host.CreateDefaultBuilder(args)
             return NornisChatClients.Create(AzureOpenAiClientFactory.Create(
                 new Uri(options.AiEndpoint), credential, AzureOpenAiClientFactory.RetriesOwnedByBackoff));
         });
-        services.AddScoped<IAiFundingService, NornisAiFundingService>();
-        services.AddScoped<IAiCallBinder, AiCallBinder>();
+        services.AddAiFunding(configuration, AzureOpenAiClientFactory.RetriesOwnedByBackoff);
 
         // AI extraction client
         services.AddScoped<IAiExtractionClient, ExtractionAiClient>();

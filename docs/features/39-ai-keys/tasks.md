@@ -33,29 +33,42 @@ design.md for where it differs from the tasks below.**
 
 ## Phase B — Keys and the trial (OpenAI and OpenAI-compatible)
 
+Shipped as three PRs. **B1** (with migration `AddAiKeys`): B1a to B4 and B6a, behind
+`AiModels:Fallback = Nornis`, so with no keys saved nothing changes. **B2 API**: B5, B6b, B7
+and their tests, with no migration. **B2 Web**: B8. (2026-11-03: B2 was ready while B1 still
+waited for its migration, so both went out in one PR, #97, merged once `AddAiKeys` is on prod.)
+
 - [ ] B0. Decide Gemini's route (its .NET GenAI SDK or the OpenAI-compatible endpoint) with a
       conformance test of streaming, images, schema and usage; record the choice here.
-- [ ] B1a. (from A3) The `AiModels` catalog and its startup validation; `AiUsageRecorder`
-      prices from it, replacing `ModelPricing`. The `azure/…` lines carry today's prices.
-- [ ] B1b. The refusal exceptions (`AiKeyRequiredException`, `AiKeyRejectedException`,
+- [x] B1a. (from A3) The `AiModels` catalog and its startup validation; `AiUsageRecorder`
+      prices key-funded calls from it. `ModelPricing` stays for Nornis's own deployments (see
+      the design amendment); there are no `azure/…` lines.
+- [x] B1b. The refusal exceptions (`AiKeyRequiredException`, `AiKeyRejectedException`,
       `AiCreditExhaustedException`, subclasses of `AiHttpException`) and their three
       `ErrorCategories`.
-- [ ] B1. Domain and migration `AddAiKeys`: `UserAiKey`, `UserAiCompatibleModel`,
+- [x] B1. Domain and migration `AddAiKeys`: `UserAiKey`, `UserAiCompatibleModel`,
       `UserAiModelChoice`, the `AiUsageRecord` columns and index.
-- [ ] B2. `AiKeyProtector` with its own ring (`AiKeys:KeyBlobUri`); `IAiKeyChecker` with its
-      rate limit.
-- [ ] B3. `AiFundingService`: the real funding rule, the trial balance and ceiling, public
+- [x] B2. `AiKeyProtector` with its own ring (`AiKeys:KeyBlobUri`). `IAiKeyChecker` and its
+      rate limit move to B5, where saving a key needs them.
+- [x] B3. `AiFundingService`: the real funding rule, the trial balance and ceiling, public
       Ask without the trial. Every AI entry point in the API and the Worker calls it.
-- [ ] B4. Resolver: user keys for OpenAI and OpenAI-compatible; the client cache;
-      `CheckFailed` on a rejected call; the redaction test, shown failing first.
-- [ ] B5. API: `/api/me/ai-keys`, `/api/me/ai-models`, `/api/me/ai-trial`; `aiFunding` on the
-      world response for GMs; refusal codes.
-- [ ] B6. Worker: refusals fail the source with their category, with no redelivery. Saving a
-      key queues key-failed sources again; name the retry path it reuses.
-- [ ] B7. Health: outcomes per provider, key outcomes not recorded; `/status` entries.
-- [ ] B8. Web: Profile's AI keys and Models cards, the trial line, refusal rendering, and
-      "Estimated" plus "Paid by" on Costs.
-- [ ] B9. Tests per design.md; build, `dotnet test`, `dotnet format --verify-no-changes`.
+- [x] B4. Binder: user keys for OpenAI and OpenAI-compatible; the client cache;
+      `CheckFailed` on a rejected call. The redaction test moves to B5, with the key check.
+- [x] B5. API: `/api/me/ai-keys`, `/api/me/ai-models`, `/api/me/ai-trial`;
+      `/api/worlds/{id}/ai-funding` for GMs (design amendment: not a world field); refusal codes;
+      `IAiKeyChecker` with its rate limit, the public-endpoint guard and the redaction test;
+      `GET …/costs/by-funding` for B8's "Paid by".
+- [x] B6a. Worker: refusals fail the source with their category, with no redelivery, and
+      record nothing (extraction, maps, images, handwriting, summaries, backfill).
+- [x] B6b. Saving a key queues key-failed sources again, through `SourceService.MarkReadyAsync`
+      (the GM's own retry of a failed source), found by `Source.FailureCategory`.
+- [x] B7. Health: outcomes per provider, recorded by the binder, refusals not recorded;
+      `/status` entries `azure-openai`, `ai-openai`, `ai-openai-compatible`.
+- [x] B8. Web: Profile's AI keys and Models cards, the trial line, refusal rendering, and
+      "Estimated" plus "Paid by" on Costs. Refusals render through `AiErrorAlert` on Ask, the
+      Prep drafting and conversation streams and Capture's page reading; an out-of-credit
+      refusal links to the provider's billing page when its message names one.
+- [x] B9. Tests per design.md; build, `dotnet test`, `dotnet format --verify-no-changes`.
 - [ ] B10. Dave: the key-ring blob and `AiKeys__KeyBlobUri` on both apps (targeted
       `az containerapp update`), `AddAiKeys` applied, then the merge.
 

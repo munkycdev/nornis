@@ -110,7 +110,7 @@
 
     @if (_error is not null)
     {
-        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2 nornis-prep-talk-error">@_error</MudAlert>
+        <AiErrorAlert Error="_error" OtherSeverity="Severity.Warning" Class="mt-2 nornis-prep-talk-error" />
     }
 
     @if (_isFull)
@@ -176,7 +176,7 @@
     private List<ConversationMessageDto> _messages = [];
     private bool _isFull;
     private string? _loadError;
-    private string? _error;
+    private ApiError? _error;
     private string _text = string.Empty;
     private bool _streaming;
     private string? _answer;
@@ -239,14 +239,14 @@
                         StateHasChanged();
                         break;
                     case ConversationStreamEvent.Failed failed:
-                        _error = failed.Error.Message;
+                        _error = failed.Error;
                         break;
                 }
             }
         }
         catch (OperationCanceledException) when (_cts.IsCancellationRequested)
         {
-            _error = "Stopped. The answer wasn't saved.";
+            _error = new ApiError("stopped", "Stopped. The answer wasn't saved.");
         }
         finally
         {
@@ -271,7 +271,7 @@
         }
 
         var result = await Api.ClearAdventureConversationAsync(WorldId, AdventureId);
-        _error = result.IsSuccess ? null : result.Error!.Message;
+        _error = result.IsSuccess ? null : result.Error;
         await ReloadAsync();
     }
 

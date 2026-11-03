@@ -17,8 +17,8 @@ namespace Nornis.Api.Tests.Infrastructure;
 /// dependencies healthy" for the ops page. A dependency failure reaching /health would
 /// page someone about a missed migration that never happened.
 ///
-/// Only the two configuration-free checks (worker-heartbeat, azure-openai) register in a
-/// test host — sql, blob-storage and service-bus need connection strings the test
+/// Only the configuration-free checks (worker-heartbeat, and one AI entry per provider since
+/// feature 39) register in a test host — sql, blob-storage and service-bus need connection strings the test
 /// environment deliberately does not supply.
 /// </summary>
 [TestFixture]
@@ -101,7 +101,8 @@ public class StatusEndpointTests
     {
         var names = CheckNames(await GetStatusAsync());
 
-        Assert.That(names, Is.EquivalentTo(["azure-openai", "worker-heartbeat"]));
+        // Nornis's own Azure resource keeps its entry; each provider users' keys reach has its own.
+        Assert.That(names, Is.EquivalentTo(["azure-openai", "ai-openai", "ai-openai-compatible", "worker-heartbeat"]));
     }
 
     [Test]

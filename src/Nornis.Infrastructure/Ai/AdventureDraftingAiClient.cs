@@ -1,6 +1,7 @@
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
+using Nornis.Domain.Enums;
 
 namespace Nornis.Infrastructure.Ai;
 

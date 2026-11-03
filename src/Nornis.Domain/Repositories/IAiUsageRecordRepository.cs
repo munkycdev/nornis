@@ -49,6 +49,17 @@ public interface IAiUsageRecordRepository
         IReadOnlyCollection<AiOperationType> operations,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// What a user's trial has spent (feature 39): the sum of every record the trial funded with
+    /// them as key holder, ever. The trial is one-time, so there is no window. Returns 0 when
+    /// nothing matches.
+    /// </summary>
+    Task<decimal> SumTrialSpendAsync(Guid keyHolderUserId, CancellationToken cancellationToken = default);
+
+    /// <summary>What every user's trial has spent since <paramref name="fromInclusive"/>, for the
+    /// monthly ceiling across all users. Returns 0 when nothing matches.</summary>
+    Task<decimal> SumAllTrialSpendAsync(DateTimeOffset fromInclusive, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByOperationTypeAsync(
         Guid worldId,
         Guid? userId,
@@ -64,6 +75,15 @@ public interface IAiUsageRecordRepository
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<GroupedCostSummary<Guid>>> AggregateByUserAsync(
+        Guid worldId,
+        Guid? userId,
+        DateTimeOffset? fromDate,
+        DateTimeOffset? toDate,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Costs by what paid (feature 39): one group per funding kind and key. Rows from
+    /// before feature 39 have neither and group together.</summary>
+    Task<IReadOnlyList<GroupedCostSummary<AiFundingKey>>> AggregateByFundingAsync(
         Guid worldId,
         Guid? userId,
         DateTimeOffset? fromDate,

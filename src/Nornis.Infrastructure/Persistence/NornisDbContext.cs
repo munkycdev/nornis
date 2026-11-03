@@ -1,6 +1,7 @@
 ﻿using Microsoft.Data.SqlTypes;
 using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 using Nornis.Infrastructure.Persistence.Configurations;
 
 namespace Nornis.Infrastructure.Persistence;
@@ -14,6 +15,9 @@ public class NornisDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<UserSignIn> UserSignIns => Set<UserSignIn>();
     public DbSet<SignInLinkCode> SignInLinkCodes => Set<SignInLinkCode>();
+    public DbSet<UserAiKey> UserAiKeys => Set<UserAiKey>();
+    public DbSet<UserAiCompatibleModel> UserAiCompatibleModels => Set<UserAiCompatibleModel>();
+    public DbSet<UserAiModelChoice> UserAiModelChoices => Set<UserAiModelChoice>();
     public DbSet<World> Worlds => Set<World>();
     public DbSet<WorldMember> WorldMembers => Set<WorldMember>();
     public DbSet<WorldInvite> WorldInvites => Set<WorldInvite>();
@@ -96,6 +100,14 @@ public class NornisDbContext : DbContext
             if (isNewlyQueued || statusChanged)
             {
                 entry.Entity.StatusChangedAt = now;
+            }
+
+            // A failure's reason belongs to the failure: any other status drops it (feature 39),
+            // so saving an AI key can trust it to find exactly the sources that are still waiting.
+            if (entry.State is EntityState.Added or EntityState.Modified
+                && entry.Entity.ProcessingStatus != SourceProcessingStatus.Failed)
+            {
+                entry.Entity.FailureCategory = null;
             }
         }
 

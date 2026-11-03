@@ -61,6 +61,16 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
         });
     }
 
+    public Task<decimal> SumTrialSpendAsync(Guid keyHolderUserId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_records
+            .Where(r => r.KeyHolderUserId == keyHolderUserId && r.FundedBy == AiFundedBy.Trial)
+            .Sum(r => r.EstimatedCostUsd));
+
+    public Task<decimal> SumAllTrialSpendAsync(DateTimeOffset fromInclusive, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_records
+            .Where(r => r.FundedBy == AiFundedBy.Trial && r.CreatedAt >= fromInclusive)
+            .Sum(r => r.EstimatedCostUsd));
+
     public Task<decimal> SumPublicAskCostAsync(
         Guid worldId,
         DateTimeOffset fromInclusive,
@@ -126,6 +136,17 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
 
         return Task.FromResult<IReadOnlyList<GroupedCostSummary<string>>>(result.AsReadOnly());
     }
+
+    public Task<IReadOnlyList<GroupedCostSummary<AiFundingKey>>> AggregateByFundingAsync(
+        Guid worldId,
+        Guid? userId,
+        DateTimeOffset? fromDate,
+        DateTimeOffset? toDate,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<GroupedCostSummary<AiFundingKey>>>(FilterRecords(worldId, userId, fromDate, toDate)
+            .GroupBy(r => new AiFundingKey(r.FundedBy, r.AiKeyId))
+            .Select(g => new GroupedCostSummary<AiFundingKey> { Key = g.Key, Summary = BuildSummary(g.ToList()) })
+            .ToList());
 
     public Task<IReadOnlyList<GroupedCostSummary<Guid>>> AggregateByUserAsync(
         Guid worldId,

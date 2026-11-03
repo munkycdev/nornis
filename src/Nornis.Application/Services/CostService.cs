@@ -13,14 +13,19 @@ public class CostService : ICostService
     private readonly IAiUsageRecordRepository _aiUsageRecordRepository;
     private readonly IWorldMemberRepository _worldMemberRepository;
     private readonly IWorldRepository _worldRepository;
+    private readonly IAiKeyRepository? _aiKeyRepository;
     private readonly ILogger<CostService> _logger;
 
+    /// <param name="aiKeyRepository">Names the keys in <see cref="GetByFundingAsync"/>; without it a
+    /// key-funded group reads "Your key".</param>
     public CostService(
         IAiUsageRecordRepository aiUsageRecordRepository,
         IWorldMemberRepository worldMemberRepository,
         IWorldRepository worldRepository,
-        ILogger<CostService> logger)
+        ILogger<CostService> logger,
+        IAiKeyRepository? aiKeyRepository = null)
     {
+        _aiKeyRepository = aiKeyRepository;
         _aiUsageRecordRepository = aiUsageRecordRepository;
         _worldMemberRepository = worldMemberRepository;
         _worldRepository = worldRepository;
@@ -247,6 +252,70 @@ public class CostService : ICostService
             worldId, sw.ElapsedMilliseconds);
 
         return AppResult<IReadOnlyList<ModelCostResult>>.Success(results);
+    }
+
+    /// <summary>
+    /// Costs by what paid (feature 39): Nornis, the creator's trial, or one of the creator's keys,
+    /// named by its label. Rows from before feature 39 were Nornis's. A player sees their own calls
+    /// only, as in every other breakdown.
+    /// </summary>
+    public async Task<AppResult<IReadOnlyList<FundingCostResult>>> GetByFundingAsync(
+        Guid worldId,
+        Guid userId,
+        WorldRole role,
+        DateTimeOffset? startDate,
+        DateTimeOffset? endDate,
+        CancellationToken ct)
+    {
+        var validationError = ValidateDateRange(startDate, endDate);
+        if (validationError is not null)
+        {
+            return AppResult<IReadOnlyList<FundingCostResult>>.Fail(validationError);
+        }
+
+        var grouped = await _aiUsageRecordRepository.AggregateByFundingAsync(
+            worldId, DetermineUserIdFilter(userId, role), startDate, endDate, ct);
+
+        var named = new List<(AiFundedBy Kind, string PaidBy, CostSummary Summary)>();
+        var labels = new Dictionary<Guid, string>();
+        foreach (var group in grouped)
+        {
+            // Rows from before feature 39 carry no funding: Nornis paid for them.
+            var kind = group.Key.FundedBy ?? AiFundedBy.Nornis;
+            var paidBy = kind switch
+            {
+                AiFundedBy.Key when group.Key.AiKeyId is { } keyId => labels.TryGetValue(keyId, out var label)
+                    ? label
+                    : labels[keyId] = await KeyLabelAsync(keyId, ct),
+                AiFundedBy.Key => "Your key",
+                AiFundedBy.Trial => "Trial",
+                _ => "Nornis",
+            };
+            named.Add((kind, paidBy, group.Summary));
+        }
+
+        return AppResult<IReadOnlyList<FundingCostResult>>.Success(named
+            .GroupBy(n => (n.Kind, n.PaidBy))
+            .Select(g => new FundingCostResult { Kind = g.Key.Kind, PaidBy = g.Key.PaidBy, Summary = Sum(g.Select(n => n.Summary)) })
+            .OrderByDescending(r => r.Summary.TotalEstimatedCostUsd)
+            .ToList());
+    }
+
+    private async Task<string> KeyLabelAsync(Guid keyId, CancellationToken ct) =>
+        _aiKeyRepository is null
+            ? "Your key"
+            : (await _aiKeyRepository.GetAsync(keyId, ct))?.Label ?? "A removed key";
+    private static CostSummary Sum(IEnumerable<CostSummary> summaries)
+    {
+        var list = summaries.ToList();
+        return new CostSummary
+        {
+            TotalInputTokens = list.Sum(s => s.TotalInputTokens),
+            TotalOutputTokens = list.Sum(s => s.TotalOutputTokens),
+            TotalTokens = list.Sum(s => s.TotalTokens),
+            TotalEstimatedCostUsd = list.Sum(s => s.TotalEstimatedCostUsd),
+            OperationCount = list.Sum(s => s.OperationCount),
+        };
     }
 
     private static Guid? DetermineUserIdFilter(Guid userId, WorldRole role)

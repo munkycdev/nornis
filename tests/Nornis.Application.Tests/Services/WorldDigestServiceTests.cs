@@ -272,5 +272,21 @@ public class WorldDigestServiceTests
         Assert.That(_digestRepository.Digests, Is.Empty, "no half-generated digest is persisted");
     }
 
+    [Test]
+    public async Task Generate_FundingRefused_AnswersWithTheRefusalsCode_AndMetersNothing()
+    {
+        SeedArtifact("Captain Voss", VisibilityScope.PartyVisible);
+        SeedFact(_artifactRepository.Artifacts.Single().Id, "occupation", "smuggler");
+        _aiClient.ExceptionToThrow = new Nornis.Application.Ai.AiKeyRequiredException(
+            Nornis.Domain.Enums.AiTask.Ask, "the trial is used up.");
+
+        var result = await _service.GenerateAsync(WorldId, GmId, WorldRole.GM, CancellationToken.None);
+
+        // Feature 39: the GM can act on this one (add a key), so it says so rather than "try again".
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(409));
+        Assert.That(result.Error!.Code, Is.EqualTo("ai_key_required"));
+        Assert.That(_usageRepository.Records, Is.Empty, "nothing could pay, so nothing was charged");
+    }
+
     #endregion
 }

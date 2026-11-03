@@ -5,7 +5,10 @@
 
 @* Token and dollar usage. Formerly the /costs page; now a tab on the GM-only Admin page. *@
 
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Token and estimated dollar usage.</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    Token use and estimated dollars. Where a world runs on your own AI key, your provider's bill is the real figure.
+</MudText>
+<AiTrialLine Class="mb-4" />
 
 @if (Worlds.Current is null)
 {
@@ -70,7 +73,7 @@ else
     {
         <div class="nornis-triptych">
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-                <div class="nornis-detail-section-title">By operation</div>
+                <div class="nornis-detail-section-title">Estimated, by operation</div>
                 @if (_byOperation.Count == 0)
                 {
                     <MudText Typo="Typo.body2" Color="Color.Secondary">@EmptyText</MudText>
@@ -86,7 +89,7 @@ else
             </MudPaper>
 
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-                <div class="nornis-detail-section-title">By model</div>
+                <div class="nornis-detail-section-title">Estimated, by model</div>
                 @if (_byModel.Count == 0)
                 {
                     <MudText Typo="Typo.body2" Color="Color.Secondary">@EmptyText</MudText>
@@ -102,7 +105,7 @@ else
             </MudPaper>
 
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-                <div class="nornis-detail-section-title">By user</div>
+                <div class="nornis-detail-section-title">Estimated, by user</div>
                 @if (_byUser.Count == 0)
                 {
                     <MudText Typo="Typo.body2" Color="Color.Secondary">@EmptyText</MudText>
@@ -117,6 +120,21 @@ else
                 }
             </MudPaper>
         </div>
+
+        @if (_byFunding.Any(f => f.Kind != "Nornis"))
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4" data-testid="costs-paid-by">
+                <div class="nornis-detail-section-title">Paid by</div>
+                @foreach (var f in _byFunding)
+                {
+                    <div class="nornis-cost-row">
+                        <span class="nornis-cost-row-name">@f.PaidBy</span>
+                        <span class="nornis-list-meta">@TokenSplit(f.Summary)</span>
+                        <span class="nornis-cost-row-amount">@Money(f.Summary.TotalEstimatedCostUsd)</span>
+                    </div>
+                }
+            </MudPaper>
+        }
     }
 
     @if (_byWorld.Count > 0)
@@ -148,6 +166,10 @@ else
     private IReadOnlyList<OperationTypeCost> _byOperation = [];
     private IReadOnlyList<ModelCost> _byModel = [];
     private IReadOnlyList<UserCost> _byUser = [];
+
+    // Who paid (feature 39): a key's name, "Trial" or "Nornis". Shown only once something other
+    // than Nornis paid, and hidden silently when the call fails: it's a breakdown, not the totals.
+    private IReadOnlyList<FundingCost> _byFunding = [];
 
     // Cross-world totals (GM-only, all-time). Loaded once with the summary; the by-world
     // endpoint takes no date range. Empty when there are no GM worlds or the call fails, in
@@ -258,7 +280,8 @@ else
         var operationTask = Api.GetCostsByOperationAsync(id, from, to);
         var modelTask = Api.GetCostsByModelAsync(id, from, to);
         var userTask = Api.GetCostsByUserAsync(id, from, to);
-        await Task.WhenAll(operationTask, modelTask, userTask);
+        var fundingTask = Api.GetCostsByFundingAsync(id, from, to);
+        await Task.WhenAll(operationTask, modelTask, userTask, fundingTask);
 
         // Each date-picker change fires another load without cancelling the last. Adjusting a
         // range is naturally a flurry of them, and the slowest reply would otherwise fill the
@@ -283,6 +306,7 @@ else
         _byOperation = operationTask.Result.Value ?? [];
         _byModel = modelTask.Result.Value ?? [];
         _byUser = userTask.Result.Value ?? [];
+        _byFunding = fundingTask.Result.Value ?? [];
 
         StateHasChanged();
     }

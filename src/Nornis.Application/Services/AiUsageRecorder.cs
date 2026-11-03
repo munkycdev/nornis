@@ -10,20 +10,17 @@ namespace Nornis.Application.Services;
 public class AiUsageRecorder : IAiUsageRecorder
 {
     private readonly IAiUsageRecordRepository _repository;
-    private readonly IAiOutcomeMonitor _outcomeMonitor;
     private readonly ExtractionOptions _extractionOptions;
     private readonly LoremasterOptions _loremasterOptions;
     private readonly LibraryOptions _libraryOptions;
 
     public AiUsageRecorder(
         IAiUsageRecordRepository repository,
-        IAiOutcomeMonitor outcomeMonitor,
         IOptions<ExtractionOptions> extractionOptions,
         IOptions<LoremasterOptions> loremasterOptions,
         IOptions<LibraryOptions> libraryOptions)
     {
         _repository = repository;
-        _outcomeMonitor = outcomeMonitor;
         _extractionOptions = extractionOptions.Value;
         _loremasterOptions = loremasterOptions.Value;
         _libraryOptions = libraryOptions.Value;
@@ -41,12 +38,18 @@ public class AiUsageRecorder : IAiUsageRecorder
         string? fallbackModel = null,
         CancellationToken ct = default)
     {
+        // A refusal is not a call (feature 39): nothing could pay, or the key was refused, so
+        // nothing was charged and there is nothing to price. The Worker's pipelines don't record
+        // one at all; this keeps the streaming paths, which always write their ledger row, the same.
+        if (!succeeded && ErrorCategories.IsRefusal(errorCode))
+        {
+            return;
+        }
+
         var now = DateTimeOffset.UtcNow;
 
-        // Every AI call in this process already passes through here to be priced, which makes
-        // it the one place that sees provider health for free. The status check reads what
-        // this remembers instead of paying for a probe.
-        _outcomeMonitor.Record(succeeded, now);
+        // Provider health is no longer read from here: a failed call reaches this without its
+        // usage, so without its provider. AiCallBinder.ReportAsync records each outcome instead.
 
         var record = new AiUsageRecord
         {
@@ -65,7 +68,12 @@ public class AiUsageRecorder : IAiUsageRecorder
             DurationMs = usage?.DurationMs ?? 0,
             Succeeded = succeeded,
             ErrorCode = errorCode,
-            CreatedAt = now
+            CreatedAt = now,
+            Provider = usage?.Funding?.Provider,
+            ModelId = usage?.Funding?.ModelId,
+            FundedBy = usage?.Funding?.FundedBy,
+            AiKeyId = usage?.Funding?.AiKeyId,
+            KeyHolderUserId = usage?.Funding?.KeyHolderUserId,
         };
 
         await _repository.CreateAsync(record, ct);
@@ -76,6 +84,13 @@ public class AiUsageRecorder : IAiUsageRecorder
         if (usage is null)
         {
             return 0m;
+        }
+
+        // A key-funded call carries its own price, from the catalog or the user's own line
+        // (feature 39). Nornis's own deployments are priced from configuration, as before.
+        if (usage.Funding?.Price is { } price)
+        {
+            return price.Cost(usage.InputTokens, usage.CachedInputTokens, usage.OutputTokens);
         }
 
         var pricing = LookupPricing(usage.Model);

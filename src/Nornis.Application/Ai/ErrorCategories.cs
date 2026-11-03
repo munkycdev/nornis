@@ -18,4 +18,20 @@ public static class ErrorCategories
     /// budget guard's own error does.
     /// </summary>
     public const string BudgetExceeded = "BudgetExceeded";
+
+    /// <summary>Feature 39: the world's creator has no AI key for the task and no trial left.
+    /// Saving a key queues the sources that failed with this again.</summary>
+    public const string AiKeyRequired = "AiKeyRequired";
+
+    /// <summary>Feature 39: the provider refused the key that would pay.</summary>
+    public const string AiKeyRejected = "AiKeyRejected";
+
+    /// <summary>Feature 39: the key works, but its provider account is out of credit.</summary>
+    public const string AiCreditExhausted = "AiCreditExhausted";
+
+    /// <summary>The failures that are about who pays rather than about the call (feature 39); a
+    /// saved key can cure each of them.</summary>
+    public static readonly IReadOnlyCollection<string> Refusals = [AiKeyRequired, AiKeyRejected, AiCreditExhausted];
+
+    public static bool IsRefusal(string? category) => category is not null && Refusals.Contains(category);
 }

@@ -14,13 +14,21 @@ public sealed record AiCallScope
     /// background job.</summary>
     public Guid? UserId { get; }
 
-    private AiCallScope(Guid? worldId, Guid? userId)
+    /// <summary>False for an anonymous public visitor: the creator's trial is theirs to try Nornis
+    /// with, not for the public to spend (Requirement 4.5).</summary>
+    public bool TrialAllowed { get; }
+
+    private AiCallScope(Guid? worldId, Guid? userId, bool trialAllowed)
     {
         WorldId = worldId;
         UserId = userId;
+        TrialAllowed = trialAllowed;
     }
 
-    public static AiCallScope ForWorld(Guid worldId, Guid? actingUserId = null) => new(worldId, actingUserId);
+    public static AiCallScope ForWorld(Guid worldId, Guid? actingUserId = null) => new(worldId, actingUserId, true);
 
-    public static AiCallScope ForUser(Guid userId) => new(null, userId);
+    /// <summary>A question from the world's public page, asked by nobody signed in.</summary>
+    public static AiCallScope ForPublicVisitor(Guid worldId) => new(worldId, null, false);
+
+    public static AiCallScope ForUser(Guid userId) => new(null, userId, true);
 }

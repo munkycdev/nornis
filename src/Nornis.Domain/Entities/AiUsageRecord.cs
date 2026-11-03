@@ -45,4 +45,20 @@ public class AiUsageRecord
     public string? ErrorCode { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>Who served the call (feature 39). Null on rows written before it.</summary>
+    public AiProvider? Provider { get; set; }
+
+    /// <summary>The catalog id of the model that ran, when it was a catalog model; null for
+    /// Nornis's own deployments, OpenAI-compatible models, and rows before feature 39.</summary>
+    public string? ModelId { get; set; }
+
+    /// <summary>What paid (feature 39). Null on rows written before it, which were all Nornis's.</summary>
+    public AiFundedBy? FundedBy { get; set; }
+
+    /// <summary>The key that paid, when a key did. No foreign key: the record outlives the key.</summary>
+    public Guid? AiKeyId { get; set; }
+
+    /// <summary>The user whose key or trial paid: the world's creator, not whoever asked.</summary>
+    public Guid? KeyHolderUserId { get; set; }
 }

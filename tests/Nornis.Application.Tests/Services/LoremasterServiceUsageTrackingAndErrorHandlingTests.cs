@@ -186,6 +186,36 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
 
     #endregion
 
+    #region Funding refusals (feature 39)
+
+    private static IEnumerable<TestCaseData> Refusals()
+    {
+        yield return new TestCaseData(new AiKeyRequiredException(AiTask.Ask, "the trial is used up."), "ai_key_required");
+        yield return new TestCaseData(new AiKeyRejectedException(AiProvider.OpenAi), "ai_key_rejected");
+        yield return new TestCaseData(new AiCreditExhaustedException(AiProvider.OpenAi), "ai_credit_exhausted");
+    }
+
+    [TestCaseSource(nameof(Refusals))]
+    public async Task AskAsync_FundingRefused_AnswersWithItsCode_AndRecordsNoCall(AiRefusalException refusal, string code)
+    {
+        // Nothing could pay, or the key was refused: no call was charged, and the code is the
+        // GM's call to action (add or replace a key), not a "try again".
+        SetupKnowledgeContext();
+        _aiClient.NextException = refusal;
+
+        var result = await _service.AskAsync(CreateCommand(), CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Error!.StatusCode, Is.EqualTo(409));
+            Assert.That(result.Error!.Code, Is.EqualTo(code));
+            Assert.That(result.Error!.Message, Does.Contain("Profile").Or.Contain("credit"));
+            Assert.That(_aiUsageRecordRepository.Records, Is.Empty);
+        });
+    }
+
+    #endregion
+
     #region AI failures map to HTTP status, code and message
 
     [TestCase(AiFailure.Timeout, 503, "service_unavailable",

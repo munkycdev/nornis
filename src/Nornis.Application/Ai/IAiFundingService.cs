@@ -1,3 +1,5 @@
+using Nornis.Domain.Enums;
+
 namespace Nornis.Application.Ai;
 
 /// <summary>
@@ -9,5 +11,7 @@ public interface IAiFundingService
 {
     /// <param name="nornisModel">The model Nornis's own key uses for this work: the configured
     /// deployment the calling service asked for. It is what runs whenever Nornis pays.</param>
-    Task<AiFunding> ResolveAsync(AiCallScope scope, AiTask task, string nornisModel, CancellationToken ct);
+    /// <param name="needsImages">The call sends images, so only a model that reads them will do.</param>
+    /// <exception cref="AiRefusalException">Nothing can pay, or the key that would pay was rejected.</exception>
+    Task<AiFunding> ResolveAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, CancellationToken ct);
 }

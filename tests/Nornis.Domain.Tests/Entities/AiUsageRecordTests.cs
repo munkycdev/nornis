@@ -136,6 +136,8 @@ public class AiUsageRecordTests
         var properties = _type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
         // 16th: CachedInputTokens — nullable on purpose, so "this path does not report cache
         // hits" stays distinguishable from "the provider reported no cache hit".
-        Assert.That(properties, Has.Length.EqualTo(16));
+        // 17th to 21st (feature 39): Provider, ModelId, FundedBy, AiKeyId, KeyHolderUserId —
+        // who paid, all nullable because rows written before it said nothing.
+        Assert.That(properties, Has.Length.EqualTo(21));
     }
 }

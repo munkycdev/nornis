@@ -39,6 +39,9 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
     /// <summary>Prep's drafting client; a test sets what it writes and reads what it was sent.</summary>
     public FakeAdventureDraftingAiClient FakeDrafting { get; } = new();
 
+    /// <summary>Answers Profile's key checks (feature 39) instead of a provider.</summary>
+    public FakeAiKeyChecker AiKeyChecker { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureServices(services =>
@@ -138,6 +141,13 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
                 services.Remove(draftingDescriptor);
             }
             services.AddSingleton<Nornis.Application.Ai.IAdventureDraftingAiClient>(FakeDrafting);
+
+            // A key is checked with its provider before it is saved; tests never call one.
+            foreach (var checker in services.Where(d => d.ServiceType == typeof(Nornis.Application.Ai.IAiKeyChecker)).ToList())
+            {
+                services.Remove(checker);
+            }
+            services.AddSingleton<Nornis.Application.Ai.IAiKeyChecker>(AiKeyChecker);
 
             // Blob storage is a throwing DI stub when unconfigured — replace with an
             // in-memory fake so Library endpoints are testable.

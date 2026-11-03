@@ -88,6 +88,10 @@ public class SourceTranscriptionService : ISourceTranscriptionService
         ErrorCategories.Timeout or ErrorCategories.TransientError => new AppError(503, "ai_unavailable",
             "Nornis could not reach the reading service. Try again in a moment."),
         ErrorCategories.ValidationFailure => new AppError(400, "validation_error", failure.ErrorMessage!),
+        // Feature 39: who pays for the call is the GM's to fix; the codes are the ones Ask and Prep use.
+        ErrorCategories.AiKeyRequired => new AppError(409, "ai_key_required", failure.ErrorMessage!),
+        ErrorCategories.AiKeyRejected => new AppError(409, "ai_key_rejected", failure.ErrorMessage!),
+        ErrorCategories.AiCreditExhausted => new AppError(409, "ai_credit_exhausted", failure.ErrorMessage!),
         _ => new AppError(502, "ai_failed", "Nornis could not read these pages."),
     };
 }

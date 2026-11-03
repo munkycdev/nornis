@@ -235,7 +235,7 @@ else
 
                 @if (_error is not null)
                 {
-                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_error</MudAlert>
+                    <AiErrorAlert Error="ShownError(_error)" Class="mb-3" />
                 }
 
                 <div class="d-flex gap-2">
@@ -281,6 +281,11 @@ else
     private bool _extractionEnabled = true;
     private bool _busy;
     private string? _error;
+
+    // The last error the API answered with, kept for its code: reading pages needs AI, and a
+    // refusal (feature 39) should point at Profile › AI keys. Only counts while it's still the
+    // message on screen, so the many plain-text errors here need no bookkeeping.
+    private ApiError? _errorFromApi;
 
     // ---------------------------------------------------------- Unsaved work, kept locally --
     // The editor keeps what is typed in this browser's storage as it goes (nornis-editor.js);
@@ -802,6 +807,7 @@ else
 
         if (!read.IsSuccess)
         {
+            _errorFromApi = read.Error;
             _error = read.Error!.Message;
             return;
         }
@@ -932,4 +938,7 @@ else
             : "Source stored in the record — no extraction.", Severity.Success);
         Nav.NavigateTo("/sources");
     }
+
+    private ApiError ShownError(string message) =>
+        _errorFromApi is { } error && error.Message == message ? error : new ApiError(string.Empty, message);
 }

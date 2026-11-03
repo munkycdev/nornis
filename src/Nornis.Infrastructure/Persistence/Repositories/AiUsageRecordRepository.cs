@@ -68,6 +68,18 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
         return result ?? new CostSummary();
     }
 
+    public async Task<decimal> SumTrialSpendAsync(Guid keyHolderUserId, CancellationToken cancellationToken = default) =>
+        await _context.AiUsageRecords
+            .AsNoTracking()
+            .Where(r => r.KeyHolderUserId == keyHolderUserId && r.FundedBy == AiFundedBy.Trial)
+            .SumAsync(r => (decimal?)r.EstimatedCostUsd, cancellationToken) ?? 0m;
+
+    public async Task<decimal> SumAllTrialSpendAsync(DateTimeOffset fromInclusive, CancellationToken cancellationToken = default) =>
+        await _context.AiUsageRecords
+            .AsNoTracking()
+            .Where(r => r.FundedBy == AiFundedBy.Trial && r.CreatedAt >= fromInclusive)
+            .SumAsync(r => (decimal?)r.EstimatedCostUsd, cancellationToken) ?? 0m;
+
     public async Task<decimal> SumPublicAskCostAsync(
         Guid worldId,
         DateTimeOffset fromInclusive,
@@ -167,6 +179,43 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
             .ToListAsync(cancellationToken);
 
         return results;
+    }
+
+    public async Task<IReadOnlyList<GroupedCostSummary<AiFundingKey>>> AggregateByFundingAsync(
+        Guid worldId,
+        Guid? userId,
+        DateTimeOffset? fromDate,
+        DateTimeOffset? toDate,
+        CancellationToken cancellationToken = default)
+    {
+        var grouped = await BuildFilteredQuery(worldId, userId, fromDate, toDate)
+            .GroupBy(r => new { r.FundedBy, r.AiKeyId })
+            .Select(g => new
+            {
+                g.Key.FundedBy,
+                g.Key.AiKeyId,
+                TotalInputTokens = g.Sum(r => (long)r.InputTokens),
+                TotalOutputTokens = g.Sum(r => (long)r.OutputTokens),
+                TotalTokens = g.Sum(r => (long)r.TotalTokens),
+                TotalEstimatedCostUsd = g.Sum(r => r.EstimatedCostUsd),
+                OperationCount = g.Count()
+            })
+            .ToListAsync(cancellationToken);
+
+        return grouped
+            .Select(g => new GroupedCostSummary<AiFundingKey>
+            {
+                Key = new AiFundingKey(g.FundedBy, g.AiKeyId),
+                Summary = new CostSummary
+                {
+                    TotalInputTokens = g.TotalInputTokens,
+                    TotalOutputTokens = g.TotalOutputTokens,
+                    TotalTokens = g.TotalTokens,
+                    TotalEstimatedCostUsd = g.TotalEstimatedCostUsd,
+                    OperationCount = g.OperationCount
+                }
+            })
+            .ToList();
     }
 
     public async Task<IReadOnlyList<GroupedCostSummary<Guid>>> AggregateByUserAsync(
