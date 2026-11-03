@@ -155,6 +155,18 @@ else if (_adventure is not null)
                              BackupKey="@BackupKey(selected.Id)" PreferBackup="true"
                              Restored="at => _restoredAt = at" />
 
+                @* What the section's game blocks would lose on export (feature 35). The server
+                   decides them on every load, save and draft; they never change the text. *@
+                @if (selected.BlockWarnings is { Count: > 0 } warnings)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2 nornis-prep-block-warnings">
+                        @foreach (var warning in warnings)
+                        {
+                            <div>@warning</div>
+                        }
+                    </MudAlert>
+                }
+
                 <div class="d-flex gap-2 mt-3 flex-wrap align-center">
                     <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SaveAsync"
                                StartIcon="@Icons.Material.Outlined.Save" Disabled="_busy">
@@ -451,7 +463,7 @@ else if (_adventure is not null)
             {
                 Sections = _adventure.Sections
                     .Select(s => s.Id == saved.Id
-                        ? s with { Kind = saved.Kind, Title = saved.Title, BodyMarkdown = saved.BodyMarkdown, UpdatedAt = saved.UpdatedAt, IsFilled = saved.IsFilled }
+                        ? s with { Kind = saved.Kind, Title = saved.Title, BodyMarkdown = saved.BodyMarkdown, UpdatedAt = saved.UpdatedAt, IsFilled = saved.IsFilled, BlockWarnings = saved.BlockWarnings }
                         : s)
                     .ToList(),
             };

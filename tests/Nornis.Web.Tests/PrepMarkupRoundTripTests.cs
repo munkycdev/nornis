@@ -74,15 +74,39 @@ public class PrepMarkupRoundTripTests
     }
 
     [Test]
-    public void TheToolbarsStatBlock_SavesAsAStatblockFence()
+    public void TheToolbarsStatBlock_SavesAsAStatblockFence_InTheGrammar()
     {
         // The shape TipTap gives a code block with a language (see the StatBlock case above).
         var html = $"<pre><code class=\"language-{PrepMarkup.StatBlockInfo}\">{PrepMarkup.StatBlockTemplate}</code></pre>";
 
         var markdown = HtmlToMarkdownConverter.Convert(html);
 
-        Assert.That(markdown, Does.StartWith("```statblock\nName:"));
-        Assert.That(markdown, Does.EndWith("\n```"));
+        Assert.That(markdown, Is.EqualTo($"```statblock\n{PrepMarkup.StatBlockTemplate}\n```"));
+        Assert.That(markdown, Does.StartWith("```statblock\n# Name\n*"), "a name line, then a subtitle (feature 35)");
+    }
+
+    [Test]
+    public void TheToolbarsItem_SavesAsAnItemFence_InTheGrammar()
+    {
+        var html = $"<pre><code class=\"language-{PrepMarkup.ItemBlockInfo}\">{PrepMarkup.ItemBlockTemplate}</code></pre>";
+
+        var markdown = HtmlToMarkdownConverter.Convert(html);
+
+        Assert.That(markdown, Is.EqualTo($"```item\n{PrepMarkup.ItemBlockTemplate}\n```"));
+        Assert.That(PrepMarkup.ItemBlockTemplate, Does.StartWith("# Name\n*").And.Contain("\n---\n"));
+    }
+
+    [Test]
+    public void TheToolbarsGmNote_SavesAsAMarkedQuote()
+    {
+        var markdown = HtmlToMarkdownConverter.Convert(PrepMarkup.GmBlockHtml());
+        var lines = markdown.Split('\n');
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lines[0], Is.EqualTo($"> {PrepMarkup.GmMarker}"));
+            Assert.That(lines, Has.Length.EqualTo(2));
+        });
     }
 
     /// <summary>

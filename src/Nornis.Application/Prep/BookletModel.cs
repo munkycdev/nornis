@@ -17,7 +17,7 @@ namespace Nornis.Application.Prep;
 ///
 /// - A plain blockquote is read-aloud; a <c>[!PROP]</c> or <c>[!ASK]</c> quote is a prop or a
 ///   question, the marker removed.
-/// - A <c>statblock</c> fence is label and value lines.
+/// - A <c>statblock</c> or <c>item</c> fence is a game block, read by <see cref="GameBlocks"/>.
 /// - A Chapter starts a <see cref="BookletChapter"/>; every other section is a heading in its
 ///   chapter's flow, and an unwritten one is left out.
 /// - Every newline the GM typed is a line break, as in the editor (the Web's
@@ -79,13 +79,12 @@ public static class BookletModel
     /// <summary>The cover's lines (feature 32): system and edition, levels, author, pitch, and the credits.</summary>
     private static BookletCover Cover(Adventure adventure, PrintDetails details)
     {
-        var system = string.Join(' ', new[] { details.GameSystem, details.Edition }.Where(v => !string.IsNullOrWhiteSpace(v)));
         var credits = new[] { details.Type, details.Publisher, details.Year?.ToString(CultureInfo.InvariantCulture) }
             .Where(v => !string.IsNullOrWhiteSpace(v));
 
         return new BookletCover(
             adventure.Title,
-            system.Length > 0 ? system : null,
+            details.SystemLine(),
             string.IsNullOrWhiteSpace(details.Levels) ? null : $"Levels {details.Levels}",
             $"By {details.Author}",
             string.IsNullOrWhiteSpace(adventure.Pitch) ? null : adventure.Pitch.Trim(),
@@ -125,7 +124,7 @@ public static class BookletModel
         ListBlock list => List(list),
         QuoteBlock quote => Box(quote),
         Table table => TableOf(table),
-        FencedCodeBlock { Info: PrepMarkup.StatBlockInfo } fence => StatBlock(fence),
+        FencedCodeBlock fence when GameBlocks.Parse(fence) is { } game => new BookletGameBlock(game),
         CodeBlock code => new BookletCode(code.Lines.ToString().TrimEnd('\n')),
         ThematicBreakBlock => new BookletRule(),
         ContainerBlock => null,
@@ -199,26 +198,6 @@ public static class BookletModel
         return text;
     }
 
-    private static BookletStatBlock StatBlock(FencedCodeBlock fence)
-    {
-        var entries = new List<BookletStatEntry>();
-        foreach (var line in fence.Lines.Lines.Take(fence.Lines.Count))
-        {
-            var text = line.Slice.ToString().Trim();
-            if (text.Length == 0)
-            {
-                continue;
-            }
-
-            var colon = text.IndexOf(':');
-            entries.Add(colon > 0
-                ? new BookletStatEntry(text[..colon].Trim(), text[(colon + 1)..].Trim())
-                : new BookletStatEntry(null, text));
-        }
-
-        return new BookletStatBlock(entries);
-    }
-
     // --------------------------------------------------------------------- Boxes --
 
     private static BookletBox Box(QuoteBlock quote)
@@ -258,6 +237,7 @@ public static class BookletModel
         {
             PrepMarkup.PropMarker => BookletBoxKind.Prop,
             PrepMarkup.AskMarker => BookletBoxKind.Ask,
+            PrepMarkup.GmMarker => BookletBoxKind.Gm,
             _ => null,
         };
         if (kind is null)

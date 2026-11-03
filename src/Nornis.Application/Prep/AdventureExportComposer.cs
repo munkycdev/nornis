@@ -8,7 +8,8 @@ namespace Nornis.Application.Prep;
 /// The body of an Export to Nornis (feature 29, Requirement 8): a snapshot of the Adventure's
 /// sections in order, under one filing line that says what this is. Chapters become <c>#</c>
 /// headings and every other section a <c>##</c>, so the extractor reads the same structure the
-/// GM wrote. Unwritten sections carry nothing and are left out.
+/// GM wrote. Unwritten sections carry nothing and are left out. A named stat or item block is
+/// filed as its one export line (feature 35), so the extractor makes it one fact.
 /// </summary>
 public static class AdventureExportComposer
 {
@@ -58,7 +59,15 @@ public static class AdventureExportComposer
         return $"Adventure \"{Cut(adventureTitle)}\"{chapter}, exported {at:yyyy-MM-dd} by the GM as prep";
     }
 
-    public static string BuildBody(string adventureTitle, string? chapterTitle, IReadOnlyList<AdventureSection> sections, DateTimeOffset at)
+    /// <param name="gameSystem">The Adventure's system line, as <c>PrintDetails.SystemOf</c> resolves it; it names the system in each block's line.</param>
+    /// <param name="blockLines">
+    /// Whether named game blocks become their export lines. A line can be longer than its fence,
+    /// so only the body without them is within <see cref="AdventureSize"/>'s bound; the export
+    /// service falls back to it when the body with them is too long.
+    /// </param>
+    public static string BuildBody(
+        string adventureTitle, string? chapterTitle, IReadOnlyList<AdventureSection> sections, string? gameSystem,
+        DateTimeOffset at, bool blockLines = true)
     {
         var body = new StringBuilder();
         body.Append(BuildFilingLine(adventureTitle, chapterTitle, at));
@@ -75,7 +84,8 @@ public static class AdventureExportComposer
             body.Append("\n\n").Append(isChapter ? "# " : "## ").Append(section.Title.Trim());
             if (!unfilled)
             {
-                body.Append("\n\n").Append(section.BodyMarkdown.Trim());
+                var text = blockLines ? GameBlocks.WithExportLines(section.BodyMarkdown, gameSystem) : section.BodyMarkdown;
+                body.Append("\n\n").Append(text.Trim());
             }
         }
 

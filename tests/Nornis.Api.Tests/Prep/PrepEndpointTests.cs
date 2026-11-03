@@ -202,6 +202,29 @@ public class PrepEndpointTests
     }
 
     [Test]
+    public async Task ASection_CarriesItsBlockWarnings_OnSaveAndOnLoad()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var adventure = await CreateAsync(scenario.GmClient, scenario.World.Id);
+        var overview = adventure.Sections[0];
+        var url = $"{Base(scenario.World.Id)}/{adventure.Id}/sections/{overview.Id}";
+        const string warning = "The first stat block has no name, so Export to Nornis can't file it on anyone. Start it with \"# Name\".";
+
+        var saved = await scenario.GmClient.PutAsJsonAsync(url,
+            new SaveAdventureSectionRequest("Overview", "Overview", "A guard.\n\n```statblock\nAC: 12\n```", overview.UpdatedAt));
+        Assert.That(saved.StatusCode, Is.EqualTo(HttpStatusCode.OK), await saved.Content.ReadAsStringAsync());
+        var section = (await saved.Content.ReadFromJsonAsync<SavedAdventureSectionResponse>())!;
+        var after = await scenario.GmClient.GetFromJsonAsync<AdventureResponse>($"{Base(scenario.World.Id)}/{adventure.Id}");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(section.BlockWarnings, Is.EqualTo((string[])[warning]));
+            Assert.That(after!.Sections[0].BlockWarnings, Is.EqualTo((string[])[warning]));
+            Assert.That(after.Sections[1].BlockWarnings, Is.Empty, "a section with no blocks has none");
+        });
+    }
+
+    [Test]
     public async Task SaveSection_WithAnUnknownKind_Is400()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);

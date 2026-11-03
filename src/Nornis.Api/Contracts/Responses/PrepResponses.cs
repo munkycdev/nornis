@@ -14,6 +14,7 @@ public record AdventureSummaryResponse(
 /// <summary>
 /// One section. <see cref="IsFilled"/> is decided here, by <c>AdventureSkeleton.IsUnfilled</c>,
 /// so the Web's outline and the list's count can't disagree about what an untouched scene is.
+/// <see cref="BlockWarnings"/> come from <c>GameBlockWarnings</c> (feature 35), on every path that returns a section.
 /// </summary>
 public record AdventureSectionResponse(
     Guid Id,
@@ -23,7 +24,8 @@ public record AdventureSectionResponse(
     int SortOrder,
     DateTimeOffset UpdatedAt,
     int RevisionCount,
-    bool IsFilled);
+    bool IsFilled,
+    IReadOnlyList<string> BlockWarnings);
 
 /// <summary>A section as a save leaves it. A save never changes revisions, so their count isn't here.</summary>
 public record SavedAdventureSectionResponse(
@@ -33,7 +35,8 @@ public record SavedAdventureSectionResponse(
     string BodyMarkdown,
     int SortOrder,
     DateTimeOffset UpdatedAt,
-    bool IsFilled);
+    bool IsFilled,
+    IReadOnlyList<string> BlockWarnings);
 
 public record AdventureResponse(
     Guid Id,

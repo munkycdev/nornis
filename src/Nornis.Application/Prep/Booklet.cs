@@ -57,15 +57,14 @@ public enum BookletBoxKind
     ReadAloud,
     Prop,
     Ask,
+    Gm,
 }
 
-/// <summary>One of <see cref="PrepMarkup"/>'s three blockquote conventions, marker removed.</summary>
+/// <summary>One of <see cref="PrepMarkup"/>'s blockquote conventions, marker removed.</summary>
 public sealed record BookletBox(BookletBoxKind Kind, IReadOnlyList<BookletBlock> Blocks) : BookletBlock;
 
-/// <summary>A <c>statblock</c> fence: label and value per line; a line with no label is <see cref="Label"/> null.</summary>
-public sealed record BookletStatEntry(string? Label, string Value);
-
-public sealed record BookletStatBlock(IReadOnlyList<BookletStatEntry> Entries) : BookletBlock;
+/// <summary>A stat block or an item block, as <see cref="GameBlocks"/> parsed it (feature 35); the renderer decides its look.</summary>
+public sealed record BookletGameBlock(GameBlock Block) : BookletBlock;
 
 public sealed record BookletCode(string Text) : BookletBlock;
 

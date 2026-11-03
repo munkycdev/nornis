@@ -46,7 +46,7 @@ public class AdventureExportComposerTests
         var adventure = Adventure(TwoChapters);
         var sections = AdventureExportComposer.Select(adventure, null)!;
 
-        var body = AdventureExportComposer.BuildBody(adventure.Title, null, sections, At);
+        var body = AdventureExportComposer.BuildBody(adventure.Title, null, sections, null, At);
 
         Assert.That(body, Is.EqualTo(
             "Adventure \"Everybody Dies at the Slurping Spa\", exported 2026-11-14 by the GM as prep\n\n"
@@ -109,11 +109,43 @@ public class AdventureExportComposerTests
     public void OneSectionsMarkup_StaysWithinThePerSectionAllowance()
     {
         var adventure = Adventure(("T", AdventureSectionKind.Notes, "B"));
-        var body = AdventureExportComposer.BuildBody("A", null, adventure.Sections.ToList(), At);
+        var body = AdventureExportComposer.BuildBody("A", null, adventure.Sections.ToList(), null, At);
         var filingLine = AdventureExportComposer.BuildFilingLine("A", null, At);
 
         var overhead = body.Length - filingLine.Length - "T".Length - "B".Length;
 
         Assert.That(overhead, Is.LessThanOrEqualTo(AdventureSize.ExportOverheadPerSection));
+    }
+
+    [Test]
+    public void EachNamedBlock_BecomesItsLine_InPlace_WhereverItSits()
+    {
+        var text = "Intro.\r\n\r\n```statblock\r\n# Voss\r\nAC: 15\r\n```\r\n\r\n- In a list:\r\n\r\n  ```item\r\n  # Rope\r\n  Length: 50 ft\r\n  ```\r\n\r\nAfter.";
+        var adventure = Adventure(("T", AdventureSectionKind.Notes, text));
+
+        var body = AdventureExportComposer.BuildBody("A", null, adventure.Sections.ToList(), "OSE", At);
+
+        Assert.That(body, Does.EndWith(
+            "## T\n\nIntro.\n\nStat block for \"Voss\" (OSE): AC: 15.\n\n- In a list:\n\n  Item \"Rope\" (OSE): Length: 50 ft.\n\nAfter."));
+    }
+
+    [Test]
+    public void WithoutBlockLines_TheSectionIsAsWritten()
+    {
+        var adventure = Adventure(("T", AdventureSectionKind.Notes, "```statblock\n# Voss\nAC: 15\n```"));
+
+        var body = AdventureExportComposer.BuildBody("A", null, adventure.Sections.ToList(), "OSE", At, blockLines: false);
+
+        Assert.That(body, Does.EndWith("## T\n\n```statblock\n# Voss\nAC: 15\n```"));
+    }
+
+    [Test]
+    public void AnUnclosedFence_ToTheEndOfTheSection_StillBecomesItsLine()
+    {
+        var adventure = Adventure(("T", AdventureSectionKind.Notes, "Before.\n\n```statblock\n# Voss\nAC: 15"));
+
+        var body = AdventureExportComposer.BuildBody("A", null, adventure.Sections.ToList(), null, At);
+
+        Assert.That(body, Does.EndWith("Before.\n\nStat block for \"Voss\": AC: 15."));
     }
 }
