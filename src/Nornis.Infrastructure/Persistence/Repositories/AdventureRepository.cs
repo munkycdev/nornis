@@ -431,6 +431,78 @@ public class AdventureRepository : IAdventureRepository
         }
     }
 
+    public async Task SetCoverAsync(
+        Guid adventureId, AdventureCover? cover, bool generated, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+    {
+        var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
+
+        // A copy, so the caller's instance never becomes this row's tracked owned entity.
+        adventure.Cover = cover is null ? null : cover with { };
+        adventure.UpdatedAt = updatedAt;
+
+        // A generated cover is AI's art (feature 38): recorded with the cover, in one save, and
+        // never cleared, not even when the cover is removed or replaced by an upload.
+        if (generated)
+        {
+            adventure.AiUse.MadeArt = true;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        _context.Entry(adventure).State = EntityState.Detached;
+    }
+
+    public async Task<bool> TryCountCoverImagesAsync(Guid adventureId, int count, int cap, CancellationToken cancellationToken = default)
+    {
+        // One conditional UPDATE, so two generations at once can't both pass the cap.
+        if (_context.Database.IsRelational())
+        {
+            var updated = await _context.Adventures
+                .Where(a => a.Id == adventureId && a.CoverImagesGenerated + count <= cap)
+                .ExecuteUpdateAsync(set => set.SetProperty(a => a.CoverImagesGenerated, a => a.CoverImagesGenerated + count), cancellationToken);
+            return updated == 1;
+        }
+
+        // InMemory (API integration tests) has no ExecuteUpdate. Single-threaded there, so a
+        // read-modify-write keeps the observable contract without the atomicity.
+        var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
+        var fits = adventure.CoverImagesGenerated + count <= cap;
+        if (fits)
+        {
+            adventure.CoverImagesGenerated += count;
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        _context.Entry(adventure).State = EntityState.Detached;
+        return fits;
+    }
+
+    public async Task ReleaseCoverImagesAsync(Guid adventureId, int count, CancellationToken cancellationToken = default)
+    {
+        if (_context.Database.IsRelational())
+        {
+            await _context.Adventures
+                .Where(a => a.Id == adventureId)
+                .ExecuteUpdateAsync(set => set.SetProperty(
+                    a => a.CoverImagesGenerated, a => a.CoverImagesGenerated < count ? 0 : a.CoverImagesGenerated - count), cancellationToken);
+            return;
+        }
+
+        var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
+        adventure.CoverImagesGenerated = Math.Max(0, adventure.CoverImagesGenerated - count);
+        await _context.SaveChangesAsync(cancellationToken);
+        _context.Entry(adventure).State = EntityState.Detached;
+    }
+
+    public async Task SaveCoverWorkAsync(
+        Guid adventureId, string? brief, IReadOnlyList<Guid> newOptionIds, CancellationToken cancellationToken = default)
+    {
+        var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
+        adventure.CoverBrief = brief;
+        adventure.CoverOptionIds = [.. adventure.CoverOptionIds, .. newOptionIds.Where(id => !adventure.CoverOptionIds.Contains(id))];
+        await _context.SaveChangesAsync(cancellationToken);
+        _context.Entry(adventure).State = EntityState.Detached;
+    }
+
     private async Task<Adventure> TouchAdventureAsync(Guid adventureId, DateTimeOffset at, CancellationToken cancellationToken)
     {
         var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);

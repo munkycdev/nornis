@@ -215,6 +215,48 @@ public class InMemoryAdventureRepository : IAdventureRepository
         return Task.FromResult(true);
     }
 
+    public Task SetCoverAsync(
+        Guid adventureId, AdventureCover? cover, bool generated, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+    {
+        var row = Required(_adventures, a => a.Id == adventureId);
+        row.Cover = cover is null ? null : cover with { };
+        row.UpdatedAt = updatedAt;
+        if (generated)
+        {
+            row.AiUse.MadeArt = true;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> TryCountCoverImagesAsync(Guid adventureId, int count, int cap, CancellationToken cancellationToken = default)
+    {
+        var row = Required(_adventures, a => a.Id == adventureId);
+        if (row.CoverImagesGenerated + count > cap)
+        {
+            return Task.FromResult(false);
+        }
+
+        row.CoverImagesGenerated += count;
+        return Task.FromResult(true);
+    }
+
+    public Task ReleaseCoverImagesAsync(Guid adventureId, int count, CancellationToken cancellationToken = default)
+    {
+        var row = Required(_adventures, a => a.Id == adventureId);
+        row.CoverImagesGenerated = Math.Max(0, row.CoverImagesGenerated - count);
+        return Task.CompletedTask;
+    }
+
+    public Task SaveCoverWorkAsync(
+        Guid adventureId, string? brief, IReadOnlyList<Guid> newOptionIds, CancellationToken cancellationToken = default)
+    {
+        var row = Required(_adventures, a => a.Id == adventureId);
+        row.CoverBrief = brief;
+        row.CoverOptionIds = [.. row.CoverOptionIds, .. newOptionIds.Where(id => !row.CoverOptionIds.Contains(id))];
+        return Task.CompletedTask;
+    }
+
     public Task<bool> TrySaveDraftAsync(
         Guid adventureId, string? markdown, AdventureDraftRevision? revision, int maxRevisions,
         DateTimeOffset? basedOn, DateTimeOffset updatedAt, bool loremasterWrote = false,
@@ -357,6 +399,10 @@ public class InMemoryAdventureRepository : IAdventureRepository
         LastPrintedDocumentId = a.LastPrintedDocumentId,
         Details = a.Details with { },
         AiUse = new() { WroteText = a.AiUse.WroteText, MadeArt = a.AiUse.MadeArt, Declared = a.AiUse.Declared },
+        Cover = a.Cover is null ? null : a.Cover with { },
+        CoverImagesGenerated = a.CoverImagesGenerated,
+        CoverBrief = a.CoverBrief,
+        CoverOptionIds = [.. a.CoverOptionIds],
         DraftMarkdown = a.DraftMarkdown,
         DraftUpdatedAt = a.DraftUpdatedAt,
         TableBrief = a.TableBrief,

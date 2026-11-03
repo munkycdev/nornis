@@ -75,7 +75,7 @@ public class AdventureDraftingServiceTests
         });
 
         _adventureService = new AdventureService(_adventures, new InMemoryCampaignRepository(),
-            new FakeSlugResolver((_, _) => null), TestBooklets.Printer(TestPrintDetails.For(_worldId, GmUserId, worlds: worlds)), Options.Create(_options));
+            new FakeSlugResolver((_, _) => null), TestBooklets.Printer(TestPrintDetails.For(_worldId, GmUserId, worlds: worlds)), Options.Create(_options), new FakeBlobStorageService());
         _sut = new AdventureDraftingService(
             _adventures, new PrepPromptContextBuilder(worlds, _retriever, _references, Options.Create(loremaster)), _ai, _budget, TestUsageRecorder.Wrap(_ledger), _gate, _gauge,
             Options.Create(_options), Options.Create(loremaster), NullLogger<AdventureDraftingService>.Instance);

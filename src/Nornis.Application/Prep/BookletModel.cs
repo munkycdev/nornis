@@ -35,7 +35,7 @@ public static class BookletModel
         .DisableHtml()
         .Build();
 
-    public static Booklet Build(Adventure adventure, PrintDetails details, BookletImprint imprint)
+    public static Booklet Build(Adventure adventure, PrintDetails details, BookletImprint imprint, byte[]? art = null)
     {
         var chapters = new List<BookletChapter>();
         string? title = null;
@@ -73,16 +73,18 @@ public static class BookletModel
             chapters.Add(new BookletChapter(title, blocks));
         }
 
-        return new Booklet(Cover(adventure, details), Rights(details, imprint), chapters);
+        return new Booklet(Cover(adventure, details, art), Rights(details, imprint), chapters);
     }
 
     /// <summary>The cover's lines (feature 32): system and edition, levels, author and pitch.</summary>
-    private static BookletCover Cover(Adventure adventure, PrintDetails details) => new(
+    /// <param name="art">The cover art's bytes, which the printer read; null keeps the typeset cover.</param>
+    private static BookletCover Cover(Adventure adventure, PrintDetails details, byte[]? art) => new(
         adventure.Title,
         details.SystemLine(),
         LevelsLine(details),
         $"By {details.Author}",
-        string.IsNullOrWhiteSpace(adventure.Pitch) ? null : adventure.Pitch.Trim());
+        string.IsNullOrWhiteSpace(adventure.Pitch) ? null : adventure.Pitch.Trim(),
+        art is not null && adventure.Cover is { } cover ? new BookletArt(art, cover.Layout) : null);
 
     /// <summary>
     /// The rights page (feature 38). The copyright year is the book's year when the GM gave one,

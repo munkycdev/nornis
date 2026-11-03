@@ -314,6 +314,10 @@ public class PrepBoundaryTests
             .Where(f => CodeLines(f).Any(l => l.Text.Contains(".IsLoremasterWriting()", StringComparison.Ordinal)))
             .Select(f => f.Relative)
             .ToList();
+        var artSetters = SourceFiles()
+            .Where(f => CodeLines(f).Any(l => l.Text.Contains("generated: true", StringComparison.Ordinal)))
+            .Select(f => f.Relative)
+            .ToList();
 
         Assert.Multiple(() =>
         {
@@ -324,6 +328,8 @@ public class PrepBoundaryTests
                 "src/Nornis.Application/Services/AdventureDraftingService.cs",
             ]), "every accept records AI text: only a draft and Put in section may accept");
             Assert.That(draftWriters, Is.EqualTo(["src/Nornis.Application/Services/AdventureDesignService.cs"]));
+            Assert.That(artSetters, Is.EqualTo(["src/Nornis.Application/Prep/Covers/AdventureCoverService.cs"]),
+                "only choosing a generated option records AI art");
         });
     }
 

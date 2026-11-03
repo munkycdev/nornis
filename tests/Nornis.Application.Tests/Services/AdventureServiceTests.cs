@@ -34,7 +34,7 @@ public class AdventureServiceTests
             _adventures.Adventures.FirstOrDefault(a => a.WorldId == world && a.Slug == slug)?.Id);
         _renderer = new FakeBookletPdfRenderer();
         _sut = new AdventureService(_adventures, _campaigns, slugs,
-            TestBooklets.Printer(TestPrintDetails.For(WorldId, GmUserId, "Shadowdark"), _renderer), Options.Create(_options));
+            TestBooklets.Printer(TestPrintDetails.For(WorldId, GmUserId, "Shadowdark"), _renderer), Options.Create(_options), new FakeBlobStorageService());
     }
 
     private async Task<AdventureView> CreateAsync(string title = "The Silver Key", Guid? campaignId = null)

@@ -109,6 +109,25 @@ public interface IAdventureRepository
         Guid adventureId, IReadOnlyList<AdventureSection> sections, bool replace, AdventureDraftRevision? revision,
         int maxRevisions, DateTimeOffset? basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Sets the cover art (feature 38), null to remove it. <paramref name="generated"/> records,
+    /// in the same save, that AI made art; nothing clears that record.
+    /// </summary>
+    Task SetCoverAsync(Guid adventureId, AdventureCover? cover, bool generated, DateTimeOffset updatedAt, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Counts <paramref name="count"/> more generated cover images against the Adventure's
+    /// <paramref name="cap"/> (feature 38), atomically. False, and nothing counted, when they
+    /// would pass it.
+    /// </summary>
+    Task<bool> TryCountCoverImagesAsync(Guid adventureId, int count, int cap, CancellationToken cancellationToken = default);
+
+    /// <summary>Gives back <paramref name="count"/> counted images a generation didn't deliver (feature 38).</summary>
+    Task ReleaseCoverImagesAsync(Guid adventureId, int count, CancellationToken cancellationToken = default);
+
+    /// <summary>Saves the GM's art brief (feature 38), and appends <paramref name="newOptionIds"/> to the cover options.</summary>
+    Task SaveCoverWorkAsync(Guid adventureId, string? brief, IReadOnlyList<Guid> newOptionIds, CancellationToken cancellationToken = default);
+
     /// <summary>Makes the Adventure's source books exactly <paramref name="documentIds"/>; the caller has checked them.</summary>
     Task ReplaceSourceBooksAsync(Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken cancellationToken = default);
 

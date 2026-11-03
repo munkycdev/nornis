@@ -37,3 +37,12 @@ public record SendConversationMessageRequest(string? Text, Guid? SectionId, stri
 
 /// <summary>Put one saved answer into a section. <see cref="Mode"/> is Replace or Append.</summary>
 public record PutInSectionRequest(Guid MessageId, string? Mode, DateTimeOffset BasedOnUpdatedAt);
+
+/// <summary>The GM's art brief (feature 38): saved as they edit it, and what Generate paints from.</summary>
+public record CoverBriefRequest(string? Brief);
+
+/// <summary>Makes one generated option the cover.</summary>
+public record ChooseCoverRequest(Guid OptionId);
+
+/// <summary>FullBleed, Framed or ClassicModule.</summary>
+public record SetCoverLayoutRequest(string? Layout);

@@ -662,4 +662,86 @@ public class AdventureRepositoryTests : IntegrationTestBase
             + await Context.AdventureDraftRevisions.CountAsync(r => r.AdventureId == adventure.Id);
         Assert.That(left, Is.Zero);
     }
+
+    [Test]
+    public async Task TheCover_RoundTrips_AndAGeneratedOneRecordsAiArtThatNoRemovalClears()
+    {
+        var adventure = await CreateAsync("a");
+        var cover = new AdventureCover
+        {
+            BlobPath = "worlds/w/covers/a/options/o.png",
+            ContentType = "image/png",
+            Source = CoverSource.Generated,
+            Brief = "A bathhouse at dusk.",
+            Layout = CoverLayout.ClassicModule,
+            UpdatedAt = _now,
+        };
+
+        await _sut.SetCoverAsync(adventure.Id, cover, generated: true, _now);
+        Context.ChangeTracker.Clear();
+        var stored = (await _sut.GetWithSectionsAsync(adventure.Id))!;
+        await _sut.SetCoverAsync(adventure.Id, null, generated: false, _now.AddMinutes(1));
+        Context.ChangeTracker.Clear();
+        var removed = (await _sut.GetWithSectionsAsync(adventure.Id))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored.Cover, Is.EqualTo(cover));
+            Assert.That(stored.AiUse.MadeArt, Is.True);
+            Assert.That(removed.Cover, Is.Null);
+            Assert.That(removed.AiUse.MadeArt, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task CoverImages_AreCountedAgainstTheCap_AndGivenBack()
+    {
+        var adventure = await CreateAsync("a");
+
+        var first = await _sut.TryCountCoverImagesAsync(adventure.Id, 2, 3);
+        var second = await _sut.TryCountCoverImagesAsync(adventure.Id, 2, 3);
+        await _sut.ReleaseCoverImagesAsync(adventure.Id, 1);
+        var third = await _sut.TryCountCoverImagesAsync(adventure.Id, 2, 3);
+        Context.ChangeTracker.Clear();
+
+        Assert.That((first, second, third), Is.EqualTo((true, false, true)));
+        Assert.That((await _sut.GetWithSectionsAsync(adventure.Id))!.CoverImagesGenerated, Is.EqualTo(3));
+    }
+
+    [Test]
+    public async Task TheBriefAndOptions_RoundTrip_OptionsAppendedInOrder()
+    {
+        var adventure = await CreateAsync("a");
+        Guid[] ids = [Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()];
+
+        await _sut.SaveCoverWorkAsync(adventure.Id, "first", [ids[0], ids[1]]);
+        await _sut.SaveCoverWorkAsync(adventure.Id, "second", [ids[2]]);
+        Context.ChangeTracker.Clear();
+
+        var stored = (await _sut.GetWithSectionsAsync(adventure.Id))!;
+        Assert.That(stored.CoverBrief, Is.EqualTo("second"));
+        Assert.That(stored.CoverOptionIds, Is.EqualTo(ids));
+    }
+
+    [Test]
+    public async Task AnUpdate_NeverTouchesTheCover()
+    {
+        var adventure = await CreateAsync("a");
+        await _sut.SetCoverAsync(adventure.Id, new AdventureCover
+        {
+            BlobPath = "p",
+            ContentType = "image/png",
+            Source = CoverSource.Uploaded,
+            UpdatedAt = _now,
+        }, generated: false, _now);
+        Context.ChangeTracker.Clear();
+        var stale = (await _sut.GetWithSectionsAsync(adventure.Id))!;
+        stale.Cover = null;
+        stale.Title = "Renamed";
+
+        await _sut.UpdateAsync(stale);
+        Context.ChangeTracker.Clear();
+
+        Assert.That((await _sut.GetWithSectionsAsync(adventure.Id))!.Cover, Is.Not.Null);
+    }
 }

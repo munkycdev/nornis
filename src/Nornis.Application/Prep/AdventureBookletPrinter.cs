@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using Nornis.Application.Prep.Covers;
+using Nornis.Application.Storage;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Models;
 
@@ -16,14 +18,17 @@ public class AdventureBookletPrinter
     private readonly IBookletPdfRenderer _renderer;
     private readonly ILogger<AdventureBookletPrinter> _logger;
     private readonly TimeProvider _time;
+    private readonly IBlobStorageService _blobs;
 
     public AdventureBookletPrinter(
-        AdventurePrintDetails printDetails, IBookletPdfRenderer renderer, ILogger<AdventureBookletPrinter> logger, TimeProvider time)
+        AdventurePrintDetails printDetails, IBookletPdfRenderer renderer, ILogger<AdventureBookletPrinter> logger, TimeProvider time,
+        IBlobStorageService blobs)
     {
         _printDetails = printDetails;
         _renderer = renderer;
         _logger = logger;
         _time = time;
+        _blobs = blobs;
     }
 
     /// <summary>The details a print would carry now, for the Book details card's preview.</summary>
@@ -33,9 +38,17 @@ public class AdventureBookletPrinter
     public async Task<PrintedBooklet> PrintAsync(Adventure adventure, CancellationToken ct)
     {
         var details = await _printDetails.ResolveAsync(adventure, ct);
+
+        // The cover art (feature 38). A blob that's gone prints the typeset cover, and says so.
+        var art = adventure.Cover is { } cover ? await CoverBlobs.ReadAsync(_blobs, cover.BlobPath, ct) : null;
+        if (adventure.Cover is not null && art is null)
+        {
+            _logger.LogWarning("booklet_cover_missing {AdventureId}: printing the typeset cover", adventure.Id);
+        }
+
         var started = Stopwatch.GetTimestamp();
         var imprint = new BookletImprint(DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime), RightsStatement.CurrentVersion);
-        var pdf = _renderer.Render(BookletModel.Build(adventure, details, imprint));
+        var pdf = _renderer.Render(BookletModel.Build(adventure, details, imprint, art));
 
         _logger.LogInformation(
             "booklet_rendered {AdventureId} pages={Pages} bytes={Bytes} ms={Milliseconds}",

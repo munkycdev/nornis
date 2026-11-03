@@ -11,14 +11,19 @@ public sealed record Booklet(BookletCover Cover, BookletRights Rights, IReadOnly
 
 /// <summary>
 /// The cover's lines, each already worded; a null line is left off (feature 32). The credits
-/// moved to the rights page in feature 38.
+/// moved to the rights page in feature 38, which also gave the cover its art. No art keeps the
+/// typeset cover.
 /// </summary>
 public sealed record BookletCover(
     string Title,
     string? SystemLine,
     string? LevelsLine,
     string AuthorLine,
-    string? Pitch);
+    string? Pitch,
+    BookletArt? Art = null);
+
+/// <summary>The cover art's bytes (PNG or JPEG) and the layout that places it (feature 38).</summary>
+public sealed record BookletArt(byte[] Image, CoverLayout Layout);
 
 /// <summary>
 /// The rights page (feature 38), straight after the cover: credits, then the notices. Each line is

@@ -1,4 +1,5 @@
 using Nornis.Application.Prep;
+using Nornis.Domain.Enums;
 using QuestPDF.Drawing;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -97,6 +98,127 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     }
 
     private static void Cover(PageDescriptor page, BookletCover cover)
+    {
+        switch (cover.Art)
+        {
+            case { Layout: CoverLayout.FullBleed } art when CoverArtImage.Fit(art.Image, PageSizes.Letter.Width, PageSizes.Letter.Height) is { } image:
+                FullBleedCover(page, cover, image);
+                return;
+            case { Layout: CoverLayout.Framed } art when CoverArtImage.Fit(art.Image, FrameArtWidth, FrameArtHeight) is { } image:
+                FramedCover(page, cover, image);
+                return;
+            case { Layout: CoverLayout.ClassicModule } art when CoverArtImage.Fit(art.Image, ContentWidth, ModuleArtHeight) is { } image:
+                ClassicModuleCover(page, cover, image);
+                return;
+        }
+
+        TypesetCover(page, cover);
+    }
+
+    // Feature 38's layouts. Every box the art fills has a fixed size, so the art is cropped to it
+    // before layout and the cover can never spill onto the rights page. Type never sits on the art:
+    // it's on a solid band (full bleed) or beside it (the other two), so no layout depends on the
+    // art's colours.
+    private static readonly float ContentWidth = PageSizes.Letter.Width - 2 * Margin;
+    private const float FrameWidth = 410;
+    private const float FrameHeight = 500;
+    private const float FramePadding = 6;
+    private const float FrameArtWidth = FrameWidth - 2 * FramePadding;
+    private const float FrameArtHeight = FrameHeight - 2 * FramePadding;
+    private const float ModuleArtHeight = 400;
+
+    /// <summary>The longest a title runs on a cover with art, in lines.</summary>
+    internal const int ArtTitleLines = 3;
+
+    /// <summary>The longest a pitch runs on the classic module cover, in lines.</summary>
+    internal const int ModulePitchLines = 4;
+
+    /// <summary>The art fills the page; the title sits on a solid band across the top, the author on one across the foot.</summary>
+    private static void FullBleedCover(PageDescriptor page, BookletCover cover, byte[] art)
+    {
+        Setup(page);
+        page.Margin(0);
+        page.Background().Image(art).FitUnproportionally();
+        page.Header().Background(Ink).PaddingVertical(28).PaddingHorizontal(56).Column(band =>
+        {
+            band.Spacing(6);
+            band.Item().AlignCenter().Text(text =>
+            {
+                text.AlignCenter();
+                text.ClampLines(ArtTitleLines, "…");
+                text.Span(cover.Title).FontSize(30).SemiBold().LineHeight(1.1f).FontColor(Colors.White);
+            });
+            foreach (var line in new[] { cover.SystemLine, cover.LevelsLine }.OfType<string>())
+            {
+                band.Item().AlignCenter().Text(line).FontSize(12).FontColor(Colors.White);
+            }
+        });
+        page.Footer().Background(Ink).PaddingVertical(14).AlignCenter().Text(cover.AuthorLine).FontSize(12).FontColor(Colors.White);
+    }
+
+    /// <summary>The title and its lines above, the art in a ruled frame, the author below.</summary>
+    private static void FramedCover(PageDescriptor page, BookletCover cover, byte[] art)
+    {
+        Setup(page);
+        page.Content().PaddingTop(12).Column(col =>
+        {
+            col.Spacing(6);
+            col.Item().AlignCenter().Text(text =>
+            {
+                text.AlignCenter();
+                text.ClampLines(2, "…");
+                text.Span(cover.Title).FontSize(28).SemiBold().LineHeight(1.1f);
+            });
+            foreach (var line in new[] { cover.SystemLine, cover.LevelsLine }.OfType<string>())
+            {
+                col.Item().AlignCenter().Text(line).FontSize(12);
+            }
+
+            col.Item().PaddingTop(14).AlignCenter().Width(FrameWidth).Height(FrameHeight)
+                .Border(1.5f).BorderColor(Accent).Padding(FramePadding).Image(art).FitUnproportionally();
+            col.Item().PaddingTop(12).AlignCenter().Text(cover.AuthorLine).FontSize(12);
+        });
+    }
+
+    /// <summary>A coloured title band at the top, the art across the middle, the details and pitch below, as the old modules did.</summary>
+    private static void ClassicModuleCover(PageDescriptor page, BookletCover cover, byte[] art)
+    {
+        Setup(page);
+        page.Content().Column(col =>
+        {
+            col.Item().Background(Accent).PaddingVertical(22).PaddingHorizontal(28).AlignCenter()
+                .Text(text =>
+            {
+                text.AlignCenter();
+                text.ClampLines(2, "…");
+                text.Span(cover.Title).FontSize(28).SemiBold().LineHeight(1.1f).FontColor(Colors.White);
+            });
+            col.Item().PaddingTop(14).Height(ModuleArtHeight).Image(art).FitUnproportionally();
+            col.Item().PaddingTop(14).Column(details =>
+            {
+                details.Spacing(4);
+                foreach (var line in new[] { cover.SystemLine, cover.LevelsLine }.OfType<string>())
+                {
+                    details.Item().AlignCenter().Text(line).FontSize(12).SemiBold();
+                }
+
+                details.Item().AlignCenter().Text(cover.AuthorLine).FontSize(12);
+                if (cover.Pitch is { } pitch)
+                {
+                    details.Item().PaddingTop(8).PaddingHorizontal(36).AlignCenter()
+                        .Text(text =>
+            {
+                text.AlignCenter();
+                text.ClampLines(ModulePitchLines, "…");
+                text.Span(pitch).FontSize(11).Italic();
+            });
+                }
+            });
+        });
+    }
+
+    /// <summary>The cover with no art (feature 34): type only.</summary>
+    private static void TypesetCover(PageDescriptor page, BookletCover cover)
     {
         Setup(page);
         page.Content().PaddingTop(150).Column(col =>

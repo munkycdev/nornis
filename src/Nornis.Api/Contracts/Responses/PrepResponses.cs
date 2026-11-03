@@ -126,3 +126,15 @@ public record DraftEditResponse(string Find, string Replace);
 
 /// <summary>The side conversation, oldest first. <see cref="IsFull"/> means it must be cleared before another turn.</summary>
 public record ConversationResponse(IReadOnlyList<ConversationMessageResponse> Messages, bool IsFull);
+
+/// <summary>
+/// The Cover card (feature 38). <see cref="Options"/> are the generated options, newest first;
+/// <see cref="GenerateBlocker"/> says why Generate can't run; <see cref="Warning"/> is an upload's
+/// note that the art may print soft.
+/// </summary>
+public record CoverStateResponse(
+    CoverResponse? Cover, string? Brief, IReadOnlyList<Guid> Options, Guid? ChosenOptionId,
+    int ImagesGenerated, int ImagesCap, bool CanGenerate, string? GenerateBlocker, string? Warning);
+
+/// <summary>The cover art: Source is Generated or Uploaded; UpdatedAt is the image's cache-buster.</summary>
+public record CoverResponse(string Source, string Layout, string ContentType, DateTimeOffset UpdatedAt);

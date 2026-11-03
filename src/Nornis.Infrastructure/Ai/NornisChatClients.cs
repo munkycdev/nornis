@@ -11,13 +11,26 @@ namespace Nornis.Infrastructure.Ai;
 /// </summary>
 public sealed class NornisChatClients
 {
-    private readonly OpenAIClient _client;
+    private readonly OpenAIClient? _client;
+    private readonly string? _unconfigured;
     private readonly ConcurrentDictionary<string, IChatClient> _byDeployment = new(StringComparer.Ordinal);
 
-    private NornisChatClients(OpenAIClient client) => _client = client;
+    private NornisChatClients(OpenAIClient? client, string? unconfigured)
+    {
+        _client = client;
+        _unconfigured = unconfigured;
+    }
 
-    public static NornisChatClients Create(OpenAIClient client) => new(client);
+    public static NornisChatClients Create(OpenAIClient client) => new(client, null);
 
-    public IChatClient For(string deployment) =>
-        _byDeployment.GetOrAdd(deployment, d => new AzureOpenAiChatClient(_client.GetChatClient(d)));
+    /// <summary>
+    /// A host with no Azure OpenAI of its own: a call Nornis would pay for fails with
+    /// <paramref name="message"/>, while calls on users' keys, cover art among them (feature 38),
+    /// still bind.
+    /// </summary>
+    public static NornisChatClients Unconfigured(string message) => new(null, message);
+
+    public IChatClient For(string deployment) => _client is null
+        ? throw new InvalidOperationException(_unconfigured)
+        : _byDeployment.GetOrAdd(deployment, d => new AzureOpenAiChatClient(_client.GetChatClient(d)));
 }

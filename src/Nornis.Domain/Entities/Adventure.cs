@@ -70,6 +70,22 @@ public class Adventure : ISlugged
     /// </summary>
     public AdventureAiUse AiUse { get; set; } = new();
 
+    /// <summary>The cover art (feature 38). Null means none: the booklet's cover is typeset only.</summary>
+    public AdventureCover? Cover { get; set; }
+
+    /// <summary>How many cover images have been generated for this Adventure, chosen or not (feature 38's cap).</summary>
+    public int CoverImagesGenerated { get; set; }
+
+    /// <summary>The art brief the GM is working on (feature 38), kept so a reload doesn't lose it.</summary>
+    public string? CoverBrief { get; set; }
+
+    /// <summary>
+    /// The generated cover options, oldest first (feature 38). Each is a PNG at
+    /// <c>CoverBlobs.OptionPath</c>; the chosen cover is one of them. They stay until the
+    /// Adventure is deleted, and the image cap bounds how many there can be.
+    /// </summary>
+    public List<Guid> CoverOptionIds { get; set; } = [];
+
     public Guid CreatedByUserId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }

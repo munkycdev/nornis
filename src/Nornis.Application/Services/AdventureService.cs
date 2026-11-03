@@ -3,6 +3,8 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Prep;
+using Nornis.Application.Prep.Covers;
+using Nornis.Application.Storage;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
@@ -24,11 +26,13 @@ public class AdventureService : IAdventureService
     private readonly ISlugResolver _slugs;
     private readonly AdventureBookletPrinter _printer;
     private readonly PrepOptions _options;
+    private readonly IBlobStorageService _blobs;
 
     public AdventureService(
         IAdventureRepository adventures, ICampaignRepository campaigns, ISlugResolver slugs,
-        AdventureBookletPrinter printer, IOptions<PrepOptions> options)
+        AdventureBookletPrinter printer, IOptions<PrepOptions> options, IBlobStorageService blobs)
     {
+        _blobs = blobs;
         _adventures = adventures;
         _campaigns = campaigns;
         _slugs = slugs;
@@ -387,6 +391,10 @@ public class AdventureService : IAdventureService
         }
 
         await _adventures.DeleteAsync(adventure.Id, ct);
+
+        // Its cover art and options (feature 38). After the row, so a failed delete leaves at
+        // worst orphaned blobs under a folder no Adventure points at, never a cover with no blob.
+        await _blobs.DeleteByPrefixAsync(CoverBlobs.Folder(adventure.WorldId, adventure.Id), CancellationToken.None);
         return AppResult.Success();
     }
 

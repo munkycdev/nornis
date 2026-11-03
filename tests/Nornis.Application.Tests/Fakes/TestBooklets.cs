@@ -7,8 +7,10 @@ namespace Nornis.Application.Tests.Fakes;
 public static class TestBooklets
 {
     public static AdventureBookletPrinter Printer(
-        AdventurePrintDetails details, FakeBookletPdfRenderer? renderer = null, TimeProvider? time = null) =>
-        new(details, renderer ?? new FakeBookletPdfRenderer(), NullLogger<AdventureBookletPrinter>.Instance, time ?? TimeProvider.System);
+        AdventurePrintDetails details, FakeBookletPdfRenderer? renderer = null, TimeProvider? time = null,
+        FakeBlobStorageService? blobs = null) =>
+        new(details, renderer ?? new FakeBookletPdfRenderer(), NullLogger<AdventureBookletPrinter>.Instance, time ?? TimeProvider.System,
+            blobs ?? new FakeBlobStorageService());
 }
 
 /// <summary>

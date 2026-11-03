@@ -82,6 +82,131 @@ public class QuestPdfBookletRendererTests
         });
     }
 
+    // ------------------------------------------------------------- Cover art --
+
+    /// <summary>Portrait art the size the image model makes, in two colours so a crop shows.</summary>
+    private static byte[] Art(int width = 1024, int height = 1536)
+    {
+        using var bitmap = new SkiaSharp.SKBitmap(width, height);
+        using (var canvas = new SkiaSharp.SKCanvas(bitmap))
+        {
+            canvas.Clear(SkiaSharp.SKColors.DarkGreen);
+            using var paint = new SkiaSharp.SKPaint { Color = SkiaSharp.SKColors.Goldenrod };
+            canvas.DrawCircle(width / 2f, height / 2f, width / 3f, paint);
+        }
+
+        using var image = SkiaSharp.SKImage.FromBitmap(bitmap);
+        return image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100).ToArray();
+    }
+
+    private BookletPdf RenderWithArt(CoverLayout layout, byte[]? art = null, string? title = null, string? pitch = null) =>
+        _renderer.Render(new Booklet(
+            Cover with { Title = title ?? Cover.Title, Pitch = pitch ?? Cover.Pitch, Art = new BookletArt(art ?? Art(), layout) },
+            Rights, [Chapter("Arrival", P("chapterword one."))]));
+
+    /// <summary>Feature 38, Requirement 3.6: each layout is one page, carries the art and its type, and the rights page stays page two.</summary>
+    [TestCase(CoverLayout.FullBleed)]
+    [TestCase(CoverLayout.Framed)]
+    [TestCase(CoverLayout.ClassicModule)]
+    public void EachLayout_IsOnePage_WithTheArtAndTheType(CoverLayout layout)
+    {
+        var pdf = RenderWithArt(layout);
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        var cover = document.GetPage(1);
+        var words = Words(cover).Select(w => w.Text).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(pdf.Pages, Is.EqualTo(3));
+            Assert.That(cover.GetImages().Count(), Is.EqualTo(1));
+            Assert.That(words, Does.Contain("Silver").And.Contain("Shadowdark").And.Contain("Dave"));
+            Assert.That(Words(document.GetPage(2)).Select(w => w.Text), Does.Contain("©"), "the rights page is still page two");
+        });
+    }
+
+    [Test]
+    public void FullBleedArt_FillsThePage_AndTheTitleSitsOnItsBand()
+    {
+        var pdf = RenderWithArt(CoverLayout.FullBleed);
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        var image = document.GetPage(1).GetImages().Single().BoundingBox;
+        var title = Words(document.GetPage(1)).First(w => w.Text == "Silver").BoundingBox;
+        Assert.Multiple(() =>
+        {
+            Assert.That(image.Width, Is.EqualTo(PageWidth).Within(1));
+            Assert.That(image.Height, Is.EqualTo(PageHeight).Within(1));
+            Assert.That(title.Bottom, Is.GreaterThan(PageHeight * 0.8), "the title is in the band across the top");
+        });
+    }
+
+    [Test]
+    public void FramedArt_SitsBelowTheTitle_AndInsideTheMargins()
+    {
+        var pdf = RenderWithArt(CoverLayout.Framed);
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        var image = document.GetPage(1).GetImages().Single().BoundingBox;
+        var title = Words(document.GetPage(1)).First(w => w.Text == "Silver").BoundingBox;
+        Assert.Multiple(() =>
+        {
+            Assert.That(image.Left, Is.GreaterThan(ContentLeft));
+            Assert.That(image.Right, Is.LessThan(ContentRight));
+            Assert.That(image.Top, Is.LessThan(title.Bottom), "type sits off the art");
+        });
+    }
+
+    [Test]
+    public void TheClassicModule_PutsTheDetailsAndPitchBelowTheArt()
+    {
+        var pdf = RenderWithArt(CoverLayout.ClassicModule);
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        var image = document.GetPage(1).GetImages().Single().BoundingBox;
+        var words = Words(document.GetPage(1)).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(words.First(w => w.Text == "Silver").BoundingBox.Bottom, Is.GreaterThan(image.Top));
+            Assert.That(words.First(w => w.Text == "heist").BoundingBox.Top, Is.LessThan(image.Bottom));
+        });
+    }
+
+    /// <summary>A title or pitch as long as the bounds allow still leaves the cover one page.</summary>
+    [TestCase(CoverLayout.FullBleed)]
+    [TestCase(CoverLayout.Framed)]
+    [TestCase(CoverLayout.ClassicModule)]
+    public void TheLongestTitleAndPitch_NeverPushTheCoverOntoASecondPage(CoverLayout layout)
+    {
+        var title = string.Join(' ', Enumerable.Repeat("Interminable", 16));
+        var pitch = string.Join(' ', Enumerable.Repeat("The baths steam and the slimes wait for bathers.", 80));
+
+        var pdf = RenderWithArt(layout, title: title, pitch: pitch);
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        Assert.That(pdf.Pages, Is.EqualTo(3));
+        Assert.That(Words(document.GetPage(2)).Select(w => w.Text), Does.Contain("©"));
+    }
+
+    [Test]
+    public void ArtThatCannotBeDecoded_PrintsTheTypesetCover()
+    {
+        var pdf = RenderWithArt(CoverLayout.FullBleed, art: [1, 2, 3, 4]);
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        Assert.That(document.GetPage(1).GetImages(), Is.Empty);
+        Assert.That(Words(document.GetPage(1)).Select(w => w.Text), Does.Contain("heist"));
+    }
+
+    [Test]
+    public void TheArt_IsKeptAtPrintResolution_NotLarger()
+    {
+        var huge = RenderWithArt(CoverLayout.FullBleed, art: Art(4000, 6000));
+
+        using var document = PdfDocument.Open(huge.Bytes);
+        var image = document.GetPage(1).GetImages().Single();
+        Assert.That(image.WidthInSamples, Is.LessThanOrEqualTo(PageWidth / 72 * CoverArtImage.PrintDpi + 1));
+    }
+
     [Test]
     public void EachChapter_StartsAPage_EvenWhenThePageBeforeHasRoom()
     {

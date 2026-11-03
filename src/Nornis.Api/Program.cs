@@ -310,6 +310,7 @@ builder.Services.AddHttpClient(Nornis.Api.Bibliotaph.Auth0BibliotaphAuthorizatio
 builder.Services.AddSingleton<Nornis.Application.Bibliotaph.IBibliotaphAuthorizationClient, Nornis.Api.Bibliotaph.Auth0BibliotaphAuthorizationClient>();
 builder.Services.AddScoped<AdventurePrintDetails>();
 builder.Services.AddScoped<AdventureBookletPrinter>();
+builder.Services.AddScoped<Nornis.Application.Prep.Covers.AdventureCoverService>();
 builder.Services.AddSingleton<IBookletPdfRenderer, QuestPdfBookletRenderer>();
 builder.Services.AddScoped<IAdventureService, AdventureService>();
 builder.Services.AddScoped<IAdventureDesignService, AdventureDesignService>();
@@ -437,12 +438,11 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
 }
 else
 {
-    // No Azure OpenAI configured — register stubs that throw on use. Nornis's own clients too:
-    // the binder (registered above with the AI keys) names them, and a Development host checks
-    // every registration's dependencies at startup.
-    builder.Services.AddSingleton<Nornis.Infrastructure.Ai.NornisChatClients>(_ =>
-        throw new InvalidOperationException(
-            "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable AI."));
+    // No Azure OpenAI configured — register stubs that throw on use. Nornis's own clients throw
+    // only when a call would use them: the binder (registered above with the AI keys) names them,
+    // and a call on a user's key, cover art among them, still binds without Nornis's own AI.
+    builder.Services.AddSingleton(Nornis.Infrastructure.Ai.NornisChatClients.Unconfigured(
+        "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable AI."));
     builder.Services.AddScoped<ILoremasterAiClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable Ask the Loremaster."));
