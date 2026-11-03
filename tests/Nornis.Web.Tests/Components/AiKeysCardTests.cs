@@ -100,6 +100,20 @@ public class AiKeysCardTests : BunitContext
     }
 
     [Test]
+    public void AClaudeKey_CanBeAdded_AndGoesToTheAnthropicRoute()
+    {
+        var cut = RenderCard();
+        cut.WaitForAssertion(() => ClickButton(cut, "Add an Anthropic key"));
+
+        cut.FindAll("[data-testid='ai-key-editor'] input")[0].Change("sk-ant-api03-abcdefgh1234");
+        ClickButton(cut, "Check and save");
+
+        cut.WaitForAssertion(() => Assert.That(_handler.PutPath, Is.EqualTo("/api/me/ai-keys/Anthropic")));
+        Assert.That(cut.FindAll("button").Select(b => b.TextContent), Has.None.Contains("Gemini"),
+            "Gemini has no client yet, so no button");
+    }
+
+    [Test]
     public void ACompatibleEndpoint_SendsOnlyTheTasksTicked()
     {
         var cut = RenderCard();

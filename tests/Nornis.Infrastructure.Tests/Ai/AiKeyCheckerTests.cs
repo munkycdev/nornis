@@ -42,6 +42,25 @@ public class AiKeyCheckerTests
     }
 
     [Test]
+    public async Task A_claude_key_is_checked_with_anthropics_own_headers()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var checker = new AiKeyChecker(new HttpClient(handler), NullLogger<AiKeyChecker>.Instance);
+
+        var outcome = await checker.CheckAsync(AiProvider.Anthropic, Secret, null, CancellationToken.None);
+
+        var request = handler.Requests.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(AiKeyCheckOutcome.Accepted));
+            Assert.That(request.RequestUri, Is.EqualTo(new Uri("https://api.anthropic.com/v1/models")));
+            Assert.That(request.Headers.GetValues("x-api-key").Single(), Is.EqualTo(Secret));
+            Assert.That(request.Headers.GetValues("anthropic-version").Single(), Is.EqualTo(AiKeyChecker.AnthropicApiVersion));
+            Assert.That(request.Headers.Authorization, Is.Null);
+        });
+    }
+
+    [Test]
     public async Task A_compatible_key_is_checked_at_its_own_base_url()
     {
         var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
@@ -68,8 +87,9 @@ public class AiKeyCheckerTests
     /// verbose, the key appears in no log line. Seen failing first with
     /// <c>.RedactLoggedHeaders(_ =&gt; false)</c> on the registration, which logs the header.
     /// </summary>
-    [Test]
-    public async Task The_key_appears_in_no_log_line()
+    [TestCase(AiProvider.OpenAi)]
+    [TestCase(AiProvider.Anthropic)]
+    public async Task The_key_appears_in_no_log_line(AiProvider keyProvider)
     {
         var logs = new CapturingLoggerProvider();
         var services = new ServiceCollection();
@@ -78,7 +98,7 @@ public class AiKeyCheckerTests
             .ConfigurePrimaryHttpMessageHandler(() => new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)));
         using var provider = services.BuildServiceProvider();
 
-        await provider.GetRequiredService<IAiKeyChecker>().CheckAsync(AiProvider.OpenAi, Secret, null, CancellationToken.None);
+        await provider.GetRequiredService<IAiKeyChecker>().CheckAsync(keyProvider, Secret, null, CancellationToken.None);
 
         Assert.That(logs.Lines, Is.Not.Empty, "the factory logged the request, so the assertion below means something");
         Assert.That(logs.Lines, Has.None.Contains(Secret));

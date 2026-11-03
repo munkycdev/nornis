@@ -105,6 +105,7 @@ public sealed class AiCallBinder : IAiCallBinder
     private static IAiProviderTraits TraitsFor(AiProvider provider) => provider switch
     {
         AiProvider.OpenAi or AiProvider.OpenAiCompatible => OpenAiProviderTraits.Instance,
+        AiProvider.Anthropic => AnthropicProviderTraits.Instance,
         _ => throw new NotSupportedException($"No client is built for {provider} keys yet (feature 39 Phase C)."),
     };
 }

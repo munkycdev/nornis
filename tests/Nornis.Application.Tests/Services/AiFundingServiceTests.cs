@@ -249,7 +249,7 @@ public class AiFundingServiceTests
             var unpriced = Model("openai/b", AiProvider.OpenAi);
             unpriced.OutputPerMillionUsd = 0m;
             Assert.That(new AiModelsOptions { Catalog = [unpriced] }.StartupProblem(), Does.Contain("no price"));
-            Assert.That(new AiModelsOptions { Catalog = [Model("anthropic/c", AiProvider.Anthropic)] }.StartupProblem(),
+            Assert.That(new AiModelsOptions { Catalog = [Model("gemini/c", AiProvider.Gemini)] }.StartupProblem(),
                 Does.Contain("no client"));
         });
     }

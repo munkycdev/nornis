@@ -44,7 +44,22 @@ public sealed class AiKeyProtector : IAiKeyProtector
         return new AiKeyProtector(services.BuildServiceProvider().GetRequiredService<IDataProtectionProvider>());
     }
 
-    public string Protect(string key) => _protector.Protect(key);
+    /// <summary>
+    /// The first protect creates the ring's key and writes it to the blob, so a refused write (a
+    /// role that hasn't taken effect yet) surfaces here as the storage SDK's exception, which the
+    /// caller can't name. It becomes <see cref="AiKeyStorageException"/>, the API's 503.
+    /// </summary>
+    public string Protect(string key)
+    {
+        try
+        {
+            return _protector.Protect(key);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            throw new AiKeyStorageException(ex);
+        }
+    }
 
     public string? Unprotect(string protectedKey)
     {

@@ -9,8 +9,10 @@
         The worlds you create can run their AI on your own provider account: Nornis sends each request
         with your key, and the provider bills you directly. Players never need a key. A ChatGPT or
         Claude subscription isn't an API key; make one at
-        <MudLink Href="@AiText.KeysUrl("OpenAi")" Target="_blank" Typo="Typo.body2">platform.openai.com</MudLink>.
-        Claude and Gemini keys are coming.
+        <MudLink Href="@AiText.KeysUrl("OpenAi")" Target="_blank" Typo="Typo.body2">platform.openai.com</MudLink>
+        or, for Claude,
+        <MudLink Href="@AiText.KeysUrl("Anthropic")" Target="_blank" Typo="Typo.body2">console.anthropic.com</MudLink>.
+        Gemini keys are coming.
     </MudText>
 
     @if (_trial is { InUse: true } trial)
@@ -112,7 +114,7 @@
                 {
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                                OnClick="() => Edit(provider, null)" Disabled="_busy" Class="mr-2 mb-1">
-                        @(provider == "OpenAiCompatible" ? "Add an OpenAI-compatible endpoint" : $"Add an {AiText.Provider(provider)} key")
+                        @(provider == "OpenAiCompatible" ? "Add an OpenAI-compatible endpoint" : $"Add {AiText.WithArticle(AiText.Provider(provider))} key")
                     </MudButton>
                 }
             </div>

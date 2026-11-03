@@ -121,7 +121,6 @@ public class AiCallBinderTests
         Assert.ThrowsAsync<AiKeyRejectedException>(() => Bind(Binder(() => KeyFunding(key))));
     }
 
-    [TestCase(AiProvider.Anthropic)]
     [TestCase(AiProvider.Gemini)]
     public void KeyFunding_ProvidersWithoutAClientYet_AreNotSupported(AiProvider provider)
     {

@@ -78,6 +78,26 @@
 >   on), not nineteen; `AzureOpenAiChatClient`, `AzureOpenAiClientFactory` and
 >   `AzureOpenAiEmbeddingClient` stay Azure-specific. `AiProvider` has an `AzureOpenAi` value
 >   for Nornis's own key.
+> - **Phase C2 (2026-11-03), Claude keys.** The official `Anthropic` SDK (13.3) and its own
+>   `AsIChatClient` adapter; `AnthropicProviderTraits` sets `ChatOptions.ResponseFormat` (the
+>   adapter sends it as `output_config.format`) and `MaxOutputTokens`, and a call that names no
+>   ceiling gets 32,000, since Anthropic requires `max_tokens`. There is no `ApplyCaching` or
+>   `ReadUsage` on the traits: `AnthropicPromptCaching`, a delegating client, marks the last
+>   system message as the one cache breakpoint, and the adapter already reports cache reads as
+>   `CachedInputTokenCount`. Failures: 401/403 reject the key; 402, or a 400 that says the
+>   credit balance is too low, is out of credit; anything else keeps its status (429 and 529
+>   retry), an "overloaded" error inside the stream reads as 529, and an unreachable provider
+>   has no status. The key check sends `x-api-key` and `anthropic-version`. Haiku 5.5 (chores),
+>   Sonnet 5.5 and Opus 5.5 join the catalog now, at list prices, so a Claude key is usable;
+>   C4's eval confirms or removes them per task.
+> - **Saving a key while the key ring can't be written** (a role not yet in effect) answers 503
+>   `ai_key_storage_unavailable` and saves nothing, rather than a 500.
+> - **The model picker (Dave, 2026-11-03).** Profile → Models lists the catalog's models first
+>   (tested and priced; defaults come only from them), then "More from your key": the provider's
+>   own model list for that key, marked "not tested by Nornis". An untested model is priced as
+>   an estimate at that provider's most expensive catalog model, labelled so on Costs; the trial
+>   never pays for one; and nothing falls back silently when one can't read images or return
+>   structured output.
 
 ## Overview
 

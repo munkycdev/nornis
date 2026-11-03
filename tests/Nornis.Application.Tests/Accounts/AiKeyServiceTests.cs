@@ -33,6 +33,7 @@ public class AiKeyServiceTests
     private ISourceService _sourceService = null!;
     private RecordingChecker _checker = null!;
     private AiModelsOptions _options = null!;
+    private IAiKeyProtector _protector = null!;
     private Guid _user;
 
     [SetUp]
@@ -47,6 +48,7 @@ public class AiKeyServiceTests
         _sourceService.MarkReadyAsync(Arg.Any<MarkSourceReadyCommand>(), Arg.Any<CancellationToken>())
             .Returns(call => AppResult<Source>.Success(new Source { Id = call.Arg<MarkSourceReadyCommand>().SourceId }));
         _checker = new RecordingChecker();
+        _protector = new PlainProtector();
         _options = new AiModelsOptions
         {
             Catalog =
@@ -63,7 +65,7 @@ public class AiKeyServiceTests
     }
 
     private AiKeyService Service() => new(
-        _keys, new PlainProtector(), _checker, _usage, _worlds, _sources, _members, _sourceService,
+        _keys, _protector, _checker, _usage, _worlds, _sources, _members, _sourceService,
         Options.Create(_options), new FixedTime(Now), NullLogger<AiKeyService>.Instance);
 
     private Task<AppResult<SavedAiKey>> Save(
@@ -103,6 +105,23 @@ public class AiKeyServiceTests
 
         Assert.That(result.Error?.Code, Is.EqualTo(code));
         Assert.That(_keys.Keys, Is.Empty);
+    }
+
+    /// <summary>Seen on prod the first time: the ring's blob refused its first write because the
+    /// storage role hadn't taken effect, and the save answered a bare 500.</summary>
+    [Test]
+    public async Task A_key_ring_that_cant_be_written_saves_nothing_and_says_to_try_again()
+    {
+        _protector = new UnwritableProtector();
+
+        var result = await Save();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Error?.Code, Is.EqualTo("ai_key_storage_unavailable"));
+            Assert.That(result.Error?.StatusCode, Is.EqualTo(503));
+            Assert.That(_keys.Keys, Is.Empty);
+        });
     }
 
     [TestCase("sk short")]
@@ -320,6 +339,13 @@ public class AiKeyServiceTests
 
         public string? Unprotect(string protectedKey) =>
             protectedKey.StartsWith("protected:", StringComparison.Ordinal) ? protectedKey["protected:".Length..] : null;
+    }
+
+    private sealed class UnwritableProtector : IAiKeyProtector
+    {
+        public string Protect(string key) => throw new AiKeyStorageException(new InvalidOperationException("403 from the blob"));
+
+        public string? Unprotect(string protectedKey) => null;
     }
 
     private sealed class FixedTime(DateTimeOffset now) : TimeProvider
