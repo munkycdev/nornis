@@ -1353,3 +1353,47 @@ public record BibliotaphConnectionDto(bool Configured, string Status, DateTimeOf
 public record BibliotaphRedirectDto(string Url);
 
 public record BibliotaphAuthorizeRequest(string State);
+
+// ---------------------------------------------------------------- AI keys (feature 39) --
+
+/// <summary>One of the user's AI keys on Profile. The key itself never reaches the Web; the last
+/// four characters say which one it is.</summary>
+public record AiKeyDto(
+    string Provider,
+    string Label,
+    string LastFour,
+    string? BaseUrl,
+    DateTimeOffset AddedAt,
+    DateTimeOffset UpdatedAt,
+    DateTimeOffset CheckedAt,
+    bool CheckFailed,
+    IReadOnlyList<AiCompatibleModelDto> Models);
+
+/// <summary>One task's model on an OpenAI-compatible key; prices are USD per million tokens.</summary>
+public record AiCompatibleModelDto(
+    string Task,
+    string ModelName,
+    bool SupportsImages,
+    decimal InputPerMillionUsd,
+    decimal OutputPerMillionUsd);
+
+/// <summary><see cref="Key"/> null keeps the stored key and checks it again.</summary>
+public record SaveAiKeyBody(string? Key, string? Label, string? BaseUrl, IReadOnlyList<AiCompatibleModelDto>? Models);
+
+public record SaveAiKeyResultDto(AiKeyDto Key, int SourcesQueued);
+
+public record AiTaskModelsDto(string Task, IReadOnlyList<AiModelOptionDto> Options, string? ChosenId, string? DefaultId);
+
+/// <param name="Tested">False for an OpenAI-compatible model, which Nornis has never run.</param>
+public record AiModelOptionDto(string Id, string Name, string Provider, bool SupportsImages, bool HasKey, bool Tested);
+
+public record ChooseAiModelBody(string? ModelId);
+
+/// <param name="InUse">Whether Nornis pays through trials at all yet.</param>
+public record AiTrialDto(bool InUse, decimal AllowanceUsd, decimal SpentUsd, decimal RemainingUsd, bool Available);
+
+/// <summary>A world's AI funding, for its GMs: whether some of its AI work runs on the creator's trial.</summary>
+public record WorldAiFundingDto(bool Trial, decimal? TrialRemainingUsd, bool CreatorIsYou);
+
+/// <summary>What one payer covered: <see cref="PaidBy"/> is a key's label, "Trial" or "Nornis".</summary>
+public record FundingCost(string Kind, string PaidBy, CostSummary Summary);

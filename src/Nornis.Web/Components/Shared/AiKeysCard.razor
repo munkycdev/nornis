@@ -1,0 +1,260 @@
+@* Profile › AI keys (feature 39): the user's own provider keys, which their worlds' AI spends. *@
+@inject NornisApiClient Api
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4" id="ai-keys">
+    <div class="nornis-detail-section-title">AI keys</div>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+        The worlds you create can run their AI on your own provider account: Nornis sends each request
+        with your key, and the provider bills you directly. Players never need a key. A ChatGPT or
+        Claude subscription isn't an API key; make one at
+        <MudLink Href="@AiText.KeysUrl("OpenAi")" Target="_blank" Typo="Typo.body2">platform.openai.com</MudLink>.
+        Claude and Gemini keys are coming.
+    </MudText>
+
+    @if (_trial is { InUse: true } trial)
+    {
+        <MudText Typo="Typo.body2" Class="mb-3" data-testid="ai-trial">
+            Trial: @AiText.Money(trial.RemainingUsd) of @AiText.Money(trial.AllowanceUsd) left.
+            @if (!trial.Available && trial.RemainingUsd > 0)
+            {
+                <span>Trials are paused until next month.</span>
+            }
+            Your own key takes over from it, for good.
+        </MudText>
+    }
+
+    @if (_keys is null)
+    {
+        @if (_error is null)
+        {
+            <LoadingRows Rows="1" Height="40px" />
+        }
+    }
+    else
+    {
+        @foreach (var key in _keys)
+        {
+            <div class="nornis-member-row" data-testid="ai-key-row">
+                <MudIcon Icon="@Icons.Material.Filled.VpnKey" Size="Size.Small"
+                         Color="@(key.CheckFailed ? Color.Error : Color.Secondary)" />
+                <div class="nornis-list-body">
+                    <div class="nornis-list-title">@key.Label</div>
+                    <div class="nornis-list-sub">
+                        <span>@AiText.Provider(key.Provider) · ending @key.LastFour · added @key.AddedAt.LocalDateTime.ToString("d MMM yyyy")</span>
+                        @if (key.BaseUrl is not null)
+                        {
+                            <span> · @key.BaseUrl</span>
+                        }
+                    </div>
+                    @if (key.CheckFailed)
+                    {
+                        <div class="nornis-list-sub nornis-text-error">
+                            @AiText.Provider(key.Provider) refused this key, so your worlds aren't using it. Replace it, or check it again if you've fixed it there.
+                        </div>
+                    }
+                </div>
+                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => Edit(key.Provider, key)" Disabled="_busy">Replace</MudButton>
+                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => CheckAgainAsync(key)" Disabled="_busy">Check again</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveAsync(key)" Disabled="_busy">Remove</MudButton>
+            </div>
+        }
+
+        @if (_editing is { } editing)
+        {
+            <div class="nornis-ai-key-editor mt-3" data-testid="ai-key-editor">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">
+                    @(editing.Existing is null ? "Add" : "Replace") @(editing.Provider == "OpenAiCompatible" ? "an OpenAI-compatible endpoint" : $"your {AiText.Provider(editing.Provider)} key")
+                </MudText>
+                <MudTextField T="string" @bind-Value="editing.Key" Label="Key" InputType="InputType.Password"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2"
+                              HelperText="@(editing.Existing is null ? "Nornis checks it with the provider before saving it." : $"Leave empty to keep the key ending {editing.Existing.LastFour}.")" />
+                <MudTextField T="string" @bind-Value="editing.Label" Label="Name (optional)" MaxLength="100"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2"
+                              HelperText="Shown where Costs says who paid." />
+
+                @if (editing.Provider == "OpenAiCompatible")
+                {
+                    <MudTextField T="string" @bind-Value="editing.BaseUrl" Label="Base URL"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2"
+                                  Placeholder="https://your-resource.openai.azure.com/openai/v1/"
+                                  HelperText="The https address before /chat/completions. Nornis calls public addresses only." />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-1">
+                        Name the model each kind of work should use. Nornis hasn't tested these, so results can vary.
+                        Prices are USD per million tokens (0 if it's free), used for Costs.
+                    </MudText>
+                    @foreach (var line in editing.Lines)
+                    {
+                        <div class="nornis-ai-key-line">
+                            <MudCheckBox T="bool" @bind-Value="line.Use" Label="@AiText.Task(line.Task)" Dense="true" />
+                            <MudTextField T="string" @bind-Value="line.ModelName" Label="Model" Disabled="!line.Use"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudCheckBox T="bool" @bind-Value="line.SupportsImages" Label="Reads images" Dense="true" Disabled="!line.Use" />
+                            <MudNumericField T="decimal" @bind-Value="line.InputPerMillionUsd" Label="In $/M" Min="0" Max="1000"
+                                             Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="!line.Use" HideSpinButtons="true" />
+                            <MudNumericField T="decimal" @bind-Value="line.OutputPerMillionUsd" Label="Out $/M" Min="0" Max="1000"
+                                             Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="!line.Use" HideSpinButtons="true" />
+                        </div>
+                    }
+                }
+
+                <div class="mt-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_busy">Check and save</MudButton>
+                    <MudButton Variant="Variant.Text" OnClick="() => _editing = null" Disabled="_busy">Cancel</MudButton>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="mt-2">
+                @foreach (var provider in AiText.AddableProviders.Where(p => _keys.All(k => k.Provider != p)))
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="() => Edit(provider, null)" Disabled="_busy" Class="mr-2 mb-1">
+                        @(provider == "OpenAiCompatible" ? "Add an OpenAI-compatible endpoint" : $"Add an {AiText.Provider(provider)} key")
+                    </MudButton>
+                }
+            </div>
+        }
+    }
+
+    <AiErrorAlert Error="_error" Class="mt-2" />
+</MudPaper>
+
+@code {
+    /// <summary>Raised after a key is saved or removed, so the Models card can reload.</summary>
+    [Parameter] public EventCallback Changed { get; set; }
+
+    private IReadOnlyList<AiKeyDto>? _keys;
+    private AiTrialDto? _trial;
+    private Editor? _editing;
+    private bool _busy;
+    private ApiError? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var keys = await Api.GetAiKeysAsync();
+        _keys = keys.IsSuccess ? keys.Value : null;
+        _error = keys.IsSuccess ? null : keys.Error;
+
+        var trial = await Api.GetAiTrialAsync();
+        _trial = trial.IsSuccess ? trial.Value : null;
+    }
+
+    private void Edit(string provider, AiKeyDto? existing)
+    {
+        _error = null;
+        _editing = new Editor(provider, existing)
+        {
+            Label = existing?.Label,
+            BaseUrl = existing?.BaseUrl,
+            Lines = AiText.Tasks.Select(task => existing?.Models.FirstOrDefault(m => m.Task == task) is { } m
+                ? new Line(task) { Use = true, ModelName = m.ModelName, SupportsImages = m.SupportsImages, InputPerMillionUsd = m.InputPerMillionUsd, OutputPerMillionUsd = m.OutputPerMillionUsd }
+                : new Line(task)).ToList(),
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is not { } editing)
+        {
+            return;
+        }
+
+        var body = new SaveAiKeyBody(
+            string.IsNullOrWhiteSpace(editing.Key) ? null : editing.Key.Trim(),
+            editing.Label,
+            editing.Provider == "OpenAiCompatible" ? editing.BaseUrl : null,
+            editing.Provider == "OpenAiCompatible"
+                ? editing.Lines.Where(l => l.Use).Select(l => new AiCompatibleModelDto(
+                    l.Task, l.ModelName ?? string.Empty, l.SupportsImages, l.InputPerMillionUsd, l.OutputPerMillionUsd)).ToList()
+                : null);
+
+        await SaveAsync(editing.Provider, body);
+    }
+
+    /// <summary>Saving without a key checks the stored one again: how a refused key is cleared
+    /// once the problem is fixed at the provider.</summary>
+    private Task CheckAgainAsync(AiKeyDto key) =>
+        SaveAsync(key.Provider, new SaveAiKeyBody(null, key.Label, key.BaseUrl, key.BaseUrl is null ? null : key.Models));
+
+    private async Task SaveAsync(string provider, SaveAiKeyBody body)
+    {
+        _busy = true;
+        _error = null;
+        var result = await Api.SaveAiKeyAsync(provider, body);
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error;
+            return;
+        }
+
+        _editing = null;
+        var queued = result.Value!.SourcesQueued;
+        Snackbar.Add(queued > 0
+            ? $"Key saved. {queued} source{(queued == 1 ? "" : "s")} waiting for a key {(queued == 1 ? "is" : "are")} being read again."
+            : "Key saved.", Severity.Success);
+        await LoadAsync();
+        await Changed.InvokeAsync();
+    }
+
+    private async Task RemoveAsync(AiKeyDto key)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            $"Remove {key.Label}?",
+            "Your worlds stop using it at once. AI work that needs it waits until you add a key again.",
+            yesText: "Remove", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _busy = true;
+        var result = await Api.RemoveAiKeyAsync(key.Provider);
+        _busy = false;
+        if (!result.IsSuccess)
+        {
+            _error = result.Error;
+            return;
+        }
+
+        Snackbar.Add($"{key.Label} removed.", Severity.Normal);
+        await LoadAsync();
+        await Changed.InvokeAsync();
+    }
+
+    private sealed class Editor(string provider, AiKeyDto? existing)
+    {
+        public string Provider { get; } = provider;
+
+        public AiKeyDto? Existing { get; } = existing;
+
+        public string? Key { get; set; }
+
+        public string? Label { get; set; }
+
+        public string? BaseUrl { get; set; }
+
+        public List<Line> Lines { get; init; } = [];
+    }
+
+    private sealed class Line(string task)
+    {
+        public string Task { get; } = task;
+
+        public bool Use { get; set; }
+
+        public string? ModelName { get; set; }
+
+        public bool SupportsImages { get; set; }
+
+        public decimal InputPerMillionUsd { get; set; }
+
+        public decimal OutputPerMillionUsd { get; set; }
+    }
+}

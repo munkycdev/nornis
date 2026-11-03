@@ -63,9 +63,11 @@ and their tests, with no migration. **B2 Web**: B8.
       (the GM's own retry of a failed source), found by `Source.FailureCategory`.
 - [x] B7. Health: outcomes per provider, recorded by the binder, refusals not recorded;
       `/status` entries `azure-openai`, `ai-openai`, `ai-openai-compatible`.
-- [ ] B8. Web: Profile's AI keys and Models cards, the trial line, refusal rendering, and
-      "Estimated" plus "Paid by" on Costs.
-- [ ] B9. Tests per design.md; build, `dotnet test`, `dotnet format --verify-no-changes`.
+- [x] B8. Web: Profile's AI keys and Models cards, the trial line, refusal rendering, and
+      "Estimated" plus "Paid by" on Costs. Refusals render through `AiErrorAlert` on Ask, the
+      Prep drafting and conversation streams and Capture's page reading; an out-of-credit
+      refusal links to the provider's billing page when its message names one.
+- [x] B9. Tests per design.md; build, `dotnet test`, `dotnet format --verify-no-changes`.
 - [ ] B10. Dave: the key-ring blob and `AiKeys__KeyBlobUri` on both apps (targeted
       `az containerapp update`), `AddAiKeys` applied, then the merge.
 

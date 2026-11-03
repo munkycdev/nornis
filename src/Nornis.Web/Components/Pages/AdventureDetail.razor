@@ -221,7 +221,7 @@ else if (_adventure is not null)
                     </div>
                     @if (_draftError is not null)
                     {
-                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3">@_draftError</MudAlert>
+                        <AiErrorAlert Error="_draftError" OtherSeverity="Severity.Warning" Class="mt-3" />
                     }
                     @if (_draftText is not null)
                     {
@@ -271,7 +271,7 @@ else if (_adventure is not null)
     private string _instruction = string.Empty;
     private bool _drafting;
     private string? _draftText;
-    private string? _draftError;
+    private ApiError? _draftError;
     private CancellationTokenSource? _draftCts;
 
     private AdventureSectionDto? Selected => _adventure?.Sections.FirstOrDefault(s => s.Id == _selectedId);
@@ -604,14 +604,14 @@ else if (_adventure is not null)
                         Snackbar.Add(selected.IsFilled ? "Revised. Undo steps back." : "Drafted. Undo steps back.", Severity.Success);
                         break;
                     case DraftStreamEvent.Failed failed:
-                        _draftError = failed.Error.Message;
+                        _draftError = failed.Error;
                         break;
                 }
             }
         }
         catch (OperationCanceledException) when (_draftCts.IsCancellationRequested)
         {
-            _draftError = "Stopped. Nothing was saved.";
+            _draftError = new ApiError("stopped", "Stopped. Nothing was saved.");
         }
         finally
         {
