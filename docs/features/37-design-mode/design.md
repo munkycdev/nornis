@@ -1,5 +1,48 @@
 # Design Document
 
+> **Amendment (2026-11-03, Phases B and C):** what building it changed. The text below is left
+> as written.
+>
+> - **Bounds.** The draft's cap is `Adventure.MaxDraftChars` (60,000) and the brief's
+>   `Adventure.MaxTableBriefChars` (2,000), constants on the entity rather than `PrepOptions`;
+>   the Web mirrors them and `DesignModeMirrorTests` pins them. Draft revisions use
+>   `PrepOptions.MaxRevisionsPerSection`.
+> - **`AdventureSourceBook.AdventureId` is `Restrict`, not cascade.** Worlds cascade to both
+>   `Adventures` and `LibraryDocuments`, so SQL Server refuses a second cascading path.
+>   `AdventureRepository.DeleteAsync` and the world graph delete the rows themselves. The book
+>   side cascades, which covers every way a book leaves.
+> - **A controller of its own.** The draft, edits, split, gather, brief and source-book routes
+>   are on `PrepDesignController`; the conversation's scope stays on `PrepController`. Put in
+>   draft is `POST draft/put { messageId, mode, basedOnUpdatedAt }`.
+> - **Answers carry their edits.** The API reads each answer with `DraftEdits.Parse` as it is
+>   shown and sends `edits` and `prose` (the answer without its fences) on the message. The Web
+>   never parses a fence.
+> - **The chosen-books retriever** is a default interface method,
+>   `IReferencePassageRetriever.RetrieveFromDocumentsAsync`, which filters the GM-scope search to
+>   the chosen uploads; the Bibliotaph retriever overrides it to send the books' entry ids.
+> - **The plan** is `POST draft/plan { useLoremaster }`, returning rows with their opening words
+>   (read from the cut itself) and the draft stamp the split must be based on. The Loremaster's
+>   plan falls back to the headings plan, with a note, when the call fails as well as when the
+>   plan is refused. It is charged to the Prep pool as drafting; it is not on the conversation's
+>   gate, so a plan and a turn can run together.
+> - **The cut.** Only ATX `#`/`##` headings split; an underlined heading stays text. A start line
+>   that is a heading leaves the body only when its text is the plan's title. A heading the GM
+>   renamed stays in the body, so a rename can't take a word out of the sections.
+> - **Split keeps the draft.** A split never changes the draft or its stamp. Replace keeps the
+>   written sections' text as one gathered draft revision (reason `Split`), not one per section;
+>   Undo on the draft brings it back into the draft. With nothing written, the cut replaces the
+>   empty outline without asking.
+> - **Gather keeps chapters.** An unwritten Chapter with written sections under it stays as its
+>   heading alone, so a gathered draft splits back into the same sections.
+> - **Import into the draft** is on the Design tab: the files are read in the browser and put
+>   into the editor after what is there, for the GM to save. The Prep list's Import Markdown
+>   still makes sections.
+> - **The boundary scans** (`PrepBoundaryTests`) pin the draft's readers (nothing that prints or
+>   exports names `DraftMarkdown`) and the cut (`AdventureDraftCutter.Cut` only in the design and
+>   plan services, `TryWriteSplitAsync` only in the design service).
+> - **For feature 38's AI-use flag:** Split, Gather and Import only structure the GM's text.
+>   Applying a suggested edit and Put in draft are the Loremaster writing words.
+
 ## Overview
 
 ```
