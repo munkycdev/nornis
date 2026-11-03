@@ -59,7 +59,8 @@ public class PrepController : ControllerBase
         var result = await _adventures.ListAsync(worldId, HttpContext.GetWorldMember().Role, ct);
         return result.IsSuccess
             ? Ok(result.Value!.Select(a => new AdventureSummaryResponse(
-                a.Id, a.Title, a.Slug, a.CampaignId, a.SectionCount, a.FilledSectionCount, a.LastPrintedDocumentId, a.UpdatedAt)).ToList())
+                a.Id, a.Title, a.Slug, a.CampaignId, a.SectionCount, a.FilledSectionCount, a.LastPrintedDocumentId, a.UpdatedAt,
+                a.IsExported)).ToList())
             : result.Error!.ToActionResult();
     }
 

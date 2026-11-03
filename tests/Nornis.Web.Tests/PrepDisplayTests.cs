@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Nornis.Web.ApiClient;
 using Nornis.Web.Services;
 using NUnit.Framework;
 
@@ -28,6 +29,20 @@ public class PrepDisplayTests
     [TestCase(4, 7, "4 of 7 sections written")]
     public void Progress_CountsWrittenSections(int filled, int total, string expected) =>
         Assert.That(PrepDisplay.Progress(filled, total), Is.EqualTo(expected));
+
+    [TestCase(false, false, "All,Neither")]
+    [TestCase(true, false, "All,Exported")]
+    [TestCase(false, true, "All,Published")]
+    [TestCase(true, true, "All,Exported,Published")]
+    public void TheFilters_PlaceAnAdventure_ByWhatItsBeenThrough(bool exported, bool printed, string expected)
+    {
+        var adventure = new AdventureSummaryDto(Guid.NewGuid(), "The Silver Key", null, null, 3, 1,
+            printed ? Guid.NewGuid() : null, DateTimeOffset.UtcNow, exported);
+
+        var matching = PrepDisplay.Filters.Where(f => PrepDisplay.Matches(f, adventure));
+
+        Assert.That(string.Join(",", matching), Is.EqualTo(expected));
+    }
 
     private static readonly Guid A = Guid.NewGuid(), B = Guid.NewGuid(), C = Guid.NewGuid(), D = Guid.NewGuid();
 

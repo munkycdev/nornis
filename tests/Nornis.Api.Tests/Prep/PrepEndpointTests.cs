@@ -100,6 +100,7 @@ public class PrepEndpointTests
         Assert.That(after.Sections.Select(s => s.Id), Is.EqualTo(adventure.Sections.Select(s => s.Id)));
         var list = await scenario.GmClient.GetFromJsonAsync<List<AdventureSummaryResponse>>(Base(worldId));
         Assert.That(list, Has.Count.EqualTo(1));
+        Assert.That(list![0].IsExported, Is.False);
         var conversation = await scenario.GmClient.GetFromJsonAsync<ConversationResponse>($"{Base(worldId)}/{adventure.Id}/conversation");
         Assert.That(conversation!.Messages, Is.Empty);
         Assert.That(_factory.FakeDrafting.Requests, Is.Empty);
@@ -388,6 +389,10 @@ public class PrepEndpointTests
             Assert.That(source.Body, Does.Contain("The key opens the vault."));
             Assert.That(_factory.ExtractionQueueClient.SentMessages.Count(m => m.SourceId == export.SourceId), Is.EqualTo(1));
         });
+
+        // The Prep list now counts it as exported.
+        var list = await scenario.GmClient.GetFromJsonAsync<List<AdventureSummaryResponse>>(Base(worldId));
+        Assert.That(list!.Single(a => a.Id == adventure.Id).IsExported, Is.True);
 
         // GM-only all the way down: the Player can't open what the export filed.
         var asPlayer = await scenario.PlayerClient.GetAsync($"/api/worlds/{worldId}/sources/{export.SourceId}");

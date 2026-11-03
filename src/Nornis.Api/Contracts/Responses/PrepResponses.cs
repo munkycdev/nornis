@@ -8,7 +8,8 @@ public record AdventureSummaryResponse(
     int SectionCount,
     int FilledSectionCount,
     Guid? LastPrintedDocumentId,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    bool IsExported);
 
 /// <summary>
 /// One section. <see cref="IsFilled"/> is decided here, by <c>AdventureSkeleton.IsUnfilled</c>,

@@ -28,6 +28,9 @@ public class InMemoryAdventureRepository : IAdventureRepository
 
     public void SeedRevision(AdventureSectionRevision revision) => _revisions.Add(revision);
 
+    /// <summary>Adventures a source was exported from; the fake knows no sources, so a test says which.</summary>
+    public HashSet<Guid> Exported { get; } = [];
+
     public Task<IReadOnlyList<AdventureSummary>> ListByWorldAsync(
         Guid worldId, IReadOnlyCollection<string> unfilledBodies, CancellationToken cancellationToken = default)
     {
@@ -37,7 +40,8 @@ public class InMemoryAdventureRepository : IAdventureRepository
             {
                 var sections = _sections.Where(s => s.AdventureId == a.Id).ToList();
                 return new AdventureSummary(a.Id, a.Title, a.Slug, a.CampaignId, sections.Count,
-                    sections.Count(s => !unfilledBodies.Contains(s.BodyMarkdown)), a.LastPrintedDocumentId, a.UpdatedAt);
+                    sections.Count(s => !unfilledBodies.Contains(s.BodyMarkdown)), a.LastPrintedDocumentId, a.UpdatedAt,
+                    Exported.Contains(a.Id));
             })
             .OrderByDescending(a => a.UpdatedAt)
             .ToList();
