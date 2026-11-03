@@ -1,9 +1,9 @@
 # Tasks
 
-Four phases, one PR each. Built after features 35 and 36 ship; feature 36's cover art is
-written against Phase A's resolver so it doesn't need rework. Ships as Nornis 3.8 (Phase B
-onward). Dave's standing merge OK covers these PRs once validations pass. Phase B's migration
-is applied by Dave by hand before its PR merges.
+Four phases, one PR each. Built after the Prep wave (features 35 to 38) unless Dave moves it
+earlier; feature 38's cover art is written against Phase A's resolver if A lands first, so it
+doesn't need rework. The version number is set when Phase B ships. Ask Dave before merging
+these PRs. Phase B's migration is applied by Dave by hand before its PR merges.
 
 **Status: specified 2026-11-03.**
 
@@ -64,11 +64,11 @@ is applied by Dave by hand before its PR merges.
       accepts, per task.
 - [ ] C5. Tests per design.md for C2 and C3.
 
-## Phase D — Cutover and ship 3.8
+## Phase D — Cutover and ship
 
 - [ ] D1. Dave saves his own key (a direct OpenAI key, or his Azure resource as an
       OpenAI-compatible key) and picks his models.
 - [ ] D2. A live walk: extraction on Gribbits through Dave's key; a fresh test account on the
       trial reaches "Trial: $0.00 left" and the "Add a key" refusal; a bad key is refused on
       save; public Ask is off for a trial world.
-- [ ] D3. Ship: `MinorVersion` 8; the change log, the Features page and the README; row 37.
+- [ ] D3. Ship: `MinorVersion` bump; the change log, the Features page and the README; row 39.

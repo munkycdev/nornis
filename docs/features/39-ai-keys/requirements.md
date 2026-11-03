@@ -6,7 +6,7 @@ Every AI call in Nornis runs on one Azure OpenAI resource that Dave pays for. No
 around AI: extraction, Ask the Loremaster, continuity, Prep. So a second user can't be let in
 without either Dave paying for their table or the user paying for it themselves.
 
-Feature 37 lets each user bring their own AI keys (OpenAI, Anthropic Claude, Google Gemini, or
+Feature 39 lets each user bring their own AI keys (OpenAI, Anthropic Claude, Google Gemini, or
 any endpoint that speaks the OpenAI protocol) and choose which model does each kind of work.
 A new user who has no key yet gets a small trial on Nornis's own Azure OpenAI resource,
 on the **same models Nornis uses today**. A cheaper model would make the first impression
@@ -166,7 +166,7 @@ provider runs them.
 
 - **Keys per world.** A GM who wants one campaign billed to another account can't do that.
   Easy to add later as an override on the world; nothing here blocks it.
-- **Image generation** is not used by anything yet. Feature 36 builds cover art against the
+- **Image generation** is not used by anything yet. Feature 38 (cover art) builds against the
   same resolver, as its own task; this feature only makes sure the shapes allow it.
 - **Embeddings** keep running on Nornis's own Azure key until feature 31's Phase H deletes the
   upload index, which is the only thing that embeds. Embeddings are tiny, and after Phase H
