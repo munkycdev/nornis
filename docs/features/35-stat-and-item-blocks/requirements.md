@@ -127,8 +127,8 @@ right Artifact, not twenty.
 #### Acceptance Criteria
 
 1. The export body SHALL replace each named game block with one line:
-   - `Stat block for "Captain Voss" (Shadowdark): AC 15; HP 27; Traits: Sea legs: …`
-   - `Item "Cloak of the Tidecaller" (Shadowdark): Weight 1 lb; Value 400 gp. While worn, …`
+   - `Stat block for "Captain Voss" (Shadowdark): AC: 15; HP: 27. Traits — Sea legs: …`
+   - `Item "Cloak of the Tidecaller" (Shadowdark): Weight: 1 lb; Value: 400 gp. While worn, …`
 
    The game system in brackets is the Adventure's resolved game system. It is left out when
    there is none.

@@ -12,7 +12,7 @@ records.**
 
 ## Phase B — The grammar, the booklet, writing them
 
-- [ ] B1. `GameBlocks` (Application/Prep): the records, `Parse`, `InMarkdown`, `ExportLine`.
+- [ ] B1. `GameBlocks` (Application/Prep): the records, `Parse`, `InMarkdown`, `ExportLineFor`.
       Add `PrepMarkup.ItemBlockInfo`. `GameBlocksTests`.
 - [ ] B2. `BookletModel` reads game blocks through `GameBlocks`. `BookletStatBlock` is
       replaced by `BookletGameBlock`. Port the `BookletModelTests` stat cases.

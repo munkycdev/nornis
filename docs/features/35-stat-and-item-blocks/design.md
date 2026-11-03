@@ -167,11 +167,11 @@ it through `AdventurePrintDetails`, the same resolution the booklet uses. While 
 section's body, the composer replaces each **named** game block's fence with one paragraph:
 
 ```
-Stat block for "Captain Voss" (Shadowdark): *Medium human, pirate captain*. AC 15; HP 27 (5d8+5); Speed 30 ft., swim 20 ft.; STR 14; DEX 16; CON 12. Traits: Sea legs: Advantage on saves… Actions: Cutlass: +5 to hit, 1d8+3 slashing.
-Item "Cloak of the Tidecaller" (Shadowdark): *Wondrous item, rare, requires attunement*. Weight 1 lb; Value 400 gp. While you wear this cloak…
+Stat block for "Captain Voss" (Shadowdark): *Medium human, pirate captain*. AC: 15; HP: 27 (5d8+5); Speed: 30 ft., swim 20 ft.; STR: 14; DEX: 16; CON: 12. Traits — Sea legs: Advantage on saves… Actions — Cutlass: +5 to hit, 1d8+3 slashing.
+Item "Cloak of the Tidecaller" (Shadowdark): *Wondrous item, rare, requires attunement*. Weight: 1 lb; Value: 400 gp. While you wear this cloak…
 ```
 
-- `GameBlocks.ExportLine(GameBlock, string? gameSystem)` builds the line. It is the one
+- `GameBlocks.ExportLineFor(GameBlock, string? gameSystem)` builds the line and says whether it was cut. It is the one
   function both the composer and the warning use.
 - A line over `MaxExportLineChars` (2,000, the `ArtifactFact.Value` column) is cut at the last
   whole entry or group that fits, and ends with " …".
@@ -189,14 +189,14 @@ become facts on that artifact" to:
 
 1. **Where each rule lives.**
    - The grammar lives in `GameBlocks.Parse`.
-   - The export line lives in `GameBlocks.ExportLine`.
+   - The export line lives in `GameBlocks.ExportLineFor`.
    - The prompt conventions live in `PrepMarkup.ConventionsForPrompt`.
    - The look lives in the renderer.
    - The info strings are mirrored to Web under the existing mirror test.
    - A boundary scan fails if anything outside `GameBlocks` matches on `StatBlockInfo` or
      `ItemBlockInfo` to parse a fence. The Web toolbar and the mirror are allowed.
 2. **Second caller.** The booklet, the warnings and the export all call the parser. The
-   warnings and the cut share `ExportLine`. Every section response path gets warnings,
+   warnings and the cut share `ExportLineFor`. Every section response path gets warnings,
    because they are computed when the response is built, not on a save.
 3. **Null, empty and zero.**
    - A null name means unnamed: it prints as today, exports as lines, and gets a warning.
@@ -221,7 +221,7 @@ become facts on that artifact" to:
   - a colon in a description;
   - blank lines;
   - an empty block;
-  - `ExportLine` at and over the limit, with the cut on a whole entry;
+  - `ExportLineFor` at and over the limit, with the cut on a whole entry;
   - the game system's bracket present and absent.
 - **`GameBlockWarningsTests`** cover each warning, positional naming, and none for a good block.
 - **`PrepMarkupMirrorTests`** pick up `ItemBlockInfo` with no change to the test.
