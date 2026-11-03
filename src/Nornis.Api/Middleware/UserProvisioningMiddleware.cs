@@ -12,10 +12,10 @@ namespace Nornis.Api.Middleware;
 public class UserProvisioningMiddleware
 {
     /// <summary>
-    /// How long a resolved subject-to-user mapping is reused. The mapping itself is immutable —
-    /// an Auth0 subject id keeps the same Nornis user forever, and there is no delete path — so
-    /// this could be far longer. Ten minutes bounds how long a profile edit takes to appear and
-    /// keeps a restart-free way to recover from anything unexpected.
+    /// How long a resolved subject-to-user mapping is reused. A subject keeps its user until the
+    /// sign-in is removed (feature 33), which evicts it here; on another replica the eviction
+    /// can't reach, ten minutes is how long a removed sign-in keeps working. It also bounds how
+    /// long a profile edit takes to appear.
     /// </summary>
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(10);
 
@@ -27,7 +27,10 @@ public class UserProvisioningMiddleware
     /// would corrupt other requests in flight. A record costs one small allocation per request
     /// and makes that impossible.
     /// </summary>
-    private sealed record CachedUser(Guid Id, string Auth0SubjectId, string Username, string Email);
+    private sealed record CachedUser(Guid Id, string Username, string Email);
+
+    /// <summary>The cache entry for a subject. Removing a sign-in evicts it.</summary>
+    public static string CacheKey(string subject) => $"user:sub:{subject}";
 
     private readonly RequestDelegate _next;
     private readonly ILogger<UserProvisioningMiddleware> _logger;
@@ -60,12 +63,20 @@ public class UserProvisioningMiddleware
             return;
         }
 
+        // Linking a sign-in (feature 33) arrives with a subject that has no user yet, and must
+        // not get one: the endpoint attaches the subject to an existing user itself.
+        if (context.GetEndpoint()?.Metadata.GetMetadata<SkipUserProvisioningAttribute>() is not null)
+        {
+            await _next(context);
+            return;
+        }
+
         // A token Bibliotaph holds (feature 31) speaks for a Nornis user who already exists: the
         // GM who connected. It never creates one, and needs no email, because nothing is read
         // from it but the subject.
         if (BibliotaphTokens.IsFromBibliotaph(context.User, bibliotaph.Value.ProviderClientId))
         {
-            var existing = await userRepository.GetByAuth0SubjectIdAsync(sub, context.RequestAborted);
+            var existing = await userRepository.GetBySubjectAsync(sub, context.RequestAborted);
             if (existing is null)
             {
                 context.Response.StatusCode = 401;
@@ -87,7 +98,7 @@ public class UserProvisioningMiddleware
             return;
         }
 
-        var cacheKey = $"user:sub:{sub}";
+        var cacheKey = CacheKey(sub);
 
         // This middleware runs on every authenticated request, so this lookup was the single
         // most-executed query in the system — and it exists only to turn a JWT subject into a
@@ -111,7 +122,7 @@ public class UserProvisioningMiddleware
         {
             try
             {
-                var user = await userRepository.GetByAuth0SubjectIdAsync(sub, context.RequestAborted);
+                var user = await userRepository.GetBySubjectAsync(sub, context.RequestAborted);
 
                 if (user is null)
                 {
@@ -121,12 +132,11 @@ public class UserProvisioningMiddleware
                     user = await userRepository.CreateAsync(new User
                     {
                         Id = Guid.NewGuid(),
-                        Auth0SubjectId = sub,
                         Username = nickname,
                         Email = email,
                         CreatedAt = DateTimeOffset.UtcNow,
                         UpdatedAt = DateTimeOffset.UtcNow
-                    }, context.RequestAborted);
+                    }, sub, context.RequestAborted);
                 }
 
                 cache.Set(cacheKey, Snapshot(user), CacheTtl);
@@ -135,9 +145,9 @@ public class UserProvisioningMiddleware
             catch (DbUpdateException)
             {
                 // Lost a create race with a concurrent request for the same subject; the unique
-                // index on Auth0SubjectId means the winner's row is now readable. Deliberately
+                // index on UserSignIns.Subject means the winner's row is now readable. Deliberately
                 // not cached — this path is rare and the next request can populate normally.
-                var user = await userRepository.GetByAuth0SubjectIdAsync(sub, context.RequestAborted);
+                var user = await userRepository.GetBySubjectAsync(sub, context.RequestAborted);
                 if (user is null)
                 {
                     _logger.LogError("User provisioning failed for sub {Sub}", sub);
@@ -165,7 +175,7 @@ public class UserProvisioningMiddleware
     }
 
     private static CachedUser Snapshot(User user) =>
-        new(user.Id, user.Auth0SubjectId, user.Username, user.Email);
+        new(user.Id, user.Username, user.Email);
 
     /// <summary>
     /// Rebuilds the entity downstream code expects. Only <c>Id</c> is read anywhere in the API,
@@ -176,7 +186,6 @@ public class UserProvisioningMiddleware
     private static User ToUser(CachedUser cached) => new()
     {
         Id = cached.Id,
-        Auth0SubjectId = cached.Auth0SubjectId,
         Username = cached.Username,
         Email = cached.Email,
     };

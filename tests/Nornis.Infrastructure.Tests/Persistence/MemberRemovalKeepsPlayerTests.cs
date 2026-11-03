@@ -34,7 +34,7 @@ public class MemberRemovalKeepsPlayerTests : IntegrationTestBase
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Auth0SubjectId = $"auth0|h-{tag}",
+            SignIns = { new UserSignIn { Subject = $"auth0|h-{tag}" } },
             Username = $"henry-{tag}",
             Email = $"h-{tag}@example.com",
             CreatedAt = now,

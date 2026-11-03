@@ -29,7 +29,7 @@ public class UserProvisioningCacheTests
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Auth0SubjectId == sub);
+        var user = await db.Users.AsNoTracking().SingleAsync(u => u.SignIns.Any(si => si.Subject == sub));
         return user.Id;
     }
 
@@ -47,7 +47,7 @@ public class UserProvisioningCacheTests
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-        var matches = await db.Users.AsNoTracking().CountAsync(u => u.Auth0SubjectId == sub);
+        var matches = await db.Users.AsNoTracking().CountAsync(u => u.SignIns.Any(si => si.Subject == sub));
 
         Assert.That(matches, Is.EqualTo(1), "a cache hit must not re-provision the user");
     }
@@ -160,8 +160,9 @@ public class UserProvisioningCacheTests
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
         var subs = await db.Users.AsNoTracking()
-            .Where(u => u.Auth0SubjectId.StartsWith("auth0|cache-interleave-"))
-            .Select(u => u.Auth0SubjectId)
+            .SelectMany(u => u.SignIns)
+            .Where(si => si.Subject.StartsWith("auth0|cache-interleave-"))
+            .Select(si => si.Subject)
             .ToListAsync();
 
         Assert.That(subs, Is.EquivalentTo(["auth0|cache-interleave-a", "auth0|cache-interleave-b"]));

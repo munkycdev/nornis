@@ -1291,6 +1291,18 @@ public record LearnedDto(
 
 public record MarkLearnedSeenBody(DateTimeOffset SeenThrough);
 
+// ---------------------------------------------------------------- sign-ins (feature 33) --
+
+/// <summary>One way of signing in, on Profile. <see cref="Current"/> is the one this session uses.</summary>
+public record SignInDto(Guid Id, string Provider, DateTimeOffset AddedAt, bool Current);
+
+public record SignInLinkDto(string Code);
+
+/// <summary><see cref="Outcome"/> is <c>linked</c> or <c>already-linked</c>.</summary>
+public record SignInClaimDto(string Outcome);
+
+public record ClaimSignInBody(string Code);
+
 // ------------------------------------------------------------- bibliotaph (feature 31) --
 
 /// <summary>Profile › Bibliotaph. <see cref="Status"/> is one of the constants below.</summary>

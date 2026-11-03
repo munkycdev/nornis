@@ -349,7 +349,7 @@ public class WorldCrudTests
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-            var playerUser = await db.Users.FirstAsync(u => u.Auth0SubjectId == "auth0|player-tavrin-auth");
+            var playerUser = await db.Users.FirstAsync(u => u.SignIns.Any(si => si.Subject == "auth0|player-tavrin-auth"));
 
             var addRequest = new AddWorldMemberRequest(
                 UserId: playerUser.Id,

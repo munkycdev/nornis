@@ -13,8 +13,15 @@ public class UserRepository : IUserRepository
         _context = context;
     }
 
-    public async Task<User> CreateAsync(User user, CancellationToken cancellationToken = default)
+    public async Task<User> CreateAsync(User user, string subject, CancellationToken cancellationToken = default)
     {
+        user.SignIns.Add(new UserSignIn
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Subject = subject,
+            AddedAt = user.CreatedAt,
+        });
         _context.Users.Add(user);
         await _context.SaveChangesAsync(cancellationToken);
         return user;
@@ -27,11 +34,11 @@ public class UserRepository : IUserRepository
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
     }
 
-    public async Task<User?> GetByAuth0SubjectIdAsync(string auth0SubjectId, CancellationToken cancellationToken = default)
+    public async Task<User?> GetBySubjectAsync(string subject, CancellationToken cancellationToken = default)
     {
         return await _context.Users
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Auth0SubjectId == auth0SubjectId, cancellationToken);
+            .FirstOrDefaultAsync(u => u.SignIns.Any(s => s.Subject == subject), cancellationToken);
     }
 
     public async Task<IReadOnlyList<User>> ListAddableToWorldAsync(

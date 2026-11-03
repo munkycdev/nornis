@@ -9,8 +9,9 @@ public class InMemoryUserRepository : IUserRepository
 
     public IReadOnlyList<User> Users => _users.AsReadOnly();
 
-    public Task<User> CreateAsync(User user, CancellationToken cancellationToken = default)
+    public Task<User> CreateAsync(User user, string subject, CancellationToken cancellationToken = default)
     {
+        user.SignIns.Add(new UserSignIn { Id = Guid.NewGuid(), UserId = user.Id, Subject = subject, AddedAt = user.CreatedAt });
         _users.Add(user);
         return Task.FromResult(user);
     }
@@ -21,9 +22,9 @@ public class InMemoryUserRepository : IUserRepository
         return Task.FromResult(user);
     }
 
-    public Task<User?> GetByAuth0SubjectIdAsync(string auth0SubjectId, CancellationToken cancellationToken = default)
+    public Task<User?> GetBySubjectAsync(string subject, CancellationToken cancellationToken = default)
     {
-        var user = _users.FirstOrDefault(u => u.Auth0SubjectId == auth0SubjectId);
+        var user = _users.FirstOrDefault(u => u.SignIns.Any(si => si.Subject == subject));
         return Task.FromResult(user);
     }
 

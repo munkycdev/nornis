@@ -70,7 +70,7 @@ public class InviteFlowTests
         // The newcomer was provisioned AND joined with the invite's role, in one request.
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-        var user = await db.Users.FirstAsync(u => u.Auth0SubjectId == newcomerSub);
+        var user = await db.Users.FirstAsync(u => u.SignIns.Any(si => si.Subject == newcomerSub));
         var member = await db.WorldMembers.FirstOrDefaultAsync(m => m.WorldId == worldId && m.UserId == user.Id);
         Assert.That(member, Is.Not.Null);
         Assert.That(member!.Role, Is.EqualTo(WorldRole.Player));

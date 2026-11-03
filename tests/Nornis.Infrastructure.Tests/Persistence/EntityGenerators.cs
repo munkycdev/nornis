@@ -103,7 +103,6 @@ public static class EntityGenerators
 
     public static Gen<User> UserGen() =>
         from id in GuidGen()
-        from auth0Sub in NonEmptyStringGen(200)
         from username in NonEmptyStringGen(200)
         from email in NonEmptyStringGen(200)
         from createdAt in DateTimeOffsetGen()
@@ -111,7 +110,6 @@ public static class EntityGenerators
         select new User
         {
             Id = id,
-            Auth0SubjectId = auth0Sub,
             Username = username,
             Email = email,
             CreatedAt = createdAt,

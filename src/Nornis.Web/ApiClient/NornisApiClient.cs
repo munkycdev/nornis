@@ -223,6 +223,41 @@ public class NornisApiClient
     // ---------------------------------------------------------------- Shelf links --
 
     /// <summary>The world's standing shelf links. GM only — each carries its code.</summary>
+    // Sign-ins (feature 33): the ways the signed-in user can sign in.
+    public Task<ApiResult<IReadOnlyList<SignInDto>>> GetSignInsAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<SignInDto>>("/api/me/sign-ins", ct);
+
+    public Task<ApiResult<SignInLinkDto>> BeginSignInLinkAsync(CancellationToken ct = default) =>
+        PostAsync<object?, SignInLinkDto>("/api/me/sign-ins/link", null, ct);
+
+    public Task<ApiResult<bool>> RemoveSignInAsync(Guid signInId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/me/sign-ins/{signInId}", ct);
+
+    /// <summary>
+    /// Claims a link with the new sign-in's own <paramref name="accessToken"/>, not the session's:
+    /// it is called from inside the sign-in callback, where the old session's cookie is still the
+    /// one the request carries. <see cref="Authentication.BearerTokenHandler"/> keeps an explicit
+    /// bearer. Not routed through the activity signal or the session state, which belong to the
+    /// session's own calls.
+    /// </summary>
+    public async Task<ApiResult<SignInClaimDto>> ClaimSignInAsync(string accessToken, string code, CancellationToken ct = default)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/me/sign-ins/claim")
+            {
+                Content = JsonContent.Create(new ClaimSignInBody(code)),
+            };
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+            using var response = await _httpClient.SendAsync(request, ct);
+            return await ReadResultAsync<SignInClaimDto>(response, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            return ApiResult<SignInClaimDto>.Fail(Unreachable(ex));
+        }
+    }
+
     // Bibliotaph (feature 31): the signed-in user's own connection.
     public Task<ApiResult<BibliotaphConnectionDto>> GetBibliotaphConnectionAsync(CancellationToken ct = default) =>
         GetAsync<BibliotaphConnectionDto>("/api/bibliotaph/connection", ct);

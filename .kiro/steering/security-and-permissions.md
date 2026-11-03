@@ -1,5 +1,22 @@
 ﻿# Security and Permissions
 
+> **Amendment (2026-11-02): an account can have several sign-ins.** Feature 33 (Nornis v3.3).
+> A user is no longer one Auth0 subject but a set of them (`UserSignIn`), and any of them
+> resolves the same user, in the Web, the API and the Bibliotaph Connect check.
+>
+> - **A sign-in is added only by proving both.** The member, signed in, asks the API for a
+>   one-time code (ten minutes, stored hashed), then signs in again at Auth0 with
+>   `prompt=login`. The Web claims the code with the *new* sign-in's access token, after
+>   checking the browser is still in the session that began. The claim endpoint skips user
+>   provisioning, so an unknown subject never creates an account there.
+> - **Never linked by email, and never in Auth0.** Matching emails prove nothing across
+>   providers, and Auth0 account linking is what changed a user's subject on 2026-10-30. A subject
+>   that already has its own Nornis account is refused (`sign_in_taken`), never merged:
+>   merging is a one-off, by hand.
+> - **Removal** is refused for the sign-in in use and for the last one, and evicts the
+>   provisioning cache at once, so a removed sign-in stops working on the next request.
+> - Logs name the provider, never the subject.
+
 > **Amendment (2026-11-02): Bibliotaph.** Feature 31 (Nornis v3.2) adds a second Auth0
 > client that may hold a token for the Nornis API: Bibliotaph's, through its storage provider.
 >

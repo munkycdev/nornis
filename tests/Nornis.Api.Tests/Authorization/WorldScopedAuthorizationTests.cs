@@ -113,7 +113,7 @@ public class WorldScopedAuthorizationTests
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
-            var user = db.Users.First(u => u.Auth0SubjectId == sub);
+            var user = db.Users.First(u => u.SignIns.Any(si => si.Subject == sub));
 
             db.WorldMembers.Add(new WorldMember
             {

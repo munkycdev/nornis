@@ -25,6 +25,8 @@
         </MudRadioGroup>
     </MudPaper>
 
+    <SignInsCard Outcome="@SignInOutcome" />
+
     <BibliotaphConnectionCard Outcome="@BibliotaphOutcome" />
 
     @if (Worlds.Current is null)
@@ -177,6 +179,9 @@
 @code {
     /// <summary>How a Bibliotaph connect attempt ended, when it brought the browser back here.</summary>
     [SupplyParameterFromQuery(Name = "bibliotaph")] public string? BibliotaphOutcome { get; set; }
+
+    /// <summary>How linking another sign-in ended, when it brought the browser back here.</summary>
+    [SupplyParameterFromQuery(Name = "signin")] public string? SignInOutcome { get; set; }
 
     private bool _loading;
     private string? _error;

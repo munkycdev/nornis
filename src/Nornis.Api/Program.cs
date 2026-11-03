@@ -216,6 +216,7 @@ builder.Services.AddDbContext<NornisDbContext>(options =>
 
 // Repository registrations
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserSignInRepository, UserSignInRepository>();
 builder.Services.AddScoped<IWorldRepository, WorldRepository>();
 builder.Services.AddScoped<IWorldMemberRepository, WorldMemberRepository>();
 builder.Services.AddScoped<IWorldInviteRepository, WorldInviteRepository>();
@@ -274,6 +275,7 @@ builder.Services.AddScoped<IDemoWorldService, DemoWorldService>();
 // Onboarding + tutorial (feature 20 phase C).
 builder.Services.AddScoped<ITutorialProgressRepository, TutorialProgressRepository>();
 builder.Services.AddScoped<ITutorialService, TutorialService>();
+builder.Services.AddScoped<Nornis.Application.Accounts.ISignInService, Nornis.Application.Accounts.SignInService>();
 builder.Services.AddScoped<IWorldMemberService, WorldMemberService>();
 builder.Services.AddScoped<IWorldInviteService, WorldInviteService>();
 builder.Services.AddSingleton<IInviteCodeGenerator, InviteCodeGenerator>();

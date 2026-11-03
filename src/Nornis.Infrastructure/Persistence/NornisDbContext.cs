@@ -12,6 +12,8 @@ public class NornisDbContext : DbContext
     }
 
     public DbSet<User> Users => Set<User>();
+    public DbSet<UserSignIn> UserSignIns => Set<UserSignIn>();
+    public DbSet<SignInLinkCode> SignInLinkCodes => Set<SignInLinkCode>();
     public DbSet<World> Worlds => Set<World>();
     public DbSet<WorldMember> WorldMembers => Set<WorldMember>();
     public DbSet<WorldInvite> WorldInvites => Set<WorldInvite>();

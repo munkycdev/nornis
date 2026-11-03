@@ -21,7 +21,7 @@ public class BibliotaphConnectionRepositoryTests : IntegrationTestBase
         _user = new User
         {
             Id = Guid.NewGuid(),
-            Auth0SubjectId = $"auth0|{Guid.NewGuid():N}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{Guid.NewGuid():N}" } },
             Username = "dave",
             Email = "dave@example.com",
             CreatedAt = Now,

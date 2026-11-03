@@ -54,7 +54,7 @@ public class BibliotaphConnectionController : ControllerBase
 /// <summary>
 /// Where Auth0 sends the browser after the GM consents. Anonymous because it is a browser
 /// redirect with no bearer; the protected state names the user, and the ID token's subject must
-/// match that user, so a stray or replayed callback can attach nothing. It sets no cookie and
+/// be one of that user's sign-ins, so a stray or replayed callback can attach nothing. It sets no cookie and
 /// answers only with a redirect back to Nornis.
 /// </summary>
 [ApiController]

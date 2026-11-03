@@ -224,7 +224,7 @@ public class ArtifactNameLookupVisibilityTests : IntegrationTestBase
     private static User MakeUser(Guid id, string username) => new()
     {
         Id = id,
-        Auth0SubjectId = $"auth0|{id:N}",
+        SignIns = { new UserSignIn { Subject = $"auth0|{id:N}" } },
         Username = username,
         Email = $"{username.ToLowerInvariant()}@blackharbor.test",
         CreatedAt = DateTimeOffset.UtcNow,

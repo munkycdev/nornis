@@ -34,7 +34,7 @@ public class LibraryDocumentDetachesExcerptsTests : IntegrationTestBase
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Auth0SubjectId = $"auth0|k-{tag}",
+            SignIns = { new UserSignIn { Subject = $"auth0|k-{tag}" } },
             Username = $"kelda-{tag}",
             Email = $"k-{tag}@example.com",
             CreatedAt = now,

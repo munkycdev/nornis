@@ -12,10 +12,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.HasKey(u => u.Id);
 
-        builder.Property(u => u.Auth0SubjectId)
-            .IsRequired()
-            .HasMaxLength(200);
-
         builder.Property(u => u.Username)
             .IsRequired()
             .HasMaxLength(200);
@@ -33,7 +29,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.RowVersion)
             .IsRowVersion();
 
-        builder.HasIndex(u => u.Auth0SubjectId)
-            .IsUnique();
+        builder.HasMany(u => u.SignIns)
+            .WithOne()
+            .HasForeignKey(s => s.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

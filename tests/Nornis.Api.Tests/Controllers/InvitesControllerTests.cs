@@ -32,7 +32,7 @@ public class InvitesControllerTests
         httpContext.Items["NornisUser"] = new User
         {
             Id = UserId,
-            Auth0SubjectId = $"auth0|{UserId}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{UserId}" } },
             Username = "Newcomer",
             Email = "newcomer@nornis.test",
             CreatedAt = DateTimeOffset.UtcNow,

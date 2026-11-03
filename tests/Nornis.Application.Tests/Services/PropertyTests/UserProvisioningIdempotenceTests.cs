@@ -22,7 +22,7 @@ public class UserProvisioningIdempotenceTests
         Arbitrary = [typeof(UserProvisioningArbitraries)],
         MaxTest = 100)]
     [Description("Feature: auth-and-worlds, Property 1: User Provisioning Idempotence")]
-    public void GetByAuth0SubjectId_CalledMultipleTimes_ReturnsSameUserWithoutDuplicates(
+    public void GetBySubject_CalledMultipleTimes_ReturnsSameUserWithoutDuplicates(
         UserProvisioningInput input)
     {
         // Arrange — seed the repository with an existing user
@@ -30,21 +30,20 @@ public class UserProvisioningIdempotenceTests
         var existingUser = new User
         {
             Id = input.UserId,
-            Auth0SubjectId = input.Auth0SubjectId,
             Username = input.Username,
             Email = input.Email,
             CreatedAt = input.CreatedAt,
             UpdatedAt = input.UpdatedAt
         };
-        repo.CreateAsync(existingUser, CancellationToken.None).GetAwaiter().GetResult();
+        repo.CreateAsync(existingUser, input.Auth0SubjectId, CancellationToken.None).GetAwaiter().GetResult();
 
         var originalUserCount = repo.Users.Count;
 
-        // Act — call GetByAuth0SubjectIdAsync multiple times (simulating repeated provisioning lookups)
+        // Act — call GetBySubjectAsync multiple times (simulating repeated provisioning lookups)
         var results = new List<User?>();
         for (var i = 0; i < input.InvocationCount; i++)
         {
-            var result = repo.GetByAuth0SubjectIdAsync(input.Auth0SubjectId, CancellationToken.None)
+            var result = repo.GetBySubjectAsync(input.Auth0SubjectId, CancellationToken.None)
                 .GetAwaiter().GetResult();
             results.Add(result);
         }
@@ -58,8 +57,8 @@ public class UserProvisioningIdempotenceTests
             Assert.That(result!.Id, Is.EqualTo(existingUser.Id),
                 "Each lookup must return the same User Id.");
 
-            Assert.That(result.Auth0SubjectId, Is.EqualTo(existingUser.Auth0SubjectId),
-                "Each lookup must return the same Auth0SubjectId.");
+            Assert.That(result.SignIns.Select(si => si.Subject), Is.EqualTo([input.Auth0SubjectId]),
+                "Each lookup must return the same one sign-in.");
 
             Assert.That(result.Username, Is.EqualTo(existingUser.Username),
                 "Each lookup must return the same Username (no modification).");
@@ -79,7 +78,7 @@ public class UserProvisioningIdempotenceTests
             "No additional User records should be created by repeated lookups.");
 
         // Assert — only one user with this Auth0SubjectId exists
-        var matchingUsers = repo.Users.Where(u => u.Auth0SubjectId == input.Auth0SubjectId).ToList();
+        var matchingUsers = repo.Users.Where(u => u.SignIns.Any(si => si.Subject == input.Auth0SubjectId)).ToList();
         Assert.That(matchingUsers.Count, Is.EqualTo(1),
             "Exactly one User with the given Auth0SubjectId must exist after repeated lookups.");
     }

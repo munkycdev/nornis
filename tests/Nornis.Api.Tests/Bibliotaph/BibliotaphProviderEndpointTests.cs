@@ -70,7 +70,7 @@ public class BibliotaphProviderEndpointTests
         var response = await ClientWith(TestJwtIssuer.GenerateBibliotaphToken(sub)).GetAsync($"/{ProviderPrefix}/me");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
-        Assert.That(await DbAsync(db => db.Users.AnyAsync(u => u.Auth0SubjectId == sub)), Is.False);
+        Assert.That(await DbAsync(db => db.Users.AnyAsync(u => u.SignIns.Any(si => si.Subject == sub))), Is.False);
     }
 
     [Test]
@@ -246,7 +246,7 @@ public class BibliotaphProviderEndpointTests
     private async Task<(HttpClient Client, User User)> ProviderClientAsync(string sub)
     {
         await _factory.CreateAuthenticatedClient(sub: sub, email: $"{Guid.NewGuid():N}@example.com").GetAsync("/api/worlds");
-        var user = await DbAsync(db => db.Users.AsNoTracking().SingleAsync(u => u.Auth0SubjectId == sub));
+        var user = await DbAsync(db => db.Users.AsNoTracking().SingleAsync(u => u.SignIns.Any(si => si.Subject == sub)));
         return (ClientWith(TestJwtIssuer.GenerateBibliotaphToken(sub)), user);
     }
 

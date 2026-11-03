@@ -39,7 +39,7 @@ public class ReviewProposalQueueStatusTests : IntegrationTestBase
         Context.Users.Add(new User
         {
             Id = gmId,
-            Auth0SubjectId = $"auth0|{gmId:N}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{gmId:N}" } },
             Username = "kelda",
             Email = "kelda@example.test",
             CreatedAt = DateTimeOffset.UtcNow,

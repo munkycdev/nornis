@@ -63,12 +63,11 @@ public class WorldMemberServicePropertyTests
         userRepo.CreateAsync(new User
         {
             Id = targetUserId,
-            Auth0SubjectId = $"auth0|{targetUserId}",
             Username = "Tavrin",
             Email = "tavrin@blackharbor.net",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
-        }, CancellationToken.None).GetAwaiter().GetResult();
+        }, $"auth0|{targetUserId}", CancellationToken.None).GetAwaiter().GetResult();
 
         var command = new AddMemberCommand(
             world.Id,

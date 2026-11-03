@@ -66,7 +66,7 @@ public class SourceListProjectionTests : IntegrationTestBase
     private static User MakeUser(Guid id, string name) => new()
     {
         Id = id,
-        Auth0SubjectId = $"auth0|{id:N}",
+        SignIns = { new UserSignIn { Subject = $"auth0|{id:N}" } },
         Username = name,
         Email = $"{name}@example.com",
         CreatedAt = DateTimeOffset.UtcNow,

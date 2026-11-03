@@ -45,7 +45,7 @@ public class CostsControllerTests
         httpContext.Items["NornisUser"] = new User
         {
             Id = userId,
-            Auth0SubjectId = $"auth0|{userId}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{userId}" } },
             Username = username,
             Email = $"{username.ToLower()}@nornis.test",
             CreatedAt = DateTimeOffset.UtcNow,
@@ -349,7 +349,7 @@ public class CostsControllerTests
         httpContext.Items["NornisUser"] = new User
         {
             Id = KeldaUserId,
-            Auth0SubjectId = $"auth0|{KeldaUserId}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{KeldaUserId}" } },
             Username = "Kelda",
             Email = "kelda@nornis.test",
             CreatedAt = DateTimeOffset.UtcNow,
@@ -422,7 +422,7 @@ public class CostsControllerTests
         httpContext.Items["NornisUser"] = new User
         {
             Id = KeldaUserId,
-            Auth0SubjectId = $"auth0|{KeldaUserId}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{KeldaUserId}" } },
             Username = "Kelda",
             Email = "kelda@nornis.test",
             CreatedAt = DateTimeOffset.UtcNow,

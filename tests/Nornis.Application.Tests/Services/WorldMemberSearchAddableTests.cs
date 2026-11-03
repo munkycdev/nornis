@@ -46,12 +46,11 @@ public class WorldMemberSearchAddableTests
         _userRepository.CreateAsync(new User
         {
             Id = id,
-            Auth0SubjectId = $"auth0|{id:N}",
             Username = username,
             Email = $"{id:N}@example.com",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
-        }).GetAwaiter().GetResult();
+        }, $"auth0|{id:N}").GetAwaiter().GetResult();
         return id;
     }
 

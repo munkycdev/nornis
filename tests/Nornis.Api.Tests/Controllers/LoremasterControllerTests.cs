@@ -46,7 +46,7 @@ public class LoremasterControllerTests
         httpContext.Items["NornisUser"] = new User
         {
             Id = userId,
-            Auth0SubjectId = $"auth0|{userId}",
+            SignIns = { new UserSignIn { Subject = $"auth0|{userId}" } },
             Username = username,
             Email = $"{username.ToLower()}@nornis.test",
             CreatedAt = DateTimeOffset.UtcNow,

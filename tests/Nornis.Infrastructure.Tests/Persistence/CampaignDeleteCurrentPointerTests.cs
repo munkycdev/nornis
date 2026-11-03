@@ -33,7 +33,7 @@ public class CampaignDeleteCurrentPointerTests : IntegrationTestBase
         var gm = new User
         {
             Id = Guid.NewGuid(),
-            Auth0SubjectId = $"auth0|gm-{tag}",
+            SignIns = { new UserSignIn { Subject = $"auth0|gm-{tag}" } },
             Username = $"gm-{tag}",
             Email = $"gm-{tag}@example.com",
             CreatedAt = now,

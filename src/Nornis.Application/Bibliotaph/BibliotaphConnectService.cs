@@ -37,7 +37,8 @@ public sealed record BibliotaphConnectionView(
 ///
 /// The state that ties the steps together is protected with the Bibliotaph ring and carries
 /// the user, the PKCE verifier and an expiry, so no table is needed. What binds the grant to
-/// the right person is the ID token's subject, which must be the subject of the user who began.
+/// the right person is the ID token's subject, which must be one of the sign-ins of the user who
+/// began.
 /// </summary>
 public sealed class BibliotaphConnectService : IBibliotaphConnectService
 {
@@ -183,7 +184,10 @@ public sealed class BibliotaphConnectService : IBibliotaphConnectService
             return Back("failed");
         }
 
-        if (!string.Equals(grant.Subject, user.Auth0SubjectId, StringComparison.Ordinal))
+        // Any of the user's sign-ins may be the one used at Bibliotaph (feature 33); a subject
+        // that is nobody's, or another user's, is refused.
+        var grantOwner = string.IsNullOrEmpty(grant.Subject) ? null : await _users.GetBySubjectAsync(grant.Subject, ct);
+        if (grantOwner?.Id != user.Id)
         {
             // Someone else's Bibliotaph sign-in completed this user's flow. Never keep it.
             _logger.LogWarning("Bibliotaph grant refused: its subject is not the user who began. UserId={UserId}", user.Id);
