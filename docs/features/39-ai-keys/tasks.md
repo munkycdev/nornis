@@ -35,7 +35,8 @@ design.md for where it differs from the tasks below.**
 
 Shipped as three PRs. **B1** (with migration `AddAiKeys`): B1a to B4 and B6a, behind
 `AiModels:Fallback = Nornis`, so with no keys saved nothing changes. **B2 API**: B5, B6b, B7
-and their tests, with no migration. **B2 Web**: B8.
+and their tests, with no migration. **B2 Web**: B8. (2026-11-03: B2 was ready while B1 still
+waited for its migration, so both went out in one PR, #97, merged once `AddAiKeys` is on prod.)
 
 - [ ] B0. Decide Gemini's route (its .NET GenAI SDK or the OpenAI-compatible endpoint) with a
       conformance test of streaming, images, schema and usage; record the choice here.
