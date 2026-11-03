@@ -22,6 +22,7 @@ public class AdventureDesignServiceTests
 
     private InMemoryAdventureRepository _adventures = null!;
     private InMemoryLibraryDocumentRepository _documents = null!;
+    private InMemoryConversationRepository _conversations = null!;
     private AdventureService _views = null!;
     private AdventureDesignService _sut = null!;
     private Guid _adventureId;
@@ -35,7 +36,8 @@ public class AdventureDesignServiceTests
         _views = new AdventureService(_adventures, new InMemoryCampaignRepository(), slugs,
             TestBooklets.Printer(TestPrintDetails.For(WorldId, GmUserId, "Shadowdark"), new FakeBookletPdfRenderer()),
             Options.Create(new PrepOptions()));
-        _sut = new AdventureDesignService(_adventures, _documents, _views);
+        _conversations = new InMemoryConversationRepository();
+        _sut = new AdventureDesignService(_adventures, _documents, _views, _conversations, Options.Create(new PrepOptions()));
 
         var created = await _views.CreateAsync(
             new CreateAdventureCommand(WorldId, GmUserId, WorldRole.GM, "The Slurping Spa", null, null), default);
@@ -50,6 +52,8 @@ public class AdventureDesignServiceTests
             ("UndoDraft", async (s, a, r) => (await s.UndoDraftAsync(new(WorldId, a, r), default)).Error),
             ("SetTableBrief", async (s, a, r) => (await s.SetTableBriefAsync(new(WorldId, a, r, "Four players"), default)).Error),
             ("SetSourceBooks", async (s, a, r) => (await s.SetSourceBooksAsync(new(WorldId, a, r, []), default)).Error),
+            ("ApplyEdit", async (s, a, r) => (await s.ApplyEditAsync(new(WorldId, a, r, Guid.NewGuid(), 0, null), default)).Error),
+            ("PutInDraft", async (s, a, r) => (await s.PutInDraftAsync(new(WorldId, a, r, Guid.NewGuid(), PutInSectionMode.Replace, null), default)).Error),
         };
         foreach (var (name, run) in ops)
         {
@@ -204,6 +208,157 @@ public class AdventureDesignServiceTests
         var cleared = await _sut.SetSourceBooksAsync(new(WorldId, _adventureId, WorldRole.GM, []), default);
 
         Assert.That(cleared.Value!.Adventure.SourceBooks, Is.Empty);
+    }
+
+    // ------------------------------------------------------- Suggested edits and Put in draft --
+
+    private const string TwoEdits = """
+        Two changes.
+
+        ```edit
+        <<<
+        The spa is quiet.
+        ===
+        The spa hums with slime.
+        >>>
+        ```
+
+        And a second.
+
+        ```edit
+        <<<
+        The end.
+        ===
+        >>>
+        ```
+        """;
+
+    private async Task<DateTimeOffset> DraftAsync(string markdown) =>
+        (await _sut.SaveDraftAsync(new(WorldId, _adventureId, WorldRole.GM, markdown, _adventures.Adventures.Single().DraftUpdatedAt), default))
+        .Value!.UpdatedAt!.Value;
+
+    private async Task<Guid> AnswerAsync(string content, Guid? adventureId = null)
+    {
+        var conversationId = Guid.NewGuid();
+        var answer = new ConversationMessage
+        {
+            Id = Guid.NewGuid(),
+            ConversationId = conversationId,
+            Role = ConversationRole.Assistant,
+            Content = content,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        await _conversations.CreateAsync(new Conversation
+        {
+            Id = conversationId,
+            WorldId = WorldId,
+            UserId = GmUserId,
+            AdventureId = adventureId ?? _adventureId,
+            Title = "Talk",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            Messages = [answer],
+        }, default);
+        return answer.Id;
+    }
+
+    [Test]
+    public async Task ApplyingAnEdit_ChangesOnlyItsPassage_AndUndoGivesItBack()
+    {
+        var stamp = await DraftAsync("# The Spa\n\nThe spa is quiet.\n\nThe end.");
+        var answer = await AnswerAsync(TwoEdits);
+
+        var applied = await _sut.ApplyEditAsync(new(WorldId, _adventureId, WorldRole.GM, answer, 0, stamp), default);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied.Value!.Markdown, Is.EqualTo("# The Spa\n\nThe spa hums with slime.\n\nThe end."));
+            Assert.That(applied.Value.RevisionCount, Is.EqualTo(1));
+            Assert.That(_adventures.DraftRevisions.Single().Reason, Is.EqualTo(AdventureDraftChange.Edit));
+        });
+
+        var undo = await _sut.UndoDraftAsync(new(WorldId, _adventureId, WorldRole.GM), default);
+        Assert.That(undo.Value!.Markdown, Is.EqualTo("# The Spa\n\nThe spa is quiet.\n\nThe end."));
+    }
+
+    [Test]
+    public async Task AnEditWhosePassageMoved_IsRefused_AndChangesNothing()
+    {
+        var stamp = await DraftAsync("The spa is quiet.\n\nThe spa is quiet.\n\nThe end.");
+        var answer = await AnswerAsync(TwoEdits);
+
+        var twice = await _sut.ApplyEditAsync(new(WorldId, _adventureId, WorldRole.GM, answer, 0, stamp), default);
+        stamp = await DraftAsync("Something else entirely.");
+        var gone = await _sut.ApplyEditAsync(new(WorldId, _adventureId, WorldRole.GM, answer, 1, stamp), default);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(twice.Error?.Code, Is.EqualTo("edit_no_longer_fits"), "found twice");
+            Assert.That(gone.Error?.Code, Is.EqualTo("edit_no_longer_fits"), "found nowhere");
+            Assert.That(_adventures.Adventures.Single().DraftMarkdown, Is.EqualTo("Something else entirely."));
+            Assert.That(_adventures.DraftRevisions, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task AnEdit_IsRefused_OnAStaleStamp_ForAnotherAdventuresAnswer_OrPastTheLastEdit()
+    {
+        var first = await DraftAsync("The spa is quiet.\n\nThe end.");
+        await DraftAsync("The spa is quiet.\n\nThe end. Really.");
+        var answer = await AnswerAsync(TwoEdits);
+        var elsewhere = await AnswerAsync(TwoEdits, adventureId: Guid.NewGuid());
+        var now = _adventures.Adventures.Single().DraftUpdatedAt;
+
+        var stale = await _sut.ApplyEditAsync(new(WorldId, _adventureId, WorldRole.GM, answer, 0, first), default);
+        var foreign = await _sut.ApplyEditAsync(new(WorldId, _adventureId, WorldRole.GM, elsewhere, 0, now), default);
+        var past = await _sut.ApplyEditAsync(new(WorldId, _adventureId, WorldRole.GM, answer, 2, now), default);
+
+        Assert.That(new[] { stale.Error?.Code, foreign.Error?.Code, past.Error?.Code },
+            Is.EqualTo(new[] { "draft_changed", "not_found", "not_found" }));
+    }
+
+    [Test]
+    public async Task AnEditForAnEmptyDraft_WritesTheWholeText_WithNoRevisionToKeep()
+    {
+        var answer = await AnswerAsync("```edit\n<<<\n===\n# The Spa\n\nIt begins.\n>>>\n```");
+
+        var applied = await _sut.ApplyEditAsync(new(WorldId, _adventureId, WorldRole.GM, answer, 0, null), default);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied.Value!.Markdown, Is.EqualTo("# The Spa\n\nIt begins."));
+            Assert.That(applied.Value.RevisionCount, Is.Zero, "there was no draft before it to keep");
+        });
+    }
+
+    [Test]
+    public async Task PutInDraft_ReplacesOrAppends_KeepingARevision()
+    {
+        var stamp = await DraftAsync("Mine.");
+        var answer = await AnswerAsync("Three cultists wait in the steam.");
+
+        var appended = await _sut.PutInDraftAsync(new(WorldId, _adventureId, WorldRole.GM, answer, PutInSectionMode.Append, stamp), default);
+        var replaced = await _sut.PutInDraftAsync(
+            new(WorldId, _adventureId, WorldRole.GM, answer, PutInSectionMode.Replace, appended.Value!.UpdatedAt), default);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(appended.Value.Markdown, Is.EqualTo("Mine.\n\nThree cultists wait in the steam."));
+            Assert.That(replaced.Value!.Markdown, Is.EqualTo("Three cultists wait in the steam."));
+            Assert.That(replaced.Value.RevisionCount, Is.EqualTo(2));
+            Assert.That(_adventures.DraftRevisions.Select(r => r.Reason), Is.All.EqualTo(AdventureDraftChange.Put));
+        });
+    }
+
+    [Test]
+    public async Task PutInDraft_ThatWouldPassTheCap_IsRefused()
+    {
+        var stamp = await DraftAsync(new string('a', Adventure.MaxDraftChars - 10));
+        var answer = await AnswerAsync("More than ten characters of answer.");
+
+        var result = await _sut.PutInDraftAsync(new(WorldId, _adventureId, WorldRole.GM, answer, PutInSectionMode.Append, stamp), default);
+
+        Assert.That(result.Error?.Code, Is.EqualTo("prep_too_large"));
     }
 
     private void Seed(params LibraryDocument[] documents)

@@ -100,7 +100,14 @@ public record PrepBudgetResponse(decimal SpentThisMonthUsd, decimal? MonthlyBudg
 public record AdventureExportResponse(Guid SourceId, string Title, string? Slug);
 
 /// <summary>One message of an Adventure's side conversation. <see cref="Role"/> is User (the GM) or Assistant.</summary>
-public record ConversationMessageResponse(Guid Id, string Role, string Content, string? Model, DateTimeOffset CreatedAt);
+/// <param name="Edits">The suggested edits to the design draft an answer carries (feature 37), in order; null when none.</param>
+/// <param name="Prose">The answer with its edit fences taken out, to show around the edits; null when it has none.</param>
+public record ConversationMessageResponse(
+    Guid Id, string Role, string Content, string? Model, DateTimeOffset CreatedAt,
+    IReadOnlyList<DraftEditResponse>? Edits = null, string? Prose = null);
+
+/// <summary>One suggested edit: the passage it finds in the draft and what replaces it.</summary>
+public record DraftEditResponse(string Find, string Replace);
 
 /// <summary>The side conversation, oldest first. <see cref="IsFull"/> means it must be cleared before another turn.</summary>
 public record ConversationResponse(IReadOnlyList<ConversationMessageResponse> Messages, bool IsFull);

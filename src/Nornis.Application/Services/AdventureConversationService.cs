@@ -163,7 +163,9 @@ public class AdventureConversationService : IAdventureConversationService
                 await _conversations.AddMessageAsync(question, ct);
             }
 
-            var section = adventure.Sections.FirstOrDefault(s => s.Id == command.SectionId);
+            // In Design mode the draft rides instead of a section (feature 37).
+            var onDraft = command.Scope == ConversationScope.Draft;
+            var section = onDraft ? null : adventure.Sections.FirstOrDefault(s => s.Id == command.SectionId);
             var context = await _prompts.BuildAsync(
                 adventure, RetrievalText(adventure, section, text), command.ActingUserId, command.ActingUserRole, ct);
 
@@ -177,7 +179,8 @@ public class AdventureConversationService : IAdventureConversationService
                     section?.Id,
                     AdventureConversationPrompt.HistoryWindow(earlier, _options.ConversationHistoryChars),
                     text,
-                    _options.ConversationSectionChars)),
+                    _options.ConversationSectionChars,
+                    onDraft)),
                 Model = Model,
                 TimeoutSeconds = _options.DraftTimeoutSeconds,
             };

@@ -35,6 +35,27 @@ public class PrepDesignController : ControllerBase
     public async Task<IActionResult> UndoDraft(Guid worldId, Guid adventureId, CancellationToken ct) =>
         Draft(await _design.UndoDraftAsync(new UndoDraftCommand(worldId, adventureId, HttpContext.GetWorldMember().Role), ct));
 
+    /// <summary>Applies one suggested edit from a saved answer; 409 <c>edit_no_longer_fits</c> when its passage moved.</summary>
+    [HttpPost("draft/edits")]
+    public async Task<IActionResult> ApplyEdit(
+        Guid worldId, Guid adventureId, [FromBody] ApplyDraftEditRequest request, CancellationToken ct) =>
+        Draft(await _design.ApplyEditAsync(new ApplyDraftEditCommand(
+            worldId, adventureId, HttpContext.GetWorldMember().Role, request.MessageId, request.Index, request.BasedOnUpdatedAt), ct));
+
+    /// <summary>Put in draft: a whole saved answer replaces the draft or goes after it, as an undoable change.</summary>
+    [HttpPost("draft/put")]
+    public async Task<IActionResult> PutInDraft(
+        Guid worldId, Guid adventureId, [FromBody] PutInDraftRequest request, CancellationToken ct)
+    {
+        if (!EnumParsing.TryParseDefined<PutInSectionMode>(request.Mode ?? "", out var mode))
+        {
+            return BadRequest(new ErrorResponse("invalid_mode", $"'{request.Mode}' is not Replace or Append."));
+        }
+
+        return Draft(await _design.PutInDraftAsync(new PutInDraftCommand(
+            worldId, adventureId, HttpContext.GetWorldMember().Role, request.MessageId, mode, request.BasedOnUpdatedAt), ct));
+    }
+
     [HttpPut("brief")]
     public async Task<IActionResult> SetBrief(
         Guid worldId, Guid adventureId, [FromBody] SetTableBriefRequest request, CancellationToken ct) =>

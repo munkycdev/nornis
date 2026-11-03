@@ -1,5 +1,8 @@
+using Microsoft.Extensions.Options;
+using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
+using Nornis.Application.Prep;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
@@ -15,13 +18,18 @@ public class AdventureDesignService : IAdventureDesignService
     private readonly IAdventureRepository _adventures;
     private readonly ILibraryDocumentRepository _documents;
     private readonly IAdventureService _views;
+    private readonly IConversationRepository _conversations;
+    private readonly PrepOptions _options;
 
     public AdventureDesignService(
-        IAdventureRepository adventures, ILibraryDocumentRepository documents, IAdventureService views)
+        IAdventureRepository adventures, ILibraryDocumentRepository documents, IAdventureService views,
+        IConversationRepository conversations, IOptions<PrepOptions> options)
     {
         _adventures = adventures;
         _documents = documents;
         _views = views;
+        _conversations = conversations;
+        _options = options.Value;
     }
 
     public async Task<AppResult<AdventureDraftState>> SaveDraftAsync(SaveDraftCommand command, CancellationToken ct)
@@ -82,6 +90,112 @@ public class AdventureDesignService : IAdventureDesignService
 
         return AppResult<AdventureDraftState>.Success(
             new(revision.BodyMarkdown, now, await _adventures.CountDraftRevisionsAsync(adventure.Id, ct)));
+    }
+
+    public async Task<AppResult<AdventureDraftState>> ApplyEditAsync(ApplyDraftEditCommand command, CancellationToken ct)
+    {
+        var (adventure, answer, error) = await LoadAnswerAsync(
+            command.WorldId, command.AdventureId, command.ActingUserRole, command.MessageId, ct);
+        if (error is not null)
+        {
+            return AppResult<AdventureDraftState>.Fail(error);
+        }
+
+        var edits = DraftEdits.Parse(answer!.Content);
+        if (command.Index < 0 || command.Index >= edits.Count)
+        {
+            return AppResult<AdventureDraftState>.Fail(new AppError(404, "not_found", "That answer has no such edit."));
+        }
+
+        if (adventure!.DraftUpdatedAt != command.BasedOnUpdatedAt)
+        {
+            return AppResult<AdventureDraftState>.Fail(DraftChanged());
+        }
+
+        if (DraftEdits.Apply(adventure.DraftMarkdown ?? "", edits[command.Index]) is not { } changed)
+        {
+            return AppResult<AdventureDraftState>.Fail(new AppError(409, "edit_no_longer_fits",
+                "The passage this edit changes isn't in the draft exactly once any more, so it can't be applied. Ask the Loremaster again."));
+        }
+
+        return await WriteWithRevisionAsync(adventure, changed, AdventureDraftChange.Edit, command.BasedOnUpdatedAt, ct);
+    }
+
+    public async Task<AppResult<AdventureDraftState>> PutInDraftAsync(PutInDraftCommand command, CancellationToken ct)
+    {
+        var (adventure, answer, error) = await LoadAnswerAsync(
+            command.WorldId, command.AdventureId, command.ActingUserRole, command.MessageId, ct);
+        if (error is not null)
+        {
+            return AppResult<AdventureDraftState>.Fail(error);
+        }
+
+        if (adventure!.DraftUpdatedAt != command.BasedOnUpdatedAt)
+        {
+            return AppResult<AdventureDraftState>.Fail(DraftChanged());
+        }
+
+        var text = answer!.Content.Trim();
+        var markdown = command.Mode == PutInSectionMode.Append && !string.IsNullOrWhiteSpace(adventure.DraftMarkdown)
+            ? adventure.DraftMarkdown.TrimEnd() + "\n\n" + text
+            : text;
+        return await WriteWithRevisionAsync(adventure, markdown, AdventureDraftChange.Put, command.BasedOnUpdatedAt, ct);
+    }
+
+    /// <summary>
+    /// Writes a change the GM didn't type, keeping the draft before it as a revision for Undo, on
+    /// the stamp the change was based on. A first draft has nothing to keep, so no revision.
+    /// </summary>
+    internal async Task<AppResult<AdventureDraftState>> WriteWithRevisionAsync(
+        Adventure adventure, string markdown, AdventureDraftChange reason, DateTimeOffset? basedOn, CancellationToken ct)
+    {
+        if (markdown.Length > Adventure.MaxDraftChars)
+        {
+            return AppResult<AdventureDraftState>.Fail(DraftTooLarge(markdown.Length));
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var revision = new AdventureDraftRevision
+        {
+            Id = Guid.NewGuid(),
+            AdventureId = adventure.Id,
+            Reason = reason,
+            CreatedAt = now,
+        };
+        if (!await _adventures.TrySaveDraftAsync(adventure.Id, markdown, revision, _options.MaxRevisionsPerSection, basedOn, now, ct))
+        {
+            return AppResult<AdventureDraftState>.Fail(DraftChanged());
+        }
+
+        return AppResult<AdventureDraftState>.Success(
+            new(markdown, now, await _adventures.CountDraftRevisionsAsync(adventure.Id, ct)));
+    }
+
+    /// <summary>The Adventure and one saved answer from its own conversation, or why not.</summary>
+    private async Task<(Adventure? Adventure, ConversationMessage? Answer, AppError? Error)> LoadAnswerAsync(
+        Guid worldId, Guid adventureId, WorldRole role, Guid messageId, CancellationToken ct)
+    {
+        if (role != WorldRole.GM)
+        {
+            return (null, null, GmOnly());
+        }
+
+        var adventure = await LoadAsync(worldId, adventureId, ct);
+        if (adventure is null)
+        {
+            return (null, null, NotFound());
+        }
+
+        var message = await _conversations.GetMessageAsync(messageId, ct);
+        if (message is null
+            || message.Role != ConversationRole.Assistant
+            || message.Conversation.AdventureId != adventure.Id
+            || message.Conversation.WorldId != worldId)
+        {
+            return (null, null, new AppError(404, "not_found", "That answer isn't in this adventure's conversation."));
+        }
+
+        return (adventure, message, null);
     }
 
     public async Task<AppResult<AdventureView>> SetTableBriefAsync(SetTableBriefCommand command, CancellationToken ct)

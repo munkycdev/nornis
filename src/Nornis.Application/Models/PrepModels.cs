@@ -24,6 +24,17 @@ public record SaveDraftCommand(
 
 public record UndoDraftCommand(Guid WorldId, Guid AdventureId, WorldRole ActingUserRole);
 
+/// <summary>
+/// Applies one suggested edit from a saved answer (feature 37): the <paramref name="Index"/>th
+/// edit <c>DraftEdits.Parse</c> reads from that answer, so the client never sends the text.
+/// </summary>
+public record ApplyDraftEditCommand(
+    Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, Guid MessageId, int Index, DateTimeOffset? BasedOnUpdatedAt);
+
+/// <summary>Puts a whole saved answer into the draft, replacing it or after it, as Put in section does for a section.</summary>
+public record PutInDraftCommand(
+    Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, Guid MessageId, PutInSectionMode Mode, DateTimeOffset? BasedOnUpdatedAt);
+
 /// <summary>Replaces the table brief; null or blank clears it.</summary>
 public record SetTableBriefCommand(Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, string? Brief);
 
@@ -109,7 +120,18 @@ public record ConversationView(IReadOnlyList<ConversationMessage> Messages, bool
 /// sent it, or null when none was; it is context for the answer, never a target.
 /// </summary>
 public record SendConversationMessageCommand(
-    Guid WorldId, Guid AdventureId, Guid ActingUserId, WorldRole ActingUserRole, string Text, Guid? SectionId);
+    Guid WorldId, Guid AdventureId, Guid ActingUserId, WorldRole ActingUserRole, string Text, Guid? SectionId,
+    ConversationScope Scope = ConversationScope.Section);
+
+/// <summary>What the side conversation sees besides the outline (feature 37).</summary>
+public enum ConversationScope
+{
+    /// <summary>The section open on the GM's screen, if any.</summary>
+    Section,
+
+    /// <summary>The whole design draft. Answers may carry suggested edits to it.</summary>
+    Draft,
+}
 
 /// <summary>What a turn's stream says, in order: the answer as it is written, then exactly one end.</summary>
 public abstract record ConversationEvent

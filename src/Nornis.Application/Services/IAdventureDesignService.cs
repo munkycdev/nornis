@@ -18,6 +18,15 @@ public interface IAdventureDesignService
     /// <summary>Restores the draft as it was before the last change that kept a revision, and drops that revision.</summary>
     Task<AppResult<AdventureDraftState>> UndoDraftAsync(UndoDraftCommand command, CancellationToken ct);
 
+    /// <summary>
+    /// Applies one suggested edit from a saved answer, keeping a revision. 409
+    /// <c>edit_no_longer_fits</c> when its passage isn't in the draft exactly once.
+    /// </summary>
+    Task<AppResult<AdventureDraftState>> ApplyEditAsync(ApplyDraftEditCommand command, CancellationToken ct);
+
+    /// <summary>Puts a whole saved answer into the draft (Replace or Append), keeping a revision.</summary>
+    Task<AppResult<AdventureDraftState>> PutInDraftAsync(PutInDraftCommand command, CancellationToken ct);
+
     Task<AppResult<AdventureView>> SetTableBriefAsync(SetTableBriefCommand command, CancellationToken ct);
 
     /// <summary>At most <see cref="AdventureDesignService.MaxSourceBooks"/>, each a book of this world's Library.</summary>

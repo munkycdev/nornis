@@ -694,6 +694,24 @@ public class AdventureConversationServiceTests
     }
 
     [Test]
+    public async Task InDesignMode_TheTurnSeesTheDraft_NotTheSectionOnScreen()
+    {
+        var adventure = await CreateAdventureAsync();
+        _adventures.Adventures.Single(a => a.Id == adventure.Id).DraftMarkdown = "# The Spa\n\nTHE-WHOLE-DRAFT";
+        _ai.Script("An edit.");
+
+        await TurnAsync(Send(adventure, sectionId: adventure.Sections.First().Id) with { Scope = ConversationScope.Draft });
+
+        var message = _ai.Requests.Single().UserMessage;
+        Assert.Multiple(() =>
+        {
+            Assert.That(message, Does.Contain("THE-WHOLE-DRAFT"));
+            Assert.That(message, Does.Not.Contain("## The section the GM has open"));
+            Assert.That(message, Does.Not.Contain("<- open on the GM's screen"));
+        });
+    }
+
+    [Test]
     public async Task ChosenSourceBooks_AreTheOnlyBooksThePromptReads()
     {
         var adventure = await CreateAdventureAsync();
