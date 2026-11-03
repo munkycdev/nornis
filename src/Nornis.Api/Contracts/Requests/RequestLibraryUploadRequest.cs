@@ -7,4 +7,6 @@ public record RequestLibraryUploadRequest(
     long SizeBytes,
     string Kind,
     string Visibility,
-    Guid? AdventureId = null);
+    Guid? AdventureId = null,
+    // The Adventure this upload belongs to (feature 36); GM only.
+    Guid? LinkedAdventureId = null);

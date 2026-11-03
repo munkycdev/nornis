@@ -93,6 +93,38 @@ public class PrepBoundaryTests
     }
 
     /// <summary>
+    /// Feature 36: an upload is filed under an Adventure by <c>LibraryService</c> alone, where the
+    /// GM-only rule, the same-world check and the refusal for prints and books live. The bulk
+    /// release on an Adventure's delete clears it through SetWhereAsync and never sets one.
+    /// </summary>
+    [Test]
+    public void AnUploadsAdventureLink_IsSetOnlyByLibraryService()
+    {
+        var setters = new List<string>();
+        foreach (var file in SourceFiles())
+        {
+            var text = File.ReadAllText(file.Full);
+            foreach (Match match in Regex.Matches(text, @"new\s+LibraryDocument\s*\{"))
+            {
+                if (Regex.IsMatch(Block(text, match.Index + match.Length - 1), @"\bLinkedAdventureId\s*=[^=>]"))
+                {
+                    setters.Add(file.Relative);
+                }
+            }
+
+            setters.AddRange(CodeLines(file)
+                .Where(line => Regex.IsMatch(line.Text, @"\w\.LinkedAdventureId\s*=[^=>]"))
+                .Select(_ => file.Relative));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(setters, Is.Not.Empty, "the scan still finds LibraryService's own writes");
+            Assert.That(setters.Distinct(), Is.EqualTo(["src/Nornis.Application/Services/LibraryService.cs"]));
+        });
+    }
+
+    /// <summary>
     /// A print's details are a snapshot (feature 32, Requirement 4.2): set once when the print is
     /// filed and never changed. The guard is that there is one writer, the object initialiser in
     /// <c>FilePrintAsync</c>, so no later path can forget the rule.

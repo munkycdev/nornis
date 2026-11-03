@@ -187,7 +187,7 @@ public class PrepController : ControllerBase
         var result = await _library.FilePrintAsync(new FilePrintCommand(
             worldId, HttpContext.GetNornisUser().Id, HttpContext.GetWorldMember().Role, adventureId), ct);
         return result.IsSuccess
-            ? StatusCode(StatusCodes.Status201Created, LibraryController.ToResponse(result.Value!))
+            ? StatusCode(StatusCodes.Status201Created, LibraryController.ToResponse(result.Value!, WorldRole.GM))
             : result.Error!.ToActionResult();
     }
 

@@ -1081,6 +1081,9 @@ namespace Nornis.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid?>("LinkedAdventureId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Origin")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -1128,6 +1131,8 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AdventureId");
+
+                    b.HasIndex("LinkedAdventureId");
 
                     b.HasIndex("UploadedByUserId");
 
@@ -2397,6 +2402,11 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasOne("Nornis.Domain.Entities.Adventure", null)
                         .WithMany()
                         .HasForeignKey("AdventureId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Nornis.Domain.Entities.Adventure", null)
+                        .WithMany()
+                        .HasForeignKey("LinkedAdventureId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Nornis.Domain.Entities.User", "UploadedByUser")

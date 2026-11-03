@@ -59,11 +59,11 @@
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
                         @if (_document.IsFromBibliotaph)
                         {
-                            @_document.Kind
+                            @_document.Category
                         }
                         else
                         {
-                            @($"{_document.Kind} · {_document.FileName} · {DisplayText.FormatSize(_document.SizeBytes)}")
+                            @($"{_document.Category} · {_document.FileName} · {DisplayText.FormatSize(_document.SizeBytes)}")
                         }
                         @(_document.PageCount is { } p ? $" · {p} pages" : "")
                     </MudText>
@@ -142,6 +142,40 @@
                 }
             </div>
         </MudPaper>
+
+        @if (Worlds.IsGm && _document.IsOrganisable)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4 nornis-library-organise">
+                <div class="nornis-detail-section-title">Organise</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                    A document that belongs to an adventure stays off the Library's shelf and shows
+                    under that adventure instead. Players see it as they do now; only you see where it belongs.
+                </MudText>
+                <div class="d-flex gap-3 align-center flex-wrap">
+                    <MudSelect T="string" Value="@_document.Category" ValueChanged="SetCategoryAsync" Label="Category"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="_organising"
+                               Class="nornis-library-category-select" Style="max-width: 12rem;">
+                        @foreach (var (category, _) in LibraryDisplay.ChoosableCategories)
+                        {
+                            <MudSelectItem Value="@category">@category</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect T="string" Value="@(_document.LinkedAdventureId?.ToString() ?? NoAdventure)" ValueChanged="SetAdventureAsync"
+                               Label="Belongs to" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="_organising"
+                               Class="flex-grow-1 nornis-library-belongs-select" Style="max-width: 20rem;">
+                        <MudSelectItem Value="@NoAdventure">The shelf (no adventure)</MudSelectItem>
+                        @foreach (var adventure in _adventures)
+                        {
+                            <MudSelectItem Value="@adventure.Id.ToString()">@adventure.Title</MudSelectItem>
+                        }
+                    </MudSelect>
+                    @if (_document.LinkedAdventureId is { } linkedId)
+                    {
+                        <a href="@Links.Adventure(null, linkedId)" class="nornis-link nornis-library-belongs-link">Open the adventure</a>
+                    }
+                </div>
+            </MudPaper>
+        }
 
         @if (Worlds.IsGm && _document.InBibliotaph)
         {
@@ -241,7 +275,7 @@
 
     private IReadOnlyList<ContextRail.RailRow> RailRows => _document is null ? [] :
     [
-        new("Kind", _document.Kind),
+        new("Category", _document.Category),
         new("Pages", _document.PageCount?.ToString() ?? "—"),
         new("Passages", _document.ChunkCount.ToString()),
         new("Status", _document.Status),
@@ -278,6 +312,7 @@
                 }
                 Crumbs.Set(Links.LibraryDocument(_document.Slug, _document.Id), new Crumb("Library", "/library"), new Crumb(_document.Title));
                 await LoadOpensAsync();
+                await LoadAdventuresAsync();
             }
         }
         else if (result.Error!.Code == "not_found")
@@ -321,6 +356,51 @@
         var result = await Api.GetLibraryOpensAsync(Worlds.Current.Id, _document.Id);
         _opens = result.IsSuccess ? result.Value! : [];
         StateHasChanged();
+    }
+
+    // Organise (feature 36, GM): an upload's category and the Adventure it belongs to. The API
+    // refuses both for prints and Bibliotaph books, which is why the card only shows for uploads.
+    private const string NoAdventure = "none";
+    private IReadOnlyList<AdventureSummaryDto> _adventures = [];
+    private bool _organising;
+
+    private async Task LoadAdventuresAsync()
+    {
+        _adventures = [];
+        if (Worlds.Current is null || _document is not { IsOrganisable: true } || !Worlds.IsGm)
+        {
+            return;
+        }
+
+        var result = await Api.GetAdventuresAsync(Worlds.Current.Id);
+        _adventures = result.IsSuccess
+            ? result.Value!.OrderBy(a => a.Title, StringComparer.CurrentCultureIgnoreCase).ToList()
+            : [];
+        StateHasChanged();
+    }
+
+    private Task SetCategoryAsync(string category) =>
+        OrganiseAsync(id => Api.SetLibraryKindAsync(Worlds.Current!.Id, id, LibraryDisplay.KindFor(category)));
+
+    private Task SetAdventureAsync(string value) =>
+        OrganiseAsync(id => Api.SetLibraryAdventureLinkAsync(Worlds.Current!.Id, id,
+            Guid.TryParse(value, out var adventureId) ? adventureId : null));
+
+    private async Task OrganiseAsync(Func<Guid, Task<ApiResult<LibraryDocumentDto>>> change)
+    {
+        if (Worlds.Current is null || _document is null) return;
+
+        _organising = true;
+        var result = await change(_document.Id);
+        _organising = false;
+        if (result.IsSuccess)
+        {
+            _document = result.Value!;
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
     }
 
     private async Task DownloadAsync()

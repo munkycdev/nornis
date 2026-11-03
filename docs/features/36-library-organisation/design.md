@@ -1,5 +1,37 @@
 # Design Document
 
+> **Amendment (2026-11-03, Phase B):** what building it changed. The text below is left as
+> written.
+>
+> - **The link's foreign key is `Restrict`, not `SetNull`.** Worlds cascade to both
+>   `Adventures` and `LibraryDocuments`, so a second cascading path from `Adventures` is
+>   refused by SQL Server. `AdventureRepository.DeleteAsync` clears the links itself
+>   (`SetWhereAsync`) before deleting, in the same unit of work. The SQL-backed repository test
+>   fails with a foreign key error when that line is removed.
+> - **No composite index.** EF's index on the foreign key (`IX_LibraryDocuments_LinkedAdventureId`)
+>   is enough; the Library is read whole per world and never filtered by the link in SQL.
+> - **The class is `LibraryCategories`** (Application/Services), and a print is known by
+>   `AdventureId` *or* a `PrintDetails` snapshot, so a print whose Adventure was deleted is still
+>   a Print. `WhyNotOrganisable` is the one place that refuses a print or a Bibliotaph book.
+> - **The API sends `linkedAdventureId`, not a `linkedAdventure` object**, and only to a GM. A
+>   player's rows carry `onShelf: true` and no link. The Web names the Adventure from the Prep
+>   list it already loads for the GM (`GetAdventuresAsync`).
+> - **No `documents` on `GET prep/{id}`.** The Adventure page's Documents card reads the Library
+>   list and keeps what `LibraryFilter.BelongsTo` says belongs, which is the same rule the
+>   Library's Adventure menu uses, so the two can't disagree. The card also has an Upload
+>   button that opens the upload dialog preset to the Adventure (the entry point feature 38 was
+>   to add; it was one line here).
+> - **The Adventure menu offers Shelf, Everything, then each Adventure with documents.**
+>   Everything was added so a GM can search across the whole Library in one place.
+> - **The chips' counts follow the Shelf or Adventure choice but not the search**, so chips
+>   don't come and go while typing. The Prep page doesn't remember its chip after all; the
+>   Library remembers its own in local storage (`nornis.library.category`), and a blocked store
+>   just forgets.
+> - **Rows show the category** where they showed the kind (a Bibliotaph row says Book rather
+>   than Sourcebook), and the upload dialog's select is labelled Category with the same four
+>   choices as the document page (`LibraryDisplay.ChoosableCategories`; Book is stored as the
+>   kind Sourcebook).
+
 ## Overview
 
 The Library gets two organising facts per document and a page that filters by them:

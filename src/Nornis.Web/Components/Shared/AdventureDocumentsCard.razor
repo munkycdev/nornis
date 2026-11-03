@@ -1,0 +1,89 @@
+@inject NornisApiClient Api
+@inject IDialogService DialogService
+
+@* An Adventure's documents (feature 36): the uploads that belong to it and its prints. It reads
+   the same Library list the Library page does and keeps the documents LibraryFilter says belong
+   here, so what the card lists is exactly what the Library shows under this adventure. *@
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-adventure-documents">
+    <div class="d-flex align-center">
+        <MudText Typo="Typo.overline" Color="Color.Secondary" Class="flex-grow-1">Documents</MudText>
+        <MudTooltip Text="Upload a map or handout for this adventure">
+            <MudIconButton Icon="@Icons.Material.Outlined.UploadFile" Size="Size.Small" Disabled="Disabled"
+                           OnClick="UploadAsync" aria-label="Upload a document for this adventure" />
+        </MudTooltip>
+    </div>
+
+    @if (_error is not null)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Error">@_error</MudText>
+    }
+    else if (_documents.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-adventure-documents-empty">
+            Nothing belongs to this adventure yet. Upload a map or handout here, or choose this
+            adventure under Belongs to on a Library document.
+        </MudText>
+    }
+    else
+    {
+        @foreach (var doc in _documents)
+        {
+            <div class="nornis-list-row nornis-adventure-document">
+                <div class="nornis-list-thumb">
+                    <MudIcon Icon="@LibraryDisplay.KindIcon(doc.Kind)" Size="Size.Small" />
+                </div>
+                <div class="nornis-list-body">
+                    <a href="@Links.LibraryDocument(doc.Slug, doc.Id)" class="nornis-list-title nornis-link">@doc.Title</a>
+                    <div class="nornis-list-sub">@doc.Category</div>
+                </div>
+            </div>
+        }
+    }
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public Guid WorldId { get; set; }
+    [Parameter, EditorRequired] public Guid AdventureId { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+
+    private IReadOnlyList<LibraryDocumentDto> _documents = [];
+    private string? _error;
+    private Guid _loadedFor;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (AdventureId != _loadedFor)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loadedFor = AdventureId;
+        var result = await Api.GetLibraryAsync(WorldId);
+        if (result.IsSuccess)
+        {
+            _error = null;
+            _documents = LibraryFilter.Apply(result.Value!, new LibraryView(Scope: LibraryScope.ForAdventure(AdventureId)));
+        }
+        else
+        {
+            _error = result.Error!.Message;
+            _documents = [];
+        }
+    }
+
+    private async Task UploadAsync()
+    {
+        var parameters = new DialogParameters<LibraryUploadDialog> { { d => d.AdventureId, AdventureId } };
+        var dialog = await DialogService.ShowAsync<LibraryUploadDialog>("Add to library", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            await LoadAsync();
+        }
+    }
+}

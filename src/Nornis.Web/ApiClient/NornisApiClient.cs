@@ -797,6 +797,22 @@ public class NornisApiClient
 
     private sealed record RenameLibraryDocumentBody(string Title);
 
+    /// <summary>GM-only: files an upload under an Adventure, or back on the Shelf with null (feature 36).</summary>
+    public Task<ApiResult<LibraryDocumentDto>> SetLibraryAdventureLinkAsync(
+        Guid worldId, Guid documentId, Guid? adventureId, CancellationToken ct = default) =>
+        PutAsync<SetLibraryAdventureLinkBody, LibraryDocumentDto>(
+            $"/api/worlds/{worldId}/library/{documentId}/adventure-link", new SetLibraryAdventureLinkBody(adventureId), ct);
+
+    private sealed record SetLibraryAdventureLinkBody(Guid? AdventureId);
+
+    /// <summary>GM-only: changes what an upload is (feature 36).</summary>
+    public Task<ApiResult<LibraryDocumentDto>> SetLibraryKindAsync(
+        Guid worldId, Guid documentId, string kind, CancellationToken ct = default) =>
+        PutAsync<SetLibraryKindBody, LibraryDocumentDto>(
+            $"/api/worlds/{worldId}/library/{documentId}/kind", new SetLibraryKindBody(kind), ct);
+
+    private sealed record SetLibraryKindBody(string Kind);
+
     /// <summary>GM-only: deletes a library document.</summary>
     public Task<ApiResult<bool>> DeleteLibraryDocumentAsync(Guid worldId, Guid documentId, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}/library/{documentId}", ct);

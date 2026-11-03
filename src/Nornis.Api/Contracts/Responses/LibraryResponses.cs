@@ -20,7 +20,11 @@ public record LibraryDocumentResponse(
     Guid? AdventureId = null,
     string Origin = "Upload",
     bool InBibliotaph = false,
-    bool HasCover = false);
+    bool HasCover = false,
+    // Feature 36: decided by LibraryCategories, so no client decides them differently.
+    string Category = "Other",
+    Guid? LinkedAdventureId = null,
+    bool OnShelf = true);
 
 /// <summary>Where opening a book sends the browser: Bibliotaph's reader, or a download.</summary>
 public record LibraryReadResponse(string Url, string Kind);

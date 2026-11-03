@@ -4530,3 +4530,15 @@ a.nornis-cite:hover {
     color: var(--mud-palette-text-secondary);
     font-size: 0.75rem;
 }
+
+/* Library organisation (feature 36): the search, Adventure menu and sort sit on one row that
+   wraps on a phone; the sort chips stay together. */
+.nornis-library-sort {
+    display: inline-flex;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.nornis-library-search {
+    min-width: 12rem;
+}

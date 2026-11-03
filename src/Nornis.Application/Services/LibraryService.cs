@@ -137,6 +137,15 @@ public class LibraryService : ILibraryService
         }
         var title = titleResult.Value!;
 
+        if (command.LinkedAdventureId is { } linkTo)
+        {
+            var linkError = await LinkErrorAsync(command.WorldId, command.ActingUserRole, linkTo, ct);
+            if (linkError is not null)
+            {
+                return AppResult<LibraryUploadTicket>.Fail(linkError);
+            }
+        }
+
         var extension = Path.GetExtension(command.FileName ?? string.Empty);
         if (string.IsNullOrEmpty(extension) || !AllowedExtensions.TryGetValue(extension, out var expectedContentType))
         {
@@ -174,6 +183,7 @@ public class LibraryService : ILibraryService
             SizeBytes = command.SizeBytes,
             Kind = command.Kind,
             Visibility = visibility,
+            LinkedAdventureId = command.LinkedAdventureId,
             Status = LibraryDocumentStatus.PendingUpload,
             UploadedByUserId = command.ActingUserId,
             CreatedAt = now,
@@ -453,6 +463,93 @@ public class LibraryService : ILibraryService
         document = await _documentRepository.UpdateAsync(document, ct);
 
         return AppResult<LibraryDocument>.Success(document);
+    }
+
+    public async Task<AppResult<LibraryDocument>> SetAdventureLinkAsync(
+        Guid documentId, Guid worldId, WorldRole role, Guid? adventureId, CancellationToken ct)
+    {
+        if (role != WorldRole.GM)
+        {
+            return AppResult<LibraryDocument>.Fail(new AppError(403, "insufficient_role",
+                "Only GMs can file a library document under an adventure."));
+        }
+
+        var result = await GetByIdAsync(documentId, worldId, role, ct);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+
+        var document = result.Value!;
+        if (LibraryCategories.WhyNotOrganisable(document) is { } refusal)
+        {
+            return AppResult<LibraryDocument>.Fail(refusal);
+        }
+
+        if (adventureId is { } linkTo && await LinkErrorAsync(worldId, role, linkTo, ct) is { } linkError)
+        {
+            return AppResult<LibraryDocument>.Fail(linkError);
+        }
+
+        // No-op early, as SetVisibilityAsync does, so UpdatedAt keeps meaning a real change.
+        if (document.LinkedAdventureId == adventureId)
+        {
+            return AppResult<LibraryDocument>.Success(document);
+        }
+
+        document.LinkedAdventureId = adventureId;
+        document.UpdatedAt = DateTimeOffset.UtcNow;
+        return AppResult<LibraryDocument>.Success(await _documentRepository.UpdateAsync(document, ct));
+    }
+
+    public async Task<AppResult<LibraryDocument>> SetKindAsync(
+        Guid documentId, Guid worldId, WorldRole role, LibraryDocumentKind kind, CancellationToken ct)
+    {
+        if (role != WorldRole.GM)
+        {
+            return AppResult<LibraryDocument>.Fail(new AppError(403, "insufficient_role",
+                "Only GMs can change what a library document is."));
+        }
+
+        if (!Enum.IsDefined(kind))
+        {
+            return AppResult<LibraryDocument>.Fail(new AppError(400, "invalid_kind", "That isn't a kind of library document."));
+        }
+
+        var result = await GetByIdAsync(documentId, worldId, role, ct);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+
+        var document = result.Value!;
+        if (LibraryCategories.WhyNotOrganisable(document) is { } refusal)
+        {
+            return AppResult<LibraryDocument>.Fail(refusal);
+        }
+
+        if (document.Kind == kind)
+        {
+            return AppResult<LibraryDocument>.Success(document);
+        }
+
+        document.Kind = kind;
+        document.UpdatedAt = DateTimeOffset.UtcNow;
+        return AppResult<LibraryDocument>.Success(await _documentRepository.UpdateAsync(document, ct));
+    }
+
+    /// <summary>Why an upload can't belong to this Adventure: only a GM files, and only under their world's Adventures.</summary>
+    private async Task<AppError?> LinkErrorAsync(Guid worldId, WorldRole role, Guid adventureId, CancellationToken ct)
+    {
+        if (role != WorldRole.GM)
+        {
+            return new AppError(403, "insufficient_role", "Only GMs can file a library document under an adventure.");
+        }
+
+        var adventure = await _adventures.GetWithSectionsAsync(adventureId, ct);
+        return adventure is null || adventure.WorldId != worldId
+            ? new AppError(404, "adventure_not_found", "That adventure isn't in this world.")
+            : null;
     }
 
     /// <summary>

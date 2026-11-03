@@ -60,7 +60,8 @@ public class LibraryController : ControllerBase
             SizeBytes: request.SizeBytes,
             Kind: kind,
             Visibility: visibility,
-            AdventureId: request.AdventureId);
+            AdventureId: request.AdventureId,
+            LinkedAdventureId: request.LinkedAdventureId);
 
         var result = await _libraryService.RequestUploadAsync(command, ct);
         if (!result.IsSuccess)
@@ -68,15 +69,16 @@ public class LibraryController : ControllerBase
             return result.Error!.ToActionResult();
         }
 
-        return Ok(new LibraryUploadResponse(ToResponse(result.Value!.Document), result.Value.UploadUrl));
+        return Ok(new LibraryUploadResponse(ToResponse(result.Value!.Document, member.Role), result.Value.UploadUrl));
     }
 
     [HttpPost("{documentId:guid}/confirm")]
     public async Task<IActionResult> ConfirmUpload(Guid worldId, Guid documentId, CancellationToken ct)
     {
         var user = HttpContext.GetNornisUser();
+        var member = HttpContext.GetWorldMember();
         var result = await _libraryService.ConfirmUploadAsync(documentId, worldId, user.Id, ct);
-        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
+        return result.IsSuccess ? Ok(ToResponse(result.Value!, member.Role)) : result.Error!.ToActionResult();
     }
 
     [HttpGet]
@@ -85,7 +87,7 @@ public class LibraryController : ControllerBase
         var member = HttpContext.GetWorldMember();
         var result = await _libraryService.ListAsync(worldId, member.Role, ct);
         return result.IsSuccess
-            ? Ok(result.Value!.Select(ToResponse).ToList())
+            ? Ok(result.Value!.Select(d => ToResponse(d, member.Role)).ToList())
             : result.Error!.ToActionResult();
     }
 
@@ -168,7 +170,7 @@ public class LibraryController : ControllerBase
         }
 
         var result = await _libraryService.GetByIdAsync(resolved.Value, worldId, member.Role, ct);
-        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
+        return result.IsSuccess ? Ok(ToResponse(result.Value!, member.Role)) : result.Error!.ToActionResult();
     }
 
     [HttpGet("{documentId:guid}/download")]
@@ -197,7 +199,38 @@ public class LibraryController : ControllerBase
         }
 
         var result = await _libraryService.SetVisibilityAsync(documentId, worldId, member.Role, visibility, ct);
-        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
+        return result.IsSuccess ? Ok(ToResponse(result.Value!, member.Role)) : result.Error!.ToActionResult();
+    }
+
+    /// <summary>GM-only: files an upload under one of the world's Adventures, or back on the Shelf (feature 36).</summary>
+    [HttpPut("{documentId:guid}/adventure-link")]
+    public async Task<IActionResult> SetAdventureLink(
+        Guid worldId,
+        Guid documentId,
+        [FromBody] SetLibraryAdventureLinkRequest request,
+        CancellationToken ct)
+    {
+        var member = HttpContext.GetWorldMember();
+        var result = await _libraryService.SetAdventureLinkAsync(documentId, worldId, member.Role, request.AdventureId, ct);
+        return result.IsSuccess ? Ok(ToResponse(result.Value!, member.Role)) : result.Error!.ToActionResult();
+    }
+
+    /// <summary>GM-only: changes what an upload is (feature 36).</summary>
+    [HttpPut("{documentId:guid}/kind")]
+    public async Task<IActionResult> SetKind(
+        Guid worldId,
+        Guid documentId,
+        [FromBody] SetLibraryKindRequest request,
+        CancellationToken ct)
+    {
+        var member = HttpContext.GetWorldMember();
+        if (!EnumParsing.TryParseDefined<LibraryDocumentKind>(request.Kind, out var kind))
+        {
+            return BadRequest(new ErrorResponse("invalid_kind", $"'{request.Kind}' is not a valid document kind."));
+        }
+
+        var result = await _libraryService.SetKindAsync(documentId, worldId, member.Role, kind, ct);
+        return result.IsSuccess ? Ok(ToResponse(result.Value!, member.Role)) : result.Error!.ToActionResult();
     }
 
     /// <summary>GM-only: retitles a document.</summary>
@@ -210,7 +243,7 @@ public class LibraryController : ControllerBase
     {
         var member = HttpContext.GetWorldMember();
         var result = await _libraryService.RenameAsync(documentId, worldId, member.Role, request.Title, ct);
-        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
+        return result.IsSuccess ? Ok(ToResponse(result.Value!, member.Role)) : result.Error!.ToActionResult();
     }
 
     /// <summary>GM-only: removes the document, its file, and its indexed passages.</summary>
@@ -228,7 +261,7 @@ public class LibraryController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
         var result = await _libraryService.ReindexAsync(documentId, worldId, user.Id, member.Role, ct);
-        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
+        return result.IsSuccess ? Ok(ToResponse(result.Value!, member.Role)) : result.Error!.ToActionResult();
     }
 
     /// <summary>GM-only: passages across the GM's shelves that match a codex entry (or a free query).</summary>
@@ -276,7 +309,7 @@ public class LibraryController : ControllerBase
     {
         var member = HttpContext.GetWorldMember();
         var result = await _excerptService.FindBibliotaphDocumentAsync(worldId, member.Role, bibliotaphDocumentId, ct);
-        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
+        return result.IsSuccess ? Ok(ToResponse(result.Value!, member.Role)) : result.Error!.ToActionResult();
     }
 
     /// <summary>GM-only: a Bibliotaph book's page text, 1-based and inclusive, at most the excerpt limit.</summary>
@@ -291,9 +324,17 @@ public class LibraryController : ControllerBase
     }
 
     /// <summary>A Library document on the wire; Prep's one-click filing answers with it too (feature 34).</summary>
-    internal static LibraryDocumentResponse ToResponse(LibraryDocument d) => new(
+    /// <summary>
+    /// A document as <paramref name="role"/> sees it. The adventure link is GM organisation
+    /// (feature 36), and a player never learns an Adventure exists, so only a GM gets it.
+    /// </summary>
+    internal static LibraryDocumentResponse ToResponse(LibraryDocument d, WorldRole role) => new(
         d.Id, d.WorldId, d.Title, d.FileName, d.ContentType, d.SizeBytes,
         d.Kind.ToString(), d.Visibility.ToString(), d.Status.ToString(),
         d.PageCount, d.ChunkCount, d.ErrorMessage, d.UploadedByUserId, d.CreatedAt, d.UpdatedAt, d.Slug, d.AdventureId,
-        d.Origin.ToString(), d.BibliotaphEntryId is not null, d.CoverName is not null);
+        d.Origin.ToString(), d.BibliotaphEntryId is not null, d.CoverName is not null,
+        LibraryCategories.Of(d).ToString(),
+        role == WorldRole.GM ? d.LinkedAdventureId : null,
+        // A player's Shelf is everything they can see: the link that moves a document off it is the GM's.
+        role != WorldRole.GM || LibraryCategories.IsOnShelf(d));
 }

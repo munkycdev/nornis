@@ -109,6 +109,14 @@ public class LibraryDocumentConfiguration : IEntityTypeConfiguration<LibraryDocu
             .HasForeignKey(d => d.AdventureId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // The Adventure an upload belongs to (feature 36). Restrict for the same reason as a
+        // print's: Worlds cascades to both tables, so SQL Server refuses a second cascade path.
+        // AdventureRepository.DeleteAsync lets go of these too, returning them to the Shelf.
+        builder.HasOne<Adventure>()
+            .WithMany()
+            .HasForeignKey(d => d.LinkedAdventureId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne(d => d.World)
             .WithMany()
             .HasForeignKey(d => d.WorldId)

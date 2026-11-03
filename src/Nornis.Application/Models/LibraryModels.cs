@@ -13,7 +13,8 @@ public record RequestLibraryUploadCommand(
     long SizeBytes,
     LibraryDocumentKind Kind,
     VisibilityScope Visibility,
-    Guid? AdventureId = null);
+    Guid? AdventureId = null,
+    Guid? LinkedAdventureId = null);
 
 /// <summary>File a Prep Adventure's booklet to the Library in one step (feature 34).</summary>
 public record FilePrintCommand(Guid WorldId, Guid ActingUserId, WorldRole ActingUserRole, Guid AdventureId);

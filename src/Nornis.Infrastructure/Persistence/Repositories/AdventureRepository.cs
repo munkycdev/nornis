@@ -167,6 +167,10 @@ public class AdventureRepository : IAdventureRepository
         await _context.SetWhereAsync<LibraryDocument, Guid?>(
             d => d.AdventureId == adventureId, d => d.AdventureId, null, cancellationToken);
 
+        // Uploads that belonged to it go back to the Shelf (feature 36); they are the world's files.
+        await _context.SetWhereAsync<LibraryDocument, Guid?>(
+            d => d.LinkedAdventureId == adventureId, d => d.LinkedAdventureId, null, cancellationToken);
+
         // The side conversation is the Adventure's own, and goes with it (its FK is Restrict).
         await _context.DeleteWhereAsync<ConversationMessage>(
             m => _context.Conversations.Any(c => c.Id == m.ConversationId && c.AdventureId == adventureId),

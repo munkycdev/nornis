@@ -313,4 +313,69 @@ public class LibraryControllerTests
             $"/api/worlds/{scenario.World.Id}/library/{ticket.Document.Id}");
         Assert.That(doc!.Status, Is.EqualTo("Indexing"), "the document must survive the refused delete");
     }
+
+    // ------------------------------------------------------- Feature 36: organisation --
+
+    private static async Task<Guid> CreateAdventureAsync(HttpClient gm, Guid worldId)
+    {
+        var response = await gm.PostAsJsonAsync($"/api/worlds/{worldId}/prep", new CreateAdventureRequest("The Slurping Spa", null, null));
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created), await response.Content.ReadAsStringAsync());
+        return (await response.Content.ReadFromJsonAsync<AdventureResponse>())!.Id;
+    }
+
+    [Test]
+    [Category("Authorization")]
+    public async Task AnAdventureLink_TakesAnUploadOffTheGmsShelf_AndAPlayerNeverSeesIt()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var spa = await CreateAdventureAsync(scenario.GmClient, worldId);
+        var ticket = await RequestUploadAsync(scenario.GmClient, worldId,
+            new RequestLibraryUploadRequest("Spa map", "spa.png", "image/png", 2048, "Map", "PartyVisible"));
+        SimulateBrowserPut(ticket, contentType: "image/png");
+        await scenario.GmClient.PostAsync($"/api/worlds/{worldId}/library/{ticket.Document.Id}/confirm", null);
+
+        var linked = await scenario.GmClient.PutAsJsonAsync(
+            $"/api/worlds/{worldId}/library/{ticket.Document.Id}/adventure-link", new SetLibraryAdventureLinkRequest(spa));
+        var gmView = (await scenario.GmClient.GetFromJsonAsync<List<LibraryDocumentResponse>>($"/api/worlds/{worldId}/library"))!.Single();
+        var playerView = (await scenario.PlayerClient.GetFromJsonAsync<List<LibraryDocumentResponse>>($"/api/worlds/{worldId}/library"))!.Single();
+        var playerLinks = await scenario.PlayerClient.PutAsJsonAsync(
+            $"/api/worlds/{worldId}/library/{ticket.Document.Id}/adventure-link", new SetLibraryAdventureLinkRequest(null));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(linked.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(gmView.Category, Is.EqualTo("Map"));
+            Assert.That(gmView.LinkedAdventureId, Is.EqualTo(spa));
+            Assert.That(gmView.OnShelf, Is.False);
+            Assert.That(playerView.LinkedAdventureId, Is.Null, "a player never learns an Adventure exists");
+            Assert.That(playerView.OnShelf, Is.True, "a player's Shelf is everything they can see");
+            Assert.That(playerLinks.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+        });
+    }
+
+    [Test]
+    public async Task AnUpload_CanBelongToAnAdventureFromTheStart_AndItsKindCanChange()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var spa = await CreateAdventureAsync(scenario.GmClient, worldId);
+
+        var ticket = await RequestUploadAsync(scenario.GmClient, worldId,
+            new RequestLibraryUploadRequest("Spa map", "spa.png", "image/png", 2048, "Other", "GMOnly", LinkedAdventureId: spa));
+        var kind = await scenario.GmClient.PutAsJsonAsync(
+            $"/api/worlds/{worldId}/library/{ticket.Document.Id}/kind", new SetLibraryKindRequest("Handout"));
+        var bad = await scenario.GmClient.PutAsJsonAsync(
+            $"/api/worlds/{worldId}/library/{ticket.Document.Id}/kind", new SetLibraryKindRequest("Scroll"));
+
+        var changed = await kind.Content.ReadFromJsonAsync<LibraryDocumentResponse>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ticket.Document.LinkedAdventureId, Is.EqualTo(spa));
+            Assert.That(kind.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(changed!.Category, Is.EqualTo("Handout"));
+            Assert.That(bad.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        });
+    }
 }
