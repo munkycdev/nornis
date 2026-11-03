@@ -1,3 +1,4 @@
+using AngleSharp.Dom;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -417,6 +418,142 @@ public class AdventurePageTests : BunitContext
         Assert.That(cut.Find(".nornis-book-details").TextContent, Does.Contain("From the world"));
     }
 
+    // ------------------------------------------------------------ Design mode (feature 37) --
+
+    private static IElement ModeButton(IRenderedComponent<AdventureDetail> cut, string label) =>
+        cut.FindAll(".nornis-prep-mode button").First(b => b.TextContent.Trim() == label);
+
+    [Test]
+    public async Task AnAdventureWithAWrittenSection_OpensOnSections()
+    {
+        var cut = await RenderAsync();
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-draft"), Has.Count.EqualTo(1)));
+        Assert.That(cut.FindAll(".nornis-prep-design"), Is.Empty);
+    }
+
+    [Test]
+    public async Task AnAdventureWithNothingWritten_OpensOnDesign_AndSaysTheDraftNeverPrints()
+    {
+        _handler.NoneWritten = true;
+
+        var cut = await RenderAsync();
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-design"), Has.Count.EqualTo(1)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find(".nornis-prep-design-empty").TextContent, Does.Contain("never prints"));
+            Assert.That(cut.FindAll(".nornis-prep-draft"), Is.Empty, "the section editor isn't on the page");
+        });
+    }
+
+    [Test]
+    public async Task SaveDraft_IsBasedOnTheDraftsStamp_AndAConflictSaysNothingWasOverwritten()
+    {
+        _handler.DraftJson = $$"""{"markdown":"Old draft.","updatedAt":"{{StubHandler.DraftStamp:O}}","revisionCount":0}""";
+        _handler.DraftSaveStatus = HttpStatusCode.Conflict;
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-mode button"), Has.Count.EqualTo(2)));
+
+        await cut.InvokeAsync(() => ModeButton(cut, "Design").Click());
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-design"), Has.Count.EqualTo(1)));
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-design-save").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("The draft changed somewhere else")));
+        var save = JsonDocument.Parse(_handler.LastDraftSaveBody!).RootElement;
+        Assert.Multiple(() =>
+        {
+            Assert.That(save.GetProperty("basedOnUpdatedAt").GetDateTimeOffset(), Is.EqualTo(StubHandler.DraftStamp));
+            Assert.That(save.GetProperty("markdown").GetString(), Is.EqualTo("The key opens the vault."));
+        });
+    }
+
+    [Test]
+    public async Task AFirstDraftSave_IsBasedOnNothing()
+    {
+        _handler.NoneWritten = true;
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-design"), Has.Count.EqualTo(1)));
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-design-save").Click());
+
+        cut.WaitForAssertion(() => Assert.That(_handler.LastDraftSaveBody, Is.Not.Null));
+        var save = JsonDocument.Parse(_handler.LastDraftSaveBody!).RootElement;
+        Assert.That(save.GetProperty("basedOnUpdatedAt").ValueKind, Is.EqualTo(JsonValueKind.Null));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-design-empty"), Is.Empty, "a saved draft is no longer \"no draft yet\""));
+    }
+
+    [Test]
+    public async Task LeavingDesign_SavesWhatWasTypedFirst()
+    {
+        _handler.DraftJson = $$"""{"markdown":"Old draft.","updatedAt":"{{StubHandler.DraftStamp:O}}","revisionCount":0}""";
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-mode button"), Has.Count.EqualTo(2)));
+        await cut.InvokeAsync(() => ModeButton(cut, "Design").Click());
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-design"), Has.Count.EqualTo(1)));
+
+        await cut.InvokeAsync(() => ModeButton(cut, "Sections").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-draft"), Has.Count.EqualTo(1)));
+        Assert.That(JsonDocument.Parse(_handler.LastDraftSaveBody!).RootElement.GetProperty("markdown").GetString(),
+            Is.EqualTo("The key opens the vault."));
+    }
+
+    [Test]
+    public async Task UndoOnTheDraft_IsOfferedOnlyWhenARevisionIsKept_AndStepsBack()
+    {
+        _handler.DraftJson = $$"""{"markdown":"The Loremaster's.","updatedAt":"{{StubHandler.DraftStamp:O}}","revisionCount":2}""";
+        _handler.NoneWritten = true;
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.Find("button.nornis-prep-design-undo").TextContent, Does.Contain("Undo (2)")));
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-design-undo").Click());
+
+        cut.WaitForAssertion(() => Assert.That(_handler.DraftUndone, Is.True));
+        cut.WaitForAssertion(() => Assert.That(cut.Find("button.nornis-prep-design-undo").HasAttribute("disabled"), Is.True));
+    }
+
+    [Test]
+    public async Task TheTableBrief_IsEditedBesideTheBookDetails_AndSavedWhole()
+    {
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-side .nornis-table-brief"), Has.Count.EqualTo(1)));
+        Assert.That(cut.Find(".nornis-table-brief-empty").TextContent, Does.Contain("It never prints"));
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-table-brief-pencil").Click());
+        await cut.InvokeAsync(() => cut.Find(".nornis-table-brief textarea").Input("Four players at level 3."));
+        await cut.InvokeAsync(() => cut.Find("button.nornis-table-brief-save").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.Find(".nornis-table-brief-text").TextContent, Is.EqualTo("Four players at level 3.")));
+        Assert.That(JsonDocument.Parse(_handler.LastBriefBody!).RootElement.GetProperty("brief").GetString(),
+            Is.EqualTo("Four players at level 3."));
+    }
+
+    [Test]
+    public async Task SourceBooks_OffersOnlyTheLibrarysBooks_UpToFive()
+    {
+        var books = Enumerable.Range(1, 6).Select(i => LibraryDoc($"Book {i}", "Book", null, null, true)).ToList();
+        _handler.LibraryJson = JsonSerializer.Serialize(
+            books.Append(LibraryDoc("Harbor map", "Map", null, null, true)), JsonSerializerOptions.Web);
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.Find(".nornis-source-books-empty").TextContent, Does.Contain("every book")));
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-source-books-pencil").Click());
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-source-books-choice"), Has.Count.EqualTo(6), "the map isn't offered"));
+        foreach (var i in Enumerable.Range(0, 5))
+        {
+            await cut.InvokeAsync(() => cut.FindAll(".nornis-source-books-choice input")[i].Change(true));
+        }
+
+        Assert.That(cut.FindAll(".nornis-source-books-choice input")[5].HasAttribute("disabled"), Is.True, "a sixth can't be chosen");
+        await cut.InvokeAsync(() => cut.Find("button.nornis-source-books-save").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-source-book"), Has.Count.EqualTo(5)));
+        var ids = JsonDocument.Parse(_handler.LastSourceBooksBody!).RootElement.GetProperty("documentIds")
+            .EnumerateArray().Select(e => e.GetGuid()).ToList();
+        Assert.That(ids, Is.EqualTo(books.Take(5).Select(b => b.Id).ToList()));
+    }
+
     private sealed class StubHandler : HttpMessageHandler
     {
         public static readonly Guid OverviewId = Guid.NewGuid();
@@ -459,6 +596,27 @@ public class AdventurePageTests : BunitContext
         public string LibraryJson { get; set; } = "[]";
 
         public Guid AdventureId => _adventureId;
+
+        // Design mode (feature 37).
+        public static readonly DateTimeOffset DraftStamp = new(2026, 11, 3, 9, 0, 0, TimeSpan.Zero);
+
+        /// <summary>The Adventure's draft as JSON; none until a test says otherwise.</summary>
+        public string DraftJson { get; set; } = "null";
+
+        /// <summary>The table brief as a JSON value.</summary>
+        public string TableBriefJson { get; set; } = "null";
+
+        /// <summary>The chosen source books as a JSON array.</summary>
+        public string SourceBooksJson { get; set; } = "[]";
+
+        /// <summary>Every section unwritten, so the page opens on Design.</summary>
+        public bool NoneWritten { get; set; }
+
+        public HttpStatusCode DraftSaveStatus { get; set; } = HttpStatusCode.OK;
+        public string? LastDraftSaveBody { get; private set; }
+        public string? LastBriefBody { get; private set; }
+        public string? LastSourceBooksBody { get; private set; }
+        public bool DraftUndone { get; private set; }
 
         public bool SendFails { get; set; }
         public string? LastSendBody { get; private set; }
@@ -589,6 +747,46 @@ public class AdventurePageTests : BunitContext
                 return Json(Adventure(SceneId, OverviewId));
             }
 
+            if (request.Method == HttpMethod.Put && path.EndsWith("/draft", StringComparison.Ordinal))
+            {
+                LastDraftSaveBody = await request.Content!.ReadAsStringAsync(ct);
+                if (DraftSaveStatus == HttpStatusCode.Conflict)
+                {
+                    return new HttpResponseMessage(HttpStatusCode.Conflict)
+                    {
+                        Content = new StringContent("""{"code":"draft_changed","message":"The draft changed since you opened it."}""",
+                            Encoding.UTF8, "application/json"),
+                    };
+                }
+
+                var markdown = JsonDocument.Parse(LastDraftSaveBody).RootElement.GetProperty("markdown").GetString();
+                DraftJson = JsonSerializer.Serialize(new { markdown, updatedAt = "2026-11-03T09:05:00+00:00", revisionCount = 0 });
+                return Json(DraftJson);
+            }
+
+            if (request.Method == HttpMethod.Post && path.EndsWith("/draft/undo", StringComparison.Ordinal))
+            {
+                DraftUndone = true;
+                DraftJson = """{"markdown":"Before the Loremaster.","updatedAt":"2026-11-03T09:10:00+00:00","revisionCount":0}""";
+                return Json(DraftJson);
+            }
+
+            if (request.Method == HttpMethod.Put && path.EndsWith("/brief", StringComparison.Ordinal))
+            {
+                LastBriefBody = await request.Content!.ReadAsStringAsync(ct);
+                TableBriefJson = JsonSerializer.Serialize(JsonDocument.Parse(LastBriefBody).RootElement.GetProperty("brief").GetString());
+                return Json(Adventure(OverviewId, SceneId));
+            }
+
+            if (request.Method == HttpMethod.Put && path.EndsWith("/source-books", StringComparison.Ordinal))
+            {
+                LastSourceBooksBody = await request.Content!.ReadAsStringAsync(ct);
+                var chosen = JsonDocument.Parse(LastSourceBooksBody).RootElement.GetProperty("documentIds").EnumerateArray()
+                    .Select(e => new { id = e.GetGuid(), title = "Chosen book", slug = (string?)null });
+                SourceBooksJson = JsonSerializer.Serialize(chosen);
+                return Json(Adventure(OverviewId, SceneId));
+            }
+
             if (request.Method == HttpMethod.Get && path.Contains("/prep/", StringComparison.Ordinal))
             {
                 return Json(Adventure(OverviewId, SceneId));
@@ -605,7 +803,7 @@ public class AdventurePageTests : BunitContext
         private string Adventure(Guid first, Guid second)
         {
             string Section(Guid id, int order) => id == OverviewId
-                ? $$"""{"id":"{{id}}","kind":"Overview","title":"Overview","bodyMarkdown":"Captain Voss hides the key.","sortOrder":{{order}},"updatedAt":"{{OverviewStamp:O}}","revisionCount":0,"isFilled":true}"""
+                ? $$"""{"id":"{{id}}","kind":"Overview","title":"Overview","bodyMarkdown":"Captain Voss hides the key.","sortOrder":{{order}},"updatedAt":"{{OverviewStamp:O}}","revisionCount":0,"isFilled":{{(NoneWritten ? "false" : "true")}}}"""
                 : $$"""{"id":"{{id}}","kind":"Scene","title":"Scene 1: The Docks","bodyMarkdown":"","sortOrder":{{order}},"updatedAt":"2026-11-02T10:00:00+00:00","revisionCount":0,"isFilled":false}""";
 
             return $$"""
@@ -615,7 +813,8 @@ public class AdventurePageTests : BunitContext
                  "sections":[{{Section(first, 1)}},{{Section(second, 2)}}{{Chapter()}}],
                  "details":{"gameSystem":null,"edition":null,"levels":null,"year":null},
                  "printDetails":{"title":"The Silver Key","gameSystem":"Fate Accelerated","edition":null,
-                   "type":"Nornis adventure","levels":null,"publisher":"Nornis Press","author":"kelda","year":null} }
+                   "type":"Nornis adventure","levels":null,"publisher":"Nornis Press","author":"kelda","year":null},
+                 "draft":{{DraftJson}},"tableBrief":{{TableBriefJson}},"sourceBooks":{{SourceBooksJson}} }
                 """;
         }
 

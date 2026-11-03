@@ -1,0 +1,160 @@
+@inject NornisApiClient Api
+
+@* Source books (feature 37): up to five Library books the Loremaster reads while it prepares
+   this adventure. None chosen means every book in the Library, at the GM's scope. Choosing loads
+   the Library's books (Category Book, as the API decides it) and saves the whole choice. *@
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-source-books">
+    <div class="d-flex align-center">
+        <MudText Typo="Typo.overline" Color="Color.Secondary" Class="flex-grow-1">Source books</MudText>
+        @if (!_editing)
+        {
+            <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Class="nornis-source-books-pencil"
+                           Disabled="Disabled" aria-label="Choose source books" OnClick="EditAsync" />
+        }
+    </div>
+
+    @if (_editing)
+    {
+        @if (_books is null)
+        {
+            <MudProgressLinear Indeterminate="true" Class="my-2" />
+        }
+        else if (_books.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-source-books-none-in-library">
+                The Library has no books yet. Connect Bibliotaph or upload a sourcebook first.
+            </MudText>
+        }
+        else
+        {
+            <div class="nornis-source-books-choices">
+                @foreach (var book in _books)
+                {
+                    var id = book.Id;
+                    var chosen = _chosen.Contains(id);
+                    <MudCheckBox T="bool" Value="chosen" ValueChanged="on => Toggle(id, on)" Dense="true" Size="Size.Small"
+                                 Disabled="@(_saving || (!chosen && _chosen.Count >= MaxBooks))"
+                                 Label="@book.Title" Class="nornis-source-books-choice" />
+                }
+            </div>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                @_chosen.Count of @MaxBooks chosen. Choose none to let the Loremaster search every book.
+            </MudText>
+        }
+        <div class="d-flex gap-1 mt-1">
+            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Class="nornis-source-books-save"
+                       Disabled="@(_saving || _books is null)" OnClick="SaveAsync">Save</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="_saving" OnClick="Cancel">Cancel</MudButton>
+        </div>
+    }
+    else if (Adventure.SourceBooks is not { Count: > 0 } books)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-source-books-empty">
+            None chosen, so the Loremaster searches every book in the Library. Choose up to
+            @MaxBooks to have it read only those, such as the published adventure you're adapting.
+        </MudText>
+    }
+    else
+    {
+        @foreach (var book in books)
+        {
+            <div class="nornis-source-book">
+                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Small" />
+                <a href="@Links.LibraryDocument(book.Slug, book.Id)" class="nornis-link">@book.Title</a>
+            </div>
+        }
+    }
+
+    @if (_error is not null)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Error">@_error</MudText>
+    }
+</MudPaper>
+
+@code {
+    /// <summary>Mirrors <c>AdventureDesignService.MaxSourceBooks</c>; DesignModeMirrorTests pins it.</summary>
+    public const int MaxBooks = 5;
+
+    [Parameter, EditorRequired] public AdventureDto Adventure { get; set; } = null!;
+
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Raised with the Adventure as the API returned it after a save.</summary>
+    [Parameter] public EventCallback<AdventureDto> OnSaved { get; set; }
+
+    private bool _editing;
+    private bool _saving;
+    private string? _error;
+    private IReadOnlyList<LibraryDocumentDto>? _books;
+    private readonly HashSet<Guid> _chosen = [];
+
+    private async Task EditAsync()
+    {
+        _editing = true;
+        _error = null;
+        _chosen.Clear();
+        foreach (var book in Adventure.SourceBooks ?? [])
+        {
+            _chosen.Add(book.Id);
+        }
+
+        _books = null;
+        var result = await Api.GetLibraryAsync(Adventure.WorldId);
+        if (result.IsSuccess)
+        {
+            _books = result.Value!
+                .Where(d => d.Category == "Book")
+                .OrderBy(d => d.Title, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        else
+        {
+            _error = result.Error!.Message;
+            _editing = false;
+        }
+    }
+
+    private void Toggle(Guid id, bool on)
+    {
+        if (on && _chosen.Count < MaxBooks)
+        {
+            _chosen.Add(id);
+        }
+        else if (!on)
+        {
+            _chosen.Remove(id);
+        }
+    }
+
+    private void Cancel()
+    {
+        _editing = false;
+        _error = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _error = null;
+        try
+        {
+            // In the Library's order, so the request is the same for the same choice.
+            var ids = (_books ?? []).Where(b => _chosen.Contains(b.Id)).Select(b => b.Id).ToList();
+            var result = await Api.SetAdventureSourceBooksAsync(Adventure.WorldId, Adventure.Id, ids);
+            if (result.IsSuccess)
+            {
+                _editing = false;
+                await OnSaved.InvokeAsync(result.Value!);
+            }
+            else
+            {
+                _error = result.Error!.Message;
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

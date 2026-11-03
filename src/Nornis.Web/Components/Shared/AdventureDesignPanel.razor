@@ -1,0 +1,242 @@
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+
+@* Design mode (feature 37): the Adventure's one working draft, in the section editor with every
+   Prep tool. The GM's saves are based on the draft's stamp, as a section's are. The editor is
+   remounted only when the draft arrives with a stamp this panel didn't write (an Undo, an
+   applied edit, a gather), and the browser's kept copy is dropped first so it can't come back
+   over the new text. The draft never prints and never exports. *@
+
+<div class="nornis-prep-design">
+    @if (_conflict)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-3">
+            The draft changed somewhere else since you opened it, in another tab or window.
+            Nothing you typed was saved over it.
+            <div class="mt-2 d-flex gap-2">
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="OverwriteAsync">Save mine over it</MudButton>
+                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="DiscardMineAsync">Load the saved version</MudButton>
+            </div>
+        </MudAlert>
+    }
+    @if (_restoredAt is { } restoredAt)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3" ShowCloseIcon="true"
+                  CloseIconClicked="() => _restoredAt = null">
+            Unsaved changes from @RelativeTime.Ago(restoredAt) were brought back. Save to keep them.
+        </MudAlert>
+    }
+    @if (Adventure.Draft is null)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2 nornis-prep-design-empty">
+            No draft yet. Write or paste the whole adventure here and work on it with the Loremaster.
+            When it's ready, split it into sections. The draft itself never prints.
+        </MudText>
+    }
+
+    <NotesEditor @key="@($"draft:{Adventure.Id}:{_editorVersion}")" @ref="_editor"
+                 InitialMarkdown="@(Adventure.Draft?.Markdown ?? string.Empty)" ReadOnly="ReadOnly"
+                 Placeholder="The whole adventure, as one document. Use # for chapters and ## for scenes; Split uses them."
+                 PrepTools="true" AllowMaximize="true"
+                 BackupKey="@BackupKey(Adventure.Id)" PreferBackup="true"
+                 Restored="at => _restoredAt = at" />
+
+    <div class="d-flex gap-2 mt-3 flex-wrap align-center">
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SaveAsync" Class="nornis-prep-design-save"
+                   StartIcon="@Icons.Material.Outlined.Save" Disabled="IsDisabled">
+            @(_saving ? "Saving…" : "Save draft")
+        </MudButton>
+        <MudTooltip Text="@(RevisionCount == 0 ? "Nothing to undo yet: Undo steps back through the Loremaster's changes." : $"Step back to the draft before the last change ({RevisionCount} kept).")">
+            <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.Undo" Class="nornis-prep-design-undo"
+                       Disabled="@(IsDisabled || RevisionCount == 0)" OnClick="UndoAsync">
+                Undo@(RevisionCount > 0 ? $" ({RevisionCount})" : "")
+            </MudButton>
+        </MudTooltip>
+    </div>
+</div>
+
+@code {
+    /// <summary>Mirrors <c>Adventure.MaxDraftChars</c>; DesignModeMirrorTests pins it.</summary>
+    public const int MaxDraftChars = 60_000;
+
+    [Parameter, EditorRequired] public AdventureDto Adventure { get; set; } = null!;
+
+    /// <summary>The page is busy with something else: no save or undo starts.</summary>
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Nothing may be typed, because something is about to change the draft.</summary>
+    [Parameter] public bool ReadOnly { get; set; }
+
+    /// <summary>Raised with the draft as the API returned it, after a save or an undo.</summary>
+    [Parameter] public EventCallback<AdventureDraftDto> OnDraftChanged { get; set; }
+
+    private NotesEditor? _editor;
+    private int _editorVersion;
+    private bool _saving;
+    private bool _conflict;
+    private DateTimeOffset? _restoredAt;
+    private Guid? _shownFor;
+    private DateTimeOffset? _knownStamp;
+
+    private bool IsDisabled => Disabled || _saving;
+
+    private int RevisionCount => Adventure.Draft?.RevisionCount ?? 0;
+
+    /// <summary>Where the browser keeps the draft's unsaved text: one per Adventure.</summary>
+    public static string BackupKey(Guid adventureId) => $"nornis-prep-draft-{adventureId}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var stamp = Adventure.Draft?.UpdatedAt;
+        if (_shownFor != Adventure.Id)
+        {
+            _shownFor = Adventure.Id;
+            _knownStamp = stamp;
+            _conflict = false;
+            _restoredAt = null;
+            return;
+        }
+
+        if (stamp != _knownStamp)
+        {
+            // Changed by something other than this panel's own save: show the new text, and
+            // drop the kept copy, which is the text from before.
+            _knownStamp = stamp;
+            _conflict = false;
+            _restoredAt = null;
+            if (_editor is not null)
+            {
+                await _editor.ClearBackupAsync();
+            }
+
+            _editorVersion++;
+        }
+    }
+
+    /// <summary>The editor's text as it would be saved: empty, never null.</summary>
+    private async Task<string> CurrentMarkdownAsync() =>
+        _editor is { Initialized: true } editor ? await editor.GetMarkdownAsync() ?? string.Empty : Adventure.Draft?.Markdown ?? string.Empty;
+
+    /// <summary>Forgets the browser's kept copy of the draft, as when the Adventure is deleted.</summary>
+    public Task ClearBackupAsync() => _editor?.ClearBackupAsync() ?? Task.CompletedTask;
+
+    /// <summary>Whether the editor holds text the draft doesn't.</summary>
+    public async Task<bool> IsDirtyAsync() => await CurrentMarkdownAsync() != (Adventure.Draft?.Markdown ?? string.Empty);
+
+    /// <summary>
+    /// Saves what was typed, if anything, before something else reads or changes the draft.
+    /// False when that save didn't land (a conflict, or an error already shown).
+    /// </summary>
+    public async Task<bool> SaveIfDirtyAsync() => !await IsDirtyAsync() || await SaveCoreAsync(overwrite: false);
+
+    private Task SaveAsync() => SaveCoreAsync(overwrite: false);
+
+    private Task OverwriteAsync() => SaveCoreAsync(overwrite: true);
+
+    private async Task<bool> SaveCoreAsync(bool overwrite)
+    {
+        if (_editor is null)
+        {
+            return false;
+        }
+
+        var markdown = await CurrentMarkdownAsync();
+        if (markdown.Length > MaxDraftChars)
+        {
+            Snackbar.Add($"The draft can be at most {MaxDraftChars:N0} characters; it is {markdown.Length:N0}. Split it into sections, or cut it down.", Severity.Warning);
+            return false;
+        }
+
+        _saving = true;
+        StateHasChanged();
+        try
+        {
+            var basedOn = Adventure.Draft?.UpdatedAt;
+            if (overwrite)
+            {
+                var fresh = await Api.GetAdventureAsync(Adventure.WorldId, Adventure.Id.ToString());
+                if (!fresh.IsSuccess)
+                {
+                    Snackbar.Add(fresh.Error!.Message, Severity.Error);
+                    return false;
+                }
+
+                basedOn = fresh.Value!.Draft?.UpdatedAt;
+            }
+
+            var result = await Api.SaveAdventureDraftAsync(Adventure.WorldId, Adventure.Id,
+                new SaveAdventureDraftRequest(markdown, basedOn));
+            if (!result.IsSuccess)
+            {
+                if (result.Error!.Code == "draft_changed")
+                {
+                    _conflict = true;
+                }
+                else
+                {
+                    Snackbar.Add(result.Error.Message, Severity.Error);
+                }
+
+                return false;
+            }
+
+            // Our own write: known before the page hands it back, so the editor isn't remounted.
+            _knownStamp = result.Value!.UpdatedAt;
+            _conflict = false;
+            _restoredAt = null;
+            await _editor.ClearBackupAsync();
+            await OnDraftChanged.InvokeAsync(result.Value);
+            return true;
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>The GM drops their text for the saved version: forget the kept copy, then reload.</summary>
+    private async Task DiscardMineAsync()
+    {
+        if (_editor is not null)
+        {
+            await _editor.ClearBackupAsync();
+        }
+
+        var fresh = await Api.GetAdventureAsync(Adventure.WorldId, Adventure.Id.ToString());
+        if (!fresh.IsSuccess)
+        {
+            Snackbar.Add(fresh.Error!.Message, Severity.Error);
+            return;
+        }
+
+        _conflict = false;
+        _restoredAt = null;
+        if (fresh.Value!.Draft is { } draft)
+        {
+            await OnDraftChanged.InvokeAsync(draft);
+        }
+    }
+
+    private async Task UndoAsync()
+    {
+        _saving = true;
+        try
+        {
+            var result = await Api.UndoAdventureDraftAsync(Adventure.WorldId, Adventure.Id);
+            if (result.IsSuccess)
+            {
+                await OnDraftChanged.InvokeAsync(result.Value!);
+                Snackbar.Add("Stepped back.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(result.Error!.Message, Severity.Error);
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

@@ -1178,7 +1178,29 @@ public record AdventureDto(
     IReadOnlyList<AdventureSectionDto> Sections,
     AdventureDetailsDto? Details = null,
     PrintDetailsDto? PrintDetails = null,
-    IReadOnlyList<string>? IgnoredDetails = null);
+    IReadOnlyList<string>? IgnoredDetails = null,
+    AdventureDraftDto? Draft = null,
+    string? TableBrief = null,
+    IReadOnlyList<AdventureSourceBookDto>? SourceBooks = null);
+
+/// <summary>
+/// The design draft (feature 37): one Markdown document the GM and the Loremaster iterate on,
+/// never printed and never exported. Saves are based on <see cref="UpdatedAt"/>. Mirrors
+/// <c>AdventureDraftResponse</c>.
+/// </summary>
+public record AdventureDraftDto(string Markdown, DateTimeOffset UpdatedAt, int RevisionCount);
+
+/// <summary>A Library book the Loremaster reads for this adventure (feature 37). Mirrors <c>AdventureSourceBookResponse</c>.</summary>
+public record AdventureSourceBookDto(Guid Id, string Title, string? Slug);
+
+/// <summary>Saves the design draft, based on the stamp it was opened at (null: there was none).</summary>
+public record SaveAdventureDraftRequest(string Markdown, DateTimeOffset? BasedOnUpdatedAt);
+
+/// <summary>The table brief; blank clears it.</summary>
+public record SetTableBriefRequest(string? Brief);
+
+/// <summary>The Adventure's source books, exactly; empty clears the choice.</summary>
+public record SetSourceBooksRequest(IReadOnlyList<Guid> DocumentIds);
 
 /// <summary>The four details the GM edits (feature 32). A null game system means the world's. Mirrors <c>AdventureDetailsResponse</c>.</summary>
 public record AdventureDetailsDto(string? GameSystem, string? Edition, string? Levels, int? Year);

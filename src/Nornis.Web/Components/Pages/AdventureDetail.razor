@@ -111,6 +111,10 @@ else if (_adventure is not null)
 
             <BookDetailsCard Adventure="_adventure" Disabled="_busy" OnSaved="OnBookDetailsSaved" />
 
+            <TableBriefCard Adventure="_adventure" Disabled="_busy" OnSaved="Merge" />
+
+            <SourceBooksCard Adventure="_adventure" Disabled="_busy" OnSaved="Merge" />
+
             @if (Worlds.Current is { } world)
             {
                 <AdventureDocumentsCard WorldId="world.Id" AdventureId="_adventure.Id" Disabled="_busy" />
@@ -118,7 +122,19 @@ else if (_adventure is not null)
         </div>
 
         <div class="nornis-prep-editor">
-            @if (Selected is { } selected)
+            @* Design (feature 37) works on the one draft; Sections on the outline's sections. *@
+            <MudToggleGroup T="string" Value="_mode" ValueChanged="SwitchModeAsync" SelectionMode="SelectionMode.SingleSelection"
+                            Color="Color.Primary" Size="Size.Small" Class="nornis-prep-mode mb-3" Disabled="_busy">
+                <MudToggleItem Value="@DesignMode">Design</MudToggleItem>
+                <MudToggleItem Value="@SectionsMode">Sections</MudToggleItem>
+            </MudToggleGroup>
+
+            @if (_mode == DesignMode)
+            {
+                <AdventureDesignPanel @ref="_designPanel" Adventure="_adventure" Disabled="_busy"
+                                      OnDraftChanged="OnDraftChanged" />
+            }
+            else if (Selected is { } selected)
             {
                 @if (_conflict)
                 {
@@ -276,6 +292,20 @@ else if (_adventure is not null)
 
     private AdventureSectionDto? Selected => _adventure?.Sections.FirstOrDefault(s => s.Id == _selectedId);
 
+    public const string DesignMode = "Design";
+    public const string SectionsMode = "Sections";
+
+    private string _mode = SectionsMode;
+    private Guid? _modeFor;
+    private AdventureDesignPanel? _designPanel;
+
+    /// <summary>
+    /// The tab an Adventure opens on: Sections once any section is written, otherwise Design,
+    /// where a new adventure is worked out as one document first.
+    /// </summary>
+    public static string OpeningMode(AdventureDto adventure) =>
+        adventure.Sections.Any(s => s.IsFilled) ? SectionsMode : DesignMode;
+
     /// <summary>
     /// Where the browser keeps a section's unsaved text. Per section, so moving between sections
     /// never brings one section's words into another.
@@ -322,6 +352,12 @@ else if (_adventure is not null)
         if (result.IsSuccess)
         {
             Show(result.Value!);
+            if (_modeFor != _adventure!.Id)
+            {
+                _modeFor = _adventure.Id;
+                SetMode(OpeningMode(_adventure));
+            }
+
             if (!Links.IsCanonical(Key, _adventure!.Slug))
             {
                 _loadedKey = _adventure.Slug;
@@ -373,6 +409,70 @@ else if (_adventure is not null)
         }
     }
 
+    /// <summary>
+    /// Shows one tab. Each editor's reference is let go when it unmounts, so nothing reads from
+    /// an editor that is no longer on the page.
+    /// </summary>
+    private void SetMode(string mode)
+    {
+        _mode = mode;
+        if (mode == DesignMode)
+        {
+            _editor = null;
+        }
+        else
+        {
+            _designPanel = null;
+        }
+    }
+
+    /// <summary>Moving between tabs saves what was typed on the one being left; a save that fails keeps the GM there.</summary>
+    private async Task SwitchModeAsync(string mode)
+    {
+        if (mode == _mode || string.IsNullOrEmpty(mode))
+        {
+            return;
+        }
+
+        var saved = _mode == DesignMode
+            ? _designPanel is null || await _designPanel.SaveIfDirtyAsync()
+            : await SaveBeforeLeavingEditorAsync();
+        if (saved)
+        {
+            SetMode(mode);
+            if (mode == SectionsMode)
+            {
+                // The section editor mounts fresh, from the section's saved text.
+                _editorVersion++;
+            }
+        }
+    }
+
+    private void OnDraftChanged(AdventureDraftDto draft)
+    {
+        if (_adventure is not null)
+        {
+            _adventure = _adventure with { Draft = draft };
+        }
+    }
+
+    /// <summary>
+    /// Takes the Adventure's own fields from a card's save. The sections and the draft stay as
+    /// the page has them, so nothing open in an editor is replaced under the GM.
+    /// </summary>
+    private void Merge(AdventureDto updated)
+    {
+        if (_adventure is not null)
+        {
+            _adventure = _adventure with
+            {
+                TableBrief = updated.TableBrief,
+                SourceBooks = updated.SourceBooks,
+                UpdatedAt = updated.UpdatedAt,
+            };
+        }
+    }
+
     /// <summary>The editor's text as it would be saved: empty, never null.</summary>
     private async Task<string> CurrentBodyAsync() =>
         _editor is { Initialized: true } editor ? await editor.GetMarkdownAsync() ?? string.Empty : Selected?.BodyMarkdown ?? string.Empty;
@@ -383,7 +483,22 @@ else if (_adventure is not null)
 
     private async Task SelectAsync(Guid sectionId)
     {
-        if (_adventure is null || sectionId == _selectedId)
+        if (_adventure is null)
+        {
+            return;
+        }
+
+        if (_mode == DesignMode)
+        {
+            // Choosing a section from the outline opens it on the Sections tab.
+            await SwitchModeAsync(SectionsMode);
+            if (_mode == DesignMode)
+            {
+                return;
+            }
+        }
+
+        if (sectionId == _selectedId)
         {
             return;
         }
@@ -936,6 +1051,11 @@ else if (_adventure is not null)
             if (_editor is not null)
             {
                 await _editor.ClearBackupAsync();
+            }
+
+            if (_designPanel is not null)
+            {
+                await _designPanel.ClearBackupAsync();
             }
 
             Snackbar.Add($"\"{_adventure.Title}\" deleted.", Severity.Success);
