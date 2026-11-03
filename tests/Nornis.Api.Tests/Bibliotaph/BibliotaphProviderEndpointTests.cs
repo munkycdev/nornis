@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Nornis.Api.Tests.Infrastructure;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Infrastructure.Persistence;
 using NUnit.Framework;
 
@@ -149,6 +150,66 @@ public class BibliotaphProviderEndpointTests
     }
 
     [Test]
+    public async Task Files_CarryAPrintsBookDetails_AndNothingOnAnUpload()
+    {
+        var (client, user) = await ProviderClientAsync("auth0|bibliotaph-provider-book");
+        var world = NewWorld("Gribbits", user.Id);
+        var adventure = new Adventure
+        {
+            Id = Guid.NewGuid(),
+            WorldId = world.Id,
+            Title = "The Slime Spa",
+            CreatedByUserId = user.Id,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        };
+        var print = NewDocument(world.Id, user.Id, LibraryDocumentKind.Handout, LibraryDocumentStatus.Stored, "slime-spa.pdf");
+        print.AdventureId = adventure.Id;
+        print.PrintDetails = new PrintDetails
+        {
+            Title = "The Slime Spa",
+            GameSystem = "Shadowdark",
+            Edition = null,
+            Type = PrintDetails.NornisType,
+            Levels = "1–3",
+            Publisher = PrintDetails.NornisPublisher,
+            Author = "kelda",
+            Year = 2026,
+        };
+        var upload = NewDocument(world.Id, user.Id, LibraryDocumentKind.Sourcebook, LibraryDocumentStatus.Indexed, "core.pdf");
+        await SeedAsync(db =>
+        {
+            db.Worlds.Add(world);
+            db.Adventures.Add(adventure);
+            db.LibraryDocuments.AddRange(print, upload);
+        });
+
+        var page = (await client.GetFromJsonAsync<FilesDto>($"/{ProviderPrefix}/worlds/{world.Id}/files"))!;
+
+        var printed = page.Files.Single(f => f.FileId == print.Id);
+        var uploaded = page.Files.Single(f => f.FileId == upload.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(printed.Book, Is.Not.Null);
+            Assert.That(printed.Book!.Title, Is.EqualTo("The Slime Spa"));
+            Assert.That(printed.Book.GameSystem, Is.EqualTo("Shadowdark"));
+            Assert.That(printed.Book.Edition, Is.Null, "null means Nornis has no value");
+            Assert.That(printed.Book.Type, Is.EqualTo("Nornis adventure"));
+            Assert.That(printed.Book.Levels, Is.EqualTo("1–3"));
+            Assert.That(printed.Book.Publisher, Is.EqualTo("Nornis Press"));
+            Assert.That(printed.Book.Authors, Is.EqualTo((string[])["kelda"]));
+            Assert.That(printed.Book.Year, Is.EqualTo(2026));
+            Assert.That(uploaded.Book, Is.Null);
+
+            // The details never move the etag: it changes only when the bytes do.
+            Assert.That(printed.Etag, Is.EqualTo(EtagOf(printed.UpdatedAt)));
+        });
+    }
+
+    private static string EtagOf(DateTimeOffset updatedAt) =>
+        updatedAt.UtcTicks.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    [Test]
     public async Task AnotherUsersWorld_AndAMadeUpCursor_AreRefused()
     {
         var (client, _) = await ProviderClientAsync("auth0|bibliotaph-provider-refusals");
@@ -219,7 +280,11 @@ public class BibliotaphProviderEndpointTests
 
     private sealed record WorldsDto(List<WorldDto> Worlds, string? NextCursor);
 
-    private sealed record FileDto(Guid FileId, string FileName, string ContentType, long SizeBytes, DateTimeOffset UpdatedAt, string Etag);
+    private sealed record FileDto(
+        Guid FileId, string FileName, string ContentType, long SizeBytes, DateTimeOffset UpdatedAt, string Etag, BookDto? Book);
+
+    private sealed record BookDto(
+        string Title, string? GameSystem, string? Edition, string Type, string? Levels, string Publisher, List<string> Authors, int? Year);
 
     private sealed record FilesDto(List<FileDto> Files, string? NextCursor);
 

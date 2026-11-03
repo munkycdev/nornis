@@ -8,9 +8,12 @@ namespace Nornis.Application.Models;
 
 /// <summary>
 /// An Adventure with its sections in order, how many revisions each section can undo, and the
-/// details a print filed now would carry (feature 32), which the Details card shows.
+/// details a print filed now would carry (feature 32), which the Book details card shows.
+/// <see cref="IgnoredDetails"/> is set by an import only: the front matter keys it left out.
 /// </summary>
-public record AdventureView(Adventure Adventure, IReadOnlyDictionary<Guid, int> RevisionCounts, PrintDetails PrintDetails);
+public record AdventureView(
+    Adventure Adventure, IReadOnlyDictionary<Guid, int> RevisionCounts, PrintDetails PrintDetails,
+    IReadOnlyList<string>? IgnoredDetails = null);
 
 public record CreateAdventureCommand(
     Guid WorldId, Guid ActingUserId, WorldRole ActingUserRole, string Title, string? Pitch, Guid? CampaignId);

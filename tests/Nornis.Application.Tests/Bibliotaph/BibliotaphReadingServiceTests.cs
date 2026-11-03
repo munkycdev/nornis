@@ -34,7 +34,7 @@ public class BibliotaphReadingServiceTests
     {
         _documents = new InMemoryLibraryDocumentRepository();
         var library = new LibraryService(_documents, new InMemoryLibraryChunkRepository(), new FakeBlobStorageService(),
-            new FakeLibraryIndexingQueueClient(), new InMemoryAdventureRepository(),
+            new FakeLibraryIndexingQueueClient(), new InMemoryAdventureRepository(), TestPrintDetails.None,
             Options.Create(new LibraryOptions()), NullLogger<LibraryService>.Instance);
         _shelf = Substitute.For<IShelfLinkService>();
         var owners = Substitute.For<IBibliotaphConnectionResolver>();

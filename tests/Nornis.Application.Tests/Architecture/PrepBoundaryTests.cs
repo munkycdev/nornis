@@ -92,6 +92,39 @@ public class PrepBoundaryTests
         Assert.That(setters, Is.EqualTo(["src/Nornis.Application/Services/LibraryService.cs:RequestUploadAsync"]));
     }
 
+    /// <summary>
+    /// A print's details are a snapshot (feature 32, Requirement 4.2): set once when the print is
+    /// filed and never changed. The guard is that there is one writer, the object initialiser in
+    /// <c>RequestUploadAsync</c>, so no later path can forget the rule.
+    /// </summary>
+    [Test]
+    public void APrintsDetails_AreSetOnlyByLibraryServiceRequestUpload()
+    {
+        var setters = new List<string>();
+        foreach (var file in SourceFiles())
+        {
+            var text = File.ReadAllText(file.Full);
+            foreach (Match match in Regex.Matches(text, @"new\s+LibraryDocument\s*\{"))
+            {
+                var body = Block(text, match.Index + match.Length - 1);
+                if (Regex.IsMatch(body, @"\bPrintDetails\s*="))
+                {
+                    setters.Add($"{file.Relative}:{EnclosingMethod(text, match.Index)}");
+                }
+            }
+
+            foreach (var line in CodeLines(file))
+            {
+                if (Regex.IsMatch(line.Text, @"\.PrintDetails\s*=[^=>]"))
+                {
+                    setters.Add($"{file.Relative}:{line.Number}");
+                }
+            }
+        }
+
+        Assert.That(setters, Is.EqualTo(["src/Nornis.Application/Services/LibraryService.cs:RequestUploadAsync"]));
+    }
+
     // ------------------------------------------------------------------ helpers --
 
     private sealed record SourceFile(string Full, string Relative);

@@ -159,6 +159,24 @@ public class PrepEndpointTests
     }
 
     [Test]
+    public async Task Import_ReadsTheFrontMatter_AndSaysWhichKeysItLeftOut()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+
+        var response = await scenario.GmClient.PostAsJsonAsync($"{Base(scenario.World.Id)}/import",
+            new ImportAdventureRequest([new ImportAdventureFile("spa.md",
+                "---\nsystem: Shadowdark\nlevels: 1-3\ntype: Adventure\n---\n# The Slime Spa\n\nWelcome.")], null));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created), await response.Content.ReadAsStringAsync());
+        var adventure = (await response.Content.ReadFromJsonAsync<AdventureResponse>())!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(adventure.Details, Is.EqualTo(new AdventureDetailsResponse("Shadowdark", null, "1-3", null)));
+            Assert.That(adventure.IgnoredDetails, Is.EqualTo((string[])["type"]));
+        });
+    }
+
+    [Test]
     public async Task Gm_SavesASection_AndAStaleSaveIsRefused()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);

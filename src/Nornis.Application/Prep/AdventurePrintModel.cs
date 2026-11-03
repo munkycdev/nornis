@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using Markdig;
@@ -7,6 +8,7 @@ using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 
 namespace Nornis.Application.Prep;
 
@@ -33,16 +35,41 @@ public static class AdventurePrintModel
         .DisableHtml()
         .Build();
 
-    public static string Render(Adventure adventure)
+    /// <summary>
+    /// The whole booklet. <paramref name="details"/> is what the cover prints under the title
+    /// (feature 32): the game system and edition, the levels and the author, each only when set,
+    /// and a credits line of type, publisher and year at the cover's foot.
+    /// </summary>
+    public static string Render(Adventure adventure, PrintDetails details)
     {
         var html = new StringBuilder();
         html.Append("<article class=\"booklet\">");
         html.Append("<header class=\"booklet-cover\"><h1 class=\"booklet-title\">")
             .Append(Encode(adventure.Title)).Append("</h1>");
+
+        var system = string.Join(' ', new[] { details.GameSystem, details.Edition }.Where(v => !string.IsNullOrWhiteSpace(v)));
+        if (system.Length > 0)
+        {
+            html.Append("<p class=\"booklet-system\">").Append(Encode(system)).Append("</p>");
+        }
+
+        if (!string.IsNullOrWhiteSpace(details.Levels))
+        {
+            html.Append("<p class=\"booklet-levels\">Levels ").Append(Encode(details.Levels)).Append("</p>");
+        }
+
+        html.Append("<p class=\"booklet-author\">By ").Append(Encode(details.Author)).Append("</p>");
+
         if (!string.IsNullOrWhiteSpace(adventure.Pitch))
         {
             html.Append("<p class=\"booklet-pitch\">").Append(Encode(adventure.Pitch.Trim())).Append("</p>");
         }
+
+        // Each part is encoded on its own, so the separator stays a literal middle dot.
+        var credits = new[] { details.Type, details.Publisher, details.Year?.ToString(CultureInfo.InvariantCulture) }
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => Encode(v!));
+        html.Append("<p class=\"booklet-credits\">").Append(string.Join(" · ", credits)).Append("</p>");
 
         html.Append("</header>");
 

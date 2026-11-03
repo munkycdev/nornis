@@ -1,6 +1,7 @@
 using Nornis.Application.Prep;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Prep;
@@ -102,7 +103,7 @@ public class AdventurePrintModelTests
     public void RawHtml_IsEscaped_NeverPassedThrough()
     {
         var html = AdventurePrintModel.RenderBody("<script>alert(1)</script>\n\n> <img src=x onerror=alert(1)>");
-        var whole = AdventurePrintModel.Render(Adventure("<b>Title</b>", ("Notes", AdventureSectionKind.Notes, "x")));
+        var whole = AdventurePrintModel.Render(Adventure("<b>Title</b>", ("Notes", AdventureSectionKind.Notes, "x")), Bare);
 
         Assert.Multiple(() =>
         {
@@ -125,7 +126,7 @@ public class AdventurePrintModelTests
         adventure.Sections.First(s => s.Title == "Scene 1").SortOrder = 2;
         adventure.Sections.First(s => s.Title == "Chapter 1").SortOrder = 1;
 
-        var html = AdventurePrintModel.Render(adventure);
+        var html = AdventurePrintModel.Render(adventure, Bare);
 
         Assert.Multiple(() =>
         {
@@ -142,12 +143,12 @@ public class AdventurePrintModelTests
     public void TheSyntheticFixture_ImportsAndRendersEveryConvention()
     {
         var text = File.ReadAllText(Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures", "Prep", "two-chapters.md"));
-        var (imported, error) = AdventureMarkdownImporter.Import([new MarkdownFile("two-chapters.md", text)]);
+        var (imported, error) = AdventureMarkdownImporter.Import([new MarkdownFile("two-chapters.md", text)], 2026);
         Assert.That(error, Is.Null);
         var adventure = Adventure(imported!.Title,
             imported.Sections.Select(s => (s.Title, s.Kind, s.BodyMarkdown)).ToArray());
 
-        var html = AdventurePrintModel.Render(adventure);
+        var html = AdventurePrintModel.Render(adventure, Bare);
 
         Assert.Multiple(() =>
         {
@@ -159,6 +160,62 @@ public class AdventurePrintModelTests
             Assert.That(html, Does.Contain("<dt>HP</dt><dd>27</dd>"));
             Assert.That(html, Does.Contain("<table>"));
             Assert.That(html, Does.Not.Contain("[!"));
+        });
+    }
+
+    // ------------------------------------------------------------ The cover (feature 32) --
+
+    private static readonly PrintDetails Bare = PrintDetails.Resolve("The Silver Key", new AdventureDetails(), null, "kelda");
+
+    [Test]
+    public void TheCover_PrintsEachDetail_UnderTheTitle_AndTheCreditsAtItsFoot()
+    {
+        var details = PrintDetails.Resolve("The Silver Key",
+            new AdventureDetails { GameSystem = "Shadowdark", Edition = "1st", Levels = "1–3", Year = 2026 }, null, "kelda");
+
+        var html = AdventurePrintModel.Render(Adventure("The Silver Key"), details);
+        var cover = html[..(html.IndexOf("</header>", StringComparison.Ordinal))];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cover, Does.Contain("<p class=\"booklet-system\">Shadowdark 1st</p>"));
+            Assert.That(cover, Does.Contain("<p class=\"booklet-levels\">Levels 1–3</p>"));
+            Assert.That(cover, Does.Contain("<p class=\"booklet-author\">By kelda</p>"));
+            Assert.That(cover, Does.Contain("<p class=\"booklet-credits\">Nornis adventure · Nornis Press · 2026</p>"));
+            Assert.That(cover.IndexOf("booklet-title", StringComparison.Ordinal),
+                Is.LessThan(cover.IndexOf("booklet-system", StringComparison.Ordinal)));
+            Assert.That(cover.IndexOf("booklet-pitch", StringComparison.Ordinal),
+                Is.LessThan(cover.IndexOf("booklet-credits", StringComparison.Ordinal)));
+        });
+    }
+
+    [Test]
+    public void AnUnsetDetail_IsLeftOffTheCover()
+    {
+        var html = AdventurePrintModel.Render(Adventure("The Silver Key"), Bare);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(html, Does.Not.Contain("booklet-system"));
+            Assert.That(html, Does.Not.Contain("booklet-levels"));
+            Assert.That(html, Does.Contain("<p class=\"booklet-author\">By kelda</p>"));
+            Assert.That(html, Does.Contain("<p class=\"booklet-credits\">Nornis adventure · Nornis Press</p>"));
+        });
+    }
+
+    [Test]
+    public void TheCoversDetails_AreEncoded()
+    {
+        var details = PrintDetails.Resolve("The Silver Key",
+            new AdventureDetails { GameSystem = "<b>Fate</b>", Levels = "1 & 2" }, null, "<i>kelda</i>");
+
+        var html = AdventurePrintModel.Render(Adventure("The Silver Key"), details);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(html, Does.Not.Contain("<b>Fate</b>").And.Not.Contain("<i>kelda</i>"));
+            Assert.That(html, Does.Contain("&lt;b&gt;Fate&lt;/b&gt;"));
+            Assert.That(html, Does.Contain("Levels 1 &amp; 2"));
         });
     }
 

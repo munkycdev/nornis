@@ -12,6 +12,9 @@ public static class TestPrintDetails
 {
     public const string Username = "kelda";
 
+    /// <summary>For fixtures that never view or print an Adventure: it knows no world and no user.</summary>
+    public static AdventurePrintDetails None => new(new InMemoryWorldRepository(), new InMemoryUserRepository());
+
     public static AdventurePrintDetails For(
         Guid worldId, Guid creatorId, string? gameSystem = null, InMemoryWorldRepository? worlds = null)
     {

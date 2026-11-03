@@ -333,7 +333,14 @@ public class WorldExportServiceTests
         var sectionId = Guid.NewGuid();
         _reader.Data = new WorldExportData
         {
-            Adventures = [new Adventure { Id = adventureId, WorldId = _world.Id, Title = "The Silver Key", Slug = "the-silver-key" }],
+            Adventures =
+            [
+                new Adventure
+                {
+                    Id = adventureId, WorldId = _world.Id, Title = "The Silver Key", Slug = "the-silver-key",
+                    Details = new AdventureDetails { GameSystem = "Shadowdark", Year = 2026 },
+                },
+            ],
             AdventureSections =
             [
                 new AdventureSection
@@ -357,6 +364,8 @@ public class WorldExportServiceTests
         using var prep = ReadJsonEntry(zip, "prep.json");
         var adventure = prep.RootElement.GetProperty("adventures").EnumerateArray().Single();
         Assert.That(adventure.GetProperty("title").GetString(), Is.EqualTo("The Silver Key"));
+        Assert.That(adventure.GetProperty("details").GetProperty("gameSystem").GetString(), Is.EqualTo("Shadowdark"));
+        Assert.That(adventure.GetProperty("details").GetProperty("year").GetInt32(), Is.EqualTo(2026));
         var section = prep.RootElement.GetProperty("sections").EnumerateArray().Single();
         Assert.That(section.GetProperty("kind").GetString(), Is.EqualTo("Scene"));
         Assert.That(section.GetProperty("bodyMarkdown").GetString(), Is.EqualTo("> Fog rolls in."));
@@ -364,6 +373,45 @@ public class WorldExportServiceTests
 
         using var sources = ReadJsonEntry(zip, "sources.json");
         Assert.That(sources.RootElement.GetProperty("sources")[0].GetProperty("adventureId").GetGuid(), Is.EqualTo(adventureId));
+    }
+
+    [Test]
+    public async Task Export_Library_CarriesAPrintsDetails_AndNoneForAnUpload()
+    {
+        var print = new LibraryDocument
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _world.Id,
+            Title = "The Silver Key, printed 2026-11-03",
+            FileName = "key.pdf",
+            Status = LibraryDocumentStatus.PendingUpload,
+            PrintDetails = PrintDetails.Resolve("The Silver Key", new AdventureDetails { Levels = "1–3" }, "Shadowdark", "kelda"),
+        };
+        var upload = new LibraryDocument
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _world.Id,
+            Title = "Core rules",
+            FileName = "core.pdf",
+            Status = LibraryDocumentStatus.PendingUpload,
+        };
+        _reader.Data = new WorldExportData { LibraryDocuments = [print, upload] };
+
+        var result = await _sut.ExportAsync(Command([WorldExportCategory.Library]), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True);
+        using var zip = OpenZip(UploadedZipBytes());
+        using var library = ReadJsonEntry(zip, "library.json");
+        var rows = library.RootElement.EnumerateArray().ToList();
+        var printed = rows.Single(r => r.GetProperty("id").GetGuid() == print.Id).GetProperty("printDetails");
+        Assert.Multiple(() =>
+        {
+            Assert.That(printed.GetProperty("title").GetString(), Is.EqualTo("The Silver Key"));
+            Assert.That(printed.GetProperty("gameSystem").GetString(), Is.EqualTo("Shadowdark"));
+            Assert.That(printed.GetProperty("author").GetString(), Is.EqualTo("kelda"));
+            Assert.That(rows.Single(r => r.GetProperty("id").GetGuid() == upload.Id).GetProperty("printDetails").ValueKind,
+                Is.EqualTo(System.Text.Json.JsonValueKind.Null));
+        });
     }
 
     [Test]

@@ -47,7 +47,8 @@ public record AdventureResponse(
     DateTimeOffset UpdatedAt,
     IReadOnlyList<AdventureSectionResponse> Sections,
     AdventureDetailsResponse Details,
-    PrintDetailsResponse PrintDetails);
+    PrintDetailsResponse PrintDetails,
+    IReadOnlyList<string>? IgnoredDetails = null);
 
 /// <summary>The four details the GM edits (feature 32). A null game system means the world's.</summary>
 public record AdventureDetailsResponse(string? GameSystem, string? Edition, string? Levels, int? Year);
