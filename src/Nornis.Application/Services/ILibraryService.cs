@@ -29,6 +29,14 @@ public interface ILibraryService
     Task<AppResult<LibraryDocument>> RenameAsync(
         Guid documentId, Guid worldId, WorldRole role, string? title, CancellationToken ct);
 
+    /// <summary>GM-only: files an upload under one of the world's Adventures, or back on the Shelf (feature 36).</summary>
+    Task<AppResult<LibraryDocument>> SetAdventureLinkAsync(
+        Guid documentId, Guid worldId, WorldRole role, Guid? adventureId, CancellationToken ct);
+
+    /// <summary>GM-only: changes what an upload is (feature 36). Prints and Bibliotaph books keep theirs.</summary>
+    Task<AppResult<LibraryDocument>> SetKindAsync(
+        Guid documentId, Guid worldId, WorldRole role, LibraryDocumentKind kind, CancellationToken ct);
+
     Task<AppResult> DeleteAsync(Guid documentId, Guid worldId, WorldRole role, CancellationToken ct);
 
     Task<AppResult<LibraryDocument>> ReindexAsync(Guid documentId, Guid worldId, Guid actingUserId, WorldRole role, CancellationToken ct);

@@ -958,10 +958,27 @@ public record LibraryDocumentDto(
     Guid? AdventureId = null,
     string Origin = "Upload",
     bool InBibliotaph = false,
-    bool HasCover = false)
+    bool HasCover = false,
+    // Feature 36, decided by the API: Book, Map, Handout, Print or Other; the Adventure an upload
+    // belongs to (GMs only); and whether it shows on the Shelf.
+    string Category = "Other",
+    Guid? LinkedAdventureId = null,
+    bool OnShelf = true)
 {
     /// <summary>A book from the world's Bibliotaph: read there, never downloaded or deleted here.</summary>
     public bool IsFromBibliotaph => Origin == "Bibliotaph";
+
+    /// <summary>An upload the GM may file under an Adventure or re-kind: not a print, not a Bibliotaph book.</summary>
+    public bool IsOrganisable => !IsFromBibliotaph && Category != PrintCategory;
+
+    public const string BookCategory = "Book";
+    public const string MapCategory = "Map";
+    public const string HandoutCategory = "Handout";
+    public const string PrintCategory = "Print";
+    public const string OtherCategory = "Other";
+
+    /// <summary>The categories in chip order; mirrored from the Domain's <c>LibraryDocumentCategory</c>.</summary>
+    public static readonly string[] Categories = [BookCategory, MapCategory, HandoutCategory, PrintCategory, OtherCategory];
 }
 
 /// <summary>The Library's Bibliotaph strip. <see cref="State"/> mirrors the API's shelf states.</summary>
@@ -985,7 +1002,9 @@ public record RequestLibraryUploadRequest(
     string ContentType,
     long SizeBytes,
     string Kind,
-    string Visibility);
+    string Visibility,
+    // The Adventure this upload belongs to (feature 36); GM only.
+    Guid? LinkedAdventureId = null);
 
 public record LibraryUploadTicketDto(LibraryDocumentDto Document, string UploadUrl);
 

@@ -110,6 +110,11 @@ else if (_adventure is not null)
             </MudPaper>
 
             <BookDetailsCard Adventure="_adventure" Disabled="_busy" OnSaved="OnBookDetailsSaved" />
+
+            @if (Worlds.Current is { } world)
+            {
+                <AdventureDocumentsCard WorldId="world.Id" AdventureId="_adventure.Id" Disabled="_busy" />
+            }
         </div>
 
         <div class="nornis-prep-editor">

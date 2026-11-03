@@ -71,6 +71,39 @@ public class AdventurePageTests : BunitContext
     }
 
     [Test]
+    public async Task TheDocumentsCard_ListsWhatBelongsToThisAdventure_AndNothingElse()
+    {
+        var other = Guid.NewGuid();
+        _handler.LibraryJson = JsonSerializer.Serialize(new[]
+        {
+            LibraryDoc("Vault map", "Map", linked: _handler.AdventureId, print: null, onShelf: false),
+            LibraryDoc("The Silver Key (print)", "Print", linked: null, print: _handler.AdventureId, onShelf: true),
+            LibraryDoc("Another one's handout", "Handout", linked: other, print: null, onShelf: false),
+            LibraryDoc("Player's Guide", "Book", linked: null, print: null, onShelf: true),
+        }, JsonSerializerOptions.Web);
+
+        var cut = await RenderAsync();
+
+        cut.WaitForAssertion(() => Assert.That(
+            cut.FindAll(".nornis-adventure-document .nornis-list-title").Select(t => t.TextContent.Trim()),
+            Is.EquivalentTo((string[])["Vault map", "The Silver Key (print)"])));
+    }
+
+    [Test]
+    public async Task TheDocumentsCard_SaysHowToAddOne_WhenNothingBelongs()
+    {
+        var cut = await RenderAsync();
+
+        cut.WaitForAssertion(() => Assert.That(cut.Find(".nornis-adventure-documents-empty").TextContent,
+            Does.Contain("Nothing belongs to this adventure yet")));
+    }
+
+    private static LibraryDocumentDto LibraryDoc(string title, string category, Guid? linked, Guid? print, bool onShelf) => new(
+        Guid.NewGuid(), Guid.NewGuid(), title, "file.png", "image/png", 1024, category == "Book" ? "Sourcebook" : "Map",
+        "GMOnly", "Stored", null, 0, null, Guid.NewGuid(), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+        AdventureId: print, Category: category, LinkedAdventureId: linked, OnShelf: onShelf);
+
+    [Test]
     public async Task TheGm_SeesTheOutline_AndThePrepToolbar()
     {
         var cut = await RenderAsync();
@@ -422,6 +455,11 @@ public class AdventurePageTests : BunitContext
         /// <summary>What GET convergence answers; a world with nothing hidden until a test says otherwise.</summary>
         public string ConvergenceJson { get; set; } = Gauge();
 
+        /// <summary>What GET library answers: the world's documents, for the Documents card (feature 36).</summary>
+        public string LibraryJson { get; set; } = "[]";
+
+        public Guid AdventureId => _adventureId;
+
         public bool SendFails { get; set; }
         public string? LastSendBody { get; private set; }
         public string? LastPutBody { get; private set; }
@@ -554,6 +592,11 @@ public class AdventurePageTests : BunitContext
             if (request.Method == HttpMethod.Get && path.Contains("/prep/", StringComparison.Ordinal))
             {
                 return Json(Adventure(OverviewId, SceneId));
+            }
+
+            if (request.Method == HttpMethod.Get && path.EndsWith("/library", StringComparison.Ordinal))
+            {
+                return Json(LibraryJson);
             }
 
             return new HttpResponseMessage(HttpStatusCode.NotFound);

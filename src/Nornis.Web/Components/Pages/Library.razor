@@ -64,8 +64,62 @@ else
 }
 else
 {
+    <div class="nornis-filter-row mb-2 nornis-library-filters">
+        <MudChip T="string" Size="Size.Medium"
+                 Variant="@(_view.Category is null ? Variant.Filled : Variant.Outlined)"
+                 Color="@(_view.Category is null ? Color.Secondary : Color.Default)"
+                 OnClick="() => ChooseCategoryAsync(null)">All · @LibraryFilter.Total(_documents, _view.Scope)</MudChip>
+        @foreach (var (category, count) in LibraryFilter.Counts(_documents, _view.Scope))
+        {
+            var c = category;
+            <MudChip T="string" Size="Size.Small"
+                     Variant="@(_view.Category == c ? Variant.Filled : Variant.Outlined)"
+                     Color="@(_view.Category == c ? Color.Secondary : Color.Default)"
+                     OnClick="() => ChooseCategoryAsync(c)">@LibraryDisplay.ChipLabel(c) · @count</MudChip>
+        }
+    </div>
+
+    <div class="d-flex gap-3 align-center flex-wrap mb-3 nornis-library-tools">
+        @if (Worlds.IsGm && _adventureMenu.Count > 0)
+        {
+            <MudSelect T="string" Value="@ScopeValue" ValueChanged="ChooseScope" Label="Adventure"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                       Class="nornis-library-adventure-menu" Style="max-width: 16rem;">
+                <MudSelectItem Value="@ShelfValue">Shelf</MudSelectItem>
+                <MudSelectItem Value="@EverythingValue">Everything</MudSelectItem>
+                @foreach (var adventure in _adventureMenu)
+                {
+                    <MudSelectItem Value="@adventure.Id.ToString()">@adventure.Title</MudSelectItem>
+                }
+            </MudSelect>
+        }
+        <MudTextField T="string" Value="@_view.Search" ValueChanged="Search" Immediate="true"
+                      Placeholder="Search titles" Clearable="true"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"
+                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Class="flex-grow-1 nornis-library-search" />
+        <div class="nornis-library-sort">
+            @foreach (var sort in Enum.GetValues<LibrarySort>())
+            {
+                var s = sort;
+                <MudChip T="string" Size="Size.Small"
+                         Variant="@(_view.Sort == s ? Variant.Filled : Variant.Outlined)"
+                         Color="@(_view.Sort == s ? Color.Secondary : Color.Default)"
+                         OnClick="() => _view = _view with { Sort = s }">@s</MudChip>
+            }
+        </div>
+    </div>
+
+    @if (Visible.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-library-filter-empty">
+            @LibraryDisplay.EmptyFilterText(_view.Category, !string.IsNullOrWhiteSpace(_view.Search))
+        </MudText>
+    }
+    else
+    {
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-        @foreach (var doc in _documents)
+        @foreach (var doc in Visible)
         {
             <div class="nornis-list-row">
                 <div class="nornis-list-thumb">
@@ -81,8 +135,14 @@ else
                 <div class="nornis-list-body">
                     <a href="@Links.LibraryDocument(doc.Slug, doc.Id)" class="nornis-list-title nornis-link">@doc.Title</a>
                     <div class="nornis-list-sub">
-                        @(doc.IsFromBibliotaph ? doc.Kind : $"{doc.Kind} · {DisplayText.FormatSize(doc.SizeBytes)}")@(doc.PageCount is { } p ? $" · {p} pages" : "")
+                        <span class="nornis-library-category">@doc.Category</span>@(doc.IsFromBibliotaph ? "" : $" · {DisplayText.FormatSize(doc.SizeBytes)}")@(doc.PageCount is { } p ? $" · {p} pages" : "")
                     </div>
+                    @if (Worlds.IsGm && doc.LinkedAdventureId is { } linkedId)
+                    {
+                        <div class="nornis-list-sub nornis-library-adventure-tag">
+                            For <a href="@Links.Adventure(null, linkedId)" class="nornis-link">@AdventureTitle(linkedId)</a>
+                        </div>
+                    }
                     @if (Worlds.IsGm && doc.AdventureId is { } adventureId)
                     {
                         <div class="nornis-list-sub nornis-library-printed">
@@ -144,6 +204,7 @@ else
             </div>
         }
     </MudPaper>
+    }
 }
 
 }
@@ -154,11 +215,72 @@ else
     private IReadOnlyList<LibraryDocumentDto> _documents = [];
     private LibraryBibliotaphDto? _bibliotaph;
 
+    // Feature 36: the chips, the Adventure menu (GM only), search and sort, all over _documents.
+    private const string CategoryStorageKey = "nornis.library.category";
+    private const string ShelfValue = "shelf";
+    private const string EverythingValue = "everything";
+    private LibraryView _view = new();
+    private IReadOnlyList<AdventureSummaryDto> _adventures = [];
+    private IReadOnlyList<AdventureSummaryDto> _adventureMenu = [];
+
+    private IReadOnlyList<LibraryDocumentDto> Visible => LibraryFilter.Apply(_documents, _view);
+
+    private string ScopeValue => _view.Scope.Kind switch
+    {
+        LibraryScopeKind.Everything => EverythingValue,
+        LibraryScopeKind.Adventure => _view.Scope.AdventureId.ToString()!,
+        _ => ShelfValue,
+    };
+
     protected override async Task OnInitializedAsync()
     {
         Worlds.Changed += OnWorldChanged;
         await Worlds.EnsureLoadedAsync();
+        await RestoreCategoryAsync();
         await LoadAsync();
+    }
+
+    private void ChooseScope(string value)
+    {
+        _view = _view with
+        {
+            Scope = value switch
+            {
+                EverythingValue => LibraryScope.Everything,
+                _ when Guid.TryParse(value, out var id) => LibraryScope.ForAdventure(id),
+                _ => LibraryScope.Shelf,
+            },
+        };
+    }
+
+    private void Search(string? text) => _view = _view with { Search = text };
+
+    private string AdventureTitle(Guid id) =>
+        _adventures.FirstOrDefault(a => a.Id == id)?.Title ?? "an adventure";
+
+    private async Task ChooseCategoryAsync(string? category)
+    {
+        _view = _view with { Category = category };
+        // Remembered for this browser only, like a filter; a blocked or missing store just forgets.
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", CategoryStorageKey, category ?? string.Empty);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private async Task RestoreCategoryAsync()
+    {
+        try
+        {
+            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", CategoryStorageKey);
+            _view = _view with { Category = LibraryDocumentDto.Categories.Contains(saved) ? saved : null };
+        }
+        catch (JSException)
+        {
+        }
     }
 
     private void OnWorldChanged() => InvokeAsync(LoadAsync);
@@ -189,6 +311,22 @@ else
         else
         {
             _error = result.Error!.Message;
+        }
+
+        // The Adventure menu and tags are the GM's organisation; players never ask for them.
+        if (Worlds.IsGm && result.IsSuccess)
+        {
+            var adventures = await Api.GetAdventuresAsync(Worlds.Current.Id);
+            _adventures = adventures.IsSuccess ? adventures.Value! : [];
+        }
+        else
+        {
+            _adventures = [];
+        }
+        _adventureMenu = LibraryFilter.AdventuresWithDocuments(_documents, _adventures);
+        if (_view.Scope.Kind == LibraryScopeKind.Adventure && _adventureMenu.All(a => a.Id != _view.Scope.AdventureId))
+        {
+            _view = _view with { Scope = LibraryScope.Shelf };
         }
         StateHasChanged();
     }

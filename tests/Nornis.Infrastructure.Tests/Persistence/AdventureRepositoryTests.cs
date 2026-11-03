@@ -427,6 +427,21 @@ public class AdventureRepositoryTests : IntegrationTestBase
     }
 
     [Test]
+    public async Task Delete_ReturnsTheUploadsThatBelongedToIt_ToTheShelf()
+    {
+        var adventure = await CreateAsync("a");
+        await Context.LibraryDocuments.Where(d => d.Id == _print.Id)
+            .ExecuteUpdateAsync(u => u.SetProperty(d => d.LinkedAdventureId, adventure.Id));
+        Context.ChangeTracker.Clear();
+
+        await _sut.DeleteAsync(adventure.Id);
+        Context.ChangeTracker.Clear();
+
+        var document = await Context.LibraryDocuments.SingleAsync(d => d.Id == _print.Id);
+        Assert.That(document.LinkedAdventureId, Is.Null, "the upload outlives the Adventure, back on the Shelf");
+    }
+
+    [Test]
     public async Task DeletingTheCampaign_MakesItsPrepWorldLevel()
     {
         var adventure = await CreateAsync("a");

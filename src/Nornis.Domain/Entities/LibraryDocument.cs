@@ -54,6 +54,13 @@ public class LibraryDocument : ISlugged
     public Guid? AdventureId { get; set; }
 
     /// <summary>
+    /// The Adventure an upload belongs to (feature 36): GM organisation that keeps one-shot
+    /// handouts and maps off the Library's Shelf. Null means it belongs to none. Never set on a
+    /// print, whose Adventure is <see cref="AdventureId"/>; set only by <c>LibraryService</c>.
+    /// </summary>
+    public Guid? LinkedAdventureId { get; set; }
+
+    /// <summary>
     /// A print's details as they stood when it was filed (feature 32). Set once, by
     /// <c>LibraryService.RequestUploadAsync</c>, and never changed. Null means the document
     /// isn't a print, or was filed before prints carried details.

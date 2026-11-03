@@ -15,10 +15,10 @@
                       MaxLength="200" Variant="Variant.Outlined" Class="mb-3" />
 
         <div class="d-flex gap-3 mb-3">
-            <MudSelect @bind-Value="_kind" Label="Kind" Variant="Variant.Outlined" Class="flex-grow-1">
-                @foreach (var kind in Kinds)
+            <MudSelect @bind-Value="_kind" Label="Category" Variant="Variant.Outlined" Class="flex-grow-1">
+                @foreach (var (category, kind) in LibraryDisplay.ChoosableCategories)
                 {
-                    <MudSelectItem Value="@kind">@kind</MudSelectItem>
+                    <MudSelectItem Value="@kind">@category</MudSelectItem>
                 }
             </MudSelect>
             @if (Worlds.IsGm)
@@ -29,6 +29,19 @@
                 </MudSelect>
             }
         </div>
+
+        @if (Worlds.IsGm && _adventures.Count > 0)
+        {
+            <MudSelect T="string" @bind-Value="_belongsTo" Label="Belongs to" Variant="Variant.Outlined"
+                       HelperText="An adventure's documents stay off the shelf and show under that adventure."
+                       Class="mb-3 nornis-upload-belongs">
+                <MudSelectItem Value="@NoAdventure">The shelf (no adventure)</MudSelectItem>
+                @foreach (var adventure in _adventures)
+                {
+                    <MudSelectItem Value="@adventure.Id.ToString()">@adventure.Title</MudSelectItem>
+                }
+            </MudSelect>
+        }
 
         @* Plain file input: nornis-upload.js reads it by id for the direct-to-blob PUT. *@
         <InputFile id="@_inputId" OnChange="OnFileSelected" class="nornis-upload-input"
@@ -61,9 +74,32 @@
 </MudDialog>
 
 @code {
-    private static readonly string[] Kinds = ["Sourcebook", "Map", "Handout", "Other"];
+    private const string NoAdventure = "none";
 
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    /// <summary>
+    /// The Adventure the upload starts out belonging to (feature 36). Preset when the dialog is
+    /// opened from an Adventure; the GM can still change it.
+    /// </summary>
+    [Parameter] public Guid? AdventureId { get; set; }
+
+    private IReadOnlyList<AdventureSummaryDto> _adventures = [];
+    private string _belongsTo = NoAdventure;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _belongsTo = AdventureId?.ToString() ?? NoAdventure;
+        if (Worlds.Current is null || !Worlds.IsGm)
+        {
+            return;
+        }
+
+        var result = await Api.GetAdventuresAsync(Worlds.Current.Id);
+        _adventures = result.IsSuccess
+            ? result.Value!.OrderBy(a => a.Title, StringComparer.CurrentCultureIgnoreCase).ToList()
+            : [];
+    }
 
     private readonly string _inputId = $"nornis-upload-{Guid.NewGuid():N}";
     private string _title = string.Empty;
@@ -108,8 +144,9 @@
         _error = null;
 
         var visibility = Worlds.IsGm ? _visibility : "PartyVisible";
+        Guid? belongsTo = Worlds.IsGm && Guid.TryParse(_belongsTo, out var adventureId) ? adventureId : null;
         var ticket = await Api.RequestLibraryUploadAsync(Worlds.Current.Id,
-            new RequestLibraryUploadRequest(_title.Trim(), _fileName, _contentType, _fileSize, _kind, visibility));
+            new RequestLibraryUploadRequest(_title.Trim(), _fileName, _contentType, _fileSize, _kind, visibility, belongsTo));
 
         if (!ticket.IsSuccess)
         {

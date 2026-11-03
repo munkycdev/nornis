@@ -46,7 +46,7 @@ simply never used, and it stays unused so that every existing reference keeps it
 | 33 | Several sign-ins per account (Nornis 3.3) | 2026-11-02 | Merging two existing accounts (a one-off, by hand); showing when each sign-in was last used |
 | 34 | Booklet as a PDF, one-click filing (Nornis 3.5) | 2026-11-03 (Phases A to C; the live walk is Dave's) | A4 page size; printing only the props; images in the booklet; widow and orphan control inside long paragraphs |
 | 35 | Stat and item blocks in Prep (Nornis 3.6) | 2026-11-03 (Phases A to C; the live walk is Dave's) | Structured stat records with a form editor (declined); computing modifiers; importing stat blocks from Bibliotaph books |
-| 36 | Library organisation (Nornis 3.7) | Specified 2026-11-03 | Free-form tags and folders; linking one document to several Adventures; server-side paging |
+| 36 | Library organisation (Nornis 3.7) | 2026-11-03 (Phase B; the live walk is Dave's) | Free-form tags and folders; linking one document to several Adventures; server-side paging |
 | 37 | Prep design mode and source books (Nornis 3.8) | Specified 2026-11-03 | Drafting all empty sections as a batch; live co-editing of the draft; page ranges within a source book |
 | 38 | Cover art, rights page and handouts (Nornis 3.9) | Specified 2026-11-03 | Pregenerated character cards; interior illustrations; a per-world image style |
 
