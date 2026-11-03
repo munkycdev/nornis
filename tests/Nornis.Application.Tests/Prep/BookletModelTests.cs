@@ -273,7 +273,7 @@ public class BookletModelTests
         adventure.Sections.First(s => s.Title == "Chapter 1").SortOrder = 1;
         adventure.Sections.First(s => s.Title == "Scene 1").SortOrder = 2;
 
-        var booklet = BookletModel.Build(adventure, Bare);
+        var booklet = BookletModel.Build(adventure, Bare, Imprint);
 
         Assert.Multiple(() =>
         {
@@ -289,11 +289,11 @@ public class BookletModelTests
 
     [Test]
     public void AnAdventureWithNoSections_IsACoverAlone() =>
-        Assert.That(BookletModel.Build(Adventure("The Silver Key"), Bare).Chapters, Is.Empty);
+        Assert.That(BookletModel.Build(Adventure("The Silver Key"), Bare, Imprint).Chapters, Is.Empty);
 
     [Test]
     public void AnEmptyChapter_StillPrintsItsTitle() =>
-        Assert.That(BookletModel.Build(Adventure("The Silver Key", ("Chapter 1", AdventureSectionKind.Chapter, "")), Bare).Chapters,
+        Assert.That(BookletModel.Build(Adventure("The Silver Key", ("Chapter 1", AdventureSectionKind.Chapter, "")), Bare, Imprint).Chapters,
             Is.EqualTo([new BookletChapter("Chapter 1", [])]).Using<BookletChapter>((a, b) => a.Title == b.Title && a.Blocks.Count == b.Blocks.Count));
 
     [Test]
@@ -305,7 +305,7 @@ public class BookletModelTests
         var adventure = Adventure(imported!.Title,
             imported.Sections.Select(s => (s.Title, s.Kind, s.BodyMarkdown)).ToArray());
 
-        var booklet = BookletModel.Build(adventure, Bare);
+        var booklet = BookletModel.Build(adventure, Bare, Imprint);
         var blocks = booklet.Chapters.SelectMany(c => c.Blocks).SelectMany(Flatten).ToList();
 
         Assert.Multiple(() =>
@@ -328,35 +328,91 @@ public class BookletModelTests
 
     // ------------------------------------------------------------ The cover (feature 32) --
 
-    private static readonly PrintDetails Bare = PrintDetails.Resolve("The Silver Key", new AdventureDetails(), null, "kelda");
+    private static readonly PrintDetails Bare = PrintDetails.Resolve("The Silver Key", new AdventureDetails(), null, "kelda", AiUseKind.None);
+
+    private static readonly BookletImprint Imprint = new(new DateOnly(2026, 11, 3), "3.9");
 
     [Test]
-    public void TheCover_HasEachDetail_AndTheCredits()
+    public void TheCover_HasEachDetail()
     {
         var details = PrintDetails.Resolve("The Silver Key",
-            new AdventureDetails { GameSystem = "Shadowdark", Edition = "1st", Levels = "1–3", Year = 2026 }, null, "kelda");
+            new AdventureDetails { GameSystem = "Shadowdark", Edition = "1st", Levels = "1–3", Year = 2026 }, null, "kelda", AiUseKind.None);
 
-        var cover = BookletModel.Build(Adventure("The Silver Key"), details).Cover;
+        var cover = BookletModel.Build(Adventure("The Silver Key"), details, Imprint).Cover;
 
         Assert.That(cover, Is.EqualTo(new BookletCover(
-            "The Silver Key", "Shadowdark 1st", "Levels 1–3", "By kelda", "A heist.", "Nornis adventure · Nornis Press · 2026")));
+            "The Silver Key", "Shadowdark 1st", "Levels 1–3", "By kelda", "A heist.")));
     }
 
     [Test]
     public void AnUnsetDetail_IsLeftOffTheCover()
     {
-        var cover = BookletModel.Build(Adventure("The Silver Key"), Bare).Cover;
+        var cover = BookletModel.Build(Adventure("The Silver Key"), Bare, Imprint).Cover;
 
         Assert.That(cover, Is.EqualTo(new BookletCover(
-            "The Silver Key", null, null, "By kelda", "A heist.", "Nornis adventure · Nornis Press")));
+            "The Silver Key", null, null, "By kelda", "A heist.")));
+    }
+
+    // ------------------------------------------------------- rights page (feature 38) --
+
+    [Test]
+    public void TheRightsPage_CarriesTheCredits_TheDate_TheReleaseAndTheNotices()
+    {
+        var details = PrintDetails.Resolve("The Silver Key",
+            new AdventureDetails { GameSystem = "Shadowdark", Edition = "1st", Levels = "1–3", Year = 2025 }, null, "kelda", AiUseKind.Text);
+
+        var rights = BookletModel.Build(Adventure("The Silver Key"), details, Imprint).Rights;
+
+        Assert.That(rights, Is.EqualTo(new BookletRights(
+            "The Silver Key", "Nornis Press", "Nornis adventure · Nornis Press · 2025", "© 2025 kelda", "Shadowdark 1st", "Levels 1–3",
+            "Printed 3 November 2026", "Made with Nornis 3.9", "Text written with AI assistance.", RightsStatement.Notice)));
+    }
+
+    [Test]
+    public void WithNoYear_TheCopyrightIsThePrintsYear_AndUnsetLinesAreLeftOff()
+    {
+        var rights = BookletModel.Build(Adventure("The Silver Key"), Bare, Imprint).Rights;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rights.Copyright, Is.EqualTo("© 2026 kelda"));
+            Assert.That(rights.Credits, Is.EqualTo("Nornis adventure · Nornis Press"));
+            Assert.That((rights.SystemLine, rights.LevelsLine), Is.EqualTo(((string?)null, (string?)null)));
+            Assert.That(rights.AiStatement, Is.EqualTo("No AI was used to write this adventure's text or art."));
+        });
+    }
+
+    /// <summary>Requirement 2.3: the statement says exactly what was recorded, and each kind has its own.</summary>
+    [TestCase(AiUseKind.None, "No AI was used to write this adventure's text or art.")]
+    [TestCase(AiUseKind.Declared, "AI was used in making this adventure.")]
+    [TestCase(AiUseKind.Text, "Text written with AI assistance.")]
+    [TestCase(AiUseKind.Art, "Cover art generated with AI.")]
+    [TestCase(AiUseKind.TextAndArt, "Text written and cover art generated with AI assistance.")]
+    public void TheAiStatement_SaysWhatWasRecorded(AiUseKind kind, string sentence)
+    {
+        Assert.That(RightsStatement.For(kind), Is.EqualTo(sentence));
+    }
+
+    [Test]
+    public void EveryAiUse_HasASentence_AndNoTwoShareOne()
+    {
+        var sentences = Enum.GetValues<AiUseKind>().Select(RightsStatement.For).ToList();
+
+        Assert.That(sentences, Is.Unique);
+    }
+
+    [Test]
+    public void TheRelease_IsMajorDotMinor_FromTheBuild()
+    {
+        Assert.That(RightsStatement.CurrentVersion, Does.Match(@"^\d+\.\d+$"));
     }
 
     [Test]
     public void AnEditionWithNoGameSystem_StillPrints()
     {
-        var details = PrintDetails.Resolve("The Silver Key", new AdventureDetails { Edition = "2nd" }, null, "kelda");
+        var details = PrintDetails.Resolve("The Silver Key", new AdventureDetails { Edition = "2nd" }, null, "kelda", AiUseKind.None);
 
-        Assert.That(BookletModel.Build(Adventure("The Silver Key"), details).Cover.SystemLine, Is.EqualTo("2nd"));
+        Assert.That(BookletModel.Build(Adventure("The Silver Key"), details, Imprint).Cover.SystemLine, Is.EqualTo("2nd"));
     }
 
     private static Adventure Adventure(string title, params (string Title, AdventureSectionKind Kind, string Body)[] sections)

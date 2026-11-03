@@ -16,6 +16,9 @@ public class AdventureDesignService : IAdventureDesignService
     /// <summary>The most source books one Adventure reads; more would crowd every prompt's passages.</summary>
     public const int MaxSourceBooks = 5;
 
+    /// <summary>The most maps and handouts one booklet prints (feature 38).</summary>
+    public const int MaxHandouts = 20;
+
     private readonly IAdventureRepository _adventures;
     private readonly ILibraryDocumentRepository _documents;
     private readonly IAdventureService _views;
@@ -56,7 +59,7 @@ public class AdventureDesignService : IAdventureDesignService
 
         var now = DateTimeOffset.UtcNow;
         if (!await _adventures.TrySaveDraftAsync(
-            adventure.Id, markdown, revision: null, maxRevisions: 0, command.BasedOnUpdatedAt, now, ct))
+            adventure.Id, markdown, revision: null, maxRevisions: 0, command.BasedOnUpdatedAt, now, loremasterWrote: false, ct))
         {
             return AppResult<AdventureDraftState>.Fail(DraftChanged());
         }
@@ -273,7 +276,8 @@ public class AdventureDesignService : IAdventureDesignService
             Reason = reason,
             CreatedAt = now,
         };
-        if (!await _adventures.TrySaveDraftAsync(adventure.Id, markdown, revision, _options.MaxRevisionsPerSection, basedOn, now, ct))
+        if (!await _adventures.TrySaveDraftAsync(adventure.Id, markdown, revision, _options.MaxRevisionsPerSection, basedOn, now,
+            reason.IsLoremasterWriting(), ct))
         {
             return AppResult<AdventureDraftState>.Fail(DraftChanged());
         }
@@ -372,6 +376,48 @@ public class AdventureDesignService : IAdventureDesignService
         }
 
         await _adventures.ReplaceSourceBooksAsync(adventure.Id, ids, ct);
+        return await _views.GetAsync(command.WorldId, adventure.Id, command.ActingUserRole, ct);
+    }
+
+    public async Task<AppResult<AdventureView>> SetHandoutsAsync(SetHandoutsCommand command, CancellationToken ct)
+    {
+        if (command.ActingUserRole != WorldRole.GM)
+        {
+            return AppResult<AdventureView>.Fail(GmOnly());
+        }
+
+        var adventure = await LoadAsync(command.WorldId, command.AdventureId, ct);
+        if (adventure is null)
+        {
+            return AppResult<AdventureView>.Fail(NotFound());
+        }
+
+        var ids = (command.DocumentIds ?? []).Distinct().ToList();
+        if (ids.Count > MaxHandouts)
+        {
+            return AppResult<AdventureView>.Fail(new AppError(400, "too_many_handouts",
+                $"A booklet prints at most {MaxHandouts} handouts; that's {ids.Count}."));
+        }
+
+        foreach (var id in ids)
+        {
+            var document = await _documents.GetByIdAsync(id, ct);
+            if (document is null || document.WorldId != command.WorldId || document.RemovedAt is not null
+                || document.Status == LibraryDocumentStatus.PendingUpload)
+            {
+                return AppResult<AdventureView>.Fail(new AppError(404, "document_not_found",
+                    "One of those isn't in this world's Library."));
+            }
+
+            if (LibraryCategories.Of(document) is not (LibraryDocumentCategory.Map or LibraryDocumentCategory.Handout)
+                || !HandoutFiles.IsPrintable(document.ContentType))
+            {
+                return AppResult<AdventureView>.Fail(new AppError(400, "not_a_handout",
+                    $"\"{document.Title}\" can't be printed as a handout. Handouts are the Library's maps and handouts, as images or PDFs."));
+            }
+        }
+
+        await _adventures.ReplaceHandoutsAsync(adventure.Id, ids, ct);
         return await _views.GetAsync(command.WorldId, adventure.Id, command.ActingUserRole, ct);
     }
 

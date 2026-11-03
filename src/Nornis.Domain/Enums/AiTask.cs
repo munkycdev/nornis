@@ -16,5 +16,9 @@ public enum AiTask
     Prep,
 
     /// <summary>Short background text: world names, convergence notes.</summary>
-    Chores
+    Chores,
+
+    /// <summary>Generating an Adventure's cover art (feature 38): an image model, not a chat model.
+    /// Only a key holder's own key runs it; Nornis has no image deployment.</summary>
+    CoverArt
 }

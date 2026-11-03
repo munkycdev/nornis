@@ -187,6 +187,9 @@ public class WorldRepository : IWorldRepository
         // An Adventure's chosen source books (feature 37) point at both; the Adventure side is Restrict.
         await DeleteAsync(_context.AdventureSourceBooks
             .Where(b => _context.Adventures.Any(a => a.Id == b.AdventureId && a.WorldId == worldId)));
+        // So do its handouts (feature 38).
+        await DeleteAsync(_context.AdventureHandouts
+            .Where(h => _context.Adventures.Any(a => a.Id == h.AdventureId && a.WorldId == worldId)));
         await DeleteAsync(_context.LibraryReadingRecords.Where(r => r.WorldId == worldId));
         await DeleteAsync(_context.LibraryChunks.Where(c => c.WorldId == worldId));
         await DeleteAsync(_context.LibraryDocuments.Where(d => d.WorldId == worldId));

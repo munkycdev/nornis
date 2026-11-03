@@ -238,6 +238,52 @@ public class AiFundingServiceTests
         Assert.That(funding.FundedBy, Is.EqualTo(AiFundedBy.Trial));
     }
 
+    // ------------------------------------------------------------- cover art (feature 38) --
+
+    private Task<AiFunding> ResolveCoverArt() =>
+        Service().ResolveAsync(AiCallScope.ForWorld(_worldId, Guid.NewGuid()), AiTask.CoverArt, nornisModel: null, needsImages: false,
+            CancellationToken.None);
+
+    [Test]
+    public async Task CoverArt_RunsOnTheCreatorsOpenAiKey_OnTheImageModel()
+    {
+        _options.Catalog.Add(Model("openai/gpt-image-1", AiProvider.OpenAi, false, AiTask.CoverArt));
+        var key = _keys.Add(_creator, AiProvider.OpenAi);
+
+        var funding = await ResolveCoverArt();
+
+        Assert.That((funding.Model, funding.FundedBy, funding.AiKeyId), Is.EqualTo(("gpt-image-1", AiFundedBy.Key, key.Id)));
+    }
+
+    [TestCase(AiFallback.Nornis)]
+    [TestCase(AiFallback.Trial)]
+    public void CoverArt_WithNoKey_IsRefused_UnderEitherFallback(AiFallback fallback)
+    {
+        _options.Fallback = fallback;
+        _options.Catalog.Add(Model("openai/gpt-image-1", AiProvider.OpenAi, false, AiTask.CoverArt));
+
+        var ex = Assert.ThrowsAsync<AiKeyRequiredException>(ResolveCoverArt);
+
+        Assert.That(ex!.Task, Is.EqualTo(AiTask.CoverArt));
+    }
+
+    [Test]
+    public void CoverArt_IsNeverServedByAnOpenAiCompatibleLine()
+    {
+        var line = new UserAiCompatibleModel { Id = Guid.NewGuid(), Task = AiTask.CoverArt, ModelName = "m" };
+        _keys.Add(_creator, AiProvider.OpenAiCompatible, false, line);
+
+        Assert.ThrowsAsync<AiKeyRequiredException>(ResolveCoverArt);
+    }
+
+    [Test]
+    public void CatalogValidation_RefusesAnImageModelThatAlsoServesChat()
+    {
+        var mixed = Model("openai/gpt-image-1", AiProvider.OpenAi, false, AiTask.CoverArt, AiTask.Prep);
+
+        Assert.That(new AiModelsOptions { Catalog = [mixed] }.StartupProblem(), Does.Contain("only CoverArt"));
+    }
+
     [Test]
     public void CatalogValidation_RefusesAnUnpricedOrUnservedOrDuplicateEntry()
     {

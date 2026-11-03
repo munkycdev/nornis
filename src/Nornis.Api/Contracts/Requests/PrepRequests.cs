@@ -15,6 +15,9 @@ public record UpdateAdventureRequest(string Title, string? Pitch, Guid? Campaign
 /// <summary>The four editable details, all of them: each is the new value, and null clears it (feature 32).</summary>
 public record UpdateAdventureDetailsRequest(string? GameSystem, string? Edition, string? Levels, int? Year);
 
+/// <summary>The GM's own AI-use tick (feature 38); ignored once AI use is recorded.</summary>
+public record SetAiDeclaredRequest(bool Declared);
+
 /// <summary>A GM's save of one section, naming the version of it the edit was based on.</summary>
 public record SaveAdventureSectionRequest(string Kind, string Title, string? BodyMarkdown, DateTimeOffset BasedOnUpdatedAt);
 
@@ -34,3 +37,12 @@ public record SendConversationMessageRequest(string? Text, Guid? SectionId, stri
 
 /// <summary>Put one saved answer into a section. <see cref="Mode"/> is Replace or Append.</summary>
 public record PutInSectionRequest(Guid MessageId, string? Mode, DateTimeOffset BasedOnUpdatedAt);
+
+/// <summary>The GM's art brief (feature 38): saved as they edit it, and what Generate paints from.</summary>
+public record CoverBriefRequest(string? Brief);
+
+/// <summary>Makes one generated option the cover.</summary>
+public record ChooseCoverRequest(Guid OptionId);
+
+/// <summary>FullBleed, Framed or ClassicModule.</summary>
+public record SetCoverLayoutRequest(string? Layout);

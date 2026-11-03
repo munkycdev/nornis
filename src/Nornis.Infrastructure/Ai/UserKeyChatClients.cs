@@ -6,11 +6,13 @@ using Microsoft.Extensions.Caching.Memory;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using OpenAI;
+using OpenAI.Images;
 
 namespace Nornis.Infrastructure.Ai;
 
 /// <summary>
-/// Chat clients built with users' own keys (feature 39), cached so a busy world doesn't decrypt
+/// Chat clients, and image clients for cover art (feature 38), built with users' own keys
+/// (feature 39), cached so a busy world doesn't decrypt
 /// its creator's key and build a client on every call. The cache key includes the key's
 /// <see cref="UserAiKey.UpdatedAt"/>, so a replaced key is never served from the cache; entries
 /// slide out after ten minutes idle and the cache holds at most 500.
@@ -62,6 +64,22 @@ public sealed class UserKeyChatClients : IDisposable
             entry.Size = 1;
             entry.SlidingExpiration = Idle;
             return Build(key, model, secret());
+        })!;
+
+    /// <summary>
+    /// The image client for <paramref name="key"/> on <paramref name="model"/> (feature 38), cached
+    /// the same way. Only an OpenAI key makes images today; an OpenAI-compatible endpoint is a chat
+    /// endpoint, and Gemini joins with its client.
+    /// </summary>
+    public ImageClient ImagesFor(UserAiKey key, string model, Func<string> secret) =>
+        _cache.GetOrCreate((key.Id, key.UpdatedAt, model, "images"), entry =>
+        {
+            entry.Size = 1;
+            entry.SlidingExpiration = Idle;
+            return key.Provider == AiProvider.OpenAi
+                ? new OpenAIClient(new ApiKeyCredential(secret()), new OpenAIClientOptions { RetryPolicy = new ClientRetryPolicy(_maxRetries) })
+                    .GetImageClient(model)
+                : throw new NotSupportedException($"No image client is built for {key.Provider} keys.");
         })!;
 
     private IChatClient Build(UserAiKey key, string model, string secret)

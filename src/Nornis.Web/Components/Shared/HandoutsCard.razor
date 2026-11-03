@@ -1,0 +1,250 @@
+@inject NornisApiClient Api
+@inject IDialogService DialogService
+
+@* The booklet's handouts (feature 38): Library maps and handouts printed at its back, in this
+   order. Every change saves the whole ordered list, and the card shows what the API answers.
+   Choosing a handout never changes who can see it. *@
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-handouts">
+    <MudText Typo="Typo.overline" Color="Color.Secondary">Handouts</MudText>
+
+    @if (Chosen.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-handouts-empty">
+            None yet. Add maps and handouts from the Library and the booklet prints them at its back.
+        </MudText>
+    }
+    else
+    {
+        @for (var i = 0; i < Chosen.Count; i++)
+        {
+            var index = i;
+            var handout = Chosen[i];
+            <div class="nornis-list-row nornis-handout">
+                <div class="nornis-list-thumb">
+                    <MudIcon Icon="@LibraryDisplay.KindIcon(handout.Category)" Size="Size.Small" />
+                </div>
+                <div class="nornis-list-body">
+                    <a href="@Links.LibraryDocument(handout.Slug, handout.Id)" class="nornis-list-title nornis-link">@handout.Title</a>
+                    <div class="nornis-list-sub">@Describe(handout)</div>
+                </div>
+                <MudIconButton Icon="@Icons.Material.Outlined.ArrowUpward" Size="Size.Small" Class="nornis-handout-up"
+                               Disabled="@(Locked || index == 0)" aria-label="@($"Move {handout.Title} up")"
+                               OnClick="() => MoveAsync(index, -1)" />
+                <MudIconButton Icon="@Icons.Material.Outlined.ArrowDownward" Size="Size.Small" Class="nornis-handout-down"
+                               Disabled="@(Locked || index == Chosen.Count - 1)" aria-label="@($"Move {handout.Title} down")"
+                               OnClick="() => MoveAsync(index, 1)" />
+                <MudIconButton Icon="@Icons.Material.Outlined.Close" Size="Size.Small" Class="nornis-handout-remove"
+                               Disabled="Locked" aria-label="@($"Remove {handout.Title}")"
+                               OnClick="() => RemoveAsync(handout.Id)" />
+            </div>
+        }
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block nornis-handouts-caption">
+            Printed in this order. Choosing a handout doesn't change who can see it in the Library.
+        </MudText>
+    }
+
+    <div class="d-flex flex-wrap gap-1 mt-2">
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" Class="nornis-handouts-add"
+                   StartIcon="@Icons.Material.Outlined.LibraryAdd" Disabled="@(Locked || Full)" OnClick="TogglePickerAsync">
+            Add from Library
+        </MudButton>
+        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" Class="nornis-handouts-upload"
+                   StartIcon="@Icons.Material.Outlined.UploadFile" Disabled="@(Locked || Full)" OnClick="UploadAsync">
+            Upload
+        </MudButton>
+    </div>
+
+    @if (Full)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block nornis-handouts-full">
+            A booklet prints at most @HandoutChoices.MaxHandouts handouts. Remove one to add another.
+        </MudText>
+    }
+
+    @if (_picking)
+    {
+        <div class="nornis-handouts-picker">
+            @if (_library is null)
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="my-2" />
+            }
+            else
+            {
+                <div class="nornis-filter-row mb-1 nornis-handouts-chips">
+                    <MudChip T="string" Size="Size.Small"
+                             Variant="@(_category is null ? Variant.Filled : Variant.Outlined)"
+                             Color="@(_category is null ? Color.Secondary : Color.Default)"
+                             OnClick="() => _category = null">All · @HandoutChoices.Count(_library, ChosenIds, null)</MudChip>
+                    @foreach (var category in HandoutChoices.Categories)
+                    {
+                        var c = category;
+                        <MudChip T="string" Size="Size.Small"
+                                 Variant="@(_category == c ? Variant.Filled : Variant.Outlined)"
+                                 Color="@(_category == c ? Color.Secondary : Color.Default)"
+                                 OnClick="() => _category = c">@LibraryDisplay.ChipLabel(c) · @HandoutChoices.Count(_library, ChosenIds, c)</MudChip>
+                    }
+                </div>
+                <MudTextField T="string" @bind-Value="_search" Immediate="true" Placeholder="Search titles" Clearable="true"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Class="nornis-handouts-search" />
+
+                var (own, others) = HandoutChoices.For(_library, Adventure.Id, ChosenIds, _category, _search);
+                @if (own.Count == 0 && others.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2 nornis-handouts-none">
+                        @(string.IsNullOrWhiteSpace(_search)
+                            ? "No more maps or handouts to add. Upload one, or give a Library image or PDF the Map or Handout category."
+                            : "No maps or handouts match that search.")
+                    </MudText>
+                }
+                @if (own.Count > 0)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">This adventure's</MudText>
+                    @foreach (var doc in own)
+                    {
+                        @Choice(doc)
+                    }
+                }
+                @if (others.Count > 0)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">Elsewhere in the Library</MudText>
+                    @foreach (var doc in others)
+                    {
+                        @Choice(doc)
+                    }
+                }
+            }
+        </div>
+    }
+
+    @if (_error is not null)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Error" Class="nornis-handouts-error">@_error</MudText>
+    }
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public AdventureDto Adventure { get; set; } = null!;
+
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Raised with the Adventure as the API returned it after a change.</summary>
+    [Parameter] public EventCallback<AdventureDto> OnSaved { get; set; }
+
+    private bool _picking;
+    private bool _saving;
+    private string? _error;
+    private string? _category;
+    private string? _search;
+    private IReadOnlyList<LibraryDocumentDto>? _library;
+
+    private IReadOnlyList<AdventureHandoutDto> Chosen => Adventure.Handouts ?? [];
+
+    private IReadOnlyList<Guid> ChosenIds => Chosen.Select(h => h.Id).ToList();
+
+    private bool Full => Chosen.Count >= HandoutChoices.MaxHandouts;
+
+    private bool Locked => Disabled || _saving;
+
+    private static string Describe(AdventureHandoutDto handout) =>
+        $"{handout.Category} · {(handout.ContentType == "application/pdf" ? "PDF" : "image")} · "
+        + (handout.Visibility == "PartyVisible" ? "party visible" : "GM only");
+
+    private RenderFragment Choice(LibraryDocumentDto doc) =>
+        @<div class="nornis-list-row nornis-handout-choice">
+            <div class="nornis-list-thumb">
+                <MudIcon Icon="@LibraryDisplay.KindIcon(doc.Category)" Size="Size.Small" />
+            </div>
+            <div class="nornis-list-body">
+                <span class="nornis-list-title">@doc.Title</span>
+                <div class="nornis-list-sub">@doc.Category</div>
+            </div>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" Class="nornis-handout-choose"
+                       Disabled="@(Locked || Full)" OnClick="() => AddAsync(doc.Id)">Add</MudButton>
+        </div>;
+
+    private async Task TogglePickerAsync()
+    {
+        _picking = !_picking;
+        _error = null;
+        if (_picking)
+        {
+            await LoadLibraryAsync();
+        }
+    }
+
+    private async Task LoadLibraryAsync()
+    {
+        _library = null;
+        var result = await Api.GetLibraryAsync(Adventure.WorldId);
+        if (result.IsSuccess)
+        {
+            _library = result.Value!;
+        }
+        else
+        {
+            _error = result.Error!.Message;
+            _picking = false;
+        }
+    }
+
+    private Task AddAsync(Guid documentId) => SaveAsync([.. ChosenIds, documentId]);
+
+    private Task RemoveAsync(Guid documentId) => SaveAsync(ChosenIds.Where(id => id != documentId).ToList());
+
+    private Task MoveAsync(int index, int offset) => SaveAsync(HandoutChoices.Move(ChosenIds, index, offset));
+
+    private async Task UploadAsync()
+    {
+        _error = null;
+        var parameters = new DialogParameters<LibraryUploadDialog>
+        {
+            { d => d.AdventureId, Adventure.Id },
+            { d => d.Kind, "Handout" },
+        };
+        var dialog = await DialogService.ShowAsync<LibraryUploadDialog>("Upload a handout", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var result = await dialog.Result;
+        if (result is not { Canceled: false, Data: LibraryDocumentDto uploaded })
+        {
+            return;
+        }
+
+        // The GM may have changed the category or the file in the dialog: only a printable map or
+        // handout can be added, and saying so beats the API's refusal.
+        if (!HandoutChoices.CanPrint(uploaded))
+        {
+            _error = $"\"{uploaded.Title}\" is in the Library, but it isn't a map or handout image or PDF, so the booklet can't print it.";
+            return;
+        }
+
+        await SaveAsync([.. ChosenIds, uploaded.Id]);
+        if (_picking)
+        {
+            await LoadLibraryAsync();
+        }
+    }
+
+    private async Task SaveAsync(IReadOnlyList<Guid> ids)
+    {
+        _saving = true;
+        _error = null;
+        try
+        {
+            var result = await Api.SetAdventureHandoutsAsync(Adventure.WorldId, Adventure.Id, ids);
+            if (result.IsSuccess)
+            {
+                await OnSaved.InvokeAsync(result.Value!);
+            }
+            else
+            {
+                _error = result.Error!.Message;
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

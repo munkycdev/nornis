@@ -40,4 +40,11 @@ public interface IAdventureDesignService
 
     /// <summary>At most <see cref="AdventureDesignService.MaxSourceBooks"/>, each a book of this world's Library.</summary>
     Task<AppResult<AdventureView>> SetSourceBooksAsync(SetSourceBooksCommand command, CancellationToken ct);
+
+    /// <summary>
+    /// The maps and handouts printed at the back of the booklet (feature 38), in order: each one
+    /// this world's Map or Handout, an image or a PDF, at most <see cref="AdventureDesignService.MaxHandouts"/>.
+    /// Visibility is left as it is.
+    /// </summary>
+    Task<AppResult<AdventureView>> SetHandoutsAsync(SetHandoutsCommand command, CancellationToken ct);
 }

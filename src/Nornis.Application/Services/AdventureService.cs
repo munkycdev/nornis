@@ -3,6 +3,8 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Prep;
+using Nornis.Application.Prep.Covers;
+using Nornis.Application.Storage;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
@@ -24,11 +26,13 @@ public class AdventureService : IAdventureService
     private readonly ISlugResolver _slugs;
     private readonly AdventureBookletPrinter _printer;
     private readonly PrepOptions _options;
+    private readonly IBlobStorageService _blobs;
 
     public AdventureService(
         IAdventureRepository adventures, ICampaignRepository campaigns, ISlugResolver slugs,
-        AdventureBookletPrinter printer, IOptions<PrepOptions> options)
+        AdventureBookletPrinter printer, IOptions<PrepOptions> options, IBlobStorageService blobs)
     {
+        _blobs = blobs;
         _adventures = adventures;
         _campaigns = campaigns;
         _slugs = slugs;
@@ -217,6 +221,34 @@ public class AdventureService : IAdventureService
         return AppResult<AdventureView>.Success(await ViewAsync(adventure, ct));
     }
 
+    /// <summary>
+    /// Sets the GM's own AI-use tick (feature 38). Once AI use is recorded the box is locked, and
+    /// this changes nothing and answers with the Adventure as it is: the recorded use already
+    /// ticks it, and the GM can't untick a record.
+    /// </summary>
+    public async Task<AppResult<AdventureView>> SetAiDeclaredAsync(SetAiDeclaredCommand command, CancellationToken ct)
+    {
+        if (command.ActingUserRole != WorldRole.GM)
+        {
+            return AppResult<AdventureView>.Fail(GmOnly());
+        }
+
+        var adventure = await LoadAsync(command.WorldId, command.AdventureId, ct);
+        if (adventure is null)
+        {
+            return AppResult<AdventureView>.Fail(NotFound());
+        }
+
+        if (!adventure.AiUse.IsLocked() && adventure.AiUse.Declared != command.Declared)
+        {
+            adventure.AiUse.Declared = command.Declared;
+            adventure.UpdatedAt = DateTimeOffset.UtcNow;
+            await _adventures.UpdateAsync(adventure, ct);
+        }
+
+        return AppResult<AdventureView>.Success(await ViewAsync(adventure, ct));
+    }
+
     public async Task<AppResult<AdventureSection>> SaveSectionAsync(SaveSectionCommand command, CancellationToken ct)
     {
         if (command.ActingUserRole != WorldRole.GM)
@@ -359,6 +391,10 @@ public class AdventureService : IAdventureService
         }
 
         await _adventures.DeleteAsync(adventure.Id, ct);
+
+        // Its cover art and options (feature 38). After the row, so a failed delete leaves at
+        // worst orphaned blobs under a folder no Adventure points at, never a cover with no blob.
+        await _blobs.DeleteByPrefixAsync(CoverBlobs.Folder(adventure.WorldId, adventure.Id), CancellationToken.None);
         return AppResult.Success();
     }
 
@@ -376,6 +412,25 @@ public class AdventureService : IAdventureService
         }
 
         return AppResult<PrintedBooklet>.Success(await _printer.PrintAsync(adventure, ct));
+    }
+
+    public async Task<AppResult<PrintedBooklet>> GetPropsAsync(Guid worldId, Guid adventureId, WorldRole role, CancellationToken ct)
+    {
+        if (role != WorldRole.GM)
+        {
+            return AppResult<PrintedBooklet>.Fail(GmOnly());
+        }
+
+        var adventure = await LoadAsync(worldId, adventureId, ct);
+        if (adventure is null)
+        {
+            return AppResult<PrintedBooklet>.Fail(NotFound());
+        }
+
+        return await _printer.PrintPropsAsync(adventure, ct) is { } props
+            ? AppResult<PrintedBooklet>.Success(props)
+            : AppResult<PrintedBooklet>.Fail(new AppError(404, "no_props",
+                $"This adventure has no props yet. Mark one in a section with \"> {PrepMarkup.PropMarker}\"."));
     }
 
     public async Task<AppResult<AdventureSection>> UndoAsync(UndoSectionCommand command, CancellationToken ct)

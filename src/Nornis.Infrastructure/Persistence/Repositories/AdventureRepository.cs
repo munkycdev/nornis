@@ -45,12 +45,14 @@ public class AdventureRepository : IAdventureRepository
             .AsNoTracking()
             .Include(a => a.Sections)
             .Include(a => a.SourceBooks).ThenInclude(b => b.LibraryDocument)
+            .Include(a => a.Handouts).ThenInclude(h => h.LibraryDocument)
             .AsSplitQuery()
             .FirstOrDefaultAsync(a => a.Id == adventureId, cancellationToken);
 
         if (adventure is not null)
         {
             adventure.Sections = adventure.Sections.OrderBy(s => s.SortOrder).ToList();
+            adventure.Handouts = adventure.Handouts.OrderBy(h => h.SortOrder).ToList();
         }
 
         return adventure;
@@ -76,6 +78,10 @@ public class AdventureRepository : IAdventureRepository
 
         // A copy, so the caller's instance never becomes this row's tracked owned entity.
         row.Details = adventure.Details with { };
+
+        // Only the GM's own tick. The recorded flags are never copied from a caller, so no
+        // update (or Undo) can clear them; only TryAcceptDraftAsync and TrySaveDraftAsync set one.
+        row.AiUse.Declared = adventure.AiUse.Declared;
         row.UpdatedAt = adventure.UpdatedAt;
         await _context.SaveChangesAsync(cancellationToken);
         _context.Entry(row).State = EntityState.Detached;
@@ -189,12 +195,14 @@ public class AdventureRepository : IAdventureRepository
         // Restrict (Worlds cascades to both ends); neither relies on the database here.
         await _context.DeleteWhereAsync<AdventureDraftRevision>(r => r.AdventureId == adventureId, cancellationToken);
         await _context.DeleteWhereAsync<AdventureSourceBook>(b => b.AdventureId == adventureId, cancellationToken);
+        await _context.DeleteWhereAsync<AdventureHandout>(h => h.AdventureId == adventureId, cancellationToken);
         await _context.DeleteWhereAsync<Adventure>(a => a.Id == adventureId, cancellationToken);
     }
 
     public async Task<bool> TrySaveDraftAsync(
         Guid adventureId, string? markdown, AdventureDraftRevision? revision, int maxRevisions,
-        DateTimeOffset? basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+        DateTimeOffset? basedOn, DateTimeOffset updatedAt, bool loremasterWrote = false,
+        CancellationToken cancellationToken = default)
     {
         var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
         if (adventure.DraftUpdatedAt != basedOn)
@@ -214,8 +222,13 @@ public class AdventureRepository : IAdventureRepository
         adventure.DraftMarkdown = markdown;
         adventure.DraftUpdatedAt = markdown is null ? null : updatedAt;
         adventure.UpdatedAt = updatedAt;
+        if (loremasterWrote)
+        {
+            adventure.AiUse.WroteText = true;
+        }
 
-        // One SaveChanges: the revision, the trim and the new draft commit together or not at all.
+        // One SaveChanges: the revision, the trim, the new draft and the AI-use record commit
+        // together or not at all.
         return await SaveGuardedAsync(cancellationToken);
     }
 
@@ -264,6 +277,31 @@ public class AdventureRepository : IAdventureRepository
         _context.AdventureSourceBooks.AddRange(documentIds
             .Where(id => existing.All(b => b.LibraryDocumentId != id))
             .Select(id => new AdventureSourceBook { AdventureId = adventureId, LibraryDocumentId = id }));
+        await TouchAdventureAsync(adventureId, DateTimeOffset.UtcNow, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+        _context.ChangeTracker.Clear();
+    }
+
+    public async Task ReplaceHandoutsAsync(
+        Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken cancellationToken = default)
+    {
+        var existing = await _context.AdventureHandouts
+            .Where(h => h.AdventureId == adventureId)
+            .ToListAsync(cancellationToken);
+        _context.AdventureHandouts.RemoveRange(existing.Where(h => !documentIds.Contains(h.LibraryDocumentId)));
+        for (var i = 0; i < documentIds.Count; i++)
+        {
+            var row = existing.FirstOrDefault(h => h.LibraryDocumentId == documentIds[i]);
+            if (row is null)
+            {
+                _context.AdventureHandouts.Add(new AdventureHandout { AdventureId = adventureId, LibraryDocumentId = documentIds[i], SortOrder = i + 1 });
+            }
+            else
+            {
+                row.SortOrder = i + 1;
+            }
+        }
+
         await TouchAdventureAsync(adventureId, DateTimeOffset.UtcNow, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
         _context.ChangeTracker.Clear();
@@ -402,9 +440,14 @@ public class AdventureRepository : IAdventureRepository
 
         section.BodyMarkdown = newBody;
         section.UpdatedAt = updatedAt;
-        await TouchAdventureAsync(section.AdventureId, updatedAt, cancellationToken);
+        var adventure = await TouchAdventureAsync(section.AdventureId, updatedAt, cancellationToken);
 
-        // One SaveChanges: the revision, the trim and the new body commit together or not at all.
+        // Every accept is the Loremaster's text (a draft or Put in section), so it records AI use
+        // (feature 38) in the same unit of work as the text it records.
+        adventure.AiUse.WroteText = true;
+
+        // One SaveChanges: the revision, the trim, the new body and the AI-use record commit
+        // together or not at all.
         return await SaveGuardedAsync(cancellationToken);
     }
 
@@ -416,10 +459,83 @@ public class AdventureRepository : IAdventureRepository
         }
     }
 
-    private async Task TouchAdventureAsync(Guid adventureId, DateTimeOffset at, CancellationToken cancellationToken)
+    public async Task SetCoverAsync(
+        Guid adventureId, AdventureCover? cover, bool generated, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+    {
+        var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
+
+        // A copy, so the caller's instance never becomes this row's tracked owned entity.
+        adventure.Cover = cover is null ? null : cover with { };
+        adventure.UpdatedAt = updatedAt;
+
+        // A generated cover is AI's art (feature 38): recorded with the cover, in one save, and
+        // never cleared, not even when the cover is removed or replaced by an upload.
+        if (generated)
+        {
+            adventure.AiUse.MadeArt = true;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        _context.Entry(adventure).State = EntityState.Detached;
+    }
+
+    public async Task<bool> TryCountCoverImagesAsync(Guid adventureId, int count, int cap, CancellationToken cancellationToken = default)
+    {
+        // One conditional UPDATE, so two generations at once can't both pass the cap.
+        if (_context.Database.IsRelational())
+        {
+            var updated = await _context.Adventures
+                .Where(a => a.Id == adventureId && a.CoverImagesGenerated + count <= cap)
+                .ExecuteUpdateAsync(set => set.SetProperty(a => a.CoverImagesGenerated, a => a.CoverImagesGenerated + count), cancellationToken);
+            return updated == 1;
+        }
+
+        // InMemory (API integration tests) has no ExecuteUpdate. Single-threaded there, so a
+        // read-modify-write keeps the observable contract without the atomicity.
+        var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
+        var fits = adventure.CoverImagesGenerated + count <= cap;
+        if (fits)
+        {
+            adventure.CoverImagesGenerated += count;
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        _context.Entry(adventure).State = EntityState.Detached;
+        return fits;
+    }
+
+    public async Task ReleaseCoverImagesAsync(Guid adventureId, int count, CancellationToken cancellationToken = default)
+    {
+        if (_context.Database.IsRelational())
+        {
+            await _context.Adventures
+                .Where(a => a.Id == adventureId)
+                .ExecuteUpdateAsync(set => set.SetProperty(
+                    a => a.CoverImagesGenerated, a => a.CoverImagesGenerated < count ? 0 : a.CoverImagesGenerated - count), cancellationToken);
+            return;
+        }
+
+        var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
+        adventure.CoverImagesGenerated = Math.Max(0, adventure.CoverImagesGenerated - count);
+        await _context.SaveChangesAsync(cancellationToken);
+        _context.Entry(adventure).State = EntityState.Detached;
+    }
+
+    public async Task SaveCoverWorkAsync(
+        Guid adventureId, string? brief, IReadOnlyList<Guid> newOptionIds, CancellationToken cancellationToken = default)
+    {
+        var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
+        adventure.CoverBrief = brief;
+        adventure.CoverOptionIds = [.. adventure.CoverOptionIds, .. newOptionIds.Where(id => !adventure.CoverOptionIds.Contains(id))];
+        await _context.SaveChangesAsync(cancellationToken);
+        _context.Entry(adventure).State = EntityState.Detached;
+    }
+
+    private async Task<Adventure> TouchAdventureAsync(Guid adventureId, DateTimeOffset at, CancellationToken cancellationToken)
     {
         var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
         adventure.UpdatedAt = at;
+        return adventure;
     }
 
     /// <summary>

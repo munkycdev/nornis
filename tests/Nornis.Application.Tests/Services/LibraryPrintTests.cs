@@ -226,6 +226,7 @@ public class LibraryPrintTests
             Publisher = PrintDetails.NornisPublisher,
             Author = TestPrintDetails.Username,
             Year = 2026,
+            AiUse = AiUseKind.None,
         }));
     }
 

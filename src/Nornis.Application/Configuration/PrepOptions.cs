@@ -53,6 +53,18 @@ public class PrepOptions
     /// </summary>
     public string? Deployment { get; set; }
 
+    /// <summary>How many cover images an Adventure may have generated, chosen or not (feature 38).</summary>
+    public int MaxCoverImagesPerAdventure { get; set; } = 12;
+
+    /// <summary>How many options one Generate makes (feature 38).</summary>
+    public int CoverOptionsPerGeneration { get; set; } = 2;
+
+    /// <summary>How long a cover generation may take, in seconds: an image takes far longer than text.</summary>
+    public int CoverTimeoutSeconds { get; set; } = 180;
+
+    /// <summary>The largest cover a GM may upload, in bytes (feature 38).</summary>
+    public int MaxCoverUploadBytes { get; set; } = 10 * 1024 * 1024;
+
     /// <summary>
     /// The first bound that is zero or less, by name, or null when every bound is positive. No
     /// bound has an "unbounded" value, so the API refuses to start on one (Program.cs).
@@ -61,6 +73,10 @@ public class PrepOptions
         new (string Name, int Value)[]
         {
             (nameof(MaxSections), MaxSections),
+            (nameof(MaxCoverImagesPerAdventure), MaxCoverImagesPerAdventure),
+            (nameof(CoverOptionsPerGeneration), CoverOptionsPerGeneration),
+            (nameof(CoverTimeoutSeconds), CoverTimeoutSeconds),
+            (nameof(MaxCoverUploadBytes), MaxCoverUploadBytes),
             (nameof(MaxSectionChars), MaxSectionChars),
             (nameof(MaxAdventureChars), MaxAdventureChars),
             (nameof(MaxInstructionChars), MaxInstructionChars),

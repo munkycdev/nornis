@@ -153,7 +153,7 @@
         {
             Label = existing?.Label,
             BaseUrl = existing?.BaseUrl,
-            Lines = AiText.Tasks.Select(task => existing?.Models.FirstOrDefault(m => m.Task == task) is { } m
+            Lines = AiText.CompatibleTasks.Select(task => existing?.Models.FirstOrDefault(m => m.Task == task) is { } m
                 ? new Line(task) { Use = true, ModelName = m.ModelName, SupportsImages = m.SupportsImages, InputPerMillionUsd = m.InputPerMillionUsd, OutputPerMillionUsd = m.OutputPerMillionUsd }
                 : new Line(task)).ToList(),
         };

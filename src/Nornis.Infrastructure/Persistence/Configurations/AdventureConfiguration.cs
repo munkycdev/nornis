@@ -40,6 +40,34 @@ public class AdventureConfiguration : IEntityTypeConfiguration<Adventure>
 
         builder.Navigation(a => a.Details).IsRequired();
 
+        // Feature 38: three bool columns (the migration adds them as false). The recorded two are only ever set
+        // to true, by AdventureRepository's AI writes; UpdateAsync copies the GM's Declared only.
+        builder.OwnsOne(a => a.AiUse, ai =>
+        {
+            ai.Property(u => u.WroteText).HasColumnName("AiWroteText");
+            ai.Property(u => u.MadeArt).HasColumnName("AiMadeArt");
+            ai.Property(u => u.Declared).HasColumnName("AiDeclared");
+        });
+
+        builder.Navigation(a => a.AiUse).IsRequired();
+
+        // Feature 38: the cover art, six nullable Cover_* columns. Optional: BlobPath is required
+        // inside, so an Adventure with no art reads back with a null Cover.
+        builder.OwnsOne(a => a.Cover, cover =>
+        {
+            cover.Property(c => c.BlobPath).IsRequired().HasMaxLength(500);
+            cover.Property(c => c.ContentType).IsRequired().HasMaxLength(50);
+            cover.Property(c => c.Source).HasConversion<string>().HasMaxLength(20);
+            cover.Property(c => c.Brief).HasMaxLength(AdventureCover.MaxBriefChars);
+            cover.Property(c => c.Layout).HasConversion<string>().HasMaxLength(20);
+            cover.Property(c => c.UpdatedAt).HasColumnType("datetimeoffset");
+        });
+
+        builder.Property(a => a.CoverBrief).HasMaxLength(AdventureCover.MaxBriefChars);
+
+        // A JSON array of ids: at most the image cap's worth, never queried into.
+        builder.Property(a => a.CoverOptionIds).HasMaxLength(4000);
+
         // The design draft (feature 37). Its stamp is a concurrency token, so two tabs (or a tab
         // and an applied edit) can't silently overwrite each other's draft.
         builder.Property(a => a.DraftMarkdown)

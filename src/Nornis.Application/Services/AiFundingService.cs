@@ -48,7 +48,7 @@ public sealed class AiFundingService : IAiFundingService
     }
 
     public async Task<AiFunding> ResolveAsync(
-        AiCallScope scope, AiTask task, string nornisModel, bool needsImages, CancellationToken ct)
+        AiCallScope scope, AiTask task, string? nornisModel, bool needsImages, CancellationToken ct)
     {
         var holder = await KeyHolderAsync(scope, ct);
 
@@ -69,6 +69,13 @@ public sealed class AiFundingService : IAiFundingService
                         pick.CatalogId, pick.Price);
                 }
             }
+        }
+
+        // Nothing of Nornis's can run this work, so neither fallback applies: the trial runs on
+        // Nornis's deployments too (feature 38's cover art).
+        if (nornisModel is null)
+        {
+            throw new AiKeyRequiredException(task, "only the key holder's own key can run it.");
         }
 
         if (_options.Fallback == AiFallback.Nornis)

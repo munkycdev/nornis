@@ -53,6 +53,8 @@ public class NornisDbContext : DbContext
     public DbSet<AdventureSectionRevision> AdventureSectionRevisions => Set<AdventureSectionRevision>();
     public DbSet<AdventureDraftRevision> AdventureDraftRevisions => Set<AdventureDraftRevision>();
     public DbSet<AdventureSourceBook> AdventureSourceBooks => Set<AdventureSourceBook>();
+
+    public DbSet<AdventureHandout> AdventureHandouts => Set<AdventureHandout>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ConversationMessage> ConversationMessages => Set<ConversationMessage>();
     public DbSet<MapPlacemark> MapPlacemarks => Set<MapPlacemark>();

@@ -1181,7 +1181,46 @@ public record AdventureDto(
     IReadOnlyList<string>? IgnoredDetails = null,
     AdventureDraftDto? Draft = null,
     string? TableBrief = null,
-    IReadOnlyList<AdventureSourceBookDto>? SourceBooks = null);
+    IReadOnlyList<AdventureSourceBookDto>? SourceBooks = null,
+    AdventureAiUseDto? AiUse = null,
+    IReadOnlyList<AdventureHandoutDto>? Handouts = null);
+
+/// <summary>
+/// A handout the booklet prints at its back (feature 38), in print order. <see cref="Category"/> is
+/// Map or Handout. Mirrors <c>AdventureHandoutResponse</c>.
+/// </summary>
+public record AdventureHandoutDto(Guid Id, string Title, string? Slug, string Category, string ContentType, string Visibility);
+
+/// <summary>The booklet's handouts, the whole ordered list (feature 38): add, remove and reorder are all this.</summary>
+public record SetHandoutsRequest(IReadOnlyList<Guid> DocumentIds);
+
+/// <summary>
+/// AI's part in the Adventure (feature 38). <see cref="Locked"/> means recorded use: the box is
+/// ticked and can't be unticked. <see cref="Kind"/> is None, Declared, Text, Art or TextAndArt.
+/// Mirrors <c>AdventureAiUseResponse</c>.
+/// </summary>
+public record AdventureAiUseDto(bool WroteText, bool MadeArt, bool Declared, bool Locked, string Kind);
+
+/// <summary>The GM's own AI-use tick (feature 38); the API ignores it once AI use is recorded.</summary>
+public record SetAiDeclaredRequest(bool Declared);
+
+/// <summary>
+/// The Cover card (feature 38). <see cref="Options"/> are generated options, newest first;
+/// <see cref="GenerateBlocker"/> says why Generate can't run; <see cref="Warning"/> is an upload's
+/// note that the art may print soft.
+/// </summary>
+public record CoverStateDto(
+    CoverDto? Cover, string? Brief, IReadOnlyList<Guid> Options, Guid? ChosenOptionId,
+    int ImagesGenerated, int ImagesCap, bool CanGenerate, string? GenerateBlocker, string? Warning);
+
+/// <summary>Source is Generated or Uploaded; Layout is FullBleed, Framed or ClassicModule.</summary>
+public record CoverDto(string Source, string Layout, string ContentType, DateTimeOffset UpdatedAt);
+
+public record CoverBriefRequest(string? Brief);
+
+public record ChooseCoverRequest(Guid OptionId);
+
+public record SetCoverLayoutRequest(string? Layout);
 
 /// <summary>
 /// The design draft (feature 37): one Markdown document the GM and the Loremaster iterate on,
@@ -1211,7 +1250,7 @@ public record AdventureDetailsDto(string? GameSystem, string? Edition, string? L
 /// </summary>
 public record PrintDetailsDto(
     string Title, string? GameSystem, string? Edition, string Type, string? Levels,
-    string Publisher, string Author, int? Year);
+    string Publisher, string Author, int? Year, string? AiUse = null);
 
 /// <summary>All four editable details: each is the new value, and null clears it.</summary>
 public record UpdateAdventureDetailsRequest(string? GameSystem, string? Edition, string? Levels, int? Year);

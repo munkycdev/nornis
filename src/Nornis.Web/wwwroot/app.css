@@ -4591,6 +4591,130 @@ a.nornis-cite:hover {
     font-size: 0.75rem;
 }
 
+/* Feature 38: the AI-use box, under the details, its reason or hint beneath it. */
+.nornis-book-details-ai {
+    border-top: 1px solid var(--mud-palette-lines-default);
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+}
+
+.nornis-book-details-ai .nornis-book-details-caption {
+    padding-left: 2.25rem;
+}
+
+/* The Cover card (feature 38): the art beside its layout, the brief, and the generated options
+   in a grid of portrait thumbnails. The upload "button" is a label around a hidden file input,
+   so it opens the picker like any button and needs no script. */
+.nornis-cover-current {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-top: 6px;
+}
+
+.nornis-cover-thumb {
+    width: 96px;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--mud-palette-lines-default);
+    flex-shrink: 0;
+}
+
+.nornis-cover-current-side {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+}
+
+.nornis-cover-upload {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: var(--mud-default-borderradius);
+    border: 1px solid var(--mud-palette-primary);
+    color: var(--mud-palette-primary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.nornis-cover-upload:focus-within {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 2px;
+}
+
+.nornis-cover-upload-disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.nornis-cover-upload-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+}
+
+.nornis-cover-brief {
+    margin-top: 10px;
+}
+
+.nornis-cover-working {
+    margin-top: 8px;
+}
+
+.nornis-cover-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.nornis-cover-option {
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    background: none;
+    cursor: pointer;
+    line-height: 0;
+}
+
+.nornis-cover-option img {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: 2px;
+}
+
+.nornis-cover-option:hover:not(:disabled) {
+    border-color: var(--mud-palette-lines-default);
+}
+
+.nornis-cover-option-chosen {
+    border-color: var(--mud-palette-primary);
+    cursor: default;
+}
+
+/* Handouts (feature 38): the chosen list, and a picker that scrolls rather than growing the rail. */
+.nornis-handout .nornis-list-body,
+.nornis-handout-choice .nornis-list-body {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.nornis-handouts-picker {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--mud-palette-lines-default);
+    max-height: 24rem;
+    overflow-y: auto;
+}
+
 /* Design mode (feature 37): the brief keeps the GM's line breaks; source books are a short list. */
 .nornis-table-brief-text {
     white-space: pre-wrap;

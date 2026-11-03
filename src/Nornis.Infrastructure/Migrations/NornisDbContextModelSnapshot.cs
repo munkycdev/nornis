@@ -32,6 +32,18 @@ namespace Nornis.Infrastructure.Migrations
                     b.Property<Guid?>("CampaignId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CoverBrief")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("CoverImagesGenerated")
+                        .HasColumnType("int");
+
+                    b.PrimitiveCollection<string>("CoverOptionIds")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -114,6 +126,24 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasIndex("AdventureId", "CreatedAt");
 
                     b.ToTable("AdventureDraftRevisions", (string)null);
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.AdventureHandout", b =>
+                {
+                    b.Property<Guid>("AdventureId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("LibraryDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("AdventureId", "LibraryDocumentId");
+
+                    b.HasIndex("LibraryDocumentId");
+
+                    b.ToTable("AdventureHandouts", (string)null);
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.AdventureSection", b =>
@@ -2201,6 +2231,71 @@ namespace Nornis.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.OwnsOne("Nornis.Domain.Models.AdventureAiUse", "AiUse", b1 =>
+                        {
+                            b1.Property<Guid>("AdventureId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<bool>("Declared")
+                                .HasColumnType("bit")
+                                .HasColumnName("AiDeclared");
+
+                            b1.Property<bool>("MadeArt")
+                                .HasColumnType("bit")
+                                .HasColumnName("AiMadeArt");
+
+                            b1.Property<bool>("WroteText")
+                                .HasColumnType("bit")
+                                .HasColumnName("AiWroteText");
+
+                            b1.HasKey("AdventureId");
+
+                            b1.ToTable("Adventures");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AdventureId");
+                        });
+
+                    b.OwnsOne("Nornis.Domain.Models.AdventureCover", "Cover", b1 =>
+                        {
+                            b1.Property<Guid>("AdventureId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("BlobPath")
+                                .IsRequired()
+                                .HasMaxLength(500)
+                                .HasColumnType("nvarchar(500)");
+
+                            b1.Property<string>("Brief")
+                                .HasMaxLength(2000)
+                                .HasColumnType("nvarchar(2000)");
+
+                            b1.Property<string>("ContentType")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("nvarchar(50)");
+
+                            b1.Property<string>("Layout")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("nvarchar(20)");
+
+                            b1.Property<string>("Source")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("nvarchar(20)");
+
+                            b1.Property<DateTimeOffset>("UpdatedAt")
+                                .HasColumnType("datetimeoffset");
+
+                            b1.HasKey("AdventureId");
+
+                            b1.ToTable("Adventures");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AdventureId");
+                        });
+
                     b.OwnsOne("Nornis.Domain.Models.AdventureDetails", "Details", b1 =>
                         {
                             b1.Property<Guid>("AdventureId")
@@ -2229,7 +2324,12 @@ namespace Nornis.Infrastructure.Migrations
                                 .HasForeignKey("AdventureId");
                         });
 
+                    b.Navigation("AiUse")
+                        .IsRequired();
+
                     b.Navigation("Campaign");
+
+                    b.Navigation("Cover");
 
                     b.Navigation("CreatedByUser");
 
@@ -2248,6 +2348,23 @@ namespace Nornis.Infrastructure.Migrations
                         .HasForeignKey("AdventureId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.AdventureHandout", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.Adventure", null)
+                        .WithMany("Handouts")
+                        .HasForeignKey("AdventureId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Nornis.Domain.Entities.LibraryDocument", "LibraryDocument")
+                        .WithMany()
+                        .HasForeignKey("LibraryDocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LibraryDocument");
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.AdventureSection", b =>
@@ -2640,6 +2757,10 @@ namespace Nornis.Infrastructure.Migrations
                             b1.Property<Guid>("LibraryDocumentId")
                                 .HasColumnType("uniqueidentifier");
 
+                            b1.Property<string>("AiUse")
+                                .HasMaxLength(20)
+                                .HasColumnType("nvarchar(20)");
+
                             b1.Property<string>("Author")
                                 .IsRequired()
                                 .HasMaxLength(200)
@@ -2973,6 +3094,8 @@ namespace Nornis.Infrastructure.Migrations
 
             modelBuilder.Entity("Nornis.Domain.Entities.Adventure", b =>
                 {
+                    b.Navigation("Handouts");
+
                     b.Navigation("Sections");
 
                     b.Navigation("SourceBooks");

@@ -73,7 +73,7 @@ public class AdventureConversationServiceTests
         });
 
         _adventureService = new AdventureService(_adventures, new InMemoryCampaignRepository(),
-            new FakeSlugResolver((_, _) => null), TestBooklets.Printer(TestPrintDetails.For(_worldId, GmUserId, worlds: worlds)), Options.Create(_options));
+            new FakeSlugResolver((_, _) => null), TestBooklets.Printer(TestPrintDetails.For(_worldId, GmUserId, worlds: worlds)), Options.Create(_options), new FakeBlobStorageService());
         _sut = new AdventureConversationService(
             _adventures, _conversations, new PrepPromptContextBuilder(worlds, _retriever, _references, Options.Create(loremaster)), _ai, _budget, TestUsageRecorder.Wrap(_ledger), _gate,
             Options.Create(_options), Options.Create(loremaster), NullLogger<AdventureConversationService>.Instance);
@@ -552,6 +552,8 @@ public class AdventureConversationServiceTests
         await SaveSectionAsync(adventure, scene, "The GM's own words.");
         var answer = await AnsweredAsync(adventure, "> Fog rolls in off the water.");
         var calls = _ai.Requests.Count;
+        Assert.That(_adventures.Adventures.Single(a => a.Id == adventure.Id).AiUse.WroteText, Is.False,
+            "a conversation on its own records no AI use (feature 38)");
 
         var put = await _sut.PutInSectionAsync(Put(adventure, scene, answer, PutInSectionMode.Replace), CancellationToken.None);
 
@@ -567,6 +569,8 @@ public class AdventureConversationServiceTests
             CancellationToken.None);
         Assert.That(undo.IsSuccess, Is.True);
         Assert.That(Stored(scene.Id).BodyMarkdown, Is.EqualTo("The GM's own words."));
+        Assert.That(_adventures.Adventures.Single(a => a.Id == adventure.Id).AiUse.WroteText, Is.True,
+            "Put in section records AI use, and Undo restores text, not the record");
     }
 
     [Test]

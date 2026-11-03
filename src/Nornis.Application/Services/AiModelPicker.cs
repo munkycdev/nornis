@@ -1,3 +1,4 @@
+using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
@@ -61,7 +62,8 @@ internal static class AiModelPicker
 
     private static ModelPick? Compatible(IReadOnlyList<UserAiKey> keys, AiTask task, bool needsImages, Guid? lineId)
     {
-        if (KeyFor(keys, AiProvider.OpenAiCompatible) is not { } key)
+        // An OpenAI-compatible endpoint is a chat endpoint: no line of one makes images (feature 38).
+        if (AiTasks.OnlyKeysRun(task) || KeyFor(keys, AiProvider.OpenAiCompatible) is not { } key)
         {
             return null;
         }

@@ -199,6 +199,15 @@ public class AiKeyServiceTests
     }
 
     [Test]
+    public async Task A_compatible_key_cant_serve_cover_art()
+    {
+        var result = await Save(AiProvider.OpenAiCompatible, baseUrl: "https://llm.example.com/v1/", models: [Line(AiTask.CoverArt)]);
+
+        Assert.That(result.Error?.Code, Is.EqualTo("invalid_models"));
+        Assert.That(result.Error?.Message, Does.Contain("cover art"));
+    }
+
+    [Test]
     public async Task Resaving_a_compatible_key_keeps_the_line_a_choice_names()
     {
         await Save(AiProvider.OpenAiCompatible, baseUrl: "https://llm.example.com/v1/", models: [Line(AiTask.Ask), Line(AiTask.Prep)]);

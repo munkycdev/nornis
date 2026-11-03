@@ -78,6 +78,10 @@ public record SetTableBriefCommand(Guid WorldId, Guid AdventureId, WorldRole Act
 public record SetSourceBooksCommand(
     Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, IReadOnlyList<Guid> DocumentIds);
 
+/// <summary>Makes the Adventure's handouts exactly these Library maps and handouts, in this order (feature 38).</summary>
+public record SetHandoutsCommand(
+    Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, IReadOnlyList<Guid> DocumentIds);
+
 public record CreateAdventureCommand(
     Guid WorldId, Guid ActingUserId, WorldRole ActingUserRole, string Title, string? Pitch, Guid? CampaignId);
 
@@ -98,6 +102,12 @@ public record UpdateAdventureCommand(
 public record UpdateAdventureDetailsCommand(
     Guid WorldId, Guid AdventureId, WorldRole ActingUserRole,
     string? GameSystem, string? Edition, string? Levels, int? Year);
+
+/// <summary>
+/// The GM's own "AI was used" tick (feature 38), for AI used outside Nornis. A no-op once AI use
+/// is recorded: the box is then ticked and locked.
+/// </summary>
+public record SetAiDeclaredCommand(Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, bool Declared);
 
 public record SaveSectionCommand(
     Guid WorldId, Guid AdventureId, Guid SectionId, WorldRole ActingUserRole,

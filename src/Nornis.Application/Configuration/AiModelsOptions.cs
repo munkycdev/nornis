@@ -53,6 +53,8 @@ public sealed class AiModelsOptions
                 { Model: null or "" } => $"'{model.Id}' has no Model",
                 _ when !CatalogProviders.Contains(model.Provider) => $"'{model.Id}' names {model.Provider}, which has no client yet",
                 { Tasks.Count: 0 } => $"'{model.Id}' serves no task",
+                _ when model.Tasks.Contains(AiTask.CoverArt) && model.Tasks.Count > 1 =>
+                    $"'{model.Id}' makes images, so it can serve only CoverArt",
                 _ when model.InputPerMillionUsd <= 0 || model.OutputPerMillionUsd <= 0 => $"'{model.Id}' has no price",
                 _ when model.CachedInputPerMillionUsd is < 0 => $"'{model.Id}' has a negative cached price",
                 _ => null,

@@ -27,11 +27,13 @@ public record BibliotaphProviderFile(
 /// <summary>
 /// A print's book details, in the shape Bibliotaph's catalogue takes them. A null field means
 /// Nornis has no value, so Bibliotaph may keep suggesting it. <see cref="Authors"/> holds the
-/// one author, the Adventure's creator.
+/// one author, the Adventure's creator. <see cref="AiUse"/> (feature 38) is None, Declared, Text,
+/// Art or TextAndArt, and null for prints filed before it recorded anything; Bibliotaph treats
+/// unknown fields as optional.
 /// </summary>
 public record BibliotaphProviderBook(
     string Title, string? GameSystem, string? Edition, string Type, string? Levels,
-    string Publisher, IReadOnlyList<string> Authors, int? Year);
+    string Publisher, IReadOnlyList<string> Authors, int? Year, string? AiUse = null);
 
 public record BibliotaphProviderFilesResponse(IReadOnlyList<BibliotaphProviderFile> Files, string? NextCursor);
 

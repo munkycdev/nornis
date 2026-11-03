@@ -7,16 +7,66 @@ namespace Nornis.Application.Prep;
 /// and what <see cref="IBookletPdfRenderer"/> lays out. It carries no fonts, sizes or pages, so
 /// every markup convention is decided before layout and every layout rule after it.
 /// </summary>
-public sealed record Booklet(BookletCover Cover, IReadOnlyList<BookletChapter> Chapters);
+public sealed record Booklet(
+    BookletCover Cover, BookletRights Rights, IReadOnlyList<BookletChapter> Chapters, IReadOnlyList<BookletHandout>? Handouts = null);
 
-/// <summary>The cover's lines, each already worded; a null line is left off (feature 32).</summary>
+/// <summary>
+/// One entry of the "Handouts and maps" appendix (feature 38), in the GM's order. The printer
+/// reads the files; the model never touches storage.
+/// </summary>
+public abstract record BookletHandout(string Title);
+
+/// <summary>An image, drawn on its own page, landscape when it is wider than tall.</summary>
+public sealed record BookletHandoutImage(string Title, byte[] Image) : BookletHandout(Title);
+
+/// <summary>A PDF, whose pages are appended as they are.</summary>
+public sealed record BookletHandoutPdf(string Title, byte[] Pdf) : BookletHandout(Title);
+
+/// <summary>A handout the booklet can't carry, printed as a page that names it and says why.</summary>
+public sealed record BookletHandoutMissing(string Title, string Reason) : BookletHandout(Title);
+
+/// <summary>The props to cut out and hand over (feature 38): every <c>[!PROP]</c> box, each on its own page.</summary>
+public sealed record BookletProps(string Title, IReadOnlyList<BookletBox> Props);
+
+/// <summary>
+/// The cover's lines, each already worded; a null line is left off (feature 32). The credits
+/// moved to the rights page in feature 38, which also gave the cover its art. No art keeps the
+/// typeset cover.
+/// </summary>
 public sealed record BookletCover(
     string Title,
     string? SystemLine,
     string? LevelsLine,
     string AuthorLine,
     string? Pitch,
-    string CreditsLine);
+    BookletArt? Art = null);
+
+/// <summary>The cover art's bytes (PNG or JPEG) and the layout that places it (feature 38).</summary>
+public sealed record BookletArt(byte[] Image, CoverLayout Layout);
+
+/// <summary>
+/// The rights page (feature 38), straight after the cover: credits, then the notices. Each line is
+/// already worded; a null line is left off.
+/// </summary>
+/// <param name="Credits">The type, the publisher and the year, as the cover used to carry them.</param>
+/// <param name="Copyright">"© 2026 kelda".</param>
+/// <param name="Printed">"Printed 3 November 2026".</param>
+/// <param name="MadeWith">"Made with Nornis 3.9".</param>
+/// <param name="AiStatement">What the Adventure recorded about AI, from <see cref="RightsStatement.For"/>.</param>
+public sealed record BookletRights(
+    string Title,
+    string Publisher,
+    string Credits,
+    string Copyright,
+    string? SystemLine,
+    string? LevelsLine,
+    string Printed,
+    string MadeWith,
+    string AiStatement,
+    string Notice);
+
+/// <summary>When a booklet was printed and by which release (feature 38): what the rights page dates it by.</summary>
+public sealed record BookletImprint(DateOnly Printed, string Version);
 
 /// <summary>A Chapter, which starts a page. <see cref="Title"/> is null for the sections before the first Chapter.</summary>
 public sealed record BookletChapter(string? Title, IReadOnlyList<BookletBlock> Blocks);

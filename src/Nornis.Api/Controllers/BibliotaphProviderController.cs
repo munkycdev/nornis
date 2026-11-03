@@ -63,7 +63,7 @@ public class BibliotaphProviderController : ControllerBase
                 d.Id, d.FileName, d.ContentType, d.SizeBytes, d.UpdatedAt,
                 d.UpdatedAt.UtcTicks.ToString(CultureInfo.InvariantCulture),
                 d.PrintDetails is { } p
-                    ? new BibliotaphProviderBook(p.Title, p.GameSystem, p.Edition, p.Type, p.Levels, p.Publisher, [p.Author], p.Year)
+                    ? new BibliotaphProviderBook(p.Title, p.GameSystem, p.Edition, p.Type, p.Levels, p.Publisher, [p.Author], p.Year, p.AiUse?.ToString())
                     : null)).ToList(),
             page.NextCursor));
     }

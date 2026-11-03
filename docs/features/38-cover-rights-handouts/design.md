@@ -1,5 +1,44 @@
 # Design Document
 
+> **Amendment (2026-11-03, Phases B to D):** what building it changed. The text below is left
+> as written.
+>
+> - **Covers run on the creator's own OpenAI key (feature 39).** The westus Azure OpenAI
+>   resource has no image model, so there is no `CoverArt__*` deployment and no Nornis-paid or
+>   trial path. `AiTask.CoverArt` is key-only: `OpenAiCoverArtGenerator` binds through
+>   `IAiImageBinder` (the funding rule picks `openai/gpt-image-1` on the world creator's key) and
+>   reports key failures like any call. With no key, Generate is off with "Add an OpenAI key to
+>   generate covers. You can still upload your own art."; upload still works.
+> - **Token pricing, not a per-image price.** The image model's catalog line carries per-million
+>   rates and the cost comes from the response's usage, recorded to the Prep pool as
+>   `CoverArt`. There is no `PrepOptions.CoverImagePriceUsd`. The cap is
+>   `PrepOptions.MaxCoverImagesPerAdventure` (12), counted atomically before the call
+>   (`TryCountCoverImagesAsync`); a failure or a short delivery gives the count back, a cancel
+>   doesn't.
+> - **No `AiUseRecorder`.** The flags are set by the repository in the same save as the text or
+>   cover they record: accepting a section revision (draft and Put in section), a draft change
+>   whose `AdventureDraftChange.IsLoremasterWriting()` is true (Edit, Put), and
+>   `SetCoverAsync(generated: true)`. `PrepBoundaryTests` pins `generated: true` to
+>   `AdventureCoverService`, and `IsLoremasterWriting` throws for an unclassified change.
+> - **The rights block sits at the foot of page 2**, centred, rather than filling the page.
+> - **Options persist; nothing is pending.** Generated options stay under
+>   `worlds/{w}/covers/{a}/options/` (`Adventure.CoverOptionIds`, with the working
+>   `CoverBrief`) until the Adventure is deleted, so the GM can go back to one. Choose points the
+>   cover at the option's blob without copying it. Uploads get unique names under `uploads/`,
+>   and a replaced upload's blob is deleted. Deleting the Adventure deletes its covers folder.
+> - **Upload is the raw request body** (`PUT cover/image`, bounded read), not a SAS handshake:
+>   10 MB is small enough to go through the API, which decodes it to check it's an image.
+> - **A cover endpoint of its own.** `GET prep/{id}/cover` returns the card's whole state
+>   (cover, brief, options, cap, whether Generate can run and why not); `GET prep/{id}` does not
+>   carry it. The images reach the browser through the Web's `/prep-covers/...` proxies.
+> - **Handouts are one `PUT prep/{id}/handouts`** with the whole ordered list: add, remove and
+>   reorder are all that call. `BookletHandout` is `Image`, `Pdf` or `Missing(reason)` with the
+>   bytes loaded by the printer, bounded at 100 MB for the lot; a handout that can't be read
+>   prints a page saying so and where to find it. The card reorders with up and down arrows
+>   rather than drag.
+> - **Print props** is offered only when a section holds a `[!PROP]` box (the Web looks for the
+>   marker; the API's `no_props` 404 stays the rule) and downloads through `/prep-props/...`.
+
 ## Overview
 
 ```

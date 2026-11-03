@@ -49,7 +49,7 @@ public class AdventureExportServiceTests
             _queue, new InMemoryReviewBatchRepository(), new InMemoryReviewProposalRepository(),
             new InMemorySourceAttachmentRepository(), new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
         _adventureService = new AdventureService(_adventures, campaigns, new FakeSlugResolver((_, _) => null),
-            TestBooklets.Printer(TestPrintDetails.For(WorldId, GmId)), Options.Create(new PrepOptions()));
+            TestBooklets.Printer(TestPrintDetails.For(WorldId, GmId)), Options.Create(new PrepOptions()), new FakeBlobStorageService());
         var worlds = new InMemoryWorldRepository();
         await worlds.CreateAsync(new World
         {

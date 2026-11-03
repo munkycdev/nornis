@@ -47,6 +47,7 @@ public class PrepEndpointTests
         yield return ("update", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}", new UpdateAdventureRequest("Renamed", null, null)));
         yield return ("details", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/details",
             new UpdateAdventureDetailsRequest("Mine", null, null, null)));
+        yield return ("ai declared", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/ai-declared", new SetAiDeclaredRequest(true)));
         yield return ("delete", (c, w, a, _) => c.DeleteAsync($"{Base(w)}/{a}"));
         yield return ("save section", (c, w, a, s) => c.PutAsJsonAsync($"{Base(w)}/{a}/sections/{s}",
             new SaveAdventureSectionRequest("Notes", "Mine", "Body", DateTimeOffset.UtcNow)));
@@ -80,6 +81,112 @@ public class PrepEndpointTests
             new PutInDraftRequest(Guid.NewGuid(), "Replace", null)));
         yield return ("brief", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/brief", new SetTableBriefRequest("Mine")));
         yield return ("source books", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/source-books", new SetSourceBooksRequest([])));
+        yield return ("handouts", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/handouts", new SetHandoutsRequest([])));
+        yield return ("props", (c, w, a, _) => c.GetAsync($"{Base(w)}/{a}/props"));
+        yield return ("cover", (c, w, a, _) => c.GetAsync($"{Base(w)}/{a}/cover"));
+        yield return ("write cover brief", (c, w, a, _) => c.PostAsync($"{Base(w)}/{a}/cover/brief", null));
+        yield return ("save cover brief", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/cover/brief", new CoverBriefRequest("Mine")));
+        yield return ("generate cover", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/cover/generate", new CoverBriefRequest("Mine")));
+        yield return ("choose cover", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/cover/choose", new ChooseCoverRequest(Guid.NewGuid())));
+        yield return ("upload cover", (c, w, a, _) => c.PutAsync($"{Base(w)}/{a}/cover/image", new ByteArrayContent(CoverPng(1200, 1800))));
+        yield return ("remove cover", (c, w, a, _) => c.DeleteAsync($"{Base(w)}/{a}/cover"));
+        yield return ("cover layout", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/cover/layout", new SetCoverLayoutRequest("Framed")));
+        yield return ("cover image", (c, w, a, _) => c.GetAsync($"{Base(w)}/{a}/cover/image"));
+        yield return ("cover option", (c, w, a, _) => c.GetAsync($"{Base(w)}/{a}/cover/options/{Guid.NewGuid()}"));
+    }
+
+    /// <summary>A PNG header with the given size: the API reads only that.</summary>
+    private static byte[] CoverPng(int width, int height)
+    {
+        var bytes = new byte[40];
+        new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, (byte)'I', (byte)'H', (byte)'D', (byte)'R' }.CopyTo(bytes, 0);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(16), width);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(20), height);
+        return bytes;
+    }
+
+    [Test]
+    public async Task Gm_UploadsCoverArt_SeesItAndItsLayout_AndRemovesIt_WithNoAiUseRecorded()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+        var cover = $"{Base(worldId)}/{adventure.Id}/cover";
+
+        var empty = (await scenario.GmClient.GetFromJsonAsync<CoverStateResponse>(cover))!;
+        var upload = await scenario.GmClient.PutAsync($"{cover}/image", new ByteArrayContent(CoverPng(1200, 1800)));
+        Assert.That(upload.StatusCode, Is.EqualTo(HttpStatusCode.OK), await upload.Content.ReadAsStringAsync());
+        var image = await scenario.GmClient.GetAsync($"{cover}/image");
+        var framed = await scenario.GmClient.PutAsJsonAsync($"{cover}/layout", new SetCoverLayoutRequest("Framed"));
+        var framedState = (await framed.Content.ReadFromJsonAsync<CoverStateResponse>())!;
+        var badLayout = await scenario.GmClient.PutAsJsonAsync($"{cover}/layout", new SetCoverLayoutRequest("Sideways"));
+        var removed = (await (await scenario.GmClient.DeleteAsync(cover)).Content.ReadFromJsonAsync<CoverStateResponse>())!;
+        var reloaded = (await scenario.GmClient.GetFromJsonAsync<AdventureResponse>($"{Base(worldId)}/{adventure.Id}"))!;
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(empty.Cover, Is.Null);
+            Assert.That(empty.CanGenerate, Is.False, "no OpenAI key in the test world");
+            Assert.That(empty.GenerateBlocker, Does.Contain("OpenAI key"));
+            Assert.That(empty.ImagesCap, Is.EqualTo(12));
+            Assert.That(image.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(image.Content.Headers.ContentType!.MediaType, Is.EqualTo("image/png"));
+            Assert.That(await image.Content.ReadAsByteArrayAsync(), Is.EqualTo(CoverPng(1200, 1800)));
+            Assert.That(framedState.Cover!.Layout, Is.EqualTo("Framed"));
+            Assert.That(framedState.Cover.Source, Is.EqualTo("Uploaded"));
+            Assert.That(badLayout.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+            Assert.That(removed.Cover, Is.Null);
+            Assert.That(reloaded.AiUse!.Locked, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Props_AreAPdfOfThePropBoxes_Or404WhenThereAreNone()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var none = await scenario.GmClient.GetAsync($"{Base(worldId)}/{adventure.Id}/props");
+        await WriteOverviewAsync(scenario.GmClient, worldId, adventure, "The mayor's seal.\n\n> [!PROP]\n> The forged letter.");
+        var props = await scenario.GmClient.GetAsync($"{Base(worldId)}/{adventure.Id}/props");
+
+        Assert.That(none.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        Assert.That(await none.Content.ReadAsStringAsync(), Does.Contain("no_props"));
+        Assert.That(props.StatusCode, Is.EqualTo(HttpStatusCode.OK), await props.Content.ReadAsStringAsync());
+        Assert.That(props.Content.Headers.ContentType!.MediaType, Is.EqualTo("application/pdf"));
+    }
+
+    [Test]
+    public async Task Handouts_RefuseADocumentThatIsntAMapOrHandout()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var missing = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/handouts", new SetHandoutsRequest([Guid.NewGuid()]));
+        var cleared = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/handouts", new SetHandoutsRequest([]));
+
+        Assert.That(missing.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        Assert.That(cleared.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That((await cleared.Content.ReadFromJsonAsync<AdventureResponse>())!.Handouts, Is.Empty);
+    }
+
+    [Test]
+    public async Task GeneratingACover_WithNoOpenAiKey_IsRefusedWithTheKeyCallToAction_AndCostsNothing()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+        var cover = $"{Base(worldId)}/{adventure.Id}/cover";
+
+        var response = await scenario.GmClient.PostAsJsonAsync($"{cover}/generate", new CoverBriefRequest("A bathhouse at dusk."));
+        var after = (await scenario.GmClient.GetFromJsonAsync<CoverStateResponse>(cover))!;
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict), await response.Content.ReadAsStringAsync());
+        Assert.That(await response.Content.ReadAsStringAsync(), Does.Contain("ai_key_required"));
+        Assert.That(after.ImagesGenerated, Is.Zero);
+        Assert.That(after.Options, Is.Empty);
     }
 
     [Test]
@@ -498,6 +605,25 @@ public class PrepEndpointTests
             Assert.That(reloaded.PrintDetails.Type, Is.EqualTo("Nornis adventure"));
             Assert.That(reloaded.PrintDetails.Publisher, Is.EqualTo("Nornis Press"));
             Assert.That(reloaded.PrintDetails.Author, Is.Not.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Gm_TicksAiUse_AndTheAdventureAndItsPreviewSaySo()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var response = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/ai-declared", new SetAiDeclaredRequest(true));
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
+        var reloaded = (await scenario.GmClient.GetFromJsonAsync<AdventureResponse>($"{Base(worldId)}/{adventure.Id}"))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(adventure.AiUse, Is.EqualTo(new AdventureAiUseResponse(false, false, false, false, "None")));
+            Assert.That(reloaded.AiUse, Is.EqualTo(new AdventureAiUseResponse(false, false, true, false, "Declared")));
+            Assert.That(reloaded.PrintDetails.AiUse, Is.EqualTo("Declared"));
         });
     }
 

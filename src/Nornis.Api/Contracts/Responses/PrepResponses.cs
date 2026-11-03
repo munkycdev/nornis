@@ -56,7 +56,20 @@ public record AdventureResponse(
     // Library books the Adventure reads.
     AdventureDraftResponse? Draft = null,
     string? TableBrief = null,
-    IReadOnlyList<AdventureSourceBookResponse>? SourceBooks = null);
+    IReadOnlyList<AdventureSourceBookResponse>? SourceBooks = null,
+    // Feature 38: what the Adventure records about AI's part in it, and the handouts it prints.
+    AdventureAiUseResponse? AiUse = null,
+    IReadOnlyList<AdventureHandoutResponse>? Handouts = null);
+
+/// <summary>A map or handout printed at the back of the booklet (feature 38), in order. Category is Map or Handout.</summary>
+public record AdventureHandoutResponse(Guid Id, string Title, string? Slug, string Category, string ContentType, string Visibility);
+
+/// <summary>
+/// AI's part in the Adventure (feature 38). <see cref="Locked"/> means recorded use: the box is
+/// ticked and the GM can't untick it. <see cref="Kind"/> is what a print would say:
+/// None, Declared, Text, Art or TextAndArt.
+/// </summary>
+public record AdventureAiUseResponse(bool WroteText, bool MadeArt, bool Declared, bool Locked, string Kind);
 
 /// <summary>The design draft (feature 37); <see cref="RevisionCount"/> is how many changes Undo can step back.</summary>
 public record AdventureDraftResponse(string Markdown, DateTimeOffset UpdatedAt, int RevisionCount);
@@ -71,9 +84,10 @@ public record AdventureDetailsResponse(string? GameSystem, string? Edition, stri
 /// The details a print carries, defaults applied and fixed values filled in (feature 32). On an
 /// Adventure, the preview of a print filed now; the Details card shows it as is.
 /// </summary>
+/// <param name="AiUse">What the print says about AI (feature 38): None, Declared, Text, Art or TextAndArt.</param>
 public record PrintDetailsResponse(
     string Title, string? GameSystem, string? Edition, string Type, string? Levels,
-    string Publisher, string Author, int? Year);
+    string Publisher, string Author, int? Year, string? AiUse = null);
 
 /// <summary>
 /// The draft stream's server-sent event names, which a side-conversation turn streams under too
@@ -116,3 +130,15 @@ public record DraftEditResponse(string Find, string Replace);
 
 /// <summary>The side conversation, oldest first. <see cref="IsFull"/> means it must be cleared before another turn.</summary>
 public record ConversationResponse(IReadOnlyList<ConversationMessageResponse> Messages, bool IsFull);
+
+/// <summary>
+/// The Cover card (feature 38). <see cref="Options"/> are the generated options, newest first;
+/// <see cref="GenerateBlocker"/> says why Generate can't run; <see cref="Warning"/> is an upload's
+/// note that the art may print soft.
+/// </summary>
+public record CoverStateResponse(
+    CoverResponse? Cover, string? Brief, IReadOnlyList<Guid> Options, Guid? ChosenOptionId,
+    int ImagesGenerated, int ImagesCap, bool CanGenerate, string? GenerateBlocker, string? Warning);
+
+/// <summary>The cover art: Source is Generated or Uploaded; UpdatedAt is the image's cache-buster.</summary>
+public record CoverResponse(string Source, string Layout, string ContentType, DateTimeOffset UpdatedAt);

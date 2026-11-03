@@ -346,7 +346,8 @@ public sealed class AiKeyService : IAiKeyService
 
         var keys = await _keys.ListByUserAsync(world.CreatedByUserId, ct);
         var choices = await _keys.ListChoicesAsync(world.CreatedByUserId, ct);
-        var onTrial = Enum.GetValues<AiTask>().Any(task =>
+        // Cover art never runs on the trial (feature 38), so a missing image key isn't "on the trial".
+        var onTrial = Enum.GetValues<AiTask>().Where(task => !AiTasks.OnlyKeysRun(task)).Any(task =>
             AiModelPicker.Pick(_options, keys, choices.FirstOrDefault(c => c.Task == task)?.ModelId, task, needsImages: false) is null);
 
         decimal? remaining = onTrial
@@ -475,6 +476,11 @@ public sealed class AiKeyService : IAiKeyService
             if (!Enum.IsDefined(line.Task))
             {
                 return "There is no such kind of AI work.";
+            }
+
+            if (AiTasks.OnlyKeysRun(line.Task))
+            {
+                return "An OpenAI-compatible endpoint can't make cover art.";
             }
 
             if (string.IsNullOrWhiteSpace(line.ModelName) || line.ModelName.Trim().Length > MaxModelNameLength)

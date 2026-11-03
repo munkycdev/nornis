@@ -1,4 +1,5 @@
 using Nornis.Application.Prep;
+using Nornis.Domain.Enums;
 using QuestPDF.Drawing;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -11,7 +12,8 @@ namespace Nornis.Infrastructure.Printing;
 /// Lays the booklet out as a PDF with QuestPDF (feature 34). Every layout rule lives here, and
 /// nothing here knows Markdown or Adventures:
 ///
-/// - The cover has a page to itself; every chapter starts a page, its title across both columns.
+/// - The cover has a page to itself, and the rights page (feature 38) the next; every chapter
+///   starts a page, its title across both columns.
 /// - Within a chapter the text flows down the left column, then the right, then the next page.
 /// - A heading never ends a column: it moves on with the start of what follows it.
 /// - A box, stat block or table row stays whole when it fits a column; a box longer than about
@@ -63,26 +65,72 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
 
     public BookletPdf Render(Booklet booklet)
     {
+        var handouts = booklet.Handouts ?? [];
+
+        // The appendix (feature 38) is cut into runs: drawn pages (images and "couldn't print"
+        // pages) render with the booklet, and each PDF handout is merged in after its place, so
+        // the GM's order holds across both kinds.
+        var runs = Runs(handouts);
         var bytes = Document.Create(document =>
             {
                 document.Page(page => Cover(page, booklet.Cover));
+                document.Page(page => Rights(page, booklet.Rights));
                 foreach (var chapter in booklet.Chapters)
                 {
                     document.Page(page => Chapter(page, booklet.Cover.Title, chapter));
                 }
+
+                if (handouts.Count > 0)
+                {
+                    document.Page(page => HandoutsOpener(page, handouts));
+                    DrawnHandouts(document, runs[0].Drawn);
+                }
             })
-            .WithMetadata(new DocumentMetadata
+            .WithMetadata(Metadata(booklet.Cover.Title, booklet.Cover.AuthorLine))
+            .GeneratePdf();
+
+        if (runs.Any(r => r.Pdf is not null))
+        {
+            bytes = Merge(bytes, runs);
+        }
+
+        using var pdf = PdfDocument.Open(bytes);
+        return new BookletPdf(bytes, pdf.NumberOfPages);
+    }
+
+    /// <summary>
+    /// The props sheet (feature 38): each prop alone on a page in large type, in its parchment
+    /// frame, to cut out and hand over. No footer: what's on the page is what the players get.
+    /// </summary>
+    public BookletPdf RenderProps(BookletProps props)
+    {
+        var bytes = Document.Create(document =>
             {
-                Title = booklet.Cover.Title,
-                Author = booklet.Cover.AuthorLine,
-                Creator = "Nornis",
-                Producer = "Nornis",
+                foreach (var prop in props.Props)
+                {
+                    document.Page(page =>
+                    {
+                        Setup(page);
+                        page.DefaultTextStyle(s => s.FontFamily(Serif, Fallback).FontSize(16).LineHeight(1.35f).FontColor(Ink));
+                        page.Content().AlignMiddle().Background(Parchment).Border(1).BorderColor(ParchmentEdge).Padding(28)
+                            .Column(col => Blocks(col, prop.Blocks, 10));
+                    });
+                }
             })
+            .WithMetadata(Metadata(props.Title + " props", null))
             .GeneratePdf();
 
         using var pdf = PdfDocument.Open(bytes);
         return new BookletPdf(bytes, pdf.NumberOfPages);
     }
+
+    private static DocumentMetadata Metadata(string title, string? author) => new()
+    {
+        Title = title,
+        Author = author,
+        Creator = "Nornis",
+        Producer = "Nornis",
+    };
 
     // ---------------------------------------------------------------------- Pages --
 
@@ -95,6 +143,127 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     }
 
     private static void Cover(PageDescriptor page, BookletCover cover)
+    {
+        switch (cover.Art)
+        {
+            case { Layout: CoverLayout.FullBleed } art when CoverArtImage.Fit(art.Image, PageSizes.Letter.Width, PageSizes.Letter.Height) is { } image:
+                FullBleedCover(page, cover, image);
+                return;
+            case { Layout: CoverLayout.Framed } art when CoverArtImage.Fit(art.Image, FrameArtWidth, FrameArtHeight) is { } image:
+                FramedCover(page, cover, image);
+                return;
+            case { Layout: CoverLayout.ClassicModule } art when CoverArtImage.Fit(art.Image, ContentWidth, ModuleArtHeight) is { } image:
+                ClassicModuleCover(page, cover, image);
+                return;
+        }
+
+        TypesetCover(page, cover);
+    }
+
+    // Feature 38's layouts. Every box the art fills has a fixed size, so the art is cropped to it
+    // before layout and the cover can never spill onto the rights page. Type never sits on the art:
+    // it's on a solid band (full bleed) or beside it (the other two), so no layout depends on the
+    // art's colours.
+    private static readonly float ContentWidth = PageSizes.Letter.Width - 2 * Margin;
+    private const float FrameWidth = 410;
+    private const float FrameHeight = 500;
+    private const float FramePadding = 6;
+    private const float FrameArtWidth = FrameWidth - 2 * FramePadding;
+    private const float FrameArtHeight = FrameHeight - 2 * FramePadding;
+    private const float ModuleArtHeight = 400;
+
+    /// <summary>The longest a title runs on a cover with art, in lines.</summary>
+    internal const int ArtTitleLines = 3;
+
+    /// <summary>The longest a pitch runs on the classic module cover, in lines.</summary>
+    internal const int ModulePitchLines = 4;
+
+    /// <summary>The art fills the page; the title sits on a solid band across the top, the author on one across the foot.</summary>
+    private static void FullBleedCover(PageDescriptor page, BookletCover cover, byte[] art)
+    {
+        Setup(page);
+        page.Margin(0);
+        page.Background().Image(art).FitUnproportionally();
+        page.Header().Background(Ink).PaddingVertical(28).PaddingHorizontal(56).Column(band =>
+        {
+            band.Spacing(6);
+            band.Item().AlignCenter().Text(text =>
+            {
+                text.AlignCenter();
+                text.ClampLines(ArtTitleLines, "…");
+                text.Span(cover.Title).FontSize(30).SemiBold().LineHeight(1.1f).FontColor(Colors.White);
+            });
+            foreach (var line in new[] { cover.SystemLine, cover.LevelsLine }.OfType<string>())
+            {
+                band.Item().AlignCenter().Text(line).FontSize(12).FontColor(Colors.White);
+            }
+        });
+        page.Footer().Background(Ink).PaddingVertical(14).AlignCenter().Text(cover.AuthorLine).FontSize(12).FontColor(Colors.White);
+    }
+
+    /// <summary>The title and its lines above, the art in a ruled frame, the author below.</summary>
+    private static void FramedCover(PageDescriptor page, BookletCover cover, byte[] art)
+    {
+        Setup(page);
+        page.Content().PaddingTop(12).Column(col =>
+        {
+            col.Spacing(6);
+            col.Item().AlignCenter().Text(text =>
+            {
+                text.AlignCenter();
+                text.ClampLines(2, "…");
+                text.Span(cover.Title).FontSize(28).SemiBold().LineHeight(1.1f);
+            });
+            foreach (var line in new[] { cover.SystemLine, cover.LevelsLine }.OfType<string>())
+            {
+                col.Item().AlignCenter().Text(line).FontSize(12);
+            }
+
+            col.Item().PaddingTop(14).AlignCenter().Width(FrameWidth).Height(FrameHeight)
+                .Border(1.5f).BorderColor(Accent).Padding(FramePadding).Image(art).FitUnproportionally();
+            col.Item().PaddingTop(12).AlignCenter().Text(cover.AuthorLine).FontSize(12);
+        });
+    }
+
+    /// <summary>A coloured title band at the top, the art across the middle, the details and pitch below, as the old modules did.</summary>
+    private static void ClassicModuleCover(PageDescriptor page, BookletCover cover, byte[] art)
+    {
+        Setup(page);
+        page.Content().Column(col =>
+        {
+            col.Item().Background(Accent).PaddingVertical(22).PaddingHorizontal(28).AlignCenter()
+                .Text(text =>
+            {
+                text.AlignCenter();
+                text.ClampLines(2, "…");
+                text.Span(cover.Title).FontSize(28).SemiBold().LineHeight(1.1f).FontColor(Colors.White);
+            });
+            col.Item().PaddingTop(14).Height(ModuleArtHeight).Image(art).FitUnproportionally();
+            col.Item().PaddingTop(14).Column(details =>
+            {
+                details.Spacing(4);
+                foreach (var line in new[] { cover.SystemLine, cover.LevelsLine }.OfType<string>())
+                {
+                    details.Item().AlignCenter().Text(line).FontSize(12).SemiBold();
+                }
+
+                details.Item().AlignCenter().Text(cover.AuthorLine).FontSize(12);
+                if (cover.Pitch is { } pitch)
+                {
+                    details.Item().PaddingTop(8).PaddingHorizontal(36).AlignCenter()
+                        .Text(text =>
+            {
+                text.AlignCenter();
+                text.ClampLines(ModulePitchLines, "…");
+                text.Span(pitch).FontSize(11).Italic();
+            });
+                }
+            });
+        });
+    }
+
+    /// <summary>The cover with no art (feature 34): type only.</summary>
+    private static void TypesetCover(PageDescriptor page, BookletCover cover)
     {
         Setup(page);
         page.Content().PaddingTop(150).Column(col =>
@@ -118,8 +287,35 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             }
 
             col.Item().PaddingTop(24).PaddingHorizontal(120).LineHorizontal(1.5f).LineColor(Accent);
-            col.Item().AlignCenter().Text(cover.CreditsLine.ToUpperInvariant())
-                .FontFamily(Sans, Fallback).FontSize(8.5f).LetterSpacing(0.08f).FontColor(Muted);
+        });
+    }
+
+    /// <summary>
+    /// The rights page (feature 38): centred in small serif at the foot of the page, as a
+    /// published book's is, the credits above a hairline and the notices below it.
+    /// </summary>
+    private static void Rights(PageDescriptor page, BookletRights rights)
+    {
+        Setup(page);
+        page.Content().AlignBottom().PaddingHorizontal(72).Column(col =>
+        {
+            col.Spacing(3);
+            col.Item().AlignCenter().Text(rights.Title).FontSize(11).SemiBold();
+            col.Item().AlignCenter().Text(rights.Credits.ToUpperInvariant())
+                .FontFamily(Sans, Fallback).FontSize(7.5f).LetterSpacing(0.08f).FontColor(Muted);
+            col.Item().PaddingTop(6).AlignCenter().Text(rights.Copyright).FontSize(9);
+            foreach (var line in new[] { rights.SystemLine, rights.LevelsLine }.OfType<string>())
+            {
+                col.Item().AlignCenter().Text(line).FontSize(9);
+            }
+
+            col.Item().AlignCenter().Text(rights.Printed).FontSize(9);
+            col.Item().AlignCenter().Text(rights.MadeWith).FontSize(9);
+
+            col.Item().PaddingVertical(10).PaddingHorizontal(96).LineHorizontal(0.5f).LineColor(Hairline);
+
+            col.Item().AlignCenter().Text(rights.AiStatement).FontSize(8.5f).Italic();
+            col.Item().PaddingTop(4).AlignCenter().Text(rights.Notice).FontSize(8).FontColor(Muted);
         });
     }
 
@@ -150,6 +346,169 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             t.DefaultTextStyle(s => s.FontFamily(Sans, Fallback).FontSize(8).FontColor(Muted));
             t.Span(adventureTitle + " · ");
             t.CurrentPageNumber();
+        });
+    }
+
+    // ------------------------------------------------------------------- Handouts --
+
+    /// <summary>A run of the appendix: the drawn pages, then the PDF that follows them, if any.</summary>
+    private sealed record HandoutRun(IReadOnlyList<BookletHandout> Drawn, BookletHandoutPdf? Pdf);
+
+    /// <summary>
+    /// The appendix as runs. The first run's drawn pages render with the booklet; each later
+    /// run's render as their own document, merged after the PDF before them. A PDF that won't
+    /// open is drawn as a "couldn't print" page instead, so a bad file never fails the booklet.
+    /// </summary>
+    private static List<HandoutRun> Runs(IReadOnlyList<BookletHandout> handouts)
+    {
+        var runs = new List<HandoutRun>();
+        var drawn = new List<BookletHandout>();
+        foreach (var handout in handouts)
+        {
+            if (handout is BookletHandoutPdf pdf && Opens(pdf.Pdf))
+            {
+                runs.Add(new HandoutRun(drawn, pdf));
+                drawn = [];
+            }
+            else
+            {
+                drawn.Add(handout is BookletHandoutPdf broken ? new BookletHandoutMissing(broken.Title, "the PDF couldn't be read") : handout);
+            }
+        }
+
+        runs.Add(new HandoutRun(drawn, null));
+        return runs;
+    }
+
+    private static bool Opens(byte[] pdf)
+    {
+        try
+        {
+            using var document = PdfDocument.Open(pdf);
+            return document.NumberOfPages > 0;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The booklet, then each run's PDF and drawn pages in order, through QuestPDF's merge (the D1
+    /// spike: Community licence, files only, so the parts go through a temporary folder).
+    /// </summary>
+    private static byte[] Merge(byte[] booklet, IReadOnlyList<HandoutRun> runs)
+    {
+        var folder = Directory.CreateTempSubdirectory("nornis-booklet-");
+        try
+        {
+            var parts = new List<string>();
+            string Write(byte[] bytes)
+            {
+                var path = Path.Combine(folder.FullName, $"{parts.Count}.pdf");
+                File.WriteAllBytes(path, bytes);
+                parts.Add(path);
+                return path;
+            }
+
+            var first = Write(booklet);
+            for (var i = 0; i < runs.Count; i++)
+            {
+                if (runs[i].Pdf is { } pdf)
+                {
+                    Write(pdf.Pdf);
+                }
+
+                // The first run's drawn pages are already in the booklet; a later run's follow its PDF.
+                var next = i + 1 < runs.Count ? runs[i + 1].Drawn : [];
+                if (next.Count > 0)
+                {
+                    Write(Document.Create(document => DrawnHandouts(document, next)).GeneratePdf());
+                }
+            }
+
+            var output = Path.Combine(folder.FullName, "booklet.pdf");
+            var operation = DocumentOperation.LoadFile(first);
+            foreach (var part in parts.Skip(1))
+            {
+                operation = operation.MergeFile(part);
+            }
+
+            operation.Save(output);
+            return File.ReadAllBytes(output);
+        }
+        finally
+        {
+            folder.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>The appendix's first page: its title and what follows, in order.</summary>
+    private static void HandoutsOpener(PageDescriptor page, IReadOnlyList<BookletHandout> handouts)
+    {
+        Setup(page);
+        page.Header().PaddingBottom(12).Column(header =>
+        {
+            header.Item().Text("Handouts and maps").FontSize(20).SemiBold().LineHeight(1.15f);
+            header.Item().PaddingTop(4).LineHorizontal(1).LineColor(Accent);
+        });
+        page.Content().Column(col =>
+        {
+            col.Spacing(4);
+            for (var i = 0; i < handouts.Count; i++)
+            {
+                var number = i + 1;
+                col.Item().Text(text =>
+                {
+                    text.Span($"{number}. ").FontColor(Muted);
+                    text.Span(handouts[i].Title);
+                });
+            }
+        });
+    }
+
+    /// <summary>Images on their own pages, and the pages naming what couldn't be printed.</summary>
+    private static void DrawnHandouts(IDocumentContainer document, IReadOnlyList<BookletHandout> handouts)
+    {
+        foreach (var handout in handouts)
+        {
+            if (handout is BookletHandoutImage image && ImageSize(image.Image) is { } size)
+            {
+                document.Page(page => ImageHandout(page, image, landscape: size.Width > size.Height));
+            }
+            else
+            {
+                var reason = handout is BookletHandoutMissing missing ? missing.Reason : "the image couldn't be read";
+                document.Page(page => MissingHandout(page, handout.Title, reason));
+            }
+        }
+    }
+
+    /// <summary>The image's size from its header, or null when no codec reads it.</summary>
+    private static (int Width, int Height)? ImageSize(byte[] image)
+    {
+        using var data = SkiaSharp.SKData.CreateCopy(image);
+        using var codec = SkiaSharp.SKCodec.Create(data);
+        return codec is null ? null : (codec.Info.Width, codec.Info.Height);
+    }
+
+    private static void ImageHandout(PageDescriptor page, BookletHandoutImage image, bool landscape)
+    {
+        Setup(page);
+        page.Size(landscape ? PageSizes.Letter.Landscape() : PageSizes.Letter);
+        page.Header().PaddingBottom(8).Text(image.Title).FontFamily(Sans, Fallback).FontSize(9).FontColor(Muted);
+        page.Content().AlignCenter().AlignMiddle().Image(image.Image).FitArea();
+    }
+
+    private static void MissingHandout(PageDescriptor page, string title, string reason)
+    {
+        Setup(page);
+        page.Content().AlignMiddle().Column(col =>
+        {
+            col.Spacing(6);
+            col.Item().AlignCenter().Text(title).FontSize(16).SemiBold();
+            col.Item().AlignCenter().Text($"This handout isn't printed here: {reason}. It's in the world's Library.")
+                .FontSize(10).FontColor(Muted);
         });
     }
 

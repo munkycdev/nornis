@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using Nornis.Application.Prep.Covers;
+using Nornis.Application.Storage;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Models;
 
@@ -12,15 +14,24 @@ namespace Nornis.Application.Prep;
 /// </summary>
 public class AdventureBookletPrinter
 {
+    /// <summary>The most handout bytes one booklet reads (feature 38); past it, a handout prints as a page naming it.</summary>
+    public const long MaxHandoutBytes = 100L * 1024 * 1024;
+
     private readonly AdventurePrintDetails _printDetails;
     private readonly IBookletPdfRenderer _renderer;
     private readonly ILogger<AdventureBookletPrinter> _logger;
+    private readonly TimeProvider _time;
+    private readonly IBlobStorageService _blobs;
 
-    public AdventureBookletPrinter(AdventurePrintDetails printDetails, IBookletPdfRenderer renderer, ILogger<AdventureBookletPrinter> logger)
+    public AdventureBookletPrinter(
+        AdventurePrintDetails printDetails, IBookletPdfRenderer renderer, ILogger<AdventureBookletPrinter> logger, TimeProvider time,
+        IBlobStorageService blobs)
     {
         _printDetails = printDetails;
         _renderer = renderer;
         _logger = logger;
+        _time = time;
+        _blobs = blobs;
     }
 
     /// <summary>The details a print would carry now, for the Book details card's preview.</summary>
@@ -30,14 +41,82 @@ public class AdventureBookletPrinter
     public async Task<PrintedBooklet> PrintAsync(Adventure adventure, CancellationToken ct)
     {
         var details = await _printDetails.ResolveAsync(adventure, ct);
+
+        // The cover art (feature 38). A blob that's gone prints the typeset cover, and says so.
+        var art = adventure.Cover is { } cover ? await _blobs.ReadAllBytesOrNullAsync(cover.BlobPath, ct) : null;
+        if (adventure.Cover is not null && art is null)
+        {
+            _logger.LogWarning("booklet_cover_missing {AdventureId}: printing the typeset cover", adventure.Id);
+        }
+
+        var handouts = await HandoutsAsync(adventure, ct);
         var started = Stopwatch.GetTimestamp();
-        var pdf = _renderer.Render(BookletModel.Build(adventure, details));
+        var imprint = new BookletImprint(DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime), RightsStatement.CurrentVersion);
+        var pdf = _renderer.Render(BookletModel.Build(adventure, details, imprint, art) with { Handouts = handouts });
 
         _logger.LogInformation(
             "booklet_rendered {AdventureId} pages={Pages} bytes={Bytes} ms={Milliseconds}",
             adventure.Id, pdf.Pages, pdf.Bytes.Length, (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
 
         return new PrintedBooklet(pdf.Bytes, details, FileName(adventure.Title));
+    }
+
+    /// <summary>
+    /// The props sheet (feature 38): every <c>[!PROP]</c> box of the booklet, each on its own
+    /// page. Null when the Adventure has none. Nothing is filed; the GM downloads it.
+    /// </summary>
+    public async Task<PrintedBooklet?> PrintPropsAsync(Adventure adventure, CancellationToken ct)
+    {
+        var details = await _printDetails.ResolveAsync(adventure, ct);
+        var imprint = new BookletImprint(DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime), RightsStatement.CurrentVersion);
+        var props = BookletModel.Props(BookletModel.Build(adventure, details, imprint));
+        if (props.Props.Count == 0)
+        {
+            return null;
+        }
+
+        var pdf = _renderer.RenderProps(props);
+        _logger.LogInformation("props_rendered {AdventureId} props={Props} bytes={Bytes}", adventure.Id, props.Props.Count, pdf.Bytes.Length);
+        return new PrintedBooklet(pdf.Bytes, details, FileName($"{adventure.Title} props"));
+    }
+
+    /// <summary>
+    /// The handouts' files, in the GM's order (feature 38). One that's gone, isn't printable, or
+    /// would take the booklet past <see cref="MaxHandoutBytes"/> prints as a page that says so.
+    /// </summary>
+    private async Task<IReadOnlyList<BookletHandout>> HandoutsAsync(Adventure adventure, CancellationToken ct)
+    {
+        var handouts = new List<BookletHandout>();
+        long total = 0;
+        foreach (var document in adventure.Handouts.OrderBy(h => h.SortOrder).Select(h => h.LibraryDocument))
+        {
+            if (!HandoutFiles.IsPrintable(document.ContentType))
+            {
+                handouts.Add(new BookletHandoutMissing(document.Title, "it isn't an image or a PDF"));
+                continue;
+            }
+
+            if (total + document.SizeBytes > MaxHandoutBytes)
+            {
+                handouts.Add(new BookletHandoutMissing(document.Title, "the booklet's handouts would pass 100 MB"));
+                continue;
+            }
+
+            var bytes = await _blobs.ReadAllBytesOrNullAsync(document.BlobPath, ct);
+            if (bytes is null)
+            {
+                _logger.LogWarning("booklet_handout_missing {AdventureId} {DocumentId}", adventure.Id, document.Id);
+                handouts.Add(new BookletHandoutMissing(document.Title, "its file is missing"));
+                continue;
+            }
+
+            total += bytes.Length;
+            handouts.Add(HandoutFiles.IsPdf(document.ContentType)
+                ? new BookletHandoutPdf(document.Title, bytes)
+                : new BookletHandoutImage(document.Title, bytes));
+        }
+
+        return handouts;
     }
 
     /// <summary>The title as a file name: the characters no file system takes become spaces.</summary>

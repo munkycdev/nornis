@@ -32,6 +32,9 @@ public interface IAdventureService
     /// <summary>Replaces the four editable details. 400 <c>invalid_details</c>, with nothing saved, when any is out of bounds.</summary>
     Task<AppResult<AdventureView>> UpdateDetailsAsync(UpdateAdventureDetailsCommand command, CancellationToken ct);
 
+    /// <summary>The GM's own AI-use tick (feature 38); a no-op once AI use is recorded.</summary>
+    Task<AppResult<AdventureView>> SetAiDeclaredAsync(SetAiDeclaredCommand command, CancellationToken ct);
+
     /// <summary>The GM's edit. 409 when the section changed since <c>BasedOnUpdatedAt</c>.</summary>
     Task<AppResult<AdventureSection>> SaveSectionAsync(SaveSectionCommand command, CancellationToken ct);
 
@@ -46,6 +49,9 @@ public interface IAdventureService
 
     /// <summary>The booklet as a PDF (feature 34), the same one File to Library files.</summary>
     Task<AppResult<PrintedBooklet>> GetBookletAsync(Guid worldId, Guid adventureId, WorldRole role, CancellationToken ct);
+
+    /// <summary>The props sheet (feature 38); 404 <c>no_props</c> when the Adventure has no <c>[!PROP]</c> box.</summary>
+    Task<AppResult<PrintedBooklet>> GetPropsAsync(Guid worldId, Guid adventureId, WorldRole role, CancellationToken ct);
 
     /// <summary>Restores the section's latest revision, the body an AI write replaced, and drops it.</summary>
     Task<AppResult<AdventureSection>> UndoAsync(UndoSectionCommand command, CancellationToken ct);

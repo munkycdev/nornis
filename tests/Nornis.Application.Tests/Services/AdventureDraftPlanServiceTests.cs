@@ -57,7 +57,7 @@ public class AdventureDraftPlanServiceTests
 
         var views = new AdventureService(_adventures, new InMemoryCampaignRepository(), new FakeSlugResolver((_, _) => null),
             TestBooklets.Printer(TestPrintDetails.For(WorldId, GmUserId, "Shadowdark"), new FakeBookletPdfRenderer()),
-            Options.Create(new PrepOptions()));
+            Options.Create(new PrepOptions()), new FakeBlobStorageService());
         _adventureId = (await views.CreateAsync(new CreateAdventureCommand(WorldId, GmUserId, WorldRole.GM, "The Slurping Spa", null, null), default))
             .Value!.Adventure.Id;
         var adventure = _adventures.Adventures.Single();

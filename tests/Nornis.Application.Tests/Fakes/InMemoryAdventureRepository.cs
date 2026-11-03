@@ -17,6 +17,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
     private readonly List<AdventureSectionRevision> _revisions = [];
     private readonly List<AdventureDraftRevision> _draftRevisions = [];
     private readonly List<AdventureSourceBook> _sourceBooks = [];
+    private readonly List<AdventureHandout> _handouts = [];
 
     public IReadOnlyList<AdventureDraftRevision> DraftRevisions => _draftRevisions;
 
@@ -70,6 +71,16 @@ public class InMemoryAdventureRepository : IAdventureRepository
                 LibraryDocument = Documents.First(d => d.Id == b.LibraryDocumentId),
             })
             .ToList();
+        copy.Handouts = _handouts.Where(h => h.AdventureId == adventureId)
+            .OrderBy(h => h.SortOrder)
+            .Select(h => new AdventureHandout
+            {
+                AdventureId = h.AdventureId,
+                LibraryDocumentId = h.LibraryDocumentId,
+                SortOrder = h.SortOrder,
+                LibraryDocument = Documents.First(d => d.Id == h.LibraryDocumentId),
+            })
+            .ToList();
         return Task.FromResult<Adventure?>(copy);
     }
 
@@ -90,6 +101,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
         row.LastPrintedDocumentId = adventure.LastPrintedDocumentId;
         row.TableBrief = adventure.TableBrief;
         row.Details = adventure.Details with { };
+        row.AiUse.Declared = adventure.AiUse.Declared;
         row.UpdatedAt = adventure.UpdatedAt;
         return Task.CompletedTask;
     }
@@ -152,6 +164,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
         _sections.RemoveAll(s => s.AdventureId == adventureId);
         _draftRevisions.RemoveAll(r => r.AdventureId == adventureId);
         _sourceBooks.RemoveAll(b => b.AdventureId == adventureId);
+        _handouts.RemoveAll(h => h.AdventureId == adventureId);
         _adventures.RemoveAll(a => a.Id == adventureId);
         return Task.CompletedTask;
     }
@@ -210,12 +223,56 @@ public class InMemoryAdventureRepository : IAdventureRepository
         });
         section.BodyMarkdown = newBody;
         section.UpdatedAt = updatedAt;
+        Required(_adventures, a => a.Id == section.AdventureId).AiUse.WroteText = true;
         return Task.FromResult(true);
+    }
+
+    public Task SetCoverAsync(
+        Guid adventureId, AdventureCover? cover, bool generated, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+    {
+        var row = Required(_adventures, a => a.Id == adventureId);
+        row.Cover = cover is null ? null : cover with { };
+        row.UpdatedAt = updatedAt;
+        if (generated)
+        {
+            row.AiUse.MadeArt = true;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> TryCountCoverImagesAsync(Guid adventureId, int count, int cap, CancellationToken cancellationToken = default)
+    {
+        var row = Required(_adventures, a => a.Id == adventureId);
+        if (row.CoverImagesGenerated + count > cap)
+        {
+            return Task.FromResult(false);
+        }
+
+        row.CoverImagesGenerated += count;
+        return Task.FromResult(true);
+    }
+
+    public Task ReleaseCoverImagesAsync(Guid adventureId, int count, CancellationToken cancellationToken = default)
+    {
+        var row = Required(_adventures, a => a.Id == adventureId);
+        row.CoverImagesGenerated = Math.Max(0, row.CoverImagesGenerated - count);
+        return Task.CompletedTask;
+    }
+
+    public Task SaveCoverWorkAsync(
+        Guid adventureId, string? brief, IReadOnlyList<Guid> newOptionIds, CancellationToken cancellationToken = default)
+    {
+        var row = Required(_adventures, a => a.Id == adventureId);
+        row.CoverBrief = brief;
+        row.CoverOptionIds = [.. row.CoverOptionIds, .. newOptionIds.Where(id => !row.CoverOptionIds.Contains(id))];
+        return Task.CompletedTask;
     }
 
     public Task<bool> TrySaveDraftAsync(
         Guid adventureId, string? markdown, AdventureDraftRevision? revision, int maxRevisions,
-        DateTimeOffset? basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+        DateTimeOffset? basedOn, DateTimeOffset updatedAt, bool loremasterWrote = false,
+        CancellationToken cancellationToken = default)
     {
         var row = Required(_adventures, a => a.Id == adventureId);
         if (row.DraftUpdatedAt != basedOn)
@@ -242,6 +299,11 @@ public class InMemoryAdventureRepository : IAdventureRepository
         row.DraftMarkdown = markdown;
         row.DraftUpdatedAt = markdown is null ? null : updatedAt;
         row.UpdatedAt = updatedAt;
+        if (loremasterWrote)
+        {
+            row.AiUse.WroteText = true;
+        }
+
         return Task.FromResult(true);
     }
 
@@ -320,6 +382,13 @@ public class InMemoryAdventureRepository : IAdventureRepository
         return Task.FromResult(true);
     }
 
+    public Task ReplaceHandoutsAsync(Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken cancellationToken = default)
+    {
+        _handouts.RemoveAll(h => h.AdventureId == adventureId);
+        _handouts.AddRange(documentIds.Select((id, i) => new AdventureHandout { AdventureId = adventureId, LibraryDocumentId = id, SortOrder = i + 1 }));
+        return Task.CompletedTask;
+    }
+
     public Task ReplaceSourceBooksAsync(Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken cancellationToken = default)
     {
         _sourceBooks.RemoveAll(b => b.AdventureId == adventureId);
@@ -348,6 +417,11 @@ public class InMemoryAdventureRepository : IAdventureRepository
         Pitch = a.Pitch,
         LastPrintedDocumentId = a.LastPrintedDocumentId,
         Details = a.Details with { },
+        AiUse = new() { WroteText = a.AiUse.WroteText, MadeArt = a.AiUse.MadeArt, Declared = a.AiUse.Declared },
+        Cover = a.Cover is null ? null : a.Cover with { },
+        CoverImagesGenerated = a.CoverImagesGenerated,
+        CoverBrief = a.CoverBrief,
+        CoverOptionIds = [.. a.CoverOptionIds],
         DraftMarkdown = a.DraftMarkdown,
         DraftUpdatedAt = a.DraftUpdatedAt,
         TableBrief = a.TableBrief,

@@ -20,6 +20,23 @@
         @Row(AuthorsField, "Authors", print.Author, caption: SetByNornis)
         @Row(YearField, "Year", print.Year?.ToString(System.Globalization.CultureInfo.InvariantCulture), caption: null)
 
+        @if (Adventure.AiUse is { } ai)
+        {
+            <div class="nornis-book-details-ai">
+                <MudCheckBox T="bool" Value="@(ai.Locked || ai.Declared)" ValueChanged="SetDeclaredAsync"
+                             Disabled="@(Disabled || ai.Locked || _saving)" Color="Color.Secondary" Dense="true"
+                             Label="AI was used to make this adventure" Class="nornis-book-details-ai-box" />
+                @if (LockReason(ai) is { } reason)
+                {
+                    <div class="nornis-book-details-caption nornis-book-details-ai-reason">@reason</div>
+                }
+                else
+                {
+                    <div class="nornis-book-details-caption">Tick it for AI you used outside Nornis. The rights page says so.</div>
+                }
+            </div>
+        }
+
         @if (_error is not null)
         {
             <MudText Typo="Typo.caption" Color="Color.Error" Class="nornis-book-details-error">@_error</MudText>
@@ -106,6 +123,37 @@
             }
         </div>
     };
+
+    /// <summary>Why the AI box is ticked and locked (feature 38), or null while the GM decides.</summary>
+    public static string? LockReason(AdventureAiUseDto ai) => (ai.WroteText, ai.MadeArt) switch
+    {
+        (true, true) => "The Loremaster drafted text and the cover art was generated in this adventure.",
+        (true, false) => "The Loremaster drafted text in this adventure.",
+        (false, true) => "The cover art was generated with AI.",
+        _ => null,
+    };
+
+    private async Task SetDeclaredAsync(bool declared)
+    {
+        _saving = true;
+        _error = null;
+        try
+        {
+            var result = await Api.SetAdventureAiDeclaredAsync(Adventure.WorldId, Adventure.Id, declared);
+            if (result.IsSuccess)
+            {
+                await OnSaved.InvokeAsync(result.Value!);
+            }
+            else
+            {
+                _error = result.Error!.Message;
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
 
     private static int MaxLength(string field) => field switch
     {

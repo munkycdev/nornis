@@ -196,6 +196,56 @@ public class BookDetailsCardTests : BunitContext
         Assert.That(cut.FindAll(".nornis-book-details"), Is.Empty);
     }
 
+    // ------------------------------------------------------------------ AI use (feature 38) --
+
+    private static AdventureDto WithAi(AdventureAiUseDto ai) => Adventure(Stored, Preview) with { AiUse = ai };
+
+    [Test]
+    public void TheAiBox_IsTheGmsToTick_WhileNothingIsRecorded()
+    {
+        var cut = RenderCard(WithAi(new(false, false, false, false, "None")));
+
+        var box = cut.Find(".nornis-book-details-ai input[type=checkbox]");
+        Assert.Multiple(() =>
+        {
+            Assert.That(box.HasAttribute("disabled"), Is.False);
+            Assert.That(box.HasAttribute("checked"), Is.False);
+            Assert.That(cut.Find(".nornis-book-details-ai").TextContent, Does.Contain("AI was used to make this adventure"));
+            Assert.That(cut.FindAll(".nornis-book-details-ai-reason"), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void TickingTheAiBox_SendsTheGmsTick_AndRaisesTheSavedAdventure()
+    {
+        var cut = RenderCard(WithAi(new(false, false, false, false, "None")));
+
+        cut.Find(".nornis-book-details-ai input[type=checkbox]").Change(true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_handler.LastPutPath, Is.EqualTo($"/api/worlds/{WorldId}/prep/{AdventureId}/ai-declared"));
+            Assert.That(JsonDocument.Parse(_handler.LastPutBody!).RootElement.GetProperty("declared").GetBoolean(), Is.True);
+            Assert.That(_saved, Is.Not.Null);
+        });
+    }
+
+    [TestCase(true, false, "The Loremaster drafted text in this adventure.")]
+    [TestCase(false, true, "The cover art was generated with AI.")]
+    [TestCase(true, true, "The Loremaster drafted text and the cover art was generated in this adventure.")]
+    public void RecordedUse_TicksAndLocksTheBox_AndSaysWhy(bool wroteText, bool madeArt, string reason)
+    {
+        var cut = RenderCard(WithAi(new(wroteText, madeArt, false, true, "Text")));
+
+        var box = cut.Find(".nornis-book-details-ai input[type=checkbox]");
+        Assert.Multiple(() =>
+        {
+            Assert.That(box.HasAttribute("disabled"), Is.True);
+            Assert.That(box.HasAttribute("checked"), Is.True, "recorded use ticks it");
+            Assert.That(cut.Find(".nornis-book-details-ai-reason").TextContent, Is.EqualTo(reason));
+        });
+    }
+
     private sealed class StubHandler : HttpMessageHandler
     {
         public bool Refuse { get; set; }

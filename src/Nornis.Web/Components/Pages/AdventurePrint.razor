@@ -7,7 +7,8 @@
 
 @* The booklet (feature 34): a PDF the API lays out, the same one File to Library files. The page
    shows it in the browser's own PDF viewer, whose Print prints it on paper; Download saves it;
-   File to Library files it in one click as a GM-only Handout, dated, against this Adventure. *@
+   File to Library files it in one click as a GM-only Handout, dated, against this Adventure.
+   Print props (feature 38) downloads the prop boxes, one to a page, for cutting out. *@
 
 <PageTitle>@(_adventure?.Title ?? "Adventure")</PageTitle>
 
@@ -47,6 +48,22 @@ else if (_adventure is not null && Worlds.Current is { } world)
             Back to the adventure
         </MudButton>
         <div class="flex-grow-1"></div>
+        @if (HasProps)
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Class="nornis-booklet-props"
+                       StartIcon="@Icons.Material.Outlined.ContentCut" Href="@Links.Props(world.Id, _adventure.Id)">
+                Print props
+            </MudButton>
+        }
+        else
+        {
+            <MudTooltip Text="@NoPropsReason">
+                <MudButton Variant="Variant.Text" Color="Color.Primary" Class="nornis-booklet-props"
+                           StartIcon="@Icons.Material.Outlined.ContentCut" Disabled="true">
+                    Print props
+                </MudButton>
+            </MudTooltip>
+        }
         <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="nornis-booklet-download"
                    StartIcon="@Icons.Material.Outlined.Download" Href="@Links.Booklet(world.Id, _adventure.Id, download: true)">
             Download
@@ -88,6 +105,15 @@ else if (_adventure is not null && Worlds.Current is { } world)
     private bool _filing;
     private LibraryDocumentDto? _filed;
     private string? _fileError;
+
+    /// <summary>Why Print props is off: the sheet is the Adventure's prop boxes, and it has none.</summary>
+    public const string NoPropsReason = "No prop boxes yet. Add one with the Prop button in a section, and Print props makes a page of each to cut out.";
+
+    /// <summary>
+    /// Whether any section has a prop box (feature 38), so Print props can say why it's off rather
+    /// than open an empty download. The API decides what is a prop box; this only looks for its marker.
+    /// </summary>
+    private bool HasProps => _adventure?.Sections.Any(s => s.BodyMarkdown.Contains(PrepMarkup.PropMarker, StringComparison.Ordinal)) == true;
 
     protected override async Task OnInitializedAsync()
     {

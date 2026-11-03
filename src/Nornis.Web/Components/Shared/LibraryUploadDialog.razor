@@ -84,12 +84,16 @@
     /// </summary>
     [Parameter] public Guid? AdventureId { get; set; }
 
+    /// <summary>The kind the upload starts out as (feature 38: the Handouts card presets Handout); Sourcebook when unset.</summary>
+    [Parameter] public string? Kind { get; set; }
+
     private IReadOnlyList<AdventureSummaryDto> _adventures = [];
     private string _belongsTo = NoAdventure;
 
     protected override async Task OnInitializedAsync()
     {
         _belongsTo = AdventureId?.ToString() ?? NoAdventure;
+        _kind = Kind ?? _kind;
         if (Worlds.Current is null || !Worlds.IsGm)
         {
             return;

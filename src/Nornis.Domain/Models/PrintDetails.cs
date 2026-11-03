@@ -1,3 +1,5 @@
+using Nornis.Domain.Enums;
+
 namespace Nornis.Domain.Models;
 
 /// <summary>
@@ -46,6 +48,12 @@ public sealed record PrintDetails
 
     public int? Year { get; init; }
 
+    /// <summary>
+    /// What the print says about AI's part in the Adventure (feature 38). Null only on prints
+    /// filed before Nornis 3.9, which recorded nothing: unknown, not "none".
+    /// </summary>
+    public AiUseKind? AiUse { get; init; }
+
     /// <summary>The game system and edition as one line ("Shadowdark 2nd"), or null when neither is set. A method, so no serializer or mapping stores it.</summary>
     public string? SystemLine() => JoinSystem(GameSystem, Edition);
 
@@ -53,17 +61,19 @@ public sealed record PrintDetails
     /// The details a print of this Adventure carries now. A null game system falls back to the
     /// world's; type and publisher are the fixed values; the author is the creator's username.
     /// </summary>
-    public static PrintDetails Resolve(string title, AdventureDetails details, string? worldGameSystem, string authorUsername) => new()
-    {
-        Title = title,
-        GameSystem = GameSystemOf(details, worldGameSystem),
-        Edition = details.Edition,
-        Type = NornisType,
-        Levels = details.Levels,
-        Publisher = NornisPublisher,
-        Author = authorUsername,
-        Year = details.Year,
-    };
+    public static PrintDetails Resolve(
+        string title, AdventureDetails details, string? worldGameSystem, string authorUsername, AiUseKind aiUse) => new()
+        {
+            Title = title,
+            GameSystem = GameSystemOf(details, worldGameSystem),
+            Edition = details.Edition,
+            Type = NornisType,
+            Levels = details.Levels,
+            Publisher = NornisPublisher,
+            Author = authorUsername,
+            Year = details.Year,
+            AiUse = aiUse,
+        };
 
     /// <summary>
     /// The game system an Adventure is written for: its own, or the world's (feature 32). The

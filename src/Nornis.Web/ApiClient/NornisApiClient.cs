@@ -637,6 +637,68 @@ public class NornisApiClient
         Guid worldId, Guid adventureId, UpdateAdventureDetailsRequest request, CancellationToken ct = default) =>
         PutAsync<UpdateAdventureDetailsRequest, AdventureDto>($"/api/worlds/{worldId}/prep/{adventureId}/details", request, ct);
 
+    public Task<ApiResult<AdventureDto>> SetAdventureAiDeclaredAsync(
+        Guid worldId, Guid adventureId, bool declared, CancellationToken ct = default) =>
+        PutAsync<SetAiDeclaredRequest, AdventureDto>($"/api/worlds/{worldId}/prep/{adventureId}/ai-declared", new SetAiDeclaredRequest(declared), ct);
+
+    // ------------------------------------------------------------- Cover art (feature 38) --
+
+    private static string CoverUri(Guid worldId, Guid adventureId) => $"/api/worlds/{worldId}/prep/{adventureId}/cover";
+
+    public Task<ApiResult<CoverStateDto>> GetCoverAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        GetAsync<CoverStateDto>(CoverUri(worldId, adventureId), ct);
+
+    /// <summary>The Loremaster writes an art brief; it comes back as the card's brief.</summary>
+    public Task<ApiResult<CoverStateDto>> WriteCoverBriefAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        SendForAsync<CoverStateDto>(HttpMethod.Post, $"{CoverUri(worldId, adventureId)}/brief", null, ct);
+
+    public Task<ApiResult<CoverStateDto>> SaveCoverBriefAsync(Guid worldId, Guid adventureId, string? brief, CancellationToken ct = default) =>
+        PutAsync<CoverBriefRequest, CoverStateDto>($"{CoverUri(worldId, adventureId)}/brief", new CoverBriefRequest(brief), ct);
+
+    public Task<ApiResult<CoverStateDto>> GenerateCoverAsync(Guid worldId, Guid adventureId, string brief, CancellationToken ct = default) =>
+        PostAsync<CoverBriefRequest, CoverStateDto>($"{CoverUri(worldId, adventureId)}/generate", new CoverBriefRequest(brief), ct);
+
+    public Task<ApiResult<CoverStateDto>> ChooseCoverAsync(Guid worldId, Guid adventureId, Guid optionId, CancellationToken ct = default) =>
+        PostAsync<ChooseCoverRequest, CoverStateDto>($"{CoverUri(worldId, adventureId)}/choose", new ChooseCoverRequest(optionId), ct);
+
+    /// <summary>The GM's own art as the request body; the API reads its type from its bytes.</summary>
+    public Task<ApiResult<CoverStateDto>> UploadCoverAsync(Guid worldId, Guid adventureId, byte[] image, CancellationToken ct = default) =>
+        SendForAsync<CoverStateDto>(HttpMethod.Put, $"{CoverUri(worldId, adventureId)}/image", new ByteArrayContent(image), ct);
+
+    public Task<ApiResult<CoverStateDto>> RemoveCoverAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        SendForAsync<CoverStateDto>(HttpMethod.Delete, CoverUri(worldId, adventureId), null, ct);
+
+    public Task<ApiResult<CoverStateDto>> SetCoverLayoutAsync(Guid worldId, Guid adventureId, string layout, CancellationToken ct = default) =>
+        PutAsync<SetCoverLayoutRequest, CoverStateDto>($"{CoverUri(worldId, adventureId)}/layout", new SetCoverLayoutRequest(layout), ct);
+
+    /// <summary>The cover's image, for the Web's proxy; null when there is none.</summary>
+    public Task<(byte[] Bytes, string ContentType)?> GetCoverImageAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        GetImageAsync($"{CoverUri(worldId, adventureId)}/image", ct);
+
+    /// <summary>A generated option's image, for the Web's proxy; null when it isn't this Adventure's.</summary>
+    public Task<(byte[] Bytes, string ContentType)?> GetCoverOptionAsync(
+        Guid worldId, Guid adventureId, Guid optionId, CancellationToken ct = default) =>
+        GetImageAsync($"{CoverUri(worldId, adventureId)}/options/{optionId}", ct);
+
+    private async Task<(byte[] Bytes, string ContentType)?> GetImageAsync(string uri, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await SendCoreAsync(HttpMethod.Get, uri, null, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+            return (bytes, response.Content.Headers.ContentType?.MediaType ?? "image/png");
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return null;
+        }
+    }
+
     public Task<ApiResult<bool>> DeleteAdventureAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}/prep/{adventureId}", ct);
 
@@ -711,6 +773,12 @@ public class NornisApiClient
         PutAsync<SetSourceBooksRequest, AdventureDto>(
             $"/api/worlds/{worldId}/prep/{adventureId}/source-books", new SetSourceBooksRequest(documentIds), ct);
 
+    /// <summary>The booklet's handouts (feature 38), the whole ordered list; the API checks each one is a printable map or handout.</summary>
+    public Task<ApiResult<AdventureDto>> SetAdventureHandoutsAsync(
+        Guid worldId, Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken ct = default) =>
+        PutAsync<SetHandoutsRequest, AdventureDto>(
+            $"/api/worlds/{worldId}/prep/{adventureId}/handouts", new SetHandoutsRequest(documentIds), ct);
+
     /// <summary>
     /// Drafts or revises one section, streamed. Refusals (a stale section, a draft already
     /// running, the Prep budget spent) arrive as <see cref="DraftStreamEvent.Failed"/>, and
@@ -730,11 +798,21 @@ public class NornisApiClient
     /// The booklet's PDF bytes and file name (feature 34), for the Web's own booklet route, which
     /// the print page's frame and Download point at. Null when the API refuses or fails.
     /// </summary>
-    public async Task<(byte[] Bytes, string? FileName)?> GetAdventureBookletAsync(Guid worldId, Guid adventureId, CancellationToken ct = default)
+    public Task<(byte[] Bytes, string? FileName)?> GetAdventureBookletAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        GetPdfAsync($"/api/worlds/{worldId}/prep/{adventureId}/booklet", ct);
+
+    /// <summary>
+    /// The props sheet's PDF bytes and file name (feature 38), for the Web's own props route. Null
+    /// when the API refuses, including when the Adventure has no prop boxes.
+    /// </summary>
+    public Task<(byte[] Bytes, string? FileName)?> GetAdventurePropsAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        GetPdfAsync($"/api/worlds/{worldId}/prep/{adventureId}/props", ct);
+
+    private async Task<(byte[] Bytes, string? FileName)?> GetPdfAsync(string uri, CancellationToken ct)
     {
         try
         {
-            using var response = await SendCoreAsync(HttpMethod.Get, $"/api/worlds/{worldId}/prep/{adventureId}/booklet", null, ct);
+            using var response = await SendCoreAsync(HttpMethod.Get, uri, null, ct);
             if (!response.IsSuccessStatusCode)
             {
                 return null;
@@ -1241,6 +1319,20 @@ public class NornisApiClient
         try
         {
             var response = await SendCoreAsync(HttpMethod.Post, uri, JsonContent.Create(body), ct);
+            return await ReadResultAsync<TValue>(response, ct);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<TValue>.Fail(Unreachable(ex));
+        }
+    }
+
+    /// <summary>Any verb with any body (or none) whose answer carries a value: a POST with no body, a PUT of bytes, a DELETE that answers.</summary>
+    private async Task<ApiResult<TValue>> SendForAsync<TValue>(HttpMethod method, string uri, HttpContent? content, CancellationToken ct)
+    {
+        try
+        {
+            var response = await SendCoreAsync(method, uri, content, ct);
             return await ReadResultAsync<TValue>(response, ct);
         }
         catch (Exception ex)

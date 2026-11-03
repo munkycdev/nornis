@@ -6,8 +6,11 @@ namespace Nornis.Application.Tests.Fakes;
 /// <summary>An <see cref="AdventureBookletPrinter"/> over a fake renderer, for fixtures that view or print Adventures.</summary>
 public static class TestBooklets
 {
-    public static AdventureBookletPrinter Printer(AdventurePrintDetails details, FakeBookletPdfRenderer? renderer = null) =>
-        new(details, renderer ?? new FakeBookletPdfRenderer(), NullLogger<AdventureBookletPrinter>.Instance);
+    public static AdventureBookletPrinter Printer(
+        AdventurePrintDetails details, FakeBookletPdfRenderer? renderer = null, TimeProvider? time = null,
+        FakeBlobStorageService? blobs = null) =>
+        new(details, renderer ?? new FakeBookletPdfRenderer(), NullLogger<AdventureBookletPrinter>.Instance, time ?? TimeProvider.System,
+            blobs ?? new FakeBlobStorageService());
 }
 
 /// <summary>
@@ -40,5 +43,13 @@ public sealed class FakeBookletPdfRenderer : IBookletPdfRenderer
 
         Rendered.Add(booklet);
         return new BookletPdf(BytesFor(booklet, Size), 1);
+    }
+
+    public List<BookletProps> RenderedProps { get; } = [];
+
+    public BookletPdf RenderProps(BookletProps props)
+    {
+        RenderedProps.Add(props);
+        return new BookletPdf(System.Text.Encoding.UTF8.GetBytes($"%PDF-fake props {props.Title}\n"), props.Props.Count);
     }
 }

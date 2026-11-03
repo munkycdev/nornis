@@ -8,6 +8,7 @@ using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services;
@@ -26,6 +27,8 @@ public class AdventureDesignServiceTests
     private InMemoryLibraryDocumentRepository _documents = null!;
     private InMemoryConversationRepository _conversations = null!;
     private AdventureService _views = null!;
+    private FakeBlobStorageService _blobs = null!;
+    private FakeBookletPdfRenderer _renderer = null!;
     private AdventureDesignService _sut = null!;
     private Guid _adventureId;
 
@@ -35,9 +38,11 @@ public class AdventureDesignServiceTests
         _adventures = new InMemoryAdventureRepository();
         _documents = new InMemoryLibraryDocumentRepository();
         var slugs = new FakeSlugResolver((_, _) => null);
+        _blobs = new FakeBlobStorageService();
+        _renderer = new FakeBookletPdfRenderer();
         _views = new AdventureService(_adventures, new InMemoryCampaignRepository(), slugs,
-            TestBooklets.Printer(TestPrintDetails.For(WorldId, GmUserId, "Shadowdark"), new FakeBookletPdfRenderer()),
-            Options.Create(new PrepOptions()));
+            TestBooklets.Printer(TestPrintDetails.For(WorldId, GmUserId, "Shadowdark"), _renderer, blobs: _blobs),
+            Options.Create(new PrepOptions()), _blobs);
         _conversations = new InMemoryConversationRepository();
         _sut = new AdventureDesignService(_adventures, _documents, _views, _conversations, Options.Create(new PrepOptions()),
             NullLogger<AdventureDesignService>.Instance);
@@ -55,6 +60,7 @@ public class AdventureDesignServiceTests
             ("UndoDraft", async (s, a, r) => (await s.UndoDraftAsync(new(WorldId, a, r), default)).Error),
             ("SetTableBrief", async (s, a, r) => (await s.SetTableBriefAsync(new(WorldId, a, r, "Four players"), default)).Error),
             ("SetSourceBooks", async (s, a, r) => (await s.SetSourceBooksAsync(new(WorldId, a, r, []), default)).Error),
+            ("SetHandouts", async (s, a, r) => (await s.SetHandoutsAsync(new(WorldId, a, r, []), default)).Error),
             ("ApplyEdit", async (s, a, r) => (await s.ApplyEditAsync(new(WorldId, a, r, Guid.NewGuid(), 0, null), default)).Error),
             ("Split", async (s, a, r) => (await s.SplitAsync(new(WorldId, a, r, [], DraftSplitMode.Replace, null), default)).Error),
             ("Gather", async (s, a, r) => (await s.GatherAsync(new(WorldId, a, r, null), default)).Error),
@@ -126,7 +132,11 @@ public class AdventureDesignServiceTests
 
         var undo = await _sut.UndoDraftAsync(new(WorldId, _adventureId, WorldRole.GM), default);
 
-        Assert.That(undo.Error?.Code, Is.EqualTo("nothing_to_undo"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(undo.Error?.Code, Is.EqualTo("nothing_to_undo"));
+            Assert.That(AiUse.WroteText, Is.False, "the GM's own typing records no AI use");
+        });
     }
 
     [Test]
@@ -215,6 +225,125 @@ public class AdventureDesignServiceTests
         Assert.That(cleared.Value!.Adventure.SourceBooks, Is.Empty);
     }
 
+    // -------------------------------------------------------------------------- Handouts --
+
+    private LibraryDocument Handout(string title, LibraryDocumentKind kind = LibraryDocumentKind.Handout, string contentType = "image/png")
+    {
+        var document = Book(title);
+        document.Kind = kind;
+        document.ContentType = contentType;
+        document.BlobPath = $"worlds/{WorldId}/library/{document.Id}/file";
+        document.SizeBytes = 3;
+        return document;
+    }
+
+    [Test]
+    public async Task Handouts_KeepTheGmsOrder_AndAReorderIsTheSameCall()
+    {
+        var map = Handout("Harbor map", LibraryDocumentKind.Map, "image/jpeg");
+        var letter = Handout("The forged letter", contentType: "application/pdf");
+        Seed(map, letter);
+
+        var first = await _sut.SetHandoutsAsync(new(WorldId, _adventureId, WorldRole.GM, [map.Id, letter.Id]), default);
+        var reordered = await _sut.SetHandoutsAsync(new(WorldId, _adventureId, WorldRole.GM, [letter.Id, map.Id]), default);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Value!.Adventure.Handouts.Select(h => h.LibraryDocument.Title), Is.EqualTo(["Harbor map", "The forged letter"]));
+            Assert.That(reordered.Value!.Adventure.Handouts.Select(h => h.LibraryDocument.Title), Is.EqualTo(["The forged letter", "Harbor map"]));
+            Assert.That(map.Visibility, Is.EqualTo(default(VisibilityScope)), "choosing a handout never changes who can see it");
+        });
+    }
+
+    [Test]
+    public async Task AHandout_MustBeThisWorldsMapOrHandout_AsAnImageOrPdf()
+    {
+        var book = Book("Player's Guide");
+        var notes = Handout("Session notes", LibraryDocumentKind.Other);
+        var word = Handout("A letter in Word", contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        var elsewhere = Handout("Another world's map");
+        elsewhere.WorldId = Guid.NewGuid();
+        var pending = Handout("Still uploading");
+        pending.Status = LibraryDocumentStatus.PendingUpload;
+        Seed(book, notes, word, elsewhere, pending);
+
+        async Task<string?> Try(LibraryDocument d) =>
+            (await _sut.SetHandoutsAsync(new(WorldId, _adventureId, WorldRole.GM, [d.Id]), default)).Error?.Code;
+
+        var codes = new[] { await Try(book), await Try(notes), await Try(word), await Try(elsewhere), await Try(pending) };
+
+        Assert.That(codes, Is.EqualTo(["not_a_handout", "not_a_handout", "not_a_handout", "document_not_found", "document_not_found"]));
+    }
+
+    [Test]
+    public async Task Handouts_StopAtTwenty()
+    {
+        var handouts = Enumerable.Range(1, AdventureDesignService.MaxHandouts + 1).Select(i => Handout($"Handout {i}")).ToArray();
+        Seed(handouts);
+
+        var result = await _sut.SetHandoutsAsync(new(WorldId, _adventureId, WorldRole.GM, handouts.Select(h => h.Id).ToList()), default);
+
+        Assert.That(result.Error?.Code, Is.EqualTo("too_many_handouts"));
+    }
+
+    [Test]
+    public async Task ThePrint_CarriesTheHandoutsInOrder_AndNamesOneWhoseFileIsGone()
+    {
+        var map = Handout("Harbor map", LibraryDocumentKind.Map, "image/jpeg");
+        var letter = Handout("The forged letter", contentType: "application/pdf");
+        var lost = Handout("Lost sketch");
+        Seed(map, letter, lost);
+        _blobs.Blobs[map.BlobPath] = ([1, 2, 3], "image/jpeg");
+        _blobs.Blobs[letter.BlobPath] = ([4, 5, 6], "application/pdf");
+        await _sut.SetHandoutsAsync(new(WorldId, _adventureId, WorldRole.GM, [letter.Id, lost.Id, map.Id]), default);
+
+        await _views.GetBookletAsync(WorldId, _adventureId, WorldRole.GM, default);
+
+        var handouts = _renderer.Rendered.Single().Handouts!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(handouts.Select(h => h.Title), Is.EqualTo(["The forged letter", "Lost sketch", "Harbor map"]));
+            Assert.That(handouts[0], Is.TypeOf<BookletHandoutPdf>());
+            Assert.That(((BookletHandoutMissing)handouts[1]).Reason, Does.Contain("missing"));
+            Assert.That(((BookletHandoutImage)handouts[2]).Image, Is.EqualTo(new byte[] { 1, 2, 3 }));
+        });
+    }
+
+    [Test]
+    public async Task HandoutsPastTheBookletsLimit_PrintAsAPageNamingThem()
+    {
+        var big = Handout("A huge map", LibraryDocumentKind.Map);
+        big.SizeBytes = AdventureBookletPrinter.MaxHandoutBytes + 1;
+        Seed(big);
+        await _sut.SetHandoutsAsync(new(WorldId, _adventureId, WorldRole.GM, [big.Id]), default);
+
+        await _views.GetBookletAsync(WorldId, _adventureId, WorldRole.GM, default);
+
+        Assert.That(_renderer.Rendered.Single().Handouts!.Single(), Is.TypeOf<BookletHandoutMissing>());
+    }
+
+    [Test]
+    public async Task TheProps_AreEveryPropBox_InReadingOrder()
+    {
+        var scene = _adventures.Sections.First(s => s.Kind == AdventureSectionKind.Scene);
+        scene.BodyMarkdown = $"Text.\n\n> {PrepMarkup.PropMarker}\n> The forged letter.\n\nMore.\n\n> {PrepMarkup.PropMarker}\n> A wanted poster.";
+
+        var props = await _views.GetPropsAsync(WorldId, _adventureId, WorldRole.GM, default);
+
+        Assert.That(props.IsSuccess, Is.True, props.Error?.Message);
+        Assert.That(props.Value!.FileName, Is.EqualTo("The Slurping Spa props.pdf"));
+        Assert.That(_renderer.RenderedProps.Single().Props, Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public async Task NoProps_IsNotFound_WithHowToMarkOne()
+    {
+        var props = await _views.GetPropsAsync(WorldId, _adventureId, WorldRole.GM, default);
+
+        Assert.That(props.Error?.Code, Is.EqualTo("no_props"));
+        Assert.That(props.Error!.Message, Does.Contain(PrepMarkup.PropMarker));
+    }
+
     // ------------------------------------------------------- Suggested edits and Put in draft --
 
     private const string TwoEdits = """
@@ -283,7 +412,11 @@ public class AdventureDesignServiceTests
         });
 
         var undo = await _sut.UndoDraftAsync(new(WorldId, _adventureId, WorldRole.GM), default);
-        Assert.That(undo.Value!.Markdown, Is.EqualTo("# The Spa\n\nThe spa is quiet.\n\nThe end."));
+        Assert.Multiple(() =>
+        {
+            Assert.That(undo.Value!.Markdown, Is.EqualTo("# The Spa\n\nThe spa is quiet.\n\nThe end."));
+            Assert.That(AiUse.WroteText, Is.True, "an applied edit records AI use, and Undo doesn't clear it");
+        });
     }
 
     [Test]
@@ -352,6 +485,7 @@ public class AdventureDesignServiceTests
             Assert.That(replaced.Value!.Markdown, Is.EqualTo("Three cultists wait in the steam."));
             Assert.That(replaced.Value.RevisionCount, Is.EqualTo(2));
             Assert.That(_adventures.DraftRevisions.Select(r => r.Reason), Is.All.EqualTo(AdventureDraftChange.Put));
+            Assert.That(AiUse.WroteText, Is.True, "Put in draft records AI use");
         });
     }
 
@@ -393,6 +527,7 @@ public class AdventureDesignServiceTests
             Assert.That(_adventures.Adventures.Single().DraftMarkdown, Is.EqualTo(SpaDraft), "the draft stays");
             Assert.That(_adventures.DraftRevisions.Single().Reason, Is.EqualTo(AdventureDraftChange.Split));
             Assert.That(_adventures.DraftRevisions.Single().BodyMarkdown, Is.EqualTo("## Overview\n\nThe old overview."));
+            Assert.That(AiUse.WroteText, Is.False, "a split only moves the GM's own text");
         });
     }
 
@@ -461,6 +596,7 @@ public class AdventureDesignServiceTests
             Assert.That(gathered.Value!.Markdown, Is.EqualTo("## Overview\n\nSteam everywhere."));
             Assert.That(_adventures.DraftRevisions.Single().Reason, Is.EqualTo(AdventureDraftChange.Gather));
             Assert.That(_adventures.DraftRevisions.Single().BodyMarkdown, Is.EqualTo("My old draft."));
+            Assert.That(AiUse.WroteText, Is.False, "a gather only moves the GM's own text");
         });
     }
 
@@ -486,4 +622,6 @@ public class AdventureDesignServiceTests
         Kind = LibraryDocumentKind.Sourcebook,
         Status = LibraryDocumentStatus.Stored,
     };
+
+    private AdventureAiUse AiUse => _adventures.Adventures.Single(a => a.Id == _adventureId).AiUse;
 }

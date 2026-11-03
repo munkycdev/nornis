@@ -75,7 +75,7 @@ public class AdventureDraftingServiceTests
         });
 
         _adventureService = new AdventureService(_adventures, new InMemoryCampaignRepository(),
-            new FakeSlugResolver((_, _) => null), TestBooklets.Printer(TestPrintDetails.For(_worldId, GmUserId, worlds: worlds)), Options.Create(_options));
+            new FakeSlugResolver((_, _) => null), TestBooklets.Printer(TestPrintDetails.For(_worldId, GmUserId, worlds: worlds)), Options.Create(_options), new FakeBlobStorageService());
         _sut = new AdventureDraftingService(
             _adventures, new PrepPromptContextBuilder(worlds, _retriever, _references, Options.Create(loremaster)), _ai, _budget, TestUsageRecorder.Wrap(_ledger), _gate, _gauge,
             Options.Create(_options), Options.Create(loremaster), NullLogger<AdventureDraftingService>.Instance);
@@ -307,6 +307,8 @@ public class AdventureDraftingServiceTests
             Assert.That(revision.BodyMarkdown, Is.EqualTo(before));
             Assert.That(revision.Instruction, Is.EqualTo("Open on the docks at dawn."));
             Assert.That(revision.Model, Is.EqualTo("nornis-ask"));
+            Assert.That(_adventures.Adventures.Single(a => a.Id == adventure.Id).AiUse.WroteText, Is.True,
+                "a completed draft records that AI wrote text (feature 38)");
         });
     }
 

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
+using Nornis.Application.Prep.Covers;
 using Nornis.Application.Services;
 using Nornis.Domain.Repositories;
 using Nornis.Infrastructure.Persistence.Repositories;
@@ -30,7 +31,10 @@ public static class AiFundingServiceCollectionExtensions
         services.AddSingleton(new UserKeyChatClients(maxRetries));
         services.AddScoped<IAiKeyRepository, AiKeyRepository>();
         services.AddScoped<IAiFundingService, AiFundingService>();
-        services.AddScoped<IAiCallBinder, AiCallBinder>();
+        services.AddScoped<AiCallBinder>();
+        services.AddScoped<IAiCallBinder>(sp => sp.GetRequiredService<AiCallBinder>());
+        services.AddScoped<IAiImageBinder>(sp => sp.GetRequiredService<AiCallBinder>());
+        services.AddScoped<ICoverArtGenerator, OpenAiCoverArtGenerator>();
         services.AddHttpClient<IAiKeyChecker, AiKeyChecker>()
             .ConfigurePrimaryHttpMessageHandler(PublicEndpointGuard.CreateHandler);
 

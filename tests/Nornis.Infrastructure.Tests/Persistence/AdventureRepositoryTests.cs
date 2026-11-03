@@ -202,7 +202,7 @@ public class AdventureRepositoryTests : IntegrationTestBase
     public async Task PrintDetails_RoundTripOnAPrint_AndAreNullOnADocumentThatIsNot()
     {
         var details = PrintDetails.Resolve(
-            "The Silver Key", new AdventureDetails { Edition = "1st", Year = 2026 }, "Shadowdark", _user.Username);
+            "The Silver Key", new AdventureDetails { Edition = "1st", Year = 2026 }, "Shadowdark", _user.Username, AiUseKind.TextAndArt);
         var print = new LibraryDocument
         {
             Id = Guid.NewGuid(),
@@ -365,6 +365,7 @@ public class AdventureRepositoryTests : IntegrationTestBase
             Assert.That(kept.Select(r => r.BodyMarkdown), Is.EqualTo(["middle", "the GM's text"]),
                 "the oldest is trimmed, and the new revision holds what was stored, not what was passed");
             Assert.That(kept[^1].Instruction, Is.EqualTo("Tighter."));
+            Assert.That(parent.AiUse.WroteText, Is.True, "an accept records AI text in the same save (feature 38)");
         });
     }
 
@@ -387,6 +388,35 @@ public class AdventureRepositoryTests : IntegrationTestBase
         Assert.That((await Context.AdventureSections.AsNoTracking().SingleAsync(s => s.Id == section.Id)).BodyMarkdown,
             Is.EqualTo("the GM's newer text"));
         Assert.That(await Context.AdventureSectionRevisions.CountAsync(r => r.SectionId == section.Id), Is.Zero);
+        Assert.That((await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id)).AiUse.WroteText, Is.False,
+            "a refused accept records nothing");
+    }
+
+    [Test]
+    public async Task ADraftSave_RecordsAiText_OnlyWhenTheLoremasterWrote_AndNoUpdateClearsIt()
+    {
+        var adventure = await CreateAsync("a");
+        var first = _now.AddMinutes(1);
+        await _sut.TrySaveDraftAsync(adventure.Id, "mine", null, 20, basedOn: null, first);
+        var afterGm = (await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id)).AiUse.WroteText;
+
+        await _sut.TrySaveDraftAsync(adventure.Id, "the Loremaster's", null, 20, basedOn: first, _now.AddMinutes(2), loremasterWrote: true);
+        Context.ChangeTracker.Clear();
+
+        // A caller's Adventure with the flags cleared, as an Update would send it: only Declared is copied.
+        var update = await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id);
+        update.AiUse = new AdventureAiUse { Declared = true };
+        await _sut.UpdateAsync(update);
+        Context.ChangeTracker.Clear();
+
+        var stored = await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(afterGm, Is.False, "the GM's own save records nothing");
+            Assert.That(stored.AiUse.WroteText, Is.True, "an update can't clear a record");
+            Assert.That(stored.AiUse.Declared, Is.True, "the GM's tick is the one field an update writes");
+            Assert.That(stored.AiUse.MadeArt, Is.False);
+        });
     }
 
     [Test]
@@ -631,5 +661,155 @@ public class AdventureRepositoryTests : IntegrationTestBase
         var left = await Context.AdventureSourceBooks.CountAsync(b => b.AdventureId == adventure.Id)
             + await Context.AdventureDraftRevisions.CountAsync(r => r.AdventureId == adventure.Id);
         Assert.That(left, Is.Zero);
+    }
+
+    [Test]
+    public async Task TheCover_RoundTrips_AndAGeneratedOneRecordsAiArtThatNoRemovalClears()
+    {
+        var adventure = await CreateAsync("a");
+        var cover = new AdventureCover
+        {
+            BlobPath = "worlds/w/covers/a/options/o.png",
+            ContentType = "image/png",
+            Source = CoverSource.Generated,
+            Brief = "A bathhouse at dusk.",
+            Layout = CoverLayout.ClassicModule,
+            UpdatedAt = _now,
+        };
+
+        await _sut.SetCoverAsync(adventure.Id, cover, generated: true, _now);
+        Context.ChangeTracker.Clear();
+        var stored = (await _sut.GetWithSectionsAsync(adventure.Id))!;
+        await _sut.SetCoverAsync(adventure.Id, null, generated: false, _now.AddMinutes(1));
+        Context.ChangeTracker.Clear();
+        var removed = (await _sut.GetWithSectionsAsync(adventure.Id))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored.Cover, Is.EqualTo(cover));
+            Assert.That(stored.AiUse.MadeArt, Is.True);
+            Assert.That(removed.Cover, Is.Null);
+            Assert.That(removed.AiUse.MadeArt, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task CoverImages_AreCountedAgainstTheCap_AndGivenBack()
+    {
+        var adventure = await CreateAsync("a");
+
+        var first = await _sut.TryCountCoverImagesAsync(adventure.Id, 2, 3);
+        var second = await _sut.TryCountCoverImagesAsync(adventure.Id, 2, 3);
+        await _sut.ReleaseCoverImagesAsync(adventure.Id, 1);
+        var third = await _sut.TryCountCoverImagesAsync(adventure.Id, 2, 3);
+        Context.ChangeTracker.Clear();
+
+        Assert.That((first, second, third), Is.EqualTo((true, false, true)));
+        Assert.That((await _sut.GetWithSectionsAsync(adventure.Id))!.CoverImagesGenerated, Is.EqualTo(3));
+    }
+
+    [Test]
+    public async Task TheBriefAndOptions_RoundTrip_OptionsAppendedInOrder()
+    {
+        var adventure = await CreateAsync("a");
+        Guid[] ids = [Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()];
+
+        await _sut.SaveCoverWorkAsync(adventure.Id, "first", [ids[0], ids[1]]);
+        await _sut.SaveCoverWorkAsync(adventure.Id, "second", [ids[2]]);
+        Context.ChangeTracker.Clear();
+
+        var stored = (await _sut.GetWithSectionsAsync(adventure.Id))!;
+        Assert.That(stored.CoverBrief, Is.EqualTo("second"));
+        Assert.That(stored.CoverOptionIds, Is.EqualTo(ids));
+    }
+
+    [Test]
+    public async Task AnUpdate_NeverTouchesTheCover()
+    {
+        var adventure = await CreateAsync("a");
+        await _sut.SetCoverAsync(adventure.Id, new AdventureCover
+        {
+            BlobPath = "p",
+            ContentType = "image/png",
+            Source = CoverSource.Uploaded,
+            UpdatedAt = _now,
+        }, generated: false, _now);
+        Context.ChangeTracker.Clear();
+        var stale = (await _sut.GetWithSectionsAsync(adventure.Id))!;
+        stale.Cover = null;
+        stale.Title = "Renamed";
+
+        await _sut.UpdateAsync(stale);
+        Context.ChangeTracker.Clear();
+
+        Assert.That((await _sut.GetWithSectionsAsync(adventure.Id))!.Cover, Is.Not.Null);
+    }
+
+    private async Task<LibraryDocument> AddDocumentAsync(string title)
+    {
+        var document = new LibraryDocument
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _world.Id,
+            Title = title,
+            FileName = "map.png",
+            ContentType = "image/png",
+            BlobPath = $"worlds/{_world.Id}/library/{Guid.NewGuid()}/map.png",
+            Kind = LibraryDocumentKind.Map,
+            Visibility = VisibilityScope.GMOnly,
+            Status = LibraryDocumentStatus.Stored,
+            UploadedByUserId = _user.Id,
+            CreatedAt = _now,
+            UpdatedAt = _now,
+        };
+        Context.Add(document);
+        await Context.SaveChangesAsync();
+        Context.ChangeTracker.Clear();
+        return document;
+    }
+
+    [Test]
+    public async Task Handouts_LoadInTheirOrder_AndAReplaceReordersAndDrops()
+    {
+        var adventure = await CreateAsync("a");
+        var map = await AddDocumentAsync("Harbor map");
+        var sketch = await AddDocumentAsync("Bathhouse sketch");
+
+        await _sut.ReplaceHandoutsAsync(adventure.Id, [map.Id, sketch.Id, _print.Id]);
+        var first = (await _sut.GetWithSectionsAsync(adventure.Id))!;
+        await _sut.ReplaceHandoutsAsync(adventure.Id, [_print.Id, map.Id]);
+        var second = (await _sut.GetWithSectionsAsync(adventure.Id))!;
+
+        Assert.That(first.Handouts.Select(h => h.LibraryDocument.Title), Is.EqualTo(["Harbor map", "Bathhouse sketch", _print.Title]));
+        Assert.That(second.Handouts.Select(h => h.LibraryDocumentId), Is.EqualTo([_print.Id, map.Id]));
+    }
+
+    [Test]
+    public async Task DeletingTheAdventureOrTheDocument_TakesTheHandoutRowsWithIt()
+    {
+        var adventure = await CreateAsync("a");
+        var other = await CreateAsync("b");
+        var map = await AddDocumentAsync("Harbor map");
+        await _sut.ReplaceHandoutsAsync(adventure.Id, [map.Id]);
+        await _sut.ReplaceHandoutsAsync(other.Id, [map.Id]);
+
+        await _sut.DeleteAsync(adventure.Id);
+        await new LibraryDocumentRepository(Context).DeleteAsync(map.Id);
+        Context.ChangeTracker.Clear();
+
+        Assert.That(await Context.AdventureHandouts.CountAsync(), Is.Zero);
+    }
+
+    [Test]
+    public async Task DeletingTheWorld_TakesTheHandoutRowsWithIt()
+    {
+        var adventure = await CreateAsync("a");
+        var map = await AddDocumentAsync("Harbor map");
+        await _sut.ReplaceHandoutsAsync(adventure.Id, [map.Id]);
+
+        await new WorldRepository(Context).DeleteAsync(_world.Id);
+        Context.ChangeTracker.Clear();
+
+        Assert.That(await Context.AdventureHandouts.CountAsync(h => h.AdventureId == adventure.Id), Is.Zero);
     }
 }
