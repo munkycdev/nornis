@@ -67,6 +67,11 @@ public class PrepEndpointTests
         yield return ("clear conversation", (c, w, a, _) => c.DeleteAsync($"{Base(w)}/{a}/conversation"));
         yield return ("put in section", (c, w, a, s) => c.PostAsJsonAsync($"{Base(w)}/{a}/sections/{s}/put",
             new PutInSectionRequest(Guid.NewGuid(), "Replace", DateTimeOffset.UtcNow)));
+        yield return ("save draft", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/draft",
+            new SaveAdventureDraftRequest("# Mine", null)));
+        yield return ("undo draft", (c, w, a, _) => c.PostAsync($"{Base(w)}/{a}/draft/undo", null));
+        yield return ("brief", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/brief", new SetTableBriefRequest("Mine")));
+        yield return ("source books", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/source-books", new SetSourceBooksRequest([])));
     }
 
     [Test]
@@ -103,6 +108,7 @@ public class PrepEndpointTests
         Assert.That(after!.Title, Is.EqualTo("The Silver Key"));
         Assert.That(after.Details, Is.EqualTo(new AdventureDetailsResponse(null, null, null, null)));
         Assert.That(after.Sections.Select(s => s.Id), Is.EqualTo(adventure.Sections.Select(s => s.Id)));
+        Assert.That((after.Draft, after.TableBrief), Is.EqualTo(((AdventureDraftResponse?)null, (string?)null)));
         var list = await scenario.GmClient.GetFromJsonAsync<List<AdventureSummaryResponse>>(Base(worldId));
         Assert.That(list, Has.Count.EqualTo(1));
         Assert.That(list![0].IsExported, Is.False);
@@ -639,6 +645,55 @@ public class PrepEndpointTests
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
         Assert.That((await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Code, Is.EqualTo("invalid_mode"));
+    }
+
+    [Test]
+    public async Task Gm_StartsADraft_SavesItOnItsStamp_AndAStaleSaveIs409()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+        Assert.That(adventure.Draft, Is.Null, "a new Adventure has no draft");
+
+        var started = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft",
+            new SaveAdventureDraftRequest("# The Slurping Spa", null));
+        var draft = (await started.Content.ReadFromJsonAsync<AdventureDraftResponse>())!;
+        var next = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft",
+            new SaveAdventureDraftRequest("# The Slurping Spa\n\nSlimes.", draft.UpdatedAt));
+        var stale = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft",
+            new SaveAdventureDraftRequest("lost", draft.UpdatedAt));
+        var undo = await scenario.GmClient.PostAsync($"{Base(worldId)}/{adventure.Id}/draft/undo", null);
+
+        var after = await scenario.GmClient.GetFromJsonAsync<AdventureResponse>($"{Base(worldId)}/{adventure.Id}");
+        Assert.Multiple(() =>
+        {
+            Assert.That((started.StatusCode, next.StatusCode, stale.StatusCode, undo.StatusCode),
+                Is.EqualTo((HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.Conflict, HttpStatusCode.Conflict)),
+                "the GM's own typing keeps no revision, so there is nothing to undo");
+            Assert.That(after!.Draft!.Markdown, Is.EqualTo("# The Slurping Spa\n\nSlimes."));
+            Assert.That(after.Sections.Select(s => s.Id), Is.EqualTo(adventure.Sections.Select(s => s.Id)), "the draft is not a section");
+        });
+    }
+
+    [Test]
+    public async Task Gm_SetsTheTableBrief_AndSourceBooks_WhichMustBeTheWorldsBooks()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var brief = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/brief",
+            new SetTableBriefRequest("Four players, level 3, two hours."));
+        var stranger = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/source-books",
+            new SetSourceBooksRequest([Guid.NewGuid()]));
+
+        var after = await brief.Content.ReadFromJsonAsync<AdventureResponse>();
+        Assert.Multiple(() =>
+        {
+            Assert.That(after!.TableBrief, Is.EqualTo("Four players, level 3, two hours."));
+            Assert.That(after.SourceBooks, Is.Empty);
+            Assert.That(stranger.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        });
     }
 
     [Test]

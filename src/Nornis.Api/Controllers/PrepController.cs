@@ -335,7 +335,7 @@ public class PrepController : ControllerBase
     private IActionResult Respond(AppResult<AdventureView> result) =>
         result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
 
-    private static AdventureResponse ToResponse(AdventureView view)
+    internal static AdventureResponse ToResponse(AdventureView view)
     {
         var a = view.Adventure;
         return new AdventureResponse(
@@ -345,7 +345,15 @@ public class PrepController : ControllerBase
                 .ToList(),
             new AdventureDetailsResponse(a.Details.GameSystem, a.Details.Edition, a.Details.Levels, a.Details.Year),
             ToPrintDetails(view.PrintDetails),
-            view.IgnoredDetails);
+            view.IgnoredDetails,
+            a.DraftMarkdown is { } draft && a.DraftUpdatedAt is { } draftAt
+                ? new AdventureDraftResponse(draft, draftAt, view.DraftRevisionCount)
+                : null,
+            a.TableBrief,
+            a.SourceBooks
+                .Select(b => new AdventureSourceBookResponse(b.LibraryDocumentId, b.LibraryDocument.Title, b.LibraryDocument.Slug))
+                .OrderBy(b => b.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ToList());
     }
 
     private static PrintDetailsResponse ToPrintDetails(PrintDetails p) =>

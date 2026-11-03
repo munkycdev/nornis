@@ -51,7 +51,18 @@ public record AdventureResponse(
     IReadOnlyList<AdventureSectionResponse> Sections,
     AdventureDetailsResponse Details,
     PrintDetailsResponse PrintDetails,
-    IReadOnlyList<string>? IgnoredDetails = null);
+    IReadOnlyList<string>? IgnoredDetails = null,
+    // Design mode (feature 37): the draft (null when there is none), the table brief and the
+    // Library books the Adventure reads.
+    AdventureDraftResponse? Draft = null,
+    string? TableBrief = null,
+    IReadOnlyList<AdventureSourceBookResponse>? SourceBooks = null);
+
+/// <summary>The design draft (feature 37); <see cref="RevisionCount"/> is how many changes Undo can step back.</summary>
+public record AdventureDraftResponse(string Markdown, DateTimeOffset UpdatedAt, int RevisionCount);
+
+/// <summary>A Library book the Adventure reads (feature 37).</summary>
+public record AdventureSourceBookResponse(Guid Id, string Title, string? Slug);
 
 /// <summary>The four details the GM edits (feature 32). A null game system means the world's.</summary>
 public record AdventureDetailsResponse(string? GameSystem, string? Edition, string? Levels, int? Year);
