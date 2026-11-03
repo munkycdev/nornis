@@ -1181,7 +1181,18 @@ public record AdventureDto(
     IReadOnlyList<string>? IgnoredDetails = null,
     AdventureDraftDto? Draft = null,
     string? TableBrief = null,
-    IReadOnlyList<AdventureSourceBookDto>? SourceBooks = null);
+    IReadOnlyList<AdventureSourceBookDto>? SourceBooks = null,
+    AdventureAiUseDto? AiUse = null);
+
+/// <summary>
+/// AI's part in the Adventure (feature 38). <see cref="Locked"/> means recorded use: the box is
+/// ticked and can't be unticked. <see cref="Kind"/> is None, Declared, Text, Art or TextAndArt.
+/// Mirrors <c>AdventureAiUseResponse</c>.
+/// </summary>
+public record AdventureAiUseDto(bool WroteText, bool MadeArt, bool Declared, bool Locked, string Kind);
+
+/// <summary>The GM's own AI-use tick (feature 38); the API ignores it once AI use is recorded.</summary>
+public record SetAiDeclaredRequest(bool Declared);
 
 /// <summary>
 /// The design draft (feature 37): one Markdown document the GM and the Loremaster iterate on,
@@ -1211,7 +1222,7 @@ public record AdventureDetailsDto(string? GameSystem, string? Edition, string? L
 /// </summary>
 public record PrintDetailsDto(
     string Title, string? GameSystem, string? Edition, string Type, string? Levels,
-    string Publisher, string Author, int? Year);
+    string Publisher, string Author, int? Year, string? AiUse = null);
 
 /// <summary>All four editable details: each is the new value, and null clears it.</summary>
 public record UpdateAdventureDetailsRequest(string? GameSystem, string? Edition, string? Levels, int? Year);

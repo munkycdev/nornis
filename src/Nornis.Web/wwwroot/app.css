@@ -4591,6 +4591,17 @@ a.nornis-cite:hover {
     font-size: 0.75rem;
 }
 
+/* Feature 38: the AI-use box, under the details, its reason or hint beneath it. */
+.nornis-book-details-ai {
+    border-top: 1px solid var(--mud-palette-lines-default);
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+}
+
+.nornis-book-details-ai .nornis-book-details-caption {
+    padding-left: 2.25rem;
+}
+
 /* Design mode (feature 37): the brief keeps the GM's line breaks; source books are a short list. */
 .nornis-table-brief-text {
     white-space: pre-wrap;
