@@ -49,6 +49,7 @@ simply never used, and it stays unused so that every existing reference keeps it
 | 36 | Library organisation (Nornis 3.7) | Specified 2026-11-03 | Free-form tags and folders; linking one document to several Adventures; server-side paging |
 | 37 | Prep design mode and source books (Nornis 3.8) | Specified 2026-11-03 | Drafting all empty sections as a batch; live co-editing of the draft; page ranges within a source book |
 | 38 | Cover art, rights page and handouts (Nornis 3.9) | Specified 2026-11-03 | Pregenerated character cards; interior illustrations; a per-world image style |
+| 39 | Bring your own AI keys, with a trial | Specified 2026-11-03 | Keys per world; paying Nornis instead of bringing a key; tool use; embeddings after the cutover |
 
 Work sequenced outside this folder — the August operations and test-quality backlog — lives in
 [`../future-features.md`](../future-features.md) and `../plans/`. Campaigns' first-tier page
