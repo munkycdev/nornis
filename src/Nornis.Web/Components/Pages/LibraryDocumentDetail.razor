@@ -59,7 +59,7 @@
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
                         @if (_document.IsFromBibliotaph)
                         {
-                            @("From Bibliotaph")
+                            @_document.Kind
                         }
                         else
                         {
@@ -74,6 +74,7 @@
                         </MudText>
                     }
                 </div>
+                <BibliotaphBadge Document="_document" />
                 <LibraryVisibilityChip Document="_document" OnChanged="LoadAsync" />
                 @if (!_document.IsFromBibliotaph)
                 {

@@ -1,0 +1,18 @@
+@* Marks a Library book that comes from the world's Bibliotaph collection rather than an upload
+   to Nornis (feature 31), so the two read differently at a glance. Renders nothing for an
+   upload, including one Bibliotaph catalogues: that file still lives in Nornis. *@
+
+@if (Document.IsFromBibliotaph)
+{
+    <MudTooltip Text="@Explanation">
+        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                 Icon="@Icons.Material.Outlined.AutoStories" Class="nornis-bibliotaph-badge">Bibliotaph</MudChip>
+    </MudTooltip>
+}
+
+@code {
+    public const string Explanation =
+        "From the world's Bibliotaph collection. Nornis reads it from there and keeps no copy.";
+
+    [Parameter, EditorRequired] public LibraryDocumentDto Document { get; set; } = null!;
+}
