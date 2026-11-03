@@ -4,7 +4,7 @@ Three PRs: the spec, then storage and the Details card (the only migration, addi
 everything that reads the details, and the version bump. Ships as Nornis v3.4. Feature 33 (PR
 #82) is labelled 3.3; Phase B is generated after it lands.
 
-**Status: specified 2026-11-03; Phase A done.**
+**Status: specified 2026-11-03; Phase A done. Type, publisher and author fixed by Dave, 2026-11-03.**
 
 ## Phase A — Spec
 
@@ -19,11 +19,13 @@ everything that reads the details, and the version bump. Ships as Nornis v3.4. F
 
 ## Phase B — Storage, the route and the Details card
 
-- [ ] B1. `AdventureDetails` (Domain): the bounds, `Validate`, `ResolveForPrint`,
-      `DefaultType`, normalisation. `AdventureDetailsTests`. Sabotage: each bound.
-- [ ] B2. `PrintDetails` (Domain); `Adventure.Details`; `LibraryDocument.PrintDetails`.
-- [ ] B3. EF owned-type configuration for both, the authors JSON with a value comparer;
-      migration `AddAdventureDetails`, additive. Persistence round-trip tests. Apply it to
+- [ ] B1. `AdventureDetails` (Domain): the four editable fields, the bounds, `Validate`,
+      normalisation. `AdventureDetailsTests`. Sabotage: each bound.
+- [ ] B2. `PrintDetails` (Domain) with `Resolve` and the fixed values (`NornisType`,
+      `NornisPublisher`, the creator's username); `Adventure.Details`;
+      `LibraryDocument.PrintDetails`. `PrintDetailsTests`.
+- [ ] B3. EF owned-type configuration for both; migration `AddAdventureDetails`, additive
+      (twelve nullable columns). Persistence round-trip tests. Apply it to
       production by hand before B merges.
 - [ ] B4. `AdventureService.UpdateDetailsAsync`, GM first, nothing saved on a bad field.
 - [ ] B5. `PUT prep/{id}/details`; `AdventureResponse` gains `details` and `printDetails`;
