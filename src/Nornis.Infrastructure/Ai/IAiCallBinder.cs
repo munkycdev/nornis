@@ -25,7 +25,24 @@ public interface IAiCallBinder
     Task ReportAsync(AiBinding binding, Exception? failure, CancellationToken ct);
 }
 
-public sealed class AiCallBinder : IAiCallBinder
+/// <summary>
+/// The image side of <see cref="IAiCallBinder"/> (feature 38): the same funding rule and the
+/// same users' keys, for an image model. <see cref="AiCallBinder"/> implements both.
+/// </summary>
+public interface IAiImageBinder
+{
+    /// <summary>
+    /// Binds one image call (feature 38's cover art) to the key holder's image model. Only a key
+    /// can pay: Nornis has no image deployment, so with no key for the task this refuses.
+    /// </summary>
+    /// <exception cref="AiRefusalException">No key can run the task, or the paying key can't be used.</exception>
+    Task<AiImageBinding> BindImagesAsync(AiCallScope scope, AiTask task, CancellationToken ct);
+
+    /// <summary>How a bound image call ended, as <see cref="IAiCallBinder.ReportAsync"/>.</summary>
+    Task ReportAsync(AiImageBinding binding, Exception? failure, CancellationToken ct);
+}
+
+public sealed class AiCallBinder : IAiCallBinder, IAiImageBinder
 {
     private readonly IAiFundingService _funding;
     private readonly NornisChatClients _nornis;
@@ -65,37 +82,60 @@ public sealed class AiCallBinder : IAiCallBinder
                 : throw new InvalidOperationException($"Nornis pays only on its own Azure deployments, not {funding.Provider}.");
         }
 
+        var (key, client) = await KeyClientAsync(funding, (k, secret) => _userKeys.For(k, funding.Model, secret), ct);
+        return new AiBinding(client, TraitsFor(key.Provider), funding, key.UpdatedAt);
+    }
+
+    public async Task<AiImageBinding> BindImagesAsync(AiCallScope scope, AiTask task, CancellationToken ct)
+    {
+        // No Nornis model: the funding rule refuses rather than fall back to a deployment that can't make images.
+        var funding = await _funding.ResolveAsync(scope, task, nornisModel: null, needsImages: false, ct);
+        if (funding.FundedBy != AiFundedBy.Key)
+        {
+            throw new InvalidOperationException("An image call is only ever funded by a key.");
+        }
+
+        var (key, client) = await KeyClientAsync(funding, (k, secret) => _userKeys.ImagesFor(k, funding.Model, secret), ct);
+        return new AiImageBinding(client, funding, key.UpdatedAt);
+    }
+
+    public Task ReportAsync(AiBinding binding, Exception? failure, CancellationToken ct) =>
+        ReportAsync(binding.Funding, binding.KeyVersion, failure, ct);
+
+    public Task ReportAsync(AiImageBinding binding, Exception? failure, CancellationToken ct) =>
+        ReportAsync(binding.Funding, binding.KeyVersion, failure, ct);
+
+    /// <summary>The paying key and its client. Decrypted only when the cache has no client for
+    /// this key version.</summary>
+    private async Task<(Nornis.Domain.Entities.UserAiKey Key, T Client)> KeyClientAsync<T>(
+        AiFunding funding, Func<Nornis.Domain.Entities.UserAiKey, Func<string>, T> build, CancellationToken ct)
+    {
         // Removed between the funding decision and now: the same answer a refused key gets.
         var key = await _keys.GetAsync(funding.AiKeyId!.Value, ct)
             ?? throw new AiKeyRejectedException(funding.Provider);
 
-        // Decrypted only when the cache has no client for this key version. A lost ring reads as
-        // a rejected key (design: AiKeyProtector): the key is marked so it isn't tried again, and
-        // nothing is cached, because the factory throws.
-        Microsoft.Extensions.AI.IChatClient client;
+        // A lost ring reads as a rejected key (design: AiKeyProtector): the key is marked so it
+        // isn't tried again, and nothing is cached, because the factory throws.
         try
         {
-            client = _userKeys.For(key, funding.Model, () =>
-                _protector.Unprotect(key.ProtectedKey) ?? throw new UnreadableKeyException());
+            return (key, build(key, () => _protector.Unprotect(key.ProtectedKey) ?? throw new UnreadableKeyException()));
         }
         catch (UnreadableKeyException)
         {
             await _keys.MarkCheckFailedAsync(key.Id, key.UpdatedAt, _time.GetUtcNow(), ct);
             throw new AiKeyRejectedException(key.Provider);
         }
-
-        return new AiBinding(client, TraitsFor(key.Provider), funding, key.UpdatedAt);
     }
 
-    public Task ReportAsync(AiBinding binding, Exception? failure, CancellationToken ct)
+    private Task ReportAsync(AiFunding funding, DateTimeOffset? keyVersion, Exception? failure, CancellationToken ct)
     {
         if (failure is not AiRefusalException)
         {
-            _outcomes.Record(binding.Funding.Provider, failure is null, _time.GetUtcNow());
+            _outcomes.Record(funding.Provider, failure is null, _time.GetUtcNow());
             return Task.CompletedTask;
         }
 
-        return failure is AiKeyRejectedException && binding is { Funding.AiKeyId: { } keyId, KeyVersion: { } version }
+        return failure is AiKeyRejectedException && funding.AiKeyId is { } keyId && keyVersion is { } version
             ? _keys.MarkCheckFailedAsync(keyId, version, _time.GetUtcNow(), ct)
             : Task.CompletedTask;
     }

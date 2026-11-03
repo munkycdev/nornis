@@ -7,3 +7,6 @@ namespace Nornis.Infrastructure.Ai;
 /// <param name="KeyVersion">The paying key's <c>UpdatedAt</c> when a key pays, so a refusal marks
 /// the key that was used and not one saved since.</param>
 public sealed record AiBinding(IChatClient Client, IAiProviderTraits Traits, AiFunding Funding, DateTimeOffset? KeyVersion = null);
+
+/// <summary>One image call's client and who pays for it (feature 38). Always a key.</summary>
+public sealed record AiImageBinding(OpenAI.Images.ImageClient Client, AiFunding Funding, DateTimeOffset? KeyVersion);

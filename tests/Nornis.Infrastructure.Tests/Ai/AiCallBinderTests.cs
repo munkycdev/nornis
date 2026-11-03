@@ -182,7 +182,7 @@ public class AiCallBinderTests
 
     private sealed class FixedFunding(Func<AiFunding> funding) : IAiFundingService
     {
-        public Task<AiFunding> ResolveAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, CancellationToken ct) =>
+        public Task<AiFunding> ResolveAsync(AiCallScope scope, AiTask task, string? nornisModel, bool needsImages, CancellationToken ct) =>
             Task.FromResult(funding());
     }
 }

@@ -34,5 +34,13 @@ public enum AiOperationType
 
     /// <summary>One turn of an Adventure's side conversation (feature 30). Metered apart from
     /// drafting so the GM can see what brainstorming costs, against the same monthly Prep pool.</summary>
-    AdventureConversation
+    AdventureConversation,
+
+    /// <summary>The Loremaster writing a cover's art brief (feature 38). A chat call, on Prep's model,
+    /// against the monthly Prep pool.</summary>
+    CoverArtBrief,
+
+    /// <summary>Generating cover images from a brief (feature 38), on the key holder's image model,
+    /// against the monthly Prep pool.</summary>
+    CoverArt
 }

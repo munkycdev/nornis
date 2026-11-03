@@ -11,7 +11,11 @@ public static class AiText
     public static readonly IReadOnlyList<string> AddableProviders = ["OpenAi", "OpenAiCompatible"];
 
     /// <summary>The kinds of AI work, in the order Profile shows them.</summary>
-    public static readonly IReadOnlyList<string> Tasks = ["Ask", "Extraction", "Prep", "Chores"];
+    public static readonly IReadOnlyList<string> Tasks = ["Ask", "Extraction", "Prep", "Chores", "CoverArt"];
+
+    /// <summary>The kinds an OpenAI-compatible key can serve: every one but cover art, which needs
+    /// an image model (feature 38). Mirrors <c>AiTasks.OnlyKeysRun</c>.</summary>
+    public static readonly IReadOnlyList<string> CompatibleTasks = ["Ask", "Extraction", "Prep", "Chores"];
 
     private static readonly string[] BilledProviders = ["OpenAi", "Anthropic", "Gemini"];
 
@@ -53,6 +57,7 @@ public static class AiText
         "Extraction" => "Reading sources",
         "Prep" => "Prep",
         "Chores" => "Small jobs",
+        "CoverArt" => "Cover art",
         _ => task,
     };
 
@@ -62,6 +67,7 @@ public static class AiText
         "Extraction" => "Turning sources, maps and images into proposals. The most demanding work.",
         "Prep" => "Drafting adventures and talking them through.",
         "Chores" => "Short jobs such as naming and narrating threads.",
+        "CoverArt" => "Generating an adventure's cover. Needs your own OpenAI key.",
         _ => string.Empty,
     };
 

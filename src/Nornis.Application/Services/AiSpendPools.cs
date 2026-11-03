@@ -41,6 +41,8 @@ public static class AiSpendPools
         AiOperationType.ConvergenceNarration => AiSpendPool.DailyWorld,
         AiOperationType.AdventureDrafting => AiSpendPool.PrepMonthly,
         AiOperationType.AdventureConversation => AiSpendPool.PrepMonthly,
+        AiOperationType.CoverArtBrief => AiSpendPool.PrepMonthly,
+        AiOperationType.CoverArt => AiSpendPool.PrepMonthly,
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation,
             "This operation has no spend pool. Add it to AiSpendPools.PoolOf."),
     };

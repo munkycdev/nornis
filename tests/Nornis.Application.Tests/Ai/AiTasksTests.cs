@@ -32,6 +32,8 @@ public class AiTasksTests
     [TestCase(AiOperationType.MapExtraction, AiTask.Extraction)]
     [TestCase(AiOperationType.AdventureDrafting, AiTask.Prep)]
     [TestCase(AiOperationType.AdventureConversation, AiTask.Prep)]
+    [TestCase(AiOperationType.CoverArtBrief, AiTask.Prep)]
+    [TestCase(AiOperationType.CoverArt, AiTask.CoverArt)]
     [TestCase(AiOperationType.WorldNaming, AiTask.Chores)]
     public void Operation_BelongsToItsTask(AiOperationType operation, AiTask task)
     {
