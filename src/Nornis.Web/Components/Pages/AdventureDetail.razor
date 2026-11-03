@@ -67,46 +67,50 @@ else if (_adventure is not null)
     </div>
 
     <div class="nornis-prep-layout">
-        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-outline">
-            <MudText Typo="Typo.overline" Color="Color.Secondary">Outline</MudText>
-            @foreach (var (row, index) in _adventure.Sections.Select((s, i) => (s, i)))
-            {
-                var sectionId = row.Id;
-                var position = index;
-                @* dragover carries preventDefault with no handler, as on the import backlog: a
-                   .NET callback per dragover event would re-render the outline continuously. *@
-                <div class="nornis-list-row nornis-prep-outline-row @(sectionId == _selectedId ? "nornis-prep-outline-selected" : null) @DragClass(sectionId)"
-                     draggable="@(_busy ? "false" : "true")"
-                     @ondragstart="() => _dragId = sectionId"
-                     @ondragenter="() => OnDragEnter(sectionId)"
-                     @ondragover:preventDefault="true"
-                     @ondrop="() => OnDropAsync(sectionId)"
-                     @ondragend="OnDragEnd">
-                    <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small"
-                             Class="nornis-drag-grip" title="Drag to reorder" />
-                    <MudIcon Icon="@PrepDisplay.Icon(row.Kind)" Size="Size.Small"
-                             Color="@(row.IsFilled ? Color.Default : Color.Secondary)"
-                             title="@PrepDisplay.Label(row.Kind)" />
-                    <button type="button" class="nornis-prep-outline-title @(row.IsFilled ? null : "nornis-prep-outline-empty")"
-                            @onclick="() => SelectAsync(sectionId)" disabled="@_busy">
-                        @row.Title
-                    </button>
-                    <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
-                                   Disabled="@(_busy || position == 0)" aria-label="Move up"
-                                   OnClick="() => MoveAsync(sectionId, -1)" />
-                    <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
-                                   Disabled="@(_busy || position == _adventure.Sections.Count - 1)" aria-label="Move down"
-                                   OnClick="() => MoveAsync(sectionId, 1)" />
-                </div>
-            }
-            <MudMenu Label="Add section" StartIcon="@Icons.Material.Outlined.Add" Variant="Variant.Text"
-                     Color="Color.Primary" Dense="true" Class="mt-2" Disabled="_busy">
-                @foreach (var (kind, label, icon) in PrepDisplay.Kinds)
+        <div class="nornis-prep-side">
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-outline">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Outline</MudText>
+                @foreach (var (row, index) in _adventure.Sections.Select((s, i) => (s, i)))
                 {
-                    <MudMenuItem Icon="@icon" OnClick="() => AddSectionAsync(kind, label)">@label</MudMenuItem>
+                    var sectionId = row.Id;
+                    var position = index;
+                    @* dragover carries preventDefault with no handler, as on the import backlog: a
+                       .NET callback per dragover event would re-render the outline continuously. *@
+                    <div class="nornis-list-row nornis-prep-outline-row @(sectionId == _selectedId ? "nornis-prep-outline-selected" : null) @DragClass(sectionId)"
+                         draggable="@(_busy ? "false" : "true")"
+                         @ondragstart="() => _dragId = sectionId"
+                         @ondragenter="() => OnDragEnter(sectionId)"
+                         @ondragover:preventDefault="true"
+                         @ondrop="() => OnDropAsync(sectionId)"
+                         @ondragend="OnDragEnd">
+                        <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small"
+                                 Class="nornis-drag-grip" title="Drag to reorder" />
+                        <MudIcon Icon="@PrepDisplay.Icon(row.Kind)" Size="Size.Small"
+                                 Color="@(row.IsFilled ? Color.Default : Color.Secondary)"
+                                 title="@PrepDisplay.Label(row.Kind)" />
+                        <button type="button" class="nornis-prep-outline-title @(row.IsFilled ? null : "nornis-prep-outline-empty")"
+                                @onclick="() => SelectAsync(sectionId)" disabled="@_busy">
+                            @row.Title
+                        </button>
+                        <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
+                                       Disabled="@(_busy || position == 0)" aria-label="Move up"
+                                       OnClick="() => MoveAsync(sectionId, -1)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
+                                       Disabled="@(_busy || position == _adventure.Sections.Count - 1)" aria-label="Move down"
+                                       OnClick="() => MoveAsync(sectionId, 1)" />
+                    </div>
                 }
-            </MudMenu>
-        </MudPaper>
+                <MudMenu Label="Add section" StartIcon="@Icons.Material.Outlined.Add" Variant="Variant.Text"
+                         Color="Color.Primary" Dense="true" Class="mt-2" Disabled="_busy">
+                    @foreach (var (kind, label, icon) in PrepDisplay.Kinds)
+                    {
+                        <MudMenuItem Icon="@icon" OnClick="() => AddSectionAsync(kind, label)">@label</MudMenuItem>
+                    }
+                </MudMenu>
+            </MudPaper>
+
+            <BookDetailsCard Adventure="_adventure" Disabled="_busy" OnSaved="OnBookDetailsSaved" />
+        </div>
 
         <div class="nornis-prep-editor">
             @if (Selected is { } selected)
@@ -763,6 +767,20 @@ else if (_adventure is not null)
         {
             _busy = false;
             StateHasChanged();
+        }
+    }
+
+    /// <summary>Takes the saved details and their preview only, so the open section and its editor are left alone.</summary>
+    private void OnBookDetailsSaved(AdventureDto updated)
+    {
+        if (_adventure is not null)
+        {
+            _adventure = _adventure with
+            {
+                Details = updated.Details,
+                PrintDetails = updated.PrintDetails,
+                UpdatedAt = updated.UpdatedAt,
+            };
         }
     }
 

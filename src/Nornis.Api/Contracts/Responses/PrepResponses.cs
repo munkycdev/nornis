@@ -45,7 +45,20 @@ public record AdventureResponse(
     Guid? LastPrintedDocumentId,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    IReadOnlyList<AdventureSectionResponse> Sections);
+    IReadOnlyList<AdventureSectionResponse> Sections,
+    AdventureDetailsResponse Details,
+    PrintDetailsResponse PrintDetails);
+
+/// <summary>The four details the GM edits (feature 32). A null game system means the world's.</summary>
+public record AdventureDetailsResponse(string? GameSystem, string? Edition, string? Levels, int? Year);
+
+/// <summary>
+/// The details a print carries, defaults applied and fixed values filled in (feature 32). On an
+/// Adventure, the preview of a print filed now; the Details card shows it as is.
+/// </summary>
+public record PrintDetailsResponse(
+    string Title, string? GameSystem, string? Edition, string Type, string? Levels,
+    string Publisher, string Author, int? Year);
 
 /// <summary>
 /// The draft stream's server-sent event names, which a side-conversation turn streams under too

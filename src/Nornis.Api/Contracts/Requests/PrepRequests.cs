@@ -12,6 +12,9 @@ public record ImportAdventureRequest(IReadOnlyList<ImportAdventureFile> Files, G
 /// </summary>
 public record UpdateAdventureRequest(string Title, string? Pitch, Guid? CampaignId);
 
+/// <summary>The four editable details, all of them: each is the new value, and null clears it (feature 32).</summary>
+public record UpdateAdventureDetailsRequest(string? GameSystem, string? Edition, string? Levels, int? Year);
+
 /// <summary>A GM's save of one section, naming the version of it the edit was based on.</summary>
 public record SaveAdventureSectionRequest(string Kind, string Title, string? BodyMarkdown, DateTimeOffset BasedOnUpdatedAt);
 

@@ -1,4 +1,5 @@
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 
 namespace Nornis.Domain.Entities;
 
@@ -51,6 +52,13 @@ public class LibraryDocument : ISlugged
     /// apart from an uploaded handout.
     /// </summary>
     public Guid? AdventureId { get; set; }
+
+    /// <summary>
+    /// A print's details as they stood when it was filed (feature 32). Set once, by
+    /// <c>LibraryService.RequestUploadAsync</c>, and never changed. Null means the document
+    /// isn't a print, or was filed before prints carried details.
+    /// </summary>
+    public PrintDetails? PrintDetails { get; set; }
 
     /// <summary>Upload, or a book in the creator's Bibliotaph collection (feature 31).</summary>
     public LibraryDocumentOrigin Origin { get; set; }

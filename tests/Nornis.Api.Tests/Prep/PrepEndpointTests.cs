@@ -44,6 +44,8 @@ public class PrepEndpointTests
             new ImportAdventureRequest([new ImportAdventureFile("a.md", "# A\n\nText.")], null)));
         yield return ("get", (c, w, a, _) => c.GetAsync($"{Base(w)}/{a}"));
         yield return ("update", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}", new UpdateAdventureRequest("Renamed", null, null)));
+        yield return ("details", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/details",
+            new UpdateAdventureDetailsRequest("Mine", null, null, null)));
         yield return ("delete", (c, w, a, _) => c.DeleteAsync($"{Base(w)}/{a}"));
         yield return ("save section", (c, w, a, s) => c.PutAsJsonAsync($"{Base(w)}/{a}/sections/{s}",
             new SaveAdventureSectionRequest("Notes", "Mine", "Body", DateTimeOffset.UtcNow)));
@@ -97,6 +99,7 @@ public class PrepEndpointTests
         // And nothing they sent landed: the GM still sees one untouched Adventure.
         var after = await scenario.GmClient.GetFromJsonAsync<AdventureResponse>($"{Base(worldId)}/{adventure.Id}");
         Assert.That(after!.Title, Is.EqualTo("The Silver Key"));
+        Assert.That(after.Details, Is.EqualTo(new AdventureDetailsResponse(null, null, null, null)));
         Assert.That(after.Sections.Select(s => s.Id), Is.EqualTo(adventure.Sections.Select(s => s.Id)));
         var list = await scenario.GmClient.GetFromJsonAsync<List<AdventureSummaryResponse>>(Base(worldId));
         Assert.That(list, Has.Count.EqualTo(1));
@@ -364,6 +367,47 @@ public class PrepEndpointTests
             Assert.That(print.Html, Does.Contain("<blockquote class=\"read-aloud\">"));
             Assert.That(print.LibraryTitle, Does.StartWith("The Silver Key, printed "));
         });
+    }
+
+    [Test]
+    public async Task Gm_SavesTheDetails_AndGetsTheResolvedPreview()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var response = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/details",
+            new UpdateAdventureDetailsRequest("Shadowdark", " 1st ", "1–3", 2026));
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
+        var saved = (await response.Content.ReadFromJsonAsync<AdventureResponse>())!;
+        var reloaded = (await scenario.GmClient.GetFromJsonAsync<AdventureResponse>($"{Base(worldId)}/{adventure.Id}"))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(saved.Details, Is.EqualTo(new AdventureDetailsResponse("Shadowdark", "1st", "1–3", 2026)));
+            Assert.That(reloaded.Details, Is.EqualTo(saved.Details));
+            Assert.That(reloaded.PrintDetails.Title, Is.EqualTo("The Silver Key"));
+            Assert.That(reloaded.PrintDetails.GameSystem, Is.EqualTo("Shadowdark"));
+            Assert.That(reloaded.PrintDetails.Type, Is.EqualTo("Nornis adventure"));
+            Assert.That(reloaded.PrintDetails.Publisher, Is.EqualTo("Nornis Press"));
+            Assert.That(reloaded.PrintDetails.Author, Is.Not.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Details_OutOfBounds_Is400_InvalidDetails_AndNothingSaved()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var response = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/details",
+            new UpdateAdventureDetailsRequest("Shadowdark", new string('x', 51), null, null));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That(await response.Content.ReadAsStringAsync(), Does.Contain("invalid_details"));
+        var after = (await scenario.GmClient.GetFromJsonAsync<AdventureResponse>($"{Base(worldId)}/{adventure.Id}"))!;
+        Assert.That(after.Details, Is.EqualTo(new AdventureDetailsResponse(null, null, null, null)));
     }
 
     [Test]

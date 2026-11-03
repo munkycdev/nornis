@@ -7,6 +7,7 @@ using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services;
@@ -30,7 +31,7 @@ public class AdventureServiceTests
         _options = new PrepOptions();
         var slugs = new FakeSlugResolver((world, slug) =>
             _adventures.Adventures.FirstOrDefault(a => a.WorldId == world && a.Slug == slug)?.Id);
-        _sut = new AdventureService(_adventures, _campaigns, slugs, Options.Create(_options));
+        _sut = new AdventureService(_adventures, _campaigns, slugs, TestPrintDetails.For(WorldId, GmUserId, "Shadowdark"), Options.Create(_options));
     }
 
     private async Task<AdventureView> CreateAsync(string title = "The Silver Key", Guid? campaignId = null)
@@ -401,6 +402,93 @@ public class AdventureServiceTests
         Assert.That(stored.Title, Is.EqualTo("The Silver Key, revised"));
         Assert.That(stored.Pitch, Is.Null);
         Assert.That(stored.CampaignId, Is.Null);
+    }
+
+    // ------------------------------------------------------------ Details --
+
+    [Test]
+    public async Task UpdateDetails_SavesTheFour_Normalised_AndReturnsThePreview()
+    {
+        var view = await CreateAsync();
+
+        var result = await _sut.UpdateDetailsAsync(
+            new UpdateAdventureDetailsCommand(WorldId, view.Adventure.Id, WorldRole.GM, "  ", " 1st ", "1–3", 2026),
+            CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(_adventures.Adventures.Single().Details,
+                Is.EqualTo(new AdventureDetails { Edition = "1st", Levels = "1–3", Year = 2026 }));
+            Assert.That(result.Value!.Adventure.Details.Edition, Is.EqualTo("1st"));
+
+            // The preview: the world's game system, the fixed type and publisher, the creator as author.
+            var preview = result.Value.PrintDetails;
+            Assert.That(preview.Title, Is.EqualTo("The Silver Key"));
+            Assert.That(preview.GameSystem, Is.EqualTo("Shadowdark"));
+            Assert.That(preview.Type, Is.EqualTo(PrintDetails.NornisType));
+            Assert.That(preview.Publisher, Is.EqualTo(PrintDetails.NornisPublisher));
+            Assert.That(preview.Author, Is.EqualTo(TestPrintDetails.Username));
+            Assert.That(preview.Year, Is.EqualTo(2026));
+        });
+    }
+
+    [Test]
+    public async Task UpdateDetails_NullClearsAField()
+    {
+        var view = await CreateAsync();
+        await _sut.UpdateDetailsAsync(
+            new UpdateAdventureDetailsCommand(WorldId, view.Adventure.Id, WorldRole.GM, "OSE", "2nd", "3", 2025), CancellationToken.None);
+
+        var result = await _sut.UpdateDetailsAsync(
+            new UpdateAdventureDetailsCommand(WorldId, view.Adventure.Id, WorldRole.GM, null, "2nd", "3", 2025), CancellationToken.None);
+
+        Assert.That(_adventures.Adventures.Single().Details.GameSystem, Is.Null);
+        Assert.That(result.Value!.PrintDetails.GameSystem, Is.EqualTo("Shadowdark"), "cleared means the world's again");
+    }
+
+    [Test]
+    public async Task UpdateDetails_WithOneFieldOutOfBounds_SavesNothing()
+    {
+        var view = await CreateAsync();
+        var before = _adventures.Adventures.Single().UpdatedAt;
+
+        var result = await _sut.UpdateDetailsAsync(
+            new UpdateAdventureDetailsCommand(WorldId, view.Adventure.Id, WorldRole.GM, "OSE", "2nd", "3", 1066),
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
+            Assert.That(result.Error.Code, Is.EqualTo("invalid_details"));
+            Assert.That(_adventures.Adventures.Single().Details, Is.EqualTo(new AdventureDetails()));
+            Assert.That(_adventures.Adventures.Single().UpdatedAt, Is.EqualTo(before));
+        });
+    }
+
+    [TestCase(WorldRole.Player)]
+    [TestCase(WorldRole.Observer)]
+    public async Task UpdateDetails_ByAnyoneButTheGm_Is403_AndSavesNothing(WorldRole role)
+    {
+        var view = await CreateAsync();
+
+        var result = await _sut.UpdateDetailsAsync(
+            new UpdateAdventureDetailsCommand(WorldId, view.Adventure.Id, role, "OSE", null, null, null), CancellationToken.None);
+
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+        Assert.That(_adventures.Adventures.Single().Details, Is.EqualTo(new AdventureDetails()));
+    }
+
+    [Test]
+    public async Task UpdateDetails_InAnotherWorld_Is404()
+    {
+        var view = await CreateAsync();
+
+        var result = await _sut.UpdateDetailsAsync(
+            new UpdateAdventureDetailsCommand(Guid.NewGuid(), view.Adventure.Id, WorldRole.GM, "OSE", null, null, null),
+            CancellationToken.None);
+
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
     }
 
     // ------------------------------------------------------------- Delete --

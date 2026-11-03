@@ -299,6 +299,7 @@ builder.Services.AddHostedService<BibliotaphWarmUpBackgroundService>();
 builder.Services.AddHttpClient(Nornis.Api.Bibliotaph.Auth0BibliotaphAuthorizationClient.HttpClientName,
     client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddSingleton<Nornis.Application.Bibliotaph.IBibliotaphAuthorizationClient, Nornis.Api.Bibliotaph.Auth0BibliotaphAuthorizationClient>();
+builder.Services.AddScoped<AdventurePrintDetails>();
 builder.Services.AddScoped<IAdventureService, AdventureService>();
 builder.Services.AddScoped<IAdventureDraftingService, AdventureDraftingService>();
 builder.Services.AddScoped<IAdventureExportService, AdventureExportService>();

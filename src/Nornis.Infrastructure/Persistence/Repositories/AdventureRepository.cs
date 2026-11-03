@@ -70,6 +70,9 @@ public class AdventureRepository : IAdventureRepository
         row.Pitch = adventure.Pitch;
         row.CampaignId = adventure.CampaignId;
         row.LastPrintedDocumentId = adventure.LastPrintedDocumentId;
+
+        // A copy, so the caller's instance never becomes this row's tracked owned entity.
+        row.Details = adventure.Details with { };
         row.UpdatedAt = adventure.UpdatedAt;
         await _context.SaveChangesAsync(cancellationToken);
         _context.Entry(row).State = EntityState.Detached;

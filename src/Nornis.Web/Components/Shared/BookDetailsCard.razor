@@ -1,0 +1,204 @@
+@inject NornisApiClient Api
+
+@* Book details (feature 32): what a library catalogues the adventure by, in Bibliotaph's order.
+   The GM edits four fields one at a time, each saved alone; the card always sends all four,
+   with only the edited one changed. Type, publisher and author are fixed by Nornis. Every
+   value shown is the API's preview of a print filed now, so no default is computed here. *@
+
+@if (Adventure.PrintDetails is { } print)
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-book-details">
+        <MudText Typo="Typo.overline" Color="Color.Secondary">Book details</MudText>
+
+        @Row(TitleField, "Title", print.Title, caption: null)
+        @Row(GameSystemField, "Game system", print.GameSystem,
+            caption: Stored.GameSystem is null && print.GameSystem is not null ? "From the world" : null)
+        @Row(EditionField, "Edition", print.Edition, caption: null)
+        @Row(TypeField, "Type", print.Type, caption: SetByNornis)
+        @Row(LevelsField, "Levels", print.Levels, caption: null)
+        @Row(PublisherField, "Publisher", print.Publisher, caption: SetByNornis)
+        @Row(AuthorsField, "Authors", print.Author, caption: SetByNornis)
+        @Row(YearField, "Year", print.Year?.ToString(System.Globalization.CultureInfo.InvariantCulture), caption: null)
+
+        @if (_error is not null)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Error" Class="nornis-book-details-error">@_error</MudText>
+        }
+    </MudPaper>
+}
+
+@code {
+    public const string TitleField = "title";
+    public const string GameSystemField = "gameSystem";
+    public const string EditionField = "edition";
+    public const string TypeField = "type";
+    public const string LevelsField = "levels";
+    public const string PublisherField = "publisher";
+    public const string AuthorsField = "authors";
+    public const string YearField = "year";
+
+    /// <summary>The four the GM edits. The rest are the Adventure's title, or fixed by Nornis.</summary>
+    public static readonly IReadOnlyList<string> EditableFields = [GameSystemField, EditionField, LevelsField, YearField];
+
+    // Mirrors of Nornis.Domain.Models.AdventureDetails' bounds; BookDetailsMirrorTests pins them.
+    public const int MaxGameSystemLength = 200;
+    public const int MaxEditionLength = 50;
+    public const int MaxLevelsLength = 30;
+
+    private const string SetByNornis = "Set by Nornis";
+
+    [Parameter, EditorRequired] public AdventureDto Adventure { get; set; } = null!;
+
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Raised with the Adventure as the API returned it after a save.</summary>
+    [Parameter] public EventCallback<AdventureDto> OnSaved { get; set; }
+
+    private string? _editing;
+    private string _draft = string.Empty;
+    private bool _saving;
+    private string? _error;
+
+    private AdventureDetailsDto Stored => Adventure.Details ?? new AdventureDetailsDto(null, null, null, null);
+
+    private RenderFragment Row(string field, string label, string? value, string? caption) => __builder =>
+    {
+        var editable = EditableFields.Contains(field);
+        <div class="nornis-book-details-row" data-field="@field">
+            <div class="nornis-book-details-label">@label</div>
+            @if (_editing == field)
+            {
+                <div class="nornis-book-details-edit" @onkeydown="OnKeyDownAsync">
+                    <MudTextField T="string" @bind-Value="_draft" Immediate="true" Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" MaxLength="@MaxLength(field)" AutoFocus="true"
+                                  InputMode="@(field == YearField ? InputMode.numeric : InputMode.text)"
+                                  Disabled="_saving" aria-label="@label" />
+                    <div class="d-flex gap-1 mt-1">
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                                   Class="nornis-book-details-save" Disabled="_saving" OnClick="SaveAsync">Save</MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Class="nornis-book-details-cancel"
+                                   Disabled="_saving" OnClick="Cancel">Cancel</MudButton>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="nornis-book-details-value">
+                    @if (value is null)
+                    {
+                        <span class="nornis-book-details-unset">Not set</span>
+                    }
+                    else
+                    {
+                        <span>@value</span>
+                    }
+                    @if (caption is not null)
+                    {
+                        <div class="nornis-book-details-caption">@caption</div>
+                    }
+                </div>
+                @if (editable)
+                {
+                    <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Class="nornis-book-details-pencil"
+                                   Disabled="@(Disabled || _editing is not null)" aria-label="@($"Edit {label.ToLowerInvariant()}")"
+                                   OnClick="() => Edit(field)" />
+                }
+            }
+        </div>
+    };
+
+    private static int MaxLength(string field) => field switch
+    {
+        GameSystemField => MaxGameSystemLength,
+        EditionField => MaxEditionLength,
+        LevelsField => MaxLevelsLength,
+        _ => 4,
+    };
+
+    /// <summary>The stored value, not the preview: an unset game system opens empty, not as the world's.</summary>
+    private string StoredValue(string field) => field switch
+    {
+        GameSystemField => Stored.GameSystem ?? "",
+        EditionField => Stored.Edition ?? "",
+        LevelsField => Stored.Levels ?? "",
+        _ => Stored.Year?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "",
+    };
+
+    private void Edit(string field)
+    {
+        _editing = field;
+        _draft = StoredValue(field);
+        _error = null;
+    }
+
+    private void Cancel()
+    {
+        _editing = null;
+        _error = null;
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SaveAsync();
+        }
+        else if (e.Key == "Escape")
+        {
+            Cancel();
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is not { } field || _saving)
+        {
+            return;
+        }
+
+        var text = string.IsNullOrWhiteSpace(_draft) ? null : _draft.Trim();
+        int? year = Stored.Year;
+        if (field == YearField)
+        {
+            if (text is null)
+            {
+                year = null;
+            }
+            else if (int.TryParse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+            {
+                year = parsed;
+            }
+            else
+            {
+                _error = "The year must be a number, like 2026.";
+                return;
+            }
+        }
+
+        var request = new UpdateAdventureDetailsRequest(
+            field == GameSystemField ? text : Stored.GameSystem,
+            field == EditionField ? text : Stored.Edition,
+            field == LevelsField ? text : Stored.Levels,
+            year);
+
+        _saving = true;
+        _error = null;
+        try
+        {
+            var result = await Api.UpdateAdventureDetailsAsync(Adventure.WorldId, Adventure.Id, request);
+            if (result.IsSuccess)
+            {
+                _editing = null;
+                await OnSaved.InvokeAsync(result.Value!);
+            }
+            else
+            {
+                _error = result.Error!.Message;
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

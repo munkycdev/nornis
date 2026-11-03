@@ -1,5 +1,19 @@
 # Design Document
 
+> **Amendment (2026-11-03, Phase B): the card is "Book details", and one class looks up the
+> author and the world's game system.**
+>
+> - The Adventure page already has a **Details** button, which opens the dialog titled
+>   "Adventure details" (title, pitch, campaign). A second thing called "Details" next to it
+>   would be ambiguous, so the card is titled **Book details**. Nothing else about it changes.
+> - `PrintDetails.Resolve` needs the world's game system and the creator's username.
+>   `AdventurePrintDetails` (Application, `Prep/`) loads both and calls it. `AdventureService`
+>   uses it for the preview, and Phase C's print page and print snapshot use it too, so the three
+>   callers share one lookup as well as one resolver (pre-implementation check 2).
+> - The card lives in the left column under the outline, which is where the pitch's column
+>   ends on this page (the pitch itself is in the page header).
+> - The migration is `20261103035222_AddAdventureDetails`, generated after `AddUserSignIns`.
+
 ## Overview
 
 ```
