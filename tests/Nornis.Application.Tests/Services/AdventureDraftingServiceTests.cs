@@ -168,7 +168,7 @@ public class AdventureDraftingServiceTests
         var message = _ai.Requests.Single().UserMessage;
         Assert.Multiple(() =>
         {
-            Assert.That(_references.LastDocumentIds, Is.EqualTo(new[] { chosen.Id }));
+            Assert.That(_references.LastDocumentIds, Is.EqualTo([chosen.Id]));
             Assert.That(message, Does.Contain("Slimes dissolve copper on contact."));
             Assert.That(message, Does.Not.Contain("Dragons hoard gold."));
         });

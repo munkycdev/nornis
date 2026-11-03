@@ -498,7 +498,9 @@ public class AdventureRepositoryTests : IntegrationTestBase
             var at = _now.AddMinutes(i + 1);
             var revision = i == 0 ? null : new AdventureDraftRevision
             {
-                Id = Guid.NewGuid(), Reason = AdventureDraftChange.Edit, CreatedAt = at,
+                Id = Guid.NewGuid(),
+                Reason = AdventureDraftChange.Edit,
+                CreatedAt = at,
             };
             Assert.That(await _sut.TrySaveDraftAsync(adventure.Id, $"v{i}", revision, maxRevisions: 2, stamp, at), Is.True);
             stamp = at;
@@ -520,6 +522,64 @@ public class AdventureRepositoryTests : IntegrationTestBase
         });
     }
 
+    private static AdventureSection NewSection(string title, string body) => new()
+    {
+        Id = Guid.NewGuid(),
+        Kind = AdventureSectionKind.Scene,
+        Title = title,
+        BodyMarkdown = body,
+    };
+
+    [Test]
+    public async Task ASplitReplace_DeletesTheSectionsAndTheirRevisions_AddsTheCut_AndKeepsTheRevision_Together()
+    {
+        var adventure = await CreateAsync("old one", "old two");
+        await AddRevisionAsync(adventure.Sections.First().Id, "older", _now);
+        var draftAt = _now.AddMinutes(1);
+        Assert.That(await _sut.TrySaveDraftAsync(adventure.Id, "## A\n\na\n\n## B\n\nb", null, 20, null, draftAt), Is.True);
+        var kept = new AdventureDraftRevision
+        {
+            Id = Guid.NewGuid(),
+            BodyMarkdown = "## Section 1\n\nold one",
+            Reason = AdventureDraftChange.Split,
+            CreatedAt = _now.AddMinutes(2),
+        };
+
+        var written = await _sut.TryWriteSplitAsync(adventure.Id, [NewSection("A", "a"), NewSection("B", "b")], replace: true,
+            kept, maxRevisions: 20, basedOn: draftAt, updatedAt: _now.AddMinutes(2));
+
+        var stored = await _sut.GetWithSectionsAsync(adventure.Id);
+        var oldIds = adventure.Sections.Select(x => x.Id).ToList();
+        var orphanRevisions = await Context.AdventureSectionRevisions.CountAsync(r => oldIds.Contains(r.SectionId));
+        var latest = await _sut.GetLatestDraftRevisionAsync(adventure.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(written, Is.True);
+            Assert.That(stored!.Sections.Select(x => (x.Title, x.BodyMarkdown, x.SortOrder)), Is.EqualTo([("A", "a", 1), ("B", "b", 2)]));
+            Assert.That(stored.DraftMarkdown, Is.EqualTo("## A\n\na\n\n## B\n\nb"), "the draft stays");
+            Assert.That(orphanRevisions, Is.Zero);
+            Assert.That(latest!.BodyMarkdown, Is.EqualTo("## Section 1\n\nold one"));
+        });
+    }
+
+    [Test]
+    public async Task ASplitAppend_NumbersAfterTheSections_AndAStaleStampWritesNothing()
+    {
+        var adventure = await CreateAsync("one", "two");
+        var draftAt = _now.AddMinutes(1);
+        await _sut.TrySaveDraftAsync(adventure.Id, "## C\n\nc", null, 20, null, draftAt);
+
+        var stale = await _sut.TryWriteSplitAsync(adventure.Id, [NewSection("X", "x")], replace: true, null, 20, basedOn: _now, _now.AddMinutes(2));
+        var appended = await _sut.TryWriteSplitAsync(adventure.Id, [NewSection("C", "c")], replace: false, null, 20, basedOn: draftAt, _now.AddMinutes(3));
+
+        var stored = await _sut.GetWithSectionsAsync(adventure.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That((stale, appended), Is.EqualTo((false, true)));
+            Assert.That(stored!.Sections.Select(x => (x.Title, x.SortOrder)), Is.EqualTo([("Section 1", 1), ("Section 2", 2), ("C", 3)]));
+        });
+    }
+
     [Test]
     public async Task SourceBooks_AreReadWithTheAdventure_AndLeaveWhenTheirBookIsDeleted()
     {
@@ -527,7 +587,7 @@ public class AdventureRepositoryTests : IntegrationTestBase
         await _sut.ReplaceSourceBooksAsync(adventure.Id, [_print.Id]);
 
         var loaded = await _sut.GetWithSectionsAsync(adventure.Id);
-        Assert.That(loaded!.SourceBooks.Select(b => b.LibraryDocument.Title), Is.EqualTo(new[] { _print.Title }));
+        Assert.That(loaded!.SourceBooks.Select(b => b.LibraryDocument.Title), Is.EqualTo([_print.Title]));
 
         await new LibraryDocumentRepository(Context).DeleteAsync(_print.Id);
         Context.ChangeTracker.Clear();

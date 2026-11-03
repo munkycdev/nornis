@@ -269,6 +269,55 @@ public class AdventureRepository : IAdventureRepository
         _context.ChangeTracker.Clear();
     }
 
+    public async Task<bool> TryWriteSplitAsync(
+        Guid adventureId, IReadOnlyList<AdventureSection> sections, bool replace, AdventureDraftRevision? revision,
+        int maxRevisions, DateTimeOffset? basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+    {
+        var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
+        if (adventure.DraftUpdatedAt != basedOn)
+        {
+            _context.Entry(adventure).State = EntityState.Detached;
+            return false;
+        }
+
+        var existing = await _context.AdventureSections
+            .Where(s => s.AdventureId == adventureId)
+            .ToListAsync(cancellationToken);
+        var next = 1;
+        if (replace)
+        {
+            var ids = existing.Select(s => s.Id).ToList();
+            _context.AdventureSectionRevisions.RemoveRange(
+                await _context.AdventureSectionRevisions.Where(r => ids.Contains(r.SectionId)).ToListAsync(cancellationToken));
+            _context.AdventureSections.RemoveRange(existing);
+        }
+        else
+        {
+            next = existing.Count == 0 ? 1 : existing.Max(s => s.SortOrder) + 1;
+        }
+
+        foreach (var section in sections)
+        {
+            section.AdventureId = adventureId;
+            section.SortOrder = next++;
+            section.UpdatedAt = updatedAt;
+            _context.AdventureSections.Add(section);
+        }
+
+        if (revision is not null)
+        {
+            await TrimDraftRevisionsAsync(adventureId, maxRevisions - 1, cancellationToken);
+            revision.AdventureId = adventureId;
+            _context.AdventureDraftRevisions.Add(revision);
+        }
+
+        adventure.UpdatedAt = updatedAt;
+
+        // One SaveChanges, checked on the draft's stamp: the old sections go, the new ones come
+        // and the kept text is stored together, or nothing changes.
+        return await SaveGuardedAsync(cancellationToken);
+    }
+
     private async Task TrimDraftRevisionsAsync(Guid adventureId, int keep, CancellationToken cancellationToken)
     {
         var existing = await _context.AdventureDraftRevisions

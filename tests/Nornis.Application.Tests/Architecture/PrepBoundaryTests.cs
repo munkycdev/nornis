@@ -29,6 +29,7 @@ public class PrepBoundaryTests
         "src/Nornis.Infrastructure/Persistence/Repositories/WorldRepository.cs",
         "src/Nornis.Infrastructure/Persistence/Repositories/WorldExportReader.cs",
         "src/Nornis.Application/Services/AdventureConversationService.cs",
+        "src/Nornis.Application/Services/AdventureDesignService.cs",
         "src/Nornis.Application/Services/WorldExportService.cs",
         "src/Nornis.Api/Program.cs",
     };
@@ -233,6 +234,62 @@ public class PrepBoundaryTests
             .ToList();
 
         Assert.That(offenders, Is.Empty, "a game block's fence read outside GameBlocks");
+    }
+
+    /// <summary>
+    /// Feature 37, Requirement 1.6: the design draft never prints and never exports. These are
+    /// the only files that may read or write it; the booklet, Export to Nornis and every other
+    /// reader of an Adventure read its sections.
+    /// </summary>
+    [Test]
+    public void OnlyDesignMode_ReadsTheDraft()
+    {
+        var allowed = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "src/Nornis.Domain/Entities/Adventure.cs",
+            "src/Nornis.Infrastructure/Persistence/Configurations/AdventureConfiguration.cs",
+            "src/Nornis.Infrastructure/Persistence/Repositories/AdventureRepository.cs",
+            "src/Nornis.Application/Services/AdventureDesignService.cs",
+            "src/Nornis.Application/Services/AdventureDraftPlanService.cs",
+            "src/Nornis.Application/Prep/AdventureConversationPrompt.cs",
+            "src/Nornis.Api/Controllers/PrepController.cs",
+        };
+
+        var offenders = SourceFiles()
+            .Where(f => !allowed.Contains(f.Relative))
+            .SelectMany(f => CodeLines(f).Where(l => Regex.IsMatch(l.Text, @"\bDraftMarkdown\b")).Select(l => $"{f.Relative}:{l.Number}"))
+            .ToList();
+
+        Assert.That(offenders, Is.Empty, "a new reader of the design draft; if it prints or exports, it breaks Requirement 1.6");
+    }
+
+    /// <summary>
+    /// Feature 37, Requirement 3.4: the cut is code's, checked so no word changes. Only the design
+    /// service writes sections from a draft, through the cutter; the plan service cuts only to
+    /// preview each row's opening words.
+    /// </summary>
+    [Test]
+    public void OnlyTheCutter_WritesSectionsFromTheDraft()
+    {
+        var cutters = SourceFiles()
+            .Where(f => CodeLines(f).Any(l => l.Text.Contains("AdventureDraftCutter.Cut(", StringComparison.Ordinal)))
+            .Select(f => f.Relative)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        var writers = SourceFiles()
+            .Where(f => CodeLines(f).Any(l => l.Text.Contains(".TryWriteSplitAsync(", StringComparison.Ordinal)))
+            .Select(f => f.Relative)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cutters, Is.EqualTo(
+            [
+                "src/Nornis.Application/Services/AdventureDesignService.cs",
+                "src/Nornis.Application/Services/AdventureDraftPlanService.cs",
+            ]));
+            Assert.That(writers, Is.EqualTo(["src/Nornis.Application/Services/AdventureDesignService.cs"]));
+        });
     }
 
     // ------------------------------------------------------------------ helpers --

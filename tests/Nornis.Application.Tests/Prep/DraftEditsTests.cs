@@ -37,11 +37,11 @@ public class DraftEditsTests
     {
         var edits = DraftEdits.Parse(Answer);
 
-        Assert.That(edits, Is.EqualTo(new[]
-        {
+        Assert.That(edits, Is.EqualTo(
+        [
             new DraftEdit("The spa is quiet.\nNobody comes.", "The spa hums with slime."),
             new DraftEdit("The end.", ""),
-        }));
+        ]));
     }
 
     [Test]

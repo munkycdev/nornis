@@ -1,8 +1,8 @@
-using Nornis.Application.Knowledge;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
+using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
 using Nornis.Application.Prep;
 using Nornis.Application.Services;
@@ -727,7 +727,7 @@ public class AdventureConversationServiceTests
         var message = _ai.Requests.Single().UserMessage;
         Assert.Multiple(() =>
         {
-            Assert.That(_references.LastDocumentIds, Is.EqualTo(new[] { chosen.Id }));
+            Assert.That(_references.LastDocumentIds, Is.EqualTo([chosen.Id]));
             Assert.That(message, Does.Contain("Slimes dissolve copper on contact."));
             Assert.That(message, Does.Not.Contain("Dragons hoard gold."));
         });

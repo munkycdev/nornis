@@ -106,6 +106,11 @@ public record ConversationMessageResponse(
     Guid Id, string Role, string Content, string? Model, DateTimeOffset CreatedAt,
     IReadOnlyList<DraftEditResponse>? Edits = null, string? Prose = null);
 
+/// <summary>A split plan (feature 37): Source is Headings or Loremaster; Note says why it isn't what was asked for.</summary>
+public record DraftPlanResponse(IReadOnlyList<DraftPlanRowResponse> Rows, string Source, string? Note, DateTimeOffset? DraftUpdatedAt);
+
+public record DraftPlanRowResponse(int StartLine, string Title, string Kind, string Opening);
+
 /// <summary>One suggested edit: the passage it finds in the draft and what replaces it.</summary>
 public record DraftEditResponse(string Find, string Replace);
 

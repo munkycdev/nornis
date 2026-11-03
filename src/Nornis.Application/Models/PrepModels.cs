@@ -31,6 +31,42 @@ public record UndoDraftCommand(Guid WorldId, Guid AdventureId, WorldRole ActingU
 public record ApplyDraftEditCommand(
     Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, Guid MessageId, int Index, DateTimeOffset? BasedOnUpdatedAt);
 
+/// <summary>How a split meets the sections already there.</summary>
+public enum DraftSplitMode
+{
+    /// <summary>The cut replaces every section; their text is kept as a draft revision first.</summary>
+    Replace,
+
+    /// <summary>The cut goes after the sections there.</summary>
+    Append,
+}
+
+/// <summary>Cuts the draft into sections at the plan's start lines, based on the draft's stamp.</summary>
+public record SplitDraftCommand(
+    Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, IReadOnlyList<DraftSplitPoint> Plan,
+    DraftSplitMode Mode, DateTimeOffset? BasedOnUpdatedAt);
+
+/// <summary>Gathers the sections into the draft, keeping the draft before it as a revision.</summary>
+public record GatherDraftCommand(Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, DateTimeOffset? BasedOnUpdatedAt);
+
+/// <summary>Asks for a split plan: from the draft's headings, or from the Loremaster.</summary>
+public record PlanDraftCommand(Guid WorldId, Guid AdventureId, Guid ActingUserId, WorldRole ActingUserRole, bool UseLoremaster);
+
+public enum DraftPlanSource
+{
+    Headings,
+    Loremaster,
+}
+
+/// <summary>One row of a plan as the dialog shows it: where it starts, its title and kind, and its opening words.</summary>
+public record DraftPlanRow(int StartLine, string Title, AdventureSectionKind Kind, string Opening);
+
+/// <summary>
+/// A split plan to show. <paramref name="Note"/> says why the plan is not what was asked for,
+/// such as a Loremaster plan that couldn't be used and fell back to the headings.
+/// </summary>
+public record DraftPlanView(IReadOnlyList<DraftPlanRow> Rows, DraftPlanSource Source, string? Note, DateTimeOffset? DraftUpdatedAt);
+
 /// <summary>Puts a whole saved answer into the draft, replacing it or after it, as Put in section does for a section.</summary>
 public record PutInDraftCommand(
     Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, Guid MessageId, PutInSectionMode Mode, DateTimeOffset? BasedOnUpdatedAt);

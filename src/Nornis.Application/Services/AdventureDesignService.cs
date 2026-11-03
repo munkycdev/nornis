@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
@@ -20,11 +21,13 @@ public class AdventureDesignService : IAdventureDesignService
     private readonly IAdventureService _views;
     private readonly IConversationRepository _conversations;
     private readonly PrepOptions _options;
+    private readonly ILogger<AdventureDesignService> _logger;
 
     public AdventureDesignService(
         IAdventureRepository adventures, ILibraryDocumentRepository documents, IAdventureService views,
-        IConversationRepository conversations, IOptions<PrepOptions> options)
+        IConversationRepository conversations, IOptions<PrepOptions> options, ILogger<AdventureDesignService> logger)
     {
+        _logger = logger;
         _adventures = adventures;
         _documents = documents;
         _views = views;
@@ -140,6 +143,114 @@ public class AdventureDesignService : IAdventureDesignService
             ? adventure.DraftMarkdown.TrimEnd() + "\n\n" + text
             : text;
         return await WriteWithRevisionAsync(adventure, markdown, AdventureDraftChange.Put, command.BasedOnUpdatedAt, ct);
+    }
+
+    public async Task<AppResult<AdventureView>> SplitAsync(SplitDraftCommand command, CancellationToken ct)
+    {
+        if (command.ActingUserRole != WorldRole.GM)
+        {
+            return AppResult<AdventureView>.Fail(GmOnly());
+        }
+
+        var adventure = await LoadAsync(command.WorldId, command.AdventureId, ct);
+        if (adventure is null)
+        {
+            return AppResult<AdventureView>.Fail(NotFound());
+        }
+
+        if (string.IsNullOrWhiteSpace(adventure.DraftMarkdown))
+        {
+            return AppResult<AdventureView>.Fail(NothingToSplit());
+        }
+
+        if (adventure.DraftUpdatedAt != command.BasedOnUpdatedAt)
+        {
+            return AppResult<AdventureView>.Fail(DraftChanged());
+        }
+
+        var replace = command.Mode == DraftSplitMode.Replace;
+        var staying = replace ? [] : adventure.Sections.ToList();
+        var lines = AdventureDraftPlan.LinesOf(adventure.DraftMarkdown);
+        if (AdventureDraftPlan.Validate(command.Plan, lines, _options.MaxSections - staying.Count) is { } invalid)
+        {
+            return AppResult<AdventureView>.Fail(new AppError(400, "invalid_plan", invalid));
+        }
+
+        IReadOnlyList<CutSection> cut;
+        try
+        {
+            cut = AdventureDraftCutter.Cut(adventure.DraftMarkdown, command.Plan);
+        }
+        catch (DraftCutCheckFailedException ex)
+        {
+            // No plan can fail the check, so this is a bug in the cutter: apply nothing.
+            _logger.LogError(ex, "A draft split failed its word check. AdventureId={AdventureId}", adventure.Id);
+            return AppResult<AdventureView>.Fail(new AppError(500, "split_check_failed",
+                "The split would have changed the draft's words, so nothing was applied. This is a bug; please report it."));
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var sections = cut.Select(c => new AdventureSection
+        {
+            Id = Guid.NewGuid(),
+            AdventureId = adventure.Id,
+            Kind = c.Kind,
+            Title = c.Title,
+            BodyMarkdown = c.BodyMarkdown,
+            UpdatedAt = now,
+        }).ToList();
+        if (PrepBounds.Validate([.. staying, .. sections], _options) is { } tooLarge)
+        {
+            return AppResult<AdventureView>.Fail(tooLarge);
+        }
+
+        // Replace keeps the written sections' text, gathered, as one draft revision, so Undo on
+        // the draft brings back everything the split took away.
+        var gathered = replace ? AdventureDraftGatherer.Join(adventure.Sections) : "";
+        var revision = gathered.Length == 0 ? null : new AdventureDraftRevision
+        {
+            Id = Guid.NewGuid(),
+            AdventureId = adventure.Id,
+            BodyMarkdown = gathered,
+            Reason = AdventureDraftChange.Split,
+            CreatedAt = now,
+        };
+
+        if (!await _adventures.TryWriteSplitAsync(
+            adventure.Id, sections, replace, revision, _options.MaxRevisionsPerSection, command.BasedOnUpdatedAt, now, ct))
+        {
+            return AppResult<AdventureView>.Fail(DraftChanged());
+        }
+
+        return await _views.GetAsync(command.WorldId, adventure.Id, command.ActingUserRole, ct);
+    }
+
+    public async Task<AppResult<AdventureDraftState>> GatherAsync(GatherDraftCommand command, CancellationToken ct)
+    {
+        if (command.ActingUserRole != WorldRole.GM)
+        {
+            return AppResult<AdventureDraftState>.Fail(GmOnly());
+        }
+
+        var adventure = await LoadAsync(command.WorldId, command.AdventureId, ct);
+        if (adventure is null)
+        {
+            return AppResult<AdventureDraftState>.Fail(NotFound());
+        }
+
+        if (adventure.DraftUpdatedAt != command.BasedOnUpdatedAt)
+        {
+            return AppResult<AdventureDraftState>.Fail(DraftChanged());
+        }
+
+        var gathered = AdventureDraftGatherer.Join(adventure.Sections);
+        if (gathered.Length == 0)
+        {
+            return AppResult<AdventureDraftState>.Fail(new AppError(400, "nothing_to_gather",
+                "No section has any text yet, so there is nothing to gather."));
+        }
+
+        return await WriteWithRevisionAsync(adventure, gathered, AdventureDraftChange.Gather, command.BasedOnUpdatedAt, ct);
     }
 
     /// <summary>
@@ -269,6 +380,8 @@ public class AdventureDesignService : IAdventureDesignService
         var adventure = await _adventures.GetWithSectionsAsync(adventureId, ct);
         return adventure is not null && adventure.WorldId == worldId ? adventure : null;
     }
+
+    internal static AppError NothingToSplit() => new(400, "nothing_to_split", "The draft is empty, so there is nothing to split.");
 
     private static AppError GmOnly() => new(403, "insufficient_role", "Prep is for the world's GM.");
 

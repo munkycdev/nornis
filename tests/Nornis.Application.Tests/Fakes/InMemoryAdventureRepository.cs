@@ -245,6 +245,57 @@ public class InMemoryAdventureRepository : IAdventureRepository
         return Task.FromResult(true);
     }
 
+    public Task<bool> TryWriteSplitAsync(
+        Guid adventureId, IReadOnlyList<AdventureSection> sections, bool replace, AdventureDraftRevision? revision,
+        int maxRevisions, DateTimeOffset? basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+    {
+        var row = Required(_adventures, a => a.Id == adventureId);
+        if (row.DraftUpdatedAt != basedOn)
+        {
+            return Task.FromResult(false);
+        }
+
+        var next = 1;
+        if (replace)
+        {
+            var ids = _sections.Where(x => x.AdventureId == adventureId).Select(x => x.Id).ToHashSet();
+            _revisions.RemoveAll(r => ids.Contains(r.SectionId));
+            _sections.RemoveAll(x => ids.Contains(x.Id));
+        }
+        else
+        {
+            next = _sections.Where(x => x.AdventureId == adventureId).Select(x => x.SortOrder).DefaultIfEmpty(0).Max() + 1;
+        }
+
+        foreach (var section in sections)
+        {
+            var copy = CopyOf(section);
+            copy.AdventureId = adventureId;
+            copy.SortOrder = next++;
+            copy.UpdatedAt = updatedAt;
+            _sections.Add(copy);
+        }
+
+        if (revision is not null)
+        {
+            var stale = _draftRevisions.Where(r => r.AdventureId == adventureId)
+                .OrderByDescending(r => r.CreatedAt).ThenByDescending(r => r.Id)
+                .Skip(Math.Max(maxRevisions - 1, 0)).ToList();
+            _draftRevisions.RemoveAll(stale.Contains);
+            _draftRevisions.Add(new AdventureDraftRevision
+            {
+                Id = revision.Id,
+                AdventureId = adventureId,
+                BodyMarkdown = revision.BodyMarkdown,
+                Reason = revision.Reason,
+                CreatedAt = revision.CreatedAt,
+            });
+        }
+
+        row.UpdatedAt = updatedAt;
+        return Task.FromResult(true);
+    }
+
     public Task<int> CountDraftRevisionsAsync(Guid adventureId, CancellationToken cancellationToken = default) =>
         Task.FromResult(_draftRevisions.Count(r => r.AdventureId == adventureId));
 

@@ -5,7 +5,9 @@ using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
+using Nornis.Application.Prep;
 using Nornis.Application.Services;
+using Nornis.Domain.Enums;
 
 namespace Nornis.Api.Controllers;
 
@@ -19,10 +21,12 @@ namespace Nornis.Api.Controllers;
 public class PrepDesignController : ControllerBase
 {
     private readonly IAdventureDesignService _design;
+    private readonly IAdventureDraftPlanService _plans;
 
-    public PrepDesignController(IAdventureDesignService design)
+    public PrepDesignController(IAdventureDesignService design, IAdventureDraftPlanService plans)
     {
         _design = design;
+        _plans = plans;
     }
 
     [HttpPut("draft")]
@@ -55,6 +59,49 @@ public class PrepDesignController : ControllerBase
         return Draft(await _design.PutInDraftAsync(new PutInDraftCommand(
             worldId, adventureId, HttpContext.GetWorldMember().Role, request.MessageId, mode, request.BasedOnUpdatedAt), ct));
     }
+
+    /// <summary>A split plan to show the GM; nothing is written.</summary>
+    [HttpPost("draft/plan")]
+    public async Task<IActionResult> PlanSplit(Guid worldId, Guid adventureId, [FromBody] PlanDraftRequest request, CancellationToken ct)
+    {
+        var result = await _plans.PlanAsync(new PlanDraftCommand(
+            worldId, adventureId, HttpContext.GetNornisUser().Id, HttpContext.GetWorldMember().Role, request.UseLoremaster), ct);
+        return result.IsSuccess
+            ? Ok(new DraftPlanResponse(
+                result.Value!.Rows.Select(r => new DraftPlanRowResponse(r.StartLine, r.Title, r.Kind.ToString(), r.Opening)).ToList(),
+                result.Value.Source.ToString(), result.Value.Note, result.Value.DraftUpdatedAt))
+            : result.Error!.ToActionResult();
+    }
+
+    /// <summary>Split into sections: cut by code at the plan's lines, checked so no word changes.</summary>
+    [HttpPost("draft/split")]
+    public async Task<IActionResult> Split(Guid worldId, Guid adventureId, [FromBody] SplitDraftRequest request, CancellationToken ct)
+    {
+        if (!EnumParsing.TryParseDefined<DraftSplitMode>(request.Mode ?? "", out var mode))
+        {
+            return BadRequest(new ErrorResponse("invalid_mode", $"'{request.Mode}' is not Replace or Append."));
+        }
+
+        var plan = new List<DraftSplitPoint>();
+        foreach (var point in request.Plan ?? [])
+        {
+            if (!EnumParsing.TryParseDefined<AdventureSectionKind>(point.Kind ?? "", out var kind))
+            {
+                return BadRequest(new ErrorResponse("invalid_kind", $"'{point.Kind}' is not a kind of section."));
+            }
+
+            plan.Add(new DraftSplitPoint(point.StartLine, point.Title ?? "", kind));
+        }
+
+        return Adventure(await _design.SplitAsync(new SplitDraftCommand(
+            worldId, adventureId, HttpContext.GetWorldMember().Role, plan, mode, request.BasedOnUpdatedAt), ct));
+    }
+
+    /// <summary>Gather sections into the draft, as an undoable change.</summary>
+    [HttpPost("draft/gather")]
+    public async Task<IActionResult> Gather(Guid worldId, Guid adventureId, [FromBody] GatherDraftRequest request, CancellationToken ct) =>
+        Draft(await _design.GatherAsync(new GatherDraftCommand(
+            worldId, adventureId, HttpContext.GetWorldMember().Role, request.BasedOnUpdatedAt), ct));
 
     [HttpPut("brief")]
     public async Task<IActionResult> SetBrief(

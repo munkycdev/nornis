@@ -95,6 +95,18 @@ public interface IAdventureRepository
         AdventureDraftRevision revision, DateTimeOffset? basedOn, DateTimeOffset updatedAt,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// A split's write (feature 37), in one unit of work: with <paramref name="replace"/>, the
+    /// Adventure's sections and their revisions are deleted; <paramref name="sections"/> are
+    /// added in order, numbered after any that stay, stamped <paramref name="updatedAt"/>; and
+    /// <paramref name="revision"/>, with its body as given, is kept as a draft revision and the
+    /// draft's revisions trimmed to <paramref name="maxRevisions"/>. The draft itself is not
+    /// changed. False, and nothing written, when the draft's stamp is not <paramref name="basedOn"/>.
+    /// </summary>
+    Task<bool> TryWriteSplitAsync(
+        Guid adventureId, IReadOnlyList<AdventureSection> sections, bool replace, AdventureDraftRevision? revision,
+        int maxRevisions, DateTimeOffset? basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default);
+
     /// <summary>Makes the Adventure's source books exactly <paramref name="documentIds"/>; the caller has checked them.</summary>
     Task ReplaceSourceBooksAsync(Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken cancellationToken = default);
 

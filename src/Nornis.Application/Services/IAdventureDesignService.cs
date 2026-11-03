@@ -27,6 +27,15 @@ public interface IAdventureDesignService
     /// <summary>Puts a whole saved answer into the draft (Replace or Append), keeping a revision.</summary>
     Task<AppResult<AdventureDraftState>> PutInDraftAsync(PutInDraftCommand command, CancellationToken ct);
 
+    /// <summary>
+    /// Cuts the draft into sections at the plan's start lines (<see cref="Prep.AdventureDraftCutter"/>,
+    /// the only code that does), checked so no word changes, in one unit of work. The draft stays.
+    /// </summary>
+    Task<AppResult<AdventureView>> SplitAsync(SplitDraftCommand command, CancellationToken ct);
+
+    /// <summary>Joins the sections into the draft, keeping the draft before it as a revision.</summary>
+    Task<AppResult<AdventureDraftState>> GatherAsync(GatherDraftCommand command, CancellationToken ct);
+
     Task<AppResult<AdventureView>> SetTableBriefAsync(SetTableBriefCommand command, CancellationToken ct);
 
     /// <summary>At most <see cref="AdventureDesignService.MaxSourceBooks"/>, each a book of this world's Library.</summary>

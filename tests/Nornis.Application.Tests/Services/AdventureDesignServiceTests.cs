@@ -1,7 +1,9 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
+using Nornis.Application.Prep;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -37,7 +39,8 @@ public class AdventureDesignServiceTests
             TestBooklets.Printer(TestPrintDetails.For(WorldId, GmUserId, "Shadowdark"), new FakeBookletPdfRenderer()),
             Options.Create(new PrepOptions()));
         _conversations = new InMemoryConversationRepository();
-        _sut = new AdventureDesignService(_adventures, _documents, _views, _conversations, Options.Create(new PrepOptions()));
+        _sut = new AdventureDesignService(_adventures, _documents, _views, _conversations, Options.Create(new PrepOptions()),
+            NullLogger<AdventureDesignService>.Instance);
 
         var created = await _views.CreateAsync(
             new CreateAdventureCommand(WorldId, GmUserId, WorldRole.GM, "The Slurping Spa", null, null), default);
@@ -53,6 +56,8 @@ public class AdventureDesignServiceTests
             ("SetTableBrief", async (s, a, r) => (await s.SetTableBriefAsync(new(WorldId, a, r, "Four players"), default)).Error),
             ("SetSourceBooks", async (s, a, r) => (await s.SetSourceBooksAsync(new(WorldId, a, r, []), default)).Error),
             ("ApplyEdit", async (s, a, r) => (await s.ApplyEditAsync(new(WorldId, a, r, Guid.NewGuid(), 0, null), default)).Error),
+            ("Split", async (s, a, r) => (await s.SplitAsync(new(WorldId, a, r, [], DraftSplitMode.Replace, null), default)).Error),
+            ("Gather", async (s, a, r) => (await s.GatherAsync(new(WorldId, a, r, null), default)).Error),
             ("PutInDraft", async (s, a, r) => (await s.PutInDraftAsync(new(WorldId, a, r, Guid.NewGuid(), PutInSectionMode.Replace, null), default)).Error),
         };
         foreach (var (name, run) in ops)
@@ -195,7 +200,7 @@ public class AdventureDesignServiceTests
 
         var codes = new[] { await Try(map), await Try(elsewhere), await Try(removed), await Try(print) };
 
-        Assert.That(codes, Is.EqualTo(new[] { "not_a_book", "document_not_found", "document_not_found", "not_a_book" }));
+        Assert.That(codes, Is.EqualTo(["not_a_book", "document_not_found", "document_not_found", "not_a_book"]));
     }
 
     [Test]
@@ -314,7 +319,7 @@ public class AdventureDesignServiceTests
         var past = await _sut.ApplyEditAsync(new(WorldId, _adventureId, WorldRole.GM, answer, 2, now), default);
 
         Assert.That(new[] { stale.Error?.Code, foreign.Error?.Code, past.Error?.Code },
-            Is.EqualTo(new[] { "draft_changed", "not_found", "not_found" }));
+            Is.EqualTo(["draft_changed", "not_found", "not_found"]));
     }
 
     [Test]
@@ -359,6 +364,112 @@ public class AdventureDesignServiceTests
         var result = await _sut.PutInDraftAsync(new(WorldId, _adventureId, WorldRole.GM, answer, PutInSectionMode.Append, stamp), default);
 
         Assert.That(result.Error?.Code, Is.EqualTo("prep_too_large"));
+    }
+
+    // ----------------------------------------------------------------- split and gather --
+
+    private const string SpaDraft = "Steam everywhere.\n\n## The Baths\n\nSlimes lurk.\n\n## The Boiler\n\nIt hisses.";
+
+    private SplitDraftCommand Split(DraftSplitMode mode, DateTimeOffset? basedOn, IReadOnlyList<DraftSplitPoint>? plan = null) =>
+        new(WorldId, _adventureId, WorldRole.GM, plan ?? AdventureDraftPlanner.FromHeadings(SpaDraft), mode, basedOn);
+
+    [Test]
+    public async Task SplitReplace_MakesTheSectionsFromTheDraft_AndKeepsTheOldSectionsTextForUndo()
+    {
+        var overview = _adventures.Sections.First(x => x.Kind == AdventureSectionKind.Overview);
+        overview.BodyMarkdown = "The old overview.";
+        var stamp = await DraftAsync(SpaDraft);
+
+        var split = await _sut.SplitAsync(Split(DraftSplitMode.Replace, stamp), default);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(split.Value!.Adventure.Sections.Select(x => (x.Kind, x.Title, x.BodyMarkdown)), Is.EqualTo(
+            [
+                (AdventureSectionKind.Overview, "Overview", "Steam everywhere."),
+                (AdventureSectionKind.Scene, "The Baths", "Slimes lurk."),
+                (AdventureSectionKind.Scene, "The Boiler", "It hisses."),
+            ]));
+            Assert.That(_adventures.Adventures.Single().DraftMarkdown, Is.EqualTo(SpaDraft), "the draft stays");
+            Assert.That(_adventures.DraftRevisions.Single().Reason, Is.EqualTo(AdventureDraftChange.Split));
+            Assert.That(_adventures.DraftRevisions.Single().BodyMarkdown, Is.EqualTo("## Overview\n\nThe old overview."));
+        });
+    }
+
+    [Test]
+    public async Task SplitAppend_AddsAfterTheSections_AndKeepsNoRevision()
+    {
+        var before = _adventures.Sections.Count(x => x.AdventureId == _adventureId);
+        var stamp = await DraftAsync(SpaDraft);
+
+        var split = await _sut.SplitAsync(Split(DraftSplitMode.Append, stamp), default);
+
+        var sections = split.Value!.Adventure.Sections;
+        Assert.Multiple(() =>
+        {
+            Assert.That(sections, Has.Count.EqualTo(before + 3));
+            Assert.That(sections.TakeLast(3).Select(x => x.Title), Is.EqualTo(["Overview", "The Baths", "The Boiler"]));
+            Assert.That(sections.Select(x => x.SortOrder), Is.EqualTo(Enumerable.Range(1, before + 3)));
+            Assert.That(_adventures.DraftRevisions, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task ASplit_IsRefused_OnAStaleStamp_AnInvalidPlan_OrAnEmptyDraft_AndChangesNothing()
+    {
+        var empty = await _sut.SplitAsync(Split(DraftSplitMode.Replace, null), default);
+        var first = await DraftAsync(SpaDraft);
+        var stamp = await DraftAsync(SpaDraft + "\n");
+        var sections = _adventures.Sections.Where(x => x.AdventureId == _adventureId).Select(x => x.Id).ToList();
+
+        var stale = await _sut.SplitAsync(Split(DraftSplitMode.Replace, first), default);
+        var outOfOrder = await _sut.SplitAsync(Split(DraftSplitMode.Replace, stamp,
+            [new DraftSplitPoint(1, "A", AdventureSectionKind.Scene), new DraftSplitPoint(7, "B", AdventureSectionKind.Scene), new DraftSplitPoint(3, "C", AdventureSectionKind.Scene)]), default);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(new[] { empty.Error?.Code, stale.Error?.Code, outOfOrder.Error?.Code },
+                Is.EqualTo(["nothing_to_split", "draft_changed", "invalid_plan"]));
+            Assert.That(_adventures.Sections.Where(x => x.AdventureId == _adventureId).Select(x => x.Id), Is.EqualTo(sections));
+        });
+    }
+
+    [Test]
+    public async Task ASplitPastTheSectionCap_IsRefused()
+    {
+        var options = new PrepOptions { MaxSections = 6 };
+        var sut = new AdventureDesignService(_adventures, _documents, _views, _conversations, Options.Create(options),
+            NullLogger<AdventureDesignService>.Instance);
+        var stamp = await DraftAsync(SpaDraft);
+
+        var appended = await sut.SplitAsync(Split(DraftSplitMode.Append, stamp), default);
+
+        Assert.That(appended.Error?.Code, Is.EqualTo("invalid_plan"), "the skeleton's sections plus three would pass six");
+    }
+
+    [Test]
+    public async Task Gather_JoinsTheWrittenSections_IntoTheDraft_KeepingTheOldDraft()
+    {
+        var overview = _adventures.Sections.First(x => x.Kind == AdventureSectionKind.Overview);
+        overview.BodyMarkdown = "Steam everywhere.";
+        var stamp = await DraftAsync("My old draft.");
+
+        var gathered = await _sut.GatherAsync(new(WorldId, _adventureId, WorldRole.GM, stamp), default);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(gathered.Value!.Markdown, Is.EqualTo("## Overview\n\nSteam everywhere."));
+            Assert.That(_adventures.DraftRevisions.Single().Reason, Is.EqualTo(AdventureDraftChange.Gather));
+            Assert.That(_adventures.DraftRevisions.Single().BodyMarkdown, Is.EqualTo("My old draft."));
+        });
+    }
+
+    [Test]
+    public async Task Gather_WithNothingWritten_IsRefused()
+    {
+        var result = await _sut.GatherAsync(new(WorldId, _adventureId, WorldRole.GM, null), default);
+
+        Assert.That(result.Error?.Code, Is.EqualTo("nothing_to_gather"));
     }
 
     private void Seed(params LibraryDocument[] documents)

@@ -72,6 +72,10 @@ public class PrepEndpointTests
         yield return ("undo draft", (c, w, a, _) => c.PostAsync($"{Base(w)}/{a}/draft/undo", null));
         yield return ("apply edit", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/draft/edits",
             new ApplyDraftEditRequest(Guid.NewGuid(), 0, null)));
+        yield return ("plan split", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/draft/plan", new PlanDraftRequest(false)));
+        yield return ("split", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/draft/split",
+            new SplitDraftRequest([new DraftSplitPointRequest(1, "A", "Scene")], "Replace", null)));
+        yield return ("gather", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/draft/gather", new GatherDraftRequest(null)));
         yield return ("put in draft", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/draft/put",
             new PutInDraftRequest(Guid.NewGuid(), "Replace", null)));
         yield return ("brief", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/brief", new SetTableBriefRequest("Mine")));
@@ -699,7 +703,7 @@ public class PrepEndpointTests
         Assert.Multiple(() =>
         {
             Assert.That(_factory.FakeDrafting.Requests.Single().UserMessage, Does.Contain("The spa is quiet."), "the turn saw the draft");
-            Assert.That(answer.Edits, Is.EqualTo(new[] { new DraftEditResponse("The spa is quiet.", "The spa hums with slime.") }));
+            Assert.That(answer.Edits, Is.EqualTo([new DraftEditResponse("The spa is quiet.", "The spa hums with slime.")]));
             Assert.That(answer.Prose, Is.EqualTo("Louder."));
         });
 
@@ -716,6 +720,49 @@ public class PrepEndpointTests
             Assert.That(again.StatusCode, Is.EqualTo(HttpStatusCode.Conflict), "the passage is gone, so the edit no longer fits");
         });
         Assert.That((await again.Content.ReadFromJsonAsync<ErrorResponse>())!.Code, Is.EqualTo("edit_no_longer_fits"));
+    }
+
+    [Test]
+    public async Task TheDraft_SplitsAtItsHeadings_IntoSections_AndGathersBack()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+        var started = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft",
+            new SaveAdventureDraftRequest("Steam.\n\n## The Baths\n\nSlimes lurk.", null));
+        var draft = (await started.Content.ReadFromJsonAsync<AdventureDraftResponse>())!;
+
+        var planned = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft/plan", new PlanDraftRequest(false));
+        var plan = (await planned.Content.ReadFromJsonAsync<DraftPlanResponse>())!;
+        var split = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft/split", new SplitDraftRequest(
+            plan.Rows.Select(r => new DraftSplitPointRequest(r.StartLine, r.Title, r.Kind)).ToList(), "Replace", plan.DraftUpdatedAt));
+        var after = (await split.Content.ReadFromJsonAsync<AdventureResponse>())!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.Source, Is.EqualTo("Headings"));
+            Assert.That(plan.Rows.Select(r => (r.StartLine, r.Title, r.Kind)), Is.EqualTo([(1, "Overview", "Overview"), (3, "The Baths", "Scene")]));
+            Assert.That(after.Sections.Select(x => (x.Title, x.BodyMarkdown)), Is.EqualTo([("Overview", "Steam."), ("The Baths", "Slimes lurk.")]));
+            Assert.That(after.Draft!.RevisionCount, Is.Zero, "the skeleton had no written sections to keep");
+            Assert.That(_factory.FakeDrafting.Requests, Is.Empty, "a headings split uses no AI");
+        });
+
+        var gathered = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft/gather", new GatherDraftRequest(draft.UpdatedAt));
+        Assert.That((await gathered.Content.ReadFromJsonAsync<AdventureDraftResponse>())!.Markdown,
+            Is.EqualTo("## Overview\n\nSteam.\n\n## The Baths\n\nSlimes lurk."));
+    }
+
+    [Test]
+    public async Task ASplitWithAnUnknownKind_IsAPlain400()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var response = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft/split",
+            new SplitDraftRequest([new DraftSplitPointRequest(1, "A", "Dungeon")], "Replace", null));
+
+        Assert.That((await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Code, Is.EqualTo("invalid_kind"));
     }
 
     [Test]
