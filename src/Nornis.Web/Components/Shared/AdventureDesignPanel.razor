@@ -1,5 +1,6 @@
 @inject NornisApiClient Api
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 @* Design mode (feature 37): the Adventure's one working draft, in the section editor with every
    Prep tool. The GM's saves are based on the draft's stamp, as a section's are. The editor is
@@ -52,7 +53,28 @@
                 Undo@(RevisionCount > 0 ? $" ({RevisionCount})" : "")
             </MudButton>
         </MudTooltip>
+        <span class="flex-grow-1"></span>
+        <label class="nornis-prep-design-import">
+            <InputFile OnChange="ImportAsync" multiple accept=".md,.markdown,.txt" class="nornis-prep-design-import-input" disabled="@IsDisabled" />
+            <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.FileUpload" Disabled="IsDisabled"
+                       HtmlTag="span">
+                Import Markdown
+            </MudButton>
+        </label>
+        <MudTooltip Text="Join the written sections into the draft, replacing it. Undo brings the old draft back.">
+            <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.CallMerge" Class="nornis-prep-design-gather"
+                       Disabled="@(IsDisabled || !Adventure.Sections.Any(s => s.IsFilled))" OnClick="GatherAsync">
+                Gather sections
+            </MudButton>
+        </MudTooltip>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.CallSplit"
+                   Class="nornis-prep-design-split" Disabled="IsDisabled" OnClick="SplitAsync">
+            Split into sections
+        </MudButton>
     </div>
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1">
+        Split cuts the draft at its headings, or where the Loremaster suggests, without changing a word.
+    </MudText>
 </div>
 
 @code {
@@ -67,8 +89,14 @@
     /// <summary>Nothing may be typed, because something is about to change the draft.</summary>
     [Parameter] public bool ReadOnly { get; set; }
 
-    /// <summary>Raised with the draft as the API returned it, after a save or an undo.</summary>
+    /// <summary>Raised with the draft as the API returned it, after a save, an undo or a gather.</summary>
     [Parameter] public EventCallback<AdventureDraftDto> OnDraftChanged { get; set; }
+
+    /// <summary>Raised with the Adventure as a split left it: new sections, the draft unchanged.</summary>
+    [Parameter] public EventCallback<AdventureDto> OnSplit { get; set; }
+
+    private const long MaxImportBytes = 1024 * 1024;
+    private const int MaxImportFiles = 20;
 
     private NotesEditor? _editor;
     private int _editorVersion;
@@ -216,6 +244,104 @@
         {
             await OnDraftChanged.InvokeAsync(draft);
         }
+    }
+
+    private async Task SplitAsync()
+    {
+        if (!await SaveIfDirtyAsync())
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Adventure.Draft?.Markdown))
+        {
+            Snackbar.Add("The draft is empty. Write or paste the adventure first.", Severity.Info);
+            return;
+        }
+
+        var parameters = new DialogParameters<DraftSplitDialog>
+        {
+            { d => d.WorldId, Adventure.WorldId },
+            { d => d.AdventureId, Adventure.Id },
+            { d => d.HasWrittenSections, Adventure.Sections.Any(s => s.IsFilled) },
+        };
+        var dialog = await DialogService.ShowAsync<DraftSplitDialog>("Split into sections", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: AdventureDto split })
+        {
+            await OnSplit.InvokeAsync(split);
+        }
+    }
+
+    private async Task GatherAsync()
+    {
+        if (!await SaveIfDirtyAsync())
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(Adventure.Draft?.Markdown))
+        {
+            var confirmed = await DialogService.ShowMessageBoxAsync(
+                "Gather the sections into the draft?",
+                "The written sections replace the draft, each under its title. Undo on the draft brings this draft back.",
+                yesText: "Gather", cancelText: "Cancel");
+            if (confirmed != true)
+            {
+                return;
+            }
+        }
+
+        _saving = true;
+        try
+        {
+            var result = await Api.GatherDraftAsync(Adventure.WorldId, Adventure.Id, Adventure.Draft?.UpdatedAt);
+            if (result.IsSuccess)
+            {
+                await OnDraftChanged.InvokeAsync(result.Value!);
+                Snackbar.Add("Gathered into the draft. Undo steps back.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(result.Error!.Message, Severity.Error);
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    /// <summary>
+    /// Import Markdown into the draft (feature 37): the files' text goes into the editor after what
+    /// is there, in the order chosen, for the GM to read and save. Nothing is sent until they do.
+    /// </summary>
+    private async Task ImportAsync(InputFileChangeEventArgs e)
+    {
+        if (_editor is null || e.FileCount > MaxImportFiles)
+        {
+            Snackbar.Add($"Choose at most {MaxImportFiles} files.", Severity.Warning);
+            return;
+        }
+
+        var parts = new List<string>();
+        foreach (var file in e.GetMultipleFiles(MaxImportFiles))
+        {
+            if (file.Size > MaxImportBytes)
+            {
+                Snackbar.Add($"{file.Name} is over {DisplayText.FormatSize(MaxImportBytes)}, so it wasn't read.", Severity.Warning);
+                return;
+            }
+
+            using var reader = new StreamReader(file.OpenReadStream(MaxImportBytes));
+            parts.Add((await reader.ReadToEndAsync()).Trim());
+        }
+
+        var current = await CurrentMarkdownAsync();
+        var joined = string.Join("\n\n", parts.Prepend(current.Trim()).Where(p => p.Length > 0));
+        await _editor.ReplaceAsync(joined);
+        Snackbar.Add("Imported into the editor. Save the draft to keep it.", Severity.Info);
     }
 
     private async Task UndoAsync()

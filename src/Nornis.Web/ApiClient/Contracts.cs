@@ -1244,7 +1244,11 @@ public record ExportAdventureRequest(Guid? ChapterSectionId);
 public record AdventureExportDto(Guid SourceId, string Title, string? Slug);
 
 /// <summary>One message of an Adventure's side conversation. Mirrors the API's <c>ConversationMessageResponse</c>.</summary>
-public record ConversationMessageDto(Guid Id, string Role, string Content, string? Model, DateTimeOffset CreatedAt)
+/// <param name="Edits">The suggested edits to the design draft the answer carries (feature 37), read by the API; null when none.</param>
+/// <param name="Prose">The answer without its edit fences, to show around the edit cards; null when it has none.</param>
+public record ConversationMessageDto(
+    Guid Id, string Role, string Content, string? Model, DateTimeOffset CreatedAt,
+    IReadOnlyList<DraftEditDto>? Edits = null, string? Prose = null)
 {
     /// <summary>The role names the API sends, the domain's <c>ConversationRole</c>; pinned by a test.</summary>
     public const string UserRole = "User";
@@ -1256,7 +1260,39 @@ public record ConversationMessageDto(Guid Id, string Role, string Content, strin
 /// <summary>The side conversation, oldest first. <see cref="IsFull"/> means it must be cleared first.</summary>
 public record ConversationDto(IReadOnlyList<ConversationMessageDto> Messages, bool IsFull);
 
-public record SendConversationMessageRequest(string Text, Guid? SectionId);
+/// <param name="Scope">Section, or Draft in Design mode (feature 37); the API's <c>ConversationScope</c>, pinned by a test.</param>
+public record SendConversationMessageRequest(string Text, Guid? SectionId, string Scope = SendConversationMessageRequest.SectionScope)
+{
+    public const string SectionScope = "Section";
+    public const string DraftScope = "Draft";
+}
+
+/// <summary>One suggested edit: the passage it finds in the draft and its replacement. Mirrors <c>DraftEditResponse</c>.</summary>
+public record DraftEditDto(string Find, string Replace);
+
+/// <summary>Applies an answer's <paramref name="Index"/>th edit, based on the draft's stamp.</summary>
+public record ApplyDraftEditRequest(Guid MessageId, int Index, DateTimeOffset? BasedOnUpdatedAt);
+
+/// <summary>Puts a whole answer into the draft: <see cref="PutInSectionRequest.Replace"/> or <see cref="PutInSectionRequest.Append"/>.</summary>
+public record PutInDraftRequest(Guid MessageId, string Mode, DateTimeOffset? BasedOnUpdatedAt);
+
+public record PlanDraftRequest(bool UseLoremaster);
+
+/// <summary>A split plan (feature 37). Mirrors <c>DraftPlanResponse</c>; Source is Headings or Loremaster.</summary>
+public record DraftPlanDto(IReadOnlyList<DraftPlanRowDto> Rows, string Source, string? Note, DateTimeOffset? DraftUpdatedAt);
+
+public record DraftPlanRowDto(int StartLine, string Title, string Kind, string Opening);
+
+public record DraftSplitPointRequest(int StartLine, string Title, string Kind);
+
+/// <summary>Cuts the draft into sections. Mode is <see cref="Replace"/> or <see cref="Append"/>, the API's <c>DraftSplitMode</c>.</summary>
+public record SplitDraftRequest(IReadOnlyList<DraftSplitPointRequest> Plan, string Mode, DateTimeOffset? BasedOnUpdatedAt)
+{
+    public const string Replace = "Replace";
+    public const string Append = "Append";
+}
+
+public record GatherDraftRequest(DateTimeOffset? BasedOnUpdatedAt);
 
 /// <summary>What the Put in section dialog chose: the section, and <see cref="PutInSectionRequest.Replace"/> or <see cref="PutInSectionRequest.Append"/>.</summary>
 public record PutInSectionChoice(Guid SectionId, string Mode);

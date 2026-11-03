@@ -656,6 +656,29 @@ public class NornisApiClient
     public Task<ApiResult<AdventureDraftDto>> UndoAdventureDraftAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
         PostAsync<object?, AdventureDraftDto>($"/api/worlds/{worldId}/prep/{adventureId}/draft/undo", null, ct);
 
+    /// <summary>Applies one suggested edit; 409 <c>edit_no_longer_fits</c> when its passage moved.</summary>
+    public Task<ApiResult<AdventureDraftDto>> ApplyDraftEditAsync(
+        Guid worldId, Guid adventureId, ApplyDraftEditRequest request, CancellationToken ct = default) =>
+        PostAsync<ApplyDraftEditRequest, AdventureDraftDto>($"/api/worlds/{worldId}/prep/{adventureId}/draft/edits", request, ct);
+
+    public Task<ApiResult<AdventureDraftDto>> PutAnswerInDraftAsync(
+        Guid worldId, Guid adventureId, PutInDraftRequest request, CancellationToken ct = default) =>
+        PostAsync<PutInDraftRequest, AdventureDraftDto>($"/api/worlds/{worldId}/prep/{adventureId}/draft/put", request, ct);
+
+    /// <summary>A split plan to show; nothing is written.</summary>
+    public Task<ApiResult<DraftPlanDto>> PlanDraftSplitAsync(
+        Guid worldId, Guid adventureId, bool useLoremaster, CancellationToken ct = default) =>
+        PostAsync<PlanDraftRequest, DraftPlanDto>($"/api/worlds/{worldId}/prep/{adventureId}/draft/plan", new PlanDraftRequest(useLoremaster), ct);
+
+    public Task<ApiResult<AdventureDto>> SplitDraftAsync(
+        Guid worldId, Guid adventureId, SplitDraftRequest request, CancellationToken ct = default) =>
+        PostAsync<SplitDraftRequest, AdventureDto>($"/api/worlds/{worldId}/prep/{adventureId}/draft/split", request, ct);
+
+    public Task<ApiResult<AdventureDraftDto>> GatherDraftAsync(
+        Guid worldId, Guid adventureId, DateTimeOffset? basedOnUpdatedAt, CancellationToken ct = default) =>
+        PostAsync<GatherDraftRequest, AdventureDraftDto>(
+            $"/api/worlds/{worldId}/prep/{adventureId}/draft/gather", new GatherDraftRequest(basedOnUpdatedAt), ct);
+
     public Task<ApiResult<AdventureDto>> SetAdventureTableBriefAsync(
         Guid worldId, Guid adventureId, string? brief, CancellationToken ct = default) =>
         PutAsync<SetTableBriefRequest, AdventureDto>($"/api/worlds/{worldId}/prep/{adventureId}/brief", new SetTableBriefRequest(brief), ct);

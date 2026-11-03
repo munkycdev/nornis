@@ -554,6 +554,127 @@ public class AdventurePageTests : BunitContext
         Assert.That(ids, Is.EqualTo(books.Take(5).Select(b => b.Id).ToList()));
     }
 
+    private const string EditAnswerJson = """
+        {"messages":[
+          {"id":"11111111-1111-1111-1111-111111111111","role":"User","content":"Louder.","model":null,"createdAt":"2026-11-03T09:00:00+00:00"},
+          {"id":"22222222-2222-2222-2222-222222222222","role":"Assistant","content":"Make it louder.\n\n```edit\n...","model":"nornis-ask",
+           "createdAt":"2026-11-03T09:00:05+00:00","edits":[{"find":"The spa is quiet.","replace":"The spa hums with slime."}],"prose":"Make it louder."}],
+         "isFull":false}
+        """;
+
+    private async Task<IRenderedComponent<AdventureDetail>> RenderOnDesignAsync()
+    {
+        _handler.DraftJson = $$"""{"markdown":"The spa is quiet.","updatedAt":"{{StubHandler.DraftStamp:O}}","revisionCount":0}""";
+        _handler.NoneWritten = true;
+        JSInterop.Setup<string>("nornisEditor.getHtml", _ => true).SetResult("<p>The spa is quiet.</p>");
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-design"), Has.Count.EqualTo(1)));
+        return cut;
+    }
+
+    [Test]
+    public async Task InDesignMode_AMessageIsSentWithTheDraft_NotTheSection()
+    {
+        var cut = await RenderOnDesignAsync();
+
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-talk-input textarea").Input("Make it louder."));
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-talk-send").Click());
+
+        cut.WaitForAssertion(() => Assert.That(_handler.LastSendBody, Is.Not.Null));
+        var sent = JsonDocument.Parse(_handler.LastSendBody!).RootElement;
+        Assert.Multiple(() =>
+        {
+            Assert.That(sent.GetProperty("scope").GetString(), Is.EqualTo("Draft"));
+            Assert.That(sent.GetProperty("sectionId").ValueKind, Is.EqualTo(JsonValueKind.Null));
+        });
+    }
+
+    [Test]
+    public async Task ASuggestedEdit_ShowsBeforeAndAfter_AndApplySendsItsIndexOnTheDraftsStamp()
+    {
+        _handler.ConversationJson = EditAnswerJson;
+        var cut = await RenderOnDesignAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-edit"), Has.Count.EqualTo(1)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find(".nornis-prep-edit-before").TextContent, Is.EqualTo("The spa is quiet."));
+            Assert.That(cut.Find(".nornis-prep-edit-after").TextContent, Is.EqualTo("The spa hums with slime."));
+            Assert.That(cut.Find(".nornis-prep-talk-answer .nornis-prep-talk-text").TextContent, Is.EqualTo("Make it louder."),
+                "the prose shows, not the fence");
+        });
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-edit-apply").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-edit-applied"), Has.Count.EqualTo(1)));
+        var apply = JsonDocument.Parse(_handler.LastApplyBody!).RootElement;
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.GetProperty("messageId").GetGuid(), Is.EqualTo(Guid.Parse("22222222-2222-2222-2222-222222222222")));
+            Assert.That(apply.GetProperty("index").GetInt32(), Is.Zero);
+            Assert.That(apply.GetProperty("basedOnUpdatedAt").GetDateTimeOffset(), Is.EqualTo(StubHandler.DraftStamp));
+        });
+        cut.WaitForAssertion(() => Assert.That(cut.Find("button.nornis-prep-design-undo").TextContent, Does.Contain("Undo (1)")));
+    }
+
+    [Test]
+    public async Task OnTheSectionsTab_AnEditCantBeApplied()
+    {
+        _handler.ConversationJson = EditAnswerJson;
+        var cut = await RenderAsync();
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-edit"), Has.Count.EqualTo(1)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find("button.nornis-prep-edit-apply").HasAttribute("disabled"), Is.True);
+            Assert.That(cut.Find(".nornis-prep-edit").TextContent, Does.Contain("Open the Design tab to apply it."));
+        });
+    }
+
+    [Test]
+    public async Task Split_ShowsThePlan_SendsItAfterAMerge_AndOpensTheNewSections()
+    {
+        var cut = await RenderOnDesignAsync();
+        var dialogs = Render<MudDialogProvider>();
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-design-split").Click());
+        dialogs.WaitForAssertion(() => Assert.That(dialogs.FindAll(".nornis-split-row"), Has.Count.EqualTo(3)));
+        Assert.That(dialogs.FindAll(".nornis-split-mode"), Is.Empty, "with nothing written, the split replaces the empty outline without asking");
+
+        await dialogs.InvokeAsync(() => dialogs.FindAll("button.nornis-split-merge")[2].Click());
+        await dialogs.InvokeAsync(() => dialogs.Find("button.nornis-split-apply").Click());
+
+        cut.WaitForAssertion(() => Assert.That(_handler.LastSplitBody, Is.Not.Null));
+        var split = JsonDocument.Parse(_handler.LastSplitBody!).RootElement;
+        Assert.Multiple(() =>
+        {
+            Assert.That(split.GetProperty("plan").EnumerateArray().Select(p => p.GetProperty("startLine").GetInt32()), Is.EqualTo([1, 5]));
+            Assert.That(split.GetProperty("mode").GetString(), Is.EqualTo("Replace"));
+            Assert.That(split.GetProperty("basedOnUpdatedAt").GetDateTimeOffset(), Is.EqualTo(StubHandler.DraftStamp));
+        });
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-draft"), Has.Count.EqualTo(1), "the Sections tab opens"));
+        Assert.That(cut.FindAll("button.nornis-prep-outline-title").Select(b => b.TextContent.Trim()), Is.EqualTo(["Arrival", "The Baths"]));
+    }
+
+    [Test]
+    public async Task Gather_AsksFirstWhenThereIsADraft_AndSendsTheDraftsStamp()
+    {
+        JSInterop.Setup<string>("nornisEditor.getHtml", _ => true).SetResult("<p>Old.</p>");
+        _handler.DraftJson = $$"""{"markdown":"Old.","updatedAt":"{{StubHandler.DraftStamp:O}}","revisionCount":0}""";
+        var cut = await RenderAsync();
+        var dialogs = Render<MudDialogProvider>();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-mode button"), Has.Count.EqualTo(2)));
+        await cut.InvokeAsync(() => ModeButton(cut, "Design").Click());
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll("button.nornis-prep-design-gather"), Has.Count.EqualTo(1)));
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-design-gather").Click());
+        dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup, Does.Contain("Gather the sections into the draft?")));
+        await dialogs.InvokeAsync(() => dialogs.FindAll("button").First(b => b.TextContent.Trim() == "Gather").Click());
+
+        cut.WaitForAssertion(() => Assert.That(_handler.LastGatherBody, Is.Not.Null));
+        Assert.That(JsonDocument.Parse(_handler.LastGatherBody!).RootElement.GetProperty("basedOnUpdatedAt").GetDateTimeOffset(),
+            Is.EqualTo(StubHandler.DraftStamp));
+    }
+
     private sealed class StubHandler : HttpMessageHandler
     {
         public static readonly Guid OverviewId = Guid.NewGuid();
@@ -617,6 +738,12 @@ public class AdventurePageTests : BunitContext
         public string? LastBriefBody { get; private set; }
         public string? LastSourceBooksBody { get; private set; }
         public bool DraftUndone { get; private set; }
+        public string? LastApplyBody { get; private set; }
+        public string? LastSplitBody { get; private set; }
+        public string? LastGatherBody { get; private set; }
+
+        /// <summary>The sections a split answers with: a title each, all Scenes.</summary>
+        public string[] SplitTitles { get; set; } = ["Arrival", "The Baths"];
 
         public bool SendFails { get; set; }
         public string? LastSendBody { get; private set; }
@@ -764,6 +891,36 @@ public class AdventurePageTests : BunitContext
                 return Json(DraftJson);
             }
 
+            if (request.Method == HttpMethod.Post && path.EndsWith("/draft/edits", StringComparison.Ordinal))
+            {
+                LastApplyBody = await request.Content!.ReadAsStringAsync(ct);
+                DraftJson = """{"markdown":"The spa hums with slime.","updatedAt":"2026-11-03T09:20:00+00:00","revisionCount":1}""";
+                return Json(DraftJson);
+            }
+
+            if (request.Method == HttpMethod.Post && path.EndsWith("/draft/gather", StringComparison.Ordinal))
+            {
+                LastGatherBody = await request.Content!.ReadAsStringAsync(ct);
+                DraftJson = """{"markdown":"## Overview\n\nCaptain Voss hides the key.","updatedAt":"2026-11-03T09:30:00+00:00","revisionCount":1}""";
+                return Json(DraftJson);
+            }
+
+            if (request.Method == HttpMethod.Post && path.EndsWith("/draft/plan", StringComparison.Ordinal))
+            {
+                return Json($$"""
+                    {"rows":[{"startLine":1,"title":"Arrival","kind":"Scene","opening":"Steam everywhere."},
+                             {"startLine":5,"title":"The Baths","kind":"Scene","opening":"Slimes lurk."},
+                             {"startLine":9,"title":"The Boiler","kind":"Scene","opening":"It hisses."}],
+                     "source":"Headings","note":null,"draftUpdatedAt":"{{DraftStamp:O}}"}
+                    """);
+            }
+
+            if (request.Method == HttpMethod.Post && path.EndsWith("/draft/split", StringComparison.Ordinal))
+            {
+                LastSplitBody = await request.Content!.ReadAsStringAsync(ct);
+                return Json(SplitAdventure());
+            }
+
             if (request.Method == HttpMethod.Post && path.EndsWith("/draft/undo", StringComparison.Ordinal))
             {
                 DraftUndone = true;
@@ -815,6 +972,19 @@ public class AdventurePageTests : BunitContext
                  "printDetails":{"title":"The Silver Key","gameSystem":"Fate Accelerated","edition":null,
                    "type":"Nornis adventure","levels":null,"publisher":"Nornis Press","author":"kelda","year":null},
                  "draft":{{DraftJson}},"tableBrief":{{TableBriefJson}},"sourceBooks":{{SourceBooksJson}} }
+                """;
+        }
+
+        private string SplitAdventure()
+        {
+            var sections = string.Join(",", SplitTitles.Select((t, i) =>
+                $$"""{"id":"{{Guid.NewGuid()}}","kind":"Scene","title":"{{t}}","bodyMarkdown":"Text {{i}}.","sortOrder":{{i + 1}},"updatedAt":"2026-11-03T09:40:00+00:00","revisionCount":0,"isFilled":true}"""));
+            return $$"""
+                {"id":"{{_adventureId}}","worldId":"{{_worldId}}","campaignId":null,"title":"The Silver Key",
+                 "slug":"the-silver-key","pitch":"A heist.","lastPrintedDocumentId":null,
+                 "createdAt":"2026-11-02T09:00:00+00:00","updatedAt":"2026-11-03T09:40:00+00:00",
+                 "sections":[{{sections}}],
+                 "draft":{{DraftJson}},"tableBrief":null,"sourceBooks":[] }
                 """;
         }
 

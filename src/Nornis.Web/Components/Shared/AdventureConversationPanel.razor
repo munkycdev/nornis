@@ -26,8 +26,16 @@
     else if (_messages.Count == 0 && !_streaming)
     {
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1 nornis-prep-talk-empty">
-            Ask the Loremaster about this adventure. It knows your world, Hidden truth included, and
-            the section you have open. Nothing here changes the adventure until you put an answer in.
+            @if (DraftMode)
+            {
+                @:Talk the draft through with the Loremaster. It sees the whole draft and suggests
+                @:changes as edits you can apply one at a time. Nothing changes until you apply one.
+            }
+            else
+            {
+                @:Ask the Loremaster about this adventure. It knows your world, Hidden truth included, and
+                @:the section you have open. Nothing here changes the adventure until you put an answer in.
+            }
         </MudText>
     }
 
@@ -36,8 +44,45 @@
         {
             <div class="nornis-prep-talk-message @(message.IsAnswer ? "nornis-prep-talk-answer" : "nornis-prep-talk-question")">
                 <MudText Typo="Typo.caption" Color="Color.Secondary">@(message.IsAnswer ? "Loremaster" : "You")</MudText>
-                <div class="nornis-prep-talk-text">@message.Content</div>
-                @if (message.IsAnswer)
+                <div class="nornis-prep-talk-text">@(message.Prose ?? message.Content)</div>
+                @if (message.IsAnswer && message.Edits is { Count: > 0 } edits)
+                {
+                    @foreach (var (edit, editIndex) in edits.Select((e, i) => (e, i)))
+                    {
+                        var at = editIndex;
+                        var applied = _applied.Contains((message.Id, at));
+                        <div class="nornis-prep-edit">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Suggested edit @(edits.Count > 1 ? $"{at + 1} of {edits.Count}" : "")</MudText>
+                            <div class="nornis-prep-edit-before">@(edit.Find.Length == 0 ? "(the empty draft)" : edit.Find)</div>
+                            <div class="nornis-prep-edit-after">@(edit.Replace.Length == 0 ? "(taken out)" : edit.Replace)</div>
+                            @if (applied)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Success" Class="nornis-prep-edit-applied">Applied. Undo on the draft takes it back.</MudText>
+                            }
+                            else
+                            {
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" Class="nornis-prep-edit-apply"
+                                           StartIcon="@Icons.Material.Outlined.Check" Disabled="@(_streaming || _applying || !DraftMode || ApplyEdit is null)"
+                                           OnClick="() => ApplyAsync(message, at)">
+                                    Apply
+                                </MudButton>
+                                @if (!DraftMode)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Open the Design tab to apply it.</MudText>
+                                }
+                            }
+                        </div>
+                    }
+                }
+                @if (message.IsAnswer && DraftMode)
+                {
+                    <MudMenu Label="Put in draft" StartIcon="@Icons.Material.Outlined.PostAdd" Variant="Variant.Text" Size="Size.Small"
+                             Color="Color.Primary" Dense="true" Class="nornis-prep-talk-put-draft" Disabled="@(_streaming || PutInDraft is null)">
+                        <MudMenuItem OnClick="() => PutInDraftAsync(message, PutInSectionRequest.Append)">Add to the end of the draft</MudMenuItem>
+                        <MudMenuItem OnClick="() => PutInDraftAsync(message, PutInSectionRequest.Replace)">Replace the whole draft</MudMenuItem>
+                    </MudMenu>
+                }
+                else if (message.IsAnswer)
                 {
                     <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" Class="nornis-prep-talk-put"
                                StartIcon="@Icons.Material.Outlined.PostAdd" Disabled="@(_streaming || Sections.Count == 0)"
@@ -113,6 +158,21 @@
     /// <summary>Writes the answer into the chosen section. The page saves the editor first and reports the outcome.</summary>
     [Parameter] public Func<ConversationMessageDto, PutInSectionChoice, Task>? PutInSection { get; set; }
 
+    /// <summary>
+    /// Design mode (feature 37): each message is sent with the whole draft instead of the open
+    /// section, answers' suggested edits can be applied, and Put in draft replaces Put in section.
+    /// </summary>
+    [Parameter] public bool DraftMode { get; set; }
+
+    /// <summary>Applies the answer's edit at the index. The page saves the editor first; true when it was applied.</summary>
+    [Parameter] public Func<ConversationMessageDto, int, Task<bool>>? ApplyEdit { get; set; }
+
+    /// <summary>Puts the whole answer into the draft, Replace or Append.</summary>
+    [Parameter] public Func<ConversationMessageDto, string, Task>? PutInDraft { get; set; }
+
+    private readonly HashSet<(Guid MessageId, int Index)> _applied = [];
+    private bool _applying;
+
     private List<ConversationMessageDto> _messages = [];
     private bool _isFull;
     private string? _loadError;
@@ -128,6 +188,7 @@
         if (AdventureId != _loadedFor)
         {
             _loadedFor = AdventureId;
+            _applied.Clear();
             await ReloadAsync();
         }
     }
@@ -167,7 +228,9 @@
         try
         {
             await foreach (var e in Api.StreamAdventureConversationAsync(WorldId, AdventureId,
-                               new SendConversationMessageRequest(text, SelectedSectionId), _cts.Token))
+                               DraftMode
+                                   ? new SendConversationMessageRequest(text, null, SendConversationMessageRequest.DraftScope)
+                                   : new SendConversationMessageRequest(text, SelectedSectionId), _cts.Token))
             {
                 switch (e)
                 {
@@ -210,6 +273,35 @@
         var result = await Api.ClearAdventureConversationAsync(WorldId, AdventureId);
         _error = result.IsSuccess ? null : result.Error!.Message;
         await ReloadAsync();
+    }
+
+    private async Task ApplyAsync(ConversationMessageDto message, int index)
+    {
+        if (ApplyEdit is null)
+        {
+            return;
+        }
+
+        _applying = true;
+        try
+        {
+            if (await ApplyEdit(message, index))
+            {
+                _applied.Add((message.Id, index));
+            }
+        }
+        finally
+        {
+            _applying = false;
+        }
+    }
+
+    private async Task PutInDraftAsync(ConversationMessageDto message, string mode)
+    {
+        if (PutInDraft is not null)
+        {
+            await PutInDraft(message, mode);
+        }
     }
 
     private async Task PutAsync(ConversationMessageDto message)

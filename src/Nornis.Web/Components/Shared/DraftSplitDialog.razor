@@ -1,0 +1,185 @@
+@inject NornisApiClient Api
+
+@* Split into sections (feature 37). The plan comes from the API: the draft's own headings, or the
+   Loremaster's when the GM asks. The GM can rename, re-kind or merge a row into the one above;
+   merging is the only way to drop a split point, because no text is ever dropped. Applying sends
+   only start lines, titles and kinds: the API cuts the draft and checks that no word changed. *@
+
+<MudDialog>
+    <DialogContent>
+        @if (_plan is null && _error is null)
+        {
+            <MudProgressLinear Indeterminate="true" Class="my-4" />
+        }
+        else
+        {
+            @if (_plan?.Note is { } note)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3 nornis-split-note">@note</MudAlert>
+            }
+
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                @(_plan?.Source == "Loremaster" ? "The Loremaster's plan." : "From your draft's # and ## headings.")
+                Each row becomes a section, with the draft's own words from that line to the next row.
+            </MudText>
+
+            @foreach (var (row, index) in _rows.Select((r, i) => (r, i)))
+            {
+                var at = index;
+                <div class="nornis-split-row">
+                    <div class="d-flex gap-2 align-center flex-wrap">
+                        <MudTextField T="string" @bind-Value="row.Title" Label="Title" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      MaxLength="200" Immediate="true" Class="flex-grow-1 nornis-split-title" Disabled="_busy" />
+                        <MudSelect T="string" @bind-Value="row.Kind" Label="Kind" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                   Class="nornis-split-kind" Disabled="_busy">
+                            @foreach (var (kind, label, _) in PrepDisplay.Kinds)
+                            {
+                                <MudSelectItem T="string" Value="@kind">@label</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudTooltip Text="@(at == 0 ? "The first section can't merge upwards" : "Merge into the section above")">
+                            <MudIconButton Icon="@Icons.Material.Outlined.MergeType" Size="Size.Small" Class="nornis-split-merge"
+                                           Disabled="@(_busy || at == 0)" aria-label="Merge into the section above"
+                                           OnClick="() => _rows.RemoveAt(at)" />
+                        </MudTooltip>
+                    </div>
+                    <div class="nornis-split-opening">Line @row.StartLine: @(row.Opening.Length == 0 ? "(no text under the heading)" : row.Opening)</div>
+                </div>
+            }
+
+            @if (HasWrittenSections)
+            {
+                <MudRadioGroup T="string" @bind-Value="_mode" Class="mt-3 nornis-split-mode">
+                    <MudRadio T="string" Value="@SplitDraftRequest.Append">Add after the sections there</MudRadio>
+                    <MudRadio T="string" Value="@SplitDraftRequest.Replace">Replace the sections</MudRadio>
+                </MudRadioGroup>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block">
+                    Replace keeps the old sections' text: Undo on the draft brings it back into the draft.
+                </MudText>
+            }
+
+            @if (_error is not null)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3 nornis-split-error">@_error</MudAlert>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="AskLoremasterAsync" StartIcon="@Icons.Material.Outlined.AutoAwesome" Class="nornis-split-ask"
+                   Disabled="@(_busy || _plan is null)">
+            @(_asking ? "Planning…" : "Ask the Loremaster to plan it")
+        </MudButton>
+        <MudSpacer />
+        <MudButton OnClick="() => MudDialog.Cancel()" Disabled="_busy">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="ApplyAsync" Class="nornis-split-apply"
+                   Disabled="@(_busy || _rows.Count == 0)">
+            Split into @_rows.Count section@(_rows.Count == 1 ? "" : "s")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid WorldId { get; set; }
+    [Parameter] public Guid AdventureId { get; set; }
+
+    /// <summary>The Adventure has written sections, so the GM chooses Replace or Add after; otherwise the cut replaces the empty outline.</summary>
+    [Parameter] public bool HasWrittenSections { get; set; }
+
+    private sealed class Row
+    {
+        public int StartLine { get; init; }
+        public string Title { get; set; } = "";
+        public string Kind { get; set; } = "Scene";
+        public string Opening { get; init; } = "";
+    }
+
+    private DraftPlanDto? _plan;
+    private List<Row> _rows = [];
+    private string _mode = SplitDraftRequest.Append;
+    private string? _error;
+    private bool _busy;
+    private bool _asking;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!HasWrittenSections)
+        {
+            _mode = SplitDraftRequest.Replace;
+        }
+
+        await LoadAsync(useLoremaster: false);
+    }
+
+    private async Task LoadAsync(bool useLoremaster)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var result = await Api.PlanDraftSplitAsync(WorldId, AdventureId, useLoremaster);
+            if (result.IsSuccess)
+            {
+                _plan = result.Value!;
+                _rows = _plan.Rows.Select(r => new Row { StartLine = r.StartLine, Title = r.Title, Kind = r.Kind, Opening = r.Opening }).ToList();
+            }
+            else
+            {
+                _error = result.Error!.Message;
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task AskLoremasterAsync()
+    {
+        _asking = true;
+        try
+        {
+            await LoadAsync(useLoremaster: true);
+        }
+        finally
+        {
+            _asking = false;
+        }
+    }
+
+    private async Task ApplyAsync()
+    {
+        if (_plan is null)
+        {
+            return;
+        }
+
+        if (_rows.Any(r => string.IsNullOrWhiteSpace(r.Title)))
+        {
+            _error = "Every section needs a title.";
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            var request = new SplitDraftRequest(
+                _rows.Select(r => new DraftSplitPointRequest(r.StartLine, r.Title.Trim(), r.Kind)).ToList(), _mode, _plan.DraftUpdatedAt);
+            var result = await Api.SplitDraftAsync(WorldId, AdventureId, request);
+            if (result.IsSuccess)
+            {
+                MudDialog.Close(DialogResult.Ok(result.Value!));
+            }
+            else
+            {
+                _error = result.Error!.Message;
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

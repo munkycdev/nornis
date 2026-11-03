@@ -132,7 +132,7 @@ else if (_adventure is not null)
             @if (_mode == DesignMode)
             {
                 <AdventureDesignPanel @ref="_designPanel" Adventure="_adventure" Disabled="_busy"
-                                      OnDraftChanged="OnDraftChanged" />
+                                      OnDraftChanged="OnDraftChanged" OnSplit="OnSplit" />
             }
             else if (Selected is { } selected)
             {
@@ -256,7 +256,8 @@ else if (_adventure is not null)
         <div class="nornis-prep-talk-column">
             <AdventureConversationPanel WorldId="Worlds.Current.Id" AdventureId="_adventure.Id"
                                         Sections="_adventure.Sections" SelectedSectionId="_selectedId"
-                                        PutInSection="PutAnswerAsync" />
+                                        PutInSection="PutAnswerAsync" DraftMode="@(_mode == DesignMode)"
+                                        ApplyEdit="ApplyEditAsync" PutInDraft="PutAnswerInDraftAsync" />
         </div>
     </div>
 }
@@ -454,6 +455,60 @@ else if (_adventure is not null)
         {
             _adventure = _adventure with { Draft = draft };
         }
+    }
+
+    /// <summary>A split made new sections: show them, on the Sections tab, from the first.</summary>
+    private void OnSplit(AdventureDto updated)
+    {
+        _selectedId = null;
+        Show(updated, remountEditor: true);
+        SetMode(SectionsMode);
+        Snackbar.Add($"Split into {updated.Sections.Count} sections. Your draft is still on the Design tab.", Severity.Success);
+    }
+
+    /// <summary>
+    /// Applies one suggested edit from the conversation. What is typed in the draft is saved
+    /// first, so the edit lands on the GM's text and is based on the version just written.
+    /// </summary>
+    private async Task<bool> ApplyEditAsync(ConversationMessageDto message, int index)
+    {
+        if (Worlds.Current is null || _adventure is null || _designPanel is null || !await _designPanel.SaveIfDirtyAsync())
+        {
+            return false;
+        }
+
+        var result = await Api.ApplyDraftEditAsync(Worlds.Current.Id, _adventure.Id,
+            new ApplyDraftEditRequest(message.Id, index, _adventure.Draft?.UpdatedAt));
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Warning);
+            return false;
+        }
+
+        OnDraftChanged(result.Value!);
+        StateHasChanged();
+        return true;
+    }
+
+    /// <summary>Put in draft: the whole answer replaces the draft or goes after it, saving what was typed first.</summary>
+    private async Task PutAnswerInDraftAsync(ConversationMessageDto message, string mode)
+    {
+        if (Worlds.Current is null || _adventure is null || _designPanel is null || !await _designPanel.SaveIfDirtyAsync())
+        {
+            return;
+        }
+
+        var result = await Api.PutAnswerInDraftAsync(Worlds.Current.Id, _adventure.Id,
+            new PutInDraftRequest(message.Id, mode, _adventure.Draft?.UpdatedAt));
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+            return;
+        }
+
+        OnDraftChanged(result.Value!);
+        Snackbar.Add("Put in the draft. Undo on the draft takes it back.", Severity.Success);
+        StateHasChanged();
     }
 
     /// <summary>
