@@ -76,6 +76,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
         row.Pitch = adventure.Pitch;
         row.CampaignId = adventure.CampaignId;
         row.LastPrintedDocumentId = adventure.LastPrintedDocumentId;
+        row.Details = adventure.Details with { };
         row.UpdatedAt = adventure.UpdatedAt;
         return Task.CompletedTask;
     }
@@ -217,6 +218,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
         Slug = a.Slug,
         Pitch = a.Pitch,
         LastPrintedDocumentId = a.LastPrintedDocumentId,
+        Details = a.Details with { },
         CreatedByUserId = a.CreatedByUserId,
         CreatedAt = a.CreatedAt,
         UpdatedAt = a.UpdatedAt,

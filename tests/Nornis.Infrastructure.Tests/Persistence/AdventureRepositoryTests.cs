@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Infrastructure.Persistence.Repositories;
 using NUnit.Framework;
 
@@ -160,6 +161,75 @@ public class AdventureRepositoryTests : IntegrationTestBase
         {
             Assert.That(list.Single(a => a.Id == exported.Id).IsExported, Is.True);
             Assert.That(list.Single(a => a.Id == untouched.Id).IsExported, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Details_RoundTrip_AndNoneSet_ReadsBackEmpty_NotNull()
+    {
+        var adventure = await CreateAsync("a");
+
+        var fresh = await _sut.GetWithSectionsAsync(adventure.Id);
+        Assert.That(fresh!.Details, Is.EqualTo(new AdventureDetails()));
+
+        fresh.Details = new AdventureDetails { GameSystem = "Shadowdark", Edition = "1st", Levels = "1–3", Year = 2026 };
+        await _sut.UpdateAsync(fresh);
+        Context.ChangeTracker.Clear();
+
+        var stored = await _sut.GetWithSectionsAsync(adventure.Id);
+        Assert.That(stored!.Details, Is.EqualTo(fresh.Details));
+    }
+
+    [Test]
+    public async Task Details_UpdatedTwiceInOneScope_Succeeds()
+    {
+        // The second LoadForUpdate would meet the first's owned entry if it stayed tracked.
+        var adventure = await CreateAsync("a");
+        var first = (await _sut.GetWithSectionsAsync(adventure.Id))!;
+        first.Details = new AdventureDetails { Edition = "1st" };
+        await _sut.UpdateAsync(first);
+
+        var second = (await _sut.GetWithSectionsAsync(adventure.Id))!;
+        second.Details = second.Details with { Year = 2026 };
+        await _sut.UpdateAsync(second);
+        Context.ChangeTracker.Clear();
+
+        var stored = await _sut.GetWithSectionsAsync(adventure.Id);
+        Assert.That(stored!.Details, Is.EqualTo(new AdventureDetails { Edition = "1st", Year = 2026 }));
+    }
+
+    [Test]
+    public async Task PrintDetails_RoundTripOnAPrint_AndAreNullOnADocumentThatIsNot()
+    {
+        var details = PrintDetails.Resolve(
+            "The Silver Key", new AdventureDetails { Edition = "1st", Year = 2026 }, "Shadowdark", _user.Username);
+        var print = new LibraryDocument
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _world.Id,
+            Title = "The Silver Key, printed 2026-11-03",
+            FileName = "silver-key-2.pdf",
+            ContentType = "application/pdf",
+            BlobPath = $"worlds/{_world.Id}/library/silver-key-2.pdf",
+            Kind = LibraryDocumentKind.Handout,
+            Visibility = VisibilityScope.GMOnly,
+            Status = LibraryDocumentStatus.Indexed,
+            PrintDetails = details,
+            UploadedByUserId = _user.Id,
+            CreatedAt = _now,
+            UpdatedAt = _now,
+        };
+        Context.LibraryDocuments.Add(print);
+        await Context.SaveChangesAsync();
+        Context.ChangeTracker.Clear();
+
+        var storedPrint = await Context.LibraryDocuments.AsNoTracking().SingleAsync(d => d.Id == print.Id);
+        var storedUpload = await Context.LibraryDocuments.AsNoTracking().SingleAsync(d => d.Id == _print.Id);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(storedPrint.PrintDetails, Is.EqualTo(details));
+            Assert.That(storedUpload.PrintDetails, Is.Null);
         });
     }
 

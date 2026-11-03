@@ -13,6 +13,7 @@ using Nornis.Application.Prep;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 
 namespace Nornis.Api.Controllers;
 
@@ -99,6 +100,16 @@ public class PrepController : ControllerBase
         }
 
         return await Fetch(worldId, adventureId, ct);
+    }
+
+    [HttpPut("{adventureId:guid}/details")]
+    public async Task<IActionResult> UpdateDetails(
+        Guid worldId, Guid adventureId, [FromBody] UpdateAdventureDetailsRequest request, CancellationToken ct)
+    {
+        var result = await _adventures.UpdateDetailsAsync(new UpdateAdventureDetailsCommand(
+            worldId, adventureId, HttpContext.GetWorldMember().Role,
+            request.GameSystem, request.Edition, request.Levels, request.Year), ct);
+        return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 
     [HttpDelete("{adventureId:guid}")]
@@ -312,8 +323,13 @@ public class PrepController : ControllerBase
             a.Id, a.WorldId, a.CampaignId, a.Title, a.Slug, a.Pitch, a.LastPrintedDocumentId, a.CreatedAt, a.UpdatedAt,
             a.Sections.OrderBy(s => s.SortOrder)
                 .Select(s => ToSection(s, view.RevisionCounts.TryGetValue(s.Id, out var n) ? n : 0))
-                .ToList());
+                .ToList(),
+            new AdventureDetailsResponse(a.Details.GameSystem, a.Details.Edition, a.Details.Levels, a.Details.Year),
+            ToPrintDetails(view.PrintDetails));
     }
+
+    private static PrintDetailsResponse ToPrintDetails(PrintDetails p) =>
+        new(p.Title, p.GameSystem, p.Edition, p.Type, p.Levels, p.Publisher, p.Author, p.Year);
 
     private static AdventureSectionResponse ToSection(AdventureSection s, int revisionCount) =>
         new(s.Id, s.Kind.ToString(), s.Title, s.BodyMarkdown, s.SortOrder, s.UpdatedAt, revisionCount,

@@ -358,6 +358,15 @@ public class AdventurePageTests : BunitContext
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-threads"), Is.Empty));
     }
 
+    [Test]
+    public async Task TheBookDetails_SitUnderTheOutline()
+    {
+        var cut = await RenderAsync();
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-side .nornis-book-details"), Has.Count.EqualTo(1)));
+        Assert.That(cut.Find(".nornis-book-details").TextContent, Does.Contain("From the world"));
+    }
+
     private sealed class StubHandler : HttpMessageHandler
     {
         public static readonly Guid OverviewId = Guid.NewGuid();
@@ -539,7 +548,10 @@ public class AdventurePageTests : BunitContext
                 {"id":"{{_adventureId}}","worldId":"{{_worldId}}","campaignId":null,"title":"The Silver Key",
                  "slug":"the-silver-key","pitch":"A heist.","lastPrintedDocumentId":null,
                  "createdAt":"2026-11-02T09:00:00+00:00","updatedAt":"2026-11-02T10:00:00+00:00",
-                 "sections":[{{Section(first, 1)}},{{Section(second, 2)}}{{Chapter()}}]}
+                 "sections":[{{Section(first, 1)}},{{Section(second, 2)}}{{Chapter()}}],
+                 "details":{"gameSystem":null,"edition":null,"levels":null,"year":null},
+                 "printDetails":{"title":"The Silver Key","gameSystem":"Fate Accelerated","edition":null,
+                   "type":"Nornis adventure","levels":null,"publisher":"Nornis Press","author":"kelda","year":null} }
                 """;
         }
 

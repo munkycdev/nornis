@@ -2008,9 +2008,40 @@ namespace Nornis.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.OwnsOne("Nornis.Domain.Models.AdventureDetails", "Details", b1 =>
+                        {
+                            b1.Property<Guid>("AdventureId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("Edition")
+                                .HasMaxLength(50)
+                                .HasColumnType("nvarchar(50)");
+
+                            b1.Property<string>("GameSystem")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)");
+
+                            b1.Property<string>("Levels")
+                                .HasMaxLength(30)
+                                .HasColumnType("nvarchar(30)");
+
+                            b1.Property<int?>("Year")
+                                .HasColumnType("int");
+
+                            b1.HasKey("AdventureId");
+
+                            b1.ToTable("Adventures");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AdventureId");
+                        });
+
                     b.Navigation("Campaign");
 
                     b.Navigation("CreatedByUser");
+
+                    b.Navigation("Details")
+                        .IsRequired();
 
                     b.Navigation("LastPrintedDocument");
 
@@ -2379,6 +2410,56 @@ namespace Nornis.Infrastructure.Migrations
                         .HasForeignKey("WorldId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.OwnsOne("Nornis.Domain.Models.PrintDetails", "PrintDetails", b1 =>
+                        {
+                            b1.Property<Guid>("LibraryDocumentId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("Author")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)");
+
+                            b1.Property<string>("Edition")
+                                .HasMaxLength(50)
+                                .HasColumnType("nvarchar(50)");
+
+                            b1.Property<string>("GameSystem")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)");
+
+                            b1.Property<string>("Levels")
+                                .HasMaxLength(30)
+                                .HasColumnType("nvarchar(30)");
+
+                            b1.Property<string>("Publisher")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("nvarchar(50)");
+
+                            b1.Property<string>("Title")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)");
+
+                            b1.Property<string>("Type")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("nvarchar(50)");
+
+                            b1.Property<int?>("Year")
+                                .HasColumnType("int");
+
+                            b1.HasKey("LibraryDocumentId");
+
+                            b1.ToTable("LibraryDocuments");
+
+                            b1.WithOwner()
+                                .HasForeignKey("LibraryDocumentId");
+                        });
+
+                    b.Navigation("PrintDetails");
 
                     b.Navigation("UploadedByUser");
 

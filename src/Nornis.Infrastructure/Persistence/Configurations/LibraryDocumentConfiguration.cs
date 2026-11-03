@@ -88,6 +88,20 @@ public class LibraryDocumentConfiguration : IEntityTypeConfiguration<LibraryDocu
 
         builder.HasIndex(d => d.AdventureId);
 
+        // Eight nullable PrintDetails_* columns. Optional: a document that isn't a print has all
+        // eight null and reads back with no print details. Title, Type, Publisher and Author are
+        // required inside, so a half-written snapshot can't load as a print.
+        builder.OwnsOne(d => d.PrintDetails, print =>
+        {
+            print.Property(p => p.Title).IsRequired().HasMaxLength(PrintDetails.MaxTitleLength);
+            print.Property(p => p.GameSystem).HasMaxLength(AdventureDetails.MaxGameSystemLength);
+            print.Property(p => p.Edition).HasMaxLength(AdventureDetails.MaxEditionLength);
+            print.Property(p => p.Type).IsRequired().HasMaxLength(PrintDetails.MaxFixedLength);
+            print.Property(p => p.Levels).HasMaxLength(AdventureDetails.MaxLevelsLength);
+            print.Property(p => p.Publisher).IsRequired().HasMaxLength(PrintDetails.MaxFixedLength);
+            print.Property(p => p.Author).IsRequired().HasMaxLength(PrintDetails.MaxAuthorLength);
+        });
+
         // A Prep print's Adventure. Restrict (Worlds cascades to both tables);
         // AdventureRepository.DeleteAsync detaches the prints, which outlive their Adventure.
         builder.HasOne<Adventure>()

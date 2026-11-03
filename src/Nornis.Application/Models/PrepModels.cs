@@ -2,11 +2,15 @@ using Nornis.Application.Errors;
 using Nornis.Application.Prep;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 
 namespace Nornis.Application.Models;
 
-/// <summary>An Adventure with its sections in order, and how many revisions each section can undo.</summary>
-public record AdventureView(Adventure Adventure, IReadOnlyDictionary<Guid, int> RevisionCounts);
+/// <summary>
+/// An Adventure with its sections in order, how many revisions each section can undo, and the
+/// details a print filed now would carry (feature 32), which the Details card shows.
+/// </summary>
+public record AdventureView(Adventure Adventure, IReadOnlyDictionary<Guid, int> RevisionCounts, PrintDetails PrintDetails);
 
 public record CreateAdventureCommand(
     Guid WorldId, Guid ActingUserId, WorldRole ActingUserRole, string Title, string? Pitch, Guid? CampaignId);
@@ -20,6 +24,14 @@ public record ImportAdventureCommand(
 /// </summary>
 public record UpdateAdventureCommand(
     Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, string Title, string? Pitch, Guid? CampaignId);
+
+/// <summary>
+/// Replaces the Adventure's four editable details (feature 32). Each field is the new value and
+/// null clears it; a null game system means the world's.
+/// </summary>
+public record UpdateAdventureDetailsCommand(
+    Guid WorldId, Guid AdventureId, WorldRole ActingUserRole,
+    string? GameSystem, string? Edition, string? Levels, int? Year);
 
 public record SaveSectionCommand(
     Guid WorldId, Guid AdventureId, Guid SectionId, WorldRole ActingUserRole,

@@ -4,7 +4,7 @@ Three PRs: the spec, then storage and the Details card (the only migration, addi
 everything that reads the details, and the version bump. Ships as Nornis v3.4. Feature 33 (PR
 #82) is labelled 3.3; Phase B is generated after it lands.
 
-**Status: specified 2026-11-03; Phase A done. Type, publisher and author fixed by Dave, 2026-11-03.**
+**Status: specified 2026-11-03; Phase A done; Phase B built 2026-11-03 (the card is "Book details"; see the design amendment). Type, publisher and author fixed by Dave, 2026-11-03.**
 
 ## Phase A — Spec
 
@@ -19,18 +19,18 @@ everything that reads the details, and the version bump. Ships as Nornis v3.4. F
 
 ## Phase B — Storage, the route and the Details card
 
-- [ ] B1. `AdventureDetails` (Domain): the four editable fields, the bounds, `Validate`,
+- [x] B1. `AdventureDetails` (Domain): the four editable fields, the bounds, `Validate`,
       normalisation. `AdventureDetailsTests`. Sabotage: each bound.
-- [ ] B2. `PrintDetails` (Domain) with `Resolve` and the fixed values (`NornisType`,
+- [x] B2. `PrintDetails` (Domain) with `Resolve` and the fixed values (`NornisType`,
       `NornisPublisher`, the creator's username); `Adventure.Details`;
       `LibraryDocument.PrintDetails`. `PrintDetailsTests`.
-- [ ] B3. EF owned-type configuration for both; migration `AddAdventureDetails`, additive
+- [x] B3. EF owned-type configuration for both; migration `AddAdventureDetails`, additive
       (twelve nullable columns). Persistence round-trip tests. Apply it to
       production by hand before B merges.
-- [ ] B4. `AdventureService.UpdateDetailsAsync`, GM first, nothing saved on a bad field.
-- [ ] B5. `PUT prep/{id}/details`; `AdventureResponse` gains `details` and `printDetails`;
+- [x] B4. `AdventureService.UpdateDetailsAsync`, GM first, nothing saved on a bad field.
+- [x] B5. `PUT prep/{id}/details`; `AdventureResponse` gains `details` and `printDetails`;
       the route in the 403 sweep.
-- [ ] B6. Web: the Details card, field by field; the mirror test for its bounds and default
+- [x] B6. Web: the Details card, field by field; the mirror test for its bounds and default
       type; bUnit tests.
 
 ## Phase C — The booklet, the print snapshot, Bibliotaph, import, and ship 3.4

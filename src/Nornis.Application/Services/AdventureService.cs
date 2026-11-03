@@ -22,14 +22,17 @@ public class AdventureService : IAdventureService
     private readonly IAdventureRepository _adventures;
     private readonly ICampaignRepository _campaigns;
     private readonly ISlugResolver _slugs;
+    private readonly AdventurePrintDetails _printDetails;
     private readonly PrepOptions _options;
 
     public AdventureService(
-        IAdventureRepository adventures, ICampaignRepository campaigns, ISlugResolver slugs, IOptions<PrepOptions> options)
+        IAdventureRepository adventures, ICampaignRepository campaigns, ISlugResolver slugs,
+        AdventurePrintDetails printDetails, IOptions<PrepOptions> options)
     {
         _adventures = adventures;
         _campaigns = campaigns;
         _slugs = slugs;
+        _printDetails = printDetails;
         _options = options.Value;
     }
 
@@ -181,6 +184,33 @@ public class AdventureService : IAdventureService
         await _adventures.UpdateAsync(adventure, ct);
 
         return AppResult<Adventure>.Success(adventure);
+    }
+
+    public async Task<AppResult<AdventureView>> UpdateDetailsAsync(UpdateAdventureDetailsCommand command, CancellationToken ct)
+    {
+        if (command.ActingUserRole != WorldRole.GM)
+        {
+            return AppResult<AdventureView>.Fail(GmOnly());
+        }
+
+        var adventure = await LoadAsync(command.WorldId, command.AdventureId, ct);
+        if (adventure is null)
+        {
+            return AppResult<AdventureView>.Fail(NotFound());
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var details = AdventureDetails.Create(command.GameSystem, command.Edition, command.Levels, command.Year);
+        if (details.Validate(now.Year) is { } field)
+        {
+            return AppResult<AdventureView>.Fail(InvalidDetails(field));
+        }
+
+        adventure.Details = details;
+        adventure.UpdatedAt = now;
+        await _adventures.UpdateAsync(adventure, ct);
+
+        return AppResult<AdventureView>.Success(await ViewAsync(adventure, ct));
     }
 
     public async Task<AppResult<AdventureSection>> SaveSectionAsync(SaveSectionCommand command, CancellationToken ct)
@@ -381,7 +411,7 @@ public class AdventureService : IAdventureService
     }
 
     private async Task<AdventureView> ViewAsync(Adventure adventure, CancellationToken ct) =>
-        new(adventure, await _adventures.CountRevisionsAsync(adventure.Id, ct));
+        new(adventure, await _adventures.CountRevisionsAsync(adventure.Id, ct), await _printDetails.ResolveAsync(adventure, ct));
 
     private static Adventure NewAdventure(
         Guid worldId, Guid userId, string title, string? pitch, Guid? campaignId, DateTimeOffset now) => new()
@@ -436,6 +466,14 @@ public class AdventureService : IAdventureService
     private static AppError GmOnly() => new(403, "insufficient_role", "Prep is for the world's GM.");
 
     private static AppError NotFound() => new(404, "not_found", "Adventure not found.");
+
+    private static AppError InvalidDetails(string field) => new(400, "invalid_details", field switch
+    {
+        nameof(AdventureDetails.GameSystem) => $"The game system can be at most {AdventureDetails.MaxGameSystemLength} characters.",
+        nameof(AdventureDetails.Edition) => $"The edition can be at most {AdventureDetails.MaxEditionLength} characters.",
+        nameof(AdventureDetails.Levels) => $"The levels can be at most {AdventureDetails.MaxLevelsLength} characters.",
+        _ => $"The year must be between {AdventureDetails.MinYear} and {AdventureDetails.MaxYearsAhead} years from now.",
+    });
 
     private static AppError TooLarge(string message) => PrepBounds.TooLarge(message);
 

@@ -4706,3 +4706,49 @@ a.nornis-cite:hover {
     border-radius: 6px;
     flex: 0 0 auto;
 }
+
+/* Book details (feature 32): the left column's second card, under the outline. */
+.nornis-prep-side {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.nornis-book-details-row {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+.nornis-book-details-row:last-of-type {
+    border-bottom: 0;
+}
+
+.nornis-book-details-label {
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.8125rem;
+    padding-top: 4px;
+}
+
+.nornis-book-details-value {
+    padding-top: 4px;
+    overflow-wrap: anywhere;
+}
+
+.nornis-book-details-edit {
+    grid-column: 2 / 4;
+}
+
+.nornis-book-details-unset {
+    color: var(--mud-palette-text-disabled);
+    font-style: italic;
+}
+
+.nornis-book-details-caption {
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.75rem;
+}

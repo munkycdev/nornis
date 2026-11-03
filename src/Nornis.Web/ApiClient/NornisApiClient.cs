@@ -610,6 +610,10 @@ public class NornisApiClient
         Guid worldId, Guid adventureId, UpdateAdventureRequest request, CancellationToken ct = default) =>
         PutAsync<UpdateAdventureRequest, AdventureDto>($"/api/worlds/{worldId}/prep/{adventureId}", request, ct);
 
+    public Task<ApiResult<AdventureDto>> UpdateAdventureDetailsAsync(
+        Guid worldId, Guid adventureId, UpdateAdventureDetailsRequest request, CancellationToken ct = default) =>
+        PutAsync<UpdateAdventureDetailsRequest, AdventureDto>($"/api/worlds/{worldId}/prep/{adventureId}/details", request, ct);
+
     public Task<ApiResult<bool>> DeleteAdventureAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
         DeleteAsync($"/api/worlds/{worldId}/prep/{adventureId}", ct);
 

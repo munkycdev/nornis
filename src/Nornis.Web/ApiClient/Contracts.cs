@@ -1154,7 +1154,23 @@ public record AdventureDto(
     Guid? LastPrintedDocumentId,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    IReadOnlyList<AdventureSectionDto> Sections);
+    IReadOnlyList<AdventureSectionDto> Sections,
+    AdventureDetailsDto? Details = null,
+    PrintDetailsDto? PrintDetails = null);
+
+/// <summary>The four details the GM edits (feature 32). A null game system means the world's. Mirrors <c>AdventureDetailsResponse</c>.</summary>
+public record AdventureDetailsDto(string? GameSystem, string? Edition, string? Levels, int? Year);
+
+/// <summary>
+/// What a print filed now would carry, defaults applied and fixed values filled in by the API
+/// (feature 32). The Book details card shows it as is. Mirrors <c>PrintDetailsResponse</c>.
+/// </summary>
+public record PrintDetailsDto(
+    string Title, string? GameSystem, string? Edition, string Type, string? Levels,
+    string Publisher, string Author, int? Year);
+
+/// <summary>All four editable details: each is the new value, and null clears it.</summary>
+public record UpdateAdventureDetailsRequest(string? GameSystem, string? Edition, string? Levels, int? Year);
 
 public record CreateAdventureRequest(string Title, string? Pitch, Guid? CampaignId);
 

@@ -1,3 +1,5 @@
+using Nornis.Domain.Models;
+
 namespace Nornis.Domain.Entities;
 
 /// <summary>
@@ -33,6 +35,12 @@ public class Adventure : ISlugged
     /// or the print was since deleted from the Library.
     /// </summary>
     public Guid? LastPrintedDocumentId { get; set; }
+
+    /// <summary>
+    /// The GM's bibliographic details (feature 32). Never null: an Adventure with none set has
+    /// an empty instance. Each Adventure owns its own instance, so never share one between two.
+    /// </summary>
+    public AdventureDetails Details { get; set; } = new();
 
     public Guid CreatedByUserId { get; set; }
 

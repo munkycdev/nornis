@@ -28,6 +28,18 @@ public class AdventureConfiguration : IEntityTypeConfiguration<Adventure>
         builder.Property(a => a.Pitch)
             .HasMaxLength(4000);
 
+        // Four nullable Details_* columns on Adventures. Every Adventure has details (all four
+        // null means none set), so the navigation is required: an optional owned type made only of
+        // nullable columns is one EF can't tell apart from "absent", and warns about.
+        builder.OwnsOne(a => a.Details, details =>
+        {
+            details.Property(d => d.GameSystem).HasMaxLength(AdventureDetails.MaxGameSystemLength);
+            details.Property(d => d.Edition).HasMaxLength(AdventureDetails.MaxEditionLength);
+            details.Property(d => d.Levels).HasMaxLength(AdventureDetails.MaxLevelsLength);
+        });
+
+        builder.Navigation(a => a.Details).IsRequired();
+
         builder.Property(a => a.CreatedAt)
             .HasColumnType("datetimeoffset");
 
