@@ -1,5 +1,6 @@
 using Nornis.Application.Prep;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Prep;
@@ -12,7 +13,7 @@ public class AdventureMarkdownImporterTests
 
     private static ImportedAdventure Import(params MarkdownFile[] files)
     {
-        var (adventure, error) = AdventureMarkdownImporter.Import(files);
+        var (adventure, error) = AdventureMarkdownImporter.Import(files, ThisYear);
         Assert.That(error, Is.Null);
         return adventure!;
     }
@@ -114,10 +115,106 @@ public class AdventureMarkdownImporterTests
         ]));
     }
 
+    // ------------------------------------------------------- Front matter (feature 32) --
+
+    private const int ThisYear = 2026;
+
+    [Test]
+    public void FrontMatter_FillsTheDetails_AndIsNotPartOfAnyBody()
+    {
+        var adventure = Import(new MarkdownFile("spa.md",
+            "---\nsystem: Shadowdark\nedition: \"1st\"\nlevels: 1–3\nyear: 2026\n---\n# The Slime Spa\n\nWelcome.\n"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(adventure.Details,
+                Is.EqualTo(new AdventureDetails { GameSystem = "Shadowdark", Edition = "1st", Levels = "1–3", Year = 2026 }));
+            Assert.That(adventure.IgnoredDetails, Is.Empty);
+            Assert.That(adventure.Title, Is.EqualTo("The Slime Spa"));
+            Assert.That(adventure.Sections.Select(s => s.BodyMarkdown), Has.None.Contains("Shadowdark").And.None.Contains("---"));
+        });
+    }
+
+    [TestCase("game_system")]
+    [TestCase("Game-System")]
+    [TestCase("SYSTEM")]
+    public void TheGameSystemKey_IsMatchedIgnoringCaseDashesAndUnderscores(string key) =>
+        Assert.That(Import(new MarkdownFile("spa.md", $"---\n{key}: OSE\n---\n# The Slime Spa\n")).Details.GameSystem,
+            Is.EqualTo("OSE"));
+
+    [Test]
+    public void TheFixedFields_AndUnknownKeys_AreLeftOutAndReported()
+    {
+        var adventure = Import(new MarkdownFile("spa.md",
+            "---\ntype: Adventure\npublisher: Kobold\nauthors: Someone\nmood: grim\nsystem: OSE\n---\n# The Slime Spa\n"));
+
+        Assert.That(adventure.IgnoredDetails, Is.EqualTo((string[])["type", "publisher", "authors", "mood"]));
+        Assert.That(adventure.Details, Is.EqualTo(new AdventureDetails { GameSystem = "OSE" }));
+    }
+
+    [TestCase("1066")]
+    [TestCase("soon")]
+    [TestCase("0")]
+    public void ABadYear_IsDroppedAndReported_AndTheImportStillSucceeds(string year)
+    {
+        var adventure = Import(new MarkdownFile("spa.md", $"---\nedition: 2nd\nyear: {year}\n---\n# The Slime Spa\n"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(adventure.Details, Is.EqualTo(new AdventureDetails { Edition = "2nd" }));
+            Assert.That(adventure.IgnoredDetails, Is.EqualTo((string[])["year"]));
+        });
+    }
+
+    [Test]
+    public void AValueOverItsBound_IsDroppedAndReportedByItsKey()
+    {
+        var adventure = Import(new MarkdownFile("spa.md", $"---\nlevels: {new string('x', 31)}\nyear: 2025\n---\n# The Slime Spa\n"));
+
+        Assert.That(adventure.Details, Is.EqualTo(new AdventureDetails { Year = 2025 }));
+        Assert.That(adventure.IgnoredDetails, Is.EqualTo((string[])["levels"]));
+    }
+
+    [Test]
+    public void AnUnclosedBlock_IsNotFrontMatter_AndStaysInTheText()
+    {
+        var lines = string.Join('\n', Enumerable.Range(0, AdventureMarkdownImporter.MaxFrontMatterLines).Select(i => $"note {i}"));
+        var adventure = Import(new MarkdownFile("spa.md", $"---\nsystem: OSE\n{lines}\n---\n# The Slime Spa\n"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(adventure.Details, Is.EqualTo(new AdventureDetails()));
+            Assert.That(adventure.Sections[0].BodyMarkdown, Does.StartWith("---\nsystem: OSE"));
+        });
+    }
+
+    [Test]
+    public void ASecondFilesBlock_IsOrdinaryText()
+    {
+        var adventure = Import(
+            new MarkdownFile("one.md", "# The Slime Spa\n\nWelcome.\n"),
+            new MarkdownFile("two.md", "---\nsystem: OSE\n---\n# Scene 1: The Pool\n\nBubbles.\n"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(adventure.Details, Is.EqualTo(new AdventureDetails()));
+            Assert.That(adventure.Sections.Any(s => s.BodyMarkdown.Contains("system: OSE")), Is.True);
+        });
+    }
+
+    [Test]
+    public void NoFrontMatter_ImportsAsBefore_WithNoDetails()
+    {
+        var withNone = Import(new MarkdownFile("two-chapters.md", Fixture()));
+
+        Assert.That(withNone.Details, Is.EqualTo(new AdventureDetails()));
+        Assert.That(withNone.IgnoredDetails, Is.Empty);
+    }
+
     [Test]
     public void NoText_IsRefused()
     {
-        var (adventure, error) = AdventureMarkdownImporter.Import([new MarkdownFile("empty.md", "  \n")]);
+        var (adventure, error) = AdventureMarkdownImporter.Import([new MarkdownFile("empty.md", "  \n")], ThisYear);
 
         Assert.That(adventure, Is.Null);
         Assert.That(error, Is.Not.Null);
@@ -127,7 +224,7 @@ public class AdventureMarkdownImporterTests
     public void AHeadingLongerThanATitleCanBe_IsRefused_NamingBoth()
     {
         var (adventure, error) = AdventureMarkdownImporter.Import(
-            [new MarkdownFile("f.md", "# Title\n\n# " + new string('x', 201))]);
+            [new MarkdownFile("f.md", "# Title\n\n# " + new string('x', 201))], ThisYear);
 
         Assert.That(adventure, Is.Null);
         Assert.That(error, Does.Contain("201").And.Contain("200"));

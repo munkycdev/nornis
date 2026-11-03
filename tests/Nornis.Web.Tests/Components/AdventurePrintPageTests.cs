@@ -4,6 +4,7 @@ using System.Text.Json;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using MudBlazor;
@@ -84,6 +85,17 @@ public class AdventurePrintPageTests : BunitContext
             Assert.That(_handler.Requests, Has.Some.EndsWith($"/prep/{StubHandler.AdventureId}/print"),
                 "the page resolves the slug, then asks for the booklet by id");
         });
+    }
+
+    [Test]
+    public async Task ThePagesTitle_IsTheAdventuresTitleAlone_SoASavedPdfIsNamedAfterIt()
+    {
+        var cut = await RenderPrintAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-booklet-page .booklet"), Has.Count.EqualTo(1)));
+
+        var title = Render(cut.FindComponent<PageTitle>().Instance.ChildContent!);
+
+        Assert.That(title.Markup.Trim(), Is.EqualTo("The Silver Key"));
     }
 
     [Test]

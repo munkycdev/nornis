@@ -12,7 +12,8 @@
    booklet"). File to Library takes the PDF the browser's print dialog saved and files it as a
    GM-only Handout, dated, against this Adventure. *@
 
-<PageTitle>@(_print?.Title ?? "Adventure") — Print — Nornis</PageTitle>
+@* The adventure's title alone: a PDF saved from the print dialog takes this as its name (feature 32). *@
+<PageTitle>@(_print?.Title ?? "Adventure")</PageTitle>
 
 @if (Worlds.Current is null)
 {

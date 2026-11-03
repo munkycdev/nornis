@@ -325,7 +325,8 @@ public class PrepController : ControllerBase
                 .Select(s => ToSection(s, view.RevisionCounts.TryGetValue(s.Id, out var n) ? n : 0))
                 .ToList(),
             new AdventureDetailsResponse(a.Details.GameSystem, a.Details.Edition, a.Details.Levels, a.Details.Year),
-            ToPrintDetails(view.PrintDetails));
+            ToPrintDetails(view.PrintDetails),
+            view.IgnoredDetails);
     }
 
     private static PrintDetailsResponse ToPrintDetails(PrintDetails p) =>

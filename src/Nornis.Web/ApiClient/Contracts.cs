@@ -1156,7 +1156,8 @@ public record AdventureDto(
     DateTimeOffset UpdatedAt,
     IReadOnlyList<AdventureSectionDto> Sections,
     AdventureDetailsDto? Details = null,
-    PrintDetailsDto? PrintDetails = null);
+    PrintDetailsDto? PrintDetails = null,
+    IReadOnlyList<string>? IgnoredDetails = null);
 
 /// <summary>The four details the GM edits (feature 32). A null game system means the world's. Mirrors <c>AdventureDetailsResponse</c>.</summary>
 public record AdventureDetailsDto(string? GameSystem, string? Edition, string? Levels, int? Year);

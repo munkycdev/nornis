@@ -61,7 +61,10 @@ public class BibliotaphProviderController : ControllerBase
         return Ok(new BibliotaphProviderFilesResponse(
             page.Items.Select(d => new BibliotaphProviderFile(
                 d.Id, d.FileName, d.ContentType, d.SizeBytes, d.UpdatedAt,
-                d.UpdatedAt.UtcTicks.ToString(CultureInfo.InvariantCulture))).ToList(),
+                d.UpdatedAt.UtcTicks.ToString(CultureInfo.InvariantCulture),
+                d.PrintDetails is { } p
+                    ? new BibliotaphProviderBook(p.Title, p.GameSystem, p.Edition, p.Type, p.Levels, p.Publisher, [p.Author], p.Year)
+                    : null)).ToList(),
             page.NextCursor));
     }
 

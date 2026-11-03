@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Markdig;
 using Markdig.Syntax;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 
 namespace Nornis.Application.Prep;
 
@@ -10,7 +12,12 @@ public record MarkdownFile(string Name, string Markdown);
 
 public record ImportedSection(AdventureSectionKind Kind, string Title, string BodyMarkdown);
 
-public record ImportedAdventure(string Title, IReadOnlyList<ImportedSection> Sections);
+/// <summary>
+/// The split. <see cref="Details"/> and <see cref="IgnoredDetails"/> come from the first file's
+/// front matter (feature 32): the details it set, and the keys it named that were left out.
+/// </summary>
+public record ImportedAdventure(
+    string Title, IReadOnlyList<ImportedSection> Sections, AdventureDetails Details, IReadOnlyList<string> IgnoredDetails);
 
 /// <summary>
 /// Turns Markdown files into an Adventure's sections, with no AI involved. The files are read
@@ -22,6 +29,14 @@ public record ImportedAdventure(string Title, IReadOnlyList<ImportedSection> Sec
 /// - a <c>#</c> beginning "Scene" starts a Scene, and any other starts Notes;
 /// - text before a file's first <c>#</c> becomes Notes titled after the file.
 ///
+/// The first file may open with front matter (feature 32): a <c>---</c> line, flat
+/// <c>key: value</c> lines, and a closing <c>---</c> within <see cref="MaxFrontMatterLines"/>
+/// lines. Its <c>system</c> (or <c>game_system</c>), <c>edition</c>, <c>levels</c> and
+/// <c>year</c> become the Adventure's details, and the block is not part of any body. Any
+/// other key, and any value outside its bound, is left out and reported, never an error. A
+/// later file's block is ordinary text. No YAML library: the block is a flat list, and a YAML
+/// parser would accept far more than this maps.
+///
 /// Headings are found by Markdig, so a <c>#</c> inside a code fence or a quote doesn't split.
 /// A body is the file's text between its heading and the next, byte for byte, except that
 /// line endings become <c>\n</c> and the blank lines at either end are dropped, which is what
@@ -30,6 +45,9 @@ public record ImportedAdventure(string Title, IReadOnlyList<ImportedSection> Sec
 public static partial class AdventureMarkdownImporter
 {
     private const int MaxTitleChars = 200;
+
+    /// <summary>How far down the first file the closing <c>---</c> may be.</summary>
+    public const int MaxFrontMatterLines = 50;
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex Whitespace();
@@ -41,7 +59,7 @@ public static partial class AdventureMarkdownImporter
     private static partial Regex AtxClosing();
 
     /// <summary>The split, or the error naming what was too large or missing.</summary>
-    public static (ImportedAdventure? Adventure, string? Error) Import(IReadOnlyList<MarkdownFile> files)
+    public static (ImportedAdventure? Adventure, string? Error) Import(IReadOnlyList<MarkdownFile> files, int currentYear)
     {
         if (files.Count == 0 || files.All(f => string.IsNullOrWhiteSpace(f.Markdown)))
         {
@@ -51,10 +69,18 @@ public static partial class AdventureMarkdownImporter
         string? title = null;
         var sections = new List<ImportedSection>();
         var chapterNumber = 0;
+        var details = new AdventureDetails();
+        IReadOnlyList<string> ignored = [];
 
-        foreach (var file in files)
+        for (var f = 0; f < files.Count; f++)
         {
+            var file = files[f];
             var text = (file.Markdown ?? "").Replace("\r\n", "\n").Replace('\r', '\n');
+            if (f == 0)
+            {
+                (text, details, ignored) = ReadFrontMatter(text, currentYear);
+            }
+
             var document = Markdown.Parse(text);
             var blocks = document.ToList();
             var headings = blocks
@@ -108,8 +134,107 @@ public static partial class AdventureMarkdownImporter
             return (null, $"A heading is {longest:N0} characters; headings can be at most {MaxTitleChars:N0}.");
         }
 
-        return (new ImportedAdventure(adventureTitle, sections), null);
+        return (new ImportedAdventure(adventureTitle, sections, details, ignored), null);
     }
+
+    /// <summary>
+    /// The text without its front matter, the details the block set, and the keys it named that
+    /// were left out. Text with no block, or with an opening <c>---</c> that never closes within
+    /// <see cref="MaxFrontMatterLines"/> lines, comes back unchanged with no details.
+    /// </summary>
+    public static (string Text, AdventureDetails Details, IReadOnlyList<string> Ignored) ReadFrontMatter(string text, int currentYear)
+    {
+        var lines = text.Split('\n');
+        if (lines[0].Trim() != "---")
+        {
+            return (text, new AdventureDetails(), []);
+        }
+
+        var close = -1;
+        for (var i = 1; i < Math.Min(lines.Length, MaxFrontMatterLines + 1); i++)
+        {
+            if (lines[i].Trim() == "---")
+            {
+                close = i;
+                break;
+            }
+        }
+
+        if (close < 0)
+        {
+            return (text, new AdventureDetails(), []);
+        }
+
+        string? gameSystem = null, edition = null, levels = null;
+        int? year = null;
+        var keys = new Dictionary<string, string>();
+        var ignored = new List<string>();
+        for (var i = 1; i < close; i++)
+        {
+            var line = lines[i].Trim();
+            if (line.Length == 0 || line.StartsWith('#'))
+            {
+                continue;
+            }
+
+            var colon = line.IndexOf(':');
+            var key = (colon < 0 ? line : line[..colon]).Trim();
+            var value = colon < 0 ? "" : Unquote(line[(colon + 1)..].Trim());
+            switch (key.ToLowerInvariant().Replace("-", "").Replace("_", ""))
+            {
+                case "system" or "gamesystem":
+                    gameSystem = value;
+                    keys[nameof(AdventureDetails.GameSystem)] = key;
+                    break;
+                case "edition":
+                    edition = value;
+                    keys[nameof(AdventureDetails.Edition)] = key;
+                    break;
+                case "levels":
+                    levels = value;
+                    keys[nameof(AdventureDetails.Levels)] = key;
+                    break;
+                case "year":
+                    keys[nameof(AdventureDetails.Year)] = key;
+                    if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed))
+                    {
+                        year = parsed;
+                    }
+                    else if (value.Length > 0)
+                    {
+                        ignored.Add(key);
+                    }
+
+                    break;
+                default:
+                    ignored.Add(key.Length > MaxIgnoredKeyChars ? key[..MaxIgnoredKeyChars] : key);
+                    break;
+            }
+        }
+
+        // A value outside its bound is dropped, not refused, so an import never fails over its
+        // front matter. The same Validate as the details route, one field at a time.
+        var details = AdventureDetails.Create(gameSystem, edition, levels, year);
+        while (details.Validate(currentYear) is { } field)
+        {
+            ignored.Add(keys[field]);
+            details = field switch
+            {
+                nameof(AdventureDetails.GameSystem) => details with { GameSystem = null },
+                nameof(AdventureDetails.Edition) => details with { Edition = null },
+                nameof(AdventureDetails.Levels) => details with { Levels = null },
+                _ => details with { Year = null },
+            };
+        }
+
+        return (string.Join('\n', lines.Skip(close + 1)), details, ignored);
+    }
+
+    /// <summary>A reported key is cut to this, so a block of junk can't make the response long.</summary>
+    private const int MaxIgnoredKeyChars = 40;
+
+    private static string Unquote(string value) =>
+        value.Length >= 2 && (value[0] == '"' || value[0] == '\'') && value[^1] == value[0] ? value[1..^1].Trim() : value;
 
     private static void AddIfNotBlank(List<ImportedSection> sections, AdventureSectionKind kind, string title, string text)
     {

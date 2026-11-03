@@ -1,5 +1,12 @@
 # Design Document
 
+> **Amendment (2026-11-03, Phase C): two small shape changes.**
+>
+> - `ignoredDetails` rides on the import's `AdventureResponse` as a nullable member, set only by
+>   an import, rather than a separate import response; the Import dialog shows it as a notice.
+> - The cover's first details line is the game system and edition joined, so an edition with
+>   no game system still prints, rather than printing only when the game system is set.
+
 > **Amendment (2026-11-03, Phase B): the card is "Book details", and one class looks up the
 > author and the world's game system.**
 >

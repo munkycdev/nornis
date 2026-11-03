@@ -193,6 +193,21 @@ public class AdventureServiceTests
     }
 
     [Test]
+    public async Task Import_StoresTheFrontMattersDetails_AndReportsWhatItLeftOut()
+    {
+        var result = await _sut.ImportAsync(new ImportAdventureCommand(WorldId, GmUserId, WorldRole.GM,
+            [new("a.md", "---\nsystem: OSE\nyear: 2025\npublisher: Kobold\n---\n# Black Harbor\n\nFog.")], null), CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(_adventures.Adventures.Single().Details, Is.EqualTo(new AdventureDetails { GameSystem = "OSE", Year = 2025 }));
+            Assert.That(result.Value!.IgnoredDetails, Is.EqualTo((string[])["publisher"]));
+            Assert.That(result.Value.PrintDetails.GameSystem, Is.EqualTo("OSE"));
+        });
+    }
+
+    [Test]
     public async Task Import_ASectionOverItsBound_IsRefused_NamingTheSizeAndTheBound()
     {
         _options.MaxSectionChars = 10;
@@ -489,6 +504,24 @@ public class AdventureServiceTests
             CancellationToken.None);
 
         Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
+    [Test]
+    public async Task ThePrint_CarriesTheResolvedDetails_OnItsCover()
+    {
+        var view = await CreateAsync();
+        await _sut.UpdateDetailsAsync(
+            new UpdateAdventureDetailsCommand(WorldId, view.Adventure.Id, WorldRole.GM, null, "1st", "1–3", 2026), CancellationToken.None);
+
+        var print = await _sut.GetPrintAsync(WorldId, view.Adventure.Id, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(print.IsSuccess, Is.True, print.Error?.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(print.Value!.Html, Does.Contain("<p class=\"booklet-system\">Shadowdark 1st</p>"), "the world's game system");
+            Assert.That(print.Value.Html, Does.Contain($"<p class=\"booklet-author\">By {TestPrintDetails.Username}</p>"));
+            Assert.That(print.Value.Html, Does.Contain("Nornis Press · 2026"));
+        });
     }
 
     // ------------------------------------------------------------- Delete --

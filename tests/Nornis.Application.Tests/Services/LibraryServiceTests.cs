@@ -32,7 +32,7 @@ public class LibraryServiceTests
         _blobs = new FakeBlobStorageService();
         _queue = new FakeLibraryIndexingQueueClient();
         _adventures = new InMemoryAdventureRepository();
-        _sut = new LibraryService(_documents, _chunks, _blobs, _queue, _adventures,
+        _sut = new LibraryService(_documents, _chunks, _blobs, _queue, _adventures, TestPrintDetails.None,
             Options.Create(new LibraryOptions()), NullLogger<LibraryService>.Instance);
     }
 
@@ -143,7 +143,7 @@ public class LibraryServiceTests
         // The cap moves rather than the file: a real 200 MB blob would cost the suite 200 MB
         // to prove a comparison. What matters is that the *blob* is measured, not the number
         // the client sent — the client's number passed validation at request time.
-        var sut = new LibraryService(_documents, _chunks, _blobs, _queue, _adventures,
+        var sut = new LibraryService(_documents, _chunks, _blobs, _queue, _adventures, TestPrintDetails.None,
             Options.Create(new LibraryOptions { MaxUploadSizeBytes = 1024 }),
             NullLogger<LibraryService>.Instance);
         var ticket = (await sut.RequestUploadAsync(Command(size: 512), CancellationToken.None)).Value!;
@@ -169,7 +169,7 @@ public class LibraryServiceTests
     [Test]
     public async Task ConfirmUpload_BlobDeleteFails_StillRejects()
     {
-        var sut = new LibraryService(_documents, _chunks, _blobs, _queue, _adventures,
+        var sut = new LibraryService(_documents, _chunks, _blobs, _queue, _adventures, TestPrintDetails.None,
             Options.Create(new LibraryOptions { MaxUploadSizeBytes = 1024 }),
             NullLogger<LibraryService>.Instance);
         var ticket = (await sut.RequestUploadAsync(Command(size: 512), CancellationToken.None)).Value!;

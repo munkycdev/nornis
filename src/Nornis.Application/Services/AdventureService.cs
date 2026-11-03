@@ -128,14 +128,15 @@ public class AdventureService : IAdventureService
             return AppResult<AdventureView>.Fail(campaignError);
         }
 
-        var (imported, importError) = AdventureMarkdownImporter.Import(command.Files);
+        var now = DateTimeOffset.UtcNow;
+        var (imported, importError) = AdventureMarkdownImporter.Import(command.Files, now.Year);
         if (imported is null)
         {
             return AppResult<AdventureView>.Fail(new AppError(400, "validation_error", importError!));
         }
 
-        var now = DateTimeOffset.UtcNow;
         var adventure = NewAdventure(command.WorldId, command.ActingUserId, imported.Title, pitch: null, command.CampaignId, now);
+        adventure.Details = imported.Details;
         adventure.Sections = imported.Sections.Select((s, i) => new AdventureSection
         {
             Id = Guid.NewGuid(),
@@ -154,7 +155,10 @@ public class AdventureService : IAdventureService
         }
 
         await _adventures.CreateAsync(adventure, ct);
-        return await GetAsync(command.WorldId, adventure.Id, command.ActingUserRole, ct);
+        var view = await GetAsync(command.WorldId, adventure.Id, command.ActingUserRole, ct);
+        return view.IsSuccess
+            ? AppResult<AdventureView>.Success(view.Value! with { IgnoredDetails = imported.IgnoredDetails })
+            : view;
     }
 
     public async Task<AppResult<Adventure>> UpdateAsync(UpdateAdventureCommand command, CancellationToken ct)
@@ -366,10 +370,14 @@ public class AdventureService : IAdventureService
         }
 
         var adventure = await LoadAsync(worldId, adventureId, ct);
-        return adventure is null
-            ? AppResult<AdventurePrint>.Fail(NotFound())
-            : AppResult<AdventurePrint>.Success(new AdventurePrint(
-                adventure, AdventurePrintModel.Render(adventure), LibraryService.PrintTitle(adventure.Title, DateTimeOffset.UtcNow)));
+        if (adventure is null)
+        {
+            return AppResult<AdventurePrint>.Fail(NotFound());
+        }
+
+        var details = await _printDetails.ResolveAsync(adventure, ct);
+        return AppResult<AdventurePrint>.Success(new AdventurePrint(
+            adventure, AdventurePrintModel.Render(adventure, details), LibraryService.PrintTitle(adventure.Title, DateTimeOffset.UtcNow)));
     }
 
     public async Task<AppResult<AdventureSection>> UndoAsync(UndoSectionCommand command, CancellationToken ct)

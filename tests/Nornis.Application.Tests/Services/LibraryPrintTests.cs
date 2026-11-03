@@ -6,6 +6,7 @@ using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services;
@@ -34,7 +35,7 @@ public class LibraryPrintTests
         _blobs = new FakeBlobStorageService();
         _adventures = new InMemoryAdventureRepository();
         _sut = new LibraryService(_documents, new InMemoryLibraryChunkRepository(), _blobs,
-            new FakeLibraryIndexingQueueClient(), _adventures, Options.Create(new LibraryOptions()),
+            new FakeLibraryIndexingQueueClient(), _adventures, TestPrintDetails.For(WorldId, GmId, "Shadowdark"), Options.Create(new LibraryOptions()),
             NullLogger<LibraryService>.Instance);
         _adventure = await SeedAdventureAsync(WorldId, "The Silver Key");
     }
@@ -147,6 +148,66 @@ public class LibraryPrintTests
         Assert.That(ticket.Document.AdventureId, Is.Null);
         Assert.That(ticket.Document.Kind, Is.EqualTo(LibraryDocumentKind.Sourcebook));
         Assert.That((await _adventures.GetWithSectionsAsync(_adventure.Id))!.LastPrintedDocumentId, Is.Null);
+    }
+
+    // ------------------------------------------------------- Print details (feature 32) --
+
+    [Test]
+    public async Task APrint_KeepsItsDetails_ResolvedAsTheyStoodWhenFiled()
+    {
+        await SetDetailsAsync(new AdventureDetails { Edition = "1st", Levels = "1–3", Year = 2026 });
+
+        var filed = await FileAsync();
+
+        var stored = _documents.Documents.Single(d => d.Id == filed.Id);
+        Assert.That(stored.PrintDetails, Is.EqualTo(new PrintDetails
+        {
+            Title = "The Silver Key",
+            GameSystem = "Shadowdark",
+            Edition = "1st",
+            Type = PrintDetails.NornisType,
+            Levels = "1–3",
+            Publisher = PrintDetails.NornisPublisher,
+            Author = TestPrintDetails.Username,
+            Year = 2026,
+        }));
+    }
+
+    [Test]
+    public async Task ChangingTheAdventureAfterwards_LeavesAnEarlierPrintsDetails()
+    {
+        var filed = await FileAsync();
+        var asFiled = _documents.Documents.Single(d => d.Id == filed.Id).PrintDetails;
+
+        var renamed = (await _adventures.GetWithSectionsAsync(_adventure.Id))!;
+        renamed.Title = "The Golden Key";
+        renamed.Details = new AdventureDetails { GameSystem = "OSE", Year = 2027 };
+        await _adventures.UpdateAsync(renamed);
+        var second = await FileAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_documents.Documents.Single(d => d.Id == filed.Id).PrintDetails, Is.EqualTo(asFiled));
+            Assert.That(asFiled!.Title, Is.EqualTo("The Silver Key"));
+            Assert.That(_documents.Documents.Single(d => d.Id == second.Id).PrintDetails!.Title, Is.EqualTo("The Golden Key"));
+            Assert.That(_documents.Documents.Single(d => d.Id == second.Id).PrintDetails!.GameSystem, Is.EqualTo("OSE"));
+        });
+    }
+
+    [Test]
+    public async Task AnOrdinaryUpload_HasNoPrintDetails()
+    {
+        var ticket = (await _sut.RequestUploadAsync(
+            Print(_adventure.Id) with { AdventureId = null, Title = "Sourcebook" }, CancellationToken.None)).Value!;
+
+        Assert.That(ticket.Document.PrintDetails, Is.Null);
+    }
+
+    private async Task SetDetailsAsync(AdventureDetails details)
+    {
+        var adventure = (await _adventures.GetWithSectionsAsync(_adventure.Id))!;
+        adventure.Details = details;
+        await _adventures.UpdateAsync(adventure);
     }
 
     [Test]

@@ -5,9 +5,11 @@ using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Messaging;
 using Nornis.Application.Models;
+using Nornis.Application.Prep;
 using Nornis.Application.Storage;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -44,6 +46,7 @@ public class LibraryService : ILibraryService
     private readonly IBlobStorageService _blobStorage;
     private readonly ILibraryIndexingQueueClient _indexingQueueClient;
     private readonly IAdventureRepository _adventures;
+    private readonly AdventurePrintDetails _printDetails;
     private readonly LibraryOptions _options;
     private readonly ILogger<LibraryService> _logger;
 
@@ -53,9 +56,11 @@ public class LibraryService : ILibraryService
         IBlobStorageService blobStorage,
         ILibraryIndexingQueueClient indexingQueueClient,
         IAdventureRepository adventures,
+        AdventurePrintDetails printDetails,
         IOptions<LibraryOptions> options,
         ILogger<LibraryService> logger)
     {
+        _printDetails = printDetails;
         _documentRepository = documentRepository;
         _chunkRepository = chunkRepository;
         _blobStorage = blobStorage;
@@ -120,6 +125,7 @@ public class LibraryService : ILibraryService
         // A print filed from Prep (feature 29): the GM's alone, and its shape is fixed here, not
         // by the client, because the booklet was drafted with the world's Hidden truth.
         Adventure? printedFrom = null;
+        PrintDetails? printDetails = null;
         if (command.AdventureId is { } adventureId)
         {
             if (command.ActingUserRole != WorldRole.GM)
@@ -133,6 +139,9 @@ public class LibraryService : ILibraryService
                 return AppResult<LibraryUploadTicket>.Fail(new AppError(404, "not_found", "Adventure not found."));
             }
 
+            // The print's details as they stand now (feature 32), kept with the document and
+            // never changed: renaming the Adventure or editing its details later leaves them.
+            printDetails = await _printDetails.ResolveAsync(printedFrom, ct);
             command = command with
             {
                 Title = PrintTitle(printedFrom.Title, DateTimeOffset.UtcNow),
@@ -188,6 +197,7 @@ public class LibraryService : ILibraryService
             Status = LibraryDocumentStatus.PendingUpload,
             UploadedByUserId = command.ActingUserId,
             AdventureId = printedFrom?.Id,
+            PrintDetails = printDetails,
             CreatedAt = now,
             UpdatedAt = now,
         };

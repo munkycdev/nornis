@@ -16,8 +16,22 @@ public record BibliotaphProviderWorld(Guid WorldId, string Name, DateTimeOffset 
 
 public record BibliotaphProviderWorldsResponse(IReadOnlyList<BibliotaphProviderWorld> Worlds, string? NextCursor);
 
+/// <summary>
+/// One file in the storage provider's listing. <see cref="Book"/> is set on a Prep print only
+/// (feature 32): its details as filed. An older Bibliotaph ignores the member.
+/// </summary>
 public record BibliotaphProviderFile(
-    Guid FileId, string FileName, string ContentType, long SizeBytes, DateTimeOffset UpdatedAt, string Etag);
+    Guid FileId, string FileName, string ContentType, long SizeBytes, DateTimeOffset UpdatedAt, string Etag,
+    BibliotaphProviderBook? Book);
+
+/// <summary>
+/// A print's book details, in the shape Bibliotaph's catalogue takes them. A null field means
+/// Nornis has no value, so Bibliotaph may keep suggesting it. <see cref="Authors"/> holds the
+/// one author, the Adventure's creator.
+/// </summary>
+public record BibliotaphProviderBook(
+    string Title, string? GameSystem, string? Edition, string Type, string? Levels,
+    string Publisher, IReadOnlyList<string> Authors, int? Year);
 
 public record BibliotaphProviderFilesResponse(IReadOnlyList<BibliotaphProviderFile> Files, string? NextCursor);
 

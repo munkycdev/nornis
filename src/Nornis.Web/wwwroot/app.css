@@ -4752,3 +4752,23 @@ a.nornis-cite:hover {
     color: var(--mud-palette-text-secondary);
     font-size: 0.75rem;
 }
+
+/* The booklet cover's details (feature 32): under the title, then the credits at its foot. */
+.booklet-system,
+.booklet-levels,
+.booklet-author {
+    font-size: 11pt;
+    margin: 0 0 2px;
+}
+
+.booklet-author {
+    margin-bottom: 8px;
+}
+
+.booklet-credits {
+    font-size: 9pt;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #5B5F66;
+    margin: 12px 0 0;
+}
