@@ -55,6 +55,9 @@ public class UnsupportedChatParameterTests
         ["AiCallOptions.cs"] = ["MaxOutputTokens"],
         // The one place a ceiling reaches the OpenAI wire, pinned by OutputCeilingWireTests.
         ["OpenAiProviderTraits.cs"] = ["MaxOutputTokenCount"],
+        // Anthropic requires max_tokens, which the adapter takes from ChatOptions.MaxOutputTokens;
+        // pinned on the wire by AnthropicProviderTraitsTests.
+        ["AnthropicProviderTraits.cs"] = ["MaxOutputTokens"],
     };
 
     private static DirectoryInfo AiSourceDirectory()
@@ -152,12 +155,12 @@ public class UnsupportedChatParameterTests
     [Test]
     public void TheAllowance_IsForTheDraftingClientOnly_AndNeverForTemperature()
     {
-        // Besides the drafting client, only the option's declaration and the one place that puts
-        // it on the OpenAI wire; no other client may ask for a ceiling.
+        // Besides the drafting client, only the option's declaration and the one place per
+        // provider that puts it on the wire; no other client may ask for a ceiling.
         Assert.Multiple(() =>
         {
             Assert.That(AllowedCeilings.Keys, Is.EquivalentTo(
-                ["AdventureDraftingAiClient.cs", "AiCallOptions.cs", "OpenAiProviderTraits.cs"]));
+                ["AdventureDraftingAiClient.cs", "AiCallOptions.cs", "OpenAiProviderTraits.cs", "AnthropicProviderTraits.cs"]));
             Assert.That(AllowedCeilings.Values.SelectMany(v => v), Has.None.EqualTo("Temperature"));
         });
     }

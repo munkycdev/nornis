@@ -1,5 +1,6 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
+using Anthropic;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Caching.Memory;
 using Nornis.Domain.Entities;
@@ -18,16 +19,25 @@ public sealed class UserKeyChatClients : IDisposable
 {
     private static readonly TimeSpan Idle = TimeSpan.FromMinutes(10);
 
+    /// <summary>
+    /// Anthropic requires <c>max_tokens</c> on every call, where OpenAI defaults to the model's
+    /// own ceiling; this stands in for calls that name none. Thinking counts against it, and the
+    /// executor's timeout, not this, is what stops a long answer.
+    /// </summary>
+    public const int AnthropicDefaultMaxTokens = 32_000;
+
     private readonly MemoryCache _cache = new(new MemoryCacheOptions { SizeLimit = 500 });
     private readonly int _maxRetries;
     private readonly HttpClient _compatibleHttp;
+    private readonly HttpClient _anthropicHttp;
 
     /// <param name="maxRetries">The host's SDK retry count, as for Nornis's own clients
     /// (<see cref="AzureOpenAiClientFactory"/>): the Worker's queue owns its retries, the API allows one.</param>
     /// <param name="compatibleHandler">What OpenAI-compatible endpoints are reached through; by
     /// default <see cref="PublicEndpointGuard"/>'s handler, since their URLs are users' own. Tests
     /// pass a fake.</param>
-    public UserKeyChatClients(int maxRetries, HttpMessageHandler? compatibleHandler = null)
+    /// <param name="anthropicHandler">What Anthropic is reached through; tests pass a fake.</param>
+    public UserKeyChatClients(int maxRetries, HttpMessageHandler? compatibleHandler = null, HttpMessageHandler? anthropicHandler = null)
     {
         _maxRetries = maxRetries;
 
@@ -37,6 +47,11 @@ public sealed class UserKeyChatClients : IDisposable
         {
             Timeout = System.Threading.Timeout.InfiniteTimeSpan,
         };
+
+        // Shared for pooling, and without HttpClient's 100-second default, which would cut a long
+        // Prep draft off mid-stream.
+        _anthropicHttp = anthropicHandler is null ? new HttpClient() : new HttpClient(anthropicHandler);
+        _anthropicHttp.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
     }
 
     /// <summary>The client for <paramref name="key"/> on <paramref name="model"/>.
@@ -51,6 +66,18 @@ public sealed class UserKeyChatClients : IDisposable
 
     private IChatClient Build(UserAiKey key, string model, string secret)
     {
+        if (key.Provider == AiProvider.Anthropic)
+        {
+            var anthropic = new AnthropicClient
+            {
+                ApiKey = secret,
+                HttpClient = _anthropicHttp,
+                MaxRetries = _maxRetries,
+                Timeout = TimeSpan.FromHours(1),
+            };
+            return new AnthropicPromptCaching(anthropic.AsIChatClient(model, AnthropicDefaultMaxTokens));
+        }
+
         var options = new OpenAIClientOptions { RetryPolicy = new ClientRetryPolicy(_maxRetries) };
         switch (key.Provider)
         {
@@ -78,5 +105,6 @@ public sealed class UserKeyChatClients : IDisposable
     {
         _cache.Dispose();
         _compatibleHttp.Dispose();
+        _anthropicHttp.Dispose();
     }
 }

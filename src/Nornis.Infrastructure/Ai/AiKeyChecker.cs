@@ -18,6 +18,11 @@ public sealed class AiKeyChecker : IAiKeyChecker
 
     public static readonly Uri OpenAiEndpoint = new("https://api.openai.com/v1/");
 
+    public static readonly Uri AnthropicEndpoint = new("https://api.anthropic.com/v1/");
+
+    /// <summary>The Messages API version the key check sends; listing models is the same in every version.</summary>
+    public const string AnthropicApiVersion = "2023-06-01";
+
     private readonly HttpClient _http;
     private readonly ILogger<AiKeyChecker> _logger;
 
@@ -32,12 +37,23 @@ public sealed class AiKeyChecker : IAiKeyChecker
         var endpoint = provider switch
         {
             AiProvider.OpenAi => OpenAiEndpoint,
+            AiProvider.Anthropic => AnthropicEndpoint,
             AiProvider.OpenAiCompatible => baseUrl ?? throw new ArgumentNullException(nameof(baseUrl)),
             _ => throw new NotSupportedException($"No key check for {provider} yet (feature 39 Phase C)."),
         };
 
         using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(endpoint, "models"));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
+        if (provider == AiProvider.Anthropic)
+        {
+            // Anthropic takes its key in x-api-key, not Authorization, and wants the API version
+            // on every request. Both are redacted by the client factory's logging like any header.
+            request.Headers.Add("x-api-key", key);
+            request.Headers.Add("anthropic-version", AnthropicApiVersion);
+        }
+        else
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
+        }
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(Timeout);
