@@ -42,6 +42,7 @@ simply never used, and it stays unused so that every existing reference keeps it
 | 29 | Prep (Nornis 3.0) | 2026-11-02 (all five phases) | A persisted side conversation per Adventure; one-click PDF filing from a worker; the booklet reaching Bibliotaph; telling extraction which Adventure a session ran; printing only the props |
 | 30 | Prep 3.1 (side conversation, threads to use) | 2026-11-02 (all three phases) | One-click PDF (deferred); telling extraction which Adventure a session ran; printing only the props |
 | 31 | Bibliotaph (Nornis 3.2) | Shipped 2026-11-02 (Phases A to G; cutover H waits) | A "read in Bibliotaph" link for the creator; Nornis's own PDF index until the cutover (Phase H) |
+| 32 | Adventure details (Nornis 3.4) | Specified 2026-11-03 | Editing type, publisher or author (fixed by Dave); details for Library uploads that are not prints; using the details in drafting |
 | 33 | Several sign-ins per account (Nornis 3.3) | 2026-11-02 | Merging two existing accounts (a one-off, by hand); showing when each sign-in was last used |
 
 Work sequenced outside this folder — the August operations and test-quality backlog — lives in
