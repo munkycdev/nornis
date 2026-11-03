@@ -179,6 +179,30 @@ public class CostPipelineIntegrationTests
         Assert.That(gpt4oMini.Summary.TotalEstimatedCostUsd, Is.EqualTo(0.20m));
     }
 
+    [Test]
+    public async Task GetByModel_MarksAModelNornisHasntTested_AsPriceEstimated()
+    {
+        // A model from "More from your key" (feature 39) is priced as an estimate; its rows carry
+        // the untested choice id as their model id.
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+            var untested = CreateRecord(_scenario.World.Id, _scenario.GmUserId, AiOperationType.AskLoremaster, "gpt-4.1-mini", DateTimeOffset.UtcNow);
+            untested.ModelId = UserAiModelChoice.UntestedPrefix + "OpenAi/gpt-4.1-mini";
+            db.AiUsageRecords.Add(untested);
+            await db.SaveChangesAsync();
+        }
+
+        var results = await (await _scenario.GmClient.GetAsync($"{CostsUrl}/by-model"))
+            .Content.ReadFromJsonAsync<List<ModelCostResponse>>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results!.Single(r => r.Model == "gpt-4.1-mini").PriceEstimated, Is.True);
+            Assert.That(results!.Single(r => r.Model == "gpt-4o").PriceEstimated, Is.False);
+        });
+    }
+
     #endregion
 
     #region Date range filtering produces correct subset

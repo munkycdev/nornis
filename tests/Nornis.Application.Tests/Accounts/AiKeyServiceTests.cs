@@ -34,6 +34,7 @@ public class AiKeyServiceTests
     private RecordingChecker _checker = null!;
     private AiModelsOptions _options = null!;
     private IAiKeyProtector _protector = null!;
+    private FakeLister _lister = null!;
     private Guid _user;
 
     [SetUp]
@@ -49,6 +50,7 @@ public class AiKeyServiceTests
             .Returns(call => AppResult<Source>.Success(new Source { Id = call.Arg<MarkSourceReadyCommand>().SourceId }));
         _checker = new RecordingChecker();
         _protector = new PlainProtector();
+        _lister = new FakeLister();
         _options = new AiModelsOptions
         {
             Catalog =
@@ -65,7 +67,7 @@ public class AiKeyServiceTests
     }
 
     private AiKeyService Service() => new(
-        _keys, _protector, _checker, _usage, _worlds, _sources, _members, _sourceService,
+        _keys, _protector, _checker, _lister, _usage, _worlds, _sources, _members, _sourceService,
         Options.Create(_options), new FixedTime(Now), NullLogger<AiKeyService>.Instance);
 
     private Task<AppResult<SavedAiKey>> Save(
@@ -227,6 +229,108 @@ public class AiKeyServiceTests
         });
     }
 
+    /// <summary>A stored key the fake protector can read, so its provider can be asked for models.</summary>
+    private UserAiKey ReadableKey(AiProvider provider, bool checkFailed = false)
+    {
+        var key = _keys.Add(_user, provider, checkFailed);
+        key.ProtectedKey = "protected:" + Secret;
+        return key;
+    }
+
+    private void AddClaudeToTheCatalog() =>
+        _options.Catalog.Add(new AiCatalogModel
+        {
+            Id = "anthropic/claude-sonnet-5-5",
+            Provider = AiProvider.Anthropic,
+            Model = "claude-sonnet-5-5",
+            Tasks = [AiTask.Ask, AiTask.Extraction, AiTask.Prep, AiTask.Chores],
+            SupportsImages = true,
+            InputPerMillionUsd = 2.00m,
+            OutputPerMillionUsd = 10.00m,
+        });
+
+    [Test]
+    public async Task More_from_your_key_follows_the_catalog_untested_and_without_the_catalogs_own_models()
+    {
+        ReadableKey(AiProvider.OpenAi);
+        _lister.Models[AiProvider.OpenAi] = [new("gpt-4.1-mini", "gpt-4.1-mini"), new("gpt-5.4", "gpt-5.4")];
+
+        var ask = (await Service().ListModelsAsync(_user, CancellationToken.None)).Single(t => t.Task == AiTask.Ask);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ask.Options.Select(o => o.Id), Is.EqualTo(["openai/gpt-5.4", "untested:OpenAi/gpt-4.1-mini"]),
+                "catalog first; gpt-5.4 is the catalog's, so it isn't offered twice");
+            Assert.That(ask.Options[1].Tested, Is.False);
+            Assert.That(ask.Options[1].HasKey, Is.True);
+            Assert.That(ask.DefaultId, Is.EqualTo("openai/gpt-5.4"), "the default is always a reviewed model");
+            Assert.That(_lister.Asked.Single(), Is.EqualTo((AiProvider.OpenAi, Secret)));
+        });
+    }
+
+    [Test]
+    public async Task More_from_your_key_is_not_offered_for_cover_art_or_from_a_failed_key()
+    {
+        ReadableKey(AiProvider.OpenAi);
+        ReadableKey(AiProvider.Anthropic, checkFailed: true);
+        AddClaudeToTheCatalog();
+        _lister.Models[AiProvider.OpenAi] = [new("gpt-4.1-mini", "gpt-4.1-mini")];
+        _lister.Models[AiProvider.Anthropic] = [new("claude-haiku-4-5", "Claude Haiku 4.5")];
+
+        var models = await Service().ListModelsAsync(_user, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(models.Single(t => t.Task == AiTask.CoverArt).Options.Where(o => !o.Tested), Is.Empty);
+            Assert.That(models.Single(t => t.Task == AiTask.Ask).Options.Where(o => !o.Tested).Select(o => o.Provider),
+                Is.EqualTo([AiProvider.OpenAi]), "a key whose check failed isn't asked");
+        });
+    }
+
+    [Test]
+    public async Task A_provider_that_cant_be_asked_just_offers_the_catalog()
+    {
+        ReadableKey(AiProvider.OpenAi);
+        _lister.Models[AiProvider.OpenAi] = null;
+
+        var ask = (await Service().ListModelsAsync(_user, CancellationToken.None)).Single(t => t.Task == AiTask.Ask);
+
+        Assert.That(ask.Options.Select(o => o.Id), Is.EqualTo(["openai/gpt-5.4"]));
+    }
+
+    [Test]
+    public async Task An_untested_model_the_provider_lists_can_be_chosen_and_stays_shown_when_the_list_cant_be_had()
+    {
+        ReadableKey(AiProvider.OpenAi);
+        _lister.Models[AiProvider.OpenAi] = [new("gpt-4.1-mini", "gpt-4.1-mini")];
+
+        var chosen = await Service().ChooseModelAsync(_user, AiTask.Ask, "untested:OpenAi/gpt-4.1-mini", CancellationToken.None);
+        _lister.Models[AiProvider.OpenAi] = null;
+        var ask = (await Service().ListModelsAsync(_user, CancellationToken.None)).Single(t => t.Task == AiTask.Ask);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(chosen.IsSuccess, Is.True);
+            Assert.That(_keys.Choices.Single().ModelId, Is.EqualTo("untested:OpenAi/gpt-4.1-mini"));
+            Assert.That(ask.ChosenId, Is.EqualTo("untested:OpenAi/gpt-4.1-mini"));
+            Assert.That(ask.Options.Single(o => o.Id == ask.ChosenId).Tested, Is.False);
+        });
+    }
+
+    [TestCase("untested:OpenAi/gpt-made-up")]
+    [TestCase("untested:Anthropic/claude-sonnet-5-5")]
+    [TestCase("untested:OpenAiCompatible/llama-4")]
+    public async Task A_model_the_provider_doesnt_list_for_this_user_cant_be_chosen(string id)
+    {
+        ReadableKey(AiProvider.OpenAi);
+        _lister.Models[AiProvider.OpenAi] = [new("gpt-4.1-mini", "gpt-4.1-mini")];
+
+        var result = await Service().ChooseModelAsync(_user, AiTask.Ask, id, CancellationToken.None);
+
+        Assert.That(result.Error?.Code, Is.EqualTo("invalid_model"));
+        Assert.That(_keys.Choices, Is.Empty);
+    }
+
     [Test]
     public async Task Another_users_line_cant_be_chosen()
     {
@@ -339,6 +443,19 @@ public class AiKeyServiceTests
         {
             Checks.Add((provider, key, baseUrl));
             return Task.FromResult(Outcome);
+        }
+    }
+
+    private sealed class FakeLister : IAiModelLister
+    {
+        public Dictionary<AiProvider, IReadOnlyList<AiListedModel>?> Models { get; } = [];
+
+        public List<(AiProvider Provider, string Secret)> Asked { get; } = [];
+
+        public Task<IReadOnlyList<AiListedModel>?> ListChatModelsAsync(UserAiKey key, string secret, CancellationToken ct)
+        {
+            Asked.Add((key.Provider, secret));
+            return Task.FromResult(Models.GetValueOrDefault(key.Provider));
         }
     }
 

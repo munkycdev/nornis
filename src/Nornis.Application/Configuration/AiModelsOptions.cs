@@ -35,6 +35,18 @@ public sealed class AiModelsOptions
     public AiCatalogModel? Find(string id) =>
         Catalog.FirstOrDefault(m => string.Equals(m.Id, id, StringComparison.Ordinal));
 
+    /// <summary>
+    /// What a model the catalog doesn't list is priced at: the provider's dearest catalog chat
+    /// model, so an estimate errs high rather than low. Null when the catalog has none of the
+    /// provider's, and then its untested models aren't offered.
+    /// </summary>
+    public AiModelPrice? EstimateFor(AiProvider provider) =>
+        Catalog
+            .Where(m => m.Provider == provider && !m.Tasks.Contains(AiTask.CoverArt))
+            .OrderByDescending(m => m.OutputPerMillionUsd)
+            .ThenByDescending(m => m.InputPerMillionUsd)
+            .FirstOrDefault()?.Price;
+
     /// <summary>Null when the section can run; otherwise what is wrong with it, for startup to refuse.</summary>
     public string? StartupProblem()
     {

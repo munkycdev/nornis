@@ -30,7 +30,8 @@ public record AiTaskModelsResponse(
     string? ChosenId,
     string? DefaultId);
 
-/// <param name="Tested">False for an OpenAI-compatible model, which Nornis has never run.</param>
+/// <param name="Tested">False for an OpenAI-compatible model, and for one the key's provider lists
+/// beyond the catalog ("More from your key"), which Nornis has never run.</param>
 public record AiModelOptionResponse(
     string Id,
     string Name,

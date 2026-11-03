@@ -96,8 +96,16 @@ else
                 }
                 @foreach (var m in _byModel)
                 {
-                    <div class="nornis-cost-row">
-                        <span class="nornis-cost-row-name">@m.Model</span>
+                    <div class="nornis-cost-row" data-testid="costs-model-row">
+                        <span class="nornis-cost-row-name">
+                            @m.Model
+                            @if (m.PriceEstimated)
+                            {
+                                <MudTooltip Text="Not tested by Nornis, so priced as its provider's dearest reviewed model. Your provider's bill is the real figure.">
+                                    <span class="nornis-list-meta" data-testid="costs-price-estimated"> (price estimated)</span>
+                                </MudTooltip>
+                            }
+                        </span>
                         <span class="nornis-list-meta">@TokenSplit(m.Summary)</span>
                         <span class="nornis-cost-row-amount">@Money(m.Summary.TotalEstimatedCostUsd)</span>
                     </div>

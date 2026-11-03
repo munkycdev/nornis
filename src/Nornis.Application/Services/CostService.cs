@@ -241,7 +241,8 @@ public class CostService : ICostService
         var results = groupedSummaries
             .Select(g => new ModelCostResult
             {
-                Model = g.Key,
+                Model = g.Key.Model,
+                PriceEstimated = g.Key.PriceEstimated,
                 Summary = g.Summary
             })
             .ToList();

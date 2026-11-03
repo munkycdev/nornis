@@ -67,7 +67,8 @@ public interface IAiUsageRecordRepository
         DateTimeOffset? toDate,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<GroupedCostSummary<string>>> AggregateByModelAsync(
+    /// <summary>Costs by model, a model's estimated rows apart from its priced ones.</summary>
+    Task<IReadOnlyList<GroupedCostSummary<ModelCostKey>>> AggregateByModelAsync(
         Guid worldId,
         Guid? userId,
         DateTimeOffset? fromDate,

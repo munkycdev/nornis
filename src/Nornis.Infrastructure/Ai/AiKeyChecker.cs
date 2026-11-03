@@ -34,26 +34,7 @@ public sealed class AiKeyChecker : IAiKeyChecker
 
     public async Task<AiKeyCheckOutcome> CheckAsync(AiProvider provider, string key, Uri? baseUrl, CancellationToken ct)
     {
-        var endpoint = provider switch
-        {
-            AiProvider.OpenAi => OpenAiEndpoint,
-            AiProvider.Anthropic => AnthropicEndpoint,
-            AiProvider.OpenAiCompatible => baseUrl ?? throw new ArgumentNullException(nameof(baseUrl)),
-            _ => throw new NotSupportedException($"No key check for {provider} yet (feature 39 Phase C)."),
-        };
-
-        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(endpoint, "models"));
-        if (provider == AiProvider.Anthropic)
-        {
-            // Anthropic takes its key in x-api-key, not Authorization, and wants the API version
-            // on every request. Both are redacted by the client factory's logging like any header.
-            request.Headers.Add("x-api-key", key);
-            request.Headers.Add("anthropic-version", AnthropicApiVersion);
-        }
-        else
-        {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
-        }
+        using var request = ModelsRequest(provider, key, baseUrl);
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(Timeout);
@@ -76,6 +57,34 @@ public sealed class AiKeyChecker : IAiKeyChecker
         {
             return Unreachable(provider, $"no answer within {Timeout.TotalSeconds:0}s");
         }
+    }
+
+    /// <summary>The provider's "list models" request with <paramref name="key"/>; shared with
+    /// <see cref="AiModelLister"/>.</summary>
+    internal static HttpRequestMessage ModelsRequest(AiProvider provider, string key, Uri? baseUrl, string? query = null)
+    {
+        var endpoint = provider switch
+        {
+            AiProvider.OpenAi => OpenAiEndpoint,
+            AiProvider.Anthropic => AnthropicEndpoint,
+            AiProvider.OpenAiCompatible => baseUrl ?? throw new ArgumentNullException(nameof(baseUrl)),
+            _ => throw new NotSupportedException($"No key check for {provider} yet (feature 39 Phase C)."),
+        };
+
+        var request = new HttpRequestMessage(HttpMethod.Get, new Uri(endpoint, "models" + query));
+        if (provider == AiProvider.Anthropic)
+        {
+            // Anthropic takes its key in x-api-key, not Authorization, and wants the API version
+            // on every request. Both are redacted by the client factory's logging like any header.
+            request.Headers.Add("x-api-key", key);
+            request.Headers.Add("anthropic-version", AnthropicApiVersion);
+        }
+        else
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
+        }
+
+        return request;
     }
 
     private AiKeyCheckOutcome Unreachable(AiProvider provider, string why)

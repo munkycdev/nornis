@@ -10,7 +10,8 @@ namespace Nornis.Application.Ai;
 /// <param name="Model">The provider's model or deployment name, as sent on the wire.</param>
 /// <param name="AiKeyId">The key that pays, when <paramref name="FundedBy"/> is a key.</param>
 /// <param name="KeyHolderUserId">The user whose keys or trial pay; null when there is none.</param>
-/// <param name="ModelId">The catalog id, when a catalog model runs; null otherwise.</param>
+/// <param name="ModelId">The catalog id, when a catalog model runs; the <c>untested:</c> choice id
+/// when a model the catalog doesn't list runs (its <paramref name="Price"/> is an estimate); null otherwise.</param>
 /// <param name="Price">The price of a key-funded model, from the catalog or the user's own
 /// OpenAI-compatible line. Null when Nornis's key runs, which is priced from <c>ModelPricing</c>.</param>
 public sealed record AiFunding(

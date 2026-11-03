@@ -681,7 +681,8 @@ public record UserCost(Guid UserId, string Username, CostSummary Summary);
 
 public record OperationTypeCost(string OperationType, CostSummary Summary);
 
-public record ModelCost(string Model, CostSummary Summary);
+/// <param name="PriceEstimated">The dollars are an estimate (a model Nornis hasn't tested ran).</param>
+public record ModelCost(string Model, CostSummary Summary, bool PriceEstimated = false);
 
 public record WorldCost(Guid WorldId, string WorldName, CostSummary Summary);
 
@@ -1481,7 +1482,8 @@ public record SaveAiKeyResultDto(AiKeyDto Key, int SourcesQueued);
 
 public record AiTaskModelsDto(string Task, IReadOnlyList<AiModelOptionDto> Options, string? ChosenId, string? DefaultId);
 
-/// <param name="Tested">False for an OpenAI-compatible model, which Nornis has never run.</param>
+/// <param name="Tested">False for an OpenAI-compatible model, and for one the key's provider lists
+/// beyond the catalog ("More from your key"), which Nornis has never run.</param>
 public record AiModelOptionDto(string Id, string Name, string Provider, bool SupportsImages, bool HasKey, bool Tested);
 
 public record ChooseAiModelBody(string? ModelId);

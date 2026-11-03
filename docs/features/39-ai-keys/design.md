@@ -97,7 +97,14 @@
 >   own model list for that key, marked "not tested by Nornis". An untested model is priced as
 >   an estimate at that provider's most expensive catalog model, labelled so on Costs; the trial
 >   never pays for one; and nothing falls back silently when one can't read images or return
->   structured output.
+>   structured output. As built: a pick is stored as `untested:{AiProvider}/{model}` (no
+>   migration), and the ledger keeps it as the row's `ModelId`, which is how Costs' by-model rows
+>   know to say "price estimated". `IAiModelLister` asks OpenAI and Anthropic `GET /models` with
+>   the key, keeps only chat models (OpenAI's list is filtered by name), and caches an answer an
+>   hour per key version; a failure isn't cached and simply offers the catalog alone. A pick the
+>   provider no longer lists keeps running and stays shown. A key whose check failed, an
+>   OpenAI-compatible key (its lines are already its own), and cover art get no extra models. A
+>   pick the catalog later lists runs as the catalog model, at its real price.
 
 ## Overview
 

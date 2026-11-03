@@ -106,6 +106,78 @@ public class AiFundingServiceTests
         Assert.That((funding.Model, funding.ModelId), Is.EqualTo(("gpt-5.4-mini", "openai/gpt-5.4-mini")));
     }
 
+    private void ChooseForAsk(string modelId) =>
+        _keys.Choices.Add(new UserAiModelChoice { UserId = _creator, Task = AiTask.Ask, ModelId = modelId });
+
+    [Test]
+    public async Task AnUntestedChoice_RunsOnTheHoldersKey_PricedAsTheProvidersDearestCatalogModel()
+    {
+        var key = _keys.Add(_creator, AiProvider.OpenAi);
+        var dearest = Model("openai/gpt-5.5", AiProvider.OpenAi);
+        dearest.OutputPerMillionUsd = 30.00m;
+        var images = Model("openai/gpt-image-1", AiProvider.OpenAi, true, AiTask.CoverArt);
+        images.OutputPerMillionUsd = 40.00m;
+        _options.Catalog.AddRange([dearest, images]);
+        ChooseForAsk("untested:OpenAi/gpt-4.1-mini");
+
+        var funding = await Resolve();
+
+        Assert.That(funding, Is.EqualTo(new AiFunding(AiProvider.OpenAi, "gpt-4.1-mini", AiFundedBy.Key, key.Id, _creator,
+            "untested:OpenAi/gpt-4.1-mini", dearest.Price)), "the image model isn't a chat model, so it sets no estimate");
+    }
+
+    [Test]
+    public async Task AnUntestedChoice_IsSentImagesAsChosen_RatherThanQuietlySwitchingModels()
+    {
+        _keys.Add(_creator, AiProvider.OpenAi);
+        ChooseForAsk("untested:OpenAi/gpt-4.1-mini");
+
+        var funding = await Resolve(needsImages: true);
+
+        Assert.That(funding.Model, Is.EqualTo("gpt-4.1-mini"));
+    }
+
+    [Test]
+    public async Task AnUntestedChoice_TheCatalogNowLists_RunsAsTheCatalogModel()
+    {
+        _keys.Add(_creator, AiProvider.OpenAi);
+        ChooseForAsk("untested:OpenAi/gpt-5.4-mini");
+
+        var funding = await Resolve();
+
+        Assert.That((funding.ModelId, funding.Price), Is.EqualTo(("openai/gpt-5.4-mini", _options.Catalog[1].Price)));
+    }
+
+    [Test]
+    public async Task AnUntestedChoice_WithoutItsKey_FallsToTheTrial_OnNornissOwnModel()
+    {
+        ChooseForAsk("untested:Anthropic/claude-haiku-4-5");
+
+        var funding = await Resolve();
+
+        Assert.That((funding.FundedBy, funding.Model, funding.ModelId), Is.EqualTo((AiFundedBy.Trial, NornisModel, (string?)null)),
+            "the trial never pays for a model Nornis hasn't tested");
+    }
+
+    [TestCase("untested:OpenAi/")]
+    [TestCase("untested:/gpt-4.1")]
+    [TestCase("untested:1/gpt-4.1")]
+    [TestCase("untested:OpenAiCompatible/llama-4")]
+    [TestCase("untested:AzureOpenAi/nornis-ask")]
+    public async Task AMalformedUntestedChoice_IsIgnored_ForTheDefault(string modelId)
+    {
+        _keys.Add(_creator, AiProvider.OpenAi);
+        ChooseForAsk(modelId);
+
+        var funding = await Resolve();
+
+        Assert.That(funding.ModelId, Is.EqualTo("openai/gpt-5.4"));
+    }
+
+    [Test]
+    public void TheEstimate_IsNullForAProviderTheCatalogCantPrice() =>
+        Assert.That(_options.EstimateFor(AiProvider.Anthropic), Is.Null);
+
     [Test]
     public async Task AChoiceThatCantReadImages_FallsBackToTheDefault_ForACallWithImages()
     {

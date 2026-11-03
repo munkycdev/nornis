@@ -173,7 +173,8 @@ public class CostsController : ControllerBase
     {
         return new ModelCostResponse(
             Model: result.Model,
-            Summary: ToCostSummaryResponse(result.Summary));
+            Summary: ToCostSummaryResponse(result.Summary),
+            PriceEstimated: result.PriceEstimated);
     }
 
     private static CostSummaryResponse ToCostSummaryResponse(CostSummary summary)

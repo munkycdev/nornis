@@ -37,6 +37,9 @@ public static class AiFundingServiceCollectionExtensions
         services.AddScoped<ICoverArtGenerator, OpenAiCoverArtGenerator>();
         services.AddHttpClient<IAiKeyChecker, AiKeyChecker>()
             .ConfigurePrimaryHttpMessageHandler(PublicEndpointGuard.CreateHandler);
+        services.AddMemoryCache();
+        services.AddHttpClient<IAiModelLister, AiModelLister>()
+            .ConfigurePrimaryHttpMessageHandler(PublicEndpointGuard.CreateHandler);
 
         return services;
     }
