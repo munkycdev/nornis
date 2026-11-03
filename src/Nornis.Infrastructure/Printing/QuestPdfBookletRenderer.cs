@@ -65,6 +65,12 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
 
     public BookletPdf Render(Booklet booklet)
     {
+        var handouts = booklet.Handouts ?? [];
+
+        // The appendix (feature 38) is cut into runs: drawn pages (images and "couldn't print"
+        // pages) render with the booklet, and each PDF handout is merged in after its place, so
+        // the GM's order holds across both kinds.
+        var runs = Runs(handouts);
         var bytes = Document.Create(document =>
             {
                 document.Page(page => Cover(page, booklet.Cover));
@@ -73,19 +79,58 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
                 {
                     document.Page(page => Chapter(page, booklet.Cover.Title, chapter));
                 }
+
+                if (handouts.Count > 0)
+                {
+                    document.Page(page => HandoutsOpener(page, handouts));
+                    DrawnHandouts(document, runs[0].Drawn);
+                }
             })
-            .WithMetadata(new DocumentMetadata
+            .WithMetadata(Metadata(booklet.Cover.Title, booklet.Cover.AuthorLine))
+            .GeneratePdf();
+
+        if (runs.Any(r => r.Pdf is not null))
+        {
+            bytes = Merge(bytes, runs);
+        }
+
+        using var pdf = PdfDocument.Open(bytes);
+        return new BookletPdf(bytes, pdf.NumberOfPages);
+    }
+
+    /// <summary>
+    /// The props sheet (feature 38): each prop alone on a page in large type, in its parchment
+    /// frame, to cut out and hand over. No footer: what's on the page is what the players get.
+    /// </summary>
+    public BookletPdf RenderProps(BookletProps props)
+    {
+        var bytes = Document.Create(document =>
             {
-                Title = booklet.Cover.Title,
-                Author = booklet.Cover.AuthorLine,
-                Creator = "Nornis",
-                Producer = "Nornis",
+                foreach (var prop in props.Props)
+                {
+                    document.Page(page =>
+                    {
+                        Setup(page);
+                        page.DefaultTextStyle(s => s.FontFamily(Serif, Fallback).FontSize(16).LineHeight(1.35f).FontColor(Ink));
+                        page.Content().AlignMiddle().Background(Parchment).Border(1).BorderColor(ParchmentEdge).Padding(28)
+                            .Column(col => Blocks(col, prop.Blocks, 10));
+                    });
+                }
             })
+            .WithMetadata(Metadata(props.Title + " props", null))
             .GeneratePdf();
 
         using var pdf = PdfDocument.Open(bytes);
         return new BookletPdf(bytes, pdf.NumberOfPages);
     }
+
+    private static DocumentMetadata Metadata(string title, string? author) => new()
+    {
+        Title = title,
+        Author = author,
+        Creator = "Nornis",
+        Producer = "Nornis",
+    };
 
     // ---------------------------------------------------------------------- Pages --
 
@@ -301,6 +346,169 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             t.DefaultTextStyle(s => s.FontFamily(Sans, Fallback).FontSize(8).FontColor(Muted));
             t.Span(adventureTitle + " · ");
             t.CurrentPageNumber();
+        });
+    }
+
+    // ------------------------------------------------------------------- Handouts --
+
+    /// <summary>A run of the appendix: the drawn pages, then the PDF that follows them, if any.</summary>
+    private sealed record HandoutRun(IReadOnlyList<BookletHandout> Drawn, BookletHandoutPdf? Pdf);
+
+    /// <summary>
+    /// The appendix as runs. The first run's drawn pages render with the booklet; each later
+    /// run's render as their own document, merged after the PDF before them. A PDF that won't
+    /// open is drawn as a "couldn't print" page instead, so a bad file never fails the booklet.
+    /// </summary>
+    private static List<HandoutRun> Runs(IReadOnlyList<BookletHandout> handouts)
+    {
+        var runs = new List<HandoutRun>();
+        var drawn = new List<BookletHandout>();
+        foreach (var handout in handouts)
+        {
+            if (handout is BookletHandoutPdf pdf && Opens(pdf.Pdf))
+            {
+                runs.Add(new HandoutRun(drawn, pdf));
+                drawn = [];
+            }
+            else
+            {
+                drawn.Add(handout is BookletHandoutPdf broken ? new BookletHandoutMissing(broken.Title, "the PDF couldn't be read") : handout);
+            }
+        }
+
+        runs.Add(new HandoutRun(drawn, null));
+        return runs;
+    }
+
+    private static bool Opens(byte[] pdf)
+    {
+        try
+        {
+            using var document = PdfDocument.Open(pdf);
+            return document.NumberOfPages > 0;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The booklet, then each run's PDF and drawn pages in order, through QuestPDF's merge (the D1
+    /// spike: Community licence, files only, so the parts go through a temporary folder).
+    /// </summary>
+    private static byte[] Merge(byte[] booklet, IReadOnlyList<HandoutRun> runs)
+    {
+        var folder = Directory.CreateTempSubdirectory("nornis-booklet-");
+        try
+        {
+            var parts = new List<string>();
+            string Write(byte[] bytes)
+            {
+                var path = Path.Combine(folder.FullName, $"{parts.Count}.pdf");
+                File.WriteAllBytes(path, bytes);
+                parts.Add(path);
+                return path;
+            }
+
+            var first = Write(booklet);
+            for (var i = 0; i < runs.Count; i++)
+            {
+                if (runs[i].Pdf is { } pdf)
+                {
+                    Write(pdf.Pdf);
+                }
+
+                // The first run's drawn pages are already in the booklet; a later run's follow its PDF.
+                var next = i + 1 < runs.Count ? runs[i + 1].Drawn : [];
+                if (next.Count > 0)
+                {
+                    Write(Document.Create(document => DrawnHandouts(document, next)).GeneratePdf());
+                }
+            }
+
+            var output = Path.Combine(folder.FullName, "booklet.pdf");
+            var operation = DocumentOperation.LoadFile(first);
+            foreach (var part in parts.Skip(1))
+            {
+                operation = operation.MergeFile(part);
+            }
+
+            operation.Save(output);
+            return File.ReadAllBytes(output);
+        }
+        finally
+        {
+            folder.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>The appendix's first page: its title and what follows, in order.</summary>
+    private static void HandoutsOpener(PageDescriptor page, IReadOnlyList<BookletHandout> handouts)
+    {
+        Setup(page);
+        page.Header().PaddingBottom(12).Column(header =>
+        {
+            header.Item().Text("Handouts and maps").FontSize(20).SemiBold().LineHeight(1.15f);
+            header.Item().PaddingTop(4).LineHorizontal(1).LineColor(Accent);
+        });
+        page.Content().Column(col =>
+        {
+            col.Spacing(4);
+            for (var i = 0; i < handouts.Count; i++)
+            {
+                var number = i + 1;
+                col.Item().Text(text =>
+                {
+                    text.Span($"{number}. ").FontColor(Muted);
+                    text.Span(handouts[i].Title);
+                });
+            }
+        });
+    }
+
+    /// <summary>Images on their own pages, and the pages naming what couldn't be printed.</summary>
+    private static void DrawnHandouts(IDocumentContainer document, IReadOnlyList<BookletHandout> handouts)
+    {
+        foreach (var handout in handouts)
+        {
+            if (handout is BookletHandoutImage image && ImageSize(image.Image) is { } size)
+            {
+                document.Page(page => ImageHandout(page, image, landscape: size.Width > size.Height));
+            }
+            else
+            {
+                var reason = handout is BookletHandoutMissing missing ? missing.Reason : "the image couldn't be read";
+                document.Page(page => MissingHandout(page, handout.Title, reason));
+            }
+        }
+    }
+
+    /// <summary>The image's size from its header, or null when no codec reads it.</summary>
+    private static (int Width, int Height)? ImageSize(byte[] image)
+    {
+        using var data = SkiaSharp.SKData.CreateCopy(image);
+        using var codec = SkiaSharp.SKCodec.Create(data);
+        return codec is null ? null : (codec.Info.Width, codec.Info.Height);
+    }
+
+    private static void ImageHandout(PageDescriptor page, BookletHandoutImage image, bool landscape)
+    {
+        Setup(page);
+        page.Size(landscape ? PageSizes.Letter.Landscape() : PageSizes.Letter);
+        page.Header().PaddingBottom(8).Text(image.Title).FontFamily(Sans, Fallback).FontSize(9).FontColor(Muted);
+        page.Content().AlignCenter().AlignMiddle().Image(image.Image).FitArea();
+    }
+
+    private static void MissingHandout(PageDescriptor page, string title, string reason)
+    {
+        Setup(page);
+        page.Content().AlignMiddle().Column(col =>
+        {
+            col.Spacing(6);
+            col.Item().AlignCenter().Text(title).FontSize(16).SemiBold();
+            col.Item().AlignCenter().Text($"This handout isn't printed here: {reason}. It's in the world's Library.")
+                .FontSize(10).FontColor(Muted);
         });
     }
 

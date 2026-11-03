@@ -374,7 +374,7 @@ public class AdventureCoverService
             : AppResult<CoverImage>.Fail(NotFound());
     }
 
-    private Task<byte[]?> ReadAsync(string blobPath, CancellationToken ct) => CoverBlobs.ReadAsync(_blobs, blobPath, ct);
+    private Task<byte[]?> ReadAsync(string blobPath, CancellationToken ct) => _blobs.ReadAllBytesOrNullAsync(blobPath, ct);
 
     /// <summary>Sets the cover, then deletes the upload it replaced; a generated option is kept to pick again.</summary>
     private async Task ReplaceCoverAsync(Adventure adventure, AdventureCover? cover, bool generated, CancellationToken ct)

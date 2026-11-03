@@ -57,8 +57,12 @@ public record AdventureResponse(
     AdventureDraftResponse? Draft = null,
     string? TableBrief = null,
     IReadOnlyList<AdventureSourceBookResponse>? SourceBooks = null,
-    // Feature 38: what the Adventure records about AI's part in it.
-    AdventureAiUseResponse? AiUse = null);
+    // Feature 38: what the Adventure records about AI's part in it, and the handouts it prints.
+    AdventureAiUseResponse? AiUse = null,
+    IReadOnlyList<AdventureHandoutResponse>? Handouts = null);
+
+/// <summary>A map or handout printed at the back of the booklet (feature 38), in order. Category is Map or Handout.</summary>
+public record AdventureHandoutResponse(Guid Id, string Title, string? Slug, string Category, string ContentType, string Visibility);
 
 /// <summary>
 /// AI's part in the Adventure (feature 38). <see cref="Locked"/> means recorded use: the box is

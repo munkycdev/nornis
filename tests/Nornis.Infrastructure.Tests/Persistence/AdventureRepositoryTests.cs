@@ -744,4 +744,72 @@ public class AdventureRepositoryTests : IntegrationTestBase
 
         Assert.That((await _sut.GetWithSectionsAsync(adventure.Id))!.Cover, Is.Not.Null);
     }
+
+    private async Task<LibraryDocument> AddDocumentAsync(string title)
+    {
+        var document = new LibraryDocument
+        {
+            Id = Guid.NewGuid(),
+            WorldId = _world.Id,
+            Title = title,
+            FileName = "map.png",
+            ContentType = "image/png",
+            BlobPath = $"worlds/{_world.Id}/library/{Guid.NewGuid()}/map.png",
+            Kind = LibraryDocumentKind.Map,
+            Visibility = VisibilityScope.GMOnly,
+            Status = LibraryDocumentStatus.Stored,
+            UploadedByUserId = _user.Id,
+            CreatedAt = _now,
+            UpdatedAt = _now,
+        };
+        Context.Add(document);
+        await Context.SaveChangesAsync();
+        Context.ChangeTracker.Clear();
+        return document;
+    }
+
+    [Test]
+    public async Task Handouts_LoadInTheirOrder_AndAReplaceReordersAndDrops()
+    {
+        var adventure = await CreateAsync("a");
+        var map = await AddDocumentAsync("Harbor map");
+        var sketch = await AddDocumentAsync("Bathhouse sketch");
+
+        await _sut.ReplaceHandoutsAsync(adventure.Id, [map.Id, sketch.Id, _print.Id]);
+        var first = (await _sut.GetWithSectionsAsync(adventure.Id))!;
+        await _sut.ReplaceHandoutsAsync(adventure.Id, [_print.Id, map.Id]);
+        var second = (await _sut.GetWithSectionsAsync(adventure.Id))!;
+
+        Assert.That(first.Handouts.Select(h => h.LibraryDocument.Title), Is.EqualTo(["Harbor map", "Bathhouse sketch", _print.Title]));
+        Assert.That(second.Handouts.Select(h => h.LibraryDocumentId), Is.EqualTo([_print.Id, map.Id]));
+    }
+
+    [Test]
+    public async Task DeletingTheAdventureOrTheDocument_TakesTheHandoutRowsWithIt()
+    {
+        var adventure = await CreateAsync("a");
+        var other = await CreateAsync("b");
+        var map = await AddDocumentAsync("Harbor map");
+        await _sut.ReplaceHandoutsAsync(adventure.Id, [map.Id]);
+        await _sut.ReplaceHandoutsAsync(other.Id, [map.Id]);
+
+        await _sut.DeleteAsync(adventure.Id);
+        await new LibraryDocumentRepository(Context).DeleteAsync(map.Id);
+        Context.ChangeTracker.Clear();
+
+        Assert.That(await Context.AdventureHandouts.CountAsync(), Is.Zero);
+    }
+
+    [Test]
+    public async Task DeletingTheWorld_TakesTheHandoutRowsWithIt()
+    {
+        var adventure = await CreateAsync("a");
+        var map = await AddDocumentAsync("Harbor map");
+        await _sut.ReplaceHandoutsAsync(adventure.Id, [map.Id]);
+
+        await new WorldRepository(Context).DeleteAsync(_world.Id);
+        Context.ChangeTracker.Clear();
+
+        Assert.That(await Context.AdventureHandouts.CountAsync(h => h.AdventureId == adventure.Id), Is.Zero);
+    }
 }

@@ -17,6 +17,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
     private readonly List<AdventureSectionRevision> _revisions = [];
     private readonly List<AdventureDraftRevision> _draftRevisions = [];
     private readonly List<AdventureSourceBook> _sourceBooks = [];
+    private readonly List<AdventureHandout> _handouts = [];
 
     public IReadOnlyList<AdventureDraftRevision> DraftRevisions => _draftRevisions;
 
@@ -68,6 +69,16 @@ public class InMemoryAdventureRepository : IAdventureRepository
                 AdventureId = b.AdventureId,
                 LibraryDocumentId = b.LibraryDocumentId,
                 LibraryDocument = Documents.First(d => d.Id == b.LibraryDocumentId),
+            })
+            .ToList();
+        copy.Handouts = _handouts.Where(h => h.AdventureId == adventureId)
+            .OrderBy(h => h.SortOrder)
+            .Select(h => new AdventureHandout
+            {
+                AdventureId = h.AdventureId,
+                LibraryDocumentId = h.LibraryDocumentId,
+                SortOrder = h.SortOrder,
+                LibraryDocument = Documents.First(d => d.Id == h.LibraryDocumentId),
             })
             .ToList();
         return Task.FromResult<Adventure?>(copy);
@@ -153,6 +164,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
         _sections.RemoveAll(s => s.AdventureId == adventureId);
         _draftRevisions.RemoveAll(r => r.AdventureId == adventureId);
         _sourceBooks.RemoveAll(b => b.AdventureId == adventureId);
+        _handouts.RemoveAll(h => h.AdventureId == adventureId);
         _adventures.RemoveAll(a => a.Id == adventureId);
         return Task.CompletedTask;
     }
@@ -368,6 +380,13 @@ public class InMemoryAdventureRepository : IAdventureRepository
         row.UpdatedAt = updatedAt;
         _draftRevisions.RemoveAll(r => r.Id == revision.Id);
         return Task.FromResult(true);
+    }
+
+    public Task ReplaceHandoutsAsync(Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken cancellationToken = default)
+    {
+        _handouts.RemoveAll(h => h.AdventureId == adventureId);
+        _handouts.AddRange(documentIds.Select((id, i) => new AdventureHandout { AdventureId = adventureId, LibraryDocumentId = id, SortOrder = i + 1 }));
+        return Task.CompletedTask;
     }
 
     public Task ReplaceSourceBooksAsync(Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken cancellationToken = default)

@@ -81,6 +81,8 @@ public class PrepEndpointTests
             new PutInDraftRequest(Guid.NewGuid(), "Replace", null)));
         yield return ("brief", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/brief", new SetTableBriefRequest("Mine")));
         yield return ("source books", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/source-books", new SetSourceBooksRequest([])));
+        yield return ("handouts", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/handouts", new SetHandoutsRequest([])));
+        yield return ("props", (c, w, a, _) => c.GetAsync($"{Base(w)}/{a}/props"));
         yield return ("cover", (c, w, a, _) => c.GetAsync($"{Base(w)}/{a}/cover"));
         yield return ("write cover brief", (c, w, a, _) => c.PostAsync($"{Base(w)}/{a}/cover/brief", null));
         yield return ("save cover brief", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/cover/brief", new CoverBriefRequest("Mine")));
@@ -136,6 +138,38 @@ public class PrepEndpointTests
             Assert.That(removed.Cover, Is.Null);
             Assert.That(reloaded.AiUse!.Locked, Is.False);
         });
+    }
+
+    [Test]
+    public async Task Props_AreAPdfOfThePropBoxes_Or404WhenThereAreNone()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var none = await scenario.GmClient.GetAsync($"{Base(worldId)}/{adventure.Id}/props");
+        await WriteOverviewAsync(scenario.GmClient, worldId, adventure, "The mayor's seal.\n\n> [!PROP]\n> The forged letter.");
+        var props = await scenario.GmClient.GetAsync($"{Base(worldId)}/{adventure.Id}/props");
+
+        Assert.That(none.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        Assert.That(await none.Content.ReadAsStringAsync(), Does.Contain("no_props"));
+        Assert.That(props.StatusCode, Is.EqualTo(HttpStatusCode.OK), await props.Content.ReadAsStringAsync());
+        Assert.That(props.Content.Headers.ContentType!.MediaType, Is.EqualTo("application/pdf"));
+    }
+
+    [Test]
+    public async Task Handouts_RefuseADocumentThatIsntAMapOrHandout()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var missing = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/handouts", new SetHandoutsRequest([Guid.NewGuid()]));
+        var cleared = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/handouts", new SetHandoutsRequest([]));
+
+        Assert.That(missing.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        Assert.That(cleared.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That((await cleared.Content.ReadFromJsonAsync<AdventureResponse>())!.Handouts, Is.Empty);
     }
 
     [Test]

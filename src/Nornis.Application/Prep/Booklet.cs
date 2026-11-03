@@ -7,7 +7,26 @@ namespace Nornis.Application.Prep;
 /// and what <see cref="IBookletPdfRenderer"/> lays out. It carries no fonts, sizes or pages, so
 /// every markup convention is decided before layout and every layout rule after it.
 /// </summary>
-public sealed record Booklet(BookletCover Cover, BookletRights Rights, IReadOnlyList<BookletChapter> Chapters);
+public sealed record Booklet(
+    BookletCover Cover, BookletRights Rights, IReadOnlyList<BookletChapter> Chapters, IReadOnlyList<BookletHandout>? Handouts = null);
+
+/// <summary>
+/// One entry of the "Handouts and maps" appendix (feature 38), in the GM's order. The printer
+/// reads the files; the model never touches storage.
+/// </summary>
+public abstract record BookletHandout(string Title);
+
+/// <summary>An image, drawn on its own page, landscape when it is wider than tall.</summary>
+public sealed record BookletHandoutImage(string Title, byte[] Image) : BookletHandout(Title);
+
+/// <summary>A PDF, whose pages are appended as they are.</summary>
+public sealed record BookletHandoutPdf(string Title, byte[] Pdf) : BookletHandout(Title);
+
+/// <summary>A handout the booklet can't carry, printed as a page that names it and says why.</summary>
+public sealed record BookletHandoutMissing(string Title, string Reason) : BookletHandout(Title);
+
+/// <summary>The props to cut out and hand over (feature 38): every <c>[!PROP]</c> box, each on its own page.</summary>
+public sealed record BookletProps(string Title, IReadOnlyList<BookletBox> Props);
 
 /// <summary>
 /// The cover's lines, each already worded; a null line is left off (feature 32). The credits

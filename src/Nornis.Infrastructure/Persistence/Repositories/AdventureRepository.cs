@@ -45,12 +45,14 @@ public class AdventureRepository : IAdventureRepository
             .AsNoTracking()
             .Include(a => a.Sections)
             .Include(a => a.SourceBooks).ThenInclude(b => b.LibraryDocument)
+            .Include(a => a.Handouts).ThenInclude(h => h.LibraryDocument)
             .AsSplitQuery()
             .FirstOrDefaultAsync(a => a.Id == adventureId, cancellationToken);
 
         if (adventure is not null)
         {
             adventure.Sections = adventure.Sections.OrderBy(s => s.SortOrder).ToList();
+            adventure.Handouts = adventure.Handouts.OrderBy(h => h.SortOrder).ToList();
         }
 
         return adventure;
@@ -193,6 +195,7 @@ public class AdventureRepository : IAdventureRepository
         // Restrict (Worlds cascades to both ends); neither relies on the database here.
         await _context.DeleteWhereAsync<AdventureDraftRevision>(r => r.AdventureId == adventureId, cancellationToken);
         await _context.DeleteWhereAsync<AdventureSourceBook>(b => b.AdventureId == adventureId, cancellationToken);
+        await _context.DeleteWhereAsync<AdventureHandout>(h => h.AdventureId == adventureId, cancellationToken);
         await _context.DeleteWhereAsync<Adventure>(a => a.Id == adventureId, cancellationToken);
     }
 
@@ -274,6 +277,31 @@ public class AdventureRepository : IAdventureRepository
         _context.AdventureSourceBooks.AddRange(documentIds
             .Where(id => existing.All(b => b.LibraryDocumentId != id))
             .Select(id => new AdventureSourceBook { AdventureId = adventureId, LibraryDocumentId = id }));
+        await TouchAdventureAsync(adventureId, DateTimeOffset.UtcNow, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+        _context.ChangeTracker.Clear();
+    }
+
+    public async Task ReplaceHandoutsAsync(
+        Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken cancellationToken = default)
+    {
+        var existing = await _context.AdventureHandouts
+            .Where(h => h.AdventureId == adventureId)
+            .ToListAsync(cancellationToken);
+        _context.AdventureHandouts.RemoveRange(existing.Where(h => !documentIds.Contains(h.LibraryDocumentId)));
+        for (var i = 0; i < documentIds.Count; i++)
+        {
+            var row = existing.FirstOrDefault(h => h.LibraryDocumentId == documentIds[i]);
+            if (row is null)
+            {
+                _context.AdventureHandouts.Add(new AdventureHandout { AdventureId = adventureId, LibraryDocumentId = documentIds[i], SortOrder = i + 1 });
+            }
+            else
+            {
+                row.SortOrder = i + 1;
+            }
+        }
+
         await TouchAdventureAsync(adventureId, DateTimeOffset.UtcNow, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
         _context.ChangeTracker.Clear();

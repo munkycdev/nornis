@@ -50,6 +50,9 @@ public interface IAdventureService
     /// <summary>The booklet as a PDF (feature 34), the same one File to Library files.</summary>
     Task<AppResult<PrintedBooklet>> GetBookletAsync(Guid worldId, Guid adventureId, WorldRole role, CancellationToken ct);
 
+    /// <summary>The props sheet (feature 38); 404 <c>no_props</c> when the Adventure has no <c>[!PROP]</c> box.</summary>
+    Task<AppResult<PrintedBooklet>> GetPropsAsync(Guid worldId, Guid adventureId, WorldRole role, CancellationToken ct);
+
     /// <summary>Restores the section's latest revision, the body an AI write replaced, and drops it.</summary>
     Task<AppResult<AdventureSection>> UndoAsync(UndoSectionCommand command, CancellationToken ct);
 }

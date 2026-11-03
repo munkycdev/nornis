@@ -4,6 +4,7 @@ using Nornis.Application.Prep;
 using Nornis.Domain.Enums;
 using Nornis.Infrastructure.Printing;
 using NUnit.Framework;
+using QuestPDF.Fluent;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 
@@ -205,6 +206,101 @@ public class QuestPdfBookletRendererTests
         using var document = PdfDocument.Open(huge.Bytes);
         var image = document.GetPage(1).GetImages().Single();
         Assert.That(image.WidthInSamples, Is.LessThanOrEqualTo(PageWidth / 72 * CoverArtImage.PrintDpi + 1));
+    }
+
+    // --------------------------------------------------------------- Handouts --
+
+    /// <summary>A real one-page PDF whose only word is <paramref name="word"/>, as a GM's handout would be.</summary>
+    private static byte[] OnePagePdf(string word) =>
+        Document.Create(d => d.Page(p => p.Content().Text(word))).GeneratePdf();
+
+    private BookletPdf RenderWithHandouts(params BookletHandout[] handouts) =>
+        _renderer.Render(new Booklet(Cover, Rights, [Chapter("Arrival", P("chapterword one."))], handouts));
+
+    /// <summary>Feature 38, Requirement 4.4: the appendix follows the chapters, in the GM's order, PDFs merged where they stand.</summary>
+    [Test]
+    public void TheAppendix_KeepsTheGmsOrder_AcrossImagesAndMergedPdfs()
+    {
+        var pdf = RenderWithHandouts(
+            new BookletHandoutImage("Harbor map", Art(1536, 1024)),
+            new BookletHandoutPdf("Forged letter", OnePagePdf("letterword")),
+            new BookletHandoutImage("Bathhouse sketch", Art()),
+            new BookletHandoutPdf("Wanted poster", OnePagePdf("posterword")));
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        string PageText(int n) => string.Join(' ', Words(document.GetPage(n)).Select(w => w.Text));
+        Assert.Multiple(() =>
+        {
+            // Cover, rights, one chapter, the opener, then the four handouts.
+            Assert.That(pdf.Pages, Is.EqualTo(8));
+            Assert.That(PageText(4), Does.Contain("Handouts and maps").And.Contain("Harbor").And.Contain("Wanted"));
+            Assert.That(PageText(5), Does.Contain("Harbor map"));
+            Assert.That(PageText(6), Does.Contain("letterword"));
+            Assert.That(PageText(7), Does.Contain("Bathhouse sketch"));
+            Assert.That(PageText(8), Does.Contain("posterword"));
+            Assert.That(PageText(1), Does.Contain("Silver"), "the merge keeps the booklet itself first");
+        });
+    }
+
+    [Test]
+    public void AWideImage_GetsALandscapePage_AndATallOneAPortraitPage()
+    {
+        var pdf = RenderWithHandouts(new BookletHandoutImage("Wide", Art(1536, 1024)), new BookletHandoutImage("Tall", Art()));
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        Assert.Multiple(() =>
+        {
+            Assert.That(document.GetPage(5).Width, Is.EqualTo(PageHeight).Within(1));
+            Assert.That(document.GetPage(6).Width, Is.EqualTo(PageWidth).Within(1));
+            Assert.That(document.GetPage(5).GetImages().Count(), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void AHandoutThatCantBePrinted_IsAPageThatSaysSo_AndTheBookletStillPrints()
+    {
+        var pdf = RenderWithHandouts(
+            new BookletHandoutPdf("Broken letter", [1, 2, 3]),
+            new BookletHandoutImage("Broken map", [4, 5, 6]),
+            new BookletHandoutMissing("Lost sketch", "its file is missing"));
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        Assert.Multiple(() =>
+        {
+            Assert.That(pdf.Pages, Is.EqualTo(7));
+            Assert.That(Words(document.GetPage(5)).Select(w => w.Text), Does.Contain("Broken").And.Contain("Library."));
+            Assert.That(Words(document.GetPage(7)).Select(w => w.Text), Does.Contain("missing."));
+        });
+    }
+
+    [Test]
+    public void NoHandouts_NoAppendix()
+    {
+        var pdf = Render(Chapter("Arrival", P("chapterword one.")));
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        Assert.That(AllWords(document).Select(w => w.Word.Text), Does.Not.Contain("Handouts"));
+    }
+
+    [Test]
+    public void TheProps_AreOnePerPage_InLargeType()
+    {
+        var props = new BookletProps("The Silver Key",
+        [
+            new BookletBox(BookletBoxKind.Prop, [P("letterword from the mayor.")]),
+            new BookletBox(BookletBoxKind.Prop, [P("posterword: wanted.")]),
+        ]);
+
+        var pdf = _renderer.RenderProps(props);
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        var letter = Words(document.GetPage(1)).First(w => w.Text == "letterword");
+        Assert.Multiple(() =>
+        {
+            Assert.That(pdf.Pages, Is.EqualTo(2));
+            Assert.That(Words(document.GetPage(2)).Select(w => w.Text), Does.Contain("posterword:"));
+            Assert.That(letter.BoundingBox.Height, Is.GreaterThan(10), "large type, to read across a table");
+        });
     }
 
     [Test]

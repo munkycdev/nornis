@@ -131,6 +131,9 @@ public interface IAdventureRepository
     /// <summary>Makes the Adventure's source books exactly <paramref name="documentIds"/>; the caller has checked them.</summary>
     Task ReplaceSourceBooksAsync(Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken cancellationToken = default);
 
+    /// <summary>Makes the Adventure's handouts exactly <paramref name="documentIds"/>, in that order (feature 38); the caller has checked them.</summary>
+    Task ReplaceHandoutsAsync(Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// A draft's accept, in one unit of work: the section's stored body goes into
     /// <paramref name="revision"/> (whose own body is ignored), the revision is inserted, the

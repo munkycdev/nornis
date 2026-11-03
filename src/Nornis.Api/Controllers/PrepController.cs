@@ -186,6 +186,24 @@ public class PrepController : ControllerBase
         return File(booklet.Pdf, LibraryService.PdfContentType);
     }
 
+    /// <summary>The props sheet (feature 38): every prop box on its own page, to download. 404 <c>no_props</c> when there are none.</summary>
+    [HttpGet("{adventureId:guid}/props")]
+    public async Task<IActionResult> Props(Guid worldId, Guid adventureId, CancellationToken ct)
+    {
+        var result = await _adventures.GetPropsAsync(worldId, adventureId, HttpContext.GetWorldMember().Role, ct);
+        if (!result.IsSuccess)
+        {
+            return result.Error!.ToActionResult();
+        }
+
+        var props = result.Value!;
+        var disposition = new ContentDispositionHeaderValue("inline");
+        disposition.SetHttpFileName(props.FileName);
+        Response.Headers.ContentDisposition = disposition.ToString();
+        Response.Headers.CacheControl = "private, no-store";
+        return File(props.Pdf, LibraryService.PdfContentType);
+    }
+
     /// <summary>File to Library in one click (feature 34): renders the booklet and files it as a print.</summary>
     [HttpPost("{adventureId:guid}/booklet/file")]
     public async Task<IActionResult> FileBooklet(Guid worldId, Guid adventureId, CancellationToken ct)
@@ -374,7 +392,13 @@ public class PrepController : ControllerBase
                 .OrderBy(b => b.Title, StringComparer.CurrentCultureIgnoreCase)
                 .ToList(),
             new AdventureAiUseResponse(
-                a.AiUse.WroteText, a.AiUse.MadeArt, a.AiUse.Declared, a.AiUse.IsLocked(), a.AiUse.Kind().ToString()));
+                a.AiUse.WroteText, a.AiUse.MadeArt, a.AiUse.Declared, a.AiUse.IsLocked(), a.AiUse.Kind().ToString()),
+            a.Handouts.OrderBy(h => h.SortOrder)
+                .Select(h => new AdventureHandoutResponse(
+                    h.LibraryDocumentId, h.LibraryDocument.Title, h.LibraryDocument.Slug,
+                    LibraryCategories.Of(h.LibraryDocument).ToString(), h.LibraryDocument.ContentType,
+                    h.LibraryDocument.Visibility.ToString()))
+                .ToList());
     }
 
     private static PrintDetailsResponse ToPrintDetails(PrintDetails p) =>

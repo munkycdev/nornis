@@ -1,5 +1,3 @@
-using Nornis.Application.Storage;
-
 namespace Nornis.Application.Prep.Covers;
 
 /// <summary>
@@ -20,20 +18,4 @@ public static class CoverBlobs
         $"{Folder(worldId, adventureId)}uploads/{uploadId}{extension}";
 
     public static bool IsUpload(string blobPath) => blobPath.Contains("/uploads/", StringComparison.Ordinal);
-
-    /// <summary>A cover blob's bytes, or null when it's gone: a print then keeps its typeset cover rather than failing.</summary>
-    public static async Task<byte[]?> ReadAsync(IBlobStorageService blobs, string blobPath, CancellationToken ct)
-    {
-        try
-        {
-            await using var stream = await blobs.OpenReadAsync(blobPath, ct);
-            using var copy = new MemoryStream();
-            await stream.CopyToAsync(copy, ct);
-            return copy.ToArray();
-        }
-        catch (FileNotFoundException)
-        {
-            return null;
-        }
-    }
 }

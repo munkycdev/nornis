@@ -115,6 +115,13 @@ public class PrepDesignController : ControllerBase
         Adventure(await _design.SetSourceBooksAsync(new SetSourceBooksCommand(
             worldId, adventureId, HttpContext.GetWorldMember().Role, request.DocumentIds ?? []), ct));
 
+    /// <summary>The booklet's handouts (feature 38), the whole ordered list each time: add, remove and reorder are all this.</summary>
+    [HttpPut("handouts")]
+    public async Task<IActionResult> SetHandouts(
+        Guid worldId, Guid adventureId, [FromBody] SetHandoutsRequest request, CancellationToken ct) =>
+        Adventure(await _design.SetHandoutsAsync(new SetHandoutsCommand(
+            worldId, adventureId, HttpContext.GetWorldMember().Role, request.DocumentIds ?? []), ct));
+
     private IActionResult Draft(AppResult<AdventureDraftState> result) =>
         result.IsSuccess
             ? Ok(new AdventureDraftResponse(result.Value!.Markdown ?? "", result.Value.UpdatedAt ?? DateTimeOffset.UtcNow, result.Value.RevisionCount))

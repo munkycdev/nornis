@@ -414,6 +414,25 @@ public class AdventureService : IAdventureService
         return AppResult<PrintedBooklet>.Success(await _printer.PrintAsync(adventure, ct));
     }
 
+    public async Task<AppResult<PrintedBooklet>> GetPropsAsync(Guid worldId, Guid adventureId, WorldRole role, CancellationToken ct)
+    {
+        if (role != WorldRole.GM)
+        {
+            return AppResult<PrintedBooklet>.Fail(GmOnly());
+        }
+
+        var adventure = await LoadAsync(worldId, adventureId, ct);
+        if (adventure is null)
+        {
+            return AppResult<PrintedBooklet>.Fail(NotFound());
+        }
+
+        return await _printer.PrintPropsAsync(adventure, ct) is { } props
+            ? AppResult<PrintedBooklet>.Success(props)
+            : AppResult<PrintedBooklet>.Fail(new AppError(404, "no_props",
+                $"This adventure has no props yet. Mark one in a section with \"> {PrepMarkup.PropMarker}\"."));
+    }
+
     public async Task<AppResult<AdventureSection>> UndoAsync(UndoSectionCommand command, CancellationToken ct)
     {
         if (command.ActingUserRole != WorldRole.GM)

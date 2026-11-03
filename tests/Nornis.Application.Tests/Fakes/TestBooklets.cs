@@ -44,4 +44,12 @@ public sealed class FakeBookletPdfRenderer : IBookletPdfRenderer
         Rendered.Add(booklet);
         return new BookletPdf(BytesFor(booklet, Size), 1);
     }
+
+    public List<BookletProps> RenderedProps { get; } = [];
+
+    public BookletPdf RenderProps(BookletProps props)
+    {
+        RenderedProps.Add(props);
+        return new BookletPdf(System.Text.Encoding.UTF8.GetBytes($"%PDF-fake props {props.Title}\n"), props.Props.Count);
+    }
 }

@@ -26,3 +26,6 @@ public record SetTableBriefRequest(string? Brief);
 
 /// <summary>The Library books the Adventure reads (feature 37); empty means every book.</summary>
 public record SetSourceBooksRequest(IReadOnlyList<Guid>? DocumentIds);
+
+/// <summary>The booklet's handouts in print order (feature 38).</summary>
+public record SetHandoutsRequest(IReadOnlyList<Guid>? DocumentIds);

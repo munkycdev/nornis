@@ -78,6 +78,10 @@ public record SetTableBriefCommand(Guid WorldId, Guid AdventureId, WorldRole Act
 public record SetSourceBooksCommand(
     Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, IReadOnlyList<Guid> DocumentIds);
 
+/// <summary>Makes the Adventure's handouts exactly these Library maps and handouts, in this order (feature 38).</summary>
+public record SetHandoutsCommand(
+    Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, IReadOnlyList<Guid> DocumentIds);
+
 public record CreateAdventureCommand(
     Guid WorldId, Guid ActingUserId, WorldRole ActingUserRole, string Title, string? Pitch, Guid? CampaignId);
 

@@ -104,4 +104,7 @@ public class Adventure : ISlugged
 
     /// <summary>The books Prep reads for this Adventure (feature 37); none means every book the GM has.</summary>
     public ICollection<AdventureSourceBook> SourceBooks { get; set; } = [];
+
+    /// <summary>The maps and handouts printed at the back of the booklet (feature 38), in their order.</summary>
+    public ICollection<AdventureHandout> Handouts { get; set; } = [];
 }
