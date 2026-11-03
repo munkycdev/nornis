@@ -202,6 +202,19 @@ public sealed class AiKeyService : IAiKeyService
             return AppResult<SavedAiKey>.Fail(CheckError(command.Provider, outcome));
         }
 
+        string protectedKey;
+        try
+        {
+            protectedKey = _protector.Protect(secret);
+        }
+        catch (AiKeyStorageException ex)
+        {
+            _logger.LogError(ex, "AI key couldn't be encrypted; nothing was saved. UserId={UserId} Provider={Provider}",
+                command.UserId, command.Provider);
+            return Fail(503, "ai_key_storage_unavailable",
+                "Nornis couldn't store the key securely just now. Nothing was saved; try again in a few minutes.");
+        }
+
         var now = _time.GetUtcNow();
         var key = new UserAiKey
         {
@@ -209,7 +222,7 @@ public sealed class AiKeyService : IAiKeyService
             UserId = command.UserId,
             Provider = command.Provider,
             Label = label,
-            ProtectedKey = _protector.Protect(secret),
+            ProtectedKey = protectedKey,
             LastFour = secret[^4..],
             BaseUrl = baseUrl?.AbsoluteUri,
             AddedAt = existing?.AddedAt ?? now,

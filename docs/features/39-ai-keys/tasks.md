@@ -76,8 +76,9 @@ waited for its migration, so both went out in one PR, #97, merged once `AddAiKey
 
 - [ ] C1. `tests/Nornis.Evals`: the corpus runner and report; the gpt-5.4 baseline, reviewed
       by Dave once.
-- [ ] C2. Anthropic traits and client (official C# SDK, `IChatClient`), with explicit caching
-      of the system prompt.
+- [x] C2. Anthropic traits and client (official C# SDK, `IChatClient`), with explicit caching
+      of the system prompt. Its tests (C5's half) are in `AnthropicProviderTraitsTests`.
+- [ ] C2b. The model picker: catalog models, then "More from your key" (design.md amendment).
 - [ ] C3. Gemini traits and client (B0's route).
 - [ ] C4. Eval runs on the candidate models of each provider; the catalog gets the ones Dave
       accepts, per task.

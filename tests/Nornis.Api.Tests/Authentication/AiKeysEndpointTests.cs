@@ -92,7 +92,7 @@ public class AiKeysEndpointTests
     [Test]
     public async Task Providers_without_a_client_yet_are_refused()
     {
-        var response = await _voss.PutAsJsonAsync("/api/me/ai-keys/anthropic", new { Key = Secret });
+        var response = await _voss.PutAsJsonAsync("/api/me/ai-keys/gemini", new { Key = Secret });
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
         Assert.That(await response.Content.ReadAsStringAsync(), Does.Contain("provider_not_supported"));
