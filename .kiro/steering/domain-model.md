@@ -1,5 +1,22 @@
 # Domain Model
 
+> **Amendment (2026-11-03): an Adventure has bibliographic details.** Feature 32 (Nornis 3.4)
+> gives an `Adventure` the fields a library catalogues a book by, so a printed booklet reaches
+> Bibliotaph already described. The GM edits four. Three are fixed by Dave's decision: type
+> "Nornis adventure", publisher "Nornis Press", and the creator's username as author.
+>
+> ```csharp
+> AdventureDetails   // GameSystem?, Edition?, Levels?, Year?   (null GameSystem = the world's)
+> Adventure + Details (owned)
+> PrintDetails       // Title, GameSystem?, Edition?, Type, Levels?, Publisher, Author, Year?
+> LibraryDocument + PrintDetails? (owned)   // set once, when a print is filed; never changed
+> ```
+>
+> Every default and fixed value lives in `PrintDetails.Resolve`, and nowhere else. A print's
+> details are a snapshot, like its PDF: changing or renaming the Adventure later doesn't change
+> a booklet already filed. Details are bibliographic, not canon: they are never extracted and
+> never seen by Ask.
+
 > **Amendment (2026-11-02): a Library document can come from Bibliotaph.** Feature 31
 > (Nornis v3.2) makes Bibliotaph, the GM's own sourcebook library, the home of sourcebooks.
 > The Library page and its `LibraryDocument` rows stay; what changes is where a row comes from.
