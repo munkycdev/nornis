@@ -65,6 +65,15 @@ public class BookletModelTests
     }
 
     [Test]
+    public void AGmQuote_IsTheGmsCallout_AndTheMarkerDoesNotPrint()
+    {
+        var box = Single<BookletBox>("> [!GM]\n> **Hard exit.** If the floor gives, the slimes win.");
+
+        Assert.That(box.Kind, Is.EqualTo(BookletBoxKind.Gm));
+        Assert.That(Text(box.Blocks), Does.StartWith("Hard exit.").And.Not.Contain("[!GM]"));
+    }
+
+    [Test]
     public void AMarkerAloneInItsParagraph_IsRemovedWithIt()
     {
         var box = Single<BookletBox>("> [!PROP]\n>\n> A letter, sealed in green wax.");
@@ -85,17 +94,34 @@ public class BookletModelTests
     // --------------------------------------------------------- Stat blocks, code --
 
     [Test]
-    public void AStatBlock_IsLabelsAndValues()
+    public void AStatBlock_IsAGameBlock_ReadByTheGrammar()
     {
-        var stat = Single<BookletStatBlock>("```statblock\nName: Captain Voss\nHP: 27\nSpeed: 30 ft., swim 20 ft.\nKnows every tide\n```");
+        var stat = Single<BookletGameBlock>("```statblock\nName: Captain Voss\nHP: 27\nSpeed: 30 ft., swim 20 ft.\nKnows every tide\n```");
 
-        Assert.That(stat.Entries, Is.EqualTo(
-        [
-            new BookletStatEntry("Name", "Captain Voss"),
-            new BookletStatEntry("HP", "27"),
-            new BookletStatEntry("Speed", "30 ft., swim 20 ft."),
-            new BookletStatEntry(null, "Knows every tide"),
-        ]));
+        Assert.Multiple(() =>
+        {
+            Assert.That(stat.Block.Kind, Is.EqualTo(GameBlockKind.Stat));
+            Assert.That(stat.Block.Name, Is.EqualTo("Captain Voss"));
+            Assert.That(stat.Block.Lines, Is.EqualTo((GameBlockLine[])
+            [
+                new("HP", "27"),
+                new("Speed", "30 ft., swim 20 ft."),
+                new(null, "Knows every tide"),
+            ]));
+        });
+    }
+
+    [Test]
+    public void AnItemBlock_IsAGameBlock_WithItsDescription()
+    {
+        var item = Single<BookletGameBlock>("```item\n# Rope\n*Adventuring gear*\nLength: 50 ft\n---\nKnotted every foot.\n```");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(item.Block.Kind, Is.EqualTo(GameBlockKind.Item));
+            Assert.That(item.Block.Subtitle, Is.EqualTo("Adventuring gear"));
+            Assert.That(item.Block.Description, Is.EqualTo((string[])["Knotted every foot."]));
+        });
     }
 
     [Test]
@@ -287,7 +313,7 @@ public class BookletModelTests
             Assert.That(booklet.Chapters.Select(c => c.Title), Is.EqualTo((string[])["Chapter 1: The Harbor at Dusk", "Chapter 2: Voss's Ship"]));
             Assert.That(blocks.OfType<BookletBox>().Select(b => b.Kind).Distinct(),
                 Is.EquivalentTo((BookletBoxKind[])[BookletBoxKind.ReadAloud, BookletBoxKind.Prop, BookletBoxKind.Ask]));
-            Assert.That(blocks.OfType<BookletStatBlock>().SelectMany(s => s.Entries), Has.Some.EqualTo(new BookletStatEntry("HP", "27")));
+            Assert.That(blocks.OfType<BookletGameBlock>().SelectMany(s => s.Block.Lines), Has.Some.EqualTo(new GameBlockLine("HP", "27")));
             Assert.That(blocks.OfType<BookletTable>(), Is.Not.Empty);
             Assert.That(blocks.OfType<BookletParagraph>().Select(p => Text(p.Text)), Has.None.Contains("[!"));
         });

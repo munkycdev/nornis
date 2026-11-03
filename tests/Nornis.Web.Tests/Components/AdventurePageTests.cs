@@ -104,6 +104,23 @@ public class AdventurePageTests : BunitContext
     }
 
     [Test]
+    public async Task ASavesBlockWarnings_ShowUnderTheEditor_AndGoWhenFixed()
+    {
+        _handler.SaveWarningsJson = """["The first stat block has no name, so Export to Nornis can't file it on anyone. Start it with \"# Name\"."]""";
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Scene 1: The Docks")));
+        Assert.That(cut.FindAll(".nornis-prep-block-warnings"), Is.Empty, "a section with no warnings shows no alert");
+
+        await cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Trim() == "Save").Click());
+        cut.WaitForAssertion(() => Assert.That(cut.Find(".nornis-prep-block-warnings").TextContent,
+            Does.Contain("The first stat block has no name")));
+
+        _handler.SaveWarningsJson = "[]";
+        await cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Trim() == "Save").Click());
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-block-warnings"), Is.Empty));
+    }
+
+    [Test]
     public async Task MovingASectionDown_SendsEverySectionInTheNewOrder()
     {
         var cut = await RenderAsync();
@@ -381,6 +398,9 @@ public class AdventurePageTests : BunitContext
         public static readonly DateTimeOffset SavedStamp = new(2026, 11, 2, 11, 0, 0, TimeSpan.Zero);
 
         public HttpStatusCode SaveStatus { get; set; } = HttpStatusCode.OK;
+
+        /// <summary>The block warnings a save answers with, as a JSON array.</summary>
+        public string SaveWarningsJson { get; set; } = "[]";
         public bool DraftFails { get; set; }
         public string? LastDraftBody { get; private set; }
         public List<string> Requests { get; } = [];
@@ -465,7 +485,8 @@ public class AdventurePageTests : BunitContext
                     }
                     : Json($$"""
                         {"id":"{{OverviewId}}","kind":"Overview","title":"Overview","bodyMarkdown":"The key opens the vault.",
-                         "sortOrder":1,"updatedAt":"2026-11-02T11:00:00+00:00","isFilled":true}
+                         "sortOrder":1,"updatedAt":"2026-11-02T11:00:00+00:00","isFilled":true,
+                         "blockWarnings":{{SaveWarningsJson}}}
                         """);
             }
 

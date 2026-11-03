@@ -11,6 +11,7 @@ using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Infrastructure.Knowledge;
 using NUnit.Framework;
 
@@ -276,6 +277,24 @@ public class AdventureDraftingServiceTests
             Assert.That(row.CachedInputTokens, Is.EqualTo(3_072));
             Assert.That(row.Succeeded, Is.True);
             Assert.That(row.ErrorCode, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task TheRequest_WritesForTheAdventuresOwnSystem_EditionAndLevels_OverTheWorlds()
+    {
+        var adventure = await CreateAdventureAsync();
+        _adventures.Adventures.Single().Details = new AdventureDetails { GameSystem = "Shadowdark", Edition = "1st", Levels = "1–3" };
+        _ai.Script("Gulls.");
+
+        await DraftAsync(Command(adventure, Scene(adventure)));
+
+        var message = _ai.Requests.Single().UserMessage;
+        Assert.Multiple(() =>
+        {
+            Assert.That(message, Does.Contain("Game system: Shadowdark 1st"), "the system the booklet will name");
+            Assert.That(message, Does.Contain("For characters of level 1–3."));
+            Assert.That(message, Does.Not.Contain("Fate Accelerated"));
         });
     }
 

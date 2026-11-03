@@ -60,14 +60,7 @@ public static class AdventureConversationPrompt
         Write it so it can go into a section as it stands: Markdown, no heading for the section's
         own title, no preamble or sign-off around it. Use these conventions, which the GM's editor
         and the printed booklet both understand:
-        - Read-aloud text is a plain blockquote: lines starting with "> ".
-        - A prop the players can hold or read is a blockquote whose first line is exactly
-          "> {{PrepMarkup.PropMarker}}", followed by its text on the next "> " lines.
-        - A question the GM puts to the players is a blockquote whose first line is exactly
-          "> {{PrepMarkup.AskMarker}}", followed by the question.
-        - A stat block is a fenced code block with the info string "{{PrepMarkup.StatBlockInfo}}",
-          one "Label: value" pair per line.
-        - Tables are Markdown pipe tables. Subheadings start at "###".
+        {{PrepMarkup.ConventionsForPrompt}}
         """;
 
     /// <summary>
@@ -105,6 +98,11 @@ public static class AdventureConversationPrompt
         sb.AppendLine("## The world");
         sb.AppendLine();
         sb.AppendLine(string.IsNullOrWhiteSpace(input.GameSystem) ? "Game system: not stated." : $"Game system: {input.GameSystem}");
+        if (!string.IsNullOrWhiteSpace(input.Adventure.Details.Levels))
+        {
+            sb.AppendLine($"For characters of level {input.Adventure.Details.Levels.Trim()}.");
+        }
+
         sb.AppendLine();
         sb.AppendLine(string.IsNullOrWhiteSpace(input.WorldContext)
             ? "The world's record has nothing on this yet."

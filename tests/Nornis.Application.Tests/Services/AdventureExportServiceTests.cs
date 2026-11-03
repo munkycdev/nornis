@@ -6,6 +6,7 @@ using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Services;
@@ -49,7 +50,17 @@ public class AdventureExportServiceTests
             new InMemorySourceAttachmentRepository(), new FakeBlobStorageService(), NullLogger<SourceService>.Instance);
         _adventureService = new AdventureService(_adventures, campaigns, new FakeSlugResolver((_, _) => null),
             TestBooklets.Printer(TestPrintDetails.For(WorldId, GmId)), Options.Create(new PrepOptions()));
-        _sut = new AdventureExportService(_adventures, _sources, sourceService, NullLogger<AdventureExportService>.Instance);
+        var worlds = new InMemoryWorldRepository();
+        await worlds.CreateAsync(new World
+        {
+            Id = WorldId,
+            Name = "Black Harbor",
+            GameSystem = "Fate Accelerated",
+            CreatedByUserId = GmId,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        _sut = new AdventureExportService(_adventures, _sources, sourceService, worlds, NullLogger<AdventureExportService>.Instance);
     }
 
     private async Task<Adventure> CreateAsync()
@@ -89,6 +100,57 @@ public class AdventureExportServiceTests
             Assert.That(source.Body, Does.Contain("Captain Voss secretly serves the Shadow Guild."));
             Assert.That(_queue.SentMessages, Has.Count.EqualTo(1));
             Assert.That(_queue.SentMessages[0].SourceId, Is.EqualTo(source.Id));
+        });
+    }
+
+    [Test]
+    public async Task ANamedBlock_IsFiledAsOneLine_NamingTheAdventuresSystem_AndAnUnnamedOneAsItsFence()
+    {
+        var adventure = await CreateAsync();
+        var overview = adventure.Sections.First(s => s.Kind == AdventureSectionKind.Overview);
+        _adventures.Adventures.Single().Details = new AdventureDetails { GameSystem = "Shadowdark", Edition = "1st" };
+        _adventures.Sections.Single(s => s.Id == overview.Id).BodyMarkdown =
+            "Voss waits.\n\n```statblock\n# Captain Voss\nAC: 15\n```\n\n```item\nWeight: 1 lb\n```";
+
+        var result = await _sut.ExportAsync(Command(adventure), CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value!.Body, Does.Contain("Voss waits.\n\nStat block for \"Captain Voss\" (Shadowdark 1st): AC: 15.\n\n```item"));
+            Assert.That(result.Value.Body, Does.Not.Contain("```statblock"));
+            Assert.That(result.Value.Body, Does.Contain("```item\nWeight: 1 lb\n```"), "an unnamed block files as its lines");
+        });
+    }
+
+    [Test]
+    public async Task WithNoSystemOfItsOwn_TheAdventureNamesTheWorlds()
+    {
+        var adventure = await CreateAsync();
+        var overview = adventure.Sections.First(s => s.Kind == AdventureSectionKind.Overview);
+        _adventures.Sections.Single(s => s.Id == overview.Id).BodyMarkdown = "```statblock\n# Voss\nAC: 15\n```";
+
+        var result = await _sut.ExportAsync(Command(adventure), CancellationToken.None);
+
+        Assert.That(result.Value!.Body, Does.Contain("Stat block for \"Voss\" (Fate Accelerated): AC: 15."));
+    }
+
+    [Test]
+    public async Task BlockLinesThatWouldOverflowASource_FallBackToTheBlocksOwnLines()
+    {
+        var adventure = await CreateAsync();
+        var overview = adventure.Sections.First(s => s.Kind == AdventureSectionKind.Overview);
+        var tiny = "```statblock\n# A\nB: 1\n```\n\n";
+        _adventures.Sections.Single(s => s.Id == overview.Id).BodyMarkdown =
+            string.Concat(Enumerable.Repeat(tiny, 90_000 / tiny.Length));
+
+        var result = await _sut.ExportAsync(Command(adventure), CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.Value!.Body!.Length, Is.LessThanOrEqualTo(SourceService.MaxBodyChars));
+            Assert.That(result.Value.Body, Does.Contain("```statblock"));
+            Assert.That(result.Value.Body, Does.Not.Contain("Stat block for"));
         });
     }
 

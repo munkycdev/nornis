@@ -61,23 +61,15 @@ public static class AdventureDraftPrompt
           things that did.
         - Keep to the section you were asked for. Don't write the next scene, and don't summarise
           the adventure.
-        - Stat blocks are labels and values, nothing computed and no rules engine. Use the world's
-          game system's usual labels if it has one, and plain ones otherwise.
         - Do not include citation markers such as [ref:...]; this text is for the table.
 
         ## Format
         Answer with the section's body only, in Markdown, with no heading for the section's own
         title and no preamble. Use these conventions, which the GM's editor and the printed booklet
         both understand:
-        - Read-aloud text is a plain blockquote: lines starting with "> ".
-        - A prop the players can hold or read is a blockquote whose first line is exactly
-          "> {{PrepMarkup.PropMarker}}", followed by its text on the next "> " lines.
-        - A question the GM puts to the players is a blockquote whose first line is exactly
-          "> {{PrepMarkup.AskMarker}}", followed by the question.
-        - A stat block is a fenced code block with the info string "{{PrepMarkup.StatBlockInfo}}",
-          one "Label: value" pair per line.
-        - Tables are Markdown pipe tables. Subheadings start at "###".
-        - Keep it to what one section needs: usually 200 to 900 words, never more than about 1,200.
+        {{PrepMarkup.ConventionsForPrompt}}
+
+        Keep it to what one section needs: usually 200 to 900 words, never more than about 1,200.
         """;
 
     public static string BuildUserMessage(AdventureDraftInput input)
@@ -95,6 +87,11 @@ public static class AdventureDraftPrompt
         sb.AppendLine("## The world");
         sb.AppendLine();
         sb.AppendLine(string.IsNullOrWhiteSpace(input.GameSystem) ? "Game system: not stated." : $"Game system: {input.GameSystem}");
+        if (!string.IsNullOrWhiteSpace(input.Adventure.Details.Levels))
+        {
+            sb.AppendLine($"For characters of level {input.Adventure.Details.Levels.Trim()}.");
+        }
+
         sb.AppendLine();
         sb.AppendLine(string.IsNullOrWhiteSpace(input.WorldContext)
             ? "The world's record has nothing on this yet."

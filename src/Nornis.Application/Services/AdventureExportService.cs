@@ -4,6 +4,7 @@ using Nornis.Application.Models;
 using Nornis.Application.Prep;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -14,13 +15,15 @@ public class AdventureExportService : IAdventureExportService
     private readonly IAdventureRepository _adventures;
     private readonly ISourceRepository _sources;
     private readonly ISourceService _sourceService;
+    private readonly IWorldRepository _worlds;
     private readonly ILogger<AdventureExportService> _logger;
 
     public AdventureExportService(
         IAdventureRepository adventures, ISourceRepository sources, ISourceService sourceService,
-        ILogger<AdventureExportService> logger)
+        IWorldRepository worlds, ILogger<AdventureExportService> logger)
     {
         _adventures = adventures;
+        _worlds = worlds;
         _sources = sources;
         _sourceService = sourceService;
         _logger = logger;
@@ -53,7 +56,17 @@ public class AdventureExportService : IAdventureExportService
 
         var chapterTitle = command.ChapterSectionId is null ? null : sections[0].Title;
         var now = DateTimeOffset.UtcNow;
-        var body = AdventureExportComposer.BuildBody(adventure.Title, chapterTitle, sections, now);
+        var world = await _worlds.GetByIdAsync(adventure.WorldId, ct);
+        var system = PrintDetails.SystemOf(adventure.Details, world?.GameSystem);
+        var body = AdventureExportComposer.BuildBody(adventure.Title, chapterTitle, sections, system, now);
+        if (body.Length > SourceService.MaxBodyChars)
+        {
+            // Block lines can be longer than their fences; without them the body is within the
+            // bound PrepOptionsTests pins, so the export still goes through, a block as its lines.
+            _logger.LogWarning("Adventure {AdventureId} export is {Chars} characters with block lines; filing blocks as their lines.",
+                adventure.Id, body.Length);
+            body = AdventureExportComposer.BuildBody(adventure.Title, chapterTitle, sections, system, now, blockLines: false);
+        }
 
         // PrepOptions keeps a whole Adventure within this, and PrepOptionsTests pins that it
         // does; this only fires if the bounds drift apart.

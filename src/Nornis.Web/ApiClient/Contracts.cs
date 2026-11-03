@@ -1131,7 +1131,9 @@ public record AdventureSectionDto(
     int SortOrder,
     DateTimeOffset UpdatedAt,
     int RevisionCount,
-    bool IsFilled);
+    bool IsFilled,
+    // What the section's game blocks would lose on export (feature 35); the server decides them.
+    IReadOnlyList<string>? BlockWarnings = null);
 
 /// <summary>A section as a save leaves it; a save never changes its revisions.</summary>
 public record SavedAdventureSectionDto(
@@ -1141,7 +1143,8 @@ public record SavedAdventureSectionDto(
     string BodyMarkdown,
     int SortOrder,
     DateTimeOffset UpdatedAt,
-    bool IsFilled);
+    bool IsFilled,
+    IReadOnlyList<string>? BlockWarnings = null);
 
 public record AdventureDto(
     Guid Id,

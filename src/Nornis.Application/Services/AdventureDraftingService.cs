@@ -11,6 +11,7 @@ using Nornis.Application.Models;
 using Nornis.Application.Prep;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Services;
@@ -120,7 +121,7 @@ public class AdventureDraftingService : IAdventureDraftingService
             {
                 SystemPrompt = AdventureDraftPrompt.SystemPrompt,
                 UserMessage = AdventureDraftPrompt.BuildUserMessage(new AdventureDraftInput(
-                    world?.GameSystem,
+                    PrintDetails.SystemOf(adventure.Details, world?.GameSystem),
                     LoremasterService.FormatKnowledgeContext(context, _loremaster.MaxSessionChars, _loremaster.MaxContextTokens),
                     adventure,
                     section.Id,
