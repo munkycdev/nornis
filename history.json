@@ -3196,5 +3196,44 @@
         "branch": 50
       }
     ]
+  },
+  {
+    "date": "2026-11-03T18:01:55Z",
+    "sha": "991aab7",
+    "authorizationTests": 446,
+    "line": 74.4,
+    "branch": 59.4,
+    "assemblies": [
+      {
+        "name": "Nornis.Api",
+        "line": 84.5,
+        "branch": 74.4
+      },
+      {
+        "name": "Nornis.Application",
+        "line": 95.1,
+        "branch": 85.4
+      },
+      {
+        "name": "Nornis.Domain",
+        "line": 99.3,
+        "branch": 99
+      },
+      {
+        "name": "Nornis.Infrastructure",
+        "line": 88.4,
+        "branch": 63.7
+      },
+      {
+        "name": "Nornis.Web",
+        "line": 43.2,
+        "branch": 30.1
+      },
+      {
+        "name": "Nornis.Worker",
+        "line": 7,
+        "branch": 50
+      }
+    ]
   }
 ]
