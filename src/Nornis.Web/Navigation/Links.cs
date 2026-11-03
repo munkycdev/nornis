@@ -28,6 +28,9 @@ public static class Links
     public static string Booklet(Guid worldId, Guid adventureId, bool download = false) =>
         $"/prep-booklets/{worldId}/{adventureId}" + (download ? "?download=true" : string.Empty);
 
+    /// <summary>The props sheet's PDF through the Web's own route (feature 38), always downloaded.</summary>
+    public static string Props(Guid worldId, Guid adventureId) => $"/prep-props/{worldId}/{adventureId}";
+
     public static string Graph(string? slug, Guid id) => $"/graph/{Key(slug, id)}";
 
     public static string InkCapture(string? slug, Guid id) => $"/capture/ink/{Key(slug, id)}";

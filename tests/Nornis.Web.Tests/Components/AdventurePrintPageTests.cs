@@ -196,6 +196,40 @@ public class AdventurePrintPageTests : BunitContext
         await popovers.InvokeAsync(() => popovers.FindAll(".mud-menu-item").First(m => m.TextContent.Trim() == item).Click());
     }
 
+    [Test]
+    public async Task WithNoPropBox_PrintPropsIsOff_AndSaysWhy()
+    {
+        var cut = await RenderPrintAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-booklet-props"), Has.Count.EqualTo(1)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find("button.nornis-booklet-props").HasAttribute("disabled"), Is.True);
+            Assert.That(cut.FindAll("a.nornis-booklet-props"), Is.Empty);
+            Assert.That(cut.FindComponents<MudTooltip>().Select(t => t.Instance.Text),
+                Has.Member(AdventurePrint.NoPropsReason));
+        });
+    }
+
+    [Test]
+    public async Task WithAPropBox_PrintPropsDownloadsTheSheet_ThroughTheWebsOwnRoute()
+    {
+        _handler.Sections = $$"""
+            [{"id":"{{Guid.NewGuid()}}","kind":"Scene","title":"The vault","bodyMarkdown":"> [!PROP]\n> A brass key.",
+              "sortOrder":1,"updatedAt":"2026-11-02T10:00:00+00:00","revisionCount":1,"isFilled":true}]
+            """;
+
+        var cut = await RenderPrintAsync();
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll("a.nornis-booklet-props"), Has.Count.EqualTo(1)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find("a.nornis-booklet-props").GetAttribute("href"),
+                Is.EqualTo($"/prep-props/{StubHandler.WorldId}/{StubHandler.AdventureId}"));
+            Assert.That(_handler.Requests, Has.None.Contains("/props"), "the browser fetches the PDF, not the circuit");
+        });
+    }
+
     private sealed class StubHandler : HttpMessageHandler
     {
         public static readonly Guid AdventureId = Guid.NewGuid();
@@ -204,6 +238,7 @@ public class AdventurePrintPageTests : BunitContext
 
         public string Role { get; set; } = "GM";
         public bool FileFails { get; set; }
+        public string Sections { get; set; } = "[]";
         public List<string> Requests { get; } = [];
 
         public static LibraryDocumentDto Document(string visibility, Guid? adventureId) => new(
@@ -239,7 +274,7 @@ public class AdventurePrintPageTests : BunitContext
                 return Json($$"""
                     {"id":"{{AdventureId}}","worldId":"{{WorldId}}","campaignId":null,"title":"The Silver Key",
                      "slug":"the-silver-key","pitch":"A heist.","lastPrintedDocumentId":null,
-                     "createdAt":"2026-11-02T09:00:00+00:00","updatedAt":"2026-11-02T10:00:00+00:00","sections":[]}
+                     "createdAt":"2026-11-02T09:00:00+00:00","updatedAt":"2026-11-02T10:00:00+00:00","sections":{{Sections}}}
                     """);
             }
 

@@ -120,6 +120,8 @@ else if (_adventure is not null)
 
             <SourceBooksCard Adventure="_adventure" Disabled="_busy" OnSaved="Merge" />
 
+            <HandoutsCard Adventure="_adventure" Disabled="_busy" OnSaved="Merge" />
+
             @if (Worlds.Current is { } world)
             {
                 <AdventureDocumentsCard WorldId="world.Id" AdventureId="_adventure.Id" Disabled="_busy" />
@@ -528,6 +530,7 @@ else if (_adventure is not null)
             {
                 TableBrief = updated.TableBrief,
                 SourceBooks = updated.SourceBooks,
+                Handouts = updated.Handouts,
                 UpdatedAt = updated.UpdatedAt,
             };
         }

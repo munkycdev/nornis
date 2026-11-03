@@ -1182,7 +1182,17 @@ public record AdventureDto(
     AdventureDraftDto? Draft = null,
     string? TableBrief = null,
     IReadOnlyList<AdventureSourceBookDto>? SourceBooks = null,
-    AdventureAiUseDto? AiUse = null);
+    AdventureAiUseDto? AiUse = null,
+    IReadOnlyList<AdventureHandoutDto>? Handouts = null);
+
+/// <summary>
+/// A handout the booklet prints at its back (feature 38), in print order. <see cref="Category"/> is
+/// Map or Handout. Mirrors <c>AdventureHandoutResponse</c>.
+/// </summary>
+public record AdventureHandoutDto(Guid Id, string Title, string? Slug, string Category, string ContentType, string Visibility);
+
+/// <summary>The booklet's handouts, the whole ordered list (feature 38): add, remove and reorder are all this.</summary>
+public record SetHandoutsRequest(IReadOnlyList<Guid> DocumentIds);
 
 /// <summary>
 /// AI's part in the Adventure (feature 38). <see cref="Locked"/> means recorded use: the box is

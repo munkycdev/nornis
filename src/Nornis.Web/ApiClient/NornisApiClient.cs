@@ -773,6 +773,12 @@ public class NornisApiClient
         PutAsync<SetSourceBooksRequest, AdventureDto>(
             $"/api/worlds/{worldId}/prep/{adventureId}/source-books", new SetSourceBooksRequest(documentIds), ct);
 
+    /// <summary>The booklet's handouts (feature 38), the whole ordered list; the API checks each one is a printable map or handout.</summary>
+    public Task<ApiResult<AdventureDto>> SetAdventureHandoutsAsync(
+        Guid worldId, Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken ct = default) =>
+        PutAsync<SetHandoutsRequest, AdventureDto>(
+            $"/api/worlds/{worldId}/prep/{adventureId}/handouts", new SetHandoutsRequest(documentIds), ct);
+
     /// <summary>
     /// Drafts or revises one section, streamed. Refusals (a stale section, a draft already
     /// running, the Prep budget spent) arrive as <see cref="DraftStreamEvent.Failed"/>, and
@@ -792,11 +798,21 @@ public class NornisApiClient
     /// The booklet's PDF bytes and file name (feature 34), for the Web's own booklet route, which
     /// the print page's frame and Download point at. Null when the API refuses or fails.
     /// </summary>
-    public async Task<(byte[] Bytes, string? FileName)?> GetAdventureBookletAsync(Guid worldId, Guid adventureId, CancellationToken ct = default)
+    public Task<(byte[] Bytes, string? FileName)?> GetAdventureBookletAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        GetPdfAsync($"/api/worlds/{worldId}/prep/{adventureId}/booklet", ct);
+
+    /// <summary>
+    /// The props sheet's PDF bytes and file name (feature 38), for the Web's own props route. Null
+    /// when the API refuses, including when the Adventure has no prop boxes.
+    /// </summary>
+    public Task<(byte[] Bytes, string? FileName)?> GetAdventurePropsAsync(Guid worldId, Guid adventureId, CancellationToken ct = default) =>
+        GetPdfAsync($"/api/worlds/{worldId}/prep/{adventureId}/props", ct);
+
+    private async Task<(byte[] Bytes, string? FileName)?> GetPdfAsync(string uri, CancellationToken ct)
     {
         try
         {
-            using var response = await SendCoreAsync(HttpMethod.Get, $"/api/worlds/{worldId}/prep/{adventureId}/booklet", null, ct);
+            using var response = await SendCoreAsync(HttpMethod.Get, uri, null, ct);
             if (!response.IsSuccessStatusCode)
             {
                 return null;
